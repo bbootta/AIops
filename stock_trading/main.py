@@ -10,16 +10,31 @@ SCENARIOS = [
     "Review our current portfolio and suggest any rebalancing trades needed.",
 ]
 
+USAGE = """\
+Usage:
+  python -m stock_trading.main [--research] '<your scenario>'
+
+Flags:
+  --research    Research-only mode — analysts consulted, no trades executed.\
+"""
+
+
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        scenario = " ".join(sys.argv[1:])
+    args = sys.argv[1:]
+    research_only = False
+    if "--research" in args:
+        research_only = True
+        args = [a for a in args if a != "--research"]
+
+    if args:
+        scenario = " ".join(args)
     else:
         scenario = SCENARIOS[0]
         print(f"No scenario provided. Using default:\n  {scenario}\n")
-        print("Usage: python -m stock_trading.main '<your scenario>'")
-        print(f"Other examples:")
+        print(USAGE)
+        print("\nOther example scenarios:")
         for i, s in enumerate(SCENARIOS[1:], 1):
             print(f"  {i}. {s}")
         print()
 
-    run(scenario)
+    run(scenario, research_only=research_only)

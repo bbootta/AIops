@@ -26,6 +26,28 @@ If any specialist raises a hard block (risk limit breach, negative conviction, \
 portfolio degradation), do NOT proceed to execution. Explain the decision clearly.\
 """
 
+_RESEARCH_SYSTEM = """\
+You are the Head of Research at a quantitative hedge fund. You coordinate a team of \
+three specialists to produce a trade recommendation — but you do NOT execute trades. \
+This is research-only mode.
+
+1. **Market Analyst** — technical and fundamental analysis, directional bias
+2. **Risk Manager** — VaR calculation, position limits, risk approval
+3. **Portfolio Manager** — allocation impact, diversification, construction review
+
+Your workflow:
+1. Consult the Market Analyst for analysis and directional conviction
+2. Consult the Risk Manager to assess risk and check position limits
+3. Consult the Portfolio Manager to evaluate portfolio-construction fit
+4. Synthesize a final RECOMMENDATION (do not execute):
+   - Verdict: BUY / SELL / HOLD / SKIP
+   - Recommended size (if applicable)
+   - Key supporting evidence from each specialist
+   - Primary risks and conditions
+
+Do NOT execute any trades — execution is out of scope for this run.\
+"""
+
 
 @beta_tool
 def consult_market_analyst(query: str) -> str:
@@ -82,9 +104,23 @@ def instruct_trader(query: str) -> str:
     return result
 
 
-def run(scenario: str) -> None:
-    """Run the full trading team harness for the given scenario."""
+def run(scenario: str, research_only: bool = False) -> None:
+    """Run the trading team harness for the given scenario.
+
+    Args:
+        scenario: The trading question or trade idea to evaluate.
+        research_only: If True, only the analyst/risk/portfolio specialists are
+            consulted and no trades are executed. If False, the full pipeline
+            including the Trader is available.
+    """
+    mode = "RESEARCH" if research_only else "FULL"
+    system_prompt = _RESEARCH_SYSTEM if research_only else _SYSTEM
+    tools = [consult_market_analyst, consult_risk_manager, consult_portfolio_manager]
+    if not research_only:
+        tools.append(instruct_trader)
+
     print(f"\n{'='*60}")
+    print(f"MODE: {mode}")
     print(f"SCENARIO: {scenario}")
     print(f"{'='*60}")
 
@@ -93,15 +129,16 @@ def run(scenario: str) -> None:
         model="claude-opus-4-7",
         max_tokens=4096,
         thinking={"type": "adaptive"},
-        system=[{"type": "text", "text": _SYSTEM, "cache_control": {"type": "ephemeral"}}],
-        tools=[consult_market_analyst, consult_risk_manager, consult_portfolio_manager, instruct_trader],
+        system=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}],
+        tools=tools,
         messages=[{"role": "user", "content": scenario}],
     ):
         for block in message.content:
             if block.type == "text" and block.text:
                 last_text = block.text
 
+    title = "RESEARCH RECOMMENDATION" if research_only else "ORCHESTRATOR FINAL REPORT"
     print(f"\n{'='*60}")
-    print("ORCHESTRATOR FINAL REPORT")
+    print(title)
     print(f"{'='*60}")
     print(last_text)
