@@ -45,7 +45,7 @@ def scan_dataframe(
     if not isinstance(df, pd.DataFrame):
         raise TypeError("df must be a pandas DataFrame")
     if text_columns is None:
-        text_columns = df.select_dtypes(include="object").columns.tolist()
+        text_columns = df.select_dtypes(include=["object", "string"]).columns.tolist()
     else:
         text_columns = list(text_columns)
         missing = [c for c in text_columns if c not in df.columns]

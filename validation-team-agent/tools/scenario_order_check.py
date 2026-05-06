@@ -6,9 +6,29 @@ base <= adverse <= severe 의 서열을 가진다.
 
 from __future__ import annotations
 
-from typing import Iterable
+import json
+from pathlib import Path
+from typing import Iterable, Mapping
 
 import numpy as np
+
+_DEFAULT_FLOORS = {"base": 1.00, "adverse": 1.20, "severe": 1.50}
+_FLOORS_PATH = Path(__file__).resolve().parent.parent / "harness" / "scenario_floors.json"
+
+
+def load_floors(path: str | Path | None = None) -> dict:
+    """harness/scenario_floors.json 에서 floor 정책을 로드한다.
+
+    파일이 없거나 키가 부족하면 default를 채워서 반환한다.
+    """
+    p = Path(path) if path else _FLOORS_PATH
+    if not p.exists():
+        return dict(_DEFAULT_FLOORS)
+    with p.open("r", encoding="utf-8") as f:
+        cfg = json.load(f)
+    floors = dict(_DEFAULT_FLOORS)
+    floors.update(cfg.get("floors", {}))
+    return floors
 
 
 def check_scenario_order(base, adverse, severe) -> dict:
@@ -34,20 +54,21 @@ def check_scenario_order(base, adverse, severe) -> dict:
     }
 
 
-def check_pd_multiplier_floor(values: Iterable, scenario_type: str) -> dict:
+def check_pd_multiplier_floor(
+    values: Iterable,
+    scenario_type: str,
+    floors: Mapping[str, float] | None = None,
+) -> dict:
     """시나리오 유형별 PD multiplier floor 충족 여부.
 
-    참고용 default floor:
-        base    >= 1.00
-        adverse >= 1.20
-        severe  >= 1.50
-    실제 정책은 호출자가 floors 인자로 직접 지정할 수 있도록
-    필요 시 본 함수를 확장하라. 현재 구현은 default floor만 사용한다.
+    floors 인자가 None 이면 ``harness/scenario_floors.json`` 의 정책을 사용한다.
+    호출자가 정책을 명시하려면 ``floors={"base":1.0,"adverse":1.25,"severe":1.6}``
+    형태로 전달한다. 정책 변경 시 ``harness/change_manifest.json`` 에 기록한다.
     """
-    floors = {"base": 1.00, "adverse": 1.20, "severe": 1.50}
-    if scenario_type not in floors:
+    floors_map = dict(load_floors() if floors is None else floors)
+    if scenario_type not in floors_map:
         raise ValueError(
-            f"unknown scenario_type {scenario_type!r}; expected one of {sorted(floors)}"
+            f"unknown scenario_type {scenario_type!r}; expected one of {sorted(floors_map)}"
         )
     arr = np.asarray(list(values), dtype=float)
     if arr.size == 0:
@@ -55,7 +76,7 @@ def check_pd_multiplier_floor(values: Iterable, scenario_type: str) -> dict:
     if np.isnan(arr).any():
         raise ValueError("NaN not allowed in values")
 
-    floor = floors[scenario_type]
+    floor = float(floors_map[scenario_type])
     pass_mask = arr >= floor
     return {
         "scenario_type": scenario_type,
@@ -64,4 +85,5 @@ def check_pd_multiplier_floor(values: Iterable, scenario_type: str) -> dict:
         "n_pass": int(pass_mask.sum()),
         "n_violation": int((~pass_mask).sum()),
         "violation_indices": np.where(~pass_mask)[0].tolist(),
+        "floors_source": "argument" if floors is not None else "policy_file",
     }

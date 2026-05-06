@@ -1,11 +1,13 @@
 """산출물 완결성 점검.
 
 검증보고서가 표준 10개 섹션을 모두 포함하는지, '한계' / '추가 확인사항'이
-실제로 비어있지 않은지 점검한다.
+실제로 비어있지 않은지, 결과 섹션의 수치가 출처(파일명·함수명)를 인용하는지
+점검한다.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Iterable, List
 
 REQUIRED_SECTION_TITLES = [
@@ -87,3 +89,85 @@ def check_report(
         "empty_critical": empty_critical,
         "found_titles": found,
     }
+
+
+_NUMERIC_RE = re.compile(r"(?<![A-Za-z_])[-+]?\d+(?:\.\d+)?%?")
+_CITATION_RE = re.compile(
+    r"`[A-Za-z_][\w/]*?(?:\.py|\.md|\.json)?(?:[:\.][A-Za-z_]\w*)+`"
+    r"|`[A-Za-z_]\w*\.[A-Za-z_]\w*`"
+    r"|`[A-Za-z_][\w/]*\.(?:py|md|json|jsonl|csv|parquet|xlsx|feather)`"
+)
+_NUMBERED_HEADER_RE = re.compile(r"^\s*\d+\.\s")
+_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?\s*-{3,}\s*\|?")
+_PROSE_LINE = re.compile(r"[가-힣A-Za-z]")
+
+
+def check_numeric_citations(
+    report_md: str,
+    target_titles: Iterable[str] | None = None,
+) -> dict:
+    """결과·이상징후 섹션의 수치가 출처(파일명/함수명)를 인용하는지 점검.
+
+    각 산문 라인(테이블·헤더·리스트 마커 외)에 숫자가 포함되면, 같은 라인에
+    백틱으로 감싼 파일명/함수명 인용이 최소 1회 존재해야 한다. 표(테이블) 본문은
+    상위에 인용 라인이 있으면 통과한 것으로 본다.
+
+    반환 dict 키: passed, violations(list of {section, line_no, line, numbers})
+    """
+    if not isinstance(report_md, str):
+        raise TypeError("report_md must be a string")
+    titles = list(target_titles) if target_titles else ["주요 결과", "이상 징후 및 원인 후보"]
+
+    violations: List[dict] = []
+    for title in titles:
+        body = _section_body(report_md, title)
+        if not body:
+            continue
+        lines = body.splitlines()
+        table_block_has_citation = False
+        in_table = False
+        for i, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if not stripped:
+                in_table = False
+                table_block_has_citation = False
+                continue
+            if stripped.startswith("|"):
+                if not in_table:
+                    in_table = True
+                    table_block_has_citation = False
+                if _CITATION_RE.search(stripped):
+                    table_block_has_citation = True
+                if _TABLE_SEPARATOR_RE.match(stripped):
+                    continue
+                nums = _NUMERIC_RE.findall(stripped)
+                if nums and not table_block_has_citation:
+                    violations.append(
+                        {
+                            "section": title,
+                            "line_no": i,
+                            "line": stripped,
+                            "numbers": nums,
+                        }
+                    )
+                continue
+
+            in_table = False
+            if _NUMBERED_HEADER_RE.match(stripped):
+                continue
+            if not _PROSE_LINE.search(stripped):
+                continue
+            nums = _NUMERIC_RE.findall(stripped)
+            if not nums:
+                continue
+            if not _CITATION_RE.search(stripped):
+                violations.append(
+                    {
+                        "section": title,
+                        "line_no": i,
+                        "line": stripped,
+                        "numbers": nums,
+                    }
+                )
+
+    return {"passed": len(violations) == 0, "violations": violations}

@@ -1,7 +1,6 @@
 """회귀/시계열 모형 진단 보조 함수.
 
-다중공선성 (VIF), OLS 요약, 잔차 기초 진단을 제공한다.
-시계열 정상성 검정 등 무거운 분석은 호출자가 별도 라이브러리로 수행한다.
+다중공선성 (VIF), OLS 요약, 잔차 기초 진단, 단위근 / 정상성 검정을 제공한다.
 """
 
 from __future__ import annotations
@@ -12,6 +11,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.tsa.stattools import adfuller, kpss
 
 
 def calculate_vif(df: pd.DataFrame) -> pd.DataFrame:
@@ -82,3 +82,84 @@ def check_residual_basic(model_result) -> dict:
         "kurtosis": float(s.kurtosis()),
         "durbin_watson": float(durbin_watson(resid)),
     }
+
+
+def adf_test(series: Iterable, regression: str = "c", alpha: float = 0.05) -> dict:
+    """ADF 단위근 검정. H0: 단위근 존재(비정상). reject_h0=True 이면 정상.
+
+    regression: "c" (상수), "ct" (상수+추세), "ctt", "n"
+    """
+    arr = np.asarray(list(series), dtype=float)
+    if arr.size < 10:
+        raise ValueError("series too short for ADF (need >= 10 obs)")
+    if np.isnan(arr).any():
+        raise ValueError("NaN not allowed in series")
+    if not 0.0 < alpha < 1.0:
+        raise ValueError("alpha must be in (0, 1)")
+
+    stat, pval, lag, nobs, crit, _ = adfuller(arr, regression=regression, autolag="AIC")
+    return {
+        "test": "ADF",
+        "statistic": float(stat),
+        "p_value": float(pval),
+        "lag": int(lag),
+        "nobs": int(nobs),
+        "critical_values": {k: float(v) for k, v in crit.items()},
+        "alpha": alpha,
+        "reject_h0": bool(pval < alpha),
+        "stationary": bool(pval < alpha),
+    }
+
+
+def kpss_test(series: Iterable, regression: str = "c", alpha: float = 0.05) -> dict:
+    """KPSS 정상성 검정. H0: 정상. reject_h0=True 이면 비정상.
+
+    regression: "c" (level), "ct" (trend)
+    """
+    arr = np.asarray(list(series), dtype=float)
+    if arr.size < 10:
+        raise ValueError("series too short for KPSS (need >= 10 obs)")
+    if np.isnan(arr).any():
+        raise ValueError("NaN not allowed in series")
+    if not 0.0 < alpha < 1.0:
+        raise ValueError("alpha must be in (0, 1)")
+
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        stat, pval, lag, crit = kpss(arr, regression=regression, nlags="auto")
+    return {
+        "test": "KPSS",
+        "statistic": float(stat),
+        "p_value": float(pval),
+        "lag": int(lag),
+        "critical_values": {k: float(v) for k, v in crit.items()},
+        "alpha": alpha,
+        "reject_h0": bool(pval < alpha),
+        "stationary": bool(pval >= alpha),
+    }
+
+
+def stationarity_summary(series: Iterable, alpha: float = 0.05) -> dict:
+    """ADF + KPSS 결과를 결합해 일관성 라벨을 부여한다.
+
+    label:
+        - "stationary": ADF reject + KPSS not reject
+        - "non_stationary": ADF not reject + KPSS reject
+        - "inconclusive_likely_stationary": 둘 다 reject (분산 불안정 의심)
+        - "inconclusive_likely_non_stationary": 둘 다 not reject
+    """
+    a = adf_test(series, alpha=alpha)
+    k = kpss_test(series, alpha=alpha)
+    adf_stat = a["stationary"]
+    kpss_stat = k["stationary"]
+    if adf_stat and kpss_stat:
+        label = "stationary"
+    elif (not adf_stat) and (not kpss_stat):
+        label = "non_stationary"
+    elif adf_stat and (not kpss_stat):
+        label = "inconclusive_likely_stationary"
+    else:
+        label = "inconclusive_likely_non_stationary"
+    return {"adf": a, "kpss": k, "label": label}
