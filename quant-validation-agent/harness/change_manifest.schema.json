@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quant-validation-agent/harness/change_manifest.schema.json",
+  "title": "Change Manifest Entry",
+  "description": "Single entry in the change_manifest.json that records a project change.",
+  "type": "object",
+  "required": [
+    "change_id",
+    "timestamp",
+    "component",
+    "change_type",
+    "evidence",
+    "root_cause",
+    "targeted_fix",
+    "expected_benefit",
+    "expected_regression_risk",
+    "validation_method",
+    "rollback_rule",
+    "human_approval_required",
+    "status"
+  ],
+  "properties": {
+    "change_id": {
+      "type": "string",
+      "pattern": "^CHG-[0-9]{4,}$",
+      "description": "Sequential change identifier, e.g., CHG-0001."
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "Local time of change in YYYY-MM-DD HH:MM:SS form."
+    },
+    "component": {
+      "type": "string",
+      "description": "Target file or component being changed."
+    },
+    "change_type": {
+      "type": "string",
+      "enum": ["create", "modify", "delete", "rollback"]
+    },
+    "evidence": {
+      "type": "string",
+      "description": "Why the change is being made (failing test, missing file, request, etc.)."
+    },
+    "root_cause": {
+      "type": "string",
+      "description": "Underlying reason the change addresses."
+    },
+    "targeted_fix": {
+      "type": "string",
+      "description": "Specific change to be applied."
+    },
+    "expected_benefit": {
+      "type": "string"
+    },
+    "expected_regression_risk": {
+      "type": "string"
+    },
+    "validation_method": {
+      "type": "string",
+      "description": "How the change is verified (pytest, manual review, dry run, etc.)."
+    },
+    "rollback_rule": {
+      "type": "string",
+      "description": "When and how to roll back the change."
+    },
+    "human_approval_required": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["proposed", "applied", "validated", "rolled_back"]
+    }
+  },
+  "additionalProperties": false
+}

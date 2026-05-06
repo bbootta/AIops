@@ -1,0 +1,20 @@
+{
+  "schema": "harness/change_manifest.schema.json",
+  "entries": [
+    {
+      "change_id": "CHG-0001",
+      "timestamp": "2026-05-06 00:00:00",
+      "component": "quant-validation-agent (project root)",
+      "change_type": "create",
+      "evidence": "User request to bootstrap the quant-validation-agent harness with directory structure, policies, tools, middleware, tests, and docs.",
+      "root_cause": "No quantitative validation harness existed in the repository.",
+      "targeted_fix": "Create CLAUDE.md, README, harness policy files (system_prompt, data_contract, metric_policy, validation_workflow, threshold_policy, permission_policy, change_manifest schema/file), docs, skills, subagents, tools, middleware, tests, examples, memory and report folders.",
+      "expected_benefit": "Standardized, reproducible, observable quantitative validation for scoring / PD / LGD / EAD / scenario regression models.",
+      "expected_regression_risk": "Low — additive scaffolding under a new top-level directory; no operational system is touched.",
+      "validation_method": "pytest run on tools and middleware unit tests; manual review of policy and docs files.",
+      "rollback_rule": "Delete the quant-validation-agent directory if scaffolding is rejected; downgrade unsuccessful changes by file-level reverts and append a rollback entry.",
+      "human_approval_required": true,
+      "status": "applied"
+    }
+  ]
+}
