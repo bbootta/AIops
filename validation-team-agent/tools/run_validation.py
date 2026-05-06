@@ -33,6 +33,7 @@ from middleware.leakage_guard import check_leakage
 from middleware.output_completeness_guard import check_numeric_citations, check_report
 from middleware.run_logger import run_logger
 from middleware.sample_size_guard import check_sample_size
+from tools.binomial_calibration import calibration_test_per_grade
 from tools.data_profile import check_date_coverage, check_duplicates, check_missing
 from tools.metric_ks_auc import calculate_auc_gini, calculate_ks
 from tools.metric_psi import calculate_psi
@@ -47,9 +48,11 @@ class ValidationRequest:
     target_col: str
     set_col: str | None = None
     grade_col: str | None = None
+    pd_col: str | None = None
     date_col: str | None = None
     key_cols: tuple[str, ...] = ()
     feature_names: tuple[str, ...] = ()
+    calibration_alpha: float = 0.05
 
 
 def _split_dev_oot(df: pd.DataFrame, set_col: str | None) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -104,6 +107,23 @@ def _step_quant(req: ValidationRequest) -> dict:
         )
     else:
         out["psi_dev_oot"] = None
+
+    if req.grade_col and req.pd_col and req.grade_col in df.columns and req.pd_col in df.columns:
+        grades_input = []
+        for grade, sub in df.groupby(req.grade_col):
+            grades_input.append(
+                {
+                    "grade": grade,
+                    "pd_estimated": float(sub[req.pd_col].mean()),
+                    "default_count": int(sub[req.target_col].sum()),
+                    "exposure_count": int(len(sub)),
+                }
+            )
+        out["calibration"] = calibration_test_per_grade(
+            grades_input, alpha=req.calibration_alpha, multitest="holm"
+        )
+    else:
+        out["calibration"] = None
     return out
 
 
@@ -132,6 +152,15 @@ def _format_results(quant: dict) -> str:
         f"- 표본 적정성 (출처: `middleware/sample_size_guard.check_sample_size`): "
         f"passed = {sample['passed']}, violations = {len(sample['violations'])}"
     )
+    cal = quant.get("calibration")
+    if cal is not None:
+        n_reject = int(cal["reject"].sum())
+        worst = cal.loc[cal["p_value_adj"].idxmin()]
+        lines.append(
+            f"- 등급별 캘리브레이션 (출처: `tools/binomial_calibration.calibration_test_per_grade`): "
+            f"reject = {n_reject}/{len(cal)}, worst_grade = {worst['grade']!r}, "
+            f"p_value_adj_min = {worst['p_value_adj']:.4f}"
+        )
     if not lines:
         lines.append("(산출 가능한 결과 없음)")
     return "\n".join(lines)

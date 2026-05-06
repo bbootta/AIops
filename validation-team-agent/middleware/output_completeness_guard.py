@@ -98,8 +98,30 @@ _CITATION_RE = re.compile(
     r"|`[A-Za-z_][\w/]*\.(?:py|md|json|jsonl|csv|parquet|xlsx|feather)`"
 )
 _NUMBERED_HEADER_RE = re.compile(r"^\s*\d+\.\s")
-_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?\s*-{3,}\s*\|?")
+_TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
+_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?[\s\-:|]+\|?\s*$")
 _PROSE_LINE = re.compile(r"[가-힣A-Za-z]")
+
+# 단위/범위만 표기된 라인은 출처 없이도 통과한다 (예: "(0~1)", "(%)", "단위: %", "(p < 0.05)").
+_UNIT_OR_RANGE_LINE_RE = re.compile(
+    r"^[\s\-•*\(\[]*"
+    r"(?:단위\s*[:：]\s*)?"
+    r"(?:[\d\s.~∼\-+%]*"
+    r"|p\s*[<>=]\s*\d+(?:\.\d+)?"
+    r"|alpha\s*=\s*\d+(?:\.\d+)?"
+    r"|n\s*=\s*\d+)"
+    r"[\s\)\].]*$",
+    flags=re.IGNORECASE,
+)
+
+
+def _line_is_unit_or_range(stripped: str) -> bool:
+    if _UNIT_OR_RANGE_LINE_RE.match(stripped):
+        return True
+    no_brackets = re.sub(r"[\(\)\[\]]", "", stripped)
+    if not re.search(r"[가-힣A-Za-z]", no_brackets):
+        return True
+    return False
 
 
 def check_numeric_citations(
@@ -108,9 +130,12 @@ def check_numeric_citations(
 ) -> dict:
     """결과·이상징후 섹션의 수치가 출처(파일명/함수명)를 인용하는지 점검.
 
-    각 산문 라인(테이블·헤더·리스트 마커 외)에 숫자가 포함되면, 같은 라인에
-    백틱으로 감싼 파일명/함수명 인용이 최소 1회 존재해야 한다. 표(테이블) 본문은
-    상위에 인용 라인이 있으면 통과한 것으로 본다.
+    인정 규칙:
+        - 산문 라인의 수치는 같은 라인에 백틱 인용이 있으면 통과.
+        - 표 본문의 수치는 표 헤더, 분리자 직전 산문 라인, 또는 같은 표 안에
+          인용이 있으면 통과.
+        - 단위/범위 표기만 있는 라인 (예: "(0~1)", "(%)") 은 통과.
+        - 번호 헤더 라인(예: "1. 요약") 은 무시.
 
     반환 dict 키: passed, violations(list of {section, line_no, line, numbers})
     """
@@ -124,20 +149,52 @@ def check_numeric_citations(
         if not body:
             continue
         lines = body.splitlines()
-        table_block_has_citation = False
+        n = len(lines)
+
         in_table = False
+        table_block_has_citation = False
         for i, line in enumerate(lines, start=1):
             stripped = line.strip()
             if not stripped:
                 in_table = False
                 table_block_has_citation = False
                 continue
-            if stripped.startswith("|"):
+
+            if _TABLE_ROW_RE.match(stripped):
                 if not in_table:
                     in_table = True
+                    # look-back: 직전 산문 라인(빈 줄 1개까지 허용)에 인용이 있는지
                     table_block_has_citation = False
+                    j = i - 2
+                    saw_blank = 0
+                    while j >= 0:
+                        prev = lines[j].strip()
+                        if not prev:
+                            saw_blank += 1
+                            if saw_blank > 1:
+                                break
+                            j -= 1
+                            continue
+                        if _CITATION_RE.search(prev):
+                            table_block_has_citation = True
+                            break
+                        if _TABLE_ROW_RE.match(prev):
+                            break
+                        j -= 1
                 if _CITATION_RE.search(stripped):
                     table_block_has_citation = True
+                # look-ahead: 같은 표 블록 내 다른 라인에 인용이 있는지
+                if not table_block_has_citation:
+                    k = i
+                    while k < n:
+                        nxt = lines[k].strip()
+                        if not nxt or not _TABLE_ROW_RE.match(nxt):
+                            break
+                        if _CITATION_RE.search(nxt):
+                            table_block_has_citation = True
+                            break
+                        k += 1
+
                 if _TABLE_SEPARATOR_RE.match(stripped):
                     continue
                 nums = _NUMERIC_RE.findall(stripped)
@@ -159,6 +216,8 @@ def check_numeric_citations(
                 continue
             nums = _NUMERIC_RE.findall(stripped)
             if not nums:
+                continue
+            if _line_is_unit_or_range(stripped):
                 continue
             if not _CITATION_RE.search(stripped):
                 violations.append(

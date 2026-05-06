@@ -1,0 +1,56 @@
+name: validation-team-agent CI
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "validation-team-agent/**"
+      - ".github/workflows/validation-team-agent-ci.yml"
+  pull_request:
+    paths:
+      - "validation-team-agent/**"
+      - ".github/workflows/validation-team-agent-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: validation-team-agent
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: validation-team-agent/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate change_manifest schema
+        run: |
+          python - <<'PY'
+          import json, jsonschema, pathlib
+          root = pathlib.Path(".")
+          schema = json.loads((root / "harness/change_manifest.schema.json").read_text(encoding="utf-8"))
+          manifest = json.loads((root / "harness/change_manifest.json").read_text(encoding="utf-8"))
+          jsonschema.validate(manifest, schema)
+          print("change_manifest.json validates against schema")
+          PY
+
+      - name: Lint policy thresholds
+        run: |
+          python -m tools.policy_lint
+
+      - name: Run pytest
+        run: |
+          python -m pytest -q

@@ -31,3 +31,43 @@ def test_demo_run_records_sample_size_decision(tmp_path):
     out = run(req, log_dir=tmp_path)
     assert "sample_size" in out["quant"]
     assert isinstance(out["quant"]["sample_size"]["passed"], bool)
+
+
+def test_calibration_runs_when_grade_and_pd_provided(tmp_path):
+    import numpy as np
+    import pandas as pd
+
+    from tools.run_validation import ValidationRequest, run
+
+    rng = np.random.default_rng(11)
+    n = 1500
+    grades = rng.choice(list("ABC"), size=n)
+    pd_map = {"A": 0.01, "B": 0.05, "C": 0.10}
+    pd_est = np.array([pd_map[g] for g in grades])
+    target = (rng.uniform(size=n) < pd_est).astype(int)
+    score = rng.normal(0, 1, n) + target * 1.5
+    df = pd.DataFrame(
+        {
+            "score": score,
+            "target": target,
+            "grade": grades,
+            "pd": pd_est,
+            "set": ["dev"] * 1000 + ["oot"] * 500,
+        }
+    )
+    req = ValidationRequest(
+        title="Calibration Wired",
+        df=df,
+        score_col="score",
+        target_col="target",
+        grade_col="grade",
+        pd_col="pd",
+        set_col="set",
+    )
+    out = run(req, log_dir=tmp_path)
+    cal = out["quant"]["calibration"]
+    assert cal is not None
+    assert set(cal["grade"]) == set("ABC")
+    assert "등급별 캘리브레이션" in out["report_md"]
+    assert out["completeness"]["passed"] is True
+    assert out["citations"]["passed"] is True

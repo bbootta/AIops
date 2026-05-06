@@ -79,3 +79,41 @@ def test_citations_fail_when_no_source_cited():
     assert out["passed"] is False
     assert any(v["section"] == "주요 결과" for v in out["violations"])
     assert any(v["section"] == "이상 징후 및 원인 후보" for v in out["violations"])
+
+
+_UNIT_LINE_REPORT = """# Demo
+
+## 5. 주요 결과
+- 변별력 (출처: `tools/metric_ks_auc.calculate_ks`): KS = 0.41
+- (단위: %)
+- (0~1)
+- (p < 0.05)
+
+## 6. 이상 징후 및 원인 후보
+- 등급 5의 단조성 위반 1건 (출처: `tools/data_profile.profile_dataframe`).
+"""
+
+
+def test_unit_only_lines_are_whitelisted():
+    out = g.check_numeric_citations(_UNIT_LINE_REPORT)
+    assert out["passed"] is True
+
+
+_TABLE_PROSE_CITED = """# Demo
+
+## 5. 주요 결과
+표 형식의 결과 (출처: `tools/metric_ks_auc.calculate_auc_gini`):
+
+| 항목 | 값 |
+|---|---|
+| AUC | 0.78 |
+| Gini | 0.56 |
+
+## 6. 이상 징후 및 원인 후보
+- 이상 없음 (출처: `tools/data_profile`).
+"""
+
+
+def test_table_inherits_citation_from_preceding_prose():
+    out = g.check_numeric_citations(_TABLE_PROSE_CITED)
+    assert out["passed"] is True
