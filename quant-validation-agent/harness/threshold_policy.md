@@ -6,6 +6,10 @@
 > **중요:** 본 파일에 적힌 수치는 **참고 예시**이며, 실제 운영 임계값은
 > 모형별/포트폴리오별 정책 문서를 따른다. 에이전트는 임의로 기준값을
 > 완화·강화하지 않는다.
+>
+> **머신리더블 정책:** 본 문서의 임계값은 `harness/threshold_policy.json`에
+> 동일하게 외부화되어 있으며, 코드에서는 `tools.threshold_loader`로 읽는다.
+> JSON 변경은 반드시 `change_manifest.json`에 기록되며 `human_approval_required: true`다.
 
 ---
 

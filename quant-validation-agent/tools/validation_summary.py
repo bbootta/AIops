@@ -31,6 +31,9 @@ def build_issue_table(issue_list: Iterable[Mapping[str, object]]) -> pd.DataFram
     return pd.DataFrame(rows, columns=cols)
 
 
+_VALID_DIRECTIONS = ("higher_is_better", "lower_is_better", "abs_lower_is_better")
+
+
 def assign_rag_status(
     metric_value: Optional[float],
     green_threshold: Optional[float] = None,
@@ -43,26 +46,42 @@ def assign_rag_status(
         green_threshold: passing threshold (better than this => Green).
         yellow_threshold: caution threshold (between yellow and green => Yellow,
             worse than yellow => Red).
-        direction: 'higher_is_better' or 'lower_is_better'.
+        direction: 'higher_is_better', 'lower_is_better', or 'abs_lower_is_better'.
+            'abs_lower_is_better' compares |metric_value| against thresholds
+            (e.g., PD bias where both over- and under-prediction are bad).
+
+    Returns:
+        'Green', 'Yellow', 'Red', or 'Gray' (when value or thresholds are missing).
     """
     if metric_value is None or (isinstance(metric_value, float) and pd.isna(metric_value)):
         return "Gray"
     if green_threshold is None or yellow_threshold is None:
         return "Gray"
-    if direction not in ("higher_is_better", "lower_is_better"):
-        raise ValueError("direction must be 'higher_is_better' or 'lower_is_better'.")
+    if direction not in _VALID_DIRECTIONS:
+        raise ValueError(f"direction must be one of {_VALID_DIRECTIONS}")
     if direction == "higher_is_better":
         if metric_value >= green_threshold:
             return "Green"
         if metric_value >= yellow_threshold:
             return "Yellow"
         return "Red"
-    else:
+    if direction == "lower_is_better":
         if metric_value <= green_threshold:
             return "Green"
         if metric_value <= yellow_threshold:
             return "Yellow"
         return "Red"
+    # abs_lower_is_better
+    if green_threshold < 0 or yellow_threshold < 0:
+        raise ValueError(
+            "For 'abs_lower_is_better', thresholds must be non-negative."
+        )
+    abs_v = abs(metric_value)
+    if abs_v <= green_threshold:
+        return "Green"
+    if abs_v <= yellow_threshold:
+        return "Yellow"
+    return "Red"
 
 
 def build_validation_commentary(

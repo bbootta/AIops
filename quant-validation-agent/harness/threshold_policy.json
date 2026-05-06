@@ -1,0 +1,85 @@
+{
+  "policy_version": "0.1.0-reference",
+  "notes": "Reference thresholds. Real thresholds are governed by per-model policy documents. The agent must NOT silently relax these. Changing a value requires a change_manifest entry with human_approval_required=true.",
+  "metrics": {
+    "ks": {
+      "model_types": ["scoring", "pd"],
+      "direction": "higher_is_better",
+      "green_threshold": 0.40,
+      "yellow_threshold": 0.30
+    },
+    "auroc": {
+      "model_types": ["scoring", "pd"],
+      "direction": "higher_is_better",
+      "green_threshold": 0.75,
+      "yellow_threshold": 0.65
+    },
+    "ar": {
+      "model_types": ["scoring", "pd"],
+      "direction": "higher_is_better",
+      "green_threshold": 0.50,
+      "yellow_threshold": 0.30
+    },
+    "psi": {
+      "model_types": ["scoring", "pd", "monitoring"],
+      "direction": "lower_is_better",
+      "green_threshold": 0.10,
+      "yellow_threshold": 0.25
+    },
+    "brier": {
+      "model_types": ["pd"],
+      "direction": "lower_is_better",
+      "green_threshold": 0.10,
+      "yellow_threshold": 0.20
+    },
+    "mae_lgd": {
+      "model_types": ["lgd"],
+      "direction": "lower_is_better",
+      "green_threshold": 0.10,
+      "yellow_threshold": 0.20
+    },
+    "pd_bias": {
+      "model_types": ["pd"],
+      "direction": "abs_lower_is_better",
+      "green_threshold": 0.01,
+      "yellow_threshold": 0.03
+    },
+    "vif": {
+      "model_types": ["regression", "pd_multiplier"],
+      "direction": "lower_is_better",
+      "green_threshold": 5,
+      "yellow_threshold": 10
+    },
+    "condition_index": {
+      "model_types": ["regression", "pd_multiplier"],
+      "direction": "lower_is_better",
+      "green_threshold": 15,
+      "yellow_threshold": 30
+    }
+  },
+  "sample_size": {
+    "total_n": {
+      "direction": "higher_is_better",
+      "green_threshold": 5000,
+      "yellow_threshold": 1000
+    },
+    "defaults": {
+      "direction": "higher_is_better",
+      "green_threshold": 200,
+      "yellow_threshold": 50
+    },
+    "grade_count": {
+      "direction": "higher_is_better",
+      "green_threshold": 30,
+      "yellow_threshold": 10
+    }
+  },
+  "scenario": {
+    "order_violation_is_red": true,
+    "multiplier_floor": {
+      "base": 1.0,
+      "adverse": 1.0,
+      "severe": 1.0
+    }
+  }
+}

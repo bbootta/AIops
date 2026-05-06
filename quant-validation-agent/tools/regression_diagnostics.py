@@ -160,3 +160,59 @@ def check_residual_basic(model_result) -> dict:
         out["jarque_bera_stat"] = None
         out["jarque_bera_pvalue"] = None
     return out
+
+
+def calculate_durbin_watson(model_result) -> float:
+    """Durbin–Watson statistic for residual autocorrelation.
+
+    Returns a value in [0, 4]. ~2 indicates no autocorrelation,
+    <2 positive autocorrelation, >2 negative autocorrelation.
+    """
+    res = np.asarray(model_result.resid, dtype=float)
+    if res.shape[0] < 2:
+        raise ValueError("Durbin–Watson requires at least 2 residuals.")
+    try:
+        from statsmodels.stats.stattools import durbin_watson
+
+        return float(durbin_watson(res))
+    except Exception:
+        diff = np.diff(res)
+        denom = float(np.sum(res ** 2))
+        if denom == 0.0:
+            return float("nan")
+        return float(np.sum(diff ** 2) / denom)
+
+
+def calculate_breusch_godfrey(model_result, lags: int = 1) -> dict:
+    """Breusch–Godfrey LM test for residual autocorrelation up to `lags`.
+
+    Requires statsmodels. Returns LM statistic, LM p-value, F statistic, F p-value.
+    """
+    if lags < 1:
+        raise ValueError("lags must be >= 1.")
+    from statsmodels.stats.diagnostic import acorr_breusch_godfrey
+
+    lm_stat, lm_p, f_stat, f_p = acorr_breusch_godfrey(model_result, nlags=lags)
+    return {
+        "lags": int(lags),
+        "lm_stat": float(lm_stat),
+        "lm_pvalue": float(lm_p),
+        "f_stat": float(f_stat),
+        "f_pvalue": float(f_p),
+    }
+
+
+def calculate_arch_test(model_result, lags: int = 1) -> dict:
+    """Engle's ARCH LM test for residual heteroskedasticity (volatility clustering)."""
+    if lags < 1:
+        raise ValueError("lags must be >= 1.")
+    from statsmodels.stats.diagnostic import het_arch
+
+    lm_stat, lm_p, f_stat, f_p = het_arch(np.asarray(model_result.resid, dtype=float), nlags=lags)
+    return {
+        "lags": int(lags),
+        "lm_stat": float(lm_stat),
+        "lm_pvalue": float(lm_p),
+        "f_stat": float(f_stat),
+        "f_pvalue": float(f_p),
+    }
