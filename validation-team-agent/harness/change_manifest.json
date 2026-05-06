@@ -1,0 +1,20 @@
+{
+  "manifest_version": "1.0",
+  "changes": [
+    {
+      "change_id": "CHG-0001",
+      "timestamp": "2026-05-06 00:00:00",
+      "component": "validation-team-agent/*",
+      "change_type": "create",
+      "evidence": "검증팀 AHE 하니스 최초 구축 요청 (CLAUDE Code 세션). 디렉터리·정책·도구·미들웨어·테스트 골격을 일괄 생성.",
+      "root_cause": "검증팀 반복 업무를 표준화·재현화·감사추적 가능하도록 만드는 베이스라인이 부재함.",
+      "targeted_fix": "harness/, skills/, subagents/, tools/, middleware/, tests/, docs/, examples/, memory/, logs/, reports/ 디렉터리와 핵심 파일 생성. CLAUDE.md / README.md / pyproject.toml / requirements.txt 작성. 도구 7종, 미들웨어 6종, 테스트 5종 기본 구현.",
+      "expected_benefit": "검증 산출물의 재현성·관찰가능성 확보, 인간 검증자가 바로 사용할 수 있는 초안 작성 시간 단축, 변경 이력 기록 표준화.",
+      "expected_regression_risk": "신규 프로젝트이므로 회귀 위험은 없음. 다만 임계값과 정책의 과도한 일반화 위험이 있어, 모형군별 정책 파일 분기가 향후 필요할 수 있음.",
+      "validation_method": "tests/ pytest 통과, README와 CLAUDE.md 일관성 점검, change_manifest.schema.json에 본 항목이 부합하는지 점검.",
+      "rollback_rule": "테스트 실패 또는 정책 충돌이 발견되면 해당 컴포넌트 단위로 되돌리고 본 항목의 status를 rolled_back으로 변경.",
+      "human_approval_required": true,
+      "status": "proposed"
+    }
+  ]
+}

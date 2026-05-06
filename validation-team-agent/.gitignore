@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.env
+.envrc
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs and outputs (검증 산출물은 외부에 노출하지 않는다)
+logs/*
+!logs/.gitkeep
+reports/*
+!reports/.gitkeep
+
+# Data — 운영 데이터/민감정보 추적 방지
+data/
+*.csv
+*.parquet
+*.xlsx
+*.feather
+
+# OS
+.DS_Store
+Thumbs.db
