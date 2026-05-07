@@ -1,0 +1,125 @@
+{
+  "matrix_version": "1.0",
+  "description": "오케스트레이터의 6단계 호출 매트릭스. dry_run.py와 run_validation.py가 동일하게 참조하는 SSoT.",
+  "steps": [
+    {
+      "id": "1.req",
+      "name": "1. 요청 재구성",
+      "component": "subagents/orchestrator.md",
+      "rationale": "목적/사용자/맥락/제약/성공 기준 명시.",
+      "always": true
+    },
+    {
+      "id": "2.schema",
+      "name": "2.0 스키마 점검",
+      "component": "middleware/schema_guard.check_schema",
+      "rationale": "필수 컬럼·dtype·범위 사전 점검.",
+      "always": true
+    },
+    {
+      "id": "2.safety",
+      "name": "2.1 데이터 안전 점검",
+      "component": "middleware/data_safety_guard.scan_dataframe",
+      "rationale": "민감정보 패턴 탐지 (탐지 시 분석 차단).",
+      "always": true
+    },
+    {
+      "id": "2.leakage",
+      "name": "2.2 누수 점검",
+      "component": "middleware/leakage_guard.check_leakage",
+      "rationale": "설명변수에 target/outcome 변수가 섞였는지 확인.",
+      "requires_any": ["feature_names"]
+    },
+    {
+      "id": "2.date",
+      "name": "2.3 기간 누락 점검",
+      "component": "tools/data_profile.check_date_coverage",
+      "rationale": "월 단위 누락 탐지.",
+      "requires_any": ["date_col"]
+    },
+    {
+      "id": "2.dup",
+      "name": "2.4 중복 점검",
+      "component": "tools/data_profile.check_duplicates",
+      "rationale": "키 기준 중복 행 식별.",
+      "requires_any": ["key_cols"]
+    },
+    {
+      "id": "2.sample",
+      "name": "2.5 표본 적정성 점검",
+      "component": "middleware/sample_size_guard.check_sample_size",
+      "rationale": "총 표본/부도/등급별 임계 점검.",
+      "always": true
+    },
+    {
+      "id": "3.disc",
+      "name": "3.1 변별력",
+      "component": "tools/metric_ks_auc.calculate_ks + calculate_auc_gini",
+      "rationale": "KS / AUROC / Gini 산출.",
+      "requires_all": ["score_col", "target_col"]
+    },
+    {
+      "id": "3.psi",
+      "name": "3.2 안정성 (dev vs oot)",
+      "component": "tools/metric_psi.calculate_psi",
+      "rationale": "개발 vs 운영 score 분포 안정성.",
+      "requires_all": ["score_col", "target_col", "set_col"]
+    },
+    {
+      "id": "3.cal",
+      "name": "3.3 등급별 캘리브레이션",
+      "component": "tools/binomial_calibration.calibration_test_per_grade",
+      "rationale": "추정 PD vs 실측 부도율 이항검정 + Holm 보정.",
+      "requires_all": ["grade_col", "pd_col", "target_col"]
+    },
+    {
+      "id": "3.macro",
+      "name": "3.4 거시 변수 정상성",
+      "component": "tools/regression_diagnostics.stationarity_summary",
+      "rationale": "ADF + KPSS 결합 라벨링.",
+      "requires_any": ["macro_features"]
+    },
+    {
+      "id": "3.weights",
+      "name": "3.5 시나리오 가중치",
+      "component": "tools/scenario_weights.check_weight_panel",
+      "rationale": "IFRS 9 ECL 가중치 합 = 1, 음수 금지.",
+      "requires_any": ["scenario_weight_panel"]
+    },
+    {
+      "id": "4.report",
+      "name": "4. 보고서 초안",
+      "component": "tools/report_template.build_validation_report",
+      "rationale": "표준 10개 섹션 마크다운 생성.",
+      "always": true
+    },
+    {
+      "id": "5.complete",
+      "name": "5.1 완결성 점검",
+      "component": "middleware/output_completeness_guard.check_report",
+      "rationale": "필수 섹션 / 한계 / 추가 확인사항 점검.",
+      "always": true
+    },
+    {
+      "id": "5.cite",
+      "name": "5.2 인용 점검",
+      "component": "middleware/output_completeness_guard.check_numeric_citations",
+      "rationale": "결과/이상징후 섹션의 수치-출처 인용 점검.",
+      "always": true
+    },
+    {
+      "id": "5.watermark",
+      "name": "5.3 워터마크 점검",
+      "component": "middleware/draft_watermark_guard.check_watermarks",
+      "rationale": "DRAFT 헤더/푸터 워터마크 존재 강제.",
+      "always": true
+    },
+    {
+      "id": "6.audit",
+      "name": "6. 변경 이력 기록",
+      "component": "harness/change_manifest.json (via tools/manifest.py)",
+      "rationale": "실행 결과 / 정책 변경 시 매니페스트에 기록.",
+      "always": true
+    }
+  ]
+}

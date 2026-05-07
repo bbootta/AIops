@@ -1,19 +1,8 @@
 """Orchestrator dry-run simulator.
 
-``subagents/orchestrator.md`` 의 호출 매트릭스를 따라, 주어진 검증 요청
-컬럼/플래그에 대해 어떤 도구가 어떤 인자로 호출될지 plan 형태로 출력한다.
-실제 실행은 하지 않는다.
-
-사용:
-    plan = simulate({
-        "title": "Credit Score Demo",
-        "score_col": "score",
-        "target_col": "target",
-        "set_col": "set",
-        "grade_col": "grade",
-        "pd_col": "pd",
-    })
-    render_markdown(plan) -> str
+``harness/orchestration_matrix.json`` 의 step 정의를 SSoT로 사용해 호출 plan을
+생성한다. 실제 실행은 하지 않는다. ``run_validation.py`` 와 ``run_macro_validation.py``
+가 어떤 단계를 수행하는지 미리 점검할 수 있다.
 
 CLI:
     python -m tools.dry_run --demo
@@ -25,160 +14,78 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
-
-@dataclass
-class Step:
-    name: str
-    component: str
-    inputs: dict[str, Any] = field(default_factory=dict)
-    rationale: str = ""
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "component": self.component,
-            "inputs": self.inputs,
-            "rationale": self.rationale,
-        }
+ROOT = Path(__file__).resolve().parent.parent
+MATRIX_PATH = ROOT / "harness" / "orchestration_matrix.json"
 
 
-def _cols(req: Mapping[str, Any]) -> set[str]:
-    return {k for k in ("score_col", "target_col", "set_col", "grade_col", "pd_col", "date_col") if req.get(k)}
+def load_matrix(path: Path | None = None) -> dict:
+    p = path or MATRIX_PATH
+    return json.loads(p.read_text(encoding="utf-8"))
 
 
-def simulate(request: Mapping[str, Any]) -> list[dict]:
+def _truthy(req: Mapping[str, Any], key: str) -> bool:
+    val = req.get(key)
+    if val is None or val is False:
+        return False
+    if isinstance(val, (str, list, tuple, set, dict)):
+        return len(val) > 0
+    return True
+
+
+def _gate_passes(step: Mapping[str, Any], request: Mapping[str, Any]) -> bool:
+    if step.get("always"):
+        return True
+    if "requires_all" in step:
+        if not all(_truthy(request, k) for k in step["requires_all"]):
+            return False
+    if "requires_any" in step:
+        if not any(_truthy(request, k) for k in step["requires_any"]):
+            return False
+    return "requires_all" in step or "requires_any" in step
+
+
+def simulate(
+    request: Mapping[str, Any],
+    matrix_path: Path | None = None,
+) -> list[dict]:
     """검증 요청에 대해 호출 plan을 시뮬레이트한다."""
-    cols = _cols(request)
-    title = request.get("title", "(untitled)")
-    plan: list[Step] = []
+    matrix = load_matrix(matrix_path)
+    plan: list[dict] = []
+    for step in matrix["steps"]:
+        if not _gate_passes(step, request):
+            continue
+        inputs: dict[str, Any] = {}
+        for k in (
+            *step.get("requires_all", []),
+            *step.get("requires_any", []),
+        ):
+            inputs[k] = request.get(k)
+        if step["id"] == "1.req":
+            inputs = {
+                "title": request.get("title", "(untitled)"),
+                "columns_provided": sorted(
+                    k for k in request if request.get(k) and k.endswith("_col")
+                ),
+            }
+        elif step["id"] == "3.cal":
+            inputs.setdefault("alpha", request.get("calibration_alpha", 0.05))
+            inputs.setdefault("multitest", "holm")
+        elif step["id"] == "6.audit":
+            inputs.setdefault("status", "proposed")
 
-    plan.append(
-        Step(
-            "1. 요청 재구성",
-            "subagents/orchestrator.md",
-            inputs={"title": title, "columns_provided": sorted(cols)},
-            rationale="목적/사용자/맥락/제약/성공 기준 명시.",
-        )
-    )
-
-    plan.append(
-        Step(
-            "2.1 데이터 안전 점검",
-            "middleware/data_safety_guard.scan_dataframe",
-            inputs={"text_columns": "auto"},
-            rationale="민감정보 패턴 탐지 (탐지 시 분석 차단).",
-        )
-    )
-    if request.get("feature_names"):
         plan.append(
-            Step(
-                "2.2 누수 점검",
-                "middleware/leakage_guard.check_leakage",
-                inputs={"target_name": request.get("target_col", "target")},
-                rationale="설명변수에 target/outcome 변수가 섞였는지 확인.",
-            )
+            {
+                "id": step["id"],
+                "name": step["name"],
+                "component": step["component"],
+                "inputs": inputs,
+                "rationale": step["rationale"],
+            }
         )
-    if request.get("date_col"):
-        plan.append(
-            Step(
-                "2.3 기간 누락 점검",
-                "tools/data_profile.check_date_coverage",
-                inputs={"date_col": request["date_col"]},
-                rationale="월 단위 누락 탐지.",
-            )
-        )
-    if request.get("key_cols"):
-        plan.append(
-            Step(
-                "2.4 중복 점검",
-                "tools/data_profile.check_duplicates",
-                inputs={"key_cols": list(request["key_cols"])},
-                rationale="키 기준 중복 행 식별.",
-            )
-        )
-    plan.append(
-        Step(
-            "2.5 표본 적정성 점검",
-            "middleware/sample_size_guard.check_sample_size",
-            inputs={"per_grade_aware": bool(request.get("grade_col"))},
-            rationale="총 표본/부도/등급별 임계 점검.",
-        )
-    )
-
-    if request.get("score_col") and request.get("target_col"):
-        plan.append(
-            Step(
-                "3.1 변별력",
-                "tools/metric_ks_auc.calculate_ks + calculate_auc_gini",
-                inputs={"score": request["score_col"], "target": request["target_col"]},
-                rationale="KS / AUROC / Gini 산출.",
-            )
-        )
-        if request.get("set_col"):
-            plan.append(
-                Step(
-                    "3.2 안정성 (dev vs oot)",
-                    "tools/metric_psi.calculate_psi",
-                    inputs={"split_by": request["set_col"], "bins": 10},
-                    rationale="개발 vs 운영 score 분포 안정성.",
-                )
-            )
-    if request.get("grade_col") and request.get("pd_col") and request.get("target_col"):
-        plan.append(
-            Step(
-                "3.3 등급별 캘리브레이션",
-                "tools/binomial_calibration.calibration_test_per_grade",
-                inputs={"alpha": request.get("calibration_alpha", 0.05), "multitest": "holm"},
-                rationale="추정 PD vs 실측 부도율 이항검정 + Holm 보정.",
-            )
-        )
-    if request.get("macro_features"):
-        plan.append(
-            Step(
-                "3.4 거시 변수 정상성",
-                "tools/regression_diagnostics.stationarity_summary",
-                inputs={"features": list(request["macro_features"])},
-                rationale="ADF + KPSS 결합 라벨링.",
-            )
-        )
-
-    plan.append(
-        Step(
-            "4. 보고서 초안",
-            "tools/report_template.build_validation_report",
-            inputs={"title": title},
-            rationale="표준 10개 섹션 마크다운 생성.",
-        )
-    )
-    plan.append(
-        Step(
-            "5.1 완결성 점검",
-            "middleware/output_completeness_guard.check_report",
-            inputs={},
-            rationale="필수 섹션 / 한계 / 추가 확인사항 점검.",
-        )
-    )
-    plan.append(
-        Step(
-            "5.2 인용 점검",
-            "middleware/output_completeness_guard.check_numeric_citations",
-            inputs={},
-            rationale="결과/이상징후 섹션의 수치-출처 인용 점검.",
-        )
-    )
-    plan.append(
-        Step(
-            "6. 변경 이력 기록",
-            "harness/change_manifest.json (via tools/manifest.py)",
-            inputs={"status": "proposed"},
-            rationale="실행 결과 / 정책 변경 시 매니페스트에 기록.",
-        )
-    )
-    return [s.to_dict() for s in plan]
+    return plan
 
 
 def render_markdown(plan: list[dict]) -> str:

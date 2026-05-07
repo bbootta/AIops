@@ -44,6 +44,8 @@ def build_validation_report(result_dict: dict) -> str:
 
     title = result_dict.get("title", "검증 보고서 초안")
     lines = [f"# {title}", ""]
+    lines.append("> [DRAFT — 외부 제출 금지] 인간 검증자 승인 전 사용 불가")
+    lines.append("")
     for i, key in enumerate(REQUIRED_SECTIONS, start=1):
         section_title = SECTION_TITLES[key]
         body = result_dict.get(key, "(작성 필요)")

@@ -25,6 +25,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from middleware.run_logger import run_logger
+from middleware.schema_guard import check_schema, macro_schema
 from tools.regression_diagnostics import (
     calculate_vif,
     check_residual_basic,
@@ -188,19 +189,31 @@ def run(req: MacroValidationRequest, log_dir: str | Path | None = None) -> dict:
         inputs={"title": req.title, "n_rows": int(len(req.df)), "n_features": len(req.feature_cols)},
         log_dir=log_dir,
     ) as ctx:
+        schema_result = check_schema(
+            req.df,
+            macro_schema(
+                target_col=req.target_col,
+                feature_cols=req.feature_cols,
+                period_col=req.period_col,
+            ),
+        )
         diagnostics = {
+            "schema": schema_result,
             "series": _series_diagnostics(req),
             "vif": _vif_table(req),
             "residual": _ols_residual_diag(req),
         }
         report_md = _build_report(req, diagnostics)
+        from middleware.draft_watermark_guard import check_watermarks
         from middleware.output_completeness_guard import check_numeric_citations, check_report
 
         completeness = check_report(report_md)
         citations = check_numeric_citations(report_md)
+        watermarks = check_watermarks(report_md)
         ctx["result_summary"] = {
             "completeness_passed": completeness["passed"],
             "citations_passed": citations["passed"],
+            "watermarks_passed": watermarks["passed"],
             "n_nonstationary": sum(
                 1 for v in diagnostics["series"].values()
                 if v["label"] in {"non_stationary", "inconclusive_likely_non_stationary"}
@@ -211,6 +224,7 @@ def run(req: MacroValidationRequest, log_dir: str | Path | None = None) -> dict:
             "diagnostics": diagnostics,
             "completeness": completeness,
             "citations": citations,
+            "watermarks": watermarks,
         }
 
 

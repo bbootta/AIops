@@ -30,15 +30,42 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _rotate_if_needed(path: Path, max_bytes: int | None, backup_count: int) -> None:
+    """현재 로그 파일이 max_bytes 초과 시 .1, .2 … 형태로 회전.
+
+    backup_count == 0 이면 회전 없이 truncate. backup_count > 0 이면
+    오래된 백업이 backup_count를 넘으면 가장 오래된 것을 삭제한다.
+    """
+    if max_bytes is None or max_bytes <= 0 or not path.exists():
+        return
+    if path.stat().st_size < max_bytes:
+        return
+    if backup_count <= 0:
+        path.unlink(missing_ok=True)
+        return
+    for i in range(backup_count - 1, 0, -1):
+        src = path.with_suffix(path.suffix + f".{i}")
+        dst = path.with_suffix(path.suffix + f".{i + 1}")
+        if src.exists():
+            src.replace(dst)
+    path.replace(path.with_suffix(path.suffix + ".1"))
+
+
 def write_event(
     event: Mapping[str, Any],
     log_dir: str | os.PathLike | None = None,
     log_file: str = "run.jsonl",
+    max_bytes: int | None = None,
+    backup_count: int = 3,
 ) -> Path:
-    """단일 이벤트를 JSON Lines로 기록한다."""
+    """단일 이벤트를 JSON Lines로 기록한다.
+
+    max_bytes가 양수이면 파일이 그 크기를 초과할 때 회전한다.
+    """
     if not isinstance(event, Mapping):
         raise TypeError("event must be a mapping")
     path = _ensure_log_dir(log_dir) / log_file
+    _rotate_if_needed(path, max_bytes, backup_count)
     record = {"timestamp": _now_iso(), **dict(event)}
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")

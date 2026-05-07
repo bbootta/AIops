@@ -29,10 +29,12 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from middleware.data_safety_guard import scan_dataframe
+from middleware.draft_watermark_guard import check_watermarks
 from middleware.leakage_guard import check_leakage
 from middleware.output_completeness_guard import check_numeric_citations, check_report
 from middleware.run_logger import run_logger
 from middleware.sample_size_guard import check_sample_size
+from middleware.schema_guard import check_schema, credit_scoring_schema
 from tools.binomial_calibration import calibration_test_per_grade
 from tools.data_profile import check_date_coverage, check_duplicates, check_missing
 from tools.metric_ks_auc import calculate_auc_gini, calculate_ks
@@ -68,6 +70,17 @@ def _split_dev_oot(df: pd.DataFrame, set_col: str | None) -> tuple[pd.DataFrame,
 def _step_input_check(req: ValidationRequest) -> dict:
     df = req.df
     findings: dict[str, Any] = {}
+    findings["schema"] = check_schema(
+        df,
+        credit_scoring_schema(
+            score_col=req.score_col,
+            target_col=req.target_col,
+            set_col=req.set_col,
+            grade_col=req.grade_col,
+            pd_col=req.pd_col,
+            date_col=req.date_col,
+        ),
+    )
     findings["safety"] = scan_dataframe(df)
     if req.feature_names:
         findings["leakage"] = check_leakage(req.feature_names, target_name=req.target_col)
@@ -232,9 +245,11 @@ def run(req: ValidationRequest, log_dir: str | Path | None = None) -> dict:
         report_md = _build_report(req, input_findings, quant)
         completeness = check_report(report_md)
         citations = check_numeric_citations(report_md)
+        watermarks = check_watermarks(report_md)
         ctx["result_summary"] = {
             "completeness_passed": completeness["passed"],
             "citations_passed": citations["passed"],
+            "watermarks_passed": watermarks["passed"],
             "sample_passed": quant["sample_size"]["passed"],
         }
         return {
@@ -243,6 +258,7 @@ def run(req: ValidationRequest, log_dir: str | Path | None = None) -> dict:
             "quant": quant,
             "completeness": completeness,
             "citations": citations,
+            "watermarks": watermarks,
         }
 
 
@@ -266,12 +282,15 @@ def _build_demo_request() -> ValidationRequest:
     target_dev = np.concatenate([np.zeros(n_dev // 2), np.ones(n_dev // 2)]).astype(int)
     score_oot = np.concatenate([rng.normal(0.3, 1, n_oot // 2), rng.normal(2.2, 1, n_oot // 2)])
     target_oot = np.concatenate([np.zeros(n_oot // 2), np.ones(n_oot // 2)]).astype(int)
+    grades = rng.choice(list("ABCDE"), size=n_dev + n_oot)
+    pd_map = {"A": 0.01, "B": 0.03, "C": 0.07, "D": 0.15, "E": 0.30}
     df = pd.DataFrame(
         {
             "score": np.concatenate([score_dev, score_oot]),
             "target": np.concatenate([target_dev, target_oot]),
             "set": ["dev"] * n_dev + ["oot"] * n_oot,
-            "grade": rng.choice(list("ABCDE"), size=n_dev + n_oot),
+            "grade": grades,
+            "pd": np.array([pd_map[g] for g in grades]),
         }
     )
     return ValidationRequest(
@@ -281,6 +300,7 @@ def _build_demo_request() -> ValidationRequest:
         target_col="target",
         set_col="set",
         grade_col="grade",
+        pd_col="pd",
     )
 
 
