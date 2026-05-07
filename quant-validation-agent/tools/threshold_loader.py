@@ -28,11 +28,23 @@ def load_threshold_policy(path: Optional[str] = None) -> dict:
     return policy
 
 
-def get_metric_threshold(policy: dict, metric_name: str) -> dict:
-    """Return {green_threshold, yellow_threshold, direction} for a metric.
+def get_metric_threshold(
+    policy: dict,
+    metric_name: str,
+    segment: Optional[str] = None,
+) -> dict:
+    """Return {green_threshold, yellow_threshold, direction, source} for a metric.
+
+    If `segment` is provided and the policy has a `by_segment.<segment>.metrics.<metric>`
+    override, the per-segment thresholds replace the defaults; `direction` is
+    always taken from the global metric definition (segments override values
+    only, not the comparison direction).
+
+    `source` indicates whether the values came from the global block or a
+    segment override: 'global' or 'segment:<name>'.
 
     Raises:
-        KeyError if the metric is not defined in the policy.
+        KeyError if the metric is not defined in the policy at all.
     """
     metrics = policy.get("metrics") or {}
     if metric_name not in metrics:
@@ -42,11 +54,30 @@ def get_metric_threshold(policy: dict, metric_name: str) -> dict:
     missing = required - set(cfg.keys())
     if missing:
         raise ValueError(f"Metric '{metric_name}' missing keys: {sorted(missing)}")
-    return {
+    out = {
         "green_threshold": cfg["green_threshold"],
         "yellow_threshold": cfg["yellow_threshold"],
         "direction": cfg["direction"],
+        "source": "global",
     }
+    if segment is None:
+        return out
+    by_segment = policy.get("by_segment") or {}
+    seg_cfg = (by_segment.get(segment) or {}).get("metrics") or {}
+    if metric_name in seg_cfg:
+        override = seg_cfg[metric_name]
+        if "green_threshold" in override:
+            out["green_threshold"] = override["green_threshold"]
+        if "yellow_threshold" in override:
+            out["yellow_threshold"] = override["yellow_threshold"]
+        out["source"] = f"segment:{segment}"
+    return out
+
+
+def list_segments(policy: dict) -> list:
+    """Return the list of segments that have any threshold override."""
+    by_segment = policy.get("by_segment") or {}
+    return sorted(by_segment.keys())
 
 
 def list_metrics_for_model(policy: dict, model_type: str) -> list:

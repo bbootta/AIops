@@ -81,5 +81,26 @@
       "adverse": 1.0,
       "severe": 1.0
     }
+  },
+  "by_segment": {
+    "retail": {
+      "metrics": {
+        "ks": { "green_threshold": 0.40, "yellow_threshold": 0.30 },
+        "auroc": { "green_threshold": 0.75, "yellow_threshold": 0.65 }
+      }
+    },
+    "sme": {
+      "metrics": {
+        "ks": { "green_threshold": 0.30, "yellow_threshold": 0.20 },
+        "auroc": { "green_threshold": 0.70, "yellow_threshold": 0.60 }
+      }
+    },
+    "ldp_corporate": {
+      "metrics": {
+        "ks": { "green_threshold": 0.25, "yellow_threshold": 0.15 },
+        "auroc": { "green_threshold": 0.65, "yellow_threshold": 0.55 },
+        "ar": { "green_threshold": 0.30, "yellow_threshold": 0.10 }
+      }
+    }
   }
 }

@@ -10,6 +10,11 @@
 > **머신리더블 정책:** 본 문서의 임계값은 `harness/threshold_policy.json`에
 > 동일하게 외부화되어 있으며, 코드에서는 `tools.threshold_loader`로 읽는다.
 > JSON 변경은 반드시 `change_manifest.json`에 기록되며 `human_approval_required: true`다.
+>
+> **세그먼트별 임계:** `threshold_policy.json`의 `by_segment.<segment>.metrics.<metric>`
+> 블록에 세그먼트별 override를 둘 수 있다 (예: `retail`, `sme`, `ldp_corporate`).
+> 로더는 해당 세그먼트가 명시된 경우에만 override 값을 사용하고, 없으면 글로벌
+> 값으로 폴백한다. CLI는 `--segment` 인자로 동일하게 동작한다.
 
 ---
 

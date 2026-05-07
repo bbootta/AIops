@@ -17,6 +17,7 @@ dependencies = [
     "scipy>=1.10",
     "scikit-learn>=1.2",
     "statsmodels>=0.14",
+    "jsonschema>=4.0",
 ]
 
 [project.optional-dependencies]

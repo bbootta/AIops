@@ -70,3 +70,102 @@ def test_cli_check_clean_text_returns_zero():
     payload = json.loads(result.stdout)
     assert payload["risky_commands"] == []
     assert payload["pii_matches"] == []
+
+
+def test_cli_thresholds_segment_override():
+    result = _run(["thresholds", "--metric", "ks", "--segment", "ldp_corporate"])
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["ks"]["green_threshold"] == 0.25
+    assert payload["ks"]["source"] == "segment:ldp_corporate"
+
+
+def test_cli_validate_scoring(tmp_path):
+    # Use the example credit-score CSV; higher score == lower risk in the sample.
+    sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
+    out_path = tmp_path / "report.json"
+    result = _run(
+        [
+            "validate",
+            "--data", sample,
+            "--model-type", "scoring",
+            "--target", "target",
+            "--score", "score",
+            "--dataset-col", "dataset",
+            "--baseline-value", "dev",
+            "--segment", "retail",
+            "--out", str(out_path),
+        ]
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert {"ks", "auroc", "ar"}.issubset(payload["metrics"].keys())
+    # PSI is included because dataset_col + baseline are provided.
+    assert "psi" in payload["metrics"]
+    assert out_path.exists()
+
+
+def test_cli_validate_lgd(tmp_path):
+    sample = os.path.join(ROOT, "examples", "sample_lgd_ead_data.csv")
+    result = _run(
+        [
+            "validate",
+            "--data", sample,
+            "--model-type", "lgd",
+            "--actual", "realized_lgd",
+            "--predicted", "predicted_lgd",
+        ]
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert {"mae", "rmse", "bias"}.issubset(payload["metrics"].keys())
+
+
+def test_cli_validate_missing_columns(tmp_path):
+    csv = tmp_path / "tiny.csv"
+    csv.write_text("a,b\n1,2\n3,4\n", encoding="utf-8")
+    result = _run(
+        [
+            "validate",
+            "--data", str(csv),
+            "--model-type", "scoring",
+            "--target", "target",
+            "--score", "score",
+        ]
+    )
+    assert result.returncode == 4
+    payload = json.loads(result.stdout)
+    assert payload["schema"]["required_columns"]["pass"] is False
+
+
+def test_cli_note_add(tmp_path):
+    target = tmp_path / "notes.md"
+    result = _run(
+        [
+            "note",
+            "add",
+            "--text", "표본 부족 사례 1건",
+            "--model", "PD-corp",
+            "--path", str(target),
+        ]
+    )
+    assert result.returncode == 0, result.stderr
+    assert target.exists()
+    text = target.read_text(encoding="utf-8")
+    assert "PD-corp" in text
+    assert "표본 부족 사례 1건" in text
+
+
+def test_cli_note_blocks_pii(tmp_path):
+    target = tmp_path / "notes.md"
+    result = _run(
+        [
+            "note",
+            "add",
+            "--text", "메일 user@example.com 확인 필요",
+            "--model", "PD-corp",
+            "--path", str(target),
+        ]
+    )
+    assert result.returncode == 5
+    assert not target.exists()

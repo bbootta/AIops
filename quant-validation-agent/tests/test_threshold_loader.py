@@ -17,6 +17,37 @@ def test_get_metric_threshold_known():
     assert out["direction"] == "higher_is_better"
     assert out["green_threshold"] == 0.40
     assert out["yellow_threshold"] == 0.30
+    assert out["source"] == "global"
+
+
+def test_segment_override_replaces_values_only():
+    policy = tl.load_threshold_policy()
+    out = tl.get_metric_threshold(policy, "ks", segment="ldp_corporate")
+    assert out["direction"] == "higher_is_better"
+    assert out["green_threshold"] == 0.25
+    assert out["yellow_threshold"] == 0.15
+    assert out["source"] == "segment:ldp_corporate"
+
+
+def test_segment_without_override_falls_back_to_global():
+    policy = tl.load_threshold_policy()
+    # 'retail' segment exists but does not override 'psi'
+    out = tl.get_metric_threshold(policy, "psi", segment="retail")
+    assert out["green_threshold"] == 0.10
+    assert out["source"] == "global"
+
+
+def test_unknown_segment_falls_back_to_global():
+    policy = tl.load_threshold_policy()
+    out = tl.get_metric_threshold(policy, "ks", segment="not_a_real_segment")
+    assert out["green_threshold"] == 0.40
+    assert out["source"] == "global"
+
+
+def test_list_segments_includes_known_segments():
+    policy = tl.load_threshold_policy()
+    segs = tl.list_segments(policy)
+    assert {"retail", "sme", "ldp_corporate"}.issubset(set(segs))
 
 
 def test_get_metric_threshold_pd_bias_uses_abs():
