@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://validation-team-agent/orchestration_matrix.schema.json",
+  "title": "Orchestration Matrix",
+  "description": "SSoT for the validation team agent orchestrator's call matrix.",
+  "type": "object",
+  "properties": {
+    "matrix_version": { "type": "string" },
+    "description": { "type": "string" },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/step" }
+    }
+  },
+  "required": ["matrix_version", "steps"],
+  "additionalProperties": false,
+  "$defs": {
+    "step": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[A-Za-z0-9_]+$"
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "component": { "type": "string", "minLength": 1 },
+        "rationale": { "type": "string", "minLength": 1 },
+        "always": { "type": "boolean" },
+        "requires_all": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "requires_any": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "expected_outputs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["id", "name", "component", "rationale"],
+      "additionalProperties": false,
+      "anyOf": [
+        { "required": ["always"] },
+        { "required": ["requires_all"] },
+        { "required": ["requires_any"] }
+      ]
+    }
+  }
+}

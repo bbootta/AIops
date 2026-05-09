@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "description": "검증 과정에서 반복적으로 발견되는 패턴. recurring_findings.md는 이 JSON에서 파생됨. 신규 finding은 tools/findings.py로 추가하고, sync 후 마크다운을 갱신.",
+  "findings": [
+    {
+      "id": "RF-001",
+      "frequency": "frequent",
+      "domain": "data",
+      "description": "운영 표본의 우측 꼬리 분포 변화 → PSI 상승.",
+      "primary_tool": "tools/metric_psi.py"
+    },
+    {
+      "id": "RF-002",
+      "frequency": "frequent",
+      "domain": "calibration",
+      "description": "등급 1~3 부도 건수 < 30 → 신뢰구간 넓음.",
+      "primary_tool": "middleware/sample_size_guard.py"
+    },
+    {
+      "id": "RF-003",
+      "frequency": "moderate",
+      "domain": "methodology",
+      "description": "거시 변수 시차 변수 사용 사유 미문서화.",
+      "primary_tool": "skills/macro_scenario_validation.md"
+    },
+    {
+      "id": "RF-004",
+      "frequency": "moderate",
+      "domain": "documentation",
+      "description": "한계 / 추가 확인사항 누락.",
+      "primary_tool": "middleware/output_completeness_guard.py"
+    },
+    {
+      "id": "RF-005",
+      "frequency": "frequent",
+      "domain": "scenario",
+      "description": "severe 시나리오 PD multiplier가 floor 미달.",
+      "primary_tool": "tools/scenario_order_check.py"
+    },
+    {
+      "id": "RF-006",
+      "frequency": "moderate",
+      "domain": "leakage",
+      "description": "future_*, *_after 변수가 features에 잔존.",
+      "primary_tool": "middleware/leakage_guard.py"
+    },
+    {
+      "id": "RF-007",
+      "frequency": "rare",
+      "domain": "data",
+      "description": "일자 컬럼에 한 달 이상 누락 구간 존재.",
+      "primary_tool": "tools/data_profile.check_date_coverage"
+    }
+  ]
+}

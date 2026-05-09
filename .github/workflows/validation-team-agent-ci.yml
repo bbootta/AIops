@@ -6,10 +6,30 @@ on:
     paths:
       - "validation-team-agent/**"
       - ".github/workflows/validation-team-agent-ci.yml"
+    paths-ignore:
+      - "validation-team-agent/docs/**"
+      - "validation-team-agent/examples/**"
+      - "validation-team-agent/memory/**"
+      - "validation-team-agent/skills/**"
+      - "validation-team-agent/subagents/**"
+      - "validation-team-agent/README.md"
+      - "validation-team-agent/CLAUDE.md"
   pull_request:
     paths:
       - "validation-team-agent/**"
       - ".github/workflows/validation-team-agent-ci.yml"
+    paths-ignore:
+      - "validation-team-agent/docs/**"
+      - "validation-team-agent/examples/**"
+      - "validation-team-agent/memory/**"
+      - "validation-team-agent/skills/**"
+      - "validation-team-agent/subagents/**"
+      - "validation-team-agent/README.md"
+      - "validation-team-agent/CLAUDE.md"
+
+concurrency:
+  group: validation-team-agent-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -29,7 +49,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: validation-team-agent/requirements.txt
+          cache-dependency-path: |
+            validation-team-agent/requirements.txt
+            validation-team-agent/pyproject.toml
 
       - name: Install dependencies
         run: |
@@ -38,13 +60,16 @@ jobs:
 
       - name: Validate change_manifest schema
         run: |
+          python -m tools.manifest validate
+
+      - name: Validate orchestration_matrix schema
+        run: |
           python - <<'PY'
           import json, jsonschema, pathlib
-          root = pathlib.Path(".")
-          schema = json.loads((root / "harness/change_manifest.schema.json").read_text(encoding="utf-8"))
-          manifest = json.loads((root / "harness/change_manifest.json").read_text(encoding="utf-8"))
-          jsonschema.validate(manifest, schema)
-          print("change_manifest.json validates against schema")
+          schema = json.loads(pathlib.Path("harness/orchestration_matrix.schema.json").read_text(encoding="utf-8"))
+          matrix = json.loads(pathlib.Path("harness/orchestration_matrix.json").read_text(encoding="utf-8"))
+          jsonschema.validate(matrix, schema)
+          print("orchestration_matrix.json validates against schema")
           PY
 
       - name: Lint policy thresholds

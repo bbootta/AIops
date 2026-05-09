@@ -83,6 +83,7 @@ def simulate(
                 "component": step["component"],
                 "inputs": inputs,
                 "rationale": step["rationale"],
+                "expected_outputs": list(step.get("expected_outputs", [])),
             }
         )
     return plan
@@ -98,6 +99,9 @@ def render_markdown(plan: list[dict]) -> str:
             lines.append(f"- inputs: `{json.dumps(step['inputs'], ensure_ascii=False)}`")
         if step["rationale"]:
             lines.append(f"- rationale: {step['rationale']}")
+        if step.get("expected_outputs"):
+            outs = ", ".join(f"`{o}`" for o in step["expected_outputs"])
+            lines.append(f"- expected_outputs: {outs}")
         lines.append("")
     lines.append("> 본 plan은 시뮬레이션이며 실제 도구를 실행하지 않습니다.")
     return "\n".join(lines)

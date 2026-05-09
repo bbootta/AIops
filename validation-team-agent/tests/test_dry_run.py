@@ -37,3 +37,15 @@ def test_render_markdown_smoke():
     assert md.startswith("# Orchestrator Dry-Run Plan")
     assert "보고서 초안" in md
     assert "시뮬레이션" in md
+
+
+def test_simulate_includes_expected_outputs():
+    plan = dr.simulate(dr._demo_request())
+    cite_step = next(s for s in plan if s["id"] == "5.cite")
+    assert "citations" in cite_step["expected_outputs"]
+
+
+def test_render_markdown_shows_expected_outputs():
+    plan = dr.simulate(dr._demo_request())
+    md = dr.render_markdown(plan)
+    assert "expected_outputs" in md

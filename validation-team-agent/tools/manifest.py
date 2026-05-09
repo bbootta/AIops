@@ -20,7 +20,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = ROOT / "harness" / "change_manifest.schema.json"
@@ -189,6 +189,68 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def promote_if_passing(
+    change_ids: Sequence[str],
+    to: str,
+    *,
+    confirmed_by_human: bool,
+    pytest_runner=None,
+    manifest_path: Path | None = None,
+) -> dict:
+    """pytest 통과 + 사용자 명시 승인이 모두 있을 때만 다수 항목을 promote.
+
+    confirmed_by_human이 False이면 ManifestError. pytest_runner는 인자 없이 호출
+    가능하고 (returncode_int, stdout_str) 튜플을 반환하는 callable. 기본은 실제
+    ``python -m pytest`` 실행.
+    """
+    if to not in {"applied", "validated"}:
+        raise ManifestError(f"promote_if_passing only supports applied/validated, got {to!r}")
+    if not confirmed_by_human:
+        raise ManifestError("human confirmation required (pass confirmed_by_human=True)")
+
+    if pytest_runner is None:
+        pytest_runner = _default_pytest_runner
+
+    rc, stdout = pytest_runner()
+    if rc != 0:
+        raise ManifestError(f"pytest failed (rc={rc}); promotion blocked")
+
+    promoted: list[dict] = []
+    for cid in change_ids:
+        promoted.append(promote(cid, to, manifest_path=manifest_path))
+    return {"pytest_returncode": rc, "pytest_stdout_tail": stdout[-400:], "promoted": promoted}
+
+
+def _default_pytest_runner():
+    import subprocess
+
+    proj_root = Path(__file__).resolve().parent.parent
+    res = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q"],
+        cwd=str(proj_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return res.returncode, (res.stdout or "") + (res.stderr or "")
+
+
+def _cmd_promote_if_passing(args: argparse.Namespace) -> int:
+    try:
+        out = promote_if_passing(
+            args.change_ids,
+            args.to,
+            confirmed_by_human=args.i_am_human,
+            manifest_path=args.manifest,
+        )
+    except ManifestError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    for entry in out["promoted"]:
+        print(f"{entry['change_id']} -> {entry['status']} (pytest rc=0)")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="change_manifest CLI")
     parser.add_argument("--manifest", type=Path, default=None)
@@ -215,6 +277,16 @@ def main(argv: list[str] | None = None) -> int:
     p_promote.set_defaults(func=_cmd_promote)
 
     sub.add_parser("validate").set_defaults(func=_cmd_validate)
+
+    p_pip = sub.add_parser("promote-if-passing")
+    p_pip.add_argument("change_ids", nargs="+")
+    p_pip.add_argument("--to", required=True, choices=["applied", "validated"])
+    p_pip.add_argument(
+        "--i-am-human",
+        action="store_true",
+        help="명시적 인간 승인. 본 플래그가 없으면 차단된다.",
+    )
+    p_pip.set_defaults(func=_cmd_promote_if_passing)
 
     args = parser.parse_args(argv)
     return int(args.func(args))
