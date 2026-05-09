@@ -78,8 +78,12 @@ def run_logger(
     inputs: Mapping[str, Any] | None = None,
     log_dir: str | os.PathLike | None = None,
     log_file: str = "run.jsonl",
+    step_id: str | None = None,
 ):
     """함수 실행을 시작/종료 이벤트로 감싸 기록한다.
+
+    step_id가 주어지면 ``harness/orchestration_matrix.json``의 step과 매칭되는
+    문자열을 함께 기록해 사후에 plan vs actual 비교가 가능하다.
 
     사용 예:
         with run_logger("calculate_ks", {"input_path": "x.csv"}) as ctx:
@@ -89,6 +93,7 @@ def run_logger(
     started = time.perf_counter()
     ctx: dict[str, Any] = {
         "function": function_name,
+        "step_id": step_id,
         "inputs": dict(inputs or {}),
         "result_summary": None,
         "outputs": [],
@@ -116,3 +121,54 @@ def run_logger(
 def summarize_outputs(paths: Iterable[str | os.PathLike]) -> list[str]:
     """생성된 파일 경로 목록을 문자열 리스트로 정규화한다."""
     return [str(p) for p in paths]
+
+
+def log_step(
+    step_id: str,
+    *,
+    component: str,
+    status: str = "executed",
+    log_dir: str | os.PathLike | None = None,
+    log_file: str = "run.jsonl",
+    extra: Mapping[str, Any] | None = None,
+) -> Path:
+    """단일 step의 실행 흔적을 1라인 이벤트로 기록한다.
+
+    status는 "executed", "skipped", "failed" 중 하나를 사용한다. extra에 추가
+    필드를 dict로 전달할 수 있다.
+    """
+    if status not in {"executed", "skipped", "failed"}:
+        raise ValueError(f"unknown step status: {status!r}")
+    payload: dict[str, Any] = {
+        "event": "step",
+        "step_id": step_id,
+        "component": component,
+        "status": status,
+    }
+    if extra:
+        payload.update(dict(extra))
+    return write_event(payload, log_dir=log_dir, log_file=log_file)
+
+
+def collect_step_ids(log_path: str | os.PathLike) -> list[str]:
+    """로그 파일에서 실행된 step_id 목록을 순서대로 수집한다.
+
+    "step" 이벤트 우선이며 없을 경우 run_logger의 start 이벤트 step_id를 사용.
+    """
+    p = Path(log_path)
+    if not p.exists():
+        return []
+    seen: list[str] = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if rec.get("event") == "step" and rec.get("step_id"):
+            seen.append(rec["step_id"])
+        elif rec.get("event") == "start" and rec.get("step_id"):
+            seen.append(rec["step_id"])
+    return seen

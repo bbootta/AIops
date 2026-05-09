@@ -93,3 +93,58 @@ def test_plan_skips_calibration_without_grade_pd():
     plan = dr.simulate({"score_col": "score", "target_col": "target"})
     funcs = _components_in_plan(plan)
     assert "binomial_calibration.calibration_test_per_grade" not in funcs
+
+
+_MISSING = object()
+
+
+def _resolve_dotted(d, dotted: str):
+    """expected_outputs의 'a.b.c' 표기를 결과 dict / DataFrame 컬럼에서 해석."""
+    cur = d
+    for part in dotted.split("."):
+        if isinstance(cur, dict) and part in cur:
+            cur = cur[part]
+        elif hasattr(cur, "columns") and part in getattr(cur, "columns", []):
+            cur = cur[part]
+        else:
+            return _MISSING
+    return cur
+
+
+def test_expected_outputs_align_with_actual_run_validation_keys(tmp_path):
+    """매트릭스의 expected_outputs 키가 run_validation 결과 dict에 존재하는지 확인."""
+    from tools.run_validation import run
+
+    req = _build_demo_request()
+    out = run(req, log_dir=tmp_path)
+
+    full = dict(out)
+    full["result_summary"] = {
+        "completeness_passed": out["completeness"]["passed"],
+        "citations_passed": out["citations"]["passed"],
+        "watermarks_passed": out["watermarks"]["passed"],
+        "sample_passed": out["quant"]["sample_size"]["passed"],
+    }
+
+    request_dict = {
+        "title": req.title,
+        "score_col": req.score_col,
+        "target_col": req.target_col,
+        "set_col": req.set_col,
+        "grade_col": req.grade_col,
+        "pd_col": req.pd_col,
+    }
+    plan = dr.simulate(request_dict)
+
+    # 다음 prefix는 IFRS 9 / 거시 runner 또는 manifest 경로 — 신용 runner 외부.
+    skip_prefixes = ("request_summary", "input_findings", "manifest.", "ifrs9.", "diagnostics.")
+
+    missing: list[tuple[str, str]] = []
+    for step in plan:
+        for key in step.get("expected_outputs", []):
+            if key.startswith(skip_prefixes):
+                continue
+            if _resolve_dotted(full, key) is _MISSING:
+                missing.append((step["id"], key))
+
+    assert not missing, f"expected_outputs not present in run() result: {missing}"

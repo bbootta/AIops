@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://validation-team-agent/scenario_floors.schema.json",
+  "title": "Scenario Floors Policy",
+  "description": "PD multiplier floor by scenario type. base <= adverse <= severe.",
+  "type": "object",
+  "properties": {
+    "policy_version": { "type": "string" },
+    "description": { "type": "string" },
+    "floors": {
+      "type": "object",
+      "properties": {
+        "base": { "type": "number", "minimum": 0, "maximum": 10 },
+        "adverse": { "type": "number", "minimum": 0, "maximum": 10 },
+        "severe": { "type": "number", "minimum": 0, "maximum": 10 }
+      },
+      "required": ["base", "adverse", "severe"],
+      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 10 }
+    }
+  },
+  "required": ["floors"],
+  "additionalProperties": false
+}

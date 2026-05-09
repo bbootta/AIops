@@ -9,7 +9,6 @@ on:
     paths-ignore:
       - "validation-team-agent/docs/**"
       - "validation-team-agent/examples/**"
-      - "validation-team-agent/memory/**"
       - "validation-team-agent/skills/**"
       - "validation-team-agent/subagents/**"
       - "validation-team-agent/README.md"
@@ -21,7 +20,6 @@ on:
     paths-ignore:
       - "validation-team-agent/docs/**"
       - "validation-team-agent/examples/**"
-      - "validation-team-agent/memory/**"
       - "validation-team-agent/skills/**"
       - "validation-team-agent/subagents/**"
       - "validation-team-agent/README.md"
@@ -62,19 +60,34 @@ jobs:
         run: |
           python -m tools.manifest validate
 
-      - name: Validate orchestration_matrix schema
+      - name: Validate JSON schemas (matrix / permission / floors)
         run: |
           python - <<'PY'
           import json, jsonschema, pathlib
-          schema = json.loads(pathlib.Path("harness/orchestration_matrix.schema.json").read_text(encoding="utf-8"))
-          matrix = json.loads(pathlib.Path("harness/orchestration_matrix.json").read_text(encoding="utf-8"))
-          jsonschema.validate(matrix, schema)
-          print("orchestration_matrix.json validates against schema")
+          pairs = [
+              ("harness/orchestration_matrix.schema.json", "harness/orchestration_matrix.json"),
+              ("harness/permission_matrix.schema.json", "harness/permission_matrix.json"),
+              ("harness/scenario_floors.schema.json", "harness/scenario_floors.json"),
+          ]
+          for sp, dp in pairs:
+              schema = json.loads(pathlib.Path(sp).read_text(encoding="utf-8"))
+              data = json.loads(pathlib.Path(dp).read_text(encoding="utf-8"))
+              jsonschema.validate(data, schema)
+              print(f"OK {dp}")
           PY
 
       - name: Lint policy thresholds
         run: |
           python -m tools.policy_lint
+
+      - name: Findings JSON / markdown in sync
+        run: |
+          python -m tools.findings sync
+          if ! git diff --quiet -- memory/recurring_findings.md; then
+            echo "memory/recurring_findings.md is out of sync with JSON. Run 'python -m tools.findings sync' and commit."
+            git --no-pager diff -- memory/recurring_findings.md
+            exit 1
+          fi
 
       - name: Run pytest
         run: |

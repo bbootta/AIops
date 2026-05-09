@@ -258,15 +258,82 @@ def _build_demo_request() -> IFRS9ValidationRequest:
     )
 
 
+def _load_request_from_csv(args: argparse.Namespace) -> IFRS9ValidationRequest:
+    """CSV 입력에서 IFRS9ValidationRequest를 구성한다.
+
+    weights_csv: 필수. 컬럼 = (period, scenario, weight) (이름은 인자로 조정)
+    pd_csv: 선택. 컬럼 = (scenario, pd) - long format
+    multipliers_csv: 선택. 컬럼 = (scenario, multiplier)
+    calibration_csv: 선택. 컬럼 = (grade, pd_estimated, default_count, exposure_count)
+    """
+    panel = pd.read_csv(args.weights_csv)
+
+    pd_by_scenario: dict[str, np.ndarray] | None = None
+    if args.pd_csv:
+        pd_df = pd.read_csv(args.pd_csv)
+        for col in ("scenario", "pd"):
+            if col not in pd_df.columns:
+                raise KeyError(f"{args.pd_csv}: missing column {col!r}")
+        pd_by_scenario = {
+            sc: sub["pd"].astype(float).values
+            for sc, sub in pd_df.groupby("scenario")
+        }
+
+    pd_multipliers: dict[str, list[float]] | None = None
+    if args.multipliers_csv:
+        m_df = pd.read_csv(args.multipliers_csv)
+        for col in ("scenario", "multiplier"):
+            if col not in m_df.columns:
+                raise KeyError(f"{args.multipliers_csv}: missing column {col!r}")
+        pd_multipliers = {
+            sc: sub["multiplier"].astype(float).tolist()
+            for sc, sub in m_df.groupby("scenario")
+        }
+
+    grade_calibration: list[dict] | None = None
+    if args.calibration_csv:
+        cal_df = pd.read_csv(args.calibration_csv)
+        for col in ("grade", "pd_estimated", "default_count", "exposure_count"):
+            if col not in cal_df.columns:
+                raise KeyError(f"{args.calibration_csv}: missing column {col!r}")
+        grade_calibration = cal_df.to_dict(orient="records")
+
+    return IFRS9ValidationRequest(
+        title=args.title,
+        weight_panel=panel,
+        weight_period_col=args.weight_period_col,
+        weight_scenario_col=args.weight_scenario_col,
+        weight_value_col=args.weight_value_col,
+        pd_by_scenario=pd_by_scenario,
+        pd_multipliers=pd_multipliers,
+        grade_calibration=grade_calibration,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="validation-team-agent IFRS 9 runner")
     parser.add_argument("--demo", action="store_true")
+    parser.add_argument("--weights-csv", type=str, default=None,
+                        help="CSV with columns: period, scenario, weight")
+    parser.add_argument("--pd-csv", type=str, default=None,
+                        help="optional CSV: scenario, pd (long format)")
+    parser.add_argument("--multipliers-csv", type=str, default=None,
+                        help="optional CSV: scenario, multiplier (long format)")
+    parser.add_argument("--calibration-csv", type=str, default=None,
+                        help="optional CSV: grade, pd_estimated, default_count, exposure_count")
+    parser.add_argument("--title", type=str, default="IFRS 9 ECL Validation")
+    parser.add_argument("--weight-period-col", type=str, default="period")
+    parser.add_argument("--weight-scenario-col", type=str, default="scenario")
+    parser.add_argument("--weight-value-col", type=str, default="weight")
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args(argv)
 
-    if not args.demo:
-        parser.error("only --demo is supported in this thin runner; CSV 입력은 후속 작업")
-    req = _build_demo_request()
+    if args.demo and args.weights_csv:
+        parser.error("use either --demo or --weights-csv, not both")
+    if not args.demo and not args.weights_csv:
+        parser.error("either --demo or --weights-csv is required")
+
+    req = _build_demo_request() if args.demo else _load_request_from_csv(args)
     out = run(req)
     if args.out:
         args.out.write_text(out["report_md"], encoding="utf-8")
