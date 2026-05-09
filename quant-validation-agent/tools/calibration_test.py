@@ -14,7 +14,7 @@ and human review (see CLAUDE.md).
 """
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Iterable, Optional
 
 import numpy as np
 import pandas as pd
@@ -30,27 +30,74 @@ def _align(y_true: Iterable, pred_pd: Iterable):
     return y, p
 
 
+def _greedy_pack_bins(p: np.ndarray, min_per_bin: int) -> np.ndarray:
+    """Sort by predicted PD and greedily pack into bins of size >= min_per_bin.
+
+    Returns an integer bin index per observation in the original order.
+    The last bin absorbs any leftover observations.
+    """
+    if min_per_bin < 1:
+        raise ValueError("min_per_bin must be >= 1.")
+    n = p.shape[0]
+    order = np.argsort(p, kind="stable")
+    bin_for_sorted = np.empty(n, dtype=int)
+    cur_bin = 0
+    cur_count = 0
+    for i in range(n):
+        bin_for_sorted[i] = cur_bin
+        cur_count += 1
+        if cur_count >= min_per_bin and i < n - 1:
+            cur_bin += 1
+            cur_count = 0
+    # If the final bin has fewer than min_per_bin, merge into the previous one.
+    last_bin = bin_for_sorted[-1]
+    last_size = int((bin_for_sorted == last_bin).sum())
+    if last_bin > 0 and last_size < min_per_bin:
+        bin_for_sorted[bin_for_sorted == last_bin] = last_bin - 1
+    out = np.empty(n, dtype=int)
+    out[order] = bin_for_sorted
+    return out
+
+
 def hosmer_lemeshow_test(
     y_true: Iterable,
     pred_pd: Iterable,
     n_bins: int = 10,
+    min_per_bin: Optional[int] = None,
 ) -> dict:
     """Hosmer–Lemeshow goodness-of-fit test.
 
-    Splits the sample into `n_bins` quantile buckets of pred_pd and computes
-    Σ ((O - E)^2 / (E * (1 - E/N_g))) over groups, with df = n_bins - 2.
-    Returns the chi-square statistic, df, and p-value.
+    Splits the sample into buckets of `pred_pd` and computes
+    Σ ((O - E)^2 / (E * (1 - E/N_g))) over groups, with df = n_bins_used - 2.
+
+    Args:
+        n_bins: target number of quantile bins (used when min_per_bin is None).
+        min_per_bin: when set, ignore `n_bins` and instead greedily pack the
+            sample (sorted by pred_pd) into bins each containing at least
+            `min_per_bin` observations. Useful for sparse / LDP samples.
     """
     if n_bins < 2:
         raise ValueError("n_bins must be >= 2.")
     y, p = _align(y_true, pred_pd)
-    if y.shape[0] < n_bins:
-        raise ValueError(f"Sample size {y.shape[0]} is smaller than n_bins {n_bins}.")
-    ranks = pd.Series(p).rank(method="average", pct=True)
-    bins = np.minimum((ranks * n_bins).astype(int), n_bins - 1).values
+    n = int(y.shape[0])
+    if min_per_bin is not None:
+        if min_per_bin < 1:
+            raise ValueError("min_per_bin must be >= 1.")
+        if n < 2 * min_per_bin:
+            raise ValueError(
+                f"Sample size {n} cannot form 2 bins with min_per_bin={min_per_bin}."
+            )
+        bins = _greedy_pack_bins(p, min_per_bin)
+        used_bin_ids = sorted(np.unique(bins).tolist())
+    else:
+        if n < n_bins:
+            raise ValueError(f"Sample size {n} is smaller than n_bins {n_bins}.")
+        ranks = pd.Series(p).rank(method="average", pct=True)
+        bins = np.minimum((ranks * n_bins).astype(int), n_bins - 1).values
+        used_bin_ids = sorted(np.unique(bins).tolist())
     chi2 = 0.0
     used_bins = 0
-    for b in range(n_bins):
+    for b in used_bin_ids:
         mask = bins == b
         n_g = int(mask.sum())
         if n_g == 0:
@@ -60,7 +107,6 @@ def hosmer_lemeshow_test(
         expected = float(p[mask].sum())
         denom = expected * (1.0 - expected / n_g) if n_g > 0 else 0.0
         if denom <= 0:
-            # Degenerate bucket (all p == 0 or 1, or zero size). Skip safely.
             continue
         chi2 += (observed - expected) ** 2 / denom
     df = max(used_bins - 2, 1)
@@ -75,7 +121,9 @@ def hosmer_lemeshow_test(
         "df": int(df),
         "pvalue": pvalue,
         "n_bins_used": int(used_bins),
-        "n": int(y.shape[0]),
+        "n": int(n),
+        "binning": "greedy_min_per_bin" if min_per_bin is not None else "quantile",
+        "min_per_bin": int(min_per_bin) if min_per_bin is not None else None,
     }
 
 

@@ -119,6 +119,26 @@ def test_cli_validate_lgd(tmp_path):
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert {"mae", "rmse", "bias"}.issubset(payload["metrics"].keys())
+    # LGD now has thresholds — should produce a real RAG, not Gray.
+    assert payload["metrics"]["mae"]["rag"] in {"Green", "Yellow", "Red"}
+    assert payload["metrics"]["bias"]["rag"] in {"Green", "Yellow", "Red"}
+
+
+def test_cli_validate_ead_ratio_metrics():
+    sample = os.path.join(ROOT, "examples", "sample_lgd_ead_data.csv")
+    result = _run(
+        [
+            "validate",
+            "--data", sample,
+            "--model-type", "ead",
+            "--actual", "realized_ead",
+            "--predicted", "predicted_ead",
+        ]
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert {"mae_ratio", "rmse_ratio", "bias_ratio"}.issubset(payload["metrics"].keys())
+    assert payload["metrics"]["mae_ratio"]["rag"] in {"Green", "Yellow", "Red"}
 
 
 def test_cli_validate_missing_columns(tmp_path):
@@ -169,3 +189,50 @@ def test_cli_note_blocks_pii(tmp_path):
     )
     assert result.returncode == 5
     assert not target.exists()
+
+
+def test_cli_validate_writes_run_log(tmp_path):
+    sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
+    log_dir = tmp_path / "runlogs"
+    result = _run(
+        [
+            "validate",
+            "--data", sample,
+            "--model-type", "scoring",
+            "--target", "target",
+            "--score", "score",
+            "--log-dir", str(log_dir),
+        ]
+    )
+    assert result.returncode == 0, result.stderr
+    files = list(log_dir.glob("run_*.json")) if log_dir.exists() else []
+    assert len(files) == 1
+    payload = json.loads(files[0].read_text(encoding="utf-8"))
+    assert payload["request_summary"].startswith("validate ")
+    assert "main_results" in payload
+
+
+def test_cli_validate_scenario_with_supplied_multipliers(tmp_path):
+    hist = os.path.join(ROOT, "examples", "sample_macro_history.csv")
+    sc = os.path.join(ROOT, "examples", "sample_macro_scenario.csv")
+    out = tmp_path / "scenario_report.json"
+    result = _run(
+        [
+            "validate-scenario",
+            "--hist-data", hist,
+            "--scenario-data", sc,
+            "--target", "pd_multiplier",
+            "--features", "gdp_growth,unemployment,bond_spread",
+            "--scenario-col", "scenario",
+            "--period-col", "period",
+            "--pred-col-in-scenario", "pd_multiplier",
+            "--multiplier-floors", "base=1.0,adverse=1.0,severe=1.0",
+            "--expected-signs", "gdp_growth=-,unemployment=+,bond_spread=+",
+            "--out", str(out),
+        ]
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert "fit" in payload and "severity" in payload
+    assert payload["severity"]["order"]["n_violation_total"] == 0
+    assert out.exists()

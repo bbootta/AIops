@@ -51,3 +51,28 @@ def test_ks_plot_endpoints():
 def test_invalid_bins_rejected():
     with pytest.raises(ValueError):
         dl.build_lift_table([0, 1], [0.1, 0.2], n_bins=1)
+
+
+def test_format_lift_markdown_basic():
+    y, s = _separable()
+    lift = dl.build_lift_table(y, s, n_bins=5, higher_is_worse=True)
+    md = dl.format_lift_markdown(lift, decimals=3)
+    # Must include header with all columns and correct number of data rows
+    assert "| bin | count | defaults" in md
+    data_rows = [ln for ln in md.strip().splitlines()[2:]]
+    assert len(data_rows) == lift.shape[0]
+
+
+def test_format_lift_markdown_empty_returns_placeholder():
+    import pandas as pd
+
+    md = dl.format_lift_markdown(pd.DataFrame())
+    assert "(empty)" in md
+
+
+def test_format_lift_markdown_missing_columns_raises():
+    import pandas as pd
+
+    bad = pd.DataFrame({"bin": [0, 1], "count": [10, 20]})
+    with pytest.raises(ValueError):
+        dl.format_lift_markdown(bad)

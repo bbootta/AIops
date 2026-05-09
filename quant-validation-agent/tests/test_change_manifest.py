@@ -47,3 +47,20 @@ def test_status_values_allowed():
     allowed = {"proposed", "applied", "validated", "rolled_back"}
     for e in manifest["entries"]:
         assert e["status"] in allowed
+
+
+@pytest.mark.skipif(
+    not os.environ.get("QVA_STRICT_MANIFEST"),
+    reason="Opt-in via QVA_STRICT_MANIFEST=1.",
+)
+def test_timestamps_are_monotonic_non_decreasing():
+    """Operationally-recommended invariant: change entries appended in order.
+
+    Disabled by default — enable by setting QVA_STRICT_MANIFEST=1 once the
+    operations team has agreed to enforce it.
+    """
+    manifest = _load_json(MANIFEST_PATH)
+    timestamps = [e["timestamp"] for e in manifest["entries"]]
+    assert timestamps == sorted(timestamps), (
+        f"Timestamps must be non-decreasing in append order: {timestamps}"
+    )

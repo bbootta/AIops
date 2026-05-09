@@ -38,6 +38,36 @@
       "green_threshold": 0.10,
       "yellow_threshold": 0.20
     },
+    "rmse_lgd": {
+      "model_types": ["lgd"],
+      "direction": "lower_is_better",
+      "green_threshold": 0.15,
+      "yellow_threshold": 0.25
+    },
+    "bias_lgd": {
+      "model_types": ["lgd"],
+      "direction": "abs_lower_is_better",
+      "green_threshold": 0.03,
+      "yellow_threshold": 0.07
+    },
+    "mae_ead_ratio": {
+      "model_types": ["ead"],
+      "direction": "lower_is_better",
+      "green_threshold": 0.10,
+      "yellow_threshold": 0.20
+    },
+    "rmse_ead_ratio": {
+      "model_types": ["ead"],
+      "direction": "lower_is_better",
+      "green_threshold": 0.15,
+      "yellow_threshold": 0.25
+    },
+    "bias_ead_ratio": {
+      "model_types": ["ead"],
+      "direction": "abs_lower_is_better",
+      "green_threshold": 0.03,
+      "yellow_threshold": 0.07
+    },
     "pd_bias": {
       "model_types": ["pd"],
       "direction": "abs_lower_is_better",

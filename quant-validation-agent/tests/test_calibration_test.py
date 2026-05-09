@@ -70,3 +70,28 @@ def test_binomial_calibration_invalid_alpha():
     df = pd.DataFrame({"p": [0.1], "y": [0], "b": ["a"]})
     with pytest.raises(ValueError):
         ct.binomial_calibration_test(df, "p", "y", "b", alpha=0.0)
+
+
+def test_hosmer_lemeshow_min_per_bin_packs_sparse_sample():
+    rng = np.random.default_rng(42)
+    n = 60
+    p = np.clip(rng.beta(2, 8, size=n), 1e-3, 1 - 1e-3)
+    y = (rng.uniform(size=n) < p).astype(int)
+    out = ct.hosmer_lemeshow_test(y, p, min_per_bin=15)
+    assert out["binning"] == "greedy_min_per_bin"
+    assert out["min_per_bin"] == 15
+    # Each bin must have >= 15 observations -> at most 4 bins for n=60.
+    assert out["n_bins_used"] <= 4
+
+
+def test_hosmer_lemeshow_min_per_bin_too_small():
+    p = np.linspace(0.05, 0.30, 20)
+    y = np.zeros_like(p, dtype=int)
+    y[::2] = 1
+    with pytest.raises(ValueError):
+        ct.hosmer_lemeshow_test(y, p, min_per_bin=15)
+
+
+def test_hosmer_lemeshow_min_per_bin_negative_rejected():
+    with pytest.raises(ValueError):
+        ct.hosmer_lemeshow_test([0, 1] * 50, [0.1, 0.2] * 50, min_per_bin=0)

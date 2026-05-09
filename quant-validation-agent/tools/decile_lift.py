@@ -63,6 +63,41 @@ def build_lift_table(
     return grouped
 
 
+def format_lift_markdown(lift_df: pd.DataFrame, decimals: int = 4) -> str:
+    """Render a lift table (output of build_lift_table) as a markdown table."""
+    if lift_df is None or lift_df.empty:
+        return "| bin | count | defaults | bucket_default_rate | cum_pop_share | cum_default_share | lift |\n|---|---:|---:|---:|---:|---:|---:|\n| (empty) | | | | | | |\n"
+    expected_cols = [
+        "bin",
+        "count",
+        "defaults",
+        "bucket_default_rate",
+        "cum_pop_share",
+        "cum_default_share",
+        "lift",
+    ]
+    missing = [c for c in expected_cols if c not in lift_df.columns]
+    if missing:
+        raise ValueError(f"lift_df missing columns: {missing}")
+    header = "| bin | count | defaults | bucket_default_rate | cum_pop_share | cum_default_share | lift |\n"
+    align = "|---|---:|---:|---:|---:|---:|---:|\n"
+    rows = []
+    for _, row in lift_df.iterrows():
+        rows.append(
+            "| {b} | {c} | {d} | {br:.{p}f} | {cp:.{p}f} | {cd:.{p}f} | {lf:.{p}f} |".format(
+                b=int(row["bin"]),
+                c=int(row["count"]),
+                d=int(row["defaults"]),
+                br=float(row["bucket_default_rate"]),
+                cp=float(row["cum_pop_share"]),
+                cd=float(row["cum_default_share"]),
+                lf=float(row["lift"]),
+                p=int(decimals),
+            )
+        )
+    return header + align + "\n".join(rows) + "\n"
+
+
 def ks_plot_coordinates(
     y_true: Iterable,
     score: Iterable,

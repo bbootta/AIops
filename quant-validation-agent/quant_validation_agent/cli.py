@@ -215,9 +215,27 @@ def cmd_validate(args: argparse.Namespace) -> int:
         rmse = metric_lgd_ead.calculate_rmse(df[args.actual], df[args.predicted])
         bias = metric_lgd_ead.calculate_bias(df[args.actual], df[args.predicted])
         policy = threshold_loader.load_threshold_policy()
-        report["metrics"]["mae"] = _rag_with_threshold(mae, policy, "mae_lgd", segment=args.segment) if args.model_type == "lgd" else {"value": mae, "rag": "Gray", "source": "policy_undefined"}
-        report["metrics"]["rmse"] = {"value": rmse, "rag": "Gray", "source": "policy_undefined"}
-        report["metrics"]["bias"] = {"value": bias, "rag": "Gray", "source": "policy_undefined"}
+        if args.model_type == "lgd":
+            report["metrics"]["mae"] = _rag_with_threshold(mae, policy, "mae_lgd", segment=args.segment)
+            report["metrics"]["rmse"] = _rag_with_threshold(rmse, policy, "rmse_lgd", segment=args.segment)
+            report["metrics"]["bias"] = _rag_with_threshold(bias, policy, "bias_lgd", segment=args.segment)
+        else:
+            # EAD: normalize errors by mean realized to make thresholds portable
+            mean_actual = float(df[args.actual].mean())
+            if mean_actual == 0:
+                report["metrics"]["mae"] = {"value": mae, "rag": "Gray", "source": "mean_actual_zero"}
+                report["metrics"]["rmse"] = {"value": rmse, "rag": "Gray", "source": "mean_actual_zero"}
+                report["metrics"]["bias"] = {"value": bias, "rag": "Gray", "source": "mean_actual_zero"}
+            else:
+                mae_ratio = mae / mean_actual
+                rmse_ratio = rmse / mean_actual
+                bias_ratio = bias / mean_actual
+                report["metrics"]["mae_ratio"] = _rag_with_threshold(mae_ratio, policy, "mae_ead_ratio", segment=args.segment)
+                report["metrics"]["rmse_ratio"] = _rag_with_threshold(rmse_ratio, policy, "rmse_ead_ratio", segment=args.segment)
+                report["metrics"]["bias_ratio"] = _rag_with_threshold(bias_ratio, policy, "bias_ead_ratio", segment=args.segment)
+                report["metrics"]["mae_raw"] = {"value": mae, "rag": "Gray", "source": "raw_currency_units"}
+                report["metrics"]["rmse_raw"] = {"value": rmse, "rag": "Gray", "source": "raw_currency_units"}
+                report["metrics"]["bias_raw"] = {"value": bias, "rag": "Gray", "source": "raw_currency_units"}
     else:
         report["issues"].append({"issue": "unsupported_model_type", "severity": "Red", "evidence": args.model_type})
         print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -227,7 +245,96 @@ def cmd_validate(args: argparse.Namespace) -> int:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
+    if getattr(args, "log_dir", None):
+        from middleware import run_logger
+
+        run_logger.write_run_log(
+            request_summary=f"validate {args.model_type}",
+            inputs=[args.data],
+            functions_used=[
+                "io_utils.read_csv_safely",
+                "schema_guard.check_required_columns",
+                "tools.metric_*",
+            ],
+            main_results=report.get("metrics", {}),
+            errors=[],
+            artifacts=[args.out] if args.out else [],
+            test_results={},
+            incomplete_items=list(report.get("issues", [])),
+            log_dir=args.log_dir,
+        )
     print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_validate_scenario(args: argparse.Namespace) -> int:
+    """Run the scenario regression pipeline against local CSVs."""
+    import pandas as pd
+
+    from tools import io_utils, scenario_regression_pipeline
+
+    hist = io_utils.read_csv_safely(args.hist_data)
+    sc = io_utils.read_csv_safely(args.scenario_data)
+    hist = io_utils.normalize_column_names(hist)
+    sc = io_utils.normalize_column_names(sc)
+
+    feats = [c.strip() for c in args.features.split(",") if c.strip()]
+    if not feats:
+        print(json.dumps({"error": "no features parsed from --features"}, ensure_ascii=False))
+        return 4
+    expected_signs = None
+    if args.expected_signs:
+        expected_signs = {}
+        for kv in args.expected_signs.split(","):
+            if "=" not in kv:
+                continue
+            k, v = kv.split("=", 1)
+            expected_signs[k.strip()] = v.strip()
+    floors = None
+    if args.multiplier_floors:
+        floors = {}
+        for kv in args.multiplier_floors.split(","):
+            if "=" not in kv:
+                continue
+            k, v = kv.split("=", 1)
+            try:
+                floors[k.strip()] = float(v.strip())
+            except ValueError:
+                continue
+    out = scenario_regression_pipeline.run_pipeline(
+        hist,
+        target_col=args.target,
+        feature_cols=feats,
+        scenario_df=sc,
+        scenario_col=args.scenario_col,
+        period_col=args.period_col,
+        pred_col_in_scenario=args.pred_col_in_scenario,
+        expected_signs=expected_signs,
+        multiplier_floor_by_scenario=floors,
+        severity_direction=args.direction,
+    )
+    if args.out:
+        os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(out, f, ensure_ascii=False, indent=2, default=str)
+    if getattr(args, "log_dir", None):
+        from middleware import run_logger
+
+        run_logger.write_run_log(
+            request_summary="validate-scenario",
+            inputs=[args.hist_data, args.scenario_data],
+            functions_used=["scenario_regression_pipeline.run_pipeline"],
+            main_results={
+                "fit_summary": out["fit"]["summary"],
+                "severity_violations": out["severity"]["order"]["n_violation_total"],
+            },
+            errors=[],
+            artifacts=[args.out] if args.out else [],
+            test_results={},
+            incomplete_items=[],
+            log_dir=args.log_dir,
+        )
+    print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
     return 0
 
 
@@ -330,6 +437,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Value of dataset-col denoting baseline (e.g., dev).")
     p_v.add_argument("--segment", help="Segment label for threshold overrides.")
     p_v.add_argument("--out", help="Optional path to write the JSON report.")
+    p_v.add_argument("--log-dir", dest="log_dir",
+                     help="Optional directory to write a run-log JSON via middleware.run_logger.")
     p_v.set_defaults(func=cmd_validate)
 
     p_n = sub.add_parser("note", help="Append a recurring-finding note.")
@@ -338,6 +447,35 @@ def build_parser() -> argparse.ArgumentParser:
     p_n.add_argument("--model", help="Model name or type for the note.")
     p_n.add_argument("--path", help="Override target file path.")
     p_n.set_defaults(func=cmd_note)
+
+    p_vs = sub.add_parser(
+        "validate-scenario",
+        help="Run the scenario regression pipeline on local CSV inputs.",
+    )
+    p_vs.add_argument("--hist-data", dest="hist_data", required=True,
+                      help="Historical data CSV for OLS fitting.")
+    p_vs.add_argument("--scenario-data", dest="scenario_data", required=True,
+                      help="Scenario data CSV with base/adverse/severe rows.")
+    p_vs.add_argument("--target", required=True,
+                      help="Target column in hist data.")
+    p_vs.add_argument("--features", required=True,
+                      help="Comma-separated feature column names.")
+    p_vs.add_argument("--scenario-col", dest="scenario_col", default="scenario",
+                      help="Scenario label column in scenario data.")
+    p_vs.add_argument("--period-col", dest="period_col", default=None,
+                      help="Optional period column for time-aligned severity check.")
+    p_vs.add_argument("--pred-col-in-scenario", dest="pred_col_in_scenario", default=None,
+                      help="If set, use this column instead of model prediction.")
+    p_vs.add_argument("--expected-signs", dest="expected_signs", default=None,
+                      help="Optional comma-separated expected signs, e.g. gdp=-,unemp=+")
+    p_vs.add_argument("--multiplier-floors", dest="multiplier_floors", default=None,
+                      help="Optional comma-separated floors per scenario, e.g. base=1.0,severe=1.0")
+    p_vs.add_argument("--direction", default="higher_is_worse",
+                      choices=["higher_is_worse", "lower_is_worse"])
+    p_vs.add_argument("--out", help="Optional path to write the JSON report.")
+    p_vs.add_argument("--log-dir", dest="log_dir",
+                      help="Optional directory to write a run-log JSON via middleware.run_logger.")
+    p_vs.set_defaults(func=cmd_validate_scenario)
 
     return parser
 
