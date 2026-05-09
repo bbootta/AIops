@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quant-validation-agent/harness/threshold_policy.schema.json",
+  "title": "Threshold Policy",
+  "description": "Schema for the externalized threshold policy used by tools.threshold_loader.",
+  "type": "object",
+  "required": ["metrics"],
+  "properties": {
+    "policy_version": { "type": "string" },
+    "notes": { "type": "string" },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/metricDefinition"
+      }
+    },
+    "sample_size": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "direction": { "$ref": "#/$defs/direction" },
+          "green_threshold": { "type": "number" },
+          "yellow_threshold": { "type": "number" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "properties": {
+        "order_violation_is_red": { "type": "boolean" },
+        "multiplier_floor": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "ead_metric_settings": {
+      "type": "object",
+      "properties": {
+        "normalizer": { "type": "string" },
+        "allowed_normalizers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      },
+      "required": ["normalizer", "allowed_normalizers"]
+    },
+    "by_segment": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "metrics": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "green_threshold": { "type": "number" },
+                "yellow_threshold": { "type": "number" }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "direction": {
+      "type": "string",
+      "enum": ["higher_is_better", "lower_is_better", "abs_lower_is_better"]
+    },
+    "metricDefinition": {
+      "type": "object",
+      "required": ["direction", "green_threshold", "yellow_threshold"],
+      "properties": {
+        "model_types": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "direction": { "$ref": "#/$defs/direction" },
+        "green_threshold": { "type": "number" },
+        "yellow_threshold": { "type": "number" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

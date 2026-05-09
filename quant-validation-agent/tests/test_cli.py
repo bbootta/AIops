@@ -247,6 +247,42 @@ def test_cli_report_missing_input(tmp_path):
     assert res.returncode == 4
 
 
+def test_cli_report_no_input_returns_error(tmp_path):
+    res = _run(["report"])
+    assert res.returncode == 4
+
+
+def test_cli_report_renders_scenario_input(tmp_path):
+    hist = os.path.join(ROOT, "examples", "sample_macro_history.csv")
+    sc = os.path.join(ROOT, "examples", "sample_macro_scenario.csv")
+    json_out = tmp_path / "scenario.json"
+    md_out = tmp_path / "scenario.md"
+    res1 = _run(
+        [
+            "validate-scenario",
+            "--hist-data", hist,
+            "--scenario-data", sc,
+            "--target", "pd_multiplier",
+            "--features", "gdp_growth,unemployment,bond_spread",
+            "--scenario-col", "scenario",
+            "--period-col", "period",
+            "--pred-col-in-scenario", "pd_multiplier",
+            "--multiplier-floors", "base=1.0,adverse=1.0,severe=1.0",
+            "--out", str(json_out),
+        ]
+    )
+    assert res1.returncode == 0, res1.stderr
+    res2 = _run(["report", "--scenario-input", str(json_out), "--out", str(md_out)])
+    assert res2.returncode == 0, res2.stderr
+    text = md_out.read_text(encoding="utf-8")
+    assert "## 1. 검증 요약" in text
+    assert "PD multiplier" in text or "시나리오 회귀" in text
+    assert "ADF" in text or "stationarity" in text.lower()
+    assert "시나리오 결과" in text
+    assert "Multiplier floor" in text
+    assert "Durbin–Watson" in text
+
+
 def test_cli_validate_writes_run_log(tmp_path):
     sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
     log_dir = tmp_path / "runlogs"
@@ -291,6 +327,28 @@ def test_cli_validate_pd_calibration_aggregated(tmp_path):
     assert "spiegelhalter_z" in payload
     assert payload["binomial_per_bucket"] is not None
     assert out.exists()
+
+
+def test_cli_validate_pd_calibration_with_hl_rag(tmp_path):
+    sample = os.path.join(ROOT, "examples", "sample_pd_timeseries.csv")
+    result = _run(
+        [
+            "validate-pd-calibration",
+            "--data", sample,
+            "--pred-col", "predicted_pd",
+            "--default-col", "defaults",
+            "--count-col", "count",
+            "--bucket-col", "grade",
+            "--hl-bins", "5",
+            "--hl-rag",
+        ]
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["hl_rag_enabled"] is True
+    assert "hl_pvalue" in payload["metrics"]
+    assert "spiegel_pvalue" in payload["metrics"]
+    assert payload["metrics"]["hl_pvalue"]["rag"] in {"Green", "Yellow", "Red", "Gray"}
 
 
 def test_cli_validate_pd_calibration_missing_columns(tmp_path):

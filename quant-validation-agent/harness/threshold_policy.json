@@ -85,6 +85,18 @@
       "direction": "lower_is_better",
       "green_threshold": 15,
       "yellow_threshold": 30
+    },
+    "hl_pvalue": {
+      "model_types": ["pd"],
+      "direction": "higher_is_better",
+      "green_threshold": 0.05,
+      "yellow_threshold": 0.01
+    },
+    "spiegel_pvalue": {
+      "model_types": ["pd"],
+      "direction": "higher_is_better",
+      "green_threshold": 0.05,
+      "yellow_threshold": 0.01
     }
   },
   "sample_size": {

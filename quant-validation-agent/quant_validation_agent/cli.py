@@ -447,14 +447,137 @@ def _render_report_markdown(report: dict) -> str:
     return "\n".join(out)
 
 
+def _render_scenario_report_markdown(scenario_report: dict) -> str:
+    """Render a validate-scenario JSON output as the standard 9-section markdown."""
+    from tools import markdown_renderers as mr
+
+    fit = scenario_report.get("fit", {}) or {}
+    severity = scenario_report.get("severity", {}) or {}
+    floors = scenario_report.get("multiplier_floors", []) or []
+    summary = fit.get("summary", {}) or {}
+    pvals = fit.get("pvalues", []) or []
+    vif = fit.get("vif", []) or []
+
+    n_vio = (severity.get("order") or {}).get("n_violation_total", 0)
+    floor_violation = any(f.get("violation") for f in floors)
+    if n_vio > 0 or floor_violation:
+        overall = "Red"
+    else:
+        overall = "Yellow"  # no thresholds applied to fit metrics in CLI
+
+    out: List[str] = []
+    out.append("## 1. 검증 요약")
+    out.append("- 모형 유형: PD multiplier / 시나리오 회귀")
+    out.append(f"- 표본 수 (역사 데이터): {fit.get('n', '—')}")
+    out.append(f"- 설명변수 수: {fit.get('k', '—')}")
+    out.append(f"- 자기상관 검정 lag: {fit.get('autocorr_lags', '—')}")
+    out.append(f"- 시나리오 서열 위반: {n_vio}")
+    out.append(f"- Multiplier floor 위반: {sum(1 for f in floors if f.get('violation'))}/{len(floors)}")
+    out.append(f"- RAG 상태: **{overall}**")
+    out.append("")
+
+    out.append("## 2. 입력 데이터 점검")
+    stationarity = fit.get("stationarity")
+    if stationarity:
+        import pandas as pd
+
+        df = pd.DataFrame(stationarity)
+        out.append("**ADF stationarity**\n")
+        cols = [c for c in df.columns if c in ("variable", "adf_stat", "pvalue", "stationary_at_alpha", "error")]
+        out.append(mr.render_dataframe_markdown(df, columns=cols, aligns={"adf_stat": "right", "pvalue": "right"}))
+    else:
+        out.append("- ADF stationarity 정보 없음 (skip 또는 실패).")
+        out.append("")
+
+    out.append("## 3. 주요 지표")
+    out.append("")
+    out.append(mr.render_regression_summary(summary, pvals, vif))
+
+    out.append("## 4. 세부 분석")
+    out.append("")
+    out.append(mr.render_scenario_severity(severity, floors))
+    out.append("")
+    out.append("**시계열 진단**\n")
+    out.append(
+        f"- Durbin–Watson: {fit.get('durbin_watson', '—')}\n"
+        f"- Breusch–Godfrey: {json.dumps(fit.get('breusch_godfrey', {}), ensure_ascii=False)}\n"
+        f"- ARCH: {json.dumps(fit.get('arch_test', {}), ensure_ascii=False)}\n"
+        f"- Condition Index (max): {(fit.get('condition_index') or {}).get('max_condition_index', '—')}\n"
+    )
+
+    out.append("## 5. 이상 징후")
+    issues = []
+    if n_vio > 0:
+        issues.append(
+            {
+                "issue": "scenario_order_violation",
+                "severity": "Red",
+                "evidence": f"n_violation_total={n_vio}",
+                "candidate_cause": "시나리오 입력 또는 모형 비선형성",
+                "next_action": "시나리오 입력값 재검토",
+            }
+        )
+    for f in floors:
+        if f.get("violation"):
+            issues.append(
+                {
+                    "issue": "multiplier_floor_violation",
+                    "severity": "Red",
+                    "evidence": f"scenario={f.get('scenario_type')}, n_below={f.get('n_below_floor')}",
+                    "candidate_cause": "floor 정책 미적용",
+                    "next_action": "정책 확정 및 사후 검증",
+                }
+            )
+    out.append(mr.render_issue_table(issues))
+
+    out.append("## 6. 한계")
+    out.append(
+        "- 본 자동 리포트는 정량 진단만 포함하며, 시나리오 정의·정책 floor·구조적 모형 적합성은 인간 검증자가 별도로 점검한다.\n"
+        "- ADF는 단일 단위근 검정이며, 다중 단위근·구조 변화 점검은 미포함.\n"
+    )
+
+    out.append("## 7. 검증 의견 초안")
+    out.append("")
+    out.append(
+        "- 시나리오 회귀 진단 결과는 정량 결과에 근거한 초안이며, 모형 적합/부적합을 단정하지 않는다.\n"
+        "- 데이터 정의, 시차 구조, floor 정책에 대한 인간 검증자의 확인이 필요하다.\n"
+    )
+
+    out.append("## 8. 추가 확인사항")
+    out.append("- 정책 담당: scenario floor·서열 정책 확인")
+    out.append("- 데이터 담당: 시계열 변환·정상성·시차 정합성 확인")
+    out.append("- 모형 개발부서: 비유의 변수 / 부호 위배 / 다중공선성 대응")
+    out.append("")
+
+    out.append("## 9. 감사추적")
+    out.append("- 산출 도구: tools/scenario_regression_pipeline.py + tools/markdown_renderers.py")
+    out.append("- change_manifest 기록 여부: 별도 운영 절차에 따라 추가")
+    out.append("")
+    return "\n".join(out)
+
+
 def cmd_report(args: argparse.Namespace) -> int:
-    """Render a validate JSON report into a 9-section markdown file."""
-    if not os.path.exists(args.input):
-        print(json.dumps({"error": f"input not found: {args.input}"}, ensure_ascii=False))
+    """Render a validate JSON report into a 9-section markdown file.
+
+    Accepts either:
+      --input <validate JSON>       (scoring/PD/LGD/EAD)
+      --scenario-input <JSON>       (validate-scenario)
+    """
+    if args.scenario_input:
+        path = args.scenario_input
+        renderer = _render_scenario_report_markdown
+    elif args.input:
+        path = args.input
+        renderer = _render_report_markdown
+    else:
+        print(json.dumps({"error": "either --input or --scenario-input is required"}, ensure_ascii=False))
         return 4
-    with open(args.input, "r", encoding="utf-8") as f:
+    if not os.path.exists(path):
+        print(json.dumps({"error": f"input not found: {path}"}, ensure_ascii=False))
+        return 4
+    with open(path, "r", encoding="utf-8") as f:
         report = json.load(f)
-    md = _render_report_markdown(report)
+    md = renderer(report)
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as f:
@@ -571,6 +694,17 @@ def cmd_validate_pd_calibration(args: argparse.Namespace) -> int:
         "binomial_per_bucket": binomial_records,
         "bias_detail": bias_info,
     }
+    if args.hl_rag:
+        report["metrics"]["hl_pvalue"] = _rag_with_threshold(
+            hl.get("pvalue"), policy, "hl_pvalue", segment=args.segment
+        )
+        report["metrics"]["spiegel_pvalue"] = _rag_with_threshold(
+            spiegel.get("pvalue"), policy, "spiegel_pvalue", segment=args.segment
+        )
+        report["hl_rag_enabled"] = True
+        report["hl_rag_caveat"] = (
+            "HL/Spiegelhalter RAG는 표본 크기에 민감하며, 단독으로 적합/부적합을 단정하지 않는다."
+        )
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as f:
@@ -721,7 +855,9 @@ def build_parser() -> argparse.ArgumentParser:
         "report",
         help="Render a validate JSON report into the standard 9-section markdown.",
     )
-    p_r.add_argument("--input", required=True, help="Path to a validate JSON report.")
+    p_r.add_argument("--input", help="Path to a validate JSON report (scoring/PD/LGD/EAD).")
+    p_r.add_argument("--scenario-input", dest="scenario_input",
+                     help="Path to a validate-scenario JSON report.")
     p_r.add_argument("--out", help="Optional path to write the markdown report.")
     p_r.set_defaults(func=cmd_report)
 
@@ -742,6 +878,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_pdc.add_argument("--hl-min-per-bin", dest="hl_min_per_bin", default=None, type=int,
                        help="If set, use greedy min-per-bin packing instead of quantile bins.")
     p_pdc.add_argument("--binomial-alpha", dest="binomial_alpha", default=0.05, type=float)
+    p_pdc.add_argument("--hl-rag", dest="hl_rag", action="store_true",
+                       help="Opt-in: also assign RAG to HL and Spiegelhalter p-values. "
+                            "Output is sample-size sensitive; do not use alone for adequacy.")
     p_pdc.add_argument("--segment", help="Segment label for threshold overrides.")
     p_pdc.add_argument("--out", help="Optional path to write the JSON report.")
     p_pdc.add_argument("--log-dir", dest="log_dir",

@@ -97,3 +97,97 @@ def load_manifest(manifest_path: str) -> dict:
         raise FileNotFoundError(f"Manifest not found: {manifest_path}")
     with open(manifest_path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+# ---------------------------------------------------------------------------
+# Lock-file workflow
+#
+# A lock file pins the last *approved* policy digest along with the change_id
+# that approved it. The flow is:
+#   1. Reviewer approves a manifest entry that mutates threshold_policy.json
+#      (human_approval_required: true).
+#   2. After applying the change, an authorized actor calls update_lock to
+#      record the new digest + change_id + timestamp.
+#   3. CI (or a pre-flight check) calls verify_against_lock to confirm the
+#      live policy digest matches the lock. A mismatch blocks usage until
+#      the lock is updated through the approved flow.
+# ---------------------------------------------------------------------------
+
+import datetime as _dt
+
+
+def update_lock(
+    policy_path: str,
+    change_id: str,
+    lock_path: str,
+    approved_at: str | None = None,
+) -> dict:
+    """Write the lock-file pinning the current policy digest to a change_id.
+
+    The caller is responsible for ensuring the change is actually approved;
+    this helper does not re-validate that. It is intended to be invoked by
+    an authorized actor after manifest approval.
+    """
+    if not change_id or not str(change_id).startswith("CHG-"):
+        raise ValueError("change_id must be of the form 'CHG-####'.")
+    digest = compute_policy_digest(policy_path)
+    record = {
+        "policy_path": os.path.abspath(policy_path),
+        "policy_digest": digest,
+        "approved_change_id": change_id,
+        "approved_at": approved_at or _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    parent = os.path.dirname(os.path.abspath(lock_path))
+    if parent and not os.path.exists(parent):
+        os.makedirs(parent, exist_ok=True)
+    with open(lock_path, "w", encoding="utf-8") as f:
+        json.dump(record, f, ensure_ascii=False, indent=2)
+    return record
+
+
+def load_lock(lock_path: str) -> dict:
+    """Read a lock-file. Returns an empty dict if missing."""
+    if not os.path.exists(lock_path):
+        return {}
+    with open(lock_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def verify_against_lock(policy_path: str, lock_path: str) -> dict:
+    """Compare the live policy digest against the recorded lock digest.
+
+    Returns:
+        {
+            "current_digest": <hex>,
+            "lock_digest": <hex|None>,
+            "approved_change_id": <str|None>,
+            "is_synced": bool,        # True only when digests match exactly
+            "lock_present": bool,
+        }
+    """
+    current = compute_policy_digest(policy_path)
+    lock = load_lock(lock_path)
+    lock_digest = lock.get("policy_digest")
+    return {
+        "current_digest": current,
+        "lock_digest": lock_digest,
+        "approved_change_id": lock.get("approved_change_id"),
+        "approved_at": lock.get("approved_at"),
+        "is_synced": bool(lock_digest) and lock_digest == current,
+        "lock_present": bool(lock),
+    }
+
+
+def assert_policy_synced_with_lock(policy_path: str, lock_path: str) -> None:
+    """Raise PermissionError when the live policy diverges from the lock."""
+    info = verify_against_lock(policy_path, lock_path)
+    if not info["lock_present"]:
+        raise PermissionError(
+            f"No policy lock found at {lock_path}. Approve the policy and run update_lock first."
+        )
+    if not info["is_synced"]:
+        raise PermissionError(
+            "Policy digest does not match lock. "
+            f"current={info['current_digest']}, lock={info['lock_digest']}, "
+            f"approved_change_id={info['approved_change_id']}."
+        )

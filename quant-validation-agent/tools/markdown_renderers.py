@@ -158,3 +158,65 @@ def render_calibration_table(table_df: pd.DataFrame, decimals: int = 4) -> str:
     cols = list(table_df.columns)
     aligns = {"count": "right", "mean_pred": "right", "mean_actual": "right", "diff": "right"}
     return render_dataframe_markdown(table_df, columns=cols, aligns=aligns, decimals=decimals)
+
+
+def render_scenario_severity(
+    severity: Mapping, multiplier_floors: Optional[Iterable[Mapping]] = None,
+    decimals: int = 4,
+) -> str:
+    """Render the scenario severity / floor block for a scenario report.
+
+    Expects the structure produced by tools.scenario_regression_pipeline:
+      severity = {"pivot": [{period, base, adverse, severe}, ...],
+                  "order": {n_violation_total, n_violation_base_vs_adverse,
+                            n_violation_adverse_vs_severe, ...}}
+      multiplier_floors = [{scenario_type, floor, n_below_floor, violation, ...}]
+    """
+    parts: List[str] = []
+    pivot = (severity or {}).get("pivot") or []
+    order = (severity or {}).get("order") or {}
+
+    if pivot:
+        df = pd.DataFrame(pivot)
+        cols = [c for c in df.columns if c in ("period", "base", "adverse", "severe")]
+        if "period" in cols:
+            df = df[cols]
+        parts.append("**시나리오 결과 (period × scenario)**\n")
+        aligns = {c: "right" for c in cols if c != "period"}
+        parts.append(render_dataframe_markdown(df, aligns=aligns, decimals=decimals))
+    else:
+        parts.append("- 시나리오 pivot 데이터 없음.")
+
+    parts.append(
+        "**서열 위반 요약**\n\n"
+        + f"- 전체 행: {order.get('n', '—')}\n"
+        + f"- base > adverse 위반: {order.get('n_violation_base_vs_adverse', 0)}\n"
+        + f"- adverse > severe 위반: {order.get('n_violation_adverse_vs_severe', 0)}\n"
+        + f"- 총 위반: {order.get('n_violation_total', 0)}\n"
+    )
+
+    floors = list(multiplier_floors or [])
+    if floors:
+        rows = []
+        for f in floors:
+            rows.append(
+                {
+                    "scenario": f.get("scenario_type", ""),
+                    "floor": f.get("floor", ""),
+                    "n": f.get("n", ""),
+                    "n_below_floor": f.get("n_below_floor", ""),
+                    "violation": f.get("violation", ""),
+                    "min": f.get("min", ""),
+                    "max": f.get("max", ""),
+                }
+            )
+        df = pd.DataFrame(rows)
+        parts.append("\n**Multiplier floor 점검**\n")
+        parts.append(
+            render_dataframe_markdown(
+                df,
+                aligns={"floor": "right", "n": "right", "n_below_floor": "right", "min": "right", "max": "right"},
+                decimals=decimals,
+            )
+        )
+    return "\n".join(parts).strip() + "\n"

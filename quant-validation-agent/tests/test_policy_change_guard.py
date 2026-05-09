@@ -80,3 +80,60 @@ def test_assert_ignores_unrelated_components():
 def test_real_repo_passes_assertion():
     manifest = pcg.load_manifest(MANIFEST_PATH)
     pcg.assert_policy_changes_approved(manifest)
+
+
+def test_update_lock_round_trip(tmp_path):
+    fake_policy = tmp_path / "policy.json"
+    fake_policy.write_text('{"metrics": {}}', encoding="utf-8")
+    lock_path = tmp_path / "policy.lock.json"
+    rec = pcg.update_lock(str(fake_policy), "CHG-9100", str(lock_path),
+                          approved_at="2026-05-06 10:00:00")
+    assert rec["approved_change_id"] == "CHG-9100"
+    info = pcg.verify_against_lock(str(fake_policy), str(lock_path))
+    assert info["is_synced"] is True
+    assert info["lock_present"] is True
+
+
+def test_update_lock_rejects_invalid_change_id(tmp_path):
+    fake_policy = tmp_path / "policy.json"
+    fake_policy.write_text("{}", encoding="utf-8")
+    lock_path = tmp_path / "policy.lock.json"
+    with pytest.raises(ValueError):
+        pcg.update_lock(str(fake_policy), "not-a-valid-id", str(lock_path))
+
+
+def test_verify_detects_drift(tmp_path):
+    fake_policy = tmp_path / "policy.json"
+    fake_policy.write_text('{"metrics": {}}', encoding="utf-8")
+    lock_path = tmp_path / "policy.lock.json"
+    pcg.update_lock(str(fake_policy), "CHG-9101", str(lock_path))
+    # Drift the policy without updating the lock.
+    fake_policy.write_text('{"metrics": {"new": {}}}', encoding="utf-8")
+    info = pcg.verify_against_lock(str(fake_policy), str(lock_path))
+    assert info["is_synced"] is False
+
+
+def test_assert_synced_raises_when_missing_lock(tmp_path):
+    fake_policy = tmp_path / "policy.json"
+    fake_policy.write_text("{}", encoding="utf-8")
+    lock_path = tmp_path / "missing.json"
+    with pytest.raises(PermissionError):
+        pcg.assert_policy_synced_with_lock(str(fake_policy), str(lock_path))
+
+
+def test_assert_synced_raises_when_drifted(tmp_path):
+    fake_policy = tmp_path / "policy.json"
+    fake_policy.write_text("{}", encoding="utf-8")
+    lock_path = tmp_path / "policy.lock.json"
+    pcg.update_lock(str(fake_policy), "CHG-9102", str(lock_path))
+    fake_policy.write_text('{"x": 1}', encoding="utf-8")
+    with pytest.raises(PermissionError):
+        pcg.assert_policy_synced_with_lock(str(fake_policy), str(lock_path))
+
+
+def test_assert_synced_passes_when_locked(tmp_path):
+    fake_policy = tmp_path / "policy.json"
+    fake_policy.write_text("{}", encoding="utf-8")
+    lock_path = tmp_path / "policy.lock.json"
+    pcg.update_lock(str(fake_policy), "CHG-9103", str(lock_path))
+    pcg.assert_policy_synced_with_lock(str(fake_policy), str(lock_path))

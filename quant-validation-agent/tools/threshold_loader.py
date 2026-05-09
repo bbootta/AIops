@@ -14,6 +14,34 @@ DEFAULT_POLICY_PATH = os.path.join(
     "harness",
     "threshold_policy.json",
 )
+DEFAULT_SCHEMA_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "harness",
+    "threshold_policy.schema.json",
+)
+
+
+def validate_policy(policy: dict, schema_path: Optional[str] = None) -> None:
+    """Validate a policy dict against threshold_policy.schema.json.
+
+    Raises:
+        ValueError if the policy violates the schema, wrapping the underlying
+        jsonschema ValidationError. Caller can catch ValueError uniformly.
+    """
+    p = schema_path or DEFAULT_SCHEMA_PATH
+    if not os.path.exists(p):
+        raise FileNotFoundError(f"Threshold policy schema not found: {p}")
+    with open(p, "r", encoding="utf-8") as f:
+        schema = json.load(f)
+    try:
+        import jsonschema  # local import — jsonschema is in requirements.txt
+    except Exception as e:
+        raise RuntimeError(f"jsonschema unavailable: {e}")
+    try:
+        jsonschema.validate(policy, schema)
+    except jsonschema.ValidationError as e:  # type: ignore[attr-defined]
+        # Re-raise as a plain ValueError to keep loader's error surface uniform.
+        raise ValueError(f"threshold_policy schema violation: {e.message}") from e
 
 
 def load_threshold_policy(path: Optional[str] = None) -> dict:

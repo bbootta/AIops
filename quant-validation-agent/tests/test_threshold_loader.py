@@ -67,6 +67,47 @@ def test_get_ead_metric_settings_invalid_rejected():
         tl.get_ead_metric_settings(bad_policy)
 
 
+def test_validate_policy_accepts_real_repo_policy():
+    policy = tl.load_threshold_policy()
+    tl.validate_policy(policy)
+
+
+def test_validate_policy_rejects_bad_direction():
+    bad = {
+        "metrics": {
+            "ks": {
+                "direction": "diagonal",
+                "green_threshold": 0.4,
+                "yellow_threshold": 0.3,
+            }
+        }
+    }
+    with pytest.raises(ValueError):
+        tl.validate_policy(bad)
+
+
+def test_validate_policy_rejects_missing_threshold():
+    bad = {
+        "metrics": {
+            "ks": {
+                "direction": "higher_is_better",
+                "green_threshold": 0.4
+            }
+        }
+    }
+    with pytest.raises(ValueError):
+        tl.validate_policy(bad)
+
+
+def test_validate_policy_rejects_unknown_top_level_key():
+    bad = {
+        "metrics": {},
+        "totally_unrelated_block": {"x": 1},
+    }
+    with pytest.raises(ValueError):
+        tl.validate_policy(bad)
+
+
 def test_get_metric_threshold_pd_bias_uses_abs():
     policy = tl.load_threshold_policy()
     out = tl.get_metric_threshold(policy, "pd_bias")

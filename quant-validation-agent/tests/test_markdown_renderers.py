@@ -60,3 +60,34 @@ def test_render_calibration_table_rejects_missing_columns():
     bad = pd.DataFrame({"count": [10], "mean_pred": [0.1]})
     with pytest.raises(ValueError):
         mr.render_calibration_table(bad)
+
+
+def test_render_scenario_severity_with_pivot_and_floors():
+    severity = {
+        "pivot": [
+            {"period": "2026Q1", "base": 1.0, "adverse": 1.4, "severe": 2.1},
+            {"period": "2026Q2", "base": 1.05, "adverse": 1.55, "severe": 2.4},
+        ],
+        "order": {
+            "n": 2,
+            "n_violation_total": 0,
+            "n_violation_base_vs_adverse": 0,
+            "n_violation_adverse_vs_severe": 0,
+        },
+    }
+    floors = [
+        {"scenario_type": "base", "floor": 1.0, "n": 2, "n_below_floor": 0,
+         "violation": False, "min": 1.0, "max": 1.05},
+    ]
+    out = mr.render_scenario_severity(severity, floors)
+    assert "시나리오 결과" in out
+    assert "2026Q1" in out and "2026Q2" in out
+    assert "총 위반: 0" in out
+    assert "Multiplier floor" in out
+    assert "base" in out
+
+
+def test_render_scenario_severity_handles_empty_pivot():
+    out = mr.render_scenario_severity({}, [])
+    assert "시나리오 pivot 데이터 없음" in out
+    assert "총 위반: 0" in out
