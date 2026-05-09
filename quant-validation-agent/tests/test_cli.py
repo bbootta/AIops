@@ -139,6 +139,25 @@ def test_cli_validate_ead_ratio_metrics():
     payload = json.loads(result.stdout)
     assert {"mae_ratio", "rmse_ratio", "bias_ratio"}.issubset(payload["metrics"].keys())
     assert payload["metrics"]["mae_ratio"]["rag"] in {"Green", "Yellow", "Red"}
+    # Default normalizer should come from policy.
+    assert payload["ead_normalizer"] == "mean_realized"
+
+
+def test_cli_validate_ead_with_total_exposure_normalizer():
+    sample = os.path.join(ROOT, "examples", "sample_lgd_ead_data.csv")
+    result = _run(
+        [
+            "validate",
+            "--data", sample,
+            "--model-type", "ead",
+            "--actual", "realized_ead",
+            "--predicted", "predicted_ead",
+            "--ead-normalizer", "total_exposure",
+        ]
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["ead_normalizer"] == "total_exposure"
 
 
 def test_cli_validate_missing_columns(tmp_path):
@@ -191,6 +210,43 @@ def test_cli_note_blocks_pii(tmp_path):
     assert not target.exists()
 
 
+def test_cli_report_renders_nine_sections(tmp_path):
+    sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
+    json_out = tmp_path / "report.json"
+    md_out = tmp_path / "report.md"
+    res1 = _run(
+        [
+            "validate",
+            "--data", sample,
+            "--model-type", "scoring",
+            "--target", "target",
+            "--score", "score",
+            "--out", str(json_out),
+        ]
+    )
+    assert res1.returncode == 0, res1.stderr
+    res2 = _run(["report", "--input", str(json_out), "--out", str(md_out)])
+    assert res2.returncode == 0, res2.stderr
+    text = md_out.read_text(encoding="utf-8")
+    for header in [
+        "## 1. 검증 요약",
+        "## 2. 입력 데이터 점검",
+        "## 3. 주요 지표",
+        "## 4. 세부 분석",
+        "## 5. 이상 징후",
+        "## 6. 한계",
+        "## 7. 검증 의견 초안",
+        "## 8. 추가 확인사항",
+        "## 9. 감사추적",
+    ]:
+        assert header in text
+
+
+def test_cli_report_missing_input(tmp_path):
+    res = _run(["report", "--input", str(tmp_path / "nope.json")])
+    assert res.returncode == 4
+
+
 def test_cli_validate_writes_run_log(tmp_path):
     sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
     log_dir = tmp_path / "runlogs"
@@ -210,6 +266,45 @@ def test_cli_validate_writes_run_log(tmp_path):
     payload = json.loads(files[0].read_text(encoding="utf-8"))
     assert payload["request_summary"].startswith("validate ")
     assert "main_results" in payload
+
+
+def test_cli_validate_pd_calibration_aggregated(tmp_path):
+    sample = os.path.join(ROOT, "examples", "sample_pd_timeseries.csv")
+    out = tmp_path / "pdcal.json"
+    result = _run(
+        [
+            "validate-pd-calibration",
+            "--data", sample,
+            "--pred-col", "predicted_pd",
+            "--default-col", "defaults",
+            "--count-col", "count",
+            "--bucket-col", "grade",
+            "--hl-bins", "5",
+            "--out", str(out),
+        ]
+    )
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert "metrics" in payload
+    assert "brier" in payload["metrics"] and "pd_bias" in payload["metrics"]
+    assert "hosmer_lemeshow" in payload
+    assert "spiegelhalter_z" in payload
+    assert payload["binomial_per_bucket"] is not None
+    assert out.exists()
+
+
+def test_cli_validate_pd_calibration_missing_columns(tmp_path):
+    csv = tmp_path / "tiny.csv"
+    csv.write_text("a,b\n1,2\n", encoding="utf-8")
+    result = _run(
+        [
+            "validate-pd-calibration",
+            "--data", str(csv),
+            "--pred-col", "predicted_pd",
+            "--default-col", "default_flag",
+        ]
+    )
+    assert result.returncode == 4
 
 
 def test_cli_validate_scenario_with_supplied_multipliers(tmp_path):

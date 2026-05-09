@@ -98,6 +98,55 @@ def test_check_multiplier_floors_detects_violation():
     assert base["n_below_floor"] == 1
 
 
+def test_adf_stationarity_check_iid_rejects_unit_root():
+    rng = np.random.default_rng(0)
+    s = pd.Series(rng.normal(0, 1, size=200))
+    out = srp.adf_stationarity_check(s, alpha=0.05)
+    assert out["stationary_at_alpha"] is True
+
+
+def test_adf_stationarity_check_random_walk_does_not_reject():
+    rng = np.random.default_rng(1)
+    rw = np.cumsum(rng.normal(0, 1, size=200))
+    out = srp.adf_stationarity_check(pd.Series(rw), alpha=0.05)
+    assert out["stationary_at_alpha"] is False
+
+
+def test_adf_too_short_raises():
+    with pytest.raises(ValueError):
+        srp.adf_stationarity_check(pd.Series([1.0, 2.0, 3.0]))
+
+
+def test_check_feature_stationarity_returns_dataframe():
+    hist = _hist_df()
+    out = srp.check_feature_stationarity(hist, ["pd_multiplier", "gdp_growth"], alpha=0.05)
+    assert {"variable", "adf_stat", "pvalue", "stationary_at_alpha"}.issubset(out.columns)
+
+
+def test_fit_includes_stationarity_when_requested():
+    hist = _hist_df()
+    fit = srp.fit_scenario_regression(
+        hist,
+        "pd_multiplier",
+        ["gdp_growth", "unemployment", "bond_spread"],
+        autocorr_lags=2,
+        run_stationarity_check=True,
+    )
+    assert fit["stationarity"] is not None
+    assert fit["autocorr_lags"] == 2
+
+
+def test_fit_skips_stationarity_when_disabled():
+    hist = _hist_df()
+    fit = srp.fit_scenario_regression(
+        hist,
+        "pd_multiplier",
+        ["gdp_growth", "unemployment", "bond_spread"],
+        run_stationarity_check=False,
+    )
+    assert fit["stationarity"] is None
+
+
 def test_run_pipeline_end_to_end_with_supplied_multipliers():
     hist = _hist_df()
     sc = _scenario_df()

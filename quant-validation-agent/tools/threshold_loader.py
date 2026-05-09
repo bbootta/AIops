@@ -80,6 +80,26 @@ def list_segments(policy: dict) -> list:
     return sorted(by_segment.keys())
 
 
+def get_ead_metric_settings(policy: dict) -> dict:
+    """Return the EAD-error normalizer settings, validated for consistency.
+
+    Raises:
+        ValueError if `normalizer` is not in `allowed_normalizers`.
+    """
+    settings = policy.get("ead_metric_settings") or {}
+    normalizer = settings.get("normalizer", "mean_realized")
+    allowed = settings.get(
+        "allowed_normalizers",
+        ["mean_realized", "mean_predicted", "total_exposure"],
+    )
+    if normalizer not in allowed:
+        raise ValueError(
+            f"ead_metric_settings.normalizer={normalizer!r} is not in "
+            f"allowed_normalizers={allowed!r}"
+        )
+    return {"normalizer": normalizer, "allowed_normalizers": allowed}
+
+
 def list_metrics_for_model(policy: dict, model_type: str) -> list:
     """List metric names whose 'model_types' includes `model_type`."""
     metrics = policy.get("metrics") or {}

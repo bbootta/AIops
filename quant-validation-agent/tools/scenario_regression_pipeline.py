@@ -23,6 +23,67 @@ from . import regression_diagnostics as rd
 from . import scenario_order_check as soc
 
 
+def adf_stationarity_check(
+    series: pd.Series, alpha: float = 0.05, regression: str = "c"
+) -> dict:
+    """Augmented Dickey-Fuller stationarity test on a single series.
+
+    H0: unit root present (series is non-stationary).
+    Reject H0 (p < alpha) => series is treated as stationary.
+    """
+    if not 0.0 < alpha < 1.0:
+        raise ValueError("alpha must be in (0, 1).")
+    s = pd.Series(series).dropna().astype(float)
+    if s.shape[0] < 10:
+        raise ValueError("ADF requires at least 10 observations.")
+    try:
+        from statsmodels.tsa.stattools import adfuller
+    except Exception as e:
+        raise RuntimeError(f"statsmodels.tsa.stattools.adfuller unavailable: {e}")
+    res = adfuller(s.values, regression=regression, autolag="AIC")
+    stat, pvalue, used_lag, n_obs, crit_values, _ = res
+    return {
+        "statistic": float(stat),
+        "pvalue": float(pvalue),
+        "used_lag": int(used_lag),
+        "n": int(n_obs),
+        "stationary_at_alpha": bool(pvalue < alpha),
+        "alpha": float(alpha),
+        "regression": regression,
+    }
+
+
+def check_feature_stationarity(
+    df: pd.DataFrame, feature_cols: Iterable[str], alpha: float = 0.05
+) -> pd.DataFrame:
+    """Run ADF on each feature and the target. Returns a DataFrame summary."""
+    rows = []
+    for col in feature_cols:
+        if col not in df.columns:
+            raise ValueError(f"Column missing: {col}")
+        try:
+            res = adf_stationarity_check(df[col], alpha=alpha)
+            rows.append(
+                {
+                    "variable": col,
+                    "adf_stat": res["statistic"],
+                    "pvalue": res["pvalue"],
+                    "stationary_at_alpha": res["stationary_at_alpha"],
+                }
+            )
+        except Exception as e:
+            rows.append(
+                {
+                    "variable": col,
+                    "adf_stat": None,
+                    "pvalue": None,
+                    "stationary_at_alpha": None,
+                    "error": str(e),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 def fit_scenario_regression(
     hist_df: pd.DataFrame,
     target_col: str,
@@ -30,11 +91,15 @@ def fit_scenario_regression(
     expected_signs: Optional[Mapping[str, str]] = None,
     pvalue_threshold: float = 0.05,
     autocorr_lags: int = 1,
+    run_stationarity_check: bool = True,
+    stationarity_alpha: float = 0.05,
 ) -> dict:
     """Fit OLS on historical data and return a structured diagnostic bundle."""
     feats = list(feature_cols)
     if not feats:
         raise ValueError("feature_cols must not be empty.")
+    if autocorr_lags < 1:
+        raise ValueError("autocorr_lags must be >= 1.")
     for c in [target_col, *feats]:
         if c not in hist_df.columns:
             raise ValueError(f"Column missing in hist_df: {c}")
@@ -61,6 +126,14 @@ def fit_scenario_regression(
         arch = rd.calculate_arch_test(fit, lags=autocorr_lags)
     except Exception as e:
         arch = {"error": str(e)}
+    stationarity = None
+    if run_stationarity_check:
+        try:
+            stationarity = check_feature_stationarity(
+                work, [target_col, *feats], alpha=stationarity_alpha
+            ).to_dict(orient="records")
+        except Exception as e:
+            stationarity = [{"error": str(e)}]
     return {
         "n": n,
         "k": k,
@@ -74,6 +147,8 @@ def fit_scenario_regression(
         "durbin_watson": dw,
         "breusch_godfrey": bg,
         "arch_test": arch,
+        "stationarity": stationarity,
+        "autocorr_lags": int(autocorr_lags),
         "model": fit,
         "feature_cols": feats,
         "target_col": target_col,
@@ -170,6 +245,8 @@ def run_pipeline(
     severity_direction: str = "higher_is_worse",
     pvalue_threshold: float = 0.05,
     autocorr_lags: int = 1,
+    run_stationarity_check: bool = True,
+    stationarity_alpha: float = 0.05,
 ) -> dict:
     """Run the full scenario regression validation pipeline.
 
@@ -184,6 +261,8 @@ def run_pipeline(
         expected_signs=expected_signs,
         pvalue_threshold=pvalue_threshold,
         autocorr_lags=autocorr_lags,
+        run_stationarity_check=run_stationarity_check,
+        stationarity_alpha=stationarity_alpha,
     )
     if pred_col_in_scenario is not None:
         if pred_col_in_scenario not in scenario_df.columns:

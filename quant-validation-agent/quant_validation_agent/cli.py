@@ -220,16 +220,46 @@ def cmd_validate(args: argparse.Namespace) -> int:
             report["metrics"]["rmse"] = _rag_with_threshold(rmse, policy, "rmse_lgd", segment=args.segment)
             report["metrics"]["bias"] = _rag_with_threshold(bias, policy, "bias_lgd", segment=args.segment)
         else:
-            # EAD: normalize errors by mean realized to make thresholds portable
-            mean_actual = float(df[args.actual].mean())
-            if mean_actual == 0:
-                report["metrics"]["mae"] = {"value": mae, "rag": "Gray", "source": "mean_actual_zero"}
-                report["metrics"]["rmse"] = {"value": rmse, "rag": "Gray", "source": "mean_actual_zero"}
-                report["metrics"]["bias"] = {"value": bias, "rag": "Gray", "source": "mean_actual_zero"}
+            # EAD: normalize errors using the policy-defined normalizer.
+            ead_settings = threshold_loader.get_ead_metric_settings(policy)
+            normalizer_name = args.ead_normalizer or ead_settings["normalizer"]
+            if normalizer_name not in ead_settings["allowed_normalizers"]:
+                report["issues"].append(
+                    {
+                        "issue": "ead_normalizer_invalid",
+                        "severity": "Red",
+                        "evidence": f"--ead-normalizer={normalizer_name} not in allowed list",
+                    }
+                )
+                print(json.dumps(report, ensure_ascii=False, indent=2))
+                return 4
+            if normalizer_name == "mean_realized":
+                divisor = float(df[args.actual].mean())
+            elif normalizer_name == "mean_predicted":
+                divisor = float(df[args.predicted].mean())
+            elif normalizer_name == "total_exposure":
+                if "limit" not in df.columns:
+                    report["issues"].append(
+                        {
+                            "issue": "total_exposure_unavailable",
+                            "severity": "Red",
+                            "evidence": "'limit' column required for total_exposure normalizer",
+                        }
+                    )
+                    print(json.dumps(report, ensure_ascii=False, indent=2))
+                    return 4
+                divisor = float(df["limit"].sum() / max(int(df.shape[0]), 1))
+            else:  # safety net
+                divisor = 0.0
+            report["ead_normalizer"] = normalizer_name
+            if divisor == 0:
+                report["metrics"]["mae"] = {"value": mae, "rag": "Gray", "source": "normalizer_zero"}
+                report["metrics"]["rmse"] = {"value": rmse, "rag": "Gray", "source": "normalizer_zero"}
+                report["metrics"]["bias"] = {"value": bias, "rag": "Gray", "source": "normalizer_zero"}
             else:
-                mae_ratio = mae / mean_actual
-                rmse_ratio = rmse / mean_actual
-                bias_ratio = bias / mean_actual
+                mae_ratio = mae / divisor
+                rmse_ratio = rmse / divisor
+                bias_ratio = bias / divisor
                 report["metrics"]["mae_ratio"] = _rag_with_threshold(mae_ratio, policy, "mae_ead_ratio", segment=args.segment)
                 report["metrics"]["rmse_ratio"] = _rag_with_threshold(rmse_ratio, policy, "rmse_ead_ratio", segment=args.segment)
                 report["metrics"]["bias_ratio"] = _rag_with_threshold(bias_ratio, policy, "bias_ead_ratio", segment=args.segment)
@@ -312,6 +342,9 @@ def cmd_validate_scenario(args: argparse.Namespace) -> int:
         expected_signs=expected_signs,
         multiplier_floor_by_scenario=floors,
         severity_direction=args.direction,
+        autocorr_lags=int(args.autocorr_lags),
+        run_stationarity_check=not args.skip_stationarity,
+        stationarity_alpha=float(args.stationarity_alpha),
     )
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
@@ -335,6 +368,239 @@ def cmd_validate_scenario(args: argparse.Namespace) -> int:
             log_dir=args.log_dir,
         )
     print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+
+def _render_report_markdown(report: dict) -> str:
+    """Render a validate JSON report into the standard 9-section markdown."""
+    from tools import markdown_renderers as mr
+    from tools import validation_summary
+
+    metrics = report.get("metrics", {}) or {}
+    issues = report.get("issues", []) or []
+    rag_states = [m.get("rag", "Gray") for m in metrics.values() if isinstance(m, dict)]
+    if "Red" in rag_states:
+        overall = "Red"
+    elif "Yellow" in rag_states:
+        overall = "Yellow"
+    elif "Green" in rag_states and "Gray" not in rag_states:
+        overall = "Green"
+    elif rag_states:
+        overall = "Yellow"
+    else:
+        overall = "Gray"
+
+    summary_df = validation_summary.build_metric_summary(
+        {k: v.get("value") if isinstance(v, dict) else v for k, v in metrics.items()}
+    )
+    issue_df = validation_summary.build_issue_table(issues)
+    commentary = validation_summary.build_validation_commentary(summary_df, issue_df)
+
+    schema = report.get("schema", {}).get("required_columns", {})
+    schema_pass = "Pass" if schema.get("pass") else "Fail" if schema.get("missing") else "—"
+    schema_note = f"missing={schema.get('missing', [])}" if schema else ""
+
+    out = []
+    out.append("## 1. 검증 요약")
+    out.append(f"- 모형 유형: {report.get('model_type', '—')}")
+    out.append(f"- 세그먼트: {report.get('segment', '—')}")
+    out.append(f"- 데이터 경로: {report.get('data_path', '—')}")
+    out.append(f"- 표본 수: {report.get('n_rows', '—')}")
+    if "ead_normalizer" in report:
+        out.append(f"- EAD 정규화: {report['ead_normalizer']}")
+    out.append(f"- RAG 상태: **{overall}**")
+    out.append("")
+    out.append("## 2. 입력 데이터 점검")
+    out.append("")
+    out.append("| 항목 | 결과 | 비고 |")
+    out.append("|---|---|---|")
+    out.append(f"| 필수 컬럼 | {schema_pass} | {schema_note} |")
+    out.append("")
+    out.append("## 3. 주요 지표")
+    out.append("")
+    out.append(mr.render_metrics_table(metrics))
+    out.append("## 4. 세부 분석")
+    out.append("")
+    out.append("- 본 섹션은 인간 검증자가 작성한다. CLI는 정량 결과만 채운다.")
+    out.append("")
+    out.append("## 5. 이상 징후")
+    out.append("")
+    out.append(mr.render_issue_table(issues))
+    out.append("## 6. 한계")
+    out.append("- `docs/limitation_and_risk.md` 참조.")
+    out.append("- 본 자동 리포트는 정량 지표만 포함하며, 데이터 정의 일관성·시점 정합성·정책 임계값 적정성은 인간 검증자가 별도로 점검해야 한다.")
+    out.append("")
+    out.append("## 7. 검증 의견 초안")
+    out.append("")
+    out.append(commentary)
+    out.append("")
+    out.append("## 8. 추가 확인사항")
+    out.append("- 데이터 담당: 입력 파일의 출처 및 추출 기준 확인")
+    out.append("- 정책 담당: 적용 임계값 정책 확인")
+    out.append("- 모형 개발부서: 이상 지표가 있을 경우 원인 분석 협의")
+    out.append("")
+    out.append("## 9. 감사추적")
+    out.append(f"- 입력 파일: {report.get('data_path', '—')}")
+    out.append("- 산출 도구: tools/* (정확한 함수 호출은 logs/ 참조)")
+    out.append("- change_manifest 기록 여부: 별도 운영 절차에 따라 추가")
+    out.append("")
+    return "\n".join(out)
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    """Render a validate JSON report into a 9-section markdown file."""
+    if not os.path.exists(args.input):
+        print(json.dumps({"error": f"input not found: {args.input}"}, ensure_ascii=False))
+        return 4
+    with open(args.input, "r", encoding="utf-8") as f:
+        report = json.load(f)
+    md = _render_report_markdown(report)
+    if args.out:
+        os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
+        with open(args.out, "w", encoding="utf-8") as f:
+            f.write(md)
+    else:
+        print(md)
+    return 0
+
+
+def _expand_aggregated_pd(
+    df, count_col: str, default_col: str, pred_col: str, grade_col: Optional[str] = None
+):
+    """Expand pre-aggregated (count, defaults, predicted_pd) rows into
+    per-observation rows of (pred_pd, default_flag, [grade]).
+    """
+    import pandas as pd
+
+    rows = []
+    for _, row in df.iterrows():
+        n = int(row[count_col])
+        d = int(row[default_col])
+        if d > n:
+            raise ValueError(f"defaults {d} > count {n}")
+        p = float(row[pred_col])
+        grade = row[grade_col] if grade_col and grade_col in df.columns else None
+        for i in range(n):
+            rec = {"pred_pd": p, "default_flag": 1 if i < d else 0}
+            if grade is not None:
+                rec["grade"] = grade
+            rows.append(rec)
+    return pd.DataFrame(rows)
+
+
+def cmd_validate_pd_calibration(args: argparse.Namespace) -> int:
+    """Run an integrated PD calibration validation.
+
+    Computes Brier, PD bias, Hosmer-Lemeshow, Spiegelhalter Z, and a
+    per-bucket binomial test. Accepts either:
+      - row-level data (each row is an observation with pred_pd + default_flag)
+      - pre-aggregated data (count, defaults, predicted_pd per bucket)
+        when --count-col is supplied.
+    """
+    import pandas as pd
+
+    from middleware import schema_guard
+    from tools import (
+        calibration_test,
+        io_utils,
+        metric_calibration,
+    )
+
+    df = io_utils.read_csv_safely(args.data)
+    df = io_utils.normalize_column_names(df)
+
+    if args.count_col:
+        # Aggregated path
+        required = [args.count_col, args.default_col, args.pred_col]
+        sch = schema_guard.check_required_columns(df, required)
+        if not sch["pass"]:
+            print(json.dumps({"schema": sch, "issues": ["required columns missing"]},
+                             ensure_ascii=False, indent=2))
+            return 4
+        expanded = _expand_aggregated_pd(
+            df, args.count_col, args.default_col, args.pred_col, grade_col=args.bucket_col
+        )
+        pred_pd = expanded["pred_pd"]
+        actual = expanded["default_flag"]
+        bucket_series = expanded["grade"] if "grade" in expanded.columns else None
+        n_rows = int(expanded.shape[0])
+    else:
+        required = [args.pred_col, args.default_col]
+        sch = schema_guard.check_required_columns(df, required)
+        if not sch["pass"]:
+            print(json.dumps({"schema": sch, "issues": ["required columns missing"]},
+                             ensure_ascii=False, indent=2))
+            return 4
+        pred_pd = df[args.pred_col]
+        actual = df[args.default_col]
+        bucket_series = df[args.bucket_col] if args.bucket_col and args.bucket_col in df.columns else None
+        n_rows = int(df.shape[0])
+
+    policy = threshold_loader.load_threshold_policy()
+
+    brier = metric_calibration.calculate_brier_score(actual.tolist(), pred_pd.tolist())
+    bias_df = pd.DataFrame({"pred": pred_pd, "actual": actual})
+    bias_info = metric_calibration.calculate_pd_bias(bias_df, "pred", "actual")
+    hl = calibration_test.hosmer_lemeshow_test(
+        actual.tolist(),
+        pred_pd.tolist(),
+        n_bins=int(args.hl_bins),
+        min_per_bin=int(args.hl_min_per_bin) if args.hl_min_per_bin else None,
+    )
+    spiegel = calibration_test.spiegelhalter_z_test(actual.tolist(), pred_pd.tolist())
+
+    binomial_records = None
+    if bucket_series is not None:
+        full = pd.DataFrame({"pred_pd": pred_pd, "default_flag": actual, "bucket": bucket_series})
+        try:
+            binomial_records = calibration_test.binomial_calibration_test(
+                full, "pred_pd", "default_flag", "bucket", alpha=float(args.binomial_alpha)
+            ).to_dict(orient="records")
+        except Exception as e:
+            binomial_records = [{"error": str(e)}]
+
+    report = {
+        "data_path": os.path.abspath(args.data),
+        "n_rows": n_rows,
+        "metrics": {
+            "brier": _rag_with_threshold(brier, policy, "brier", segment=args.segment),
+            "pd_bias": _rag_with_threshold(bias_info["abs_bias"], policy, "pd_bias", segment=args.segment),
+        },
+        "hosmer_lemeshow": hl,
+        "spiegelhalter_z": spiegel,
+        "binomial_per_bucket": binomial_records,
+        "bias_detail": bias_info,
+    }
+    if args.out:
+        os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+    if getattr(args, "log_dir", None):
+        from middleware import run_logger
+
+        run_logger.write_run_log(
+            request_summary="validate-pd-calibration",
+            inputs=[args.data],
+            functions_used=[
+                "metric_calibration.calculate_brier_score",
+                "metric_calibration.calculate_pd_bias",
+                "calibration_test.hosmer_lemeshow_test",
+                "calibration_test.spiegelhalter_z_test",
+                "calibration_test.binomial_calibration_test",
+            ],
+            main_results={
+                "brier": brier,
+                "pd_bias": bias_info["abs_bias"],
+                "hl_pvalue": hl.get("pvalue"),
+                "spiegel_pvalue": spiegel.get("pvalue"),
+            },
+            errors=[],
+            artifacts=[args.out] if args.out else [],
+            test_results={},
+            incomplete_items=[],
+            log_dir=args.log_dir,
+        )
+    print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -436,6 +702,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_v.add_argument("--baseline-value", dest="baseline_value",
                      help="Value of dataset-col denoting baseline (e.g., dev).")
     p_v.add_argument("--segment", help="Segment label for threshold overrides.")
+    p_v.add_argument("--ead-normalizer", dest="ead_normalizer", default=None,
+                     choices=["mean_realized", "mean_predicted", "total_exposure"],
+                     help="Override the EAD-error normalizer from threshold_policy.json.")
     p_v.add_argument("--out", help="Optional path to write the JSON report.")
     p_v.add_argument("--log-dir", dest="log_dir",
                      help="Optional directory to write a run-log JSON via middleware.run_logger.")
@@ -447,6 +716,37 @@ def build_parser() -> argparse.ArgumentParser:
     p_n.add_argument("--model", help="Model name or type for the note.")
     p_n.add_argument("--path", help="Override target file path.")
     p_n.set_defaults(func=cmd_note)
+
+    p_r = sub.add_parser(
+        "report",
+        help="Render a validate JSON report into the standard 9-section markdown.",
+    )
+    p_r.add_argument("--input", required=True, help="Path to a validate JSON report.")
+    p_r.add_argument("--out", help="Optional path to write the markdown report.")
+    p_r.set_defaults(func=cmd_report)
+
+    p_pdc = sub.add_parser(
+        "validate-pd-calibration",
+        help="PD calibration validation (Brier, bias, Hosmer-Lemeshow, Spiegelhalter Z, binomial).",
+    )
+    p_pdc.add_argument("--data", required=True, help="Path to the CSV file.")
+    p_pdc.add_argument("--pred-col", dest="pred_col", required=True,
+                       help="Column with predicted PD (0-1).")
+    p_pdc.add_argument("--default-col", dest="default_col", required=True,
+                       help="Column with realized default count or 0/1 flag.")
+    p_pdc.add_argument("--count-col", dest="count_col", default=None,
+                       help="If set, treat data as pre-aggregated and expand to row level.")
+    p_pdc.add_argument("--bucket-col", dest="bucket_col", default=None,
+                       help="Optional bucket column for the per-bucket binomial test.")
+    p_pdc.add_argument("--hl-bins", dest="hl_bins", default=10, type=int)
+    p_pdc.add_argument("--hl-min-per-bin", dest="hl_min_per_bin", default=None, type=int,
+                       help="If set, use greedy min-per-bin packing instead of quantile bins.")
+    p_pdc.add_argument("--binomial-alpha", dest="binomial_alpha", default=0.05, type=float)
+    p_pdc.add_argument("--segment", help="Segment label for threshold overrides.")
+    p_pdc.add_argument("--out", help="Optional path to write the JSON report.")
+    p_pdc.add_argument("--log-dir", dest="log_dir",
+                       help="Optional directory for run-log JSON via middleware.run_logger.")
+    p_pdc.set_defaults(func=cmd_validate_pd_calibration)
 
     p_vs = sub.add_parser(
         "validate-scenario",
@@ -472,6 +772,12 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Optional comma-separated floors per scenario, e.g. base=1.0,severe=1.0")
     p_vs.add_argument("--direction", default="higher_is_worse",
                       choices=["higher_is_worse", "lower_is_worse"])
+    p_vs.add_argument("--autocorr-lags", dest="autocorr_lags", default=1, type=int,
+                      help="Lags for Breusch-Godfrey and ARCH tests (default 1).")
+    p_vs.add_argument("--skip-stationarity", dest="skip_stationarity",
+                      action="store_true", help="Skip ADF stationarity check.")
+    p_vs.add_argument("--stationarity-alpha", dest="stationarity_alpha",
+                      default=0.05, type=float, help="Alpha for ADF test (default 0.05).")
     p_vs.add_argument("--out", help="Optional path to write the JSON report.")
     p_vs.add_argument("--log-dir", dest="log_dir",
                       help="Optional directory to write a run-log JSON via middleware.run_logger.")

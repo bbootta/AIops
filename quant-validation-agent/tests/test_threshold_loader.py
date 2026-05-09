@@ -50,6 +50,23 @@ def test_list_segments_includes_known_segments():
     assert {"retail", "sme", "ldp_corporate"}.issubset(set(segs))
 
 
+def test_get_ead_metric_settings_consistent():
+    policy = tl.load_threshold_policy()
+    out = tl.get_ead_metric_settings(policy)
+    assert out["normalizer"] in out["allowed_normalizers"]
+
+
+def test_get_ead_metric_settings_invalid_rejected():
+    bad_policy = {
+        "ead_metric_settings": {
+            "normalizer": "definitely_not_allowed",
+            "allowed_normalizers": ["mean_realized"],
+        }
+    }
+    with pytest.raises(ValueError):
+        tl.get_ead_metric_settings(bad_policy)
+
+
 def test_get_metric_threshold_pd_bias_uses_abs():
     policy = tl.load_threshold_policy()
     out = tl.get_metric_threshold(policy, "pd_bias")

@@ -1,0 +1,160 @@
+"""Consistent markdown table renderers for validation reports.
+
+These helpers exist to keep table formatting uniform across the standard
+9-section report (see docs/validation_output_spec.md). They are pure
+formatters — they never mutate input and never write to disk.
+"""
+from __future__ import annotations
+
+from typing import Iterable, List, Mapping, Optional
+
+import pandas as pd
+
+
+def _format_value(v, decimals: int) -> str:
+    if v is None:
+        return ""
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, float):
+        if v != v:  # NaN
+            return ""
+        return f"{v:.{decimals}f}"
+    return str(v)
+
+
+def render_dataframe_markdown(
+    df: pd.DataFrame,
+    columns: Optional[Iterable[str]] = None,
+    aligns: Optional[Mapping[str, str]] = None,
+    decimals: int = 4,
+) -> str:
+    """Render a DataFrame as a GitHub-flavored markdown table.
+
+    Args:
+        columns: column order; defaults to df.columns.
+        aligns: per-column alignment ('left'|'right'|'center'); defaults left.
+        decimals: float precision.
+    """
+    if df is None or df.empty:
+        return "| (empty) |\n|---|\n"
+    cols = list(columns) if columns is not None else list(df.columns)
+    missing = [c for c in cols if c not in df.columns]
+    if missing:
+        raise ValueError(f"DataFrame missing columns: {missing}")
+    aligns = dict(aligns or {})
+    align_marks = []
+    for c in cols:
+        a = aligns.get(c, "left")
+        if a == "right":
+            align_marks.append("---:")
+        elif a == "center":
+            align_marks.append(":---:")
+        else:
+            align_marks.append("---")
+    header = "| " + " | ".join(cols) + " |\n"
+    sep = "|" + "|".join(align_marks) + "|\n"
+    body_rows: List[str] = []
+    for _, row in df.iterrows():
+        cells = [_format_value(row[c], decimals) for c in cols]
+        body_rows.append("| " + " | ".join(cells) + " |")
+    return header + sep + "\n".join(body_rows) + "\n"
+
+
+def render_metrics_table(metrics: Mapping[str, dict], decimals: int = 4) -> str:
+    """Render a {metric_name: {value, rag, ...}} dict as a markdown table."""
+    if not metrics:
+        return "| 지표 | 값 | 기준 | 상태 | 출처 |\n|---|---:|---:|---|---|\n| (없음) | | | | |\n"
+    rows = []
+    for name, info in metrics.items():
+        info = info or {}
+        value = info.get("value")
+        rag = info.get("rag", "Gray")
+        green = info.get("green_threshold")
+        yellow = info.get("yellow_threshold")
+        thresh = ""
+        if green is not None and yellow is not None:
+            thresh = f"G:{green}/Y:{yellow}"
+        rows.append(
+            {
+                "지표": name,
+                "값": _format_value(value, decimals),
+                "기준": thresh,
+                "상태": rag,
+                "출처": info.get("source", ""),
+            }
+        )
+    df = pd.DataFrame(rows, columns=["지표", "값", "기준", "상태", "출처"])
+    return render_dataframe_markdown(
+        df,
+        aligns={"값": "right", "기준": "right"},
+        decimals=decimals,
+    )
+
+
+def render_issue_table(issues: Iterable[Mapping]) -> str:
+    """Render a list of {issue, severity, evidence, ...} dicts."""
+    issues = list(issues or [])
+    if not issues:
+        return "| 이슈 | 심각도 | 근거 | 원인 후보 | 추가 확인 |\n|---|---|---|---|---|\n| (없음) | | | | |\n"
+    rows = []
+    for it in issues:
+        rows.append(
+            {
+                "이슈": it.get("issue", ""),
+                "심각도": it.get("severity", ""),
+                "근거": str(it.get("evidence", "")),
+                "원인 후보": str(it.get("candidate_cause", "")),
+                "추가 확인": str(it.get("next_action", "")),
+            }
+        )
+    df = pd.DataFrame(rows, columns=["이슈", "심각도", "근거", "원인 후보", "추가 확인"])
+    return render_dataframe_markdown(df)
+
+
+def render_regression_summary(
+    summary: Mapping, pvalues: Iterable[Mapping], vif: Iterable[Mapping]
+) -> str:
+    """Render a compact regression summary block.
+
+    Combines basic fit stats (R², adj R², n, k), p-values, and VIF.
+    """
+    lines = []
+    if summary:
+        lines.append(
+            "- n: {n}, k: {k}, R²: {r2}, adj R²: {ar2}, F p-value: {fp}".format(
+                n=summary.get("n", ""),
+                k=summary.get("k", ""),
+                r2=_format_value(summary.get("r_squared"), 4),
+                ar2=_format_value(summary.get("adj_r_squared"), 4),
+                fp=_format_value(summary.get("f_pvalue"), 4),
+            )
+        )
+    pvals = list(pvalues or [])
+    if pvals:
+        df = pd.DataFrame(pvals)
+        lines.append("\n**p-values**\n" + render_dataframe_markdown(
+            df,
+            columns=[c for c in ["variable", "pvalue", "significant_at_threshold", "threshold"] if c in df.columns],
+            aligns={"pvalue": "right", "threshold": "right"},
+        ))
+    vif_rows = list(vif or [])
+    if vif_rows:
+        df = pd.DataFrame(vif_rows)
+        lines.append("\n**VIF**\n" + render_dataframe_markdown(
+            df,
+            columns=[c for c in ["variable", "vif"] if c in df.columns],
+            aligns={"vif": "right"},
+        ))
+    return "\n".join(lines).strip() + "\n"
+
+
+def render_calibration_table(table_df: pd.DataFrame, decimals: int = 4) -> str:
+    """Render a calibration table (output of metric_calibration.build_calibration_table)."""
+    expected = ["count", "mean_pred", "mean_actual", "diff"]
+    missing = [c for c in expected if c not in table_df.columns]
+    if missing:
+        raise ValueError(f"calibration table missing columns: {missing}")
+    cols = list(table_df.columns)
+    aligns = {"count": "right", "mean_pred": "right", "mean_actual": "right", "diff": "right"}
+    return render_dataframe_markdown(table_df, columns=cols, aligns=aligns, decimals=decimals)

@@ -112,6 +112,10 @@
       "severe": 1.0
     }
   },
+  "ead_metric_settings": {
+    "normalizer": "mean_realized",
+    "allowed_normalizers": ["mean_realized", "mean_predicted", "total_exposure"]
+  },
   "by_segment": {
     "retail": {
       "metrics": {
