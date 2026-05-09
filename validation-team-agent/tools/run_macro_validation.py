@@ -24,7 +24,7 @@ import pandas as pd
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from middleware.run_logger import run_logger
+from middleware.run_logger import log_step, run_logger
 from middleware.schema_guard import check_schema, macro_schema
 from tools.regression_diagnostics import (
     calculate_vif,
@@ -189,6 +189,7 @@ def run(req: MacroValidationRequest, log_dir: str | Path | None = None) -> dict:
         inputs={"title": req.title, "n_rows": int(len(req.df)), "n_features": len(req.feature_cols)},
         log_dir=log_dir,
     ) as ctx:
+        log_step("1.req", component="subagents/orchestrator.md", log_dir=log_dir)
         schema_result = check_schema(
             req.df,
             macro_schema(
@@ -197,6 +198,8 @@ def run(req: MacroValidationRequest, log_dir: str | Path | None = None) -> dict:
                 period_col=req.period_col,
             ),
         )
+        log_step("2.schema", component="middleware/schema_guard.check_schema", log_dir=log_dir)
+        log_step("3.macro", component="tools/regression_diagnostics.stationarity_summary", log_dir=log_dir)
         diagnostics = {
             "schema": schema_result,
             "series": _series_diagnostics(req),
@@ -204,12 +207,16 @@ def run(req: MacroValidationRequest, log_dir: str | Path | None = None) -> dict:
             "residual": _ols_residual_diag(req),
         }
         report_md = _build_report(req, diagnostics)
+        log_step("4.report", component="tools/report_template.build_validation_report", log_dir=log_dir)
         from middleware.draft_watermark_guard import check_watermarks
         from middleware.output_completeness_guard import check_numeric_citations, check_report
 
         completeness = check_report(report_md)
+        log_step("5.complete", component="middleware/output_completeness_guard.check_report", log_dir=log_dir)
         citations = check_numeric_citations(report_md)
+        log_step("5.cite", component="middleware/output_completeness_guard.check_numeric_citations", log_dir=log_dir)
         watermarks = check_watermarks(report_md)
+        log_step("5.watermark", component="middleware/draft_watermark_guard.check_watermarks", log_dir=log_dir)
         ctx["result_summary"] = {
             "completeness_passed": completeness["passed"],
             "citations_passed": citations["passed"],

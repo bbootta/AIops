@@ -29,7 +29,7 @@ if __package__ in (None, ""):
 
 from middleware.draft_watermark_guard import check_watermarks
 from middleware.output_completeness_guard import check_numeric_citations, check_report
-from middleware.run_logger import run_logger
+from middleware.run_logger import log_step, run_logger
 from tools.binomial_calibration import calibration_test_per_grade
 from tools.report_template import build_validation_report
 from tools.scenario_order_check import check_pd_multiplier_floor, check_scenario_order
@@ -204,16 +204,27 @@ def run(req: IFRS9ValidationRequest, log_dir: str | Path | None = None) -> dict:
         inputs={"title": req.title, "n_weight_rows": int(len(req.weight_panel))},
         log_dir=log_dir,
     ) as ctx:
+        log_step("1.req", component="subagents/orchestrator.md", log_dir=log_dir)
         diagnostics = {
             "weights": _step_weights(req),
             "scenario_order": _step_scenario_order(req),
             "floors": _step_floors(req),
             "calibration": _step_calibration(req),
         }
+        log_step("3.weights", component="tools/scenario_weights.check_weight_panel", log_dir=log_dir)
+        if diagnostics.get("scenario_order") is not None:
+            log_step("3.macro", component="tools/scenario_order_check.check_scenario_order", log_dir=log_dir)
+        if diagnostics.get("calibration") is not None:
+            log_step("3.cal", component="tools/binomial_calibration.calibration_test_per_grade", log_dir=log_dir)
+
         report_md = _build_report(req, diagnostics)
+        log_step("4.report", component="tools/report_template.build_validation_report", log_dir=log_dir)
         completeness = check_report(report_md)
+        log_step("5.complete", component="middleware/output_completeness_guard.check_report", log_dir=log_dir)
         citations = check_numeric_citations(report_md)
+        log_step("5.cite", component="middleware/output_completeness_guard.check_numeric_citations", log_dir=log_dir)
         watermarks = check_watermarks(report_md)
+        log_step("5.watermark", component="middleware/draft_watermark_guard.check_watermarks", log_dir=log_dir)
         ctx["result_summary"] = {
             "completeness_passed": completeness["passed"],
             "citations_passed": citations["passed"],

@@ -26,18 +26,35 @@ _OP_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 
+# HTML 주석 마커: <!-- threshold: KS>=0.30 --> 또는 <!-- threshold: KS >= 0.30 -->
+_MARKER_PATTERN = re.compile(
+    r"<!--\s*threshold\s*:\s*"
+    r"(KS|AUROC|AUC|Gini|AR|PSI|VIF)\s*"
+    r"(≥|>=|≤|<=|>|<|=)\s*"
+    r"(\d+(?:\.\d+)?)"
+    r"\s*-->",
+    flags=re.IGNORECASE,
+)
+
 
 def _normalize_op(op: str) -> str:
     return {">=": "≥", "<=": "≤"}.get(op, op)
 
 
 def _extract(text: str) -> List[tuple[str, str, float]]:
-    """(metric, op, value) triples 추출. metric은 대문자 정규화."""
+    """(metric, op, value) triples 추출. metric은 대문자 정규화.
+
+    인식 대상:
+        1) `<!-- threshold: KS>=0.30 -->` 형태의 명시 마커
+        2) 본문 산문 / 표의 `KS ≥ 0.30` 형태 자유 표기
+    """
     out: List[tuple[str, str, float]] = []
+    for m in _MARKER_PATTERN.finditer(text):
+        metric = m.group(1).upper().replace("AUC", "AUROC")
+        out.append((metric, _normalize_op(m.group(2)), float(m.group(3))))
     for m in _OP_PATTERN.finditer(text):
-        metric_raw, op, val = m.group(1), m.group(2), m.group(3)
-        metric = metric_raw.upper().replace("AUC", "AUROC")
-        out.append((metric, _normalize_op(op), float(val)))
+        metric = m.group(1).upper().replace("AUC", "AUROC")
+        out.append((metric, _normalize_op(m.group(2)), float(m.group(3))))
     return out
 
 

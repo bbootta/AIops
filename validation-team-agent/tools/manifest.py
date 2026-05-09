@@ -251,6 +251,52 @@ def _cmd_promote_if_passing(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_from_classification(args: argparse.Namespace) -> int:
+    """classify_error.suggest_manifest_fields 결과를 manifest add 인자로 사용해 신규 항목 추가.
+
+    인간 검증자가 evidence / expected_benefit / expected_regression_risk /
+    validation_method / rollback_rule 만 직접 채우면 root_cause / targeted_fix는
+    자동 분류 결과로 채워진다. confidence=low 인 경우 경고 출력 후 추가는 진행.
+    """
+    if __package__:
+        from . import classify_error as ce  # type: ignore
+    else:  # pragma: no cover - direct module execution
+        from tools import classify_error as ce  # type: ignore
+
+    if args.error_file:
+        text = Path(args.error_file).read_text(encoding="utf-8")
+    elif args.error_text is not None:
+        text = args.error_text
+    else:
+        text = sys.stdin.read()
+    suggestion = ce.suggest_manifest_fields(text)
+    if suggestion["confidence"] == "low":
+        print(
+            f"warning: low-confidence classification (category={suggestion['category']}). "
+            "Review root_cause/targeted_fix carefully.",
+            file=sys.stderr,
+        )
+
+    entry = add_change(
+        component=args.component,
+        change_type=args.type,
+        evidence=args.evidence,
+        root_cause=suggestion["root_cause"],
+        targeted_fix=suggestion["targeted_fix"],
+        expected_benefit=args.expected_benefit,
+        expected_regression_risk=args.expected_regression_risk,
+        validation_method=args.validation_method,
+        rollback_rule=args.rollback_rule,
+        human_approval_required=not args.no_human_approval,
+        manifest_path=args.manifest,
+    )
+    print(
+        f"added {entry['change_id']} (status=proposed, "
+        f"category={suggestion['category']}, confidence={suggestion['confidence']})"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="change_manifest CLI")
     parser.add_argument("--manifest", type=Path, default=None)
@@ -287,6 +333,22 @@ def main(argv: list[str] | None = None) -> int:
         help="명시적 인간 승인. 본 플래그가 없으면 차단된다.",
     )
     p_pip.set_defaults(func=_cmd_promote_if_passing)
+
+    p_fc = sub.add_parser("from-classification",
+                          help="error text → classify_error suggestion으로 root_cause/targeted_fix 자동 채움")
+    p_fc.add_argument("--component", required=True)
+    p_fc.add_argument("--type", required=True, choices=["create", "modify", "delete", "rollback"])
+    p_fc.add_argument("--evidence", required=True)
+    p_fc.add_argument("--expected-benefit", required=True)
+    p_fc.add_argument("--expected-regression-risk", required=True)
+    p_fc.add_argument("--validation-method", required=True)
+    p_fc.add_argument("--rollback-rule", required=True)
+    p_fc.add_argument("--no-human-approval", action="store_true")
+    p_fc.add_argument("--error-file", type=str, default=None,
+                      help="path to error log/trace file")
+    p_fc.add_argument("--error-text", type=str, default=None,
+                      help="error text inline (or piped via stdin)")
+    p_fc.set_defaults(func=_cmd_from_classification)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

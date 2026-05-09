@@ -32,7 +32,7 @@ from middleware.data_safety_guard import scan_dataframe
 from middleware.draft_watermark_guard import check_watermarks
 from middleware.leakage_guard import check_leakage
 from middleware.output_completeness_guard import check_numeric_citations, check_report
-from middleware.run_logger import run_logger
+from middleware.run_logger import log_step, run_logger
 from middleware.sample_size_guard import check_sample_size
 from middleware.schema_guard import check_schema, credit_scoring_schema
 from tools.binomial_calibration import calibration_test_per_grade
@@ -40,6 +40,7 @@ from tools.data_profile import check_date_coverage, check_duplicates, check_miss
 from tools.metric_ks_auc import calculate_auc_gini, calculate_ks
 from tools.metric_psi import calculate_psi
 from tools.report_template import build_validation_report
+from tools.scenario_weights import check_weight_panel
 
 
 @dataclass
@@ -55,6 +56,10 @@ class ValidationRequest:
     key_cols: tuple[str, ...] = ()
     feature_names: tuple[str, ...] = ()
     calibration_alpha: float = 0.05
+    scenario_weight_panel: pd.DataFrame | None = None
+    scenario_weight_period_col: str = "period"
+    scenario_weight_scenario_col: str = "scenario"
+    scenario_weight_value_col: str = "weight"
 
 
 def _split_dev_oot(df: pd.DataFrame, set_col: str | None) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -137,6 +142,16 @@ def _step_quant(req: ValidationRequest) -> dict:
         )
     else:
         out["calibration"] = None
+
+    if req.scenario_weight_panel is not None:
+        out["scenario_weights"] = check_weight_panel(
+            req.scenario_weight_panel,
+            period_col=req.scenario_weight_period_col,
+            scenario_col=req.scenario_weight_scenario_col,
+            weight_col=req.scenario_weight_value_col,
+        )
+    else:
+        out["scenario_weights"] = None
     return out
 
 
@@ -173,6 +188,13 @@ def _format_results(quant: dict) -> str:
             f"- 등급별 캘리브레이션 (출처: `tools/binomial_calibration.calibration_test_per_grade`): "
             f"reject = {n_reject}/{len(cal)}, worst_grade = {worst['grade']!r}, "
             f"p_value_adj_min = {worst['p_value_adj']:.4f}"
+        )
+    sw = quant.get("scenario_weights")
+    if sw is not None:
+        n_fail = int((~sw["passed"]).sum())
+        lines.append(
+            f"- 시나리오 가중치 (출처: `tools/scenario_weights.check_weight_panel`): "
+            f"period {len(sw)}개 / 위반 {n_fail}건"
         )
     if not lines:
         lines.append("(산출 가능한 결과 없음)")
@@ -240,12 +262,38 @@ def run(req: ValidationRequest, log_dir: str | Path | None = None) -> dict:
     ) as ctx:
         ctx["inputs"]["score_col"] = req.score_col
         ctx["inputs"]["target_col"] = req.target_col
+
+        log_step("1.req", component="subagents/orchestrator.md", log_dir=log_dir)
         input_findings = _step_input_check(req)
+        log_step("2.schema", component="middleware/schema_guard.check_schema", log_dir=log_dir)
+        log_step("2.safety", component="middleware/data_safety_guard.scan_dataframe", log_dir=log_dir)
+        if req.feature_names:
+            log_step("2.leakage", component="middleware/leakage_guard.check_leakage", log_dir=log_dir)
+        if req.date_col and req.date_col in req.df.columns:
+            log_step("2.date", component="tools/data_profile.check_date_coverage", log_dir=log_dir)
+        if req.key_cols:
+            log_step("2.dup", component="tools/data_profile.check_duplicates", log_dir=log_dir)
+
         quant = _step_quant(req)
+        log_step("2.sample", component="middleware/sample_size_guard.check_sample_size", log_dir=log_dir)
+        if quant.get("ks") is not None:
+            log_step("3.disc", component="tools/metric_ks_auc.calculate_ks", log_dir=log_dir)
+        if quant.get("psi_dev_oot") is not None:
+            log_step("3.psi", component="tools/metric_psi.calculate_psi", log_dir=log_dir)
+        if quant.get("calibration") is not None:
+            log_step("3.cal", component="tools/binomial_calibration.calibration_test_per_grade", log_dir=log_dir)
+        if quant.get("scenario_weights") is not None:
+            log_step("3.weights", component="tools/scenario_weights.check_weight_panel", log_dir=log_dir)
+
         report_md = _build_report(req, input_findings, quant)
+        log_step("4.report", component="tools/report_template.build_validation_report", log_dir=log_dir)
         completeness = check_report(report_md)
+        log_step("5.complete", component="middleware/output_completeness_guard.check_report", log_dir=log_dir)
         citations = check_numeric_citations(report_md)
+        log_step("5.cite", component="middleware/output_completeness_guard.check_numeric_citations", log_dir=log_dir)
         watermarks = check_watermarks(report_md)
+        log_step("5.watermark", component="middleware/draft_watermark_guard.check_watermarks", log_dir=log_dir)
+
         ctx["result_summary"] = {
             "completeness_passed": completeness["passed"],
             "citations_passed": citations["passed"],

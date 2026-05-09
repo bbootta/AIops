@@ -142,6 +142,74 @@ def suggest_manifest_fields(text: str) -> dict:
     }
 
 
+_FEEDBACK_PATH = Path(__file__).resolve().parent.parent / "memory" / "classify_feedback.jsonl"
+
+
+def record_feedback(
+    text: str,
+    confirmed_category: str,
+    *,
+    notes: str = "",
+    feedback_path: Path | None = None,
+) -> dict:
+    """인간 검증자가 확인한 카테고리를 학습 시그널로 기록한다.
+
+    자동 분류 결과와 비교해 mismatch 여부를 함께 저장하므로, 차후 _RULES 보강의
+    근거 자료가 된다. 본 함수는 분류 규칙을 자동 변경하지 않는다.
+    """
+    if confirmed_category not in CATEGORIES:
+        raise ValueError(
+            f"confirmed_category must be one of {CATEGORIES}, got {confirmed_category!r}"
+        )
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("text must be a non-empty string")
+
+    cls = classify(text)
+    record = {
+        "text": text,
+        "predicted_category": cls.category,
+        "confirmed_category": confirmed_category,
+        "confidence": cls.confidence,
+        "matched_pattern": cls.matched_pattern,
+        "agreement": cls.category == confirmed_category,
+        "notes": notes,
+    }
+    path = feedback_path or _FEEDBACK_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return record
+
+
+def feedback_summary(feedback_path: Path | None = None) -> dict:
+    """기록된 피드백을 요약한다 (총 건수 / 일치율 / 카테고리별 mismatch)."""
+    path = feedback_path or _FEEDBACK_PATH
+    if not path.exists():
+        return {"total": 0, "agreement": 0, "agreement_rate": 0.0, "mismatches": {}}
+    records = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    n = len(records)
+    n_agree = sum(1 for r in records if r.get("agreement"))
+    mismatches: dict[str, int] = {}
+    for r in records:
+        if not r.get("agreement"):
+            key = f"{r.get('predicted_category')}->{r.get('confirmed_category')}"
+            mismatches[key] = mismatches.get(key, 0) + 1
+    return {
+        "total": n,
+        "agreement": n_agree,
+        "agreement_rate": (n_agree / n) if n else 0.0,
+        "mismatches": mismatches,
+    }
+
+
 def _cmd_classify(args: argparse.Namespace) -> int:
     text = (
         Path(args.file).read_text(encoding="utf-8") if args.file else (args.text or sys.stdin.read())
@@ -161,6 +229,22 @@ def _cmd_suggest(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_feedback(args: argparse.Namespace) -> int:
+    text = (
+        Path(args.file).read_text(encoding="utf-8") if args.file else (args.text or sys.stdin.read())
+    )
+    record = record_feedback(text, args.confirmed, notes=args.notes or "")
+    json.dump(record, sys.stdout, ensure_ascii=False, indent=2)
+    sys.stdout.write("\n")
+    return 0
+
+
+def _cmd_feedback_summary(args: argparse.Namespace) -> int:
+    json.dump(feedback_summary(), sys.stdout, ensure_ascii=False, indent=2)
+    sys.stdout.write("\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="harness_debugger 6-category error classifier")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -174,6 +258,15 @@ def main(argv: list[str] | None = None) -> int:
     p_sug.add_argument("--file", type=str, default=None)
     p_sug.add_argument("--text", type=str, default=None)
     p_sug.set_defaults(func=_cmd_suggest)
+
+    p_fb = sub.add_parser("feedback", help="record human-confirmed category for a sample")
+    p_fb.add_argument("--confirmed", required=True, choices=list(CATEGORIES))
+    p_fb.add_argument("--file", type=str, default=None)
+    p_fb.add_argument("--text", type=str, default=None)
+    p_fb.add_argument("--notes", type=str, default=None)
+    p_fb.set_defaults(func=_cmd_feedback)
+
+    sub.add_parser("feedback-summary").set_defaults(func=_cmd_feedback_summary)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

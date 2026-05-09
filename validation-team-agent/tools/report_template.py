@@ -64,6 +64,105 @@ def build_validation_report(result_dict: dict) -> str:
     return "\n".join(lines)
 
 
+def render_html(report_md: str, *, title: str | None = None) -> str:
+    """검증 보고서 마크다운을 단순 HTML로 변환한다.
+
+    워터마크 / 표 / 헤더 / 인용 백틱은 보존된다. 외부 라이브러리 의존성 없이 안전한
+    이스케이프와 최소 변환만 수행한다. 외부 제출본 확정에는 사용하지 않는다.
+    """
+    if not isinstance(report_md, str):
+        raise TypeError("report_md must be a string")
+
+    import html as _html
+
+    head_title = title or "Validation Report"
+    body_lines: list[str] = []
+    in_table = False
+    for line in report_md.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            if in_table:
+                body_lines.append("</table>")
+                in_table = False
+            body_lines.append("")
+            continue
+
+        if stripped.startswith("# "):
+            if in_table:
+                body_lines.append("</table>")
+                in_table = False
+            body_lines.append(f"<h1>{_html.escape(stripped[2:])}</h1>")
+            continue
+        if stripped.startswith("## "):
+            if in_table:
+                body_lines.append("</table>")
+                in_table = False
+            body_lines.append(f"<h2>{_html.escape(stripped[3:])}</h2>")
+            continue
+        if stripped.startswith("> "):
+            if in_table:
+                body_lines.append("</table>")
+                in_table = False
+            body_lines.append(
+                f"<blockquote>{_html.escape(stripped[2:])}</blockquote>"
+            )
+            continue
+        if stripped.startswith("- "):
+            if in_table:
+                body_lines.append("</table>")
+                in_table = False
+            body_lines.append(f"<li>{_render_inline(stripped[2:])}</li>")
+            continue
+        if stripped.startswith("|"):
+            cells = [c.strip() for c in stripped.strip("|").split("|")]
+            if all(set(c) <= set("-: ") for c in cells):
+                continue  # separator row
+            if not in_table:
+                body_lines.append("<table>")
+                in_table = True
+            tag = "td"
+            row_html = "".join(f"<{tag}>{_render_inline(c)}</{tag}>" for c in cells)
+            body_lines.append(f"<tr>{row_html}</tr>")
+            continue
+
+        if in_table:
+            body_lines.append("</table>")
+            in_table = False
+        body_lines.append(f"<p>{_render_inline(stripped)}</p>")
+
+    if in_table:
+        body_lines.append("</table>")
+
+    body = "\n".join(body_lines)
+    return (
+        "<!doctype html>\n"
+        "<html lang=\"ko\">\n<head>\n<meta charset=\"utf-8\">\n"
+        f"<title>{_html.escape(head_title)}</title>\n"
+        "<style>body{font-family:sans-serif;max-width:880px;margin:2em auto;padding:0 1em;}"
+        "table{border-collapse:collapse;}td{border:1px solid #ccc;padding:4px 8px;}"
+        "blockquote{border-left:3px solid #888;padding:4px 12px;color:#444;background:#f7f7f7;}"
+        "code{background:#f0f0f0;padding:1px 4px;border-radius:3px;}</style>\n"
+        "</head>\n<body>\n"
+        f"{body}\n"
+        "</body>\n</html>\n"
+    )
+
+
+def _render_inline(text: str) -> str:
+    """백틱 인용을 <code>로 감싸고 나머지는 HTML 이스케이프."""
+    import html as _html
+    import re as _re
+
+    parts: list[str] = []
+    last = 0
+    for m in _re.finditer(r"`([^`]+)`", text):
+        parts.append(_html.escape(text[last:m.start()]))
+        parts.append(f"<code>{_html.escape(m.group(1))}</code>")
+        last = m.end()
+    parts.append(_html.escape(text[last:]))
+    return "".join(parts)
+
+
 def build_issue_summary(issue_list: Iterable[dict]) -> str:
     """이슈 / 이상 징후 목록을 표 형식의 마크다운으로 반환한다.
 
