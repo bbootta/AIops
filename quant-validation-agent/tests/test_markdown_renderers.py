@@ -23,6 +23,27 @@ def test_render_dataframe_markdown_missing_columns():
         mr.render_dataframe_markdown(df, columns=["a", "b"])
 
 
+def test_render_dataframe_markdown_max_rows_truncates():
+    df = pd.DataFrame({"a": list(range(10))})
+    out = mr.render_dataframe_markdown(df, max_rows=3)
+    body_rows = [ln for ln in out.splitlines() if ln.startswith("| ") and "---" not in ln]
+    # 1 header + 3 data rows
+    assert len(body_rows) == 4
+    assert "7 more rows truncated" in out
+
+
+def test_render_dataframe_markdown_max_rows_no_truncation_note_when_fits():
+    df = pd.DataFrame({"a": [1, 2]})
+    out = mr.render_dataframe_markdown(df, max_rows=10)
+    assert "more rows truncated" not in out
+
+
+def test_render_dataframe_markdown_max_rows_invalid():
+    df = pd.DataFrame({"a": [1]})
+    with pytest.raises(ValueError):
+        mr.render_dataframe_markdown(df, max_rows=0)
+
+
 def test_render_metrics_table_with_thresholds():
     metrics = {
         "ks": {"value": 0.42, "rag": "Green", "green_threshold": 0.4, "yellow_threshold": 0.3, "source": "global"},

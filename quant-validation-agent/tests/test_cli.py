@@ -105,6 +105,22 @@ def test_cli_validate_scoring(tmp_path):
     assert out_path.exists()
 
 
+def test_cli_validate_with_decile_rag():
+    sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
+    result = _run([
+        "validate",
+        "--data", sample,
+        "--model-type", "scoring",
+        "--target", "target",
+        "--score", "score",
+        "--decile-rag",
+    ])
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert "lift_top_decile" in payload["metrics"]
+    assert payload["metrics"]["lift_top_decile"]["rag"] in {"Green", "Yellow", "Red", "Gray"}
+
+
 def test_cli_validate_lgd(tmp_path):
     sample = os.path.join(ROOT, "examples", "sample_lgd_ead_data.csv")
     result = _run(
@@ -220,6 +236,16 @@ def test_cli_policy_governance_violation_exits_6(tmp_path):
     assert res.returncode == 6
 
 
+def test_cli_policy_governance_json_only_is_compact():
+    res = _run(["policy-governance", "--json-only"])
+    assert res.returncode == 0, res.stderr
+    # Compact JSON is exactly one line and parses cleanly.
+    stdout = res.stdout.rstrip("\n")
+    assert "\n" not in stdout, "expected compact single-line JSON"
+    payload = json.loads(stdout)
+    assert payload["manifest_governance"]["all_require_human_approval"] is True
+
+
 def test_cli_policy_governance_require_lock_exits_7(tmp_path):
     res = _run([
         "policy-governance",
@@ -229,6 +255,52 @@ def test_cli_policy_governance_require_lock_exits_7(tmp_path):
     assert res.returncode == 7
     payload = json.loads(res.stdout)
     assert payload["lock"]["is_synced"] is False
+
+
+def test_cli_policy_lock_dry_run_does_not_write(tmp_path):
+    fake_policy = tmp_path / "policy.json"
+    fake_policy.write_text("{}", encoding="utf-8")
+    lock_path = tmp_path / "policy.lock.json"
+    res = _run([
+        "policy-lock",
+        "--change-id", "CHG-9999",
+        "--policy-path", str(fake_policy),
+        "--lock-path", str(lock_path),
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert payload["would_write"] is True
+    assert not lock_path.exists()
+
+
+def test_cli_policy_lock_confirm_writes_lock(tmp_path):
+    fake_policy = tmp_path / "policy.json"
+    fake_policy.write_text("{}", encoding="utf-8")
+    lock_path = tmp_path / "policy.lock.json"
+    res = _run([
+        "policy-lock",
+        "--change-id", "CHG-9998",
+        "--confirm",
+        "--policy-path", str(fake_policy),
+        "--lock-path", str(lock_path),
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert payload["would_write"] is False
+    assert lock_path.exists()
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    assert lock["approved_change_id"] == "CHG-9998"
+
+
+def test_cli_policy_lock_rejects_bad_change_id(tmp_path):
+    fake_policy = tmp_path / "policy.json"
+    fake_policy.write_text("{}", encoding="utf-8")
+    res = _run([
+        "policy-lock",
+        "--change-id", "not-valid",
+        "--policy-path", str(fake_policy),
+    ])
+    assert res.returncode == 4
 
 
 def test_cli_note_blocks_pii(tmp_path):
@@ -316,6 +388,36 @@ def test_cli_report_scenario_includes_fit_rag(tmp_path):
     # VIF max should appear in the fit-RAG block.
     assert "vif_max" in text
     assert "condition_index_max" in text
+
+
+def test_cli_report_include_stationarity_rag(tmp_path):
+    hist = os.path.join(ROOT, "examples", "sample_macro_history.csv")
+    sc = os.path.join(ROOT, "examples", "sample_macro_scenario.csv")
+    json_out = tmp_path / "scenario.json"
+    md_out = tmp_path / "scenario.md"
+    res1 = _run([
+        "validate-scenario",
+        "--hist-data", hist,
+        "--scenario-data", sc,
+        "--target", "pd_multiplier",
+        "--features", "gdp_growth,unemployment,bond_spread",
+        "--scenario-col", "scenario",
+        "--period-col", "period",
+        "--pred-col-in-scenario", "pd_multiplier",
+        "--multiplier-floors", "base=1.0,adverse=1.0,severe=1.0",
+        "--out", str(json_out),
+    ])
+    assert res1.returncode == 0, res1.stderr
+    res2 = _run([
+        "report", "--scenario-input", str(json_out),
+        "--include-stationarity-rag",
+        "--out", str(md_out),
+    ])
+    assert res2.returncode == 0, res2.stderr
+    text = md_out.read_text(encoding="utf-8")
+    assert "Stationarity RAG" in text
+    # Real synthetic dataset has gdp_growth marginal; expect Yellow or Green.
+    assert any(s in text for s in ("RAG: **Green**", "RAG: **Yellow**", "RAG: **Red**"))
 
 
 def test_cli_report_threshold_overrides_invalid_returns_6(tmp_path):

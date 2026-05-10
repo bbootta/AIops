@@ -103,6 +103,12 @@
       "direction": "higher_is_better",
       "green_threshold": 0.7,
       "yellow_threshold": 0.5
+    },
+    "lift_top_decile": {
+      "model_types": ["scoring", "pd"],
+      "direction": "higher_is_better",
+      "green_threshold": 2.0,
+      "yellow_threshold": 1.5
     }
   },
   "sample_size": {

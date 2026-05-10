@@ -28,6 +28,7 @@ def render_dataframe_markdown(
     columns: Optional[Iterable[str]] = None,
     aligns: Optional[Mapping[str, str]] = None,
     decimals: int = 4,
+    max_rows: Optional[int] = None,
 ) -> str:
     """Render a DataFrame as a GitHub-flavored markdown table.
 
@@ -35,6 +36,8 @@ def render_dataframe_markdown(
         columns: column order; defaults to df.columns.
         aligns: per-column alignment ('left'|'right'|'center'); defaults left.
         decimals: float precision.
+        max_rows: when set, render only the first `max_rows` rows and append
+            a single italic note line indicating how many rows were truncated.
     """
     if df is None or df.empty:
         return "| (empty) |\n|---|\n"
@@ -42,6 +45,8 @@ def render_dataframe_markdown(
     missing = [c for c in cols if c not in df.columns]
     if missing:
         raise ValueError(f"DataFrame missing columns: {missing}")
+    if max_rows is not None and max_rows < 1:
+        raise ValueError("max_rows must be >= 1.")
     aligns = dict(aligns or {})
     align_marks = []
     for c in cols:
@@ -54,11 +59,17 @@ def render_dataframe_markdown(
             align_marks.append("---")
     header = "| " + " | ".join(cols) + " |\n"
     sep = "|" + "|".join(align_marks) + "|\n"
+    total = int(df.shape[0])
+    body = df if max_rows is None else df.head(max_rows)
     body_rows: List[str] = []
-    for _, row in df.iterrows():
+    for _, row in body.iterrows():
         cells = [_format_value(row[c], decimals) for c in cols]
         body_rows.append("| " + " | ".join(cells) + " |")
-    return header + sep + "\n".join(body_rows) + "\n"
+    out = header + sep + "\n".join(body_rows) + "\n"
+    if max_rows is not None and total > max_rows:
+        truncated = total - max_rows
+        out += f"\n_... {truncated} more rows truncated (max_rows={max_rows})_\n"
+    return out
 
 
 def render_metrics_table(metrics: Mapping[str, dict], decimals: int = 4) -> str:

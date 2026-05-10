@@ -215,6 +215,24 @@ def cmd_validate(args: argparse.Namespace) -> int:
         report["metrics"]["ks"] = _rag_with_threshold(ks, policy, "ks", segment=args.segment)
         report["metrics"]["auroc"] = _rag_with_threshold(auc, policy, "auroc", segment=args.segment)
         report["metrics"]["ar"] = _rag_with_threshold(ar, policy, "ar", segment=args.segment)
+        if getattr(args, "decile_rag", False):
+            from tools import decile_lift
+
+            try:
+                lift = decile_lift.build_lift_table(
+                    df[args.target], df[args.score], n_bins=10,
+                    higher_is_worse=higher_is_worse,
+                )
+                top = float(lift.iloc[0]["lift"]) if not lift.empty else None
+                report["metrics"]["lift_top_decile"] = _rag_with_threshold(
+                    top, policy, "lift_top_decile", segment=args.segment
+                )
+            except Exception as e:
+                report["issues"].append({
+                    "issue": "lift_top_decile_failed",
+                    "severity": "Gray",
+                    "evidence": str(e),
+                })
         if args.dataset_col and args.dataset_col in df.columns and args.baseline_value is not None:
             base = df[df[args.dataset_col] == args.baseline_value][args.score]
             cur = df[df[args.dataset_col] != args.baseline_value][args.score]
@@ -471,12 +489,17 @@ def _render_report_markdown(report: dict) -> str:
 
 
 def _render_scenario_report_markdown(
-    scenario_report: dict, policy: Optional[dict] = None
+    scenario_report: dict,
+    policy: Optional[dict] = None,
+    include_stationarity_rag: bool = False,
 ) -> str:
     """Render a validate-scenario JSON output as the standard 9-section markdown.
 
     When `policy` is provided, fit-metric RAG is computed for R², the
     maximum VIF, and the maximum condition index using policy thresholds.
+    When `include_stationarity_rag` is True, an aggregate stationarity RAG
+    is added (Green only when all variables are stationary at the alpha
+    used during validate-scenario; sample-size sensitive).
     """
     from tools import markdown_renderers as mr
 
@@ -485,6 +508,7 @@ def _render_scenario_report_markdown(
     floors = scenario_report.get("multiplier_floors", []) or []
 
     fit_rag: dict = {}
+    stationarity_rag: Optional[dict] = None
     if policy:
         summary = fit.get("summary", {}) or {}
         r2 = summary.get("r_squared")
@@ -502,6 +526,37 @@ def _render_scenario_report_markdown(
         ci = (fit.get("condition_index") or {}).get("max_condition_index")
         if ci is not None:
             fit_rag["condition_index_max"] = _rag_with_threshold(ci, policy, "condition_index")
+
+    if include_stationarity_rag:
+        stationarity = fit.get("stationarity")
+        if stationarity:
+            target_col = fit.get("target_col")
+            target_row = next(
+                (r for r in stationarity if r.get("variable") == target_col), None
+            )
+            target_stationary = bool(target_row and target_row.get("stationary_at_alpha"))
+            non_stat = [
+                r["variable"]
+                for r in stationarity
+                if r.get("stationary_at_alpha") is False
+            ]
+            if not target_stationary:
+                rag = "Red"
+            elif non_stat:
+                rag = "Yellow"
+            else:
+                rag = "Green"
+            stationarity_rag = {
+                "rag": rag,
+                "non_stationary_variables": non_stat,
+                "caveat": "ADF는 단일 단위근 검정이며 표본 크기에 민감하다.",
+            }
+        else:
+            stationarity_rag = {
+                "rag": "Gray",
+                "non_stationary_variables": [],
+                "caveat": "stationarity 결과 없음 (skip 또는 실패).",
+            }
     summary = fit.get("summary", {}) or {}
     pvals = fit.get("pvalues", []) or []
     vif = fit.get("vif", []) or []
@@ -509,11 +564,15 @@ def _render_scenario_report_markdown(
     n_vio = (severity.get("order") or {}).get("n_violation_total", 0)
     floor_violation = any(f.get("violation") for f in floors)
     fit_rag_states = [v.get("rag", "Gray") for v in fit_rag.values()]
-    if n_vio > 0 or floor_violation or "Red" in fit_rag_states:
+    stat_state = stationarity_rag.get("rag") if stationarity_rag else None
+    rag_states = list(fit_rag_states)
+    if stat_state:
+        rag_states.append(stat_state)
+    if n_vio > 0 or floor_violation or "Red" in rag_states:
         overall = "Red"
-    elif "Yellow" in fit_rag_states:
+    elif "Yellow" in rag_states:
         overall = "Yellow"
-    elif fit_rag_states and "Gray" not in fit_rag_states:
+    elif rag_states and "Gray" not in rag_states:
         overall = "Green"
     else:
         overall = "Yellow"  # no fit-metric thresholds applied
@@ -540,6 +599,13 @@ def _render_scenario_report_markdown(
         out.append(mr.render_dataframe_markdown(df, columns=cols, aligns={"adf_stat": "right", "pvalue": "right"}))
     else:
         out.append("- ADF stationarity 정보 없음 (skip 또는 실패).")
+        out.append("")
+    if stationarity_rag is not None:
+        out.append("**Stationarity RAG (opt-in)**\n")
+        out.append(f"- RAG: **{stationarity_rag['rag']}**")
+        if stationarity_rag.get("non_stationary_variables"):
+            out.append(f"- 비정상 변수: {', '.join(stationarity_rag['non_stationary_variables'])}")
+        out.append(f"- caveat: {stationarity_rag['caveat']}")
         out.append("")
 
     out.append("## 3. 주요 지표")
@@ -642,7 +708,11 @@ def cmd_report(args: argparse.Namespace) -> int:
         except (ValueError, FileNotFoundError) as e:
             print(json.dumps({"error": "policy_invalid", "detail": str(e)}, ensure_ascii=False))
             return 6
-        md = _render_scenario_report_markdown(report, policy=policy)
+        md = _render_scenario_report_markdown(
+            report,
+            policy=policy,
+            include_stationarity_rag=bool(getattr(args, "include_stationarity_rag", False)),
+        )
     else:
         md = _render_report_markdown(report)
     if args.out:
@@ -842,11 +912,55 @@ def cmd_policy_governance(args: argparse.Namespace) -> int:
         "manifest_governance": governance,
         "lock": lock_info,
     }
-    print(json.dumps(out, ensure_ascii=False, indent=2))
+    if getattr(args, "json_only", False):
+        print(json.dumps(out, ensure_ascii=False, separators=(",", ":")))
+    else:
+        print(json.dumps(out, ensure_ascii=False, indent=2))
     if not governance["all_require_human_approval"]:
         return 6
     if args.require_lock and not lock_info["is_synced"]:
         return 7
+    return 0
+
+
+def cmd_policy_lock(args: argparse.Namespace) -> int:
+    """Update or inspect the policy lock file.
+
+    Default behavior: dry-run. Reports what would be written without
+    modifying the lock file. Pass --confirm to actually write.
+
+    The user is responsible for ensuring the change has been approved in
+    change_manifest.json (with human_approval_required: true) before
+    locking. policy-governance can verify that invariant separately.
+    """
+    from middleware import policy_change_guard
+
+    policy_path = args.policy_path or os.path.join(_PROJECT_ROOT, "harness", "threshold_policy.json")
+    lock_path = args.lock_path or os.path.join(_PROJECT_ROOT, "harness", "threshold_policy.lock.json")
+
+    try:
+        current_digest = policy_change_guard.compute_policy_digest(policy_path)
+    except FileNotFoundError as e:
+        print(json.dumps({"error": "policy_missing", "detail": str(e)}, ensure_ascii=False))
+        return 4
+    if not args.change_id or not args.change_id.startswith("CHG-"):
+        print(json.dumps({"error": "change_id_invalid",
+                          "detail": "--change-id must be 'CHG-####'"}, ensure_ascii=False))
+        return 4
+    existing = policy_change_guard.load_lock(lock_path)
+    plan = {
+        "policy_path": os.path.abspath(policy_path),
+        "lock_path": os.path.abspath(lock_path),
+        "current_digest": current_digest,
+        "previous_lock": existing,
+        "change_id": args.change_id,
+        "would_write": not args.confirm,
+    }
+    if args.confirm:
+        rec = policy_change_guard.update_lock(policy_path, args.change_id, lock_path)
+        plan["lock_written"] = rec
+        plan["would_write"] = False
+    print(json.dumps(plan, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -948,6 +1062,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_v.add_argument("--baseline-value", dest="baseline_value",
                      help="Value of dataset-col denoting baseline (e.g., dev).")
     p_v.add_argument("--segment", help="Segment label for threshold overrides.")
+    p_v.add_argument("--decile-rag", dest="decile_rag", action="store_true",
+                     help="Also emit RAG for the top-decile lift (scoring/PD only).")
     p_v.add_argument("--ead-normalizer", dest="ead_normalizer", default=None,
                      choices=["mean_realized", "mean_predicted", "total_exposure"],
                      help="Override the EAD-error normalizer from threshold_policy.json.")
@@ -965,7 +1081,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_pg.add_argument("--lock-path", dest="lock_path", default=None)
     p_pg.add_argument("--require-lock", dest="require_lock", action="store_true",
                       help="Exit 7 when the lock is missing or drifted.")
+    p_pg.add_argument("--json-only", dest="json_only", action="store_true",
+                      help="Emit compact single-line JSON for jq pipelines.")
     p_pg.set_defaults(func=cmd_policy_governance)
+
+    p_pl = sub.add_parser(
+        "policy-lock",
+        help="Inspect or update threshold_policy.lock.json. Defaults to dry-run.",
+    )
+    p_pl.add_argument("--change-id", dest="change_id", required=True,
+                      help="Approved change_id of the form CHG-####.")
+    p_pl.add_argument("--confirm", dest="confirm", action="store_true",
+                      help="Required to actually write the lock file.")
+    p_pl.add_argument("--policy-path", dest="policy_path", default=None)
+    p_pl.add_argument("--lock-path", dest="lock_path", default=None)
+    p_pl.set_defaults(func=cmd_policy_lock)
 
     p_n = sub.add_parser("note", help="Append a recurring-finding note.")
     p_n.add_argument("subaction", choices=["add"])
@@ -984,6 +1114,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_r.add_argument("--threshold-overrides", dest="threshold_overrides", default=None,
                      help="Optional path to an alternative threshold_policy.json. "
                           "Always schema-validated before use.")
+    p_r.add_argument("--include-stationarity-rag", dest="include_stationarity_rag",
+                     action="store_true",
+                     help="Opt-in: emit a stationarity RAG block (target stationary => Green; "
+                          "any non-stationary feature => Yellow; non-stationary target => Red). "
+                          "Sample-size sensitive — see CLAUDE.md limitations.")
     p_r.add_argument("--out", help="Optional path to write the markdown report.")
     p_r.set_defaults(func=cmd_report)
 
