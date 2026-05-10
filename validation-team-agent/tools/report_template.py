@@ -33,21 +33,62 @@ SECTION_TITLES = {
     "audit_trail": "감사추적 및 변경 이력",
 }
 
+SECTION_TITLES_EN = {
+    "summary": "Summary",
+    "purpose": "Validation Purpose",
+    "input_data": "Input Data and Assumptions",
+    "method": "Validation Method",
+    "results": "Key Results",
+    "anomalies": "Anomalies and Candidate Root Causes",
+    "limitations": "Limitations and Risks",
+    "draft_opinion": "Draft Validation Opinion",
+    "follow_ups": "Follow-up Items",
+    "audit_trail": "Audit Trail and Change History",
+}
 
-def build_validation_report(result_dict: dict) -> str:
+SECTION_TITLES_BY_LANG = {"ko": SECTION_TITLES, "en": SECTION_TITLES_EN}
+
+_FOOTER_BY_LANG = {
+    "ko": (
+        "> 본 문서는 검증 보조 산출물 초안입니다. 최종 검증 의견과 외부 제출은 "
+        "인간 검증자의 검토와 승인을 거쳐야 합니다."
+    ),
+    "en": (
+        "> 본 문서는 검증 보조 산출물 초안입니다. 최종 검증 의견과 외부 제출은 "
+        "인간 검증자의 검토와 승인을 거쳐야 합니다. "
+        "(English: this is a draft validation aid; the final opinion and "
+        "external publication require human reviewer approval.)"
+    ),
+}
+
+_HEADER_BY_LANG = {
+    "ko": "> [DRAFT — 외부 제출 금지] 인간 검증자 승인 전 사용 불가",
+    "en": (
+        "> [DRAFT — 외부 제출 금지 / Do Not Distribute] "
+        "인간 검증자 승인 전 사용 불가 / pending human reviewer approval"
+    ),
+}
+
+
+def build_validation_report(result_dict: dict, *, lang: str = "ko") -> str:
     """표준 10개 섹션을 갖는 검증보고서 초안을 마크다운으로 반환한다.
 
-    누락된 섹션은 "(작성 필요)" 자리표시자로 채운다.
+    누락된 섹션은 "(작성 필요)" 자리표시자로 채운다. lang='en' 인 경우 섹션 제목은
+    영문이지만 워터마크는 한·영 병기 (ko 한글 워터마크가 사라지면 기존 점검 도구가
+    누락 판정함을 방지).
     """
     if not isinstance(result_dict, dict):
         raise TypeError("result_dict must be a dict")
+    if lang not in SECTION_TITLES_BY_LANG:
+        raise ValueError(f"unsupported lang {lang!r}; expected one of {list(SECTION_TITLES_BY_LANG)}")
 
+    titles = SECTION_TITLES_BY_LANG[lang]
     title = result_dict.get("title", "검증 보고서 초안")
     lines = [f"# {title}", ""]
-    lines.append("> [DRAFT — 외부 제출 금지] 인간 검증자 승인 전 사용 불가")
+    lines.append(_HEADER_BY_LANG[lang])
     lines.append("")
     for i, key in enumerate(REQUIRED_SECTIONS, start=1):
-        section_title = SECTION_TITLES[key]
+        section_title = titles[key]
         body = result_dict.get(key, "(작성 필요)")
         lines.append(f"## {i}. {section_title}")
         if isinstance(body, list):
@@ -57,18 +98,39 @@ def build_validation_report(result_dict: dict) -> str:
             lines.append(str(body))
         lines.append("")
 
-    lines.append(
-        "> 본 문서는 검증 보조 산출물 초안입니다. 최종 검증 의견과 외부 제출은 "
-        "인간 검증자의 검토와 승인을 거쳐야 합니다."
-    )
+    lines.append(_FOOTER_BY_LANG[lang])
     return "\n".join(lines)
 
 
-def render_html(report_md: str, *, title: str | None = None) -> str:
+_PRINT_CSS = (
+    "@page{size:A4;margin:18mm;}"
+    "@media print{"
+    "  body{font-size:10.5pt;}"
+    "  h1{page-break-before:auto;}"
+    "  h2{page-break-after:avoid;}"
+    "  table{page-break-inside:avoid;}"
+    "  blockquote{page-break-inside:avoid;}"
+    "}"
+)
+
+
+def render_html(
+    report_md: str,
+    *,
+    title: str | None = None,
+    print_friendly: bool = True,
+    page_break_before_h2: bool = False,
+) -> str:
     """검증 보고서 마크다운을 단순 HTML로 변환한다.
 
     워터마크 / 표 / 헤더 / 인용 백틱은 보존된다. 외부 라이브러리 의존성 없이 안전한
     이스케이프와 최소 변환만 수행한다. 외부 제출본 확정에는 사용하지 않는다.
+
+    print_friendly: True면 ``@page`` 와 ``@media print`` 규칙을 포함해
+    브라우저 인쇄 / PDF 변환에서 페이지가 깨지지 않도록 한다.
+
+    page_break_before_h2: True면 모든 h2 (## 섹션) 앞에 페이지 분리. 보고서 섹션
+    하나당 1페이지로 분리하고 싶을 때 사용한다.
     """
     if not isinstance(report_md, str):
         raise TypeError("report_md must be a string")
@@ -76,6 +138,7 @@ def render_html(report_md: str, *, title: str | None = None) -> str:
     import html as _html
 
     head_title = title or "Validation Report"
+    h2_class = ' class="pb"' if page_break_before_h2 else ""
     body_lines: list[str] = []
     in_table = False
     for line in report_md.splitlines():
@@ -97,7 +160,7 @@ def render_html(report_md: str, *, title: str | None = None) -> str:
             if in_table:
                 body_lines.append("</table>")
                 in_table = False
-            body_lines.append(f"<h2>{_html.escape(stripped[3:])}</h2>")
+            body_lines.append(f"<h2{h2_class}>{_html.escape(stripped[3:])}</h2>")
             continue
         if stripped.startswith("> "):
             if in_table:
@@ -134,14 +197,21 @@ def render_html(report_md: str, *, title: str | None = None) -> str:
         body_lines.append("</table>")
 
     body = "\n".join(body_lines)
+
+    base_css = (
+        "body{font-family:sans-serif;max-width:880px;margin:2em auto;padding:0 1em;}"
+        "table{border-collapse:collapse;}td{border:1px solid #ccc;padding:4px 8px;}"
+        "blockquote{border-left:3px solid #888;padding:4px 12px;color:#444;background:#f7f7f7;}"
+        "code{background:#f0f0f0;padding:1px 4px;border-radius:3px;}"
+        ".pb{page-break-before:always;}"
+    )
+    css = base_css + (_PRINT_CSS if print_friendly else "")
+
     return (
         "<!doctype html>\n"
         "<html lang=\"ko\">\n<head>\n<meta charset=\"utf-8\">\n"
         f"<title>{_html.escape(head_title)}</title>\n"
-        "<style>body{font-family:sans-serif;max-width:880px;margin:2em auto;padding:0 1em;}"
-        "table{border-collapse:collapse;}td{border:1px solid #ccc;padding:4px 8px;}"
-        "blockquote{border-left:3px solid #888;padding:4px 12px;color:#444;background:#f7f7f7;}"
-        "code{background:#f0f0f0;padding:1px 4px;border-radius:3px;}</style>\n"
+        f"<style>{css}</style>\n"
         "</head>\n<body>\n"
         f"{body}\n"
         "</body>\n</html>\n"

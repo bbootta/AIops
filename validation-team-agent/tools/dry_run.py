@@ -89,6 +89,19 @@ def simulate(
     return plan
 
 
+def summarize_plan(plan: list[dict], *, max_items: int = 8) -> str:
+    """plan을 보고서 audit_trail 섹션에 첨부할 짧은 1-line 목록으로 요약.
+
+    `1.req → 2.schema → 2.safety → 3.disc → 4.report → 5.complete → 5.cite → 5.watermark (외 N건)`
+    형태로 step id 시퀀스만 노출.
+    """
+    ids = [s["id"] for s in plan]
+    if len(ids) <= max_items:
+        return " → ".join(ids)
+    head = " → ".join(ids[:max_items])
+    return f"{head} → … (외 {len(ids) - max_items}건)"
+
+
 def render_markdown(plan: list[dict]) -> str:
     """plan dict 리스트를 사람이 읽기 좋은 마크다운으로 변환."""
     lines = ["# Orchestrator Dry-Run Plan", ""]

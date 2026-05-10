@@ -26,6 +26,7 @@ if __package__ in (None, ""):
 
 from middleware.run_logger import log_step, run_logger
 from middleware.schema_guard import check_schema, macro_schema
+from tools.scenario_weights import check_weight_panel
 from tools.regression_diagnostics import (
     calculate_vif,
     check_residual_basic,
@@ -43,6 +44,10 @@ class MacroValidationRequest:
     period_col: str | None = None
     alpha: float = 0.05
     extra_notes: list[str] = field(default_factory=list)
+    scenario_weight_panel: pd.DataFrame | None = None
+    scenario_weight_period_col: str = "period"
+    scenario_weight_scenario_col: str = "scenario"
+    scenario_weight_value_col: str = "weight"
 
 
 def _series_diagnostics(req: MacroValidationRequest) -> dict:
@@ -117,6 +122,13 @@ def _format_results(diagnostics: dict) -> str:
             f"- OLS 잔차 진단 (출처: `tools/regression_diagnostics.check_residual_basic`): "
             f"R² = {res['rsquared']:.4f}, DW = {res['durbin_watson']:.3f}, "
             f"n = {res['nobs']}, skew = {res['skew']:.3f}"
+        )
+    sw = diagnostics.get("scenario_weights")
+    if sw is not None:
+        n_fail = int((~sw["passed"]).sum())
+        lines.append(
+            f"- 시나리오 가중치 (출처: `tools/scenario_weights.check_weight_panel`): "
+            f"period {len(sw)}개 / 위반 {n_fail}건"
         )
     return "\n".join(lines) if lines else "(산출 가능한 결과 없음)"
 
@@ -200,11 +212,25 @@ def run(req: MacroValidationRequest, log_dir: str | Path | None = None) -> dict:
         )
         log_step("2.schema", component="middleware/schema_guard.check_schema", log_dir=log_dir)
         log_step("3.macro", component="tools/regression_diagnostics.stationarity_summary", log_dir=log_dir)
+        weights_table = None
+        if req.scenario_weight_panel is not None:
+            weights_table = check_weight_panel(
+                req.scenario_weight_panel,
+                period_col=req.scenario_weight_period_col,
+                scenario_col=req.scenario_weight_scenario_col,
+                weight_col=req.scenario_weight_value_col,
+            )
+            log_step(
+                "3.weights",
+                component="tools/scenario_weights.check_weight_panel",
+                log_dir=log_dir,
+            )
         diagnostics = {
             "schema": schema_result,
             "series": _series_diagnostics(req),
             "vif": _vif_table(req),
             "residual": _ols_residual_diag(req),
+            "scenario_weights": weights_table,
         }
         report_md = _build_report(req, diagnostics)
         log_step("4.report", component="tools/report_template.build_validation_report", log_dir=log_dir)
@@ -217,6 +243,13 @@ def run(req: MacroValidationRequest, log_dir: str | Path | None = None) -> dict:
         log_step("5.cite", component="middleware/output_completeness_guard.check_numeric_citations", log_dir=log_dir)
         watermarks = check_watermarks(report_md)
         log_step("5.watermark", component="middleware/draft_watermark_guard.check_watermarks", log_dir=log_dir)
+        log_step(
+            "6.audit",
+            component="harness/change_manifest.json (via tools/manifest.py)",
+            status="skipped",
+            log_dir=log_dir,
+            extra={"reason": "runner does not write manifest entries; human-driven step"},
+        )
         ctx["result_summary"] = {
             "completeness_passed": completeness["passed"],
             "citations_passed": citations["passed"],

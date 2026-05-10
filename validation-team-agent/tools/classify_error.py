@@ -181,6 +181,64 @@ def record_feedback(
     return record
 
 
+_KEYWORD_RE = re.compile(r"[A-Za-z][A-Za-z_]{3,}|[가-힣]{2,}")
+
+
+def suggest_rule_changes(
+    feedback_path: Path | None = None,
+    *,
+    min_occurrences: int = 2,
+    top_k: int = 5,
+) -> list[dict]:
+    """피드백 mismatch에서 (confirmed_category 별) 자주 등장한 키워드를 추출.
+
+    각 mismatch 텍스트에서 _KEYWORD_RE 토큰을 모은 뒤, 카테고리별로 빈도 상위
+    top_k 키워드를 반환한다. 인간 검증자가 이를 ``_RULES`` 추가 후보로 검토한다.
+
+    반환 list[dict] 키:
+        confirmed_category, suggested_keywords (list[(token, count)]), n_samples
+    """
+    path = feedback_path or _FEEDBACK_PATH
+    if not path.exists():
+        return []
+    by_cat: dict[str, dict[str, int]] = {}
+    sample_count: dict[str, int] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if rec.get("agreement"):
+            continue
+        cat = rec.get("confirmed_category")
+        text = rec.get("text", "")
+        if not cat or not isinstance(text, str):
+            continue
+        sample_count[cat] = sample_count.get(cat, 0) + 1
+        bag = by_cat.setdefault(cat, {})
+        for tok in {t.lower() for t in _KEYWORD_RE.findall(text)}:
+            bag[tok] = bag.get(tok, 0) + 1
+
+    out: list[dict] = []
+    for cat, bag in by_cat.items():
+        ranked = sorted(
+            ((tok, cnt) for tok, cnt in bag.items() if cnt >= min_occurrences),
+            key=lambda x: (-x[1], x[0]),
+        )[:top_k]
+        out.append(
+            {
+                "confirmed_category": cat,
+                "n_samples": sample_count.get(cat, 0),
+                "suggested_keywords": ranked,
+            }
+        )
+    out.sort(key=lambda r: -r["n_samples"])
+    return out
+
+
 def feedback_summary(feedback_path: Path | None = None) -> dict:
     """기록된 피드백을 요약한다 (총 건수 / 일치율 / 카테고리별 mismatch)."""
     path = feedback_path or _FEEDBACK_PATH
@@ -267,6 +325,27 @@ def main(argv: list[str] | None = None) -> int:
     p_fb.set_defaults(func=_cmd_feedback)
 
     sub.add_parser("feedback-summary").set_defaults(func=_cmd_feedback_summary)
+
+    p_src = sub.add_parser(
+        "suggest-rule-changes",
+        help="mismatch 패턴 분석 → _RULES 추가 키워드 후보 제시",
+    )
+    p_src.add_argument("--min-occurrences", type=int, default=2)
+    p_src.add_argument("--top-k", type=int, default=5)
+    p_src.set_defaults(
+        func=lambda args: (
+            json.dump(
+                suggest_rule_changes(
+                    min_occurrences=args.min_occurrences, top_k=args.top_k
+                ),
+                sys.stdout,
+                ensure_ascii=False,
+                indent=2,
+            )
+            or sys.stdout.write("\n")
+            or 0
+        )
+    )
 
     args = parser.parse_args(argv)
     return int(args.func(args))

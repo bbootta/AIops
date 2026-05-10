@@ -154,6 +154,7 @@ def collect_step_ids(log_path: str | os.PathLike) -> list[str]:
     """로그 파일에서 실행된 step_id 목록을 순서대로 수집한다.
 
     "step" 이벤트 우선이며 없을 경우 run_logger의 start 이벤트 step_id를 사용.
+    status가 "skipped"인 step은 제외 — 실제로 수행된 단계만 반환.
     """
     p = Path(log_path)
     if not p.exists():
@@ -168,7 +169,28 @@ def collect_step_ids(log_path: str | os.PathLike) -> list[str]:
         except json.JSONDecodeError:
             continue
         if rec.get("event") == "step" and rec.get("step_id"):
+            if rec.get("status") == "skipped":
+                continue
             seen.append(rec["step_id"])
         elif rec.get("event") == "start" and rec.get("step_id"):
             seen.append(rec["step_id"])
     return seen
+
+
+def collect_step_records(log_path: str | os.PathLike) -> list[dict]:
+    """로그 파일의 'step' 이벤트 raw record를 순서대로 반환한다."""
+    p = Path(log_path)
+    if not p.exists():
+        return []
+    out: list[dict] = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if rec.get("event") == "step":
+            out.append(rec)
+    return out

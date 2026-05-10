@@ -22,7 +22,7 @@ from typing import Iterable
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from middleware.run_logger import collect_step_ids
+from middleware.run_logger import collect_step_ids, collect_step_records
 
 ROOT = Path(__file__).resolve().parent.parent
 MATRIX_PATH = ROOT / "harness" / "orchestration_matrix.json"
@@ -36,21 +36,33 @@ def load_matrix(path: Path | None = None) -> list[dict]:
 def audit(log_path: Path, *, matrix_path: Path | None = None) -> list[dict]:
     """매트릭스 step별로 실행 여부를 판정한다.
 
-    반환 list[dict] 키: id, name, status (executed/skipped/missing), expected_outputs
+    반환 list[dict] 키: id, name, status, component, expected_outputs.
+    status 값:
+      - executed: 로그에 status='executed'로 기록됨
+      - skipped:  로그에 status='skipped'로 명시 기록됨, 또는 게이트가 닫힘
+      - missing:  always 인데 로그에 없음
     """
     steps = load_matrix(matrix_path)
     executed = set(collect_step_ids(log_path))
+    skipped_ids = {
+        rec["step_id"]
+        for rec in collect_step_records(log_path)
+        if rec.get("status") == "skipped" and rec.get("step_id")
+    }
     rows: list[dict] = []
     for step in steps:
-        if step["id"] in executed:
+        sid = step["id"]
+        if sid in executed:
             status = "executed"
+        elif sid in skipped_ids:
+            status = "skipped"
         elif step.get("always") is True:
-            status = "missing"  # always 인데 로그에 없으면 누락
+            status = "missing"
         else:
             status = "skipped"  # 게이트가 닫혀서 의도적으로 미실행
         rows.append(
             {
-                "id": step["id"],
+                "id": sid,
                 "name": step["name"],
                 "status": status,
                 "component": step["component"],

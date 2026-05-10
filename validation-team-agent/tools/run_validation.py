@@ -37,6 +37,7 @@ from middleware.sample_size_guard import check_sample_size
 from middleware.schema_guard import check_schema, credit_scoring_schema
 from tools.binomial_calibration import calibration_test_per_grade
 from tools.data_profile import check_date_coverage, check_duplicates, check_missing
+from tools.dry_run import simulate as simulate_plan, summarize_plan
 from tools.metric_ks_auc import calculate_auc_gini, calculate_ks
 from tools.metric_psi import calculate_psi
 from tools.report_template import build_validation_report
@@ -60,6 +61,24 @@ class ValidationRequest:
     scenario_weight_period_col: str = "period"
     scenario_weight_scenario_col: str = "scenario"
     scenario_weight_value_col: str = "weight"
+
+
+def _plan_request_dict(req: ValidationRequest) -> dict:
+    """ValidationRequest를 dry_run.simulate가 받는 dict 형태로 변환."""
+    return {
+        "title": req.title,
+        "score_col": req.score_col,
+        "target_col": req.target_col,
+        "set_col": req.set_col,
+        "grade_col": req.grade_col,
+        "pd_col": req.pd_col,
+        "date_col": req.date_col,
+        "key_cols": list(req.key_cols),
+        "feature_names": list(req.feature_names),
+        "scenario_weight_panel": (
+            "provided" if req.scenario_weight_panel is not None else None
+        ),
+    }
 
 
 def _split_dev_oot(df: pd.DataFrame, set_col: str | None) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -247,7 +266,8 @@ def _build_report(req: ValidationRequest, input_findings: dict, quant: dict) -> 
         ],
         "audit_trail": (
             f"실행 로그: `logs/run.jsonl`. 변경 이력: `harness/change_manifest.json`. "
-            f"입력 결측 컬럼 수: {sum(1 for r in input_findings['missing'] if r['missing_count'] > 0)}."
+            f"입력 결측 컬럼 수: {sum(1 for r in input_findings['missing'] if r['missing_count'] > 0)}. "
+            f"plan: {summarize_plan(simulate_plan(_plan_request_dict(req)), max_items=20)}."
         ),
     }
     return build_validation_report(result_dict)
@@ -293,6 +313,13 @@ def run(req: ValidationRequest, log_dir: str | Path | None = None) -> dict:
         log_step("5.cite", component="middleware/output_completeness_guard.check_numeric_citations", log_dir=log_dir)
         watermarks = check_watermarks(report_md)
         log_step("5.watermark", component="middleware/draft_watermark_guard.check_watermarks", log_dir=log_dir)
+        log_step(
+            "6.audit",
+            component="harness/change_manifest.json (via tools/manifest.py)",
+            status="skipped",
+            log_dir=log_dir,
+            extra={"reason": "runner does not write manifest entries; human-driven step"},
+        )
 
         ctx["result_summary"] = {
             "completeness_passed": completeness["passed"],

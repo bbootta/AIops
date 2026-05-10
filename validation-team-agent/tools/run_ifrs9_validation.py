@@ -225,6 +225,13 @@ def run(req: IFRS9ValidationRequest, log_dir: str | Path | None = None) -> dict:
         log_step("5.cite", component="middleware/output_completeness_guard.check_numeric_citations", log_dir=log_dir)
         watermarks = check_watermarks(report_md)
         log_step("5.watermark", component="middleware/draft_watermark_guard.check_watermarks", log_dir=log_dir)
+        log_step(
+            "6.audit",
+            component="harness/change_manifest.json (via tools/manifest.py)",
+            status="skipped",
+            log_dir=log_dir,
+            extra={"reason": "runner does not write manifest entries; human-driven step"},
+        )
         ctx["result_summary"] = {
             "completeness_passed": completeness["passed"],
             "citations_passed": citations["passed"],
