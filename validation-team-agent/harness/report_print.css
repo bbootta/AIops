@@ -1,0 +1,17 @@
+/* harness/report_print.css
+ *
+ * tools/report_template.render_html이 print_friendly=True일 때 적용하는 CSS.
+ * 정책 변경(margin, font-size 등)은 본 파일을 직접 수정하고 CHG로 기록한다.
+ * 코드 수정은 필요하지 않다.
+ */
+@page {
+  size: A4;
+  margin: 18mm;
+}
+@media print {
+  body { font-size: 10.5pt; }
+  h1 { page-break-before: auto; }
+  h2 { page-break-after: avoid; }
+  table { page-break-inside: avoid; }
+  blockquote { page-break-inside: avoid; }
+}

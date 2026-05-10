@@ -101,7 +101,10 @@ def render_summary(rows: Iterable[dict]) -> str:
 
 def _cmd_log(args: argparse.Namespace) -> int:
     rows = audit(Path(args.log), matrix_path=args.matrix)
-    if args.json:
+    if args.jsonl:
+        for row in rows:
+            sys.stdout.write(json.dumps(row, ensure_ascii=False) + "\n")
+    elif args.json:
         json.dump(rows, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
     else:
@@ -131,7 +134,10 @@ def main(argv: list[str] | None = None) -> int:
     p_log = sub.add_parser("log", help="audit existing log file")
     p_log.add_argument("--log", required=True, type=str)
     p_log.add_argument("--matrix", type=Path, default=None)
-    p_log.add_argument("--json", action="store_true")
+    p_log.add_argument("--json", action="store_true",
+                       help="emit pretty-printed JSON array")
+    p_log.add_argument("--jsonl", action="store_true",
+                       help="emit one JSON object per line for streaming consumers")
     p_log.set_defaults(func=_cmd_log)
 
     p_demo = sub.add_parser("demo", help="run credit demo and audit immediately")

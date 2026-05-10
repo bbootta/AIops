@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Iterable
 
 REQUIRED_SECTIONS = [
@@ -70,17 +71,72 @@ _HEADER_BY_LANG = {
 }
 
 
-def build_validation_report(result_dict: dict, *, lang: str = "ko") -> str:
+# lang='en' 본문 hook: 도메인 키워드의 영문 병기. 자동 완역이 아니라 인간 검증자가
+# 영문 보고서 작성 시 비용을 줄이는 용도. 사전에 없는 표현은 한글 그대로 보존된다.
+_EN_BODY_GLOSSARY = {
+    "검증 보조 산출물": "validation aid",
+    "인간 검증자": "human reviewer",
+    "외부 제출": "external publication",
+    "운영계": "production system",
+    "스테이지": "stage",
+    "시나리오 가중치": "scenario weights",
+    "캘리브레이션": "calibration",
+    "다중공선성": "multicollinearity",
+    "정상성": "stationarity",
+    "표본": "sample",
+    "변별력": "discrimination",
+    "안정성": "stability",
+    "이상 징후": "anomaly",
+    "한계": "limitation",
+    "추가 확인 사항": "follow-up",
+    "감사추적": "audit trail",
+    "변경 이력": "change history",
+    "임계": "threshold",
+}
+
+
+def _translate_en(text: str) -> str:
+    """간단한 도메인 사전 치환. 원문(한글) 옆에 영문을 괄호로 병기한다."""
+    out = text
+    seen: set[str] = set()
+    for ko, en in _EN_BODY_GLOSSARY.items():
+        if ko in out and ko not in seen:
+            out = out.replace(ko, f"{ko} ({en})", 1)
+            seen.add(ko)
+    return out
+
+
+def _apply_translation(body, lang: str):
+    """body가 문자열/리스트일 때 lang에 따라 도메인 사전을 적용한다."""
+    if lang != "en":
+        return body
+    if isinstance(body, list):
+        return [_translate_en(str(item)) for item in body]
+    return _translate_en(str(body))
+
+
+def build_validation_report(
+    result_dict: dict,
+    *,
+    lang: str = "ko",
+    translate_body: bool | None = None,
+) -> str:
     """표준 10개 섹션을 갖는 검증보고서 초안을 마크다운으로 반환한다.
 
     누락된 섹션은 "(작성 필요)" 자리표시자로 채운다. lang='en' 인 경우 섹션 제목은
     영문이지만 워터마크는 한·영 병기 (ko 한글 워터마크가 사라지면 기존 점검 도구가
     누락 판정함을 방지).
+
+    translate_body: lang='en'일 때 True면 도메인 키워드를 영문 병기한다 (기본 True).
+    False면 본문은 한글 그대로 보존된다.
     """
     if not isinstance(result_dict, dict):
         raise TypeError("result_dict must be a dict")
     if lang not in SECTION_TITLES_BY_LANG:
         raise ValueError(f"unsupported lang {lang!r}; expected one of {list(SECTION_TITLES_BY_LANG)}")
+
+    if translate_body is None:
+        translate_body = lang == "en"
 
     titles = SECTION_TITLES_BY_LANG[lang]
     title = result_dict.get("title", "검증 보고서 초안")
@@ -90,6 +146,8 @@ def build_validation_report(result_dict: dict, *, lang: str = "ko") -> str:
     for i, key in enumerate(REQUIRED_SECTIONS, start=1):
         section_title = titles[key]
         body = result_dict.get(key, "(작성 필요)")
+        if translate_body:
+            body = _apply_translation(body, lang)
         lines.append(f"## {i}. {section_title}")
         if isinstance(body, list):
             for item in body:
@@ -102,7 +160,10 @@ def build_validation_report(result_dict: dict, *, lang: str = "ko") -> str:
     return "\n".join(lines)
 
 
-_PRINT_CSS = (
+_PRINT_CSS_PATH = (
+    Path(__file__).resolve().parent.parent / "harness" / "report_print.css"
+)
+_PRINT_CSS_FALLBACK = (
     "@page{size:A4;margin:18mm;}"
     "@media print{"
     "  body{font-size:10.5pt;}"
@@ -112,6 +173,14 @@ _PRINT_CSS = (
     "  blockquote{page-break-inside:avoid;}"
     "}"
 )
+
+
+def _load_print_css() -> str:
+    """harness/report_print.css에서 인쇄용 CSS를 읽는다. 파일이 없으면 fallback."""
+    try:
+        return _PRINT_CSS_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return _PRINT_CSS_FALLBACK
 
 
 def render_html(
@@ -205,7 +274,7 @@ def render_html(
         "code{background:#f0f0f0;padding:1px 4px;border-radius:3px;}"
         ".pb{page-break-before:always;}"
     )
-    css = base_css + (_PRINT_CSS if print_friendly else "")
+    css = base_css + (_load_print_css() if print_friendly else "")
 
     return (
         "<!doctype html>\n"

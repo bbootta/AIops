@@ -145,17 +145,39 @@ def suggest_manifest_fields(text: str) -> dict:
 _FEEDBACK_PATH = Path(__file__).resolve().parent.parent / "memory" / "classify_feedback.jsonl"
 
 
+class FeedbackPolicyError(RuntimeError):
+    """피드백 기록을 정책상 차단해야 함."""
+
+
+def _scan_feedback_for_sensitive(text: str) -> list[dict]:
+    """data_safety_guard 패턴으로 민감정보 매칭을 본다."""
+    try:
+        if __package__:
+            from middleware.data_safety_guard import scan_text  # type: ignore
+        else:  # pragma: no cover - direct module execution
+            from middleware.data_safety_guard import scan_text  # type: ignore
+    except Exception:
+        return []
+    return scan_text(text)
+
+
 def record_feedback(
     text: str,
     confirmed_category: str,
     *,
     notes: str = "",
     feedback_path: Path | None = None,
+    allow_sensitive: bool = False,
 ) -> dict:
     """인간 검증자가 확인한 카테고리를 학습 시그널로 기록한다.
 
     자동 분류 결과와 비교해 mismatch 여부를 함께 저장하므로, 차후 _RULES 보강의
     근거 자료가 된다. 본 함수는 분류 규칙을 자동 변경하지 않는다.
+
+    민감정보 정책: text/notes에 ``data_safety_guard`` 가 탐지하는 패턴이
+    포함되면 기본적으로 차단된다 (FeedbackPolicyError). allow_sensitive=True 로
+    호출자가 명시적으로 동의하지 않는 한 기록되지 않는다 — 운영 데이터의
+    학습 시그널 누출을 사전 차단.
     """
     if confirmed_category not in CATEGORIES:
         raise ValueError(
@@ -163,6 +185,13 @@ def record_feedback(
         )
     if not isinstance(text, str) or not text.strip():
         raise ValueError("text must be a non-empty string")
+
+    findings = _scan_feedback_for_sensitive(text) + _scan_feedback_for_sensitive(notes)
+    if findings and not allow_sensitive:
+        raise FeedbackPolicyError(
+            f"feedback blocked: sensitive patterns detected ({len(findings)} hits). "
+            "scrub the text or call with allow_sensitive=True after explicit human review."
+        )
 
     cls = classify(text)
     record = {
@@ -173,6 +202,7 @@ def record_feedback(
         "matched_pattern": cls.matched_pattern,
         "agreement": cls.category == confirmed_category,
         "notes": notes,
+        "sensitive_overridden": bool(findings),
     }
     path = feedback_path or _FEEDBACK_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -239,6 +269,46 @@ def suggest_rule_changes(
     return out
 
 
+def generate_rule_patch(
+    feedback_path: Path | None = None,
+    *,
+    min_occurrences: int = 2,
+    top_k: int = 5,
+) -> str:
+    """suggest_rule_changes 결과를 _RULES 패치 문자열로 변환한다.
+
+    `("category", r"\\b키워드\\b"),` 형태로 카테고리별 새 규칙 라인을 출력한다.
+    인간 검증자가 본 출력을 검토 후 ``_RULES`` 에 직접 추가/수정해야 한다.
+    자동 적용은 하지 않는다 — 정책 변경 책임은 인간에게 있다.
+    """
+    suggestions = suggest_rule_changes(
+        feedback_path, min_occurrences=min_occurrences, top_k=top_k
+    )
+    if not suggestions:
+        return "# no rule patch suggestion (no mismatch feedback yet)\n"
+
+    lines = [
+        "# Auto-generated rule patch suggestion",
+        "# Source: tools/classify_error.suggest_rule_changes",
+        "# Review carefully before adding to _RULES; thresholds are heuristic.",
+        "",
+    ]
+    for row in suggestions:
+        cat = row["confirmed_category"]
+        n = row["n_samples"]
+        lines.append(f"# category={cat!r}, n_samples={n}")
+        keys = row["suggested_keywords"]
+        if not keys:
+            lines.append("#   (no candidates met min_occurrences)")
+            continue
+        for tok, cnt in keys:
+            lines.append(
+                f'    ({cat!r}, r"\\b{re.escape(tok)}\\b"),  # count={cnt}'
+            )
+        lines.append("")
+    return "\n".join(lines)
+
+
 def feedback_summary(feedback_path: Path | None = None) -> dict:
     """기록된 피드백을 요약한다 (총 건수 / 일치율 / 카테고리별 mismatch)."""
     path = feedback_path or _FEEDBACK_PATH
@@ -291,7 +361,16 @@ def _cmd_feedback(args: argparse.Namespace) -> int:
     text = (
         Path(args.file).read_text(encoding="utf-8") if args.file else (args.text or sys.stdin.read())
     )
-    record = record_feedback(text, args.confirmed, notes=args.notes or "")
+    try:
+        record = record_feedback(
+            text,
+            args.confirmed,
+            notes=args.notes or "",
+            allow_sensitive=args.allow_sensitive,
+        )
+    except FeedbackPolicyError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     json.dump(record, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return 0
@@ -322,6 +401,11 @@ def main(argv: list[str] | None = None) -> int:
     p_fb.add_argument("--file", type=str, default=None)
     p_fb.add_argument("--text", type=str, default=None)
     p_fb.add_argument("--notes", type=str, default=None)
+    p_fb.add_argument(
+        "--allow-sensitive",
+        action="store_true",
+        help="민감정보 패턴이 탐지되어도 명시적으로 기록 진행 (인간 검토 후에만 사용)",
+    )
     p_fb.set_defaults(func=_cmd_feedback)
 
     sub.add_parser("feedback-summary").set_defaults(func=_cmd_feedback_summary)
@@ -343,6 +427,23 @@ def main(argv: list[str] | None = None) -> int:
                 indent=2,
             )
             or sys.stdout.write("\n")
+            or 0
+        )
+    )
+
+    p_rp = sub.add_parser(
+        "rule-patch",
+        help="suggest-rule-changes 결과를 _RULES 패치 문자열로 출력",
+    )
+    p_rp.add_argument("--min-occurrences", type=int, default=2)
+    p_rp.add_argument("--top-k", type=int, default=5)
+    p_rp.set_defaults(
+        func=lambda args: (
+            sys.stdout.write(
+                generate_rule_patch(
+                    min_occurrences=args.min_occurrences, top_k=args.top_k
+                )
+            )
             or 0
         )
     )
