@@ -91,3 +91,17 @@ def test_render_scenario_severity_handles_empty_pivot():
     out = mr.render_scenario_severity({}, [])
     assert "시나리오 pivot 데이터 없음" in out
     assert "총 위반: 0" in out
+
+
+def test_render_scenario_severity_single_row_no_period():
+    severity = {
+        "pivot": [{"base": 1.05, "adverse": 1.55, "severe": 2.4}],
+        "order": {"n": 1, "n_violation_total": 0,
+                  "n_violation_base_vs_adverse": 0, "n_violation_adverse_vs_severe": 0},
+    }
+    out = mr.render_scenario_severity(severity, [])
+    assert "시나리오 결과 (집계 평균)" in out
+    assert "scenario" in out and "mean_pred" in out
+    # All three scenarios should appear as rows.
+    for s in ("base", "adverse", "severe"):
+        assert f"| {s} |" in out

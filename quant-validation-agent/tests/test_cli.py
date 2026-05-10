@@ -195,6 +195,42 @@ def test_cli_note_add(tmp_path):
     assert "표본 부족 사례 1건" in text
 
 
+def test_cli_policy_governance_real_repo_exits_zero():
+    res = _run(["policy-governance"])
+    assert res.returncode == 0, res.stdout + res.stderr
+    payload = json.loads(res.stdout)
+    assert payload["manifest_governance"]["all_require_human_approval"] is True
+
+
+def test_cli_policy_governance_violation_exits_6(tmp_path):
+    bad_manifest = tmp_path / "manifest.json"
+    bad_manifest.write_text(json.dumps({
+        "entries": [
+            {
+                "change_id": "CHG-9090",
+                "component": "harness/threshold_policy.json",
+                "human_approval_required": False,
+            }
+        ]
+    }), encoding="utf-8")
+    res = _run([
+        "policy-governance",
+        "--manifest-path", str(bad_manifest),
+    ])
+    assert res.returncode == 6
+
+
+def test_cli_policy_governance_require_lock_exits_7(tmp_path):
+    res = _run([
+        "policy-governance",
+        "--lock-path", str(tmp_path / "missing.lock.json"),
+        "--require-lock",
+    ])
+    assert res.returncode == 7
+    payload = json.loads(res.stdout)
+    assert payload["lock"]["is_synced"] is False
+
+
 def test_cli_note_blocks_pii(tmp_path):
     target = tmp_path / "notes.md"
     result = _run(
@@ -252,6 +288,50 @@ def test_cli_report_no_input_returns_error(tmp_path):
     assert res.returncode == 4
 
 
+def test_cli_report_scenario_includes_fit_rag(tmp_path):
+    """Scenario report attaches RAG for R²/VIF/condition_index from policy."""
+    hist = os.path.join(ROOT, "examples", "sample_macro_history.csv")
+    sc = os.path.join(ROOT, "examples", "sample_macro_scenario.csv")
+    json_out = tmp_path / "scenario.json"
+    md_out = tmp_path / "scenario.md"
+    res1 = _run([
+        "validate-scenario",
+        "--hist-data", hist,
+        "--scenario-data", sc,
+        "--target", "pd_multiplier",
+        "--features", "gdp_growth,unemployment,bond_spread",
+        "--scenario-col", "scenario",
+        "--period-col", "period",
+        "--pred-col-in-scenario", "pd_multiplier",
+        "--multiplier-floors", "base=1.0,adverse=1.0,severe=1.0",
+        "--out", str(json_out),
+    ])
+    assert res1.returncode == 0, res1.stderr
+    res2 = _run(["report", "--scenario-input", str(json_out), "--out", str(md_out)])
+    assert res2.returncode == 0, res2.stderr
+    text = md_out.read_text(encoding="utf-8")
+    assert "적합도 RAG" in text
+    # The synthetic data is well-fit, so r_squared should be Green (>=0.7).
+    assert "r_squared" in text and "Green" in text
+    # VIF max should appear in the fit-RAG block.
+    assert "vif_max" in text
+    assert "condition_index_max" in text
+
+
+def test_cli_report_threshold_overrides_invalid_returns_6(tmp_path):
+    json_out = tmp_path / "scenario.json"
+    json_out.write_text(json.dumps({"fit": {}, "severity": {"order": {}}, "multiplier_floors": []}),
+                        encoding="utf-8")
+    bad_policy = tmp_path / "bad.json"
+    bad_policy.write_text('{"metrics": {"x": {"direction": "diagonal", "green_threshold": 0, "yellow_threshold": 0}}}',
+                          encoding="utf-8")
+    res = _run([
+        "report", "--scenario-input", str(json_out),
+        "--threshold-overrides", str(bad_policy),
+    ])
+    assert res.returncode == 6
+
+
 def test_cli_report_renders_scenario_input(tmp_path):
     hist = os.path.join(ROOT, "examples", "sample_macro_history.csv")
     sc = os.path.join(ROOT, "examples", "sample_macro_scenario.csv")
@@ -281,6 +361,37 @@ def test_cli_report_renders_scenario_input(tmp_path):
     assert "시나리오 결과" in text
     assert "Multiplier floor" in text
     assert "Durbin–Watson" in text
+
+
+def test_cli_validate_rejects_malformed_policy(tmp_path, monkeypatch):
+    """When the loaded policy fails schema validation, validate exits 6."""
+    bad_policy = tmp_path / "bad_policy.json"
+    bad_policy.write_text(
+        json.dumps(
+            {
+                "metrics": {
+                    "ks": {"direction": "diagonal", "green_threshold": 0.4, "yellow_threshold": 0.3}
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    # Point the loader at the bad policy via env-injected module path.
+    sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
+    env = os.environ.copy()
+    env["QVA_TEST_BAD_POLICY"] = str(bad_policy)
+    # Run validate but inject the bad policy via monkey-patching the loader
+    # by exporting a shim module path. Simplest path: set DEFAULT_POLICY_PATH
+    # via PYTHONPATH-loaded sitecustomize is overkill; instead exercise the
+    # `thresholds --path` flag which reuses _load_validated_policy.
+    result = subprocess.run(
+        [sys.executable, "-m", "quant_validation_agent",
+         "thresholds", "--path", str(bad_policy), "--metric", "ks"],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    assert result.returncode == 6, result.stdout + result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["error"] == "policy_invalid"
 
 
 def test_cli_validate_writes_run_log(tmp_path):

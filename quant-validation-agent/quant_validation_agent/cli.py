@@ -36,6 +36,17 @@ def _read_text(path: str) -> str:
         return f.read()
 
 
+def _load_validated_policy(path: Optional[str] = None) -> dict:
+    """Load the threshold policy and schema-validate it.
+
+    Centralized so every CLI command operates on a policy that has passed
+    structural validation (validate_policy raises ValueError on failure).
+    """
+    policy = threshold_loader.load_threshold_policy(path) if path else threshold_loader.load_threshold_policy()
+    threshold_loader.validate_policy(policy)
+    return policy
+
+
 def _parse_request_metadata(text: str) -> dict:
     """Extract simple key:value metadata from a request markdown.
 
@@ -92,7 +103,11 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def cmd_thresholds(args: argparse.Namespace) -> int:
-    policy = threshold_loader.load_threshold_policy(args.path) if args.path else threshold_loader.load_threshold_policy()
+    try:
+        policy = _load_validated_policy(args.path)
+    except (ValueError, FileNotFoundError) as e:
+        print(json.dumps({"error": "policy_invalid", "detail": str(e)}, ensure_ascii=False))
+        return 6
     segment = getattr(args, "segment", None)
     if args.metric:
         out = threshold_loader.get_metric_threshold(policy, args.metric, segment=segment)
@@ -192,7 +207,11 @@ def cmd_validate(args: argparse.Namespace) -> int:
         ks = metric_ks_auc_ar.calculate_ks(df[args.target], df[args.score], higher_is_worse=higher_is_worse)
         auc = metric_ks_auc_ar.calculate_auc(df[args.target], df[args.score], higher_is_worse=higher_is_worse)
         ar = metric_ks_auc_ar.calculate_accuracy_ratio(df[args.target], df[args.score], higher_is_worse=higher_is_worse)
-        policy = threshold_loader.load_threshold_policy()
+        try:
+            policy = _load_validated_policy()
+        except ValueError as e:
+            print(json.dumps({"error": "policy_invalid", "detail": str(e)}, ensure_ascii=False))
+            return 6
         report["metrics"]["ks"] = _rag_with_threshold(ks, policy, "ks", segment=args.segment)
         report["metrics"]["auroc"] = _rag_with_threshold(auc, policy, "auroc", segment=args.segment)
         report["metrics"]["ar"] = _rag_with_threshold(ar, policy, "ar", segment=args.segment)
@@ -214,7 +233,11 @@ def cmd_validate(args: argparse.Namespace) -> int:
         mae = metric_lgd_ead.calculate_mae(df[args.actual], df[args.predicted])
         rmse = metric_lgd_ead.calculate_rmse(df[args.actual], df[args.predicted])
         bias = metric_lgd_ead.calculate_bias(df[args.actual], df[args.predicted])
-        policy = threshold_loader.load_threshold_policy()
+        try:
+            policy = _load_validated_policy()
+        except ValueError as e:
+            print(json.dumps({"error": "policy_invalid", "detail": str(e)}, ensure_ascii=False))
+            return 6
         if args.model_type == "lgd":
             report["metrics"]["mae"] = _rag_with_threshold(mae, policy, "mae_lgd", segment=args.segment)
             report["metrics"]["rmse"] = _rag_with_threshold(rmse, policy, "rmse_lgd", segment=args.segment)
@@ -447,23 +470,53 @@ def _render_report_markdown(report: dict) -> str:
     return "\n".join(out)
 
 
-def _render_scenario_report_markdown(scenario_report: dict) -> str:
-    """Render a validate-scenario JSON output as the standard 9-section markdown."""
+def _render_scenario_report_markdown(
+    scenario_report: dict, policy: Optional[dict] = None
+) -> str:
+    """Render a validate-scenario JSON output as the standard 9-section markdown.
+
+    When `policy` is provided, fit-metric RAG is computed for R², the
+    maximum VIF, and the maximum condition index using policy thresholds.
+    """
     from tools import markdown_renderers as mr
 
     fit = scenario_report.get("fit", {}) or {}
     severity = scenario_report.get("severity", {}) or {}
     floors = scenario_report.get("multiplier_floors", []) or []
+
+    fit_rag: dict = {}
+    if policy:
+        summary = fit.get("summary", {}) or {}
+        r2 = summary.get("r_squared")
+        if r2 is not None:
+            fit_rag["r_squared"] = _rag_with_threshold(r2, policy, "r_squared")
+        vif_rows = fit.get("vif", []) or []
+        if vif_rows:
+            try:
+                vif_max = max(float(r["vif"]) for r in vif_rows
+                              if r.get("vif") is not None and r.get("vif") != float("inf"))
+            except ValueError:
+                vif_max = None
+            if vif_max is not None:
+                fit_rag["vif_max"] = _rag_with_threshold(vif_max, policy, "vif")
+        ci = (fit.get("condition_index") or {}).get("max_condition_index")
+        if ci is not None:
+            fit_rag["condition_index_max"] = _rag_with_threshold(ci, policy, "condition_index")
     summary = fit.get("summary", {}) or {}
     pvals = fit.get("pvalues", []) or []
     vif = fit.get("vif", []) or []
 
     n_vio = (severity.get("order") or {}).get("n_violation_total", 0)
     floor_violation = any(f.get("violation") for f in floors)
-    if n_vio > 0 or floor_violation:
+    fit_rag_states = [v.get("rag", "Gray") for v in fit_rag.values()]
+    if n_vio > 0 or floor_violation or "Red" in fit_rag_states:
         overall = "Red"
+    elif "Yellow" in fit_rag_states:
+        overall = "Yellow"
+    elif fit_rag_states and "Gray" not in fit_rag_states:
+        overall = "Green"
     else:
-        overall = "Yellow"  # no thresholds applied to fit metrics in CLI
+        overall = "Yellow"  # no fit-metric thresholds applied
 
     out: List[str] = []
     out.append("## 1. 검증 요약")
@@ -491,6 +544,9 @@ def _render_scenario_report_markdown(scenario_report: dict) -> str:
 
     out.append("## 3. 주요 지표")
     out.append("")
+    if fit_rag:
+        out.append("**적합도 RAG**\n")
+        out.append(mr.render_metrics_table(fit_rag))
     out.append(mr.render_regression_summary(summary, pvals, vif))
 
     out.append("## 4. 세부 분석")
@@ -562,13 +618,16 @@ def cmd_report(args: argparse.Namespace) -> int:
     Accepts either:
       --input <validate JSON>       (scoring/PD/LGD/EAD)
       --scenario-input <JSON>       (validate-scenario)
+
+    With --scenario-input, the report attaches fit-metric RAG using the
+    threshold policy. Use --threshold-overrides PATH to point at an
+    alternative policy file (still schema-validated).
     """
-    if args.scenario_input:
+    is_scenario = bool(args.scenario_input)
+    if is_scenario:
         path = args.scenario_input
-        renderer = _render_scenario_report_markdown
     elif args.input:
         path = args.input
-        renderer = _render_report_markdown
     else:
         print(json.dumps({"error": "either --input or --scenario-input is required"}, ensure_ascii=False))
         return 4
@@ -577,7 +636,15 @@ def cmd_report(args: argparse.Namespace) -> int:
         return 4
     with open(path, "r", encoding="utf-8") as f:
         report = json.load(f)
-    md = renderer(report)
+    if is_scenario:
+        try:
+            policy = _load_validated_policy(args.threshold_overrides)
+        except (ValueError, FileNotFoundError) as e:
+            print(json.dumps({"error": "policy_invalid", "detail": str(e)}, ensure_ascii=False))
+            return 6
+        md = _render_scenario_report_markdown(report, policy=policy)
+    else:
+        md = _render_report_markdown(report)
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as f:
@@ -659,7 +726,11 @@ def cmd_validate_pd_calibration(args: argparse.Namespace) -> int:
         bucket_series = df[args.bucket_col] if args.bucket_col and args.bucket_col in df.columns else None
         n_rows = int(df.shape[0])
 
-    policy = threshold_loader.load_threshold_policy()
+    try:
+        policy = _load_validated_policy()
+    except ValueError as e:
+        print(json.dumps({"error": "policy_invalid", "detail": str(e)}, ensure_ascii=False))
+        return 6
 
     brier = metric_calibration.calculate_brier_score(actual.tolist(), pred_pd.tolist())
     bias_df = pd.DataFrame({"pred": pred_pd, "actual": actual})
@@ -735,6 +806,47 @@ def cmd_validate_pd_calibration(args: argparse.Namespace) -> int:
             log_dir=args.log_dir,
         )
     print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_policy_governance(args: argparse.Namespace) -> int:
+    """Policy governance audit.
+
+    Inspects:
+      - change_manifest entries that reference threshold_policy.json
+      - whether each entry has human_approval_required: true
+      - the lock-file digest vs the current policy digest
+
+    Exit codes:
+      0 — all checks pass
+      6 — manifest entries violate the approval rule
+      7 — policy lock is missing or out of sync (only when --require-lock)
+    """
+    from middleware import policy_change_guard
+
+    policy_path = args.policy_path or os.path.join(_PROJECT_ROOT, "harness", "threshold_policy.json")
+    manifest_path = args.manifest_path or os.path.join(_PROJECT_ROOT, "harness", "change_manifest.json")
+    lock_path = args.lock_path or os.path.join(_PROJECT_ROOT, "harness", "threshold_policy.lock.json")
+
+    try:
+        manifest = policy_change_guard.load_manifest(manifest_path)
+    except FileNotFoundError as e:
+        print(json.dumps({"error": "manifest_missing", "detail": str(e)}, ensure_ascii=False))
+        return 6
+    governance = policy_change_guard.policy_governance_status(manifest)
+    lock_info = policy_change_guard.verify_against_lock(policy_path, lock_path)
+    out = {
+        "policy_path": policy_path,
+        "manifest_path": manifest_path,
+        "lock_path": lock_path,
+        "manifest_governance": governance,
+        "lock": lock_info,
+    }
+    print(json.dumps(out, ensure_ascii=False, indent=2))
+    if not governance["all_require_human_approval"]:
+        return 6
+    if args.require_lock and not lock_info["is_synced"]:
+        return 7
     return 0
 
 
@@ -844,6 +956,17 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Optional directory to write a run-log JSON via middleware.run_logger.")
     p_v.set_defaults(func=cmd_validate)
 
+    p_pg = sub.add_parser(
+        "policy-governance",
+        help="Audit threshold_policy governance: manifest approvals + lock digest.",
+    )
+    p_pg.add_argument("--policy-path", dest="policy_path", default=None)
+    p_pg.add_argument("--manifest-path", dest="manifest_path", default=None)
+    p_pg.add_argument("--lock-path", dest="lock_path", default=None)
+    p_pg.add_argument("--require-lock", dest="require_lock", action="store_true",
+                      help="Exit 7 when the lock is missing or drifted.")
+    p_pg.set_defaults(func=cmd_policy_governance)
+
     p_n = sub.add_parser("note", help="Append a recurring-finding note.")
     p_n.add_argument("subaction", choices=["add"])
     p_n.add_argument("--text", required=True, help="The note text (single line).")
@@ -858,6 +981,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_r.add_argument("--input", help="Path to a validate JSON report (scoring/PD/LGD/EAD).")
     p_r.add_argument("--scenario-input", dest="scenario_input",
                      help="Path to a validate-scenario JSON report.")
+    p_r.add_argument("--threshold-overrides", dest="threshold_overrides", default=None,
+                     help="Optional path to an alternative threshold_policy.json. "
+                          "Always schema-validated before use.")
     p_r.add_argument("--out", help="Optional path to write the markdown report.")
     p_r.set_defaults(func=cmd_report)
 

@@ -137,3 +137,26 @@ def test_assert_synced_passes_when_locked(tmp_path):
     lock_path = tmp_path / "policy.lock.json"
     pcg.update_lock(str(fake_policy), "CHG-9103", str(lock_path))
     pcg.assert_policy_synced_with_lock(str(fake_policy), str(lock_path))
+
+
+@pytest.mark.skipif(
+    not os.environ.get("QVA_STRICT_POLICY_LOCK"),
+    reason="Opt-in: requires the lock-file workflow to be in operational use.",
+)
+def test_lock_references_latest_policy_change_entry():
+    """Operations-strict invariant: the on-disk lock points at the most recent
+    manifest entry that mutated threshold_policy.json."""
+    lock_path = os.path.join(ROOT, "harness", "threshold_policy.lock.json")
+    manifest = pcg.load_manifest(MANIFEST_PATH)
+    entries = pcg.find_policy_change_entries(manifest)
+    assert entries, "no policy-change entries to compare against"
+    # By convention the most recently appended entry is the latest approval.
+    latest = entries[-1]
+    lock = pcg.load_lock(lock_path)
+    assert lock, f"no lock at {lock_path}; run update_lock after approval"
+    assert lock.get("approved_change_id") == latest.get("change_id"), (
+        f"Lock references {lock.get('approved_change_id')} but latest manifest "
+        f"policy change is {latest.get('change_id')}."
+    )
+    info = pcg.verify_against_lock(POLICY_PATH, lock_path)
+    assert info["is_synced"] is True

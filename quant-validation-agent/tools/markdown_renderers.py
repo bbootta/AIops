@@ -178,12 +178,25 @@ def render_scenario_severity(
 
     if pivot:
         df = pd.DataFrame(pivot)
-        cols = [c for c in df.columns if c in ("period", "base", "adverse", "severe")]
-        if "period" in cols:
+        has_period = "period" in df.columns
+        scenario_cols = [c for c in ("base", "adverse", "severe") if c in df.columns]
+        if has_period:
+            cols = ["period"] + scenario_cols
             df = df[cols]
-        parts.append("**시나리오 결과 (period × scenario)**\n")
-        aligns = {c: "right" for c in cols if c != "period"}
-        parts.append(render_dataframe_markdown(df, aligns=aligns, decimals=decimals))
+            parts.append("**시나리오 결과 (period × scenario)**\n")
+            aligns = {c: "right" for c in scenario_cols}
+            parts.append(render_dataframe_markdown(df, aligns=aligns, decimals=decimals))
+        else:
+            # Single-row aggregation: pivot to a 2-column scenario | mean table.
+            row = df.iloc[0]
+            tall = pd.DataFrame(
+                {
+                    "scenario": scenario_cols,
+                    "mean_pred": [float(row[c]) for c in scenario_cols],
+                }
+            )
+            parts.append("**시나리오 결과 (집계 평균)**\n")
+            parts.append(render_dataframe_markdown(tall, aligns={"mean_pred": "right"}, decimals=decimals))
     else:
         parts.append("- 시나리오 pivot 데이터 없음.")
 

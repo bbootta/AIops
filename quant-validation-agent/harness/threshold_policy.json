@@ -97,6 +97,12 @@
       "direction": "higher_is_better",
       "green_threshold": 0.05,
       "yellow_threshold": 0.01
+    },
+    "r_squared": {
+      "model_types": ["regression", "pd_multiplier"],
+      "direction": "higher_is_better",
+      "green_threshold": 0.7,
+      "yellow_threshold": 0.5
     }
   },
   "sample_size": {

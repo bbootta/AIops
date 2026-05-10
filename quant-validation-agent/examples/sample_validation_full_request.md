@@ -172,3 +172,115 @@ manifest 항목에 `human_approval_required: true`가 있는지 자동 확인한
 - 본 튜토리얼의 데이터는 합성이며, 결과는 코드 동작 검증 외 의미가 없다.
 - 임계값은 정책 미확정 시 `Gray`로 보고된다.
 - 운영계 데이터·고객 식별정보는 본 저장소에 절대 저장하지 않는다.
+
+---
+
+## 부록 A. 보조 CLI
+
+### A.1 `thresholds` — 정책 조회
+
+```bash
+# 단일 지표 (글로벌)
+python -m quant_validation_agent thresholds --metric ks
+
+# 세그먼트 override 적용
+python -m quant_validation_agent thresholds --metric ks --segment ldp_corporate
+
+# 모형 유형으로 적용 가능한 지표 일괄 조회
+python -m quant_validation_agent thresholds --model-type pd
+
+# 대체 정책 파일 사용 (스키마 검증 통과 필요)
+python -m quant_validation_agent thresholds --path /path/to/alt_policy.json
+```
+
+`thresholds`는 진입 시 `validate_policy`를 자동 실행한다. 정책이 schema를
+위반하면 종료 코드 6과 함께 `policy_invalid` 에러가 출력된다.
+
+### A.2 `check` — 위험 키워드 / PII 게이트
+
+```bash
+# 인라인 텍스트 점검
+python -m quant_validation_agent check --text "DROP TABLE customers"   # → exit 2
+python -m quant_validation_agent check --text "user@example.com"        # → exit 3
+
+# 파일 점검
+python -m quant_validation_agent check --path examples/sample_validation_request.md
+```
+
+- exit 2 : 위험 키워드 (DROP/DELETE/git push/production/운영계 등)
+- exit 3 : 개인정보 패턴 (이메일/주민/카드/계좌/전화)
+- exit 0 : 통과
+
+### A.3 `note add` — 반복 이슈 노트
+
+```bash
+python -m quant_validation_agent note add \
+    --text "등급 E 표본 부족 재확인" \
+    --model "PD-corp" \
+    --path memory/recurring_validation_findings.md
+```
+
+- PII / 위험 키워드가 본문에 포함되면 즉시 `exit 5`로 차단되며 파일은 수정되지 않는다.
+- 기본 경로는 `memory/recurring_validation_findings.md`.
+
+### A.4 `policy-governance` — 거버넌스 점검
+
+```bash
+# 매니페스트 + 로크 파일 종합 점검
+python -m quant_validation_agent policy-governance
+
+# lock 파일 동기화까지 강제 (CI 권장)
+python -m quant_validation_agent policy-governance --require-lock
+
+# 대체 매니페스트 / 로크 경로 사용
+python -m quant_validation_agent policy-governance \
+    --manifest-path harness/change_manifest.json \
+    --lock-path     harness/threshold_policy.lock.json \
+    --policy-path   harness/threshold_policy.json
+```
+
+종료 코드:
+
+| 코드 | 의미 |
+|---:|---|
+| 0 | 매니페스트 거버넌스 통과 (그리고 `--require-lock`이면 lock 동기화도 통과) |
+| 6 | `threshold_policy.json`을 변경한 매니페스트 항목 중 하나 이상이 `human_approval_required: true`를 누락 |
+| 7 | `--require-lock` 사용 시 lock 부재 또는 digest 불일치 |
+
+### A.5 `report --scenario-input` — 시나리오 회귀 RAG 적용 리포트
+
+```bash
+python -m quant_validation_agent validate-scenario \
+    --hist-data examples/sample_macro_history.csv \
+    --scenario-data examples/sample_macro_scenario.csv \
+    --target pd_multiplier \
+    --features gdp_growth,unemployment,bond_spread \
+    --period-col period --pred-col-in-scenario pd_multiplier \
+    --multiplier-floors base=1.0,adverse=1.0,severe=1.0 \
+    --out reports/scenario.json
+
+# 시나리오 결과에 R²/VIF/condition_index RAG 자동 부여
+python -m quant_validation_agent report \
+    --scenario-input reports/scenario.json \
+    --out reports/scenario.md
+
+# 대체 정책으로 RAG 부여 (always schema-validated)
+python -m quant_validation_agent report \
+    --scenario-input reports/scenario.json \
+    --threshold-overrides /path/to/alt_policy.json \
+    --out reports/scenario_alt.md
+```
+
+---
+
+## 부록 B. 종료 코드 정리
+
+| 코드 | 발생 조건 |
+|---:|---|
+| 0 | 정상 종료 |
+| 2 | `check`에서 위험 키워드 탐지 |
+| 3 | `check`에서 PII 탐지 |
+| 4 | 입력/스키마 오류 (`validate*`, `report` 입력 누락 등) |
+| 5 | `note add`에서 PII/위험 키워드로 차단 |
+| 6 | 정책 schema 검증 실패 또는 `policy-governance` 매니페스트 거버넌스 위반 |
+| 7 | `policy-governance --require-lock` 사용 시 lock 미존재/불일치 |
