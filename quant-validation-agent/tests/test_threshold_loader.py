@@ -108,6 +108,21 @@ def test_validate_policy_rejects_unknown_top_level_key():
         tl.validate_policy(bad)
 
 
+def test_validate_policy_rejects_unknown_model_type():
+    bad = {
+        "metrics": {
+            "ks": {
+                "model_types": ["fictional_model_type"],
+                "direction": "higher_is_better",
+                "green_threshold": 0.4,
+                "yellow_threshold": 0.3,
+            }
+        }
+    }
+    with pytest.raises(ValueError):
+        tl.validate_policy(bad)
+
+
 def test_get_metric_threshold_pd_bias_uses_abs():
     policy = tl.load_threshold_policy()
     out = tl.get_metric_threshold(policy, "pd_bias")

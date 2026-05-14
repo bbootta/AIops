@@ -57,13 +57,22 @@ def detect_grade_inversion(
     """Return adjacent grade pairs whose `metric_col` violates the expected order.
 
     If ascending=True, we expect metric to increase as grade index increases.
+
+    Accepts pandas nullable dtypes (Int64/Float64) by converting `metric_col`
+    to a plain float and dropping `pd.NA` before sorting.
     """
+    import numpy as _np
+
     for c in (grade_col, metric_col):
         if c not in df.columns:
             raise ValueError(f"Column missing: {c}")
+    work = df[[grade_col, metric_col]].copy()
+    # Force float64 for the metric column to neutralize Int64/Float64 / pd.NA.
+    work[metric_col] = pd.to_numeric(work[metric_col], errors="coerce").astype("float64")
+    # And drop NaN rows in either column.
+    work = work[~work[grade_col].isna() & ~_np.isnan(work[metric_col])]
     s = (
-        df[[grade_col, metric_col]]
-        .dropna()
+        work[[grade_col, metric_col]]
         .sort_values(grade_col)
         .reset_index(drop=True)
     )

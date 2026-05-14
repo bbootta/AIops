@@ -76,13 +76,25 @@
       "type": "string",
       "enum": ["higher_is_better", "lower_is_better", "abs_lower_is_better"]
     },
+    "modelType": {
+      "type": "string",
+      "enum": [
+        "scoring",
+        "pd",
+        "lgd",
+        "ead",
+        "regression",
+        "pd_multiplier",
+        "monitoring"
+      ]
+    },
     "metricDefinition": {
       "type": "object",
       "required": ["direction", "green_threshold", "yellow_threshold"],
       "properties": {
         "model_types": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": { "$ref": "#/$defs/modelType" }
         },
         "direction": { "$ref": "#/$defs/direction" },
         "green_threshold": { "type": "number" },

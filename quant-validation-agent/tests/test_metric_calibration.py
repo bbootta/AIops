@@ -47,6 +47,18 @@ def test_pd_bias_returns_zero_division_friendly():
     assert np.isnan(out["rel_bias"])
 
 
+def test_pd_bias_rejects_pred_out_of_range():
+    df = pd.DataFrame({"pred_pd": [0.1, 1.5], "default": [0, 0]})
+    with pytest.raises(ValueError):
+        m.calculate_pd_bias(df, "pred_pd", "default")
+
+
+def test_pd_bias_rejects_negative_default_rate():
+    df = pd.DataFrame({"pred_pd": [0.1, 0.2], "default": [0.0, -0.1]})
+    with pytest.raises(ValueError):
+        m.calculate_pd_bias(df, "pred_pd", "default")
+
+
 def test_summarize_observed_vs_predicted():
     df = _make_pd_df()
     df["grp"] = (df["pred_pd"] > df["pred_pd"].median()).astype(int)

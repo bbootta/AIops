@@ -377,6 +377,9 @@ def cmd_validate(args: argparse.Namespace) -> int:
             log_dir=args.log_dir,
         )
     print(json.dumps(report, ensure_ascii=False, indent=2))
+    if getattr(args, "explain", False):
+        print("\n--- markdown ---")
+        print(_render_report_markdown(report))
     return 0
 
 
@@ -1389,6 +1392,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Override the EAD-error normalizer from threshold_policy.json.")
     p_v.add_argument("--segment-detail", dest="segment_detail", action="store_true",
                      help="LGD/EAD: emit per-segment MAE/RMSE/bias under report.segment_detail.")
+    p_v.add_argument("--explain", dest="explain", action="store_true",
+                     help="Also append a 9-section markdown report to stdout for human review.")
     p_v.add_argument("--segment-col", dest="segment_col", default=None,
                      help="Column to group by for --segment-detail.")
     p_v.add_argument("--out", help="Optional path to write the JSON report.")

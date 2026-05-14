@@ -210,7 +210,7 @@ usage: quant_validation_agent validate [-h] --data DATA --model-type
                                        [--baseline-value BASELINE_VALUE]
                                        [--segment SEGMENT] [--decile-rag]
                                        [--ead-normalizer {mean_realized,mean_predicted,total_exposure}]
-                                       [--segment-detail]
+                                       [--segment-detail] [--explain]
                                        [--segment-col SEGMENT_COL] [--out OUT]
                                        [--log-dir LOG_DIR]
 
@@ -237,6 +237,8 @@ options:
                         threshold_policy.json.
   --segment-detail      LGD/EAD: emit per-segment MAE/RMSE/bias under
                         report.segment_detail.
+  --explain             Also append a 9-section markdown report to stdout for
+                        human review.
   --segment-col SEGMENT_COL
                         Column to group by for --segment-detail.
   --out OUT             Optional path to write the JSON report.

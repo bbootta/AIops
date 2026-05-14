@@ -167,6 +167,19 @@ def test_cli_validate_ead_emits_overall_rag():
     assert payload["overall_rag"] in {"Green", "Yellow", "Red", "Gray"}
 
 
+def test_cli_validate_explain_appends_markdown():
+    sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
+    res = _run([
+        "validate", "--data", sample,
+        "--model-type", "scoring",
+        "--target", "target", "--score", "score",
+        "--explain",
+    ])
+    assert res.returncode == 0, res.stderr
+    assert "--- markdown ---" in res.stdout
+    assert "## 1. 검증 요약" in res.stdout
+
+
 def test_cli_validate_emits_overall_rag():
     sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
     res = _run([
@@ -951,6 +964,27 @@ def test_cli_validate_pd_calibration_missing_columns(tmp_path):
         ]
     )
     assert result.returncode == 4
+
+
+def test_cli_validate_scenario_severity_violation_case(tmp_path):
+    """The failure-case sample is engineered so adverse > severe at 2026Q1."""
+    hist = os.path.join(ROOT, "examples", "sample_macro_history.csv")
+    sc = os.path.join(ROOT, "examples", "sample_scenario_failure_case.csv")
+    res = _run([
+        "validate-scenario",
+        "--hist-data", hist,
+        "--scenario-data", sc,
+        "--target", "pd_multiplier",
+        "--features", "gdp_growth,unemployment,bond_spread",
+        "--scenario-col", "scenario",
+        "--period-col", "period",
+        "--pred-col-in-scenario", "pd_multiplier",
+        "--multiplier-floors", "base=1.0,adverse=1.0,severe=1.0",
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert payload["severity"]["order"]["n_violation_total"] >= 1
+    assert payload["overall_rag"] == "Red"
 
 
 def test_cli_validate_scenario_inline_stationarity_rag(tmp_path):

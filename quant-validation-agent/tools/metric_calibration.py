@@ -63,6 +63,16 @@ def calculate_pd_bias(df: pd.DataFrame, pred_pd_col: str, default_col: str) -> d
     work = df.dropna(subset=[pred_pd_col, default_col])
     if work.empty:
         raise ValueError("No non-null rows for PD bias.")
+    # Range sanity: predicted PD must be a probability and the default column
+    # must be a valid rate or 0/1 series. Catches malformed inputs early.
+    if (work[pred_pd_col] < 0).any() or (work[pred_pd_col] > 1).any():
+        raise ValueError(
+            f"{pred_pd_col} contains values outside [0, 1]; expected predicted PD."
+        )
+    if (work[default_col] < 0).any() or (work[default_col] > 1).any():
+        raise ValueError(
+            f"{default_col} contains values outside [0, 1]; expected 0/1 flag or default rate."
+        )
     mean_pred = float(work[pred_pd_col].mean())
     mean_obs = float(work[default_col].mean())
     abs_bias = mean_pred - mean_obs
