@@ -14,7 +14,7 @@
 PYTHON ?= python
 PKG ?= quant_validation_agent
 
-.PHONY: help test test-strict governance smoke smoke-scoring smoke-pd smoke-lgd smoke-ead smoke-scenario report report-smoke stationarity-report ci clean
+.PHONY: help test test-strict governance smoke smoke-scoring smoke-pd smoke-lgd smoke-ead smoke-scenario report report-smoke stationarity-report verify ci clean
 
 help:
 	@echo "Targets:"
@@ -24,6 +24,7 @@ help:
 	@echo "  smoke         Run validate* over examples/"
 	@echo "  report        Render every smoke output to a 9-section markdown"
 	@echo "  stationarity-report  Render the scenario report with stationarity RAG"
+	@echo "  verify        test + governance + summary (CI gate)"
 	@echo "  ci            test + governance + smoke"
 	@echo "  clean         Remove __pycache__ and stray artifacts"
 
@@ -102,6 +103,19 @@ stationarity-report: smoke-scenario
 	    --include-stationarity-rag \
 	    --out reports/_smoke_scenario_stationarity.md
 	@echo "Rendered: reports/_smoke_scenario_stationarity.md"
+
+# Strict CI gate: run tests, audit policy governance with lock enforcement
+# (use --exit-on-yellow for soft-fail), then aggregate every smoke output
+# via the summary subcommand and fail on any Red.
+verify: test governance smoke
+	$(PYTHON) -m $(PKG) summary \
+	    --input reports/_smoke_scoring.json \
+	    --input reports/_smoke_pd_calibration.json \
+	    --input reports/_smoke_lgd.json \
+	    --input reports/_smoke_ead.json \
+	    --input reports/_smoke_scenario.json \
+	    --fail-on-red
+	@echo "verify: OK"
 
 ci: test governance smoke
 

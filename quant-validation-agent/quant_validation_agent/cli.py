@@ -26,6 +26,8 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 from middleware import data_safety_guard, permission_guard  # noqa: E402
+
+from . import __version__  # noqa: E402
 from tools import threshold_loader  # noqa: E402
 
 
@@ -447,9 +449,14 @@ def cmd_validate_scenario(args: argparse.Namespace) -> int:
         out["overall_rag"] = "Red"
     else:
         out["overall_rag"] = "Yellow"  # fit-metric RAG is computed by `report`
-    if args.out:
-        os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
-        with open(args.out, "w", encoding="utf-8") as f:
+    out_path = args.out
+    if not out_path and getattr(args, "out_pattern", None):
+        ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        out_path = args.out_pattern.replace("{ts}", ts)
+        out["resolved_out_path"] = out_path
+    if out_path:
+        os.makedirs(os.path.dirname(os.path.abspath(out_path)) or ".", exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
             json.dump(out, f, ensure_ascii=False, indent=2, default=str)
     if getattr(args, "log_dir", None):
         from middleware import run_logger
@@ -463,7 +470,7 @@ def cmd_validate_scenario(args: argparse.Namespace) -> int:
                 "severity_violations": out["severity"]["order"]["n_violation_total"],
             },
             errors=[],
-            artifacts=[args.out] if args.out else [],
+            artifacts=[out_path] if out_path else [],
             test_results={},
             incomplete_items=[],
             log_dir=args.log_dir,
@@ -890,6 +897,15 @@ def cmd_validate_pd_calibration(args: argparse.Namespace) -> int:
             ).to_dict(orient="records")
         except Exception as e:
             binomial_records = [{"error": str(e)}]
+    binomial_summary = None
+    if binomial_records and "error" not in (binomial_records[0] or {}):
+        n_buckets = len(binomial_records)
+        n_rejecting = sum(1 for r in binomial_records if r.get("reject_h0"))
+        binomial_summary = {
+            "n_buckets": n_buckets,
+            "n_buckets_rejecting_h0": n_rejecting,
+            "alpha": float(args.binomial_alpha),
+        }
 
     report = {
         "data_path": os.path.abspath(args.data),
@@ -901,6 +917,7 @@ def cmd_validate_pd_calibration(args: argparse.Namespace) -> int:
         "hosmer_lemeshow": hl,
         "spiegelhalter_z": spiegel,
         "binomial_per_bucket": binomial_records,
+        "binomial_summary": binomial_summary,
         "bias_detail": bias_info,
     }
     if args.hl_rag:
@@ -1153,6 +1170,51 @@ def cmd_summary(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_docs_cli(args: argparse.Namespace) -> int:
+    """Capture --help output for each subcommand into a markdown reference.
+
+    Reads its own parser and emits a deterministic markdown file. Local-only;
+    no network, no external API.
+    """
+    parser = build_parser()
+    sub = next(
+        (a for a in parser._actions if isinstance(a, argparse._SubParsersAction)),
+        None,
+    )
+    if sub is None:
+        print(json.dumps({"error": "no_subparsers"}, ensure_ascii=False))
+        return 4
+    lines: List[str] = []
+    lines.append("# CLI Reference")
+    lines.append("")
+    lines.append("자동 생성 (`python -m quant_validation_agent docs-cli`). 직접 편집하지 말 것.")
+    lines.append("")
+    lines.append(f"버전: `{__version__}`")
+    lines.append("")
+    lines.append("## Top-level")
+    lines.append("")
+    lines.append("```")
+    lines.append(parser.format_help().rstrip())
+    lines.append("```")
+    lines.append("")
+    for name in sorted(sub.choices.keys()):
+        sp = sub.choices[name]
+        lines.append(f"## `{name}`")
+        lines.append("")
+        lines.append("```")
+        lines.append(sp.format_help().rstrip())
+        lines.append("```")
+        lines.append("")
+    md = "\n".join(lines) + "\n"
+    out_path = args.out or os.path.join(_PROJECT_ROOT, "docs", "cli_reference.md")
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)) or ".", exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(md)
+    print(json.dumps({"out": out_path, "n_subcommands": len(sub.choices)},
+                     ensure_ascii=False))
+    return 0
+
+
 def cmd_note(args: argparse.Namespace) -> int:
     """Append a single bullet to memory/recurring_validation_findings.md."""
     text = (args.text or "").strip()
@@ -1212,9 +1274,15 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    from . import __version__ as _pkg_version
+
     parser = argparse.ArgumentParser(
         prog="quant_validation_agent",
         description="Quantitative validation agent — local-only CLI.",
+    )
+    parser.add_argument(
+        "--version", action="version",
+        version=f"quant_validation_agent {_pkg_version}",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -1310,6 +1378,14 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Compact single-line JSON for jq pipelines.")
     p_sm.set_defaults(func=cmd_summary)
 
+    p_dc = sub.add_parser(
+        "docs-cli",
+        help="Capture every subcommand --help into docs/cli_reference.md.",
+    )
+    p_dc.add_argument("--out", default=None,
+                      help="Override output path (defaults to docs/cli_reference.md).")
+    p_dc.set_defaults(func=cmd_docs_cli)
+
     p_n = sub.add_parser("note", help="Append a recurring-finding note.")
     p_n.add_argument("subaction", choices=["add"])
     p_n.add_argument("--text", required=True, help="The note text (single line).")
@@ -1403,6 +1479,9 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Truncate the predictions list to this many rows in the output JSON. "
                            "Truncated count is reported under 'predictions_truncated'.")
     p_vs.add_argument("--out", help="Optional path to write the JSON report.")
+    p_vs.add_argument("--out-pattern", dest="out_pattern", default=None,
+                      help="Optional path with the literal token {ts}; auto-replaces with the "
+                           "current YYYYMMDD_HHMMSS_ffffff timestamp.")
     p_vs.add_argument("--log-dir", dest="log_dir",
                       help="Optional directory to write a run-log JSON via middleware.run_logger.")
     p_vs.set_defaults(func=cmd_validate_scenario)

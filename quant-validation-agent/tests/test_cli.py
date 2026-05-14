@@ -20,6 +20,24 @@ def _run(args, stdin_text=None):
     )
 
 
+def test_cli_docs_cli_writes_reference(tmp_path):
+    out = tmp_path / "cli_reference.md"
+    res = _run(["docs-cli", "--out", str(out)])
+    assert res.returncode == 0, res.stderr
+    assert out.exists()
+    text = out.read_text(encoding="utf-8")
+    assert "# CLI Reference" in text
+    for sub in ("validate", "validate-scenario", "validate-pd-calibration",
+                "policy-governance", "policy-lock", "summary", "report"):
+        assert f"## `{sub}`" in text
+
+
+def test_cli_version_flag():
+    res = _run(["--version"])
+    assert res.returncode == 0, res.stderr
+    assert "quant_validation_agent" in res.stdout
+
+
 def test_cli_run_on_sample_request():
     req = os.path.join(ROOT, "examples", "sample_validation_request.md")
     result = _run(["run", "--request", req])
@@ -103,6 +121,34 @@ def test_cli_validate_scoring(tmp_path):
     # PSI is included because dataset_col + baseline are provided.
     assert "psi" in payload["metrics"]
     assert out_path.exists()
+
+
+def test_cli_validate_lgd_emits_overall_rag():
+    sample = os.path.join(ROOT, "examples", "sample_lgd_ead_data.csv")
+    res = _run([
+        "validate", "--data", sample,
+        "--model-type", "lgd",
+        "--actual", "realized_lgd", "--predicted", "predicted_lgd",
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert "overall_rag" in payload
+    assert payload["overall_rag"] in {"Green", "Yellow", "Red", "Gray"}
+
+
+def test_cli_validate_ead_emits_overall_rag():
+    sample = os.path.join(ROOT, "examples", "sample_lgd_ead_data.csv")
+    res = _run([
+        "validate", "--data", sample,
+        "--model-type", "ead",
+        "--actual", "realized_ead", "--predicted", "predicted_ead",
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert "overall_rag" in payload
+    # Some EAD metrics are intentionally Gray (raw currency); aggregate should
+    # still derive Red/Yellow/Green from the ratio metrics.
+    assert payload["overall_rag"] in {"Green", "Yellow", "Red", "Gray"}
 
 
 def test_cli_validate_emits_overall_rag():
@@ -743,6 +789,26 @@ def test_cli_validate_writes_run_log(tmp_path):
     assert "main_results" in payload
 
 
+def test_cli_validate_pd_calibration_emits_binomial_summary():
+    sample = os.path.join(ROOT, "examples", "sample_pd_timeseries.csv")
+    res = _run([
+        "validate-pd-calibration",
+        "--data", sample,
+        "--pred-col", "predicted_pd",
+        "--default-col", "defaults",
+        "--count-col", "count",
+        "--bucket-col", "grade",
+        "--hl-bins", "5",
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    summary = payload.get("binomial_summary")
+    assert summary is not None
+    assert summary["n_buckets"] >= 1
+    assert summary["n_buckets_rejecting_h0"] >= 0
+    assert summary["n_buckets_rejecting_h0"] <= summary["n_buckets"]
+
+
 def test_cli_validate_pd_calibration_aggregated(tmp_path):
     sample = os.path.join(ROOT, "examples", "sample_pd_timeseries.csv")
     out = tmp_path / "pdcal.json"
@@ -860,6 +926,28 @@ def test_cli_validate_scenario_emits_overall_rag(tmp_path):
     # Synthetic data has no severity / floor violations → Yellow (fit-RAG is
     # only computed by `report`).
     assert payload["overall_rag"] == "Yellow"
+
+
+def test_cli_validate_scenario_out_pattern_writes_resolved_path(tmp_path):
+    hist = os.path.join(ROOT, "examples", "sample_macro_history.csv")
+    sc = os.path.join(ROOT, "examples", "sample_macro_scenario.csv")
+    pattern = str(tmp_path / "scenario_{ts}.json")
+    res = _run([
+        "validate-scenario",
+        "--hist-data", hist,
+        "--scenario-data", sc,
+        "--target", "pd_multiplier",
+        "--features", "gdp_growth,unemployment,bond_spread",
+        "--scenario-col", "scenario",
+        "--period-col", "period",
+        "--pred-col-in-scenario", "pd_multiplier",
+        "--out-pattern", pattern,
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert "resolved_out_path" in payload
+    assert "{ts}" not in payload["resolved_out_path"]
+    assert os.path.exists(payload["resolved_out_path"])
 
 
 def test_cli_validate_scenario_max_predictions_truncates(tmp_path):
