@@ -445,8 +445,41 @@ def cmd_validate_scenario(args: argparse.Namespace) -> int:
     # alone are sufficient to force Red.
     n_vio = ((out.get("severity") or {}).get("order") or {}).get("n_violation_total", 0)
     floor_violation = any(f.get("violation") for f in (out.get("multiplier_floors") or []))
-    if n_vio > 0 or floor_violation:
+    if getattr(args, "include_stationarity_rag", False):
+        fit = out.get("fit") or {}
+        stationarity = fit.get("stationarity")
+        if stationarity:
+            target_col = fit.get("target_col")
+            target_row = next(
+                (r for r in stationarity if r.get("variable") == target_col), None
+            )
+            target_stationary = bool(target_row and target_row.get("stationary_at_alpha"))
+            non_stat = [
+                r["variable"] for r in stationarity
+                if r.get("stationary_at_alpha") is False
+            ]
+            if not target_stationary:
+                rag = "Red"
+            elif non_stat:
+                rag = "Yellow"
+            else:
+                rag = "Green"
+            out["stationarity_rag"] = {
+                "rag": rag,
+                "non_stationary_variables": non_stat,
+                "caveat": "ADF는 단일 단위근 검정이며 표본 크기에 민감하다.",
+            }
+        else:
+            out["stationarity_rag"] = {
+                "rag": "Gray",
+                "non_stationary_variables": [],
+                "caveat": "stationarity 결과 없음 (skip 또는 실패).",
+            }
+    stat_rag = (out.get("stationarity_rag") or {}).get("rag")
+    if n_vio > 0 or floor_violation or stat_rag == "Red":
         out["overall_rag"] = "Red"
+    elif stat_rag == "Yellow":
+        out["overall_rag"] = "Yellow"
     else:
         out["overall_rag"] = "Yellow"  # fit-metric RAG is computed by `report`
     out_path = args.out
@@ -1169,6 +1202,10 @@ def cmd_summary(args: argparse.Namespace) -> int:
             worst = items[-1]["overall_rag"]
 
     out = {"items": items, "worst_rag": worst}
+    if getattr(args, "out", None):
+        os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(out, f, ensure_ascii=False, indent=2)
     if getattr(args, "json_only", False):
         print(json.dumps(out, ensure_ascii=False, separators=(",", ":")))
     else:
@@ -1402,6 +1439,8 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Exit 6 when any input is Red.")
     p_sm.add_argument("--json-only", dest="json_only", action="store_true",
                       help="Compact single-line JSON for jq pipelines.")
+    p_sm.add_argument("--out", default=None,
+                      help="Optional path to write the summary JSON.")
     p_sm.set_defaults(func=cmd_summary)
 
     p_ver = sub.add_parser(
@@ -1512,6 +1551,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_vs.add_argument("--max-predictions", dest="max_predictions", default=None, type=int,
                       help="Truncate the predictions list to this many rows in the output JSON. "
                            "Truncated count is reported under 'predictions_truncated'.")
+    p_vs.add_argument("--include-stationarity-rag", dest="include_stationarity_rag",
+                      action="store_true",
+                      help="Opt-in: derive stationarity_rag from the ADF results and fold into "
+                           "overall_rag. Sample-size sensitive; see CLAUDE.md limitations.")
     p_vs.add_argument("--out", help="Optional path to write the JSON report.")
     p_vs.add_argument("--out-pattern", dest="out_pattern", default=None,
                       help="Optional path with the literal token {ts}; auto-replaces with the "

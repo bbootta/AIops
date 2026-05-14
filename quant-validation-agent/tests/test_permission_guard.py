@@ -58,6 +58,27 @@ def test_leakage_guard_detects_outcome_columns():
     assert "default_flag" in cols
 
 
+def test_leakage_guard_df_dtype_heuristic_flags_datetime_and_flag_columns():
+    import pandas as pd
+
+    df = pd.DataFrame({
+        "x1": [1.0, 2.0, 3.0],
+        "default_date": pd.to_datetime(["2024-01-01", "2024-02-01", "2024-03-01"]),
+        "default_flag": [0, 1, 0],
+        "neutral_flag": [True, False, True],
+    })
+    cands = lg.detect_leakage_candidates_df(df, df.columns)
+    by = {c["column"]: c for c in cands}
+    # name + dtype reasons stack on default_date / default_flag
+    assert "default_date" in by
+    assert "datetime" in ",".join(by["default_date"]["reasons"])
+    assert "default_flag" in by
+    # neutral_flag has no name match, but still picked up via dtype heuristic
+    assert "neutral_flag" in by
+    # x1 should not be flagged
+    assert "x1" not in by
+
+
 def test_output_completeness_missing_sections():
     res = oc.check_report_sections("only 검증 요약 here")
     assert res["pass"] is False

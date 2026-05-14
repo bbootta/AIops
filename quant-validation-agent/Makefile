@@ -14,7 +14,7 @@
 PYTHON ?= python
 PKG ?= quant_validation_agent
 
-.PHONY: help test test-strict governance smoke smoke-scoring smoke-pd smoke-lgd smoke-ead smoke-scenario report report-smoke stationarity-report verify ci clean
+.PHONY: help test test-strict governance smoke smoke-scoring smoke-pd smoke-lgd smoke-ead smoke-scenario report report-smoke stationarity-report verify ci clean clean-reports
 
 help:
 	@echo "Targets:"
@@ -119,6 +119,12 @@ verify: test governance smoke
 
 ci: test governance smoke
 
-clean:
-	find . -type d -name __pycache__ -prune -exec rm -rf {} +
+# Removes only the smoke artifacts. Use this when you want to keep
+# __pycache__ around for fast re-runs (cold start can be slow on Windows).
+clean-reports:
 	rm -f reports/_smoke_*.json reports/_smoke_*.md
+	@echo "Removed smoke reports. docs/cli_reference.md preserved (regenerate via docs-cli)."
+
+clean: clean-reports
+	find . -type d -name __pycache__ -prune -exec rm -rf {} +
+	@echo "Removed __pycache__ in addition to smoke reports."

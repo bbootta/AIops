@@ -557,6 +557,18 @@ def test_cli_summary_handles_missing_and_invalid(tmp_path):
     assert "missing" in kinds and "invalid_json" in kinds
 
 
+def test_cli_summary_out_writes_file(tmp_path):
+    sample = tmp_path / "s.json"
+    sample.write_text(json.dumps({"metrics": {"x": {"rag": "Green"}}, "overall_rag": "Green"}),
+                      encoding="utf-8")
+    out = tmp_path / "summary.json"
+    res = _run(["summary", "--input", str(sample), "--out", str(out)])
+    assert res.returncode == 0, res.stderr
+    assert out.exists()
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["worst_rag"] == "Green"
+
+
 def test_cli_summary_fail_on_red(tmp_path):
     red = tmp_path / "red.json"
     red.write_text(json.dumps({"metrics": {"x": {"rag": "Red"}}, "overall_rag": "Red"}),
@@ -939,6 +951,26 @@ def test_cli_validate_pd_calibration_missing_columns(tmp_path):
         ]
     )
     assert result.returncode == 4
+
+
+def test_cli_validate_scenario_inline_stationarity_rag(tmp_path):
+    hist = os.path.join(ROOT, "examples", "sample_macro_history.csv")
+    sc = os.path.join(ROOT, "examples", "sample_macro_scenario.csv")
+    res = _run([
+        "validate-scenario",
+        "--hist-data", hist,
+        "--scenario-data", sc,
+        "--target", "pd_multiplier",
+        "--features", "gdp_growth,unemployment,bond_spread",
+        "--scenario-col", "scenario",
+        "--period-col", "period",
+        "--pred-col-in-scenario", "pd_multiplier",
+        "--include-stationarity-rag",
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert "stationarity_rag" in payload
+    assert payload["stationarity_rag"]["rag"] in {"Green", "Yellow", "Red", "Gray"}
 
 
 def test_cli_validate_scenario_emits_overall_rag(tmp_path):

@@ -48,9 +48,21 @@ def read_csv_safely(
 
 
 def write_dataframe_safely(df: pd.DataFrame, path: str, index: bool = False) -> str:
-    """Write a DataFrame to CSV, creating parent directories if needed."""
+    """Write a DataFrame to CSV, creating parent directories if needed.
+
+    Emits a warning (via the standard `warnings` module) when the destination
+    path does not end with `.csv`; callers can promote the warning to an
+    error in their own configuration.
+    """
+    import warnings as _warnings
+
     if df is None:
         raise ValueError("DataFrame is None.")
+    if not path.lower().endswith(".csv"):
+        _warnings.warn(
+            f"write_dataframe_safely target does not end with .csv: {path!r}",
+            stacklevel=2,
+        )
     parent = os.path.dirname(os.path.abspath(path))
     if parent and not os.path.exists(parent):
         os.makedirs(parent, exist_ok=True)

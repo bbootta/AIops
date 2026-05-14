@@ -46,6 +46,29 @@ def test_read_csv_safely_scan_pii_disabled_returns_df(tmp_path):
     assert df.shape[0] == 1
 
 
+def test_write_dataframe_safely_warns_on_non_csv(tmp_path):
+    import warnings
+    df = pd.DataFrame({"a": [1, 2]})
+    target = tmp_path / "out.txt"
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        io_utils.write_dataframe_safely(df, str(target))
+    assert target.exists()
+    assert any(".csv" in str(w.message) for w in caught), (
+        f"expected extension warning, got: {[str(w.message) for w in caught]}"
+    )
+
+
+def test_write_dataframe_safely_no_warn_on_csv(tmp_path):
+    import warnings
+    df = pd.DataFrame({"a": [1, 2]})
+    target = tmp_path / "out.csv"
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        io_utils.write_dataframe_safely(df, str(target))
+    assert not any(".csv" in str(w.message) for w in caught)
+
+
 def test_read_csv_safely_scan_pii_clean_passes(tmp_path):
     p = tmp_path / "clean.csv"
     p.write_text("id,score\n1,820\n2,710\n", encoding="utf-8")

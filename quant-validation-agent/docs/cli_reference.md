@@ -171,7 +171,7 @@ options:
 
 ```
 usage: quant_validation_agent summary [-h] --input INPUT [--fail-on-red]
-                                      [--json-only]
+                                      [--json-only] [--out OUT]
 
 options:
   -h, --help     show this help message and exit
@@ -179,6 +179,7 @@ options:
                  calibration / validate-scenario.
   --fail-on-red  Exit 6 when any input is Red.
   --json-only    Compact single-line JSON for jq pipelines.
+  --out OUT      Optional path to write the summary JSON.
 ```
 
 ## `thresholds`
@@ -311,6 +312,7 @@ usage: quant_validation_agent validate-scenario [-h] --hist-data HIST_DATA
                                                 [--skip-stationarity]
                                                 [--stationarity-alpha STATIONARITY_ALPHA]
                                                 [--max-predictions MAX_PREDICTIONS]
+                                                [--include-stationarity-rag]
                                                 [--out OUT]
                                                 [--out-pattern OUT_PATTERN]
                                                 [--log-dir LOG_DIR]
@@ -346,6 +348,10 @@ options:
                         Truncate the predictions list to this many rows in the
                         output JSON. Truncated count is reported under
                         'predictions_truncated'.
+  --include-stationarity-rag
+                        Opt-in: derive stationarity_rag from the ADF results
+                        and fold into overall_rag. Sample-size sensitive; see
+                        CLAUDE.md limitations.
   --out OUT             Optional path to write the JSON report.
   --out-pattern OUT_PATTERN
                         Optional path with the literal token {ts}; auto-

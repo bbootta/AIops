@@ -57,3 +57,42 @@ def assert_no_leakage_candidates(feature_columns: Iterable[str]) -> None:
     if cands:
         cols = ", ".join(c["column"] for c in cands)
         raise PermissionError(f"Possible leakage columns in features: {cols}")
+
+
+def detect_leakage_candidates_df(df, feature_columns: Iterable[str]) -> list:
+    """DataFrame-aware leakage detection.
+
+    Combines name-based heuristics with dtype heuristics:
+      - datetime-like columns whose names suggest realized timestamps
+        (default_date, recovery_date, closed_at, etc.) are flagged.
+      - integer/boolean columns whose names suggest realized flags
+        (default_flag, npl_flag, recovered) are flagged.
+
+    Each match records the matched_patterns and the reason ('name', 'dtype').
+    """
+    import pandas as pd  # local import — keeps the name-only API import-free
+
+    out = []
+    for col in feature_columns:
+        if col is None or col not in df.columns:
+            continue
+        name = str(col)
+        matches = _name_match(name)
+        reasons = ["name"] if matches else []
+        dtype = df[name].dtype
+        if pd.api.types.is_datetime64_any_dtype(dtype):
+            if re.search(r"(_date|_at|_time)$", name, flags=re.IGNORECASE):
+                reasons.append("dtype:datetime")
+        # Bool/int dtype is suspicious only when the name suggests a flag.
+        # This keeps legitimate boolean features like 'is_premium' clean.
+        if (pd.api.types.is_bool_dtype(dtype) or pd.api.types.is_integer_dtype(dtype)) \
+                and re.search(r"(_flag$|_observed$|_realized$)", name, flags=re.IGNORECASE):
+            reasons.append("dtype:flag")
+        if reasons:
+            out.append({
+                "column": col,
+                "matched_patterns": matches,
+                "reasons": reasons,
+                "dtype": str(dtype),
+            })
+    return out
