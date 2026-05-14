@@ -33,9 +33,16 @@ def check_rank_ordering(
 
 
 def compare_grade_distribution(
-    base_df: pd.DataFrame, current_df: pd.DataFrame, grade_col: str
+    base_df: pd.DataFrame, current_df: pd.DataFrame, grade_col: str,
+    epsilon: float = 1e-6,
 ) -> pd.DataFrame:
-    """Side-by-side distribution by grade between two snapshots."""
+    """Side-by-side distribution by grade between two snapshots.
+
+    Also emits per-grade PSI contribution `(cur - base) * log(cur / base)`
+    using `epsilon` to avoid division by zero, plus a `total_psi` row.
+    """
+    import numpy as _np
+
     for d, name in ((base_df, "base"), (current_df, "current")):
         if grade_col not in d.columns:
             raise ValueError(f"grade_col missing in {name}: {grade_col}")
@@ -47,6 +54,9 @@ def compare_grade_distribution(
     out["base_ratio"] = out["base_count"] / base_total
     out["cur_ratio"] = out["cur_count"] / cur_total
     out["ratio_diff"] = out["cur_ratio"] - out["base_ratio"]
+    safe_base = out["base_ratio"].where(out["base_ratio"] > 0, epsilon)
+    safe_cur = out["cur_ratio"].where(out["cur_ratio"] > 0, epsilon)
+    out["psi_contribution"] = (safe_cur - safe_base) * _np.log(safe_cur / safe_base)
     out = out.reset_index().rename(columns={"index": grade_col})
     return out.sort_values(grade_col).reset_index(drop=True)
 

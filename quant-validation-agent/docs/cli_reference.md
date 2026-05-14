@@ -8,13 +8,13 @@
 
 ```
 usage: quant_validation_agent [-h] [--version]
-                              {run,thresholds,check,validate,policy-governance,policy-lock,summary,version,docs-cli,note,report,validate-pd-calibration,validate-scenario}
+                              {run,thresholds,check,validate,policy-governance,policy-lock,summary,compare,version,docs-cli,note,report,validate-pd-calibration,validate-scenario}
                               ...
 
 Quantitative validation agent — local-only CLI.
 
 positional arguments:
-  {run,thresholds,check,validate,policy-governance,policy-lock,summary,version,docs-cli,note,report,validate-pd-calibration,validate-scenario}
+  {run,thresholds,check,validate,policy-governance,policy-lock,summary,compare,version,docs-cli,note,report,validate-pd-calibration,validate-scenario}
     run                 Read a validation request and print a plan.
     thresholds          Print threshold policy.
     check               Run permission/PII guards on input.
@@ -25,6 +25,8 @@ positional arguments:
                         to dry-run.
     summary             Aggregate one-line RAG summary across multiple
                         validate* JSON outputs.
+    compare             Diff two validate-style JSON outputs (metric deltas +
+                        RAG transition).
     version             Emit version metadata as JSON (package, version,
                         python, platform).
     docs-cli            Capture every subcommand --help into
@@ -52,6 +54,23 @@ options:
   -h, --help   show this help message and exit
   --path PATH  Path to a text file to scan.
   --text TEXT  Inline text to scan.
+```
+
+## `compare`
+
+```
+usage: quant_validation_agent compare [-h] --base BASE --current CURRENT
+                                      [--out OUT] [--json-only]
+                                      [--fail-on-regression]
+
+options:
+  -h, --help            show this help message and exit
+  --base BASE           Baseline JSON path.
+  --current CURRENT     Current JSON path.
+  --out OUT             Optional path to write the diff JSON.
+  --json-only           Compact single-line JSON.
+  --fail-on-regression  Exit 6 when the overall_rag worsens between base and
+                        current.
 ```
 
 ## `docs-cli`
@@ -211,6 +230,7 @@ usage: quant_validation_agent validate [-h] --data DATA --model-type
                                        [--segment SEGMENT] [--decile-rag]
                                        [--ead-normalizer {mean_realized,mean_predicted,total_exposure}]
                                        [--segment-detail] [--explain]
+                                       [--psi-bins PSI_BINS]
                                        [--segment-col SEGMENT_COL] [--out OUT]
                                        [--log-dir LOG_DIR]
 
@@ -239,6 +259,7 @@ options:
                         report.segment_detail.
   --explain             Also append a 9-section markdown report to stdout for
                         human review.
+  --psi-bins PSI_BINS   Quantile bin count for the dataset PSI (default 10).
   --segment-col SEGMENT_COL
                         Column to group by for --segment-detail.
   --out OUT             Optional path to write the JSON report.
@@ -260,6 +281,7 @@ usage: quant_validation_agent validate-pd-calibration [-h] --data DATA
                                                       [--binomial-alpha BINOMIAL_ALPHA]
                                                       [--hl-rag]
                                                       [--decile-rag]
+                                                      [--segment-detail]
                                                       [--segment SEGMENT]
                                                       [--out OUT]
                                                       [--out-pattern OUT_PATTERN]
@@ -287,6 +309,9 @@ options:
                         alone for adequacy.
   --decile-rag          Opt-in: also emit RAG for the top-decile lift of
                         pred_pd vs default.
+  --segment-detail      Opt-in: emit per-bucket calibration table (mean_pred
+                        vs mean_actual) under report.segment_detail. Requires
+                        --bucket-col.
   --segment SEGMENT     Segment label for threshold overrides.
   --out OUT             Optional path to write the JSON report.
   --out-pattern OUT_PATTERN

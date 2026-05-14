@@ -73,6 +73,23 @@ def test_evidence_targeted_fix_present_and_meaningful():
             assert len(value.strip()) >= 8, f"{cid}: {field} too short ({len(value)} chars)"
 
 
+@pytest.mark.skipif(
+    not os.environ.get("QVA_STRICT_PROPOSED"),
+    reason="Opt-in: enable QVA_STRICT_PROPOSED=1 once ops requires "
+           "all policy changes to leave the 'proposed' state.",
+)
+def test_no_policy_entries_stuck_in_proposed():
+    """Strict invariant: every threshold_policy entry should reach 'applied'
+    or 'validated' (or be 'rolled_back')."""
+    manifest = _load_json(MANIFEST_PATH)
+    stuck = [
+        e["change_id"] for e in manifest["entries"]
+        if "threshold_policy.json" in str(e.get("component", ""))
+        and e.get("status") == "proposed"
+    ]
+    assert not stuck, f"policy change entries left in 'proposed': {stuck}"
+
+
 def test_change_ids_are_dense_sequence():
     """No gaps in CHG-#### sequence — append-only manifest invariant."""
     manifest = _load_json(MANIFEST_PATH)

@@ -239,7 +239,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
             base = df[df[args.dataset_col] == args.baseline_value][args.score]
             cur = df[df[args.dataset_col] != args.baseline_value][args.score]
             if len(base) > 0 and len(cur) > 0:
-                psi = metric_psi.calculate_psi(base, cur, bins=10)
+                psi = metric_psi.calculate_psi(base, cur, bins=int(args.psi_bins))
                 report["metrics"]["psi"] = _rag_with_threshold(psi, policy, "psi", segment=args.segment)
             else:
                 report["issues"].append({"issue": "psi_skipped", "severity": "Gray", "evidence": "empty baseline or current sample"})
@@ -993,6 +993,30 @@ def cmd_validate_pd_calibration(args: argparse.Namespace) -> int:
                 "severity": "Gray",
                 "evidence": str(e),
             })
+    if getattr(args, "segment_detail", False):
+        if bucket_series is None:
+            report.setdefault("issues", []).append({
+                "issue": "segment_detail_skipped",
+                "severity": "Gray",
+                "evidence": "--segment-detail requires --bucket-col",
+            })
+        else:
+            try:
+                full = pd.DataFrame({"pred_pd": pred_pd, "default_flag": actual,
+                                     "bucket": bucket_series})
+                seg_table = metric_calibration.build_calibration_table(
+                    full, "pred_pd", "default_flag", bucket_col="bucket"
+                )
+                report["segment_detail"] = {
+                    "bucket_col": args.bucket_col,
+                    "rows": seg_table.to_dict(orient="records"),
+                }
+            except Exception as e:
+                report.setdefault("issues", []).append({
+                    "issue": "segment_detail_failed",
+                    "severity": "Gray",
+                    "evidence": str(e),
+                })
     out_path = args.out
     if not out_path and getattr(args, "out_pattern", None):
         ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -1218,6 +1242,40 @@ def cmd_summary(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_compare(args: argparse.Namespace) -> int:
+    """Diff two validate-style JSON outputs.
+
+    Exit 6 with --fail-on-regression when the overall RAG worsens.
+    """
+    from tools import diff_reports
+
+    if not os.path.exists(args.base):
+        print(json.dumps({"error": f"base not found: {args.base}"}, ensure_ascii=False))
+        return 4
+    if not os.path.exists(args.current):
+        print(json.dumps({"error": f"current not found: {args.current}"}, ensure_ascii=False))
+        return 4
+    with open(args.base, "r", encoding="utf-8") as f:
+        base = json.load(f)
+    with open(args.current, "r", encoding="utf-8") as f:
+        cur = json.load(f)
+    out = {
+        "metric_diffs": diff_reports.diff_metric_blocks(base, cur),
+        "overall_rag": diff_reports.diff_overall_rag(base, cur),
+    }
+    if args.out:
+        os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(out, f, ensure_ascii=False, indent=2)
+    if getattr(args, "json_only", False):
+        print(json.dumps(out, ensure_ascii=False, separators=(",", ":")))
+    else:
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+    if getattr(args, "fail_on_regression", False) and out["overall_rag"]["regressed"]:
+        return 6
+    return 0
+
+
 def cmd_version(args: argparse.Namespace) -> int:
     """Emit version metadata as JSON."""
     import platform
@@ -1394,6 +1452,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="LGD/EAD: emit per-segment MAE/RMSE/bias under report.segment_detail.")
     p_v.add_argument("--explain", dest="explain", action="store_true",
                      help="Also append a 9-section markdown report to stdout for human review.")
+    p_v.add_argument("--psi-bins", dest="psi_bins", type=int, default=10,
+                     help="Quantile bin count for the dataset PSI (default 10).")
     p_v.add_argument("--segment-col", dest="segment_col", default=None,
                      help="Column to group by for --segment-detail.")
     p_v.add_argument("--out", help="Optional path to write the JSON report.")
@@ -1447,6 +1507,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_sm.add_argument("--out", default=None,
                       help="Optional path to write the summary JSON.")
     p_sm.set_defaults(func=cmd_summary)
+
+    p_cmp = sub.add_parser(
+        "compare",
+        help="Diff two validate-style JSON outputs (metric deltas + RAG transition).",
+    )
+    p_cmp.add_argument("--base", required=True, help="Baseline JSON path.")
+    p_cmp.add_argument("--current", required=True, help="Current JSON path.")
+    p_cmp.add_argument("--out", default=None, help="Optional path to write the diff JSON.")
+    p_cmp.add_argument("--json-only", dest="json_only", action="store_true",
+                       help="Compact single-line JSON.")
+    p_cmp.add_argument("--fail-on-regression", dest="fail_on_regression",
+                       action="store_true",
+                       help="Exit 6 when the overall_rag worsens between base and current.")
+    p_cmp.set_defaults(func=cmd_compare)
 
     p_ver = sub.add_parser(
         "version",
@@ -1514,6 +1588,9 @@ def build_parser() -> argparse.ArgumentParser:
                             "Output is sample-size sensitive; do not use alone for adequacy.")
     p_pdc.add_argument("--decile-rag", dest="decile_rag", action="store_true",
                        help="Opt-in: also emit RAG for the top-decile lift of pred_pd vs default.")
+    p_pdc.add_argument("--segment-detail", dest="segment_detail", action="store_true",
+                       help="Opt-in: emit per-bucket calibration table (mean_pred vs mean_actual) "
+                            "under report.segment_detail. Requires --bucket-col.")
     p_pdc.add_argument("--segment", help="Segment label for threshold overrides.")
     p_pdc.add_argument("--out", help="Optional path to write the JSON report.")
     p_pdc.add_argument("--out-pattern", dest="out_pattern", default=None,

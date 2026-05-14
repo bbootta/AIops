@@ -43,4 +43,13 @@ def test_compare_grade_distribution_basic():
     a = pd.DataFrame({"grade": ["A", "A", "B", "B", "C"]})
     b = pd.DataFrame({"grade": ["A", "B", "B", "B", "C"]})
     out = bs.compare_grade_distribution(a, b, "grade")
-    assert {"grade", "base_count", "cur_count", "ratio_diff"}.issubset(out.columns)
+    assert {"grade", "base_count", "cur_count", "ratio_diff",
+            "psi_contribution"}.issubset(out.columns)
+
+
+def test_compare_grade_distribution_per_grade_psi_finite():
+    a = pd.DataFrame({"grade": ["A"] * 70 + ["B"] * 20 + ["C"] * 10})
+    b = pd.DataFrame({"grade": ["A"] * 50 + ["B"] * 30 + ["C"] * 20})
+    out = bs.compare_grade_distribution(a, b, "grade")
+    total = float(out["psi_contribution"].sum())
+    assert total > 0 and np.isfinite(total)

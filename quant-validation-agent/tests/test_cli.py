@@ -32,6 +32,36 @@ def test_cli_docs_cli_writes_reference(tmp_path):
         assert f"## `{sub}`" in text
 
 
+def test_cli_compare_metric_deltas(tmp_path):
+    base = tmp_path / "base.json"
+    cur = tmp_path / "cur.json"
+    base.write_text(json.dumps({
+        "metrics": {"ks": {"value": 0.42, "rag": "Green"}},
+        "overall_rag": "Green",
+    }), encoding="utf-8")
+    cur.write_text(json.dumps({
+        "metrics": {"ks": {"value": 0.35, "rag": "Yellow"}},
+        "overall_rag": "Yellow",
+    }), encoding="utf-8")
+    res = _run(["compare", "--base", str(base), "--current", str(cur)])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert payload["overall_rag"]["regressed"] is True
+    ks_row = next(r for r in payload["metric_diffs"] if r["metric"] == "ks")
+    assert ks_row["delta"] < 0
+    assert ks_row["transition"] == "Green -> Yellow"
+
+
+def test_cli_compare_fail_on_regression(tmp_path):
+    base = tmp_path / "base.json"
+    cur = tmp_path / "cur.json"
+    base.write_text(json.dumps({"overall_rag": "Green"}), encoding="utf-8")
+    cur.write_text(json.dumps({"overall_rag": "Red"}), encoding="utf-8")
+    res = _run(["compare", "--base", str(base), "--current", str(cur),
+                "--fail-on-regression"])
+    assert res.returncode == 6
+
+
 def test_cli_version_subcommand_emits_json():
     res = _run(["version"])
     assert res.returncode == 0, res.stderr
@@ -911,6 +941,44 @@ def test_cli_validate_pd_calibration_decile_rag_records_direction():
     # On the well-behaved synthetic dataset, higher PD should align with
     # higher default frequency.
     assert payload["score_direction"].get("higher_is_worse") is True
+
+
+def test_cli_validate_pd_calibration_segment_detail():
+    sample = os.path.join(ROOT, "examples", "sample_pd_timeseries.csv")
+    res = _run([
+        "validate-pd-calibration",
+        "--data", sample,
+        "--pred-col", "predicted_pd",
+        "--default-col", "defaults",
+        "--count-col", "count",
+        "--bucket-col", "grade",
+        "--hl-bins", "5",
+        "--segment-detail",
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert "segment_detail" in payload
+    rows = payload["segment_detail"]["rows"]
+    assert len(rows) >= 1
+    assert {"count", "mean_pred", "mean_actual", "diff"}.issubset(rows[0].keys())
+
+
+def test_cli_validate_pd_calibration_segment_detail_without_bucket_emits_gray():
+    sample = os.path.join(ROOT, "examples", "sample_pd_timeseries.csv")
+    res = _run([
+        "validate-pd-calibration",
+        "--data", sample,
+        "--pred-col", "predicted_pd",
+        "--default-col", "defaults",
+        "--count-col", "count",
+        # No --bucket-col
+        "--segment-detail",
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert "segment_detail" not in payload
+    issues = [i.get("issue") for i in payload.get("issues", [])]
+    assert "segment_detail_skipped" in issues
 
 
 def test_cli_validate_pd_calibration_with_decile_rag():
