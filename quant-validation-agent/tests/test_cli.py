@@ -105,6 +105,21 @@ def test_cli_validate_scoring(tmp_path):
     assert out_path.exists()
 
 
+def test_cli_validate_emits_overall_rag():
+    sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
+    res = _run([
+        "validate",
+        "--data", sample,
+        "--model-type", "scoring",
+        "--target", "target",
+        "--score", "score",
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert "overall_rag" in payload
+    assert payload["overall_rag"] in {"Green", "Yellow", "Red", "Gray"}
+
+
 def test_cli_validate_with_decile_rag():
     sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
     result = _run([
@@ -281,6 +296,38 @@ def test_cli_policy_governance_json_only_is_compact():
     assert "\n" not in stdout, "expected compact single-line JSON"
     payload = json.loads(stdout)
     assert payload["manifest_governance"]["all_require_human_approval"] is True
+
+
+def test_cli_policy_governance_exit_on_yellow_when_lock_missing(tmp_path):
+    res = _run([
+        "policy-governance",
+        "--lock-path", str(tmp_path / "missing.lock.json"),
+        "--exit-on-yellow",
+    ])
+    # Real repo has approved manifest entries, so governance is fine, but the
+    # lock is missing → exit 1 under --exit-on-yellow.
+    assert res.returncode == 1
+    payload = json.loads(res.stdout)
+    assert payload["lock"]["is_synced"] is False
+
+
+def test_cli_policy_governance_exit_on_yellow_off_when_lock_present(tmp_path):
+    # Build an in-sync lock for the *real* repo policy.
+    import hashlib
+    real_policy = os.path.join(ROOT, "harness", "threshold_policy.json")
+    digest = hashlib.sha256(open(real_policy, "rb").read()).hexdigest()
+    lock = tmp_path / "lock.json"
+    lock.write_text(
+        json.dumps({"policy_path": real_policy, "policy_digest": digest,
+                    "approved_change_id": "CHG-9999", "approved_at": "2026-05-06 00:00:00"}),
+        encoding="utf-8",
+    )
+    res = _run([
+        "policy-governance",
+        "--lock-path", str(lock),
+        "--exit-on-yellow",
+    ])
+    assert res.returncode == 0
 
 
 def test_cli_policy_governance_require_lock_exits_7(tmp_path):
@@ -729,6 +776,44 @@ def test_cli_validate_pd_calibration_missing_columns(tmp_path):
         ]
     )
     assert result.returncode == 4
+
+
+def test_cli_validate_scenario_max_predictions_truncates(tmp_path):
+    hist = os.path.join(ROOT, "examples", "sample_macro_history.csv")
+    sc = os.path.join(ROOT, "examples", "sample_macro_scenario.csv")
+    res = _run([
+        "validate-scenario",
+        "--hist-data", hist,
+        "--scenario-data", sc,
+        "--target", "pd_multiplier",
+        "--features", "gdp_growth,unemployment,bond_spread",
+        "--scenario-col", "scenario",
+        "--period-col", "period",
+        "--pred-col-in-scenario", "pd_multiplier",
+        "--max-predictions", "3",
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert len(payload["predictions"]) == 3
+    assert payload["predictions_total"] >= 4
+    assert payload["predictions_truncated"] >= 1
+
+
+def test_cli_validate_scenario_max_predictions_invalid(tmp_path):
+    hist = os.path.join(ROOT, "examples", "sample_macro_history.csv")
+    sc = os.path.join(ROOT, "examples", "sample_macro_scenario.csv")
+    res = _run([
+        "validate-scenario",
+        "--hist-data", hist,
+        "--scenario-data", sc,
+        "--target", "pd_multiplier",
+        "--features", "gdp_growth,unemployment,bond_spread",
+        "--scenario-col", "scenario",
+        "--period-col", "period",
+        "--pred-col-in-scenario", "pd_multiplier",
+        "--max-predictions", "0",
+    ])
+    assert res.returncode == 4
 
 
 def test_cli_validate_scenario_with_supplied_multipliers(tmp_path):

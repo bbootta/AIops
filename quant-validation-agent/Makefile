@@ -14,7 +14,7 @@
 PYTHON ?= python
 PKG ?= quant_validation_agent
 
-.PHONY: help test test-strict governance smoke smoke-scoring smoke-pd smoke-lgd smoke-ead smoke-scenario report report-smoke ci clean
+.PHONY: help test test-strict governance smoke smoke-scoring smoke-pd smoke-lgd smoke-ead smoke-scenario report report-smoke stationarity-report ci clean
 
 help:
 	@echo "Targets:"
@@ -23,6 +23,7 @@ help:
 	@echo "  governance    policy-governance audit"
 	@echo "  smoke         Run validate* over examples/"
 	@echo "  report        Render every smoke output to a 9-section markdown"
+	@echo "  stationarity-report  Render the scenario report with stationarity RAG"
 	@echo "  ci            test + governance + smoke"
 	@echo "  clean         Remove __pycache__ and stray artifacts"
 
@@ -91,6 +92,16 @@ report: smoke-scoring smoke-pd smoke-lgd smoke-ead smoke-scenario
 	$(PYTHON) -m $(PKG) report --input reports/_smoke_ead.json --out reports/_smoke_ead.md
 	$(PYTHON) -m $(PKG) report --scenario-input reports/_smoke_scenario.json --include-stationarity-rag --out reports/_smoke_scenario.md
 	@echo "Rendered: reports/_smoke_*.md"
+
+# Render only the scenario report with the stationarity RAG block enabled,
+# without re-running every smoke target. Useful when reviewing macro
+# scenario regressions in isolation.
+stationarity-report: smoke-scenario
+	$(PYTHON) -m $(PKG) report \
+	    --scenario-input reports/_smoke_scenario.json \
+	    --include-stationarity-rag \
+	    --out reports/_smoke_scenario_stationarity.md
+	@echo "Rendered: reports/_smoke_scenario_stationarity.md"
 
 ci: test governance smoke
 

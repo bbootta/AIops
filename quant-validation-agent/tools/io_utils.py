@@ -10,18 +10,40 @@ from typing import Iterable
 import pandas as pd
 
 
-def read_csv_safely(path: str, **kwargs) -> pd.DataFrame:
+def read_csv_safely(
+    path: str,
+    scan_pii: bool = False,
+    pii_max_rows: int = 1000,
+    **kwargs,
+) -> pd.DataFrame:
     """Read a CSV file with strict checks.
+
+    Args:
+        scan_pii: when True, scan up to `pii_max_rows` rows of object columns
+            for PII patterns (RRN, phone, email, card, account). Any match
+            raises PermissionError, refusing to return the dataframe.
+        pii_max_rows: maximum rows to scan when `scan_pii=True`.
 
     Raises:
         FileNotFoundError: if the path does not exist.
         ValueError: if the file is empty.
+        PermissionError: if `scan_pii` is True and PII is detected.
     """
     if not os.path.exists(path):
         raise FileNotFoundError(f"CSV not found: {path}")
     df = pd.read_csv(path, **kwargs)
     if df.shape[0] == 0:
         raise ValueError(f"CSV is empty: {path}")
+    if scan_pii:
+        # Local import to avoid pulling middleware into all io_utils consumers.
+        from middleware.data_safety_guard import detect_pii_in_dataframe
+
+        hits = detect_pii_in_dataframe(df, max_rows=pii_max_rows)
+        if hits:
+            types = sorted({h["type"] for h in hits})
+            raise PermissionError(
+                f"PII detected in {path}: types={types}, hits={len(hits)}; refusing to return data."
+            )
     return df
 
 

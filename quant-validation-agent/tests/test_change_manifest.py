@@ -49,6 +49,39 @@ def test_status_values_allowed():
         assert e["status"] in allowed
 
 
+def test_component_strings_are_non_trivial():
+    """Sanity: each component string is at least 3 chars and free of ascii control chars."""
+    manifest = _load_json(MANIFEST_PATH)
+    for e in manifest["entries"]:
+        component = e.get("component", "")
+        cid = e.get("change_id", "?")
+        assert isinstance(component, str), f"{cid}: component must be a string"
+        assert len(component.strip()) >= 3, f"{cid}: component too short"
+        # No control characters (newlines / tabs) should leak into the field.
+        bad = [c for c in component if ord(c) < 32 and c not in (" ",)]
+        assert not bad, f"{cid}: component contains control characters"
+
+
+def test_evidence_targeted_fix_present_and_meaningful():
+    """Every entry should record a non-empty evidence + targeted_fix."""
+    manifest = _load_json(MANIFEST_PATH)
+    for e in manifest["entries"]:
+        cid = e.get("change_id", "?")
+        for field in ("evidence", "targeted_fix", "rollback_rule", "validation_method"):
+            value = e.get(field, "")
+            assert isinstance(value, str), f"{cid}: {field} must be a string"
+            assert len(value.strip()) >= 8, f"{cid}: {field} too short ({len(value)} chars)"
+
+
+def test_change_ids_are_dense_sequence():
+    """No gaps in CHG-#### sequence — append-only manifest invariant."""
+    manifest = _load_json(MANIFEST_PATH)
+    ids = [e["change_id"] for e in manifest["entries"]]
+    nums = sorted(int(cid.split("-")[1]) for cid in ids)
+    expected = list(range(nums[0], nums[-1] + 1))
+    assert nums == expected, f"gaps in CHG-#### sequence: missing {sorted(set(expected) - set(nums))}"
+
+
 @pytest.mark.skipif(
     not os.environ.get("QVA_STRICT_MANIFEST"),
     reason="Opt-in via QVA_STRICT_MANIFEST=1.",

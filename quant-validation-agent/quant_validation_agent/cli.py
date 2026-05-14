@@ -337,6 +337,21 @@ def cmd_validate(args: argparse.Namespace) -> int:
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return 4
 
+    # Aggregate worst RAG across emitted metrics. Caller can rely on this
+    # single field for triage instead of inspecting every metric block.
+    rag_states = [
+        m.get("rag", "Gray") for m in report.get("metrics", {}).values()
+        if isinstance(m, dict)
+    ]
+    if "Red" in rag_states:
+        report["overall_rag"] = "Red"
+    elif "Yellow" in rag_states:
+        report["overall_rag"] = "Yellow"
+    elif rag_states and "Gray" not in rag_states:
+        report["overall_rag"] = "Green"
+    else:
+        report["overall_rag"] = "Gray"
+
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as f:
@@ -412,6 +427,17 @@ def cmd_validate_scenario(args: argparse.Namespace) -> int:
         run_stationarity_check=not args.skip_stationarity,
         stationarity_alpha=float(args.stationarity_alpha),
     )
+    mp = getattr(args, "max_predictions", None)
+    if mp is not None:
+        if mp < 1:
+            print(json.dumps({"error": "max_predictions_invalid", "detail": "must be >= 1"},
+                             ensure_ascii=False))
+            return 4
+        preds = out.get("predictions") or []
+        if len(preds) > mp:
+            out["predictions_total"] = len(preds)
+            out["predictions_truncated"] = len(preds) - mp
+            out["predictions"] = preds[:mp]
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as f:
@@ -940,6 +966,8 @@ def cmd_policy_governance(args: argparse.Namespace) -> int:
 
     Exit codes:
       0 — all checks pass
+      1 — soft warning (only when --exit-on-yellow): lock is missing or
+          digest does not match, but governance approval is fine
       6 — manifest entries violate the approval rule
       7 — policy lock is missing or out of sync (only when --require-lock)
     """
@@ -971,6 +999,8 @@ def cmd_policy_governance(args: argparse.Namespace) -> int:
         return 6
     if args.require_lock and not lock_info["is_synced"]:
         return 7
+    if getattr(args, "exit_on_yellow", False) and not lock_info["is_synced"]:
+        return 1
     return 0
 
 
@@ -1167,6 +1197,10 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Exit 7 when the lock is missing or drifted.")
     p_pg.add_argument("--json-only", dest="json_only", action="store_true",
                       help="Emit compact single-line JSON for jq pipelines.")
+    p_pg.add_argument("--exit-on-yellow", dest="exit_on_yellow", action="store_true",
+                      help="Exit 1 when the lock is missing/drifted, even though manifest "
+                           "approvals are intact. Useful as a CI 'warning' gate that does "
+                           "not block hard like --require-lock (which exits 7).")
     p_pg.set_defaults(func=cmd_policy_governance)
 
     p_pl = sub.add_parser(
@@ -1271,6 +1305,9 @@ def build_parser() -> argparse.ArgumentParser:
                       action="store_true", help="Skip ADF stationarity check.")
     p_vs.add_argument("--stationarity-alpha", dest="stationarity_alpha",
                       default=0.05, type=float, help="Alpha for ADF test (default 0.05).")
+    p_vs.add_argument("--max-predictions", dest="max_predictions", default=None, type=int,
+                      help="Truncate the predictions list to this many rows in the output JSON. "
+                           "Truncated count is reported under 'predictions_truncated'.")
     p_vs.add_argument("--out", help="Optional path to write the JSON report.")
     p_vs.add_argument("--log-dir", dest="log_dir",
                       help="Optional directory to write a run-log JSON via middleware.run_logger.")

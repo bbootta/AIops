@@ -36,14 +36,19 @@ def detect_pii_in_text(text: str) -> List[dict]:
 
 
 def detect_pii_in_dataframe(df: pd.DataFrame, max_rows: int = 1000) -> List[dict]:
-    """Scan up to `max_rows` of object/string columns for PII matches."""
+    """Scan up to `max_rows` of object/string columns for PII matches.
+
+    Accepts both legacy `object` dtype and pandas extension string dtypes
+    (`StringDtype`). Other dtypes are skipped silently.
+    """
     if df is None or df.empty:
         return []
     out: List[dict] = []
     sample = df.head(max_rows)
     for col in sample.columns:
         s = sample[col]
-        if s.dtype != object:
+        is_string_like = s.dtype == object or pd.api.types.is_string_dtype(s)
+        if not is_string_like:
             continue
         for idx, val in s.items():
             if not isinstance(val, str):
