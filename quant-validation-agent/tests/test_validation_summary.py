@@ -36,6 +36,21 @@ def test_invalid_direction_raises():
         vs.assign_rag_status(0.5, 0.5, 0.3, "diagonal")
 
 
+def test_higher_is_better_rejects_inverted_thresholds():
+    with pytest.raises(ValueError):
+        vs.assign_rag_status(0.5, 0.3, 0.7, "higher_is_better")
+
+
+def test_lower_is_better_rejects_inverted_thresholds():
+    with pytest.raises(ValueError):
+        vs.assign_rag_status(0.5, 0.25, 0.10, "lower_is_better")
+
+
+def test_abs_lower_is_better_rejects_inverted_thresholds():
+    with pytest.raises(ValueError):
+        vs.assign_rag_status(0.0, 0.05, 0.01, "abs_lower_is_better")
+
+
 def test_gray_when_thresholds_missing():
     assert vs.assign_rag_status(0.5, None, None, "higher_is_better") == "Gray"
     assert vs.assign_rag_status(None, 0.5, 0.3, "higher_is_better") == "Gray"

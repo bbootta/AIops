@@ -932,10 +932,18 @@ def cmd_validate_pd_calibration(args: argparse.Namespace) -> int:
             "HL/Spiegelhalter RAG는 표본 크기에 민감하며, 단독으로 적합/부적합을 단정하지 않는다."
         )
     if getattr(args, "decile_rag", False):
-        from tools import decile_lift
+        from tools import decile_lift, target_validation
 
         try:
             # PD acts as a risk score: higher PD => higher default risk.
+            # Cross-check with infer_score_direction and record the result.
+            try:
+                inferred = target_validation.infer_score_direction(
+                    actual.tolist(), pred_pd.tolist()
+                )
+            except Exception as ie:
+                inferred = {"error": str(ie)}
+            report.setdefault("score_direction", inferred)
             lift = decile_lift.build_lift_table(
                 actual.tolist(), pred_pd.tolist(), n_bins=10, higher_is_worse=True,
             )
@@ -1170,6 +1178,24 @@ def cmd_summary(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_version(args: argparse.Namespace) -> int:
+    """Emit version metadata as JSON."""
+    import platform
+    import sys as _sys
+
+    payload = {
+        "package": "quant_validation_agent",
+        "version": __version__,
+        "python": _sys.version.split()[0],
+        "platform": platform.platform(),
+    }
+    if getattr(args, "json_only", False):
+        print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+    else:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0
+
+
 def cmd_docs_cli(args: argparse.Namespace) -> int:
     """Capture --help output for each subcommand into a markdown reference.
 
@@ -1377,6 +1403,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_sm.add_argument("--json-only", dest="json_only", action="store_true",
                       help="Compact single-line JSON for jq pipelines.")
     p_sm.set_defaults(func=cmd_summary)
+
+    p_ver = sub.add_parser(
+        "version",
+        help="Emit version metadata as JSON (package, version, python, platform).",
+    )
+    p_ver.add_argument("--json-only", dest="json_only", action="store_true",
+                       help="Compact single-line JSON.")
+    p_ver.set_defaults(func=cmd_version)
 
     p_dc = sub.add_parser(
         "docs-cli",

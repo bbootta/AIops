@@ -32,6 +32,22 @@ def test_cli_docs_cli_writes_reference(tmp_path):
         assert f"## `{sub}`" in text
 
 
+def test_cli_version_subcommand_emits_json():
+    res = _run(["version"])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert payload["package"] == "quant_validation_agent"
+    assert "version" in payload
+    assert "python" in payload
+    assert "platform" in payload
+
+
+def test_cli_version_subcommand_json_only_is_compact():
+    res = _run(["version", "--json-only"])
+    assert res.returncode == 0, res.stderr
+    assert "\n" not in res.stdout.rstrip("\n")
+
+
 def test_cli_version_flag():
     res = _run(["--version"])
     assert res.returncode == 0, res.stderr
@@ -851,6 +867,25 @@ def test_cli_validate_pd_calibration_out_pattern_writes_resolved_path(tmp_path):
     assert "resolved_out_path" in payload
     assert "{ts}" not in payload["resolved_out_path"]
     assert os.path.exists(payload["resolved_out_path"])
+
+
+def test_cli_validate_pd_calibration_decile_rag_records_direction():
+    sample = os.path.join(ROOT, "examples", "sample_pd_timeseries.csv")
+    res = _run([
+        "validate-pd-calibration",
+        "--data", sample,
+        "--pred-col", "predicted_pd",
+        "--default-col", "defaults",
+        "--count-col", "count",
+        "--bucket-col", "grade",
+        "--decile-rag",
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert "score_direction" in payload
+    # On the well-behaved synthetic dataset, higher PD should align with
+    # higher default frequency.
+    assert payload["score_direction"].get("higher_is_worse") is True
 
 
 def test_cli_validate_pd_calibration_with_decile_rag():

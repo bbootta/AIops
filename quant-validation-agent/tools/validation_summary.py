@@ -59,6 +59,21 @@ def assign_rag_status(
         return "Gray"
     if direction not in _VALID_DIRECTIONS:
         raise ValueError(f"direction must be one of {_VALID_DIRECTIONS}")
+    # Direction-aware sanity: green must be strictly more permissive than
+    # yellow. For higher_is_better, green > yellow. For lower_is_better /
+    # abs_lower_is_better, green < yellow.
+    if direction == "higher_is_better" and not (green_threshold > yellow_threshold):
+        raise ValueError(
+            f"higher_is_better requires green_threshold > yellow_threshold; "
+            f"got green={green_threshold}, yellow={yellow_threshold}."
+        )
+    if direction in ("lower_is_better", "abs_lower_is_better") and not (
+        green_threshold < yellow_threshold
+    ):
+        raise ValueError(
+            f"{direction} requires green_threshold < yellow_threshold; "
+            f"got green={green_threshold}, yellow={yellow_threshold}."
+        )
     if direction == "higher_is_better":
         if metric_value >= green_threshold:
             return "Green"

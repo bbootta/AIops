@@ -8,9 +8,17 @@ from typing import Optional
 
 LOG_DIR_DEFAULT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 
+_counter = 0
+
 
 def _now_str() -> str:
     return _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _next_counter() -> int:
+    global _counter
+    _counter = (_counter + 1) % 1_000_000
+    return _counter
 
 
 def write_run_log(
@@ -38,7 +46,15 @@ def write_run_log(
         "test_results": test_results or {},
         "incomplete_items": incomplete_items or [],
     }
-    fname = "run_" + _dt.datetime.now().strftime("%Y%m%d_%H%M%S_%f") + ".json"
+    # Include the PID + a monotonically increasing counter to keep filenames
+    # unique under concurrent invocations (timestamp_us alone is insufficient
+    # when two processes start in the same microsecond).
+    counter = _next_counter()
+    fname = (
+        "run_"
+        + _dt.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        + f"_pid{os.getpid()}_{counter:06d}.json"
+    )
     path = os.path.join(log_dir, fname)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(record, f, ensure_ascii=False, indent=2, default=str)
