@@ -10,6 +10,22 @@ def test_check_rank_ordering_monotonic():
     out = bs.check_rank_ordering(df, "grade", "bad_rate")
     assert out["monotonic_increasing"] is True
     assert out["monotonic_decreasing"] is False
+    assert out["n_violations"] == 0
+
+
+def test_check_rank_ordering_counts_violations_descending_expected():
+    df = pd.DataFrame({"grade": ["A", "B", "C"], "bad_rate": [0.01, 0.05, 0.20]})
+    out = bs.check_rank_ordering(df, "grade", "bad_rate", expected="descending")
+    # All adjacent diffs are strict increases → violations against descending = 2
+    assert out["n_violations"] == 2
+    assert out["n_strict_increases"] == 2
+    assert out["n_strict_decreases"] == 0
+
+
+def test_check_rank_ordering_rejects_bad_expected():
+    df = pd.DataFrame({"grade": ["A"], "bad_rate": [0.1]})
+    with pytest.raises(ValueError):
+        bs.check_rank_ordering(df, "grade", "bad_rate", expected="zigzag")
 
 
 def test_detect_grade_inversion_finds_violation():

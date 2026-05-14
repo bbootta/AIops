@@ -5,12 +5,23 @@ import pandas as pd
 
 
 def check_rank_ordering(
-    df: pd.DataFrame, grade_col: str, bad_rate_col: str
+    df: pd.DataFrame, grade_col: str, bad_rate_col: str,
+    expected: str = "ascending",
 ) -> dict:
-    """Check whether bad rate is monotonic across ordered grades.
+    """Check whether `bad_rate_col` is monotonic across ordered grades.
 
-    Grades are ordered by their natural sort.
+    Args:
+        expected: 'ascending' (bad rate should rise with grade index) or
+            'descending'. Used to compute `n_violations` relative to the
+            caller's expectation.
+
+    Returns:
+        monotonic_increasing / monotonic_decreasing booleans, n_grades,
+        n_strict_increases, n_strict_decreases, and n_violations (count of
+        adjacent pairs that contradict `expected`).
     """
+    if expected not in ("ascending", "descending"):
+        raise ValueError("expected must be 'ascending' or 'descending'.")
     for c in (grade_col, bad_rate_col):
         if c not in df.columns:
             raise ValueError(f"Column missing: {c}")
@@ -21,14 +32,28 @@ def check_rank_ordering(
         .reset_index(drop=True)
     )
     if s.shape[0] < 2:
-        return {"monotonic_increasing": None, "monotonic_decreasing": None, "n_grades": int(s.shape[0])}
+        return {
+            "monotonic_increasing": None,
+            "monotonic_decreasing": None,
+            "n_grades": int(s.shape[0]),
+            "n_strict_increases": 0,
+            "n_strict_decreases": 0,
+            "n_violations": 0,
+            "expected": expected,
+        }
     vals = s[bad_rate_col].astype(float).values
     diffs = vals[1:] - vals[:-1]
+    n_up = int((diffs > 0).sum())
+    n_down = int((diffs < 0).sum())
+    n_viol = n_down if expected == "ascending" else n_up
     return {
         "monotonic_increasing": bool((diffs >= 0).all()),
         "monotonic_decreasing": bool((diffs <= 0).all()),
         "n_grades": int(s.shape[0]),
-        "n_inversions": int((diffs > 0).sum() if (diffs <= 0).all() else (diffs < 0).sum() if (diffs >= 0).all() else (diffs < 0).sum() + (diffs > 0).sum()),
+        "n_strict_increases": n_up,
+        "n_strict_decreases": n_down,
+        "n_violations": n_viol,
+        "expected": expected,
     }
 
 

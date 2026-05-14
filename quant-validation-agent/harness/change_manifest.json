@@ -1365,6 +1365,21 @@
       "rollback_rule": "Drop the test.",
       "human_approval_required": false,
       "status": "applied"
+    },
+    {
+      "change_id": "CHG-0092",
+      "timestamp": "2026-05-06 01:31:00",
+      "component": "tools/binning_stability.py + tests/test_binning_stability.py",
+      "change_type": "modify",
+      "evidence": "Round-sixteen improvement — check_rank_ordering's n_inversions formula was convoluted and direction-agnostic.",
+      "root_cause": "The original expression embedded a conditional triple-nested expression with unclear semantics for mixed-direction series.",
+      "targeted_fix": "Replace n_inversions with explicit n_strict_increases, n_strict_decreases, plus a direction-aware n_violations computed against the caller-supplied `expected` (ascending/descending). Reject other values with ValueError.",
+      "expected_benefit": "Clear, auditable rank-ordering output; callers no longer have to interpret a single overloaded counter.",
+      "expected_regression_risk": "Low — no other callsite referenced the removed n_inversions field.",
+      "validation_method": "pytest covers the monotonic happy path, descending-expected violation counts, and bad-expected ValueError.",
+      "rollback_rule": "Restore the previous return-dict shape.",
+      "human_approval_required": false,
+      "status": "applied"
     }
   ]
 }
