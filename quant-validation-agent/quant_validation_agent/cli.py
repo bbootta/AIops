@@ -307,6 +307,31 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 report["metrics"]["mae_raw"] = {"value": mae, "rag": "Gray", "source": "raw_currency_units"}
                 report["metrics"]["rmse_raw"] = {"value": rmse, "rag": "Gray", "source": "raw_currency_units"}
                 report["metrics"]["bias_raw"] = {"value": bias, "rag": "Gray", "source": "raw_currency_units"}
+        if getattr(args, "segment_detail", False):
+            seg_col = args.segment_col
+            if not seg_col or seg_col not in df.columns:
+                report.setdefault("issues", []).append({
+                    "issue": "segment_detail_skipped",
+                    "severity": "Gray",
+                    "evidence": f"--segment-col={seg_col!r} not present in data",
+                })
+            else:
+                from tools import metric_lgd_ead
+
+                try:
+                    seg_df = metric_lgd_ead.summarize_error_by_segment(
+                        df, args.actual, args.predicted, seg_col
+                    )
+                    report["segment_detail"] = {
+                        "segment_col": seg_col,
+                        "rows": seg_df.to_dict(orient="records"),
+                    }
+                except Exception as e:
+                    report.setdefault("issues", []).append({
+                        "issue": "segment_detail_failed",
+                        "severity": "Gray",
+                        "evidence": str(e),
+                    })
     else:
         report["issues"].append({"issue": "unsupported_model_type", "severity": "Red", "evidence": args.model_type})
         print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -412,7 +437,7 @@ def cmd_validate_scenario(args: argparse.Namespace) -> int:
     return 0
 
 
-def _render_report_markdown(report: dict) -> str:
+def _render_report_markdown(report: dict, max_rows: Optional[int] = None) -> str:
     """Render a validate JSON report into the standard 9-section markdown."""
     from tools import markdown_renderers as mr
     from tools import validation_summary
@@ -459,14 +484,14 @@ def _render_report_markdown(report: dict) -> str:
     out.append("")
     out.append("## 3. 주요 지표")
     out.append("")
-    out.append(mr.render_metrics_table(metrics))
+    out.append(mr.render_metrics_table(metrics, max_rows=max_rows))
     out.append("## 4. 세부 분석")
     out.append("")
     out.append("- 본 섹션은 인간 검증자가 작성한다. CLI는 정량 결과만 채운다.")
     out.append("")
     out.append("## 5. 이상 징후")
     out.append("")
-    out.append(mr.render_issue_table(issues))
+    out.append(mr.render_issue_table(issues, max_rows=max_rows))
     out.append("## 6. 한계")
     out.append("- `docs/limitation_and_risk.md` 참조.")
     out.append("- 본 자동 리포트는 정량 지표만 포함하며, 데이터 정의 일관성·시점 정합성·정책 임계값 적정성은 인간 검증자가 별도로 점검해야 한다.")
@@ -492,6 +517,7 @@ def _render_scenario_report_markdown(
     scenario_report: dict,
     policy: Optional[dict] = None,
     include_stationarity_rag: bool = False,
+    max_rows: Optional[int] = None,
 ) -> str:
     """Render a validate-scenario JSON output as the standard 9-section markdown.
 
@@ -596,7 +622,9 @@ def _render_scenario_report_markdown(
         df = pd.DataFrame(stationarity)
         out.append("**ADF stationarity**\n")
         cols = [c for c in df.columns if c in ("variable", "adf_stat", "pvalue", "stationary_at_alpha", "error")]
-        out.append(mr.render_dataframe_markdown(df, columns=cols, aligns={"adf_stat": "right", "pvalue": "right"}))
+        out.append(mr.render_dataframe_markdown(
+            df, columns=cols, aligns={"adf_stat": "right", "pvalue": "right"}, max_rows=max_rows
+        ))
     else:
         out.append("- ADF stationarity 정보 없음 (skip 또는 실패).")
         out.append("")
@@ -612,12 +640,12 @@ def _render_scenario_report_markdown(
     out.append("")
     if fit_rag:
         out.append("**적합도 RAG**\n")
-        out.append(mr.render_metrics_table(fit_rag))
+        out.append(mr.render_metrics_table(fit_rag, max_rows=max_rows))
     out.append(mr.render_regression_summary(summary, pvals, vif))
 
     out.append("## 4. 세부 분석")
     out.append("")
-    out.append(mr.render_scenario_severity(severity, floors))
+    out.append(mr.render_scenario_severity(severity, floors, max_rows=max_rows))
     out.append("")
     out.append("**시계열 진단**\n")
     out.append(
@@ -650,7 +678,7 @@ def _render_scenario_report_markdown(
                     "next_action": "정책 확정 및 사후 검증",
                 }
             )
-    out.append(mr.render_issue_table(issues))
+    out.append(mr.render_issue_table(issues, max_rows=max_rows))
 
     out.append("## 6. 한계")
     out.append(
@@ -702,6 +730,10 @@ def cmd_report(args: argparse.Namespace) -> int:
         return 4
     with open(path, "r", encoding="utf-8") as f:
         report = json.load(f)
+    max_rows = getattr(args, "max_rows", None)
+    if max_rows is not None and max_rows < 1:
+        print(json.dumps({"error": "max_rows_invalid", "detail": "must be >= 1"}, ensure_ascii=False))
+        return 4
     if is_scenario:
         try:
             policy = _load_validated_policy(args.threshold_overrides)
@@ -712,9 +744,10 @@ def cmd_report(args: argparse.Namespace) -> int:
             report,
             policy=policy,
             include_stationarity_rag=bool(getattr(args, "include_stationarity_rag", False)),
+            max_rows=max_rows,
         )
     else:
-        md = _render_report_markdown(report)
+        md = _render_report_markdown(report, max_rows=max_rows)
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as f:
@@ -846,6 +879,24 @@ def cmd_validate_pd_calibration(args: argparse.Namespace) -> int:
         report["hl_rag_caveat"] = (
             "HL/Spiegelhalter RAG는 표본 크기에 민감하며, 단독으로 적합/부적합을 단정하지 않는다."
         )
+    if getattr(args, "decile_rag", False):
+        from tools import decile_lift
+
+        try:
+            # PD acts as a risk score: higher PD => higher default risk.
+            lift = decile_lift.build_lift_table(
+                actual.tolist(), pred_pd.tolist(), n_bins=10, higher_is_worse=True,
+            )
+            top = float(lift.iloc[0]["lift"]) if not lift.empty else None
+            report["metrics"]["lift_top_decile"] = _rag_with_threshold(
+                top, policy, "lift_top_decile", segment=args.segment
+            )
+        except Exception as e:
+            report.setdefault("issues", []).append({
+                "issue": "lift_top_decile_failed",
+                "severity": "Gray",
+                "evidence": str(e),
+            })
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as f:
@@ -929,14 +980,17 @@ def cmd_policy_lock(args: argparse.Namespace) -> int:
     Default behavior: dry-run. Reports what would be written without
     modifying the lock file. Pass --confirm to actually write.
 
-    The user is responsible for ensuring the change has been approved in
-    change_manifest.json (with human_approval_required: true) before
-    locking. policy-governance can verify that invariant separately.
+    Pre-checks (unless --skip-manifest-check is set):
+      - the manifest contains an entry with the given change_id
+      - that entry has component referencing threshold_policy.json
+      - that entry has human_approval_required: true
+    Failures exit with code 6.
     """
     from middleware import policy_change_guard
 
     policy_path = args.policy_path or os.path.join(_PROJECT_ROOT, "harness", "threshold_policy.json")
     lock_path = args.lock_path or os.path.join(_PROJECT_ROOT, "harness", "threshold_policy.lock.json")
+    manifest_path = args.manifest_path or os.path.join(_PROJECT_ROOT, "harness", "change_manifest.json")
 
     try:
         current_digest = policy_change_guard.compute_policy_digest(policy_path)
@@ -947,13 +1001,39 @@ def cmd_policy_lock(args: argparse.Namespace) -> int:
         print(json.dumps({"error": "change_id_invalid",
                           "detail": "--change-id must be 'CHG-####'"}, ensure_ascii=False))
         return 4
+
+    # Manifest pre-check
+    if not args.skip_manifest_check:
+        try:
+            manifest = policy_change_guard.load_manifest(manifest_path)
+        except FileNotFoundError as e:
+            print(json.dumps({"error": "manifest_missing", "detail": str(e)}, ensure_ascii=False))
+            return 6
+        policy_entries = policy_change_guard.find_policy_change_entries(manifest)
+        match = next((e for e in policy_entries if e.get("change_id") == args.change_id), None)
+        if match is None:
+            print(json.dumps({
+                "error": "change_id_not_in_manifest",
+                "detail": f"{args.change_id} not found among policy-change entries",
+                "policy_entry_ids": [e.get("change_id") for e in policy_entries],
+            }, ensure_ascii=False))
+            return 6
+        if not match.get("human_approval_required"):
+            print(json.dumps({
+                "error": "approval_missing",
+                "detail": f"{args.change_id} does not have human_approval_required=true",
+            }, ensure_ascii=False))
+            return 6
+
     existing = policy_change_guard.load_lock(lock_path)
     plan = {
         "policy_path": os.path.abspath(policy_path),
         "lock_path": os.path.abspath(lock_path),
+        "manifest_path": os.path.abspath(manifest_path),
         "current_digest": current_digest,
         "previous_lock": existing,
         "change_id": args.change_id,
+        "manifest_check_skipped": bool(args.skip_manifest_check),
         "would_write": not args.confirm,
     }
     if args.confirm:
@@ -1067,6 +1147,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_v.add_argument("--ead-normalizer", dest="ead_normalizer", default=None,
                      choices=["mean_realized", "mean_predicted", "total_exposure"],
                      help="Override the EAD-error normalizer from threshold_policy.json.")
+    p_v.add_argument("--segment-detail", dest="segment_detail", action="store_true",
+                     help="LGD/EAD: emit per-segment MAE/RMSE/bias under report.segment_detail.")
+    p_v.add_argument("--segment-col", dest="segment_col", default=None,
+                     help="Column to group by for --segment-detail.")
     p_v.add_argument("--out", help="Optional path to write the JSON report.")
     p_v.add_argument("--log-dir", dest="log_dir",
                      help="Optional directory to write a run-log JSON via middleware.run_logger.")
@@ -1095,6 +1179,10 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Required to actually write the lock file.")
     p_pl.add_argument("--policy-path", dest="policy_path", default=None)
     p_pl.add_argument("--lock-path", dest="lock_path", default=None)
+    p_pl.add_argument("--manifest-path", dest="manifest_path", default=None,
+                      help="Path to change_manifest.json (defaults to harness/change_manifest.json).")
+    p_pl.add_argument("--skip-manifest-check", dest="skip_manifest_check", action="store_true",
+                      help="Skip the manifest pre-check (advanced; not recommended).")
     p_pl.set_defaults(func=cmd_policy_lock)
 
     p_n = sub.add_parser("note", help="Append a recurring-finding note.")
@@ -1119,6 +1207,9 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Opt-in: emit a stationarity RAG block (target stationary => Green; "
                           "any non-stationary feature => Yellow; non-stationary target => Red). "
                           "Sample-size sensitive — see CLAUDE.md limitations.")
+    p_r.add_argument("--max-rows", dest="max_rows", default=None, type=int,
+                     help="Truncate every table in the report to this many rows. "
+                          "A note is appended indicating the number of truncated rows.")
     p_r.add_argument("--out", help="Optional path to write the markdown report.")
     p_r.set_defaults(func=cmd_report)
 
@@ -1142,6 +1233,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_pdc.add_argument("--hl-rag", dest="hl_rag", action="store_true",
                        help="Opt-in: also assign RAG to HL and Spiegelhalter p-values. "
                             "Output is sample-size sensitive; do not use alone for adequacy.")
+    p_pdc.add_argument("--decile-rag", dest="decile_rag", action="store_true",
+                       help="Opt-in: also emit RAG for the top-decile lift of pred_pd vs default.")
     p_pdc.add_argument("--segment", help="Segment label for threshold overrides.")
     p_pdc.add_argument("--out", help="Optional path to write the JSON report.")
     p_pdc.add_argument("--log-dir", dest="log_dir",

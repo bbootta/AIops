@@ -14,7 +14,7 @@
 PYTHON ?= python
 PKG ?= quant_validation_agent
 
-.PHONY: help test test-strict governance smoke smoke-scoring smoke-pd smoke-lgd smoke-ead smoke-scenario report-smoke ci clean
+.PHONY: help test test-strict governance smoke smoke-scoring smoke-pd smoke-lgd smoke-ead smoke-scenario report report-smoke ci clean
 
 help:
 	@echo "Targets:"
@@ -22,6 +22,7 @@ help:
 	@echo "  test-strict   pytest with strict env vars (manifest + lock)"
 	@echo "  governance    policy-governance audit"
 	@echo "  smoke         Run validate* over examples/"
+	@echo "  report        Render every smoke output to a 9-section markdown"
 	@echo "  ci            test + governance + smoke"
 	@echo "  clean         Remove __pycache__ and stray artifacts"
 
@@ -79,6 +80,17 @@ smoke-scenario:
 report-smoke:
 	$(PYTHON) -m $(PKG) report --input reports/_smoke_scoring.json --out reports/_smoke_scoring.md
 	$(PYTHON) -m $(PKG) report --scenario-input reports/_smoke_scenario.json --include-stationarity-rag --out reports/_smoke_scenario.md
+
+# Public alias: run all four smoke validations and render every output to
+# a 9-section markdown report. Depends on the smoke-* targets so JSON
+# inputs exist before the renderer runs.
+report: smoke-scoring smoke-pd smoke-lgd smoke-ead smoke-scenario
+	$(PYTHON) -m $(PKG) report --input reports/_smoke_scoring.json --out reports/_smoke_scoring.md
+	$(PYTHON) -m $(PKG) report --input reports/_smoke_pd_calibration.json --out reports/_smoke_pd_calibration.md
+	$(PYTHON) -m $(PKG) report --input reports/_smoke_lgd.json --out reports/_smoke_lgd.md
+	$(PYTHON) -m $(PKG) report --input reports/_smoke_ead.json --out reports/_smoke_ead.md
+	$(PYTHON) -m $(PKG) report --scenario-input reports/_smoke_scenario.json --include-stationarity-rag --out reports/_smoke_scenario.md
+	@echo "Rendered: reports/_smoke_*.md"
 
 ci: test governance smoke
 

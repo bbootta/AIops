@@ -44,6 +44,39 @@ def test_render_dataframe_markdown_max_rows_invalid():
         mr.render_dataframe_markdown(df, max_rows=0)
 
 
+def test_render_metrics_table_max_rows_truncates():
+    metrics = {f"m{i}": {"value": float(i)} for i in range(8)}
+    out = mr.render_metrics_table(metrics, max_rows=3)
+    assert "5 more rows truncated" in out
+
+
+def test_render_issue_table_max_rows_truncates():
+    issues = [{"issue": f"x{i}", "severity": "Yellow"} for i in range(7)]
+    out = mr.render_issue_table(issues, max_rows=2)
+    assert "5 more rows truncated" in out
+
+
+def test_render_calibration_table_max_rows_truncates():
+    df = pd.DataFrame({
+        "count": list(range(6)),
+        "mean_pred": [0.1] * 6,
+        "mean_actual": [0.1] * 6,
+        "diff": [0.0] * 6,
+    })
+    out = mr.render_calibration_table(df, max_rows=2)
+    assert "4 more rows truncated" in out
+
+
+def test_render_scenario_severity_max_rows_truncates_pivot():
+    severity = {
+        "pivot": [{"period": f"P{i}", "base": 1.0, "adverse": 1.5, "severe": 2.0} for i in range(8)],
+        "order": {"n": 8, "n_violation_total": 0,
+                  "n_violation_base_vs_adverse": 0, "n_violation_adverse_vs_severe": 0},
+    }
+    out = mr.render_scenario_severity(severity, [], max_rows=3)
+    assert "5 more rows truncated" in out
+
+
 def test_render_metrics_table_with_thresholds():
     metrics = {
         "ks": {"value": 0.42, "rag": "Green", "green_threshold": 0.4, "yellow_threshold": 0.3, "source": "global"},

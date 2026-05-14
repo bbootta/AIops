@@ -72,7 +72,11 @@ def render_dataframe_markdown(
     return out
 
 
-def render_metrics_table(metrics: Mapping[str, dict], decimals: int = 4) -> str:
+def render_metrics_table(
+    metrics: Mapping[str, dict],
+    decimals: int = 4,
+    max_rows: Optional[int] = None,
+) -> str:
     """Render a {metric_name: {value, rag, ...}} dict as a markdown table."""
     if not metrics:
         return "| 지표 | 값 | 기준 | 상태 | 출처 |\n|---|---:|---:|---|---|\n| (없음) | | | | |\n"
@@ -100,10 +104,14 @@ def render_metrics_table(metrics: Mapping[str, dict], decimals: int = 4) -> str:
         df,
         aligns={"값": "right", "기준": "right"},
         decimals=decimals,
+        max_rows=max_rows,
     )
 
 
-def render_issue_table(issues: Iterable[Mapping]) -> str:
+def render_issue_table(
+    issues: Iterable[Mapping],
+    max_rows: Optional[int] = None,
+) -> str:
     """Render a list of {issue, severity, evidence, ...} dicts."""
     issues = list(issues or [])
     if not issues:
@@ -120,7 +128,7 @@ def render_issue_table(issues: Iterable[Mapping]) -> str:
             }
         )
     df = pd.DataFrame(rows, columns=["이슈", "심각도", "근거", "원인 후보", "추가 확인"])
-    return render_dataframe_markdown(df)
+    return render_dataframe_markdown(df, max_rows=max_rows)
 
 
 def render_regression_summary(
@@ -160,7 +168,11 @@ def render_regression_summary(
     return "\n".join(lines).strip() + "\n"
 
 
-def render_calibration_table(table_df: pd.DataFrame, decimals: int = 4) -> str:
+def render_calibration_table(
+    table_df: pd.DataFrame,
+    decimals: int = 4,
+    max_rows: Optional[int] = None,
+) -> str:
     """Render a calibration table (output of metric_calibration.build_calibration_table)."""
     expected = ["count", "mean_pred", "mean_actual", "diff"]
     missing = [c for c in expected if c not in table_df.columns]
@@ -168,12 +180,15 @@ def render_calibration_table(table_df: pd.DataFrame, decimals: int = 4) -> str:
         raise ValueError(f"calibration table missing columns: {missing}")
     cols = list(table_df.columns)
     aligns = {"count": "right", "mean_pred": "right", "mean_actual": "right", "diff": "right"}
-    return render_dataframe_markdown(table_df, columns=cols, aligns=aligns, decimals=decimals)
+    return render_dataframe_markdown(
+        table_df, columns=cols, aligns=aligns, decimals=decimals, max_rows=max_rows
+    )
 
 
 def render_scenario_severity(
     severity: Mapping, multiplier_floors: Optional[Iterable[Mapping]] = None,
     decimals: int = 4,
+    max_rows: Optional[int] = None,
 ) -> str:
     """Render the scenario severity / floor block for a scenario report.
 
@@ -196,7 +211,7 @@ def render_scenario_severity(
             df = df[cols]
             parts.append("**시나리오 결과 (period × scenario)**\n")
             aligns = {c: "right" for c in scenario_cols}
-            parts.append(render_dataframe_markdown(df, aligns=aligns, decimals=decimals))
+            parts.append(render_dataframe_markdown(df, aligns=aligns, decimals=decimals, max_rows=max_rows))
         else:
             # Single-row aggregation: pivot to a 2-column scenario | mean table.
             row = df.iloc[0]
@@ -241,6 +256,7 @@ def render_scenario_severity(
                 df,
                 aligns={"floor": "right", "n": "right", "n_below_floor": "right", "min": "right", "max": "right"},
                 decimals=decimals,
+                max_rows=max_rows,
             )
         )
     return "\n".join(parts).strip() + "\n"

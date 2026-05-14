@@ -273,6 +273,49 @@ python -m quant_validation_agent report \
 
 ---
 
+## 부록 C. Makefile 기반 워크플로
+
+`Makefile`은 본 튜토리얼의 모든 흐름을 단일 명령으로 묶는다. 운영계 통신·`git push`·외부 API 호출은 절대 포함하지 않는다.
+
+```bash
+make help          # 사용 가능한 타겟 목록
+make test          # pytest 전체 (opt-in 테스트는 skip)
+make test-strict   # QVA_STRICT_MANIFEST=1 + QVA_STRICT_POLICY_LOCK=1
+make governance    # policy-governance --json-only
+make smoke         # 4개 모형 + 시나리오 validate*
+make report        # smoke 결과를 9-section markdown으로 일괄 변환
+make ci            # test + governance + smoke (권장 CI 기본)
+make clean         # __pycache__ 및 reports/_smoke_* 정리
+```
+
+`make report`는 `make smoke` 의존성을 자동 호출하여 다음 산출물을 생성한다.
+
+| 입력 JSON | 출력 markdown |
+|---|---|
+| `reports/_smoke_scoring.json` | `reports/_smoke_scoring.md` |
+| `reports/_smoke_pd_calibration.json` | `reports/_smoke_pd_calibration.md` |
+| `reports/_smoke_lgd.json` | `reports/_smoke_lgd.md` |
+| `reports/_smoke_ead.json` | `reports/_smoke_ead.md` |
+| `reports/_smoke_scenario.json` | `reports/_smoke_scenario.md` (`--include-stationarity-rag` 적용) |
+
+권장 CI 흐름 예시:
+
+```bash
+# 1. 정책 거버넌스 (lock 동기화 강제)
+make governance
+python -m quant_validation_agent policy-governance --require-lock --json-only
+
+# 2. 테스트 + smoke + report
+make ci
+make report
+
+# 3. 정책 변경 시 (인간 승인 후)
+python -m quant_validation_agent policy-lock --change-id CHG-XXXX           # dry-run
+python -m quant_validation_agent policy-lock --change-id CHG-XXXX --confirm  # 실제 갱신
+```
+
+---
+
 ## 부록 B. 종료 코드 정리
 
 | 코드 | 발생 조건 |

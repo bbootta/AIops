@@ -159,6 +159,43 @@ def test_cli_validate_ead_ratio_metrics():
     assert payload["ead_normalizer"] == "mean_realized"
 
 
+def test_cli_validate_lgd_with_segment_detail():
+    sample = os.path.join(ROOT, "examples", "sample_lgd_ead_data.csv")
+    result = _run([
+        "validate",
+        "--data", sample,
+        "--model-type", "lgd",
+        "--actual", "realized_lgd",
+        "--predicted", "predicted_lgd",
+        "--segment-detail",
+        "--segment-col", "collateral_type",
+    ])
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert "segment_detail" in payload
+    assert payload["segment_detail"]["segment_col"] == "collateral_type"
+    cols = set((payload["segment_detail"]["rows"] or [{}])[0].keys())
+    assert {"count", "mae", "rmse", "bias"}.issubset(cols)
+
+
+def test_cli_validate_segment_detail_missing_col_emits_gray_issue(tmp_path):
+    sample = os.path.join(ROOT, "examples", "sample_lgd_ead_data.csv")
+    result = _run([
+        "validate",
+        "--data", sample,
+        "--model-type", "lgd",
+        "--actual", "realized_lgd",
+        "--predicted", "predicted_lgd",
+        "--segment-detail",
+        "--segment-col", "no_such_col",
+    ])
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert "segment_detail" not in payload
+    issues = [i.get("issue") for i in payload.get("issues", [])]
+    assert "segment_detail_skipped" in issues
+
+
 def test_cli_validate_ead_with_total_exposure_normalizer():
     sample = os.path.join(ROOT, "examples", "sample_lgd_ead_data.csv")
     result = _run(
@@ -257,15 +294,33 @@ def test_cli_policy_governance_require_lock_exits_7(tmp_path):
     assert payload["lock"]["is_synced"] is False
 
 
-def test_cli_policy_lock_dry_run_does_not_write(tmp_path):
+def _make_fake_manifest(tmp_path, change_id="CHG-9999", approved=True, policy_component=True):
+    """Build a minimal manifest+policy pair for policy-lock tests."""
     fake_policy = tmp_path / "policy.json"
     fake_policy.write_text("{}", encoding="utf-8")
+    manifest = tmp_path / "manifest.json"
+    component = "harness/threshold_policy.json" if policy_component else "tools/example.py"
+    manifest.write_text(json.dumps({
+        "entries": [
+            {
+                "change_id": change_id,
+                "component": component,
+                "human_approval_required": approved,
+            }
+        ]
+    }), encoding="utf-8")
+    return fake_policy, manifest
+
+
+def test_cli_policy_lock_dry_run_does_not_write(tmp_path):
+    fake_policy, manifest = _make_fake_manifest(tmp_path, "CHG-9999")
     lock_path = tmp_path / "policy.lock.json"
     res = _run([
         "policy-lock",
         "--change-id", "CHG-9999",
         "--policy-path", str(fake_policy),
         "--lock-path", str(lock_path),
+        "--manifest-path", str(manifest),
     ])
     assert res.returncode == 0, res.stderr
     payload = json.loads(res.stdout)
@@ -274,8 +329,7 @@ def test_cli_policy_lock_dry_run_does_not_write(tmp_path):
 
 
 def test_cli_policy_lock_confirm_writes_lock(tmp_path):
-    fake_policy = tmp_path / "policy.json"
-    fake_policy.write_text("{}", encoding="utf-8")
+    fake_policy, manifest = _make_fake_manifest(tmp_path, "CHG-9998")
     lock_path = tmp_path / "policy.lock.json"
     res = _run([
         "policy-lock",
@@ -283,6 +337,7 @@ def test_cli_policy_lock_confirm_writes_lock(tmp_path):
         "--confirm",
         "--policy-path", str(fake_policy),
         "--lock-path", str(lock_path),
+        "--manifest-path", str(manifest),
     ])
     assert res.returncode == 0, res.stderr
     payload = json.loads(res.stdout)
@@ -293,14 +348,69 @@ def test_cli_policy_lock_confirm_writes_lock(tmp_path):
 
 
 def test_cli_policy_lock_rejects_bad_change_id(tmp_path):
-    fake_policy = tmp_path / "policy.json"
-    fake_policy.write_text("{}", encoding="utf-8")
+    fake_policy, manifest = _make_fake_manifest(tmp_path)
     res = _run([
         "policy-lock",
         "--change-id", "not-valid",
         "--policy-path", str(fake_policy),
+        "--manifest-path", str(manifest),
     ])
     assert res.returncode == 4
+
+
+def test_cli_policy_lock_rejects_unknown_change_id(tmp_path):
+    fake_policy, manifest = _make_fake_manifest(tmp_path, "CHG-1111")
+    res = _run([
+        "policy-lock",
+        "--change-id", "CHG-9999",
+        "--policy-path", str(fake_policy),
+        "--manifest-path", str(manifest),
+    ])
+    assert res.returncode == 6
+    payload = json.loads(res.stdout)
+    assert payload["error"] == "change_id_not_in_manifest"
+
+
+def test_cli_policy_lock_rejects_unapproved_change(tmp_path):
+    fake_policy, manifest = _make_fake_manifest(tmp_path, "CHG-2222", approved=False)
+    res = _run([
+        "policy-lock",
+        "--change-id", "CHG-2222",
+        "--policy-path", str(fake_policy),
+        "--manifest-path", str(manifest),
+    ])
+    assert res.returncode == 6
+    payload = json.loads(res.stdout)
+    assert payload["error"] == "approval_missing"
+
+
+def test_cli_policy_lock_rejects_non_policy_component(tmp_path):
+    fake_policy, manifest = _make_fake_manifest(tmp_path, "CHG-3333", policy_component=False)
+    res = _run([
+        "policy-lock",
+        "--change-id", "CHG-3333",
+        "--policy-path", str(fake_policy),
+        "--manifest-path", str(manifest),
+    ])
+    assert res.returncode == 6
+    payload = json.loads(res.stdout)
+    assert payload["error"] == "change_id_not_in_manifest"
+
+
+def test_cli_policy_lock_skip_manifest_check_allows_unknown(tmp_path):
+    fake_policy, manifest = _make_fake_manifest(tmp_path, "CHG-1111")
+    lock_path = tmp_path / "lock.json"
+    res = _run([
+        "policy-lock",
+        "--change-id", "CHG-9000",
+        "--skip-manifest-check",
+        "--confirm",
+        "--policy-path", str(fake_policy),
+        "--manifest-path", str(manifest),
+        "--lock-path", str(lock_path),
+    ])
+    assert res.returncode == 0, res.stderr
+    assert lock_path.exists()
 
 
 def test_cli_note_blocks_pii(tmp_path):
@@ -418,6 +528,32 @@ def test_cli_report_include_stationarity_rag(tmp_path):
     assert "Stationarity RAG" in text
     # Real synthetic dataset has gdp_growth marginal; expect Yellow or Green.
     assert any(s in text for s in ("RAG: **Green**", "RAG: **Yellow**", "RAG: **Red**"))
+
+
+def test_cli_report_max_rows_truncates_metrics(tmp_path):
+    sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
+    json_out = tmp_path / "scoring.json"
+    md_out = tmp_path / "scoring.md"
+    res1 = _run([
+        "validate", "--data", sample,
+        "--model-type", "scoring",
+        "--target", "target", "--score", "score",
+        "--decile-rag",
+        "--out", str(json_out),
+    ])
+    assert res1.returncode == 0, res1.stderr
+    res2 = _run(["report", "--input", str(json_out), "--max-rows", "2", "--out", str(md_out)])
+    assert res2.returncode == 0, res2.stderr
+    text = md_out.read_text(encoding="utf-8")
+    # 4 metrics (ks/auroc/ar/lift_top_decile) → 2 truncated
+    assert "more rows truncated" in text
+
+
+def test_cli_report_max_rows_invalid(tmp_path):
+    json_out = tmp_path / "report.json"
+    json_out.write_text(json.dumps({"metrics": {}, "issues": [], "schema": {}}), encoding="utf-8")
+    res = _run(["report", "--input", str(json_out), "--max-rows", "0"])
+    assert res.returncode == 4
 
 
 def test_cli_report_threshold_overrides_invalid_returns_6(tmp_path):
@@ -540,6 +676,23 @@ def test_cli_validate_pd_calibration_aggregated(tmp_path):
     assert "spiegelhalter_z" in payload
     assert payload["binomial_per_bucket"] is not None
     assert out.exists()
+
+
+def test_cli_validate_pd_calibration_with_decile_rag():
+    sample = os.path.join(ROOT, "examples", "sample_pd_timeseries.csv")
+    result = _run([
+        "validate-pd-calibration",
+        "--data", sample,
+        "--pred-col", "predicted_pd",
+        "--default-col", "defaults",
+        "--count-col", "count",
+        "--bucket-col", "grade",
+        "--decile-rag",
+    ])
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert "lift_top_decile" in payload["metrics"]
+    assert payload["metrics"]["lift_top_decile"]["rag"] in {"Green", "Yellow", "Red", "Gray"}
 
 
 def test_cli_validate_pd_calibration_with_hl_rag(tmp_path):
