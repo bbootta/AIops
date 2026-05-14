@@ -21,6 +21,13 @@ def test_detect_git_push():
     assert any("git push" in m["match"] for m in matches)
 
 
+def test_detect_kubectl_delete_and_helm_uninstall():
+    for cmd in ["kubectl delete pod foo", "helm uninstall my-release",
+                "terraform destroy -auto-approve", "aws s3 rm s3://bucket/key"]:
+        matches = pg.detect_risky_commands(cmd)
+        assert matches, f"expected risky-command match for {cmd!r}"
+
+
 def test_assert_raises_on_production_keyword():
     with pytest.raises(PermissionError):
         pg.assert_no_risky_commands("apply to production")

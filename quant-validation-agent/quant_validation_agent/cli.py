@@ -438,6 +438,15 @@ def cmd_validate_scenario(args: argparse.Namespace) -> int:
             out["predictions_total"] = len(preds)
             out["predictions_truncated"] = len(preds) - mp
             out["predictions"] = preds[:mp]
+    # Single-field overall RAG combining severity, floors, and (when policy
+    # is loaded for the report) future fit_rag. Severity / floor violations
+    # alone are sufficient to force Red.
+    n_vio = ((out.get("severity") or {}).get("order") or {}).get("n_violation_total", 0)
+    floor_violation = any(f.get("violation") for f in (out.get("multiplier_floors") or []))
+    if n_vio > 0 or floor_violation:
+        out["overall_rag"] = "Red"
+    else:
+        out["overall_rag"] = "Yellow"  # fit-metric RAG is computed by `report`
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as f:
@@ -923,9 +932,14 @@ def cmd_validate_pd_calibration(args: argparse.Namespace) -> int:
                 "severity": "Gray",
                 "evidence": str(e),
             })
-    if args.out:
-        os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
-        with open(args.out, "w", encoding="utf-8") as f:
+    out_path = args.out
+    if not out_path and getattr(args, "out_pattern", None):
+        ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        out_path = args.out_pattern.replace("{ts}", ts)
+        report["resolved_out_path"] = out_path
+    if out_path:
+        os.makedirs(os.path.dirname(os.path.abspath(out_path)) or ".", exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
     if getattr(args, "log_dir", None):
         from middleware import run_logger
@@ -947,7 +961,7 @@ def cmd_validate_pd_calibration(args: argparse.Namespace) -> int:
                 "spiegel_pvalue": spiegel.get("pvalue"),
             },
             errors=[],
-            artifacts=[args.out] if args.out else [],
+            artifacts=[out_path] if out_path else [],
             test_results={},
             incomplete_items=[],
             log_dir=args.log_dir,
@@ -1071,6 +1085,71 @@ def cmd_policy_lock(args: argparse.Namespace) -> int:
         plan["lock_written"] = rec
         plan["would_write"] = False
     print(json.dumps(plan, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_summary(args: argparse.Namespace) -> int:
+    """Aggregate one-line RAG summary across multiple validate* JSON outputs.
+
+    Reads every --input path and emits a JSON list of
+        {path, kind, overall_rag, n_metrics, severity_violations}.
+    Exit code is 0 unless --fail-on-red is set and any input is Red.
+    """
+    items = []
+    worst = "Gray"
+    rank = {"Gray": 0, "Green": 1, "Yellow": 2, "Red": 3}
+
+    for path in args.input or []:
+        if not os.path.exists(path):
+            items.append({"path": path, "kind": "missing", "overall_rag": "Gray"})
+            continue
+        with open(path, "r", encoding="utf-8") as f:
+            try:
+                data = json.load(f)
+            except json.JSONDecodeError as e:
+                items.append({"path": path, "kind": "invalid_json",
+                              "overall_rag": "Gray", "error": str(e)})
+                continue
+        if "fit" in data and "severity" in data:
+            kind = "scenario"
+            n_vio = ((data.get("severity") or {}).get("order") or {}).get("n_violation_total", 0)
+            rag = data.get("overall_rag", "Yellow" if n_vio == 0 else "Red")
+            items.append({
+                "path": path,
+                "kind": kind,
+                "overall_rag": rag,
+                "severity_violations": n_vio,
+            })
+        else:
+            kind = "validate"
+            metrics = data.get("metrics") or {}
+            rag = data.get("overall_rag")
+            if rag is None:
+                states = [m.get("rag", "Gray") for m in metrics.values() if isinstance(m, dict)]
+                if "Red" in states:
+                    rag = "Red"
+                elif "Yellow" in states:
+                    rag = "Yellow"
+                elif states and "Gray" not in states:
+                    rag = "Green"
+                else:
+                    rag = "Gray"
+            items.append({
+                "path": path,
+                "kind": kind,
+                "overall_rag": rag,
+                "n_metrics": len(metrics),
+            })
+        if rank[items[-1].get("overall_rag", "Gray")] > rank[worst]:
+            worst = items[-1]["overall_rag"]
+
+    out = {"items": items, "worst_rag": worst}
+    if getattr(args, "json_only", False):
+        print(json.dumps(out, ensure_ascii=False, separators=(",", ":")))
+    else:
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+    if getattr(args, "fail_on_red", False) and worst == "Red":
+        return 6
     return 0
 
 
@@ -1219,6 +1298,18 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Skip the manifest pre-check (advanced; not recommended).")
     p_pl.set_defaults(func=cmd_policy_lock)
 
+    p_sm = sub.add_parser(
+        "summary",
+        help="Aggregate one-line RAG summary across multiple validate* JSON outputs.",
+    )
+    p_sm.add_argument("--input", action="append", required=True,
+                      help="Repeatable. JSON file produced by validate / validate-pd-calibration / validate-scenario.")
+    p_sm.add_argument("--fail-on-red", dest="fail_on_red", action="store_true",
+                      help="Exit 6 when any input is Red.")
+    p_sm.add_argument("--json-only", dest="json_only", action="store_true",
+                      help="Compact single-line JSON for jq pipelines.")
+    p_sm.set_defaults(func=cmd_summary)
+
     p_n = sub.add_parser("note", help="Append a recurring-finding note.")
     p_n.add_argument("subaction", choices=["add"])
     p_n.add_argument("--text", required=True, help="The note text (single line).")
@@ -1271,6 +1362,9 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Opt-in: also emit RAG for the top-decile lift of pred_pd vs default.")
     p_pdc.add_argument("--segment", help="Segment label for threshold overrides.")
     p_pdc.add_argument("--out", help="Optional path to write the JSON report.")
+    p_pdc.add_argument("--out-pattern", dest="out_pattern", default=None,
+                       help="Optional path with strftime tokens; auto-replaces {ts} with the "
+                            "current YYYYMMDD_HHMMSS_ffffff. Useful for accumulating reports.")
     p_pdc.add_argument("--log-dir", dest="log_dir",
                        help="Optional directory for run-log JSON via middleware.run_logger.")
     p_pdc.set_defaults(func=cmd_validate_pd_calibration)

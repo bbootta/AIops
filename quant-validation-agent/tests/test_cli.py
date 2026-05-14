@@ -460,6 +460,49 @@ def test_cli_policy_lock_skip_manifest_check_allows_unknown(tmp_path):
     assert lock_path.exists()
 
 
+def test_cli_summary_aggregates_validate_outputs(tmp_path):
+    sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
+    out_a = tmp_path / "a.json"
+    out_b = tmp_path / "b.json"
+    res_a = _run([
+        "validate", "--data", sample, "--model-type", "scoring",
+        "--target", "target", "--score", "score", "--out", str(out_a),
+    ])
+    res_b = _run([
+        "validate", "--data", sample, "--model-type", "scoring",
+        "--target", "target", "--score", "score", "--out", str(out_b),
+    ])
+    assert res_a.returncode == 0 and res_b.returncode == 0
+    res = _run(["summary", "--input", str(out_a), "--input", str(out_b)])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert len(payload["items"]) == 2
+    assert payload["worst_rag"] in {"Green", "Yellow", "Red", "Gray"}
+    assert all(it["overall_rag"] == "Green" for it in payload["items"])
+
+
+def test_cli_summary_handles_missing_and_invalid(tmp_path):
+    bad = tmp_path / "bad.json"
+    bad.write_text("not json", encoding="utf-8")
+    res = _run([
+        "summary",
+        "--input", str(tmp_path / "missing.json"),
+        "--input", str(bad),
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    kinds = {it["kind"] for it in payload["items"]}
+    assert "missing" in kinds and "invalid_json" in kinds
+
+
+def test_cli_summary_fail_on_red(tmp_path):
+    red = tmp_path / "red.json"
+    red.write_text(json.dumps({"metrics": {"x": {"rag": "Red"}}, "overall_rag": "Red"}),
+                   encoding="utf-8")
+    res = _run(["summary", "--input", str(red), "--fail-on-red"])
+    assert res.returncode == 6
+
+
 def test_cli_note_blocks_pii(tmp_path):
     target = tmp_path / "notes.md"
     result = _run(
@@ -725,6 +768,25 @@ def test_cli_validate_pd_calibration_aggregated(tmp_path):
     assert out.exists()
 
 
+def test_cli_validate_pd_calibration_out_pattern_writes_resolved_path(tmp_path):
+    sample = os.path.join(ROOT, "examples", "sample_pd_timeseries.csv")
+    pattern = str(tmp_path / "pdcal_{ts}.json")
+    res = _run([
+        "validate-pd-calibration",
+        "--data", sample,
+        "--pred-col", "predicted_pd",
+        "--default-col", "defaults",
+        "--count-col", "count",
+        "--bucket-col", "grade",
+        "--out-pattern", pattern,
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert "resolved_out_path" in payload
+    assert "{ts}" not in payload["resolved_out_path"]
+    assert os.path.exists(payload["resolved_out_path"])
+
+
 def test_cli_validate_pd_calibration_with_decile_rag():
     sample = os.path.join(ROOT, "examples", "sample_pd_timeseries.csv")
     result = _run([
@@ -776,6 +838,28 @@ def test_cli_validate_pd_calibration_missing_columns(tmp_path):
         ]
     )
     assert result.returncode == 4
+
+
+def test_cli_validate_scenario_emits_overall_rag(tmp_path):
+    hist = os.path.join(ROOT, "examples", "sample_macro_history.csv")
+    sc = os.path.join(ROOT, "examples", "sample_macro_scenario.csv")
+    res = _run([
+        "validate-scenario",
+        "--hist-data", hist,
+        "--scenario-data", sc,
+        "--target", "pd_multiplier",
+        "--features", "gdp_growth,unemployment,bond_spread",
+        "--scenario-col", "scenario",
+        "--period-col", "period",
+        "--pred-col-in-scenario", "pd_multiplier",
+        "--multiplier-floors", "base=1.0,adverse=1.0,severe=1.0",
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert "overall_rag" in payload
+    # Synthetic data has no severity / floor violations → Yellow (fit-RAG is
+    # only computed by `report`).
+    assert payload["overall_rag"] == "Yellow"
 
 
 def test_cli_validate_scenario_max_predictions_truncates(tmp_path):

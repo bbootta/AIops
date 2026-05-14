@@ -35,6 +35,17 @@ def test_psi_by_bucket():
     assert psi > 0
 
 
+def test_psi_zero_epsilon_rejected():
+    with pytest.raises(ValueError):
+        m.calculate_psi([1.0, 2.0, 3.0], [1.0, 2.0, 3.0], bins=2, epsilon=0)
+
+
+def test_psi_inf_result_raises():
+    """Constant-value distributions with bins=2 collapse to a single edge → ValueError."""
+    with pytest.raises(ValueError):
+        m.calculate_psi([1.0] * 100, [1.0] * 100, bins=2)
+
+
 def test_distribution_table_columns():
     rng = np.random.default_rng(2)
     e = rng.normal(0, 1, size=500)

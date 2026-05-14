@@ -49,6 +49,10 @@ def calculate_psi(
     e_ratio = np.where(e_ratio == 0, epsilon, e_ratio)
     a_ratio = np.where(a_ratio == 0, epsilon, a_ratio)
     psi = float(np.sum((a_ratio - e_ratio) * np.log(a_ratio / e_ratio)))
+    if not np.isfinite(psi):
+        raise ValueError(
+            f"PSI is non-finite ({psi}); inputs may have degenerate distributions."
+        )
     return psi
 
 
@@ -72,6 +76,10 @@ def calculate_psi_by_bucket(
     e_ratio = np.where(e_ratio == 0, epsilon, e_ratio)
     a_ratio = np.where(a_ratio == 0, epsilon, a_ratio)
     psi = float(np.sum((a_ratio - e_ratio) * np.log(a_ratio / e_ratio)))
+    if not np.isfinite(psi):
+        raise ValueError(
+            f"PSI is non-finite ({psi}); buckets may be empty or degenerate."
+        )
     return psi
 
 
