@@ -147,6 +147,7 @@ def _rag_with_threshold(value, policy, metric, segment=None):
         "yellow_threshold": cfg["yellow_threshold"],
         "direction": cfg["direction"],
         "source": cfg["source"],
+        "regulatory_basis": cfg.get("regulatory_basis") or [],
     }
 
 

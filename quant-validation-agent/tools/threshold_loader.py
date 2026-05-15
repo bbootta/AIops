@@ -87,6 +87,7 @@ def get_metric_threshold(
         "yellow_threshold": cfg["yellow_threshold"],
         "direction": cfg["direction"],
         "source": "global",
+        "regulatory_basis": list(cfg.get("regulatory_basis") or []),
     }
     if segment is None:
         return out

@@ -108,6 +108,13 @@ def test_validate_policy_rejects_unknown_top_level_key():
         tl.validate_policy(bad)
 
 
+def test_get_metric_threshold_returns_regulatory_basis():
+    policy = tl.load_threshold_policy()
+    out = tl.get_metric_threshold(policy, "ks")
+    assert isinstance(out.get("regulatory_basis"), list)
+    assert "basel_irb_pd" in out["regulatory_basis"]
+
+
 def test_validate_policy_rejects_unknown_model_type():
     bad = {
         "metrics": {

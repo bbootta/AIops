@@ -98,7 +98,13 @@
         },
         "direction": { "$ref": "#/$defs/direction" },
         "green_threshold": { "type": "number" },
-        "yellow_threshold": { "type": "number" }
+        "yellow_threshold": { "type": "number" },
+        "regulatory_basis": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "description": "Optional internal area codes (see docs/regulatory_framework_mapping.md). Not a regulatory citation."
+        }
       },
       "additionalProperties": false
     }

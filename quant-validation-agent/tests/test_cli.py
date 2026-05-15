@@ -210,6 +210,20 @@ def test_cli_validate_explain_appends_markdown():
     assert "## 1. 검증 요약" in res.stdout
 
 
+def test_cli_validate_surfaces_regulatory_basis():
+    sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
+    res = _run([
+        "validate", "--data", sample,
+        "--model-type", "scoring",
+        "--target", "target", "--score", "score",
+    ])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    ks = payload["metrics"].get("ks") or {}
+    assert "regulatory_basis" in ks
+    assert "basel_irb_pd" in ks["regulatory_basis"]
+
+
 def test_cli_validate_emits_overall_rag():
     sample = os.path.join(ROOT, "examples", "sample_credit_score_data.csv")
     res = _run([

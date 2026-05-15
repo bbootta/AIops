@@ -6,37 +6,43 @@
       "model_types": ["scoring", "pd"],
       "direction": "higher_is_better",
       "green_threshold": 0.40,
-      "yellow_threshold": 0.30
+      "yellow_threshold": 0.30,
+      "regulatory_basis": ["basel_irb_pd", "fss_credit_scoring"]
     },
     "auroc": {
       "model_types": ["scoring", "pd"],
       "direction": "higher_is_better",
       "green_threshold": 0.75,
-      "yellow_threshold": 0.65
+      "yellow_threshold": 0.65,
+      "regulatory_basis": ["basel_irb_pd", "fss_credit_scoring"]
     },
     "ar": {
       "model_types": ["scoring", "pd"],
       "direction": "higher_is_better",
       "green_threshold": 0.50,
-      "yellow_threshold": 0.30
+      "yellow_threshold": 0.30,
+      "regulatory_basis": ["basel_irb_pd", "fss_credit_scoring"]
     },
     "psi": {
       "model_types": ["scoring", "pd", "monitoring"],
       "direction": "lower_is_better",
       "green_threshold": 0.10,
-      "yellow_threshold": 0.25
+      "yellow_threshold": 0.25,
+      "regulatory_basis": ["mrm_basel", "fss_bank_validation"]
     },
     "brier": {
       "model_types": ["pd"],
       "direction": "lower_is_better",
       "green_threshold": 0.10,
-      "yellow_threshold": 0.20
+      "yellow_threshold": 0.20,
+      "regulatory_basis": ["basel_irb_pd", "ifrs9_pd"]
     },
     "mae_lgd": {
       "model_types": ["lgd"],
       "direction": "lower_is_better",
       "green_threshold": 0.10,
-      "yellow_threshold": 0.20
+      "yellow_threshold": 0.20,
+      "regulatory_basis": ["basel_irb_lgd"]
     },
     "rmse_lgd": {
       "model_types": ["lgd"],
