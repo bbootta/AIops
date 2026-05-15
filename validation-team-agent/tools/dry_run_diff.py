@@ -29,9 +29,9 @@ def diff_plans(
 ) -> dict:
     """두 매트릭스에 대한 plan을 시뮬레이트하고 step id 차이를 반환한다.
 
-    반환 dict 키: added (list[str]), removed (list[str]),
-                  reordered (list[(id, old_index, new_index)]),
-                  before (list[str]), after (list[str])
+    반환 dict 키: added, removed, reordered, field_changes, before, after.
+        field_changes: 같은 step id 의 component / inputs / expected_outputs /
+        rationale 변경을 리스트로 보고.
     """
     req = dict(request) if request else _demo_request()
     before_plan = simulate(req, matrix_path=Path(before_matrix_path))
@@ -53,10 +53,23 @@ def diff_plans(
             reordered.append((sid, oi, ni))
     reordered.sort(key=lambda x: x[2])
 
+    before_by_id = {s["id"]: s for s in before_plan}
+    after_by_id = {s["id"]: s for s in after_plan}
+    field_changes: list[dict] = []
+    for sid in sorted(common):
+        for field in ("component", "rationale", "expected_outputs", "inputs"):
+            old = before_by_id[sid].get(field)
+            new = after_by_id[sid].get(field)
+            if old != new:
+                field_changes.append(
+                    {"id": sid, "field": field, "before": old, "after": new}
+                )
+
     return {
         "added": added,
         "removed": removed,
         "reordered": reordered,
+        "field_changes": field_changes,
         "before": before_ids,
         "after": after_ids,
     }
@@ -83,7 +96,19 @@ def render_markdown(diff: Mapping) -> str:
         for sid, oi, ni in diff["reordered"]:
             lines.append(f"- `{sid}`: index {oi} → {ni}")
         lines.append("")
-    if not (diff["added"] or diff["removed"] or diff["reordered"]):
+    if diff.get("field_changes"):
+        lines.append("## Field Changes")
+        for ch in diff["field_changes"]:
+            lines.append(
+                f"- `{ch['id']}` / `{ch['field']}`: {ch['before']!r} → {ch['after']!r}"
+            )
+        lines.append("")
+    if not (
+        diff["added"]
+        or diff["removed"]
+        or diff["reordered"]
+        or diff.get("field_changes")
+    ):
         lines.append("(no plan-level differences)")
     return "\n".join(lines) + "\n"
 
@@ -106,7 +131,16 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write("\n")
     else:
         sys.stdout.write(render_markdown(diff))
-    return 0 if not (diff["added"] or diff["removed"] or diff["reordered"]) else 1
+    return (
+        0
+        if not (
+            diff["added"]
+            or diff["removed"]
+            or diff["reordered"]
+            or diff.get("field_changes")
+        )
+        else 1
+    )
 
 
 if __name__ == "__main__":

@@ -194,6 +194,8 @@ def record_feedback(
         )
 
     cls = classify(text)
+    import time as _time
+
     record = {
         "text": text,
         "predicted_category": cls.category,
@@ -203,6 +205,7 @@ def record_feedback(
         "agreement": cls.category == confirmed_category,
         "notes": notes,
         "sensitive_overridden": bool(findings),
+        "recorded_at": _time.time(),
     }
     path = feedback_path or _FEEDBACK_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -307,6 +310,45 @@ def generate_rule_patch(
             )
         lines.append("")
     return "\n".join(lines)
+
+
+def generate_rule_patch_pr_body(
+    feedback_path: Path | None = None,
+    *,
+    min_occurrences: int = 2,
+    top_k: int = 5,
+) -> str:
+    """rule-patch 결과를 PR 본문 markdown으로 감싸 반환한다.
+
+    `gh pr create --body "$(python -m tools.classify_error rule-patch --as-pr)"`
+    형태로 사용 가능. 자동 PR 생성은 본 모듈이 하지 않는다 — 호출자가 명시 실행.
+    """
+    suggestions = suggest_rule_changes(
+        feedback_path, min_occurrences=min_occurrences, top_k=top_k
+    )
+    patch = generate_rule_patch(
+        feedback_path, min_occurrences=min_occurrences, top_k=top_k
+    )
+    n = sum(len(row["suggested_keywords"]) for row in suggestions)
+    cats = sorted({row["confirmed_category"] for row in suggestions if row["suggested_keywords"]})
+
+    lines = [
+        "## Summary",
+        f"- 자동 분류기 mismatch 기반 _RULES 키워드 후보 {n}개",
+        f"- 대상 카테고리: {', '.join(cats) if cats else '(없음)'}",
+        "",
+        "## Test plan",
+        "- [ ] 인간 검증자가 각 키워드의 의미를 확인",
+        "- [ ] 적용 후 `pytest -q` 통과 (특히 `test_classify_error.py`)",
+        "- [ ] 매니페스트 (`harness/change_manifest.json`)에 CHG 항목 추가",
+        "",
+        "## Patch (review before applying)",
+        "```python",
+        patch.rstrip(),
+        "```",
+        "",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def feedback_summary(feedback_path: Path | None = None) -> dict:
@@ -437,10 +479,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_rp.add_argument("--min-occurrences", type=int, default=2)
     p_rp.add_argument("--top-k", type=int, default=5)
+    p_rp.add_argument(
+        "--as-pr",
+        action="store_true",
+        help="GitHub PR 본문에 첨부할 수 있는 마크다운 형태로 감싸서 출력",
+    )
     p_rp.set_defaults(
         func=lambda args: (
             sys.stdout.write(
-                generate_rule_patch(
+                generate_rule_patch_pr_body(
+                    min_occurrences=args.min_occurrences, top_k=args.top_k
+                )
+                if args.as_pr
+                else generate_rule_patch(
                     min_occurrences=args.min_occurrences, top_k=args.top_k
                 )
             )

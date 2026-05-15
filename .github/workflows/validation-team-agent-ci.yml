@@ -89,6 +89,27 @@ jobs:
             exit 1
           fi
 
+      - name: CSS drift requires manifest entry
+        if: github.event_name == 'pull_request'
+        run: |
+          cd ..
+          # PR이 report_print.css 또는 report_glossary.json을 변경했다면
+          # 같은 PR에 manifest 항목 추가가 동반되어야 한다.
+          BASE_REF="${{ github.event.pull_request.base.sha }}"
+          POLICY_CHANGED=$(git diff --name-only "$BASE_REF" HEAD -- \
+            validation-team-agent/harness/report_print.css \
+            validation-team-agent/harness/report_glossary.json)
+          if [ -n "$POLICY_CHANGED" ]; then
+            MANIFEST_CHANGED=$(git diff --name-only "$BASE_REF" HEAD -- \
+              validation-team-agent/harness/change_manifest.json)
+            if [ -z "$MANIFEST_CHANGED" ]; then
+              echo "report_print.css / report_glossary.json changed without manifest entry:"
+              echo "$POLICY_CHANGED"
+              echo "Add a CHG row via 'python -m tools.manifest add'."
+              exit 1
+            fi
+          fi
+
       - name: Run pytest
         run: |
           python -m pytest -q

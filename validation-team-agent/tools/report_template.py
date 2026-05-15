@@ -72,34 +72,41 @@ _HEADER_BY_LANG = {
 
 
 # lang='en' 본문 hook: 도메인 키워드의 영문 병기. 자동 완역이 아니라 인간 검증자가
-# 영문 보고서 작성 시 비용을 줄이는 용도. 사전에 없는 표현은 한글 그대로 보존된다.
-_EN_BODY_GLOSSARY = {
+# 영문 보고서 작성 시 비용을 줄이는 용도. 사전은 harness/report_glossary.json 에서
+# 로드. 사전에 없는 표현은 한글 그대로 보존된다.
+_GLOSSARY_PATH = (
+    Path(__file__).resolve().parent.parent / "harness" / "report_glossary.json"
+)
+_EN_BODY_GLOSSARY_FALLBACK = {
     "검증 보조 산출물": "validation aid",
     "인간 검증자": "human reviewer",
-    "외부 제출": "external publication",
     "운영계": "production system",
-    "스테이지": "stage",
-    "시나리오 가중치": "scenario weights",
-    "캘리브레이션": "calibration",
-    "다중공선성": "multicollinearity",
-    "정상성": "stationarity",
     "표본": "sample",
-    "변별력": "discrimination",
-    "안정성": "stability",
-    "이상 징후": "anomaly",
     "한계": "limitation",
-    "추가 확인 사항": "follow-up",
-    "감사추적": "audit trail",
-    "변경 이력": "change history",
-    "임계": "threshold",
+    "다중공선성": "multicollinearity",
 }
 
 
-def _translate_en(text: str) -> str:
+def _load_glossary() -> dict[str, str]:
+    """harness/report_glossary.json 에서 ko→en 사전을 로드. 파일 손상 시 fallback."""
+    try:
+        import json as _json
+
+        cfg = _json.loads(_GLOSSARY_PATH.read_text(encoding="utf-8"))
+        ko_to_en = cfg.get("ko_to_en")
+        if isinstance(ko_to_en, dict) and ko_to_en:
+            return ko_to_en
+    except (OSError, ValueError):
+        pass
+    return dict(_EN_BODY_GLOSSARY_FALLBACK)
+
+
+def _translate_en(text: str, glossary: dict[str, str] | None = None) -> str:
     """간단한 도메인 사전 치환. 원문(한글) 옆에 영문을 괄호로 병기한다."""
     out = text
+    gloss = glossary if glossary is not None else _load_glossary()
     seen: set[str] = set()
-    for ko, en in _EN_BODY_GLOSSARY.items():
+    for ko, en in gloss.items():
         if ko in out and ko not in seen:
             out = out.replace(ko, f"{ko} ({en})", 1)
             seen.add(ko)

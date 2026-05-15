@@ -17,10 +17,65 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = ROOT / "harness" / "runner_result.schema.json"
+SUB_SCHEMA_PATHS = {
+    "credit": ROOT / "harness" / "runner_result_credit.schema.json",
+    "macro": ROOT / "harness" / "runner_result_macro.schema.json",
+    "ifrs9": ROOT / "harness" / "runner_result_ifrs9.schema.json",
+}
 
 
 def load_schema(path: Path | None = None) -> dict:
     return json.loads((path or SCHEMA_PATH).read_text(encoding="utf-8"))
+
+
+def load_sub_schema(runner: str) -> dict:
+    if runner not in SUB_SCHEMA_PATHS:
+        raise ValueError(f"unknown runner: {runner!r}")
+    return json.loads(SUB_SCHEMA_PATHS[runner].read_text(encoding="utf-8"))
+
+
+def validate_result_subschema(result: dict, runner: str) -> None:
+    """runner별 sub-schema로 결과를 검증한다.
+
+    quant.sample_size.passed / diagnostics.series / diagnostics.weights 같은
+    runner-specific 필드까지 강제. report_md / completeness / citations /
+    watermarks 는 sub-schema에서도 그대로 검증.
+    """
+    import jsonschema
+
+    schema = load_sub_schema(runner)
+    minimal: dict = {
+        "report_md": result.get("report_md"),
+        "completeness": {
+            "passed": bool(result.get("completeness", {}).get("passed", False))
+        },
+        "citations": {
+            "passed": bool(result.get("citations", {}).get("passed", False))
+        },
+        "watermarks": {
+            "passed": bool(result.get("watermarks", {}).get("passed", False))
+        },
+    }
+    if runner == "credit":
+        quant = result.get("quant", {})
+        sample = quant.get("sample_size", {})
+        minimal["quant"] = {
+            "sample_size": {"passed": bool(sample.get("passed", False))}
+        }
+    elif runner == "macro":
+        diag = result.get("diagnostics", {})
+        minimal["diagnostics"] = {
+            "series": {
+                str(k): {"label": str(v.get("label"))}
+                for k, v in (diag.get("series") or {}).items()
+            }
+        }
+    elif runner == "ifrs9":
+        diag = result.get("diagnostics", {})
+        # weights는 DataFrame이라 JSON 불가; 존재만 확인.
+        weights_present = "weights" in diag
+        minimal["diagnostics"] = {"weights": weights_present}
+    jsonschema.validate(minimal, schema)
 
 
 def validate_result(result: dict, schema_path: Path | None = None) -> None:

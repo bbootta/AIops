@@ -113,6 +113,26 @@ def _cmd_log(args: argparse.Namespace) -> int:
     return 0 if all(r["status"] != "missing" for r in rows) else 1
 
 
+_DEFAULT_AUDIT_JSONL = ROOT / "logs" / "audit.jsonl"
+
+
+def append_audit_jsonl(rows: list[dict], path: Path | None = None) -> Path:
+    """audit 결과를 시계열 모니터링용으로 1줄당 1 step씩 누적한다.
+
+    동일 실행을 묶기 위해 ``run_ts`` 필드를 모든 행에 추가한다.
+    """
+    import time as _time
+
+    p = path or _DEFAULT_AUDIT_JSONL
+    p.parent.mkdir(parents=True, exist_ok=True)
+    ts = _time.strftime("%Y-%m-%d %H:%M:%S")
+    with p.open("a", encoding="utf-8") as fh:
+        for row in rows:
+            payload = {"run_ts": ts, **row}
+            fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    return p
+
+
 def _cmd_demo(args: argparse.Namespace) -> int:
     import tempfile
 
@@ -124,6 +144,9 @@ def _cmd_demo(args: argparse.Namespace) -> int:
     rows = audit(tmp / "run.jsonl")
     sys.stdout.write(render_summary(rows) + "\n\n")
     sys.stdout.write(render_table(rows) + "\n")
+    if getattr(args, "append_jsonl", False):
+        out_path = Path(args.append_jsonl) if isinstance(args.append_jsonl, str) else None
+        append_audit_jsonl(rows, path=out_path)
     return 0 if all(r["status"] != "missing" for r in rows) else 1
 
 
@@ -141,6 +164,13 @@ def main(argv: list[str] | None = None) -> int:
     p_log.set_defaults(func=_cmd_log)
 
     p_demo = sub.add_parser("demo", help="run credit demo and audit immediately")
+    p_demo.add_argument(
+        "--append-jsonl",
+        nargs="?",
+        const=True,
+        default=False,
+        help="audit 결과를 logs/audit.jsonl (또는 지정 경로) 에 누적",
+    )
     p_demo.set_defaults(func=_cmd_demo)
 
     args = parser.parse_args(argv)
