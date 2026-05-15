@@ -54,10 +54,13 @@ def build_lift_table(
     grouped["cum_defaults"] = grouped["defaults"].cumsum()
     grouped["cum_pop_share"] = grouped["cum_count"] / n_total
     grouped["cum_default_share"] = grouped["cum_defaults"] / n_def_total
-    base_rate = n_def_total / n_total
+    # Standard cumulative lift = (capture rate of bads) / (capture rate of pop)
+    # = (cum_defaults/cum_count) / base_rate. The shares already normalize by
+    # totals, so dividing the two shares yields the same lift without an extra
+    # base_rate factor.
     grouped["lift"] = np.where(
         grouped["cum_pop_share"] > 0,
-        grouped["cum_default_share"] / grouped["cum_pop_share"] / max(base_rate, 1e-12),
+        grouped["cum_default_share"] / grouped["cum_pop_share"],
         np.nan,
     )
     return grouped

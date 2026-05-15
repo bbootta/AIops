@@ -1485,6 +1485,36 @@
       "rollback_rule": "Restore the previous baseline.",
       "human_approval_required": false,
       "status": "applied"
+    },
+    {
+      "change_id": "CHG-0100",
+      "timestamp": "2026-05-06 01:40:00",
+      "component": "tools/decile_lift.py + tests/sectors/test_decile_lift_accuracy.py",
+      "change_type": "modify",
+      "evidence": "Sector accuracy testing exposed that build_lift_table divided by base_rate twice. Standard cumulative lift = cum_default_share / cum_pop_share. The bug inflated lift by 1/base_rate; e.g., a random model showed lift ≈ 1/base_rate instead of 1.0 across deciles, and cumulative lift at the bottom approached 1/base_rate instead of 1.0.",
+      "root_cause": "Implementation included an extra '/ max(base_rate, 1e-12)' factor; the shares already normalize by totals.",
+      "targeted_fix": "Drop the extra divisor. Cumulative lift now = cum_default_share / cum_pop_share. Standard properties restored: random scoring yields lift ≈ 1.0; perfect separator's top decile lift = min(1/base_rate, 10); bottom row lift exactly 1.0.",
+      "expected_benefit": "lift_top_decile RAG thresholds (G:2.0/Y:1.5) now have the standard practitioner interpretation.",
+      "expected_regression_risk": "Medium — every prior run that emitted lift_top_decile values divided them by base_rate; new numbers are 1/base_rate smaller and may flip RAG. Recompute against current data before relying on the threshold values.",
+      "validation_method": "Sector accuracy tests in tests/sectors/test_decile_lift_accuracy.py verify standard properties. Full pytest run: 368 passed, 3 opt-in skipped.",
+      "rollback_rule": "Restore the extra '/ max(base_rate, 1e-12)' divisor in build_lift_table.",
+      "human_approval_required": true,
+      "status": "applied"
+    },
+    {
+      "change_id": "CHG-0101",
+      "timestamp": "2026-05-06 01:41:00",
+      "component": "tests/sectors/ (11 new modules, 58 new tests) + tests/sectors/fixtures.py",
+      "change_type": "create",
+      "evidence": "User requested diverse sector-level sample data and accuracy verification.",
+      "root_cause": "Existing tests confirmed code-runs-without-error and basic shape, but did not verify metric values against analytical / closed-form expectations.",
+      "targeted_fix": "Add tests/sectors/fixtures.py (deterministic generators with seeds) and 11 sector test modules: discrimination (AUC against Phi(shift/sqrt(2))), calibration (Brier against E[p(1-p)], HL/Spiegelhalter rejection vs non-rejection), PSI (identical/shift/disjoint), LGD/EAD (constant-error closed forms), CDR/SDR (arithmetic), scenario (monotonic vs engineered violation), regression (collinear vs orthogonal VIF/CI), stationarity (white noise vs random walk ADF), traffic light (calibrated/severe/borderline binomial zones), decile lift (random/perfect-separator standard formulas), downturn LGD (mean diff arithmetic).",
+      "expected_benefit": "Accuracy-grade coverage that surfaces numerical bugs (caught the decile_lift bug above) and pins expectations for every tool.",
+      "expected_regression_risk": "Low — purely additive test modules with deterministic seeds.",
+      "validation_method": "All 58 sector tests pass. Total suite: 368 passed, 3 opt-in skipped.",
+      "rollback_rule": "Delete tests/sectors/ tree.",
+      "human_approval_required": false,
+      "status": "applied"
     }
   ]
 }
