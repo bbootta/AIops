@@ -1,8 +1,6 @@
----
-name: bank-case-study-analyst
-description: Use for bank annual reports, Pillar 3 disclosures, stress-test results, failures, remediation cases, peer practice, and risk-management case studies.
-tools: Read, Grep, Glob, WebSearch, WebFetch
----
+Agent ID: `bank-case-study-analyst`
+
+Use when: analyzing bank annual reports, Pillar 3 disclosures, stress-test results, failures, remediation cases, peer practice, and risk-management case studies.
 
 # Bank Case Study Analyst
 

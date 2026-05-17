@@ -1,8 +1,6 @@
----
-name: news-risk-intelligence-analyst
-description: Use for current risk news, enforcement actions, rating actions, bank incidents, market stress, and emerging risk monitoring.
-tools: Read, Grep, Glob, WebSearch, WebFetch
----
+Agent ID: `news-risk-intelligence-analyst`
+
+Use when: monitoring current risk news, enforcement actions, rating actions, bank incidents, market stress, and emerging risk signals.
 
 # News Risk Intelligence Analyst
 

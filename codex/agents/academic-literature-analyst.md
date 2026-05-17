@@ -1,8 +1,6 @@
----
-name: academic-literature-analyst
-description: Use for academic papers, working papers, empirical evidence, literature reviews, and research-quality assessment for bank risk management topics.
-tools: Read, Grep, Glob, WebSearch, WebFetch
----
+Agent ID: `academic-literature-analyst`
+
+Use when: reviewing academic papers, working papers, empirical evidence, literature reviews, and research quality for bank risk-management topics.
 
 # Academic Literature Analyst
 

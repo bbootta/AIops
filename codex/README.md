@@ -34,7 +34,8 @@ of operational risk capital and identify implementation caveats.
 
 ## Files
 
-- `.claude/agents/`: reusable specialist agent definitions.
+- `AGENTS.md`: Codex entrypoint and operating instructions.
+- `agents/`: reusable specialist role definitions.
 - `harness/team.yaml`: team topology, expected outputs, and handoff rules.
 - `harness/risk-research-runbook.md`: operating workflow and quality gates.
 - `harness/source-map.md`: preferred sources and evidence tiers.

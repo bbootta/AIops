@@ -1,8 +1,6 @@
----
-name: risk-research-lead
-description: Use for professional bank risk-management research that needs coordinated analysis across Basel standards, regulation, papers, bank cases, and news.
-tools: Read, Grep, Glob, WebSearch, WebFetch
----
+Agent ID: `risk-research-lead`
+
+Use when: professional bank risk-management research needs coordinated analysis across Basel standards, regulation, papers, bank cases, and news.
 
 # Risk Research Lead
 

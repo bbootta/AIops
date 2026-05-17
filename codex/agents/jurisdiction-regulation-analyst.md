@@ -1,8 +1,6 @@
----
-name: jurisdiction-regulation-analyst
-description: Use to compare Basel implementation and supervisory expectations across jurisdictions such as the US, EU, UK, Korea, Japan, Canada, Australia, and Switzerland.
-tools: Read, Grep, Glob, WebSearch, WebFetch
----
+Agent ID: `jurisdiction-regulation-analyst`
+
+Use when: comparing Basel implementation and supervisory expectations across jurisdictions such as the US, EU, UK, Korea, Japan, Canada, Australia, and Switzerland.
 
 # Jurisdiction Regulation Analyst
 

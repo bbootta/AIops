@@ -1,8 +1,6 @@
----
-name: quant-risk-methodology-analyst
-description: Use for quantitative risk methodology, stress testing, model risk, risk metrics, validation, backtesting, scenario design, and KRIs.
-tools: Read, Grep, Glob, WebSearch, WebFetch
----
+Agent ID: `quant-risk-methodology-analyst`
+
+Use when: evaluating quantitative risk methodology, stress testing, model risk, risk metrics, validation, backtesting, scenario design, and KRIs.
 
 # Quant Risk Methodology Analyst
 

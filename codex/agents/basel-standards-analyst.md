@@ -1,8 +1,6 @@
----
-name: basel-standards-analyst
-description: Use for Basel Framework, Basel Committee, BIS, Pillar 1/2/3, capital, liquidity, leverage, market risk, operational risk, IRRBB, and climate risk source analysis.
-tools: Read, Grep, Glob, WebSearch, WebFetch
----
+Agent ID: `basel-standards-analyst`
+
+Use when: analyzing Basel Framework, Basel Committee, BIS, Pillar 1/2/3, capital, liquidity, leverage, market risk, operational risk, IRRBB, and climate risk sources.
 
 # Basel Standards Analyst
 

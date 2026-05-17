@@ -1,8 +1,6 @@
----
-name: evidence-quality-reviewer
-description: Use as the final independent reviewer for citations, source quality, unsupported claims, date precision, conflicts, and research caveats.
-tools: Read, Grep, Glob, WebSearch, WebFetch
----
+Agent ID: `evidence-quality-reviewer`
+
+Use when: performing final independent review of citations, source quality, unsupported claims, date precision, conflicts, and research caveats.
 
 # Evidence Quality Reviewer
 
