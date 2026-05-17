@@ -99,6 +99,15 @@ jobs:
             exit 1
           fi
 
+      - name: Known limitations JSON / markdown in sync
+        run: |
+          python -m tools.limitations sync
+          if ! git diff --quiet -- memory/known_limitations.md; then
+            echo "memory/known_limitations.md is out of sync with JSON. Run 'python -m tools.limitations sync' and commit."
+            git --no-pager diff -- memory/known_limitations.md
+            exit 1
+          fi
+
       - name: CSS drift requires manifest entry
         if: github.event_name == 'pull_request'
         run: |

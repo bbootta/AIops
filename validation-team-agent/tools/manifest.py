@@ -189,6 +189,61 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def export_csv(manifest: dict | None = None) -> str:
+    """매니페스트를 CSV 문자열로 반환한다. 외부 보고용."""
+    import csv
+    import io
+
+    m = manifest or load()
+    cols = [
+        "change_id",
+        "timestamp",
+        "component",
+        "change_type",
+        "status",
+        "human_approval_required",
+        "evidence",
+        "root_cause",
+        "targeted_fix",
+        "expected_benefit",
+        "expected_regression_risk",
+        "validation_method",
+        "rollback_rule",
+    ]
+    buf = io.StringIO()
+    w = csv.writer(buf, quoting=csv.QUOTE_ALL)
+    w.writerow(cols)
+    for c in m["changes"]:
+        w.writerow([c.get(col, "") for col in cols])
+    return buf.getvalue()
+
+
+def export_markdown(manifest: dict | None = None) -> str:
+    """매니페스트를 마크다운 표로 반환. component / status 만 노출."""
+    m = manifest or load()
+    lines = [
+        "# Change Manifest Summary",
+        "",
+        "| Change ID | Status | Type | Component |",
+        "|---|---|---|---|",
+    ]
+    for c in m["changes"]:
+        lines.append(
+            f"| {c['change_id']} | {c['status']} | {c['change_type']} | "
+            f"{c['component']} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _cmd_export(args: argparse.Namespace) -> int:
+    m = load(args.manifest)
+    if args.format == "csv":
+        sys.stdout.write(export_csv(m))
+    else:
+        sys.stdout.write(export_markdown(m))
+    return 0
+
+
 def promote_if_passing(
     change_ids: Sequence[str],
     to: str,
@@ -333,6 +388,10 @@ def main(argv: list[str] | None = None) -> int:
         help="명시적 인간 승인. 본 플래그가 없으면 차단된다.",
     )
     p_pip.set_defaults(func=_cmd_promote_if_passing)
+
+    p_ex = sub.add_parser("export", help="manifest를 csv 또는 markdown 표로 출력")
+    p_ex.add_argument("--format", choices=["csv", "markdown"], default="csv")
+    p_ex.set_defaults(func=_cmd_export)
 
     p_fc = sub.add_parser("from-classification",
                           help="error text → classify_error suggestion으로 root_cause/targeted_fix 자동 채움")

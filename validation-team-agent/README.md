@@ -84,6 +84,53 @@ pytest -q
 - 사용 가능한 도구
 - 성공 기준
 
+도메인별 입력 예시: `examples/sample_validation_request.md` (신용),
+`examples/sample_ifrs9_request.md` (IFRS 9), `examples/sample_macro_request.md` (거시).
+
+---
+
+## CLI 카탈로그
+
+전체 CLI 인덱스는 `python -m tools.cli_index` 로 출력된다. 자주 쓰는 도구:
+
+| 도구 | 용도 |
+|---|---|
+| `python -m tools.run_validation --demo` | 신용/PD 모형 thin runner |
+| `python -m tools.run_macro_validation --demo` | 거시 / forward-looking 모형 runner |
+| `python -m tools.run_ifrs9_validation --demo` | IFRS 9 ECL 통합 runner |
+| `python -m tools.run_audit demo` | 매트릭스 plan vs 실제 실행 감사 |
+| `python -m tools.dry_run --demo` | 오케스트레이터 호출 시뮬레이션 |
+| `python -m tools.dry_run_diff --before A --after B` | 두 매트릭스 plan 비교 |
+| `python -m tools.manifest list / add / promote / validate / export` | change_manifest 운영 |
+| `python -m tools.findings list / sync / add / bump` | recurring_findings JSON↔md |
+| `python -m tools.model_notes list / sync` | model_specific_notes JSON↔md |
+| `python -m tools.limitations list / sync` | known_limitations JSON↔md |
+| `python -m tools.policy_lint --include-sample-size` | 정책 임계값 일관성 lint |
+| `python -m tools.classify_error classify / suggest / feedback / rule-patch` | harness_debugger 6분류 |
+| `python -m tools.feedback_retention prune / anonymize` | 학습 시그널 retention |
+| `python -m tools.audit_retention prune / truncate` | audit.jsonl retention |
+| `python -m tools.runner_result --runner credit/macro/ifrs9` | runner 결과 schema 검증 |
+
+---
+
+## 정책 파일 (SSoT)
+
+코드와 분리된 정책은 모두 `harness/` 또는 `memory/` 에 있고 schema 로 강제된다.
+
+| 정책 | SSoT | Schema |
+|---|---|---|
+| 변경 매니페스트 | `harness/change_manifest.json` | `harness/change_manifest.schema.json` |
+| 오케스트레이션 매트릭스 | `harness/orchestration_matrix.json` | `harness/orchestration_matrix.schema.json` |
+| 권한 패턴 | `harness/permission_matrix.json` | `harness/permission_matrix.schema.json` |
+| 시나리오 floor | `harness/scenario_floors.json` | `harness/scenario_floors.schema.json` |
+| 보고서 도메인 사전 | `harness/report_glossary.json` | `harness/report_glossary.schema.json` |
+| 인쇄 CSS | `harness/report_print.css` | — |
+| 감사 보고서 schema | — | `harness/audit_report.schema.json` |
+| Runner 결과 schema | — | `harness/runner_result{,_credit,_macro,_ifrs9}.schema.json` |
+| 반복 발견 | `memory/recurring_findings.json` | (sync gate) |
+| 모형군 노트 | `memory/model_specific_notes.json` | (sync gate) |
+| 알려진 한계 | `memory/known_limitations.json` | (sync gate) |
+
 ---
 
 ## 권한 제한

@@ -1035,6 +1035,51 @@
       "rollback_rule": "신규 함수/플래그 제거 시 round 10 동작.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0070",
+      "timestamp": "2026-05-17 11:27:02",
+      "component": "memory/known_limitations.json + tools/limitations.py + .github/workflows/validation-team-agent-ci.yml",
+      "change_type": "modify",
+      "evidence": "round 11 후속: known_limitations.md 가 마크다운 수기 SSoT라 다른 memory 파일과 패턴 불일치.",
+      "root_cause": "JSON SSoT 부재로 외부 도구 재사용 / sync gate 적용 불가.",
+      "targeted_fix": "known_limitations.json + tools/limitations (list/sync) + CI sync gate.",
+      "expected_benefit": "memory 디렉터리 3 파일 모두 JSON-as-SSoT 패턴으로 통일.",
+      "expected_regression_risk": "마크다운 직접 편집은 sync로 덮어쓰여짐. 마크다운 상단 안내 문구로 사용자 가이드.",
+      "validation_method": "tests/test_limitations.py 4건 통과.",
+      "rollback_rule": "도구 삭제 + CI gate 제거 시 이전 동작.",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0071",
+      "timestamp": "2026-05-17 11:27:13",
+      "component": "tools/manifest.py",
+      "change_type": "modify",
+      "evidence": "round 11 후속: 외부 보고용 매니페스트 export 부재.",
+      "root_cause": "감사위원회 / 외부 검토자에게 매니페스트를 보낼 때 JSON 그대로 보내기 어려움.",
+      "targeted_fix": "export_csv + export_markdown 함수 + 'export' 서브커맨드 (--format csv/markdown).",
+      "expected_benefit": "스프레드시트 / 위키 형식으로 보고 자동화.",
+      "expected_regression_risk": "csv에 큰따옴표 escape 의존. 한글 BOM 미적용 — Excel에서 인코딩 옵션 필요.",
+      "validation_method": "tests/test_manifest_export.py 4건 통과.",
+      "rollback_rule": "export 함수와 서브커맨드 제거 시 다른 동작 영향 없음.",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0072",
+      "timestamp": "2026-05-17 11:27:24",
+      "component": "examples/sample_ifrs9_request.md + examples/sample_macro_request.md + README.md",
+      "change_type": "create",
+      "evidence": "round 11 후속: IFRS 9 / 거시 runner CSV 입력 예시 부재 + README 의 CLI 카탈로그 / 정책 SSoT 일람 부재.",
+      "root_cause": "신규 검증자 진입 가이드가 신용 runner 한정.",
+      "targeted_fix": "examples/sample_{ifrs9,macro}_request.md 추가 (CSV 컬럼 + CLI 호출 예시). README 에 CLI 카탈로그 + 정책 파일 일람 표 추가.",
+      "expected_benefit": "신규 사용자가 README 한 번으로 도구·정책 파일 전체 카탈로그 확인 가능.",
+      "expected_regression_risk": "README 길어짐. 도구 추가 시 표 수기 갱신 필요.",
+      "validation_method": "README 수정 자체는 빌드 영향 없음. examples 파일은 lint / pytest 대상 아님.",
+      "rollback_rule": "README 변경분 revert + examples 파일 삭제.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
