@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "description": "모형군별 검증 시 유의사항. 본 JSON이 SSoT 이며 memory/model_specific_notes.md는 tools/model_notes sync로 재생성된다.",
+  "groups": [
+    {
+      "model_group": "credit_scoring",
+      "title": "신용평가모형",
+      "notes": [
+        "score 부호 규약(높을수록 위험 또는 양호)을 매 보고서에 명시.",
+        "챌린저 모형(logistic / GBM)과의 비교를 가능한 함께 보고.",
+        "등급 cutoff 변경 시 PSI 비교 기간을 별도로 관리."
+      ]
+    },
+    {
+      "model_group": "pd",
+      "title": "PD",
+      "notes": [
+        "IRB 모형은 long-run PD 산출 기간을 명시.",
+        "등급별 표본이 부족할 경우 신뢰구간을 명시."
+      ]
+    },
+    {
+      "model_group": "lgd",
+      "title": "LGD",
+      "notes": [
+        "downturn LGD vs through-the-cycle LGD 구분 기준을 명시.",
+        "회수 인정 시점·임계가 모형 가정과 일치하는지 점검."
+      ]
+    },
+    {
+      "model_group": "ead",
+      "title": "EAD",
+      "notes": [
+        "CCF 추정의 표본은 한도 사용률이 0% / 100%인 극단 케이스의 영향에 민감."
+      ]
+    },
+    {
+      "model_group": "ifrs9_ecl",
+      "title": "IFRS 9 ECL",
+      "notes": [
+        "시나리오 가중치 합 = 1 점검 자동화.",
+        "스테이지 분류 SICR 기준 변경은 변경 매니페스트에 반드시 기록."
+      ]
+    },
+    {
+      "model_group": "macro_scenario",
+      "title": "거시 시나리오 모형",
+      "notes": [
+        "단위근 검정 결과를 보고서에 첨부.",
+        "변수 변환(차분, 로그, 시차) 사유를 문서화."
+      ]
+    },
+    {
+      "model_group": "stress_test",
+      "title": "스트레스 테스트",
+      "notes": [
+        "시나리오 서열 위반 시 1차로 segment 단위 분해.",
+        "PD multiplier floor는 정책에 따라 조정 가능 (조정 시 매니페스트 기록)."
+      ]
+    }
+  ]
+}

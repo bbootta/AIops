@@ -60,7 +60,7 @@ jobs:
         run: |
           python -m tools.manifest validate
 
-      - name: Validate JSON schemas (matrix / permission / floors)
+      - name: Validate JSON schemas (matrix / permission / floors / glossary)
         run: |
           python - <<'PY'
           import json, jsonschema, pathlib
@@ -68,6 +68,7 @@ jobs:
               ("harness/orchestration_matrix.schema.json", "harness/orchestration_matrix.json"),
               ("harness/permission_matrix.schema.json", "harness/permission_matrix.json"),
               ("harness/scenario_floors.schema.json", "harness/scenario_floors.json"),
+              ("harness/report_glossary.schema.json", "harness/report_glossary.json"),
           ]
           for sp, dp in pairs:
               schema = json.loads(pathlib.Path(sp).read_text(encoding="utf-8"))
@@ -86,6 +87,15 @@ jobs:
           if ! git diff --quiet -- memory/recurring_findings.md; then
             echo "memory/recurring_findings.md is out of sync with JSON. Run 'python -m tools.findings sync' and commit."
             git --no-pager diff -- memory/recurring_findings.md
+            exit 1
+          fi
+
+      - name: Model notes JSON / markdown in sync
+        run: |
+          python -m tools.model_notes sync
+          if ! git diff --quiet -- memory/model_specific_notes.md; then
+            echo "memory/model_specific_notes.md is out of sync with JSON. Run 'python -m tools.model_notes sync' and commit."
+            git --no-pager diff -- memory/model_specific_notes.md
             exit 1
           fi
 

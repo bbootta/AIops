@@ -135,17 +135,84 @@ def format_report(result: Mapping) -> str:
     return "\n".join(lines)
 
 
+_SAMPLE_PATTERNS = [
+    ("min_total",    re.compile(r"min[_\s]?total\s*[:=≥>=]+\s*(\d+)", re.IGNORECASE)),
+    ("min_defaults", re.compile(r"min[_\s]?defaults?\s*[:=≥>=]+\s*(\d+)", re.IGNORECASE)),
+    ("min_per_grade", re.compile(r"min[_\s]?per[_\s]?grade\s*[:=≥>=]+\s*(\d+)", re.IGNORECASE)),
+]
+
+
+def check_sample_size_alignment(
+    code_defaults: dict[str, int] | None = None,
+    policies_dir: Path | None = None,
+) -> dict:
+    """sample_size_guard 의 코드 default 와 policies/*.md 의 문서 임계가 일치하는지.
+
+    code_defaults 가 None 이면 middleware 에서 직접 import 한다. 정책 파일에서
+    추출 가능한 키워드만 비교. 위반 없음 / 충돌 발견 형태로 결과 반환.
+    """
+    if code_defaults is None:
+        try:
+            from middleware.sample_size_guard import DEFAULTS as _DEFAULTS
+            code_defaults = dict(_DEFAULTS)
+        except Exception:
+            code_defaults = {}
+
+    pol_dir = policies_dir or POLICIES_DIR
+    pol_findings: dict[str, dict[str, int]] = {}
+    if pol_dir.exists():
+        for p in sorted(pol_dir.glob("*.md")):
+            text = _read(p)
+            hits = {}
+            for key, pat in _SAMPLE_PATTERNS:
+                m = pat.search(text)
+                if m:
+                    hits[key] = int(m.group(1))
+            if hits:
+                pol_findings[_label(p)] = hits
+
+    conflicts: list[dict] = []
+    for fname, hits in pol_findings.items():
+        for key, val in hits.items():
+            code_val = code_defaults.get(key)
+            if code_val is not None and code_val != val:
+                conflicts.append({"file": fname, "key": key, "code": code_val, "policy": val})
+
+    return {
+        "passed": len(conflicts) == 0,
+        "conflicts": conflicts,
+        "code_defaults": code_defaults,
+        "policy_findings": pol_findings,
+    }
+
+
 def main(argv: Iterable[str] | None = None) -> int:
     import argparse
 
     parser = argparse.ArgumentParser(description="validation-team-agent policy lint")
     parser.add_argument("--metric-policy", type=Path, default=None)
     parser.add_argument("--policies-dir", type=Path, default=None)
+    parser.add_argument(
+        "--include-sample-size",
+        action="store_true",
+        help="sample_size_guard DEFAULTS 와 정책 문서 임계 일치도 점검",
+    )
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     result = lint_policies(args.metric_policy, args.policies_dir)
+    rc = 0 if result["passed"] else 1
     print(format_report(result))
-    return 0 if result["passed"] else 1
+
+    if args.include_sample_size:
+        sub = check_sample_size_alignment(policies_dir=args.policies_dir)
+        if sub["passed"]:
+            print("sample_size_alignment: OK")
+        else:
+            print("sample_size_alignment: CONFLICTS")
+            for c in sub["conflicts"]:
+                print(f"- {c['file']} / {c['key']}: code={c['code']} policy={c['policy']}")
+            rc = 1
+    return rc
 
 
 if __name__ == "__main__":
