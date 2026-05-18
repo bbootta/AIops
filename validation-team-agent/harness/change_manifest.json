@@ -1125,6 +1125,21 @@
       "rollback_rule": "_is_ci_environment 검사 라인 제거 시 round 12 동작.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0076",
+      "timestamp": "2026-05-18 13:20:51",
+      "component": "harness/basel_risk_taxonomy.{json,schema.json} + harness/policies/{market,operational,liquidity,irrbb,cva,ccr}_risk.md + harness/{market,operational,liquidity,irrbb,cva,ccr}_*thresholds.json + tools/risk_checks/{__init__,market,operational,liquidity,irrbb,cva,ccr}.py + orchestration_matrix step 3.market~3.ccr",
+      "change_type": "create",
+      "evidence": "사용자 요청: Basel III/IV 모든 리스크 부문(신용·시장·운영·유동성·IRRBB·CVA·CCR)을 엄밀히 다루도록 개편.",
+      "root_cause": "기존 하니스는 신용/IFRS9에 편중. FRTB / SMA / LCR / NSFR / SRP31 / MAR50 / CRE52 검증 점검 부재.",
+      "targeted_fix": "basel_risk_taxonomy.json (8 부문) + schema. 부문별 정책 .md 6개 (market/operational/liquidity/irrbb/cva/ccr). 임계 SSoT JSON 6개. tools/risk_checks/ 6 모듈: VaR backtest traffic light, BIC progressive sum, LCR/NSFR ratio, ΔEVE outlier(15% Tier1), BA-CVA 산식, SA-CCR EAD(α·(RC+PFE)). orchestration_matrix 에 3.market~3.ccr 6 step 추가. CI 에 basel taxonomy schema 검증.",
+      "expected_benefit": "검증팀이 Basel 7 부문 전 영역을 동일한 SSoT/도구/매트릭스/매니페스트 패턴으로 다룰 수 있게 됨.",
+      "expected_regression_risk": "본 도구는 검증 점검 한정 — 산정 자체는 외부 시스템 책임. 임계 SSoT 의 BCBS 표준값을 완화하지 않도록 schema 와 정책 .md 양쪽에서 강제.",
+      "validation_method": "tests/test_basel_risk_taxonomy.py 4건 + tests/test_risk_checks_{market,operational,liquidity,irrbb,cva,ccr}.py 합 43건 통과. 매트릭스 schema 통과.",
+      "rollback_rule": "각 부문은 독립 모듈이므로 부분 rollback 가능: tools/risk_checks/<bucket>.py + 해당 정책 .md + thresholds.json + 매트릭스 step 제거.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

@@ -1,0 +1,9 @@
+{
+  "policy_version": "1.0",
+  "framework": "LCR (LIQ40) + NSFR (LIQ20)",
+  "description": "유동성 비율 최소 기준. 본 임계는 감독기관 최소이며 내부 RAS 는 더 엄격할 수 있다.",
+  "lcr_min": 1.00,
+  "nsfr_min": 1.00,
+  "lcr_warning": 1.10,
+  "nsfr_warning": 1.05
+}

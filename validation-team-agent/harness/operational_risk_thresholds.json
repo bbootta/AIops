@@ -1,0 +1,12 @@
+{
+  "policy_version": "1.0",
+  "framework": "OPE25 SMA (Business Indicator Component)",
+  "description": "운영리스크 SMA. BI 구간(bucket)별 marginal coefficient 와 ILM 한도. BCBS 표준.",
+  "buckets": [
+    {"bucket": 1, "bi_lower_eur_bn": 0.0, "bi_upper_eur_bn": 1.0, "marginal_coef": 0.12},
+    {"bucket": 2, "bi_lower_eur_bn": 1.0, "bi_upper_eur_bn": 30.0, "marginal_coef": 0.15},
+    {"bucket": 3, "bi_lower_eur_bn": 30.0, "bi_upper_eur_bn": null,  "marginal_coef": 0.18}
+  ],
+  "ilm_floor": 1.0,
+  "ilm_loss_history_min_years": 10
+}

@@ -1,0 +1,9 @@
+{
+  "policy_version": "1.0",
+  "framework": "MAR50 CVA (BA-CVA / SA-CVA)",
+  "description": "CVA 위험 가산. BA-CVA: ρ=0.5, α_BA=1.4; SA-CVA: counterparty 및 risk factor 별 RW.",
+  "rho_correlation": 0.5,
+  "alpha_ba_cva": 1.4,
+  "ba_cva_min_eligible_hedge_ratio": 0.0,
+  "sa_cva_required_for_large_books_eur_bn": 100.0
+}

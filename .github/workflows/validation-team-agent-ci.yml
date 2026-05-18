@@ -60,7 +60,7 @@ jobs:
         run: |
           python -m tools.manifest validate
 
-      - name: Validate JSON schemas (matrix / permission / floors / glossary)
+      - name: Validate JSON schemas (matrix / permission / floors / glossary / basel)
         run: |
           python - <<'PY'
           import json, jsonschema, pathlib
@@ -69,6 +69,7 @@ jobs:
               ("harness/permission_matrix.schema.json", "harness/permission_matrix.json"),
               ("harness/scenario_floors.schema.json", "harness/scenario_floors.json"),
               ("harness/report_glossary.schema.json", "harness/report_glossary.json"),
+              ("harness/basel_risk_taxonomy.schema.json", "harness/basel_risk_taxonomy.json"),
           ]
           for sp, dp in pairs:
               schema = json.loads(pathlib.Path(sp).read_text(encoding="utf-8"))

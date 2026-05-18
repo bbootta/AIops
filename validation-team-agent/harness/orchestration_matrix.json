@@ -99,6 +99,54 @@
       "expected_outputs": ["ifrs9.weight_panel"]
     },
     {
+      "id": "3.market",
+      "name": "3.6 시장리스크 (FRTB)",
+      "component": "tools/risk_checks/market.py (VaR backtest / ES / NMRF)",
+      "rationale": "1일 99% VaR exception → traffic light; ES horizon / NMRF 비율 점검.",
+      "requires_any": ["market_var_exceptions"],
+      "expected_outputs": ["market.zone", "market.multiplier_ok"]
+    },
+    {
+      "id": "3.operational",
+      "name": "3.7 운영리스크 (SMA)",
+      "component": "tools/risk_checks/operational.py (BIC / ILM)",
+      "rationale": "BI 3-yr 평균 + bucket 누진 BIC + ILM × BIC = ORC.",
+      "requires_any": ["op_business_indicator_eur_bn"],
+      "expected_outputs": ["operational.bic", "operational.orc"]
+    },
+    {
+      "id": "3.liquidity",
+      "name": "3.8 유동성리스크 (LCR/NSFR)",
+      "component": "tools/risk_checks/liquidity.py (LCR / NSFR)",
+      "rationale": "LCR ≥ 100%, NSFR ≥ 100%. 경고선 110% / 105%.",
+      "requires_any": ["liquidity_hqla", "liquidity_asf"],
+      "expected_outputs": ["liquidity.lcr", "liquidity.nsfr"]
+    },
+    {
+      "id": "3.irrbb",
+      "name": "3.9 IRRBB",
+      "component": "tools/risk_checks/irrbb.py (ΔEVE outlier / ΔNII)",
+      "rationale": "6 표준 시나리오 ΔEVE 의 max / Tier1 > 15% → outlier bank.",
+      "requires_any": ["irrbb_delta_eve_by_scenario"],
+      "expected_outputs": ["irrbb.outlier", "irrbb.worst_scenario"]
+    },
+    {
+      "id": "3.cva",
+      "name": "3.10 CVA",
+      "component": "tools/risk_checks/cva.py (BA-CVA / SA-CVA 의무 여부)",
+      "rationale": "BA-CVA 산식 정합, SA-CVA 의무 트레이딩북 규모 점검.",
+      "requires_any": ["cva_counterparty_inputs", "cva_trading_book_size_eur_bn"],
+      "expected_outputs": ["cva.ba_cva", "cva.sa_cva_required"]
+    },
+    {
+      "id": "3.ccr",
+      "name": "3.11 CCR (SA-CCR)",
+      "component": "tools/risk_checks/ccr.py (RC + α·PFE)",
+      "rationale": "α default 1.4. Asset class 별 supervisory factor 일관.",
+      "requires_any": ["ccr_rc", "ccr_pfe"],
+      "expected_outputs": ["ccr.ead", "ccr.alpha"]
+    },
+    {
       "id": "4.report",
       "name": "4. 보고서 초안",
       "component": "tools/report_template.build_validation_report",
