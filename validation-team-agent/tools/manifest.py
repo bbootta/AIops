@@ -244,6 +244,17 @@ def _cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def _is_ci_environment() -> bool:
+    """대표적 CI 환경 변수가 설정되어 있는지 본다 (GitHub Actions, GitLab, generic CI)."""
+    import os as _os
+
+    for key in ("GITHUB_ACTIONS", "GITLAB_CI", "CI"):
+        val = _os.environ.get(key, "").lower()
+        if val in ("true", "1", "yes"):
+            return True
+    return False
+
+
 def promote_if_passing(
     change_ids: Sequence[str],
     to: str,
@@ -257,11 +268,28 @@ def promote_if_passing(
     confirmed_by_human이 False이면 ManifestError. pytest_runner는 인자 없이 호출
     가능하고 (returncode_int, stdout_str) 튜플을 반환하는 callable. 기본은 실제
     ``python -m pytest`` 실행.
+
+    CI 환경(GITHUB_ACTIONS / GITLAB_CI / CI 환경변수)에서 호출되면 기본 차단한다.
+    명시적으로 ``VTA_ALLOW_AUTOMATED_PROMOTE=1`` 환경변수가 설정된 경우에만 진행.
+    이 가드는 docs/executive_summary.md 의 "promote-if-passing CI 무인 실행 금지"
+    정책을 실행 단계에서 강제한다.
     """
     if to not in {"applied", "validated"}:
         raise ManifestError(f"promote_if_passing only supports applied/validated, got {to!r}")
     if not confirmed_by_human:
         raise ManifestError("human confirmation required (pass confirmed_by_human=True)")
+
+    # CI 환경에서 default pytest runner 로 실행되면 자동 promote 가 의심된다.
+    # 명시적 테스트 격리(pytest_runner kwarg) 호출은 가드를 우회한다.
+    if pytest_runner is None and _is_ci_environment():
+        import os as _os
+
+        if _os.environ.get("VTA_ALLOW_AUTOMATED_PROMOTE", "").lower() not in ("1", "true", "yes"):
+            raise ManifestError(
+                "promote_if_passing refused in CI environment without "
+                "VTA_ALLOW_AUTOMATED_PROMOTE=1. Human promote must run from a "
+                "developer terminal (see docs/executive_summary.md)."
+            )
 
     if pytest_runner is None:
         pytest_runner = _default_pytest_runner

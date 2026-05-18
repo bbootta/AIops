@@ -52,3 +52,33 @@
 - [ ] 내부통제 / 문서화 요건을 충족하는가
 - [ ] 외부 제출 형식 요건을 충족하는가
 - [ ] 변경 이력이 매니페스트에 기록되었는가
+
+---
+
+## 5. 거버넌스 / 분기 보고 (CRO·MRMC·감사위원회)
+
+본 하니스는 자체가 검증 의견에 영향을 주는 모형이므로 **2차 모형위험**으로
+분류·관리되어야 한다. 운영 단계의 정책은 `docs/executive_summary.md` 참조.
+
+분기 1회 다음을 의무 보고로 제안한다.
+
+- `python -m tools.governance_kpi report` 출력
+  - 매니페스트 status 분포 (proposed / applied / validated / rolled_back)
+  - 자동 분류기 agreement_rate / top mismatch
+  - 최근 audit run 의 executed / skipped / missing
+  - policy_lint / sample_size_alignment pass 여부
+- 병행 운영 기간(Phase 1) 동안 수기 vs 자동 검증 결과 차이
+- Automation bias 모니터링: 검증자가 자동 산출물을 그대로 채택한 비율과
+  정성 검토에서 추가된 finding 비율의 추이
+
+---
+
+## 6. 인력 운영 원칙
+
+- 본 하니스 도입은 **검증팀 인력 감축 사유가 될 수 없다**.
+- 자동화로 절약된 시간은 다음에 재배치되어야 한다.
+  - 정성 검토 (가정 합리성, 사업 전략 정합성, 사용 부서 협의)
+  - 챌린저 모형 분석
+  - 신규 모형 사전 점검
+  - 거시 시나리오 정성 보강
+- 검증자 1인당 모형 담당 수를 늘리는 데 사용하지 않는다 (자동화 의존 가속 위험).

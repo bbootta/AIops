@@ -1080,6 +1080,51 @@
       "rollback_rule": "README 변경분 revert + examples 파일 삭제.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0073",
+      "timestamp": "2026-05-18 09:34:43",
+      "component": "docs/executive_summary.md + README.md + docs/human_in_the_loop.md + harness/permission_policy.md",
+      "change_type": "create",
+      "evidence": "경영진 관점 도입 가이드 부재 (MRMC 분류 / Phase 도입 / 권한 분리 매트릭스 / 분기 보고).",
+      "root_cause": "기술 산출물은 풍부하나 거버넌스 관점 의사결정 가이드가 산재.",
+      "targeted_fix": "docs/executive_summary.md 신규 (Tier 분류 + Phase 0-3 + 권한 매트릭스 + KPI + 절대 금지선). README 도입 Phase 추가. HITL 문서에 분기 보고/인력 운영 절. permission_policy 에 promote 권한자 매트릭스.",
+      "expected_benefit": "CRO/MRMC가 본 하니스를 1회 검토로 분류·승인할 수 있는 패키지 제공.",
+      "expected_regression_risk": "문서 변경 한정. 실제 권한 매트릭스 적용은 정책 부서 확정 필요.",
+      "validation_method": "기존 pytest 통과 + 신규 문서 일관성 (CLAUDE.md HITL 원칙과 부합).",
+      "rollback_rule": "신규 문서 삭제 + README/HITL 변경분 revert.",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0074",
+      "timestamp": "2026-05-18 09:34:52",
+      "component": "tools/governance_kpi.py",
+      "change_type": "create",
+      "evidence": "경영진 권고: 분기 1회 CRO/감사위원회 KPI 보고가 필요하나 단일 진입점 부재.",
+      "root_cause": "매니페스트 / classify_feedback / audit.jsonl / policy_lint 결과가 따로 분산.",
+      "targeted_fix": "manifest_kpi + feedback_kpi + audit_kpi + policy_lint_kpi → build_report → render_markdown / --json. CLI: report.",
+      "expected_benefit": "분기 보고 자동화. validated_ratio / agreement_rate / missing_step 추세 확인 가능.",
+      "expected_regression_risk": "feedback.jsonl 부재 시 'available: False'로 보고. policy_lint 호출 의존성 — 도구 변경 시 KPI 영향.",
+      "validation_method": "tests/test_governance_kpi.py 7건 통과.",
+      "rollback_rule": "도구 삭제 시 다른 모듈 영향 없음.",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0075",
+      "timestamp": "2026-05-18 09:35:08",
+      "component": "tools/manifest.py + memory/known_limitations.json",
+      "change_type": "modify",
+      "evidence": "경영진 권고: promote-if-passing 의 CI 무인 실행 금지선이 코드 단계에서 강제되지 않음.",
+      "root_cause": "_is_ci_environment 검사 부재. policy 문서만으로는 자동화 우회 가능.",
+      "targeted_fix": "_is_ci_environment 헬퍼 + promote_if_passing 가 default pytest runner 사용 + CI 환경에서 VTA_ALLOW_AUTOMATED_PROMOTE 미설정 시 ManifestError. 명시 pytest_runner kwarg 호출은 테스트 격리용으로 가드 우회. known_limitations.json 에 governance 카테고리 추가 (automation bias / 2차 모형위험 / 인력 영향).",
+      "expected_benefit": "감사 추적 신호(--i-am-human)에 더해 환경 변수 명시까지 요구하여 무인 자동 promote 차단.",
+      "expected_regression_risk": "CI 환경 변수 검사가 잘못 트리거되면 합법 호출도 차단됨. 명시적 VTA_ALLOW_AUTOMATED_PROMOTE=1 우회 경로 보유.",
+      "validation_method": "tests/test_manifest_ci_guard.py 4건 통과 + 기존 test_manifest_promote_if_passing 4건 (테스트 격리 호출) 모두 통과.",
+      "rollback_rule": "_is_ci_environment 검사 라인 제거 시 round 12 동작.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
