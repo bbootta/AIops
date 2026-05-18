@@ -80,3 +80,19 @@ def check_loss_history_years(years: int, *, thresholds: Mapping | None = None) -
     th = thresholds or load_thresholds()
     min_y = int(th["ilm_loss_history_min_years"])
     return {"years": years, "min_required": min_y, "passed": years >= min_y}
+
+
+def compute_orc_domestic(bic: float, *, thresholds: Mapping | None = None) -> dict:
+    """감독시행세칙 국내 default: ILM = domestic_default_ilm (보통 1.0). ORC = BIC × 1.
+
+    BCBS 권고 옵션 중 감독원이 채택한 default 를 적용. 본 함수는 호출자가
+    ILM 을 직접 지정하지 않아도 SSoT 의 도메스틱 default 를 가져온다.
+    감독원이 정책 변경(예: ILM 사용 도입) 시 thresholds 와 매니페스트 동시 갱신.
+    """
+    th = thresholds or load_thresholds()
+    if "domestic_default_ilm" not in th:
+        raise KeyError("thresholds missing 'domestic_default_ilm' — 정책 SSoT 갱신 필요")
+    ilm = float(th["domestic_default_ilm"])
+    base = compute_orc(bic=bic, ilm=ilm, thresholds=thresholds)
+    base["domestic_default"] = True
+    return base

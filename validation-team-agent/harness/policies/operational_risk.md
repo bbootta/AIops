@@ -19,3 +19,9 @@ Basel OPE25 SMA. ORC = BIC × ILM. 임계 SSoT: `harness/operational_risk_thresh
 - BI 구성 요소의 임의 제외
 - 손실 이력의 임의 절단
 - ILM 정책의 임의 변경 (감독원 사전 협의 필수)
+
+## 4. 국내 적용 (감독시행세칙)
+- 감독원은 ILM = 1 (loss component 미반영) default 적용. ORC = BIC.
+- 손실 이력은 보고용으로만 사용 (감독원 정기 보고서).
+- `domestic_default_ilm` 임계는 `harness/operational_risk_thresholds.json` 에서 관리.
+- 도구: `tools.risk_checks.operational.compute_orc_domestic`.

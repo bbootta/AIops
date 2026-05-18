@@ -1,8 +1,17 @@
 {
-  "taxonomy_version": "1.0",
-  "framework": "Basel III/IV (post-CRE/MAR/LIQ/SRP)",
-  "description": "본 하니스가 다루는 Basel 리스크 부문 분류. 각 부문은 정책 .md + (선택) 임계 .json + tools/risk_checks 모듈을 가진다. 본 분류는 감독기관 분류를 갈음하지 않는다.",
+  "taxonomy_version": "1.1",
+  "framework": "Basel III/IV + 은행업감독업무시행세칙",
+  "description": "본 하니스가 다루는 리스크 부문 분류. BCBS 본문 + 국내 감독시행세칙 채택. 본 분류는 감독기관 분류를 갈음하지 않는다.",
   "risk_buckets": [
+    {
+      "id": "capital_adequacy",
+      "title": "Capital Adequacy / 자본적정성",
+      "basel_refs": ["CAP30 Capital", "감독시행세칙 자본적정성 편"],
+      "policy": "harness/policies/capital_adequacy.md",
+      "thresholds": "harness/capital_adequacy_thresholds.json",
+      "key_metrics": ["CET1", "Tier 1", "Total Capital", "Leverage Ratio", "Conservation buffer", "D-SIB"],
+      "tools": ["tools.risk_checks.capital"]
+    },
     {
       "id": "credit",
       "title": "Credit Risk",

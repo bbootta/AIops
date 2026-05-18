@@ -1140,6 +1140,21 @@
       "rollback_rule": "각 부문은 독립 모듈이므로 부분 rollback 가능: tools/risk_checks/<bucket>.py + 해당 정책 .md + thresholds.json + 매트릭스 step 제거.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0077",
+      "timestamp": "2026-05-18 23:44:22",
+      "component": "harness/policies/capital_adequacy.md + harness/capital_adequacy_thresholds.json + tools/risk_checks/capital.py + harness/policies/operational_risk.md + harness/operational_risk_thresholds.json + tools/risk_checks/operational.py + harness/liquidity_risk_thresholds.json + tools/risk_checks/liquidity.py + harness/basel_risk_taxonomy.{json,schema.json} + harness/orchestration_matrix.json",
+      "change_type": "modify",
+      "evidence": "사용자 요청: 국내 금감원 은행업감독업무시행세칙 기준으로 조정.",
+      "root_cause": "Round 14 BCBS 본문 채택은 했으나 한국 특화(자본보전버퍼·D-SIB·외화LCR·국내 ILM=1)는 미반영.",
+      "targeted_fix": "신규 부문 capital_adequacy (정책 + thresholds + tools.risk_checks.capital). taxonomy schema 의 id enum 갱신 + 매트릭스 3.capital step 추가. liquidity_risk_thresholds 에 외화 LCR (min 80% / warn 90%) 추가 + check_foreign_currency_lcr 도구. operational thresholds 에 domestic_default_ilm=1.0 + compute_orc_domestic 도구. 각 정책 .md 에 '국내 적용' 섹션.",
+      "expected_benefit": "검증팀이 BCBS 본문과 감독시행세칙 채택본을 동일 SSoT/도구 패턴으로 운영 가능.",
+      "expected_regression_risk": "BCBS 본문 임계는 유지 (보수적 강화 방향). 한국 default 값(D-SIB 1.0%, 외화LCR 80%)은 감독원 행정지도 기준 — 별도 공시로 변경 시 thresholds.json 갱신 + 매니페스트 동반.",
+      "validation_method": "tests/test_risk_checks_capital.py 6건 + tests/test_domestic_adjustments.py 9건 통과. 기존 risk_checks/taxonomy 테스트 모두 통과.",
+      "rollback_rule": "각 부문은 독립 SSoT — capital_adequacy 부문 전체 또는 외화LCR/도메스틱 ILM 만 부분 rollback 가능.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

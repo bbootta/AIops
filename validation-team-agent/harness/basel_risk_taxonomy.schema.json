@@ -15,7 +15,17 @@
         "properties": {
           "id": {
             "type": "string",
-            "enum": ["credit", "ifrs9", "market", "operational", "liquidity", "irrbb", "cva", "ccr"]
+            "enum": [
+              "capital_adequacy",
+              "credit",
+              "ifrs9",
+              "market",
+              "operational",
+              "liquidity",
+              "irrbb",
+              "cva",
+              "ccr"
+            ]
           },
           "title": { "type": "string", "minLength": 1 },
           "basel_refs": { "type": "array", "items": { "type": "string" }, "minItems": 1 },

@@ -43,6 +43,33 @@ def check_lcr(
     }
 
 
+def check_foreign_currency_lcr(
+    foreign_hqla: float,
+    foreign_net_outflow_30d: float,
+    *,
+    thresholds: Mapping | None = None,
+) -> dict:
+    """외화 LCR (감독시행세칙). 최소 80% 행정지도 기준, 90% 미만 경고."""
+    if foreign_net_outflow_30d <= 0:
+        raise ValueError("foreign_net_outflow_30d must be > 0")
+    if foreign_hqla < 0:
+        raise ValueError("foreign_hqla must be >= 0")
+    th = thresholds or load_thresholds()
+    ratio = foreign_hqla / foreign_net_outflow_30d
+    return {
+        "ratio": ratio,
+        "min_required": float(th["foreign_currency_lcr_min"]),
+        "warning_threshold": float(th["foreign_currency_lcr_warning"]),
+        "status": (
+            "below_min"
+            if ratio < th["foreign_currency_lcr_min"]
+            else "warning"
+            if ratio < th["foreign_currency_lcr_warning"]
+            else "ok"
+        ),
+    }
+
+
 def check_nsfr(
     available_stable_funding: float,
     required_stable_funding: float,

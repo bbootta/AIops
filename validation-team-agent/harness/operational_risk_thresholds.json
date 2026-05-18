@@ -1,12 +1,18 @@
 {
-  "policy_version": "1.0",
-  "framework": "OPE25 SMA (Business Indicator Component)",
-  "description": "운영리스크 SMA. BI 구간(bucket)별 marginal coefficient 와 ILM 한도. BCBS 표준.",
+  "policy_version": "1.1",
+  "framework": "OPE25 SMA (Business Indicator Component) + 감독시행세칙",
+  "description": "BCBS SMA + 감독원 국내 적용. 금감원은 ILM=1 (loss component 미반영)을 기본 적용한다.",
   "buckets": [
     {"bucket": 1, "bi_lower_eur_bn": 0.0, "bi_upper_eur_bn": 1.0, "marginal_coef": 0.12},
     {"bucket": 2, "bi_lower_eur_bn": 1.0, "bi_upper_eur_bn": 30.0, "marginal_coef": 0.15},
     {"bucket": 3, "bi_lower_eur_bn": 30.0, "bi_upper_eur_bn": null,  "marginal_coef": 0.18}
   ],
   "ilm_floor": 1.0,
-  "ilm_loss_history_min_years": 10
+  "ilm_loss_history_min_years": 10,
+  "domestic_default_ilm": 1.0,
+  "domestic_notes": [
+    "감독시행세칙: 국내 적용 시 ILM = 1 사용 (BCBS 권고 옵션 채택).",
+    "ORC = BIC × 1 = BIC. 손실 이력은 보고용으로만 사용.",
+    "감독원이 추후 ILM 사용을 도입하면 본 thresholds 와 매니페스트 동시 갱신 필요."
+  ]
 }

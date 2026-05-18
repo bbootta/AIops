@@ -99,6 +99,14 @@
       "expected_outputs": ["ifrs9.weight_panel"]
     },
     {
+      "id": "3.capital",
+      "name": "3.55 자본적정성 (감독시행세칙)",
+      "component": "tools/risk_checks/capital.py (CET1/T1/BIS + 버퍼)",
+      "rationale": "감독시행세칙 + Basel III. CET1 4.5% + 보전버퍼 2.5% + 추가 buffer 합산.",
+      "requires_any": ["capital_cet1", "capital_leverage"],
+      "expected_outputs": ["capital.passed", "capital.add_buffer"]
+    },
+    {
       "id": "3.market",
       "name": "3.6 시장리스크 (FRTB)",
       "component": "tools/risk_checks/market.py (VaR backtest / ES / NMRF)",
