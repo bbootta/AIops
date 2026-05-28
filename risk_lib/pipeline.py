@@ -27,12 +27,14 @@ from risk_lib.capital.market_risk import compute_market_risk_rwa
 from risk_lib.capital.output_floor import apply_output_floor, FULLY_LOADED_FLOOR
 from risk_lib.capital.leverage import compute_leverage_ratio, exposure_measure
 from risk_lib.provisioning.ecl import compute_ecl
+from risk_lib.provisioning.macro import macro_ecl, DEFAULT_MACRO_SCENARIOS
 from risk_lib.monitoring.delinquency import delinquency_summary, default_rate
 from risk_lib.monitoring.recovery import cumulative_recovery_rate
 from risk_lib.limits.limit_engine import LimitDefinition, LimitEngine
 from risk_lib.limits.concentration import concentration_report
 from risk_lib.performance.rapm import rapm_report
 from risk_lib.stress.scenario import run_stress, BASELINE, ADVERSE, SEVERELY_ADVERSE
+from risk_lib.stress.reverse import reverse_stress, StressAxis
 from risk_lib.validation.consistency import run_consistency_checks
 from risk_lib.validation.backtest import pd_backtest_report
 
@@ -61,6 +63,8 @@ class PipelineResult:
     concentration: pd.DataFrame
     rapm: pd.DataFrame
     stress: pd.DataFrame
+    macro_ecl: Any
+    reverse_stress: Any
     backtest: dict[str, Any]
     validation: Any
     meta: dict[str, Any] = field(default_factory=dict)
@@ -171,12 +175,13 @@ def run_pipeline(
     em = exposure_measure(on_balance=total_ead, off_balance_notional=total_ead * 0.1)
     leverage = compute_leverage_ratio(capital.tier1, em)
 
-    # 7. IFRS 9 ECL
+    # 7. IFRS 9 ECL — TTC (point estimate) + forward-looking PIT (probability-weighted)
     ecl_df = compute_ecl(irb_book)
     ecl_by_stage = ecl_df.groupby("stage").agg(
         n=("exposure_id", "size"), ead=("ead", "sum"),
         ecl=("ecl", "sum"), coverage=("coverage_ratio", "mean"),
     )
+    macro = macro_ecl(irb_book, DEFAULT_MACRO_SCENARIOS)
 
     # 8. Monitoring
     delq = delinquency_summary(portfolio, segment_col="asset_class")
@@ -215,11 +220,17 @@ def run_pipeline(
         pass_hurdle_pct=("pass_hurdle", "mean"),
     ).reset_index()
 
-    # 12. Stress
+    # 12. Stress (forward) + reverse stress (solve for the breaking severity)
     rwa_other_fixed = rwa_sa + mkt.rwa + op.rwa  # non-IRB RWA held fixed
     stress = run_stress(irb_book, capital, rwa_other_fixed,
                         scenarios=[BASELINE, ADVERSE, SEVERELY_ADVERSE],
                         buffers=buffers)
+    # break point = buffer-inclusive CET1 requirement (MDA/buffer-breach trigger)
+    reverse = reverse_stress(
+        irb_book, capital, rwa_other_fixed,
+        metric="cet1", target_ratio=bis.required["cet1"],
+        axis=StressAxis(), buffers=buffers,
+    )
 
     # 13. Self-verification
     validation = run_consistency_checks(
@@ -228,6 +239,7 @@ def run_pipeline(
         leverage_result=leverage, output_floor_result=floor,
         market_rwa=mkt.rwa, op_rwa=op.rwa,
         ecl_results=ecl_df, concentration=conc, stress_results=stress,
+        macro_ecl_result=macro, reverse_stress_result=reverse,
     )
 
     corp = portfolio[portfolio["asset_class"] == "corporate"]
@@ -255,6 +267,7 @@ def run_pipeline(
         monitoring=monitoring,
         limits=limit_report, concentration=conc,
         rapm=rapm_by_class, stress=stress,
+        macro_ecl=macro, reverse_stress=reverse,
         backtest=backtest, validation=validation,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate},
     )

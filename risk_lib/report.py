@@ -109,6 +109,20 @@ def render_markdown(result: PipelineResult) -> str:
             f"| {_won(row['ecl'])} | {row['coverage']:.2%} |")
     add("")
 
+    macro = r.macro_ecl
+    uplift = macro.weighted_total - r.ecl["total"]
+    add("### 6-1. 거시연계 PIT ECL (확률가중, IFRS9 forward-looking)")
+    add("")
+    add(f"- TTC(시점추정) ECL: {_won(r.ecl['total'])}")
+    add(f"- PIT 확률가중 ECL: **{_won(macro.weighted_total)}** "
+        f"(forward-looking uplift {uplift:+,.0f})")
+    add("")
+    add("| 시나리오 | 확률 | ECL |")
+    add("|---|---:|---:|")
+    for _, row in macro.by_scenario.iterrows():
+        add(f"| {row['scenario']} | {row['probability']:.0%} | {_won(row['ecl'])} |")
+    add("")
+
     # ---- 모니터링 ----
     m = r.monitoring
     add("## 7. 연체율 / 부도율 / 회수율")
@@ -162,6 +176,21 @@ def render_markdown(result: PipelineResult) -> str:
         add(f"| {row['scenario']} | {_won(row['rwa_total'])} | {_won(row['ecl'])} "
             f"| {row['cet1_ratio']:.2%} | {row['cet1_surplus']:+.2%} "
             f"| {'O' if row['passes'] else 'X'} |")
+    add("")
+
+    rev = r.reverse_stress
+    add("### 11-1. 역스트레스테스트 (CET1 임계 시나리오)")
+    add("")
+    add(f"- 기준 CET1: {rev.base_ratio:.2%} / 임계(버퍼포함 요구): {rev.target_ratio:.2%}")
+    if rev.resilient:
+        add(f"- 최대 심도(s={rev.critical_severity:.1f})에서도 CET1 "
+            f"{rev.ratio_at_break:.2%} > 임계 — **자본 내성 확보**.")
+    else:
+        add(f"- CET1을 임계까지 끌어내리는 **임계 심도 s={rev.critical_severity:.2f}**")
+        add(f"- 함의 거시충격: GDP **{rev.implied_gdp_shock:+.1%}**, "
+            f"LGD **+{rev.implied_lgd_addon:.1%}p**")
+        add(f"- 임계점: RWA합계 {_won(rev.rwa_total_at_break)}, "
+            f"ECL {_won(rev.ecl_at_break)}, CET1 {rev.ratio_at_break:.2%}")
     add("")
 
     # ---- 검증 ----

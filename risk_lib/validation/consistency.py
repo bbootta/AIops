@@ -316,6 +316,67 @@ def _check_stress_monotone(stress_df: pd.DataFrame, report: ValidationReport) ->
                    "stressed RWA >= base and CET1 ratio <= base for all scenarios"))
 
 
+def _check_macro_ecl(macro, report: ValidationReport) -> None:
+    if macro is None:
+        return
+    raw_prob = sum(s.probability for s in macro.scenarios)
+    if abs(raw_prob - 1.0) > 1e-6:
+        report.add(ConsistencyCheck("macro_scenario_prob_sum", "WARN",
+                   f"scenario probabilities sum to {raw_prob:.4f} (renormalised)",
+                   metric=raw_prob))
+    else:
+        report.add(ConsistencyCheck("macro_scenario_prob_sum", "PASS",
+                   "scenario probabilities sum to 1", metric=raw_prob))
+
+    ecls = macro.by_scenario["ecl"].values
+    lo, hi = float(ecls.min()), float(ecls.max())
+    if not (lo - 1e-6 <= macro.weighted_total <= hi + 1e-6):
+        report.add(ConsistencyCheck("macro_weighted_in_range", "FAIL",
+                   f"weighted ECL {macro.weighted_total:.0f} outside scenario "
+                   f"range [{lo:.0f}, {hi:.0f}]"))
+    else:
+        report.add(ConsistencyCheck("macro_weighted_in_range", "PASS",
+                   f"weighted ECL within scenario range", metric=macro.weighted_total))
+
+    # Worse GDP path should not produce lower ECL.
+    order = sorted(range(len(macro.scenarios)),
+                   key=lambda i: sum(macro.scenarios[i].gdp_path), reverse=True)
+    ordered_ecl = [macro.by_scenario["ecl"].iloc[i] for i in order]
+    monotone = all(ordered_ecl[k] <= ordered_ecl[k + 1] + 1e-6
+                   for k in range(len(ordered_ecl) - 1))
+    if monotone:
+        report.add(ConsistencyCheck("macro_ecl_gdp_monotone", "PASS",
+                   "ECL non-decreasing as GDP path worsens"))
+    else:
+        report.add(ConsistencyCheck("macro_ecl_gdp_monotone", "WARN",
+                   "ECL not monotone in GDP severity"))
+
+
+def _check_reverse_stress(rev, report: ValidationReport) -> None:
+    if rev is None:
+        return
+    if rev.base_ratio < rev.target_ratio - 1e-9:
+        report.add(ConsistencyCheck("reverse_base_above_target", "FAIL",
+                   f"base {rev.metric} {rev.base_ratio:.4f} already below break "
+                   f"{rev.target_ratio:.4f}", metric=rev.base_ratio))
+        return
+    if rev.resilient:
+        report.add(ConsistencyCheck("reverse_stress_solved", "PASS",
+                   f"resilient: {rev.metric} stays above {rev.target_ratio:.4f} "
+                   f"at max severity {rev.critical_severity:.2f}",
+                   metric=rev.critical_severity))
+        return
+    if abs(rev.ratio_at_break - rev.target_ratio) <= 5e-4:
+        report.add(ConsistencyCheck("reverse_stress_solved", "PASS",
+                   f"break at severity {rev.critical_severity:.3f} "
+                   f"(GDP {rev.implied_gdp_shock:+.1%}, LGD +{rev.implied_lgd_addon:.1%})",
+                   metric=rev.critical_severity))
+    else:
+        report.add(ConsistencyCheck("reverse_stress_solved", "WARN",
+                   f"{rev.metric} at break {rev.ratio_at_break:.4f} vs target "
+                   f"{rev.target_ratio:.4f} (not fully converged)"))
+
+
 def run_consistency_checks(
     *,
     sa_results: pd.DataFrame | None = None,
@@ -329,6 +390,8 @@ def run_consistency_checks(
     ecl_results: pd.DataFrame | None = None,
     concentration: pd.DataFrame | None = None,
     stress_results: pd.DataFrame | None = None,
+    macro_ecl_result: Any = None,
+    reverse_stress_result: Any = None,
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
@@ -357,5 +420,7 @@ def run_consistency_checks(
     _check_ecl(ecl_results, rep)
     _check_concentration(concentration, rep)
     _check_stress_monotone(stress_results, rep)
+    _check_macro_ecl(macro_ecl_result, rep)
+    _check_reverse_stress(reverse_stress_result, rep)
 
     return rep

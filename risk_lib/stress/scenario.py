@@ -58,6 +58,55 @@ def apply_scenario(portfolio: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
     return df
 
 
+def evaluate_scenario(
+    irb_portfolio: pd.DataFrame,
+    capital: CapitalStack,
+    rwa_other: float,
+    scenario: Scenario,
+    *,
+    base_ecl: float,
+    buffers: dict[str, float] | None = None,
+    eir: float = 0.05,
+) -> dict:
+    """Recompute RWA / ECL / BIS under a single scenario.
+
+    CET1 is reduced by the *incremental* ECL above `base_ecl` (P&L impact).
+    Returns a dict including every BIS ratio plus the BISResult, so callers can
+    pick the metric they need (forward stress vs reverse stress).
+    """
+    stressed = apply_scenario(irb_portfolio, scenario)
+    rwa_irb = compute_rwa_irb(stressed)["rwa"].sum()
+    ecl = compute_ecl(stressed, eir=eir)["ecl"].sum()
+    rwa_total = rwa_irb + rwa_other
+
+    incremental_ecl = max(ecl - base_ecl, 0.0)
+    stressed_cap = CapitalStack(
+        cet1=capital.cet1 - incremental_ecl,
+        additional_t1=capital.additional_t1,
+        tier2=capital.tier2,
+    )
+    bis = compute_bis_ratios(stressed_cap, rwa_total, buffers=buffers)
+    return {
+        "scenario": scenario.name,
+        "rwa_irb": rwa_irb,
+        "rwa_total": rwa_total,
+        "ecl": ecl,
+        "incremental_ecl": incremental_ecl,
+        "cet1_ratio": bis.cet1_ratio,
+        "tier1_ratio": bis.tier1_ratio,
+        "total_ratio": bis.total_ratio,
+        "cet1_surplus": bis.surplus_shortfall["cet1"],
+        "passes": bis.passes(),
+        "bis": bis,
+    }
+
+
+_STRESS_COLUMNS = [
+    "scenario", "rwa_irb", "rwa_total", "ecl", "incremental_ecl",
+    "cet1_ratio", "total_ratio", "cet1_surplus", "passes",
+]
+
+
 def run_stress(
     irb_portfolio: pd.DataFrame,
     capital: CapitalStack,
@@ -71,37 +120,14 @@ def run_stress(
 
     irb_portfolio: needs exposure_id, asset_class, ead, pd, lgd (+ maturity, dpd).
     rwa_other: non-IRB RWA held fixed under stress (SA credit + market + op).
-    capital: base capital; CET1 is reduced by the *incremental* ECL above base
-             (P&L impact) to illustrate the capital hit.
     """
     if scenarios is None:
         scenarios = [BASELINE, ADVERSE, SEVERELY_ADVERSE]
 
     base_ecl = compute_ecl(irb_portfolio, eir=eir)["ecl"].sum()
-    rows = []
-    for sc in scenarios:
-        stressed = apply_scenario(irb_portfolio, sc)
-        rwa_irb = compute_rwa_irb(stressed)["rwa"].sum()
-        ecl = compute_ecl(stressed, eir=eir)["ecl"].sum()
-        rwa_total = rwa_irb + rwa_other
-
-        incremental_ecl = max(ecl - base_ecl, 0.0)
-        stressed_cet1 = capital.cet1 - incremental_ecl
-        stressed_cap = CapitalStack(
-            cet1=stressed_cet1,
-            additional_t1=capital.additional_t1,
-            tier2=capital.tier2,
-        )
-        bis = compute_bis_ratios(stressed_cap, rwa_total, buffers=buffers)
-        rows.append({
-            "scenario": sc.name,
-            "rwa_irb": rwa_irb,
-            "rwa_total": rwa_total,
-            "ecl": ecl,
-            "incremental_ecl": incremental_ecl,
-            "cet1_ratio": bis.cet1_ratio,
-            "total_ratio": bis.total_ratio,
-            "cet1_surplus": bis.surplus_shortfall["cet1"],
-            "passes": bis.passes(),
-        })
-    return pd.DataFrame(rows)
+    rows = [
+        evaluate_scenario(irb_portfolio, capital, rwa_other, sc,
+                          base_ecl=base_ecl, buffers=buffers, eir=eir)
+        for sc in scenarios
+    ]
+    return pd.DataFrame(rows)[_STRESS_COLUMNS]
