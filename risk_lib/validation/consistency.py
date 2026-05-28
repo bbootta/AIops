@@ -216,12 +216,119 @@ def _check_rwa_aggregate(
         ))
 
 
+def _check_leverage(leverage_result, report: ValidationReport) -> None:
+    if leverage_result is None:
+        return
+    lr = leverage_result.leverage_ratio
+    if lr < 0 or lr > 1:
+        report.add(ConsistencyCheck("leverage_plausible", "FAIL",
+                   f"leverage ratio {lr:.4f} outside [0,1]", metric=lr))
+        return
+    if not leverage_result.passes():
+        report.add(ConsistencyCheck("leverage_min_3pct", "FAIL",
+                   f"leverage ratio {lr:.4%} below required {leverage_result.required:.4%}",
+                   metric=lr))
+    else:
+        report.add(ConsistencyCheck("leverage_min_3pct", "PASS",
+                   f"leverage ratio {lr:.4%} >= {leverage_result.required:.4%}",
+                   metric=lr))
+
+
+def _check_output_floor(of_result, report: ValidationReport) -> None:
+    if of_result is None:
+        return
+    if of_result.rwa_final + 1e-6 < of_result.rwa_internal:
+        report.add(ConsistencyCheck("output_floor_no_reduction", "FAIL",
+                   "floored RWA is below internal RWA (floor must not reduce RWA)"))
+    else:
+        status = "WARN" if of_result.is_binding else "PASS"
+        detail = (f"floor binding: +{of_result.add_on:,.0f} add-on"
+                  if of_result.is_binding else "internal RWA above floor")
+        report.add(ConsistencyCheck("output_floor_applied", status, detail,
+                   metric=of_result.rwa_final))
+
+
+def _check_market_op_rwa(market_rwa, op_rwa, report: ValidationReport) -> None:
+    for label, val in [("market_rwa_nonneg", market_rwa), ("op_rwa_nonneg", op_rwa)]:
+        if val is None:
+            continue
+        if val < 0:
+            report.add(ConsistencyCheck(label, "FAIL", f"{label} is negative", metric=val))
+        else:
+            report.add(ConsistencyCheck(label, "PASS", f"{val:,.0f}", metric=val))
+
+
+def _check_ecl(ecl_results: pd.DataFrame, report: ValidationReport) -> None:
+    if ecl_results is None or "ecl" not in ecl_results.columns:
+        return
+    if (ecl_results["ecl"] < -1e-6).any():
+        report.add(ConsistencyCheck("ecl_nonneg", "FAIL",
+                   "negative ECL present", metric=float((ecl_results["ecl"] < 0).sum())))
+    else:
+        report.add(ConsistencyCheck("ecl_nonneg", "PASS", "all ECL non-negative"))
+
+    if "stage" in ecl_results.columns and "coverage_ratio" in ecl_results.columns:
+        cov = ecl_results.groupby("stage")["coverage_ratio"].mean()
+        s1, s2, s3 = cov.get(1, 0.0), cov.get(2, 0.0), cov.get(3, 0.0)
+        if s1 - 1e-9 <= s2 <= s3 + 1e-9 or (s3 >= s2 >= s1):
+            report.add(ConsistencyCheck("ecl_stage_coverage_monotone", "PASS",
+                       f"coverage S1={s1:.4f} <= S2={s2:.4f} <= S3={s3:.4f}"))
+        else:
+            report.add(ConsistencyCheck("ecl_stage_coverage_monotone", "WARN",
+                       f"non-monotone coverage S1={s1:.4f} S2={s2:.4f} S3={s3:.4f}"))
+
+
+def _check_concentration(conc_df: pd.DataFrame, report: ValidationReport,
+                         threshold: float = 0.18) -> None:
+    if conc_df is None or "hhi" not in conc_df.columns:
+        return
+    breached = conc_df[conc_df["hhi"] > threshold]
+    if len(breached):
+        dims = ", ".join(f"{r['dimension']}={r['hhi']:.3f}"
+                         for _, r in breached.iterrows())
+        report.add(ConsistencyCheck("concentration_hhi", "WARN",
+                   f"HHI above {threshold} on: {dims}", metric=float(len(breached))))
+    else:
+        report.add(ConsistencyCheck("concentration_hhi", "PASS",
+                   f"all dimensions below HHI {threshold}"))
+
+
+def _check_stress_monotone(stress_df: pd.DataFrame, report: ValidationReport) -> None:
+    if stress_df is None or "scenario" not in stress_df.columns:
+        return
+    df = stress_df.set_index("scenario")
+    if "baseline" not in df.index:
+        return
+    base_rwa = df.loc["baseline", "rwa_total"]
+    base_cet1 = df.loc["baseline", "cet1_ratio"]
+    bad = []
+    for sc in df.index:
+        if sc == "baseline":
+            continue
+        if df.loc[sc, "rwa_total"] + 1e-6 < base_rwa:
+            bad.append(f"{sc}: RWA fell under stress")
+        if df.loc[sc, "cet1_ratio"] - 1e-9 > base_cet1:
+            bad.append(f"{sc}: CET1 ratio rose under stress")
+    if bad:
+        report.add(ConsistencyCheck("stress_monotone", "FAIL", "; ".join(bad)))
+    else:
+        report.add(ConsistencyCheck("stress_monotone", "PASS",
+                   "stressed RWA >= base and CET1 ratio <= base for all scenarios"))
+
+
 def run_consistency_checks(
     *,
     sa_results: pd.DataFrame | None = None,
     irb_results: pd.DataFrame | None = None,
     bis_result: Any = None,
     rwa_total_for_bis: float | None = None,
+    leverage_result: Any = None,
+    output_floor_result: Any = None,
+    market_rwa: float | None = None,
+    op_rwa: float | None = None,
+    ecl_results: pd.DataFrame | None = None,
+    concentration: pd.DataFrame | None = None,
+    stress_results: pd.DataFrame | None = None,
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
@@ -243,5 +350,12 @@ def run_consistency_checks(
     if bis_result is not None:
         _check_bis_plausible(bis_result, rep)
         _check_rwa_aggregate(rwa_total_for_bis, bis_result, rep)
+
+    _check_leverage(leverage_result, rep)
+    _check_output_floor(output_floor_result, rep)
+    _check_market_op_rwa(market_rwa, op_rwa, rep)
+    _check_ecl(ecl_results, rep)
+    _check_concentration(concentration, rep)
+    _check_stress_monotone(stress_results, rep)
 
     return rep

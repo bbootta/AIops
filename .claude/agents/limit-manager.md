@@ -41,9 +41,21 @@ report = engine.report(portfolio, exposure_col="ead")
 - `BREACH`: 100% ≤ util < 120%
 - `CRITICAL`: util ≥ 120%
 
+## 집중리스크 (HHI)
+
+```python
+from risk_lib.limits.concentration import concentration_report, hhi, normalised_hhi
+
+conc = concentration_report(portfolio, ["obligor_id", "sector", "country"])
+# 차원별: n_buckets, hhi, normalised_hhi, top1_share
+```
+- HHI = Σ(점유율²). 통상 0.18 초과 시 '집중' 경보 (risk-validator의 `concentration_hhi`).
+- 단일 차주 한도(이산적)와 HHI(연속적 분산도)를 함께 보고하여 집중 양상을 입체적으로 제시.
+
 ## 산출물
 
 - 위반 및 경보 행만 모은 표 (limit, dimension, bucket, exposure, threshold, utilisation, severity)
+- 차원별 HHI / 정규화 HHI / 최대 비중
 - 신규 거래 승인 시 사전 한도 시뮬레이션 가능 — 신규 EAD를 portfolio에 append 후 재평가
 - CRITICAL 발생 시 권고:
   - 즉시 줄임(매각, 헤지) 옵션과 효과 추정

@@ -47,9 +47,21 @@ result = compute_bis_ratios(cap, total_rwa, buffers={
 
 (경기대응 버퍼가 발동되면 위에 추가)
 
+## 레버리지비율 (Basel III LEV — BIS비율과 함께 보고)
+
+```python
+from risk_lib.capital.leverage import compute_leverage_ratio, exposure_measure
+
+em = exposure_measure(on_balance, off_balance_notional, off_balance_ccf,
+                      derivatives, sft)   # 부표외 CCF 하한 10%
+lev = compute_leverage_ratio(tier1, em, gsib_buffer=0.0)
+# LR = Tier1 / 익스포저측정치, 최저 3% (+ G-SIB 버퍼)
+```
+- 위험기반 비율과 별개의 backstop. RWA가 낮아도 레버리지비율이 3% 미만이면 미달.
+
 ## 산출물
 
-- 세 가지 비율의 실측치와 요구치, 잉여/부족분
+- 세 가지 BIS 비율 + 레버리지비율의 실측치와 요구치, 잉여/부족분
 - 종합 PASS/FAIL 판정
 - 자본 부족 시 권고:
   - 자본 증액 필요액 = (요구비율 − 실측비율) × RWA

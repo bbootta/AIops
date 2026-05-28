@@ -20,10 +20,16 @@ from risk_lib.validation.consistency import run_consistency_checks
 from risk_lib.validation.backtest import pd_backtest_report
 
 report = run_consistency_checks(
-    sa_results=sa_df,           # rwa-calculator output (SA)
-    irb_results=irb_df,         # rwa-calculator output (IRB)
-    bis_result=bis_obj,         # bis-ratio-analyst output
-    rwa_total_for_bis=rwa_sum,  # 검증용: BIS에 투입된 RWA가 RWA 합계와 일치하는지
+    sa_results=sa_df,             # rwa-calculator output (SA)
+    irb_results=irb_df,           # rwa-calculator output (IRB)
+    bis_result=bis_obj,           # bis-ratio-analyst output
+    rwa_total_for_bis=rwa_final,  # 검증용: BIS RWA == 최종 RWA 일치 확인
+    leverage_result=lev,          # bis-ratio-analyst (leverage)
+    output_floor_result=floor,    # rwa-calculator (output floor)
+    market_rwa=mkt.rwa, op_rwa=op.rwa,
+    ecl_results=ecl_df,           # ifrs9-ecl-analyst output
+    concentration=conc_df,        # limit-manager (HHI)
+    stress_results=stress_df,     # stress-test-engineer output
 )
 print(report.summary())   # {"PASS": n_pass, "WARN": n_warn, "FAIL": n_fail}
 
@@ -46,6 +52,13 @@ bt = pd_backtest_report(obligors_with_grade_and_default)
 | `bis_cet1_min` | CET1 ≥ 4.5% (Pillar 1) | 자본 증액 권고 |
 | `bis_ratio_ordering` | Total ≥ Tier1 ≥ CET1 | 자본 스택 입력 오류 |
 | `rwa_matches_bis_input` | sum(RWA) == BIS의 RWA 입력 | 합산 누락 검토 |
+| `leverage_min_3pct` | 레버리지비율 ≥ 3% (+버퍼) | 자본 증액 / 익스포저 축소 |
+| `output_floor_applied` | floored RWA ≥ 내부모형 RWA | binding 시 WARN(가산 발생) |
+| `market_rwa_nonneg`, `op_rwa_nonneg` | 시장·운영 RWA ≥ 0 | 입력/공식 점검 |
+| `ecl_nonneg` | 모든 ECL ≥ 0 | 충당금 산출 점검 |
+| `ecl_stage_coverage_monotone` | 커버리지 S1 ≤ S2 ≤ S3 | 비단조 시 WARN(스테이징 점검) |
+| `concentration_hhi` | 차원별 HHI ≤ 0.18 | 초과 시 WARN(집중 경보) |
+| `stress_monotone` | 스트레스 RWA ≥ 기준, CET1 비율 ≤ 기준 | 위반 시 모형 오류 |
 
 ## PD 백테스트 체크
 

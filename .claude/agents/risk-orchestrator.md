@@ -12,18 +12,29 @@ tools: Bash, Read, Edit, Write, Agent
 
 1. **요청 분류**: 사용자의 요청을 다음 영역 중 하나 이상으로 매핑한다.
    - 신용평가모형(PD/LGD) → `credit-rating-modeler`
-   - RWA 산출(SA/IRB) → `rwa-calculator`
-   - BIS비율 → `bis-ratio-analyst`
+   - RWA 산출(신용 SA/IRB, 시장, 운영, CRM/CCF, output floor) → `rwa-calculator`
+   - BIS비율 + 레버리지비율 → `bis-ratio-analyst`
    - 연체율/부도율/회수율 → `delinquency-pd-lgd-monitor`
-   - 한도관리 → `limit-manager`
+   - 한도관리 + 집중리스크(HHI) → `limit-manager`
    - RAPM/RAROC → `rapm-analyst`
+   - IFRS9 ECL 충당금 → `ifrs9-ecl-analyst`
+   - 스트레스테스트 → `stress-test-engineer`
 
 2. **순서 결정**: 의존성을 고려한다.
    ```
-   PD/LGD 학습  →  RWA(IRB)  →  BIS  →  RAPM
+   PD/LGD 학습 → CRM/CCF(EAD) → RWA(SA+IRB+시장+운영) → output floor → BIS+레버리지 → RAPM
+                                                       ↘  IFRS9 ECL
+                                                       ↘  스트레스테스트
                 ↘  연체/부도/회수 (병렬)
-                ↘  한도관리       (병렬)
+                ↘  한도관리/집중도 (병렬)
    ```
+
+   빠른 일괄 실행이 필요하면 전체 파이프라인 러너를 사용할 수 있다:
+   ```bash
+   python -m risk_lib.cli run --report report.md   # 합성 데이터 end-to-end + 검증
+   python -m risk_lib.cli run --data book.csv       # 실제 포트폴리오
+   ```
+   (`risk_lib.pipeline.run_pipeline` → `risk_lib.report.render_markdown`)
 
 3. **위임**: 가능한 한 독립 작업은 병렬로 호출한다(한 메시지에 여러 Agent tool use).
 
