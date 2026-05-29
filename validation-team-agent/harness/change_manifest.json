@@ -1155,6 +1155,21 @@
       "rollback_rule": "각 부문은 독립 SSoT — capital_adequacy 부문 전체 또는 외화LCR/도메스틱 ILM 만 부분 rollback 가능.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0078",
+      "timestamp": "2026-05-29 09:45:24",
+      "component": "harness/orchestration_matrix.{json,schema.json} + tools/workflow.py + tools/dry_run.py",
+      "change_type": "create",
+      "evidence": "사용자 요청: 다이나믹 워크플로우로 전체 하네스 강화. 기존은 정적 매트릭스 + dry_run 시뮬레이션 한정.",
+      "root_cause": "매트릭스가 정적 plan 만 산출하고, 실행 결과(자본 미달/VaR red/IRRBB outlier)에 따른 조건부 분기와 의존성 기반 실행 엔진이 없었음.",
+      "targeted_fix": "orchestration_matrix.schema 에 depends_on / on_fail_activate / activated_on_fail 추가. 위험 부문(capital/market/liquidity/irrbb)에 on_fail_activate=[9.escalate] 연결, 9.escalate step(activated_on_fail) 추가. tools/workflow.py WorkflowEngine: handler registry + 위상정렬(cycle 감지) + 게이트 평가(dry_run 재사용) + 실행 결과 fail 시 escalation 동적 삽입 + log_step/classify_error 연계. dry_run._gate_passes 가 activated_on_fail step 을 평소 제외.",
+      "expected_benefit": "정적 plan → 실행 결과 기반 동적 워크플로우. 위험 부문 fail 시 인간 검증자·MRMC 에스컬레이션 step 이 자동 추가되어 누락 방지. handler registry 로 확장 가능.",
+      "expected_regression_risk": "handler 미등록 step 은 simulated 처리(무해). 기존 dry_run/runner 영향 없음(escalation step 은 평소 plan 제외). depends_on cycle 은 WorkflowError 로 차단.",
+      "validation_method": "tests/test_workflow.py 14건 통과 + 기존 매트릭스 schema/audit/dry_run 테스트 모두 통과 (총 375건). 매트릭스 schema 검증 통과. 동적 escalation 데모 확인.",
+      "rollback_rule": "tools/workflow.py 삭제 + 매트릭스의 9.escalate/on_fail_activate/depends_on 제거 + dry_run._gate_passes 의 activated_on_fail 분기 제거 시 정적 동작 복귀.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

@@ -20,6 +20,9 @@ def test_every_step_has_unique_id_and_required_fields():
     for s in matrix["steps"]:
         for k in ("id", "name", "component", "rationale"):
             assert k in s and s[k]
-        # gate fields must be exclusive
-        gates = [k for k in ("always", "requires_all", "requires_any") if k in s]
+        # 각 step 은 최소 하나의 게이트를 가진다 (always / requires_* / activated_on_fail).
+        gates = [
+            k for k in ("always", "requires_all", "requires_any", "activated_on_fail")
+            if k in s
+        ]
         assert len(gates) >= 1

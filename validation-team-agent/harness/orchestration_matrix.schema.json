@@ -27,6 +27,7 @@
         "component": { "type": "string", "minLength": 1 },
         "rationale": { "type": "string", "minLength": 1 },
         "always": { "type": "boolean" },
+        "activated_on_fail": { "type": "boolean" },
         "requires_all": {
           "type": "array",
           "items": { "type": "string" },
@@ -36,6 +37,14 @@
           "type": "array",
           "items": { "type": "string" },
           "minItems": 1
+        },
+        "depends_on": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[0-9]+\\.[A-Za-z0-9_]+$" }
+        },
+        "on_fail_activate": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[0-9]+\\.[A-Za-z0-9_]+$" }
         },
         "expected_outputs": {
           "type": "array",
@@ -47,7 +56,8 @@
       "anyOf": [
         { "required": ["always"] },
         { "required": ["requires_all"] },
-        { "required": ["requires_any"] }
+        { "required": ["requires_any"] },
+        { "required": ["activated_on_fail"] }
       ]
     }
   }

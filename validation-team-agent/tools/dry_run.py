@@ -36,6 +36,10 @@ def _truthy(req: Mapping[str, Any], key: str) -> bool:
 
 
 def _gate_passes(step: Mapping[str, Any], request: Mapping[str, Any]) -> bool:
+    # activated_on_fail step 은 평소 plan 에서 제외 — 다른 step 의 on_fail_activate
+    # 로만 동적 활성화된다 (tools.workflow 가 처리).
+    if step.get("activated_on_fail"):
+        return False
     if step.get("always"):
         return True
     if "requires_all" in step:
