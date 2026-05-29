@@ -38,7 +38,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from risk_lib.provisioning.ecl import Stage, classify_stage, _discounted_loss
+from risk_lib.provisioning.ecl import (
+    Stage, classify_stage_vector, _discounted_loss, _vector_lifetime_const,
+)
 
 
 DEFAULT_RHO = 0.15  # asset correlation for the PIT transform (IFRS9 modelling choice)
@@ -68,6 +70,17 @@ class MacroScenario:
         tail = np.array([last * self.reversion ** k
                          for k in range(1, n_years - len(base) + 1)])
         return np.concatenate([base, tail])
+
+    def z_quarterly(self, n_quarters: int) -> np.ndarray:
+        """Quarterly systematic factor by ramping from today (z=0) and linearly
+        interpolating the annual z-path.  Quarter i (1..n) maps to fractional
+        year i/4; the anchor point (year 0, z=0) gives a smooth ramp-in."""
+        n_years = max(int(np.ceil(n_quarters / 4)), 1)
+        annual = self.z_path(n_years)
+        xp = np.arange(0, n_years + 1)                  # 0..n_years
+        fp = np.concatenate([[0.0], annual])            # z(0)=0 anchor
+        q_years = np.arange(1, n_quarters + 1) / 4.0
+        return np.interp(q_years, xp, fp)
 
 
 # Default IFRS 9 scenario set (probabilities sum to 1).  3-year explicit horizon.
@@ -131,6 +144,61 @@ def _scenario_ecl(
     return _discounted_loss(pits, lgd, ead, eir=eir, amortising=amortising)
 
 
+def _book_scenario_ecl(
+    k_vec: np.ndarray, lgd: np.ndarray, ead: np.ndarray, n_vec: np.ndarray,
+    stage: np.ndarray, z_path: np.ndarray, coef: float,
+    *, eir: float, amortising: bool = True,
+) -> np.ndarray:
+    """Vectorised per-exposure ECL under one scenario's time-varying z path.
+
+    k_vec = Φ⁻¹(PD_TTC).  Equivalent to `_scenario_ecl` row-wise: Stage 1 uses
+    the year-1 PIT PD, Stage 2 the full PIT term structure, Stage 3 LGD·EAD.
+    """
+    e = len(k_vec)
+    if e == 0:
+        return np.zeros(0)
+    n_max = max(int(n_vec.max()), 1)
+    z = np.asarray(z_path, dtype=float)[:n_max]
+    if len(z) < n_max:                       # pad with last z if path too short
+        z = np.concatenate([z, np.full(n_max - len(z), z[-1] if len(z) else 0.0)])
+    pit = norm.cdf(k_vec[:, None] + coef * z[None, :])      # (E, n_max)
+
+    # lifetime via non-constant-hazard survival
+    one_minus = 1 - pit
+    surv_prev = np.concatenate(
+        [np.ones((e, 1)), np.cumprod(one_minus, axis=1)[:, :-1]], axis=1)
+    marginal = surv_prev * pit
+    t = np.arange(1, n_max + 1)
+    n_col = n_vec[:, None]
+    ead_t = ead[:, None] * (1 - (t - 1) / n_col) if amortising else \
+        np.broadcast_to(ead[:, None], (e, n_max))
+    df = (1.0 + eir) ** (-t)
+    mask = t <= n_col
+    life = (marginal * lgd[:, None] * ead_t * df * mask).sum(axis=1)
+
+    ecl_12m = pit[:, 0] * lgd * ead
+    ecl_def = lgd * ead
+    return np.select([stage == 1, stage == 2, stage == 3],
+                     [ecl_12m, life, ecl_def])
+
+
+def _book_flat_z_ecl(
+    k_vec: np.ndarray, lgd: np.ndarray, ead: np.ndarray, n_vec: np.ndarray,
+    stage: np.ndarray, z: float, coef: float, *, eir: float,
+) -> np.ndarray:
+    """Book ECL under a single (flat) macro state z — the 'current conditions'
+    allowance used for the quarterly trajectory.  Stage 2 uses a constant PIT
+    hazard PD = Φ(k + coef·z) over remaining maturity."""
+    if len(k_vec) == 0:
+        return np.zeros(0)
+    pit = norm.cdf(k_vec + coef * z)
+    life = _vector_lifetime_const(pit, lgd, ead, n_vec, eir=eir)
+    ecl_12m = pit * lgd * ead
+    ecl_def = lgd * ead
+    return np.select([stage == 1, stage == 2, stage == 3],
+                     [ecl_12m, life, ecl_def])
+
+
 @dataclass
 class MacroECLResult:
     per_exposure: pd.DataFrame          # exposure_id, stage, ecl_<scenario>..., ecl
@@ -139,82 +207,122 @@ class MacroECLResult:
     scenarios: list[MacroScenario] = field(default_factory=list)
 
 
-def macro_ecl(
-    portfolio: pd.DataFrame,
-    scenarios: list[MacroScenario] | None = None,
-    *,
-    rho: float = DEFAULT_RHO,
-    rho_by_class: dict[str, float] | None = None,
-    eir: float = 0.05,
-    sicr_pd_multiple: float = 2.0,
-) -> MacroECLResult:
-    """Probability-weighted, forward-looking (PIT) IFRS 9 ECL.
-
-    Required columns: exposure_id, ead, pd, lgd
-    Optional: dpd, maturity, pd_origination, watchlist, asset_class
-    `pd` is treated as the TTC anchor that the PIT transform conditions on.
-    """
+def _prepare_book(portfolio: pd.DataFrame, sicr_pd_multiple: float):
+    """Shared frame prep + staging for the macro ECL functions."""
     required = {"exposure_id", "ead", "pd", "lgd"}
     missing = required - set(portfolio.columns)
     if missing:
         raise ValueError(f"portfolio missing columns: {missing}")
-    if scenarios is None:
-        scenarios = DEFAULT_MACRO_SCENARIOS
-
-    prob_sum = sum(s.probability for s in scenarios)
-    if prob_sum <= 0:
-        raise ValueError("scenario probabilities must be positive")
-
     df = portfolio.copy()
     if "dpd" not in df.columns:
         df["dpd"] = 0
     if "maturity" not in df.columns:
         df["maturity"] = 1.0
 
-    max_n = max(int(np.ceil(df["maturity"].max())), 1)
-    z_paths = {s.name: s.z_path(max_n) for s in scenarios}
+    pd_arr = np.clip(df["pd"].to_numpy(dtype=float), 1e-6, 1 - 1e-6)
+    lgd = np.clip(df["lgd"].to_numpy(dtype=float), 0.0, 1.0)
+    ead = np.maximum(df["ead"].to_numpy(dtype=float), 0.0)
+    n_vec = np.maximum(np.ceil(df["maturity"].to_numpy(dtype=float)).astype(int), 1)
+    stage = classify_stage_vector(
+        df["dpd"].to_numpy(dtype=float), df["pd"].to_numpy(dtype=float),
+        df["pd_origination"].to_numpy(dtype=float) if "pd_origination" in df.columns else None,
+        watchlist=df["watchlist"].to_numpy(dtype=bool) if "watchlist" in df.columns else None,
+        sicr_pd_multiple=sicr_pd_multiple,
+    )
+    return df, pd_arr, lgd, ead, n_vec, stage
 
-    stages: list[int] = []
-    scen_cols: dict[str, list[float]] = {s.name: [] for s in scenarios}
-    weighted: list[float] = []
 
-    for _, r in df.iterrows():
-        stage = classify_stage(
-            int(r["dpd"]), float(r["pd"]), r.get("pd_origination"),
-            sicr_pd_multiple=sicr_pd_multiple,
-            watchlist=bool(r.get("watchlist", False)),
-        )
-        rho_i = rho
-        if rho_by_class is not None:
-            rho_i = rho_by_class.get(r.get("asset_class"), rho)
+def macro_ecl(
+    portfolio: pd.DataFrame,
+    scenarios: list[MacroScenario] | None = None,
+    *,
+    rho: float = DEFAULT_RHO,
+    eir: float = 0.05,
+    sicr_pd_multiple: float = 2.0,
+) -> MacroECLResult:
+    """Probability-weighted, forward-looking (PIT) IFRS 9 ECL (vectorised).
 
-        w_ecl = 0.0
-        for s in scenarios:
-            ecl_s = _scenario_ecl(
-                float(r["pd"]), float(r["lgd"]), float(r["ead"]),
-                float(r["maturity"]), stage, z_paths[s.name],
-                rho=rho_i, eir=eir,
-            )
-            scen_cols[s.name].append(ecl_s)
-            w_ecl += s.probability * ecl_s
-        stages.append(int(stage))
-        weighted.append(w_ecl / prob_sum)
+    Required columns: exposure_id, ead, pd, lgd
+    Optional: dpd, maturity, pd_origination, watchlist
+    `pd` is treated as the TTC anchor that the PIT transform conditions on.
+    """
+    if scenarios is None:
+        scenarios = DEFAULT_MACRO_SCENARIOS
+    prob_sum = sum(s.probability for s in scenarios)
+    if prob_sum <= 0:
+        raise ValueError("scenario probabilities must be positive")
+
+    df, pd_arr, lgd, ead, n_vec, stage = _prepare_book(portfolio, sicr_pd_multiple)
+    k_vec = norm.ppf(pd_arr)
+    coef = _shift_coef(rho)
+    max_n = int(n_vec.max())
 
     out = df[["exposure_id", "ead"]].copy()
-    out["stage"] = stages
-    for name, vals in scen_cols.items():
-        out[f"ecl_{name}"] = vals
+    out["stage"] = stage
+    weighted = np.zeros(len(df))
+    scen_totals = {}
+    for s in scenarios:
+        ecl_s = _book_scenario_ecl(k_vec, lgd, ead, n_vec, stage,
+                                   s.z_path(max_n), coef, eir=eir)
+        out[f"ecl_{s.name}"] = ecl_s
+        weighted += s.probability * ecl_s
+        scen_totals[s.name] = float(ecl_s.sum())
+    weighted /= prob_sum
     out["ecl"] = weighted
     out["coverage_ratio"] = out["ecl"] / out["ead"].replace(0, np.nan)
 
     by_scen = pd.DataFrame({
         "scenario": [s.name for s in scenarios],
         "probability": [s.probability / prob_sum for s in scenarios],
-        "ecl": [float(np.sum(scen_cols[s.name])) for s in scenarios],
+        "ecl": [scen_totals[s.name] for s in scenarios],
     })
     return MacroECLResult(
         per_exposure=out,
         by_scenario=by_scen,
-        weighted_total=float(np.sum(weighted)),
+        weighted_total=float(weighted.sum()),
         scenarios=list(scenarios),
     )
+
+
+def macro_ecl_path(
+    portfolio: pd.DataFrame,
+    quarters: list[str],
+    scenarios: list[MacroScenario] | None = None,
+    *,
+    rho: float = DEFAULT_RHO,
+    eir: float = 0.05,
+    sicr_pd_multiple: float = 2.0,
+) -> pd.DataFrame:
+    """Quarterly IFRS 9 ECL allowance trajectory aligned to `quarters`.
+
+    For each quarter the book is revalued under that quarter's macro state
+    (`MacroScenario.z_quarterly`), respecting staging.  Returns a long frame:
+    scenario, quarter, q_index, z, ecl — plus a probability-weighted 'weighted'
+    pseudo-scenario per quarter (the headline IFRS 9 allowance path).
+    """
+    if scenarios is None:
+        scenarios = DEFAULT_MACRO_SCENARIOS
+    prob_sum = sum(s.probability for s in scenarios)
+    if prob_sum <= 0:
+        raise ValueError("scenario probabilities must be positive")
+
+    _, pd_arr, lgd, ead, n_vec, stage = _prepare_book(portfolio, sicr_pd_multiple)
+    k_vec = norm.ppf(pd_arr)
+    coef = _shift_coef(rho)
+    nq = len(quarters)
+
+    rows = []
+    weighted = np.zeros(nq)
+    for s in scenarios:
+        zq = s.z_quarterly(nq)
+        for i, (q, z) in enumerate(zip(quarters, zq)):
+            ecl = float(_book_flat_z_ecl(k_vec, lgd, ead, n_vec, stage,
+                                         z, coef, eir=eir).sum())
+            rows.append({"scenario": s.name, "quarter": q, "q_index": i,
+                         "z": float(z), "ecl": ecl})
+            weighted[i] += s.probability * ecl
+    weighted /= prob_sum
+    for i, q in enumerate(quarters):
+        rows.append({"scenario": "weighted", "quarter": q, "q_index": i,
+                     "z": float("nan"), "ecl": float(weighted[i])})
+    return pd.DataFrame(rows)

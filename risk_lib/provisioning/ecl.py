@@ -96,13 +96,73 @@ def lifetime_ecl(
     return _discounted_loss([pd_12m] * n, lgd, ead, eir=eir, amortising=amortising)
 
 
+def _vector_lifetime_const(
+    pd_vec: np.ndarray,
+    lgd_vec: np.ndarray,
+    ead_vec: np.ndarray,
+    n_vec: np.ndarray,
+    *,
+    eir: float = 0.05,
+    amortising: bool = True,
+) -> np.ndarray:
+    """Vectorised constant-hazard lifetime ECL over a book.
+
+    Equivalent to calling `lifetime_ecl` per exposure; constant per-period PD,
+    linear amortisation, EIR discounting.  n_vec is the integer year count.
+    """
+    pd_vec = np.clip(np.asarray(pd_vec, dtype=float), 0.0, 1.0)
+    lgd_vec = np.clip(np.asarray(lgd_vec, dtype=float), 0.0, 1.0)
+    ead_vec = np.asarray(ead_vec, dtype=float)
+    n_vec = np.maximum(np.asarray(n_vec, dtype=int), 1)
+    if len(pd_vec) == 0:
+        return np.zeros(0)
+
+    n_max = int(n_vec.max())
+    t = np.arange(1, n_max + 1)                       # (T,)
+    p = pd_vec[:, None]                               # (E,1)
+    n = n_vec[:, None]
+    surv_prev = (1 - p) ** (t - 1)                    # (E,T)
+    marginal = surv_prev * p
+    ead_t = ead_vec[:, None] * (1 - (t - 1) / n) if amortising else \
+        np.broadcast_to(ead_vec[:, None], (len(pd_vec), n_max))
+    df = (1.0 + eir) ** (-t)                          # (T,)
+    mask = t <= n                                     # (E,T)
+    contrib = marginal * lgd_vec[:, None] * ead_t * df * mask
+    return contrib.sum(axis=1)
+
+
+def classify_stage_vector(
+    dpd: np.ndarray,
+    pd_current: np.ndarray,
+    pd_origination: np.ndarray | None = None,
+    *,
+    watchlist: np.ndarray | None = None,
+    sicr_pd_multiple: float = 2.0,
+    sicr_dpd: int = 30,
+    default_dpd: int = 90,
+) -> np.ndarray:
+    """Vectorised IFRS 9 staging (int array of 1/2/3); see `classify_stage`."""
+    dpd = np.asarray(dpd, dtype=float)
+    pd_current = np.asarray(pd_current, dtype=float)
+    n = len(dpd)
+    wl = np.zeros(n, dtype=bool) if watchlist is None else np.asarray(watchlist, dtype=bool)
+    if pd_origination is not None:
+        po = np.asarray(pd_origination, dtype=float)
+        pd_jump = (po > 0) & (pd_current >= sicr_pd_multiple * po)
+    else:
+        pd_jump = np.zeros(n, dtype=bool)
+    stage3 = dpd >= default_dpd
+    sicr = (dpd >= sicr_dpd) | wl | pd_jump
+    return np.where(stage3, 3, np.where(sicr & ~stage3, 2, 1)).astype(int)
+
+
 def compute_ecl(
     portfolio: pd.DataFrame,
     *,
     eir: float = 0.05,
     sicr_pd_multiple: float = 2.0,
 ) -> pd.DataFrame:
-    """Add IFRS 9 stage and ECL to a portfolio.
+    """Add IFRS 9 stage and ECL to a portfolio (vectorised).
 
     Required columns: exposure_id, ead, pd, lgd
     Optional: dpd (default 0), maturity (default 1.0), pd_origination, watchlist
@@ -118,24 +178,27 @@ def compute_ecl(
     if "maturity" not in df.columns:
         df["maturity"] = 1.0
 
-    stages, ecls = [], []
-    for _, r in df.iterrows():
-        stage = classify_stage(
-            int(r["dpd"]), float(r["pd"]),
-            r.get("pd_origination"),
-            sicr_pd_multiple=sicr_pd_multiple,
-            watchlist=bool(r.get("watchlist", False)),
-        )
-        if stage == Stage.STAGE_1:
-            ecl = twelve_month_ecl(r["pd"], r["lgd"], r["ead"])
-        elif stage == Stage.STAGE_2:
-            ecl = lifetime_ecl(r["pd"], r["lgd"], r["ead"], r["maturity"], eir=eir)
-        else:  # Stage 3: defaulted, PD=1
-            ecl = max(r["lgd"], 0.0) * max(r["ead"], 0.0)
-        stages.append(int(stage))
-        ecls.append(ecl)
+    pd_arr = df["pd"].to_numpy(dtype=float)
+    lgd = df["lgd"].to_numpy(dtype=float)
+    ead = df["ead"].to_numpy(dtype=float)
+    watchlist = (df["watchlist"].to_numpy(dtype=bool) if "watchlist" in df.columns
+                 else None)
+    pd_orig = (df["pd_origination"].to_numpy(dtype=float)
+               if "pd_origination" in df.columns else None)
 
-    df["stage"] = stages
-    df["ecl"] = ecls
+    stage = classify_stage_vector(
+        df["dpd"].to_numpy(dtype=float), pd_arr, pd_orig,
+        watchlist=watchlist, sicr_pd_multiple=sicr_pd_multiple,
+    )
+
+    n_vec = np.maximum(np.ceil(df["maturity"].to_numpy(dtype=float)).astype(int), 1)
+    ecl_12m = np.maximum(pd_arr, 0.0) * np.clip(lgd, 0.0, 1.0) * np.maximum(ead, 0.0)
+    ecl_life = _vector_lifetime_const(pd_arr, lgd, ead, n_vec, eir=eir)
+    ecl_def = np.maximum(lgd, 0.0) * np.maximum(ead, 0.0)
+    ecl = np.select([stage == 1, stage == 2, stage == 3],
+                    [ecl_12m, ecl_life, ecl_def])
+
+    df["stage"] = stage
+    df["ecl"] = ecl
     df["coverage_ratio"] = df["ecl"] / df["ead"].replace(0, np.nan)
     return df

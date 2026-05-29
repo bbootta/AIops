@@ -13,9 +13,10 @@ Hurdle rate comparison: RAROC > cost of equity ⇒ value-creating.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
-from risk_lib.capital.rwa_irb import irb_capital_requirement
+from risk_lib.capital.rwa_irb import irb_capital_requirement, irb_k_vector
 
 
 def economic_capital(
@@ -78,21 +79,31 @@ def rapm_report(
     if missing:
         raise ValueError(f"portfolio missing columns: {missing}")
 
-    df = portfolio.copy()
-    if "maturity" not in df.columns:
-        df["maturity"] = 2.5
+    df = portfolio
+    maturity = (df["maturity"].to_numpy(dtype=float)
+                if "maturity" in df.columns else np.full(len(df), 2.5))
+    pd_v = df["pd"].to_numpy(dtype=float)
+    lgd = df["lgd"].to_numpy(dtype=float)
+    ead = df["ead"].to_numpy(dtype=float)
+    revenue = df["revenue"].to_numpy(dtype=float)
+    op_cost = df["operating_cost"].to_numpy(dtype=float)
 
-    rows = df.apply(
-        lambda r: raroc(
-            r["revenue"], r["operating_cost"],
-            r["pd"], r["lgd"], r["ead"],
-            asset_class=r["asset_class"], maturity=r["maturity"],
-            risk_free_rate=risk_free_rate,
-        ),
-        axis=1, result_type="expand",
-    )
-    out = pd.concat([df[["exposure_id"]].reset_index(drop=True),
-                     rows.reset_index(drop=True)], axis=1)
+    el = pd_v * lgd * ead
+    ec = irb_k_vector(pd_v, lgd, df["asset_class"].to_numpy(), maturity) * ead
+    cap_benefit = ec * risk_free_rate
+    net = revenue - op_cost - el + cap_benefit
+    with np.errstate(divide="ignore", invalid="ignore"):
+        raroc_v = np.where(ec > 0, net / ec, np.inf)
+
+    out = pd.DataFrame({
+        "exposure_id": df["exposure_id"].to_numpy(),
+        "revenue": revenue,
+        "operating_cost": op_cost,
+        "expected_loss": el,
+        "capital_benefit": cap_benefit,
+        "economic_capital": ec,
+        "raroc": raroc_v,
+    })
     out["value_added"] = (out["raroc"] - hurdle_rate) * out["economic_capital"]
     out["pass_hurdle"] = out["raroc"] >= hurdle_rate
     return out

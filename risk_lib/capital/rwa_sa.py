@@ -55,6 +55,14 @@ _RW_RETAIL_OTHER = 1.00
 _RW_PAST_DUE = 1.50
 
 
+# Public per-asset-class rating→RW tables (for vectorised lookups).
+SA_RISK_WEIGHTS = {
+    "sovereign": _RW_SOVEREIGN,
+    "bank": _RW_BANK_ECRA,
+    "corporate": _RW_CORPORATE,
+}
+
+
 def _mortgage_rw(ltv: float) -> float:
     """Residential mortgage RW by LTV (Basel III CRE20.82, whole-loan approach)."""
     if ltv <= 0.50:

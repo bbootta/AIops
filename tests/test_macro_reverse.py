@@ -8,7 +8,7 @@ from risk_lib.capital.bis import CapitalStack, compute_bis_ratios
 from risk_lib.capital.rwa_irb import compute_rwa_irb
 from risk_lib.provisioning.ecl import compute_ecl
 from risk_lib.provisioning.macro import (
-    MacroScenario, DEFAULT_MACRO_SCENARIOS, pit_pd, macro_ecl,
+    MacroScenario, DEFAULT_MACRO_SCENARIOS, pit_pd, macro_ecl, macro_ecl_path,
 )
 from risk_lib.stress.scenario import (
     ADVERSE, run_stress, evaluate_scenario, StressAxis,
@@ -127,6 +127,52 @@ def test_macro_ecl_probabilities_renormalised():
     assert res.by_scenario["probability"].sum() == pytest.approx(1.0)
 
 
+# ---------- quarterly macro ECL path -------------------------------------
+
+_QS = ["2026Q3", "2026Q4", "2027Q1", "2027Q2", "2027Q3",
+       "2027Q4", "2028Q1", "2028Q2", "2028Q3", "2028Q4"]
+
+
+def test_z_quarterly_ramps_from_zero():
+    sev = MacroScenario("severe", 0.2, gdp_path=(-0.05, -0.03, -0.01))
+    zq = sev.z_quarterly(10)
+    assert len(zq) == 10
+    assert zq[0] > 0                       # downturn ⇒ positive z
+    assert zq[0] < zq[3]                   # ramps in over year 1
+    annual = sev.z_path(3)
+    assert zq[3] == pytest.approx(annual[0])   # Q4 of year 1 == annual z1
+    baseline = MacroScenario("baseline", 0.5, gdp_path=(0.0, 0.0, 0.0))
+    assert np.allclose(baseline.z_quarterly(10), 0.0)
+
+
+def test_macro_ecl_path_shape_and_weighted():
+    res = macro_ecl_path(_mixed_book(), _QS, DEFAULT_MACRO_SCENARIOS)
+    assert set(res["scenario"]) == {"baseline", "downside", "severe", "weighted"}
+    assert len(res) == 4 * len(_QS)
+    scen = res[res["scenario"] != "weighted"]
+    wq = res[res["scenario"] == "weighted"].set_index("q_index")["ecl"]
+    env = scen.groupby("q_index")["ecl"].agg(["min", "max"])
+    for i in wq.index:
+        assert env.loc[i, "min"] - 1e-6 <= wq[i] <= env.loc[i, "max"] + 1e-6
+
+
+def test_macro_ecl_path_baseline_flat_severe_higher():
+    res = macro_ecl_path(_mixed_book(), _QS, DEFAULT_MACRO_SCENARIOS)
+    base = res[res["scenario"] == "baseline"]["ecl"]
+    assert base.nunique() == 1                       # flat z ⇒ constant ECL
+    sev = res[res["scenario"] == "severe"].set_index("q_index")["ecl"]
+    b = res[res["scenario"] == "baseline"].set_index("q_index")["ecl"]
+    assert (sev >= b - 1e-6).all()                   # downturn raises ECL
+
+
+def test_validation_macro_ecl_path():
+    res = macro_ecl_path(_mixed_book(), _QS, DEFAULT_MACRO_SCENARIOS)
+    rep = run_consistency_checks(macro_ecl_path_result=res)
+    names = {c.name: c.status for c in rep.checks}
+    assert names["macro_path_ecl_nonneg"] == "PASS"
+    assert names["macro_path_weighted_in_envelope"] == "PASS"
+
+
 # ---------- evaluate_scenario shared logic -------------------------------
 
 def test_evaluate_scenario_matches_run_stress():
@@ -201,7 +247,6 @@ def test_reverse_stress_hits_target_is_converged():
 # ---------- validation hooks ---------------------------------------------
 
 # ---------- quarterly stress path ---------------------------------------
-
 def test_forecast_quarter_labels_through_year_after_next():
     qs = forecast_quarter_labels(date(2026, 5, 29), years_ahead=2)
     assert qs[0] == "2026Q3"

@@ -123,6 +123,26 @@ def render_markdown(result: PipelineResult) -> str:
         add(f"| {row['scenario']} | {row['probability']:.0%} | {_won(row['ecl'])} |")
     add("")
 
+    # ---- 분기별 ECL 충당금 경로 (동일 분기 축) ----
+    mp = r.macro_ecl_path
+    wq = mp[mp["scenario"] == "weighted"]
+    if not wq.empty:
+        qs = list(wq["quarter"])
+        add(f"### 6-2. 분기별 ECL 충당금 경로 ({qs[0]}~{qs[-1]}, IFRS9 forward-looking)")
+        add("")
+        add("| 시나리오 | " + " | ".join(qs) + " |")
+        add("|---|" + "---:|" * len(qs))
+        for name in ["baseline", "downside", "severe", "weighted"]:
+            g = mp[mp["scenario"] == name]
+            if g.empty:
+                continue
+            label = "확률가중" if name == "weighted" else name
+            add(f"| {label} | "
+                + " | ".join(f"{v/1e9:,.1f}" for v in g["ecl"]) + " |")
+        add("")
+        add("> 단위: 십억원. 확률가중 행이 분기별 IFRS9 충당금 추정치.")
+        add("")
+
     # ---- 모니터링 ----
     m = r.monitoring
     add("## 7. 연체율 / 부도율 / 회수율")

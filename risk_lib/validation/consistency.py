@@ -405,6 +405,30 @@ def _check_stress_path(path_df: pd.DataFrame, report: ValidationReport) -> None:
                    f"{ {s: round(trough[s], 4) for s in present} }"))
 
 
+def _check_macro_ecl_path(path_df: pd.DataFrame, report: ValidationReport) -> None:
+    if path_df is None or "scenario" not in getattr(path_df, "columns", []):
+        return
+    if (path_df["ecl"] < -1e-6).any():
+        report.add(ConsistencyCheck("macro_path_ecl_nonneg", "FAIL",
+                   "negative ECL in quarterly allowance path"))
+    else:
+        report.add(ConsistencyCheck("macro_path_ecl_nonneg", "PASS",
+                   "quarterly ECL path non-negative"))
+    # The probability-weighted path must lie within the scenario envelope each quarter.
+    scen = path_df[path_df["scenario"] != "weighted"]
+    wq = path_df[path_df["scenario"] == "weighted"].set_index("q_index")["ecl"]
+    if not wq.empty and not scen.empty:
+        env = scen.groupby("q_index")["ecl"].agg(["min", "max"])
+        ok = all(env.loc[i, "min"] - 1e-6 <= wq[i] <= env.loc[i, "max"] + 1e-6
+                 for i in wq.index)
+        if ok:
+            report.add(ConsistencyCheck("macro_path_weighted_in_envelope", "PASS",
+                       "weighted ECL within scenario envelope every quarter"))
+        else:
+            report.add(ConsistencyCheck("macro_path_weighted_in_envelope", "FAIL",
+                       "weighted ECL outside scenario envelope in some quarter"))
+
+
 def run_consistency_checks(
     *,
     sa_results: pd.DataFrame | None = None,
@@ -421,6 +445,7 @@ def run_consistency_checks(
     macro_ecl_result: Any = None,
     reverse_stress_result: Any = None,
     stress_path_result: pd.DataFrame | None = None,
+    macro_ecl_path_result: pd.DataFrame | None = None,
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
@@ -452,5 +477,6 @@ def run_consistency_checks(
     _check_macro_ecl(macro_ecl_result, rep)
     _check_reverse_stress(reverse_stress_result, rep)
     _check_stress_path(stress_path_result, rep)
+    _check_macro_ecl_path(macro_ecl_path_result, rep)
 
     return rep

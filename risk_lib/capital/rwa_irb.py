@@ -93,7 +93,7 @@ def irb_capital_requirement(
 
 
 def compute_rwa_irb(portfolio: pd.DataFrame) -> pd.DataFrame:
-    """Compute IRB RWA for a portfolio.
+    """Compute IRB RWA for a portfolio (vectorised).
 
     Required columns: exposure_id, asset_class, ead, pd, lgd
     Optional: maturity (defaults 2.5y for wholesale, ignored for retail)
@@ -107,13 +107,69 @@ def compute_rwa_irb(portfolio: pd.DataFrame) -> pd.DataFrame:
     if "maturity" not in df.columns:
         df["maturity"] = 2.5
 
-    df["k"] = df.apply(
-        lambda r: irb_capital_requirement(
-            r["pd"], r["lgd"], r["asset_class"], r.get("maturity", 2.5),
-        ),
-        axis=1,
+    df["k"] = irb_k_vector(
+        df["pd"].to_numpy(dtype=float),
+        df["lgd"].to_numpy(dtype=float),
+        df["asset_class"].to_numpy(),
+        df["maturity"].to_numpy(dtype=float),
     )
     df["rwa"] = df["k"] * 12.5 * df["ead"]
     df["capital_8pct"] = df["rwa"] * 0.08
     df["el"] = df["pd"] * df["lgd"] * df["ead"]  # Expected Loss
     return df
+
+
+def irb_k_vector(
+    pd_value: np.ndarray,
+    lgd: np.ndarray,
+    asset_class: np.ndarray,
+    maturity: np.ndarray,
+    *,
+    apply_floor: bool = True,
+) -> np.ndarray:
+    """Vectorised capital requirement K per unit EAD.
+
+    Numerically identical to `irb_capital_requirement` applied row-wise, but
+    computed with array ops + vectorised scipy norm so it scales to large books.
+    """
+    pd_value = np.asarray(pd_value, dtype=float)
+    lgd = np.clip(np.asarray(lgd, dtype=float), 0.0, 1.0)
+    ac = np.asarray([str(a).lower() for a in asset_class])
+    maturity = np.asarray(maturity, dtype=float)
+
+    if apply_floor:
+        floor = np.where(np.char.find(ac, "retail") >= 0,
+                         PD_FLOOR_RETAIL, PD_FLOOR_CORPORATE)
+        pd_value = np.maximum(pd_value, floor)
+    pd_value = np.clip(pd_value, 1e-10, 1.0)
+
+    wholesale = np.isin(ac, ("corporate", "sovereign", "bank"))
+    # Asset correlation R per CRE31, per asset class.
+    w50 = (1 - np.exp(-50 * pd_value)) / (1 - math.exp(-50))
+    r_wholesale = 0.12 * w50 + 0.24 * (1 - w50)
+    w35 = (1 - np.exp(-35 * pd_value)) / (1 - math.exp(-35))
+    r_retail_other = 0.03 * w35 + 0.16 * (1 - w35)
+    r = np.select(
+        [wholesale, ac == "residential_mortgage",
+         ac == "retail_revolving", ac == "retail_other"],
+        [r_wholesale, np.full_like(pd_value, 0.15),
+         np.full_like(pd_value, 0.04), r_retail_other],
+        default=np.nan,
+    )
+    if np.isnan(r).any():
+        bad = sorted(set(ac[np.isnan(r)]))
+        raise ValueError(f"unknown asset_class: {bad}")
+
+    g_pd = norm.ppf(pd_value)
+    g_999 = norm.ppf(0.999)
+    cond_pd = norm.cdf(np.sqrt(1.0 / (1.0 - r)) * g_pd
+                       + np.sqrt(r / (1.0 - r)) * g_999)
+    k = lgd * (cond_pd - pd_value)
+
+    # Maturity adjustment (wholesale only).
+    b = (0.11852 - 0.05478 * np.log(pd_value)) ** 2
+    m = np.clip(maturity, 1.0, 5.0)
+    mat_adj = (1 + (m - 2.5) * b) / (1 - 1.5 * b)
+    k = np.where(wholesale, k * mat_adj, k)
+
+    return np.maximum(k, 0.0)

@@ -20,7 +20,9 @@ from risk_lib.data_gen import (
 )
 from risk_lib.models.pd_model import fit_pd_model, gini, ks_statistic
 from risk_lib.models.rating import pd_to_rating, DEFAULT_MASTER_SCALE
-from risk_lib.capital.rwa_sa import compute_rwa_sa, sa_risk_weight
+from risk_lib.capital.rwa_sa import (
+    compute_rwa_sa, sa_risk_weight, SA_RISK_WEIGHTS, _mortgage_rw,
+)
 from risk_lib.capital.rwa_irb import compute_rwa_irb
 from risk_lib.capital.bis import CapitalStack, compute_bis_ratios
 from risk_lib.capital.op_risk import BusinessIndicator, compute_op_risk_rwa
@@ -28,7 +30,7 @@ from risk_lib.capital.market_risk import compute_market_risk_rwa
 from risk_lib.capital.output_floor import apply_output_floor, FULLY_LOADED_FLOOR
 from risk_lib.capital.leverage import compute_leverage_ratio, exposure_measure
 from risk_lib.provisioning.ecl import compute_ecl
-from risk_lib.provisioning.macro import macro_ecl, DEFAULT_MACRO_SCENARIOS
+from risk_lib.provisioning.macro import macro_ecl, macro_ecl_path, DEFAULT_MACRO_SCENARIOS
 from risk_lib.monitoring.delinquency import delinquency_summary, default_rate
 from risk_lib.monitoring.recovery import cumulative_recovery_rate
 from risk_lib.limits.limit_engine import LimitDefinition, LimitEngine
@@ -70,6 +72,7 @@ class PipelineResult:
     rapm: pd.DataFrame
     stress: pd.DataFrame
     macro_ecl: Any
+    macro_ecl_path: pd.DataFrame
     reverse_stress: Any
     stress_path: pd.DataFrame
     stress_path_trough: pd.DataFrame
@@ -105,23 +108,43 @@ def _fit_segment_pd(portfolio: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
 
 def _standardised_rwa_all(portfolio: pd.DataFrame) -> float:
-    """Full-standardised RWA across the whole book (output-floor denominator)."""
-    df = portfolio.copy()
+    """Full-standardised RWA across the whole book (output-floor denominator).
 
-    def _rw(row) -> float:
-        ac = row["asset_class"]
-        if ac in ("sovereign", "bank"):
-            return sa_risk_weight(ac, row.get("rating", "UNRATED"))
-        if ac == "corporate":
-            bucket = _SA_CORP_BUCKET_BY_GRADE.get(row.get("grade"), "UNRATED")
-            return sa_risk_weight("corporate", bucket)
-        if ac == "retail_other":
-            return sa_risk_weight("retail_regulatory")
-        if ac == "residential_mortgage":
-            return sa_risk_weight("residential_mortgage", ltv=row.get("ltv", 0.8))
-        return 1.0
+    Vectorised: risk weights are resolved per asset class with array maps, so
+    the whole book is processed without a Python row loop.
+    """
+    import numpy as np
 
-    return float((df["ead"] * df.apply(_rw, axis=1)).sum())
+    df = portfolio
+    ac = df["asset_class"].to_numpy()
+    ead = df["ead"].to_numpy(dtype=float)
+    rw = np.ones(len(df))
+
+    for cls in ("sovereign", "bank"):
+        m = ac == cls
+        if m.any():
+            table = SA_RISK_WEIGHTS[cls]
+            ratings = df.loc[m, "rating"].fillna("UNRATED") if "rating" in df.columns \
+                else pd.Series(["UNRATED"] * int(m.sum()))
+            rw[m] = ratings.map(lambda x: table.get(x, table["UNRATED"])).to_numpy()
+
+    m = ac == "corporate"
+    if m.any():
+        table = SA_RISK_WEIGHTS["corporate"]
+        grades = df.loc[m, "grade"] if "grade" in df.columns else None
+        buckets = (grades.map(lambda g: _SA_CORP_BUCKET_BY_GRADE.get(g, "UNRATED"))
+                   if grades is not None else pd.Series(["UNRATED"] * int(m.sum())))
+        rw[m] = buckets.map(lambda b: table.get(b, table["UNRATED"])).to_numpy()
+
+    rw[ac == "retail_other"] = sa_risk_weight("retail_regulatory")
+
+    m = ac == "residential_mortgage"
+    if m.any():
+        ltv = df.loc[m, "ltv"].fillna(0.8).to_numpy(dtype=float) if "ltv" in df.columns \
+            else np.full(int(m.sum()), 0.8)
+        rw[m] = [_mortgage_rw(x) for x in ltv]
+
+    return float((ead * rw).sum())
 
 
 def run_pipeline(
@@ -249,6 +272,8 @@ def run_pipeline(
                                   quarters=quarters, axis=StressAxis(),
                                   buffers=buffers)
     stress_path_trough = path_trough_summary(stress_path)
+    # IFRS9 forward-looking ECL allowance on the same quarterly axis
+    macro_path = macro_ecl_path(irb_book, quarters, DEFAULT_MACRO_SCENARIOS)
 
     # 13. Self-verification
     validation = run_consistency_checks(
@@ -259,6 +284,7 @@ def run_pipeline(
         ecl_results=ecl_df, concentration=conc, stress_results=stress,
         macro_ecl_result=macro, reverse_stress_result=reverse,
         stress_path_result=stress_path,
+        macro_ecl_path_result=macro_path,
     )
 
     corp = portfolio[portfolio["asset_class"] == "corporate"]
@@ -287,6 +313,7 @@ def run_pipeline(
         limits=limit_report, concentration=conc,
         rapm=rapm_by_class, stress=stress,
         macro_ecl=macro, reverse_stress=reverse,
+        macro_ecl_path=macro_path,
         stress_path=stress_path, stress_path_trough=stress_path_trough,
         backtest=backtest, validation=validation,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
