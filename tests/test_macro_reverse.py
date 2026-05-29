@@ -51,6 +51,12 @@ def test_pit_pd_higher_rho_more_sensitive():
     assert pit_pd(0.03, 1.5, rho=0.25) > pit_pd(0.03, 1.5, rho=0.10)
 
 
+def test_pit_pd_rho_guard():
+    # rho >= 1 must not divide-by-zero / produce NaN (clipped internally)
+    assert 0.0 <= pit_pd(0.02, 1.0, rho=1.0) <= 1.0
+    assert 0.0 <= pit_pd(0.02, 1.0, rho=1.5) <= 1.0
+
+
 def test_z_path_reversion():
     sev = MacroScenario("severe", 0.2, gdp_path=(-0.05, -0.03, -0.01))
     z = sev.z_path(6)
@@ -172,8 +178,18 @@ def test_reverse_stress_already_breached():
     rwa_other = float(compute_rwa_irb(book)["rwa"].sum())
     cap = _capital_for(book, rwa_other, 0.05)   # base CET1 5% < 7% target
     res = reverse_stress(book, cap, rwa_other, target_ratio=0.07)
+    assert res.already_breached
     assert not res.resilient
     assert res.critical_severity == 0.0
+
+
+def test_reverse_stress_hits_target_is_converged():
+    book = _book()
+    rwa_other = float(compute_rwa_irb(book)["rwa"].sum())
+    cap = _capital_for(book, rwa_other, 0.09)
+    res = reverse_stress(book, cap, rwa_other, target_ratio=0.07)
+    assert res.converged
+    assert not res.already_breached
 
 
 # ---------- validation hooks ---------------------------------------------

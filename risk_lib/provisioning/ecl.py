@@ -53,6 +53,33 @@ def twelve_month_ecl(pd_12m: float, lgd: float, ead: float) -> float:
     return max(pd_12m, 0.0) * max(min(lgd, 1.0), 0.0) * max(ead, 0.0)
 
 
+def _discounted_loss(
+    one_year_pds,
+    lgd: float,
+    ead: float,
+    *,
+    eir: float = 0.05,
+    amortising: bool = True,
+) -> float:
+    """Σ_t marginal_PD_t · LGD · EAD_t · DF_t over a per-year 1y-PD sequence.
+
+    S(0)=1; marginal_PD_t = S(t-1)·p_t; S(t)=S(t-1)·(1-p_t); DF=1/(1+EIR)^t.
+    EAD_t is the beginning-of-year balance under linear amortisation when
+    `amortising`, else flat.  Shared by the constant-hazard (TTC) and PIT paths.
+    """
+    n = len(one_year_pds)
+    surv_prev = 1.0
+    ecl = 0.0
+    for t in range(1, n + 1):
+        p_t = one_year_pds[t - 1]
+        marginal_pd = surv_prev * p_t
+        ead_t = ead * (1 - (t - 1) / n) if amortising else ead
+        df = 1.0 / ((1 + eir) ** t)
+        ecl += marginal_pd * lgd * ead_t * df
+        surv_prev *= (1 - p_t)
+    return ecl
+
+
 def lifetime_ecl(
     pd_12m: float,
     lgd: float,
@@ -66,17 +93,7 @@ def lifetime_ecl(
     pd_12m = float(np.clip(pd_12m, 0.0, 1.0))
     lgd = float(np.clip(lgd, 0.0, 1.0))
     n = max(int(np.ceil(maturity_years)), 1)
-    surv_prev = 1.0
-    ecl = 0.0
-    for t in range(1, n + 1):
-        surv = (1 - pd_12m) ** t
-        marginal_pd = surv_prev - surv
-        # exposure profile: linear amortisation to zero at maturity, else flat
-        ead_t = ead * (1 - (t - 1) / n) if amortising else ead
-        df = 1.0 / ((1 + eir) ** t)
-        ecl += marginal_pd * lgd * ead_t * df
-        surv_prev = surv
-    return ecl
+    return _discounted_loss([pd_12m] * n, lgd, ead, eir=eir, amortising=amortising)
 
 
 def compute_ecl(

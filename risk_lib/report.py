@@ -182,7 +182,10 @@ def render_markdown(result: PipelineResult) -> str:
     add("### 11-1. 역스트레스테스트 (CET1 임계 시나리오)")
     add("")
     add(f"- 기준 CET1: {rev.base_ratio:.2%} / 임계(버퍼포함 요구): {rev.target_ratio:.2%}")
-    if rev.resilient:
+    if rev.already_breached:
+        add(f"- **무충격 상태에서 이미 임계 미달** (CET1 {rev.base_ratio:.2%} "
+            f"≤ 임계 {rev.target_ratio:.2%}) — 역스트레스 해 없음, 즉시 자본확충 필요.")
+    elif rev.resilient:
         add(f"- 최대 심도(s={rev.critical_severity:.1f})에서도 CET1 "
             f"{rev.ratio_at_break:.2%} > 임계 — **자본 내성 확보**.")
     else:

@@ -338,9 +338,12 @@ def _check_macro_ecl(macro, report: ValidationReport) -> None:
         report.add(ConsistencyCheck("macro_weighted_in_range", "PASS",
                    f"weighted ECL within scenario range", metric=macro.weighted_total))
 
-    # Worse GDP path should not produce lower ECL.
+    # Worse macro state should not produce lower ECL.  Rank by the cumulative
+    # systematic factor actually applied (z-path sum over a common horizon),
+    # which accounts for path shape/length and reversion — not the bare GDP sum.
+    horizon = max((len(s.gdp_path) for s in macro.scenarios), default=1)
     order = sorted(range(len(macro.scenarios)),
-                   key=lambda i: sum(macro.scenarios[i].gdp_path), reverse=True)
+                   key=lambda i: float(macro.scenarios[i].z_path(horizon).sum()))
     ordered_ecl = [macro.by_scenario["ecl"].iloc[i] for i in order]
     monotone = all(ordered_ecl[k] <= ordered_ecl[k + 1] + 1e-6
                    for k in range(len(ordered_ecl) - 1))
@@ -355,9 +358,9 @@ def _check_macro_ecl(macro, report: ValidationReport) -> None:
 def _check_reverse_stress(rev, report: ValidationReport) -> None:
     if rev is None:
         return
-    if rev.base_ratio < rev.target_ratio - 1e-9:
+    if rev.already_breached:
         report.add(ConsistencyCheck("reverse_base_above_target", "FAIL",
-                   f"base {rev.metric} {rev.base_ratio:.4f} already below break "
+                   f"base {rev.metric} {rev.base_ratio:.4f} already at/below break "
                    f"{rev.target_ratio:.4f}", metric=rev.base_ratio))
         return
     if rev.resilient:
@@ -366,15 +369,15 @@ def _check_reverse_stress(rev, report: ValidationReport) -> None:
                    f"at max severity {rev.critical_severity:.2f}",
                    metric=rev.critical_severity))
         return
-    if abs(rev.ratio_at_break - rev.target_ratio) <= 5e-4:
+    if rev.converged:
         report.add(ConsistencyCheck("reverse_stress_solved", "PASS",
                    f"break at severity {rev.critical_severity:.3f} "
                    f"(GDP {rev.implied_gdp_shock:+.1%}, LGD +{rev.implied_lgd_addon:.1%})",
                    metric=rev.critical_severity))
     else:
         report.add(ConsistencyCheck("reverse_stress_solved", "WARN",
-                   f"{rev.metric} at break {rev.ratio_at_break:.4f} vs target "
-                   f"{rev.target_ratio:.4f} (not fully converged)"))
+                   f"bisection did not converge within max_iter "
+                   f"(severity {rev.critical_severity:.3f})"))
 
 
 def run_consistency_checks(

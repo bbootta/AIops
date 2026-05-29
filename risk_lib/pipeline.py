@@ -221,7 +221,10 @@ def run_pipeline(
     ).reset_index()
 
     # 12. Stress (forward) + reverse stress (solve for the breaking severity)
-    rwa_other_fixed = rwa_sa + mkt.rwa + op.rwa  # non-IRB RWA held fixed
+    # Hold everything except IRB RWA fixed: SA credit + market + op + any output-
+    # floor add-on.  Using rwa_final - rwa_irb keeps the baseline stress RWA equal
+    # to the reported (post-floor) rwa_final, so stress ratios reconcile with BIS.
+    rwa_other_fixed = rwa_final - rwa_irb
     stress = run_stress(irb_book, capital, rwa_other_fixed,
                         scenarios=[BASELINE, ADVERSE, SEVERELY_ADVERSE],
                         buffers=buffers)

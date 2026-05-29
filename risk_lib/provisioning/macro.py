@@ -38,7 +38,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from risk_lib.provisioning.ecl import Stage, classify_stage
+from risk_lib.provisioning.ecl import Stage, classify_stage, _discounted_loss
 
 
 DEFAULT_RHO = 0.15  # asset correlation for the PIT transform (IFRS9 modelling choice)
@@ -78,22 +78,28 @@ DEFAULT_MACRO_SCENARIOS: list[MacroScenario] = [
 ]
 
 
+def _shift_coef(rho: float) -> float:
+    """√(ρ/(1-ρ)) with ρ clipped to [0, 1) to avoid div-by-zero / NaN."""
+    rho = float(np.clip(rho, 0.0, 1 - 1e-9))
+    return float(np.sqrt(rho / (1 - rho)))
+
+
 def pit_pd(pd_ttc: float, z: float, rho: float = DEFAULT_RHO) -> float:
     """Anchor-preserving PIT PD: probit-shift of the TTC PD by factor z.
 
     z = 0 returns the TTC PD; z > 0 (downturn) raises it, z < 0 lowers it.
     """
     pd_ttc = float(np.clip(pd_ttc, 1e-6, 1 - 1e-6))
-    k = norm.ppf(pd_ttc)
-    x = k + np.sqrt(rho / (1 - rho)) * z
-    return float(norm.cdf(x))
+    return float(norm.cdf(norm.ppf(pd_ttc) + _shift_coef(rho) * z))
 
 
 def pit_term_structure(
     pd_ttc: float, z_path: np.ndarray, rho: float = DEFAULT_RHO,
 ) -> np.ndarray:
-    """Conditional 1-year PIT PD for each year in z_path."""
-    return np.array([pit_pd(pd_ttc, z, rho) for z in z_path])
+    """Conditional 1-year PIT PD for each year in z_path (vectorised)."""
+    pd_ttc = float(np.clip(pd_ttc, 1e-6, 1 - 1e-6))
+    k = norm.ppf(pd_ttc)
+    return norm.cdf(k + _shift_coef(rho) * np.asarray(z_path, dtype=float))
 
 
 def _scenario_ecl(
@@ -122,16 +128,7 @@ def _scenario_ecl(
 
     n = max(int(np.ceil(maturity)), 1)
     pits = pit_term_structure(pd_ttc, z_path[:n], rho)
-    surv_prev = 1.0
-    ecl = 0.0
-    for t in range(1, n + 1):
-        p_t = pits[t - 1]
-        marginal_pd = surv_prev * p_t
-        ead_t = ead * (1 - (t - 1) / n) if amortising else ead
-        df = 1.0 / ((1 + eir) ** t)
-        ecl += marginal_pd * lgd * ead_t * df
-        surv_prev *= (1 - p_t)
-    return ecl
+    return _discounted_loss(pits, lgd, ead, eir=eir, amortising=amortising)
 
 
 @dataclass

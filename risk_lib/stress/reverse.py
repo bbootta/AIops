@@ -50,6 +50,8 @@ class ReverseStressResult:
     base_ratio: float
     critical_severity: float
     resilient: bool             # True if max_severity never reaches the target
+    already_breached: bool      # True if the unstressed ratio is already <= target
+    converged: bool             # True if bisection reached the severity tolerance
     ratio_at_break: float
     rwa_total_at_break: float
     ecl_at_break: float
@@ -77,6 +79,11 @@ def reverse_stress(
     target_ratio defaults to the hard Pillar-1 minimum for the chosen metric
     (the regulatory failure point).  Pass the buffer-inclusive requirement to
     locate the buffer-breach (MDA) point instead.
+
+    The ratio is non-increasing in severity (RWA/ECL never fall under stress),
+    so bisection brackets the crossing.  Note the satellite PD floor can make
+    the curve flat for small severities, so the solve is weakly (not strictly)
+    monotone — adequate for bracketing the break point.
     """
     if metric not in ("cet1", "tier1", "total"):
         raise ValueError(f"metric must be cet1|tier1|total, got {metric}")
@@ -93,29 +100,35 @@ def reverse_stress(
                                  axis.scenario_at(s), base_ecl=base_ecl,
                                  buffers=buffers, eir=eir)
 
-    # severity 0 leaves PD/LGD unchanged ⇒ this is the unstressed base ratio.
-    base_ratio = ratio_at(0.0)[ratio_key]
-
-    def _result(s: float, resilient: bool) -> ReverseStressResult:
-        ev = ratio_at(s)
+    def _result(s: float, ev: dict, *, resilient: bool,
+                already_breached: bool, converged: bool) -> ReverseStressResult:
         sc = axis.scenario_at(s)
         return ReverseStressResult(
             metric=metric, target_ratio=target_ratio, base_ratio=base_ratio,
             critical_severity=s, resilient=resilient,
+            already_breached=already_breached, converged=converged,
             ratio_at_break=ev[ratio_key], rwa_total_at_break=ev["rwa_total"],
             ecl_at_break=ev["ecl"], implied_gdp_shock=sc.gdp_shock,
             implied_lgd_addon=sc.lgd_addon, scenario=sc,
         )
 
-    # Already at/below the target with no stress.
-    if ratio_at(0.0)[ratio_key] <= target_ratio:
-        return _result(0.0, resilient=False)
+    # severity 0 leaves PD/LGD unchanged ⇒ this is the unstressed base ratio.
+    base_ev = ratio_at(0.0)
+    base_ratio = base_ev[ratio_key]
+
+    # Already at/below the target with no stress: there is no stress-induced break.
+    if base_ratio <= target_ratio:
+        return _result(0.0, base_ev, resilient=False,
+                       already_breached=True, converged=True)
 
     # Even maximum stress fails to reach the target ⇒ resilient.
-    if ratio_at(max_severity)[ratio_key] > target_ratio:
-        return _result(max_severity, resilient=True)
+    max_ev = ratio_at(max_severity)
+    if max_ev[ratio_key] > target_ratio:
+        return _result(max_severity, max_ev, resilient=True,
+                       already_breached=False, converged=True)
 
     lo, hi = 0.0, max_severity
+    converged = False
     for _ in range(max_iter):
         mid = (lo + hi) / 2
         if ratio_at(mid)[ratio_key] > target_ratio:
@@ -123,5 +136,8 @@ def reverse_stress(
         else:
             hi = mid
         if hi - lo < tol:
+            converged = True
             break
-    return _result((lo + hi) / 2, resilient=False)
+    s_star = (lo + hi) / 2
+    return _result(s_star, ratio_at(s_star), resilient=False,
+                   already_breached=False, converged=converged)
