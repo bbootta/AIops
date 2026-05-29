@@ -380,6 +380,31 @@ def _check_reverse_stress(rev, report: ValidationReport) -> None:
                    f"(severity {rev.critical_severity:.3f})"))
 
 
+def _check_stress_path(path_df: pd.DataFrame, report: ValidationReport) -> None:
+    if path_df is None or "scenario" not in getattr(path_df, "columns", []):
+        return
+    # CET1 ratio must stay within [0,1] at every projected quarter.
+    if ((path_df["cet1_ratio"] < 0) | (path_df["cet1_ratio"] > 1)).any():
+        report.add(ConsistencyCheck("stress_path_cet1_plausible", "FAIL",
+                   "projected CET1 ratio outside [0,1] in some quarter"))
+    else:
+        report.add(ConsistencyCheck("stress_path_cet1_plausible", "PASS",
+                   "projected CET1 within [0,1] every quarter"))
+
+    # Deeper narratives must trough no higher than milder ones.
+    trough = path_df.groupby("scenario", sort=False)["cet1_ratio"].min()
+    order = ["baseline", "adverse", "severely_adverse"]
+    present = [s for s in order if s in trough.index]
+    vals = [trough[s] for s in present]
+    if all(vals[k] >= vals[k + 1] - 1e-9 for k in range(len(vals) - 1)):
+        report.add(ConsistencyCheck("stress_path_trough_ordering", "PASS",
+                   "trough CET1 non-increasing across baseline→adverse→severe"))
+    else:
+        report.add(ConsistencyCheck("stress_path_trough_ordering", "WARN",
+                   f"trough CET1 not ordered by severity: "
+                   f"{ {s: round(trough[s], 4) for s in present} }"))
+
+
 def run_consistency_checks(
     *,
     sa_results: pd.DataFrame | None = None,
@@ -395,6 +420,7 @@ def run_consistency_checks(
     stress_results: pd.DataFrame | None = None,
     macro_ecl_result: Any = None,
     reverse_stress_result: Any = None,
+    stress_path_result: pd.DataFrame | None = None,
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
@@ -425,5 +451,6 @@ def run_consistency_checks(
     _check_stress_monotone(stress_results, rep)
     _check_macro_ecl(macro_ecl_result, rep)
     _check_reverse_stress(reverse_stress_result, rep)
+    _check_stress_path(stress_path_result, rep)
 
     return rep

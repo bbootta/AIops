@@ -50,6 +50,28 @@ SEVERELY_ADVERSE = Scenario("severely_adverse", pd_multiplier=3.0,
                             lgd_addon=0.15, gdp_shock=-0.06)
 
 
+@dataclass
+class StressAxis:
+    """Maps a scalar severity s >= 0 to a Scenario along one stress direction.
+
+    GDP shock = -s * gdp_per_unit (drives PD via the satellite elasticity);
+    LGD add-on = s * lgd_addon_per_unit.  Shared by reverse stress (solve for s)
+    and the quarterly stress path (s varies over the horizon).
+    """
+    gdp_per_unit: float = 0.03          # GDP drop per unit severity
+    lgd_addon_per_unit: float = 0.05    # LGD add-on (pp) per unit severity
+    pd_gdp_elasticity: float = -8.0     # logit-space PD sensitivity to GDP
+
+    def scenario_at(self, severity: float) -> Scenario:
+        return Scenario(
+            name=f"s={severity:.4f}",
+            pd_multiplier=1.0,
+            lgd_addon=severity * self.lgd_addon_per_unit,
+            gdp_shock=-severity * self.gdp_per_unit,
+            pd_gdp_elasticity=self.pd_gdp_elasticity,
+        )
+
+
 def apply_scenario(portfolio: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
     """Return a copy with stressed pd/lgd columns."""
     df = portfolio.copy()

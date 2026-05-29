@@ -1,3 +1,5 @@
+from datetime import date
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -9,9 +11,13 @@ from risk_lib.provisioning.macro import (
     MacroScenario, DEFAULT_MACRO_SCENARIOS, pit_pd, macro_ecl,
 )
 from risk_lib.stress.scenario import (
-    ADVERSE, run_stress, evaluate_scenario,
+    ADVERSE, run_stress, evaluate_scenario, StressAxis,
 )
-from risk_lib.stress.reverse import reverse_stress, StressAxis
+from risk_lib.stress.reverse import reverse_stress
+from risk_lib.stress.path import (
+    StressPath, DEFAULT_STRESS_PATHS, forecast_quarter_labels,
+    run_stress_path, path_trough_summary,
+)
 from risk_lib.validation.consistency import run_consistency_checks
 
 
@@ -193,6 +199,64 @@ def test_reverse_stress_hits_target_is_converged():
 
 
 # ---------- validation hooks ---------------------------------------------
+
+# ---------- quarterly stress path ---------------------------------------
+
+def test_forecast_quarter_labels_through_year_after_next():
+    qs = forecast_quarter_labels(date(2026, 5, 29), years_ahead=2)
+    assert qs[0] == "2026Q3"
+    assert qs[-1] == "2028Q4"
+    assert len(qs) == 10
+
+
+def test_stress_path_hump_profile():
+    adverse = StressPath("adverse", peak_severity=1.0, peak_index=4)
+    sev = adverse.severities(10)
+    assert sev[0] >= 0 and min(sev) >= 0
+    assert sev[4] == pytest.approx(1.0)          # peak at peak_index
+    assert sev[4] == max(sev)
+    assert sev[9] < sev[4]                        # decays after peak
+    flat = StressPath("baseline", peak_severity=0.0, peak_index=0).severities(10)
+    assert all(s == 0.0 for s in flat)
+
+
+def test_run_stress_path_shape_and_baseline_flat():
+    book = _book()
+    rwa_other = float(compute_rwa_irb(book)["rwa"].sum())
+    cap = _capital_for(book, rwa_other, 0.12)
+    qs = forecast_quarter_labels(date(2026, 5, 29))
+    df = run_stress_path(book, cap, rwa_other, quarters=qs)
+    assert len(df) == len(DEFAULT_STRESS_PATHS) * len(qs)
+    base = df[df["scenario"] == "baseline"]["cet1_ratio"]
+    assert base.nunique() == 1                    # flat severity ⇒ constant CET1
+    assert base.iloc[0] == pytest.approx(0.12, abs=1e-3)
+
+
+def test_run_stress_path_severity_ordering_and_trough():
+    book = _book()
+    rwa_other = float(compute_rwa_irb(book)["rwa"].sum())
+    cap = _capital_for(book, rwa_other, 0.12)
+    df = run_stress_path(book, cap, rwa_other,
+                         quarters=forecast_quarter_labels(date(2026, 5, 29)))
+    trough = df.groupby("scenario")["cet1_ratio"].min()
+    assert trough["severely_adverse"] <= trough["adverse"] <= trough["baseline"]
+    summ = path_trough_summary(df)
+    assert set(summ["scenario"]) == {"baseline", "adverse", "severely_adverse"}
+    sev_row = summ[summ["scenario"] == "severely_adverse"].iloc[0]
+    assert sev_row["trough_cet1"] <= sev_row["end_cet1"] + 1e-9
+
+
+def test_validation_stress_path():
+    book = _book()
+    rwa_other = float(compute_rwa_irb(book)["rwa"].sum())
+    cap = _capital_for(book, rwa_other, 0.12)
+    df = run_stress_path(book, cap, rwa_other,
+                         quarters=forecast_quarter_labels(date(2026, 5, 29)))
+    rep = run_consistency_checks(stress_path_result=df)
+    names = {c.name: c.status for c in rep.checks}
+    assert names["stress_path_cet1_plausible"] == "PASS"
+    assert names["stress_path_trough_ordering"] == "PASS"
+
 
 def test_validation_macro_and_reverse():
     book = _book()

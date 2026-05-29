@@ -10,6 +10,7 @@ Returns a structured `PipelineResult` consumed by report.py / cli.py.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 import pandas as pd
@@ -33,8 +34,13 @@ from risk_lib.monitoring.recovery import cumulative_recovery_rate
 from risk_lib.limits.limit_engine import LimitDefinition, LimitEngine
 from risk_lib.limits.concentration import concentration_report
 from risk_lib.performance.rapm import rapm_report
-from risk_lib.stress.scenario import run_stress, BASELINE, ADVERSE, SEVERELY_ADVERSE
-from risk_lib.stress.reverse import reverse_stress, StressAxis
+from risk_lib.stress.scenario import (
+    run_stress, StressAxis, BASELINE, ADVERSE, SEVERELY_ADVERSE,
+)
+from risk_lib.stress.reverse import reverse_stress
+from risk_lib.stress.path import (
+    run_stress_path, path_trough_summary, forecast_quarter_labels,
+)
 from risk_lib.validation.consistency import run_consistency_checks
 from risk_lib.validation.backtest import pd_backtest_report
 
@@ -65,6 +71,8 @@ class PipelineResult:
     stress: pd.DataFrame
     macro_ecl: Any
     reverse_stress: Any
+    stress_path: pd.DataFrame
+    stress_path_trough: pd.DataFrame
     backtest: dict[str, Any]
     validation: Any
     meta: dict[str, Any] = field(default_factory=dict)
@@ -234,6 +242,13 @@ def run_pipeline(
         metric="cet1", target_ratio=bis.required["cet1"],
         axis=StressAxis(), buffers=buffers,
     )
+    # quarterly projection through end of asof.year + 2 (e.g. 2026Q3..2028Q4)
+    asof = date.today()
+    quarters = forecast_quarter_labels(asof, years_ahead=2)
+    stress_path = run_stress_path(irb_book, capital, rwa_other_fixed,
+                                  quarters=quarters, axis=StressAxis(),
+                                  buffers=buffers)
+    stress_path_trough = path_trough_summary(stress_path)
 
     # 13. Self-verification
     validation = run_consistency_checks(
@@ -243,6 +258,7 @@ def run_pipeline(
         market_rwa=mkt.rwa, op_rwa=op.rwa,
         ecl_results=ecl_df, concentration=conc, stress_results=stress,
         macro_ecl_result=macro, reverse_stress_result=reverse,
+        stress_path_result=stress_path,
     )
 
     corp = portfolio[portfolio["asset_class"] == "corporate"]
@@ -271,6 +287,8 @@ def run_pipeline(
         limits=limit_report, concentration=conc,
         rapm=rapm_by_class, stress=stress,
         macro_ecl=macro, reverse_stress=reverse,
+        stress_path=stress_path, stress_path_trough=stress_path_trough,
         backtest=backtest, validation=validation,
-        meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate},
+        meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
+              "asof": asof.isoformat(), "quarters": quarters},
     )

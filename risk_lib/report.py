@@ -196,6 +196,28 @@ def render_markdown(result: PipelineResult) -> str:
             f"ECL {_won(rev.ecl_at_break)}, CET1 {rev.ratio_at_break:.2%}")
     add("")
 
+    # ---- 분기별 다기간 스트레스 경로 ----
+    qs = r.meta.get("quarters", [])
+    horizon = f"{qs[0]}~{qs[-1]}" if qs else ""
+    add(f"### 11-2. 분기별 자본 스트레스 경로 ({horizon})")
+    add("")
+    add("| 시나리오 | 최저 CET1 | 최저시점 | 기말 CET1 | 최초위반 | 전구간통과 |")
+    add("|---|---:|---|---:|---|---:|")
+    for _, row in r.stress_path_trough.iterrows():
+        fb = row["first_breach"] if isinstance(row["first_breach"], str) else "-"
+        add(f"| {row['scenario']} | {row['trough_cet1']:.2%} | {row['trough_quarter']} "
+            f"| {row['end_cet1']:.2%} | {fb} | {'O' if row['passes_all'] else 'X'} |")
+    add("")
+    # severe trajectory quarter-by-quarter
+    sev = r.stress_path[r.stress_path["scenario"] == "severely_adverse"]
+    if not sev.empty:
+        add("심각(severely_adverse) 분기 CET1 추이:")
+        add("")
+        add("| 분기 | " + " | ".join(sev["quarter"]) + " |")
+        add("|---|" + "---:|" * len(sev))
+        add("| CET1 | " + " | ".join(f"{v:.2%}" for v in sev["cet1_ratio"]) + " |")
+        add("")
+
     # ---- 검증 ----
     add("## 12. 자체검증 (정합성 + 백테스트)")
     add("")
