@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://validation-team-agent/audit_report.schema.json",
+  "title": "Audit Report",
+  "description": "Output schema of tools/run_audit.audit() — matrix step vs actual log reconciliation.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": { "type": "string", "pattern": "^[0-9]+\\.[A-Za-z0-9_]+$" },
+      "name": { "type": "string", "minLength": 1 },
+      "status": { "type": "string", "enum": ["executed", "skipped", "missing"] },
+      "component": { "type": "string", "minLength": 1 },
+      "expected_outputs": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "required": ["id", "name", "status", "component"],
+    "additionalProperties": false
+  }
+}

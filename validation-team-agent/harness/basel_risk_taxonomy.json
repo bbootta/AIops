@@ -1,0 +1,86 @@
+{
+  "taxonomy_version": "1.1",
+  "framework": "Basel III/IV + 은행업감독업무시행세칙",
+  "description": "본 하니스가 다루는 리스크 부문 분류. BCBS 본문 + 국내 감독시행세칙 채택. 본 분류는 감독기관 분류를 갈음하지 않는다.",
+  "risk_buckets": [
+    {
+      "id": "capital_adequacy",
+      "title": "Capital Adequacy / 자본적정성",
+      "basel_refs": ["CAP30 Capital", "감독시행세칙 자본적정성 편"],
+      "policy": "harness/policies/capital_adequacy.md",
+      "thresholds": "harness/capital_adequacy_thresholds.json",
+      "key_metrics": ["CET1", "Tier 1", "Total Capital", "Leverage Ratio", "Conservation buffer", "D-SIB"],
+      "tools": ["tools.risk_checks.capital"]
+    },
+    {
+      "id": "credit",
+      "title": "Credit Risk",
+      "basel_refs": ["CRE32 IRB", "CRE51 SA"],
+      "policy": "harness/policies/credit_scoring.md",
+      "key_metrics": ["PD", "LGD", "EAD", "RWA"],
+      "tools": ["tools.run_validation", "tools.binomial_calibration", "tools.metric_psi"]
+    },
+    {
+      "id": "ifrs9",
+      "title": "IFRS 9 ECL (회계 충당금)",
+      "basel_refs": ["BCBS d350 (Guidance)"],
+      "policy": "harness/policies/ifrs9.md",
+      "key_metrics": ["12m ECL", "lifetime ECL", "Stage 1/2/3", "FLI"],
+      "tools": ["tools.run_ifrs9_validation", "tools.scenario_weights", "tools.scenario_order_check"]
+    },
+    {
+      "id": "market",
+      "title": "Market Risk",
+      "basel_refs": ["MAR10 FRTB", "MAR30 SBA", "MAR33 IMA"],
+      "policy": "harness/policies/market_risk.md",
+      "thresholds": "harness/market_risk_thresholds.json",
+      "key_metrics": ["VaR 99%/10d", "Expected Shortfall 97.5%", "Stress VaR", "Default Risk Charge", "NMRF"],
+      "tools": ["tools.risk_checks.market"]
+    },
+    {
+      "id": "operational",
+      "title": "Operational Risk",
+      "basel_refs": ["OPE25 SMA (BIC)"],
+      "policy": "harness/policies/operational_risk.md",
+      "thresholds": "harness/operational_risk_thresholds.json",
+      "key_metrics": ["Business Indicator (BI)", "BIC", "ILM", "ORC"],
+      "tools": ["tools.risk_checks.operational"]
+    },
+    {
+      "id": "liquidity",
+      "title": "Liquidity Risk",
+      "basel_refs": ["LCR / LIQ40 (Coverage)", "NSFR / LIQ20 (Stable Funding)"],
+      "policy": "harness/policies/liquidity_risk.md",
+      "thresholds": "harness/liquidity_risk_thresholds.json",
+      "key_metrics": ["LCR", "NSFR", "HQLA", "Net Cash Outflow"],
+      "tools": ["tools.risk_checks.liquidity"]
+    },
+    {
+      "id": "irrbb",
+      "title": "Interest Rate Risk in the Banking Book",
+      "basel_refs": ["SRP31 IRRBB"],
+      "policy": "harness/policies/irrbb.md",
+      "thresholds": "harness/irrbb_thresholds.json",
+      "key_metrics": ["ΔEVE", "ΔNII", "Outlier test (15% Tier1)"],
+      "tools": ["tools.risk_checks.irrbb"]
+    },
+    {
+      "id": "cva",
+      "title": "Credit Valuation Adjustment",
+      "basel_refs": ["MAR50 CVA"],
+      "policy": "harness/policies/cva.md",
+      "thresholds": "harness/cva_thresholds.json",
+      "key_metrics": ["BA-CVA", "SA-CVA", "Effective Maturity"],
+      "tools": ["tools.risk_checks.cva"]
+    },
+    {
+      "id": "ccr",
+      "title": "Counterparty Credit Risk",
+      "basel_refs": ["CRE52 SA-CCR", "CRE53 EEPE"],
+      "policy": "harness/policies/ccr.md",
+      "thresholds": "harness/ccr_thresholds.json",
+      "key_metrics": ["EAD (RC + α·PFE)", "EEPE", "α (default 1.4)"],
+      "tools": ["tools.risk_checks.ccr"]
+    }
+  ]
+}

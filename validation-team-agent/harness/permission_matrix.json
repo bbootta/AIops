@@ -1,0 +1,19 @@
+{
+  "matrix_version": "1.0",
+  "description": "위험 패턴 SSoT. permission_guard.py가 본 매트릭스를 로드하여 명령·텍스트를 점검한다. 신규 패턴 추가 시 change_manifest.json에 사유와 함께 기록.",
+  "patterns": [
+    {"category": "destructive_fs", "regex": "\\brm\\s+-rf\\b", "description": "재귀적 강제 삭제."},
+    {"category": "destructive_fs", "regex": "\\bmkfs\\b", "description": "파일시스템 포맷."},
+    {"category": "destructive_fs", "regex": "\\bdd\\s+if=.*of=/dev/", "description": "디스크 직접 쓰기."},
+    {"category": "force_push", "regex": "git\\s+push.*--force", "description": "git force push."},
+    {"category": "hard_reset", "regex": "git\\s+reset\\s+--hard", "description": "Git hard reset."},
+    {"category": "skip_hook", "regex": "--no-verify\\b", "description": "Git pre-commit/pre-push hook 우회."},
+    {"category": "ops_db", "regex": "\\b(drop\\s+table|truncate\\s+table|delete\\s+from)\\b", "description": "운영 DB 파괴적 SQL."},
+    {"category": "ops_db", "regex": "\\bUPDATE\\s+\\w+\\s+SET\\b", "description": "운영 DB UPDATE."},
+    {"category": "external_io", "regex": "\\bcurl\\s+-X\\s+POST\\b", "description": "외부 POST 전송."},
+    {"category": "external_io", "regex": "\\bscp\\s+\\S+\\s+\\S+@", "description": "원격 파일 전송."},
+    {"category": "credential_exposure", "regex": "AKIA[0-9A-Z]{16}", "description": "AWS access key ID 형태."},
+    {"category": "credential_exposure", "regex": "-----BEGIN (?:RSA |DSA |EC |OPENSSH )?PRIVATE KEY-----", "description": "PEM private key 헤더."},
+    {"category": "credential_exposure", "regex": "\\b(api[_-]?key|secret|token|password)\\s*[:=]\\s*['\"][^'\"]{8,}['\"]", "description": "자격증명 키-값 쌍."}
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "policy_version": "1.0",
+  "framework": "은행업감독업무시행세칙 (자본적정성) + Basel III",
+  "description": "국내 시중은행 자본비율 최소 + 추가 buffer. 본 값은 감독시행세칙·은행업감독규정 채택 기준이며 D-SIB / 경기대응 버퍼는 감독원 별도 고시로 변동될 수 있다.",
+  "minimum_ratios": {
+    "cet1_min": 0.045,
+    "tier1_min": 0.060,
+    "total_capital_min": 0.080
+  },
+  "buffers": {
+    "conservation_buffer": 0.025,
+    "countercyclical_buffer_max": 0.025,
+    "dsib_surcharge_typical": 0.010,
+    "gsib_surcharge_max": 0.035
+  },
+  "leverage_ratio_min": 0.030,
+  "notes": [
+    "감독시행세칙: CET1·T1·총자본은 분기보고 의무. RWA 산출은 SA / FIRB / AIRB 중 승인된 접근법 사용.",
+    "자본보전버퍼 미충족 시 배당·성과급 제한 (감독원 행정지도).",
+    "경기대응완충자본은 한국은행 + 감독원 공동 결정으로 0~2.5% 범위 변동."
+  ]
+}

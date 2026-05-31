@@ -1,0 +1,9 @@
+{
+  "policy_version": "1.0",
+  "description": "시나리오별 PD multiplier floor 정책. 본 값은 참고용 default이며, 모형/포트폴리오별 정책으로 조정 가능. 변경 시 harness/change_manifest.json에 사유와 함께 기록.",
+  "floors": {
+    "base": 1.00,
+    "adverse": 1.20,
+    "severe": 1.50
+  }
+}

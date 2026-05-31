@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://validation-team-agent/runner_result_macro.schema.json",
+  "title": "Macro Runner Result",
+  "type": "object",
+  "properties": {
+    "report_md": { "type": "string", "minLength": 1 },
+    "completeness": { "type": "object", "properties": {"passed": {"type": "boolean"}}, "required": ["passed"] },
+    "citations":    { "type": "object", "properties": {"passed": {"type": "boolean"}}, "required": ["passed"] },
+    "watermarks":   { "type": "object", "properties": {"passed": {"type": "boolean"}}, "required": ["passed"] },
+    "diagnostics": {
+      "type": "object",
+      "properties": {
+        "series": { "type": "object" }
+      },
+      "required": ["series"]
+    }
+  },
+  "required": ["report_md", "completeness", "citations", "watermarks", "diagnostics"]
+}

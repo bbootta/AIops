@@ -1,0 +1,211 @@
+{
+  "matrix_version": "1.1",
+  "description": "오케스트레이터의 6단계 호출 매트릭스. dry_run.py와 run_validation.py가 동일하게 참조하는 SSoT. 1.1: 각 step에 expected_outputs 추가.",
+  "steps": [
+    {
+      "id": "1.req",
+      "name": "1. 요청 재구성",
+      "component": "subagents/orchestrator.md",
+      "rationale": "목적/사용자/맥락/제약/성공 기준 명시.",
+      "always": true,
+      "expected_outputs": ["request_summary"]
+    },
+    {
+      "id": "2.schema",
+      "name": "2.0 스키마 점검",
+      "component": "middleware/schema_guard.check_schema",
+      "rationale": "필수 컬럼·dtype·범위 사전 점검.",
+      "always": true,
+      "expected_outputs": ["input_findings.schema"]
+    },
+    {
+      "id": "2.safety",
+      "name": "2.1 데이터 안전 점검",
+      "component": "middleware/data_safety_guard.scan_dataframe",
+      "rationale": "민감정보 패턴 탐지 (탐지 시 분석 차단).",
+      "always": true,
+      "expected_outputs": ["input_findings.safety"]
+    },
+    {
+      "id": "2.leakage",
+      "name": "2.2 누수 점검",
+      "component": "middleware/leakage_guard.check_leakage",
+      "rationale": "설명변수에 target/outcome 변수가 섞였는지 확인.",
+      "requires_any": ["feature_names"],
+      "expected_outputs": ["input_findings.leakage"]
+    },
+    {
+      "id": "2.date",
+      "name": "2.3 기간 누락 점검",
+      "component": "tools/data_profile.check_date_coverage",
+      "rationale": "월 단위 누락 탐지.",
+      "requires_any": ["date_col"],
+      "expected_outputs": ["input_findings.date_coverage"]
+    },
+    {
+      "id": "2.dup",
+      "name": "2.4 중복 점검",
+      "component": "tools/data_profile.check_duplicates",
+      "rationale": "키 기준 중복 행 식별.",
+      "requires_any": ["key_cols"],
+      "expected_outputs": ["input_findings.duplicates"]
+    },
+    {
+      "id": "2.sample",
+      "name": "2.5 표본 적정성 점검",
+      "component": "middleware/sample_size_guard.check_sample_size",
+      "rationale": "총 표본/부도/등급별 임계 점검.",
+      "always": true,
+      "expected_outputs": ["quant.sample_size", "result_summary.sample_passed"]
+    },
+    {
+      "id": "3.disc",
+      "name": "3.1 변별력",
+      "component": "tools/metric_ks_auc.calculate_ks + calculate_auc_gini",
+      "rationale": "KS / AUROC / Gini 산출.",
+      "requires_all": ["score_col", "target_col"],
+      "expected_outputs": ["quant.ks", "quant.auc_gini"]
+    },
+    {
+      "id": "3.psi",
+      "name": "3.2 안정성 (dev vs oot)",
+      "component": "tools/metric_psi.calculate_psi",
+      "rationale": "개발 vs 운영 score 분포 안정성.",
+      "requires_all": ["score_col", "target_col", "set_col"],
+      "expected_outputs": ["quant.psi_dev_oot"]
+    },
+    {
+      "id": "3.cal",
+      "name": "3.3 등급별 캘리브레이션",
+      "component": "tools/binomial_calibration.calibration_test_per_grade",
+      "rationale": "추정 PD vs 실측 부도율 이항검정 + Holm 보정.",
+      "requires_all": ["grade_col", "pd_col", "target_col"],
+      "expected_outputs": ["quant.calibration"]
+    },
+    {
+      "id": "3.macro",
+      "name": "3.4 거시 변수 정상성",
+      "component": "tools/regression_diagnostics.stationarity_summary",
+      "rationale": "ADF + KPSS 결합 라벨링.",
+      "requires_any": ["macro_features", "macro_series"],
+      "expected_outputs": ["diagnostics.series"]
+    },
+    {
+      "id": "3.weights",
+      "name": "3.5 시나리오 가중치",
+      "component": "tools/scenario_weights.check_weight_panel",
+      "rationale": "IFRS 9 ECL 가중치 합 = 1, 음수 금지.",
+      "requires_any": ["scenario_weight_panel"],
+      "expected_outputs": ["ifrs9.weight_panel"]
+    },
+    {
+      "id": "3.capital",
+      "name": "3.55 자본적정성 (감독시행세칙)",
+      "component": "tools/risk_checks/capital.py (CET1/T1/BIS + 버퍼)",
+      "rationale": "감독시행세칙 + Basel III. CET1 4.5% + 보전버퍼 2.5% + 추가 buffer 합산.",
+      "requires_any": ["capital_cet1", "capital_leverage"],
+      "on_fail_activate": ["9.escalate"],
+      "expected_outputs": ["capital.passed", "capital.add_buffer"]
+    },
+    {
+      "id": "3.market",
+      "name": "3.6 시장리스크 (FRTB)",
+      "component": "tools/risk_checks/market.py (VaR backtest / ES / NMRF)",
+      "rationale": "1일 99% VaR exception → traffic light; ES horizon / NMRF 비율 점검.",
+      "requires_any": ["market_var_exceptions"],
+      "on_fail_activate": ["9.escalate"],
+      "expected_outputs": ["market.zone", "market.multiplier_ok"]
+    },
+    {
+      "id": "3.operational",
+      "name": "3.7 운영리스크 (SMA)",
+      "component": "tools/risk_checks/operational.py (BIC / ILM)",
+      "rationale": "BI 3-yr 평균 + bucket 누진 BIC + ILM × BIC = ORC.",
+      "requires_any": ["op_business_indicator_eur_bn"],
+      "expected_outputs": ["operational.bic", "operational.orc"]
+    },
+    {
+      "id": "3.liquidity",
+      "name": "3.8 유동성리스크 (LCR/NSFR)",
+      "component": "tools/risk_checks/liquidity.py (LCR / NSFR)",
+      "rationale": "LCR ≥ 100%, NSFR ≥ 100%. 경고선 110% / 105%.",
+      "requires_any": ["liquidity_hqla", "liquidity_asf"],
+      "on_fail_activate": ["9.escalate"],
+      "expected_outputs": ["liquidity.lcr", "liquidity.nsfr"]
+    },
+    {
+      "id": "3.irrbb",
+      "name": "3.9 IRRBB",
+      "component": "tools/risk_checks/irrbb.py (ΔEVE outlier / ΔNII)",
+      "rationale": "6 표준 시나리오 ΔEVE 의 max / Tier1 > 15% → outlier bank.",
+      "requires_any": ["irrbb_delta_eve_by_scenario"],
+      "on_fail_activate": ["9.escalate"],
+      "expected_outputs": ["irrbb.outlier", "irrbb.worst_scenario"]
+    },
+    {
+      "id": "3.cva",
+      "name": "3.10 CVA",
+      "component": "tools/risk_checks/cva.py (BA-CVA / SA-CVA 의무 여부)",
+      "rationale": "BA-CVA 산식 정합, SA-CVA 의무 트레이딩북 규모 점검.",
+      "requires_any": ["cva_counterparty_inputs", "cva_trading_book_size_eur_bn"],
+      "expected_outputs": ["cva.ba_cva", "cva.sa_cva_required"]
+    },
+    {
+      "id": "3.ccr",
+      "name": "3.11 CCR (SA-CCR)",
+      "component": "tools/risk_checks/ccr.py (RC + α·PFE)",
+      "rationale": "α default 1.4. Asset class 별 supervisory factor 일관.",
+      "requires_any": ["ccr_rc", "ccr_pfe"],
+      "expected_outputs": ["ccr.ead", "ccr.alpha"]
+    },
+    {
+      "id": "4.report",
+      "name": "4. 보고서 초안",
+      "component": "tools/report_template.build_validation_report",
+      "rationale": "표준 10개 섹션 마크다운 생성.",
+      "always": true,
+      "expected_outputs": ["report_md"]
+    },
+    {
+      "id": "5.complete",
+      "name": "5.1 완결성 점검",
+      "component": "middleware/output_completeness_guard.check_report",
+      "rationale": "필수 섹션 / 한계 / 추가 확인사항 점검.",
+      "always": true,
+      "expected_outputs": ["completeness", "result_summary.completeness_passed"]
+    },
+    {
+      "id": "5.cite",
+      "name": "5.2 인용 점검",
+      "component": "middleware/output_completeness_guard.check_numeric_citations",
+      "rationale": "결과/이상징후 섹션의 수치-출처 인용 점검.",
+      "always": true,
+      "expected_outputs": ["citations", "result_summary.citations_passed"]
+    },
+    {
+      "id": "5.watermark",
+      "name": "5.3 워터마크 점검",
+      "component": "middleware/draft_watermark_guard.check_watermarks",
+      "rationale": "DRAFT 헤더/푸터 워터마크 존재 강제.",
+      "always": true,
+      "expected_outputs": ["watermarks", "result_summary.watermarks_passed"]
+    },
+    {
+      "id": "6.audit",
+      "name": "6. 변경 이력 기록",
+      "component": "harness/change_manifest.json (via tools/manifest.py)",
+      "rationale": "실행 결과 / 정책 변경 시 매니페스트에 기록.",
+      "always": true,
+      "depends_on": ["4.report"],
+      "expected_outputs": ["manifest.entry"]
+    },
+    {
+      "id": "9.escalate",
+      "name": "9. 에스컬레이션 (조건부)",
+      "component": "subagents/harness_debugger.md + docs/human_in_the_loop.md (MRMC 보고)",
+      "rationale": "위험 부문 점검이 fail/red/outlier 인 경우에만 동적 활성. 인간 검증자·MRMC 보고 + 매니페스트 기록 권고.",
+      "activated_on_fail": true,
+      "expected_outputs": ["escalation.triggered_by", "escalation.note"]
+    }
+  ]
+}

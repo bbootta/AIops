@@ -1,0 +1,135 @@
+name: validation-team-agent CI
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "validation-team-agent/**"
+      - ".github/workflows/validation-team-agent-ci.yml"
+    paths-ignore:
+      - "validation-team-agent/docs/**"
+      - "validation-team-agent/examples/**"
+      - "validation-team-agent/skills/**"
+      - "validation-team-agent/subagents/**"
+      - "validation-team-agent/README.md"
+      - "validation-team-agent/CLAUDE.md"
+  pull_request:
+    paths:
+      - "validation-team-agent/**"
+      - ".github/workflows/validation-team-agent-ci.yml"
+    paths-ignore:
+      - "validation-team-agent/docs/**"
+      - "validation-team-agent/examples/**"
+      - "validation-team-agent/skills/**"
+      - "validation-team-agent/subagents/**"
+      - "validation-team-agent/README.md"
+      - "validation-team-agent/CLAUDE.md"
+
+concurrency:
+  group: validation-team-agent-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: validation-team-agent
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            validation-team-agent/requirements.txt
+            validation-team-agent/pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate change_manifest schema
+        run: |
+          python -m tools.manifest validate
+
+      - name: Validate JSON schemas (matrix / permission / floors / glossary / basel)
+        run: |
+          python - <<'PY'
+          import json, jsonschema, pathlib
+          pairs = [
+              ("harness/orchestration_matrix.schema.json", "harness/orchestration_matrix.json"),
+              ("harness/permission_matrix.schema.json", "harness/permission_matrix.json"),
+              ("harness/scenario_floors.schema.json", "harness/scenario_floors.json"),
+              ("harness/report_glossary.schema.json", "harness/report_glossary.json"),
+              ("harness/basel_risk_taxonomy.schema.json", "harness/basel_risk_taxonomy.json"),
+          ]
+          for sp, dp in pairs:
+              schema = json.loads(pathlib.Path(sp).read_text(encoding="utf-8"))
+              data = json.loads(pathlib.Path(dp).read_text(encoding="utf-8"))
+              jsonschema.validate(data, schema)
+              print(f"OK {dp}")
+          PY
+
+      - name: Lint policy thresholds
+        run: |
+          python -m tools.policy_lint
+
+      - name: Findings JSON / markdown in sync
+        run: |
+          python -m tools.findings sync
+          if ! git diff --quiet -- memory/recurring_findings.md; then
+            echo "memory/recurring_findings.md is out of sync with JSON. Run 'python -m tools.findings sync' and commit."
+            git --no-pager diff -- memory/recurring_findings.md
+            exit 1
+          fi
+
+      - name: Model notes JSON / markdown in sync
+        run: |
+          python -m tools.model_notes sync
+          if ! git diff --quiet -- memory/model_specific_notes.md; then
+            echo "memory/model_specific_notes.md is out of sync with JSON. Run 'python -m tools.model_notes sync' and commit."
+            git --no-pager diff -- memory/model_specific_notes.md
+            exit 1
+          fi
+
+      - name: Known limitations JSON / markdown in sync
+        run: |
+          python -m tools.limitations sync
+          if ! git diff --quiet -- memory/known_limitations.md; then
+            echo "memory/known_limitations.md is out of sync with JSON. Run 'python -m tools.limitations sync' and commit."
+            git --no-pager diff -- memory/known_limitations.md
+            exit 1
+          fi
+
+      - name: CSS drift requires manifest entry
+        if: github.event_name == 'pull_request'
+        run: |
+          cd ..
+          # PR이 report_print.css 또는 report_glossary.json을 변경했다면
+          # 같은 PR에 manifest 항목 추가가 동반되어야 한다.
+          BASE_REF="${{ github.event.pull_request.base.sha }}"
+          POLICY_CHANGED=$(git diff --name-only "$BASE_REF" HEAD -- \
+            validation-team-agent/harness/report_print.css \
+            validation-team-agent/harness/report_glossary.json)
+          if [ -n "$POLICY_CHANGED" ]; then
+            MANIFEST_CHANGED=$(git diff --name-only "$BASE_REF" HEAD -- \
+              validation-team-agent/harness/change_manifest.json)
+            if [ -z "$MANIFEST_CHANGED" ]; then
+              echo "report_print.css / report_glossary.json changed without manifest entry:"
+              echo "$POLICY_CHANGED"
+              echo "Add a CHG row via 'python -m tools.manifest add'."
+              exit 1
+            fi
+          fi
+
+      - name: Run pytest
+        run: |
+          python -m pytest -q
