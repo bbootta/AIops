@@ -87,7 +87,7 @@
       "name": "3.4 거시 변수 정상성",
       "component": "tools/regression_diagnostics.stationarity_summary",
       "rationale": "ADF + KPSS 결합 라벨링.",
-      "requires_any": ["macro_features"],
+      "requires_any": ["macro_features", "macro_series"],
       "expected_outputs": ["diagnostics.series"]
     },
     {

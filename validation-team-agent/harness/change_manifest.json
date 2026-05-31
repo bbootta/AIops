@@ -1185,6 +1185,21 @@
       "rollback_rule": "tools/handlers.py + sample_generators.py + run_workflow_demo.py 삭제 시 Round 16 엔진은 그대로 유지 (handler 미등록 → simulated 모드).",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0080",
+      "timestamp": "2026-05-31 15:11:05",
+      "component": "tools/handlers.py + tools/escalation_report.py + tools/sample_generators.py + tools/run_workflow_demo.py + harness/orchestration_matrix.json + tests/test_{handlers_round18,escalation_report}.py",
+      "change_type": "create",
+      "evidence": "Stop hook 지적: Round 17 의 simulated step 8개 → 실제 handler 등록 + MRMC escalation 보고서 자동화 부재.",
+      "root_cause": "register_default_handlers 가 9개 step 만 등록하여 macro/weights/operational/cva/ccr 및 보고서 step 들이 simulated. escalation 결과를 보고용 markdown/json 으로 정리하는 도구 부재.",
+      "targeted_fix": "handlers.py 에 macro/scenario_weights/operational/cva/ccr handler + report/completeness/citation/watermark handler 9개 추가 (총 18 handler). escalation_report.py 신규 (render_markdown + render_json). sample_generators.py 에 macro_stationary/random_walk/ifrs9_weight_panel/operational_bi/cva_counterparty/ccr_exposure sample 6개 추가. run_workflow_demo 가 새 입력 통합. orchestration_matrix 의 3.macro 게이트 macro_series alias 추가.",
+      "expected_benefit": "10만건 데모: 정상 case 20 step (simulated 4 → 보고서/검증 step 4개로 한정), stress case 22 step (21 plan + 9.escalate 동적). MRMC 보고용 escalation 보고서를 markdown/json 으로 자동 산출.",
+      "expected_regression_risk": "추가 handler 는 모두 임계 미달 시 fail/warning 반환만 수행. 자동 의견 확정 없음. handler 미등록 step (1.req/2.schema/2.safety/6.audit) 은 그대로 simulated.",
+      "validation_method": "pytest 411건 통과 (394 → +17). 정상/stress 두 case 10만건 재실행 확인 (정상 escalated=False/20step, stress escalated=True/22step).",
+      "rollback_rule": "추가 handler 9개와 escalation_report.py 제거 시 Round 17 동작. 매트릭스 macro_series alias 제거 시 이전 게이트.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

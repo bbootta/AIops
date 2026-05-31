@@ -23,7 +23,13 @@ from tools.report_template import build_validation_report, render_html
 from tools.sample_generators import (
     capital_ratio_sample,
     capital_stress_sample,
+    ccr_exposure_sample,
     credit_scoring_sample,
+    cva_counterparty_sample,
+    ifrs9_weight_panel,
+    macro_random_walk_series,
+    macro_stationary_series,
+    operational_bi_sample,
 )
 from tools.workflow import WorkflowEngine
 
@@ -39,9 +45,18 @@ def build_request(n: int, *, stress: bool, seed: int) -> dict:
         "grade_col": "grade",
         "pd_col": "pd",
     }
+    # 부문별 공통 입력 (Round 18: macro/weights/operational/cva/ccr 추가)
+    base.update(
+        {
+            "scenario_weight_panel": ifrs9_weight_panel(balanced=not stress),
+            "op_business_indicator_eur_bn": operational_bi_sample(large=stress),
+            "cva_counterparty_inputs": cva_counterparty_sample(),
+            "cva_trading_book_size_eur_bn": 150.0 if stress else 30.0,
+            **ccr_exposure_sample(),
+        }
+    )
     if stress:
         base.update(capital_stress_sample())
-        # 부서별 입력도 추가 — 매트릭스 게이트 열기
         base.update(
             {
                 "market_var_exceptions": 12,  # red zone
@@ -56,6 +71,7 @@ def build_request(n: int, *, stress: bool, seed: int) -> dict:
                     "short_rate_down": 200_000,
                 },
                 "irrbb_tier1": 10_000_000,
+                "macro_series": macro_random_walk_series(n=250),
             }
         )
     else:
@@ -74,6 +90,7 @@ def build_request(n: int, *, stress: bool, seed: int) -> dict:
                     "short_rate_down": 100_000,
                 },
                 "irrbb_tier1": 10_000_000,
+                "macro_series": macro_stationary_series(n=250),
             }
         )
     return base

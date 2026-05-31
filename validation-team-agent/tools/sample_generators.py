@@ -80,6 +80,59 @@ def credit_scoring_sample(
     return df
 
 
+def macro_stationary_series(n: int = 250, *, seed: int = 11) -> list[float]:
+    """정상 시계열 (white noise)."""
+    rng = np.random.default_rng(seed)
+    return rng.normal(0.0, 1.0, size=n).tolist()
+
+
+def macro_random_walk_series(n: int = 250, *, seed: int = 11) -> list[float]:
+    """단위근 시계열 (random walk)."""
+    rng = np.random.default_rng(seed)
+    return np.cumsum(rng.normal(0.0, 1.0, size=n)).tolist()
+
+
+def ifrs9_weight_panel(*, balanced: bool = True) -> pd.DataFrame:
+    """IFRS 9 시나리오 가중치 패널 (4 시점 × 3 시나리오).
+
+    balanced=False 면 두 번째 시점의 가중치 합이 1.1 로 위반.
+    """
+    rows = []
+    for period in ("2024-Q1", "2024-Q2", "2024-Q3", "2024-Q4"):
+        if balanced or period != "2024-Q2":
+            rows.append({"period": period, "scenario": "base", "weight": 0.5})
+            rows.append({"period": period, "scenario": "adverse", "weight": 0.3})
+            rows.append({"period": period, "scenario": "severe", "weight": 0.2})
+        else:
+            rows.append({"period": period, "scenario": "base", "weight": 0.5})
+            rows.append({"period": period, "scenario": "adverse", "weight": 0.4})
+            rows.append({"period": period, "scenario": "severe", "weight": 0.2})
+    return pd.DataFrame(rows)
+
+
+def operational_bi_sample(*, large: bool = False) -> float:
+    """운영리스크 Business Indicator (EUR bn)."""
+    return 40.0 if large else 3.5
+
+
+def cva_counterparty_sample(n: int = 25, *, seed: int = 13) -> list[dict]:
+    """CVA counterparty list (BA-CVA 입력)."""
+    rng = np.random.default_rng(seed)
+    return [
+        {"name": f"CP{i:03d}", "scva": float(rng.uniform(5.0, 50.0))}
+        for i in range(n)
+    ]
+
+
+def ccr_exposure_sample(*, seed: int = 17) -> dict:
+    """CCR (SA-CCR) RC / PFE 가정값."""
+    rng = np.random.default_rng(seed)
+    return {
+        "ccr_rc": round(float(rng.uniform(50.0, 300.0)), 2),
+        "ccr_pfe": round(float(rng.uniform(20.0, 200.0)), 2),
+    }
+
+
 def capital_ratio_sample(*, seed: int = 7) -> dict:
     """가상의 인터넷전문은행 X 자본비율 (unverified, demo only)."""
     rng = np.random.default_rng(seed)

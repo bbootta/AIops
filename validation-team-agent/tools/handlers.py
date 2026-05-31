@@ -221,6 +221,217 @@ def irrbb_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
     )
 
 
+# ---------- 거시 시계열 부문 ----------
+
+def macro_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    """거시 시계열 정상성 (ADF + KPSS 결합)."""
+    from tools.regression_diagnostics import stationarity_summary
+
+    series = req.get("macro_series")
+    if series is None:
+        return StepResult("3.macro", "skipped", {}, "macro_series 미제공")
+    try:
+        summary = stationarity_summary(series)
+    except Exception as exc:  # noqa: BLE001
+        return StepResult("3.macro", "fail", {}, f"stationarity 산출 실패: {exc}")
+    label = summary["label"]
+    status = "ok" if label == "stationary" else "warning"
+    return StepResult(
+        "3.macro", status, {"label": label, "n": len(list(series))},
+        f"stationarity label={label}",
+    )
+
+
+# ---------- IFRS 9 시나리오 가중치 부문 ----------
+
+def scenario_weights_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    """IFRS 9 시나리오 가중치 panel sum=1 / non-neg 점검."""
+    from tools.scenario_weights import check_weight_panel
+
+    panel = req.get("scenario_weight_panel")
+    if panel is None:
+        return StepResult("3.weights", "skipped", {}, "panel 미제공")
+    out = check_weight_panel(
+        panel,
+        period_col=req.get("scenario_weight_period_col", "period"),
+        scenario_col=req.get("scenario_weight_scenario_col", "scenario"),
+        weight_col=req.get("scenario_weight_value_col", "weight"),
+    )
+    n_fail = int((~out["passed"]).sum())
+    status = "ok" if n_fail == 0 else "fail"
+    return StepResult(
+        "3.weights", status, {"n_periods": len(out), "n_fail": n_fail},
+        f"weight panel periods={len(out)}, 위반={n_fail}",
+    )
+
+
+# ---------- 운영리스크 부문 (OPE25 SMA) ----------
+
+def operational_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    """BI → BIC → ORC (감독시행세칙 ILM=1)."""
+    from tools.risk_checks import operational
+
+    bi = req.get("op_business_indicator_eur_bn")
+    if bi is None:
+        return StepResult("3.operational", "skipped", {}, "BI 미제공")
+    bic = operational.compute_bic(bi)
+    orc = operational.compute_orc_domestic(bic["bic_eur_bn"])
+    return StepResult(
+        "3.operational", "ok",
+        {"bi": bi, "bic_eur_bn": bic["bic_eur_bn"], "orc_eur_bn": orc["orc"]},
+        f"BI={bi:.2f}bn → BIC={bic['bic_eur_bn']:.4f}bn → ORC(ILM=1)={orc['orc']:.4f}bn",
+    )
+
+
+# ---------- CVA 부문 (MAR50) ----------
+
+def cva_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    """BA-CVA 산식 + SA-CVA 의무 점검."""
+    from tools.risk_checks import cva
+
+    inputs = req.get("cva_counterparty_inputs")
+    book = req.get("cva_trading_book_size_eur_bn")
+    if inputs is None and book is None:
+        return StepResult("3.cva", "skipped", {}, "CVA 입력 미제공")
+    out = {}
+    detail = []
+    if inputs is not None:
+        ba = cva.compute_ba_cva(inputs)
+        out["ba_cva"] = ba["ba_cva"]
+        detail.append(f"BA-CVA={ba['ba_cva']:.4f} (n={ba['n_counterparties']})")
+    if book is not None:
+        sa = cva.check_sa_cva_required(book)
+        out["sa_cva_required"] = sa["sa_cva_required"]
+        detail.append(f"SA-CVA required={sa['sa_cva_required']} (book={book:.1f}bn)")
+    return StepResult("3.cva", "ok", out, "; ".join(detail))
+
+
+# ---------- CCR 부문 (CRE52 SA-CCR) ----------
+
+def ccr_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    """EAD = α × (RC + PFE)."""
+    from tools.risk_checks import ccr
+
+    rc = req.get("ccr_rc")
+    pfe = req.get("ccr_pfe")
+    if rc is None or pfe is None:
+        return StepResult("3.ccr", "skipped", {}, "RC/PFE 미제공")
+    out = ccr.compute_ead(replacement_cost=rc, pfe=pfe)
+    return StepResult(
+        "3.ccr", "ok",
+        {"alpha": out["alpha"], "ead": out["ead"]},
+        f"EAD={out['ead']:.4f} (α={out['alpha']}, RC={rc}, PFE={pfe})",
+    )
+
+
+# ---------- 보고서 산출 / 점검 ----------
+
+def report_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    """이전 step 결과로 표준 10 섹션 보고서 초안 산출."""
+    from tools.report_template import build_validation_report
+
+    title = req.get("title", "Workflow Validation Report")
+    results_lines = []
+    anomalies = []
+    for sid, r in ctx.results.items():
+        if r.status in {"ok", "warning"} and r.detail:
+            results_lines.append(f"- `{sid}` ({r.status}, 출처: `tools/handlers.py`): {r.detail}")
+        if r.status in {"warning", "fail"}:
+            anomalies.append(f"- `{sid}` ({r.status}, 출처: `tools/handlers.py`): {r.detail}")
+    if not results_lines:
+        results_lines.append(
+            "- 등록 handler 결과 부재 (출처: `tools/workflow.WorkflowEngine`): 모든 step simulated"
+        )
+    if not anomalies:
+        anomalies.append("- 자동 점검 한정 이상 징후 없음.")
+
+    result_dict = {
+        "title": title,
+        "summary": (
+            f"워크플로우 step {len(ctx.results)}개 실행. "
+            f"fail={sum(1 for r in ctx.results.values() if r.status == 'fail')}, "
+            f"warning={sum(1 for r in ctx.results.values() if r.status == 'warning')}."
+        ),
+        "purpose": "Dynamic workflow 자동 점검 보조 산출물.",
+        "input_data": [
+            f"request keys: {sorted(req.keys())}",
+            "운영 데이터 / 외부 API 없음. 본 step 은 합성/입력 데이터 기반.",
+        ],
+        "method": [
+            "Workflow: `tools/workflow.WorkflowEngine` (handler registry + 위상정렬)",
+            "Handler: `tools/handlers.py`",
+            "보고서: `tools/report_template.build_validation_report`",
+        ],
+        "results": "\n".join(results_lines),
+        "anomalies": "\n".join(anomalies),
+        "limitations": [
+            "본 산출물은 자동 점검 한정. 정성 판단·MRMC 의견은 별도 인간 검증자 책임.",
+            "참고 임계는 BCBS 표준 + 감독시행세칙 기준이며 모형 정책에 의해 강화 가능.",
+        ],
+        "draft_opinion": (
+            "본 자동 산출물은 검증 보조 자료이며 의견 확정은 인간 검증자 + MRMC 검토 후에만 효력."
+        ),
+        "follow_ups": [
+            "fail step 발생 시 escalation 보고서(`tools.escalation_report`) 참조",
+            "운영 데이터 재실행 시 매니페스트 CHG 항목 추가",
+        ],
+        "audit_trail": (
+            f"실행 step: {' → '.join(ctx.results.keys())}. "
+            f"엔진: `tools/workflow.py`."
+        ),
+    }
+    md = build_validation_report(result_dict)
+    return StepResult(
+        "4.report", "ok", {"report_md": md, "length": len(md)},
+        f"보고서 초안 {len(md)} chars",
+    )
+
+
+def completeness_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    from middleware.output_completeness_guard import check_report
+
+    rep = ctx.result("4.report")
+    if rep is None or "report_md" not in (rep.outputs or {}):
+        return StepResult("5.complete", "skipped", {}, "보고서 부재")
+    out = check_report(rep.outputs["report_md"])
+    status = "ok" if out["passed"] else "fail"
+    return StepResult(
+        "5.complete", status,
+        {"missing": out["missing_sections"], "empty_critical": out["empty_critical"]},
+        f"completeness passed={out['passed']}",
+    )
+
+
+def citation_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    from middleware.output_completeness_guard import check_numeric_citations
+
+    rep = ctx.result("4.report")
+    if rep is None or "report_md" not in (rep.outputs or {}):
+        return StepResult("5.cite", "skipped", {}, "보고서 부재")
+    out = check_numeric_citations(rep.outputs["report_md"])
+    status = "ok" if out["passed"] else "warning"
+    return StepResult(
+        "5.cite", status,
+        {"violations": len(out["violations"])},
+        f"citation passed={out['passed']} (violations={len(out['violations'])})",
+    )
+
+
+def watermark_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    from middleware.draft_watermark_guard import check_watermarks
+
+    rep = ctx.result("4.report")
+    if rep is None or "report_md" not in (rep.outputs or {}):
+        return StepResult("5.watermark", "skipped", {}, "보고서 부재")
+    out = check_watermarks(rep.outputs["report_md"])
+    status = "ok" if out["passed"] else "fail"
+    return StepResult(
+        "5.watermark", status,
+        {"has_header": out["has_header"], "has_footer": out["has_footer"]},
+        f"watermark passed={out['passed']}",
+    )
+
+
 # ---------- escalation ----------
 
 def escalation_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
@@ -238,10 +449,19 @@ _DEFAULT = {
     "3.disc": credit_discrimination_handler,
     "3.psi": credit_psi_handler,
     "3.cal": credit_calibration_handler,
+    "3.macro": macro_handler,
+    "3.weights": scenario_weights_handler,
     "3.capital": capital_handler,
     "3.liquidity": liquidity_handler,
     "3.market": market_handler,
+    "3.operational": operational_handler,
     "3.irrbb": irrbb_handler,
+    "3.cva": cva_handler,
+    "3.ccr": ccr_handler,
+    "4.report": report_handler,
+    "5.complete": completeness_handler,
+    "5.cite": citation_handler,
+    "5.watermark": watermark_handler,
     "9.escalate": escalation_handler,
 }
 
