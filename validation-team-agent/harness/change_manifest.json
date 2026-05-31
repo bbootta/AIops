@@ -1170,6 +1170,21 @@
       "rollback_rule": "tools/workflow.py 삭제 + 매트릭스의 9.escalate/on_fail_activate/depends_on 제거 + dry_run._gate_passes 의 activated_on_fail 분기 제거 시 정적 동작 복귀.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0079",
+      "timestamp": "2026-05-31 15:04:11",
+      "component": "tools/sample_generators.py + tools/handlers.py + tools/run_workflow_demo.py + tests/test_{sample_generators,handlers}.py + reports/workflow_100k_{normal,stress}.{md,html,json} + Gmail draft to bbootta@gmail.com",
+      "change_type": "create",
+      "evidence": "사용자 요청: 하네스 강화 + 다이나믹 워크플로우로 10만건 이상 샘플데이터 생성 + 검증 테스트 + 결과 이메일.",
+      "root_cause": "Round 16 워크플로우 엔진은 있었으나 실제 등록 handler 패키지/대규모 합성 데이터 생성기/end-to-end 데모 진입점 부재.",
+      "targeted_fix": "tools/handlers.py: 9 step handler (credit disc/psi/cal, sample_size, capital, liquidity, market, irrbb, escalation) + register_default_handlers. tools/sample_generators.py: credit_scoring_sample (n>=100, seed deterministic, psi_shift 옵션) + capital_ratio/stress_sample. tools/run_workflow_demo.py: 정상/stress case CLI + markdown/html/json 산출. Gmail draft 생성 (HITL: 자동 발송 없이 사용자 Drafts 에 작성).",
+      "expected_benefit": "Round 16 엔진의 가치를 등록 handler + 대규모 데이터로 입증. stress case 에서 escalation 동적 활성을 16→17 step 으로 시연. 향후 운영 데이터 입력 시 동일 패턴으로 즉시 적용 가능.",
+      "expected_regression_risk": "10만건 실행은 약 1.2~2.0초 (i7 동급). 더 큰 데이터에서는 메모리 사용량 증가. 합성 데이터 demo 보고서가 외부에 인용되지 않도록 DRAFT 워터마크 강제.",
+      "validation_method": "pytest 394건 통과 (375 → +19). 정상/stress 두 case 10만건 실행 확인 (정상 escalated=False, stress escalated=True, 9.escalate 동적 활성).",
+      "rollback_rule": "tools/handlers.py + sample_generators.py + run_workflow_demo.py 삭제 시 Round 16 엔진은 그대로 유지 (handler 미등록 → simulated 모드).",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
