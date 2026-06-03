@@ -1,31 +1,34 @@
 """BIS capital ratios (CET1, Tier1, Total).
 
-References:
-  - Basel III CRE / 금감원 「은행업감독업무시행세칙」 자본적정성 편
-  - 최저비율(D-SIB 미적용 기준):
-      CET1 4.5% + 자본보전버퍼 2.5%  = 7.0%
-      Tier1 6.0% + 2.5%               = 8.5%
-      Total 8.0% + 2.5%               = 10.5%
-      + Countercyclical 0~2.5%, D-SIB 1.0% (대형은행)
+References (cited via risk_lib.references):
+  - Basel III CRE10.4: Pillar 1 minima (CET1 4.5% / Tier1 6.0% / Total 8.0%).
+  - Basel III RBC20.1: 자본보전버퍼 2.5% (상시).
+  - RBC20 (CCyB) + RBC40 (D-SIB): jurisdiction-set add-ons.
+  - 금감원 「은행업감독업무시행세칙」 자본적정성 편.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from risk_lib.references import (
+    BIS_MIN_CET1, BIS_MIN_TIER1, BIS_MIN_TOTAL,
+    CAPITAL_CONSERVATION_BUFFER,
+)
 
-# Minimum ratios excluding buffers (Pillar 1 minimums).
+
+# Minimum ratios excluding buffers (Pillar 1 minimums) — CRE10.4.
 BIS_MINIMUMS = {
-    "cet1": 0.045,
-    "tier1": 0.060,
-    "total": 0.080,
+    "cet1": BIS_MIN_CET1,
+    "tier1": BIS_MIN_TIER1,
+    "total": BIS_MIN_TOTAL,
 }
 
-# Buffers applied on top per 금감원.
+# Buffers applied on top per RBC20 / 감독세칙.
 BIS_BUFFERS_DEFAULT = {
-    "capital_conservation": 0.025,
+    "capital_conservation": CAPITAL_CONSERVATION_BUFFER,
     "countercyclical": 0.0,   # set per jurisdiction by FSS
-    "dsib": 0.0,              # 0/1.0/1.5/2.0% depending on systemic group
+    "dsib": 0.0,              # 0–2.0% by systemic group
 }
 
 

@@ -405,6 +405,95 @@ def _check_stress_path(path_df: pd.DataFrame, report: ValidationReport) -> None:
                    f"{ {s: round(trough[s], 4) for s in present} }"))
 
 
+def _check_pd_model_quality(
+    pd_metrics: dict | None, report: ValidationReport,
+) -> None:
+    """Per-segment discrimination: Gini ≥ GINI_MIN_ACCEPTABLE (BCBS WP14)."""
+    from risk_lib.references import GINI_MIN_ACCEPTABLE, GINI_MIN_GOOD
+    if not pd_metrics:
+        return
+    for seg, m in pd_metrics.items():
+        g = float(m.get("gini", 0.0))
+        if g < GINI_MIN_ACCEPTABLE:
+            report.add(ConsistencyCheck(
+                f"pd_gini_{seg}", "FAIL",
+                f"{seg} Gini {g:.3f} < 변별력 하한 {GINI_MIN_ACCEPTABLE} "
+                f"(BCBS WP14)", metric=g))
+        elif g < GINI_MIN_GOOD:
+            report.add(ConsistencyCheck(
+                f"pd_gini_{seg}", "WARN",
+                f"{seg} Gini {g:.3f} acceptable but below 양호 기준 "
+                f"{GINI_MIN_GOOD}", metric=g))
+        else:
+            report.add(ConsistencyCheck(
+                f"pd_gini_{seg}", "PASS",
+                f"{seg} Gini {g:.3f} ≥ {GINI_MIN_GOOD} 양호", metric=g))
+
+
+def _check_hl_calibration(backtest: dict | None, report: ValidationReport) -> None:
+    """Hosmer-Lemeshow PD calibration p-value ≥ 0.05 → PASS."""
+    from risk_lib.references import HL_P_VALUE_MIN
+    if not backtest or "hosmer_lemeshow" not in backtest:
+        return
+    hl = backtest["hosmer_lemeshow"]
+    p = float(hl.get("p_value", 0.0))
+    if p < HL_P_VALUE_MIN:
+        report.add(ConsistencyCheck(
+            "pd_hl_calibration", "WARN",
+            f"HL p-value {p:.3f} < {HL_P_VALUE_MIN} — 캘리브레이션 의심 "
+            f"(χ²={hl.get('chi_square', 0):.2f})", metric=p))
+    else:
+        report.add(ConsistencyCheck(
+            "pd_hl_calibration", "PASS",
+            f"HL p={p:.3f} ≥ {HL_P_VALUE_MIN}", metric=p))
+
+
+def _check_backtest_traffic_light(
+    backtest: dict | None, report: ValidationReport,
+) -> None:
+    """Per-grade binomial: zero RED zones; YELLOW count surfaced as WARN."""
+    if not backtest or "per_grade" not in backtest:
+        return
+    z = backtest["per_grade"]["zone"].value_counts().to_dict()
+    red = int(z.get("RED", 0))
+    yellow = int(z.get("YELLOW", 0))
+    if red > 0:
+        report.add(ConsistencyCheck(
+            "pd_backtest_zones", "FAIL",
+            f"{red} grade(s) in RED zone — realised DR significantly above PD",
+            metric=float(red)))
+    elif yellow > 0:
+        report.add(ConsistencyCheck(
+            "pd_backtest_zones", "WARN",
+            f"{yellow} grade(s) in YELLOW zone", metric=float(yellow)))
+    else:
+        report.add(ConsistencyCheck(
+            "pd_backtest_zones", "PASS",
+            "all grades in GREEN zone"))
+
+
+def _check_large_exposure(limit_report: pd.DataFrame | None,
+                          report: ValidationReport) -> None:
+    """은행법 §35 동일차주 25%: any BREACH/CRITICAL on the 동일차주 limit → FAIL."""
+    if limit_report is None or limit_report.empty:
+        report.add(ConsistencyCheck("large_exposure_25pct", "PASS",
+                   "no limit breaches"))
+        return
+    obligor_breaches = limit_report[
+        (limit_report["limit"].astype(str).str.contains("동일차주"))
+        & (limit_report["severity"].isin(["BREACH", "CRITICAL"]))
+    ]
+    if len(obligor_breaches):
+        report.add(ConsistencyCheck(
+            "large_exposure_25pct", "FAIL",
+            f"{len(obligor_breaches)} 차주가 Tier1 25% 한도 위반 "
+            f"(은행법 §35)", metric=float(len(obligor_breaches))))
+    else:
+        report.add(ConsistencyCheck(
+            "large_exposure_25pct", "PASS",
+            "all obligors within Tier1 25% limit"))
+
+
 def _check_macro_ecl_path(path_df: pd.DataFrame, report: ValidationReport) -> None:
     if path_df is None or "scenario" not in getattr(path_df, "columns", []):
         return
@@ -446,6 +535,9 @@ def run_consistency_checks(
     reverse_stress_result: Any = None,
     stress_path_result: pd.DataFrame | None = None,
     macro_ecl_path_result: pd.DataFrame | None = None,
+    pd_metrics: dict | None = None,
+    backtest: dict | None = None,
+    limit_report: pd.DataFrame | None = None,
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
@@ -478,5 +570,9 @@ def run_consistency_checks(
     _check_reverse_stress(reverse_stress_result, rep)
     _check_stress_path(stress_path_result, rep)
     _check_macro_ecl_path(macro_ecl_path_result, rep)
+    _check_pd_model_quality(pd_metrics, rep)
+    _check_hl_calibration(backtest, rep)
+    _check_backtest_traffic_light(backtest, rep)
+    _check_large_exposure(limit_report, rep)
 
     return rep

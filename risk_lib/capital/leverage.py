@@ -1,9 +1,9 @@
-"""Basel III leverage ratio (LEV).
+"""Basel III leverage ratio (LEV10 / 감독세칙 레버리지비율).
 
-  LR = Tier1 capital / Total exposure measure
-  Minimum 3% (+ G-SIB leverage buffer = 50% of risk-weighted G-SIB buffer).
+  LR = Tier1 capital / Total exposure measure   ≥ 3.0% (LEV10.6)
+  G-SIB add-on +0.5%–1.0% (LEV40, 50% of risk-weighted G-SIB buffer).
 
-Exposure measure = on-balance + off-balance(with CCF, floor 10%)
+Exposure measure = on-balance + off-balance(with CCF, floor 10%) (LEV30.11)
                    + derivatives (SA-CCR) + securities financing transactions.
 """
 
@@ -11,9 +11,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from risk_lib.references import LEVERAGE_MIN_RATIO
 
-MIN_LEVERAGE_RATIO = 0.03
-OFF_BALANCE_CCF_FLOOR = 0.10  # leverage framework floors CCF at 10%
+
+MIN_LEVERAGE_RATIO = LEVERAGE_MIN_RATIO   # LEV10.6
+OFF_BALANCE_CCF_FLOOR = 0.10              # LEV30.11
 
 
 @dataclass

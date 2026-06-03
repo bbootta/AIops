@@ -111,7 +111,14 @@ def generate_portfolio(
     if n_mortgage:
         ltv = rng.normal(0.65, 0.15, n_mortgage).clip(0.2, 1.05)
         dti = rng.normal(0.30, 0.10, n_mortgage).clip(0.05, 0.8)
-        latent = -4.0 + 2.5 * ltv + 2.0 * dti + rng.normal(0, 0.5, n_mortgage)
+        credit_score = rng.normal(720, 70, n_mortgage).clip(350, 850)
+        income_log = rng.normal(10.8, 0.55, n_mortgage)
+        latent = (
+            -4.0 + 2.5 * ltv + 2.0 * dti
+            - 0.015 * (credit_score - 700)        # higher score → lower PD
+            - 0.45 * (income_log - 10.8)          # higher income → lower PD
+            + rng.normal(0, 0.45, n_mortgage)
+        )
         pd_true = _sigmoid(latent).clip(0.0005, 0.3)
         default = (rng.random(n_mortgage) < pd_true).astype(int)
         ead = rng.lognormal(mean=np.log(250_000_000 / 1e6), sigma=0.5, size=n_mortgage) * 1e6
@@ -127,6 +134,7 @@ def generate_portfolio(
             "leverage": np.nan, "current_ratio": np.nan, "log_assets": np.nan,
             "interest_coverage": np.nan, "gdp_growth": np.nan,
             "ltv": ltv, "dti": dti,
+            "credit_score": credit_score, "income_log": income_log,
             "pd": pd_true,
             "lgd": lgd_real * 0.9 + 0.05,
             "default_12m": default,

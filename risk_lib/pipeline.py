@@ -52,7 +52,7 @@ _SEGMENT_FEATURES = {
     "corporate": ["leverage", "current_ratio", "log_assets",
                   "interest_coverage", "gdp_growth"],
     "retail_other": ["dti", "utilization", "income_log", "months_employed"],
-    "residential_mortgage": ["ltv", "dti"],
+    "residential_mortgage": ["ltv", "dti", "credit_score", "income_log"],
 }
 
 _SA_CORP_BUCKET_BY_GRADE = {g.grade: g.sa_bucket for g in DEFAULT_MASTER_SCALE}
@@ -275,7 +275,12 @@ def run_pipeline(
     # IFRS9 forward-looking ECL allowance on the same quarterly axis
     macro_path = macro_ecl_path(irb_book, quarters, DEFAULT_MACRO_SCENARIOS)
 
-    # 13. Self-verification
+    # 13. PD backtest (run before validation so calibration check can read it)
+    corp = portfolio[portfolio["asset_class"] == "corporate"]
+    backtest = pd_backtest_report(corp, grade_col="grade",
+                                  pd_col="pd", default_col="default_12m")
+
+    # 14. Self-verification
     validation = run_consistency_checks(
         sa_results=sa_res, irb_results=irb_res,
         bis_result=bis, rwa_total_for_bis=rwa_final,
@@ -285,11 +290,10 @@ def run_pipeline(
         macro_ecl_result=macro, reverse_stress_result=reverse,
         stress_path_result=stress_path,
         macro_ecl_path_result=macro_path,
+        pd_metrics=pd_metrics,
+        backtest=backtest,
+        limit_report=limit_report,
     )
-
-    corp = portfolio[portfolio["asset_class"] == "corporate"]
-    backtest = pd_backtest_report(corp, grade_col="grade",
-                                  pd_col="pd", default_col="default_12m")
 
     summary = portfolio.groupby("asset_class").agg(
         n=("exposure_id", "size"), ead=("ead", "sum"),

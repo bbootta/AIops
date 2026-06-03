@@ -1,28 +1,25 @@
-"""Basel III output floor (CRE / finalisation).
+"""Basel III output floor (RBC30).
 
-Aggregate RWA computed with internal models must be at least `floor` times the
-RWA computed under the full standardised approaches.
+Aggregate RWA from internal models cannot fall below `floor` × RWA the bank
+would have under the full standardised approaches for everything currently
+using an internal model.
 
-  RWA_final = max(RWA_internal, floor * RWA_standardised)
+  RWA_final = max(RWA_internal, floor × RWA_standardised)            (RBC30.1)
 
-Phase-in: 50% (2023) → 72.5% (2028, fully loaded).  Default = 0.725.
+Phase-in schedule per RBC30.5: 50% (2023) → 72.5% (2028, fully loaded).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from risk_lib.references import (
+    OUTPUT_FLOOR_FULLY_LOADED, OUTPUT_FLOOR_PHASE_IN,
+)
 
-FULLY_LOADED_FLOOR = 0.725
 
-PHASE_IN = {
-    2023: 0.50,
-    2024: 0.55,
-    2025: 0.60,
-    2026: 0.65,
-    2027: 0.70,
-    2028: 0.725,
-}
+FULLY_LOADED_FLOOR = OUTPUT_FLOOR_FULLY_LOADED
+PHASE_IN = dict(OUTPUT_FLOOR_PHASE_IN)
 
 
 @dataclass

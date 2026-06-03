@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from risk_lib.pipeline import PipelineResult
+from risk_lib.references import ALL_CITATIONS
 
 
 def _won(x: float) -> str:
@@ -251,6 +252,17 @@ def render_markdown(result: PipelineResult) -> str:
         f"({'캘리브레이션 양호' if hl['p_value'] >= 0.05 else '캘리브레이션 주의'})")
     zones = r.backtest["per_grade"]["zone"].value_counts().to_dict()
     add(f"- 등급별 백테스트 존: {zones}")
+    add("")
+
+    # ---- 출처 및 준거 ----
+    add("## 13. 출처 및 준거")
+    add("")
+    add("각 수치·기준의 근거 표준 문헌 (모든 상수는 `risk_lib/references.py`에 집약).")
+    add("")
+    add("| 리포트 섹션 | 표준 | 항목 | 비고 |")
+    add("|---|---|---|---|")
+    for section, cite in ALL_CITATIONS:
+        add(f"| {section} | {cite.standard} | {cite.section} | {cite.note} |")
     add("")
 
     return "\n".join(lines)

@@ -1,14 +1,20 @@
 """IFRS 9 Expected Credit Loss (ECL) — 3-stage model.
 
-Stage 1 (performing)        : 12-month ECL
-Stage 2 (SICR)              : lifetime ECL
-Stage 3 (credit-impaired)   : lifetime ECL, PD = 1 (already defaulted)
+Stage 1 (performing,  IFRS 9 5.5.3): 12-month ECL
+Stage 2 (SICR,        IFRS 9 5.5.5): lifetime ECL
+Stage 3 (credit-impaired, 5.5.5)   : lifetime ECL, PD = 1 (already defaulted)
 
 Lifetime PD term structure derived from the 12-month PD under a constant-hazard
 assumption:  S(t) = (1 - PD_12m)^t ;  marginal default in year t = S(t-1) - S(t).
 ECL = Σ_t  marginal_PD_t * LGD * EAD_t * DF_t,  DF = 1/(1+EIR)^t.
 
-References: IFRS 9 5.5, 금감원 「대손충당금 적립기준」 (IFRS9 정합).
+SICR triggers (any one of, IFRS 9 5.5.7 / 5.5.11):
+  - DPD ≥ 30 (rebuttable presumption, 5.5.11)
+  - On internal watchlist
+  - Current PD ≥ k × origination PD (k = 2 default; entity-specific)
+
+References: IFRS 9 5.5; BCBS CRE36.69 (90-day default definition);
+            금감원 「대손충당금 적립기준」.
 """
 
 from __future__ import annotations
@@ -17,6 +23,10 @@ from enum import IntEnum
 
 import numpy as np
 import pandas as pd
+
+from risk_lib.references import (
+    DEFAULT_DPD_THRESHOLD, SICR_DPD_THRESHOLD, IFRS9_SICR_PD_MULTIPLE,
+)
 
 
 class Stage(IntEnum):
@@ -30,9 +40,9 @@ def classify_stage(
     pd_current: float,
     pd_origination: float | None = None,
     *,
-    sicr_pd_multiple: float = 2.0,
-    sicr_dpd: int = 30,
-    default_dpd: int = 90,
+    sicr_pd_multiple: float = IFRS9_SICR_PD_MULTIPLE,
+    sicr_dpd: int = SICR_DPD_THRESHOLD,
+    default_dpd: int = DEFAULT_DPD_THRESHOLD,
     watchlist: bool = False,
 ) -> Stage:
     """Assign IFRS 9 stage.
@@ -137,9 +147,9 @@ def classify_stage_vector(
     pd_origination: np.ndarray | None = None,
     *,
     watchlist: np.ndarray | None = None,
-    sicr_pd_multiple: float = 2.0,
-    sicr_dpd: int = 30,
-    default_dpd: int = 90,
+    sicr_pd_multiple: float = IFRS9_SICR_PD_MULTIPLE,
+    sicr_dpd: int = SICR_DPD_THRESHOLD,
+    default_dpd: int = DEFAULT_DPD_THRESHOLD,
 ) -> np.ndarray:
     """Vectorised IFRS 9 staging (int array of 1/2/3); see `classify_stage`."""
     dpd = np.asarray(dpd, dtype=float)
@@ -160,7 +170,7 @@ def compute_ecl(
     portfolio: pd.DataFrame,
     *,
     eir: float = 0.05,
-    sicr_pd_multiple: float = 2.0,
+    sicr_pd_multiple: float = IFRS9_SICR_PD_MULTIPLE,
 ) -> pd.DataFrame:
     """Add IFRS 9 stage and ECL to a portfolio (vectorised).
 

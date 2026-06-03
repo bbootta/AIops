@@ -38,6 +38,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
+from risk_lib.references import (
+    IFRS9_SICR_PD_MULTIPLE, IFRS9_FORECAST_HORIZON_YEARS, IFRS9_REVERSION_DECAY,
+)
 from risk_lib.provisioning.ecl import (
     Stage, classify_stage_vector, _discounted_loss, _vector_lifetime_const,
 )
@@ -51,15 +54,16 @@ class MacroScenario:
     """A forward-looking macro path and its probability weight.
 
     gdp_path: annual GDP-growth *deviation from long-run trend* over the explicit
-              forecast horizon (year 1..H).  Negative = downturn.
+              forecast horizon (year 1..H).  IFRS 9 5.5.17 calls for the
+              "reasonable and supportable" forecast horizon (default H=3 yrs).
     gdp_z_beta: GDP deviation → systematic factor sensitivity (z = -beta·gdp).
-    reversion: geometric decay of z toward TTC (z→0) for years beyond H.
+    reversion: post-horizon geometric decay of z toward TTC (default 0.5).
     """
     name: str
     probability: float
     gdp_path: tuple[float, ...]
     gdp_z_beta: float = 30.0
-    reversion: float = 0.5
+    reversion: float = IFRS9_REVERSION_DECAY
 
     def z_path(self, n_years: int) -> np.ndarray:
         """Systematic factor for years 1..n_years (downturn ⇒ positive z)."""
@@ -238,7 +242,7 @@ def macro_ecl(
     *,
     rho: float = DEFAULT_RHO,
     eir: float = 0.05,
-    sicr_pd_multiple: float = 2.0,
+    sicr_pd_multiple: float = IFRS9_SICR_PD_MULTIPLE,
 ) -> MacroECLResult:
     """Probability-weighted, forward-looking (PIT) IFRS 9 ECL (vectorised).
 
@@ -291,7 +295,7 @@ def macro_ecl_path(
     *,
     rho: float = DEFAULT_RHO,
     eir: float = 0.05,
-    sicr_pd_multiple: float = 2.0,
+    sicr_pd_multiple: float = IFRS9_SICR_PD_MULTIPLE,
 ) -> pd.DataFrame:
     """Quarterly IFRS 9 ECL allowance trajectory aligned to `quarters`.
 
