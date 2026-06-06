@@ -1155,6 +1155,36 @@
       "rollback_rule": "각 부문은 독립 SSoT — capital_adequacy 부문 전체 또는 외화LCR/도메스틱 ILM 만 부분 rollback 가능.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0078",
+      "timestamp": "2026-06-06 11:18:53",
+      "component": ".github/workflows/validation-team-agent-ci.yml",
+      "change_type": "modify",
+      "evidence": "Codex review found invalid GitHub Actions event filters: push/pull_request used paths and paths-ignore together, which makes the workflow invalid.",
+      "root_cause": "Workflow exclusions were implemented with paths-ignore instead of negated paths patterns, and the follow-up fix was not recorded in the decision-observability manifest.",
+      "targeted_fix": "Use negated ! patterns inside paths for both events and add this manifest entry to document the CI syntax correction.",
+      "expected_benefit": "validation-team-agent CI remains syntactically valid while preserving document/example/skill/subagent-only exclusion intent.",
+      "expected_regression_risk": "Path filter order is significant; future additions must keep positive include patterns before negative exclusions.",
+      "validation_method": "Inspected workflow trigger block and ran python -m tools.manifest validate.",
+      "rollback_rule": "Revert this manifest entry and the workflow path-filter change if a different CI trigger policy is adopted.",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0079",
+      "timestamp": "2026-06-06 11:23:28",
+      "component": "tests/test_ci_workflow_filters.py + .github/workflows/validation-team-agent-ci.yml",
+      "change_type": "create",
+      "evidence": "Follow-up cloud review requested stronger validation for the workflow path-filter fix beyond a one-off manifest validation.",
+      "root_cause": "The prior fix corrected the workflow syntax, but the repository had no regression test to prevent reintroducing paths-ignore with paths for the validation-team-agent CI workflow.",
+      "targeted_fix": "Add a focused pytest that asserts push and pull_request use paths-only negation, include required positive paths, and keep negated exclusions after positive includes.",
+      "expected_benefit": "Future edits that reintroduce invalid paths-ignore usage or drop the intended exclusions fail in the repository test suite.",
+      "expected_regression_risk": "The test intentionally depends on the current workflow trigger structure; legitimate trigger policy changes may require updating this focused assertion.",
+      "validation_method": "Run pytest tests/test_ci_workflow_filters.py and python -m tools.manifest validate when jsonschema is available.",
+      "rollback_rule": "Remove tests/test_ci_workflow_filters.py and this manifest entry if workflow trigger validation moves to a dedicated actionlint gate.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
