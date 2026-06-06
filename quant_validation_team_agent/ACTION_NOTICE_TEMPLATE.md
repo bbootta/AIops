@@ -1,28 +1,35 @@
-# ACTION_NOTICE_TEMPLATE
+﻿# Action Notice 템플릿
 
 ## 1. 목적
 
-Yellow / Red / Gray 판정 후보에 대해 조치 소유자, 기한, 필요 증적, 재검증 조건, 에스컬레이션 기준을 명확히 하기 위한 Action Notice 템플릿이다.
+`Yellow`, `Red`, `Gray` 판정 후보에 대해 조치 소유자, 기한, 필요 증적, 재검증 조건, 에스컬레이션 기준을 명확히 관리한다.
 
 ## 2. 생성 조건
 
-- `provisional_judgement = Yellow`이면 Action Notice를 생성한다.
-- `provisional_judgement = Red`이면 Action Notice를 생성하고 에스컬레이션 후보를 표시한다.
-- `provisional_judgement = Gray`이면 판단불가 사유코드와 필요 증적을 포함해 Action Notice를 생성한다.
-- `provisional_judgement = Green`이면 Action Notice를 생성하지 않으며 제한사항은 보고서에 기록한다.
+- `provisional_judgement = Yellow`: Action Notice를 생성한다.
+- `provisional_judgement = Red`: Action Notice를 생성하고 에스컬레이션 후보를 표시한다.
+- `provisional_judgement = Gray`: 판단불가 사유코드와 필요 증적을 포함해 Action Notice를 생성한다.
+- `provisional_judgement = Green`: Action Notice를 생성하지 않으며 제한사항은 보고서에 기록한다.
 
-## 3. Gray 사유코드
+## 3. 공통 가정 및 통제
+
+- Action Notice는 조치안내 초안이며 자동 조치, 자동 종결, 최종 승인 기능이 아니다.
+- LLM은 수치 계산을 하지 않으며, 수치 근거는 계산엔진 또는 공식 증적을 참조한다.
+- 판정은 `Green`, `Yellow`, `Red`, `Gray`만 사용하고 `Amber`는 사용하지 않는다.
+- 최종 종결은 인간 검증자 및 공식 조직이 승인한다.
+
+## 4. Gray 사유코드
 
 | 코드 | 의미 | 예시 |
 |---|---|---|
-| `POLICY_UNDEFINED` | 정책 미정의 | 신규 변수 검증 기준 부재 |
-| `DATA_INSUFFICIENT` | 데이터 부족 | 일부 기간 데이터 누락 |
-| `SAMPLE_INSUFFICIENT` | 표본 부족 | default 건수 부족 |
-| `ACCESS_LIMITED` | 권한 부족 | 회수자료 접근 불가 |
-| `LINEAGE_UNCLEAR` | lineage 불명확 | 원천-입력 매핑 불명확 |
-| `EVIDENCE_INSUFFICIENT` | 증적 부족 | 실행 로그/버전 부재 |
+| `POLICY_UNDEFINED` | 정책 미정의 | 신규 거시변수 검증 기준 부재 |
+| `DATA_INSUFFICIENT` | 데이터 부족 | 일부 월 데이터 누락 |
+| `SAMPLE_INSUFFICIENT` | 표본 부족 | 특정 등급 default 표본 부족 |
+| `ACCESS_LIMITED` | 권한 부족 | 담보 회수자료 접근권한 없음 |
+| `LINEAGE_UNCLEAR` | lineage 불명확 | 원천계-계산엔진 매핑 부재 |
+| `EVIDENCE_INSUFFICIENT` | 증적 부족 | 실행 로그, 버전, 파라미터 파일 부재 |
 
-## 4. Action Notice 템플릿
+## 5. Notice 양식
 
 ```markdown
 # Action Notice
@@ -32,66 +39,52 @@ Yellow / Red / Gray 판정 후보에 대해 조치 소유자, 기한, 필요 증
 - case_id:
 - request_id:
 - 발행일:
-- 발행 Agent:
-- 검증대상:
-- validation_object_type:
-- 판정 후보: Yellow | Red | Gray
-- Gray 사유코드:
-
-## 2. 발생 사유
-- 발견사항:
-- 정책 기준:
+- 이슈 요약:
+- 발견 경로:
+- 관련 정책/절차:
 - 계산엔진 결과 참조:
-- 데이터/lineage/증적 공백:
-- LLM 직접 계산 미수행 확인:
+- 부족한 증적:
+
+## 2. 발생 사유 및 판정 근거
+- provisional_judgement 후보: Yellow | Red | Gray
+- Gray 사유코드:
+- 발견사항:
+- 적용 정책 기준:
+- LLM 직접 계산 미수행 확인: ✓
 
 ## 3. 영향 범위
-- 영향 업무:
-- 영향 모델/파라미터/보고서:
-- 공식 보고 영향 가능성:
-- 고객/자본/리스크관리 영향 후보:
+- 관련 모델/파라미터/보고서:
+- 관련 포트폴리오/상품군:
+- 보고/규제/내부통제 영향 후보:
+- 영향 확정 여부: 인간 검증자 확인 필요
 
 ## 4. 필요한 조치
 - 조치 내용:
 - 조치 소유자:
 - 담당 부서:
 - 목표 완료일:
-- 우선순위:
 - 필요한 증적:
-
-## 5. 재검증 조건
 - 재검증 트리거:
-- 제출 필요 산출물:
-- 계산엔진 재실행 필요 여부:
-- 정책 승인 필요 여부:
 
-## 6. 미조치 시 에스컬레이션 기준
+## 5. 미조치 시 에스컬레이션 기준
 - 에스컬레이션 조건:
 - 에스컬레이션 대상:
-- 임시 사용 제한 필요 여부:
-- 공식 보고 보류 필요 여부:
+- Red 전환 검토 조건:
 
-## 7. 종결 기준
-- 종결 확인자:
+## 6. 종결 조건
+- 재검증 기준:
 - 공식 종결 승인자:
+- 종결 증적:
 - 종결일:
-- 잔여 리스크:
 ```
 
-## 5. 판정 예시와 Gray 사례 라이브러리
+## 6. Gray 사례별 Action Notice 예시
 
-| 사례명 | 입력상황 | 판정 후보 | Notice 사유코드 | 필요한 조치 | 재검증 조건 |
+| 사례명 | 입력상황 | 부족한 증적 | 판정 후보 | 필요 조치 | 인간 검증자 확인사항 |
 |---|---|---|---|---|---|
-| 정책 미정의 | 신규 거시변수 검증 기준 부재 | Gray | POLICY_UNDEFINED | 정책 담당부서 기준 수립 | 승인 정책문서 제출 |
-| 데이터 부족 | PD 검증 기간 일부 월 누락 | Gray | DATA_INSUFFICIENT | 누락 구간 재추출 | 완전한 기간 데이터 제출 |
-| 표본 부족 | 특정 등급 default 부족 | Gray | SAMPLE_INSUFFICIENT | 기간 확장 또는 pooling 검토 | 승인된 pooling 기준 제출 |
-| 권한 부족 | 담보 회수자료 접근 불가 | Gray | ACCESS_LIMITED | 권한 승인 또는 대체 증적 | 회수자료 확인 가능 상태 |
-| lineage 불명확 | 원천-계산엔진 입력 매핑 불명확 | Gray | LINEAGE_UNCLEAR | ETL 경로와 추출쿼리 제출 | lineage 재현성 확인 |
-| 증적 부족 | 실행 로그/파라미터 부재 | Gray | EVIDENCE_INSUFFICIENT | 재현 가능한 실행 패키지 제출 | 실행 ID와 로그 확인 |
-| 제한적 보완 | 결측 처리 설명 부족 | Yellow | 해당 없음 | 결측 처리 근거 제출 | 보완자료 검토 완료 |
-| 중대 결함 | 미승인 버전 산출물 사용 | Red | 해당 없음 | 승인 버전으로 재산출 | 공식 보고 영향 검토 |
-
-## 6. 운영상 가정
-
-- Action Notice는 조치 이행 관리 문서이며 보고서 초안을 대체하지 않는다.
-- Notice 종결은 에이전트가 아니라 지정된 인간 검증자 또는 공식 조직이 수행한다.
+| 정책 미정의 | 신규 거시변수 검증 기준 없음 | 승인된 정책 기준 | Gray | 정책 담당부서 기준 수립 요청 | 임시 검토 기준 허용 여부 |
+| 데이터 부족 | PD 검증기간 일부 월 누락 | 누락 데이터 또는 제외 승인 | Gray | 재추출 또는 제외 근거 승인 | 검증 중지 또는 범위 축소 여부 |
+| 표본 부족 | 특정 등급 default 표본 부족 | pooling/기간 확장 근거 | Gray | 표본 확장안 제출 | 대체 검증방법 허용 여부 |
+| 권한 부족 | LGD 회수자료 접근 불가 | 권한 승인 또는 대체 리포트 | Gray | 권한 승인 요청 | 대체 증적 인정 가능성 |
+| Lineage 불명확 | 계산 입력과 원천계 연결 부재 | ETL, 추출쿼리, 변환로직 | Gray | lineage 패키지 제출 | 재현성 충족 전 판단 보류 |
+| 증적 부족 | 결과 숫자만 존재 | 실행 로그, 버전, 파라미터 파일 | Gray | 재현 가능한 실행 증적 제출 | 기존 결과 사용 가능 여부 |

@@ -1,0 +1,7 @@
+{
+  "name": "scientific-team-agent",
+  "inherits": ["scientific-agent-skills"],
+  "skills_path": ".skills/scientific-agent-skills/scientific-skills",
+  "upstream_repo": "https://github.com/K-Dense-AI/scientific-agent-skills.git",
+  "description": "Team agent profile inheriting K-Dense scientific-agent-skills for research workflows."
+}

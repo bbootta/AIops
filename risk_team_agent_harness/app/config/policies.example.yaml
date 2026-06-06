@@ -1,0 +1,5 @@
+policies:
+  - policy_version: policy-sample-v1
+    description: 샘플 정책 버전. 실제 Basel/FSS 임계치 또는 해석은 포함하지 않는다.
+    regulation_mapping_id: basel-fss-sample-map-v1
+    production_approved: false

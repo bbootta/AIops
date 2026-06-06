@@ -1,0 +1,193 @@
+{
+  "generated_on": "2026-05-14",
+  "document_number": "리스크감리-양검-2026-001",
+  "source_sample": "samples\\risk_domain_samples.json",
+  "artifacts": [
+    "outputs\\validation_workbook.xlsx",
+    "outputs\\practitioner_report.md",
+    "outputs\\practitioner_report.html",
+    "outputs\\practitioner_report.hwpx",
+    "outputs\\practitioner_report.pdf",
+    "outputs\\executive_report.md",
+    "outputs\\executive_report.html",
+    "outputs\\executive_report.hwpx",
+    "outputs\\executive_report.pdf",
+    "outputs\\by_validation_object_type\\README.md",
+    "outputs\\by_validation_object_type\\credit_rating_model\\validation_workbook.xlsx",
+    "outputs\\by_validation_object_type\\credit_rating_model\\practitioner_report.md",
+    "outputs\\by_validation_object_type\\credit_rating_model\\practitioner_report.html",
+    "outputs\\by_validation_object_type\\credit_rating_model\\practitioner_report.hwpx",
+    "outputs\\by_validation_object_type\\credit_rating_model\\practitioner_report.pdf",
+    "outputs\\by_validation_object_type\\credit_rating_model\\executive_report.md",
+    "outputs\\by_validation_object_type\\credit_rating_model\\executive_report.html",
+    "outputs\\by_validation_object_type\\credit_rating_model\\executive_report.hwpx",
+    "outputs\\by_validation_object_type\\credit_rating_model\\executive_report.pdf",
+    "outputs\\by_validation_object_type\\credit_risk_parameter\\validation_workbook.xlsx",
+    "outputs\\by_validation_object_type\\credit_risk_parameter\\practitioner_report.md",
+    "outputs\\by_validation_object_type\\credit_risk_parameter\\practitioner_report.html",
+    "outputs\\by_validation_object_type\\credit_risk_parameter\\practitioner_report.hwpx",
+    "outputs\\by_validation_object_type\\credit_risk_parameter\\practitioner_report.pdf",
+    "outputs\\by_validation_object_type\\credit_risk_parameter\\executive_report.md",
+    "outputs\\by_validation_object_type\\credit_risk_parameter\\executive_report.html",
+    "outputs\\by_validation_object_type\\credit_risk_parameter\\executive_report.hwpx",
+    "outputs\\by_validation_object_type\\credit_risk_parameter\\executive_report.pdf",
+    "outputs\\by_validation_object_type\\risk_factor_validation\\validation_workbook.xlsx",
+    "outputs\\by_validation_object_type\\risk_factor_validation\\practitioner_report.md",
+    "outputs\\by_validation_object_type\\risk_factor_validation\\practitioner_report.html",
+    "outputs\\by_validation_object_type\\risk_factor_validation\\practitioner_report.hwpx",
+    "outputs\\by_validation_object_type\\risk_factor_validation\\practitioner_report.pdf",
+    "outputs\\by_validation_object_type\\risk_factor_validation\\executive_report.md",
+    "outputs\\by_validation_object_type\\risk_factor_validation\\executive_report.html",
+    "outputs\\by_validation_object_type\\risk_factor_validation\\executive_report.hwpx",
+    "outputs\\by_validation_object_type\\risk_factor_validation\\executive_report.pdf",
+    "outputs\\by_validation_object_type\\aggregation_reporting\\validation_workbook.xlsx",
+    "outputs\\by_validation_object_type\\aggregation_reporting\\practitioner_report.md",
+    "outputs\\by_validation_object_type\\aggregation_reporting\\practitioner_report.html",
+    "outputs\\by_validation_object_type\\aggregation_reporting\\practitioner_report.hwpx",
+    "outputs\\by_validation_object_type\\aggregation_reporting\\practitioner_report.pdf",
+    "outputs\\by_validation_object_type\\aggregation_reporting\\executive_report.md",
+    "outputs\\by_validation_object_type\\aggregation_reporting\\executive_report.html",
+    "outputs\\by_validation_object_type\\aggregation_reporting\\executive_report.hwpx",
+    "outputs\\by_validation_object_type\\aggregation_reporting\\executive_report.pdf",
+    "outputs\\by_validation_object_type\\hybrid_risk_output\\validation_workbook.xlsx",
+    "outputs\\by_validation_object_type\\hybrid_risk_output\\practitioner_report.md",
+    "outputs\\by_validation_object_type\\hybrid_risk_output\\practitioner_report.html",
+    "outputs\\by_validation_object_type\\hybrid_risk_output\\practitioner_report.hwpx",
+    "outputs\\by_validation_object_type\\hybrid_risk_output\\practitioner_report.pdf",
+    "outputs\\by_validation_object_type\\hybrid_risk_output\\executive_report.md",
+    "outputs\\by_validation_object_type\\hybrid_risk_output\\executive_report.html",
+    "outputs\\by_validation_object_type\\hybrid_risk_output\\executive_report.hwpx",
+    "outputs\\by_validation_object_type\\hybrid_risk_output\\executive_report.pdf"
+  ],
+  "axis_packages": {
+    "_summary": [
+      "outputs\\by_validation_object_type\\README.md"
+    ],
+    "credit_rating_model": [
+      "outputs\\by_validation_object_type\\credit_rating_model\\validation_workbook.xlsx",
+      "outputs\\by_validation_object_type\\credit_rating_model\\practitioner_report.md",
+      "outputs\\by_validation_object_type\\credit_rating_model\\practitioner_report.html",
+      "outputs\\by_validation_object_type\\credit_rating_model\\practitioner_report.hwpx",
+      "outputs\\by_validation_object_type\\credit_rating_model\\practitioner_report.pdf",
+      "outputs\\by_validation_object_type\\credit_rating_model\\executive_report.md",
+      "outputs\\by_validation_object_type\\credit_rating_model\\executive_report.html",
+      "outputs\\by_validation_object_type\\credit_rating_model\\executive_report.hwpx",
+      "outputs\\by_validation_object_type\\credit_rating_model\\executive_report.pdf"
+    ],
+    "credit_risk_parameter": [
+      "outputs\\by_validation_object_type\\credit_risk_parameter\\validation_workbook.xlsx",
+      "outputs\\by_validation_object_type\\credit_risk_parameter\\practitioner_report.md",
+      "outputs\\by_validation_object_type\\credit_risk_parameter\\practitioner_report.html",
+      "outputs\\by_validation_object_type\\credit_risk_parameter\\practitioner_report.hwpx",
+      "outputs\\by_validation_object_type\\credit_risk_parameter\\practitioner_report.pdf",
+      "outputs\\by_validation_object_type\\credit_risk_parameter\\executive_report.md",
+      "outputs\\by_validation_object_type\\credit_risk_parameter\\executive_report.html",
+      "outputs\\by_validation_object_type\\credit_risk_parameter\\executive_report.hwpx",
+      "outputs\\by_validation_object_type\\credit_risk_parameter\\executive_report.pdf"
+    ],
+    "risk_factor_validation": [
+      "outputs\\by_validation_object_type\\risk_factor_validation\\validation_workbook.xlsx",
+      "outputs\\by_validation_object_type\\risk_factor_validation\\practitioner_report.md",
+      "outputs\\by_validation_object_type\\risk_factor_validation\\practitioner_report.html",
+      "outputs\\by_validation_object_type\\risk_factor_validation\\practitioner_report.hwpx",
+      "outputs\\by_validation_object_type\\risk_factor_validation\\practitioner_report.pdf",
+      "outputs\\by_validation_object_type\\risk_factor_validation\\executive_report.md",
+      "outputs\\by_validation_object_type\\risk_factor_validation\\executive_report.html",
+      "outputs\\by_validation_object_type\\risk_factor_validation\\executive_report.hwpx",
+      "outputs\\by_validation_object_type\\risk_factor_validation\\executive_report.pdf"
+    ],
+    "aggregation_reporting": [
+      "outputs\\by_validation_object_type\\aggregation_reporting\\validation_workbook.xlsx",
+      "outputs\\by_validation_object_type\\aggregation_reporting\\practitioner_report.md",
+      "outputs\\by_validation_object_type\\aggregation_reporting\\practitioner_report.html",
+      "outputs\\by_validation_object_type\\aggregation_reporting\\practitioner_report.hwpx",
+      "outputs\\by_validation_object_type\\aggregation_reporting\\practitioner_report.pdf",
+      "outputs\\by_validation_object_type\\aggregation_reporting\\executive_report.md",
+      "outputs\\by_validation_object_type\\aggregation_reporting\\executive_report.html",
+      "outputs\\by_validation_object_type\\aggregation_reporting\\executive_report.hwpx",
+      "outputs\\by_validation_object_type\\aggregation_reporting\\executive_report.pdf"
+    ],
+    "hybrid_risk_output": [
+      "outputs\\by_validation_object_type\\hybrid_risk_output\\validation_workbook.xlsx",
+      "outputs\\by_validation_object_type\\hybrid_risk_output\\practitioner_report.md",
+      "outputs\\by_validation_object_type\\hybrid_risk_output\\practitioner_report.html",
+      "outputs\\by_validation_object_type\\hybrid_risk_output\\practitioner_report.hwpx",
+      "outputs\\by_validation_object_type\\hybrid_risk_output\\practitioner_report.pdf",
+      "outputs\\by_validation_object_type\\hybrid_risk_output\\executive_report.md",
+      "outputs\\by_validation_object_type\\hybrid_risk_output\\executive_report.html",
+      "outputs\\by_validation_object_type\\hybrid_risk_output\\executive_report.hwpx",
+      "outputs\\by_validation_object_type\\hybrid_risk_output\\executive_report.pdf"
+    ]
+  },
+  "sample_fingerprints": {
+    "SAMPLE-CREDIT-001": "45994b1b32db616af7bfba3b9ed7b1be5b0e4b08d753b74e4f6f21af4ff5e05b",
+    "SAMPLE-RATING-001": "2152b3b637aea5f8a86b4b180bea6177a3f387f74e03121af09a658e1cc87564",
+    "SAMPLE-MARKET-001": "cc90fd94b2a579ea0d89f324c46f7ede002592169ba5001c569cf21afa76a281",
+    "SAMPLE-OPRISK-001": "6a64d49f3a9c3438a6329be274fa87c3c0f5b84f32e68a843506b37443db65fe",
+    "SAMPLE-IRRBB-001": "c881c40cb726ea353cd3d007d766bf1dd32c74606c2079df65fe014ecdaee992",
+    "SAMPLE-LIQ-001": "c0dff39198b29081b0a6dc824a92d26d26ed18762511ac067aef80efd1b35097",
+    "SAMPLE-STRATEGIC-001": "89d76e63b330b0339daf3b5eb29547aa706a51a0045ab9557c26b24b36c60216",
+    "SAMPLE-REPUTATION-001": "f4fe4446068d077aa766162f804cdfe79448ccad740d80bf043a7daf0668a625",
+    "SAMPLE-CAPITAL-001": "e383711c77a7d3e89953da96928d59534fee49aca6c9c20075d1113355c0fda0",
+    "SAMPLE-MULTI-001": "e9c54fd775adf0932cdea22ac070bb91209586357b5b7bac9aa5a6594c93518c"
+  },
+  "explainability_index": {
+    "SAMPLE-CREDIT-001": {
+      "decision_stage": "중대 이슈 미발견 게이트",
+      "explanation_summary": "필수 정책·데이터·계산엔진 참조가 제공되어 현재 증적 기준 중대 이슈 후보가 발견되지 않음"
+    },
+    "SAMPLE-RATING-001": {
+      "decision_stage": "중대 이슈 미발견 게이트",
+      "explanation_summary": "필수 정책·데이터·계산엔진 참조가 제공되어 현재 증적 기준 중대 이슈 후보가 발견되지 않음"
+    },
+    "SAMPLE-MARKET-001": {
+      "decision_stage": "보완 가능 이슈 게이트",
+      "explanation_summary": "계산엔진 결과와 정책 참조는 존재하나 보완 설명 또는 조치 추적이 필요함"
+    },
+    "SAMPLE-OPRISK-001": {
+      "decision_stage": "데이터·증적 게이트",
+      "explanation_summary": "판단 보류: loss_event_boundary_definition, rcsa_to_loss_event_mapping"
+    },
+    "SAMPLE-IRRBB-001": {
+      "decision_stage": "중대 이슈 미발견 게이트",
+      "explanation_summary": "필수 정책·데이터·계산엔진 참조가 제공되어 현재 증적 기준 중대 이슈 후보가 발견되지 않음"
+    },
+    "SAMPLE-LIQ-001": {
+      "decision_stage": "중대 이슈 미발견 게이트",
+      "explanation_summary": "필수 정책·데이터·계산엔진 참조가 제공되어 현재 증적 기준 중대 이슈 후보가 발견되지 않음"
+    },
+    "SAMPLE-STRATEGIC-001": {
+      "decision_stage": "데이터·증적 게이트",
+      "explanation_summary": "판단 보류: management_approval_signature"
+    },
+    "SAMPLE-REPUTATION-001": {
+      "decision_stage": "공식 기준 게이트",
+      "explanation_summary": "판단 보류: approved_event_taxonomy, external_data_usage_permission, deduplication_rule_evidence"
+    },
+    "SAMPLE-CAPITAL-001": {
+      "decision_stage": "보완 가능 이슈 게이트",
+      "explanation_summary": "계산엔진 결과와 정책 참조는 존재하나 보완 설명 또는 조치 추적이 필요함"
+    },
+    "SAMPLE-MULTI-001": {
+      "decision_stage": "리스크 영역 게이트",
+      "explanation_summary": "판단 보류: primary_owner, policy_reference, calculation_engine_result_reference, cross_risk_lineage"
+    }
+  },
+  "fingerprint_fields": [
+    "request_type",
+    "validation_object_type",
+    "risk_output_domain",
+    "primary_risk_output_domain",
+    "secondary_risk_output_domains",
+    "scope_statement",
+    "policy_reference",
+    "regulatory_source_reference",
+    "calculation_engine_result_reference"
+  ],
+  "controls": [
+    "No LLM numeric calculation",
+    "Green/Yellow/Red/Gray only",
+    "Non-Green requires Action Notice",
+    "Human final approval required"
+  ]
+}

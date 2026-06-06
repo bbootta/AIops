@@ -1,0 +1,6 @@
+thresholds:
+  - policy_version: policy-sample-v1
+    metric_name: sample_metric
+    threshold_type: configurable_placeholder
+    value: null
+    note: 실제 규제 임계치는 제공된 승인 config 없이는 하드코딩하지 않는다.

@@ -1,0 +1,81 @@
+round,domain,domain_label,request_id,run_id,status,judgement,evidence_complete,metrics_approved,self_validation_flags,report_release_status,passed
+1,credit_model,신용평가모형 모니터링,req-credit-model-monitoring,run-17f388dced404f818895342c3b9ec4bb,completed,Green,True,True,,draft_ready_for_human_review,True
+1,rwa,RWA 산출 검증,req-rwa-validation,run-20730c4499ae4beebc6bd117384218c8,completed,Green,True,True,,draft_ready_for_human_review,True
+1,bis_ratio,BIS 비율 검증,req-bis-ratio-validation,run-8e00737f510f41f8ad40cf403859e13d,completed,Green,True,True,,draft_ready_for_human_review,True
+1,ddr,연체율/부도율/회수율 모니터링,req-ddr-monitoring,run-024c059477584aacb7b097aabf918d30,completed,Green,True,True,,draft_ready_for_human_review,True
+1,limit,한도 사용률 모니터링,req-limit-monitoring,run-b78f939c34bd4241a61b8a50ddcb12ad,completed,Green,True,True,,draft_ready_for_human_review,True
+1,rapm,RAPM 분석,req-rapm-analysis,run-cc3b90993296425f875f421755e98f54,completed,Green,True,True,,draft_ready_for_human_review,True
+1,climate_risk,기후리스크 검증,req-climate-risk-validation,run-2934b85d98de4e4fb877250ec6e049ee,completed,Green,True,True,,draft_ready_for_human_review,True
+1,ai_model_validation,AI 모형 검증,req-ai-model-validation,run-88ae26443e9545e89282582f39feea41,completed,Green,True,True,,draft_ready_for_human_review,True
+2,credit_model,신용평가모형 모니터링,req-credit-model-monitoring,run-10e08b009c124f3992a21a0194306b3a,completed,Green,True,True,,draft_ready_for_human_review,True
+2,rwa,RWA 산출 검증,req-rwa-validation,run-13049c8e6e0b486fb5ab531f173a7459,completed,Green,True,True,,draft_ready_for_human_review,True
+2,bis_ratio,BIS 비율 검증,req-bis-ratio-validation,run-d270ca89285a40c98dc9ca265ce133f6,completed,Green,True,True,,draft_ready_for_human_review,True
+2,ddr,연체율/부도율/회수율 모니터링,req-ddr-monitoring,run-3ca73bca2bec4bd0a54d445d0413aaa9,completed,Green,True,True,,draft_ready_for_human_review,True
+2,limit,한도 사용률 모니터링,req-limit-monitoring,run-a543bf5d76464658be0ac23a30aab22c,completed,Green,True,True,,draft_ready_for_human_review,True
+2,rapm,RAPM 분석,req-rapm-analysis,run-dd6b6ef82c5749ddaf9ec31a9332cfd3,completed,Green,True,True,,draft_ready_for_human_review,True
+2,climate_risk,기후리스크 검증,req-climate-risk-validation,run-9003e4c85ccf40f28b047ca1bb6d10fb,completed,Green,True,True,,draft_ready_for_human_review,True
+2,ai_model_validation,AI 모형 검증,req-ai-model-validation,run-b49d2ee8bac542d78c84d9b562e6f711,completed,Green,True,True,,draft_ready_for_human_review,True
+3,credit_model,신용평가모형 모니터링,req-credit-model-monitoring,run-a5e1ab486449499b8269164a7463cdc9,completed,Green,True,True,,draft_ready_for_human_review,True
+3,rwa,RWA 산출 검증,req-rwa-validation,run-57b978933e704afca607dfe9be8c36bd,completed,Green,True,True,,draft_ready_for_human_review,True
+3,bis_ratio,BIS 비율 검증,req-bis-ratio-validation,run-7c9bf20b48394752b18b7b4f49d4d219,completed,Green,True,True,,draft_ready_for_human_review,True
+3,ddr,연체율/부도율/회수율 모니터링,req-ddr-monitoring,run-1f88df25def6410fab3f6c6ad066a8a3,completed,Green,True,True,,draft_ready_for_human_review,True
+3,limit,한도 사용률 모니터링,req-limit-monitoring,run-9e40615d8d88484fa109fb98f27ec776,completed,Green,True,True,,draft_ready_for_human_review,True
+3,rapm,RAPM 분석,req-rapm-analysis,run-6e4781ff7c714fc8810b25eb6ac9d2b9,completed,Green,True,True,,draft_ready_for_human_review,True
+3,climate_risk,기후리스크 검증,req-climate-risk-validation,run-837d8f9d77c640e0b78d3d8cde751c04,completed,Green,True,True,,draft_ready_for_human_review,True
+3,ai_model_validation,AI 모형 검증,req-ai-model-validation,run-b5b5ee88d7cd49639d03cecaded738d1,completed,Green,True,True,,draft_ready_for_human_review,True
+4,credit_model,신용평가모형 모니터링,req-credit-model-monitoring,run-e37342c0084546b59c26e34d399e7f9d,completed,Green,True,True,,draft_ready_for_human_review,True
+4,rwa,RWA 산출 검증,req-rwa-validation,run-925fe8d9c20c4644aa9fbfbcadb5b031,completed,Green,True,True,,draft_ready_for_human_review,True
+4,bis_ratio,BIS 비율 검증,req-bis-ratio-validation,run-4b0f975acec946f68c6c2d64c77e0693,completed,Green,True,True,,draft_ready_for_human_review,True
+4,ddr,연체율/부도율/회수율 모니터링,req-ddr-monitoring,run-570a14b3d9fa420fa3b08268bb74307d,completed,Green,True,True,,draft_ready_for_human_review,True
+4,limit,한도 사용률 모니터링,req-limit-monitoring,run-fc3a8af69c114037b56c2aeb3d4f1410,completed,Green,True,True,,draft_ready_for_human_review,True
+4,rapm,RAPM 분석,req-rapm-analysis,run-4a84757dcbcf45bf8056555c56c95c37,completed,Green,True,True,,draft_ready_for_human_review,True
+4,climate_risk,기후리스크 검증,req-climate-risk-validation,run-609edfe482f2418a9a42f8ce9b9e2e80,completed,Green,True,True,,draft_ready_for_human_review,True
+4,ai_model_validation,AI 모형 검증,req-ai-model-validation,run-2644e3a5553c46de9e5fcbef304c88b6,completed,Green,True,True,,draft_ready_for_human_review,True
+5,credit_model,신용평가모형 모니터링,req-credit-model-monitoring,run-862491568fbf4eb08ca990d700c38242,completed,Green,True,True,,draft_ready_for_human_review,True
+5,rwa,RWA 산출 검증,req-rwa-validation,run-819cb4a5817640ff88e07fe811e9e90f,completed,Green,True,True,,draft_ready_for_human_review,True
+5,bis_ratio,BIS 비율 검증,req-bis-ratio-validation,run-f1161f88bb7f432bb33a881a8a7638e3,completed,Green,True,True,,draft_ready_for_human_review,True
+5,ddr,연체율/부도율/회수율 모니터링,req-ddr-monitoring,run-94423e18d1164440b49f17648ed62c22,completed,Green,True,True,,draft_ready_for_human_review,True
+5,limit,한도 사용률 모니터링,req-limit-monitoring,run-592540854c3043c1a87789a1a3bcc2df,completed,Green,True,True,,draft_ready_for_human_review,True
+5,rapm,RAPM 분석,req-rapm-analysis,run-702977e893444c918ea7ef494b453729,completed,Green,True,True,,draft_ready_for_human_review,True
+5,climate_risk,기후리스크 검증,req-climate-risk-validation,run-c63f57784ca04e90bd1c39072b75d959,completed,Green,True,True,,draft_ready_for_human_review,True
+5,ai_model_validation,AI 모형 검증,req-ai-model-validation,run-ccb79020a8d4486392ff9a342ba44d2b,completed,Green,True,True,,draft_ready_for_human_review,True
+6,credit_model,신용평가모형 모니터링,req-credit-model-monitoring,run-998a07f863374f6e941e1a80da76b2ba,completed,Green,True,True,,draft_ready_for_human_review,True
+6,rwa,RWA 산출 검증,req-rwa-validation,run-ab64fb569e1a41acae8175b091d76faa,completed,Green,True,True,,draft_ready_for_human_review,True
+6,bis_ratio,BIS 비율 검증,req-bis-ratio-validation,run-e3a4c2b95b674286a1da129073aaac3c,completed,Green,True,True,,draft_ready_for_human_review,True
+6,ddr,연체율/부도율/회수율 모니터링,req-ddr-monitoring,run-76223bd035f24efe9d6e85482c6734f5,completed,Green,True,True,,draft_ready_for_human_review,True
+6,limit,한도 사용률 모니터링,req-limit-monitoring,run-46de86673f8c47f2903e4d80cec86d33,completed,Green,True,True,,draft_ready_for_human_review,True
+6,rapm,RAPM 분석,req-rapm-analysis,run-ce3924c90cf541df81ae0df3a5ec8ec0,completed,Green,True,True,,draft_ready_for_human_review,True
+6,climate_risk,기후리스크 검증,req-climate-risk-validation,run-7400aeaf35db4d2aae860bfdd5a11eb2,completed,Green,True,True,,draft_ready_for_human_review,True
+6,ai_model_validation,AI 모형 검증,req-ai-model-validation,run-272e51be349448359992b2cc3c4c259f,completed,Green,True,True,,draft_ready_for_human_review,True
+7,credit_model,신용평가모형 모니터링,req-credit-model-monitoring,run-05b59ee2ec7b4fbaada87750947c8823,completed,Green,True,True,,draft_ready_for_human_review,True
+7,rwa,RWA 산출 검증,req-rwa-validation,run-f7ba11313eee46da82f5cbac3f91541e,completed,Green,True,True,,draft_ready_for_human_review,True
+7,bis_ratio,BIS 비율 검증,req-bis-ratio-validation,run-cad3b465b3c545ba8e951ef90cfaead9,completed,Green,True,True,,draft_ready_for_human_review,True
+7,ddr,연체율/부도율/회수율 모니터링,req-ddr-monitoring,run-2221d9c5ad4248408da3c4740c261f8f,completed,Green,True,True,,draft_ready_for_human_review,True
+7,limit,한도 사용률 모니터링,req-limit-monitoring,run-94ae391f177e43209dd88bc2583c5628,completed,Green,True,True,,draft_ready_for_human_review,True
+7,rapm,RAPM 분석,req-rapm-analysis,run-932ce0e2c0b146f1aa4debad9b73c2fd,completed,Green,True,True,,draft_ready_for_human_review,True
+7,climate_risk,기후리스크 검증,req-climate-risk-validation,run-5ec5047845ef4c04b0411f2d6fe07e18,completed,Green,True,True,,draft_ready_for_human_review,True
+7,ai_model_validation,AI 모형 검증,req-ai-model-validation,run-0db9463378194e4c842f63a6d7e4cf6c,completed,Green,True,True,,draft_ready_for_human_review,True
+8,credit_model,신용평가모형 모니터링,req-credit-model-monitoring,run-38e7108b0ad447cea99e35116386882a,completed,Green,True,True,,draft_ready_for_human_review,True
+8,rwa,RWA 산출 검증,req-rwa-validation,run-5d3e8e1095544e538262dea0070808d9,completed,Green,True,True,,draft_ready_for_human_review,True
+8,bis_ratio,BIS 비율 검증,req-bis-ratio-validation,run-4339ee1ca528482496fccd4bad8ca118,completed,Green,True,True,,draft_ready_for_human_review,True
+8,ddr,연체율/부도율/회수율 모니터링,req-ddr-monitoring,run-ead92c4903e545b594e58ca9793313ab,completed,Green,True,True,,draft_ready_for_human_review,True
+8,limit,한도 사용률 모니터링,req-limit-monitoring,run-23e9348e256648f3ab97963adcff101f,completed,Green,True,True,,draft_ready_for_human_review,True
+8,rapm,RAPM 분석,req-rapm-analysis,run-15e5959cdb75457bae04ab7468bc4d87,completed,Green,True,True,,draft_ready_for_human_review,True
+8,climate_risk,기후리스크 검증,req-climate-risk-validation,run-481acb89a0d54558aee438e70422c26f,completed,Green,True,True,,draft_ready_for_human_review,True
+8,ai_model_validation,AI 모형 검증,req-ai-model-validation,run-91d8147b003f4aaabba7cbf729ae6194,completed,Green,True,True,,draft_ready_for_human_review,True
+9,credit_model,신용평가모형 모니터링,req-credit-model-monitoring,run-4c89fd8588234f1e9caf23419a177f93,completed,Green,True,True,,draft_ready_for_human_review,True
+9,rwa,RWA 산출 검증,req-rwa-validation,run-3a1dd40e815648ee961d5f72e43f0fe8,completed,Green,True,True,,draft_ready_for_human_review,True
+9,bis_ratio,BIS 비율 검증,req-bis-ratio-validation,run-dd237a76fa924bfeb7819b787525a0f9,completed,Green,True,True,,draft_ready_for_human_review,True
+9,ddr,연체율/부도율/회수율 모니터링,req-ddr-monitoring,run-65e194c37d0d429e83466dff6b988b50,completed,Green,True,True,,draft_ready_for_human_review,True
+9,limit,한도 사용률 모니터링,req-limit-monitoring,run-55ff8583323b4df1b61c1cba7bbffd55,completed,Green,True,True,,draft_ready_for_human_review,True
+9,rapm,RAPM 분석,req-rapm-analysis,run-2a2eeb769a294147b2309fa24780b747,completed,Green,True,True,,draft_ready_for_human_review,True
+9,climate_risk,기후리스크 검증,req-climate-risk-validation,run-ac1dff83b36748e28141ec46c8730dc1,completed,Green,True,True,,draft_ready_for_human_review,True
+9,ai_model_validation,AI 모형 검증,req-ai-model-validation,run-587e685cb6de49b09e823039517c5e49,completed,Green,True,True,,draft_ready_for_human_review,True
+10,credit_model,신용평가모형 모니터링,req-credit-model-monitoring,run-1a7ba28b93904b54ab88aefb3a4c184b,completed,Green,True,True,,draft_ready_for_human_review,True
+10,rwa,RWA 산출 검증,req-rwa-validation,run-7eb8695846b943b2b134c29ebc384368,completed,Green,True,True,,draft_ready_for_human_review,True
+10,bis_ratio,BIS 비율 검증,req-bis-ratio-validation,run-a0c0a2d8c57441e8975a3b5788b0b027,completed,Green,True,True,,draft_ready_for_human_review,True
+10,ddr,연체율/부도율/회수율 모니터링,req-ddr-monitoring,run-176eab09841b48b098316bcb8d936ec8,completed,Green,True,True,,draft_ready_for_human_review,True
+10,limit,한도 사용률 모니터링,req-limit-monitoring,run-069d7f125649480588dac89c9b745265,completed,Green,True,True,,draft_ready_for_human_review,True
+10,rapm,RAPM 분석,req-rapm-analysis,run-4ca641ce2294497caf670ee83a50298c,completed,Green,True,True,,draft_ready_for_human_review,True
+10,climate_risk,기후리스크 검증,req-climate-risk-validation,run-01bd19b6c57d41b0a64d51f7899b070c,completed,Green,True,True,,draft_ready_for_human_review,True
+10,ai_model_validation,AI 모형 검증,req-ai-model-validation,run-ab5d43ad03ae4a469bc29fe6c661fb1d,completed,Green,True,True,,draft_ready_for_human_review,True
