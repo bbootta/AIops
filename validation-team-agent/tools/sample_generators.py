@@ -62,7 +62,7 @@ def credit_scoring_sample(
     obs_dates = (
         pd.date_range("2022-01-01", periods=24, freq="MS").strftime("%Y-%m-%d").tolist()
     )
-    obs_arr = rng.choice(obs_dates, size=n)
+    obs_arr = pd.to_datetime(rng.choice(obs_dates, size=n))
 
     customer_ids = [f"C{(i + 1):07d}" for i in range(n)]
 

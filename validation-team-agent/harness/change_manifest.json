@@ -1200,6 +1200,21 @@
       "rollback_rule": "추가 handler 9개와 escalation_report.py 제거 시 Round 17 동작. 매트릭스 macro_series alias 제거 시 이전 게이트.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0081",
+      "timestamp": "2026-06-09 23:48:53",
+      "component": "tools/handlers.py + tools/sample_generators.py + tools/run_workflow_demo.py + tests/test_handlers_round19.py + docs/v2_refactor_plan.md",
+      "change_type": "modify",
+      "evidence": "Round 18 종료 시점에 남은 simulated step 4개 + 누락 handler 3개 + obs_date string false positive 해소 필요. + v2 리팩토링 계획서 사용자 결정 대기로 저장.",
+      "root_cause": "1.req/2.schema/2.safety/2.leakage/2.date/2.dup/6.audit step 의 handler 미등록 + sample_generators 의 obs_date 가 string 이라 data_safety_guard 의 account_number 정규식이 YYYY-MM-DD 에 false positive.",
+      "targeted_fix": "handlers.py 에 7 handler 추가 (request/schema/safety/leakage/date/dup/audit). sample_generators 의 obs_date 를 pd.to_datetime 으로 변환. run_workflow_demo 에 date_col/key_cols/feature_names 추가하여 새 step 게이트 활성. docs/v2_refactor_plan.md 신규 (Phase 0~5 + Q1~Q5 사용자 결정 대기).",
+      "expected_benefit": "매트릭스 25 step 전부 handler 등록 (registered=25, simulated=0). 정상 case 24/24 ok, stress case 25 step (24 plan + 9.escalate).",
+      "expected_regression_risk": "추가 handler 는 모두 skip-safe (입력 부재 시 ok+skip). obs_date datetime 변환은 schema_guard date dtype 검증을 함께 통과.",
+      "validation_method": "pytest 424 통과 (411 → +13). 정상/stress 두 case 10만건 재실행, simulated 0 확인.",
+      "rollback_rule": "7개 신규 handler + obs_date 변환만 revert 하면 Round 18 동작.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

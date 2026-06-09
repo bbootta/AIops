@@ -432,6 +432,152 @@ def watermark_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResul
     )
 
 
+# ---------- 1. 요청 재구성 ----------
+
+def request_reconstruction_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    """입력 request 의 메타데이터 정규화 + 가용 부문 카탈로그."""
+    title = req.get("title", "(untitled)")
+    domains = []
+    if any(k in req for k in ("df", "score_col", "target_col")):
+        domains.append("credit")
+    if any(k.startswith("capital_") for k in req):
+        domains.append("capital")
+    if "scenario_weight_panel" in req:
+        domains.append("ifrs9_weights")
+    if "macro_series" in req or "macro_features" in req:
+        domains.append("macro")
+    if any(k in req for k in ("liquidity_hqla", "liquidity_asf")):
+        domains.append("liquidity")
+    if "market_var_exceptions" in req:
+        domains.append("market")
+    if "op_business_indicator_eur_bn" in req:
+        domains.append("operational")
+    if "irrbb_delta_eve_by_scenario" in req:
+        domains.append("irrbb")
+    if any(k in req for k in ("cva_counterparty_inputs", "cva_trading_book_size_eur_bn")):
+        domains.append("cva")
+    if any(k in req for k in ("ccr_rc", "ccr_pfe")):
+        domains.append("ccr")
+    return StepResult(
+        "1.req", "ok",
+        {"title": title, "n_keys": len(req.keys()), "domains": domains},
+        f"title={title!r}, domains={domains}",
+    )
+
+
+# ---------- 2.0 스키마 점검 ----------
+
+def schema_check_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    df = req.get("df")
+    if df is None:
+        return StepResult("2.schema", "ok", {}, "df 미제공 — skip")
+    score_col = req.get("score_col")
+    target_col = req.get("target_col")
+    if not (score_col and target_col):
+        return StepResult("2.schema", "warning", {}, "score/target col 미제공")
+    from middleware.schema_guard import check_schema, credit_scoring_schema
+
+    schema = credit_scoring_schema(
+        score_col=score_col, target_col=target_col,
+        set_col=req.get("set_col"), grade_col=req.get("grade_col"),
+        pd_col=req.get("pd_col"), date_col=req.get("date_col"),
+    )
+    out = check_schema(df, schema)
+    status = "ok" if out["passed"] else "fail"
+    return StepResult(
+        "2.schema", status,
+        {"passed": out["passed"], "violations": len(out["violations"])},
+        f"schema passed={out['passed']}, violations={len(out['violations'])}",
+    )
+
+
+# ---------- 2.1 데이터 안전 점검 ----------
+
+def safety_check_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    df = req.get("df")
+    if df is None:
+        return StepResult("2.safety", "ok", {}, "df 미제공 — skip")
+    from middleware.data_safety_guard import scan_dataframe
+
+    out = scan_dataframe(df)
+    status = "ok" if out["clean"] else "fail"
+    return StepResult(
+        "2.safety", status,
+        {"clean": out["clean"], "n_findings": len(out["findings"])},
+        f"safety clean={out['clean']}, findings={len(out['findings'])}",
+    )
+
+
+# ---------- 2.2 누수 점검 ----------
+
+def leakage_check_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    features = req.get("feature_names")
+    if not features:
+        return StepResult("2.leakage", "ok", {}, "feature_names 미제공 — skip")
+    from middleware.leakage_guard import check_leakage
+
+    out = check_leakage(features, target_name=req.get("target_col", "target"))
+    status = "ok" if out["passed"] else "fail"
+    return StepResult(
+        "2.leakage", status,
+        {"passed": out["passed"], "leaked": len(out["leaked"])},
+        f"leakage passed={out['passed']}, leaked={len(out['leaked'])}",
+    )
+
+
+# ---------- 2.3 기간 누락 점검 ----------
+
+def date_coverage_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    df = req.get("df")
+    date_col = req.get("date_col")
+    if df is None or not date_col or date_col not in df.columns:
+        return StepResult("2.date", "ok", {}, "date_col 미제공/부재 — skip")
+    from tools.data_profile import check_date_coverage
+
+    out = check_date_coverage(df, date_col)
+    missing = out.get("missing_months", [])
+    status = "ok" if not missing else "warning"
+    return StepResult(
+        "2.date", status,
+        {"min_date": out["min_date"], "max_date": out["max_date"],
+         "missing_months": len(missing)},
+        f"date coverage {out['min_date']}~{out['max_date']}, missing={len(missing)}",
+    )
+
+
+# ---------- 2.4 중복 점검 ----------
+
+def duplicates_check_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    df = req.get("df")
+    key_cols = req.get("key_cols")
+    if df is None or not key_cols:
+        return StepResult("2.dup", "ok", {}, "key_cols 미제공 — skip")
+    from tools.data_profile import check_duplicates
+
+    out = check_duplicates(df, list(key_cols))
+    status = "ok" if out["duplicate_count"] == 0 else "warning"
+    return StepResult(
+        "2.dup", status, {"duplicate_count": out["duplicate_count"]},
+        f"duplicates={out['duplicate_count']}",
+    )
+
+
+# ---------- 6. 변경 이력 기록 (검토 권고) ----------
+
+def audit_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    """매니페스트 자동 promote 는 인간 권한이므로 권고만 한다."""
+    fails = sum(1 for r in ctx.results.values() if r.status == "fail")
+    warns = sum(1 for r in ctx.results.values() if r.status == "warning")
+    status = "warning" if (fails or warns) else "ok"
+    return StepResult(
+        "6.audit", status,
+        {"fails": fails, "warnings": warns,
+         "manifest_action": "tools.manifest add (manual)"},
+        f"manifest 기록 권고: fail={fails}, warning={warns}. "
+        "`tools.manifest add` 로 CHG 항목 추가 후 검증팀장 승인 (HITL).",
+    )
+
+
 # ---------- escalation ----------
 
 def escalation_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
@@ -445,6 +591,12 @@ def escalation_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResu
 
 
 _DEFAULT = {
+    "1.req": request_reconstruction_handler,
+    "2.schema": schema_check_handler,
+    "2.safety": safety_check_handler,
+    "2.leakage": leakage_check_handler,
+    "2.date": date_coverage_handler,
+    "2.dup": duplicates_check_handler,
     "2.sample": sample_size_handler,
     "3.disc": credit_discrimination_handler,
     "3.psi": credit_psi_handler,
@@ -462,6 +614,7 @@ _DEFAULT = {
     "5.complete": completeness_handler,
     "5.cite": citation_handler,
     "5.watermark": watermark_handler,
+    "6.audit": audit_handler,
     "9.escalate": escalation_handler,
 }
 

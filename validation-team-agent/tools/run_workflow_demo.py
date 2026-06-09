@@ -44,6 +44,9 @@ def build_request(n: int, *, stress: bool, seed: int) -> dict:
         "set_col": "set",
         "grade_col": "grade",
         "pd_col": "pd",
+        "date_col": "obs_date",
+        "key_cols": ["customer_id", "obs_date"],
+        "feature_names": ["score", "grade", "pd"],
     }
     # 부문별 공통 입력 (Round 18: macro/weights/operational/cva/ccr 추가)
     base.update(
