@@ -1230,6 +1230,21 @@
       "rollback_rule": "src/vta/ 디렉터리 삭제 + pyproject.toml 의 src layout 라인 revert. v1 영향 0.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0083",
+      "timestamp": "2026-06-09 23:55:19",
+      "component": "src/vta/__main__.py + src/vta/cli/__main__.py + src/vta/policies/__init__.py (list_policies/list_schemas 추가) + tests/test_v2_cli_and_policies.py",
+      "change_type": "create",
+      "evidence": "v2 Phase 4 (단일 CLI) + Phase 5 의 안전 부분 (정책 인덱스). 사용자 결정 영역 미침범 — vta 패키지명 / 정책 파일 이동 없음.",
+      "root_cause": "v1 17개 CLI 가 산재 — 단일 진입점 부재. 정책 파일이 12개인데 카탈로그 없음.",
+      "targeted_fix": "src/vta/__main__.py + cli/__main__.py: subcommand → tools.* runpy dispatch (workflow/manifest/policy/classify 등 17개). policies/__init__.py: list_policies / list_schemas 추가 (정책 파일 이동 없음, 인덱스만).",
+      "expected_benefit": "신규 검증자가 'python -m vta --help' 한 줄로 전체 도구 발견. 정책 파일 카탈로그 즉시 조회 ('vta policy list'). v1 직접 호출도 그대로 동작 (test_v1_modules_still_directly_runnable).",
+      "expected_regression_risk": "runpy.run_module 사용 시 frozen runpy RuntimeWarning 가능 (manifest 데모에서 1회 출력) — sys.exit 분기 처리로 rc 보존, 실제 동작에 영향 없음.",
+      "validation_method": "pytest 445 통과 (433 → +12). vta --help / policy list / policy show / manifest validate / classify 모두 실행 확인.",
+      "rollback_rule": "src/vta/cli/__main__.py + __main__.py 삭제, policies/__init__.py 의 list_* 함수 제거 시 Round 20 동작.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

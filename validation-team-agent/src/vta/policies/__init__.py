@@ -30,4 +30,28 @@ def harness_path() -> Path:
     return _HARNESS
 
 
-__all__ = ["load", "harness_path"]
+def list_policies() -> list[tuple[str, Path]]:
+    """SSoT JSON 정책 파일을 (name, path) 쌍으로 반환한다.
+
+    schema 파일은 제외 — 정책 자체의 인덱스만 노출.
+    """
+    out: list[tuple[str, Path]] = []
+    for p in sorted(_HARNESS.glob("*.json")):
+        if p.name.endswith(".schema.json"):
+            continue
+        if p.name == "change_manifest.json":
+            # 매니페스트는 별도 도구 (tools.manifest) 로 다룬다.
+            continue
+        out.append((p.stem, p))
+    return out
+
+
+def list_schemas() -> list[tuple[str, Path]]:
+    """JSON schema 파일 인덱스."""
+    out: list[tuple[str, Path]] = []
+    for p in sorted(_HARNESS.glob("*.schema.json")):
+        out.append((p.name.replace(".schema.json", ""), p))
+    return out
+
+
+__all__ = ["load", "harness_path", "list_policies", "list_schemas"]
