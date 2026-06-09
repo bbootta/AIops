@@ -1245,6 +1245,21 @@
       "rollback_rule": "src/vta/cli/__main__.py + __main__.py 삭제, policies/__init__.py 의 list_* 함수 제거 시 Round 20 동작.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0084",
+      "timestamp": "2026-06-09 23:58:48",
+      "component": "tools/workflow_viz.py + src/vta/handlers/{credit,basel,report,data,macro}.py + README.md + tests/test_v2_round22.py",
+      "change_type": "create",
+      "evidence": "Stop hook 의 'v2 추가 진행' 지적 + Q3/Q4/Q5 사용자 결정 영역 미침범한 가치 작업.",
+      "root_cause": "workflow trace 시각화 부재 / handler 도메인 분류 없음 / README 가 v2 CLI 미반영.",
+      "targeted_fix": "tools/workflow_viz.py 신규: render_flowchart / render_sequence / render_table / render_from_log + CLI (mermaid). src/vta/handlers/ 에 credit/basel/report/data/macro 5 모듈 추가 — v1 _DEFAULT 동일 객체 alias (사용자 결정 영역 미침범). README 에 v2 vta CLI 카탈로그 절 추가.",
+      "expected_benefit": "PR/리뷰에서 동적 workflow 실행 결과를 mermaid 로 즉시 첨부. handler 도메인 분류로 신규 코드 작성 시 발견성 향상. 신규 사용자 README 진입성 개선.",
+      "expected_regression_risk": "tools/workflow_viz 는 새 모듈 — 기존 동작에 영향 없음. handler alias 는 v1 동일 객체 (test_all_handler_aliases_cover_v1_default 로 누락 방지). README 변경은 문서만.",
+      "validation_method": "pytest 458 통과 (445 → +13). escalation 동적 추가 시 🔄 마커 검증.",
+      "rollback_rule": "tools/workflow_viz.py 삭제 + src/vta/handlers/{credit,basel,report,data,macro}.py 삭제 + README 변경 revert 시 Round 21 동작.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

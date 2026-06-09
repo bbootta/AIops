@@ -91,6 +91,23 @@ pytest -q
 
 ## CLI 카탈로그
 
+### v2 단일 진입점 (권장)
+
+```
+python -m vta --help                   # 전체 subcommand 카탈로그
+python -m vta workflow demo --stress   # 동적 워크플로우 데모
+python -m vta manifest validate        # change_manifest 검증
+python -m vta policy list              # SSoT 정책 파일 인덱스
+python -m vta policy show <name>       # 정책 JSON 출력
+python -m vta classify <cmd>           # 6분류 에러 분류기
+```
+
+v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 호출도
+그대로 동작합니다. `python -m vta` 와 `python -m tools.*` 어느 쪽이든 결과는
+동일합니다.
+
+### v1 직접 호출 (호환)
+
 전체 CLI 인덱스는 `python -m tools.cli_index` 로 출력된다. 자주 쓰는 도구:
 
 | 도구 | 용도 |
