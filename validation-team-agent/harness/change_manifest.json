@@ -1215,6 +1215,21 @@
       "rollback_rule": "7개 신규 handler + obs_date 변환만 revert 하면 Round 18 동작.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0082",
+      "timestamp": "2026-06-09 23:52:12",
+      "component": "src/vta/{__init__,core/__init__,domains/__init__,handlers/__init__,policies/__init__,cli/__init__,reports/__init__}.py + pyproject.toml + tests/test_v2_shell.py + docs/v2_refactor_plan.md(이미 R19)",
+      "change_type": "create",
+      "evidence": "Stop hook 의 'v2 추가 개선 필요' 지적 + v2 계획서의 Phase 1 (패키지 셸) 권장값 (a)vta / (b)1분기 / (c)Pydantic Phase2 / (d)async Phase3 진입.",
+      "root_cause": "v1 의 17개 CLI / 25 모듈이 단일 import 루트 없이 산재. v2 의 진입점 부재.",
+      "targeted_fix": "src/vta/ 패키지 셸 6개 (root + core/domains/handlers/policies/cli/reports) 생성. 모든 v2 namespace 는 v1 의 동일 객체 re-export (새 정의 0). pyproject.toml 에 src layout + pythonpath. tests/test_v2_shell.py 9건으로 객체 동일성 + v1 동작 보존 단언.",
+      "expected_benefit": "Phase 2 (core 이전) 진입을 위한 기반 마련. 사용자가 Q1 결정 시 단순 rename 으로 조정 가능 (실제 구현은 v1 에 위임).",
+      "expected_regression_risk": "v1 import 와 동작 0 변경. v2 import 가 v1 의 동일 객체를 가리키므로 어느 쪽으로 import 해도 동일.",
+      "validation_method": "pytest 433 통과 (424 → +9). v2 셸의 모든 객체가 v1 객체와 'is' 동일성 보장.",
+      "rollback_rule": "src/vta/ 디렉터리 삭제 + pyproject.toml 의 src layout 라인 revert. v1 영향 0.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
