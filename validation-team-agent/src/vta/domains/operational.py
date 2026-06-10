@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
 _THRESHOLDS_PATH = (
-    Path(__file__).resolve().parent.parent.parent / "harness" / "operational_risk_thresholds.json"
+    Path(__file__).resolve().parents[3] / "harness" / "operational_risk_thresholds.json"
 )
 
 

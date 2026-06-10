@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Mapping
 
 _THRESHOLDS_PATH = (
-    Path(__file__).resolve().parent.parent.parent / "harness" / "ccr_thresholds.json"
+    Path(__file__).resolve().parents[3] / "harness" / "ccr_thresholds.json"
 )
 
 

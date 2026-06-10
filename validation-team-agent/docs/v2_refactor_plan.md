@@ -44,14 +44,14 @@
 
 ## 3. 단계별 로드맵 (Phase 0~5)
 
-| Phase | 목표 | Round 환산 |
+| Phase | 목표 | 상태 |
 |---|---|---|
-| **0. 계획 승인** | 본 문서 + 비목표 확정 | (현재) |
-| **1. 패키지 셸** | `src/vta/` skeleton + v1 shim | R20 |
-| **2. core 이전** | workflow / run_logger → `vta.core` + Pydantic | R21–22 |
-| **3. domain 이전** | risk_checks + handlers → `vta.domains.*` + async | R23–24 |
-| **4. CLI 통합** | `vta` 단일 entry | R25 |
-| **5. 정책 + 마무리** | SSoT 디렉터리 재구조화 + 문서 | R26 |
+| **0. 계획 승인** | 본 문서 + 비목표 확정 | ✅ Q1~Q4 확정 (2026-06-10) |
+| **1. 패키지 셸** | `src/vta/` skeleton + v1 shim | ✅ R20 |
+| **2. core 이전** | workflow → `vta.core.workflow` + Pydantic 계약 + 정책 로더 | ✅ R27 (run_logger 는 middleware 잔류) |
+| **3. domain 이전** | async 엔진 (R28) + risk_checks→`vta.domains` / handlers→`vta.handlers.registry` (R29) | ✅ R28–29 |
+| **4. CLI 통합** | `vta` 단일 entry | ✅ R21 |
+| **5. 정책 + 마무리** | SSoT 디렉터리 재구조화 + 문서 | 인덱스만 완료 — 파일 물리 이동은 별도 사용자 확인 필요 |
 
 총 7 라운드 / CHG-0081 ~ CHG-0095 추정.
 

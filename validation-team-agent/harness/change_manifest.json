@@ -1365,6 +1365,21 @@
       "rollback_rule": "matrix 1.1 로 revert 시 sync 동작 불변, async 만 보고서 체인 race 재발",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0092",
+      "timestamp": "2026-06-10 01:44:48",
+      "component": "src/vta/domains/*, src/vta/handlers/registry.py",
+      "change_type": "modify",
+      "evidence": "Phase 3 잔여분: risk_checks 7개 모듈 + handlers.py 본체가 여전히 tools/ 에 있어 v2 단일 import 루트 미완 (Q1/Q2 확정 후 진행 조건 충족)",
+      "root_cause": "Phase 1~2 가 re-export 셸이었고 본체 이전은 미수행",
+      "targeted_fix": "risk_checks 7개 모듈 본체를 src/vta/domains/ 로 이동 (_THRESHOLDS_PATH 는 parents[3] 로 재계산, harness/ SSoT 불변). tools/risk_checks 는 sys.modules 등록 shim — import tools.risk_checks.x 가 canonical 모듈 자체를 반환해 모듈 동일성 보존. handlers.py 본체는 vta/handlers/registry.py 로 이동 (vta.core.workflow 직접 import), tools/handlers.py 는 star re-export shim (_DEFAULT/_has/_bad_scalar 포함)",
+      "expected_benefit": "v2 canonical 구조 완성 (core+domains+handlers). v1 호출 전부 동일 객체 보장",
+      "expected_regression_risk": "medium — import 경로 chain 변경. 순환 import 는 subprocess 테스트로 검증. shim 제거 시점(2026-Q4)까지 v1 경로 유지",
+      "validation_method": "tests/test_v2_round29.py 8 cases (모듈 동일성/threshold 해석/registry origin/순환 import/엔진 구동) + 전체 547 통과 + run_workflow_demo·run_validation CLI 무회귀",
+      "rollback_rule": "git revert 로 tools/ 본체 복원 + vta 재-export 화 시 v1 단독 동작 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

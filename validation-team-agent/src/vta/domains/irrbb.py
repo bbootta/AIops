@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Mapping
 
 _THRESHOLDS_PATH = (
-    Path(__file__).resolve().parent.parent.parent / "harness" / "irrbb_thresholds.json"
+    Path(__file__).resolve().parents[3] / "harness" / "irrbb_thresholds.json"
 )
 
 
