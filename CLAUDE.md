@@ -4,6 +4,14 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
+## Project: Risk Research Harness
+
+This repository hosts a tool-agnostic research-team harness for bank risk
+management. For research requests, start from the subagents in
+`.claude/agents/` (entry point: `risk-research-lead`) and follow
+`harness/risk-research-runbook.md` for workflow, quality gates, and evidence
+rules. See `README.md` for the file map.
+
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
