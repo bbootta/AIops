@@ -1,9 +1,7 @@
 """Round 22 — workflow viz + handler 도메인 alias + README 확인."""
 
-import json
 from pathlib import Path
 
-import pytest
 
 
 # ---------- handler 도메인 alias 동일성 ----------

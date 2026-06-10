@@ -1,6 +1,6 @@
 import pandas as pd
 
-from tools.run_validation import ValidationRequest, _build_demo_request, run
+from tools.run_validation import _build_demo_request, run
 
 
 def test_scenario_weights_runs_when_panel_provided(tmp_path):

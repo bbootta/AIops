@@ -42,6 +42,6 @@ def test_rotation_truncate_when_backup_count_zero(tmp_path: Path):
 def test_run_logger_context_writes_start_and_end(tmp_path: Path):
     with rl.run_logger("demo_fn", inputs={"k": 1}, log_dir=tmp_path) as ctx:
         ctx["result_summary"] = {"ok": True}
-    lines = [json.loads(l) for l in (tmp_path / "run.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
-    events = {l["event"] for l in lines}
+    lines = [json.loads(ln) for ln in (tmp_path / "run.jsonl").read_text(encoding="utf-8").splitlines() if ln.strip()]
+    events = {ln["event"] for ln in lines}
     assert events == {"start", "end"}

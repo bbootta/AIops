@@ -2,7 +2,7 @@ import json
 
 from tools import handlers as h
 from tools.escalation_report import render_json, render_markdown
-from tools.workflow import StepResult, WorkflowEngine
+from tools.workflow import WorkflowEngine
 
 
 def _failing_run(tmp_path):

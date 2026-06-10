@@ -9,9 +9,9 @@ from middleware import run_logger as rl
 def test_log_step_writes_entry(tmp_path: Path):
     rl.log_step("3.disc", component="metric_ks_auc.calculate_ks", log_dir=tmp_path)
     rec = [
-        json.loads(l)
-        for l in (tmp_path / "run.jsonl").read_text(encoding="utf-8").splitlines()
-        if l.strip()
+        json.loads(ln)
+        for ln in (tmp_path / "run.jsonl").read_text(encoding="utf-8").splitlines()
+        if ln.strip()
     ]
     assert len(rec) == 1
     assert rec[0]["event"] == "step"
@@ -27,9 +27,9 @@ def test_log_step_supports_skipped_and_failed(tmp_path: Path):
                 status="failed", log_dir=tmp_path,
                 extra={"error_type": "ValueError"})
     rec = [
-        json.loads(l)
-        for l in (tmp_path / "run.jsonl").read_text(encoding="utf-8").splitlines()
-        if l.strip()
+        json.loads(ln)
+        for ln in (tmp_path / "run.jsonl").read_text(encoding="utf-8").splitlines()
+        if ln.strip()
     ]
     assert {r["status"] for r in rec} == {"skipped", "failed"}
     assert rec[1]["error_type"] == "ValueError"
@@ -44,9 +44,9 @@ def test_run_logger_records_step_id(tmp_path):
     with rl.run_logger("my_fn", inputs={"k": 1}, log_dir=tmp_path, step_id="3.disc"):
         pass
     rec = [
-        json.loads(l)
-        for l in (tmp_path / "run.jsonl").read_text(encoding="utf-8").splitlines()
-        if l.strip()
+        json.loads(ln)
+        for ln in (tmp_path / "run.jsonl").read_text(encoding="utf-8").splitlines()
+        if ln.strip()
     ]
     assert all(r["step_id"] == "3.disc" for r in rec)
 

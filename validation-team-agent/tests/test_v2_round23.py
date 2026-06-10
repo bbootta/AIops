@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 
 def test_benchmark_runs_smoke(tmp_path):

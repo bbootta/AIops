@@ -60,6 +60,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Ruff lint
+        run: |
+          python -m ruff check src/ tools/ middleware/ tests/
+
+      - name: mypy (v2 strict gate)
+        run: |
+          python -m mypy src/vta/core/ src/vta/policies/
+
       - name: Validate change_manifest schema
         run: |
           python -m tools.manifest validate

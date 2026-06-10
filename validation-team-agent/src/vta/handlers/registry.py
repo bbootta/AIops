@@ -70,7 +70,6 @@ def _disc_skip_reason(df, score_col: str, target_col: str) -> str | None:
 
 def credit_discrimination_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
     """KS / AUROC / Gini. df + score_col + target_col 필요."""
-    import numpy as np
 
     from tools.metric_ks_auc import calculate_auc_gini, calculate_ks
 

@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from tools import policy_lint as pl
 

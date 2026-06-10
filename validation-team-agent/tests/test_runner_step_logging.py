@@ -1,6 +1,5 @@
 """Runner 들이 log_step으로 매트릭스 step_id를 기록하는지 확인."""
 
-import json
 from pathlib import Path
 
 from middleware.run_logger import collect_step_ids

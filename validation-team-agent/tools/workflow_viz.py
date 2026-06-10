@@ -19,7 +19,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -83,7 +83,6 @@ def render_sequence(run: Any) -> str:
              "    participant L as Logger"]
     for sid in run.executed_order:
         r = run.context.results[sid]
-        comp = _escape(getattr(run, "matrix", {}).get(sid, {}).get("component", ""), limit=40)
         lines.append(f"    Eng->>H: {sid}")
         if r.status == "fail":
             lines.append(f"    H-->>Eng: FAIL ({_escape(r.detail, limit=40)})")

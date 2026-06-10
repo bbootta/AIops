@@ -1380,6 +1380,21 @@
       "rollback_rule": "git revert 로 tools/ 본체 복원 + vta 재-export 화 시 v1 단독 동작 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0093",
+      "timestamp": "2026-06-10 01:48:41",
+      "component": "pyproject.toml ([tool.ruff]/[tool.mypy]), .github/workflows/validation-team-agent-ci.yml",
+      "change_type": "modify",
+      "evidence": "v2 목표 5 (mypy --strict + ruff gate) 미적용 상태. ruff 초기 스캔 59건 (F401 46 / E741 9 / F541 3 / F841 1), mypy strict 초기 40건",
+      "root_cause": "정적 분석 게이트 부재 — unused import / 모호한 변수명 / 타입 인자 누락이 누적",
+      "targeted_fix": "ruff (기본 F/E 규칙 + E741) 로 59건 정리. mypy 는 위험표 원칙대로 v2(vta.core/vta.policies)만 strict, v1(tools/middleware)은 ignore_errors 로 점진 적용. CI 에 Ruff lint + mypy strict gate step 추가. dev deps 에 ruff/mypy",
+      "expected_benefit": "v2 표면의 타입 회귀 차단, import 위생 유지. CI 에서 자동 강제",
+      "expected_regression_risk": "low — 수정은 unused import 제거 / 변수명 rename / 타입 주석 한정. 로직 무변경",
+      "validation_method": "ruff All checks passed + mypy Success (5 files) + 전체 547 통과",
+      "rollback_rule": "pyproject [tool.ruff]/[tool.mypy] 섹션 + CI 2 step 제거",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

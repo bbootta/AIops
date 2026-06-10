@@ -8,7 +8,6 @@ Round 24/25 가 credit + 7 개 부문 handler 의 NaN/Inf/0-분모/empty 를 다
 
 from __future__ import annotations
 
-import pytest
 
 from tools.handlers import ccr_handler, cva_handler
 from tools.workflow import WorkflowContext

@@ -1,6 +1,5 @@
 """Runner들이 6.audit step을 명시적으로 'skipped'로 기록하는지."""
 
-import json
 from pathlib import Path
 
 from middleware.run_logger import collect_step_records

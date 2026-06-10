@@ -1,7 +1,5 @@
-import json
 from pathlib import Path
 
-import pytest
 
 from tools import model_notes as mn
 

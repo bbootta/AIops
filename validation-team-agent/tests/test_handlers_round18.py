@@ -1,7 +1,5 @@
 """Round 18 추가 handler + 보고서 step + escalation 보고서."""
 
-import pandas as pd
-import pytest
 
 from tools import handlers as h
 from tools.sample_generators import (

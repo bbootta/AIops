@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from tools.report_template import _PRINT_CSS_PATH, _load_print_css, render_html
 

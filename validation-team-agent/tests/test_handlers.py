@@ -1,4 +1,3 @@
-import pytest
 
 from tools import handlers as h
 from tools.sample_generators import credit_scoring_sample

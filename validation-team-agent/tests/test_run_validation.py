@@ -19,11 +19,11 @@ def test_demo_run_writes_jsonl_log(tmp_path):
     run(req, log_dir=tmp_path)
     log_path = Path(tmp_path) / "run.jsonl"
     assert log_path.exists()
-    lines = [json.loads(l) for l in log_path.read_text(encoding="utf-8").splitlines() if l.strip()]
-    events = {l["event"] for l in lines}
+    lines = [json.loads(ln) for ln in log_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    events = {ln["event"] for ln in lines}
     assert "start" in events
     assert "end" in events
-    assert any(l["function"] == "run_validation.run" for l in lines)
+    assert any(ln["function"] == "run_validation.run" for ln in lines)
 
 
 def test_demo_run_records_sample_size_decision(tmp_path):

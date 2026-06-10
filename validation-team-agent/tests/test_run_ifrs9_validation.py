@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 
 from tools.run_ifrs9_validation import IFRS9ValidationRequest, _build_demo_request, run

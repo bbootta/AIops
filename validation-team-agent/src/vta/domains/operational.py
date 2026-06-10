@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
+from typing import Mapping, Sequence
 
 _THRESHOLDS_PATH = (
     Path(__file__).resolve().parents[3] / "harness" / "operational_risk_thresholds.json"

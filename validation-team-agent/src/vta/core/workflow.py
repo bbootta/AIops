@@ -57,7 +57,7 @@ class StepResult:
 
     step_id: str
     status: Status
-    outputs: dict = field(default_factory=dict)
+    outputs: dict[str, Any] = field(default_factory=dict)
     detail: str = ""
 
 
@@ -76,7 +76,9 @@ class WorkflowError(RuntimeError):
     pass
 
 
-def _topological_order(step_ids: list[str], steps_by_id: Mapping[str, dict]) -> list[str]:
+def _topological_order(
+    step_ids: list[str], steps_by_id: Mapping[str, dict[str, Any]]
+) -> list[str]:
     """depends_on 기반 위상정렬 (Kahn). plan 에 없는 의존성은 무시. cycle 시 WorkflowError."""
     in_plan = set(step_ids)
     indeg = {sid: 0 for sid in step_ids}
@@ -185,7 +187,7 @@ class WorkflowEngine:
         done: set[str] = set()
         waiting: list[str] = list(plan)
         sem = asyncio.Semaphore(max_concurrency)
-        running: dict[asyncio.Task, str] = {}
+        running: dict[asyncio.Task[StepResult], str] = {}
 
         def _deps_met(sid: str) -> bool:
             deps = self.steps_by_id[sid].get("depends_on", [])
@@ -279,7 +281,7 @@ class WorkflowRun:
     executed_order: list[str]
     context: WorkflowContext
 
-    def summary(self) -> dict:
+    def summary(self) -> dict[str, Any]:
         counts: dict[str, int] = {}
         for r in self.context.results.values():
             counts[r.status] = counts.get(r.status, 0) + 1

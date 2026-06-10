@@ -20,7 +20,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Sequence
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = ROOT / "harness" / "change_manifest.schema.json"

@@ -9,10 +9,8 @@ handler robustness. Round 24 가 credit 3 개를 다뤘다면, 본 라운드는 
 
 from __future__ import annotations
 
-import math
 
 import pandas as pd
-import pytest
 
 from tools.handlers import (
     capital_handler,

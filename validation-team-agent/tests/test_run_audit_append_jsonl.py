@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from middleware import run_logger as rl
 from tools import run_audit

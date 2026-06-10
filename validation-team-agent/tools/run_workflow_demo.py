@@ -241,9 +241,9 @@ def build_report_markdown(demo: dict, *, stress: bool) -> str:
         "purpose": "Round 17 강화 검증: dynamic workflow 엔진의 end-to-end 동작 + escalation 분기 시연.",
         "input_data": [
             f"입력 행 수: {demo['n_rows']:,} (합성 데이터, seed=42)",
-            f"컬럼: customer_id, obs_date, score, target, grade, pd, set",
-            f"부문별 입력: capital_*, market_var_exceptions, liquidity_*, irrbb_*",
-            f"운영 데이터 / 외부 API 호출 없음. 민감정보 패턴 없음.",
+            "컬럼: customer_id, obs_date, score, target, grade, pd, set",
+            "부문별 입력: capital_*, market_var_exceptions, liquidity_*, irrbb_*",
+            "운영 데이터 / 외부 API 호출 없음. 민감정보 패턴 없음.",
         ],
         "method": [
             "샘플 생성: `tools/sample_generators.credit_scoring_sample`",

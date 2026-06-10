@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 # v1 경로 그대로 사용 (Phase 5 에서 이전).
 _HARNESS = Path(__file__).resolve().parent.parent.parent.parent / "harness"
 
 
-def load(name: str) -> dict:
+def load(name: str) -> dict[str, Any]:
     """정책 SSoT JSON 을 로드한다.
 
     name 예: 'orchestration_matrix', 'permission_matrix',
@@ -22,7 +23,7 @@ def load(name: str) -> dict:
     path = _HARNESS / f"{name}.json"
     if not path.exists():
         raise FileNotFoundError(f"policy file not found: {path}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast("dict[str, Any]", json.loads(path.read_text(encoding="utf-8")))
 
 
 def harness_path() -> Path:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
 
 
 def _engine():
@@ -86,7 +85,7 @@ def test_async_max_concurrency_one_is_sequential(tmp_path):
 
 def test_async_handler_exception_classified(tmp_path):
     """handler 예외는 async 경로에서도 fail + 분류로 처리된다."""
-    from vta.core.workflow import StepResult, WorkflowEngine
+    from vta.core.workflow import WorkflowEngine
 
     eng = WorkflowEngine()
 

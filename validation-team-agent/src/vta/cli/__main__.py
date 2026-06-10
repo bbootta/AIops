@@ -19,7 +19,6 @@ usage:
 
 from __future__ import annotations
 
-import argparse
 import runpy
 import sys
 

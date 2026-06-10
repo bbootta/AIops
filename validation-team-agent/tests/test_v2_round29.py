@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 
 # ---------- risk_checks → vta.domains (sys.modules shim) ----------

@@ -30,7 +30,7 @@ def test_jsonl_lines_match_audit_function(tmp_path, capsys):
     rl.log_step("4.report", component="y", log_dir=tmp_path)
     run_audit.main(["log", "--log", str(tmp_path / "run.jsonl"), "--jsonl"])
     captured = capsys.readouterr().out.strip().splitlines()
-    parsed = [json.loads(l) for l in captured]
+    parsed = [json.loads(ln) for ln in captured]
     direct = run_audit.audit(tmp_path / "run.jsonl")
     assert [r["id"] for r in parsed] == [r["id"] for r in direct]
     assert [r["status"] for r in parsed] == [r["status"] for r in direct]

@@ -9,9 +9,8 @@ run_validation / run_macro_validation 같은 thin runner가 외부 CSV를
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Mapping
+from typing import Iterable
 
-import numpy as np
 import pandas as pd
 
 

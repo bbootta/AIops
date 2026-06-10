@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 
-from tools import workflow as wf
 from tools.workflow import StepResult, WorkflowEngine, WorkflowError
 
 

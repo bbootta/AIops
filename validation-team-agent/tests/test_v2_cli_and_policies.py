@@ -1,6 +1,5 @@
 """Round 21 — v2 Phase 4 (CLI) + Phase 5 정책 인덱스."""
 
-import pytest
 
 
 # ---------- policy index ----------
