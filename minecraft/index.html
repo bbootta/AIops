@@ -58,10 +58,10 @@
 <div id="overlay">
   <h1>MINECRAFT</h1>
   <p>
-    W A S D : 이동 &nbsp;|&nbsp; Space : 점프 / 수영 &nbsp;|&nbsp; 마우스 : 시점<br>
+    W A S D : 이동 &nbsp;|&nbsp; Shift : 달리기 &nbsp;|&nbsp; Space : 점프 / 수영<br>
     좌클릭 : 블록 부수기 &nbsp;|&nbsp; 우클릭 : 블록 설치<br>
     1 ~ 6 / 마우스 휠 : 블록 선택 &nbsp;|&nbsp; ESC : 일시정지<br>
-    월드는 자동 저장됩니다
+    땅속에는 석탄·철 광석이 숨어 있고, 월드는 자동 저장됩니다
   </p>
   <div class="start">클릭해서 시작</div>
   <button class="reset" id="resetBtn">저장 삭제하고 새 월드 시작</button>
@@ -84,14 +84,15 @@ const REACH = 5;                // 블록 도달 거리
 const GRAVITY = 24;
 const JUMP_SPEED = 8.2;
 const WALK_SPEED = 4.5;
+const RUN_SPEED = 7.0;
 const SWIM_SPEED = 3.0;
 const PLAYER_HALF_W = 0.3;
 const PLAYER_HEIGHT = 1.8;
 const EYE_HEIGHT = 1.62;
-const SAVE_KEY = 'mc_save_v1';
+const SAVE_KEY = 'mc_save_v2';
 
-const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7 };
-const BLOCK_NAMES = { 1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래' };
+const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9 };
+const BLOCK_NAMES = { 1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석' };
 const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.LEAVES, BLOCK.SAND];
 
 // ---------- 시드 난수 / 노이즈 ----------
@@ -147,6 +148,17 @@ function makeTexture(base, fn) {
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
+// 돌 바탕에 십자 모양 광석 알갱이
+const ORE_SPOTS = [[3, 4], [10, 3], [5, 11], [12, 10], [8, 7]];
+function oreTexture(spotColor) {
+  return makeTexture(C.stone, (x, y) => {
+    for (const [sx, sy] of ORE_SPOTS) {
+      const dx = Math.abs(x - sx), dy = Math.abs(y - sy);
+      if (dx <= 1 && dy <= 1 && dx + dy <= 1) return spotColor;
+    }
+    return C.stone;
+  });
+}
 
 const C = {
   grassTop: [98, 170, 64], dirt: [134, 96, 67], stone: [125, 125, 125],
@@ -163,7 +175,11 @@ const TEX = {
   leaves: makeTexture(C.leaves),
   sand: makeTexture(C.sand),
   water: makeTexture(C.water),
+  coalOre: oreTexture([38, 38, 38]),
+  ironOre: oreTexture([216, 173, 140]),
 };
+TEX.water.wrapS = TEX.water.wrapT = THREE.RepeatWrapping;
+
 function mat(t) { return new THREE.MeshLambertMaterial({ map: t }); }
 // 면 순서: +x, -x, +y, -y, +z, -z
 const MATERIALS = {
@@ -174,6 +190,8 @@ const MATERIALS = {
   [BLOCK.LEAVES]: mat(TEX.leaves),
   [BLOCK.SAND]: mat(TEX.sand),
   [BLOCK.WATER]: new THREE.MeshLambertMaterial({ map: TEX.water, transparent: true, opacity: 0.65 }),
+  [BLOCK.COAL_ORE]: mat(TEX.coalOre),
+  [BLOCK.IRON_ORE]: mat(TEX.ironOre),
 };
 
 // ---------- 월드 데이터 ----------
@@ -196,7 +214,12 @@ function generateWorld() {
         let t;
         if (y === h) t = h <= SEA_LEVEL + 1 ? BLOCK.SAND : BLOCK.GRASS;
         else if (y >= h - 3) t = BLOCK.DIRT;
-        else t = BLOCK.STONE;
+        else {
+          const r = rand();
+          if (r < 0.02 && y < 6) t = BLOCK.IRON_ORE;
+          else if (r < 0.06) t = BLOCK.COAL_ORE;
+          else t = BLOCK.STONE;
+        }
         setBlock(x, y, z, t);
       }
       for (let y = h + 1; y <= SEA_LEVEL; y++) setBlock(x, y, z, BLOCK.WATER);
@@ -261,9 +284,54 @@ scene.add(ambient);
 const sun = new THREE.DirectionalLight(0xffffff, 1.1);
 scene.add(sun);
 
+// 해 / 달 / 별
+function skyDisc(color, radius) {
+  const m = new THREE.Mesh(
+    new THREE.CircleGeometry(radius, 24),
+    new THREE.MeshBasicMaterial({ color, fog: false })
+  );
+  scene.add(m);
+  return m;
+}
+const sunDisc = skyDisc(0xfff3b0, 13);
+const moonDisc = skyDisc(0xe8eef5, 8);
+
+const starGeo = new THREE.BufferGeometry();
+{
+  const pts = [];
+  const sr = mulberry32(42);
+  for (let i = 0; i < 450; i++) {
+    const a = sr() * Math.PI * 2;
+    const y = 0.05 + sr() * 0.9;
+    const r = Math.sqrt(1 - y * y);
+    pts.push(Math.cos(a) * r * 230, y * 230, Math.sin(a) * r * 230);
+  }
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+}
+const starMat = new THREE.PointsMaterial({
+  color: 0xffffff, size: 2, sizeAttenuation: false,
+  transparent: true, opacity: 0, fog: false, depthWrite: false,
+});
+const stars = new THREE.Points(starGeo, starMat);
+scene.add(stars);
+
+// 구름
+const clouds = new THREE.Group();
+{
+  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+  const cloudGeo = new THREE.BoxGeometry(1, 1, 1);
+  const cr = mulberry32(7);
+  for (let i = 0; i < 22; i++) {
+    const c = new THREE.Mesh(cloudGeo, cloudMat);
+    c.scale.set(8 + cr() * 14, 1, 5 + cr() * 8);
+    c.position.set((cr() - 0.5) * WORLD_SIZE * 2, 56 + cr() * 6, (cr() - 0.5) * WORLD_SIZE * 2);
+    clouds.add(c);
+  }
+}
+scene.add(clouds);
+
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-const chunks = new Map();      // "cx,cz" -> { solid: [mesh], water: [mesh] }
-const instanceData = new Map(); // InstancedMesh -> [{x,y,z}] (instanceId 순서)
+const chunks = new Map(); // "cx,cz" -> { solid: [mesh], water: [mesh] }
 
 const NEIGHBORS = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 const CHUNK_MIN = -WORLD_SIZE / 2 / CHUNK, CHUNK_MAX = WORLD_SIZE / 2 / CHUNK - 1;
@@ -276,7 +344,6 @@ function rebuildChunk(cx, cz) {
     for (const m of [...old.solid, ...old.water]) {
       scene.remove(m);
       m.dispose();
-      instanceData.delete(m);
     }
   }
 
@@ -309,7 +376,6 @@ function rebuildChunk(cx, cz) {
     });
     mesh.instanceMatrix.needsUpdate = true;
     scene.add(mesh);
-    instanceData.set(mesh, list);
     (t === BLOCK.WATER ? entry.water : entry.solid).push(mesh);
   }
   chunks.set(ck, entry);
@@ -319,12 +385,6 @@ function rebuildAllChunks() {
   for (let cx = CHUNK_MIN; cx <= CHUNK_MAX; cx++)
     for (let cz = CHUNK_MIN; cz <= CHUNK_MAX; cz++)
       rebuildChunk(cx, cz);
-}
-
-function solidMeshes() {
-  const out = [];
-  for (const c of chunks.values()) out.push(...c.solid);
-  return out;
 }
 
 // 블록 편집: 월드 갱신 + 해당/인접 청크 다시 그리기 + 저장 기록
@@ -338,6 +398,60 @@ function editBlock(x, y, z, t) {
   for (const ck of dirty) {
     const [cx, cz] = ck.split(',').map(Number);
     rebuildChunk(cx, cz);
+  }
+}
+
+// ---------- 효과음 (WebAudio 합성) ----------
+let audioCtx = null;
+function playSound(freq, dur, type, vol) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.5, audioCtx.currentTime + dur);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch (e) { /* 오디오 미지원 환경 무시 */ }
+}
+const soundBreak = () => playSound(95, 0.18, 'triangle', 0.25);
+const soundPlace = () => playSound(240, 0.09, 'square', 0.12);
+
+// ---------- 파괴 파티클 ----------
+const particles = [];
+const particleGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+function spawnParticles(x, y, z, type) {
+  if (particles.length > 120) return;
+  const m = MATERIALS[type];
+  const material = Array.isArray(m) ? m[4] : m;
+  for (let i = 0; i < 10; i++) {
+    const mesh = new THREE.Mesh(particleGeo, material);
+    mesh.position.set(x + 0.2 + Math.random() * 0.6, y + 0.2 + Math.random() * 0.6, z + 0.2 + Math.random() * 0.6);
+    scene.add(mesh);
+    particles.push({
+      mesh,
+      vel: new THREE.Vector3((Math.random() - 0.5) * 3.5, 1.5 + Math.random() * 3, (Math.random() - 0.5) * 3.5),
+      life: 0.6 + Math.random() * 0.3,
+    });
+  }
+}
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    if (p.life <= 0) {
+      scene.remove(p.mesh);
+      particles.splice(i, 1);
+      continue;
+    }
+    p.vel.y -= GRAVITY * 0.6 * dt;
+    p.mesh.position.addScaledVector(p.vel, dt);
+    p.mesh.scale.setScalar(Math.min(1, p.life * 2.5));
   }
 }
 
@@ -390,7 +504,9 @@ function updatePlayer(dt) {
   if (keys['KeyS']) move.sub(forward);
   if (keys['KeyD']) move.add(right);
   if (keys['KeyA']) move.sub(right);
-  if (move.lengthSq() > 0) move.normalize().multiplyScalar(swimming ? SWIM_SPEED : WALK_SPEED);
+  const running = keys['ShiftLeft'] || keys['ShiftRight'];
+  const speed = swimming ? SWIM_SPEED : (running ? RUN_SPEED : WALK_SPEED);
+  if (move.lengthSq() > 0) move.normalize().multiplyScalar(speed);
   player.vel.x = move.x;
   player.vel.z = move.z;
 
@@ -407,15 +523,25 @@ function updatePlayer(dt) {
 
   // 축별 이동 + 충돌 처리
   const p = player.pos;
+  let hitWall = false;
   p.x += player.vel.x * dt;
-  if (playerCollides(p)) { p.x -= player.vel.x * dt; player.vel.x = 0; }
+  if (playerCollides(p)) { p.x -= player.vel.x * dt; player.vel.x = 0; hitWall = true; }
   p.z += player.vel.z * dt;
-  if (playerCollides(p)) { p.z -= player.vel.z * dt; player.vel.z = 0; }
+  if (playerCollides(p)) { p.z -= player.vel.z * dt; player.vel.z = 0; hitWall = true; }
+
+  // 물가에서 Space를 누른 채 벽에 닿으면 뭍으로 올라갈 수 있게 살짝 띄움
+  if (swimming && hitWall && keys['Space']) player.vel.y = Math.max(player.vel.y, 6.5);
+
+  const prevY = p.y;
   p.y += player.vel.y * dt;
   if (playerCollides(p)) {
-    if (player.vel.y < 0) player.onGround = true;
-    p.y -= player.vel.y * dt;
-    p.y = player.vel.y < 0 ? Math.ceil(p.y) : p.y;
+    if (player.vel.y < 0) {
+      p.y = Math.ceil(p.y); // 뚫고 들어간 블록 윗면에 발을 맞춤
+      if (playerCollides(p)) p.y = prevY;
+      player.onGround = true;
+    } else {
+      p.y = prevY;
+    }
     player.vel.y = 0;
   } else if (player.vel.y !== 0) {
     player.onGround = false;
@@ -434,6 +560,7 @@ function updatePlayer(dt) {
 // ---------- 낮 / 밤 ----------
 const clockEl = document.getElementById('clock');
 const UNDERWATER_COLOR = new THREE.Color(0x21508f);
+const _sunDir = new THREE.Vector3();
 function updateSky(dt) {
   dayTime = (dayTime + dt) % DAY_LENGTH;
   const a = (dayTime / DAY_LENGTH) * Math.PI * 2;
@@ -444,6 +571,19 @@ function updateSky(dt) {
 
   const f = THREE.MathUtils.clamp(s * 2 + 0.2, 0, 1); // 낮 비율
   skyColor.lerpColors(NIGHT_SKY, DAY_SKY, f);
+
+  // 해/달 원반과 별
+  _sunDir.copy(sun.position).normalize();
+  sunDisc.position.copy(camera.position).addScaledVector(_sunDir, 200);
+  sunDisc.lookAt(camera.position);
+  sunDisc.visible = _sunDir.y > -0.15;
+  moonDisc.position.copy(camera.position).addScaledVector(_sunDir, -200);
+  moonDisc.lookAt(camera.position);
+  moonDisc.visible = _sunDir.y < 0.15;
+  const night = THREE.MathUtils.clamp(-s * 2 + 0.1, 0, 1);
+  starMat.opacity = night * 0.9;
+  stars.visible = night > 0.02;
+  stars.position.copy(camera.position);
 
   if (eyeInWater()) {
     skyColor.copy(UNDERWATER_COLOR);
@@ -459,6 +599,13 @@ function updateSky(dt) {
   const hours = (dayTime / DAY_LENGTH) * 24 + 6;
   const hh = Math.floor(hours) % 24, mm = Math.floor((hours % 1) * 60);
   clockEl.textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${s >= 0 ? '☀' : '☾'}`;
+}
+
+function updateClouds(dt) {
+  for (const c of clouds.children) {
+    c.position.x += 1.2 * dt;
+    if (c.position.x > WORLD_SIZE) c.position.x = -WORLD_SIZE;
+  }
 }
 
 // ---------- 시점 / 포인터 락 ----------
@@ -482,23 +629,56 @@ document.addEventListener('mousemove', (e) => {
   player.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, player.pitch));
 });
 
-// ---------- 블록 부수기 / 설치 ----------
-const raycaster = new THREE.Raycaster();
-raycaster.far = REACH;
-
+// ---------- 블록 조준 (복셀 DDA 레이마칭) ----------
+const _dir = new THREE.Vector3();
 function pickBlock() {
-  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-  const hits = raycaster.intersectObjects(solidMeshes());
-  if (!hits.length) return null;
-  const hit = hits[0];
-  const list = instanceData.get(hit.object);
-  if (!list || hit.instanceId === undefined) return null;
-  const block = list[hit.instanceId];
-  const n = hit.face.normal;
-  return {
-    block,
-    adjacent: { x: block.x + Math.round(n.x), y: block.y + Math.round(n.y), z: block.z + Math.round(n.z) },
-  };
+  const o = camera.position;
+  camera.getWorldDirection(_dir);
+  let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z);
+  const stepX = _dir.x > 0 ? 1 : -1;
+  const stepY = _dir.y > 0 ? 1 : -1;
+  const stepZ = _dir.z > 0 ? 1 : -1;
+  const tDeltaX = _dir.x !== 0 ? Math.abs(1 / _dir.x) : Infinity;
+  const tDeltaY = _dir.y !== 0 ? Math.abs(1 / _dir.y) : Infinity;
+  const tDeltaZ = _dir.z !== 0 ? Math.abs(1 / _dir.z) : Infinity;
+  let tMaxX = _dir.x !== 0 ? (stepX > 0 ? x + 1 - o.x : o.x - x) * tDeltaX : Infinity;
+  let tMaxY = _dir.y !== 0 ? (stepY > 0 ? y + 1 - o.y : o.y - y) * tDeltaY : Infinity;
+  let tMaxZ = _dir.z !== 0 ? (stepZ > 0 ? z + 1 - o.z : o.z - z) * tDeltaZ : Infinity;
+
+  for (let i = 0; i < 64; i++) {
+    let nx = 0, ny = 0, nz = 0, t;
+    if (tMaxX < tMaxY && tMaxX < tMaxZ) {
+      x += stepX; t = tMaxX; tMaxX += tDeltaX; nx = -stepX;
+    } else if (tMaxY < tMaxZ) {
+      y += stepY; t = tMaxY; tMaxY += tDeltaY; ny = -stepY;
+    } else {
+      z += stepZ; t = tMaxZ; tMaxZ += tDeltaZ; nz = -stepZ;
+    }
+    if (t > REACH) return null;
+    if (isSolid(getBlock(x, y, z))) {
+      return { block: { x, y, z }, adjacent: { x: x + nx, y: y + ny, z: z + nz } };
+    }
+  }
+  return null;
+}
+
+// 조준한 블록 테두리 표시
+const highlight = new THREE.LineSegments(
+  new THREE.EdgesGeometry(boxGeo),
+  new THREE.LineBasicMaterial({ color: 0x000000 })
+);
+highlight.scale.setScalar(1.002);
+highlight.visible = false;
+scene.add(highlight);
+
+function updateHighlight() {
+  const pick = locked ? pickBlock() : null;
+  if (pick) {
+    highlight.position.set(pick.block.x + 0.5, pick.block.y + 0.5, pick.block.z + 0.5);
+    highlight.visible = true;
+  } else {
+    highlight.visible = false;
+  }
 }
 
 function blockIntersectsPlayer(b) {
@@ -516,13 +696,18 @@ document.addEventListener('mousedown', (e) => {
   const pick = pickBlock();
   if (!pick) return;
   if (e.button === 0) {
-    editBlock(pick.block.x, pick.block.y, pick.block.z, 0);
+    const b = pick.block;
+    const type = getBlock(b.x, b.y, b.z);
+    editBlock(b.x, b.y, b.z, 0);
+    spawnParticles(b.x, b.y, b.z, type);
+    soundBreak();
   } else if (e.button === 2) {
     const a = pick.adjacent;
     if (a.y < 0 || a.y > Y_MAX) return;
     // 빈 칸이나 물 칸에 설치 가능 (물은 블록으로 대체)
     if (!isSolid(getBlock(a.x, a.y, a.z)) && !blockIntersectsPlayer(a)) {
       editBlock(a.x, a.y, a.z, HOTBAR[selectedSlot]);
+      soundPlace();
     }
   }
 });
@@ -591,11 +776,17 @@ addEventListener('beforeunload', saveGame);
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveGame(); });
 
 let last = performance.now();
+let waterT = 0;
 function loop(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
   if (locked) updatePlayer(dt);
   updateSky(dt);
+  updateClouds(dt);
+  updateParticles(dt);
+  updateHighlight();
+  waterT += dt;
+  TEX.water.offset.set((waterT * 0.03) % 1, (waterT * 0.02) % 1);
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
