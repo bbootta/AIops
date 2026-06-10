@@ -1275,6 +1275,21 @@
       "rollback_rule": "tools/benchmark.py + tests/test_v2_round23.py 제거 시 v1/v2 동작 영향 없음",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0086",
+      "timestamp": "2026-06-10 00:07:24",
+      "component": "tools/handlers.py",
+      "change_type": "modify",
+      "evidence": "credit_discrimination_handler, credit_psi_handler, credit_calibration_handler 가 빈 df / NaN / Inf / 단일 클래스 입력 시 exception 을 raise. workflow engine 이 이를 fail 로 분류해 on_fail_activate 의 9.escalate 가 자동 발동 → 인간 검증자에게 거짓 MRMC 통지 발생 위험",
+      "root_cause": "pathological input 에 대한 사전 가드 부재. 산식이 정의 불가한 입력을 모형 fail 로 잘못 분류",
+      "targeted_fix": "_disc_skip_reason helper 추가 + 세 credit handler 에 적용. df 비어있음 / NaN / Inf / 단일 클래스 / binary 아님 / 컬럼 누락은 모두 skipped 로 처리. PSI 도 동일 가드 적용.",
+      "expected_benefit": "HITL 원칙 강화 — pathological input 은 fail(자동 escalation) 이 아니라 skipped(인간 재확인 요청) 로 처리. 거짓 MRMC 통지 차단",
+      "expected_regression_risk": "low — 정상 input 회귀 방지 테스트 포함 (test_disc_still_runs_on_healthy_input). skipped 반환은 기존 미제공 경로와 동일 흐름",
+      "validation_method": "tests/test_v2_round24.py 13 cases (disc 7 + psi 3 + cal 2 + workflow 통합 1) + 전체 suite 480 통과",
+      "rollback_rule": "credit_discrimination_handler / credit_psi_handler / credit_calibration_handler 의 sk 추가 분기 제거 시 v1 동작 복구 — 단 pathological input 시 escalation 자동 발동 문제 재발",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

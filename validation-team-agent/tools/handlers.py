@@ -22,6 +22,34 @@ def _has(req: Mapping[str, Any], *keys: str) -> bool:
     return any(req.get(k) is not None for k in keys)
 
 
+def _disc_skip_reason(df, score_col: str, target_col: str) -> str | None:
+    """credit discrimination/calibration 사전 조건 점검.
+
+    df 가 비었거나 score 에 NaN/Inf, target 에 단일 클래스만 있으면 산식이
+    의미가 없거나 발산한다. 이 경우 handler 는 ``skipped`` 로 처리해 인간
+    검증자가 입력 데이터 자체를 재확인하도록 한다 (HITL — fail 로 처리하면
+    escalation 이 자동 발동되어 무의미한 MRMC 통지가 발생).
+    """
+    import numpy as np
+
+    if len(df) == 0:
+        return "df 비어있음"
+    if score_col not in df.columns or target_col not in df.columns:
+        return f"필수 컬럼 누락 (score_col={score_col}, target_col={target_col})"
+    s = df[score_col].to_numpy()
+    y = df[target_col].to_numpy()
+    if np.isnan(s.astype(float, copy=False)).any():
+        return "score 에 NaN 포함"
+    if np.isinf(s.astype(float, copy=False)).any():
+        return "score 에 Inf 포함"
+    uniq = set(np.unique(y).tolist())
+    if not uniq.issubset({0, 1}):
+        return f"target 이 0/1 binary 가 아님 (관측={sorted(uniq)})"
+    if len(uniq) < 2:
+        return "target 단일 클래스 (KS/AUROC 정의 불가)"
+    return None
+
+
 # ---------- 신용 부문 (credit metrics) ----------
 
 def credit_discrimination_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
@@ -33,6 +61,9 @@ def credit_discrimination_handler(req: Mapping[str, Any], ctx: WorkflowContext) 
     df = req.get("df")
     if df is None:
         return StepResult("3.disc", "skipped", {}, "df 미제공")
+    skip = _disc_skip_reason(df, req["score_col"], req["target_col"])
+    if skip:
+        return StepResult("3.disc", "skipped", {}, skip)
     y = df[req["target_col"]].to_numpy()
     s = df[req["score_col"]].to_numpy()
     ks = calculate_ks(y, s)
@@ -51,14 +82,22 @@ def credit_psi_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResu
     """dev vs oot score PSI."""
     from tools.metric_psi import calculate_psi
 
+    import numpy as np
+
     df = req.get("df")
     set_col = req.get("set_col")
     if df is None or not set_col:
         return StepResult("3.psi", "skipped", {}, "df/set_col 미제공")
+    if set_col not in df.columns or req["score_col"] not in df.columns:
+        return StepResult("3.psi", "skipped", {}, "set/score 컬럼 누락")
     dev = df.loc[df[set_col] == "dev", req["score_col"]].to_numpy()
     oot = df.loc[df[set_col] == "oot", req["score_col"]].to_numpy()
     if len(dev) < 100 or len(oot) < 100:
         return StepResult("3.psi", "skipped", {}, "dev/oot 표본 < 100")
+    if np.isnan(dev.astype(float, copy=False)).any() or np.isnan(oot.astype(float, copy=False)).any():
+        return StepResult("3.psi", "skipped", {}, "score NaN 포함 → PSI 정의 불가")
+    if np.isinf(dev.astype(float, copy=False)).any() or np.isinf(oot.astype(float, copy=False)).any():
+        return StepResult("3.psi", "skipped", {}, "score Inf 포함 → PSI 정의 불가")
     out = calculate_psi(dev, oot, bins=10)
     psi = out["psi"]
     # < 0.10 안정 / 0.10~0.25 주의 / >= 0.25 불안정
@@ -77,6 +116,11 @@ def credit_calibration_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> 
     pd_col = req.get("pd_col")
     if df is None or not grade_col or not pd_col:
         return StepResult("3.cal", "skipped", {}, "grade/pd 미제공")
+    if len(df) == 0:
+        return StepResult("3.cal", "skipped", {}, "df 비어있음")
+    for col in (grade_col, pd_col, req["target_col"]):
+        if col not in df.columns:
+            return StepResult("3.cal", "skipped", {}, f"필수 컬럼 누락: {col}")
     grades_input = []
     for grade, sub in df.groupby(grade_col):
         grades_input.append(
