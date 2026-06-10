@@ -133,6 +133,28 @@ def ccr_exposure_sample(*, seed: int = 17) -> dict:
     }
 
 
+def concentration_exposure_sample(*, breach: bool = False, seed: int = 23) -> dict:
+    """신용집중리스크 익스포저 표본. breach=True 면 동일차주 한도 초과 1건 포함."""
+    rng = np.random.default_rng(seed)
+    tier1 = 10_000.0
+    exposures = [
+        {"counterparty_id": f"CP{i:03d}",
+         "group_id": f"G{i % 12:02d}",
+         "exposure": round(float(rng.uniform(50.0, 400.0)), 2)}
+        for i in range(40)
+    ]
+    if breach:
+        exposures.append(
+            {"counterparty_id": "CP_BIG", "group_id": "G_BIG",
+             "exposure": tier1 * 0.30}  # 동일차주 25% 초과
+        )
+    return {
+        "concentration_exposures": exposures,
+        "concentration_tier1": tier1,
+        "concentration_equity": tier1 * 1.1,
+    }
+
+
 def capital_ratio_sample(*, seed: int = 7) -> dict:
     """가상의 인터넷전문은행 X 자본비율 (unverified, demo only)."""
     rng = np.random.default_rng(seed)

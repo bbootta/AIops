@@ -1,6 +1,6 @@
 {
-  "matrix_version": "1.2",
-  "description": "오케스트레이터의 6단계 호출 매트릭스. dry_run.py와 run_validation.py가 동일하게 참조하는 SSoT. 1.1: 각 step에 expected_outputs 추가. 1.2: 보고서 체인(4.report/5.*/6.audit) depends_on 명시 — 비동기 병렬 실행 순서 보장.",
+  "matrix_version": "1.3",
+  "description": "오케스트레이터의 6단계 호출 매트릭스. dry_run.py와 run_validation.py가 동일하게 참조하는 SSoT. 1.1: 각 step에 expected_outputs 추가. 1.2: 보고서 체인(4.report/5.*/6.audit) depends_on 명시 — 비동기 병렬 실행 순서 보장. 1.3: 3.conc 신용집중리스크 step 추가.",
   "steps": [
     {
       "id": "1.req",
@@ -159,12 +159,21 @@
       "expected_outputs": ["ccr.ead", "ccr.alpha"]
     },
     {
+      "id": "3.conc",
+      "name": "3.12 신용집중리스크 (LEX + 은행법35조)",
+      "component": "tools/risk_checks/concentration.py (한도 + HHI)",
+      "rationale": "거액익스포저 Tier1 10%/25%, 동일차주 자기자본 25%, 거액합계 5배, HHI 집중도.",
+      "requires_any": ["concentration_exposures"],
+      "on_fail_activate": ["9.escalate"],
+      "expected_outputs": ["concentration.hhi", "concentration.n_breaches"]
+    },
+    {
       "id": "4.report",
       "name": "4. 보고서 초안",
       "component": "tools/report_template.build_validation_report",
       "rationale": "표준 10개 섹션 마크다운 생성.",
       "always": true,
-      "depends_on": ["1.req", "2.schema", "2.safety", "2.leakage", "2.date", "2.dup", "2.sample", "3.disc", "3.psi", "3.cal", "3.macro", "3.weights", "3.capital", "3.market", "3.operational", "3.liquidity", "3.irrbb", "3.cva", "3.ccr"],
+      "depends_on": ["1.req", "2.schema", "2.safety", "2.leakage", "2.date", "2.dup", "2.sample", "3.disc", "3.psi", "3.cal", "3.macro", "3.weights", "3.capital", "3.market", "3.operational", "3.liquidity", "3.irrbb", "3.cva", "3.ccr", "3.conc"],
       "expected_outputs": ["report_md"]
     },
     {

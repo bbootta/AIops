@@ -473,6 +473,37 @@ def ccr_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
     )
 
 
+def concentration_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    """신용집중리스크 (Basel LEX + 은행법 35조 한도 + HHI)."""
+    from tools.risk_checks.concentration import check_concentration
+
+    exposures = req.get("concentration_exposures")
+    tier1 = req.get("concentration_tier1")
+    if not exposures or tier1 is None:
+        return StepResult("3.conc", "skipped", {}, "집중리스크 입력 미제공")
+    if _bad_scalar(tier1) or float(tier1) <= 0:
+        return StepResult("3.conc", "skipped", {}, f"tier1 비정상 ({tier1})")
+    equity = req.get("concentration_equity")
+    if equity is not None and (_bad_scalar(equity) or float(equity) <= 0):
+        return StepResult("3.conc", "skipped", {}, f"equity 비정상 ({equity})")
+    out = check_concentration(exposures, float(tier1), equity=equity)
+    if not out["passed"]:
+        status = "fail"
+    elif out["hhi_band"] == "high":
+        status = "warning"
+    else:
+        status = "ok"
+    return StepResult(
+        "3.conc", status,
+        {"hhi": out["hhi"], "hhi_band": out["hhi_band"],
+         "n_large": len(out["large_exposures"]),
+         "n_breaches": len(out["limit_breaches"]),
+         "breaches": out["limit_breaches"]},
+        f"HHI={out['hhi']:.4f} ({out['hhi_band']}), "
+        f"거액 {len(out['large_exposures'])}건, 한도위반 {len(out['limit_breaches'])}건",
+    )
+
+
 # ---------- 보고서 산출 / 점검 ----------
 
 def report_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
@@ -759,6 +790,7 @@ _DEFAULT = {
     "3.irrbb": irrbb_handler,
     "3.cva": cva_handler,
     "3.ccr": ccr_handler,
+    "3.conc": concentration_handler,
     "4.report": report_handler,
     "5.complete": completeness_handler,
     "5.cite": citation_handler,

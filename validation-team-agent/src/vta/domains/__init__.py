@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from vta.domains import (  # noqa: F401
     capital,
+    concentration,
     ccr,
     cva,
     irrbb,
@@ -21,4 +22,4 @@ from vta.domains import (  # noqa: F401
     operational,
 )
 
-__all__ = ["capital", "ccr", "cva", "irrbb", "liquidity", "market", "operational"]
+__all__ = ["capital", "concentration", "ccr", "cva", "irrbb", "liquidity", "market", "operational"]

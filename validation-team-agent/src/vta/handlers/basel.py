@@ -5,6 +5,7 @@ from __future__ import annotations
 from tools.handlers import (  # noqa: F401
     capital_handler as capital,
     ccr_handler as ccr,
+    concentration_handler as concentration,
     cva_handler as cva,
     irrbb_handler as irrbb,
     liquidity_handler as liquidity,
@@ -13,5 +14,6 @@ from tools.handlers import (  # noqa: F401
 )
 
 __all__ = [
-    "capital", "ccr", "cva", "irrbb", "liquidity", "market", "operational"
+    "capital", "ccr", "concentration", "cva", "irrbb", "liquidity", "market",
+    "operational"
 ]
