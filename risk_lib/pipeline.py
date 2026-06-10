@@ -114,36 +114,22 @@ def _standardised_rwa_all(portfolio: pd.DataFrame) -> float:
     return standardised_rwa_total(portfolio, _SA_CORP_BUCKET_BY_GRADE)
 
 
-def run_pipeline(
-    portfolio: pd.DataFrame | None = None,
-    *,
-    seed: int = 42,
-    hurdle_rate: float = 0.10,
-    output_floor: float = FULLY_LOADED_FLOOR,
-    buffers: dict[str, float] | None = None,
-) -> PipelineResult:
-    if buffers is None:
-        buffers = {"capital_conservation": 0.025, "countercyclical": 0.0, "dsib": 0.01}
-    if portfolio is None:
-        portfolio = generate_portfolio(seed=seed)
-
-    # 1. PD models per segment + grades
-    portfolio, pd_metrics = _fit_segment_pd(portfolio)
-
-    # 2. Split SA vs IRB books
+def _stage_split_books(portfolio: pd.DataFrame):
     sa_book = portfolio[portfolio["asset_class"].isin(["sovereign", "bank"])].copy()
     irb_book = portfolio[portfolio["asset_class"].isin(
         ["corporate", "retail_other", "residential_mortgage"])].copy()
+    return sa_book, irb_book
 
+
+def _stage_credit_rwa(sa_book: pd.DataFrame, irb_book: pd.DataFrame):
     sa_res = compute_rwa_sa(sa_book)
     irb_res = compute_rwa_irb(irb_book)
-
     rwa_sa = float(sa_res["rwa"].sum())
     rwa_irb = float(irb_res["rwa"].sum())
-    rwa_credit_internal = rwa_sa + rwa_irb
+    return sa_res, irb_res, rwa_sa, rwa_irb
 
-    # 3. Market & operational risk RWA (illustrative inputs)
-    total_ead = float(portfolio["ead"].sum())
+
+def _stage_market_op_rwa(total_ead: float):
     mkt_positions = pd.DataFrame({
         "risk_class": ["fx", "equity", "interest_rate"],
         "net_position": [total_ead * 0.02, total_ead * 0.01, total_ead * 0.05],
@@ -152,62 +138,72 @@ def run_pipeline(
     bi = BusinessIndicator(ildc=total_ead * 0.02, sc=total_ead * 0.01,
                            fc=total_ead * 0.005)
     op = compute_op_risk_rwa(bi, avg_annual_losses_10y=total_ead * 0.001)
+    return mkt, op
 
-    rwa_internal_total = rwa_credit_internal + mkt.rwa + op.rwa
 
-    # 4. Output floor (full-standardised credit RWA + market + op)
-    rwa_sa_credit_all = _standardised_rwa_all(portfolio)
-    rwa_standardised_total = rwa_sa_credit_all + mkt.rwa + op.rwa
-    floor = apply_output_floor(rwa_internal_total, rwa_standardised_total, output_floor)
+def _stage_capital(
+    portfolio, rwa_sa, rwa_irb, mkt, op, total_ead, *, output_floor, buffers,
+):
+    rwa_internal_total = rwa_sa + rwa_irb + mkt.rwa + op.rwa
+    rwa_standardised_total = (
+        standardised_rwa_total(portfolio, _SA_CORP_BUCKET_BY_GRADE)
+        + mkt.rwa + op.rwa
+    )
+    floor = apply_output_floor(rwa_internal_total, rwa_standardised_total,
+                               output_floor)
     rwa_final = floor.rwa_final
-
-    # 5. Capital & BIS
     capital = CapitalStack(
         cet1=rwa_final * 0.115,
         additional_t1=rwa_final * 0.015,
         tier2=rwa_final * 0.025,
     )
     bis = compute_bis_ratios(capital, rwa_final, buffers=buffers)
-
-    # 6. Leverage ratio
     em = exposure_measure(on_balance=total_ead, off_balance_notional=total_ead * 0.1)
     leverage = compute_leverage_ratio(capital.tier1, em)
+    return (floor, rwa_final, capital, bis, leverage,
+            rwa_internal_total, rwa_standardised_total)
 
-    # 7. IFRS 9 ECL — TTC (point estimate) + forward-looking PIT (probability-weighted)
+
+def _stage_provisioning(irb_book: pd.DataFrame, quarters: list[str]):
     ecl_df = compute_ecl(irb_book)
     ecl_by_stage = ecl_df.groupby("stage").agg(
         n=("exposure_id", "size"), ead=("ead", "sum"),
         ecl=("ecl", "sum"), coverage=("coverage_ratio", "mean"),
     )
     macro = macro_ecl(irb_book, DEFAULT_MACRO_SCENARIOS)
+    macro_path = macro_ecl_path(irb_book, quarters, DEFAULT_MACRO_SCENARIOS)
+    return ecl_df, ecl_by_stage, macro, macro_path
 
-    # 8. Monitoring
-    delq = delinquency_summary(portfolio, segment_col="asset_class")
+
+def _stage_monitoring(portfolio: pd.DataFrame, seed: int):
     workouts = generate_workout_cashflows(portfolio, seed=seed + 11)
-    monitoring = {
-        "delinquency": delq,
+    return {
+        "delinquency": delinquency_summary(portfolio, segment_col="asset_class"),
         "default_rate_ew": default_rate(portfolio, weight_col="ead"),
         "default_rate_count": default_rate(portfolio),
         "recovery_rate": cumulative_recovery_rate(workouts),
     }
 
-    # 9. Limits
+
+def _stage_limits_concentration(portfolio: pd.DataFrame, tier1: float):
     limits = [
-        LimitDefinition("동일차주_Tier1_25pct", "obligor_id", None, 0.25, basis="pct_tier1"),
-        LimitDefinition("섹터_총노출_3조", "sector", None, 3.0e12, basis="absolute"),
-        LimitDefinition("국가_총노출_5조", "country", None, 5.0e12, basis="absolute"),
+        LimitDefinition("동일차주_Tier1_25pct", "obligor_id", None,
+                        0.25, basis="pct_tier1"),
+        LimitDefinition("섹터_총노출_3조", "sector", None,
+                        3.0e12, basis="absolute"),
+        LimitDefinition("국가_총노출_5조", "country", None,
+                        5.0e12, basis="absolute"),
     ]
-    engine = LimitEngine(limits, tier1_capital=capital.tier1)
-    limit_report = engine.report(portfolio)
-
-    # 10. Concentration
+    limit_report = LimitEngine(limits, tier1_capital=tier1).report(portfolio)
     conc = concentration_report(portfolio, ["obligor_id", "sector", "country"])
+    return limit_report, conc
 
-    # 11. RAPM
+
+def _stage_rapm(irb_book: pd.DataFrame, hurdle_rate: float):
     rapm_input = irb_book[["exposure_id", "asset_class", "ead", "pd", "lgd",
                            "maturity", "revenue", "operating_cost"]]
     rapm = rapm_report(rapm_input, hurdle_rate=hurdle_rate)
-    rapm_by_class = rapm.merge(
+    by_class = rapm.merge(
         rapm_input[["exposure_id", "asset_class"]], on="exposure_id",
     ).groupby("asset_class").agg(
         n=("exposure_id", "size"),
@@ -217,37 +213,81 @@ def run_pipeline(
         raroc_mean=("raroc", "mean"),
         pass_hurdle_pct=("pass_hurdle", "mean"),
     ).reset_index()
+    return by_class
 
-    # 12. Stress (forward) + reverse stress (solve for the breaking severity)
-    # Hold everything except IRB RWA fixed: SA credit + market + op + any output-
-    # floor add-on.  Using rwa_final - rwa_irb keeps the baseline stress RWA equal
-    # to the reported (post-floor) rwa_final, so stress ratios reconcile with BIS.
-    rwa_other_fixed = rwa_final - rwa_irb
+
+def _stage_stress(
+    irb_book, capital, rwa_other_fixed, bis, quarters, buffers,
+):
     stress = run_stress(irb_book, capital, rwa_other_fixed,
                         scenarios=[BASELINE, ADVERSE, SEVERELY_ADVERSE],
                         buffers=buffers)
-    # break point = buffer-inclusive CET1 requirement (MDA/buffer-breach trigger)
     reverse = reverse_stress(
         irb_book, capital, rwa_other_fixed,
         metric="cet1", target_ratio=bis.required["cet1"],
         axis=StressAxis(), buffers=buffers,
     )
-    # quarterly projection through end of asof.year + 2 (e.g. 2026Q3..2028Q4)
-    asof = date.today()
-    quarters = forecast_quarter_labels(asof, years_ahead=2)
     stress_path = run_stress_path(irb_book, capital, rwa_other_fixed,
                                   quarters=quarters, axis=StressAxis(),
                                   buffers=buffers)
     stress_path_trough = path_trough_summary(stress_path)
-    # IFRS9 forward-looking ECL allowance on the same quarterly axis
-    macro_path = macro_ecl_path(irb_book, quarters, DEFAULT_MACRO_SCENARIOS)
+    return stress, reverse, stress_path, stress_path_trough
 
-    # 13. PD backtest (run before validation so calibration check can read it)
+
+def run_pipeline(
+    portfolio: pd.DataFrame | None = None,
+    *,
+    seed: int = 42,
+    hurdle_rate: float = 0.10,
+    output_floor: float = FULLY_LOADED_FLOOR,
+    buffers: dict[str, float] | None = None,
+    years_ahead: int = 2,
+) -> PipelineResult:
+    if buffers is None:
+        buffers = {"capital_conservation": 0.025, "countercyclical": 0.0, "dsib": 0.01}
+    if portfolio is None:
+        portfolio = generate_portfolio(seed=seed)
+
+    # 1. PD models per segment + grades
+    portfolio, pd_metrics = _fit_segment_pd(portfolio)
+
+    # 2. SA / IRB split + credit RWA
+    sa_book, irb_book = _stage_split_books(portfolio)
+    sa_res, irb_res, rwa_sa, rwa_irb = _stage_credit_rwa(sa_book, irb_book)
+    rwa_credit_internal = rwa_sa + rwa_irb
+
+    # 3. Market & operational risk RWA (illustrative inputs)
+    total_ead = float(portfolio["ead"].sum())
+    mkt, op = _stage_market_op_rwa(total_ead)
+
+    # 4-6. Output floor → CapitalStack → BIS → leverage
+    (floor, rwa_final, capital, bis, leverage,
+     rwa_internal_total, rwa_standardised_total) = _stage_capital(
+        portfolio, rwa_sa, rwa_irb, mkt, op, total_ead,
+        output_floor=output_floor, buffers=buffers,
+    )
+
+    # 7. IFRS 9 ECL (TTC + forward-looking PIT) on the quarterly axis
+    asof = date.today()
+    quarters = forecast_quarter_labels(asof, years_ahead=years_ahead)
+    ecl_df, ecl_by_stage, macro, macro_path = _stage_provisioning(irb_book, quarters)
+
+    # 8-11. Monitoring, limits/concentration, RAPM
+    monitoring = _stage_monitoring(portfolio, seed)
+    limit_report, conc = _stage_limits_concentration(portfolio, capital.tier1)
+    rapm_by_class = _stage_rapm(irb_book, hurdle_rate)
+
+    # 12. Stress + reverse stress + quarterly capital path.  Hold non-IRB RWA
+    # fixed at (rwa_final - rwa_irb) so baseline stress reconciles with BIS.
+    rwa_other_fixed = rwa_final - rwa_irb
+    stress, reverse, stress_path, stress_path_trough = _stage_stress(
+        irb_book, capital, rwa_other_fixed, bis, quarters, buffers,
+    )
+
+    # 13-14. PD backtest + consolidated self-verification
     corp = portfolio[portfolio["asset_class"] == "corporate"]
     backtest = pd_backtest_report(corp, grade_col="grade",
                                   pd_col="pd", default_col="default_12m")
-
-    # 14. Self-verification
     validation = run_consistency_checks(
         sa_results=sa_res, irb_results=irb_res,
         bis_result=bis, rwa_total_for_bis=rwa_final,
