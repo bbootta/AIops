@@ -51,9 +51,14 @@ cd validation-team-agent
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install -e .   # `python -m vta` (v2 CLI) 사용을 위해 필요
 ```
 
-또는 패키지 형태로:
+`-e .` 를 생략하면 v1 진입점 (`python -m tools.*`) 만 사용 가능하다.
+v2 dispatch (`python -m vta`) 가 `src/vta/` 패키지를 찾으려면 editable
+install 또는 `PYTHONPATH=src` 가 필요하다.
+
+또는 패키지만 설치 (의존성 포함):
 
 ```bash
 pip install -e .

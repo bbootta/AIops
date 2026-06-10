@@ -59,6 +59,16 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          # `python -m vta` 가 src/vta 를 찾으려면 editable install 필요
+          # (README 설치 가이드와 동일 경로). v1 (`python -m tools.*`) 은
+          # editable install 없이도 동작하지만 v2 dispatch 는 필요하다.
+          pip install -e .
+
+      - name: Smoke `python -m vta` (user install path)
+        run: |
+          python -m vta --help > /dev/null
+          python -m vta benchmark --n 200 --runs 1 --json --out /tmp/bench.json
+          python -m vta policy list > /dev/null
 
       - name: Ruff lint
         run: |
