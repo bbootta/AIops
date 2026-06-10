@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>마인크래프트</title>
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; height: 100%; background: #000; }
+  #game { display: block; width: 100%; height: 100%; }
+  #crosshair {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 20px; height: 20px; pointer-events: none; z-index: 10;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ""; position: absolute; background: rgba(255,255,255,0.85);
+  }
+  #crosshair::before { left: 9px; top: 0; width: 2px; height: 20px; }
+  #crosshair::after { left: 0; top: 9px; width: 20px; height: 2px; }
+  #hotbar {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+    display: flex; gap: 4px; z-index: 10;
+  }
+  .slot {
+    width: 48px; height: 48px; border: 3px solid rgba(0,0,0,0.6);
+    background: rgba(0,0,0,0.35); box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .slot.selected { border-color: #fff; }
+  .slot canvas { width: 36px; height: 36px; image-rendering: pixelated; }
+  .slot .num {
+    position: absolute; top: 1px; left: 3px; color: #fff;
+    font: bold 10px monospace; text-shadow: 1px 1px 0 #000;
+  }
+  .slot { position: relative; }
+  #overlay {
+    position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,0.55); color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: monospace; text-align: center; cursor: pointer;
+  }
+  #overlay h1 { font-size: 42px; margin: 0 0 16px; letter-spacing: 4px; }
+  #overlay p { font-size: 15px; line-height: 1.9; margin: 0; }
+  #overlay .start { margin-top: 24px; font-size: 18px; padding: 10px 28px; border: 2px solid #fff; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="crosshair"></div>
+<div id="hotbar"></div>
+<div id="overlay">
+  <h1>MINECRAFT</h1>
+  <p>
+    W A S D : 이동 &nbsp;|&nbsp; Space : 점프 &nbsp;|&nbsp; 마우스 : 시점<br>
+    좌클릭 : 블록 부수기 &nbsp;|&nbsp; 우클릭 : 블록 설치<br>
+    1 ~ 6 / 마우스 휠 : 블록 선택 &nbsp;|&nbsp; ESC : 일시정지
+  </p>
+  <div class="start">클릭해서 시작</div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ---------- 상수 ----------
+const WORLD_SIZE = 64;          // 가로/세로 블록 수
+const BASE_HEIGHT = 8;          // 최저 지형 높이
+const HILL_HEIGHT = 12;         // 언덕 최대 추가 높이
+const REACH = 5;                // 블록 도달 거리
+const GRAVITY = 24;
+const JUMP_SPEED = 8.2;
+const WALK_SPEED = 4.5;
+const PLAYER_HALF_W = 0.3;
+const PLAYER_HEIGHT = 1.8;
+const EYE_HEIGHT = 1.62;
+
+const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6 };
+const BLOCK_NAMES = { 1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래' };
+const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.LEAVES, BLOCK.SAND];
+
+// ---------- 시드 난수 / 노이즈 ----------
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(1337);
+
+// 2D 값 노이즈 (그리드 난수 + 부드러운 보간)
+const NOISE_GRID = 256;
+const noiseTable = new Float32Array(NOISE_GRID * NOISE_GRID);
+for (let i = 0; i < noiseTable.length; i++) noiseTable[i] = rand();
+function gridVal(x, y) {
+  x = ((x % NOISE_GRID) + NOISE_GRID) % NOISE_GRID;
+  y = ((y % NOISE_GRID) + NOISE_GRID) % NOISE_GRID;
+  return noiseTable[y * NOISE_GRID + x];
+}
+function smooth(t) { return t * t * (3 - 2 * t); }
+function noise2(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = smooth(x - xi), yf = smooth(y - yi);
+  const a = gridVal(xi, yi), b = gridVal(xi + 1, yi);
+  const c = gridVal(xi, yi + 1), d = gridVal(xi + 1, yi + 1);
+  return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
+}
+function terrainHeight(x, z) {
+  const n = noise2(x / 24, z / 24) * 0.7 + noise2(x / 9, z / 9) * 0.3;
+  return BASE_HEIGHT + Math.floor(n * HILL_HEIGHT);
+}
+
+// ---------- 텍스처 (캔버스로 생성) ----------
+function makeTexture(base, fn) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 16;
+  const ctx = c.getContext('2d');
+  const r = mulberry32(base[0] * 7919 + base[1] * 104729 + base[2]);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const v = (r() - 0.5) * 36;
+      let [cr, cg, cb] = fn ? fn(x, y, r) : base;
+      ctx.fillStyle = `rgb(${cr + v | 0},${cg + v | 0},${cb + v | 0})`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+const C = {
+  grassTop: [98, 170, 64], dirt: [134, 96, 67], stone: [125, 125, 125],
+  woodSide: [104, 82, 50], woodTop: [151, 122, 73], leaves: [55, 122, 38],
+  sand: [218, 207, 160],
+};
+const TEX = {
+  grassTop: makeTexture(C.grassTop),
+  grassSide: makeTexture(C.dirt, (x, y) => (y < 4 ? C.grassTop : C.dirt)),
+  dirt: makeTexture(C.dirt),
+  stone: makeTexture(C.stone),
+  woodSide: makeTexture(C.woodSide, (x) => ((x === 0 || x === 15) ? [80, 62, 38] : C.woodSide)),
+  woodTop: makeTexture(C.woodTop),
+  leaves: makeTexture(C.leaves),
+  sand: makeTexture(C.sand),
+};
+function mat(t) { return new THREE.MeshLambertMaterial({ map: t }); }
+// 면 순서: +x, -x, +y, -y, +z, -z
+const MATERIALS = {
+  [BLOCK.GRASS]: [mat(TEX.grassSide), mat(TEX.grassSide), mat(TEX.grassTop), mat(TEX.dirt), mat(TEX.grassSide), mat(TEX.grassSide)],
+  [BLOCK.DIRT]: mat(TEX.dirt),
+  [BLOCK.STONE]: mat(TEX.stone),
+  [BLOCK.WOOD]: [mat(TEX.woodSide), mat(TEX.woodSide), mat(TEX.woodTop), mat(TEX.woodTop), mat(TEX.woodSide), mat(TEX.woodSide)],
+  [BLOCK.LEAVES]: mat(TEX.leaves),
+  [BLOCK.SAND]: mat(TEX.sand),
+};
+
+// ---------- 월드 데이터 ----------
+const world = new Map(); // "x,y,z" -> 블록 타입
+const key = (x, y, z) => x + ',' + y + ',' + z;
+function getBlock(x, y, z) { return world.get(key(x, y, z)) || 0; }
+function setBlock(x, y, z, t) {
+  if (t) world.set(key(x, y, z), t);
+  else world.delete(key(x, y, z));
+}
+
+function generateWorld() {
+  const half = WORLD_SIZE / 2;
+  for (let x = -half; x < half; x++) {
+    for (let z = -half; z < half; z++) {
+      const h = terrainHeight(x, z);
+      for (let y = 0; y <= h; y++) {
+        let t;
+        if (y === h) t = h <= BASE_HEIGHT + 1 ? BLOCK.SAND : BLOCK.GRASS;
+        else if (y >= h - 3) t = BLOCK.DIRT;
+        else t = BLOCK.STONE;
+        setBlock(x, y, z, t);
+      }
+    }
+  }
+  // 나무 심기
+  for (let i = 0; i < 40; i++) {
+    const x = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
+    const z = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
+    const h = terrainHeight(x, z);
+    if (getBlock(x, h, z) !== BLOCK.GRASS) continue;
+    const trunk = 4 + Math.floor(rand() * 2);
+    for (let y = 1; y <= trunk; y++) setBlock(x, h + y, z, BLOCK.WOOD);
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dz = -2; dz <= 2; dz++) {
+        for (let dy = trunk - 1; dy <= trunk + 2; dy++) {
+          const top = dy > trunk;
+          if (top && (Math.abs(dx) > 1 || Math.abs(dz) > 1)) continue;
+          if (Math.abs(dx) === 2 && Math.abs(dz) === 2 && rand() < 0.5) continue;
+          if (dx === 0 && dz === 0 && dy <= trunk) continue;
+          if (!getBlock(x + dx, h + dy, z + dz)) setBlock(x + dx, h + dy, z + dz, BLOCK.LEAVES);
+        }
+      }
+    }
+  }
+}
+
+// ---------- 렌더링 ----------
+const canvas = document.getElementById('game');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 40, 90);
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 300);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+sun.position.set(40, 80, 20);
+scene.add(sun);
+
+const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+let blockMeshes = [];          // 현재 씬에 들어있는 InstancedMesh 목록
+let instanceData = new Map();  // InstancedMesh -> [{x,y,z}] (instanceId 순서)
+
+const NEIGHBORS = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+
+function rebuildMeshes() {
+  for (const m of blockMeshes) { scene.remove(m); m.dispose(); }
+  blockMeshes = [];
+  instanceData = new Map();
+
+  const byType = new Map(); // type -> [{x,y,z}]
+  for (const [k, t] of world) {
+    const [x, y, z] = k.split(',').map(Number);
+    let exposed = false;
+    for (const [dx, dy, dz] of NEIGHBORS) {
+      if (!getBlock(x + dx, y + dy, z + dz)) { exposed = true; break; }
+    }
+    if (!exposed) continue;
+    if (!byType.has(t)) byType.set(t, []);
+    byType.get(t).push({ x, y, z });
+  }
+
+  const m4 = new THREE.Matrix4();
+  for (const [t, list] of byType) {
+    const mesh = new THREE.InstancedMesh(boxGeo, MATERIALS[t], list.length);
+    list.forEach((p, i) => {
+      m4.setPosition(p.x + 0.5, p.y + 0.5, p.z + 0.5);
+      mesh.setMatrixAt(i, m4);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    scene.add(mesh);
+    blockMeshes.push(mesh);
+    instanceData.set(mesh, list);
+  }
+}
+
+// ---------- 플레이어 ----------
+const player = {
+  pos: new THREE.Vector3(0.5, 0, 0.5), // 발 위치
+  vel: new THREE.Vector3(),
+  yaw: 0, pitch: 0,
+  onGround: false,
+};
+player.pos.y = terrainHeight(0, 0) + 2;
+
+const keys = {};
+addEventListener('keydown', (e) => {
+  keys[e.code] = true;
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= HOTBAR.length) selectSlot(n - 1);
+});
+addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+function playerCollides(pos) {
+  const minX = Math.floor(pos.x - PLAYER_HALF_W), maxX = Math.floor(pos.x + PLAYER_HALF_W);
+  const minY = Math.floor(pos.y), maxY = Math.floor(pos.y + PLAYER_HEIGHT);
+  const minZ = Math.floor(pos.z - PLAYER_HALF_W), maxZ = Math.floor(pos.z + PLAYER_HALF_W);
+  for (let x = minX; x <= maxX; x++)
+    for (let y = minY; y <= maxY; y++)
+      for (let z = minZ; z <= maxZ; z++)
+        if (getBlock(x, y, z)) return true;
+  return false;
+}
+
+function updatePlayer(dt) {
+  // 이동 입력
+  const forward = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+  const right = new THREE.Vector3(-forward.z, 0, forward.x);
+  const move = new THREE.Vector3();
+  if (keys['KeyW']) move.add(forward);
+  if (keys['KeyS']) move.sub(forward);
+  if (keys['KeyD']) move.add(right);
+  if (keys['KeyA']) move.sub(right);
+  if (move.lengthSq() > 0) move.normalize().multiplyScalar(WALK_SPEED);
+  player.vel.x = move.x;
+  player.vel.z = move.z;
+
+  if (keys['Space'] && player.onGround) { player.vel.y = JUMP_SPEED; player.onGround = false; }
+  player.vel.y -= GRAVITY * dt;
+  player.vel.y = Math.max(player.vel.y, -50);
+
+  // 축별 이동 + 충돌 처리
+  const p = player.pos;
+  p.x += player.vel.x * dt;
+  if (playerCollides(p)) { p.x -= player.vel.x * dt; player.vel.x = 0; }
+  p.z += player.vel.z * dt;
+  if (playerCollides(p)) { p.z -= player.vel.z * dt; player.vel.z = 0; }
+  p.y += player.vel.y * dt;
+  if (playerCollides(p)) {
+    if (player.vel.y < 0) player.onGround = true;
+    p.y -= player.vel.y * dt;
+    p.y = player.vel.y < 0 ? Math.ceil(p.y) : p.y;
+    player.vel.y = 0;
+  } else if (player.vel.y !== 0) {
+    player.onGround = false;
+  }
+
+  // 맵 밖으로 떨어지면 리스폰
+  if (p.y < -20) {
+    p.set(0.5, terrainHeight(0, 0) + 2, 0.5);
+    player.vel.set(0, 0, 0);
+  }
+
+  camera.position.set(p.x, p.y + EYE_HEIGHT, p.z);
+  camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+}
+
+// ---------- 시점 / 포인터 락 ----------
+const overlay = document.getElementById('overlay');
+let locked = false;
+overlay.addEventListener('click', () => canvas.requestPointerLock());
+document.addEventListener('pointerlockchange', () => {
+  locked = document.pointerLockElement === canvas;
+  overlay.style.display = locked ? 'none' : 'flex';
+});
+document.addEventListener('mousemove', (e) => {
+  if (!locked) return;
+  player.yaw -= e.movementX * 0.0025;
+  player.pitch -= e.movementY * 0.0025;
+  player.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, player.pitch));
+});
+
+// ---------- 블록 부수기 / 설치 ----------
+const raycaster = new THREE.Raycaster();
+raycaster.far = REACH;
+
+function pickBlock() {
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  const hits = raycaster.intersectObjects(blockMeshes);
+  if (!hits.length) return null;
+  const hit = hits[0];
+  const list = instanceData.get(hit.object);
+  if (!list || hit.instanceId === undefined) return null;
+  const block = list[hit.instanceId];
+  const n = hit.face.normal;
+  return {
+    block,
+    adjacent: { x: block.x + Math.round(n.x), y: block.y + Math.round(n.y), z: block.z + Math.round(n.z) },
+  };
+}
+
+function blockIntersectsPlayer(b) {
+  const p = player.pos;
+  return (
+    b.x + 1 > p.x - PLAYER_HALF_W && b.x < p.x + PLAYER_HALF_W &&
+    b.y + 1 > p.y && b.y < p.y + PLAYER_HEIGHT &&
+    b.z + 1 > p.z - PLAYER_HALF_W && b.z < p.z + PLAYER_HALF_W
+  );
+}
+
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+document.addEventListener('mousedown', (e) => {
+  if (!locked) return;
+  const pick = pickBlock();
+  if (!pick) return;
+  if (e.button === 0) {
+    setBlock(pick.block.x, pick.block.y, pick.block.z, 0);
+    rebuildMeshes();
+  } else if (e.button === 2) {
+    const a = pick.adjacent;
+    if (!getBlock(a.x, a.y, a.z) && !blockIntersectsPlayer(a)) {
+      setBlock(a.x, a.y, a.z, HOTBAR[selectedSlot]);
+      rebuildMeshes();
+    }
+  }
+});
+
+// ---------- 핫바 ----------
+let selectedSlot = 0;
+const hotbarEl = document.getElementById('hotbar');
+const slotEls = HOTBAR.map((t, i) => {
+  const slot = document.createElement('div');
+  slot.className = 'slot';
+  slot.title = BLOCK_NAMES[t];
+  const num = document.createElement('div');
+  num.className = 'num';
+  num.textContent = i + 1;
+  slot.appendChild(num);
+  const m = MATERIALS[t];
+  const src = (Array.isArray(m) ? m[4] : m).map.image; // 옆면 텍스처를 아이콘으로
+  const icon = document.createElement('canvas');
+  icon.width = src.width; icon.height = src.height;
+  icon.getContext('2d').drawImage(src, 0, 0);
+  slot.appendChild(icon);
+  hotbarEl.appendChild(slot);
+  return slot;
+});
+function selectSlot(i) {
+  selectedSlot = i;
+  slotEls.forEach((el, j) => el.classList.toggle('selected', j === i));
+}
+selectSlot(0);
+addEventListener('wheel', (e) => {
+  if (!locked) return;
+  const d = e.deltaY > 0 ? 1 : -1;
+  selectSlot((selectedSlot + d + HOTBAR.length) % HOTBAR.length);
+});
+
+// ---------- 메인 루프 ----------
+addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+generateWorld();
+rebuildMeshes();
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+  if (locked) updatePlayer(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
