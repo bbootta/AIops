@@ -24,6 +24,9 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
 ]
+pdf = [
+    "weasyprint>=60",
+]
 
 [tool.setuptools.packages.find]
 where = [".", "src"]

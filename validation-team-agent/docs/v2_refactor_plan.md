@@ -11,7 +11,8 @@
 | Q2 v1 호환 shim | (a) 1개 분기 유지 후 제거 — 제거 목표 2026-Q4 |
 | Q3 Pydantic v2 | (a) Request/Step/Result + 정책 로더 |
 | Q4 비동기 | (a) Phase 3 에 포함, `--sync` fallback 유지 |
-| Q5 추가 항목 | 미정 (보류) |
+| Q5 추가 항목 | (a) 보고서 PDF + (b) 정적 대시보드 + (c) 추가 리스크 부문 — 2026-06-10 확정 |
+| Phase 5 정책 파일 이동 | **이동하지 않음** — harness/ 가 SSoT 유지 (감사추적성: 정책은 코드와 분리). 2026-06-10 확정 |
 
 ---
 
@@ -51,7 +52,7 @@
 | **2. core 이전** | workflow → `vta.core.workflow` + Pydantic 계약 + 정책 로더 | ✅ R27 (run_logger 는 middleware 잔류) |
 | **3. domain 이전** | async 엔진 (R28) + risk_checks→`vta.domains` / handlers→`vta.handlers.registry` (R29) | ✅ R28–29 |
 | **4. CLI 통합** | `vta` 단일 entry | ✅ R21 |
-| **5. 정책 + 마무리** | SSoT 디렉터리 재구조화 + 문서 | 인덱스만 완료 — 파일 물리 이동은 별도 사용자 확인 필요 |
+| **5. 정책 + 마무리** | SSoT 디렉터리 재구조화 + 문서 | ✅ 종결 — 사용자 결정: 물리 이동 안 함 (인덱스/로더만 v2 제공) |
 
 총 7 라운드 / CHG-0081 ~ CHG-0095 추정.
 
