@@ -3,27 +3,28 @@ name: validation-team-agent CI
 on:
   push:
     branches: ["**"]
+    # GitHub Actions does not allow combining `paths` with `paths-ignore`
+    # on the same trigger — workflow startup_failures result. Use negative
+    # patterns inside `paths` instead.
     paths:
       - "validation-team-agent/**"
       - ".github/workflows/validation-team-agent-ci.yml"
-    paths-ignore:
-      - "validation-team-agent/docs/**"
-      - "validation-team-agent/examples/**"
-      - "validation-team-agent/skills/**"
-      - "validation-team-agent/subagents/**"
-      - "validation-team-agent/README.md"
-      - "validation-team-agent/CLAUDE.md"
+      - "!validation-team-agent/docs/**"
+      - "!validation-team-agent/examples/**"
+      - "!validation-team-agent/skills/**"
+      - "!validation-team-agent/subagents/**"
+      - "!validation-team-agent/README.md"
+      - "!validation-team-agent/CLAUDE.md"
   pull_request:
     paths:
       - "validation-team-agent/**"
       - ".github/workflows/validation-team-agent-ci.yml"
-    paths-ignore:
-      - "validation-team-agent/docs/**"
-      - "validation-team-agent/examples/**"
-      - "validation-team-agent/skills/**"
-      - "validation-team-agent/subagents/**"
-      - "validation-team-agent/README.md"
-      - "validation-team-agent/CLAUDE.md"
+      - "!validation-team-agent/docs/**"
+      - "!validation-team-agent/examples/**"
+      - "!validation-team-agent/skills/**"
+      - "!validation-team-agent/subagents/**"
+      - "!validation-team-agent/README.md"
+      - "!validation-team-agent/CLAUDE.md"
 
 concurrency:
   group: validation-team-agent-${{ github.ref }}
