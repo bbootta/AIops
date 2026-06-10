@@ -1290,6 +1290,21 @@
       "rollback_rule": "credit_discrimination_handler / credit_psi_handler / credit_calibration_handler 의 sk 추가 분기 제거 시 v1 동작 복구 — 단 pathological input 시 escalation 자동 발동 문제 재발",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0087",
+      "timestamp": "2026-06-10 00:14:46",
+      "component": "tools/handlers.py",
+      "change_type": "modify",
+      "evidence": "Round 24 가 credit 3 개 handler 만 robustness 적용. 나머지 7 개 handler 가 NaN/Inf/0-분모/음수/빈컨테이너에 취약 — 실측: capital silent OK(NaN cet1), liquidity silent OK(NaN HQLA), market/irrbb/operational/weights CRASH(엔진이 fail 분류 → 9.escalate 자동 발동)",
+      "root_cause": "scalar 입력 사전 가드 부재 + liquidity 의 truthy 체크가 outflow=0 을 미제공으로 분류",
+      "targeted_fix": "_bad_scalar(NaN/Inf/None) helper 추가. capital/liquidity/market/irrbb/operational/macro/scenario_weights handler 에 적용. liquidity 는 outflow=0/rsf=0 분모 가드, irrbb 는 tier1<=0/empty dict, operational 은 BI<0/NaN, macro 는 n<10/NaN/Inf, weights 는 empty/column 누락",
+      "expected_benefit": "HITL 강화 — 7 개 handler 의 pathological input 이 모두 skipped (인간 재확인) 로 분류. silent-OK 또는 false-MRMC 통지 위험 차단",
+      "expected_regression_risk": "low — 회귀 방지 healthy 테스트 포함. 기존 ok/warning/fail 경로 변경 없음",
+      "validation_method": "tests/test_v2_round25.py 22 cases + healthy 회귀 방지 4 cases + _bad_scalar helper test + 전체 suite 502 통과",
+      "rollback_rule": "_bad_scalar + 7 handler 의 가드 분기 제거 시 v1 동작 복구 — 단 silent-OK/crash 문제 재발",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

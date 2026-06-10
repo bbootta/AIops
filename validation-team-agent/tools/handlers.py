@@ -22,6 +22,22 @@ def _has(req: Mapping[str, Any], *keys: str) -> bool:
     return any(req.get(k) is not None for k in keys)
 
 
+def _bad_scalar(*values: Any) -> bool:
+    """NaN / Inf / None 중 하나라도 있으면 True. 산식이 정의되지 않는 입력 점검."""
+    import math
+
+    for v in values:
+        if v is None:
+            return True
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return True
+        if math.isnan(f) or math.isinf(f):
+            return True
+    return False
+
+
 def _disc_skip_reason(df, score_col: str, target_col: str) -> str | None:
     """credit discrimination/calibration 사전 조건 점검.
 
@@ -172,6 +188,18 @@ def capital_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
 
     if not _has(req, "capital_cet1", "capital_leverage"):
         return StepResult("3.capital", "skipped", {}, "자본 입력 미제공")
+    # NaN/Inf 가 들어오면 산식이 정의되지 않거나 silent OK 로 통과 — 자본 점검은
+    # 즉시 인간 검증자에게 입력 재확인 요청
+    nan_fields = [
+        k for k in ("capital_cet1", "capital_tier1", "capital_total",
+                    "capital_leverage", "capital_ccyb", "capital_dsib")
+        if req.get(k) is not None and _bad_scalar(req[k])
+    ]
+    if nan_fields:
+        return StepResult(
+            "3.capital", "skipped", {"bad_fields": nan_fields},
+            f"자본 입력에 NaN/Inf: {nan_fields}",
+        )
     out = {}
     detail = []
     status = "ok"
@@ -209,7 +237,15 @@ def liquidity_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResul
     out = {}
     status = "ok"
     detail = []
-    if _has(req, "liquidity_hqla") and req.get("liquidity_outflow"):
+    # outflow=0 도 _has 로 점검 (기존 truthy 체크는 0 을 누락 → "유동성 미제공"
+    # 으로 잘못 분류). NaN/Inf 도 skip.
+    if _has(req, "liquidity_hqla") and req.get("liquidity_outflow") is not None:
+        if _bad_scalar(req["liquidity_hqla"], req["liquidity_outflow"]):
+            return StepResult("3.liquidity", "skipped", {},
+                              "LCR 입력에 NaN/Inf")
+        if float(req["liquidity_outflow"]) == 0.0:
+            return StepResult("3.liquidity", "skipped", {},
+                              "outflow=0 → LCR 정의 불가 (분모 0)")
         lcr = liquidity.check_lcr(req["liquidity_hqla"], req["liquidity_outflow"])
         out["lcr"] = lcr
         detail.append(f"LCR {lcr['ratio']:.3f} ({lcr['status']})")
@@ -217,7 +253,13 @@ def liquidity_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResul
             status = "fail"
         elif lcr["status"] == "warning" and status == "ok":
             status = "warning"
-    if _has(req, "liquidity_asf") and req.get("liquidity_rsf"):
+    if _has(req, "liquidity_asf") and req.get("liquidity_rsf") is not None:
+        if _bad_scalar(req["liquidity_asf"], req["liquidity_rsf"]):
+            return StepResult("3.liquidity", "skipped", {},
+                              "NSFR 입력에 NaN/Inf")
+        if float(req["liquidity_rsf"]) == 0.0:
+            return StepResult("3.liquidity", "skipped", {},
+                              "rsf=0 → NSFR 정의 불가 (분모 0)")
         nsfr = liquidity.check_nsfr(req["liquidity_asf"], req["liquidity_rsf"])
         out["nsfr"] = nsfr
         detail.append(f"NSFR {nsfr['ratio']:.3f} ({nsfr['status']})")
@@ -236,9 +278,13 @@ def market_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
     """VaR backtest traffic light."""
     from tools.risk_checks import market
 
-    if req.get("market_var_exceptions") is None:
+    exc = req.get("market_var_exceptions")
+    if exc is None:
         return StepResult("3.market", "skipped", {}, "VaR exceptions 미제공")
-    tl = market.var_backtest_traffic_light(int(req["market_var_exceptions"]))
+    if _bad_scalar(exc) or int(exc) < 0:
+        return StepResult("3.market", "skipped", {},
+                          f"market_var_exceptions 비정상 ({exc})")
+    tl = market.var_backtest_traffic_light(int(exc))
     status = {"green": "ok", "yellow": "warning", "red": "fail"}[tl["zone"]]
     return StepResult(
         "3.market", status, {"zone": tl["zone"], "exceptions": tl["exceptions"]},
@@ -256,6 +302,15 @@ def irrbb_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
     tier1 = req.get("irrbb_tier1")
     if eve is None or tier1 is None:
         return StepResult("3.irrbb", "skipped", {}, "IRRBB 입력 미제공")
+    if not eve:
+        return StepResult("3.irrbb", "skipped", {},
+                          "irrbb_delta_eve_by_scenario 비어있음")
+    if _bad_scalar(tier1) or float(tier1) <= 0:
+        return StepResult("3.irrbb", "skipped", {},
+                          f"irrbb_tier1 비정상 ({tier1}); ratio 분모 정의 불가")
+    if any(_bad_scalar(v) for v in eve.values()):
+        return StepResult("3.irrbb", "skipped", {},
+                          "ΔEVE scenario 값에 NaN/Inf")
     out = irrbb.check_eve_outlier(eve, tier1)
     status = "fail" if out["outlier"] else "ok"
     return StepResult(
@@ -271,11 +326,22 @@ def macro_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
     """거시 시계열 정상성 (ADF + KPSS 결합)."""
     from tools.regression_diagnostics import stationarity_summary
 
+    import math
+
     series = req.get("macro_series")
     if series is None:
         return StepResult("3.macro", "skipped", {}, "macro_series 미제공")
+    series_list = list(series)
+    if len(series_list) < 10:
+        return StepResult("3.macro", "skipped",
+                          {"n": len(series_list)},
+                          f"macro_series 표본 {len(series_list)} < 10 (ADF 정의 불가)")
+    if any(v is None or (isinstance(v, float) and (math.isnan(v) or math.isinf(v)))
+           for v in series_list):
+        return StepResult("3.macro", "skipped", {},
+                          "macro_series 에 NaN/Inf 포함")
     try:
-        summary = stationarity_summary(series)
+        summary = stationarity_summary(series_list)
     except Exception as exc:  # noqa: BLE001
         return StepResult("3.macro", "fail", {}, f"stationarity 산출 실패: {exc}")
     label = summary["label"]
@@ -295,11 +361,21 @@ def scenario_weights_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> St
     panel = req.get("scenario_weight_panel")
     if panel is None:
         return StepResult("3.weights", "skipped", {}, "panel 미제공")
+    if len(panel) == 0:
+        return StepResult("3.weights", "skipped", {}, "panel 비어있음")
+    period_col = req.get("scenario_weight_period_col", "period")
+    scenario_col = req.get("scenario_weight_scenario_col", "scenario")
+    weight_col = req.get("scenario_weight_value_col", "weight")
+    missing = [c for c in (period_col, scenario_col, weight_col)
+               if c not in panel.columns]
+    if missing:
+        return StepResult("3.weights", "skipped", {},
+                          f"panel 컬럼 누락: {missing}")
     out = check_weight_panel(
         panel,
-        period_col=req.get("scenario_weight_period_col", "period"),
-        scenario_col=req.get("scenario_weight_scenario_col", "scenario"),
-        weight_col=req.get("scenario_weight_value_col", "weight"),
+        period_col=period_col,
+        scenario_col=scenario_col,
+        weight_col=weight_col,
     )
     n_fail = int((~out["passed"]).sum())
     status = "ok" if n_fail == 0 else "fail"
@@ -318,6 +394,9 @@ def operational_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepRes
     bi = req.get("op_business_indicator_eur_bn")
     if bi is None:
         return StepResult("3.operational", "skipped", {}, "BI 미제공")
+    if _bad_scalar(bi) or float(bi) < 0:
+        return StepResult("3.operational", "skipped", {},
+                          f"BI 비정상 ({bi}) — NaN/Inf/음수")
     bic = operational.compute_bic(bi)
     orc = operational.compute_orc_domestic(bic["bic_eur_bn"])
     return StepResult(
