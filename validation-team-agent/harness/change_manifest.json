@@ -1320,6 +1320,21 @@
       "rollback_rule": "ccr_handler / cva_handler 의 가드 분기 제거 시 v1 동작 복구 — 단 CCR silent NaN EAD 오염 + CVA CRASH 재발",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0089",
+      "timestamp": "2026-06-10 01:33:30",
+      "component": "src/vta/core/workflow.py",
+      "change_type": "create",
+      "evidence": "Q1~Q4 사용자 확정 (2026-06-10): Q3=(a) Pydantic 전체 도입, Q2=(a) 1분기 shim. Phase 2 진행 조건 충족.",
+      "root_cause": "v1 dataclass 계약은 status 외 필드 타입 미검증, 엔진이 tools/ 에 있어 v2 단일 import 루트 미완",
+      "targeted_fix": "엔진 본체를 vta.core.workflow 로 이전 (StepResult/WorkflowContext/WorkflowRun → pydantic dataclass, status Literal 검증). tools/workflow.py 는 호환 shim (2026-Q4 제거 예정). vta/__init__ 은 PEP 562 lazy export 로 순환 import 제거. vta.core.models.ValidationRequest + vta.policies.models.load_validated (jsonschema 강제) 추가. pydantic>=2,<3 의존성 추가.",
+      "expected_benefit": "데이터 계약 생성 시점 검증, v2 canonical 엔진 확립, 정책 로드 시 schema 위반 즉시 검출",
+      "expected_regression_risk": "medium — StepResult 가 pydantic ValidationError(⊂ValueError) 를 던지므로 기존 except ValueError 경로는 보존. 22개 tools.workflow importer 는 shim 경유로 무변경",
+      "validation_method": "tests/test_v2_round27.py 14 cases (canonical 동일성/순환 import subprocess/Literal 검증/ValidationRequest/정책 로더) + 전체 suite 531 통과 + python -m tools.run_workflow_demo 무회귀",
+      "rollback_rule": "tools/workflow.py 를 R26 시점 구현으로 복원하고 vta.core 를 re-export 로 되돌리면 v1 단독 동작 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
