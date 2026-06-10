@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 
@@ -96,7 +97,8 @@ def guarantee_substitution(
 
 
 def apply_crm(portfolio: pd.DataFrame) -> pd.DataFrame:
-    """Vectorised CRM/CCF over a portfolio.
+    """Vectorised CRM/CCF over a portfolio — numerically identical to scalar
+    row-wise application of :func:`ccf_ead` then :func:`crm_adjusted_ead`.
 
     Optional columns (defaults assume no CRM/off-balance):
       drawn, undrawn, ccf_type, collateral_value, collateral_type,
@@ -108,23 +110,41 @@ def apply_crm(portfolio: pd.DataFrame) -> pd.DataFrame:
     df = portfolio.copy()
 
     if {"drawn", "undrawn", "ccf_type"}.issubset(df.columns):
-        df["ead_gross"] = df.apply(
-            lambda r: ccf_ead(r["drawn"], r["undrawn"], r["ccf_type"]), axis=1
-        )
+        unknown = set(df["ccf_type"]) - set(CCF_BUCKETS)
+        if unknown:
+            raise ValueError(f"unknown ccf_type(s): {sorted(unknown)}")
+        ccf = df["ccf_type"].map(CCF_BUCKETS).to_numpy(dtype=float)
+        df["ead_gross"] = df["drawn"].to_numpy(dtype=float) + \
+            df["undrawn"].to_numpy(dtype=float) * ccf
     elif "ead" in df.columns:
         df["ead_gross"] = df["ead"]
     else:
         raise ValueError("need either ('drawn','undrawn','ccf_type') or 'ead'")
 
-    has_collateral = "collateral_value" in df.columns
-    df["ead"] = df.apply(
-        lambda r: crm_adjusted_ead(
-            r["ead_gross"],
-            r.get("collateral_value", 0.0) if has_collateral else 0.0,
-            r.get("collateral_type", "cash"),
-            fx_mismatch=bool(r.get("fx_mismatch", False)),
-            exposure_haircut=float(r.get("exposure_haircut", 0.0)),
-        ),
-        axis=1,
-    )
+    n = len(df)
+    coll_value = (df["collateral_value"].to_numpy(dtype=float)
+                  if "collateral_value" in df.columns else np.zeros(n))
+    coll_type = (df["collateral_type"].fillna("cash").to_numpy()
+                 if "collateral_type" in df.columns
+                 else np.full(n, "cash"))
+    fx = (df["fx_mismatch"].to_numpy(dtype=bool)
+          if "fx_mismatch" in df.columns else np.zeros(n, dtype=bool))
+    e_haircut = (df["exposure_haircut"].to_numpy(dtype=float)
+                 if "exposure_haircut" in df.columns else np.zeros(n))
+
+    has_coll = coll_value > 0
+    # Resolve haircut per row from the supervisory table; rows with no collateral
+    # get 0.  scalar `crm_adjusted_ead` raises on unknown types — match that.
+    unknown_types = (set(coll_type[has_coll]) - set(_SUPERVISORY_HAIRCUTS))
+    if unknown_types:
+        raise ValueError(f"unknown collateral_type(s): {sorted(unknown_types)}")
+    hc = np.array([_SUPERVISORY_HAIRCUTS.get(t, 0.0) for t in coll_type])
+    hc = np.where(has_coll, hc, 0.0)
+    hfx = np.where(has_coll & fx, FX_MISMATCH_HAIRCUT, 0.0)
+
+    if (df["ead_gross"].to_numpy(dtype=float) < 0).any():
+        raise ValueError("exposure must be >= 0")
+    adjusted = (df["ead_gross"].to_numpy(dtype=float) * (1 + e_haircut)
+                - coll_value * (1 - hc - hfx))
+    df["ead"] = np.maximum(adjusted, 0.0)
     return df

@@ -20,9 +20,7 @@ from risk_lib.data_gen import (
 )
 from risk_lib.models.pd_model import fit_pd_model, gini, ks_statistic
 from risk_lib.models.rating import pd_to_rating, DEFAULT_MASTER_SCALE
-from risk_lib.capital.rwa_sa import (
-    compute_rwa_sa, sa_risk_weight, SA_RISK_WEIGHTS, _mortgage_rw,
-)
+from risk_lib.capital.rwa_sa import compute_rwa_sa, standardised_rwa_total
 from risk_lib.capital.rwa_irb import compute_rwa_irb
 from risk_lib.capital.bis import CapitalStack, compute_bis_ratios
 from risk_lib.capital.op_risk import BusinessIndicator, compute_op_risk_rwa
@@ -110,41 +108,10 @@ def _fit_segment_pd(portfolio: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 def _standardised_rwa_all(portfolio: pd.DataFrame) -> float:
     """Full-standardised RWA across the whole book (output-floor denominator).
 
-    Vectorised: risk weights are resolved per asset class with array maps, so
-    the whole book is processed without a Python row loop.
+    Thin wrapper kept for any in-tree callers; delegates to
+    :func:`risk_lib.capital.rwa_sa.standardised_rwa_total`.
     """
-    import numpy as np
-
-    df = portfolio
-    ac = df["asset_class"].to_numpy()
-    ead = df["ead"].to_numpy(dtype=float)
-    rw = np.ones(len(df))
-
-    for cls in ("sovereign", "bank"):
-        m = ac == cls
-        if m.any():
-            table = SA_RISK_WEIGHTS[cls]
-            ratings = df.loc[m, "rating"].fillna("UNRATED") if "rating" in df.columns \
-                else pd.Series(["UNRATED"] * int(m.sum()))
-            rw[m] = ratings.map(lambda x: table.get(x, table["UNRATED"])).to_numpy()
-
-    m = ac == "corporate"
-    if m.any():
-        table = SA_RISK_WEIGHTS["corporate"]
-        grades = df.loc[m, "grade"] if "grade" in df.columns else None
-        buckets = (grades.map(lambda g: _SA_CORP_BUCKET_BY_GRADE.get(g, "UNRATED"))
-                   if grades is not None else pd.Series(["UNRATED"] * int(m.sum())))
-        rw[m] = buckets.map(lambda b: table.get(b, table["UNRATED"])).to_numpy()
-
-    rw[ac == "retail_other"] = sa_risk_weight("retail_regulatory")
-
-    m = ac == "residential_mortgage"
-    if m.any():
-        ltv = df.loc[m, "ltv"].fillna(0.8).to_numpy(dtype=float) if "ltv" in df.columns \
-            else np.full(int(m.sum()), 0.8)
-        rw[m] = [_mortgage_rw(x) for x in ltv]
-
-    return float((ead * rw).sum())
+    return standardised_rwa_total(portfolio, _SA_CORP_BUCKET_BY_GRADE)
 
 
 def run_pipeline(
