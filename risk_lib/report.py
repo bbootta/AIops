@@ -1,4 +1,10 @@
-"""Render a PipelineResult as a markdown 결재용 리포트."""
+"""Render a PipelineResult as a markdown 결재용 리포트.
+
+Sectionising is for maintainability only — text output is intentionally
+byte-identical to the prior monolithic implementation (verified against a
+golden copy of the v0.1 report).  Korean labels and table formatting are not
+to be touched.
+"""
 
 from __future__ import annotations
 
@@ -12,62 +18,87 @@ def _won(x: float) -> str:
     return f"{x:,.0f}"
 
 
-def render_markdown(result: PipelineResult) -> str:
-    r = result
-    lines: list[str] = []
-    add = lines.append
+def _md_table(headers: list[str], aligns: list[str], rows: list[list[str]]) -> list[str]:
+    """Return the markdown lines for a table — header, divider, rows.
 
+    `aligns` items are one of "l", "r", "c"; the renderer translates to
+    the standard `---` / `---:` / `:---:` divider tokens.
+    """
+    sep = {"l": "---", "r": "---:", "c": ":---:"}
+    out = ["| " + " | ".join(headers) + " |",
+           "|" + "|".join(sep[a] for a in aligns) + "|"]
+    for r in rows:
+        out.append("| " + " | ".join(r) + " |")
+    return out
+
+
+# ---- per-section renderers ----------------------------------------------
+# Each appends to `lines` and ends with an empty separator line so callers
+# can compose sections without worrying about spacing.
+
+def _sec_header(lines: list[str], result: PipelineResult) -> None:
+    add = lines.append
     add("# 리스크관리 종합 리포트")
     add("")
     add(f"- 생성일: {date.today().isoformat()}")
-    add(f"- 시드(재현성): {r.meta.get('seed')}")
+    add(f"- 시드(재현성): {result.meta.get('seed')}")
     add(f"- 준거: Basel III (CRE/MAR/OPE/LEV) + 금감원 은행업감독업무시행세칙")
     add("")
 
-    # ---- 종합 판정 ----
-    v = r.validation
-    summ = v.summary()
+
+def _sec_verdict(lines: list[str], result: PipelineResult) -> None:
+    add = lines.append
+    v = result.validation
     verdict = "결재 가능 (PASS)" if v.passes() else "결재 불가 (FAIL 존재)"
     add("## 0. 종합 판정")
     add("")
-    add(f"**{verdict}** — 검증 체크 결과: {summ}")
+    add(f"**{verdict}** — 검증 체크 결과: {v.summary()}")
     add("")
 
-    # ---- 포트폴리오 ----
-    add("## 1. 포트폴리오 개요")
-    add("")
-    add("| 자산군 | 건수 | EAD | 부도율 |")
-    add("|---|---:|---:|---:|")
-    for _, row in r.portfolio_summary.iterrows():
-        add(f"| {row['asset_class']} | {int(row['n'])} | {_won(row['ead'])} "
-            f"| {row['default_rate']:.2%} |")
-    add("")
 
-    # ---- PD 모형 ----
-    add("## 2. 신용평가모형(PD) 변별력")
-    add("")
-    add("| 세그먼트 | Gini | KS | 학습/검증 |")
-    add("|---|---:|---:|---:|")
-    for seg, m in r.pd_metrics.items():
-        add(f"| {seg} | {m['gini']:.3f} | {m['ks']:.3f} "
-            f"| {int(m['n_train'])}/{int(m['n_test'])} |")
-    add("")
+def _sec_portfolio(lines: list[str], result: PipelineResult) -> None:
+    lines.append("## 1. 포트폴리오 개요")
+    lines.append("")
+    rows = [
+        [row["asset_class"], str(int(row["n"])), _won(row["ead"]),
+         f"{row['default_rate']:.2%}"]
+        for _, row in result.portfolio_summary.iterrows()
+    ]
+    lines.extend(_md_table(
+        ["자산군", "건수", "EAD", "부도율"], ["l", "r", "r", "r"], rows))
+    lines.append("")
 
-    # ---- RWA ----
-    rwa = r.rwa
+
+def _sec_pd(lines: list[str], result: PipelineResult) -> None:
+    lines.append("## 2. 신용평가모형(PD) 변별력")
+    lines.append("")
+    rows = [
+        [seg, f"{m['gini']:.3f}", f"{m['ks']:.3f}",
+         f"{int(m['n_train'])}/{int(m['n_test'])}"]
+        for seg, m in result.pd_metrics.items()
+    ]
+    lines.extend(_md_table(
+        ["세그먼트", "Gini", "KS", "학습/검증"], ["l", "r", "r", "r"], rows))
+    lines.append("")
+
+
+def _sec_rwa(lines: list[str], result: PipelineResult) -> None:
+    add = lines.append
+    rwa = result.rwa
     of = rwa["output_floor"]
     add("## 3. 위험가중자산(RWA)")
     add("")
-    add("| 구분 | 금액 |")
-    add("|---|---:|")
-    add(f"| 신용 RWA (SA) | {_won(rwa['sa'])} |")
-    add(f"| 신용 RWA (IRB) | {_won(rwa['irb'])} |")
-    add(f"| 시장리스크 RWA | {_won(rwa['market'])} |")
-    add(f"| 운영리스크 RWA | {_won(rwa['op'])} |")
-    add(f"| 내부모형 합계 | {_won(rwa['internal_total'])} |")
-    add(f"| 전부표준방법 합계 | {_won(rwa['standardised_total'])} |")
-    add(f"| Output floor ({of.floor:.1%}) 적용액 | {_won(of.floor_amount)} |")
-    add(f"| **최종 RWA** | **{_won(rwa['final_total'])}** |")
+    rows = [
+        ["신용 RWA (SA)", _won(rwa["sa"])],
+        ["신용 RWA (IRB)", _won(rwa["irb"])],
+        ["시장리스크 RWA", _won(rwa["market"])],
+        ["운영리스크 RWA", _won(rwa["op"])],
+        ["내부모형 합계", _won(rwa["internal_total"])],
+        ["전부표준방법 합계", _won(rwa["standardised_total"])],
+        [f"Output floor ({of.floor:.1%}) 적용액", _won(of.floor_amount)],
+        ["**최종 RWA**", f"**{_won(rwa['final_total'])}**"],
+    ]
+    lines.extend(_md_table(["구분", "금액"], ["l", "r"], rows))
     add("")
     if of.is_binding:
         add(f"> Output floor가 **구속적**입니다. 내부모형 대비 +{_won(of.add_on)} 가산.")
@@ -75,22 +106,28 @@ def render_markdown(result: PipelineResult) -> str:
         add("> Output floor는 비구속적 (내부모형 RWA가 하한 초과).")
     add("")
 
-    # ---- BIS ----
-    bis = r.bis
+
+def _sec_bis(lines: list[str], result: PipelineResult) -> None:
+    add = lines.append
+    bis = result.bis
     add("## 4. BIS 자본적정성")
     add("")
-    add("| 비율 | 실측 | 요구 | 잉여/부족 |")
-    add("|---|---:|---:|---:|")
+    rows = []
     for key, label in [("cet1", "CET1"), ("tier1", "Tier1"), ("total", "Total")]:
         actual = getattr(bis, f"{key}_ratio")
-        add(f"| {label} | {actual:.2%} | {bis.required[key]:.2%} "
-            f"| {bis.surplus_shortfall[key]:+.2%} |")
+        rows.append([label, f"{actual:.2%}", f"{bis.required[key]:.2%}",
+                     f"{bis.surplus_shortfall[key]:+.2%}"])
+    lines.extend(_md_table(
+        ["비율", "실측", "요구", "잉여/부족"],
+        ["l", "r", "r", "r"], rows))
     add("")
     add(f"판정: **{'PASS' if bis.passes() else 'FAIL'}**")
     add("")
 
-    # ---- 레버리지 ----
-    lev = r.leverage
+
+def _sec_leverage(lines: list[str], result: PipelineResult) -> None:
+    add = lines.append
+    lev = result.leverage
     add("## 5. 레버리지비율")
     add("")
     add(f"- 레버리지비율: **{lev.leverage_ratio:.2%}** "
@@ -98,16 +135,22 @@ def render_markdown(result: PipelineResult) -> str:
     add(f"- 익스포저 측정치: {_won(lev.exposure_measure)}")
     add("")
 
-    # ---- ECL ----
+
+def _sec_ecl(lines: list[str], result: PipelineResult) -> None:
+    add = lines.append
+    r = result
     add("## 6. IFRS9 기대신용손실(ECL) 충당금")
     add("")
     add(f"- 총 ECL: **{_won(r.ecl['total'])}**")
     add("")
-    add("| Stage | 건수 | EAD | ECL | 커버리지 |")
-    add("|---|---:|---:|---:|---:|")
-    for stage, row in r.ecl["by_stage"].iterrows():
-        add(f"| Stage {int(stage)} | {int(row['n'])} | {_won(row['ead'])} "
-            f"| {_won(row['ecl'])} | {row['coverage']:.2%} |")
+    rows = [
+        [f"Stage {int(stage)}", str(int(row["n"])), _won(row["ead"]),
+         _won(row["ecl"]), f"{row['coverage']:.2%}"]
+        for stage, row in r.ecl["by_stage"].iterrows()
+    ]
+    lines.extend(_md_table(
+        ["Stage", "건수", "EAD", "ECL", "커버리지"],
+        ["l", "r", "r", "r", "r"], rows))
     add("")
 
     macro = r.macro_ecl
@@ -118,13 +161,13 @@ def render_markdown(result: PipelineResult) -> str:
     add(f"- PIT 확률가중 ECL: **{_won(macro.weighted_total)}** "
         f"(forward-looking uplift {uplift:+,.0f})")
     add("")
-    add("| 시나리오 | 확률 | ECL |")
-    add("|---|---:|---:|")
-    for _, row in macro.by_scenario.iterrows():
-        add(f"| {row['scenario']} | {row['probability']:.0%} | {_won(row['ecl'])} |")
+    rows = [
+        [row["scenario"], f"{row['probability']:.0%}", _won(row["ecl"])]
+        for _, row in macro.by_scenario.iterrows()
+    ]
+    lines.extend(_md_table(["시나리오", "확률", "ECL"], ["l", "r", "r"], rows))
     add("")
 
-    # ---- 분기별 ECL 충당금 경로 (동일 분기 축) ----
     mp = r.macro_ecl_path
     wq = mp[mp["scenario"] == "weighted"]
     if not wq.empty:
@@ -144,8 +187,10 @@ def render_markdown(result: PipelineResult) -> str:
         add("> 단위: 십억원. 확률가중 행이 분기별 IFRS9 충당금 추정치.")
         add("")
 
-    # ---- 모니터링 ----
-    m = r.monitoring
+
+def _sec_monitoring(lines: list[str], result: PipelineResult) -> None:
+    add = lines.append
+    m = result.monitoring
     add("## 7. 연체율 / 부도율 / 회수율")
     add("")
     add(f"- 연간 부도율 (노출액 가중): **{m['default_rate_ew']:.2%}**")
@@ -153,53 +198,73 @@ def render_markdown(result: PipelineResult) -> str:
     add(f"- 누적 회수율: **{m['recovery_rate']:.2%}**")
     add("")
 
-    # ---- 한도 ----
+
+def _sec_limits(lines: list[str], result: PipelineResult) -> None:
+    add = lines.append
     add("## 8. 한도관리")
     add("")
-    if r.limits.empty:
+    if result.limits.empty:
         add("모든 한도 정상 (경보 없음).")
-    else:
-        add("| 한도 | 차원 | 버킷 | 노출 | 한도 | 사용률 | 등급 |")
-        add("|---|---|---|---:|---:|---:|---|")
-        for _, row in r.limits.head(15).iterrows():
-            add(f"| {row['limit']} | {row['dimension']} | {row['bucket']} "
-                f"| {_won(row['exposure'])} | {_won(row['threshold'])} "
-                f"| {row['utilisation']:.1%} | {row['severity']} |")
+        add("")
+        return
+    rows = [
+        [row["limit"], row["dimension"], str(row["bucket"]),
+         _won(row["exposure"]), _won(row["threshold"]),
+         f"{row['utilisation']:.1%}", row["severity"]]
+        for _, row in result.limits.head(15).iterrows()
+    ]
+    lines.extend(_md_table(
+        ["한도", "차원", "버킷", "노출", "한도", "사용률", "등급"],
+        ["l", "l", "l", "r", "r", "r", "l"], rows))
     add("")
 
-    # ---- 집중도 ----
-    add("## 9. 집중리스크 (HHI)")
-    add("")
-    add("| 차원 | 버킷수 | HHI | 정규화 HHI | 최대비중 |")
-    add("|---|---:|---:|---:|---:|")
-    for _, row in r.concentration.iterrows():
-        add(f"| {row['dimension']} | {int(row['n_buckets'])} | {row['hhi']:.4f} "
-            f"| {row['normalised_hhi']:.4f} | {row['top1_share']:.2%} |")
-    add("")
 
-    # ---- RAPM ----
-    add("## 10. RAPM (RAROC)")
-    add("")
-    add("| 자산군 | 건수 | 경제자본 | EL | 수익 | 평균 RAROC | Hurdle충족 |")
-    add("|---|---:|---:|---:|---:|---:|---:|")
-    for _, row in r.rapm.iterrows():
-        add(f"| {row['asset_class']} | {int(row['n'])} | {_won(row['ec'])} "
-            f"| {_won(row['el'])} | {_won(row['revenue'])} "
-            f"| {row['raroc_mean']:.2%} | {row['pass_hurdle_pct']:.1%} |")
-    add("")
+def _sec_concentration(lines: list[str], result: PipelineResult) -> None:
+    lines.append("## 9. 집중리스크 (HHI)")
+    lines.append("")
+    rows = [
+        [row["dimension"], str(int(row["n_buckets"])),
+         f"{row['hhi']:.4f}", f"{row['normalised_hhi']:.4f}",
+         f"{row['top1_share']:.2%}"]
+        for _, row in result.concentration.iterrows()
+    ]
+    lines.extend(_md_table(
+        ["차원", "버킷수", "HHI", "정규화 HHI", "최대비중"],
+        ["l", "r", "r", "r", "r"], rows))
+    lines.append("")
 
-    # ---- 스트레스 ----
+
+def _sec_rapm(lines: list[str], result: PipelineResult) -> None:
+    lines.append("## 10. RAPM (RAROC)")
+    lines.append("")
+    rows = [
+        [row["asset_class"], str(int(row["n"])), _won(row["ec"]),
+         _won(row["el"]), _won(row["revenue"]),
+         f"{row['raroc_mean']:.2%}", f"{row['pass_hurdle_pct']:.1%}"]
+        for _, row in result.rapm.iterrows()
+    ]
+    lines.extend(_md_table(
+        ["자산군", "건수", "경제자본", "EL", "수익", "평균 RAROC", "Hurdle충족"],
+        ["l", "r", "r", "r", "r", "r", "r"], rows))
+    lines.append("")
+
+
+def _sec_stress(lines: list[str], result: PipelineResult) -> None:
+    add = lines.append
     add("## 11. 스트레스테스트")
     add("")
-    add("| 시나리오 | RWA합계 | ECL | CET1비율 | CET1잉여 | 통과 |")
-    add("|---|---:|---:|---:|---:|---:|")
-    for _, row in r.stress.iterrows():
-        add(f"| {row['scenario']} | {_won(row['rwa_total'])} | {_won(row['ecl'])} "
-            f"| {row['cet1_ratio']:.2%} | {row['cet1_surplus']:+.2%} "
-            f"| {'O' if row['passes'] else 'X'} |")
+    rows = [
+        [row["scenario"], _won(row["rwa_total"]), _won(row["ecl"]),
+         f"{row['cet1_ratio']:.2%}", f"{row['cet1_surplus']:+.2%}",
+         "O" if row["passes"] else "X"]
+        for _, row in result.stress.iterrows()
+    ]
+    lines.extend(_md_table(
+        ["시나리오", "RWA합계", "ECL", "CET1비율", "CET1잉여", "통과"],
+        ["l", "r", "r", "r", "r", "r"], rows))
     add("")
 
-    rev = r.reverse_stress
+    rev = result.reverse_stress
     add("### 11-1. 역스트레스테스트 (CET1 임계 시나리오)")
     add("")
     add(f"- 기준 CET1: {rev.base_ratio:.2%} / 임계(버퍼포함 요구): {rev.target_ratio:.2%}")
@@ -217,20 +282,22 @@ def render_markdown(result: PipelineResult) -> str:
             f"ECL {_won(rev.ecl_at_break)}, CET1 {rev.ratio_at_break:.2%}")
     add("")
 
-    # ---- 분기별 다기간 스트레스 경로 ----
-    qs = r.meta.get("quarters", [])
+    qs = result.meta.get("quarters", [])
     horizon = f"{qs[0]}~{qs[-1]}" if qs else ""
     add(f"### 11-2. 분기별 자본 스트레스 경로 ({horizon})")
     add("")
-    add("| 시나리오 | 최저 CET1 | 최저시점 | 기말 CET1 | 최초위반 | 전구간통과 |")
-    add("|---|---:|---|---:|---|---:|")
-    for _, row in r.stress_path_trough.iterrows():
-        fb = row["first_breach"] if isinstance(row["first_breach"], str) else "-"
-        add(f"| {row['scenario']} | {row['trough_cet1']:.2%} | {row['trough_quarter']} "
-            f"| {row['end_cet1']:.2%} | {fb} | {'O' if row['passes_all'] else 'X'} |")
+    rows = [
+        [row["scenario"], f"{row['trough_cet1']:.2%}", row["trough_quarter"],
+         f"{row['end_cet1']:.2%}",
+         row["first_breach"] if isinstance(row["first_breach"], str) else "-",
+         "O" if row["passes_all"] else "X"]
+        for _, row in result.stress_path_trough.iterrows()
+    ]
+    lines.extend(_md_table(
+        ["시나리오", "최저 CET1", "최저시점", "기말 CET1", "최초위반", "전구간통과"],
+        ["l", "r", "l", "r", "l", "r"], rows))
     add("")
-    # severe trajectory quarter-by-quarter
-    sev = r.stress_path[r.stress_path["scenario"] == "severely_adverse"]
+    sev = result.stress_path[result.stress_path["scenario"] == "severely_adverse"]
     if not sev.empty:
         add("심각(severely_adverse) 분기 CET1 추이:")
         add("")
@@ -239,30 +306,58 @@ def render_markdown(result: PipelineResult) -> str:
         add("| CET1 | " + " | ".join(f"{v:.2%}" for v in sev["cet1_ratio"]) + " |")
         add("")
 
-    # ---- 검증 ----
+
+def _sec_validation(lines: list[str], result: PipelineResult) -> None:
+    add = lines.append
+    v = result.validation
     add("## 12. 자체검증 (정합성 + 백테스트)")
     add("")
-    add("| 체크 | 상태 | 상세 |")
-    add("|---|---|---|")
-    for c in v.checks:
-        add(f"| {c.name} | {c.status} | {c.detail} |")
+    rows = [[c.name, c.status, c.detail] for c in v.checks]
+    lines.extend(_md_table(["체크", "상태", "상세"], ["l", "l", "l"], rows))
     add("")
-    hl = r.backtest["hosmer_lemeshow"]
+    hl = result.backtest["hosmer_lemeshow"]
     add(f"- Hosmer-Lemeshow: chi2={hl['chi_square']:.2f}, p={hl['p_value']:.3f} "
         f"({'캘리브레이션 양호' if hl['p_value'] >= 0.05 else '캘리브레이션 주의'})")
-    zones = r.backtest["per_grade"]["zone"].value_counts().to_dict()
+    zones = result.backtest["per_grade"]["zone"].value_counts().to_dict()
     add(f"- 등급별 백테스트 존: {zones}")
     add("")
 
-    # ---- 출처 및 준거 ----
+
+def _sec_references(lines: list[str], _result: PipelineResult) -> None:
+    add = lines.append
     add("## 13. 출처 및 준거")
     add("")
     add("각 수치·기준의 근거 표준 문헌 (모든 상수는 `risk_lib/references.py`에 집약).")
     add("")
-    add("| 리포트 섹션 | 표준 | 항목 | 비고 |")
-    add("|---|---|---|---|")
-    for section, cite in ALL_CITATIONS:
-        add(f"| {section} | {cite.standard} | {cite.section} | {cite.note} |")
+    rows = [[section, cite.standard, cite.section, cite.note]
+            for section, cite in ALL_CITATIONS]
+    lines.extend(_md_table(
+        ["리포트 섹션", "표준", "항목", "비고"],
+        ["l", "l", "l", "l"], rows))
     add("")
 
+
+_SECTIONS = (
+    _sec_header,
+    _sec_verdict,
+    _sec_portfolio,
+    _sec_pd,
+    _sec_rwa,
+    _sec_bis,
+    _sec_leverage,
+    _sec_ecl,
+    _sec_monitoring,
+    _sec_limits,
+    _sec_concentration,
+    _sec_rapm,
+    _sec_stress,
+    _sec_validation,
+    _sec_references,
+)
+
+
+def render_markdown(result: PipelineResult) -> str:
+    lines: list[str] = []
+    for section in _SECTIONS:
+        section(lines, result)
     return "\n".join(lines)

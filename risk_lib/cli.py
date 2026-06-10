@@ -5,6 +5,7 @@ Usage:
     python -m risk_lib.cli run --report report.md    # write markdown report
     python -m risk_lib.cli run --data book.csv       # use your own portfolio
     python -m risk_lib.cli run --seed 7 --floor 0.725
+    python -m risk_lib.cli run --ccyb 0.005 --dsib 0.015 --years-ahead 3
 """
 
 from __future__ import annotations
@@ -23,11 +24,19 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if args.data:
         portfolio = pd.read_csv(args.data)
 
+    buffers = {
+        "capital_conservation": args.ccb,
+        "countercyclical": args.ccyb,
+        "dsib": args.dsib,
+    }
+
     result = run_pipeline(
         portfolio,
         seed=args.seed,
         hurdle_rate=args.hurdle,
         output_floor=args.floor,
+        buffers=buffers,
+        years_ahead=args.years_ahead,
     )
 
     md = render_markdown(result)
@@ -55,6 +64,14 @@ def main(argv: list[str] | None = None) -> int:
     run_p.add_argument("--seed", type=int, default=42, help="재현성 시드")
     run_p.add_argument("--hurdle", type=float, default=0.10, help="RAPM hurdle rate")
     run_p.add_argument("--floor", type=float, default=0.725, help="output floor 비율")
+    run_p.add_argument("--ccb", type=float, default=0.025,
+                       help="자본보전버퍼 (default 2.5%%)")
+    run_p.add_argument("--ccyb", type=float, default=0.0,
+                       help="경기대응완충자본 (default 0%%)")
+    run_p.add_argument("--dsib", type=float, default=0.01,
+                       help="D-SIB 가산자본 (default 1.0%%)")
+    run_p.add_argument("--years-ahead", type=int, default=2,
+                       help="분기 스트레스/ECL 경로 지평(연도)")
     run_p.set_defaults(func=_cmd_run)
 
     args = parser.parse_args(argv)
