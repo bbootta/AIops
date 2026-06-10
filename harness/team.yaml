@@ -156,6 +156,7 @@ workflow:
 
 delivery:
   default_format: html
+  report_template: templates/report.html
   report_path_pattern: reports/<topic-slug>-<YYYY-MM-DD>.html
   must_include:
     - evidence matrix

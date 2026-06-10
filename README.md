@@ -62,6 +62,7 @@ of operational risk capital and identify implementation caveats.
 - `harness/team.yaml`: team topology, depth modes, gates, delivery rules, and handoff rules.
 - `harness/risk-research-runbook.md`: workflow, quality gates G1-G5, conflict-resolution protocol, freshness rules.
 - `harness/source-map.md`: preferred sources and evidence tiers.
+- `templates/report.html`: HTML report skeleton for default delivery.
 - `templates/research-brief.md`: final report format.
 - `templates/evidence-matrix.md`: claim-to-source traceability table.
 - `templates/source-log.csv`: structured source log.

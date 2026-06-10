@@ -144,11 +144,32 @@ Final outputs include:
 - Suggested next monitoring cycle if the topic is dynamic.
 
 Default report format: an HTML file at
-`reports/<topic-slug>-<YYYY-MM-DD>.html` unless the user asks for another
-format. The report must be readable directly in a browser and include source
+`reports/<topic-slug>-<YYYY-MM-DD>.html` (skeleton: `templates/report.html`)
+unless the user asks for another format. The report must be readable directly in a browser and include source
 links, evidence tiers, and claim traceability. Report prose defaults to Korean
 (`default_language` in `team.yaml`); citations and tables may stay in the
 source language.
+
+## Recurring Watch Workflow
+
+For the `recurring_watch` workflow in `team.yaml`:
+
+1. **Define watch scope** — period, jurisdictions, risk types, and
+   institutions; reuse the previous cycle's watchlist and "required next
+   checks" as the starting backlog.
+2. **Scan official sources** — Basel/BIS, supervisors, and central banks from
+   `source-map.md` for publications since the last cycle.
+3. **Scan news and disclosures** — `news-risk-intelligence-analyst` covers
+   events, enforcement, and rating actions; `bank-case-study-analyst` covers
+   new filings when in scope.
+4. **Rank signals** — severity and confidence per signal, each backed by a
+   source ID; distinguish idiosyncratic events from sector-wide signals.
+5. **Publish** — fill `templates/weekly-risk-watch.md`, deliver per Final
+   Delivery above. Gate G5 applies before publishing; gates G1-G2 are
+   satisfied by the standing watch scope.
+
+Carry unresolved watchlist items forward; note items dropped from the
+watchlist and why.
 
 ## Prompt Pattern
 

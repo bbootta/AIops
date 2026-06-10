@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>[보고서 제목] — [YYYY-MM-DD]</title>
+<style>
+  body { font-family: "Pretendard", "Noto Sans KR", -apple-system, sans-serif;
+         max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; color: #1a1a2e; line-height: 1.65; }
+  h1 { border-bottom: 3px solid #16324f; padding-bottom: .4rem; }
+  h2 { color: #16324f; border-bottom: 1px solid #d8dee6; padding-bottom: .25rem; margin-top: 2.2rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .92rem; }
+  th, td { border: 1px solid #c5cdd6; padding: .45rem .6rem; text-align: left; vertical-align: top; }
+  th { background: #eef2f6; }
+  .meta { background: #f4f6f8; border: 1px solid #d8dee6; border-radius: 6px;
+          padding: .8rem 1rem; font-size: .92rem; }
+  .meta span { display: inline-block; margin-right: 1.4rem; }
+  .tier { font-weight: 600; }
+  .caveat { background: #fff7e6; border-left: 4px solid #d9a514; padding: .6rem 1rem; }
+  .verdict { font-weight: 700; }
+  footer { margin-top: 3rem; font-size: .85rem; color: #5a6572; border-top: 1px solid #d8dee6; padding-top: .8rem; }
+</style>
+</head>
+<body>
+
+<h1>[보고서 제목]</h1>
+
+<p class="meta">
+  <span><strong>작성일:</strong> [YYYY-MM-DD]</span>
+  <span><strong>기준일(as-of):</strong> [YYYY-MM-DD]</span>
+  <span><strong>깊이:</strong> [rapid-scan / standard / deep]</span>
+  <span><strong>검토:</strong> <span class="verdict">[VERDICT: pass / pass-with-edits 적용 / rapid-scan 자체 점검]</span></span>
+</p>
+
+<h2>요약 (Executive Summary)</h2>
+<ul>
+  <li>[핵심 발견 1]</li>
+  <li>[핵심 발견 2]</li>
+  <li>[핵심 발견 3]</li>
+</ul>
+
+<h2>의사결정 맥락과 범위</h2>
+<p>[이 보고서가 지원하는 의사결정·위원회·검증·전략 질문]</p>
+<ul>
+  <li>관할: [관할]</li>
+  <li>리스크 유형: [유형]</li>
+  <li>기관 유형: [유형]</li>
+  <li>시계: [시계]</li>
+  <li>범위 제외: [항목]</li>
+</ul>
+
+<h2>핵심 발견</h2>
+<table>
+  <tr><th>발견</th><th>증거 티어</th><th>출처</th><th>신뢰도</th><th>리스크 관리 시사점</th></tr>
+  <tr><td>[발견]</td><td class="tier">[T1-T5]</td><td>[출처]</td><td>[High/Medium/Low]</td><td>[시사점]</td></tr>
+</table>
+
+<h2>바젤·규제 기준선</h2>
+<p>[공식 바젤 또는 현지 규정 해석 — 날짜와 출처 포함]</p>
+
+<h2>학술 근거</h2>
+<p>[연구 문헌의 합의, 이견, 방법론, 한계]</p>
+
+<h2>은행 사례와 동종업계 관행</h2>
+<p>[은행 사례, 공시, 사고, 개선 조치, 벤치마크]</p>
+
+<h2>뉴스·신흥 시그널</h2>
+<table>
+  <tr><th>사건일</th><th>보도일</th><th>주체</th><th>사건</th><th>확인 상태</th></tr>
+  <tr><td>[YYYY-MM-DD]</td><td>[YYYY-MM-DD]</td><td>[주체]</td><td>[사건]</td><td>[Confirmed/Reported/Alleged]</td></tr>
+</table>
+
+<h2>리스크 관리 시사점</h2>
+<ul>
+  <li>거버넌스: [내용]</li>
+  <li>자본: [내용]</li>
+  <li>유동성: [내용]</li>
+  <li>모델 리스크: [내용]</li>
+  <li>데이터·보고: [내용]</li>
+  <li>통제: [내용]</li>
+  <li>모니터링: [내용]</li>
+</ul>
+
+<h2>권고</h2>
+<table>
+  <tr><th>우선순위</th><th>권고</th><th>담당</th><th>근거(Claim ID)</th><th>시점</th></tr>
+  <tr><td>[High/Medium/Low]</td><td>[조치]</td><td>[담당]</td><td>[C-001]</td><td>[시점]</td></tr>
+</table>
+
+<h2>주의사항과 미해결 질문</h2>
+<div class="caveat">
+  <ul>
+    <li>[주의사항]</li>
+    <li>[미해결 질문]</li>
+    <li>다음 모니터링 주기: [주기 / 해당 없음]</li>
+  </ul>
+</div>
+
+<h2>증거 매트릭스</h2>
+<table>
+  <tr><th>Claim ID</th><th>주장</th><th>출처</th><th>티어</th><th>발행일</th><th>사건일</th><th>인용 위치</th><th>신뢰도</th><th>비고</th></tr>
+  <tr><td>C-001</td><td>[주장]</td><td>[제목, 기관, URL]</td><td class="tier">[T1-T5]</td><td>[YYYY-MM-DD]</td><td>[YYYY-MM-DD / N/A]</td><td>[페이지·절·문단]</td><td>[High/Medium/Low]</td><td>[비고]</td></tr>
+</table>
+
+<h2>충돌 로그</h2>
+<table>
+  <tr><th>Conflict ID</th><th>관련 Claim</th><th>입장 A (출처, 날짜)</th><th>입장 B (출처, 날짜)</th><th>해소 단계</th><th>상태</th></tr>
+  <tr><td>X-001</td><td>[C-00n]</td><td>[입장 A]</td><td>[입장 B]</td><td>[티어 / 최신성·대체 / contested 공개]</td><td>[Resolved / Contested]</td></tr>
+</table>
+
+<h2>소스 로그</h2>
+<table>
+  <tr><th>Source ID</th><th>제목</th><th>기관/저자</th><th>발행일</th><th>접근일</th><th>URL/위치</th><th>티어</th><th>뒷받침 Claim</th></tr>
+  <tr><td>S-001</td><td>[제목]</td><td>[기관]</td><td>[YYYY-MM-DD]</td><td>[YYYY-MM-DD]</td><td>[URL]</td><td class="tier">[T1-T5]</td><td>[C-001]</td></tr>
+</table>
+
+<footer>
+  본 보고서는 리서치 지원 자료이며 법률·투자·규제 자문이 아닙니다.
+  워크플로와 품질 게이트: <code>harness/risk-research-runbook.md</code> (G1-G5).
+</footer>
+
+</body>
+</html>
