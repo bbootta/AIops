@@ -42,6 +42,9 @@ jobs:
         python-version: ["3.10", "3.11"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # PR 이벤트에서 CSS-drift step 이 base.sha 와 diff 하므로 full history 필요
+          fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
