@@ -1335,6 +1335,36 @@
       "rollback_rule": "tools/workflow.py 를 R26 시점 구현으로 복원하고 vta.core 를 re-export 로 되돌리면 v1 단독 동작 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0090",
+      "timestamp": "2026-06-10 01:39:02",
+      "component": "src/vta/core/workflow.py (run_async)",
+      "change_type": "modify",
+      "evidence": "Q4=(a) 확정. 100K sync 1.79s 중 3.disc 0.46s + 3.macro 0.13s 등 독립 step 이 직렬 실행됨 (tools.benchmark R23 측정).",
+      "root_cause": "엔진이 plan 을 직렬로만 소비 — 독립 step 의 병렬성 미활용",
+      "targeted_fix": "WorkflowEngine.run_async 추가: depends_on 충족 step 을 asyncio.to_thread 로 동시 실행 (semaphore 한도), 동적 escalation 동일 지원. run() 은 무변경 (sync fallback). demo 에 --async opt-in.",
+      "expected_benefit": "100K 기준 1.79s → 0.66s (2.7배). 의미 동일 (step 집합/status 일치 테스트로 보증)",
+      "expected_regression_risk": "medium — executed_order 가 완료 순서라 비결정적. 디버깅 시 run() fallback. 기본 경로는 여전히 sync",
+      "validation_method": "tests/test_v2_round28.py 8 cases (sync 동치/동적 escalation/의존 순서/로깅/직렬화 한도/예외 분류/demo 플래그) + 전체 539 통과",
+      "rollback_rule": "run_async 메서드 + demo --async 플래그 제거로 sync 전용 복원",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0091",
+      "timestamp": "2026-06-10 01:39:02",
+      "component": "harness/orchestration_matrix.json",
+      "change_type": "modify",
+      "evidence": "async 병렬 실행에서 5.complete/5.cite/5.watermark 가 4.report 와 동시 실행되어 보고서 부재로 skipped — 매트릭스에 보고서 체인 의존성 미선언이 드러남",
+      "root_cause": "depends_on 이 6.audit→4.report 한 곳에만 선언되어 있고, 4.report←2.*/3.*, 5.*←4.report 의 실제 데이터 의존성이 암묵적 (매트릭스 순서에만 의존)",
+      "targeted_fix": "matrix 1.2: 4.report depends_on 19개(1/2/3단계 전부), 5.complete/5.cite/5.watermark ← 4.report, 6.audit ← 4.report+5.* 명시",
+      "expected_benefit": "sync plan 순서 불변 (stable topo) + async 에서 보고서 체인 순서 보장. 의존성이 SSoT 에 명문화",
+      "expected_regression_risk": "low — depends_on 은 순서에만 영향, 게이트/활성 조건 무변경. dry_run plan 동일",
+      "validation_method": "test_async_same_steps_as_sync (sync↔async status 완전 일치) + 기존 dry_run/matrix schema 테스트 전부 통과",
+      "rollback_rule": "matrix 1.1 로 revert 시 sync 동작 불변, async 만 보고서 체인 race 재발",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

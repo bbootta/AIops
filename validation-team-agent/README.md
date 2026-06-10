@@ -96,6 +96,7 @@ pytest -q
 ```
 python -m vta --help                   # 전체 subcommand 카탈로그
 python -m vta workflow demo --stress   # 동적 워크플로우 데모
+python -m vta workflow demo --async    # 독립 step 병렬 실행 (기본은 sync)
 python -m vta manifest validate        # change_manifest 검증
 python -m vta policy list              # SSoT 정책 파일 인덱스
 python -m vta policy show <name>       # 정책 JSON 출력

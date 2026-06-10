@@ -162,6 +162,83 @@ class WorkflowEngine:
 
         return WorkflowRun(plan=plan, executed_order=executed_order, context=ctx)
 
+    async def run_async(
+        self,
+        request: Mapping[str, Any],
+        *,
+        log_dir: str | Path | None = None,
+        max_concurrency: int = 8,
+    ) -> "WorkflowRun":
+        """독립 step 을 병렬 실행하는 비동기 버전 (Phase 3, Q4=a).
+
+        의미는 ``run()`` 과 동일: 같은 plan, 같은 게이트, 같은 동적 escalation.
+        depends_on 이 충족된 step 들을 asyncio.to_thread 로 동시에 실행한다.
+        executed_order 는 완료 순서이므로 동시 실행 step 간 순서는 비결정적이다
+        (디버깅 시 ``run()`` 으로 fallback — docs/v2_refactor_plan.md 5절).
+        """
+        import asyncio
+
+        plan = self.resolve_plan(request)
+        ctx = WorkflowContext(request=request)
+        executed_order: list[str] = []
+        seen: set[str] = set(plan)
+        done: set[str] = set()
+        waiting: list[str] = list(plan)
+        sem = asyncio.Semaphore(max_concurrency)
+        running: dict[asyncio.Task, str] = {}
+
+        def _deps_met(sid: str) -> bool:
+            deps = self.steps_by_id[sid].get("depends_on", [])
+            return all(d not in seen or d in done for d in deps)
+
+        async def _exec(sid: str) -> StepResult:
+            async with sem:
+                step = self.steps_by_id[sid]
+                return await asyncio.to_thread(
+                    self._dispatch, sid, step, request, ctx
+                )
+
+        while waiting or running:
+            # 의존성 충족된 step 을 task 로 승격
+            ready = [sid for sid in waiting if _deps_met(sid)]
+            for sid in ready:
+                waiting.remove(sid)
+                task = asyncio.ensure_future(_exec(sid))
+                running[task] = sid
+            if not running:
+                # 남은 step 이 있는데 실행 가능한 것이 없으면 교착 (cycle 은
+                # resolve_plan 에서 이미 차단되므로 방어적 분기)
+                raise WorkflowError(f"no runnable step among {waiting}")
+
+            finished, _ = await asyncio.wait(
+                running, return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in finished:
+                sid = running.pop(task)
+                result = task.result()
+                ctx.results[sid] = result
+                done.add(sid)
+                executed_order.append(sid)
+                step = self.steps_by_id[sid]
+                log_step(
+                    sid,
+                    component=step["component"],
+                    status=_LOG_STATUS[result.status],
+                    log_dir=log_dir,
+                    extra={
+                        "workflow_status": result.status,
+                        "detail": result.detail,
+                        "dynamic": sid not in plan,
+                    },
+                )
+                if result.status == "fail":
+                    for nxt in step.get("on_fail_activate", []):
+                        if nxt in self.steps_by_id and nxt not in seen:
+                            seen.add(nxt)
+                            waiting.append(nxt)
+
+        return WorkflowRun(plan=plan, executed_order=executed_order, context=ctx)
+
     def _dispatch(
         self,
         sid: str,

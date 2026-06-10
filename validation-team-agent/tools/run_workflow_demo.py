@@ -99,16 +99,23 @@ def build_request(n: int, *, stress: bool, seed: int) -> dict:
     return base
 
 
-def run_demo(n: int, stress: bool, seed: int, log_dir: Path) -> dict:
+def run_demo(n: int, stress: bool, seed: int, log_dir: Path,
+             *, use_async: bool = False) -> dict:
     t0 = time.perf_counter()
     request = build_request(n, stress=stress, seed=seed)
     eng = WorkflowEngine()
     registered = register_default_handlers(eng)
-    run = eng.run(request, log_dir=log_dir)
+    if use_async:
+        import asyncio
+
+        run = asyncio.run(eng.run_async(request, log_dir=log_dir))
+    else:
+        run = eng.run(request, log_dir=log_dir)
     elapsed = time.perf_counter() - t0
     return {
         "n_rows": len(request["df"]),
         "stress_mode": stress,
+        "async_mode": use_async,
         "registered_handlers": registered,
         "plan": run.plan,
         "executed_order": run.executed_order,
@@ -287,10 +294,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json-out", type=Path, default=None,
                         help="raw demo dict 를 JSON 으로 저장")
     parser.add_argument("--log-dir", type=Path, default=None)
+    parser.add_argument("--async", dest="use_async", action="store_true",
+                        help="독립 step 병렬 실행 (기본은 sync — 디버깅 fallback)")
     args = parser.parse_args(argv)
 
     log_dir = args.log_dir or (Path(__file__).resolve().parent.parent / "logs")
-    demo = run_demo(args.n, args.stress, args.seed, log_dir)
+    demo = run_demo(args.n, args.stress, args.seed, log_dir,
+                    use_async=args.use_async)
 
     md = build_report_markdown(demo, stress=args.stress)
     if args.out:

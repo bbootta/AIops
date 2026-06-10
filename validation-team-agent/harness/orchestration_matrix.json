@@ -1,6 +1,6 @@
 {
-  "matrix_version": "1.1",
-  "description": "오케스트레이터의 6단계 호출 매트릭스. dry_run.py와 run_validation.py가 동일하게 참조하는 SSoT. 1.1: 각 step에 expected_outputs 추가.",
+  "matrix_version": "1.2",
+  "description": "오케스트레이터의 6단계 호출 매트릭스. dry_run.py와 run_validation.py가 동일하게 참조하는 SSoT. 1.1: 각 step에 expected_outputs 추가. 1.2: 보고서 체인(4.report/5.*/6.audit) depends_on 명시 — 비동기 병렬 실행 순서 보장.",
   "steps": [
     {
       "id": "1.req",
@@ -164,6 +164,7 @@
       "component": "tools/report_template.build_validation_report",
       "rationale": "표준 10개 섹션 마크다운 생성.",
       "always": true,
+      "depends_on": ["1.req", "2.schema", "2.safety", "2.leakage", "2.date", "2.dup", "2.sample", "3.disc", "3.psi", "3.cal", "3.macro", "3.weights", "3.capital", "3.market", "3.operational", "3.liquidity", "3.irrbb", "3.cva", "3.ccr"],
       "expected_outputs": ["report_md"]
     },
     {
@@ -172,6 +173,7 @@
       "component": "middleware/output_completeness_guard.check_report",
       "rationale": "필수 섹션 / 한계 / 추가 확인사항 점검.",
       "always": true,
+      "depends_on": ["4.report"],
       "expected_outputs": ["completeness", "result_summary.completeness_passed"]
     },
     {
@@ -180,6 +182,7 @@
       "component": "middleware/output_completeness_guard.check_numeric_citations",
       "rationale": "결과/이상징후 섹션의 수치-출처 인용 점검.",
       "always": true,
+      "depends_on": ["4.report"],
       "expected_outputs": ["citations", "result_summary.citations_passed"]
     },
     {
@@ -188,6 +191,7 @@
       "component": "middleware/draft_watermark_guard.check_watermarks",
       "rationale": "DRAFT 헤더/푸터 워터마크 존재 강제.",
       "always": true,
+      "depends_on": ["4.report"],
       "expected_outputs": ["watermarks", "result_summary.watermarks_passed"]
     },
     {
@@ -196,7 +200,7 @@
       "component": "harness/change_manifest.json (via tools/manifest.py)",
       "rationale": "실행 결과 / 정책 변경 시 매니페스트에 기록.",
       "always": true,
-      "depends_on": ["4.report"],
+      "depends_on": ["4.report", "5.complete", "5.cite", "5.watermark"],
       "expected_outputs": ["manifest.entry"]
     },
     {
