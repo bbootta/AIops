@@ -1410,6 +1410,21 @@
       "rollback_rule": "tools/report_pdf.py + dispatch 행 + [pdf] extra 제거",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0095",
+      "timestamp": "2026-06-10 01:57:31",
+      "component": "tools/dashboard.py",
+      "change_type": "create",
+      "evidence": "Q5 사용자 확정: 검증 결과 대시보드 (web UI) 선택. 기존에는 run.jsonl 을 직접 읽어야 이력 파악 가능",
+      "root_cause": "워크플로우 실행 이력의 시각화 수단 부재",
+      "targeted_fix": "tools/dashboard.py: run.jsonl step 이벤트를 1.req 경계로 run 단위 그룹화, 단일 self-contained HTML (서버/JS/외부호출 없음, HTML escape, DRAFT 고지 포함). vta CLI dashboard dispatch",
+      "expected_benefit": "run 이력 / fail·escalation 추세 / 최신 run 상세를 파일 하나로 열람",
+      "expected_regression_risk": "low — 신규 모듈, 읽기 전용 (로그 파일만 입력)",
+      "validation_method": "tests/test_v2_round32.py 8 cases (그룹화/요약/DRAFT/escape/빈 로그/CLI/dispatch), 전체 562 통과, 실제 로그 40 runs 렌더 확인",
+      "rollback_rule": "tools/dashboard.py + dispatch 행 제거",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

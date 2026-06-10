@@ -29,6 +29,7 @@ _DISPATCH = {
     ("workflow", "diff"): "tools.dry_run_diff",
     ("workflow", "dryrun"): "tools.dry_run",
     ("report", "pdf"): "tools.report_pdf",
+    ("dashboard",): "tools.dashboard",
     ("manifest",): "tools.manifest",
     ("findings",): "tools.findings",
     ("model-notes",): "tools.model_notes",
