@@ -1,6 +1,6 @@
 """vta 단일 CLI entry point (Phase 4).
 
-`python -m vta <subcommand> [args]` 형태로 v1 의 17개 CLI 에 dispatch.
+`python -m vta <subcommand> [args]` 형태로 v1 의 CLI 전체에 dispatch.
 
 v1 의 모든 명령은 본 entry 가 없어도 그대로 동작한다 (`python -m tools.*`).
 본 모듈은 단일 진입 편의를 위한 wrapper 일 뿐, v1 의 sys.exit / argparse
@@ -8,7 +8,7 @@ v1 의 모든 명령은 본 entry 가 없어도 그대로 동작한다 (`python 
 
 usage:
     python -m vta --help                 # subcommand 카탈로그
-    python -m vta workflow demo          # = python -m tools.run_workflow_demo --demo
+    python -m vta workflow demo          # = python -m tools.run_workflow_demo
     python -m vta workflow audit         # = python -m tools.run_audit
     python -m vta manifest <cmd>         # = python -m tools.manifest <cmd>
     python -m vta sample credit ...      # = python -m tools.sample_generators (helper)
@@ -28,6 +28,9 @@ _DISPATCH = {
     ("workflow", "audit"): "tools.run_audit",
     ("workflow", "diff"): "tools.dry_run_diff",
     ("workflow", "dryrun"): "tools.dry_run",
+    ("workflow", "viz"): "tools.workflow_viz",
+    ("benchmark",): "tools.benchmark",
+    ("kpi",): "tools.governance_kpi",
     ("report", "pdf"): "tools.report_pdf",
     ("dashboard",): "tools.dashboard",
     ("manifest",): "tools.manifest",

@@ -116,13 +116,19 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.run_validation --demo` | 신용/PD 모형 thin runner |
 | `python -m tools.run_macro_validation --demo` | 거시 / forward-looking 모형 runner |
 | `python -m tools.run_ifrs9_validation --demo` | IFRS 9 ECL 통합 runner |
+| `python -m tools.run_workflow_demo --stress / --async` | 동적 워크플로우 합성 데이터 데모 |
 | `python -m tools.run_audit demo` | 매트릭스 plan vs 실제 실행 감사 |
 | `python -m tools.dry_run --demo` | 오케스트레이터 호출 시뮬레이션 |
 | `python -m tools.dry_run_diff --before A --after B` | 두 매트릭스 plan 비교 |
+| `python -m tools.benchmark --n 100000 --runs 5` | workflow step 별 성능 측정 |
+| `python -m tools.workflow_viz --log <run.jsonl>` | 실행 로그 → mermaid 다이어그램 |
+| `python -m tools.dashboard --out <html>` | 실행 로그 → 정적 HTML 대시보드 |
+| `python -m tools.report_pdf --demo --out <pdf>` | 보고서 → PDF (DRAFT 워터마크 강제) |
 | `python -m tools.manifest list / add / promote / validate / export` | change_manifest 운영 |
 | `python -m tools.findings list / sync / add / bump` | recurring_findings JSON↔md |
 | `python -m tools.model_notes list / sync` | model_specific_notes JSON↔md |
 | `python -m tools.limitations list / sync` | known_limitations JSON↔md |
+| `python -m tools.governance_kpi report` | 분기 거버넌스 KPI 보고 |
 | `python -m tools.policy_lint --include-sample-size` | 정책 임계값 일관성 lint |
 | `python -m tools.classify_error classify / suggest / feedback / rule-patch` | harness_debugger 6분류 |
 | `python -m tools.feedback_retention prune / anonymize` | 학습 시그널 retention |
@@ -141,6 +147,8 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | 오케스트레이션 매트릭스 | `harness/orchestration_matrix.json` | `harness/orchestration_matrix.schema.json` |
 | 권한 패턴 | `harness/permission_matrix.json` | `harness/permission_matrix.schema.json` |
 | 시나리오 floor | `harness/scenario_floors.json` | `harness/scenario_floors.schema.json` |
+| Basel 리스크 택소노미 | `harness/basel_risk_taxonomy.json` | `harness/basel_risk_taxonomy.schema.json` |
+| 부문별 임계값 (자본/시장/운영/유동성/IRRBB/CVA/CCR/집중) | `harness/{capital_adequacy,market_risk,operational_risk,liquidity_risk,irrbb,cva,ccr,concentration}_thresholds.json` | (tools/policy_lint 게이트) |
 | 보고서 도메인 사전 | `harness/report_glossary.json` | `harness/report_glossary.schema.json` |
 | 인쇄 CSS | `harness/report_print.css` | — |
 | 감사 보고서 schema | — | `harness/audit_report.schema.json` |

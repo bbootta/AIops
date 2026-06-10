@@ -1455,6 +1455,21 @@
       "rollback_rule": "matrix 1.2 / taxonomy 1.1 로 revert",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0098",
+      "timestamp": "2026-06-10 13:10:15",
+      "component": "tools/cli_index.py + src/vta/cli/__main__.py + README.md",
+      "change_type": "modify",
+      "evidence": "R34 전수 리뷰: __main__ 보유 CLI 22개 중 cli_index 등재 14개 — benchmark/dashboard/report_pdf/run_workflow_demo/workflow_viz/governance_kpi/limitations 누락. vta dispatch 도 viz/benchmark/kpi 미커버. README CLI 표 6개 미기재.",
+      "root_cause": "R23~R33 에서 CLI 추가 시 카탈로그(cli_index/dispatch/README) 동기화가 수동이라 누락 누적 — sync gate 부재",
+      "targeted_fix": "cli_index CLI_MODULES 22개로 보강, vta dispatch 에 (workflow,viz)/(benchmark,)/(kpi,) 추가, README v1 표 6행 추가. tests/test_v2_round34.py 에 sync gate 6 cases: __main__ 스캔 ↔ cli_index 양방향 일치, dispatch 대상 실재, README 전수 기재",
+      "expected_benefit": "검증자가 cli_index 만 보면 전체 도구 파악 가능. 향후 CLI 추가 시 카탈로그 누락이 테스트로 즉시 검출",
+      "expected_regression_risk": "low — 카탈로그/문서/dispatch 추가만. 기존 subcommand 경로 무변경",
+      "validation_method": "tests/test_v2_round34.py 6 cases + 전체 582 통과 + ruff/mypy green",
+      "rollback_rule": "카탈로그 행 제거 시 기능 영향 없음 (인덱스 불완전으로만 회귀)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
