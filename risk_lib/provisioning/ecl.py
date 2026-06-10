@@ -45,7 +45,10 @@ def classify_stage(
     default_dpd: int = DEFAULT_DPD_THRESHOLD,
     watchlist: bool = False,
 ) -> Stage:
-    """Assign IFRS 9 stage.
+    """Assign IFRS 9 stage (reference implementation).
+
+    Production batches use :func:`classify_stage_vector`; this scalar form
+    is the documented single-exposure API + parity oracle.
 
     SICR (→ Stage 2) triggers on any of: dpd >= 30, on watchlist, or current PD
     has risen to >= `sicr_pd_multiple` x origination PD.
@@ -60,6 +63,10 @@ def classify_stage(
 
 
 def twelve_month_ecl(pd_12m: float, lgd: float, ead: float) -> float:
+    """Stage 1 12-month ECL (reference implementation).
+
+    The production path inlines this product inside :func:`compute_ecl`.
+    """
     return max(pd_12m, 0.0) * max(min(lgd, 1.0), 0.0) * max(ead, 0.0)
 
 
@@ -99,7 +106,11 @@ def lifetime_ecl(
     eir: float = 0.05,
     amortising: bool = True,
 ) -> float:
-    """Lifetime ECL via constant-hazard marginal PDs, discounted at EIR."""
+    """Lifetime ECL via constant-hazard marginal PDs, discounted at EIR
+    (reference implementation).
+
+    Whole-book equivalent: :func:`_vector_lifetime_const`.
+    """
     pd_12m = float(np.clip(pd_12m, 0.0, 1.0))
     lgd = float(np.clip(lgd, 0.0, 1.0))
     n = max(int(np.ceil(maturity_years)), 1)

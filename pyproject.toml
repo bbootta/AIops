@@ -1,6 +1,6 @@
 [project]
 name = "risk_lib"
-version = "0.1.0"
+version = "0.2.0"
 description = "Basel III / FSS risk management harness: PD/LGD, RWA(SA+IRB), BIS, limits, RAPM, validation"
 requires-python = ">=3.10"
 dependencies = [

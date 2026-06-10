@@ -26,7 +26,11 @@ def economic_capital(
     asset_class: str = "corporate",
     maturity: float = 2.5,
 ) -> float:
-    """EC ≈ IRB unexpected-loss capital."""
+    """EC ≈ IRB unexpected-loss capital (reference implementation).
+
+    Production batches inline ``irb_k_vector(...) * ead`` inside
+    :func:`rapm_report`.
+    """
     k = irb_capital_requirement(pd_value, lgd, asset_class, maturity)
     return k * ead
 
@@ -43,7 +47,10 @@ def raroc(
     risk_free_rate: float = 0.03,
     ec_override: float | None = None,
 ) -> dict[str, float]:
-    """Single-exposure RAROC."""
+    """Single-exposure RAROC (reference implementation).
+
+    Portfolio-level RAROC is produced vectorised by :func:`rapm_report`.
+    """
     ec = ec_override if ec_override is not None else economic_capital(
         pd_value, lgd, ead, asset_class, maturity,
     )

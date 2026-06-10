@@ -79,7 +79,12 @@ def irb_capital_requirement(
     *,
     apply_floor: bool = True,
 ) -> float:
-    """Capital requirement K per unit of EAD."""
+    """Capital requirement K per unit of EAD (reference implementation).
+
+    Production callers operate on whole portfolios via :func:`irb_k_vector`
+    (numerically identical to ≤1e-9; parity is enforced in
+    tests/test_vector_parity.py).
+    """
     if apply_floor:
         floor = PD_FLOOR_RETAIL if "retail" in asset_class else PD_FLOOR_CORPORATE
         pd_value = max(pd_value, floor)

@@ -13,9 +13,18 @@ import pytest
 from risk_lib.capital.crm import (
     apply_crm, ccf_ead, crm_adjusted_ead, CCF_BUCKETS, _SUPERVISORY_HAIRCUTS,
 )
+from risk_lib.capital.rwa_irb import irb_capital_requirement, irb_k_vector
 from risk_lib.capital.rwa_sa import (
     mortgage_rw, mortgage_rw_vector, sa_risk_weight, sa_risk_weight_vector,
     SA_RISK_WEIGHTS, standardised_rwa_total,
+)
+from risk_lib.performance.rapm import raroc, rapm_report
+from risk_lib.provisioning.ecl import (
+    Stage, classify_stage, classify_stage_vector,
+    twelve_month_ecl, lifetime_ecl, compute_ecl,
+)
+from risk_lib.provisioning.macro import (
+    DEFAULT_MACRO_SCENARIOS, DEFAULT_RHO, _shift_coef, _scenario_ecl, macro_ecl,
 )
 
 
@@ -132,3 +141,144 @@ def test_apply_crm_rejects_unknown_collateral_type():
     })
     with pytest.raises(ValueError, match="unknown collateral_type"):
         apply_crm(book)
+
+
+# ---- IRB K parity --------------------------------------------------------
+
+def _irb_book(seed=11, n=200):
+    rng = np.random.default_rng(seed)
+    classes = ["corporate", "retail_other", "residential_mortgage",
+               "sovereign", "bank", "retail_revolving"]
+    return pd.DataFrame({
+        "exposure_id": [f"E{i:04d}" for i in range(n)],
+        "asset_class": rng.choice(classes, n),
+        "ead": rng.lognormal(15, 1.0, n),
+        "pd": np.clip(rng.beta(2, 60, n), 1e-5, 0.5),
+        "lgd": np.clip(rng.beta(3, 3, n), 0.05, 0.95),
+        "maturity": rng.uniform(0.5, 6.0, n),
+    })
+
+
+def test_irb_k_vector_matches_scalar_loop():
+    book = _irb_book()
+    expected = np.array([
+        irb_capital_requirement(r.pd, r.lgd, r.asset_class, r.maturity)
+        for r in book.itertuples()
+    ])
+    actual = irb_k_vector(
+        book["pd"].to_numpy(dtype=float),
+        book["lgd"].to_numpy(dtype=float),
+        book["asset_class"].to_numpy(),
+        book["maturity"].to_numpy(dtype=float),
+    )
+    np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-15)
+
+
+# ---- IFRS9 staging + lifetime ECL ---------------------------------------
+
+def test_classify_stage_vector_matches_scalar():
+    rng = np.random.default_rng(7)
+    n = 300
+    dpd = rng.integers(0, 200, n)
+    pd_now = rng.uniform(0.001, 0.5, n)
+    pd_orig = np.where(rng.random(n) > 0.5, rng.uniform(0.001, 0.2, n), np.nan)
+    watch = rng.random(n) > 0.85
+
+    expected = np.array([
+        int(classify_stage(int(d), float(p),
+                           float(o) if not np.isnan(o) else None,
+                           watchlist=bool(w)))
+        for d, p, o, w in zip(dpd, pd_now, pd_orig, watch)
+    ])
+    actual = classify_stage_vector(
+        dpd.astype(float), pd_now, pd_orig, watchlist=watch,
+    )
+    np.testing.assert_array_equal(actual, expected)
+
+
+def test_compute_ecl_matches_scalar_oracle():
+    rng = np.random.default_rng(13)
+    n = 100
+    book = pd.DataFrame({
+        "exposure_id": [f"E{i:03d}" for i in range(n)],
+        "ead": rng.uniform(1e6, 1e9, n),
+        "pd": np.clip(rng.beta(2, 50, n), 1e-4, 0.5),
+        "lgd": np.clip(rng.beta(3, 3, n), 0.05, 0.95),
+        "dpd": rng.integers(0, 200, n),
+        "maturity": rng.uniform(0.5, 8.0, n),
+    })
+    out = compute_ecl(book, eir=0.05)
+    for i, r in enumerate(book.itertuples()):
+        stage = classify_stage(int(r.dpd), float(r.pd))
+        if stage == Stage.STAGE_1:
+            expected = twelve_month_ecl(r.pd, r.lgd, r.ead)
+        elif stage == Stage.STAGE_2:
+            expected = lifetime_ecl(r.pd, r.lgd, r.ead, r.maturity, eir=0.05)
+        else:
+            expected = max(r.lgd, 0.0) * max(r.ead, 0.0)
+        assert out["stage"].iloc[i] == int(stage)
+        assert out["ecl"].iloc[i] == pytest.approx(expected, rel=1e-12, abs=1e-9)
+
+
+# ---- Macro PIT scenario ECL parity --------------------------------------
+
+def test_macro_ecl_matches_scenario_ecl_oracle():
+    rng = np.random.default_rng(31)
+    n = 60
+    book = pd.DataFrame({
+        "exposure_id": [f"M{i:03d}" for i in range(n)],
+        "ead": rng.uniform(1e6, 1e9, n),
+        "pd": np.clip(rng.beta(2, 40, n), 1e-4, 0.4),
+        "lgd": np.clip(rng.beta(3, 3, n), 0.05, 0.95),
+        "dpd": rng.integers(0, 200, n),
+        "maturity": rng.uniform(0.5, 6.0, n),
+    })
+    res = macro_ecl(book)
+
+    # Compute the same expected ECL via the scalar oracle and check each
+    # scenario column matches to ≤1e-9 relative.
+    max_n = int(np.ceil(book["maturity"].max()))
+    stages_actual = res.per_exposure["stage"].to_numpy()
+    for s in DEFAULT_MACRO_SCENARIOS:
+        z = s.z_path(max_n)
+        expected = np.array([
+            _scenario_ecl(
+                float(r.pd), float(r.lgd), float(r.ead),
+                float(r.maturity), Stage(int(st)), z,
+                rho=DEFAULT_RHO, eir=0.05,
+            )
+            for r, st in zip(book.itertuples(), stages_actual)
+        ])
+        np.testing.assert_allclose(
+            res.per_exposure[f"ecl_{s.name}"].to_numpy(),
+            expected, rtol=1e-9, atol=1e-6,
+        )
+
+
+# ---- RAPM parity ---------------------------------------------------------
+
+def test_rapm_report_matches_scalar_raroc():
+    rng = np.random.default_rng(101)
+    n = 150
+    book = pd.DataFrame({
+        "exposure_id": [f"R{i:03d}" for i in range(n)],
+        "asset_class": rng.choice(
+            ["corporate", "retail_other", "residential_mortgage"], n),
+        "ead": rng.uniform(1e6, 5e8, n),
+        "pd": np.clip(rng.beta(2, 40, n), 1e-4, 0.4),
+        "lgd": np.clip(rng.beta(3, 3, n), 0.05, 0.95),
+        "maturity": rng.uniform(1.0, 5.0, n),
+        "revenue": rng.uniform(1e5, 1e7, n),
+        "operating_cost": rng.uniform(1e4, 1e6, n),
+    })
+    out = rapm_report(book)
+
+    for r in book.itertuples():
+        expected = raroc(
+            r.revenue, r.operating_cost, r.pd, r.lgd, r.ead,
+            asset_class=r.asset_class, maturity=r.maturity,
+        )
+        row = out[out["exposure_id"] == r.exposure_id].iloc[0]
+        assert row["raroc"] == pytest.approx(expected["raroc"], rel=1e-12)
+        assert row["economic_capital"] == pytest.approx(
+            expected["economic_capital"], rel=1e-12)

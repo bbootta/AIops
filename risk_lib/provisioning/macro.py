@@ -131,7 +131,10 @@ def _scenario_ecl(
     eir: float,
     amortising: bool = True,
 ) -> float:
-    """ECL for one exposure under one scenario's z path.
+    """ECL for one exposure under one scenario's z path (reference impl).
+
+    Production batches use :func:`_book_scenario_ecl`; this scalar form is
+    retained as a parity oracle and for single-exposure inspection.
 
     Stage 1 → 12-month (year-1 PIT) ECL; Stage 2 → lifetime PIT ECL;
     Stage 3 → LGD·EAD (already defaulted, PD = 1).
