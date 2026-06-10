@@ -419,10 +419,30 @@ def cva_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
     out = {}
     detail = []
     if inputs is not None:
+        if not inputs:
+            return StepResult("3.cva", "skipped", {},
+                              "cva_counterparty_inputs 비어있음")
+        # cva.compute_ba_cva 계약: 각 counterparty 는 {"name", "scva"} 키
+        for i, cp in enumerate(inputs):
+            if not isinstance(cp, Mapping):
+                return StepResult("3.cva", "skipped", {},
+                                  f"counterparty[{i}] 가 dict 가 아님")
+            if "scva" not in cp:
+                return StepResult("3.cva", "skipped", {},
+                                  f"counterparty[{i}] 필수 키 누락: ['scva']")
+            if _bad_scalar(cp["scva"]):
+                return StepResult("3.cva", "skipped", {},
+                                  f"counterparty[{i}] scva 에 NaN/Inf")
+            if float(cp["scva"]) < 0:
+                return StepResult("3.cva", "skipped", {},
+                                  f"counterparty[{i}] scva 음수")
         ba = cva.compute_ba_cva(inputs)
         out["ba_cva"] = ba["ba_cva"]
         detail.append(f"BA-CVA={ba['ba_cva']:.4f} (n={ba['n_counterparties']})")
     if book is not None:
+        if _bad_scalar(book) or float(book) < 0:
+            return StepResult("3.cva", "skipped", {},
+                              f"cva_trading_book_size 비정상 ({book})")
         sa = cva.check_sa_cva_required(book)
         out["sa_cva_required"] = sa["sa_cva_required"]
         detail.append(f"SA-CVA required={sa['sa_cva_required']} (book={book:.1f}bn)")
@@ -439,6 +459,13 @@ def ccr_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
     pfe = req.get("ccr_pfe")
     if rc is None or pfe is None:
         return StepResult("3.ccr", "skipped", {}, "RC/PFE 미제공")
+    # NaN/Inf RC/PFE → EAD=NaN/Inf 가 자본 계산 오염 위험 (가장 치명적인 silent fail)
+    if _bad_scalar(rc, pfe):
+        return StepResult("3.ccr", "skipped", {},
+                          f"RC/PFE 에 NaN/Inf (RC={rc}, PFE={pfe})")
+    if float(rc) < 0 or float(pfe) < 0:
+        return StepResult("3.ccr", "skipped", {},
+                          f"RC/PFE 음수 (RC={rc}, PFE={pfe})")
     out = ccr.compute_ead(replacement_cost=rc, pfe=pfe)
     return StepResult(
         "3.ccr", "ok",

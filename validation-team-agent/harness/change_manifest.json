@@ -1305,6 +1305,21 @@
       "rollback_rule": "_bad_scalar + 7 handler 의 가드 분기 제거 시 v1 동작 복구 — 단 silent-OK/crash 문제 재발",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0088",
+      "timestamp": "2026-06-10 00:21:17",
+      "component": "tools/handlers.py",
+      "change_type": "modify",
+      "evidence": "CCR handler 가 RC=NaN/Inf 입력에 silent EAD=NaN/Inf 반환 → 자본 산식 직접 오염 (가장 치명적 silent fail). CVA handler 가 SA-CVA 임계 점검에 NaN/Inf book 받으면 SA-CVA required 잘못 분류 + counterparty inputs 의 NaN/Inf/missing key 가 CRASH",
+      "root_cause": "scalar 가드 부재 (RC/PFE/book) + counterparty dict 구조 점검 부재",
+      "targeted_fix": "ccr_handler: RC/PFE 에 _bad_scalar + 음수 가드. cva_handler: book NaN/Inf/음수 가드 + counterparty inputs 의 dict 형식, scva 키, NaN/Inf, 음수 모두 사전 점검 후 skipped 반환",
+      "expected_benefit": "CCR EAD 의 NaN/Inf 자본 산식 오염 차단 (가장 치명적 경로). CVA SA-CVA 분류의 silent 오분류 차단. counterparty inputs CRASH → 자동 escalation 차단",
+      "expected_regression_risk": "low — 정상 입력 회귀 방지 테스트 포함. cva.compute_ba_cva 실제 계약 ({name, scva}) 반영",
+      "validation_method": "tests/test_v2_round26.py 14 cases (CCR 6 + CVA 8 + healthy 회귀 방지 2) + 전체 suite 517 통과",
+      "rollback_rule": "ccr_handler / cva_handler 의 가드 분기 제거 시 v1 동작 복구 — 단 CCR silent NaN EAD 오염 + CVA CRASH 재발",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
