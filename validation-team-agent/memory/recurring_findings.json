@@ -50,6 +50,13 @@
       "domain": "data",
       "description": "일자 컬럼에 한 달 이상 누락 구간 존재.",
       "primary_tool": "tools/data_profile.check_date_coverage"
+    },
+    {
+      "id": "RF-008",
+      "frequency": "moderate",
+      "domain": "documentation",
+      "description": "신규 CLI/정책 파일 추가 시 카탈로그(cli_index, vta dispatch, README 표) 동기화 누락 — R34 에서 CLI 22개 중 8개 미등재 발견. sync gate 테스트(test_v2_round34)로 재발 차단.",
+      "primary_tool": "tools/cli_index.py + tests/test_v2_round34.py"
     }
   ]
 }

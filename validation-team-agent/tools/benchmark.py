@@ -10,6 +10,7 @@
 CLI:
     python -m tools.benchmark --n 100000 --stress
     python -m tools.benchmark --n 10000 --runs 5  # 평균 + p95
+    python -m tools.benchmark --n 100000 --async  # run_async 실측 비교
 """
 
 from __future__ import annotations
@@ -39,8 +40,13 @@ def benchmark_workflow(
     stress: bool = False,
     seed: int = 42,
     log_dir: Path | None = None,
+    use_async: bool = False,
 ) -> dict:
-    """워크플로우를 runs 회 실행해 총 시간 / step 별 시간을 통계로 산출."""
+    """워크플로우를 runs 회 실행해 총 시간 / step 별 시간을 통계로 산출.
+
+    use_async=True 면 ``WorkflowEngine.run_async`` 로 실행 — 독립 step 병렬
+    실행의 실측 효과를 sync 와 비교할 수 있다 (R28 Q4=a).
+    """
     from tools.handlers import register_default_handlers
     from tools.workflow import WorkflowEngine
 
@@ -71,7 +77,12 @@ def benchmark_workflow(
         eng._handlers = {sid: _wrap(sid, fn) for sid, fn in original.items()}  # noqa: SLF001
 
         t0 = time.perf_counter()
-        run = eng.run(request, log_dir=log_dir)
+        if use_async:
+            import asyncio
+
+            run = asyncio.run(eng.run_async(request, log_dir=log_dir))
+        else:
+            run = eng.run(request, log_dir=log_dir)
         total_times.append(time.perf_counter() - t0)
 
         for sid, t in timings.items():
@@ -81,6 +92,7 @@ def benchmark_workflow(
         "n_rows": n_rows,
         "stress": stress,
         "runs": runs,
+        "async": use_async,
         "executed_steps": len(run.executed_order),
         "total": _summarise(total_times),
         "per_step": {sid: _summarise(times) for sid, times in per_step.items()},
@@ -115,7 +127,8 @@ def _top_n(per_step: dict[str, list[float]], n: int) -> list[dict]:
 
 def render_markdown(report: dict) -> str:
     lines = [
-        f"# Workflow Benchmark (n={report['n_rows']:,}, stress={report['stress']}, runs={report['runs']})",
+        f"# Workflow Benchmark (n={report['n_rows']:,}, stress={report['stress']}, "
+        f"runs={report['runs']}, async={report.get('async', False)})",
         "",
         f"- 실행된 step 수: {report['executed_steps']}",
         f"- 총 시간: mean {report['total']['mean_ms']} ms / "
@@ -151,10 +164,13 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--async", dest="use_async", action="store_true",
+                        help="run_async 로 실행 (sync 와 비교용)")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     report = benchmark_workflow(
         n_rows=args.n, runs=args.runs, stress=args.stress, seed=args.seed,
+        use_async=args.use_async,
     )
     if args.json:
         text = json.dumps(report, ensure_ascii=False, indent=2)

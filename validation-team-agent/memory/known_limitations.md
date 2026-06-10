@@ -16,6 +16,7 @@
 ## 3. 방법론 한계
 - 회귀 진단(regression_diagnostics)은 OLS에 한정된다. 비선형/패널/혼합 모형은 별도 라이브러리 사용이 필요하다.
 - 시계열 정상성 검정은 ADF/KPSS 만 지원한다 (CHG-0003 이후). 구조변화 검정은 호출자가 별도로 수행한다.
+- 비동기 워크플로우(run_async)는 CPU-bound handler(numpy/pandas)에서 GIL 로 인해 sync 대비 실측 이득이 없다 (100K, runs=3: sync 874ms vs async 898ms — tools.benchmark --async 로 재현). R28 의 2.7배 가속 측정은 동일 프로세스에서 sync 를 먼저 실행해 import 워밍업 비용이 sync 에 전가된 아티팩트였다. async 는 I/O-bound handler 또는 멀티프로세스 실행 도입 시 재평가한다.
 
 ## 4. 문서/내부통제 한계
 - output_completeness_guard는 형식 점검에 한정된다. 의견의 실질적 적정성은 인간 검증자가 판단한다.

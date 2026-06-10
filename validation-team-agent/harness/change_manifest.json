@@ -1470,6 +1470,21 @@
       "rollback_rule": "카탈로그 행 제거 시 기능 영향 없음 (인덱스 불완전으로만 회귀)",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0099",
+      "timestamp": "2026-06-10 13:20:14",
+      "component": "tools/benchmark.py + memory/known_limitations.json + memory/recurring_findings.json",
+      "change_type": "modify",
+      "evidence": "benchmark 에 async 측정 경로가 없어 R28 의 2.7배 가속 주장이 재검증 불가였음. --async 추가 후 runs=3 실측: sync 874ms vs async 898ms (100K) — R28 측정은 sync 선실행으로 import 워밍업이 sync 에 전가된 아티팩트",
+      "root_cause": "단일 run·동일 프로세스 순차 비교로 워밍업 편향 미통제 + CPU-bound handler 는 GIL 로 thread 병렬 이득 없음",
+      "targeted_fix": "tools.benchmark --async 플래그 추가 (재현 가능한 비교 경로), known_limitations methodology 에 GIL 한계 명문화, R34 카탈로그 드리프트를 RF-008 로 recurring_findings 에 기록",
+      "expected_benefit": "성능 주장의 재현 가능성 확보. async 의 실효성 한계가 SSoT 에 기록되어 향후 의사결정(멀티프로세스 검토)에 증거로 사용",
+      "expected_regression_risk": "low — benchmark 는 측정 도구, 엔진 경로 무변경. async 기능 자체는 유지 (의미 동치 테스트 보존)",
+      "validation_method": "tests/test_v2_round35.py 5 cases + 전체 588 통과 + ruff/mypy green",
+      "rollback_rule": "--async 플래그 제거해도 기존 sync 측정 불변",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
