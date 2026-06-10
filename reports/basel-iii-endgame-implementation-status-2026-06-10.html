@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>바젤 III 최종안 주요 관할 이행 현황 — 2026-06-10</title>
+<style>
+  body { font-family: "Pretendard", "Noto Sans KR", -apple-system, sans-serif;
+         max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; color: #1a1a2e; line-height: 1.65; }
+  h1 { border-bottom: 3px solid #16324f; padding-bottom: .4rem; }
+  h2 { color: #16324f; border-bottom: 1px solid #d8dee6; padding-bottom: .25rem; margin-top: 2.2rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .92rem; }
+  th, td { border: 1px solid #c5cdd6; padding: .45rem .6rem; text-align: left; vertical-align: top; }
+  th { background: #eef2f6; }
+  .meta { background: #f4f6f8; border: 1px solid #d8dee6; border-radius: 6px;
+          padding: .8rem 1rem; font-size: .92rem; }
+  .meta span { display: inline-block; margin-right: 1.4rem; }
+  .tier { font-weight: 600; }
+  .caveat { background: #fff7e6; border-left: 4px solid #d9a514; padding: .6rem 1rem; }
+  .verdict { font-weight: 700; }
+  .contested { color: #a04000; font-weight: 600; }
+  footer { margin-top: 3rem; font-size: .85rem; color: #5a6572; border-top: 1px solid #d8dee6; padding-top: .8rem; }
+</style>
+</head>
+<body>
+
+<h1>바젤 III 최종안(엔드게임) 주요 관할 이행 현황</h1>
+<p><em>중형 상업은행의 자본 영향 기획을 위한 현황 스냅샷 — US · EU · UK · 한국</em></p>
+
+<p class="meta">
+  <span><strong>작성일:</strong> 2026-06-10</span>
+  <span><strong>기준일(as-of):</strong> 2026-06-10</span>
+  <span><strong>깊이:</strong> rapid-scan</span>
+  <span><strong>검토:</strong> <span class="verdict">rapid-scan 리드 자체 점검 (G5 자체 점검, 한계사항 공개)</span></span>
+</p>
+
+<h2>요약 (Executive Summary)</h2>
+<ul>
+  <li><strong>미국은 재제안 단계로 회귀, 적용 범위 대폭 축소.</strong> 2026-03-19 Fed·OCC·FDIC가 엔드게임을 3건의 연계 제안으로 재발표 — 확장 리스크기반접근법(ERBA)은 <strong>Category I/II(G-SIB급)에만 의무 적용</strong>, 그 외 은행은 선택적 opt-in. 2023년안(자본 +19% 방향) 대비 방향 자체가 역전. 의견수렴 마감 <strong>2026-06-18</strong>. 최종규칙·시행일 미정.</li>
+  <li><strong>EU는 FRTB를 제외하고 시행 중.</strong> CRR3/CRD6는 2025-01-01부터 적용. FRTB는 2026-06-04 위임규정으로 <strong>2027-01-01부터 3년간 완화 형태(자본영향 상쇄 승수 + 운영 부담 경감)로 적용</strong> — 미국 불확실성을 명시적 사유로 제시. 현재 유럽의회·이사회 검토(scrutiny) 기간.</li>
+  <li><strong>영국은 최종규칙 확정.</strong> PRA PS1/26(2026-01-20) 발표, 시행 2027-01-01 (FRTB 내부모형은 2028-01-01), 아웃풋 플로어 경과조치는 2030-01-01 종료(압축 단계적용).</li>
+  <li><strong>한국은 사실상 이행 완료(조기 도입).</strong> 신용리스크 최종안은 2020년 6월말부터 조기 적용(은행 15, 지주 8). 시장·운영리스크 개정 기준의 시행 시점은 <span class="contested">은행 2023-01-01 적용 vs 지주그룹 단위 2026-01 적용으로 출처 간 상충(contested)</span> — 금융위/금감원 T1 원문 확인 필요 (충돌 로그 X-001).</li>
+  <li><strong>중형 상업은행 시사점:</strong> 미국계 중형은행이라면 의무 부담은 엔드게임 준수에서 <strong>(a) 표준방법 개정안의 RWA 효과 분석, (b) ERBA opt-in 손익 분석</strong>으로 이동. 글로벌 시행 시점은 2027-01-01(EU·UK)로 수렴 중이나, 미국의 자본중립 노선과 EU 승수로 <strong>국제적 분절화(fragmentation)</strong> 리스크 부상 — BCBS 일관성 평가 동향 모니터링 필요.</li>
+</ul>
+
+<h2>의사결정 맥락과 범위</h2>
+<p>중형 상업은행 리스크 부서의 자본 영향 분석 기획을 위한 규제 현황 파악. 본 보고서는 하네스 검증을 겸한 rapid-scan 시연 산출물이다.</p>
+<ul>
+  <li>관할: 글로벌 바젤 + US, EU, UK, 한국 (런북 기본값 가정)</li>
+  <li>리스크 유형: 신용·운영·시장 리스크 자본, 아웃풋 플로어</li>
+  <li>기관 유형: 중형 상업은행 (홈 관할 미지정 — 가정, 후속 확인 필요)</li>
+  <li>시계: 현행 규칙 + 향후 이행 일정</li>
+  <li>범위 제외: 미국 스트레스테스트·SLR 연계 제안 상세, Pillar 2/ICAAP, 개별 은행 정량 영향</li>
+</ul>
+
+<h2>핵심 발견</h2>
+<table>
+  <tr><th>발견</th><th>증거 티어</th><th>출처</th><th>신뢰도</th><th>리스크 관리 시사점</th></tr>
+  <tr><td>US 3건 재제안 발표(2026-03-19), ERBA는 Cat I/II 의무·그 외 opt-in, 의견수렴 마감 2026-06-18</td><td class="tier">T1</td><td>S-001</td><td>High</td><td>중형은행 의무 부담 해소; 표준방법 개정안·opt-in 분석으로 초점 이동</td></tr>
+  <tr><td>US 자본 영향 수치 — <span class="contested">출처 간 상충(X-002)</span>: 엔드게임 +1.4%/G-SIB 부과 -3.8% vs 합산 CET1 -2.4%(누적 -4.8%)</td><td class="tier">T4-T5</td><td>S-009, S-010</td><td>Low</td><td>연방관보 원문 검증 전 자본 계획에 사용 금지</td></tr>
+  <tr><td>EU CRR3/CRD6 2025-01-01 적용; 아웃풋 플로어 50%(2025)→72.5%(2030) 단계적용</td><td class="tier">T1/T3</td><td>S-004, S-011</td><td>Medium-High</td><td>EU 자회사·피어 비교 시 경과조치 반영 필요</td></tr>
+  <tr><td>EU FRTB 위임규정(2026-06-04): 2027-01-01부터 3년간 승수+경감 형태 적용, EP·이사회 검토 중</td><td class="tier">T1</td><td>S-002, S-003</td><td>High</td><td>트레이딩 익스포저 보유 시 완화형 FRTB 기준으로 2027 대비</td></tr>
+  <tr><td>UK PS1/26 최종규칙(2026-01-20): 시행 2027-01-01, FRTB-IMA 2028-01-01, 플로어 경과 2030 종료</td><td class="tier">T1</td><td>S-005</td><td>High</td><td>UK 피어는 일정 확정 — 비교 벤치마크로 활용 가능</td></tr>
+  <tr><td>한국 신용리스크 최종안 2020-06말 조기 적용(은행 15, 지주 8)</td><td class="tier">T1</td><td>S-006, S-007</td><td>High</td><td>한국은 신규 Pillar 1 구축 수요 없음 — 모델 승인·플로어 구속성 관리로 초점</td></tr>
+  <tr><td>한국 시장·운영리스크 개정 기준 시행 시점 — <span class="contested">상충(X-001)</span>: 은행 2023-01-01 vs 지주 2026-01 적용(CET1 영향 혼재 보도)</td><td class="tier">T3-T4</td><td>S-008, S-012</td><td>Low-Medium</td><td>금융위/금감원·시행세칙 T1 확인 전 인용 보류 (G2 미달 항목)</td></tr>
+  <tr><td>BCBS 이행 현황(2025-10-03): 신용·운영·플로어는 회원국 ~80% 시행, 시장리스크는 ~40%</td><td class="tier">T1</td><td>S-013</td><td>Medium-High</td><td>미국발 지연이 EU·UK FRTB 연기의 직접 동인 — 분절화 모니터링</td></tr>
+</table>
+
+<h2>바젤·규제 기준선 — 관할 비교</h2>
+<table>
+  <tr><th>관할</th><th>규칙 상태 (2026-06-10 기준)</th><th>시행일 / 단계적용</th><th>바젤 정합성 / 편차</th><th>적용 범위</th><th>미결 사항</th></tr>
+  <tr>
+    <td><strong>US</strong></td>
+    <td>재제안(의견수렴 중, 마감 2026-06-18); 최종규칙·시행일 없음</td>
+    <td>미정 (2023년안의 2025-07 개시는 실효)</td>
+    <td>중대한 편차: 바젤식 72.5% 아웃풋 플로어 부재(단일스택 ERBA, 신용·운영 내부모형 제거로 대체), 운영리스크 재조정, 시장리스크 적용 축소, G-SIB Method 2 변경. Fed 표결 6-1(Barr 반대)</td>
+    <td>ERBA: Cat I/II 의무; Cat III/IV·중소형은 별도 표준방법안 + ERBA opt-in 허용</td>
+    <td>최종 칼리브레이션, 시행일·경과조치, 정치·법적 리스크, BCBS 정합성 평가</td>
+  </tr>
+  <tr>
+    <td><strong>EU</strong></td>
+    <td>시행 중(신용·운영·플로어·CVA, 2025-01-01~); FRTB는 위임규정 채택 후 EP·이사회 검토 중</td>
+    <td>플로어 50%(2025)→72.5%(2030), 일부 경과조치 2029/2032; FRTB는 완화형으로 2027-01-01~2030-01</td>
+    <td>FRTB 제외 대체로 정합; 편차: FRTB 승수(2027-2030), SME·인프라 지원계수, CVA 면제, 플로어 경과조치</td>
+    <td>EU 전체 신용기관(CRR 범위)</td>
+    <td>위임규정 검토기간, 2030 승수 만료 후 영구 체계, 미국 최종안 연동 재조정 가능성</td>
+  </tr>
+  <tr>
+    <td><strong>UK</strong></td>
+    <td>최종규칙 발표(PS1/26, 2026-01-20)</td>
+    <td>2027-01-01 (FRTB-IMA만 2028-01-01); 플로어 경과 2027-2030 압축 적용</td>
+    <td>높은 정합성; 편차: IMA 1년 유예(경과기간 레거시 모형/ASA 브리지), SME Pillar 2 조정, 소형은행 SDDT 별도 체계</td>
+    <td>PRA 규제 은행·주택금융조합 (SDDT 제외)</td>
+    <td>미국 최종안 괴리 시 시장리스크 추가 조정 가능성, Pillar 2 상쇄 조정 마무리</td>
+  </tr>
+  <tr>
+    <td><strong>한국</strong></td>
+    <td>시행 완료 (조기 도입국)</td>
+    <td>신용리스크 2020-06말~(은행별 단계 도입); 시장·운영·CVA는 <span class="contested">2023-01-01(은행) vs 2026-01(지주) 상충 — X-001</span></td>
+    <td>높은 정합성; 바젤 일정 대비 선행 도입(신용 2020 vs 바젤 2023). FRTB 가동 시점이 EU(2027)·US(미정) 대비 앞서는 경쟁 비대칭</td>
+    <td>국내 은행·은행지주 전체 (신설 인터넷은행은 유예 이력)</td>
+    <td>현행 플로어 경과 수준·FRTB-IMA 승인 현황의 시행세칙 직접 확인, 미·EU 완화 대응 재조정 여부</td>
+  </tr>
+</table>
+
+<h2>뉴스·신흥 시그널 (최근 12개월 타임라인)</h2>
+<table>
+  <tr><th>사건일</th><th>보도일</th><th>주체</th><th>사건</th><th>확인 상태</th></tr>
+  <tr><td>2025-06-12</td><td>2025-06-12</td><td>EU 집행위</td><td>FRTB 1년 추가 연기(→2027-01-01) 제안</td><td>Confirmed (T1)</td></tr>
+  <tr><td>2025-07</td><td>2025-07</td><td>UK PRA</td><td>CP17/25: 시장리스크 조정 + IMA 2028 연기 옵션 협의</td><td>Confirmed (T1)</td></tr>
+  <tr><td>2025-10-03</td><td>2025-10-03</td><td>BCBS</td><td>이행 현황 보고: 시장리스크 시행률 ~40%에 그침</td><td>Confirmed (T1)</td></tr>
+  <tr><td>2025-11-06</td><td>2025-11-06</td><td>EU 집행위</td><td>영구 시장리스크 체계 옵션 협의 개시</td><td>Confirmed (T1)</td></tr>
+  <tr><td>2026-01-20</td><td>2026-01-20</td><td>UK PRA</td><td>PS1/26 최종규칙 — 2027-01-01 시행 확정</td><td>Confirmed (T1)</td></tr>
+  <tr><td>2026-01-01</td><td>2026 (한국 매체)</td><td>한국 금융지주</td><td>시장·운영리스크 개정 기준 적용 보도, 그룹별 CET1 영향 혼재(일부 -50bp 초과, 일부 상승)</td><td>Reported (T4) — <span class="contested">X-001</span></td></tr>
+  <tr><td>2026-03-09/12</td><td>동일</td><td>US Fed (Bowman 부의장)</td><td>"자본 중립" 4대 축 재조정 예고 연설</td><td>Confirmed (T1)</td></tr>
+  <tr><td>2026-03-19</td><td>2026-03-19</td><td>US Fed·OCC·FDIC</td><td>3건 재제안 발표 (엔드게임·표준방법·G-SIB 부과금); Fed 6-1 표결, Barr 반대</td><td>Confirmed (T1; 수치는 Reported)</td></tr>
+  <tr><td>2026-06-04</td><td>2026-06-04/08</td><td>EU 집행위</td><td>FRTB 한시 완화 위임규정 채택 (2027~2030, 승수+경감); EBA 대응 의견 발표</td><td>Confirmed (T1)</td></tr>
+  <tr><td>2026-06-18</td><td>—</td><td>US 당국</td><td>3건 제안 의견수렴 마감 (예정)</td><td>Confirmed (T1 파생)</td></tr>
+</table>
+
+<h2>리스크 관리 시사점</h2>
+<ul>
+  <li>거버넌스: 미국 홈 관할이라면 ERBA opt-in 의사결정 거버넌스(이사회 보고 라인) 사전 정의 필요. 의견수렴 마감(6/18) 직후 업계 코멘트레터 분석 권고.</li>
+  <li>자본: 자본 영향 모델링은 "현행 규칙 스택"과 "2026 제안 스택"을 병행 산출 — 단, 상충 수치(X-002)는 연방관보 원문 검증 전 사용 금지.</li>
+  <li>시장리스크: 트레이딩 익스포저 보유 시 EU 완화형 FRTB(2027)와 UK IMA 일정(2028)을 시스템 구축 일정의 기준선으로.</li>
+  <li>모델 리스크: 미국 제안은 신용·운영 내부모형 제거 방향 — IRB/AMA 투자 계획 재검토 트리거.</li>
+  <li>데이터·보고: 관할 간 시행 시점 분절(한국 기시행 vs EU·UK 2027 vs US 미정)로 그룹 내 멀티스택 보고 부담 — 데이터 계보 정비 선행 필요.</li>
+  <li>모니터링: 분절화 심화 시 BCBS RCAP 일관성 평가가 차기 압력 경로 — 분기 점검 항목에 추가.</li>
+</ul>
+
+<h2>권고</h2>
+<table>
+  <tr><th>우선순위</th><th>권고</th><th>담당</th><th>근거(Claim ID)</th><th>시점</th></tr>
+  <tr><td>High</td><td>은행의 홈 관할·규제 카테고리 확정 후 적용 스택 결정 (본 보고서는 관할 미지정 가정)</td><td>리스크 기획</td><td>C-001, C-005~007</td><td>즉시</td></tr>
+  <tr><td>High</td><td>US 의견수렴 마감(2026-06-18) 직후 업계 코멘트레터·최종화 일정 재점검</td><td>규제 대응</td><td>C-001</td><td>2026-06-19~</td></tr>
+  <tr><td>High</td><td>한국 시장·운영리스크 시행 시점의 금융위/금감원·시행세칙 T1 원문 확인 (X-001 해소)</td><td>리서치</td><td>C-007</td><td>차기 사이클</td></tr>
+  <tr><td>Medium</td><td>US 자본 영향 수치의 연방관보 원문 대조 검증 (X-002 해소)</td><td>리서치</td><td>C-002</td><td>차기 사이클</td></tr>
+  <tr><td>Medium</td><td>EU 위임규정 EP·이사회 검토기간 경과 여부 확인 (이의 제기 시 FRTB 일정 재개봉)</td><td>규제 대응</td><td>C-004</td><td>~2026 Q3</td></tr>
+</table>
+
+<h2>주의사항과 미해결 질문</h2>
+<div class="caveat">
+  <ul>
+    <li><strong>1차 출처 직접 열람 제한:</strong> 본 런에서 Fed·EU집행위·BIS 페이지 직접 조회가 차단(HTTP 403)되어, T1 출처는 검색 결과 발췌 + 복수 2차 요약의 수렴으로 확인함. 문서 수준 검증은 미완 — 정량 수치 인용 전 원문 확인 필수.</li>
+    <li><strong>G2 미달 항목:</strong> 한국 시장·운영리스크 시행 시점(C-007)은 T1 미확보 상태로, 소스 하한 규칙상 본 보고서에서 신뢰도 Low-Medium·contested로만 제시.</li>
+    <li>미국 제안의 "연내 최종화" 전망은 공식 약속이 아닌 해설(commentary) — 예측으로 사용하지 말 것.</li>
+    <li>미해결: 대상 은행의 홈 관할·자산 규모·카테고리, 한국 IRB 은행의 플로어 구속성 현황.</li>
+    <li><strong>다음 모니터링 주기: 2주</strong> (US 의견수렴 마감과 EU 검토기간 경과까지), 이후 월간.</li>
+  </ul>
+</div>
+
+<h2>증거 매트릭스</h2>
+<table>
+  <tr><th>Claim ID</th><th>주장</th><th>출처</th><th>티어</th><th>발행일</th><th>사건일</th><th>신뢰도</th><th>비고</th></tr>
+  <tr><td>C-001</td><td>US 3건 재제안(Cat I/II 의무, opt-in, 마감 2026-06-18, Fed 6-1 표결)</td><td>S-001</td><td class="tier">T1</td><td>2026-03-19</td><td>2026-03-19</td><td>High</td><td>발췌 검증; 원문 403</td></tr>
+  <tr><td>C-002</td><td>US 자본 영향 수치(+1.4/-3.8 vs -2.4/-4.8)</td><td>S-009, S-010</td><td class="tier">T4-T5</td><td>2026-03</td><td>2026-03-19</td><td>Low</td><td><span class="contested">X-002 contested</span></td></tr>
+  <tr><td>C-003</td><td>EU CRR3/CRD6 2025-01-01 적용, 플로어 50→72.5%(2030)</td><td>S-004, S-011</td><td class="tier">T1/T3</td><td>2024-06-19 외</td><td>2025-01-01</td><td>Medium-High</td><td>플로어 %는 본 런 재검증 미실시</td></tr>
+  <tr><td>C-004</td><td>EU FRTB 위임규정: 완화형 2027-01-01~2030</td><td>S-002, S-003</td><td class="tier">T1</td><td>2026-06-04/08</td><td>2026-06-04</td><td>High</td><td>EP·이사회 검토 중</td></tr>
+  <tr><td>C-005</td><td>UK PS1/26 최종, 2027-01-01 시행, IMA 2028, 플로어 경과 2030 종료</td><td>S-005</td><td class="tier">T1</td><td>2026-01-20</td><td>2026-01-20</td><td>High</td><td>—</td></tr>
+  <tr><td>C-006</td><td>한국 신용리스크 최종안 2020-06말 조기 적용(은행 15, 지주 8)</td><td>S-006, S-007</td><td class="tier">T1</td><td>2020</td><td>2020-06</td><td>High</td><td>—</td></tr>
+  <tr><td>C-007</td><td>한국 시장·운영리스크 시행: 2023-01-01(은행) vs 2026-01(지주)</td><td>S-008, S-012</td><td class="tier">T3-T4</td><td>2023~2026</td><td>—</td><td>Low-Medium</td><td><span class="contested">X-001 contested; T1 미확보</span></td></tr>
+  <tr><td>C-008</td><td>BCBS: 신용·운영·플로어 ~80% / 시장리스크 ~40% 시행</td><td>S-013</td><td class="tier">T1</td><td>2025-10-03</td><td>—</td><td>Medium-High</td><td>발췌 검증</td></tr>
+  <tr><td>C-009</td><td>"자본 중립" 프레이밍 vs 실질 자본 감소 평가(Barr 반대)</td><td>S-001, S-014</td><td class="tier">T1+해석</td><td>2026-03</td><td>2026-03-19</td><td>Medium</td><td><span class="contested">X-003 양측 병기</span></td></tr>
+</table>
+
+<h2>충돌 로그</h2>
+<table>
+  <tr><th>Conflict ID</th><th>관련 Claim</th><th>입장 A (출처, 날짜)</th><th>입장 B (출처, 날짜)</th><th>해소 단계</th><th>상태</th></tr>
+  <tr><td>X-001</td><td>C-007</td><td>한국 FRTB·운영리스크·CVA는 은행 기준 2023-01-01 시행 (T3-T4 한국 자료)</td><td>금융지주는 2026-01부터 전면 적용, CET1 영향 혼재 (Dealsite T4, 2026)</td><td>동일 하위 티어로 티어·최신성 우열 불가, 상호 배타 단정 불가(은행/지주 적용 단위 차이 가능) → contested 공개 + T1 확인 후속과제</td><td>Contested</td></tr>
+  <tr><td>X-002</td><td>C-002</td><td>엔드게임 +1.4%, G-SIB 부과 -3.8%, 합산 소폭 감소 (보도 요약)</td><td>합산 CET1 -2.4%, 누적 -4.8% (로펌 요약)</td><td>동일 티어(2차 요약), 원문(연방관보) 미검증 → contested 공개, 신뢰도 Low, 원문 대조 후속과제</td><td>Contested</td></tr>
+  <tr><td>X-003</td><td>C-009</td><td>"자본 중립" 재조정 (당국·Bowman 프레이밍, 2026-03)</td><td>실질 자본 감소라는 평가 (Barr 반대의견·일부 해설, 2026-03)</td><td>사실(표결 6-1)은 T1 확정, 성격 규정은 해석 충돌 → 양측 병기</td><td>Resolved (양측 병기)</td></tr>
+</table>
+
+<h2>소스 로그</h2>
+<table>
+  <tr><th>ID</th><th>제목</th><th>기관</th><th>발행일</th><th>접근일</th><th>URL</th><th>티어</th><th>Claim</th></tr>
+  <tr><td>S-001</td><td>Agencies request comment on capital proposals</td><td>US Fed·OCC·FDIC</td><td>2026-03-19</td><td>2026-06-10</td><td><a href="https://www.federalreserve.gov/newsevents/pressreleases/bcreg20260319a.htm">federalreserve.gov</a></td><td class="tier">T1</td><td>C-001, C-009</td></tr>
+  <tr><td>S-002</td><td>EU temporarily amends prudential rules for banks' market risk</td><td>EU 집행위</td><td>2026-06-08</td><td>2026-06-10</td><td><a href="https://finance.ec.europa.eu/news/eu-temporarily-amends-prudential-rules-banks-market-risk-2026-06-08_en">finance.ec.europa.eu</a></td><td class="tier">T1</td><td>C-004</td></tr>
+  <tr><td>S-003</td><td>Q&amp;A — postponing market risk requirements</td><td>EU 집행위</td><td>2026-06</td><td>2026-06-10</td><td><a href="https://finance.ec.europa.eu/publications/questions-and-answers-postponing-market-risk-requirements-preserve-international-level-playing-field_en">finance.ec.europa.eu</a></td><td class="tier">T1</td><td>C-004</td></tr>
+  <tr><td>S-004</td><td>Commission proposes to postpone FRTB by one additional year</td><td>EU 집행위</td><td>2025-06-12</td><td>2026-06-10</td><td><a href="https://finance.ec.europa.eu/news/commission-proposes-postpone-one-additional-year-market-risk-prudential-requirements-under-basel-iii-2025-06-12_en">finance.ec.europa.eu</a></td><td class="tier">T1</td><td>C-003, C-004</td></tr>
+  <tr><td>S-005</td><td>PS1/26 — Implementation of Basel 3.1: Final rules</td><td>UK PRA</td><td>2026-01-20</td><td>2026-06-10</td><td><a href="https://www.bankofengland.co.uk/prudential-regulation/publication/2026/january/implementation-of-the-basel-3-1-final-rules-policy-statement">bankofengland.co.uk</a></td><td class="tier">T1</td><td>C-005</td></tr>
+  <tr><td>S-006</td><td>바젤III 최종안 조기 시행 보도자료</td><td>금융위원회</td><td>2020</td><td>2026-06-10</td><td><a href="https://www.fsc.go.kr/no010101/74410">fsc.go.kr</a></td><td class="tier">T1</td><td>C-006</td></tr>
+  <tr><td>S-007</td><td>Early implementation of Basel III credit risk framework (Eng)</td><td>금융위원회</td><td>2020</td><td>2026-06-10</td><td><a href="https://www.fsc.go.kr/eng/pr010101/22439">fsc.go.kr</a></td><td class="tier">T1</td><td>C-006</td></tr>
+  <tr><td>S-008</td><td>한국 FRTB·운영리스크 2023-01 시행 관련 2차 자료</td><td>Metanet 외</td><td>2023~2025</td><td>2026-06-10</td><td><a href="https://metanetglobal.com/bbs/board.php?bo_table=tech&amp;wr_id=35">metanetglobal.com</a></td><td class="tier">T3-T4</td><td>C-007</td></tr>
+  <tr><td>S-009</td><td>Fed remarks point to capital-neutral Basel III endgame</td><td>Bloomberg Professional</td><td>2026</td><td>2026-06-10</td><td><a href="https://www.bloomberg.com/professional/insights/financial-services/fed-remarks-points-to-capital-neutral-basel-iii-endgame-in-2026/">bloomberg.com</a></td><td class="tier">T4</td><td>C-002</td></tr>
+  <tr><td>S-010</td><td>Basel III endgame take two — 8 key takeaways / S&amp;C memo</td><td>Freshfields / Sullivan &amp; Cromwell</td><td>2026-03</td><td>2026-06-10</td><td><a href="https://www.freshfields.com/en/our-thinking/blogs/a-fresh-take/basel-iii-endgame-take-two-8-key-takeaways-from-the-federal-banking-agencies-c-102mnm3">freshfields.com</a></td><td class="tier">T5</td><td>C-002</td></tr>
+  <tr><td>S-011</td><td>CRR3/CRD6 OJ 게재 해설</td><td>PwC</td><td>2024~2025</td><td>2026-06-10</td><td><a href="https://www.pwc.com/gx/en/services/audit-assurance/risk-assurance/ssm-eba-office/eu-publishes-crr3-crd6-official-journal.html">pwc.com</a></td><td class="tier">T5</td><td>C-003</td></tr>
+  <tr><td>S-012</td><td>금융지주 시장·운영리스크 적용과 CET1 영향 보도</td><td>Dealsite</td><td>2026</td><td>2026-06-10</td><td><a href="https://dealsite.co.kr/articles/103244">dealsite.co.kr</a></td><td class="tier">T4</td><td>C-007</td></tr>
+  <tr><td>S-013</td><td>Progress on Basel III implementation / RCAP dashboard</td><td>BIS·BCBS</td><td>2025-10-03</td><td>2026-06-10</td><td><a href="https://www.bis.org/press/p251003.htm">bis.org</a></td><td class="tier">T1</td><td>C-008</td></tr>
+  <tr><td>S-014</td><td>Bowman 연설·성명 (재조정 예고)</td><td>US Fed</td><td>2026-03-09/12/19</td><td>2026-06-10</td><td><a href="https://www.federalreserve.gov/newsevents/speech/bowman20260312a.htm">federalreserve.gov</a></td><td class="tier">T1</td><td>C-009</td></tr>
+</table>
+
+<footer>
+  본 보고서는 리서치 지원 자료이며 법률·투자·규제 자문이 아닙니다.
+  rapid-scan 깊이 모드 산출물로, 리드 자체 점검(G5 자체 점검)을 거쳤으며 1차 출처 직접 열람 제한(403)과 G2 미달 항목(C-007)이 공개되어 있습니다.
+  워크플로와 품질 게이트: <code>harness/risk-research-runbook.md</code> (G1-G5).
+</footer>
+
+</body>
+</html>
