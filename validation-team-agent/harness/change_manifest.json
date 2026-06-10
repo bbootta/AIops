@@ -1260,6 +1260,21 @@
       "rollback_rule": "tools/workflow_viz.py 삭제 + src/vta/handlers/{credit,basel,report,data,macro}.py 삭제 + README 변경 revert 시 Round 21 동작.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0085",
+      "timestamp": "2026-06-10 00:04:26",
+      "component": "tools/benchmark.py",
+      "change_type": "create",
+      "evidence": "Round 22 완료 후 워크플로우 step 별 병목 식별 도구 부재. 25 step 의 wall-clock 분포 알 수 없어 후속 최적화 우선순위 설정 불가.",
+      "root_cause": "성능 측정 인프라 부재",
+      "targeted_fix": "tools/benchmark.py 추가: 각 handler 를 timing wrapper 로 감싸 mean/min/max/p95 산출, top5 가장 느린 step 식별, markdown/JSON 리포트 + CLI",
+      "expected_benefit": "병목 식별 후 후속 round 에서 핫스폿 최적화 가능. CI 회귀 감지 베이스라인 확보.",
+      "expected_regression_risk": "low — tools/ 신규 파일, v1/v2 기존 경로 미변경, log_dir 만 logs/bench 로 별도",
+      "validation_method": "tests/test_v2_round23.py 9 cases (smoke/runs/top5/stress/markdown/CLI json+md/_summarise empty+single) + 전체 suite 467 통과",
+      "rollback_rule": "tools/benchmark.py + tests/test_v2_round23.py 제거 시 v1/v2 동작 영향 없음",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
