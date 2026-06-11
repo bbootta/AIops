@@ -518,6 +518,109 @@ def _check_macro_ecl_path(path_df: pd.DataFrame, report: ValidationReport) -> No
                        "weighted ECL outside scenario envelope in some quarter"))
 
 
+def _check_alm(alm: dict | None, report: ValidationReport) -> None:
+    """LCR/NSFR 100% 하한, IRRBB outlier test, 재무상태표-여신 정합."""
+    if not alm:
+        return
+    from risk_lib.references import (
+        LCR_MIN, NSFR_MIN, IRRBB_OUTLIER_EVE_PCT_TIER1,
+    )
+
+    lcr = alm.get("lcr")
+    if lcr is not None:
+        if lcr.lcr >= LCR_MIN:
+            report.add(ConsistencyCheck(
+                "lcr_min_100pct", "PASS",
+                f"LCR {lcr.lcr:.1%} ≥ 100%", metric=lcr.lcr))
+        else:
+            report.add(ConsistencyCheck(
+                "lcr_min_100pct", "FAIL",
+                f"LCR {lcr.lcr:.1%} < 100% (LCR20.1)", metric=lcr.lcr))
+        if lcr.inflow_capped >= 0.75 * lcr.gross_outflow - 1e-6 and \
+                lcr.inflow_capped > 0:
+            report.add(ConsistencyCheck(
+                "lcr_inflow_cap", "PASS",
+                "inflow cap (75% of outflows) binding — applied per LCR40"))
+        else:
+            report.add(ConsistencyCheck(
+                "lcr_inflow_cap", "PASS",
+                "inflows below 75% cap"))
+
+    nsfr = alm.get("nsfr")
+    if nsfr is not None:
+        if nsfr.nsfr >= NSFR_MIN:
+            report.add(ConsistencyCheck(
+                "nsfr_min_100pct", "PASS",
+                f"NSFR {nsfr.nsfr:.1%} ≥ 100%", metric=nsfr.nsfr))
+        else:
+            report.add(ConsistencyCheck(
+                "nsfr_min_100pct", "FAIL",
+                f"NSFR {nsfr.nsfr:.1%} < 100% (NSF20.1)", metric=nsfr.nsfr))
+
+    irrbb = alm.get("irrbb")
+    if irrbb is not None:
+        pct = irrbb.worst_pct_tier1
+        if pct > IRRBB_OUTLIER_EVE_PCT_TIER1:
+            report.add(ConsistencyCheck(
+                "irrbb_outlier_15pct", "FAIL",
+                f"최대 ΔEVE 감소 {pct:.1%} of Tier1 > 15% (SRP31.92 outlier)",
+                metric=pct))
+        elif irrbb.early_warning():
+            report.add(ConsistencyCheck(
+                "irrbb_outlier_15pct", "WARN",
+                f"최대 ΔEVE 감소 {pct:.1%} of Tier1 — 조기경보(12%) 초과",
+                metric=pct))
+        else:
+            report.add(ConsistencyCheck(
+                "irrbb_outlier_15pct", "PASS",
+                f"최대 ΔEVE 감소 {pct:.1%} of Tier1 ≤ 15% "
+                f"(worst: {irrbb.worst_eve_scenario})", metric=pct))
+
+    bs = alm.get("balance_sheet")
+    if bs is not None:
+        gap_ok = abs(bs.total_assets - bs.funding_total() - bs.equity) \
+            <= 1e-6 * bs.total_assets
+        if gap_ok:
+            report.add(ConsistencyCheck(
+                "bs_balances", "PASS",
+                "자산 = 부채 + 자본 (재무상태표 정합)"))
+        else:
+            report.add(ConsistencyCheck(
+                "bs_balances", "FAIL",
+                "재무상태표 차변/대변 불일치"))
+
+
+def _check_icaap(icaap, report: ValidationReport) -> None:
+    """내부자본: EC 통합 ≤ 가용자본, 분산효과 비음수."""
+    if icaap is None:
+        return
+    if icaap.grade == "RED":
+        report.add(ConsistencyCheck(
+            "icaap_adequacy", "FAIL",
+            f"경제자본 사용률 {icaap.utilisation:.1%} > 100% — 내부자본 부족",
+            metric=icaap.utilisation))
+    elif icaap.grade == "AMBER":
+        report.add(ConsistencyCheck(
+            "icaap_adequacy", "WARN",
+            f"경제자본 사용률 {icaap.utilisation:.1%} (80~100%) — 주의",
+            metric=icaap.utilisation))
+    else:
+        report.add(ConsistencyCheck(
+            "icaap_adequacy", "PASS",
+            f"경제자본 사용률 {icaap.utilisation:.1%} ≤ 80%",
+            metric=icaap.utilisation))
+
+    if icaap.diversification_benefit >= -1e-6 and \
+            icaap.ec_diversified <= icaap.ec_standalone_sum + 1e-6:
+        report.add(ConsistencyCheck(
+            "icaap_diversification", "PASS",
+            "분산 통합 EC ≤ 단순합 EC (상관 통합 정합)"))
+    else:
+        report.add(ConsistencyCheck(
+            "icaap_diversification", "FAIL",
+            "분산 통합 EC가 단순합을 초과 — 상관행렬 점검 필요"))
+
+
 def run_consistency_checks(
     *,
     sa_results: pd.DataFrame | None = None,
@@ -538,6 +641,8 @@ def run_consistency_checks(
     pd_metrics: dict | None = None,
     backtest: dict | None = None,
     limit_report: pd.DataFrame | None = None,
+    alm_results: dict | None = None,
+    icaap_result: Any = None,
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
@@ -574,5 +679,7 @@ def run_consistency_checks(
     _check_hl_calibration(backtest, rep)
     _check_backtest_traffic_light(backtest, rep)
     _check_large_exposure(limit_report, rep)
+    _check_alm(alm_results, rep)
+    _check_icaap(icaap_result, rep)
 
     return rep

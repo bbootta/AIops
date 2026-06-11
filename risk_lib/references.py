@@ -184,6 +184,118 @@ RAPM_HURDLE_RATE = 0.10                  # cost of equity benchmark
 
 
 # ============================================================================
+# ALM — IRRBB (interest rate risk in the banking book)
+# ============================================================================
+
+# Standardised shock sizes (bp).  BCBS IRRBB standard (2016) Annex 2 sets these
+# per currency; the harness applies the USD reference calibration as a
+# conservative default (KRW-specific calibration는 감독원 고시에 따름).
+IRRBB_SHOCK_PARALLEL_BP = 200
+IRRBB_SHOCK_SHORT_BP = 300
+IRRBB_SHOCK_LONG_BP = 150
+IRRBB_SHOCK_DECAY_X = 4.0                # S_short(t) = R_short * exp(-t/x)
+
+# Supervisory outlier test: max ΔEVE decline ≤ 15% of Tier 1 capital.
+IRRBB_OUTLIER_EVE_PCT_TIER1 = 0.15
+IRRBB_EARLY_WARNING_PCT_TIER1 = 0.12     # internal early-warning level
+
+CITE_IRRBB = Citation("Basel III", "SRP31.90 / IRRBB(2016) Annex 2",
+                      "6대 표준 금리충격 시나리오, ΔEVE/ΔNII")
+CITE_IRRBB_OUTLIER = Citation("Basel III", "SRP31.92",
+                              "outlier test: ΔEVE ≤ Tier1의 15%")
+
+
+# ============================================================================
+# ALM — LCR (Liquidity Coverage Ratio)
+# ============================================================================
+
+LCR_MIN = 1.00                           # LCR20.1 — 100% 상시
+LCR_L2_CAP = 0.40                        # LCR30 — Level 2 ≤ 40% of HQLA
+LCR_L2B_CAP = 0.15                       # LCR30 — Level 2B ≤ 15% of HQLA
+LCR_HAIRCUT_L2A = 0.15                   # LCR30
+LCR_HAIRCUT_L2B = 0.50                   # LCR30 (보수적 단일 적용)
+LCR_INFLOW_CAP = 0.75                    # LCR40 — inflows ≤ 75% of outflows
+
+# Run-off rates (LCR40).
+LCR_RUNOFF = {
+    "retail_stable": 0.05,
+    "retail_less_stable": 0.10,
+    "corporate_operational": 0.25,
+    "corporate_non_operational": 0.40,
+    "wholesale_fi_unsecured": 1.00,
+    "secured_funding_l1": 0.00,
+    "secured_funding_other": 0.25,
+    "committed_facilities": 0.10,
+}
+LCR_INFLOW_RATES = {
+    "retail_inflows": 0.50,
+    "wholesale_inflows": 0.50,
+    "fi_inflows": 1.00,
+}
+
+CITE_LCR = Citation("Basel III", "LCR20.1 / LCR30 / LCR40",
+                    "LCR = HQLA / 30일 순현금유출 ≥ 100%")
+
+
+# ============================================================================
+# ALM — NSFR (Net Stable Funding Ratio)
+# ============================================================================
+
+NSFR_MIN = 1.00                          # NSF20.1 — 100% 상시
+
+NSFR_ASF_FACTORS = {                     # NSF30 — available stable funding
+    "capital": 1.00,
+    "retail_stable": 0.95,
+    "retail_less_stable": 0.90,
+    "corporate_lt1y": 0.50,
+    "wholesale_fi_lt6m": 0.00,
+    "wholesale_fi_6to12m": 0.50,
+    "funding_gt1y": 1.00,
+}
+NSFR_RSF_FACTORS = {                     # NSF30 — required stable funding
+    "cash": 0.00,
+    "hqla_l1": 0.05,
+    "hqla_l2a": 0.15,
+    "hqla_l2b": 0.50,
+    "loans_fi_lt6m": 0.15,
+    "loans_lt1y": 0.50,
+    "mortgages_ge1y": 0.65,
+    "other_loans_ge1y": 0.85,
+    "npl": 1.00,
+    "other_assets": 1.00,
+}
+
+CITE_NSFR = Citation("Basel III", "NSF20.1 / NSF30",
+                     "NSFR = 가용안정자금조달 / 필요안정자금조달 ≥ 100%")
+
+
+# ============================================================================
+# ICAAP — 내부자본 적정성 (Pillar 2)
+# ============================================================================
+
+ICAAP_CONFIDENCE = 0.999                 # 경제자본 신뢰수준 (IRB와 정합)
+ICAAP_GREEN_UTILISATION = 0.80           # 내부자본 사용률 80% 이하 양호
+ICAAP_AMBER_UTILISATION = 1.00           # 80~100% 주의, 초과 시 부적정
+
+# Inter-risk correlation matrix (credit, market, operational, irrbb).
+# Conservative supervisory-style assumptions (industry ICAAP practice).
+ICAAP_RISK_TYPES = ["credit", "market", "operational", "irrbb"]
+ICAAP_CORRELATION = [
+    [1.00, 0.50, 0.30, 0.40],
+    [0.50, 1.00, 0.20, 0.50],
+    [0.30, 0.20, 1.00, 0.20],
+    [0.40, 0.50, 0.20, 1.00],
+]
+
+CITE_ICAAP = Citation("Basel III / 감독세칙", "SRP20 (Pillar 2) / ICAAP",
+                      "내부자본 ≥ 위험유형별 경제자본 통합액")
+CITE_EC_AGG = Citation("Industry ICAAP practice", "—",
+                       "분산-공분산 방식 위험 통합 (inter-risk correlation)")
+CITE_CONC_ADDON = Citation("Gordy (2003) / SRP20", "—",
+                           "집중리스크 Pillar 2 add-on (granularity adjustment 단순화)")
+
+
+# ============================================================================
 # Convenience: a flat listing of all citations for the report's "출처" section.
 # ============================================================================
 
@@ -206,4 +318,11 @@ ALL_CITATIONS: list[tuple[str, Citation]] = [
     ("§2/§12 PD 모형 검증",     CITE_GINI),
     ("§2/§12 PD 모형 검증",     CITE_PSI),
     ("§12 PD 캘리브레이션",     CITE_HL),
+    ("§13 내부자본 (ICAAP)",    CITE_ICAAP),
+    ("§13 내부자본 (ICAAP)",    CITE_EC_AGG),
+    ("§13 내부자본 (ICAAP)",    CITE_CONC_ADDON),
+    ("§14 ALM · IRRBB",         CITE_IRRBB),
+    ("§14 ALM · IRRBB",         CITE_IRRBB_OUTLIER),
+    ("§14 ALM · LCR",           CITE_LCR),
+    ("§14 ALM · NSFR",          CITE_NSFR),
 ]

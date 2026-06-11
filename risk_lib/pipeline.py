@@ -43,6 +43,11 @@ from risk_lib.stress.path import (
 )
 from risk_lib.validation.consistency import run_consistency_checks
 from risk_lib.validation.backtest import pd_backtest_report
+from risk_lib.alm.balance_sheet import generate_balance_sheet
+from risk_lib.alm.irrbb import compute_irrbb
+from risk_lib.alm.lcr import compute_lcr
+from risk_lib.alm.nsfr import compute_nsfr
+from risk_lib.icaap.economic_capital import compute_icaap
 
 
 # Per-segment PD model feature sets available in the synthetic data.
@@ -76,6 +81,8 @@ class PipelineResult:
     stress_path_trough: pd.DataFrame
     backtest: dict[str, Any]
     validation: Any
+    alm: dict[str, Any] = field(default_factory=dict)    # balance_sheet/irrbb/lcr/nsfr
+    icaap: Any = None
     meta: dict[str, Any] = field(default_factory=dict)
 
 
@@ -216,6 +223,36 @@ def _stage_rapm(irb_book: pd.DataFrame, hurdle_rate: float):
     return by_class
 
 
+def _stage_alm(portfolio: pd.DataFrame, capital, seed: int) -> dict[str, Any]:
+    """ALM 부문: 합성 재무상태표 → IRRBB / LCR / NSFR."""
+    bs = generate_balance_sheet(portfolio, capital.total, seed=seed)
+    return {
+        "balance_sheet": bs,
+        "irrbb": compute_irrbb(bs.repricing, capital.tier1),
+        "lcr": compute_lcr(bs),
+        "nsfr": compute_nsfr(bs),
+    }
+
+
+def _stage_icaap(
+    sa_res: pd.DataFrame, irb_res: pd.DataFrame,
+    mkt, op, alm: dict[str, Any], conc: pd.DataFrame, capital,
+):
+    """내부자본(ICAAP): 위험유형별 경제자본과 가용자본 대비 적정성."""
+    credit_ec = float((irb_res["k"] * irb_res["ead"]).sum()
+                      + sa_res["rwa"].sum() * 0.08)
+    hhi = conc.set_index("dimension")["hhi"]
+    return compute_icaap(
+        credit_ec=credit_ec,
+        market_ec=mkt.rwa * 0.08,
+        op_ec=op.rwa * 0.08,
+        irrbb_ec=alm["irrbb"].worst_eve_decline,
+        hhi_sector=float(hhi.get("sector", 0.0)),
+        hhi_country=float(hhi.get("country", 0.0)),
+        available_capital=capital.total,
+    )
+
+
 def _stage_stress(
     irb_book, capital, rwa_other_fixed, bis, quarters, buffers,
 ):
@@ -284,7 +321,11 @@ def run_pipeline(
         irb_book, capital, rwa_other_fixed, bis, quarters, buffers,
     )
 
-    # 13-14. PD backtest + consolidated self-verification
+    # 13. ALM (IRRBB / LCR / NSFR) + 내부자본(ICAAP)
+    alm = _stage_alm(portfolio, capital, seed)
+    icaap = _stage_icaap(sa_res, irb_res, mkt, op, alm, conc, capital)
+
+    # 14-15. PD backtest + consolidated self-verification
     corp = portfolio[portfolio["asset_class"] == "corporate"]
     backtest = pd_backtest_report(corp, grade_col="grade",
                                   pd_col="pd", default_col="default_12m")
@@ -300,6 +341,8 @@ def run_pipeline(
         pd_metrics=pd_metrics,
         backtest=backtest,
         limit_report=limit_report,
+        alm_results=alm,
+        icaap_result=icaap,
     )
 
     summary = portfolio.groupby("asset_class").agg(
@@ -327,6 +370,7 @@ def run_pipeline(
         macro_ecl_path=macro_path,
         stress_path=stress_path, stress_path_trough=stress_path_trough,
         backtest=backtest, validation=validation,
+        alm=alm, icaap=icaap,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
               "asof": asof.isoformat(), "quarters": quarters},
     )

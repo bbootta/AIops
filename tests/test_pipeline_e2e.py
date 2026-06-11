@@ -33,7 +33,7 @@ GOLDEN = {
     "macro_weighted_total": 128_504_402_456.8952,
     "reverse_critical_severity": 2.3518753051757812,
 }
-GOLDEN_VALIDATION = {"PASS": 33, "WARN": 2}
+GOLDEN_VALIDATION = {"PASS": 40, "WARN": 2}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",
@@ -102,6 +102,12 @@ def test_pipeline_result_fields(result):
     assert isinstance(result.macro_ecl_path, pd.DataFrame)
     assert result.backtest["hosmer_lemeshow"]["p_value"] >= 0
     assert result.meta["quarters"] == EXPECTED_QUARTERS
+    # ALM / ICAAP (v0.3)
+    assert {"balance_sheet", "irrbb", "lcr", "nsfr"} <= set(result.alm)
+    assert result.alm["lcr"].lcr > 0
+    assert result.alm["nsfr"].nsfr > 0
+    assert result.icaap.ec_diversified > 0
+    assert result.icaap.grade in ("GREEN", "AMBER", "RED")
 
 
 def test_stress_path_shape(result):
@@ -132,7 +138,12 @@ REQUIRED_HEADERS = [
     "### 11-1. 역스트레스테스트",
     "### 11-2. 분기별 자본 스트레스 경로",
     "## 12. 자체검증",
-    "## 13. 출처 및 준거",
+    "## 13. 내부자본 (ICAAP)",
+    "## 14. ALM (IRRBB / LCR / NSFR)",
+    "### 14-1. IRRBB",
+    "### 14-2. LCR",
+    "### 14-3. NSFR",
+    "## 15. 출처 및 준거",
 ]
 
 
@@ -153,4 +164,4 @@ def test_cli_main_writes_report(tmp_path: Path, capsys):
     assert out.exists()
     content = out.read_text(encoding="utf-8")
     assert "## 0. 종합 판정" in content
-    assert "## 13. 출처 및 준거" in content
+    assert "## 15. 출처 및 준거" in content

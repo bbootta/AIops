@@ -323,9 +323,80 @@ def _sec_validation(lines: list[str], result: PipelineResult) -> None:
     add("")
 
 
+def _sec_icaap(lines: list[str], result: PipelineResult) -> None:
+    add = lines.append
+    ic = result.icaap
+    add("## 13. 내부자본 (ICAAP)")
+    add("")
+    if ic is None:
+        add("내부자본 산출 결과 없음.")
+        add("")
+        return
+    add(f"- 가용자본(AFR, 총자본): **{_won(ic.available_capital)}**")
+    add(f"- 통합 경제자본(분산 후): **{_won(ic.ec_diversified)}** "
+        f"(단순합 {_won(ic.ec_standalone_sum)}, "
+        f"분산효과 -{_won(ic.diversification_benefit)})")
+    add(f"- 집중리스크 add-on (Pillar 2): {_won(ic.concentration_addon)}")
+    add(f"- 사용률: **{ic.utilisation:.1%}** / 잉여 내부자본: {_won(ic.buffer)} "
+        f"→ 판정 **{ic.grade}**")
+    add("")
+    rows = [[row["risk_type"], _won(row["ec"])]
+            for _, row in ic.ec_by_type.iterrows()]
+    lines.extend(_md_table(["위험유형", "경제자본(EC)"], ["l", "r"], rows))
+    add("")
+
+
+def _sec_alm(lines: list[str], result: PipelineResult) -> None:
+    add = lines.append
+    alm = result.alm
+    add("## 14. ALM (IRRBB / LCR / NSFR)")
+    add("")
+    if not alm:
+        add("ALM 산출 결과 없음.")
+        add("")
+        return
+    bs = alm["balance_sheet"]
+    add(f"- 총자산 {_won(bs.total_assets)} = 여신 {_won(bs.loans)} "
+        f"+ HQLA {_won(sum(bs.hqla.values()))} + 기타 {_won(bs.other_assets)}")
+    add("")
+
+    irrbb = alm["irrbb"]
+    add("### 14-1. IRRBB (ΔEVE / ΔNII)")
+    add("")
+    rows = [[row["scenario"], _won(row["delta_eve"]),
+             f"{row['pct_tier1']:+.2%}"]
+            for _, row in irrbb.delta_eve.iterrows()]
+    lines.extend(_md_table(["시나리오", "ΔEVE", "Tier1 대비"],
+                           ["l", "r", "r"], rows))
+    add("")
+    add(f"- 최대 ΔEVE 감소: **{_won(irrbb.worst_eve_decline)}** "
+        f"({irrbb.worst_eve_scenario}, Tier1의 {irrbb.worst_pct_tier1:.2%}) — "
+        f"{'**outlier (15% 초과)**' if irrbb.outlier() else 'outlier 기준(15%) 이내'}")
+    for _, row in irrbb.delta_nii.iterrows():
+        add(f"- ΔNII({row['scenario']}): {_won(row['delta_nii'])}")
+    add("")
+
+    lcr = alm["lcr"]
+    add("### 14-2. LCR")
+    add("")
+    add(f"- HQLA(캡 적용 후): {_won(lcr.hqla_total)}")
+    add(f"- 30일 순현금유출: {_won(lcr.net_outflow)} "
+        f"(총유출 {_won(lcr.gross_outflow)} − 유입(캡) {_won(lcr.inflow_capped)})")
+    add(f"- **LCR: {lcr.lcr:.1%}** ({'충족' if lcr.passes() else '미달'}, 기준 100%)")
+    add("")
+
+    nsfr = alm["nsfr"]
+    add("### 14-3. NSFR")
+    add("")
+    add(f"- 가용안정자금조달(ASF): {_won(nsfr.asf_total)}")
+    add(f"- 필요안정자금조달(RSF): {_won(nsfr.rsf_total)}")
+    add(f"- **NSFR: {nsfr.nsfr:.1%}** ({'충족' if nsfr.passes() else '미달'}, 기준 100%)")
+    add("")
+
+
 def _sec_references(lines: list[str], _result: PipelineResult) -> None:
     add = lines.append
-    add("## 13. 출처 및 준거")
+    add("## 15. 출처 및 준거")
     add("")
     add("각 수치·기준의 근거 표준 문헌 (모든 상수는 `risk_lib/references.py`에 집약).")
     add("")
@@ -352,6 +423,8 @@ _SECTIONS = (
     _sec_rapm,
     _sec_stress,
     _sec_validation,
+    _sec_icaap,
+    _sec_alm,
     _sec_references,
 )
 
