@@ -1,0 +1,18 @@
+{
+  "policy_version": "1.0",
+  "framework": "ALM (BCBS SRP31/LIQ20/LIQ40 보조) + 은행업감독업무시행세칙 유동성·금리리스크 관리",
+  "description": "만기 갭, 자금조달 집중도 등 ALM 관리지표 점검. LCR/NSFR/외화LCR 은 liquidity_risk_thresholds.json, IRRBB 는 irrbb_thresholds.json 이 SSoT.",
+  "cumulative_gap_ratio_limit": -0.10,
+  "cumulative_gap_ratio_warning": -0.05,
+  "gap_buckets": ["1M", "3M", "6M", "1Y", "3Y", "over_3Y"],
+  "funding_top1_share_warning": 0.10,
+  "funding_top10_share_warning": 0.30,
+  "loan_to_deposit_max": 1.00,
+  "loan_to_deposit_warning": 0.97,
+  "notes": [
+    "누적 만기 갭 비율 = bucket 누적 (자산-부채) / 총자산. -10% 미만 한도 위반, -5% 미만 경고.",
+    "자금조달 집중: 단일 제공자 10%, 상위 10개 30% 초과 시 경고 (조달 안정성).",
+    "예대율(원화) 100% 이하 (감독시행세칙). 97% 초과 시 경고.",
+    "일중유동성·통화별 갭은 분기 상세 보고로 별도 관리."
+  ]
+}

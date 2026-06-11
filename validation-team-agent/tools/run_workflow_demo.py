@@ -21,12 +21,14 @@ if __package__ in (None, ""):
 from tools.handlers import register_default_handlers
 from tools.report_template import build_validation_report, render_html
 from tools.sample_generators import (
+    alm_sample,
     capital_ratio_sample,
     concentration_exposure_sample,
     capital_stress_sample,
     ccr_exposure_sample,
     credit_scoring_sample,
     cva_counterparty_sample,
+    icaap_sample,
     ifrs9_weight_panel,
     macro_random_walk_series,
     macro_stationary_series,
@@ -58,6 +60,8 @@ def build_request(n: int, *, stress: bool, seed: int) -> dict:
             "cva_trading_book_size_eur_bn": 150.0 if stress else 30.0,
             **ccr_exposure_sample(),
             **concentration_exposure_sample(breach=stress),
+            **icaap_sample(stressed=stress),
+            **alm_sample(stressed=stress),
         }
     )
     if stress:

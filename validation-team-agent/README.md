@@ -129,6 +129,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.workflow_viz --log <run.jsonl>` | 실행 로그 → mermaid 다이어그램 |
 | `python -m tools.dashboard --out <html>` | 실행 로그 → 정적 HTML 대시보드 |
 | `python -m tools.report_pdf --demo --out <pdf>` | 보고서 → PDF (DRAFT 워터마크 강제) |
+| `python -m tools.report_pack --out <dir>` | 계층형 HTML 보고서 팩 (요약+부문상세+심화) |
 | `python -m tools.manifest list / add / promote / validate / export` | change_manifest 운영 |
 | `python -m tools.findings list / sync / add / bump` | recurring_findings JSON↔md |
 | `python -m tools.model_notes list / sync` | model_specific_notes JSON↔md |
@@ -153,7 +154,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | 권한 패턴 | `harness/permission_matrix.json` | `harness/permission_matrix.schema.json` |
 | 시나리오 floor | `harness/scenario_floors.json` | `harness/scenario_floors.schema.json` |
 | Basel 리스크 택소노미 | `harness/basel_risk_taxonomy.json` | `harness/basel_risk_taxonomy.schema.json` |
-| 부문별 임계값 (자본/시장/운영/유동성/IRRBB/CVA/CCR/집중) | `harness/{capital_adequacy,market_risk,operational_risk,liquidity_risk,irrbb,cva,ccr,concentration}_thresholds.json` | (tools/policy_lint 게이트) |
+| 부문별 임계값 (자본/시장/운영/유동성/IRRBB/CVA/CCR/집중/내부자본/ALM) | `harness/{capital_adequacy,market_risk,operational_risk,liquidity_risk,irrbb,cva,ccr,concentration,icaap,alm}_thresholds.json` | (tools/policy_lint 게이트) |
 | 보고서 도메인 사전 | `harness/report_glossary.json` | `harness/report_glossary.schema.json` |
 | 인쇄 CSS | `harness/report_print.css` | — |
 | 감사 보고서 schema | — | `harness/audit_report.schema.json` |

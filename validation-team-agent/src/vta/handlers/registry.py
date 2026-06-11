@@ -770,6 +770,99 @@ def escalation_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResu
     )
 
 
+def icaap_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    """내부자본 적정성 (ICAAP / Pillar 2)."""
+    from tools.risk_checks.icaap import check_internal_capital
+
+    available = req.get("icaap_available_capital")
+    required = req.get("icaap_required_by_risk")
+    if available is None or not required:
+        return StepResult("3.icaap", "skipped", {}, "ICAAP 입력 미제공")
+    if _bad_scalar(available) or float(available) < 0:
+        return StepResult("3.icaap", "skipped", {},
+                          f"available_capital 비정상 ({available})")
+    bad = [k for k, v in required.items() if _bad_scalar(v) or float(v) < 0]
+    if bad:
+        return StepResult("3.icaap", "skipped", {},
+                          f"required_by_risk 비정상 항목: {bad}")
+    out = check_internal_capital(
+        float(available), required,
+        diversification_benefit=float(req.get("icaap_diversification", 0.0)),
+        post_stress_available=req.get("icaap_post_stress_available"),
+    )
+    if not out["passed"]:
+        status = "fail"
+    elif out["level"] == "warning" or out["post_stress_level"] == "warning" or out["findings"]:
+        status = "warning"
+    else:
+        status = "ok"
+    post = (f", post-stress {out['post_stress_ratio']:.3f}"
+            if out["post_stress_ratio"] is not None else "")
+    return StepResult(
+        "3.icaap", status,
+        {"ratio": out["ratio"], "post_stress_ratio": out["post_stress_ratio"],
+         "required_total": out["required_total"],
+         "risk_shares": out["risk_shares"],
+         "missing_risk_types": out["missing_risk_types"],
+         "findings": out["findings"]},
+        f"내부자본비율 {out['ratio']:.3f} ({out['level']}){post}, "
+        f"findings={len(out['findings'])}",
+    )
+
+
+def alm_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
+    """ALM 관리지표 (만기 갭 / 자금조달 집중 / 예대율)."""
+    from tools.risk_checks.alm import (
+        check_funding_concentration,
+        check_loan_to_deposit,
+        check_maturity_gap,
+    )
+
+    out: dict[str, Any] = {}
+    detail = []
+    status = "ok"
+
+    def _worse(new: str) -> None:
+        nonlocal status
+        order = {"ok": 0, "warning": 1, "fail": 2}
+        if order[new] > order[status]:
+            status = new
+
+    gaps = req.get("alm_gaps_by_bucket")
+    total_assets = req.get("alm_total_assets")
+    if gaps and total_assets is not None:
+        if _bad_scalar(total_assets) or float(total_assets) <= 0:
+            return StepResult("3.alm", "skipped", {},
+                              f"total_assets 비정상 ({total_assets})")
+        gap = check_maturity_gap(gaps, float(total_assets))
+        out["maturity_gap"] = gap
+        detail.append(f"만기갭 worst {gap['worst_ratio']:.1%}@{gap['worst_bucket']} ({gap['level']})")
+        _worse("fail" if gap["level"] == "below_min"
+               else "warning" if gap["level"] == "warning" else "ok")
+
+    funding = req.get("alm_funding_by_provider")
+    if funding:
+        fc = check_funding_concentration(funding)
+        out["funding_concentration"] = fc
+        detail.append(f"조달집중 top1 {fc['top1_share']:.1%} ({fc['level']})")
+        _worse(fc["level"] if fc["level"] in ("ok", "warning") else "ok")
+
+    loans = req.get("alm_loans")
+    deposits = req.get("alm_deposits")
+    if loans is not None and deposits is not None:
+        if _bad_scalar(loans, deposits) or float(deposits) <= 0:
+            return StepResult("3.alm", "skipped", {}, "예대율 입력 비정상")
+        ltd = check_loan_to_deposit(float(loans), float(deposits))
+        out["loan_to_deposit"] = ltd
+        detail.append(f"예대율 {ltd['ratio']:.1%} ({ltd['level']})")
+        _worse("fail" if ltd["level"] == "below_min"
+               else "warning" if ltd["level"] == "warning" else "ok")
+
+    if not out:
+        return StepResult("3.alm", "skipped", {}, "ALM 입력 미제공")
+    return StepResult("3.alm", status, out, "; ".join(detail))
+
+
 _DEFAULT = {
     "1.req": request_reconstruction_handler,
     "2.schema": schema_check_handler,
@@ -791,6 +884,8 @@ _DEFAULT = {
     "3.cva": cva_handler,
     "3.ccr": ccr_handler,
     "3.conc": concentration_handler,
+    "3.icaap": icaap_handler,
+    "3.alm": alm_handler,
     "4.report": report_handler,
     "5.complete": completeness_handler,
     "5.cite": citation_handler,

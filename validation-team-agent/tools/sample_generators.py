@@ -178,3 +178,56 @@ def capital_stress_sample() -> dict:
         "capital_total": 0.050,
         "capital_leverage": 0.020,
     }
+
+
+def icaap_sample(*, stressed: bool = False) -> dict:
+    """ICAAP 입력 (가용/필요내부자본). stressed=True 면 스트레스 후 미달."""
+    required = {
+        "credit": 4_800.0,
+        "market": 1_300.0,
+        "operational": 900.0,
+        "irrbb": 800.0,
+        "concentration": 700.0,
+    }
+    if stressed:
+        return {
+            "icaap_available_capital": 8_000.0,
+            "icaap_required_by_risk": required,
+            "icaap_diversification": 500.0,
+            "icaap_post_stress_available": 7_000.0,  # post-stress < required
+        }
+    return {
+        "icaap_available_capital": 11_000.0,
+        "icaap_required_by_risk": required,
+        "icaap_diversification": 500.0,
+        "icaap_post_stress_available": 9_500.0,
+    }
+
+
+def alm_sample(*, stressed: bool = False) -> dict:
+    """ALM 입력 (만기갭 / 조달집중 / 예대율 / NSFR). 단위: 십억원 가정."""
+    if stressed:
+        return {
+            "alm_gaps_by_bucket": {
+                "1M": -9_000.0, "3M": -5_000.0, "6M": -2_000.0,
+                "1Y": 1_000.0, "3Y": 6_000.0, "over_3Y": 10_000.0,
+            },
+            "alm_total_assets": 100_000.0,   # 누적 -16% @6M → 한도 위반
+            "alm_funding_by_provider": [12_000.0] + [800.0] * 40,
+            "alm_loans": 102_000.0,
+            "alm_deposits": 100_000.0,       # 예대율 102% → 위반
+            "liquidity_asf": 90_000.0,
+            "liquidity_rsf": 100_000.0,      # NSFR 0.90 → below_min
+        }
+    return {
+        "alm_gaps_by_bucket": {
+            "1M": -2_000.0, "3M": -1_000.0, "6M": 500.0,
+            "1Y": 1_500.0, "3Y": 4_000.0, "over_3Y": 8_000.0,
+        },
+        "alm_total_assets": 100_000.0,
+        "alm_funding_by_provider": [2_000.0] + [1_600.0] * 40,
+        "alm_loans": 93_000.0,
+        "alm_deposits": 100_000.0,
+        "liquidity_asf": 110_000.0,
+        "liquidity_rsf": 100_000.0,
+    }

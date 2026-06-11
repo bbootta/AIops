@@ -27,6 +27,7 @@ CLI_MODULES: list[tuple[str, str]] = [
     ("tools.workflow_viz", "실행 로그 → mermaid flowchart/sequence/table"),
     ("tools.dashboard", "실행 로그 → 정적 HTML 대시보드"),
     ("tools.report_pdf", "보고서 markdown → PDF (DRAFT 워터마크 강제)"),
+    ("tools.report_pack", "계층형 HTML 보고서 팩 (요약+부문상세+심화, SVG)"),
     ("tools.manifest", "change_manifest 편집/검증/promote"),
     ("tools.findings", "recurring_findings JSON ↔ md sync"),
     ("tools.model_notes", "model_specific_notes JSON ↔ md sync"),

@@ -32,6 +32,7 @@ _DISPATCH = {
     ("benchmark",): "tools.benchmark",
     ("kpi",): "tools.governance_kpi",
     ("report", "pdf"): "tools.report_pdf",
+    ("report", "pack"): "tools.report_pack",
     ("dashboard",): "tools.dashboard",
     ("manifest",): "tools.manifest",
     ("findings",): "tools.findings",

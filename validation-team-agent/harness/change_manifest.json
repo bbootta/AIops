@@ -1500,6 +1500,36 @@
       "rollback_rule": "CI install -e 라인 + smoke step + README -e 안내 제거 시 v1 동작 불변, v2 dispatch 만 미동작",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0101",
+      "timestamp": "2026-06-11 21:50:01",
+      "component": "src/vta/domains/{icaap,alm}.py + harness/{icaap,alm}_thresholds.json + matrix 1.4",
+      "change_type": "create",
+      "evidence": "사용자 요청 (2026-06-11): 내부자본(ICAAP) 영역과 IRRBB·LCR·NSFR 등 ALM 관리 영역 추가. NSFR 체크는 존재했으나 demo 입력 부재로 미평가 상태였음",
+      "root_cause": "Pillar 2 내부자본과 ALM 관리지표(만기갭/조달집중/예대율)가 하니스 점검 범위 밖",
+      "targeted_fix": "icaap.check_internal_capital (내부자본비율/스트레스후/분산효과30%/단일리스크60%/필수유형 커버리지) + alm.check_maturity_gap·check_funding_concentration·check_loan_to_deposit. matrix 1.4 에 3.icaap/3.alm step (on_fail_activate 9.escalate). 샘플 생성기 + demo 입력 (NSFR 포함) 연결",
+      "expected_benefit": "ICAAP·ALM 부문이 동적 워크플로우 escalation 체계에 편입. 12개 점검 부문으로 확장",
+      "expected_regression_risk": "low — 신규 step 은 requires_any 게이트로 입력 없으면 비활성. 기존 step 무변경 (4.report depends_on 추가만)",
+      "validation_method": "tests/test_v2_round37.py 20 cases (ICAAP 7 / ALM 5 / 통합 2 / 팩 6) + 전체 612 통과",
+      "rollback_rule": "matrix 1.4 step 2개 제거 + 신규 모듈 삭제 시 기존 26 step 동작 불변",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0102",
+      "timestamp": "2026-06-11 21:50:01",
+      "component": "tools/report_pack.py + tools/svg_charts.py",
+      "change_type": "create",
+      "evidence": "사용자 요청 (2026-06-11): 보고서는 항상 시각화 자료와 함께 HTML 로, 요약 보고서 + 부문별 상세 + 부문 성격에 따른 심화 보고서 체계로",
+      "root_cause": "기존 보고서는 단일 markdown/HTML — 시각화·계층 구조 부재",
+      "targeted_fix": "svg_charts (의존성 없는 inline SVG: hbar/gauge/status_donut) + report_pack (index 요약 + 6개 부문 상세 + 3개 심화: 등급별 캘리브레이션/만기 bucket 갭/IRRBB 시나리오). 전 페이지 DRAFT 워터마크 빌드타임 assert + self-contained (외부 JS/CDN 금지)",
+      "expected_benefit": "검증자가 요약→부문→심화로 drill-down. 내부망/감사 환경에서도 브라우저만으로 열람",
+      "expected_regression_risk": "low — 신규 도구, 기존 보고서 경로 무변경",
+      "validation_method": "test_v2_round37 팩 6 cases (페이지 전수/워터마크/SVG/self-contained/링크 무결성/escalation 표시) + 1M normal/stress 팩 실생성",
+      "rollback_rule": "두 파일 + 테스트 제거로 기존 동작 복원",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

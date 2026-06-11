@@ -93,4 +93,4 @@ def test_v2_does_not_change_v1_behaviour():
     eng = WorkflowEngine()
     registered = register_default_handlers(eng)
     # v1 단독 실행 결과: 전 step 등록 (R19: 25, R33: 3.conc 추가로 26)
-    assert len(registered) == 26
+    assert len(registered) == 28

@@ -12,14 +12,17 @@ v1 의 ``tools.risk_checks`` 는 본 모듈을 가리키는 호환 shim 이다 (
 from __future__ import annotations
 
 from vta.domains import (  # noqa: F401
+    alm,
     capital,
     concentration,
     ccr,
     cva,
+    icaap,
     irrbb,
     liquidity,
     market,
     operational,
 )
 
-__all__ = ["capital", "concentration", "ccr", "cva", "irrbb", "liquidity", "market", "operational"]
+__all__ = ["alm", "capital", "concentration", "ccr", "cva", "icaap", "irrbb",
+           "liquidity", "market", "operational"]
