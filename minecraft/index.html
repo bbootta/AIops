@@ -72,8 +72,27 @@
   #btnJump { right: 28px; bottom: 90px; }
   #btnBreak { right: 104px; bottom: 156px; }
   #btnPlace { right: 28px; bottom: 182px; }
+  #btnCraft { right: 104px; bottom: 64px; }
   #btnPause { right: 16px; top: 36px; width: 44px; height: 44px; font-size: 15px; }
   body { touch-action: none; -webkit-user-select: none; user-select: none; }
+  #craft {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    background: rgba(18, 18, 30, 0.93); color: #fff; font-family: monospace;
+    border: 2px solid #888; padding: 18px 22px; z-index: 18; display: none; min-width: 320px;
+  }
+  #craft h2 { margin: 0 0 10px; font-size: 18px; }
+  .recipe {
+    display: flex; justify-content: space-between; align-items: center; gap: 14px;
+    padding: 7px 0; border-bottom: 1px solid #444; font-size: 13px;
+  }
+  .recipe button { font-family: monospace; padding: 4px 14px; cursor: pointer; }
+  #craftClose { margin-top: 12px; width: 100%; padding: 6px; font-family: monospace; cursor: pointer; }
+  #saveSlots { margin-top: 18px; display: flex; gap: 8px; }
+  #saveSlots button {
+    font-family: monospace; padding: 6px 14px; font-size: 13px;
+    background: rgba(0,0,0,0.4); color: #fff; border: 1px solid #aaa; cursor: pointer;
+  }
+  #saveSlots button.cur { border-color: #ffd54a; color: #ffd54a; }
   #overlay {
     position: fixed; inset: 0; z-index: 20;
     background: rgba(0,0,0,0.55); color: #fff;
@@ -100,20 +119,27 @@
 <div id="btnJump" class="tbtn touchui">⤒</div>
 <div id="btnBreak" class="tbtn touchui">⛏</div>
 <div id="btnPlace" class="tbtn touchui">▣</div>
+<div id="btnCraft" class="tbtn touchui">⚒</div>
 <div id="btnPause" class="tbtn touchui">II</div>
+<div id="craft">
+  <h2>제작</h2>
+  <div id="recipes"></div>
+  <button id="craftClose">닫기 (C)</button>
+</div>
 <div id="overlay">
   <h1>MINECRAFT</h1>
   <p>
     W A S D : 이동 &nbsp;|&nbsp; Shift : 달리기 &nbsp;|&nbsp; Space : 점프 / 수영<br>
-    좌클릭 꾹 : 블록 캐기 / 동물 잡기 &nbsp;|&nbsp; 우클릭 : 설치 (캔 블록만큼)<br>
-    1 ~ 7 / 마우스 휠 : 슬롯 선택 &nbsp;|&nbsp; F : 비행 (Space 상승 / Shift 하강)<br>
-    석탄 광석 → 횃불 3개 &nbsp;|&nbsp; 횃불은 밤을 밝힙니다<br>
-    높은 곳에서 떨어지거나 물에 오래 잠기면 체력이 닳습니다<br>
+    좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 고기 먹기 &nbsp;|&nbsp; C : 제작<br>
+    1 ~ 9 / 마우스 휠 : 슬롯 선택 &nbsp;|&nbsp; F : 비행 (Space 상승 / Shift 하강)<br>
+    석탄 광석 → 횃불 &nbsp;|&nbsp; 나무 → 판자 → 곡괭이·검 제작<br>
+    밤에는 좀비가 나타납니다 — 횃불을 밝히고 동물 고기로 체력을 채우세요<br>
     모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼 조작<br>
     월드는 자동 저장됩니다 &nbsp;|&nbsp; ESC : 일시정지
   </p>
   <div class="start">클릭해서 시작</div>
-  <button class="reset" id="resetBtn">저장 삭제하고 새 월드 시작</button>
+  <div id="saveSlots"></div>
+  <button class="reset" id="resetBtn">이 월드 초기화</button>
 </div>
 
 <script type="importmap">
@@ -141,17 +167,21 @@ const MAX_AIR = 10;
 const PLAYER_HALF_W = 0.3;
 const PLAYER_HEIGHT = 1.8;
 const EYE_HEIGHT = 1.62;
-const SAVE_KEY = 'mc_save_v3';
+// 멀티 세이브: 슬롯마다 시드가 달라 서로 다른 월드가 생성됨
+const SLOT = Math.min(3, Math.max(1, parseInt(localStorage.getItem('mc_slot') || '1', 10) || 1));
+const SAVE_KEY = 'mc_save_v4_s' + SLOT;
 
-const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10 };
-const BLOCK_NAMES = { 1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석', 10: '횃불' };
-const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.LEAVES, BLOCK.SAND, BLOCK.TORCH];
+const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11 };
+const ITEM = { MEAT: 100 }; // 블록이 아닌 아이템
+const BLOCK_NAMES = { 1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석', 10: '횃불', 11: '판자', 100: '고기' };
+const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES, BLOCK.SAND, BLOCK.TORCH, ITEM.MEAT];
 // 블록별 캐는 시간(초)과 드롭 아이템 [종류, 개수]
-const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05 };
+const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7 };
 const DROPS = {
   [BLOCK.GRASS]: [BLOCK.GRASS, 1], [BLOCK.DIRT]: [BLOCK.DIRT, 1], [BLOCK.STONE]: [BLOCK.STONE, 1],
   [BLOCK.WOOD]: [BLOCK.WOOD, 1], [BLOCK.LEAVES]: [BLOCK.LEAVES, 1], [BLOCK.SAND]: [BLOCK.SAND, 1],
   [BLOCK.COAL_ORE]: [BLOCK.TORCH, 3], [BLOCK.IRON_ORE]: [BLOCK.STONE, 2], [BLOCK.TORCH]: [BLOCK.TORCH, 1],
+  [BLOCK.PLANK]: [BLOCK.PLANK, 1],
 };
 
 // ---------- 시드 난수 / 노이즈 ----------
@@ -163,7 +193,7 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rand = mulberry32(1337);
+const rand = mulberry32(1337 + SLOT * 9973);
 
 // 2D 값 노이즈 (그리드 난수 + 부드러운 보간)
 const NOISE_GRID = 256;
@@ -237,6 +267,8 @@ const TEX = {
   coalOre: oreTexture([38, 38, 38]),
   ironOre: oreTexture([216, 173, 140]),
   torch: makeTexture(C.woodSide, (x, y) => (y < 5 ? [255, 205, 80] : C.woodSide)),
+  plank: makeTexture(C.woodTop, (x, y) => (y % 4 === 3 ? [110, 88, 55] : C.woodTop)),
+  meat: makeTexture([176, 62, 50], (x, y) => (x > 4 && x < 12 && y > 4 && y < 12 ? [232, 150, 130] : [176, 62, 50])),
 };
 TEX.water.wrapS = TEX.water.wrapT = THREE.RepeatWrapping;
 
@@ -253,6 +285,7 @@ const MATERIALS = {
   [BLOCK.COAL_ORE]: mat(TEX.coalOre),
   [BLOCK.IRON_ORE]: mat(TEX.ironOre),
   [BLOCK.TORCH]: new THREE.MeshLambertMaterial({ map: TEX.torch, emissive: 0xff9933, emissiveIntensity: 0.55 }),
+  [BLOCK.PLANK]: mat(TEX.plank),
 };
 
 // ---------- 월드 데이터 ----------
@@ -323,6 +356,7 @@ function saveGame() {
       slot: selectedSlot,
       health,
       inv,
+      tools,
       dayTime,
     }));
   } catch (e) { /* 저장 공간 부족 등은 무시 */ }
@@ -599,19 +633,57 @@ function spawnAnimals() {
       walking: false,
       timer: rand() * 3,
       onGround: false,
+      hp: 2, kbT: 0, colH: 0.9, hitH: 1.05,
     });
   }
 }
-function animalCollides(pos) {
-  const HW = 0.3, H = 0.9;
+function mobCollides(pos, h) {
+  const HW = 0.3;
   const minX = Math.floor(pos.x - HW), maxX = Math.floor(pos.x + HW);
-  const minY = Math.floor(pos.y), maxY = Math.floor(pos.y + H);
+  const minY = Math.floor(pos.y), maxY = Math.floor(pos.y + h);
   const minZ = Math.floor(pos.z - HW), maxZ = Math.floor(pos.z + HW);
   for (let x = minX; x <= maxX; x++)
     for (let y = minY; y <= maxY; y++)
       for (let z = minZ; z <= maxZ; z++)
         if (occludes(getBlock(x, y, z))) return true;
   return false;
+}
+// 동물/좀비 공통 이동: 중력, 충돌, 한 칸 자동 점프, 물 부유, 넉백 유지
+function stepMob(m, dt, speed) {
+  if (m.kbT > 0) m.kbT -= dt; // 넉백 중에는 수평 속도를 덮어쓰지 않음
+  else {
+    m.vel.x = -Math.sin(m.yaw) * speed;
+    m.vel.z = -Math.cos(m.yaw) * speed;
+  }
+  m.vel.y -= GRAVITY * dt;
+  m.vel.y = Math.max(m.vel.y, -30);
+
+  let hitWall = false;
+  m.pos.x += m.vel.x * dt;
+  if (mobCollides(m.pos, m.colH)) { m.pos.x -= m.vel.x * dt; hitWall = true; }
+  m.pos.z += m.vel.z * dt;
+  if (mobCollides(m.pos, m.colH)) { m.pos.z -= m.vel.z * dt; hitWall = true; }
+  if (hitWall && m.onGround) m.vel.y = 7;
+
+  const prevY = m.pos.y;
+  m.pos.y += m.vel.y * dt;
+  if (mobCollides(m.pos, m.colH)) {
+    if (m.vel.y < 0) {
+      m.pos.y = Math.ceil(m.pos.y);
+      if (mobCollides(m.pos, m.colH)) m.pos.y = prevY;
+      m.onGround = true;
+    } else {
+      m.pos.y = prevY;
+    }
+    m.vel.y = 0;
+  } else if (m.vel.y !== 0) {
+    m.onGround = false;
+  }
+  if (getBlock(Math.floor(m.pos.x), Math.floor(m.pos.y + 0.3), Math.floor(m.pos.z)) === BLOCK.WATER) {
+    m.vel.y = Math.max(m.vel.y, 2.5);
+  }
+  m.mesh.position.copy(m.pos);
+  m.mesh.rotation.y = m.yaw;
 }
 function updateAnimals(dt) {
   const half = WORLD_SIZE / 2;
@@ -627,49 +699,112 @@ function updateAnimals(dt) {
       a.yaw = Math.atan2(a.pos.x, a.pos.z);
       a.walking = true;
     }
-    const speed = a.walking ? 1.3 : 0;
-    a.vel.x = -Math.sin(a.yaw) * speed;
-    a.vel.z = -Math.cos(a.yaw) * speed;
-    a.vel.y -= GRAVITY * dt;
-    a.vel.y = Math.max(a.vel.y, -30);
-
-    let hitWall = false;
-    a.pos.x += a.vel.x * dt;
-    if (animalCollides(a.pos)) { a.pos.x -= a.vel.x * dt; hitWall = true; }
-    a.pos.z += a.vel.z * dt;
-    if (animalCollides(a.pos)) { a.pos.z -= a.vel.z * dt; hitWall = true; }
-    if (hitWall && a.onGround) a.vel.y = 7; // 한 칸 자동 점프
-
-    const prevY = a.pos.y;
-    a.pos.y += a.vel.y * dt;
-    if (animalCollides(a.pos)) {
-      if (a.vel.y < 0) {
-        a.pos.y = Math.ceil(a.pos.y);
-        if (animalCollides(a.pos)) a.pos.y = prevY;
-        a.onGround = true;
-      } else {
-        a.pos.y = prevY;
-      }
-      a.vel.y = 0;
-    } else if (a.vel.y !== 0) {
-      a.onGround = false;
-    }
-    // 물에 빠지면 떠오름
-    if (getBlock(Math.floor(a.pos.x), Math.floor(a.pos.y + 0.3), Math.floor(a.pos.z)) === BLOCK.WATER) {
-      a.vel.y = Math.max(a.vel.y, 2.5);
-    }
-    a.mesh.position.copy(a.pos);
-    a.mesh.rotation.y = a.yaw;
+    stepMob(a, dt, a.walking ? 1.3 : 0);
   }
 }
-// 조준선 방향의 동물 공격 (레이 -AABB 판정)
-function attackAnimal() {
+
+// ---------- 좀비 (밤에만 출몰) ----------
+const zombies = [];
+let zombieSpawnT = 0;
+function makeZombieMesh() {
+  const g = new THREE.Group();
+  const skin = new THREE.MeshLambertMaterial({ color: 0x5e9c4f });
+  const shirt = new THREE.MeshLambertMaterial({ color: 0x2e6b5e });
+  const pants = new THREE.MeshLambertMaterial({ color: 0x3a3a55 });
+  for (const lx of [-0.12, 0.12]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), pants);
+    leg.position.set(lx, 0.35, 0);
+    g.add(leg);
+  }
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.28), shirt);
+  body.position.y = 1.05;
+  g.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), skin);
+  head.position.y = 1.65;
+  g.add(head);
+  for (const ax of [-0.33, 0.33]) {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.55), skin);
+    arm.position.set(ax, 1.3, -0.3); // 앞으로 뻗은 팔
+    g.add(arm);
+  }
+  g.userData.bodyMat = skin;
+  return g;
+}
+function surfaceY(x, z) {
+  for (let y = Y_MAX; y >= 0; y--) if (occludes(getBlock(x, y, z))) return y + 1;
+  return null;
+}
+function trySpawnZombie() {
+  const ang = Math.random() * Math.PI * 2;
+  const d = 16 + Math.random() * 20;
+  const x = Math.floor(player.pos.x + Math.cos(ang) * d);
+  const z = Math.floor(player.pos.z + Math.sin(ang) * d);
+  const half = WORLD_SIZE / 2;
+  if (x < -half + 2 || x >= half - 2 || z < -half + 2 || z >= half - 2) return;
+  const y = surfaceY(x, z);
+  if (y === null || y <= SEA_LEVEL) return; // 물속 제외
+  const mesh = makeZombieMesh();
+  scene.add(mesh);
+  zombies.push({
+    mesh,
+    pos: new THREE.Vector3(x + 0.5, y, z + 0.5),
+    vel: new THREE.Vector3(),
+    yaw: Math.random() * Math.PI * 2,
+    timer: 0, walking: false, onGround: false,
+    hp: 3, kbT: 0, colH: 1.8, hitH: 1.9,
+    atkT: 0, groanT: 2 + Math.random() * 4,
+  });
+}
+function updateZombies(dt) {
+  const night = sunHeight < -0.05;
+  if (night && playing()) {
+    zombieSpawnT -= dt;
+    if (zombieSpawnT <= 0 && zombies.length < 8) { zombieSpawnT = 4; trySpawnZombie(); }
+  }
+  if (!night && zombies.length) {
+    // 해가 뜨면 연기와 함께 소멸
+    for (const z of zombies) {
+      spawnParticles(z.pos.x - 0.5, z.pos.y + 0.8, z.pos.z - 0.5, z.mesh.userData.bodyMat);
+      scene.remove(z.mesh);
+    }
+    zombies.length = 0;
+    return;
+  }
+  for (const z of zombies) {
+    const dx = player.pos.x - z.pos.x, dz = player.pos.z - z.pos.z;
+    const d = Math.hypot(dx, dz);
+    let speed = 0;
+    if (playing() && d < 24) {
+      z.yaw = Math.atan2(-dx, -dz); // 플레이어 추적
+      speed = 2.3;
+      z.groanT -= dt;
+      if (z.groanT <= 0) { z.groanT = 3 + Math.random() * 3; playSound(90, 0.4, 'sawtooth', 0.08); }
+    } else {
+      z.timer -= dt;
+      if (z.timer <= 0) {
+        z.timer = 2 + Math.random() * 4;
+        z.walking = Math.random() < 0.5;
+        z.yaw = Math.random() * Math.PI * 2;
+      }
+      speed = z.walking ? 0.8 : 0;
+    }
+    stepMob(z, dt, speed);
+    z.atkT -= dt;
+    if (playing() && z.atkT <= 0 && d < 1.4 && Math.abs(player.pos.y - z.pos.y) < 2) {
+      z.atkT = 1.2;
+      damage(2);
+    }
+  }
+}
+
+// 조준선 방향의 몹 공격 (레이-AABB 판정), 검 보유 시 공격력 2배
+function attackMob() {
   camera.getWorldDirection(_dir);
   const o = camera.position;
   let best = null, bestT = REACH;
-  for (const a of animals) {
-    const min = [a.pos.x - 0.4, a.pos.y, a.pos.z - 0.45];
-    const max = [a.pos.x + 0.4, a.pos.y + 1.05, a.pos.z + 0.45];
+  for (const m of [...animals, ...zombies]) {
+    const min = [m.pos.x - 0.45, m.pos.y, m.pos.z - 0.45];
+    const max = [m.pos.x + 0.45, m.pos.y + m.hitH, m.pos.z + 0.45];
     const oArr = [o.x, o.y, o.z], dArr = [_dir.x, _dir.y, _dir.z];
     let t0 = 0, t1 = bestT, ok = true;
     for (let i = 0; i < 3; i++) {
@@ -683,13 +818,29 @@ function attackAnimal() {
         if (t0 > t1) { ok = false; break; }
       }
     }
-    if (ok && t0 < bestT) { best = a; bestT = t0; }
+    if (ok && t0 < bestT) { best = m; bestT = t0; }
   }
   if (!best) return false;
-  scene.remove(best.mesh);
-  animals.splice(animals.indexOf(best), 1);
-  spawnParticles(best.pos.x - 0.5, best.pos.y, best.pos.z - 0.5, best.mesh.userData.bodyMat);
-  playSound(330, 0.25, 'sine', 0.2);
+  best.hp -= tools.sword ? 2 : 1;
+  // 넉백
+  const kl = Math.hypot(_dir.x, _dir.z) || 1;
+  best.vel.set((_dir.x / kl) * 6, 4, (_dir.z / kl) * 6);
+  best.kbT = 0.3;
+  best.onGround = false;
+  playSound(220, 0.12, 'square', 0.18);
+  if (best.hp <= 0) {
+    scene.remove(best.mesh);
+    const ai = animals.indexOf(best);
+    if (ai >= 0) {
+      animals.splice(ai, 1);
+      inv[ITEM.MEAT] += 1 + (Math.random() < 0.5 ? 1 : 0); // 고기 드롭
+      updateHotbar();
+    } else {
+      zombies.splice(zombies.indexOf(best), 1);
+    }
+    spawnParticles(best.pos.x - 0.5, best.pos.y + 0.3, best.pos.z - 0.5, best.mesh.userData.bodyMat);
+    playSound(330, 0.25, 'sine', 0.2);
+  }
   return true;
 }
 
@@ -736,6 +887,7 @@ addEventListener('keydown', (e) => {
   const n = parseInt(e.key, 10);
   if (n >= 1 && n <= HOTBAR.length) selectSlot(n - 1);
   if (e.code === 'KeyF' && playing()) { flying = !flying; player.vel.y = 0; fallDist = 0; }
+  if (e.code === 'KeyC' && (playing() || craftOpen)) toggleCraft(!craftOpen);
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 // 창 포커스를 잃으면 눌린 키가 고착되지 않도록 초기화
@@ -873,10 +1025,12 @@ function updateHud(dt) {
 const clockEl = document.getElementById('clock');
 const UNDERWATER_COLOR = new THREE.Color(0x21508f);
 const _sunDir = new THREE.Vector3();
+let sunHeight = 1; // 현재 태양 고도 (좀비 스폰 판정용)
 function updateSky(dt) {
   dayTime = (dayTime + dt) % DAY_LENGTH;
   const a = (dayTime / DAY_LENGTH) * Math.PI * 2;
   const s = Math.sin(a); // 1 = 정오, -1 = 자정
+  sunHeight = s;
   sun.position.set(Math.cos(a) * 80, s * 80, 30);
   sun.intensity = Math.max(0, s) * 1.05 + 0.05;
   ambient.intensity = 0.22 + Math.max(0, s) * 0.45;
@@ -945,7 +1099,7 @@ document.getElementById('resetBtn').addEventListener('click', (e) => {
 });
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
-  overlay.style.display = locked ? 'none' : 'flex';
+  overlay.style.display = (locked || craftOpen) ? 'none' : 'flex';
   if (!locked) { saveGame(); stopAttack(); }
 });
 document.addEventListener('mousemove', (e) => {
@@ -1030,6 +1184,7 @@ function bindBtn(id, onDown, onUp) {
 bindBtn('btnJump', () => { touchJump = true; }, () => { touchJump = false; });
 bindBtn('btnBreak', () => startAttack(), () => stopAttack());
 bindBtn('btnPlace', () => doPlace());
+bindBtn('btnCraft', () => toggleCraft(!craftOpen));
 bindBtn('btnPause', () => {
   touchPlaying = false;
   touchJump = false;
@@ -1108,7 +1263,7 @@ let mineProgress = 0;
 
 function startAttack() {
   if (!playing()) return;
-  if (attackAnimal()) return; // 조준선에 동물이 있으면 즉시 공격
+  if (attackMob()) return; // 조준선에 동물/좀비가 있으면 즉시 공격
   mining = true;
 }
 function stopAttack() {
@@ -1119,11 +1274,22 @@ function stopAttack() {
 
 function doPlace() {
   if (!playing()) return;
+  const type = HOTBAR[selectedSlot];
+  if (type === ITEM.MEAT) { // 고기는 먹어서 체력 회복
+    if (inv[ITEM.MEAT] > 0 && health < MAX_HEALTH) {
+      inv[ITEM.MEAT]--;
+      health = Math.min(MAX_HEALTH, health + 3);
+      updateHotbar();
+      playSound(180, 0.18, 'triangle', 0.2);
+    } else {
+      playSound(140, 0.08, 'square', 0.08);
+    }
+    return;
+  }
   const pick = pickBlock();
   if (!pick) return;
   const a = pick.adjacent;
   if (a.y < 0 || a.y > Y_MAX) return;
-  const type = HOTBAR[selectedSlot];
   if (inv[type] <= 0) { playSound(140, 0.08, 'square', 0.08); return; } // 재고 없음
   // 빈 칸이나 물 칸에 설치 가능 (물은 블록으로 대체), 횃불은 몸과 겹쳐도 됨
   if (!isSolid(getBlock(a.x, a.y, a.z)) && (type === BLOCK.TORCH || !blockIntersectsPlayer(a))) {
@@ -1169,7 +1335,8 @@ function updateMining(dt) {
     mineProgress = 0;
   }
   const type = getBlock(b.x, b.y, b.z);
-  mineProgress += dt / (HARDNESS[type] || 1);
+  const stony = type === BLOCK.STONE || type === BLOCK.COAL_ORE || type === BLOCK.IRON_ORE;
+  mineProgress += dt * (tools.pickaxe && stony ? 3 : 1) / (HARDNESS[type] || 1);
   if (mineProgress >= 1) {
     editBlock(b.x, b.y, b.z, 0);
     const drop = DROPS[type];
@@ -1199,9 +1366,10 @@ document.addEventListener('mouseup', (e) => {
 let selectedSlot = 0;
 // 블록은 캐서 모아야 설치할 수 있음 (시작 지급: 횃불 2개)
 const inv = {
-  [BLOCK.GRASS]: 0, [BLOCK.DIRT]: 0, [BLOCK.STONE]: 0, [BLOCK.WOOD]: 0,
-  [BLOCK.LEAVES]: 0, [BLOCK.SAND]: 0, [BLOCK.TORCH]: 2,
+  [BLOCK.GRASS]: 0, [BLOCK.DIRT]: 0, [BLOCK.STONE]: 0, [BLOCK.WOOD]: 0, [BLOCK.PLANK]: 0,
+  [BLOCK.LEAVES]: 0, [BLOCK.SAND]: 0, [BLOCK.TORCH]: 2, [ITEM.MEAT]: 0,
 };
+const tools = { pickaxe: false, sword: false }; // 제작으로 획득 (영구)
 const slotCnts = [];
 const hotbarEl = document.getElementById('hotbar');
 const slotEls = HOTBAR.map((t, i) => {
@@ -1213,7 +1381,7 @@ const slotEls = HOTBAR.map((t, i) => {
   num.textContent = i + 1;
   slot.appendChild(num);
   const m = MATERIALS[t];
-  const src = (Array.isArray(m) ? m[4] : m).map.image; // 옆면 텍스처를 아이콘으로
+  const src = t === ITEM.MEAT ? TEX.meat.image : (Array.isArray(m) ? m[4] : m).map.image; // 옆면 텍스처를 아이콘으로
   const icon = document.createElement('canvas');
   icon.width = src.width; icon.height = src.height;
   icon.getContext('2d').drawImage(src, 0, 0);
@@ -1242,6 +1410,59 @@ addEventListener('wheel', (e) => {
   selectSlot((selectedSlot + d + HOTBAR.length) % HOTBAR.length);
 });
 
+// ---------- 제작 ----------
+const RECIPES = [
+  { name: '판자 ×4', desc: '나무 1', cost: { [BLOCK.WOOD]: 1 }, make: () => { inv[BLOCK.PLANK] += 4; } },
+  { name: '횃불 ×2', desc: '판자 1', cost: { [BLOCK.PLANK]: 1 }, make: () => { inv[BLOCK.TORCH] += 2; } },
+  { name: '곡괭이', desc: '판자 4 · 돌/광석 3배 속도', cost: { [BLOCK.PLANK]: 4 }, once: 'pickaxe' },
+  { name: '검', desc: '판자 3 · 공격력 2배', cost: { [BLOCK.PLANK]: 3 }, once: 'sword' },
+];
+const craftEl = document.getElementById('craft');
+const recipesEl = document.getElementById('recipes');
+let craftOpen = false;
+function canAfford(r) { return Object.entries(r.cost).every(([t, n]) => inv[t] >= n); }
+function renderCraft() {
+  recipesEl.innerHTML = '';
+  for (const r of RECIPES) {
+    const row = document.createElement('div');
+    row.className = 'recipe';
+    const label = document.createElement('span');
+    label.textContent = `${r.name} — ${r.desc}`;
+    row.appendChild(label);
+    const btn = document.createElement('button');
+    if (r.once && tools[r.once]) {
+      btn.textContent = '보유';
+      btn.disabled = true;
+    } else {
+      btn.textContent = '제작';
+      btn.disabled = !canAfford(r);
+      btn.addEventListener('click', () => {
+        if (!canAfford(r)) return;
+        for (const [t, n] of Object.entries(r.cost)) inv[t] -= n;
+        if (r.once) tools[r.once] = true;
+        else r.make();
+        updateHotbar();
+        renderCraft();
+        playSound(520, 0.12, 'triangle', 0.15);
+      });
+    }
+    row.appendChild(btn);
+    recipesEl.appendChild(row);
+  }
+}
+function toggleCraft(open) {
+  craftOpen = open;
+  craftEl.style.display = open ? 'block' : 'none';
+  if (open) {
+    renderCraft();
+    stopAttack();
+    if (locked) document.exitPointerLock();
+  } else if (!isTouch) {
+    canvas.requestPointerLock();
+  }
+}
+document.getElementById('craftClose').addEventListener('click', () => toggleCraft(false));
+
 // ---------- 시작 ----------
 addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -1266,11 +1487,34 @@ if (save) {
   if (typeof save.dayTime === 'number') dayTime = save.dayTime;
   if (typeof save.health === 'number') health = Math.min(MAX_HEALTH, Math.max(1, save.health));
   if (save.inv) for (const k in inv) inv[k] = Math.max(0, save.inv[k] | 0);
+  if (save.tools) {
+    tools.pickaxe = !!save.tools.pickaxe;
+    tools.sword = !!save.tools.sword;
+  }
   selectSlot(save.slot >= 0 && save.slot < HOTBAR.length ? save.slot : 0);
 } else {
   selectSlot(0);
 }
 updateHotbar();
+
+// 세이브 슬롯 선택 버튼 (시작 화면)
+{
+  const slotsEl = document.getElementById('saveSlots');
+  for (let n = 1; n <= 3; n++) {
+    const b = document.createElement('button');
+    const has = !!localStorage.getItem('mc_save_v4_s' + n);
+    b.textContent = n === SLOT ? `월드 ${n} ◀` : `월드 ${n}${has ? '' : ' (비었음)'}`;
+    if (n === SLOT) b.classList.add('cur');
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (n === SLOT) return;
+      saveGame();
+      localStorage.setItem('mc_slot', String(n));
+      location.reload();
+    });
+    slotsEl.appendChild(b);
+  }
+}
 
 rebuildAllChunks();
 spawnAnimals();
@@ -1292,6 +1536,7 @@ function loop(now) {
   updateClouds(dt);
   updateParticles(dt);
   updateAnimals(dt);
+  updateZombies(dt);
   updateMining(dt);
   updateTorchLights(dt);
   updateHighlight();
