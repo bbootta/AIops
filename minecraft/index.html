@@ -31,6 +31,11 @@
     position: absolute; top: 1px; left: 3px; color: #fff;
     font: bold 10px monospace; text-shadow: 1px 1px 0 #000;
   }
+  .slot .cnt {
+    position: absolute; bottom: 1px; right: 3px; color: #fff;
+    font: bold 11px monospace; text-shadow: 1px 1px 0 #000;
+  }
+  .slot.empty canvas { opacity: 0.35; }
   #clock {
     position: fixed; top: 12px; right: 16px; z-index: 10;
     color: #fff; font: bold 14px monospace; text-shadow: 1px 1px 0 #000;
@@ -100,8 +105,9 @@
   <h1>MINECRAFT</h1>
   <p>
     W A S D : 이동 &nbsp;|&nbsp; Shift : 달리기 &nbsp;|&nbsp; Space : 점프 / 수영<br>
-    좌클릭 : 블록 부수기 &nbsp;|&nbsp; 우클릭 : 블록 설치<br>
-    1 ~ 6 / 마우스 휠 : 블록 선택 &nbsp;|&nbsp; F : 비행 (Space 상승 / Shift 하강)<br>
+    좌클릭 꾹 : 블록 캐기 / 동물 잡기 &nbsp;|&nbsp; 우클릭 : 설치 (캔 블록만큼)<br>
+    1 ~ 7 / 마우스 휠 : 슬롯 선택 &nbsp;|&nbsp; F : 비행 (Space 상승 / Shift 하강)<br>
+    석탄 광석 → 횃불 3개 &nbsp;|&nbsp; 횃불은 밤을 밝힙니다<br>
     높은 곳에서 떨어지거나 물에 오래 잠기면 체력이 닳습니다<br>
     모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼 조작<br>
     월드는 자동 저장됩니다 &nbsp;|&nbsp; ESC : 일시정지
@@ -135,11 +141,18 @@ const MAX_AIR = 10;
 const PLAYER_HALF_W = 0.3;
 const PLAYER_HEIGHT = 1.8;
 const EYE_HEIGHT = 1.62;
-const SAVE_KEY = 'mc_save_v2';
+const SAVE_KEY = 'mc_save_v3';
 
-const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9 };
-const BLOCK_NAMES = { 1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석' };
-const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.LEAVES, BLOCK.SAND];
+const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10 };
+const BLOCK_NAMES = { 1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석', 10: '횃불' };
+const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.LEAVES, BLOCK.SAND, BLOCK.TORCH];
+// 블록별 캐는 시간(초)과 드롭 아이템 [종류, 개수]
+const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05 };
+const DROPS = {
+  [BLOCK.GRASS]: [BLOCK.GRASS, 1], [BLOCK.DIRT]: [BLOCK.DIRT, 1], [BLOCK.STONE]: [BLOCK.STONE, 1],
+  [BLOCK.WOOD]: [BLOCK.WOOD, 1], [BLOCK.LEAVES]: [BLOCK.LEAVES, 1], [BLOCK.SAND]: [BLOCK.SAND, 1],
+  [BLOCK.COAL_ORE]: [BLOCK.TORCH, 3], [BLOCK.IRON_ORE]: [BLOCK.STONE, 2], [BLOCK.TORCH]: [BLOCK.TORCH, 1],
+};
 
 // ---------- 시드 난수 / 노이즈 ----------
 function mulberry32(a) {
@@ -223,6 +236,7 @@ const TEX = {
   water: makeTexture(C.water),
   coalOre: oreTexture([38, 38, 38]),
   ironOre: oreTexture([216, 173, 140]),
+  torch: makeTexture(C.woodSide, (x, y) => (y < 5 ? [255, 205, 80] : C.woodSide)),
 };
 TEX.water.wrapS = TEX.water.wrapT = THREE.RepeatWrapping;
 
@@ -238,17 +252,23 @@ const MATERIALS = {
   [BLOCK.WATER]: new THREE.MeshLambertMaterial({ map: TEX.water, transparent: true, opacity: 0.65 }),
   [BLOCK.COAL_ORE]: mat(TEX.coalOre),
   [BLOCK.IRON_ORE]: mat(TEX.ironOre),
+  [BLOCK.TORCH]: new THREE.MeshLambertMaterial({ map: TEX.torch, emissive: 0xff9933, emissiveIntensity: 0.55 }),
 };
 
 // ---------- 월드 데이터 ----------
 const world = new Map(); // "x,y,z" -> 블록 타입
 const edits = new Map(); // 플레이어가 바꾼 블록 (저장용)
+const torches = new Set(); // 횃불 위치 (조명용)
 const key = (x, y, z) => x + ',' + y + ',' + z;
 function getBlock(x, y, z) { return world.get(key(x, y, z)) || 0; }
-function isSolid(t) { return t && t !== BLOCK.WATER; }
+function isSolid(t) { return t && t !== BLOCK.WATER; }                       // 조준/설치 대상 여부
+function occludes(t) { return t && t !== BLOCK.WATER && t !== BLOCK.TORCH; } // 충돌·면 가림 여부
 function setBlock(x, y, z, t) {
-  if (t) world.set(key(x, y, z), t);
-  else world.delete(key(x, y, z));
+  const k = key(x, y, z);
+  if (t) world.set(k, t);
+  else world.delete(k);
+  if (t === BLOCK.TORCH) torches.add(k);
+  else torches.delete(k);
 }
 
 function generateWorld() {
@@ -302,6 +322,7 @@ function saveGame() {
       player: { x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch },
       slot: selectedSlot,
       health,
+      inv,
       dayTime,
     }));
   } catch (e) { /* 저장 공간 부족 등은 무시 */ }
@@ -378,7 +399,37 @@ const clouds = new THREE.Group();
 scene.add(clouds);
 
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+const torchGeo = new THREE.BoxGeometry(0.14, 0.55, 0.14);
+torchGeo.translate(0, -0.225, 0); // 칸 바닥에 세워지도록
 const chunks = new Map(); // "cx,cz" -> { solid: [mesh], water: [mesh] }
+
+// 횃불 조명 풀: 가장 가까운 횃불 5개에만 실제 광원 배치
+const torchLights = [];
+for (let i = 0; i < 5; i++) {
+  const l = new THREE.PointLight(0xffaa55, 0, 9, 2);
+  scene.add(l);
+  torchLights.push(l);
+}
+let torchFlickerT = 0;
+function updateTorchLights(dt) {
+  torchFlickerT += dt;
+  const near = [];
+  for (const k of torches) {
+    const [x, y, z] = k.split(',').map(Number);
+    const d2 = (x + 0.5 - player.pos.x) ** 2 + (y - player.pos.y) ** 2 + (z + 0.5 - player.pos.z) ** 2;
+    if (d2 < 900) near.push([d2, x, y, z]);
+  }
+  near.sort((a, b) => a[0] - b[0]);
+  for (let i = 0; i < torchLights.length; i++) {
+    const l = torchLights[i];
+    if (i < near.length) {
+      l.position.set(near[i][1] + 0.5, near[i][2] + 0.6, near[i][3] + 0.5);
+      l.intensity = 1.3 + Math.sin(torchFlickerT * 9 + i * 2) * 0.25; // 일렁임
+    } else {
+      l.intensity = 0;
+    }
+  }
+}
 
 const NEIGHBORS = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 const CHUNK_MIN = -WORLD_SIZE / 2 / CHUNK, CHUNK_MAX = WORLD_SIZE / 2 / CHUNK - 1;
@@ -400,11 +451,12 @@ function rebuildChunk(cx, cz) {
       for (let y = 0; y <= Y_MAX; y++) {
         const t = getBlock(x, y, z);
         if (!t) continue;
-        let exposed = false;
+        let exposed = t === BLOCK.TORCH; // 횃불은 항상 보임
         for (const [dx, dy, dz] of NEIGHBORS) {
+          if (exposed) break;
           const n = getBlock(x + dx, y + dy, z + dz);
-          // 물은 공기에 닿은 면만, 일반 블록은 공기나 물에 닿으면 보임
-          if (t === BLOCK.WATER ? !n : !isSolid(n)) { exposed = true; break; }
+          // 물은 공기/횃불에 닿은 면만, 일반 블록은 가리지 않는 이웃이 있으면 보임
+          if (t === BLOCK.WATER ? (!occludes(n) && n !== BLOCK.WATER) : !occludes(n)) { exposed = true; break; }
         }
         if (!exposed) continue;
         if (!byType.has(t)) byType.set(t, []);
@@ -416,7 +468,7 @@ function rebuildChunk(cx, cz) {
   const entry = { solid: [], water: [] };
   const m4 = new THREE.Matrix4();
   for (const [t, list] of byType) {
-    const mesh = new THREE.InstancedMesh(boxGeo, MATERIALS[t], list.length);
+    const mesh = new THREE.InstancedMesh(t === BLOCK.TORCH ? torchGeo : boxGeo, MATERIALS[t], list.length);
     list.forEach((p, i) => {
       m4.setPosition(p.x + 0.5, p.y + 0.5, p.z + 0.5);
       mesh.setMatrixAt(i, m4);
@@ -472,10 +524,13 @@ const soundPlace = () => playSound(240, 0.09, 'square', 0.12);
 // ---------- 파괴 파티클 ----------
 const particles = [];
 const particleGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
-function spawnParticles(x, y, z, type) {
+function spawnParticles(x, y, z, typeOrMat) {
   if (particles.length > 120) return;
-  const m = MATERIALS[type];
-  const material = Array.isArray(m) ? m[4] : m;
+  let material = typeOrMat;
+  if (typeof typeOrMat === 'number') {
+    const m = MATERIALS[typeOrMat];
+    material = Array.isArray(m) ? m[4] : m;
+  }
   for (let i = 0; i < 10; i++) {
     const mesh = new THREE.Mesh(particleGeo, material);
     mesh.position.set(x + 0.2 + Math.random() * 0.6, y + 0.2 + Math.random() * 0.6, z + 0.2 + Math.random() * 0.6);
@@ -500,6 +555,142 @@ function updateParticles(dt) {
     p.mesh.position.addScaledVector(p.vel, dt);
     p.mesh.scale.setScalar(Math.min(1, p.life * 2.5));
   }
+}
+
+// ---------- 동물 (돼지 / 양) ----------
+const animals = [];
+const ANIMAL_TYPES = [
+  { body: 0xeb9c9c, head: 0xe58f8f }, // 돼지
+  { body: 0xeceadf, head: 0xb59a7c }, // 양
+];
+function makeAnimalMesh(type) {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({ color: type.body });
+  const headMat = new THREE.MeshLambertMaterial({ color: type.head });
+  const legMat = new THREE.MeshLambertMaterial({ color: 0x6b5546 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.9), bodyMat);
+  body.position.y = 0.65;
+  g.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.35), headMat);
+  head.position.set(0, 0.85, -0.55);
+  g.add(head);
+  for (const [lx, lz] of [[-0.18, -0.3], [0.18, -0.3], [-0.18, 0.3], [0.18, 0.3]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.4, 0.14), legMat);
+    leg.position.set(lx, 0.2, lz);
+    g.add(leg);
+  }
+  g.userData.bodyMat = bodyMat;
+  return g;
+}
+function spawnAnimals() {
+  const half = WORLD_SIZE / 2;
+  for (let i = 0; i < 16; i++) {
+    const x = Math.floor(rand() * (WORLD_SIZE - 16)) - half + 8;
+    const z = Math.floor(rand() * (WORLD_SIZE - 16)) - half + 8;
+    const h = terrainHeight(x, z);
+    if (getBlock(x, h, z) !== BLOCK.GRASS) continue;
+    const mesh = makeAnimalMesh(ANIMAL_TYPES[i % 2]);
+    scene.add(mesh);
+    animals.push({
+      mesh,
+      pos: new THREE.Vector3(x + 0.5, h + 1, z + 0.5),
+      vel: new THREE.Vector3(),
+      yaw: rand() * Math.PI * 2,
+      walking: false,
+      timer: rand() * 3,
+      onGround: false,
+    });
+  }
+}
+function animalCollides(pos) {
+  const HW = 0.3, H = 0.9;
+  const minX = Math.floor(pos.x - HW), maxX = Math.floor(pos.x + HW);
+  const minY = Math.floor(pos.y), maxY = Math.floor(pos.y + H);
+  const minZ = Math.floor(pos.z - HW), maxZ = Math.floor(pos.z + HW);
+  for (let x = minX; x <= maxX; x++)
+    for (let y = minY; y <= maxY; y++)
+      for (let z = minZ; z <= maxZ; z++)
+        if (occludes(getBlock(x, y, z))) return true;
+  return false;
+}
+function updateAnimals(dt) {
+  const half = WORLD_SIZE / 2;
+  for (const a of animals) {
+    a.timer -= dt;
+    if (a.timer <= 0) {
+      a.timer = 2 + Math.random() * 4;
+      a.walking = Math.random() < 0.6;
+      a.yaw = Math.random() * Math.PI * 2;
+    }
+    // 맵 가장자리에서는 중앙 쪽으로 방향 전환
+    if (Math.abs(a.pos.x) > half - 3 || Math.abs(a.pos.z) > half - 3) {
+      a.yaw = Math.atan2(a.pos.x, a.pos.z);
+      a.walking = true;
+    }
+    const speed = a.walking ? 1.3 : 0;
+    a.vel.x = -Math.sin(a.yaw) * speed;
+    a.vel.z = -Math.cos(a.yaw) * speed;
+    a.vel.y -= GRAVITY * dt;
+    a.vel.y = Math.max(a.vel.y, -30);
+
+    let hitWall = false;
+    a.pos.x += a.vel.x * dt;
+    if (animalCollides(a.pos)) { a.pos.x -= a.vel.x * dt; hitWall = true; }
+    a.pos.z += a.vel.z * dt;
+    if (animalCollides(a.pos)) { a.pos.z -= a.vel.z * dt; hitWall = true; }
+    if (hitWall && a.onGround) a.vel.y = 7; // 한 칸 자동 점프
+
+    const prevY = a.pos.y;
+    a.pos.y += a.vel.y * dt;
+    if (animalCollides(a.pos)) {
+      if (a.vel.y < 0) {
+        a.pos.y = Math.ceil(a.pos.y);
+        if (animalCollides(a.pos)) a.pos.y = prevY;
+        a.onGround = true;
+      } else {
+        a.pos.y = prevY;
+      }
+      a.vel.y = 0;
+    } else if (a.vel.y !== 0) {
+      a.onGround = false;
+    }
+    // 물에 빠지면 떠오름
+    if (getBlock(Math.floor(a.pos.x), Math.floor(a.pos.y + 0.3), Math.floor(a.pos.z)) === BLOCK.WATER) {
+      a.vel.y = Math.max(a.vel.y, 2.5);
+    }
+    a.mesh.position.copy(a.pos);
+    a.mesh.rotation.y = a.yaw;
+  }
+}
+// 조준선 방향의 동물 공격 (레이 -AABB 판정)
+function attackAnimal() {
+  camera.getWorldDirection(_dir);
+  const o = camera.position;
+  let best = null, bestT = REACH;
+  for (const a of animals) {
+    const min = [a.pos.x - 0.4, a.pos.y, a.pos.z - 0.45];
+    const max = [a.pos.x + 0.4, a.pos.y + 1.05, a.pos.z + 0.45];
+    const oArr = [o.x, o.y, o.z], dArr = [_dir.x, _dir.y, _dir.z];
+    let t0 = 0, t1 = bestT, ok = true;
+    for (let i = 0; i < 3; i++) {
+      if (Math.abs(dArr[i]) < 1e-9) {
+        if (oArr[i] < min[i] || oArr[i] > max[i]) { ok = false; break; }
+      } else {
+        let ta = (min[i] - oArr[i]) / dArr[i], tb = (max[i] - oArr[i]) / dArr[i];
+        if (ta > tb) { const tmp = ta; ta = tb; tb = tmp; }
+        t0 = Math.max(t0, ta);
+        t1 = Math.min(t1, tb);
+        if (t0 > t1) { ok = false; break; }
+      }
+    }
+    if (ok && t0 < bestT) { best = a; bestT = t0; }
+  }
+  if (!best) return false;
+  scene.remove(best.mesh);
+  animals.splice(animals.indexOf(best), 1);
+  spawnParticles(best.pos.x - 0.5, best.pos.y, best.pos.z - 0.5, best.mesh.userData.bodyMat);
+  playSound(330, 0.25, 'sine', 0.2);
+  return true;
 }
 
 // ---------- 플레이어 ----------
@@ -527,6 +718,7 @@ function respawn() {
   health = MAX_HEALTH;
   air = MAX_AIR;
   fallDist = 0;
+  drownTimer = 0;
 }
 
 function damage(n) {
@@ -543,9 +735,15 @@ addEventListener('keydown', (e) => {
   keys[e.code] = true;
   const n = parseInt(e.key, 10);
   if (n >= 1 && n <= HOTBAR.length) selectSlot(n - 1);
-  if (e.code === 'KeyF') { flying = !flying; player.vel.y = 0; fallDist = 0; }
+  if (e.code === 'KeyF' && playing()) { flying = !flying; player.vel.y = 0; fallDist = 0; }
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
+// 창 포커스를 잃으면 눌린 키가 고착되지 않도록 초기화
+addEventListener('blur', () => {
+  for (const k in keys) keys[k] = false;
+  touchJump = false;
+  stopAttack();
+});
 
 function playerCollides(pos) {
   const minX = Math.floor(pos.x - PLAYER_HALF_W), maxX = Math.floor(pos.x + PLAYER_HALF_W);
@@ -554,7 +752,7 @@ function playerCollides(pos) {
   for (let x = minX; x <= maxX; x++)
     for (let y = minY; y <= maxY; y++)
       for (let z = minZ; z <= maxZ; z++)
-        if (isSolid(getBlock(x, y, z))) return true;
+        if (occludes(getBlock(x, y, z))) return true;
   return false;
 }
 
@@ -748,7 +946,7 @@ document.getElementById('resetBtn').addEventListener('click', (e) => {
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   overlay.style.display = locked ? 'none' : 'flex';
-  if (!locked) saveGame();
+  if (!locked) { saveGame(); stopAttack(); }
 });
 document.addEventListener('mousemove', (e) => {
   if (!locked) return;
@@ -830,8 +1028,8 @@ function bindBtn(id, onDown, onUp) {
   }
 }
 bindBtn('btnJump', () => { touchJump = true; }, () => { touchJump = false; });
-bindBtn('btnBreak', () => doAction(0));
-bindBtn('btnPlace', () => doAction(2));
+bindBtn('btnBreak', () => startAttack(), () => stopAttack());
+bindBtn('btnPlace', () => doPlace());
 bindBtn('btnPause', () => {
   touchPlaying = false;
   touchJump = false;
@@ -902,33 +1100,109 @@ function blockIntersectsPlayer(b) {
 }
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-function doAction(button) {
+
+// ---------- 채굴(꾹 눌러 캐기) / 설치 ----------
+let mining = false;
+let mineTarget = null;
+let mineProgress = 0;
+
+function startAttack() {
+  if (!playing()) return;
+  if (attackAnimal()) return; // 조준선에 동물이 있으면 즉시 공격
+  mining = true;
+}
+function stopAttack() {
+  mining = false;
+  mineTarget = null;
+  mineProgress = 0;
+}
+
+function doPlace() {
   if (!playing()) return;
   const pick = pickBlock();
   if (!pick) return;
-  if (button === 0) {
-    const b = pick.block;
-    const type = getBlock(b.x, b.y, b.z);
-    editBlock(b.x, b.y, b.z, 0);
-    spawnParticles(b.x, b.y, b.z, type);
-    soundBreak();
-  } else if (button === 2) {
-    const a = pick.adjacent;
-    if (a.y < 0 || a.y > Y_MAX) return;
-    // 빈 칸이나 물 칸에 설치 가능 (물은 블록으로 대체)
-    if (!isSolid(getBlock(a.x, a.y, a.z)) && !blockIntersectsPlayer(a)) {
-      editBlock(a.x, a.y, a.z, HOTBAR[selectedSlot]);
-      soundPlace();
-    }
+  const a = pick.adjacent;
+  if (a.y < 0 || a.y > Y_MAX) return;
+  const type = HOTBAR[selectedSlot];
+  if (inv[type] <= 0) { playSound(140, 0.08, 'square', 0.08); return; } // 재고 없음
+  // 빈 칸이나 물 칸에 설치 가능 (물은 블록으로 대체), 횃불은 몸과 겹쳐도 됨
+  if (!isSolid(getBlock(a.x, a.y, a.z)) && (type === BLOCK.TORCH || !blockIntersectsPlayer(a))) {
+    editBlock(a.x, a.y, a.z, type);
+    inv[type]--;
+    updateHotbar();
+    soundPlace();
   }
 }
+
+// 균열 텍스처 (4단계)
+function crackTexture(stage) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 16;
+  const ctx = c.getContext('2d');
+  const r = mulberry32(stage * 17 + 3);
+  ctx.strokeStyle = 'rgba(20,20,20,0.85)';
+  for (let i = 0; i < (stage + 1) * 4; i++) {
+    const x = r() * 16, y = r() * 16;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + (r() - 0.5) * 9, y + (r() - 0.5) * 9);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.magFilter = THREE.NearestFilter;
+  return tex;
+}
+const crackTexs = [0, 1, 2, 3].map(crackTexture);
+const crackMat = new THREE.MeshBasicMaterial({ map: crackTexs[0], transparent: true, depthWrite: false });
+const crackMesh = new THREE.Mesh(boxGeo, crackMat);
+crackMesh.scale.setScalar(1.004);
+crackMesh.visible = false;
+scene.add(crackMesh);
+
+function updateMining(dt) {
+  if (!mining || !playing()) { crackMesh.visible = false; return; }
+  const pick = pickBlock();
+  if (!pick) { crackMesh.visible = false; mineTarget = null; mineProgress = 0; return; }
+  const b = pick.block;
+  if (!mineTarget || mineTarget.x !== b.x || mineTarget.y !== b.y || mineTarget.z !== b.z) {
+    mineTarget = b;
+    mineProgress = 0;
+  }
+  const type = getBlock(b.x, b.y, b.z);
+  mineProgress += dt / (HARDNESS[type] || 1);
+  if (mineProgress >= 1) {
+    editBlock(b.x, b.y, b.z, 0);
+    const drop = DROPS[type];
+    if (drop) { inv[drop[0]] = (inv[drop[0]] || 0) + drop[1]; updateHotbar(); }
+    spawnParticles(b.x, b.y, b.z, type);
+    soundBreak();
+    mineTarget = null;
+    mineProgress = 0;
+    crackMesh.visible = false;
+    return;
+  }
+  crackMesh.position.set(b.x + 0.5, b.y + 0.5, b.z + 0.5);
+  crackMat.map = crackTexs[Math.min(3, Math.floor(mineProgress * 4))];
+  crackMesh.visible = true;
+}
+
 document.addEventListener('mousedown', (e) => {
   if (!locked) return;
-  doAction(e.button);
+  if (e.button === 0) startAttack();
+  else if (e.button === 2) doPlace();
+});
+document.addEventListener('mouseup', (e) => {
+  if (e.button === 0) stopAttack();
 });
 
-// ---------- 핫바 ----------
+// ---------- 핫바 / 인벤토리 ----------
 let selectedSlot = 0;
+// 블록은 캐서 모아야 설치할 수 있음 (시작 지급: 횃불 2개)
+const inv = {
+  [BLOCK.GRASS]: 0, [BLOCK.DIRT]: 0, [BLOCK.STONE]: 0, [BLOCK.WOOD]: 0,
+  [BLOCK.LEAVES]: 0, [BLOCK.SAND]: 0, [BLOCK.TORCH]: 2,
+};
+const slotCnts = [];
 const hotbarEl = document.getElementById('hotbar');
 const slotEls = HOTBAR.map((t, i) => {
   const slot = document.createElement('div');
@@ -944,6 +1218,10 @@ const slotEls = HOTBAR.map((t, i) => {
   icon.width = src.width; icon.height = src.height;
   icon.getContext('2d').drawImage(src, 0, 0);
   slot.appendChild(icon);
+  const cnt = document.createElement('div');
+  cnt.className = 'cnt';
+  slot.appendChild(cnt);
+  slotCnts.push(cnt);
   slot.addEventListener('click', () => selectSlot(i)); // 터치/마우스로 슬롯 직접 선택
   hotbarEl.appendChild(slot);
   return slot;
@@ -951,6 +1229,12 @@ const slotEls = HOTBAR.map((t, i) => {
 function selectSlot(i) {
   selectedSlot = i;
   slotEls.forEach((el, j) => el.classList.toggle('selected', j === i));
+}
+function updateHotbar() {
+  HOTBAR.forEach((t, i) => {
+    slotCnts[i].textContent = inv[t];
+    slotEls[i].classList.toggle('empty', inv[t] <= 0);
+  });
 }
 addEventListener('wheel', (e) => {
   if (!locked) return;
@@ -981,12 +1265,18 @@ if (save) {
   }
   if (typeof save.dayTime === 'number') dayTime = save.dayTime;
   if (typeof save.health === 'number') health = Math.min(MAX_HEALTH, Math.max(1, save.health));
+  if (save.inv) for (const k in inv) inv[k] = Math.max(0, save.inv[k] | 0);
   selectSlot(save.slot >= 0 && save.slot < HOTBAR.length ? save.slot : 0);
 } else {
   selectSlot(0);
 }
+updateHotbar();
 
 rebuildAllChunks();
+spawnAnimals();
+// 첫 프레임 전에 카메라를 플레이어 위치로
+camera.position.set(player.pos.x, player.pos.y + EYE_HEIGHT, player.pos.z);
+camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
 
 setInterval(saveGame, 10000);
 addEventListener('beforeunload', saveGame);
@@ -1001,6 +1291,9 @@ function loop(now) {
   updateSky(dt);
   updateClouds(dt);
   updateParticles(dt);
+  updateAnimals(dt);
+  updateMining(dt);
+  updateTorchLights(dt);
   updateHighlight();
   updateHud(dt);
   waterT += dt;
