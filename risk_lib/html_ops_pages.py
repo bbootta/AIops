@@ -615,6 +615,62 @@ def page_kri_trends(r: PipelineResult) -> str:
     return _page("KRI 트렌드", body, "22_kri_trends.html")
 
 
+def page_data_quality(r: PipelineResult, portfolio: pd.DataFrame) -> str:
+    from risk_lib.data_quality import dq_report, reconcile
+    dq = dq_report(portfolio)
+    rec = reconcile(r, portfolio)
+
+    flag_html = "".join(
+        f'<div class="callout {"bad" if f.startswith("FAIL") else ""}">{_esc(f)}</div>'
+        for f in dq.flags) or '<div class="callout good">기초 DQ 모든 항목 정상</div>'
+
+    schema_rows = [[r2["column"], r2["dtype"], f"{r2['n_null']:,}",
+                    f"{r2['pct_null']*100:.2f}%"]
+                   for _, r2 in dq.schema.iterrows()]
+    num_rows = [[r2["column"], f"{r2['min']:,.3g}", f"{r2['p5']:,.3g}",
+                 f"{r2['median']:,.3g}", f"{r2['p95']:,.3g}",
+                 f"{r2['max']:,.3g}", f"{r2['n_outliers']:,}"]
+                for _, r2 in dq.numeric.iterrows()]
+    cat_rows = [[r2["column"], f"{r2['n_unique']:,}", _esc(r2["top"]),
+                 f"{r2['top_count']:,}"]
+                for _, r2 in dq.categorical.iterrows()]
+    rec_rows = [[c.item, c.source,
+                 _won(c.computed) if abs(c.computed) > 1 else f"{c.computed:.6g}",
+                 _won(c.reported) if abs(c.reported) > 1 else f"{c.reported:.6g}",
+                 f"{c.diff:+.3g}",
+                 _badge("PASS" if c.passes else "FAIL", "PASS" if c.passes else "FAIL")]
+                for c in rec]
+
+    body = f"""
+<h1 class="title">25. 데이터품질 + 정합성 reconciliation</h1>
+<p class="section-lead">CRO가 "이 숫자 어디서 나왔어?" 물을 때 답하는 페이지.
+입력 데이터 품질 진단 + 보고 헤드라인을 raw 합계로 환원 검증.</p>
+
+<div class="card"><h2>25-1. DQ 플래그</h2>
+{flag_html}
+</div>
+
+<div class="card"><h2>25-2. Reconciliation — 헤드라인 vs raw 합계</h2>
+{_table(["항목","출처","계산값","보고값","차이","상태"], rec_rows, right_cols=[2,3,4])}
+<p class="section-lead">모든 행이 PASS여야 결재 가능. FAIL은 산식 또는 분류 정합성에 문제가 있는 것.</p>
+</div>
+
+<div class="card"><h2>25-3. 스키마 (컬럼 × 결측)</h2>
+{_table(["컬럼","dtype","결측 수","결측 %"], schema_rows, right_cols=[2,3])}
+</div>
+
+<div class="card"><h2>25-4. 수치 컬럼 분포</h2>
+{_table(["컬럼","min","P5","median","P95","max","outlier 수 (±3σ)"], num_rows,
+        right_cols=[1,2,3,4,5,6])}
+</div>
+
+<div class="card"><h2>25-5. 범주 컬럼</h2>
+{_table(["컬럼","고유값 수","최빈값","최빈값 빈도"], cat_rows, right_cols=[1,3])}
+</div>
+"""
+    return _page("DQ·정합성", body, "25_data_quality.html")
+
+
 def page_vintage(r: PipelineResult, portfolio: pd.DataFrame) -> str:
     from risk_lib.vintage import build_vintage, transition_matrix
     from risk_lib.models.rating import pd_to_rating

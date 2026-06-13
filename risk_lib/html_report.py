@@ -90,6 +90,7 @@ NAV = [
     ("22_kri_trends.html","22. KRI 트렌드"),
     ("23_attribution.html","23. 귀속분석"),
     ("24_vintage.html",   "24. Vintage"),
+    ("25_data_quality.html","25. DQ·정합성"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -1145,6 +1146,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         page_climate, page_ccr, page_op_loss, page_sensitivity,
         page_model_risk, page_concentration_deep, page_raf, page_pillar3,
         page_mda, page_kri_trends, page_attribution, page_vintage,
+        page_data_quality,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -1179,6 +1181,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)
         pages["24_vintage.html"] = page_vintage(result, portfolio)
+        pages["25_data_quality.html"] = page_data_quality(result, portfolio)
     written = {}
     for name, content in pages.items():
         p = out / name

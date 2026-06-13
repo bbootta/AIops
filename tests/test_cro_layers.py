@@ -359,6 +359,26 @@ def test_transition_matrix_row_sums_to_one():
         assert row.sum() == pytest.approx(1.0, abs=1e-9)
 
 
+# ---- data quality / reconciliation --------------------------------------
+
+def test_dq_report_columns():
+    from risk_lib.data_quality import dq_report
+    p = generate_portfolio(seed=42)
+    dq = dq_report(p)
+    assert len(dq.schema) == len(p.columns)
+    # exposure_id is unique → no FAIL flag for duplicates
+    fail_flags = [f for f in dq.flags if f.startswith("FAIL")]
+    assert all("중복" not in f for f in fail_flags)
+
+
+def test_reconciliation_all_pass(result):
+    from risk_lib.data_quality import reconcile
+    p = generate_portfolio(seed=42)
+    rec = reconcile(result, p)
+    assert all(c.passes for c in rec), \
+        [c for c in rec if not c.passes]
+
+
 def test_full_package_writes_files(tmp_path, result):
     from risk_lib.html_report import build_full_report_package
     from risk_lib.repro import build_manifest, now_utc
@@ -375,6 +395,6 @@ def test_full_package_writes_files(tmp_path, result):
               "16_sensitivity.html", "17_model_risk.html",
               "18_concentration_deep.html", "19_raf.html", "20_pillar3.html",
               "21_mda.html", "22_kri_trends.html", "23_attribution.html",
-              "24_vintage.html"]:
+              "24_vintage.html", "25_data_quality.html"]:
         assert (out / "ops" / n).exists(), f"missing {n}"
     assert (out / "manifest.json").exists()
