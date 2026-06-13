@@ -287,3 +287,88 @@ def quarterly_panel(*, n_quarters: int = 4, seed: int = 31) -> list[dict]:
             "hhi": round(hhi, 4),
         })
     return panel
+
+
+def market_var_pnl_panel(*, n_days: int = 250, seed: int = 41) -> list[dict]:
+    """일일 P&L vs VaR backtest panel (결정론적).
+
+    실현 P&L 이 사전 VaR 한도를 초과한 일자를 표시. 합성 데이터로 BCBS MAR99
+    traffic light 와 동일 schema 의 backtest 데이터셋을 만든다.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(seed)
+    var_99 = -2.33  # 표준화 99% VaR (정규 가정)
+    pnl_z = rng.standard_normal(n_days)
+    # 일부 fat tail (stress 일자)
+    stress_idx = rng.choice(n_days, size=max(1, n_days // 50), replace=False)
+    pnl_z[stress_idx] -= rng.uniform(1.0, 2.5, size=len(stress_idx))
+    pnl = pnl_z  # 단위 변환 없이 정규화 P&L
+    panel = []
+    for d in range(n_days):
+        excess = bool(pnl[d] < var_99)
+        panel.append({
+            "day": d + 1,
+            "pnl": round(float(pnl[d]), 4),
+            "var_99": var_99,
+            "exception": excess,
+        })
+    return panel
+
+
+def operational_loss_scenarios(*, seed: int = 53) -> list[dict]:
+    """운영리스크 시나리오 손실 표 (rogue trader / IT 장애 / 외부 사기 / 자연재해).
+
+    BCBS OPE25 의 ILDC 사용 시 input 이 되는 시나리오 frequency/severity 가정.
+    본 표는 가정값이며 운영 시스템에서는 자체 LDA 결과로 대체된다.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(seed)
+    types = [
+        ("Rogue Trader", "Internal Fraud", 0.5, 2_000.0),
+        ("IT 장애 (24h+)", "Business Disruption", 2.0, 500.0),
+        ("외부 사기 (대규모)", "External Fraud", 1.5, 800.0),
+        ("자연재해 (지점)", "Damage to Physical Assets", 0.2, 300.0),
+        ("규제 제재", "Clients/Products & Business Practices", 0.3, 1_500.0),
+        ("내부 절차 실패", "Execution, Delivery & Process Management", 5.0, 150.0),
+    ]
+    scenarios = []
+    for name, basel_class, freq, sev_mean in types:
+        # 단순 가정 — frequency × severity_mean (참고용)
+        annual_expected = freq * sev_mean
+        # 99% 손실 추정 (lognormal 근사)
+        sigma = 0.8
+        sev_99 = float(sev_mean * np.exp(2.326 * sigma))
+        scenarios.append({
+            "scenario": name,
+            "basel_event_class": basel_class,
+            "frequency_per_year": freq,
+            "severity_mean_bn": sev_mean,
+            "annual_expected_bn": round(annual_expected, 2),
+            "severity_99_bn": round(sev_99, 2),
+        })
+    _ = rng  # 결정론 — 단순 가정 표
+    return scenarios
+
+
+def macroprudential_overlay() -> dict:
+    """Macroprudential overlay 상태 — DSR/LTV/CCyB/SyRB.
+
+    감독원 거시건전성 조치 현황 (시행세칙 + 금융위 공시) 의 자동 점검 매핑.
+    본 값은 자동 점검 시연용 합성 입력이며 운영 시스템에서는 실제 정책 인용.
+    """
+    return {
+        "ccyb_required_pct": 0.0,  # 현재 0%
+        "ccyb_buffer_active": False,
+        "syrb_required_pct": 0.0,  # 시스템적 위험 buffer
+        "dti_household_ratio": 0.40,  # DSR 평균 (가정)
+        "ltv_residential_avg": 0.55,
+        "ltv_residential_warning": 0.70,
+        "leverage_buffer_for_gsib": 0.0,  # 국내 D-SIB 만 적용
+        "framework_versions": {
+            "ccyb": "BCBS d189 §136-145 + 시행세칙 [별표 3]",
+            "ltv_dsr": "주택담보대출 규제 (감독시행세칙) + 가계대출 관리방안",
+            "syrb": "BCBS d189 §157 + 시행세칙",
+        },
+    }

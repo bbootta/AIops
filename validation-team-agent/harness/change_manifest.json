@@ -1635,6 +1635,21 @@
       "rollback_rule": "data_quality_deep.html 등록 제거 시 R43 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0110",
+      "timestamp": "2026-06-13 14:23:04",
+      "component": "tools/sample_generators.py (3 new) + tools/report_pack.py (4 new deep pages)",
+      "change_type": "create",
+      "evidence": "/goal CRO 보고 수준 R45: 모든 부문 Deep dive 완료를 위해 CVA counterparty 분해/시장 backtest P&L/운영 손실 시나리오/Macroprudential overlay 4개 영역 추가 필요",
+      "root_cause": "R44 까지 자본/ICAAP/ALM/IRRBB/운영(BIC)/CCR/데이터는 deep 페이지 있으나 CVA(counterparty 분해), 시장(VaR backtest 일자별 P&L), 운영(BCBS 7 event class 시나리오), Macro overlay(CCyB/DSR/LTV) 가 없었음",
+      "targeted_fix": "sample_generators 에 market_var_pnl_panel (250일 P&L + 예외 표시), operational_loss_scenarios (BCBS 7 event class), macroprudential_overlay (CCyB/DSR/LTV/SyRB). report_pack 에 4 deep 페이지: cva_deep (BA/SA-CVA + top counterparty), market_backtest_deep (P&L panel + 예외 일자표 + traffic light), op_scenario_deep (시나리오 frequency × severity + 99% 손실), macro_overlay (CCyB/DSR/LTV/SyRB 표 + 출처 attribution)",
+      "expected_benefit": "모든 Basel 부문에서 2단계 drill-down 가능. CVA/시장/운영의 분해 분석 + 거시건전성 정책 overlay 까지 한 팩에 포함. 23 페이지 완성",
+      "expected_regression_risk": "low — 신규 sample/page 만, 기존 페이지 무변경 (market_ops/index/executive 에 link 추가)",
+      "validation_method": "tests/test_v2_round45.py 16 cases (sample 결정성/event class/임계/페이지/링크/self-contained) + 전체 719 통과 + ruff/mypy green",
+      "rollback_rule": "4 신규 페이지 등록 + sample 함수 + link 제거 시 R44 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

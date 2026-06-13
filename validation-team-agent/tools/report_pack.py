@@ -420,8 +420,11 @@ def _market_ops_page(demo: dict) -> str:
             ("심화", '<a href="ccr_deep.html">SA-CCR EAD 분해 →</a>')])}
 <h2>심화 분석 (Drill-down)</h2>
 <ul>
-<li><a href="operational_deep.html">운영리스크 SMA — BI 구성·BIC 구간 →</a></li>
-<li><a href="ccr_deep.html">SA-CCR EAD 분해 (RC + PFE × α) →</a></li>
+<li><a href="market_backtest_deep.html">시장 — VaR backtest P&amp;L 분해 (250일) →</a></li>
+<li><a href="operational_deep.html">운영 — SMA BI 구성·BIC 구간 →</a></li>
+<li><a href="op_scenario_deep.html">운영 — 손실 시나리오 (BCBS 7 event class) →</a></li>
+<li><a href="cva_deep.html">CVA — counterparty 분해 →</a></li>
+<li><a href="ccr_deep.html">CCR — SA-CCR EAD 분해 (RC + PFE × α) →</a></li>
 </ul>
 <h2>왜 이 결과인가 (Explainability)</h2>
 <p>{narrate("3.market", mkt)}</p>
@@ -545,6 +548,244 @@ def _challenger_page(request: dict) -> str:
 <p><a href="credit.html">← 신용평가모형 상세로 돌아가기</a></p>
 """
     return _page("심화 — 챔피언 vs 챌린저 비교", body)
+
+
+def _cva_deep_page(request: dict) -> str:
+    """CVA counterparty 분해 — BA-CVA 산식 + counterparty별 sCVA."""
+    cps = request.get("cva_counterparty_inputs") or []
+    if not cps:
+        return _page("심화 — CVA counterparty 분해",
+                     "<p>CVA counterparty 입력 미제공.</p>")
+
+    # 정렬 (sCVA 큰 순)
+    sorted_cps = sorted(cps, key=lambda r: -float(r.get("scva", 0)))
+    top_n = min(15, len(sorted_cps))
+
+    rows = "".join(
+        f"<tr><td><code>{_esc(c['name'])}</code></td>"
+        f"<td>{float(c['scva']):.4f}</td>"
+        f"<td>{float(c['scva']) / sum(float(x['scva']) for x in cps):.2%}</td></tr>"
+        for c in sorted_cps[:top_n])
+
+    chart = hbar(
+        [(c["name"], float(c["scva"])) for c in sorted_cps[:top_n]],
+        title=f"Top {top_n} counterparty — sCVA", fmt="{:.2f}")
+
+    # BA-CVA 합계
+    total_scva = sum(float(c["scva"]) for c in cps)
+    book_size = float(request.get("cva_trading_book_size_eur_bn", 0))
+    sa_threshold = 100.0  # bn EUR — BCBS MAR50
+
+    body = f"""
+<p>CVA(Credit Valuation Adjustment) 의 counterparty 별 분해. BCBS MAR50.</p>
+
+<h2>BA-CVA 산식 (단순화)</h2>
+<table>
+<tr><th>요소</th><th>값</th></tr>
+<tr><th>n_counterparties</th><td>{len(cps)}</td></tr>
+<tr><th>Σ sCVA (counterparty 별 CVA 합계)</th><td>{total_scva:.4f}</td></tr>
+<tr><th>BA-CVA (단순 합)</th><td>{total_scva:.4f}</td></tr>
+<tr><th>트레이딩북 규모 (bn EUR)</th><td>{book_size:,.1f}</td></tr>
+<tr><th>SA-CVA 적용 임계 (BCBS MAR50)</th><td>{sa_threshold:.0f} bn</td></tr>
+<tr><th>SA-CVA 적용 여부</th><td>
+{'<b style=color:#c62828>적용 대상 — 모형 승인 절차 필요</b>' if book_size >= sa_threshold else '미적용 (BA-CVA 만)'}
+</td></tr>
+</table>
+
+{chart}
+
+<h2>Top {top_n} counterparty</h2>
+<table>
+<tr><th>Counterparty</th><th>sCVA</th><th>전체 대비 비중</th></tr>
+{rows}
+</table>
+
+<h2>해석 (검증 관점)</h2>
+<ul>
+<li><b>BA-CVA (Basic Approach)</b>: counterparty 별 sCVA 의 단순 합. hedging
+benefit 반영 가능 (BCBS MAR50 §51).</li>
+<li><b>SA-CVA (Standardised Approach)</b>: 트레이딩북 100bn EUR 초과 시 모형
+승인 후 적용. delta · vega · curvature risk 분해.</li>
+<li><b>Wrong-Way Risk</b>: 거래상대방 신용도 악화와 시장가 손실이 동시 발생하는
+구조 — 별도 식별 + α 조정. 본 자동 점검 범위 밖.</li>
+<li>본 집계는 합성 input 이며 운영 적용은 트레이딩 시스템 + 모형 위원회 검토
+필요.</li>
+</ul>
+<p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
+"""
+    return _page("심화 — CVA counterparty 분해 (BA-CVA / SA-CVA)", body)
+
+
+def _market_backtest_deep_page(demo: dict) -> str:
+    """VaR backtest P&L 분해 — 250일 panel + 예외 일자 표시."""
+    from tools.sample_generators import market_var_pnl_panel
+
+    mkt = _step_row(demo, "3.market")
+    panel = market_var_pnl_panel()
+    exceptions = [r for r in panel if r["exception"]]
+    n_exc = len(exceptions)
+    var_99 = panel[0]["var_99"]
+
+    chart = trend_line(
+        [(str(r["day"]), r["pnl"]) for r in panel[::5]],  # 5일 간격 sampling
+        title="P&L (5일 간격, 빨간 점선 = 99% VaR)", fmt="{:+.2f}",
+        minimum=var_99)
+
+    exc_rows = "".join(
+        f"<tr><td>D+{r['day']}</td><td>{r['pnl']:+.4f}</td>"
+        f"<td>{r['var_99']:.2f}</td>"
+        f"<td>{r['pnl'] - r['var_99']:+.4f}</td></tr>"
+        for r in exceptions)
+
+    zone = ("green" if n_exc <= 4 else "yellow" if n_exc <= 9 else "red")
+    zone_color = {"green": PALETTE["ok"], "yellow": PALETTE["warning"],
+                  "red": PALETTE["fail"]}[zone]
+
+    body = f"""
+<p>VaR backtest (BCBS MAR99) — 250 영업일 P&L 시계열에서 실현손실이 사전
+99% VaR 한도를 초과한 일자 수. 합성 panel 기반 시연.</p>
+
+<h2>Traffic Light 판정</h2>
+<table>
+<tr><th>예외 건수</th><td>{n_exc} / 250</td></tr>
+<tr><th>Zone</th>
+<td><span class="badge" style="background:{zone_color}">{zone.upper()}</span></td></tr>
+<tr><th>기준 (BCBS MAR99)</th>
+<td>green ≤ 4 · yellow 5 ~ 9 · red ≥ 10</td></tr>
+<tr><th>handler 결과</th>
+<td>{_esc(mkt.get('detail', '-'))}</td></tr>
+</table>
+
+{chart}
+
+<h2>예외 일자 분해 ({n_exc} 건)</h2>
+<table>
+<tr><th>일자</th><th>실현 P&L</th><th>VaR_99</th><th>초과 (PnL − VaR)</th></tr>
+{exc_rows or "<tr><td colspan='4'>예외 없음</td></tr>"}
+</table>
+
+<h2>해석 (시장리스크 검증)</h2>
+<ul>
+<li><b>yellow zone (5~9)</b>: 모형 multiplier 가산 (기본 3.0 → 최대 4.0,
+BCBS MAR99 §32.9). 원인 분석 보고.</li>
+<li><b>red zone (≥10)</b>: 모형 부적합 — 즉시 재검증 + 한도 일시 축소.</li>
+<li><b>clustered exceptions</b>: 시간적 군집(예: 5일 내 3건 이상) 발견 시
+모형 분포 가정 (정규) 부적합 신호 — SVaR + ES 보완 검토.</li>
+<li>본 panel 은 합성 — 운영 backtest 는 일별 실현 P&L + 사전 VaR 한도 dataset
+가 trader-level 로 산정되어야 한다.</li>
+</ul>
+<p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
+"""
+    return _page("심화 — 시장 VaR Backtest P&L 분해 (250일)", body)
+
+
+def _op_scenario_deep_page() -> str:
+    """운영리스크 손실 시나리오 표 — BCBS 7 event class 매핑."""
+    from tools.sample_generators import operational_loss_scenarios
+
+    scenarios = operational_loss_scenarios()
+    rows = "".join(
+        f"<tr><td>{_esc(s['scenario'])}</td>"
+        f"<td><code>{_esc(s['basel_event_class'])}</code></td>"
+        f"<td>{s['frequency_per_year']:.1f}</td>"
+        f"<td>{s['severity_mean_bn']:,.0f}</td>"
+        f"<td>{s['annual_expected_bn']:,.0f}</td>"
+        f"<td>{s['severity_99_bn']:,.0f}</td></tr>"
+        for s in scenarios)
+
+    chart = hbar(
+        [(s["scenario"], s["annual_expected_bn"]) for s in scenarios],
+        title="Scenario 별 연간 기대 손실 (bn)", fmt="{:,.0f}",
+        colors=[PALETTE["warning"]] * len(scenarios))
+
+    chart_99 = hbar(
+        [(s["scenario"], s["severity_99_bn"]) for s in scenarios],
+        title="Scenario 별 99% 손실 추정 (lognormal, σ=0.8)", fmt="{:,.0f}",
+        colors=[PALETTE["fail"]] * len(scenarios))
+
+    body = f"""
+<p>BCBS 7개 손실 event class 매핑 시나리오 — Internal Fraud / External Fraud
+/ Business Disruption / Damage to Physical Assets / Clients & Products /
+Execution & Process Management / Employment Practices.</p>
+<p>본 표는 ILDC (Internal Loss Data Component) 도입 시 가정 input 의 schema
+이며, 운영 시스템에서는 자체 10년 loss data 로 대체된다 (감독원 ILM=1 미적용
+조건).</p>
+
+{chart}
+{chart_99}
+
+<h2>시나리오 표</h2>
+<table>
+<tr><th>시나리오</th><th>BCBS Event Class</th><th>frequency/yr</th>
+<th>severity mean</th><th>연간 기대</th><th>severity 99%</th></tr>
+{rows}
+</table>
+
+<h2>해석 (운영리스크 검증)</h2>
+<ul>
+<li><b>국내 기준 ILM = 1</b>: 본 시나리오는 ILDC 도입 시 input 의 schema 시연.
+운영 시스템에서는 자체 손실 데이터 (10년) 가 사용되며 ILM ≠ 1.</li>
+<li><b>severity 99%</b>: lognormal(σ=0.8) 근사 — 실제 LDA 는 EVT
+(extreme value theory) 또는 Mixture 분포 사용.</li>
+<li><b>경계 시나리오</b>: rogue trader / 규제 제재 같은 tail 시나리오는
+frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.</li>
+<li>본 표는 합성 가정 — 운영 시스템에서는 ORX/internal LDA + 인간 검증자
+검토 후 사용.</li>
+</ul>
+<p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
+"""
+    return _page("심화 — 운영리스크 손실 시나리오", body)
+
+
+def _macro_overlay_page() -> str:
+    """Macroprudential overlay — CCyB, DSR, LTV, SyRB."""
+    from tools.sample_generators import macroprudential_overlay
+
+    m = macroprudential_overlay()
+    body = f"""
+<p>거시건전성 정책 overlay — 자본/대출 규제. 본 페이지는 자동 점검 시연용
+합성 input 이며 운영 시스템에서는 감독원 고시·금융위 공시·시행세칙의 실제
+값으로 대체된다.</p>
+
+<h2>거시건전성 buffer / 비율</h2>
+<table>
+<tr><th>지표</th><th>현재</th><th>임계/경고</th><th>출처</th></tr>
+<tr><th>CCyB (경기대응 buffer)</th>
+<td>{m['ccyb_required_pct']:.2%}</td>
+<td>0~2.5% (감독원 분기 결정)</td>
+<td><code>{_esc(m['framework_versions']['ccyb'])}</code></td></tr>
+<tr><th>SyRB (시스템적 위험 buffer)</th>
+<td>{m['syrb_required_pct']:.2%}</td>
+<td>0~3.5% (BCBS d189)</td>
+<td><code>{_esc(m['framework_versions']['syrb'])}</code></td></tr>
+<tr><th>가계 DSR 평균</th>
+<td>{m['dti_household_ratio']:.0%}</td>
+<td>40% (감독원 권고선)</td>
+<td><code>{_esc(m['framework_versions']['ltv_dsr'])}</code></td></tr>
+<tr><th>주담대 LTV 평균</th>
+<td>{m['ltv_residential_avg']:.0%}</td>
+<td>≤ {m['ltv_residential_warning']:.0%} 경고</td>
+<td><code>{_esc(m['framework_versions']['ltv_dsr'])}</code></td></tr>
+<tr><th>D-SIB Leverage 추가</th>
+<td>{m['leverage_buffer_for_gsib']:.2%}</td>
+<td>G-SIB 시 1.0~3.5%</td>
+<td>BCBS d365</td></tr>
+</table>
+
+<h2>해석 (정책 overlay)</h2>
+<ul>
+<li><b>CCyB</b>: 신용/GDP gap 상승 시 0% → 최대 2.5% 까지 단계 적용. 감독원
+분기 결정 (시행세칙). 본 buffer 는 capital_adequacy_thresholds 에 직접 반영.</li>
+<li><b>DSR/LTV</b>: 가계대출 위험가중치 산정 시 입력. 본 자동 점검은 평균
+수치 점검만 — segment 별 (소득·LTV bucket) 분석은 별도 영역.</li>
+<li><b>D-SIB 가산</b>: 국내 D-SIB 지정 은행은 1.0% 가산 (시행세칙). 본 페이지의
+0% 는 합성 가정.</li>
+<li>본 overlay 는 자동 점검 보조 자료 — 실제 정책 결정·수치는 감독원 공시
++ 시행세칙 확인 (CLAUDE.md §5).</li>
+</ul>
+<p><a href="executive.html">← 경영진 보고서로</a></p>
+"""
+    return _page("Macroprudential Overlay — 거시건전성 정책 (CCyB/DSR/LTV/SyRB)", body)
 
 
 def _data_quality_deep_page(request: dict) -> str:
@@ -1071,6 +1312,7 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 <li><a href="alm.html">ALM 상세 (유동성·만기갭·IRRBB)</a></li>
 <li><a href="explainability.html">Explainability — 임계 근거·산식·출처</a></li>
 <li><a href="trends.html">추세 — 4분기 panel 비교 (합성)</a></li>
+<li><a href="macro_overlay.html">Macroprudential — 거시건전성 overlay</a></li>
 </ul>
 """
     title = "경영진 보고서 — CRO 시야 (DRAFT)"
@@ -1137,8 +1379,12 @@ def _index_page(demo: dict) -> str:
 <li><a href="icaap_deep.html">ICAAP — 리스크 유형 분해 + 시나리오</a></li>
 <li><a href="alm_gap.html">ALM — 만기 bucket 누적 갭</a></li>
 <li><a href="alm_irrbb.html">IRRBB — 시나리오별 ΔEVE</a></li>
+<li><a href="market_backtest_deep.html">시장 — VaR backtest P&amp;L (250일)</a></li>
 <li><a href="operational_deep.html">운영 — SMA BI 구성·BIC 구간</a></li>
+<li><a href="op_scenario_deep.html">운영 — 손실 시나리오 (BCBS 7 event class)</a></li>
+<li><a href="cva_deep.html">CVA — counterparty 분해 (BA-CVA / SA-CVA)</a></li>
 <li><a href="ccr_deep.html">CCR — SA-CCR EAD 분해</a></li>
+<li><a href="macro_overlay.html">Macroprudential — CCyB/DSR/LTV/SyRB overlay</a></li>
 <li><a href="explainability.html">Explainability — 전 부문 임계 근거·산식·출처</a></li>
 <li><a href="trends.html">추세 — 4분기 panel 비교 (합성)</a></li>
 </ul>
@@ -1180,6 +1426,10 @@ def build_pack(
     pages["trends.html"] = _trends_page()
     pages["challenger.html"] = _challenger_page(request)
     pages["data_quality_deep.html"] = _data_quality_deep_page(request)
+    pages["cva_deep.html"] = _cva_deep_page(request)
+    pages["market_backtest_deep.html"] = _market_backtest_deep_page(demo)
+    pages["op_scenario_deep.html"] = _op_scenario_deep_page()
+    pages["macro_overlay.html"] = _macro_overlay_page()
     pages["capital_buffer_deep.html"] = _capital_buffer_deep_page(demo, request)
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
