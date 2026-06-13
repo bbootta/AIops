@@ -547,6 +547,126 @@ def _challenger_page(request: dict) -> str:
     return _page("심화 — 챔피언 vs 챌린저 비교", body)
 
 
+def _data_quality_deep_page(request: dict) -> str:
+    """데이터 품질 심화 — 컬럼 통계 / 결측 / 분포 / target rate / 등급 cardinality."""
+    df = request.get("df")
+    if df is None:
+        return _page("심화 — 데이터 품질 분포 분석",
+                     "<p>입력 df 미제공.</p>")
+    from tools.data_profile import profile_dataframe
+
+    prof = profile_dataframe(df)
+    # 컬럼별 dtype / 결측 / 카디널리티
+    rows = []
+    for col in df.columns:
+        dt = prof["dtypes"].get(col, "?")
+        miss = prof["missing_ratio"].get(col, 0.0)
+        nunique = int(df[col].nunique(dropna=True))
+        rows.append(
+            f"<tr><td><code>{_esc(col)}</code></td><td>{_esc(dt)}</td>"
+            f"<td>{miss:.4%}</td><td>{nunique:,}</td></tr>")
+
+    # 숫자 컬럼 분포 요약
+    num = prof["numeric_summary"]
+    num_rows = ""
+    for col, stats in num.items():
+        num_rows += (
+            f"<tr><td><code>{_esc(col)}</code></td>"
+            f"<td>{stats.get('mean', float('nan')):.4f}</td>"
+            f"<td>{stats.get('std', float('nan')):.4f}</td>"
+            f"<td>{stats.get('min', float('nan')):.4f}</td>"
+            f"<td>{stats.get('25%', float('nan')):.4f}</td>"
+            f"<td>{stats.get('50%', float('nan')):.4f}</td>"
+            f"<td>{stats.get('75%', float('nan')):.4f}</td>"
+            f"<td>{stats.get('max', float('nan')):.4f}</td></tr>")
+
+    # target rate by grade (if applicable)
+    grade_chart = ""
+    grade_table = ""
+    target_col = request.get("target_col", "target")
+    grade_col = request.get("grade_col", "grade")
+    if grade_col in df.columns and target_col in df.columns:
+        gb = (df.groupby(grade_col)[target_col].agg(["mean", "count"])
+              .sort_index().reset_index())
+        bars = [(str(r[grade_col]), float(r["mean"])) for _, r in gb.iterrows()]
+        grade_chart = hbar(
+            bars, title="등급별 실측 부도율 (target mean)", fmt="{:.4%}",
+            colors=[PALETTE["neutral"]] * len(bars))
+        grade_table = (
+            '<table><tr><th>등급</th><th>건수</th><th>실측 부도율</th></tr>'
+            + "".join(
+                f"<tr><td>{_esc(r[grade_col])}</td>"
+                f"<td>{int(r['count']):,}</td>"
+                f"<td>{float(r['mean']):.4%}</td></tr>"
+                for _, r in gb.iterrows())
+            + "</table>")
+
+    # set (dev/oot) 분포
+    set_chart = ""
+    if "set" in df.columns:
+        sb = df["set"].value_counts().to_dict()
+        set_chart = hbar(
+            [(str(k), float(v) / len(df)) for k, v in sb.items()],
+            title="dev / oot 분할 비율", fmt="{:.1%}",
+            colors=[PALETTE["neutral"]] * len(sb))
+
+    # 일자 커버리지
+    date_block = ""
+    date_col = request.get("date_col", "obs_date")
+    if date_col in df.columns:
+        from tools.data_profile import check_date_coverage
+
+        try:
+            cov = check_date_coverage(df, date_col)
+            date_block = _kv_table([
+                ("최소 일자", cov.get("min_date", "-")),
+                ("최대 일자", cov.get("max_date", "-")),
+                ("관측 일자 수", cov.get("n_dates", "-")),
+            ])
+        except Exception:
+            date_block = "<p>일자 분석 skip (입력 형식 비호환)</p>"
+
+    body = f"""
+<p>본 페이지는 입력 df 의 컬럼·결측·분포·target 분포·일자 커버리지를 분해한다.
+검증 의견 작성 시 입력 데이터의 정합성 근거로 사용된다.</p>
+
+<h2>컬럼별 dtype · 결측 · 카디널리티</h2>
+<table>
+<tr><th>컬럼</th><th>dtype</th><th>결측 비율</th><th>고유값 수</th></tr>
+{"".join(rows)}
+</table>
+
+<h2>숫자 컬럼 분포 요약</h2>
+<table>
+<tr><th>컬럼</th><th>mean</th><th>std</th><th>min</th><th>q25</th>
+<th>median</th><th>q75</th><th>max</th></tr>
+{num_rows or "<tr><td colspan='8'>숫자 컬럼 없음</td></tr>"}
+</table>
+
+<h2>등급별 실측 부도율</h2>
+{grade_chart}
+{grade_table}
+
+<h2>dev / oot 분할</h2>
+{set_chart}
+
+<h2>일자 커버리지</h2>
+{date_block or "<p>일자 컬럼 없음</p>"}
+
+<h2>해석 (검증 관점)</h2>
+<ul>
+<li>결측 비율이 1% 이상인 컬럼은 사유 명시 + 대체값/제외 처리 문서화 필요.</li>
+<li>등급별 실측 부도율은 등급 단조성 (낮은 등급일수록 높은 부도율) 의 직관
+검증 자료. binomial 검정은 <a href="credit_calibration.html">등급별 캘리브레이션</a>
+참조.</li>
+<li>dev / oot 비율이 운영 정책 (예: 5:3) 과 일치하는지 확인. 본 데모는 합성
+이므로 fixed split.</li>
+</ul>
+<p><a href="data_quality.html">← 데이터 품질 요약으로 돌아가기</a></p>
+"""
+    return _page("심화 — 데이터 품질 분포 분석", body)
+
+
 def _trends_page() -> str:
     """4분기 panel — 자본/유동성/내부자본/IRRBB/PSI/HHI 추세 (합성)."""
     from tools.sample_generators import quarterly_panel
@@ -870,6 +990,10 @@ def _data_quality_page(demo: dict) -> str:
     body = f"""
 <p>입력 데이터 사전점검 6종 — 스키마 / 민감정보 / 누수 / 일자 / 중복 / 표본.</p>
 <table><tr><th>Step</th><th>판정</th><th>상세</th></tr>{rows}</table>
+<h2>심화 분석 (Drill-down)</h2>
+<ul>
+<li><a href="data_quality_deep.html">컬럼별 dtype·결측·분포·등급별 부도율 →</a></li>
+</ul>
 """
     return _page("데이터 품질 상세 보고서", body)
 
@@ -1008,6 +1132,7 @@ def _index_page(demo: dict) -> str:
 <ul>
 <li><a href="credit_calibration.html">신용 — 등급별 캘리브레이션</a></li>
 <li><a href="challenger.html">신용 — 챔피언 vs 챌린저 비교</a></li>
+<li><a href="data_quality_deep.html">데이터 — 컬럼·결측·분포 분석</a></li>
 <li><a href="capital_buffer_deep.html">자본 — buffer 분해 + sensitivity</a></li>
 <li><a href="icaap_deep.html">ICAAP — 리스크 유형 분해 + 시나리오</a></li>
 <li><a href="alm_gap.html">ALM — 만기 bucket 누적 갭</a></li>
@@ -1054,6 +1179,7 @@ def build_pack(
     # 부문별 심화 deep-dive (Round 41)
     pages["trends.html"] = _trends_page()
     pages["challenger.html"] = _challenger_page(request)
+    pages["data_quality_deep.html"] = _data_quality_deep_page(request)
     pages["capital_buffer_deep.html"] = _capital_buffer_deep_page(demo, request)
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)

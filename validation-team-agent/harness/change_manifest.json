@@ -1620,6 +1620,21 @@
       "rollback_rule": "challenger.html 등록 + score_challenger 컬럼 제거 시 R42 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0109",
+      "timestamp": "2026-06-13 14:10:35",
+      "component": "tools/report_pack.py (data_quality_deep.html)",
+      "change_type": "modify",
+      "evidence": "/goal CRO 보고 수준 R44: 데이터 품질 페이지는 step 6종 판정만 보임. 검증자는 컬럼별 결측·분포·등급별 부도율을 직접 확인할 수 없었음",
+      "root_cause": "data_quality.html 이 step 판정 표 1개로 끝나 입력 데이터 분포 분석 부재",
+      "targeted_fix": "data_quality_deep.html: 컬럼별 dtype/결측/카디널리티 표 + 숫자 컬럼 분포 요약 (mean/std/min/q25/median/q75/max) + 등급별 실측 부도율 차트 + dev/oot 분할 + 일자 커버리지. 부모/index 에서 link",
+      "expected_benefit": "검증자가 입력 데이터 정합성을 보고서 안에서 직접 확인. 등급 단조성·dev/oot 분할·일자 커버리지가 한 페이지에",
+      "expected_regression_risk": "low — 신규 페이지 1개, 기존 페이지 무변경",
+      "validation_method": "tests/test_v2_round44.py 10 cases (컬럼/분포/등급/dev-oot/일자/링크/self-contained) + 전체 702 통과 + ruff/mypy green",
+      "rollback_rule": "data_quality_deep.html 등록 제거 시 R43 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
