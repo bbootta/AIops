@@ -127,29 +127,46 @@ def test_http_server_404_on_unknown(result):
         server.shutdown()
 
 
-# ---- PDF -----------------------------------------------------------------
+# ---- printable HTML (browser Print-to-PDF source) -----------------------
 
-def test_pdf_is_valid(tmp_path, result):
-    from risk_lib.pdf import build_executive_pdf
-    out = tmp_path / "exec.pdf"
-    build_executive_pdf(result, str(out))
-    data = out.read_bytes()
-    assert data.startswith(b"%PDF-1.4")
-    assert data.endswith(b"%%EOF\n") or data[-32:].find(b"%%EOF") >= 0
-    assert len(data) > 1500
+def test_printable_html_renders_korean(tmp_path, result):
+    """Korean characters must end up in the printable HTML as real UTF-8
+    bytes — never escaped to ascii — so browser print rendering works."""
+    from risk_lib.printable import build_printable_html
+    out = tmp_path / "exec.html"
+    build_printable_html(result, str(out))
+    text = out.read_text(encoding="utf-8")
+    # Critical Korean phrases must appear literally
+    for needle in ("결재 가능", "리스크관리", "PDF로 저장", "스트레스"):
+        assert needle in text, f"missing literal Korean: {needle}"
+    # @page rule and Korean-capable font stack
+    assert "@page" in text
+    assert "Apple SD Gothic Neo" in text or "Malgun Gothic" in text
 
 
-def test_pdf_grows_with_manifest(tmp_path, result):
-    from risk_lib.pdf import build_executive_pdf
+def test_printable_html_includes_kri_scorecard_and_actions(tmp_path, result):
+    from risk_lib.printable import build_printable_html
+    out = tmp_path / "exec.html"
+    build_printable_html(result, str(out))
+    text = out.read_text(encoding="utf-8")
+    # SVG scorecard must be inline
+    assert text.count("<svg") >= 3
+    # Each non-GREEN RAF KRI must be reflected in the actions section
+    raf_non_green = [k for k in result.raf.kris if k.grade != "GREEN"]
+    if raf_non_green:
+        assert any(k.name in text for k in raf_non_green)
+
+
+def test_printable_html_includes_manifest_digest(tmp_path, result):
+    from risk_lib.printable import build_printable_html
     from risk_lib.repro import build_manifest, now_utc
     p = generate_portfolio(seed=42)
     mf = build_manifest(portfolio=p, parameters={"seed": 42}, result=result,
                         start_utc=now_utc(), end_utc=now_utc())
-    no_mf = tmp_path / "a.pdf"; with_mf = tmp_path / "b.pdf"
-    build_executive_pdf(result, str(no_mf))
-    build_executive_pdf(result, str(with_mf), manifest=mf)
-    # The manifest variant carries 2 extra paragraphs of digest text
-    assert with_mf.stat().st_size > no_mf.stat().st_size
+    out = tmp_path / "exec.html"
+    build_printable_html(result, str(out), manifest=mf)
+    text = out.read_text(encoding="utf-8")
+    assert mf.headline_digest[:24] in text
 
 
 # ---- comparison ----------------------------------------------------------
@@ -212,13 +229,14 @@ def test_cli_notify(tmp_path):
     assert (out / "alert_email.html").exists()
 
 
-def test_cli_pdf(tmp_path):
+def test_cli_printable(tmp_path):
     from risk_lib.cli import main
-    out = tmp_path / "exec.pdf"
-    rc = main(["pdf", "--out", str(out), "--seed", "42"])
+    out = tmp_path / "exec.html"
+    rc = main(["printable", "--out", str(out), "--seed", "42"])
     assert rc == 0
     assert out.exists()
-    assert out.read_bytes().startswith(b"%PDF-1.4")
+    text = out.read_text(encoding="utf-8")
+    assert "결재" in text and "@page" in text
 
 
 def test_cli_export_json(tmp_path):

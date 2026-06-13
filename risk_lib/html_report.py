@@ -1206,17 +1206,22 @@ def build_full_report_package(
     are relative so the directory is portable.
     """
     from risk_lib.html_exec import build_executive
+    from risk_lib.printable import build_printable_html
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     ops_dir = out / "ops"
     written_ops = build_report_set(result, ops_dir, portfolio=portfolio)
     exec_path = build_executive(result, out,
                                 manifest_digest=getattr(manifest, "headline_digest", ""))
+    # printable HTML is the recommended PDF route — browser Print-to-PDF
+    printable_path = build_printable_html(result, out / "printable.html",
+                                           manifest=manifest)
     manifest_path = None
     if manifest is not None:
         manifest_path = out / "manifest.json"
         manifest_path.write_text(manifest.to_json(), encoding="utf-8")
     return {
         "executive": str(exec_path.resolve()),
+        "printable": str(printable_path),
         "ops_dir": str(ops_dir.resolve()),
         **{f"ops/{k}": v for k, v in written_ops.items()},
         **({"manifest": str(manifest_path.resolve())} if manifest_path else {}),

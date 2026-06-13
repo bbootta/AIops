@@ -157,11 +157,12 @@ def _cmd_export_json(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_pdf(args: argparse.Namespace) -> int:
-    """Build single-file executive PDF for email attachment."""
+def _cmd_printable(args: argparse.Namespace) -> int:
+    """Generate a print-optimised single-file HTML. Open in browser and
+    'Print -> Save as PDF' for a perfectly-rendered Korean PDF."""
     from risk_lib.data_gen import generate_portfolio
     from risk_lib.repro import build_manifest, now_utc
-    from risk_lib.pdf import build_executive_pdf
+    from risk_lib.printable import build_printable_html
 
     portfolio = generate_portfolio(seed=args.seed)
     start = now_utc()
@@ -169,9 +170,10 @@ def _cmd_pdf(args: argparse.Namespace) -> int:
     end = now_utc()
     manifest = build_manifest(portfolio=portfolio, parameters={"seed": args.seed},
                               result=result, start_utc=start, end_utc=end)
-    out = build_executive_pdf(result, args.out, manifest=manifest)
+    out = build_printable_html(result, args.out, manifest=manifest)
     import os
-    print(f"PDF 작성 완료 — {out} ({os.path.getsize(out):,} bytes)")
+    print(f"인쇄용 HTML 작성 완료 — {out} ({os.path.getsize(out)/1024:.1f} KB)")
+    print(f"\nPDF로 저장하려면 브라우저로 이 파일을 열고 '인쇄 -> PDF로 저장'을 선택하세요.")
     return 0
 
 
@@ -280,11 +282,12 @@ def main(argv: list[str] | None = None) -> int:
     ej.add_argument("--seed", type=int, default=42)
     ej.set_defaults(func=_cmd_export_json)
 
-    # pdf
-    pd_p = sub.add_parser("pdf", help="경영진 PDF (1-pager) 생성")
-    pd_p.add_argument("--out", required=True, help="PDF 출력 경로")
-    pd_p.add_argument("--seed", type=int, default=42)
-    pd_p.set_defaults(func=_cmd_pdf)
+    # printable (browser Print-to-PDF source)
+    pp = sub.add_parser("printable",
+                         help="경영진 1-pager 인쇄용 HTML (브라우저 'Print to PDF'로 PDF 생성)")
+    pp.add_argument("--out", required=True, help="HTML 출력 경로")
+    pp.add_argument("--seed", type=int, default=42)
+    pp.set_defaults(func=_cmd_printable)
 
     # compare
     cmp_p = sub.add_parser("compare",
