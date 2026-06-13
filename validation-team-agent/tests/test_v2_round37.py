@@ -190,7 +190,7 @@ def pack(tmp_path_factory):
 
 EXPECTED_PAGES = {
     "executive.html", "index.html", "explainability.html", "trends.html",
-    "credit.html", "credit_calibration.html",
+    "credit.html", "credit_calibration.html", "challenger.html",
     "capital_icaap.html", "capital_buffer_deep.html", "icaap_deep.html",
     "alm.html", "alm_gap.html", "alm_irrbb.html",
     "market_ops.html", "operational_deep.html", "ccr_deep.html",

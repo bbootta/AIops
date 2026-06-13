@@ -66,11 +66,22 @@ def credit_scoring_sample(
 
     customer_ids = [f"C{(i + 1):07d}" for i in range(n)]
 
+    # 챌린저 score — 동일 데이터에서 약간 다른 신호 (등급 가중 + 노이즈 변경)
+    # 챌린저는 일반적으로 챔피언 대비 marginal 한 변별력 변화를 보인다.
+    challenger_score = np.where(
+        target == 1,
+        base_score + bad_lift * 0.85 + 0.4 * grade_idx,
+        base_score * 0.9 + 0.3 * grade_idx,
+    )
+    if psi_shift > 0:
+        challenger_score[n_dev:] = challenger_score[n_dev:] + psi_shift * 0.7
+
     df = pd.DataFrame(
         {
             "customer_id": customer_ids,
             "obs_date": obs_arr,
             "score": score,
+            "score_challenger": challenger_score,
             "target": target,
             "grade": grades,
             "pd": pd_est,

@@ -137,5 +137,8 @@ def test_trend_line_handles_minimum_violations():
 
 
 def test_pack_total_pages_after_r42(pack):
+    """trends.html 가 추가되어 R41 대비 최소 1페이지 증가."""
     _, files = pack
-    assert len(files) == 17  # R41 16 + trends.html
+    names = {p.name for p in files}
+    assert "trends.html" in names
+    assert len(files) >= 17  # 후속 라운드에서 증가 가능

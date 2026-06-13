@@ -1605,6 +1605,21 @@
       "rollback_rule": "trends.html 등록 + quarterly_panel 제거 시 R41 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0108",
+      "timestamp": "2026-06-13 14:07:39",
+      "component": "tools/sample_generators.py (score_challenger column) + tools/report_pack.py (challenger.html)",
+      "change_type": "create",
+      "evidence": "/goal CRO 보고 수준 R43: 모형 챌린저 비교 부재. 챔피언 vs 챌린저 변별력 비교는 모형 risk management 핵심 절차이며 skills/challenger_model_review.md 에 명시되어 있었으나 자동 점검 미연동",
+      "root_cause": "credit_scoring_sample 에 챌린저 score 컬럼 부재 + 보고서 팩에 비교 페이지 없음",
+      "targeted_fix": "credit_scoring_sample 에 score_challenger 컬럼 추가 (결정론적, 챔피언 대비 marginal 차이). challenger.html: KS/AUROC/Gini 챔피언 vs 챌린저 비교 표·Δ 차트 + MRMC 결정 규칙 (ΔAUROC > 0.01 도입 / |Δ| ≤ 0.01 보류 / < −0.01 미도입) + 임의 완화 금지 명시",
+      "expected_benefit": "MRMC 가 챌린저 도입 의사결정을 정량 근거로 검토. ΔAUROC 임계값 명시로 임의적 의견 차단",
+      "expected_regression_risk": "low — 신규 컬럼 추가 (기존 score 무변경), 신규 페이지. fingerprint 가 바뀌어 R38 의 결정성 테스트는 새 sha 로 안정",
+      "validation_method": "tests/test_v2_round43.py 11 cases (챌린저 score 결정성/비교 표/Δ 차트/결정 문구/링크/self-contained) + 전체 693 통과 + ruff/mypy green",
+      "rollback_rule": "challenger.html 등록 + score_challenger 컬럼 제거 시 R42 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

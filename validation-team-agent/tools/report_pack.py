@@ -185,7 +185,8 @@ def _credit_pages(demo: dict, request: dict) -> dict[str, str]:
 <p>{narrate("3.cal", cal)}</p>
 {_kv_table([("등급 수", cal['outputs'].get('n_grades', '-')),
             ("reject 등급 수 (binomial, Holm)", cal['outputs'].get('n_reject', '-')),
-            ("상세", '<a href="credit_calibration.html">등급별 심화 보고서 →</a>')])}
+            ("등급 심화", '<a href="credit_calibration.html">등급별 심화 보고서 →</a>'),
+            ("챌린저 비교", '<a href="challenger.html">챔피언 vs 챌린저 →</a>')])}
 <h2>표본 적정성</h2>
 {_kv_table([("표본 수", f"{demo['n_rows']:,}"),
             ("판정", _step_row(demo, '2.sample')['detail'])])}
@@ -458,6 +459,92 @@ def _concentration_page(demo: dict) -> str:
 {render_attribution_block("3.conc")}
 """
     return _page("신용집중리스크 상세 보고서", body)
+
+
+def _challenger_page(request: dict) -> str:
+    """챔피언 vs 챌린저 모형 변별력 비교 (KS / AUROC / Gini)."""
+    df = request.get("df")
+    target_col = request.get("target_col", "target")
+    if df is None or "score" not in df.columns or "score_challenger" not in df.columns:
+        return _page("심화 — 챔피언 vs 챌린저 비교",
+                     "<p>챌린저 score 입력 미제공.</p>")
+
+    from tools.metric_ks_auc import calculate_auc_gini, calculate_ks
+
+    y = df[target_col].to_numpy()
+    s_champ = df["score"].to_numpy()
+    s_chal = df["score_challenger"].to_numpy()
+
+    champ_ks = calculate_ks(y, s_champ)
+    champ_ag = calculate_auc_gini(y, s_champ)
+    chal_ks = calculate_ks(y, s_chal)
+    chal_ag = calculate_auc_gini(y, s_chal)
+
+    delta_ks = chal_ks["ks"] - champ_ks["ks"]
+    delta_auc = chal_ag["auc"] - champ_ag["auc"]
+    delta_gini = chal_ag["gini"] - champ_ag["gini"]
+
+    rows = [
+        ("KS", champ_ks["ks"], chal_ks["ks"], delta_ks),
+        ("AUROC", champ_ag["auc"], chal_ag["auc"], delta_auc),
+        ("Gini", champ_ag["gini"], chal_ag["gini"], delta_gini),
+    ]
+    table = "".join(
+        f"<tr><td><b>{_esc(metric)}</b></td>"
+        f"<td>{champ:.4f}</td><td>{chal:.4f}</td>"
+        f"<td style='color:{PALETTE['ok'] if delta > 0 else PALETTE['fail']}'>"
+        f"{delta:+.4f}</td></tr>"
+        for metric, champ, chal, delta in rows)
+
+    chart = hbar(
+        [
+            ("KS (Δ)", delta_ks),
+            ("AUROC (Δ)", delta_auc),
+            ("Gini (Δ)", delta_gini),
+        ],
+        title="챌린저 − 챔피언 (양수 = 챌린저 우세)",
+        fmt="{:+.4f}",
+        colors=[PALETTE["ok" if d > 0 else "fail"] for d in
+                (delta_ks, delta_auc, delta_gini)])
+
+    # 챌린저 도입 권고 임계 (참고): ΔAUROC > 0.01 안정적
+    decision = (
+        '<span style="color:#2e7d32"><b>챌린저 우세</b></span> — 도입 검토 대상 (MRMC 보고)'
+        if delta_auc > 0.01
+        else '<span style="color:#f9a825"><b>유사 수준</b></span> — 표본 변동성 범위. 추가 OOT 분기 비교 후 판단'
+        if abs(delta_auc) <= 0.01
+        else '<span style="color:#c62828"><b>챔피언 우세</b></span> — 챌린저 미도입 권고')
+
+    body = f"""
+<p>본 페이지는 동일 표본·동일 target 에 대해 챔피언(현재 운영) score 와 챌린저
+(검토) score 의 변별력을 직접 비교한다. n = {len(df):,}.</p>
+<table>
+<tr><th>지표</th><th>챔피언</th><th>챌린저</th><th>Δ (챌린저 − 챔피언)</th></tr>
+{table}
+</table>
+{chart}
+<h2>결론</h2>
+<p>{decision}</p>
+<h2>해석 가이드 (MRMC 관점)</h2>
+<ul>
+<li><b>ΔAUROC &gt; 0.01</b>: 챌린저가 안정적으로 우세 — 챔피언 교체 또는 ensemble
+검토. 운영 적용 전 OOT panel × 4분기 + 안정성 추세 검증 필요.</li>
+<li><b>−0.01 ≤ ΔAUROC ≤ 0.01</b>: 표본 변동성 범위. 챌린저 도입 보류, 다음
+검증 cycle 까지 모니터링.</li>
+<li><b>ΔAUROC &lt; −0.01</b>: 챌린저 미도입. 챔피언 모형 유지.</li>
+<li>본 점검은 자동 점검 한정 — 최종 운영 적용은 MRMC 검토 + 인간 검증자 +
+감독원 사전 협의 영역 (CLAUDE.md §5, §7).</li>
+</ul>
+<h2>관련 정책 SSoT</h2>
+<ul>
+<li><code>skills/challenger_model_review.md</code> — 챌린저 모형 검토 절차
+스킬셋.</li>
+<li><code>harness/explainability_attributions.json</code> — KS/AUROC 임계
+출처.</li>
+</ul>
+<p><a href="credit.html">← 신용평가모형 상세로 돌아가기</a></p>
+"""
+    return _page("심화 — 챔피언 vs 챌린저 비교", body)
 
 
 def _trends_page() -> str:
@@ -920,6 +1007,7 @@ def _index_page(demo: dict) -> str:
 <h2>심화 보고서 (Drill-down)</h2>
 <ul>
 <li><a href="credit_calibration.html">신용 — 등급별 캘리브레이션</a></li>
+<li><a href="challenger.html">신용 — 챔피언 vs 챌린저 비교</a></li>
 <li><a href="capital_buffer_deep.html">자본 — buffer 분해 + sensitivity</a></li>
 <li><a href="icaap_deep.html">ICAAP — 리스크 유형 분해 + 시나리오</a></li>
 <li><a href="alm_gap.html">ALM — 만기 bucket 누적 갭</a></li>
@@ -965,6 +1053,7 @@ def build_pack(
     pages["explainability.html"] = _explainability_page()
     # 부문별 심화 deep-dive (Round 41)
     pages["trends.html"] = _trends_page()
+    pages["challenger.html"] = _challenger_page(request)
     pages["capital_buffer_deep.html"] = _capital_buffer_deep_page(demo, request)
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
