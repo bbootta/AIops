@@ -1650,6 +1650,21 @@
       "rollback_rule": "4 신규 페이지 등록 + sample 함수 + link 제거 시 R44 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0111",
+      "timestamp": "2026-06-13 15:21:57",
+      "component": "tools/sample_generators.py (ifrs9/stress) + tools/report_pack.py (3 new pages)",
+      "change_type": "create",
+      "evidence": "/goal '전부 다' (2026-06-13 15:17): R45 후 잔여 3 영역 — IFRS 9 ECL stage migration, 스트레스 테스트 시나리오 panel, 모형/정책 변경 감사 — 자동 점검 미반영",
+      "root_cause": "IFRS 9 ECL 산출의 stage migration matrix 와 ECL 분해, 스트레스 테스트 시나리오 panel, 매니페스트 CHG 추적이 보고서에 표시되지 않았음",
+      "targeted_fix": "sample_generators: ifrs9_stage_migration_sample (3x3 matrix + ECL 분해), stress_test_scenarios_sample (baseline/adverse/severely_adverse). report_pack 3 신규 페이지: ifrs9_deep (matrix + ECL by stage + SICR/FLI 정의), stress_test (시나리오별 CET1/LCR/ICAAP post-stress + 가중평균), change_audit (CHG status/type 분포 + 최근 15건 + promotion flow 가이드)",
+      "expected_benefit": "IFRS 9 검증·자본계획 위원회·변경 감사 모두 보고서 안에서 확인 가능. AHE §4.3 Decision Observability 가 시각화로 노출. 총 26 페이지",
+      "expected_regression_risk": "low — 신규 페이지·sample 만, 기존 페이지 무변경. change_audit 는 manifest load(read-only)",
+      "validation_method": "tests/test_v2_round46.py 15 cases (sample 결정성/migration row 합/시나리오 악화/페이지 통합/링크/self-contained) + 전체 734 통과 + ruff/mypy/policy_lint green",
+      "rollback_rule": "3 신규 페이지 등록 + 2 sample 함수 + link 제거 시 R45 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

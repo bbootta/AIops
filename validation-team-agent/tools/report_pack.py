@@ -737,6 +737,249 @@ frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.<
     return _page("심화 — 운영리스크 손실 시나리오", body)
 
 
+def _ifrs9_deep_page() -> str:
+    """IFRS 9 stage migration matrix + ECL 분해."""
+    from tools.sample_generators import ifrs9_stage_migration_sample
+
+    m = ifrs9_stage_migration_sample()
+    stages = m["stages"]
+
+    # migration matrix 표
+    mig_rows = ""
+    for from_s in stages:
+        row = f"<tr><th>{from_s}</th>"
+        for to_s in stages:
+            v = m["migration_matrix"][from_s][to_s]
+            color = (PALETTE["fail"] if (from_s == "S1" and to_s == "S3") or
+                                       (from_s == "S2" and to_s == "S3")
+                     else PALETTE["warning"] if (from_s == "S1" and to_s == "S2")
+                     else PALETTE["ok"] if from_s == to_s
+                     else PALETTE["neutral"])
+            row += (f'<td style="background:{color};color:white;'
+                    f'text-align:center;font-weight:600">{v:.1%}</td>')
+        row += "</tr>"
+        mig_rows += row
+
+    # ECL by stage
+    ecl_chart = hbar(
+        [(s, float(m["ecl_by_stage"][s])) for s in stages],
+        title="ECL by Stage", fmt="{:,.2f}",
+        colors=[PALETTE["ok"], PALETTE["warning"], PALETTE["fail"]])
+
+    # 포트폴리오 분포
+    port_chart = hbar(
+        [(s, float(m["portfolio"][s]["ead"])) for s in stages],
+        title="EAD by Stage", fmt="{:,.0f}",
+        colors=[PALETTE["neutral"]] * 3)
+
+    port_rows = "".join(
+        f"<tr><td><b>{s}</b></td>"
+        f"<td>{m['portfolio'][s]['ead']:,.0f}</td>"
+        f"<td>{m['portfolio'][s].get('pd_12m', m['portfolio'][s].get('pd_lifetime', 0)):.4f}</td>"
+        f"<td>{m['portfolio'][s]['lgd']:.2%}</td>"
+        f"<td>{m['ecl_by_stage'][s]:,.2f}</td></tr>"
+        for s in stages)
+
+    body = f"""
+<p>IFRS 9 ECL 산출의 stage 분류·migration matrix·ECL 분해. 합성 panel 기반
+시연 — 운영 ECL 산출 대체 불가.</p>
+
+<h2>Stage Migration Matrix (분기 → 분기)</h2>
+<table style="text-align:center">
+<tr><th></th>{"".join(f"<th>→ {s}</th>" for s in stages)}</tr>
+{mig_rows}
+</table>
+<p>대각선 = 동일 stage 유지. S1→S2 는 SICR 경계, S1→S3 / S2→S3 는 직접 손상.</p>
+
+<h2>포트폴리오 구성</h2>
+{port_chart}
+<table>
+<tr><th>Stage</th><th>EAD</th><th>PD</th><th>LGD</th><th>ECL</th></tr>
+{port_rows}
+<tr><th>합계</th><td>—</td><td>—</td><td>—</td><td><b>{m['total_ecl']:,.2f}</b></td></tr>
+</table>
+
+<h2>ECL by Stage</h2>
+{ecl_chart}
+
+<h2>SICR (Significant Increase in Credit Risk) 정의</h2>
+<table>
+<tr><th>적용 기준</th><td>{_esc(m['sicr_definition'])}</td></tr>
+<tr><th>프레임워크</th><td>{_esc(m['framework'])}</td></tr>
+</table>
+
+<h2>해석 (IFRS 9 검증)</h2>
+<ul>
+<li><b>Stage 1</b>: 12개월 기대손실 (12m EL) — PD 는 12m PD.</li>
+<li><b>Stage 2</b>: SICR 충족 → lifetime EL. 30일 이상 연체는 ‘rebuttable’
+presumption (IFRS 9 §B5.5.20).</li>
+<li><b>Stage 3</b>: 신용 손상 — interest revenue 는 net carrying 기준
+(IFRS 9 §B5.4.6).</li>
+<li><b>FLI (Forward-Looking Information)</b>: 거시 시나리오 가중평균 ECL.
+시나리오 가중치 점검은 <a href="alm.html">3.weights</a> 참조.</li>
+<li>본 표는 합성 — 운영 ECL 은 IFRS 9 운영지침 + 회계법인 검토 후 적용.</li>
+</ul>
+<p><a href="index.html">← 요약으로</a></p>
+"""
+    return _page("심화 — IFRS 9 ECL Stage Migration", body)
+
+
+def _stress_test_page() -> str:
+    """스트레스 테스트 시나리오 panel (baseline / adverse / severely adverse)."""
+    from tools.sample_generators import stress_test_scenarios_sample
+
+    scenarios = stress_test_scenarios_sample()
+
+    chart_cet1 = hbar(
+        [(s["scenario"], s["cet1_post_stress"]) for s in scenarios],
+        title="CET1 비율 (스트레스 후)", fmt="{:.2%}",
+        vline=0.045, vline_label="규제 최소 4.5%",
+        colors=[PALETTE["ok"] if s["cet1_post_stress"] >= 0.07
+                else PALETTE["warning"] if s["cet1_post_stress"] >= 0.045
+                else PALETTE["fail"] for s in scenarios])
+
+    chart_lcr = hbar(
+        [(s["scenario"], s["lcr_post_stress"]) for s in scenarios],
+        title="LCR (스트레스 후)", fmt="{:.2f}",
+        vline=1.0, vline_label="최소 1.00",
+        colors=[PALETTE["ok"] if s["lcr_post_stress"] >= 1.0
+                else PALETTE["fail"] for s in scenarios])
+
+    chart_icaap = hbar(
+        [(s["scenario"], s["icaap_post_stress"]) for s in scenarios],
+        title="ICAAP 비율 (스트레스 후)", fmt="{:.2f}",
+        vline=1.0, vline_label="최소 1.00",
+        colors=[PALETTE["ok"] if s["icaap_post_stress"] >= 1.0
+                else PALETTE["fail"] for s in scenarios])
+
+    macro_rows = "".join(
+        f"<tr><th>{_esc(s['scenario'])}</th>"
+        f"<td>{s['gdp_growth']:+.1%}</td>"
+        f"<td>{s['unemployment']:.1%}</td>"
+        f"<td>{s['house_price']:+.1%}</td>"
+        f"<td>{s['policy_rate']:.2%}</td>"
+        f"<td>×{s['credit_loss_multiplier']:.1f}</td>"
+        f"<td>{s['weight']:.0%}</td></tr>"
+        for s in scenarios)
+
+    weighted_cet1 = sum(s["cet1_post_stress"] * s["weight"] for s in scenarios)
+
+    body = f"""
+<p>스트레스 테스트 시나리오 — baseline / adverse / severely adverse. 본
+panel 은 자동 점검 시연용 합성 시드이며 운영 스트레스 테스트는 자체 시나리오
+설계 + 거시 모형 + 자본계획 위원회 검토 후 (CLAUDE.md §5).</p>
+
+<h2>거시 시나리오 가정</h2>
+<table>
+<tr><th>시나리오</th><th>GDP</th><th>실업률</th><th>주택가격</th>
+<th>정책금리</th><th>손실 multiplier</th><th>가중치</th></tr>
+{macro_rows}
+</table>
+
+<h2>스트레스 후 자본/유동성/내부자본</h2>
+{chart_cet1}
+{chart_lcr}
+{chart_icaap}
+
+<h2>가중평균 (감독 ICAAP 보고용)</h2>
+<table>
+<tr><th>가중평균 CET1 (post-stress)</th>
+<td>{weighted_cet1:.2%}</td></tr>
+<tr><th>판정</th>
+<td>{'<b style="color:#2e7d32">최소 4.5% 충족</b>' if weighted_cet1 >= 0.045 else '<b style="color:#c62828">최소 미달</b>'}</td></tr>
+</table>
+
+<h2>해석 (CRO 관점)</h2>
+<ul>
+<li><b>severely adverse</b> 시나리오에서 CET1 5.5% 는 규제 최소 4.5% 는
+충족하나 자본보전 buffer 2.5% 미충족 → <b>이익배당 제한</b> 가능성.</li>
+<li><b>LCR 0.85</b>: severely adverse 시 100% 미달 — Recovery Plan 활성화
+검토 (BCBS d258 + 시행세칙 R&R).</li>
+<li><b>ICAAP 0.90</b>: post-stress 비율 1.00 미달 — Pillar 2 보고 + 자본계획
+재점검 필수 (BCBS SRP30).</li>
+<li>본 panel 은 합성 — 운영 스트레스 테스트는 BIS Top-Down 모형 또는 자체
+Bottom-Up + 회계법인 검토 + 감독원 사전 협의.</li>
+</ul>
+<p><a href="executive.html">← 경영진 보고서로</a> · <a href="index.html">← 요약으로</a></p>
+"""
+    return _page("심화 — 스트레스 테스트 시나리오 panel (baseline / adverse / severe)", body)
+
+
+def _change_audit_page() -> str:
+    """모형/정책 변경 영향 감사 — 매니페스트 CHG 항목 요약."""
+    from tools.manifest import load as load_manifest
+
+    try:
+        m = load_manifest()
+    except Exception:
+        return _page("모형/정책 변경 감사",
+                     "<p>매니페스트 로드 실패.</p>")
+
+    items = m.get("changes", [])
+    n_total = len(items)
+    by_status: dict[str, int] = {}
+    by_type: dict[str, int] = {}
+    for it in items:
+        by_status[it.get("status", "?")] = by_status.get(it.get("status", "?"), 0) + 1
+        by_type[it.get("type", "?")] = by_type.get(it.get("type", "?"), 0) + 1
+
+    recent = sorted(items, key=lambda x: x.get("change_id", ""), reverse=True)[:15]
+    recent_rows = "".join(
+        f"<tr><td><code>{_esc(it.get('change_id', '-'))}</code></td>"
+        f"<td>{_esc(it.get('type', '-'))}</td>"
+        f"<td>{_esc(it.get('status', '-'))}</td>"
+        f"<td>{_esc(it.get('component', '-'))}</td>"
+        f"<td>{_esc((it.get('targeted_fix') or '')[:120])}…</td></tr>"
+        for it in recent)
+
+    status_chart = hbar(
+        [(s, n) for s, n in sorted(by_status.items())],
+        title="변경 매니페스트 status 분포", fmt="{:.0f}",
+        colors=[PALETTE.get(
+            "ok" if s == "validated" else
+            "warning" if s == "applied" else
+            "fail" if s == "rolled_back" else "neutral", PALETTE["neutral"])
+            for s in sorted(by_status)])
+
+    type_chart = hbar(
+        [(t, n) for t, n in sorted(by_type.items())],
+        title="변경 매니페스트 type 분포", fmt="{:.0f}")
+
+    body = f"""
+<p>모형·정책·코드 변경의 매니페스트 추적 — Decision Observability (AHE §4.3).
+모든 변경은 <code>harness/change_manifest.json</code> 에 기록되며 promote
+(applied/validated) 는 인간 검증자 영역.</p>
+
+<h2>요약</h2>
+<table>
+<tr><th>총 CHG 항목</th><td>{n_total}</td></tr>
+<tr><th>status 분포</th><td>{_esc(by_status)}</td></tr>
+<tr><th>type 분포</th><td>{_esc(by_type)}</td></tr>
+</table>
+
+{status_chart}
+{type_chart}
+
+<h2>최근 변경 (Top 15)</h2>
+<table>
+<tr><th>CHG</th><th>type</th><th>status</th><th>component</th><th>fix 요약</th></tr>
+{recent_rows}
+</table>
+
+<h2>운영 가이드</h2>
+<ul>
+<li><b>proposed → applied</b>: 검증팀장 검토 + 영향 평가 + 회귀 테스트 통과 후
+<code>python -m tools.manifest promote &lt;CHG&gt; applied</code>.</li>
+<li><b>applied → validated</b>: 분기 모니터링 결과 (KPI 안정성) 확인 후
+<code>promote &lt;CHG&gt; validated</code>.</li>
+<li><b>rolled_back</b>: 회귀 발견 시 즉시 rollback + 사유 기록. CLAUDE.md §4.3
+"효과가 검증되지 않은 변경은 성공으로 간주하지 않는다".</li>
+</ul>
+<p><a href="executive.html">← 경영진 보고서로</a></p>
+"""
+    return _page("모형/정책 변경 감사 (Change Manifest)", body)
+
+
 def _macro_overlay_page() -> str:
     """Macroprudential overlay — CCyB, DSR, LTV, SyRB."""
     from tools.sample_generators import macroprudential_overlay
@@ -1313,6 +1556,9 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 <li><a href="explainability.html">Explainability — 임계 근거·산식·출처</a></li>
 <li><a href="trends.html">추세 — 4분기 panel 비교 (합성)</a></li>
 <li><a href="macro_overlay.html">Macroprudential — 거시건전성 overlay</a></li>
+<li><a href="stress_test.html">스트레스 테스트 시나리오 panel</a></li>
+<li><a href="ifrs9_deep.html">IFRS 9 ECL Stage Migration</a></li>
+<li><a href="change_audit.html">변경 감사 (Change Manifest)</a></li>
 </ul>
 """
     title = "경영진 보고서 — CRO 시야 (DRAFT)"
@@ -1385,6 +1631,9 @@ def _index_page(demo: dict) -> str:
 <li><a href="cva_deep.html">CVA — counterparty 분해 (BA-CVA / SA-CVA)</a></li>
 <li><a href="ccr_deep.html">CCR — SA-CCR EAD 분해</a></li>
 <li><a href="macro_overlay.html">Macroprudential — CCyB/DSR/LTV/SyRB overlay</a></li>
+<li><a href="ifrs9_deep.html">IFRS 9 — Stage migration matrix + ECL 분해</a></li>
+<li><a href="stress_test.html">스트레스 테스트 — baseline / adverse / severe</a></li>
+<li><a href="change_audit.html">변경 감사 — 매니페스트 CHG 추적</a></li>
 <li><a href="explainability.html">Explainability — 전 부문 임계 근거·산식·출처</a></li>
 <li><a href="trends.html">추세 — 4분기 panel 비교 (합성)</a></li>
 </ul>
@@ -1430,6 +1679,9 @@ def build_pack(
     pages["market_backtest_deep.html"] = _market_backtest_deep_page(demo)
     pages["op_scenario_deep.html"] = _op_scenario_deep_page()
     pages["macro_overlay.html"] = _macro_overlay_page()
+    pages["ifrs9_deep.html"] = _ifrs9_deep_page()
+    pages["stress_test.html"] = _stress_test_page()
+    pages["change_audit.html"] = _change_audit_page()
     pages["capital_buffer_deep.html"] = _capital_buffer_deep_page(demo, request)
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)

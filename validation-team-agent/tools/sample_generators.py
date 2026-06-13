@@ -372,3 +372,66 @@ def macroprudential_overlay() -> dict:
             "syrb": "BCBS d189 §157 + 시행세칙",
         },
     }
+
+
+def ifrs9_stage_migration_sample(*, seed: int = 71) -> dict:
+    """IFRS 9 stage 1/2/3 migration matrix + ECL 분해 (합성).
+
+    BCBS / IFRS 9: stage 1 (12m EL) / stage 2 (lifetime EL, SICR) / stage 3 (impaired).
+    본 sample 은 점검 도구 시연용 결정론적 합성이며 운영 ECL 산출 대체 불가.
+    """
+    # 분기 시작 stage × 분기 말 stage migration matrix
+    matrix = {
+        "S1": {"S1": 0.945, "S2": 0.050, "S3": 0.005},
+        "S2": {"S1": 0.150, "S2": 0.770, "S3": 0.080},
+        "S3": {"S1": 0.010, "S2": 0.060, "S3": 0.930},
+    }
+    portfolio = {
+        "S1": {"ead": 80_000.0, "pd_12m": 0.012, "lgd": 0.45},
+        "S2": {"ead": 15_000.0, "pd_lifetime": 0.085, "lgd": 0.45},
+        "S3": {"ead": 5_000.0,  "pd_lifetime": 1.000, "lgd": 0.55},
+    }
+    ecl = {
+        "S1": portfolio["S1"]["ead"] * portfolio["S1"]["pd_12m"] * portfolio["S1"]["lgd"],
+        "S2": portfolio["S2"]["ead"] * portfolio["S2"]["pd_lifetime"] * portfolio["S2"]["lgd"],
+        "S3": portfolio["S3"]["ead"] * portfolio["S3"]["pd_lifetime"] * portfolio["S3"]["lgd"],
+    }
+    return {
+        "stages": ["S1", "S2", "S3"],
+        "migration_matrix": matrix,
+        "portfolio": portfolio,
+        "ecl_by_stage": {k: round(v, 2) for k, v in ecl.items()},
+        "total_ecl": round(sum(ecl.values()), 2),
+        "sicr_definition": "30일 이상 연체 OR 등급 3단계 이상 하향 OR 거시 FLI 임계 진입",
+        "framework": "IFRS 9 §B5.5 (SICR) + B5.5.17 (FLI)",
+    }
+
+
+def stress_test_scenarios_sample() -> list[dict]:
+    """스트레스 테스트 시나리오 panel (baseline / adverse / severely adverse)."""
+    return [
+        {
+            "scenario": "baseline",
+            "gdp_growth": 0.025, "unemployment": 0.030, "house_price": 0.040,
+            "policy_rate": 0.035,
+            "credit_loss_multiplier": 1.0,
+            "cet1_post_stress": 0.130, "lcr_post_stress": 1.30,
+            "icaap_post_stress": 1.40, "weight": 0.5,
+        },
+        {
+            "scenario": "adverse",
+            "gdp_growth": -0.015, "unemployment": 0.055, "house_price": -0.080,
+            "policy_rate": 0.050,
+            "credit_loss_multiplier": 1.8,
+            "cet1_post_stress": 0.092, "lcr_post_stress": 1.05,
+            "icaap_post_stress": 1.05, "weight": 0.3,
+        },
+        {
+            "scenario": "severely_adverse",
+            "gdp_growth": -0.045, "unemployment": 0.085, "house_price": -0.160,
+            "policy_rate": 0.075,
+            "credit_loss_multiplier": 3.2,
+            "cet1_post_stress": 0.055, "lcr_post_stress": 0.85,
+            "icaap_post_stress": 0.90, "weight": 0.2,
+        },
+    ]
