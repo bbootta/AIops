@@ -32,7 +32,14 @@ from typing import Any
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.svg_charts import PALETTE, gauge, hbar, status_donut
+from tools.svg_charts import (
+    PALETTE,
+    gauge,
+    hbar,
+    heatmap,
+    kpi_card_strip,
+    status_donut,
+)
 
 DRAFT_BANNER = (
     '<div class="draft">[DRAFT — 외부 제출 금지] 본 보고서는 합성 데이터 기반 '
@@ -423,6 +430,83 @@ def _data_quality_page(demo: dict) -> str:
     return _page("데이터 품질 상세 보고서", body)
 
 
+# ---------------- 경영진 보고서 (executive) ----------------
+
+def _executive_page(demo: dict, prov: dict | None) -> str:
+    from tools.executive_insights import (
+        domain_rows,
+        kpi_cards,
+        top_risks_and_actions,
+    )
+
+    summary = demo["summary"]
+    rows = domain_rows(demo)
+    risks, actions = top_risks_and_actions(demo, n=3)
+    cards = kpi_cards(demo)
+
+    # 핵심 헤드라인
+    n_fail = sum(1 for _, st, _, _ in rows if st == "fail")
+    n_warn = sum(1 for _, st, _, _ in rows if st == "warning")
+    n_ok = sum(1 for _, st, _, _ in rows if st == "ok")
+    headline = (
+        f"15개 부문 점검 결과: <b>fail {n_fail}</b> · "
+        f"<b>warning {n_warn}</b> · ok {n_ok}. "
+        + ("Escalation 발동 — 인간 검증자/MRMC 보고 필요." if summary["escalated"]
+           else "Escalation 미발동 — 자동 점검 한정 위험 미식별."))
+
+    risks_html = "".join(
+        f'<li><b>{_esc(r["label"])}</b> '
+        f'<span class="badge" style="background:{PALETTE[r["status"]]}">'
+        f'{_esc(r["status"])}</span> — {_esc(r["detail"])} '
+        f'(<a href="{r["link"]}">drill-down →</a>)</li>'
+        for r in risks) or "<li>식별된 fail/warning 없음 — 표준 모니터링 유지.</li>"
+    actions_html = "".join(
+        f"<li><b>{_esc(a['label'])}</b> — {_esc(a['action'])}</li>"
+        for a in actions) or "<li>추가 권고 없음.</li>"
+
+    esc_block = ""
+    esc = _step_row(demo, "9.escalate")
+    if esc["status"] != "skipped" and esc["outputs"].get("triggered_by"):
+        esc_block = (
+            f'<div style="background:#ffebee;border-left:4px solid #c62828;'
+            f'padding:.6rem 1rem;margin:1rem 0">'
+            f'<b style="color:#c62828">⚠ Escalation 발생</b> — '
+            f'trigger: {_esc(", ".join(esc["outputs"]["triggered_by"]))}<br>'
+            f'대응: 인간 검증자(검증팀장) → MRMC 보고 → 매니페스트 CHG 기록 '
+            f'(HITL). 본 보고서는 보조 자료이며 의견 확정은 인간 결정.</div>')
+
+    body = f"""
+<p style="font-size:1.05rem">{headline}</p>
+{esc_block}
+<h2>핵심 KPI</h2>
+{kpi_card_strip(cards)}
+<h2>부문별 위험 히트맵</h2>
+{heatmap(rows, title="")}
+<h2>Top 3 위험 (자동 점검 기준)</h2>
+<ol>{risks_html}</ol>
+<h2>Top 3 권고 (정책 SSoT 매핑, 임의 완화 금지)</h2>
+<ol>{actions_html}</ol>
+<h2>경영진 시야 — 의사결정 노트</h2>
+<ul>
+<li><b>자동 점검의 권한:</b> 본 시스템은 점검 결과만 제시한다. 모형 승인/
+부적합 의견 / 자본 계획 / 감독기관 대응 문안 확정은 인간 검증자 + MRMC 영역
+(CLAUDE.md §5, §7).</li>
+<li><b>재현성:</b> 모든 수치는 footer 의 입력 해시·정책 버전·재실행 명령으로
+재산출 가능. 정책 버전이 바뀌면 동일 입력에서도 판정이 달라질 수 있음.</li>
+<li><b>합성 데이터:</b> 본 산출물은 합성 데이터 기반 데모. 운영 데이터 실행 시
+매니페스트 CHG 기록 + 운영 보고 별도 절차.</li>
+</ul>
+<h2>인접 보고서</h2>
+<ul>
+<li><a href="index.html">검증자 요약 보고서 (step 단위)</a></li>
+<li><a href="capital_icaap.html">자본 + 내부자본(ICAAP) 상세</a></li>
+<li><a href="alm.html">ALM 상세 (유동성·만기갭·IRRBB)</a></li>
+</ul>
+"""
+    title = "경영진 보고서 — CRO 시야 (DRAFT)"
+    return _page(title, body, crumb=False)
+
+
 # ---------------- 요약 (index) ----------------
 
 _DOMAINS = [
@@ -464,6 +548,7 @@ def _index_page(demo: dict) -> str:
             f"<p>trigger: {_esc(', '.join(esc['outputs']['triggered_by']))} → "
             "인간 검증자 / MRMC 보고 필요.</p>")
     body = f"""
+<p><b><a href="executive.html">→ 경영진 보고서 (CRO 시야)</a></b> · 본 페이지는 검증자 시야 (step 단위)</p>
 {status_donut(s["status_counts"], title="step 판정 분포")}
 {_kv_table([("표본 수 (합성)", f"{demo['n_rows']:,}"),
             ("모드", "stress" if demo['stress_mode'] else "정상"),
@@ -502,7 +587,10 @@ def build_pack(
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    pages: dict[str, str] = {"index.html": _index_page(demo)}
+    pages: dict[str, str] = {
+        "executive.html": _executive_page(demo, provenance),
+        "index.html": _index_page(demo),
+    }
     pages.update(_credit_pages(demo, request))
     pages["capital_icaap.html"] = _capital_icaap_page(demo)
     pages.update(_alm_pages(demo, request))

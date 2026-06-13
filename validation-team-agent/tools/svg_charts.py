@@ -167,3 +167,152 @@ def status_donut(
                    f'{_esc(title)}</text>')
     out.append("</svg>")
     return "".join(out)
+
+
+def heatmap(
+    rows: Sequence[tuple[str, str, str, str | None]],
+    *,
+    width: int = 720,
+    row_h: int = 32,
+    title: str = "",
+) -> str:
+    """부문 × 상태 히트맵.
+
+    rows: [(domain_name, status, detail_text, deep_link_href), ...]
+    """
+    if not rows:
+        return "<svg/>"
+    label_w = 220
+    title_h = 24 if title else 0
+    h = title_h + 8 + len(rows) * (row_h + 4)
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{h}" '
+           f'font-family="sans-serif" font-size="12">']
+    if title:
+        out.append(f'<text x="0" y="16" font-weight="bold">{_esc(title)}</text>')
+    for i, (name, status, detail, href) in enumerate(rows):
+        y = title_h + 8 + i * (row_h + 4)
+        color = PALETTE.get(status, "#9e9e9e")
+        out.append(f'<rect x="0" y="{y}" width="{width}" height="{row_h}" '
+                   f'fill="#f8f9fa" stroke="#dee2e6"/>')
+        out.append(f'<rect x="0" y="{y}" width="{label_w}" height="{row_h}" '
+                   f'fill="{color}" fill-opacity="0.15" stroke="{color}"/>')
+        label = name + (" →" if href else "")
+        out.append(f'<text x="10" y="{y + row_h / 2 + 4:.0f}" '
+                   f'fill="{color}" font-weight="600">{_esc(label)}</text>')
+        out.append(f'<rect x="{label_w + 10}" y="{y + 8}" width="80" height="{row_h - 16}" '
+                   f'rx="10" fill="{color}"/>')
+        out.append(f'<text x="{label_w + 50}" y="{y + row_h / 2 + 4:.0f}" '
+                   f'text-anchor="middle" fill="white" font-weight="600" '
+                   f'font-size="11">{_esc(status)}</text>')
+        # detail (clip 처리)
+        d = detail if len(detail) <= 70 else detail[:67] + "…"
+        out.append(f'<text x="{label_w + 100}" y="{y + row_h / 2 + 4:.0f}" '
+                   f'fill="#37474f">{_esc(d)}</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
+def kpi_card_strip(
+    cards: Sequence[tuple[str, str, str]],
+    *,
+    width: int = 760,
+    card_w: int = 180,
+    card_h: int = 90,
+    gap: int = 12,
+) -> str:
+    """KPI 카드 strip — (label, value, status_key).
+
+    status_key 는 PALETTE 키 (ok/warning/fail) 또는 임의 색.
+    """
+    if not cards:
+        return "<svg/>"
+    n = len(cards)
+    per_row = max(1, (width + gap) // (card_w + gap))
+    h = ((n + per_row - 1) // per_row) * (card_h + gap)
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{h}" '
+           f'font-family="sans-serif" font-size="12">']
+    for i, (label, value, key) in enumerate(cards):
+        col = i % per_row
+        row = i // per_row
+        x = col * (card_w + gap)
+        y = row * (card_h + gap)
+        color = PALETTE.get(key, key) if key else PALETTE["neutral"]
+        out.append(f'<rect x="{x}" y="{y}" width="{card_w}" height="{card_h}" '
+                   f'rx="8" fill="white" stroke="{color}" stroke-width="2"/>')
+        out.append(f'<rect x="{x}" y="{y}" width="6" height="{card_h}" '
+                   f'rx="3" fill="{color}"/>')
+        out.append(f'<text x="{x + 16}" y="{y + 22}" fill="#546e7a" '
+                   f'font-size="11">{_esc(label)}</text>')
+        out.append(f'<text x="{x + 16}" y="{y + 56}" fill="#212529" '
+                   f'font-size="22" font-weight="bold">{_esc(value)}</text>')
+        out.append(f'<rect x="{x + 16}" y="{y + 70}" width="62" height="14" '
+                   f'rx="7" fill="{color}"/>')
+        out.append(f'<text x="{x + 47}" y="{y + 80}" text-anchor="middle" '
+                   f'fill="white" font-size="10" font-weight="600">'
+                   f'{_esc(key if key in PALETTE else "info")}</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
+def trend_line(
+    series: Sequence[tuple[str, float]],
+    *,
+    width: int = 460,
+    height: int = 140,
+    minimum: float | None = None,
+    title: str = "",
+    fmt: str = "{:.3f}",
+) -> str:
+    """단순 line chart — (period_label, value) 시계열. minimum 임계선 옵션."""
+    if not series:
+        return "<svg/>"
+    pad_l, pad_r, pad_t, pad_b = 44, 16, 26 if title else 12, 26
+    inner_w = width - pad_l - pad_r
+    inner_h = height - pad_t - pad_b
+    vals = [v for _, v in series]
+    vmin = min(vals + ([minimum] if minimum is not None else []))
+    vmax = max(vals + ([minimum] if minimum is not None else []))
+    if vmin == vmax:
+        vmin -= 1
+        vmax += 1
+    span = vmax - vmin
+    vmin -= span * 0.1
+    vmax += span * 0.1
+    span = vmax - vmin
+
+    def y_of(v: float) -> float:
+        return pad_t + inner_h * (1 - (v - vmin) / span)
+
+    n = len(series)
+    pts = [(pad_l + i * inner_w / max(1, n - 1), y_of(v)) for i, (_, v) in enumerate(series)]
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+           f'font-family="sans-serif" font-size="11">']
+    if title:
+        out.append(f'<text x="0" y="14" font-weight="bold">{_esc(title)}</text>')
+    # 축
+    out.append(f'<line x1="{pad_l}" y1="{pad_t}" x2="{pad_l}" y2="{pad_t + inner_h}" '
+               f'stroke="#90a4ae"/>')
+    out.append(f'<line x1="{pad_l}" y1="{pad_t + inner_h}" x2="{pad_l + inner_w}" '
+               f'y2="{pad_t + inner_h}" stroke="#90a4ae"/>')
+    # 임계선
+    if minimum is not None:
+        my = y_of(minimum)
+        out.append(f'<line x1="{pad_l}" y1="{my:.1f}" x2="{pad_l + inner_w}" y2="{my:.1f}" '
+                   f'stroke="#c62828" stroke-dasharray="4 3"/>')
+        out.append(f'<text x="{pad_l + inner_w - 4}" y="{my - 4:.1f}" '
+                   f'text-anchor="end" fill="#c62828">min {fmt.format(minimum)}</text>')
+    # line + 포인트
+    path = " ".join(("M" if i == 0 else "L") + f"{p[0]:.1f},{p[1]:.1f}"
+                    for i, p in enumerate(pts))
+    out.append(f'<path d="{path}" fill="none" stroke="{PALETTE["neutral"]}" '
+               f'stroke-width="2"/>')
+    for (label, v), (x, y) in zip(series, pts):
+        color = (PALETTE["fail"] if minimum is not None and v < minimum
+                 else PALETTE["ok"])
+        out.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="{color}"/>')
+        out.append(f'<text x="{x:.1f}" y="{pad_t + inner_h + 16}" '
+                   f'text-anchor="middle" fill="#546e7a">{_esc(label)}</text>')
+        out.append(f'<text x="{x:.1f}" y="{y - 8:.1f}" text-anchor="middle" '
+                   f'fill="#37474f">{_esc(fmt.format(v))}</text>')
+    out.append("</svg>")
+    return "".join(out)
