@@ -379,6 +379,28 @@ def test_reconciliation_all_pass(result):
         [c for c in rec if not c.passes]
 
 
+# ---- CLI integration ----------------------------------------------------
+
+def test_cli_report_set_command(tmp_path):
+    from risk_lib.cli import main
+    out = tmp_path / "cro"
+    rc = main(["report-set", "--out", str(out), "--seed", "42"])
+    assert rc == 0
+    assert (out / "executive.html").exists()
+    assert (out / "manifest.json").exists()
+    assert (out / "ops" / "index.html").exists()
+
+
+def test_cli_reproduce_command(tmp_path, capsys):
+    from risk_lib.cli import main
+    out = tmp_path / "cro"
+    main(["report-set", "--out", str(out), "--seed", "42"])
+    rc = main(["reproduce", "--manifest", str(out / "manifest.json")])
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "재현 성공" in captured.out
+
+
 def test_full_package_writes_files(tmp_path, result):
     from risk_lib.html_report import build_full_report_package
     from risk_lib.repro import build_manifest, now_utc
