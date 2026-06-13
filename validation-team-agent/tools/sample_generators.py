@@ -231,3 +231,48 @@ def alm_sample(*, stressed: bool = False) -> dict:
         "liquidity_asf": 110_000.0,
         "liquidity_rsf": 100_000.0,
     }
+
+
+def quarterly_panel(*, n_quarters: int = 4, seed: int = 31) -> list[dict]:
+    """4분기 합성 panel — 자본/유동성/내부자본/IRRBB 지표 시계열.
+
+    실제 운영 데이터가 아니라 시계열 trend 시각화·재현성 검증용 합성 시드.
+    각 분기는 결정론적으로 동일 seed 에서 재현된다.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(seed)
+    panel = []
+    # 시작 값 — buffer 여유 상태
+    cet1 = 0.135
+    leverage = 0.052
+    lcr = 1.40
+    nsfr = 1.18
+    icaap = 1.45
+    delta_eve = 0.045
+    psi = 0.04
+    hhi = 0.028
+
+    for q in range(n_quarters):
+        period = f"Q{q+1}"
+        # 점진 악화 + 작은 노이즈 (재현 가능, seed 결정론)
+        cet1 = max(0.045, cet1 - 0.005 + float(rng.normal(0, 0.003)))
+        leverage = max(0.020, leverage - 0.002 + float(rng.normal(0, 0.001)))
+        lcr = max(0.70, lcr - 0.06 + float(rng.normal(0, 0.02)))
+        nsfr = max(0.85, nsfr - 0.03 + float(rng.normal(0, 0.01)))
+        icaap = max(0.85, icaap - 0.08 + float(rng.normal(0, 0.02)))
+        delta_eve = min(0.30, delta_eve + 0.02 + float(rng.normal(0, 0.005)))
+        psi = min(0.30, psi + 0.025 + float(rng.normal(0, 0.005)))
+        hhi = min(0.20, hhi + 0.012 + float(rng.normal(0, 0.002)))
+        panel.append({
+            "period": period,
+            "cet1": round(cet1, 4),
+            "leverage": round(leverage, 4),
+            "lcr": round(lcr, 3),
+            "nsfr": round(nsfr, 3),
+            "icaap": round(icaap, 3),
+            "delta_eve": round(delta_eve, 4),
+            "psi": round(psi, 4),
+            "hhi": round(hhi, 4),
+        })
+    return panel

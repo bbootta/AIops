@@ -40,6 +40,7 @@ from tools.svg_charts import (
     heatmap,
     kpi_card_strip,
     status_donut,
+    trend_line,
 )
 
 DRAFT_BANNER = (
@@ -459,6 +460,70 @@ def _concentration_page(demo: dict) -> str:
     return _page("신용집중리스크 상세 보고서", body)
 
 
+def _trends_page() -> str:
+    """4분기 panel — 자본/유동성/내부자본/IRRBB/PSI/HHI 추세 (합성)."""
+    from tools.sample_generators import quarterly_panel
+
+    panel = quarterly_panel()
+    periods = [r["period"] for r in panel]
+
+    def series(key):
+        return list(zip(periods, [float(r[key]) for r in panel]))
+
+    grid = "".join([
+        trend_line(series("cet1"), title="CET1 비율", fmt="{:.2%}",
+                   minimum=0.07),
+        trend_line(series("leverage"), title="Leverage", fmt="{:.2%}",
+                   minimum=0.03),
+        trend_line(series("lcr"), title="LCR", fmt="{:.2f}", minimum=1.0),
+        trend_line(series("nsfr"), title="NSFR", fmt="{:.2f}", minimum=1.0),
+        trend_line(series("icaap"), title="ICAAP 비율", fmt="{:.2f}", minimum=1.0),
+        trend_line(series("delta_eve"), title="ΔEVE / Tier1", fmt="{:.1%}",
+                   minimum=0.15),
+        trend_line(series("psi"), title="신용 PSI (≥ 0.25 불안정)", fmt="{:.3f}",
+                   minimum=0.25),
+        trend_line(series("hhi"), title="집중 HHI (band ≥ 0.18 high)", fmt="{:.3f}",
+                   minimum=0.18),
+    ])
+    rows = "".join(
+        f"<tr><td>{_esc(r['period'])}</td>"
+        f"<td>{r['cet1']:.2%}</td><td>{r['leverage']:.2%}</td>"
+        f"<td>{r['lcr']:.2f}</td><td>{r['nsfr']:.2f}</td>"
+        f"<td>{r['icaap']:.2f}</td><td>{r['delta_eve']:.1%}</td>"
+        f"<td>{r['psi']:.3f}</td><td>{r['hhi']:.3f}</td></tr>" for r in panel)
+
+    body = f"""
+<p>본 페이지는 4분기 합성 panel 기반 추세 차트 모음이다 — 자본/유동성/
+내부자본/IRRBB/신용 PSI/집중도 의 분기간 변동. 본 panel 은
+<code>tools.sample_generators.quarterly_panel</code> 가 결정론적으로 생성한
+시드 (seed=31) 이며 실제 운영 데이터가 아니다. 운영 데이터 연계 시 본
+페이지가 동일 schema 로 분기 시계열을 표시한다.</p>
+
+<div style="display:flex;flex-wrap:wrap;gap:1rem">
+{grid}
+</div>
+
+<h2>분기별 수치 (요약 표)</h2>
+<table>
+<tr><th>분기</th><th>CET1</th><th>Leverage</th><th>LCR</th><th>NSFR</th>
+<th>ICAAP</th><th>ΔEVE/Tier1</th><th>PSI</th><th>HHI</th></tr>
+{rows}
+</table>
+
+<h2>해석 — CRO 관점</h2>
+<ul>
+<li><b>드리프트 식별</b>: 단일 분기 점검은 점(point) 관점, panel 은 추세
+(trend) 관점. red dashed line 은 규제·정책 최소/한도.</li>
+<li><b>임계 근접 분기</b>: 차트의 빨간 점은 임계 위반 (현재 값 &lt; 최소 또는
+&gt; outlier 기준). 위반 직전 분기에서 원인 분석 + ALCO/MRMC 보고 트리거.</li>
+<li><b>본 panel 은 합성</b>: 실제 추세 의사결정은 운영 panel + 인간 검증자
+정성 판단 + MRMC 검토 후 (HITL).</li>
+</ul>
+<p><a href="index.html">← 요약으로</a> · <a href="executive.html">경영진 보고서로</a></p>
+"""
+    return _page("추세 — 4분기 panel 비교 (합성)", body)
+
+
 def _capital_buffer_deep_page(demo: dict, request: dict) -> str:
     """자본 buffer 분해 deep — Pillar 1 / 자본보전 / 경기대응 / D-SIB."""
     cap = _step_row(demo, "3.capital")
@@ -794,6 +859,7 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 <li><a href="capital_icaap.html">자본 + 내부자본(ICAAP) 상세</a></li>
 <li><a href="alm.html">ALM 상세 (유동성·만기갭·IRRBB)</a></li>
 <li><a href="explainability.html">Explainability — 임계 근거·산식·출처</a></li>
+<li><a href="trends.html">추세 — 4분기 panel 비교 (합성)</a></li>
 </ul>
 """
     title = "경영진 보고서 — CRO 시야 (DRAFT)"
@@ -861,6 +927,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="operational_deep.html">운영 — SMA BI 구성·BIC 구간</a></li>
 <li><a href="ccr_deep.html">CCR — SA-CCR EAD 분해</a></li>
 <li><a href="explainability.html">Explainability — 전 부문 임계 근거·산식·출처</a></li>
+<li><a href="trends.html">추세 — 4분기 panel 비교 (합성)</a></li>
 </ul>
 """
     title = ("검증 요약 보고서 — stress / escalation"
@@ -897,6 +964,7 @@ def build_pack(
     pages["data_quality.html"] = _data_quality_page(demo)
     pages["explainability.html"] = _explainability_page()
     # 부문별 심화 deep-dive (Round 41)
+    pages["trends.html"] = _trends_page()
     pages["capital_buffer_deep.html"] = _capital_buffer_deep_page(demo, request)
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)

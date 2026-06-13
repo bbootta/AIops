@@ -124,6 +124,11 @@ def test_deep_pages_have_drilldown_link_back_to_parent(pack):
 
 
 def test_total_page_count_after_r41(pack):
-    """16 페이지: index/executive/explainability + 6 부문 + 4 기존 심화 + 4 신규 심화"""
+    """R41 의 신규 4개 deep 페이지가 모두 포함된 팩 산출."""
     _, files = pack
-    assert len(files) == 16
+    names = {p.name for p in files}
+    # R41 신규 4개가 모두 존재 — 총량은 후속 라운드에서 증가 가능
+    for required in ("capital_buffer_deep.html", "icaap_deep.html",
+                     "operational_deep.html", "ccr_deep.html"):
+        assert required in names
+    assert len(files) >= 16
