@@ -91,6 +91,7 @@ NAV = [
     ("23_attribution.html","23. 귀속분석"),
     ("24_vintage.html",   "24. Vintage"),
     ("25_data_quality.html","25. DQ·정합성"),
+    ("26_comparison.html", "26. 시점 비교"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -1146,7 +1147,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         page_climate, page_ccr, page_op_loss, page_sensitivity,
         page_model_risk, page_concentration_deep, page_raf, page_pillar3,
         page_mda, page_kri_trends, page_attribution, page_vintage,
-        page_data_quality,
+        page_data_quality, page_comparison,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -1177,6 +1178,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "21_mda.html":        page_mda(result),
         "22_kri_trends.html": page_kri_trends(result),
         "23_attribution.html":page_attribution(result),
+        "26_comparison.html": page_comparison(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)

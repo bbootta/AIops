@@ -97,6 +97,99 @@ def _cmd_report_set(args: argparse.Namespace) -> int:
     return 0 if result.validation.passes() else 1
 
 
+def _cmd_notify(args: argparse.Namespace) -> int:
+    """Build alert payloads (slack JSON / email HTML / markdown) to a dir."""
+    from risk_lib.data_gen import generate_portfolio
+    from risk_lib.notifications import collect_alerts, write_bundle
+    from risk_lib.repro import build_manifest, now_utc
+
+    portfolio = generate_portfolio(seed=args.seed)
+    start = now_utc()
+    result = run_pipeline(portfolio, seed=args.seed)
+    end = now_utc()
+    manifest = build_manifest(portfolio=portfolio, parameters={"seed": args.seed},
+                              result=result, start_utc=start, end_utc=end)
+    bundle = collect_alerts(result)
+    bundle.headline_digest = manifest.headline_digest
+    paths = write_bundle(bundle, args.out)
+    print(f"알림 페이로드 {len(paths)}개 작성 — 최악 등급 {bundle.worst_severity()}")
+    for k, v in paths.items():
+        print(f"  {k}  →  {v}")
+    # exit nonzero if there are any RED/FAIL alerts so CI can wake the team
+    sev_max = bundle.worst_severity()
+    return 0 if sev_max not in ("RED", "FAIL") else 2
+
+
+def _cmd_serve(args: argparse.Namespace) -> int:
+    """Run the JSON HTTP API server."""
+    from risk_lib.data_gen import generate_portfolio
+    from risk_lib.repro import build_manifest, now_utc
+    from risk_lib.api import serve
+
+    portfolio = generate_portfolio(seed=args.seed)
+    start = now_utc()
+    result = run_pipeline(portfolio, seed=args.seed)
+    end = now_utc()
+    manifest = build_manifest(portfolio=portfolio, parameters={"seed": args.seed},
+                              result=result, start_utc=start, end_utc=end)
+    try:
+        serve(result, manifest=manifest, host=args.host, port=args.port)
+    except KeyboardInterrupt:
+        print("\nstopped.")
+    return 0
+
+
+def _cmd_export_json(args: argparse.Namespace) -> int:
+    """Export all headline + deep-dive tables as JSON files."""
+    from risk_lib.data_gen import generate_portfolio
+    from risk_lib.repro import build_manifest, now_utc
+    from risk_lib.api import export_json
+
+    portfolio = generate_portfolio(seed=args.seed)
+    start = now_utc()
+    result = run_pipeline(portfolio, seed=args.seed)
+    end = now_utc()
+    manifest = build_manifest(portfolio=portfolio, parameters={"seed": args.seed},
+                              result=result, start_utc=start, end_utc=end)
+    paths = export_json(result, args.out, manifest=manifest)
+    print(f"JSON 내보내기 완료 ({len(paths)}개):")
+    for k, v in paths.items(): print(f"  {k}  →  {v}")
+    return 0
+
+
+def _cmd_pdf(args: argparse.Namespace) -> int:
+    """Build single-file executive PDF for email attachment."""
+    from risk_lib.data_gen import generate_portfolio
+    from risk_lib.repro import build_manifest, now_utc
+    from risk_lib.pdf import build_executive_pdf
+
+    portfolio = generate_portfolio(seed=args.seed)
+    start = now_utc()
+    result = run_pipeline(portfolio, seed=args.seed)
+    end = now_utc()
+    manifest = build_manifest(portfolio=portfolio, parameters={"seed": args.seed},
+                              result=result, start_utc=start, end_utc=end)
+    out = build_executive_pdf(result, args.out, manifest=manifest)
+    import os
+    print(f"PDF 작성 완료 — {out} ({os.path.getsize(out):,} bytes)")
+    return 0
+
+
+def _cmd_compare(args: argparse.Namespace) -> int:
+    """Compare N manifest.json files and emit a tidy history."""
+    import json
+    from pathlib import Path
+    from risk_lib.comparison import history_from_manifests
+    paths = [Path(p) for p in args.manifests]
+    hist = history_from_manifests(paths)
+    if args.out:
+        Path(args.out).write_text(hist.to_csv(index=False), encoding="utf-8")
+        print(f"history CSV: {args.out}")
+    else:
+        print(hist.to_string(index=False))
+    return 0
+
+
 def _cmd_reproduce(args: argparse.Namespace) -> int:
     """Re-run with the parameters saved in a manifest and verify digest match."""
     from risk_lib.data_gen import generate_portfolio
@@ -167,6 +260,38 @@ def main(argv: list[str] | None = None) -> int:
                         help="manifest를 재실행하여 headline digest 일치 검증")
     rp.add_argument("--manifest", required=True)
     rp.set_defaults(func=_cmd_reproduce)
+
+    # notify
+    nf = sub.add_parser("notify", help="Slack/이메일/Markdown 알림 페이로드 생성")
+    nf.add_argument("--out", required=True, help="출력 디렉터리")
+    nf.add_argument("--seed", type=int, default=42)
+    nf.set_defaults(func=_cmd_notify)
+
+    # serve
+    sv = sub.add_parser("serve", help="JSON HTTP API 서버 실행")
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--port", type=int, default=8765)
+    sv.add_argument("--seed", type=int, default=42)
+    sv.set_defaults(func=_cmd_serve)
+
+    # export-json
+    ej = sub.add_parser("export-json", help="모든 headline·deep-dive 표 JSON 저장")
+    ej.add_argument("--out", required=True, help="출력 디렉터리")
+    ej.add_argument("--seed", type=int, default=42)
+    ej.set_defaults(func=_cmd_export_json)
+
+    # pdf
+    pd_p = sub.add_parser("pdf", help="경영진 PDF (1-pager) 생성")
+    pd_p.add_argument("--out", required=True, help="PDF 출력 경로")
+    pd_p.add_argument("--seed", type=int, default=42)
+    pd_p.set_defaults(func=_cmd_pdf)
+
+    # compare
+    cmp_p = sub.add_parser("compare",
+                            help="N개 manifest.json 비교 (시점 간 history)")
+    cmp_p.add_argument("--manifests", nargs="+", required=True)
+    cmp_p.add_argument("--out", help="CSV 저장 경로 (생략 시 stdout)")
+    cmp_p.set_defaults(func=_cmd_compare)
 
     args = parser.parse_args(argv)
     return args.func(args)

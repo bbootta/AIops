@@ -615,6 +615,109 @@ def page_kri_trends(r: PipelineResult) -> str:
     return _page("KRI 트렌드", body, "22_kri_trends.html")
 
 
+def page_comparison(r: PipelineResult) -> str:
+    """Two-snapshot example: base vs. a stressed clone (PD +20%, LGD +5%).
+
+    Shows what the live comparison page would look like when fed two real
+    PipelineResults (e.g. Q1 → Q2).  Uses a synthetic 'b' clone of the
+    current result with PD/LGD shocks so the bridge is non-zero.
+    """
+    from copy import copy
+    from risk_lib.comparison import compare_results
+    base = r
+    class _Cl:
+        pass
+    b = _Cl()
+    # clone with bumped RWA + reduced CET1 + bigger ECL to show the bridge
+    b.rwa = dict(r.rwa)
+    b.rwa["irb"] = r.rwa["irb"] * 1.08
+    b.rwa["sa"] = r.rwa["sa"] * 1.05
+    b.rwa["market"] = r.rwa["market"]
+    b.rwa["op"] = r.rwa["op"]
+    b.rwa["final_total"] = (b.rwa["sa"] + b.rwa["irb"]
+                             + b.rwa["market"] + b.rwa["op"])
+    b.bis = _Cl()
+    b.bis.cet1_ratio = r.meta["capital"].cet1 / b.rwa["final_total"]
+    b.bis.tier1_ratio = r.meta["capital"].tier1 / b.rwa["final_total"]
+    b.bis.total_ratio = r.meta["capital"].total / b.rwa["final_total"]
+    b.bis.rwa = b.rwa["final_total"]
+    b.ecl = {"total": r.ecl["total"] * 1.15,
+             "by_stage": r.ecl["by_stage"]}
+    b.macro_ecl = r.macro_ecl
+    b.alm = {"lcr": _Cl(), "nsfr": _Cl(), "irrbb": _Cl()}
+    b.alm["lcr"].lcr = r.alm["lcr"].lcr * 0.97
+    b.alm["lcr"].hqla_total = r.alm["lcr"].hqla_total
+    b.alm["lcr"].net_outflow = r.alm["lcr"].net_outflow / 0.97
+    b.alm["lcr"].gross_outflow = r.alm["lcr"].gross_outflow * 1.05
+    b.alm["lcr"].inflow_capped = r.alm["lcr"].inflow_capped
+    b.alm["nsfr"].nsfr = r.alm["nsfr"].nsfr * 0.98
+    b.alm["irrbb"].worst_pct_tier1 = r.alm["irrbb"].worst_pct_tier1 * 1.10
+    b.meta = {"capital": r.meta["capital"]}
+
+    diff = compare_results(base, b, a_label="기준 시점", b_label="비교 시점")
+
+    cb = diff.capital_bridge
+    rb = diff.rwa_bridge
+    eb = diff.ecl_bridge
+
+    # waterfall for CET1 bridge
+    cet1_wf = viz_advanced.attribution_waterfall(
+        [s.label for s in cb.steps], [s.value for s in cb.steps],
+        start_value=cb.start_value, end_value=cb.end_value,
+        value_fmt=_pct, title="CET1 비율 변동 분해",
+    )
+    rwa_wf = viz_advanced.attribution_waterfall(
+        [s.label for s in rb.steps], [s.value for s in rb.steps],
+        start_value=rb.start_value, end_value=rb.end_value,
+        value_fmt=_won, title="RWA 변동 분해",
+    )
+    ecl_wf = viz_advanced.attribution_waterfall(
+        [s.label for s in eb.steps], [s.value for s in eb.steps],
+        start_value=eb.start_value, end_value=eb.end_value,
+        value_fmt=_won, title="ECL 변동 분해",
+    )
+
+    delta_rows = [
+        ["CET1 비율", _pct(base.bis.cet1_ratio), _pct(b.bis.cet1_ratio),
+         f"{diff.bis_change_pp:+.2f}%p"],
+        ["최종 RWA", _won(base.rwa["final_total"]),
+         _won(b.rwa["final_total"]), _won(diff.rwa_change_krw)],
+        ["TTC ECL", _won(base.ecl["total"]),
+         _won(b.ecl["total"]), _won(diff.ecl_change_krw)],
+        ["LCR", _pct(base.alm["lcr"].lcr), _pct(b.alm["lcr"].lcr),
+         f"{diff.lcr_change_pp:+.2f}%p"],
+        ["NSFR", _pct(base.alm["nsfr"].nsfr), _pct(b.alm["nsfr"].nsfr),
+         f"{diff.nsfr_change_pp:+.2f}%p"],
+    ]
+
+    body = f"""
+<h1 class="title">26. 시점 간 비교 (Snapshot Comparison)</h1>
+<p class="section-lead">두 시점의 PipelineResult를 받아 헤드라인 변동을 driver별로 분해.
+실제 운영 시 Q1 → Q2, YoY 비교 등에 사용. 본 페이지는 시연용으로 현 시점 + 합성
+충격(IRB +8%, SA +5%, ECL +15%, LCR -3%) 가상 시나리오와 비교.</p>
+
+<div class="card"><h2>26-1. 헤드라인 변동표</h2>
+{_table(["지표","기준","비교","변동"], delta_rows, right_cols=[1,2,3])}
+</div>
+
+<div class="card"><h2>26-2. CET1 변동 분해</h2>
+<div class="chart">{cet1_wf}</div>
+<p class="section-lead">자본 효과 + RWA 효과로 분해. RWA가 증가하면 CET1 비율은 하락 — 부호 직관과 일치.</p>
+</div>
+
+<div class="card"><h2>26-3. RWA 변동 분해</h2>
+<div class="chart">{rwa_wf}</div>
+<p class="section-lead">4부문(SA / IRB / 시장 / 운영) + Output floor 가산 변화로 분해.</p>
+</div>
+
+<div class="card"><h2>26-4. ECL 변동 분해</h2>
+<div class="chart">{ecl_wf}</div>
+<p class="section-lead">Marshall-Edgeworth 가중 평균으로 EAD 효과 + PD·LGD 효과 분해.</p>
+</div>
+"""
+    return _page("시점 비교", body, "26_comparison.html")
+
+
 def page_data_quality(r: PipelineResult, portfolio: pd.DataFrame) -> str:
     from risk_lib.data_quality import dq_report, reconcile
     dq = dq_report(portfolio)
