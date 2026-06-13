@@ -615,6 +615,75 @@ def page_kri_trends(r: PipelineResult) -> str:
     return _page("KRI 트렌드", body, "22_kri_trends.html")
 
 
+def page_vintage(r: PipelineResult, portfolio: pd.DataFrame) -> str:
+    from risk_lib.vintage import build_vintage, transition_matrix
+    from risk_lib.models.rating import pd_to_rating
+    vin = build_vintage(portfolio, n_cohorts=12, seed=r.meta.get("seed", 42))
+    if vin.cohorts.empty:
+        body = "<h1 class='title'>24. Vintage / Migration</h1><p>데이터 없음.</p>"
+        return _page("Vintage", body, "24_vintage.html")
+
+    # vintage line chart: 4 cohorts overlaid
+    sample_cohorts = vin.summary["cohort_month"].tolist()[:6]
+    series = {}
+    qs = sorted(vin.cohorts["mob"].unique())
+    for cm in sample_cohorts:
+        sub = vin.cohorts[vin.cohorts["cohort_month"] == cm].sort_values("mob")
+        if len(sub) >= 3:
+            # pad to qs length with NaN-equivalent (last value held)
+            v = [float(sub[sub["mob"] == m]["cum_default_rate"].iloc[0])
+                 if m in sub["mob"].values else float(sub["cum_default_rate"].iloc[-1])
+                 for m in qs]
+            series[cm] = v
+    vint_chart = viz.line_chart(
+        [str(m) for m in qs], series, value_fmt=_pct,
+        title="Cohort × MOB 누적 부도율 (vintage curve)",
+    )
+
+    # transition heatmap — only top-N rated grades to keep readable
+    p_grade = portfolio.copy()
+    p_grade["grade"] = [pd_to_rating(x).grade if x == x else None
+                        for x in p_grade["pd"]]
+    tm = transition_matrix(p_grade, seed=r.meta.get("seed", 42))
+    if tm.matrix.empty:
+        heat = "<p>전이행렬 데이터 부족.</p>"
+        sum_rows = []
+    else:
+        # restrict to grades with at least 5 observations for clean readability
+        rated = tm.matrix.index.tolist()
+        cols = tm.matrix.columns.tolist()
+        heat = viz_advanced.heatmap(
+            rated, cols,
+            tm.matrix.values.tolist(),
+            title="1년 등급 이동행렬 (row %)",
+            value_fmt=lambda v: f"{v*100:.0f}" if v >= 0.01 else "",
+            vmin=0, vmax=1, cell_label=True,
+        )
+        sum_rows = [[k, _pct(v)] for k, v in tm.summary.items()]
+
+    body = f"""
+<h1 class="title">24. Vintage 분석 + 등급 이동행렬 (Migration)</h1>
+<p class="section-lead">코호트(origination 시점)별 누적 부도율 곡선 +
+1년 horizon 등급 이동행렬. 신용 portfolio의 시간 차원 진단.</p>
+
+<div class="card"><h2>24-1. Vintage curves — 코호트별 누적 부도율</h2>
+<div class="chart">{vint_chart}</div>
+<p class="section-lead">X축은 months-on-book(MOB), 각 라인은 origination month. 오래된 코호트는
+이미 부도가 발현됐고, 신규 코호트는 아직 risk가 드러나지 않은 모습 — 코호트 간 quality 차이를 진단.</p>
+</div>
+
+<div class="card"><h2>24-2. 등급 이동행렬 (1년)</h2>
+{heat}
+<div class="kpi-grid" style="margin-top:8px">
+{"".join(_kpi(k, v) for k, v in sum_rows)}
+</div>
+<p class="section-lead">대각선 = stable, 좌측 상삼각 = upgrade, 우측 하삼각 + D열 = downgrade/부도.
+정상 portfolio는 stable 60%+, upgrade ≈ downgrade, default &lt; 5% 정도.</p>
+</div>
+"""
+    return _page("Vintage", body, "24_vintage.html")
+
+
 def page_pillar3(r: PipelineResult, portfolio: pd.DataFrame) -> str:
     from risk_lib.pillar3 import km1, ov1, cr1, liq1, lr1
     def _format(df: pd.DataFrame) -> str:

@@ -89,6 +89,7 @@ NAV = [
     ("21_mda.html",       "21. MDA"),
     ("22_kri_trends.html","22. KRI 트렌드"),
     ("23_attribution.html","23. 귀속분석"),
+    ("24_vintage.html",   "24. Vintage"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -1143,7 +1144,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
     from risk_lib.html_ops_pages import (
         page_climate, page_ccr, page_op_loss, page_sensitivity,
         page_model_risk, page_concentration_deep, page_raf, page_pillar3,
-        page_mda, page_kri_trends, page_attribution,
+        page_mda, page_kri_trends, page_attribution, page_vintage,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -1177,6 +1178,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)
+        pages["24_vintage.html"] = page_vintage(result, portfolio)
     written = {}
     for name, content in pages.items():
         p = out / name

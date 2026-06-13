@@ -333,6 +333,32 @@ def test_kri_history_deterministic(result):
         assert x.values == y.values
 
 
+# ---- vintage / transition ------------------------------------------------
+
+def test_vintage_cohorts():
+    from risk_lib.vintage import build_vintage
+    p = generate_portfolio(seed=42)
+    v = build_vintage(p, n_cohorts=12, seed=42)
+    assert len(v.summary) > 0
+    # cum_default_rate must be monotone non-decreasing in MOB within each cohort
+    for c in v.cohorts["cohort_month"].unique():
+        sub = v.cohorts[v.cohorts["cohort_month"] == c].sort_values("mob")
+        assert (sub["cum_default_rate"].diff().dropna() >= -1e-6).all()
+
+
+def test_transition_matrix_row_sums_to_one():
+    from risk_lib.vintage import transition_matrix
+    from risk_lib.models.rating import pd_to_rating
+    p = generate_portfolio(seed=42)
+    p["grade"] = [pd_to_rating(x).grade if x == x else None for x in p["pd"]]
+    t = transition_matrix(p, seed=42)
+    assert t.n_obs > 0
+    # rows that have any obs should sum to ~1
+    nonzero = t.matrix[t.matrix.sum(axis=1) > 0.5]
+    for _, row in nonzero.iterrows():
+        assert row.sum() == pytest.approx(1.0, abs=1e-9)
+
+
 def test_full_package_writes_files(tmp_path, result):
     from risk_lib.html_report import build_full_report_package
     from risk_lib.repro import build_manifest, now_utc
@@ -348,6 +374,7 @@ def test_full_package_writes_files(tmp_path, result):
     for n in ["13_climate.html", "14_ccr.html", "15_op_loss.html",
               "16_sensitivity.html", "17_model_risk.html",
               "18_concentration_deep.html", "19_raf.html", "20_pillar3.html",
-              "21_mda.html", "22_kri_trends.html"]:
+              "21_mda.html", "22_kri_trends.html", "23_attribution.html",
+              "24_vintage.html"]:
         assert (out / "ops" / n).exists(), f"missing {n}"
     assert (out / "manifest.json").exists()
