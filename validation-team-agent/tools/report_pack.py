@@ -58,6 +58,10 @@ code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; }
 footer { margin-top: 2rem; color: #6c757d; font-size: .8rem; }
 a { color: #1565c0; }
 .crumb { font-size: .85rem; margin-bottom: .6rem; }
+details.prov { border: 1px solid #cfd8dc; background: #f6f9fc; padding: .4rem .8rem;
+               border-radius: 6px; margin: 1rem 0; font-size: .9rem; }
+details.prov summary { cursor: pointer; padding: .2rem 0; }
+details.prov table { width: 100%; font-size: .85rem; }
 """
 
 _STATUS_KO = {"ok": "정상", "warning": "주의", "fail": "위반", "skipped": "생략",
@@ -73,7 +77,13 @@ def _badge(status: str) -> str:
             f"{_esc(status)} · {_STATUS_KO.get(status, status)}</span>")
 
 
-def _page(title: str, body: str, *, crumb: bool = True) -> str:
+def _page(
+    title: str,
+    body: str,
+    *,
+    crumb: bool = True,
+    provenance_card: str = "",
+) -> str:
     nav = '<div class="crumb"><a href="index.html">← 요약 보고서</a></div>' if crumb else ""
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8"><title>{_esc(title)}</title>
@@ -81,10 +91,51 @@ def _page(title: str, body: str, *, crumb: bool = True) -> str:
 {DRAFT_BANNER}
 {nav}<h1>{_esc(title)}</h1>
 {body}
+{provenance_card}
 <footer>생성: tools/report_pack.py — 합성 데이터 / 외부 호출 없음.
 본 보고서는 검증 보조 산출물 초안이며 최종 검증 의견과 외부 제출은 인간
 검증자의 검토와 승인을 거쳐야 합니다.</footer>
 </body></html>"""
+
+
+def _render_provenance_card(prov: dict | None) -> str:
+    """모든 페이지에 동일 삽입되는 재현가능성 카드."""
+    if not prov:
+        return ""
+    inputs = prov["inputs"]
+    fp = inputs.get("fingerprint", {})
+    df = fp.get("df") or {}
+    pv = prov["policy_versions"]
+    git = prov["git"]
+    runtime = prov["runtime"]
+    pv_rows = "".join(
+        f"<tr><td><code>{_esc(k)}</code></td><td>{_esc(v)}</td></tr>"
+        for k, v in pv.items())
+    return f"""
+<details class="prov" open>
+<summary><b>재현가능성 (Reproducibility)</b> — 입력 해시 · 정책 버전 · git rev</summary>
+<table>
+<tr><th>생성 (UTC)</th><td>{_esc(prov['generated_at_utc'])}</td></tr>
+<tr><th>입력 n / seed / stress</th>
+    <td>n={inputs['n']:,} · seed={inputs['seed']} · stress={inputs['stress']}</td></tr>
+<tr><th>입력 df 지문 (shape / SHA-256)</th>
+    <td>{df.get('shape', '-')} / <code>{_esc((df.get('sha256') or '-')[:16])}…</code></td></tr>
+<tr><th>입력 스칼라 SHA-256</th>
+    <td><code>{_esc(fp.get('scalar_sha256', '-')[:16])}…</code></td></tr>
+<tr><th>git</th>
+    <td>branch <code>{_esc(git['branch'])}</code> · rev <code>{_esc(git['rev'])}</code>
+        · dirty={_esc(git['dirty'])}</td></tr>
+<tr><th>runtime</th>
+    <td>Python {_esc(runtime['python'])} · pandas {_esc(runtime.get('pandas','?'))}
+        · numpy {_esc(runtime.get('numpy','?'))}</td></tr>
+<tr><th>재실행 명령</th><td><code>{_esc(prov['reproduce'])}</code></td></tr>
+</table>
+<h4 style="margin:.4rem 0">정책 SSoT 버전 (산출 결과에 직접 영향)</h4>
+<table style="font-size:.85rem">
+<tr><th>policy</th><th>version</th></tr>
+{pv_rows}
+</table>
+</details>"""
 
 
 def _kv_table(rows: list[tuple[str, Any]]) -> str:
@@ -436,8 +487,19 @@ def _index_page(demo: dict) -> str:
 
 # ---------------- 빌더 / CLI ----------------
 
-def build_pack(demo: dict, request: dict, out_dir: str | Path) -> list[Path]:
-    """보고서 팩을 생성하고 생성 파일 목록을 반환한다."""
+def build_pack(
+    demo: dict,
+    request: dict,
+    out_dir: str | Path,
+    *,
+    provenance: dict | None = None,
+) -> list[Path]:
+    """보고서 팩을 생성하고 생성 파일 목록을 반환한다.
+
+    ``provenance`` 가 주어지면 모든 페이지 footer 직전에 동일한 재현가능성
+    카드가 삽입된다 (CRO 요구: 모든 산출값 재현·설명 가능). 카드 부재는
+    빌드 시점 assert 로 차단된다 — provenance=None 이면 R37 호환 모드.
+    """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     pages: dict[str, str] = {"index.html": _index_page(demo)}
@@ -448,9 +510,14 @@ def build_pack(demo: dict, request: dict, out_dir: str | Path) -> list[Path]:
     pages["concentration.html"] = _concentration_page(demo)
     pages["data_quality.html"] = _data_quality_page(demo)
 
+    prov_card = _render_provenance_card(provenance) if provenance else ""
     written = []
     for name, content_html in pages.items():
         assert "[DRAFT" in content_html, f"{name}: DRAFT 워터마크 누락"
+        if prov_card:
+            content_html = content_html.replace("<footer>", prov_card + "<footer>", 1)
+            assert "Reproducibility" in content_html, (
+                f"{name}: 재현가능성 카드 삽입 실패")
         p = out / name
         p.write_text(content_html, encoding="utf-8")
         written.append(p)
@@ -466,12 +533,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--log-dir", type=Path, default=None)
     args = parser.parse_args(argv)
 
+    from tools.provenance import build_provenance
     from tools.run_workflow_demo import build_request, run_demo
 
     log_dir = args.log_dir or (Path(__file__).resolve().parent.parent / "logs")
     demo = run_demo(args.n, args.stress, args.seed, log_dir)
     request = build_request(args.n, stress=args.stress, seed=args.seed)
-    written = build_pack(demo, request, args.out)
+    prov = build_provenance(request, n=args.n, seed=args.seed, stress=args.stress)
+    written = build_pack(demo, request, args.out, provenance=prov)
     for p in written:
         sys.stdout.write(f"{p}\n")
     sys.stdout.write(f"보고서 팩 {len(written)}개 페이지 생성: {args.out}/index.html\n")

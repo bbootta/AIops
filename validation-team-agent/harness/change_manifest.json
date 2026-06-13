@@ -1530,6 +1530,21 @@
       "rollback_rule": "두 파일 + 테스트 제거로 기존 동작 복원",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0103",
+      "timestamp": "2026-06-13 13:42:11",
+      "component": "tools/provenance.py + tools/report_pack.py + tests/test_v2_round38.py",
+      "change_type": "create",
+      "evidence": "/goal CRO 보고 수준 고도화 (2026-06-13): 모든 산출값은 재현가능하고 설명가능해야 함. 기존 보고서는 입력 해시·정책 버전·git rev·재실행 명령이 명시되지 않아 검증자가 동일 결과를 재현할 수 없었음",
+      "root_cause": "재현가능성·설명가능성 인프라 부재 — 산출물에 input fingerprint / SSoT 버전 / 실행 환경 origin 이 attached 되지 않았음",
+      "targeted_fix": "tools/provenance.py: request fingerprint (df SHA-256 + scalar SHA-256), 15개 SSoT 정책 버전 수집, git rev/dirty, runtime (Python/pandas/numpy), 재실행 명령. report_pack.build_pack(provenance=...) 옵션 추가 — provenance 주어지면 모든 페이지 footer 직전에 동일 카드 강제 삽입 (assert 게이트). CLI 는 항상 provenance 생성.",
+      "expected_benefit": "검증자/CRO 가 어느 페이지를 띄워도 input 해시·정책 버전·git rev·재실행 명령을 한 화면에서 확인. 정책 버전이 바뀌면 즉시 식별됨. 14 case 결정성·삽입 위치·해시 변경 검증",
+      "expected_regression_risk": "low — provenance=None 호환 모드 유지 (R37 호출 불변), 새 페이지 미추가, 게이트만 추가",
+      "validation_method": "tests/test_v2_round38.py 14 cases (결정성 4 / 정책버전 / git / build_provenance / 카드 강제 6 / CLI / 호환) + 전체 626 통과 + ruff/mypy green",
+      "rollback_rule": "build_pack 호출에서 provenance 인자 제거 시 R37 동일 동작 — 신규 모듈 삭제로 완전 롤백 가능",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
