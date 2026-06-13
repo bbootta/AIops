@@ -293,9 +293,17 @@ WATCH는 operational 조기경보, GREEN은 한계 이내.</p>
 </div>
 
 <div class="card">
-<h2>8. 재현성 정보 (감사 추적)</h2>
+<h2>8. 인쇄 / PDF 출력</h2>
+<p class="section-lead">결재용 PDF 파일이 필요한 경우, <a href="printable.html"><b>printable.html</b></a>
+을 브라우저에서 열고 <b>인쇄 (Ctrl/⌘+P)</b> → 대상 <b>PDF로 저장</b>을 선택하세요.
+A4 1-pager 형태로 한글이 완벽히 렌더링됩니다.</p>
+</div>
+
+<div class="card">
+<h2>9. 재현성 정보 (감사 추적)</h2>
 <div class="repro-footer">{_esc(repro)}<br>
-포트폴리오 SHA-256 / 파라미터·규제상수 스냅샷·코드 커밋 hash 는 ops/manifest.json 참조.</div>
+포트폴리오 SHA-256 / 파라미터·규제상수 스냅샷·코드 커밋 hash 는 ops/manifest.json 참조.<br>
+재현 명령: <code>python -m risk_lib.cli reproduce --manifest manifest.json</code></div>
 </div>
 """
     meta = (f"산출 기준 {result.meta.get('asof','-')} · seed {result.meta.get('seed')} · "
