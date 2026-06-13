@@ -86,6 +86,9 @@ NAV = [
     ("18_concentration_deep.html","18. 집중 D-D"),
     ("19_raf.html",       "19. RAF"),
     ("20_pillar3.html",   "20. Pillar 3"),
+    ("21_mda.html",       "21. MDA"),
+    ("22_kri_trends.html","22. KRI 트렌드"),
+    ("23_attribution.html","23. 귀속분석"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -1140,6 +1143,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
     from risk_lib.html_ops_pages import (
         page_climate, page_ccr, page_op_loss, page_sensitivity,
         page_model_risk, page_concentration_deep, page_raf, page_pillar3,
+        page_mda, page_kri_trends, page_attribution,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -1167,6 +1171,9 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "17_model_risk.html": page_model_risk(result),
         "18_concentration_deep.html": page_concentration_deep(result),
         "19_raf.html":        page_raf(result),
+        "21_mda.html":        page_mda(result),
+        "22_kri_trends.html": page_kri_trends(result),
+        "23_attribution.html":page_attribution(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)

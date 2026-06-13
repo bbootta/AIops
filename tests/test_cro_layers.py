@@ -277,6 +277,62 @@ def test_pillar3_ov1_sums_to_total(result):
 
 # ---- html_report integration --------------------------------------------
 
+# ---- mda -----------------------------------------------------------------
+
+def test_mda_no_breach_above_cbr():
+    from risk_lib.mda import compute_mda
+    m = compute_mda(0.115, 1.15e12, 1e13)
+    assert m.in_breach is False
+    assert m.distributable_pct == 1.0
+    assert m.buffer_quartile == 0
+    assert m.excess_above_cbr > 0
+
+
+def test_mda_quartile_progression():
+    """Walking down the buffer should hit quartiles 4 → 3 → 2 → 1."""
+    from risk_lib.mda import compute_mda
+    # CBR = 3.5%, so 4.5%+CBR = 8.0%. Quartile width = 3.5%/4 ≈ 0.875%p.
+    # CET1 levels chosen to land squarely inside each quartile.
+    cases = {7.7: 4, 6.9: 3, 6.0: 2, 5.0: 1}    # rounded inside-band midpoints
+    for pct, expected_q in cases.items():
+        m = compute_mda(pct / 100, pct/100 * 1e13, 1e13)
+        assert m.in_breach
+        assert m.buffer_quartile == expected_q, f"{pct}% → q{m.buffer_quartile} (expected {expected_q})"
+
+
+def test_mda_below_pillar1_is_q1():
+    from risk_lib.mda import compute_mda
+    m = compute_mda(0.040, 4e11, 1e13)
+    assert m.in_breach
+    assert m.buffer_quartile == 1
+    assert m.retention_ratio == 1.0
+
+
+def test_mda_ladder_marks_current():
+    from risk_lib.mda import mda_ladder
+    df = mda_ladder(1e12, 1e13)
+    assert df["is_current"].sum() == 1
+
+
+# ---- timeseries ----------------------------------------------------------
+
+def test_kri_history_reconciles_to_actual(result):
+    from risk_lib.timeseries import synth_history
+    hist = synth_history(result.raf, months=12, seed=42)
+    assert len(hist) == len(result.raf.kris)
+    for k, ts in zip(result.raf.kris, hist):
+        assert ts.values[-1] == pytest.approx(k.actual, rel=1e-9)
+        assert len(ts.months) == 12 == len(ts.values)
+
+
+def test_kri_history_deterministic(result):
+    from risk_lib.timeseries import synth_history
+    a = synth_history(result.raf, months=12, seed=42)
+    b = synth_history(result.raf, months=12, seed=42)
+    for x, y in zip(a, b):
+        assert x.values == y.values
+
+
 def test_full_package_writes_files(tmp_path, result):
     from risk_lib.html_report import build_full_report_package
     from risk_lib.repro import build_manifest, now_utc
@@ -291,6 +347,7 @@ def test_full_package_writes_files(tmp_path, result):
     # All ops pages present
     for n in ["13_climate.html", "14_ccr.html", "15_op_loss.html",
               "16_sensitivity.html", "17_model_risk.html",
-              "18_concentration_deep.html", "19_raf.html", "20_pillar3.html"]:
+              "18_concentration_deep.html", "19_raf.html", "20_pillar3.html",
+              "21_mda.html", "22_kri_trends.html"]:
         assert (out / "ops" / n).exists(), f"missing {n}"
     assert (out / "manifest.json").exists()

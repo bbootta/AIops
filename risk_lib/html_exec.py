@@ -177,6 +177,16 @@ def build_executive(result: PipelineResult,
         colors=[viz.AMBER]*len(cl.transition) + [viz.RED]*len(cl.physical),
     )
 
+    # --- MDA card data
+    from risk_lib.mda import compute_mda
+    mda_result = compute_mda(
+        bis.cet1_ratio, result.meta["capital"].cet1, bis.rwa,
+        buffers={"capital_conservation": 0.025, "countercyclical": 0.0, "dsib": 0.01},
+    )
+    mda_tone = "good" if not mda_result.in_breach else "bad"
+    mda_text = ("자유로운 분배" if not mda_result.in_breach
+                else f"분배제한 q{mda_result.buffer_quartile} ({_pct(mda_result.distributable_pct)})")
+
     # --- repro
     repro = (f"산출시각 {result.meta.get('asof', '-')} · seed {result.meta.get('seed')} · "
              f"포트폴리오 {int(result.portfolio_summary['n'].sum()):,}건 · "
@@ -210,6 +220,7 @@ WATCH는 operational 조기경보, GREEN은 한계 이내.</p>
 {_kpi("Total", _pct(bis.total_ratio))}
 {_kpi("레버리지", _pct(lev.leverage_ratio), sub=f"요구 {_pct(LEVERAGE_MIN_RATIO)}", tone="good" if lev.passes() else "bad")}
 {_kpi("ICAAP 사용률", _pct(result.icaap.utilisation,1), sub=result.icaap.grade, tone={"GREEN":"good","AMBER":"warn","RED":"bad"}[result.icaap.grade])}
+{_kpi("MDA 분배 여력", mda_text, sub=f"CBR 초과 {_won(mda_result.excess_above_cbr)}" if not mda_result.in_breach else f"버퍼 부족 {_won(mda_result.buffer_shortfall)}", tone=mda_tone)}
 </div>
 </div>
 <div class="card">

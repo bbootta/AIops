@@ -435,6 +435,186 @@ def page_raf(r: PipelineResult) -> str:
 
 # ---------------------------------------------------------------- 20 Pillar 3
 
+def page_attribution(r: PipelineResult) -> str:
+    """CET1 / RWA single-snapshot decomposition + worked-example bridge."""
+    attr = r.attribution
+    cet1_h = attr["cet1_headroom"]
+    rwa_d = attr["rwa_components"]
+    rows_h = [[r2["layer"], _pct(r2["required"]), _pct(r2["actual"]),
+               f"{r2['headroom']*100:+.2f}%p"]
+              for _, r2 in cet1_h.iterrows()]
+    rows_r = [[r2["component"], _won(r2["rwa"]), _pct(r2["share"])]
+              for _, r2 in rwa_d.iterrows()]
+
+    rwa_chart = viz_advanced.treemap(
+        rwa_d["component"].tolist(), rwa_d["rwa"].tolist(),
+        title="최종 RWA 구성 — 비중 시각화", value_fmt=_won,
+    )
+    headroom_chart = viz.bar_chart(
+        cet1_h["layer"].tolist(),
+        cet1_h["headroom"].tolist(),
+        value_fmt=_pct,
+        title="CET1 잉여 — 규제 layer별",
+        colors=[viz.GREEN if x >= 0 else viz.RED for x in cet1_h["headroom"]],
+    )
+
+    # Worked example bridge: simulate a stressed scenario (+20% EAD) and show the bridge
+    from risk_lib.attribution import capital_bridge, rwa_bridge
+    from copy import copy
+    class _S:
+        pass
+    stressed = _S()
+    stressed.rwa = {k: v for k, v in r.rwa.items()}
+    stressed.rwa["sa"] = r.rwa["sa"] * 1.2
+    stressed.rwa["irb"] = r.rwa["irb"] * 1.2
+    stressed.rwa["final_total"] = (stressed.rwa["sa"] + stressed.rwa["irb"]
+                                    + r.rwa["market"] + r.rwa["op"])
+    stressed.bis = _S()
+    stressed.bis.rwa = stressed.rwa["final_total"]
+    stressed.meta = {"capital": r.meta["capital"]}
+
+    base_obj = _S()
+    base_obj.rwa = r.rwa
+    base_obj.bis = r.bis
+    base_obj.meta = r.meta
+
+    cb = capital_bridge(base_obj, stressed)
+    rb = rwa_bridge(base_obj, stressed)
+    cb_waterfall = viz_advanced.attribution_waterfall(
+        [s.label for s in cb.steps], [s.value for s in cb.steps],
+        start_value=cb.start_value, end_value=cb.end_value,
+        value_fmt=_pct, title="CET1 변동 분해 (EAD +20% 예시)",
+    )
+    rb_waterfall = viz_advanced.attribution_waterfall(
+        [s.label for s in rb.steps], [s.value for s in rb.steps],
+        start_value=rb.start_value, end_value=rb.end_value,
+        value_fmt=_won, title="RWA 변동 분해 (EAD +20% 예시)",
+    )
+
+    body = f"""
+<h1 class="title">23. 귀속분석 (Attribution / Bridge)</h1>
+<p class="section-lead">단일 시점 분해 + 두 시점 간 변동 driver 분해.
+"CET1 비율이 왜 이 수준인가" + "변동의 원인은 무엇인가"를 설명.</p>
+
+<div class="row2">
+<div class="card"><h2>23-1. RWA 구성 분해</h2>
+<div class="chart">{rwa_chart}</div>
+{_table(["부문","RWA","비중"], rows_r, right_cols=[1,2])}
+</div>
+<div class="card"><h2>23-2. CET1 잉여 layer 분해</h2>
+<div class="chart">{headroom_chart}</div>
+{_table(["층","요구","실측","잉여"], rows_h, right_cols=[1,2,3])}
+</div>
+</div>
+
+<div class="card"><h2>23-3. 예시 Bridge — EAD +20% 충격이 CET1·RWA에 미치는 영향</h2>
+<p class="section-lead">실제 두 시점 분석 시 동일한 driver 분해를 적용. 자본 변화는 절대값이 작아서 RWA 효과가 dominant.</p>
+<div class="row2">
+<div><div class="chart">{cb_waterfall}</div></div>
+<div><div class="chart">{rb_waterfall}</div></div>
+</div>
+</div>
+"""
+    return _page("귀속분석", body, "23_attribution.html")
+
+
+def page_mda(r: PipelineResult) -> str:
+    from risk_lib.mda import compute_mda, mda_ladder
+    bis = r.bis
+    cet1_amount = r.meta["capital"].cet1
+    rwa = bis.rwa
+    buf = {"capital_conservation": 0.025, "countercyclical": 0.0, "dsib": 0.01}
+    m = compute_mda(bis.cet1_ratio, cet1_amount, rwa, buffers=buf)
+    ladder = mda_ladder(cet1_amount, rwa, buffers=buf)
+
+    # ladder chart: retention_ratio at each CET1 grid point
+    chart = viz.bar_chart(
+        [_pct(r) for r in ladder["cet1_ratio"]],
+        ladder["retention_ratio"].tolist(),
+        value_fmt=_pct, title="CET1 비율별 분배제한 (retention ratio)",
+        colors=[viz.RED if x > 0.6 else viz.AMBER if x > 0 else viz.GREEN
+                for x in ladder["retention_ratio"]],
+        reference_value=m.retention_ratio,
+        reference_label=f"현재 {_pct(m.retention_ratio)}",
+    )
+
+    verdict_text = ("자본보전버퍼 침범 — 배당·성과보수·AT1 쿠폰 분배제한 발생" if m.in_breach
+                    else "버퍼 이상 — 분배 제한 없음")
+    verdict_tone = "bad" if m.in_breach else "good"
+
+    rows = [["CBR (CCB+CCyB+DSIB)", _pct(m.cbr_total)],
+            ["CET1 비율", _pct(m.cet1_ratio)],
+            ["버퍼 부족", _won(m.buffer_shortfall) if m.in_breach else "—"],
+            ["버퍼 분위", str(m.buffer_quartile) if m.in_breach else "—"],
+            ["요구 보유율", _pct(m.retention_ratio)],
+            ["분배가능 비율", _pct(m.distributable_pct)],
+            ["CBR 초과 (자본 KRW)", _won(m.excess_above_cbr) if not m.in_breach else "—"]]
+
+    body = f"""
+<h1 class="title">21. MDA — 자본보전버퍼 분배제한</h1>
+<p class="section-lead">Basel III RBC30 / 감독세칙 자본보전버퍼 침범 시 분기별 분배가능이익
+보유율 4분위 적용. CET1 비율이 CCB+CCyB+DSIB 합계 위에 있어야 분배 제한 없음.</p>
+
+<div class="kpi-grid">
+{_kpi("판정", verdict_text, tone=verdict_tone)}
+{_kpi("현재 CET1", _pct(m.cet1_ratio))}
+{_kpi("CBR 임계 (4.5%+CBR)",
+       _pct(0.045 + m.cbr_total))}
+{_kpi("분배가능 비율", _pct(m.distributable_pct),
+       tone="good" if m.distributable_pct >= 1 else "bad")}
+</div>
+
+<div class="card"><h2>21-1. 분배제한 사다리</h2>
+<div class="chart">{chart}</div>
+<p class="section-lead">x축이 좌측(빨강)일수록 CET1이 낮아 보유율이 높아짐 = 분배 가능액 감소. 현재 위치는 차트 점선.</p>
+</div>
+
+<div class="card"><h2>21-2. MDA 산출 상세</h2>
+{_table(["항목","값"], rows, right_cols=[1])}
+</div>
+"""
+    return _page("MDA", body, "21_mda.html")
+
+
+def page_kri_trends(r: PipelineResult) -> str:
+    from risk_lib.timeseries import synth_history
+    series = synth_history(r.raf, months=12, seed=r.meta.get("seed", 42))
+    # group by category for sub-section presentation
+    by_cat = {}
+    for k, ts in zip(r.raf.kris, series):
+        by_cat.setdefault(k.category, []).append((k, ts))
+
+    sections = []
+    for cat, items in by_cat.items():
+        charts = []
+        for k, ts in items:
+            ref = ts.threshold_min if ts.direction == "min" else ts.threshold_max
+            ref_label = f"board {ts.threshold_min if ts.direction=='min' else ts.threshold_max}"
+            chart = viz.line_chart(
+                ts.months, {k.name: ts.values},
+                value_fmt=(_pct if k.fmt == "pct"
+                           else (lambda v: f"{v:.3f}") if k.fmt == "ratio"
+                           else _won),
+                title=f"{k.name} — {ts.trend()}",
+                reference_value=ref, reference_label=ref_label,
+            )
+            charts.append(f'<div class="card"><div class="chart">{chart}</div></div>')
+        sections.append(f'<h2 style="margin:18px 0 6px">{_esc(cat).upper()} ({len(items)}개 KRI)</h2>'
+                        + f'<div class="row2">{"".join(charts)}</div>')
+
+    body = f"""
+<h1 class="title">22. KRI 트렌드 (12개월)</h1>
+<p class="section-lead">현 시점 KRI를 기반으로 plausible AR(1) 12개월 백히스토리를 합성 — board 한계와의
+거리 변화 추이를 확인. 모든 시계열은 현 시점 실측값에 정확히 맞춰 도착.</p>
+
+{"".join(sections)}
+
+<p class="section-lead">단, 위 시계열은 본 산출의 단일 시점 결과를 기반으로 한 합성 백히스토리입니다.
+실제 운영 시 월별 산출 manifest를 누적해 실측 트렌드로 교체 가능.</p>
+"""
+    return _page("KRI 트렌드", body, "22_kri_trends.html")
+
+
 def page_pillar3(r: PipelineResult, portfolio: pd.DataFrame) -> str:
     from risk_lib.pillar3 import km1, ov1, cr1, liq1, lr1
     def _format(df: pd.DataFrame) -> str:
