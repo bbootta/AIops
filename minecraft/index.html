@@ -706,28 +706,33 @@ function updateAnimals(dt) {
 // ---------- 좀비 (밤에만 출몰) ----------
 const zombies = [];
 let zombieSpawnT = 0;
+// 좀비는 밤마다 반복 스폰/소멸하므로 지오메트리·머티리얼을 한 번만 만들어 공유 (누수 방지)
+const ZOMBIE_SKIN = new THREE.MeshLambertMaterial({ color: 0x5e9c4f });
+const ZOMBIE_SHIRT = new THREE.MeshLambertMaterial({ color: 0x2e6b5e });
+const ZOMBIE_PANTS = new THREE.MeshLambertMaterial({ color: 0x3a3a55 });
+const ZG_LEG = new THREE.BoxGeometry(0.2, 0.7, 0.2);
+const ZG_BODY = new THREE.BoxGeometry(0.5, 0.7, 0.28);
+const ZG_HEAD = new THREE.BoxGeometry(0.45, 0.45, 0.45);
+const ZG_ARM = new THREE.BoxGeometry(0.16, 0.16, 0.55);
 function makeZombieMesh() {
   const g = new THREE.Group();
-  const skin = new THREE.MeshLambertMaterial({ color: 0x5e9c4f });
-  const shirt = new THREE.MeshLambertMaterial({ color: 0x2e6b5e });
-  const pants = new THREE.MeshLambertMaterial({ color: 0x3a3a55 });
   for (const lx of [-0.12, 0.12]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), pants);
+    const leg = new THREE.Mesh(ZG_LEG, ZOMBIE_PANTS);
     leg.position.set(lx, 0.35, 0);
     g.add(leg);
   }
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.28), shirt);
+  const body = new THREE.Mesh(ZG_BODY, ZOMBIE_SHIRT);
   body.position.y = 1.05;
   g.add(body);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), skin);
+  const head = new THREE.Mesh(ZG_HEAD, ZOMBIE_SKIN);
   head.position.y = 1.65;
   g.add(head);
   for (const ax of [-0.33, 0.33]) {
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.55), skin);
+    const arm = new THREE.Mesh(ZG_ARM, ZOMBIE_SKIN);
     arm.position.set(ax, 1.3, -0.3); // 앞으로 뻗은 팔
     g.add(arm);
   }
-  g.userData.bodyMat = skin;
+  g.userData.bodyMat = ZOMBIE_SKIN;
   return g;
 }
 function surfaceY(x, z) {
@@ -1082,7 +1087,8 @@ let locked = false;
 let touchPlaying = false;
 let touchJump = false;
 const joyVec = new THREE.Vector2();
-function playing() { return locked || touchPlaying; }
+// 제작 창이 열려 있으면 어느 플랫폼에서든 게임을 멈춤 (모바일 일시정지 일관성)
+function playing() { return (locked || touchPlaying) && !craftOpen; }
 
 overlay.addEventListener('click', () => {
   if (isTouch) {
@@ -1456,6 +1462,8 @@ function toggleCraft(open) {
   if (open) {
     renderCraft();
     stopAttack();
+    joyVec.set(0, 0);
+    touchJump = false;
     if (locked) document.exitPointerLock();
   } else if (!isTouch) {
     canvas.requestPointerLock();
