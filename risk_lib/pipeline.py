@@ -48,6 +48,16 @@ from risk_lib.alm.irrbb import compute_irrbb
 from risk_lib.alm.lcr import compute_lcr
 from risk_lib.alm.nsfr import compute_nsfr
 from risk_lib.icaap.economic_capital import compute_icaap
+from risk_lib.appetite import build_raf
+from risk_lib.climate import run_climate
+from risk_lib.ccr import compute_ccr
+from risk_lib.op_loss import compute_op_loss
+from risk_lib.concentration_deep import (
+    top_obligors, sector_country_matrix, large_exposure_test, granularity_addon,
+)
+from risk_lib.model_risk import build_model_cards, drift_report
+from risk_lib.sensitivity import one_factor_grid, two_factor_surface
+from risk_lib.attribution import decompose_cet1_headroom, decompose_rwa
 
 
 # Per-segment PD model feature sets available in the synthetic data.
@@ -83,6 +93,14 @@ class PipelineResult:
     validation: Any
     alm: dict[str, Any] = field(default_factory=dict)    # balance_sheet/irrbb/lcr/nsfr
     icaap: Any = None
+    raf: Any = None
+    climate: Any = None
+    ccr: Any = None
+    op_loss: Any = None
+    concentration_deep: dict[str, Any] = field(default_factory=dict)
+    model_cards: list = field(default_factory=list)
+    sensitivity: dict[str, Any] = field(default_factory=dict)
+    attribution: dict[str, Any] = field(default_factory=dict)
     meta: dict[str, Any] = field(default_factory=dict)
 
 
@@ -325,6 +343,23 @@ def run_pipeline(
     alm = _stage_alm(portfolio, capital, seed)
     icaap = _stage_icaap(sa_res, irb_res, mkt, op, alm, conc, capital)
 
+    # 14. CRO add-ons: RAF + climate + CCR + Op loss + concentration deep + model cards
+    bank_book = portfolio[portfolio["asset_class"] == "bank"]
+    ccr_result = compute_ccr(bank_book, seed=seed) if not bank_book.empty else None
+    op_loss_result = compute_op_loss(total_ead, seed=seed,
+                                     sma_capital=op.rwa * 0.08)
+    climate_result = run_climate(portfolio, base_ecl=float(ecl_df["ecl"].sum()))
+    conc_deep = {
+        "top_by_ead": top_obligors(portfolio, n=20, by="ead"),
+        "top_by_risk": top_obligors(portfolio, n=20, by="risk_score")
+                        if "pd" in portfolio.columns else top_obligors(portfolio, n=20),
+        "sector_country": sector_country_matrix(portfolio),
+        "large_exposure": large_exposure_test(portfolio, capital.tier1),
+        "granularity_addon_rate": granularity_addon(portfolio),
+    }
+    model_cards = build_model_cards(pd_metrics, backtest["hosmer_lemeshow"]) \
+        if False else []   # populate after backtest below
+
     # 14-15. PD backtest + consolidated self-verification
     corp = portfolio[portfolio["asset_class"] == "corporate"]
     backtest = pd_backtest_report(corp, grade_col="grade",
@@ -350,6 +385,35 @@ def run_pipeline(
         default_rate=("default_12m", "mean"),
     ).reset_index()
 
+    # 15. CRO insight layers (depend on the assembled headline numbers)
+    # PipelineResult-shaped lightweight object so build_raf can read its fields.
+    class _ResultShim:
+        pass
+    shim = _ResultShim()
+    shim.bis = bis; shim.leverage = leverage; shim.alm = alm; shim.icaap = icaap
+    shim.concentration = conc; shim.pd_metrics = pd_metrics
+    shim.stress = stress; shim.rwa = {"final_total": rwa_final}
+    raf = build_raf(shim)
+    model_cards_real = build_model_cards(pd_metrics, backtest["hosmer_lemeshow"])
+
+    # sensitivity needs the full result shape; build a shim that has the
+    # right attributes for the closed-form sensitivities.
+    shim.ecl = {"total": float(ecl_df["ecl"].sum()),
+                "by_stage": ecl_by_stage}
+    shim.rwa = {
+        "sa": rwa_sa, "irb": rwa_irb, "market": mkt.rwa, "op": op.rwa,
+        "final_total": rwa_final,
+    }
+    shim.meta = {"capital": capital}
+    sens = {
+        "one_factor": one_factor_grid(shim),
+        "two_factor": two_factor_surface(shim),
+    }
+    attr = {
+        "cet1_headroom": decompose_cet1_headroom(shim),
+        "rwa_components": decompose_rwa(shim),
+    }
+
     return PipelineResult(
         portfolio_summary=summary,
         pd_metrics=pd_metrics,
@@ -371,6 +435,9 @@ def run_pipeline(
         stress_path=stress_path, stress_path_trough=stress_path_trough,
         backtest=backtest, validation=validation,
         alm=alm, icaap=icaap,
+        raf=raf, climate=climate_result, ccr=ccr_result,
+        op_loss=op_loss_result, concentration_deep=conc_deep,
+        model_cards=model_cards_real, sensitivity=sens, attribution=attr,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
               "asof": asof.isoformat(), "quarters": quarters},
     )

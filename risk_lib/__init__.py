@@ -8,7 +8,7 @@ Direct submodule imports (``from risk_lib.capital.rwa_irb import ...``)
 remain the supported way to reach lower-level functions and constants.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.4.0"
 
 from risk_lib.data_gen import generate_portfolio
 from risk_lib.pipeline import run_pipeline, PipelineResult

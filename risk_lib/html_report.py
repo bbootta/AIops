@@ -65,19 +65,27 @@ def _esc(s) -> str:
 
 # Files in render order; links in nav appear in this sequence.
 NAV = [
-    ("index.html",       "0. 요약"),
-    ("01_portfolio.html","1. 포트폴리오"),
-    ("02_pd.html",       "2. PD모형"),
-    ("03_rwa.html",      "3. RWA"),
-    ("04_capital.html",  "4. BIS·레버리지"),
-    ("05_ecl.html",      "5. IFRS9 ECL"),
+    ("index.html",        "0. 요약"),
+    ("01_portfolio.html", "1. 포트폴리오"),
+    ("02_pd.html",        "2. PD모형"),
+    ("03_rwa.html",       "3. RWA"),
+    ("04_capital.html",   "4. BIS·레버리지"),
+    ("05_ecl.html",       "5. ECL"),
     ("06_monitoring.html","6. 모니터링"),
-    ("07_limits.html",   "7. 한도·집중도"),
-    ("08_rapm.html",     "8. RAPM"),
-    ("09_stress.html",   "9. 스트레스"),
-    ("10_icaap.html",    "10. 내부자본"),
-    ("11_alm.html",      "11. ALM"),
-    ("12_validation.html","12. 자체검증"),
+    ("07_limits.html",    "7. 한도"),
+    ("08_rapm.html",      "8. RAPM"),
+    ("09_stress.html",    "9. 스트레스"),
+    ("10_icaap.html",     "10. 내부자본"),
+    ("11_alm.html",       "11. ALM"),
+    ("12_validation.html","12. 검증"),
+    ("13_climate.html",   "13. 기후"),
+    ("14_ccr.html",       "14. CCR/CVA"),
+    ("15_op_loss.html",   "15. 운영손실"),
+    ("16_sensitivity.html","16. 민감도"),
+    ("17_model_risk.html","17. 모형"),
+    ("18_concentration_deep.html","18. 집중 D-D"),
+    ("19_raf.html",       "19. RAF"),
+    ("20_pillar3.html",   "20. Pillar 3"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -1122,8 +1130,17 @@ def _page_validation(r: PipelineResult) -> str:
 # ============================================================================
 
 
-def build_report_set(result: PipelineResult, out_dir: str | Path) -> dict[str, str]:
-    """Write the whole report set to out_dir; return {filename: absolute path}."""
+def build_report_set(result: PipelineResult, out_dir: str | Path,
+                     portfolio=None) -> dict[str, str]:
+    """Write the whole report set to out_dir; return {filename: absolute path}.
+
+    `portfolio` is required for Pillar 3 (CR1) — pass the original DataFrame.
+    Falls back to summary-only if omitted.
+    """
+    from risk_lib.html_ops_pages import (
+        page_climate, page_ccr, page_op_loss, page_sensitivity,
+        page_model_risk, page_concentration_deep, page_raf, page_pillar3,
+    )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     pages = {
@@ -1143,10 +1160,50 @@ def build_report_set(result: PipelineResult, out_dir: str | Path) -> dict[str, s
         "11b_lcr.html":       _page_lcr(result),
         "11c_nsfr.html":      _page_nsfr(result),
         "12_validation.html": _page_validation(result),
+        "13_climate.html":    page_climate(result),
+        "14_ccr.html":        page_ccr(result),
+        "15_op_loss.html":    page_op_loss(result),
+        "16_sensitivity.html": page_sensitivity(result),
+        "17_model_risk.html": page_model_risk(result),
+        "18_concentration_deep.html": page_concentration_deep(result),
+        "19_raf.html":        page_raf(result),
     }
+    if portfolio is not None:
+        pages["20_pillar3.html"] = page_pillar3(result, portfolio)
     written = {}
     for name, content in pages.items():
         p = out / name
         p.write_text(content, encoding="utf-8")
         written[name] = str(p.resolve())
     return written
+
+
+def build_full_report_package(
+    result: PipelineResult,
+    out_dir: str | Path,
+    *,
+    portfolio=None,
+    manifest=None,
+) -> dict[str, str]:
+    """Two-tier package: executive.html (root) + ops/ (operational deep-dive)
+    plus manifest.json. Returns {label: absolute_path}.
+
+    The CRO opens executive.html; analysts use ops/index.html. All cross-links
+    are relative so the directory is portable.
+    """
+    from risk_lib.html_exec import build_executive
+    out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
+    ops_dir = out / "ops"
+    written_ops = build_report_set(result, ops_dir, portfolio=portfolio)
+    exec_path = build_executive(result, out,
+                                manifest_digest=getattr(manifest, "headline_digest", ""))
+    manifest_path = None
+    if manifest is not None:
+        manifest_path = out / "manifest.json"
+        manifest_path.write_text(manifest.to_json(), encoding="utf-8")
+    return {
+        "executive": str(exec_path.resolve()),
+        "ops_dir": str(ops_dir.resolve()),
+        **{f"ops/{k}": v for k, v in written_ops.items()},
+        **({"manifest": str(manifest_path.resolve())} if manifest_path else {}),
+    }
