@@ -273,6 +273,11 @@ def _capital_icaap_page(demo: dict) -> str:
         ]))
     else:
         parts.append("<p>ICAAP 입력 미제공.</p>")
+    parts.append('<h2>심화 분석 (Drill-down)</h2>')
+    parts.append('<ul>'
+                 '<li><a href="capital_buffer_deep.html">자본 buffer 분해 + sensitivity →</a></li>'
+                 '<li><a href="icaap_deep.html">ICAAP 리스크 유형 분해 + 시나리오 →</a></li>'
+                 '</ul>')
     parts.append('<h2>왜 이 결과인가 (Explainability)</h2>')
     parts.append(f"<p>{narrate('3.capital', cap)}</p>")
     parts.append(f"<p>{narrate('3.icaap', icaap)}</p>")
@@ -409,7 +414,13 @@ def _market_ops_page(demo: dict) -> str:
             ("SA-CVA 적용 대상", "예" if cva['outputs'].get('sa_cva_required') else "아니오")])}
 <h2>거래상대방 신용리스크 (SA-CCR)</h2>
 {_kv_table([("EAD", f"{ccr['outputs'].get('ead', 0):,.2f}"),
-            ("alpha", ccr['outputs'].get('alpha', '-'))])}
+            ("alpha", ccr['outputs'].get('alpha', '-')),
+            ("심화", '<a href="ccr_deep.html">SA-CCR EAD 분해 →</a>')])}
+<h2>심화 분석 (Drill-down)</h2>
+<ul>
+<li><a href="operational_deep.html">운영리스크 SMA — BI 구성·BIC 구간 →</a></li>
+<li><a href="ccr_deep.html">SA-CCR EAD 분해 (RC + PFE × α) →</a></li>
+</ul>
 <h2>왜 이 결과인가 (Explainability)</h2>
 <p>{narrate("3.market", mkt)}</p>
 <p>{narrate("3.operational", op)}</p>
@@ -446,6 +457,220 @@ def _concentration_page(demo: dict) -> str:
 {render_attribution_block("3.conc")}
 """
     return _page("신용집중리스크 상세 보고서", body)
+
+
+def _capital_buffer_deep_page(demo: dict, request: dict) -> str:
+    """자본 buffer 분해 deep — Pillar 1 / 자본보전 / 경기대응 / D-SIB."""
+    cap = _step_row(demo, "3.capital")
+    cet1_min_pillar1 = 0.045
+    cap_conservation = 0.025
+    ccyb = float(request.get("capital_ccyb", 0.0) or 0.0)
+    dsib = float(request.get("capital_dsib", 0.0) or 0.0)
+    cet1_required = cet1_min_pillar1 + cap_conservation + ccyb + dsib
+
+    cet1 = float(request.get("capital_cet1", 0) or 0)
+    tier1 = float(request.get("capital_tier1", cet1) or cet1)
+    total = float(request.get("capital_total", tier1) or tier1)
+
+    stack = hbar(
+        [
+            ("Pillar 1 (4.5%)", cet1_min_pillar1),
+            ("자본보전 (2.5%)", cap_conservation),
+            ("경기대응 (CCyB)", ccyb),
+            ("D-SIB 가산", dsib),
+        ],
+        title="CET1 요구 buffer 구성 (합계 = 요구 비율)", fmt="{:.2%}",
+        vline=cet1, vline_label=f"실제 CET1 {cet1:.2%}")
+
+    ratios_chart = hbar(
+        [("CET1", cet1), ("Tier1", tier1), ("총자본", total)],
+        title="자본 비율 vs 요구", fmt="{:.2%}",
+        colors=[
+            PALETTE["fail" if cet1 < cet1_required else "ok"],
+            PALETTE["fail" if tier1 < cet1_required + 0.015 else "ok"],
+            PALETTE["fail" if total < cet1_required + 0.03 else "ok"],
+        ])
+
+    # 시나리오 sensitivity (-50/-100/-150 bps)
+    sens_rows = []
+    for shock_bps in (0, -50, -100, -150):
+        shock = shock_bps / 10000
+        new_cet1 = cet1 + shock
+        ok = new_cet1 >= cet1_required
+        sens_rows.append(
+            f"<tr><td>{shock_bps:+d} bps</td><td>{new_cet1:.2%}</td>"
+            f"<td>{'<b style=color:#c62828>fail</b>' if not ok else 'ok'}</td></tr>")
+
+    body = f"""
+<p>본 페이지는 CET1 요구비율의 buffer 구성과 실제 비율의 sensitivity 를
+분해한다. 출처: BCBS d189 (Basel III) + 시행세칙 [별표 3].</p>
+{stack}
+<h2>비율 비교</h2>
+{ratios_chart}
+<h2>Sensitivity — CET1 충격</h2>
+<table><tr><th>충격</th><th>충격 후 CET1</th><th>판정</th></tr>{"".join(sens_rows)}</table>
+<h2>구성 요약</h2>
+{_kv_table([
+    ("실제 CET1", f"{cet1:.2%}"),
+    ("실제 Tier1", f"{tier1:.2%}"),
+    ("실제 총자본", f"{total:.2%}"),
+    ("CET1 요구 (buffer 포함)", f"{cet1_required:.2%}"),
+    ("buffer 여유 (CET1 − 요구)", f"{(cet1 - cet1_required):+.2%}"),
+    ("판정", cap["detail"]),
+])}
+<p><a href="capital_icaap.html">← 자본 + ICAAP 상세로 돌아가기</a></p>
+"""
+    return _page("심화 — 자본 buffer 분해 + sensitivity", body)
+
+
+def _icaap_deep_page(demo: dict) -> str:
+    """ICAAP 리스크 유형별 분해 + 스트레스 단계."""
+    icaap = _step_row(demo, "3.icaap")
+    o = icaap["outputs"]
+    if not o:
+        return _page("심화 — ICAAP 분해",
+                     "<p>ICAAP 입력 미제공.</p>")
+    shares = o.get("risk_shares", {})
+    chart = hbar(
+        [(k, v) for k, v in sorted(shares.items(), key=lambda x: -x[1])],
+        title="필요내부자본 리스크 구성 (분산효과 차감 전)", fmt="{:.1%}",
+        vline=0.60, vline_label="단일 리스크 경고 60%")
+
+    ratio = o.get("ratio", 0)
+    post = o.get("post_stress_ratio")
+    stages = [
+        ("baseline", ratio, "ok" if ratio >= 1.20 else "warning" if ratio >= 1.0 else "fail"),
+    ]
+    if post is not None:
+        stages.append((
+            "post-stress",
+            post,
+            "ok" if post >= 1.05 else "warning" if post >= 1.0 else "fail"))
+        # 추가: 가정적 severe 시나리오 (-15% 가용)
+        severe = ratio * 0.85
+        stages.append((
+            "severe (−15% 가용 자본 가정)", severe,
+            "ok" if severe >= 1.0 else "warning" if severe >= 0.95 else "fail"))
+
+    stage_chart = hbar(
+        [(label, v) for label, v, _ in stages],
+        title="ICAAP 비율 단계", fmt="{:.3f}",
+        vline=1.0, vline_label="min 1.00",
+        colors=[PALETTE[c] for _, _, c in stages])
+
+    findings = o.get("findings", [])
+    findings_html = "".join(f"<li>{_esc(f)}</li>" for f in findings) or "<li>없음</li>"
+
+    body = f"""
+<p>본 페이지는 필요내부자본의 리스크 유형별 분해와, 가용내부자본의 단계별
+sensitivity 를 보인다. 출처: BCBS SRP20/30 + 시행세칙 내부자본적정성.</p>
+{chart}
+<h2>비율 단계 sensitivity</h2>
+{stage_chart}
+<p>severe 시나리오는 가용 내부자본 −15% 가정 (참고 시뮬레이션). 실제 자본계획
+시나리오는 ALCO/MRMC 검토 후 적용.</p>
+<h2>발견 사항 (정책 SSoT 기반)</h2>
+<ul>{findings_html}</ul>
+<h2>구성 요약</h2>
+{_kv_table([
+    ("내부자본비율 (baseline)", f"{ratio:.3f}"),
+    ("스트레스 후 비율", f"{post:.3f}" if post is not None else "-"),
+    ("필요내부자본 합계 (분산 차감 후)", f"{o.get('required_total', 0):,.0f}"),
+    ("분산효과 차감 비중", f"{o.get('diversification_share', 0):.1%}"),
+    ("누락 리스크 유형", ", ".join(o.get("missing_risk_types", [])) or "없음"),
+])}
+<p><a href="capital_icaap.html">← 자본 + ICAAP 상세로 돌아가기</a></p>
+"""
+    return _page("심화 — ICAAP 리스크 유형 분해 + 시나리오", body)
+
+
+def _operational_deep_page(demo: dict, request: dict) -> str:
+    """운영리스크 SMA — BI 구성·BIC 구간·국내 ILM=1 가정."""
+    op = _step_row(demo, "3.operational")
+    o = op["outputs"]
+    bi = float(o.get("bi", 0) or 0)
+    bic = float(o.get("bic_eur_bn", 0) or 0)
+    orc = float(o.get("orc_eur_bn", 0) or 0)
+
+    # BIC 구간 (BCBS OPE25): BI ≤ 1 → 12%, 1~30 → 15%, > 30 → 18%
+    rows = [
+        ("0 ~ 1bn", "12%", min(bi, 1.0) * 0.12),
+        ("1bn ~ 30bn", "15%", max(0, min(bi, 30.0) - 1.0) * 0.15),
+        (">30bn", "18%", max(0, bi - 30.0) * 0.18),
+    ]
+    bic_chart = hbar(
+        [(label, contrib) for label, _, contrib in rows],
+        title="BIC 구간별 기여 (단위: bn)", fmt="{:,.4f}")
+
+    table = "".join(
+        f"<tr><td>{_esc(label)}</td><td>{_esc(rate)}</td>"
+        f"<td>{contrib:,.4f} bn</td></tr>" for label, rate, contrib in rows)
+
+    body = f"""
+<p>본 페이지는 SMA (Standardized Measurement Approach, BCBS OPE25) 의
+Business Indicator 와 BIC 구간 기여를 분해한다. 국내 기준 ILM=1 (감독원 기본
+가정 — 자체 10년 ILDC 사용 시 ≠ 1).</p>
+{bic_chart}
+<h2>BIC 구간 표</h2>
+<table><tr><th>구간</th><th>marginal rate</th><th>기여</th></tr>{table}</table>
+<h2>SMA 산식</h2>
+<table>
+<tr><th>BI (Business Indicator)</th><td>{bi:,.2f} bn</td></tr>
+<tr><th>BIC (Σ 구간별 기여)</th><td>{bic:,.4f} bn</td></tr>
+<tr><th>ILM (국내 기준)</th><td>1.0</td></tr>
+<tr><th>ORC = BIC × ILM</th><td>{orc:,.4f} bn</td></tr>
+</table>
+<h2>해석 (CRO 관점)</h2>
+<ul>
+<li>BI 구성: 이자/리스/배당 + 서비스(수수료) + 재무(트레이딩 손익). 본 페이지의
+BI 값은 합성 입력이며, 운영 시스템에서는 BCBS OPE25 5조 정의대로 산출.</li>
+<li>국내 ILM=1 은 보수적 기본값. 자체 ILDC 도입 시 모형 승인 + 매니페스트 기록
+필요.</li>
+<li>operational loss 시나리오 (rogue trader / IT 장애 / 외부 사기) 별 sensitivity 는
+별도 시나리오 분석 영역.</li>
+</ul>
+<p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
+"""
+    return _page("심화 — 운영리스크 SMA 분해", body)
+
+
+def _ccr_deep_page(demo: dict, request: dict) -> str:
+    """SA-CCR EAD = α × (RC + PFE) 분해."""
+    ccr = _step_row(demo, "3.ccr")
+    o = ccr["outputs"]
+    alpha = float(o.get("alpha", 1.4))
+    ead = float(o.get("ead", 0) or 0)
+    rc = float(request.get("ccr_rc", 0) or 0)
+    pfe = float(request.get("ccr_pfe", 0) or 0)
+    chart = hbar(
+        [("RC (Replacement Cost)", rc),
+         ("PFE (Potential Future Exposure)", pfe),
+         ("α × (RC+PFE) = EAD", ead)],
+        title="SA-CCR EAD 분해", fmt="{:,.2f}",
+        colors=[PALETTE["neutral"], PALETTE["neutral"], PALETTE["ok"]])
+
+    body = f"""
+<p>SA-CCR (Basel CRE52): EAD = α × (RC + PFE). α = 1.4 (감독자 보수성).</p>
+{chart}
+<h2>구성 요약</h2>
+{_kv_table([
+    ("Replacement Cost (RC)", f"{rc:,.2f}"),
+    ("Potential Future Exposure (PFE)", f"{pfe:,.2f}"),
+    ("α (감독자 보수성 계수)", f"{alpha}"),
+    ("EAD = α × (RC + PFE)", f"{ead:,.2f}"),
+])}
+<h2>해석 (검증 관점)</h2>
+<ul>
+<li><b>RC</b>: 거래상대방 디폴트 시 즉시 실현 손실 (현재 시장가).</li>
+<li><b>PFE</b>: 미래 잠재 익스포저 — netting set · asset class · supervisory factor
+기반 add-on. 실제 산정은 트레이딩 시스템에서 수행.</li>
+<li><b>α = 1.4</b>: BCBS 감독자 보수성. 내부 모형(IMM) 승인 시에도 동일 적용.</li>
+<li><b>Wrong-Way Risk</b>: 거래상대방 신용도 하락이 동시에 RC 증가로 이어지는
+경우 — 별도 식별 + α 조정 가능 (식별/처리는 본 자동 점검 범위 밖).</li>
+</ul>
+<p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
+"""
+    return _page("심화 — SA-CCR EAD 분해", body)
 
 
 def _explainability_page() -> str:
@@ -626,11 +851,15 @@ def _index_page(demo: dict) -> str:
 {esc_html}
 <h2>부문별 상세 보고서</h2>
 <div class="cards">{cards}</div>
-<h2>심화 보고서</h2>
+<h2>심화 보고서 (Drill-down)</h2>
 <ul>
-<li><a href="credit_calibration.html">등급별 캘리브레이션</a></li>
-<li><a href="alm_gap.html">만기 bucket 누적 갭</a></li>
-<li><a href="alm_irrbb.html">IRRBB 시나리오별 ΔEVE</a></li>
+<li><a href="credit_calibration.html">신용 — 등급별 캘리브레이션</a></li>
+<li><a href="capital_buffer_deep.html">자본 — buffer 분해 + sensitivity</a></li>
+<li><a href="icaap_deep.html">ICAAP — 리스크 유형 분해 + 시나리오</a></li>
+<li><a href="alm_gap.html">ALM — 만기 bucket 누적 갭</a></li>
+<li><a href="alm_irrbb.html">IRRBB — 시나리오별 ΔEVE</a></li>
+<li><a href="operational_deep.html">운영 — SMA BI 구성·BIC 구간</a></li>
+<li><a href="ccr_deep.html">CCR — SA-CCR EAD 분해</a></li>
 <li><a href="explainability.html">Explainability — 전 부문 임계 근거·산식·출처</a></li>
 </ul>
 """
@@ -667,6 +896,11 @@ def build_pack(
     pages["concentration.html"] = _concentration_page(demo)
     pages["data_quality.html"] = _data_quality_page(demo)
     pages["explainability.html"] = _explainability_page()
+    # 부문별 심화 deep-dive (Round 41)
+    pages["capital_buffer_deep.html"] = _capital_buffer_deep_page(demo, request)
+    pages["icaap_deep.html"] = _icaap_deep_page(demo)
+    pages["operational_deep.html"] = _operational_deep_page(demo, request)
+    pages["ccr_deep.html"] = _ccr_deep_page(demo, request)
 
     prov_card = _render_provenance_card(provenance) if provenance else ""
     written = []

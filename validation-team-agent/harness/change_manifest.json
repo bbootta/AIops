@@ -1575,6 +1575,21 @@
       "rollback_rule": "report_pack 의 narrative/attribution 호출 제거 + explainability.html 제거 + tools/explainability.py 삭제 시 R39 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0106",
+      "timestamp": "2026-06-13 13:59:50",
+      "component": "tools/report_pack.py (capital_buffer/icaap/operational/ccr deep pages)",
+      "change_type": "modify",
+      "evidence": "/goal CRO 보고 수준 R41: 모든 부문 Deep dive 요구. 기존 부문 페이지 본문은 요약만, drill-down 부재 (자본 buffer 구성, ICAAP 리스크 구성, BIC 구간, SA-CCR 분해)",
+      "root_cause": "부문별 심화는 신용/IRRBB/ALM 만 있고 자본/ICAAP/운영/CCR 은 없었음",
+      "targeted_fix": "capital_buffer_deep: Pillar1/자본보전/CCyB/D-SIB 분해 + CET1 −50/−100/−150 bps sensitivity. icaap_deep: 리스크 유형 5개 비중 + 분산효과 + baseline/post-stress/severe 단계. operational_deep: BI/BIC 구간 (0~1bn 12% / 1~30bn 15% / >30bn 18%) + 국내 ILM=1 가정 명시. ccr_deep: SA-CCR EAD = α(RC+PFE) 분해 + WWR 해설. 상세 페이지에서 deep 으로 / index 에서 전부 link",
+      "expected_benefit": "CRO/실무진 모두 부문별 2단계 drill-down 가능. 자본 충격 sensitivity / ICAAP 시나리오 / BIC 구간 기여 / SA-CCR 구성요소가 inline SVG 로 시각화",
+      "expected_regression_risk": "low — 신규 페이지 4개 추가, 기존 페이지 본문 무변경 (link 추가만)",
+      "validation_method": "tests/test_v2_round41.py 12 cases (페이지 존재/구성요소/sensitivity/링크/self-contained/provenance) + R37 페이지 수 게이트 갱신 (16) + 전체 666 통과",
+      "rollback_rule": "build_pack 에서 deep 페이지 4개 등록 라인과 link 제거 시 R40 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
