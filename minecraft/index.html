@@ -96,7 +96,16 @@
     padding: 7px 0; border-bottom: 1px solid #444; font-size: 13px;
   }
   .recipe button { font-family: monospace; padding: 4px 14px; cursor: pointer; }
-  #craftClose { margin-top: 12px; width: 100%; padding: 6px; font-family: monospace; cursor: pointer; }
+  #craftClose, #invClose { margin-top: 12px; width: 100%; padding: 6px; font-family: monospace; cursor: pointer; }
+  #invScreen {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    background: rgba(18, 18, 30, 0.93); color: #fff; font-family: monospace;
+    border: 2px solid #888; padding: 18px 22px; z-index: 18; display: none; min-width: 340px;
+  }
+  #invScreen h2 { margin: 0 0 10px; font-size: 18px; }
+  .invgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+  .invcell { font-size: 13px; padding: 3px 0; border-bottom: 1px solid #3a3a4a; }
+  .invtools { margin-top: 10px; font-size: 13px; color: #ffd54a; }
   #saveSlots { margin-top: 18px; display: flex; gap: 8px; }
   #saveSlots button {
     font-family: monospace; padding: 6px 14px; font-size: 13px;
@@ -137,14 +146,19 @@
   <div id="recipes"></div>
   <button id="craftClose">닫기 (C)</button>
 </div>
+<div id="invScreen">
+  <h2>인벤토리</h2>
+  <div id="invList"></div>
+  <button id="invClose">닫기 (E)</button>
+</div>
 <div id="overlay">
   <h1>MINECRAFT</h1>
   <p>
     W A S D : 이동 &nbsp;|&nbsp; Shift : 달리기 &nbsp;|&nbsp; Space : 점프 / 수영<br>
-    좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 먹기 · 씨앗 · 활쏘기 &nbsp;|&nbsp; C : 제작<br>
+    좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 먹기 · 씨앗 · 활쏘기 &nbsp;|&nbsp; C : 제작 &nbsp;|&nbsp; E : 인벤토리<br>
     1 ~ 9 / 마우스 휠 : 슬롯 선택 &nbsp;|&nbsp; F : 비행 (Space 상승 / Shift 하강)<br>
-    땅속 동굴엔 다이아몬드가, 밤엔 좀비와 보스(좀비 군주)가 나타납니다<br>
-    나무 → 판자 → 곡괭이·검·활, 씨앗 심어 밀 수확 → 빵, 다이아로 강한 장비<br>
+    땅속 동굴엔 다이아몬드, 밤엔 좀비·스켈레톤·보스(좀비 군주)가 출몰<br>
+    나무→판자→곡괭이·검·활, 씨앗→밀→빵, 다이아로 포탈을 만들어 네더(용암)로<br>
     모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼 조작<br>
     월드는 자동 저장됩니다 &nbsp;|&nbsp; ESC : 일시정지
   </p>
@@ -180,23 +194,25 @@ const PLAYER_HEIGHT = 1.8;
 const EYE_HEIGHT = 1.62;
 // 멀티 세이브: 슬롯마다 시드가 달라 서로 다른 월드가 생성됨
 const SLOT = Math.min(3, Math.max(1, parseInt(localStorage.getItem('mc_slot') || '1', 10) || 1));
-const SAVE_KEY = 'mc_save_v4_s' + SLOT;
+const SAVE_KEY = 'mc_save_v5_s' + SLOT;
 
-const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13 };
+const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16 };
 // 블록이 아닌 아이템 (인벤토리 전용)
 const ITEM = { MEAT: 100, SEEDS: 101, WHEAT: 102, BREAD: 103, DIAMOND: 104, ARROW: 105, BOW: 106 };
 const BLOCK_NAMES = {
   1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석',
-  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 100: '고기', 101: '씨앗', 102: '밀', 103: '빵', 104: '다이아몬드', 106: '활',
+  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈',
+  100: '고기', 101: '씨앗', 102: '밀', 103: '빵', 104: '다이아몬드', 106: '활',
 };
-const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES, BLOCK.SAND, BLOCK.TORCH, ITEM.MEAT, ITEM.BREAD, ITEM.SEEDS, ITEM.BOW];
+const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES, BLOCK.SAND, BLOCK.TORCH, ITEM.MEAT, ITEM.BREAD, ITEM.SEEDS, ITEM.BOW, BLOCK.PORTAL];
 // 블록별 캐는 시간(초)과 드롭 아이템 [종류, 개수]
-const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05 };
+const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1 };
 const DROPS = {
   [BLOCK.GRASS]: [BLOCK.GRASS, 1], [BLOCK.DIRT]: [BLOCK.DIRT, 1], [BLOCK.STONE]: [BLOCK.STONE, 1],
   [BLOCK.WOOD]: [BLOCK.WOOD, 1], [BLOCK.LEAVES]: [BLOCK.LEAVES, 1], [BLOCK.SAND]: [BLOCK.SAND, 1],
   [BLOCK.COAL_ORE]: [BLOCK.TORCH, 3], [BLOCK.IRON_ORE]: [BLOCK.STONE, 2], [BLOCK.TORCH]: [BLOCK.TORCH, 1],
   [BLOCK.PLANK]: [BLOCK.PLANK, 1], [BLOCK.DIAMOND_ORE]: [ITEM.DIAMOND, 1],
+  [BLOCK.NETHERRACK]: [BLOCK.NETHERRACK, 1], [BLOCK.PORTAL]: [BLOCK.PORTAL, 1],
 };
 const FOODS = { [ITEM.MEAT]: 3, [ITEM.BREAD]: 4 }; // 먹었을 때 회복량
 
@@ -296,7 +312,12 @@ const TEX = {
   seeds: makeTexture([90, 70, 45], (x, y) => (((x * 5 + y * 3) % 7 === 0) ? [150, 200, 90] : [90, 70, 45])),
   bread: makeTexture([196, 142, 74], (x, y) => (y < 3 || y > 12 ? [150, 100, 50] : [210, 165, 100])),
   bow: makeTexture([60, 44, 28], (x, y) => (Math.abs(x - 8) + Math.abs(y - 8) > 9 && x < 11 ? [150, 110, 60] : (x === 11 ? [230, 230, 230] : [60, 44, 28]))),
+  // 네더
+  netherrack: makeTexture([108, 38, 38], (x, y) => (((x * 3 + y * 7) % 11 < 2) ? [70, 20, 20] : [108, 38, 38])),
+  lava: makeTexture([222, 110, 30], (x, y) => (((x + y) % 5 === 0) ? [255, 200, 60] : [222, 90, 24])),
+  portal: makeTexture([120, 50, 200], (x, y) => (((x * y + x) % 6 < 2) ? [190, 120, 255] : [120, 50, 200])),
 };
+TEX.lava.wrapS = TEX.lava.wrapT = THREE.RepeatWrapping;
 TEX.water.wrapS = TEX.water.wrapT = THREE.RepeatWrapping;
 
 function mat(t) { return new THREE.MeshLambertMaterial({ map: t }); }
@@ -314,19 +335,25 @@ const MATERIALS = {
   [BLOCK.DIAMOND_ORE]: mat(TEX.diamondOre),
   [BLOCK.TORCH]: new THREE.MeshLambertMaterial({ map: TEX.torch, emissive: 0xff9933, emissiveIntensity: 0.55 }),
   [BLOCK.PLANK]: mat(TEX.plank),
+  [BLOCK.NETHERRACK]: mat(TEX.netherrack),
+  [BLOCK.LAVA]: new THREE.MeshLambertMaterial({ map: TEX.lava, emissive: 0xff6600, emissiveIntensity: 0.6, transparent: true, opacity: 0.92 }),
+  [BLOCK.PORTAL]: new THREE.MeshLambertMaterial({ map: TEX.portal, emissive: 0x8833dd, emissiveIntensity: 0.8, transparent: true, opacity: 0.78 }),
 };
 // 아이템 종류별 핫바 아이콘 텍스처
 const ITEM_ICON = { [ITEM.MEAT]: TEX.meat, [ITEM.SEEDS]: TEX.seeds, [ITEM.BREAD]: TEX.bread, [ITEM.BOW]: TEX.bow };
 
 // ---------- 월드 데이터 ----------
-const world = new Map(); // "x,y,z" -> 블록 타입
-const edits = new Map(); // 플레이어가 바꾼 블록 (저장용)
-const torches = new Set(); // 횃불 위치 (조명용)
+// 차원 전환을 위해 let (스왑 시 다른 Map/Set으로 교체)
+let world = new Map();  // "x,y,z" -> 블록 타입
+let edits = new Map();  // 플레이어가 바꾼 블록 (저장용)
+let torches = new Set(); // 횃불 위치 (조명용)
+let curDim = 'overworld'; // 현재 차원: 'overworld' | 'nether'
 const key = (x, y, z) => x + ',' + y + ',' + z;
 function getBlock(x, y, z) { return world.get(key(x, y, z)) || 0; }
-function isSolid(t) { return t && t !== BLOCK.WATER; }                       // 조준/설치 대상 여부
-// 충돌·면 가림 여부 (물·횃불·작물은 통과)
-function occludes(t) { return t && t !== BLOCK.WATER && t !== BLOCK.TORCH && t !== BLOCK.CROP; }
+function isLiquid(t) { return t === BLOCK.WATER || t === BLOCK.LAVA; }
+function isSolid(t) { return t && !isLiquid(t); }                            // 조준/설치 대상 여부
+// 충돌·면 가림 여부 (액체·횃불·작물·포탈은 통과)
+function occludes(t) { return t && !isLiquid(t) && t !== BLOCK.TORCH && t !== BLOCK.CROP && t !== BLOCK.PORTAL; }
 function setBlock(x, y, z, t) {
   const k = key(x, y, z);
   if (t) world.set(k, t);
@@ -380,20 +407,37 @@ function generateWorld() {
   }
 }
 
+// 네더 차원 지형 (네더랙 + 용암 호수 + 동굴)
+const LAVA_LEVEL = 6;
+function generateNether() {
+  const half = WORLD_SIZE / 2;
+  for (let x = -half; x < half; x++) {
+    for (let z = -half; z < half; z++) {
+      const h = 9 + Math.floor(noise2(x / 20 + 100, z / 20 + 100) * 9); // 9~18
+      for (let y = 0; y <= h; y++) {
+        if (y > 1 && y < h - 1 && caveNoise(x + 500, y, z + 500) > 0.66) continue; // 동굴
+        setBlock(x, y, z, BLOCK.NETHERRACK);
+      }
+      for (let y = h + 1; y <= LAVA_LEVEL; y++) setBlock(x, y, z, BLOCK.LAVA); // 용암 호수
+    }
+  }
+}
+
 // ---------- 저장 / 불러오기 ----------
 let dayTime = DAY_LENGTH * 0.25; // 정오에서 시작
 function saveGame() {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({
-      edits: [...edits],
-      player: { x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch },
-      slot: selectedSlot,
-      health,
-      inv,
-      tools,
-      dayTime,
-      cropStages: [...crops].map(([k, c]) => [k, c.stage]),
-    }));
+    DIMS[curDim].pos = snapshotPlayer();
+    const dims = {};
+    for (const name of ['overworld', 'nether']) {
+      const d = DIMS[name];
+      dims[name] = {
+        edits: [...d.edits],
+        pos: d.pos,
+        crops: d.crops.size ? [...d.crops].map(([k, c]) => [k, c.stage]) : (d.cropStages || []),
+      };
+    }
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ curDim, dims, slot: selectedSlot, health, inv, tools, dayTime }));
   } catch (e) { /* 저장 공간 부족 등은 무시 */ }
 }
 function loadGame() {
@@ -470,7 +514,7 @@ scene.add(clouds);
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 const torchGeo = new THREE.BoxGeometry(0.14, 0.55, 0.14);
 torchGeo.translate(0, -0.225, 0); // 칸 바닥에 세워지도록
-const chunks = new Map(); // "cx,cz" -> { solid: [mesh], water: [mesh] }
+let chunks = new Map(); // "cx,cz" -> { solid: [mesh], water: [mesh] }
 
 // 횃불 조명 풀: 가장 가까운 횃불 5개에만 실제 광원 배치
 const torchLights = [];
@@ -521,12 +565,13 @@ function rebuildChunk(cx, cz) {
         const t = getBlock(x, y, z);
         if (!t) continue;
         if (t === BLOCK.CROP) continue; // 작물은 별도 메시로 렌더
-        let exposed = t === BLOCK.TORCH; // 횃불은 항상 보임
+        let exposed = t === BLOCK.TORCH || t === BLOCK.PORTAL; // 횃불·포탈은 항상 보임
+        const liquid = isLiquid(t);
         for (const [dx, dy, dz] of NEIGHBORS) {
           if (exposed) break;
           const n = getBlock(x + dx, y + dy, z + dz);
-          // 물은 공기/횃불에 닿은 면만, 일반 블록은 가리지 않는 이웃이 있으면 보임
-          if (t === BLOCK.WATER ? (!occludes(n) && n !== BLOCK.WATER) : !occludes(n)) { exposed = true; break; }
+          // 액체는 같은 액체가 아닌 노출 면만, 일반 블록은 가리지 않는 이웃이 있으면 보임
+          if (liquid ? (!occludes(n) && n !== t) : !occludes(n)) { exposed = true; break; }
         }
         if (!exposed) continue;
         if (!byType.has(t)) byType.set(t, []);
@@ -545,7 +590,8 @@ function rebuildChunk(cx, cz) {
     });
     mesh.instanceMatrix.needsUpdate = true;
     scene.add(mesh);
-    (t === BLOCK.WATER ? entry.water : entry.solid).push(mesh);
+    // 반투명(액체·포탈)은 별도 패스로 모아 불투명 뒤에 렌더
+    (isLiquid(t) || t === BLOCK.PORTAL ? entry.water : entry.solid).push(mesh);
   }
   chunks.set(ck, entry);
 }
@@ -632,6 +678,7 @@ const animals = [];
 const ANIMAL_TYPES = [
   { body: 0xeb9c9c, head: 0xe58f8f }, // 돼지
   { body: 0xeceadf, head: 0xb59a7c }, // 양
+  { body: 0x4a3526, head: 0x6b5240 }, // 소
 ];
 function makeAnimalMesh(type) {
   const g = new THREE.Group();
@@ -659,7 +706,7 @@ function spawnAnimals() {
     const z = Math.floor(rand() * (WORLD_SIZE - 16)) - half + 8;
     const h = terrainHeight(x, z);
     if (getBlock(x, h, z) !== BLOCK.GRASS) continue;
-    const mesh = makeAnimalMesh(ANIMAL_TYPES[i % 2]);
+    const mesh = makeAnimalMesh(ANIMAL_TYPES[i % ANIMAL_TYPES.length]);
     scene.add(mesh);
     animals.push({
       mesh,
@@ -771,6 +818,29 @@ function makeZombieMesh() {
   g.userData.bodyMat = ZOMBIE_SKIN;
   return g;
 }
+// 스켈레톤: 좀비 지오메트리를 회색 뼈 재질로 재사용 (원거리 몹)
+const SKEL_BONE = new THREE.MeshLambertMaterial({ color: 0xd8d8d0 });
+function makeSkeletonMesh() {
+  const g = new THREE.Group();
+  for (const lx of [-0.12, 0.12]) {
+    const leg = new THREE.Mesh(ZG_LEG, SKEL_BONE);
+    leg.position.set(lx, 0.35, 0);
+    g.add(leg);
+  }
+  const body = new THREE.Mesh(ZG_BODY, SKEL_BONE);
+  body.position.y = 1.05;
+  g.add(body);
+  const head = new THREE.Mesh(ZG_HEAD, SKEL_BONE);
+  head.position.y = 1.65;
+  g.add(head);
+  for (const ax of [-0.33, 0.33]) {
+    const arm = new THREE.Mesh(ZG_ARM, SKEL_BONE);
+    arm.position.set(ax, 1.3, -0.3);
+    g.add(arm);
+  }
+  g.userData.bodyMat = SKEL_BONE;
+  return g;
+}
 function surfaceY(x, z) {
   for (let y = Y_MAX; y >= 0; y--) if (occludes(getBlock(x, y, z))) return y + 1;
   return null;
@@ -783,17 +853,18 @@ function trySpawnZombie() {
   const half = WORLD_SIZE / 2;
   if (x < -half + 2 || x >= half - 2 || z < -half + 2 || z >= half - 2) return;
   const y = surfaceY(x, z);
-  if (y === null || y <= SEA_LEVEL) return; // 물속 제외
-  const mesh = makeZombieMesh();
+  if (y === null || (curDim === 'overworld' && y <= SEA_LEVEL)) return; // 물속 제외
+  const ranged = Math.random() < 0.35; // 일부는 스켈레톤(활)
+  const mesh = ranged ? makeSkeletonMesh() : makeZombieMesh();
   scene.add(mesh);
   zombies.push({
-    mesh,
+    mesh, ranged,
     pos: new THREE.Vector3(x + 0.5, y, z + 0.5),
     vel: new THREE.Vector3(),
     yaw: Math.random() * Math.PI * 2,
     timer: 0, walking: false, onGround: false,
     hp: 3, kbT: 0, colH: 1.8, hitH: 1.9,
-    atkT: 0, groanT: 2 + Math.random() * 4,
+    atkT: 0, groanT: 2 + Math.random() * 4, shootT: 1 + Math.random() * 2,
   });
 }
 function spawnBoss() {
@@ -820,11 +891,12 @@ function spawnBoss() {
   playSound(55, 0.8, 'sawtooth', 0.25);
 }
 function updateZombies(dt) {
-  const night = sunHeight < -0.05;
+  const night = curDim === 'nether' || sunHeight < -0.05;
+  const cap = curDim === 'nether' ? 12 : 8;
   if (night && playing()) {
     zombieSpawnT -= dt;
-    if (zombieSpawnT <= 0 && zombies.length < 8) {
-      zombieSpawnT = 4;
+    if (zombieSpawnT <= 0 && zombies.length < cap) {
+      zombieSpawnT = curDim === 'nether' ? 2.5 : 4;
       if (!zombies.some(z => z.boss) && Math.random() < 0.07) spawnBoss();
       else trySpawnZombie();
     }
@@ -844,10 +916,17 @@ function updateZombies(dt) {
     let speed = 0;
     const range = z.boss ? 40 : 24;
     if (playing() && d < range) {
-      z.yaw = Math.atan2(-dx, -dz); // 플레이어 추적
-      speed = z.boss ? 1.9 : 2.3;
-      z.groanT -= dt;
-      if (z.groanT <= 0) { z.groanT = 3 + Math.random() * 3; playSound(z.boss ? 55 : 90, 0.4, 'sawtooth', z.boss ? 0.14 : 0.08); }
+      z.yaw = Math.atan2(-dx, -dz); // 플레이어를 바라봄
+      if (z.ranged) {
+        // 스켈레톤: 거리를 유지하며 사격 (음수 속도 = 후퇴, 시선은 유지)
+        speed = d > 10 ? 1.8 : d < 5 ? -1.6 : 0;
+        z.shootT -= dt;
+        if (z.shootT <= 0 && d < 16) { z.shootT = 1.8 + Math.random(); spawnEnemyArrow(z); }
+      } else {
+        speed = z.boss ? 1.9 : 2.3;
+        z.groanT -= dt;
+        if (z.groanT <= 0) { z.groanT = 3 + Math.random() * 3; playSound(z.boss ? 55 : 90, 0.4, 'sawtooth', z.boss ? 0.14 : 0.08); }
+      }
     } else {
       z.timer -= dt;
       if (z.timer <= 0) {
@@ -859,7 +938,7 @@ function updateZombies(dt) {
     }
     stepMob(z, dt, speed);
     z.atkT -= dt;
-    if (playing() && z.atkT <= 0 && d < (z.boss ? 2.6 : 1.4) && Math.abs(player.pos.y - z.pos.y) < (z.boss ? 4 : 2)) {
+    if (!z.ranged && playing() && z.atkT <= 0 && d < (z.boss ? 2.6 : 1.4) && Math.abs(player.pos.y - z.pos.y) < (z.boss ? 4 : 2)) {
       z.atkT = 1.2;
       damage(z.boss ? 4 : 2);
     }
@@ -959,7 +1038,19 @@ function mobAABBHit(p) {
   }
   return null;
 }
+// 적(스켈레톤) 화살: 플레이어를 향해 발사
+function spawnEnemyArrow(z) {
+  const from = new THREE.Vector3(z.pos.x, z.pos.y + 1.5, z.pos.z);
+  const dir = new THREE.Vector3(player.pos.x, player.pos.y + 1.2, player.pos.z).sub(from).normalize();
+  const mesh = new THREE.Mesh(arrowGeo, ARROW_MAT);
+  mesh.position.copy(from);
+  mesh.lookAt(player.pos);
+  scene.add(mesh);
+  arrows.push({ mesh, pos: from, vel: dir.multiplyScalar(22), life: 4, enemy: true });
+  playSound(280, 0.1, 'triangle', 0.1);
+}
 function updateArrows(dt) {
+  const p = player.pos;
   for (let i = arrows.length - 1; i >= 0; i--) {
     const a = arrows[i];
     a.life -= dt;
@@ -970,7 +1061,10 @@ function updateArrows(dt) {
     for (let s = 0; s < steps && !hit; s++) {
       a.pos.addScaledVector(a.vel, dt / steps);
       if (occludes(getBlock(Math.floor(a.pos.x), Math.floor(a.pos.y), Math.floor(a.pos.z)))) hit = true;
-      else {
+      else if (a.enemy) {
+        if (a.pos.x > p.x - 0.35 && a.pos.x < p.x + 0.35 && a.pos.y > p.y && a.pos.y < p.y + PLAYER_HEIGHT &&
+            a.pos.z > p.z - 0.35 && a.pos.z < p.z + 0.35) { damage(2); hit = true; }
+      } else {
         const m = mobAABBHit(a.pos);
         if (m) { damageMob(m, 3, a.vel.x, a.vel.z); hit = true; }
       }
@@ -986,7 +1080,7 @@ function updateArrows(dt) {
 }
 
 // ---------- 농사 (작물) ----------
-const crops = new Map(); // "x,y,z" -> { stage, mesh }
+let crops = new Map(); // "x,y,z" -> { stage, mesh }
 const cropGeo = new THREE.BoxGeometry(1, 1, 1);
 const CROP_GROW = new THREE.MeshLambertMaterial({ color: 0x5fae3a });
 const CROP_RIPE = new THREE.MeshLambertMaterial({ color: 0xd9c23a });
@@ -1043,7 +1137,8 @@ let flying = false;
 let health = MAX_HEALTH;
 let air = MAX_AIR;
 let fallDist = 0;
-let regenTimer = 0, drownTimer = 0, flashTimer = 0;
+let regenTimer = 0, drownTimer = 0, flashTimer = 0, lavaTimer = 0;
+let portalTimer = 0, portalCooldown = 0;
 const healthEl = document.getElementById('health');
 const damageFlashEl = document.getElementById('damageFlash');
 const bossBarEl = document.getElementById('bossBar');
@@ -1179,6 +1274,12 @@ function updatePlayer(dt) {
     air = Math.min(MAX_AIR, air + dt * 4);
     drownTimer = 0;
   }
+  // 용암 피해 (네더)
+  const lx = Math.floor(p.x), lz = Math.floor(p.z);
+  if (getBlock(lx, Math.floor(p.y + 0.2), lz) === BLOCK.LAVA || getBlock(lx, Math.floor(p.y + EYE_HEIGHT), lz) === BLOCK.LAVA) {
+    lavaTimer += dt;
+    if (lavaTimer >= 0.5) { damage(2); lavaTimer = 0; }
+  } else lavaTimer = 0;
   if (health > 0 && health < MAX_HEALTH) {
     regenTimer += dt;
     if (regenTimer >= 5) { health++; regenTimer = 0; }
@@ -1214,6 +1315,16 @@ const _sunDir = new THREE.Vector3();
 let sunHeight = 1; // 현재 태양 고도 (좀비 스폰 판정용)
 function updateSky(dt) {
   dayTime = (dayTime + dt) % DAY_LENGTH;
+  if (curDim === 'nether') {
+    sunHeight = -1;
+    skyColor.setHex(0x2a0a0a);
+    sun.intensity = 0;
+    ambient.intensity = 0.55;
+    sunDisc.visible = false; moonDisc.visible = false; stars.visible = false;
+    scene.fog.color.copy(skyColor); scene.fog.near = 6; scene.fog.far = 50;
+    clockEl.textContent = '🔥 네더';
+    return;
+  }
   const a = (dayTime / DAY_LENGTH) * Math.PI * 2;
   const s = Math.sin(a); // 1 = 정오, -1 = 자정
   sunHeight = s;
@@ -1268,8 +1379,8 @@ let locked = false;
 let touchPlaying = false;
 let touchJump = false;
 const joyVec = new THREE.Vector2();
-// 제작 창이 열려 있으면 어느 플랫폼에서든 게임을 멈춤 (모바일 일시정지 일관성)
-function playing() { return (locked || touchPlaying) && !craftOpen; }
+// 제작/인벤토리 창이 열려 있으면 어느 플랫폼에서든 게임을 멈춤 (모바일 일시정지 일관성)
+function playing() { return (locked || touchPlaying) && !craftOpen && !invOpen; }
 
 overlay.addEventListener('click', () => {
   if (isTouch) {
@@ -1593,6 +1704,7 @@ const inv = {
   [BLOCK.GRASS]: 0, [BLOCK.DIRT]: 0, [BLOCK.STONE]: 0, [BLOCK.WOOD]: 0, [BLOCK.PLANK]: 0,
   [BLOCK.LEAVES]: 0, [BLOCK.SAND]: 0, [BLOCK.TORCH]: 2, [ITEM.MEAT]: 0,
   [ITEM.SEEDS]: 0, [ITEM.WHEAT]: 0, [ITEM.BREAD]: 0, [ITEM.DIAMOND]: 0, [ITEM.ARROW]: 0,
+  [BLOCK.PORTAL]: 0,
 };
 const tools = { pickaxe: false, sword: false, bow: false, diamondPickaxe: false, diamondSword: false }; // 제작으로 획득 (영구)
 const slotCnts = [];
@@ -1652,6 +1764,7 @@ const RECIPES = [
   { name: '빵', desc: '밀 3 · 체력 +4', cost: { [ITEM.WHEAT]: 3 }, make: () => { inv[ITEM.BREAD] += 1; } },
   { name: '다이아 곡괭이', desc: '다이아 3 · 5배 속도', cost: { [ITEM.DIAMOND]: 3 }, once: 'diamondPickaxe' },
   { name: '다이아 검', desc: '다이아 2 · 공격력 3', cost: { [ITEM.DIAMOND]: 2 }, once: 'diamondSword' },
+  { name: '포탈 ×1', desc: '다이아 5 · 설치 후 들어가면 네더 이동', cost: { [ITEM.DIAMOND]: 5 }, make: () => { inv[BLOCK.PORTAL] += 1; } },
 ];
 const craftEl = document.getElementById('craft');
 const recipesEl = document.getElementById('recipes');
@@ -1701,6 +1814,133 @@ function toggleCraft(open) {
 }
 document.getElementById('craftClose').addEventListener('click', () => toggleCraft(false));
 
+// ---------- 인벤토리 화면 ----------
+const invScreenEl = document.getElementById('invScreen');
+const invListEl = document.getElementById('invList');
+let invOpen = false;
+const INV_ORDER = [
+  BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.SAND, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES,
+  BLOCK.TORCH, BLOCK.PORTAL, ITEM.DIAMOND, ITEM.MEAT, ITEM.WHEAT, ITEM.BREAD, ITEM.SEEDS, ITEM.ARROW,
+];
+function renderInv() {
+  let html = '<div class="invgrid">';
+  for (const t of INV_ORDER) {
+    const n = inv[t] || 0;
+    if (n <= 0) continue;
+    html += `<div class="invcell">${BLOCK_NAMES[t] || t} ×${n}</div>`;
+  }
+  html += '</div>';
+  const owned = [];
+  if (tools.pickaxe) owned.push('곡괭이');
+  if (tools.diamondPickaxe) owned.push('다이아 곡괭이');
+  if (tools.sword) owned.push('검');
+  if (tools.diamondSword) owned.push('다이아 검');
+  if (tools.bow) owned.push('활');
+  html += `<div class="invtools">도구: ${owned.length ? owned.join(', ') : '없음'}</div>`;
+  html += `<div class="invtools">현재 차원: ${curDim === 'nether' ? '🔥 네더' : '🌳 오버월드'}</div>`;
+  invListEl.innerHTML = html;
+}
+function toggleInv(open) {
+  invOpen = open;
+  invScreenEl.style.display = open ? 'block' : 'none';
+  if (open) {
+    renderInv();
+    stopAttack();
+    joyVec.set(0, 0);
+    touchJump = false;
+    if (locked) document.exitPointerLock();
+  } else if (!isTouch) {
+    canvas.requestPointerLock();
+  }
+}
+document.getElementById('invClose').addEventListener('click', () => toggleInv(false));
+addEventListener('keydown', (e) => {
+  if (e.code === 'KeyE' && (playing() || invOpen)) toggleInv(!invOpen);
+});
+
+// ---------- 차원 (오버월드 / 네더) ----------
+function makeDim(gen) {
+  return { world: new Map(), edits: new Map(), torches: new Set(), crops: new Map(), generated: false, gen, pos: null, cropStages: null };
+}
+const DIMS = { overworld: makeDim(generateWorld), nether: makeDim(generateNether) };
+
+function snapshotPlayer() {
+  return { x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch };
+}
+function removeAllChunkMeshes() {
+  for (const c of chunks.values()) for (const m of [...c.solid, ...c.water]) { scene.remove(m); m.dispose(); }
+  chunks.clear();
+}
+function clearMobs() {
+  for (const a of animals) scene.remove(a.mesh);
+  for (const z of zombies) scene.remove(z.mesh);
+  for (const a of arrows) scene.remove(a.mesh);
+  animals.length = 0; zombies.length = 0; arrows.length = 0;
+  bossBarEl.style.display = 'none';
+}
+function genDim(d) {
+  d.gen(); // 현재 활성 world(=d.world)에 기본 지형 생성
+  for (const [k, t] of d.edits) { const [x, y, z] = k.split(',').map(Number); setBlock(x, y, z, t); }
+  for (const [k, stage] of d.cropStages || []) {
+    const [x, y, z] = k.split(',').map(Number);
+    if (getBlock(x, y, z) === BLOCK.CROP) createCropMesh(x, y, z, stage);
+  }
+  d.cropStages = null;
+  d.generated = true;
+}
+function safeSpawn(sx, sz) {
+  for (let y = Y_MAX; y >= 1; y--) {
+    if (isSolid(getBlock(sx, y, sz)) && !occludes(getBlock(sx, y + 1, sz)) && !occludes(getBlock(sx, y + 2, sz))) return y + 1;
+  }
+  return 20;
+}
+function teleport(target, initial) {
+  if (!initial) {
+    DIMS[curDim].pos = snapshotPlayer();
+    removeAllChunkMeshes();
+    for (const [, c] of crops) scene.remove(c.mesh);
+    clearMobs();
+  }
+  curDim = target;
+  const d = DIMS[target];
+  world = d.world; edits = d.edits; torches = d.torches; crops = d.crops;
+  if (!d.generated) genDim(d);
+  else for (const [, c] of crops) scene.add(c.mesh);
+  rebuildAllChunks();
+  if (target === 'overworld' && animals.length === 0) spawnAnimals();
+
+  if (!applyPos(d.pos)) {
+    const sy = safeSpawn(0, 0);
+    player.pos.set(0.5, sy, 0.5);
+    player.vel.set(0, 0, 0);
+  }
+  if (!initial) {
+    // 도착 지점에 귀환 포탈을 세워 되돌아올 수 있게 함
+    const px = Math.floor(player.pos.x), py = Math.floor(player.pos.y), pz = Math.floor(player.pos.z);
+    if (getBlock(px, py, pz) !== BLOCK.PORTAL) editBlock(px, py, pz, BLOCK.PORTAL);
+    portalCooldown = 2.5;
+    flying = false;
+    playSound(180, 0.5, 'sine', 0.25);
+  }
+}
+function applyPos(p) {
+  if (!p) return false;
+  player.pos.set(p.x, p.y, p.z);
+  player.yaw = p.yaw || 0;
+  player.pitch = p.pitch || 0;
+  player.vel.set(0, 0, 0);
+  return true;
+}
+// 포탈에 들어가 잠시 머무르면 차원 이동
+function updatePortal(dt) {
+  if (portalCooldown > 0) { portalCooldown -= dt; portalTimer = 0; return; }
+  const inPortal = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 0.2), Math.floor(player.pos.z)) === BLOCK.PORTAL;
+  if (inPortal) {
+    portalTimer += dt;
+    if (portalTimer >= 1.2) { portalTimer = 0; teleport(curDim === 'overworld' ? 'nether' : 'overworld', false); }
+  } else portalTimer = 0;
+}
+
 // ---------- 시작 ----------
 addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -1708,29 +1948,21 @@ addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-generateWorld();
-
 const save = loadGame();
-if (save) {
-  for (const [k, t] of save.edits || []) {
-    const [x, y, z] = k.split(',').map(Number);
-    setBlock(x, y, z, t);
-    edits.set(k, t);
+if (save && save.dims) {
+  for (const name of ['overworld', 'nether']) {
+    const sd = save.dims[name];
+    if (!sd) continue;
+    const d = DIMS[name];
+    for (const [k, t] of sd.edits || []) d.edits.set(k, t);
+    d.pos = sd.pos || null;
+    d.cropStages = sd.crops || [];
   }
-  if (save.player) {
-    player.pos.set(save.player.x, save.player.y, save.player.z);
-    player.yaw = save.player.yaw || 0;
-    player.pitch = save.player.pitch || 0;
-  }
+  curDim = save.curDim === 'nether' ? 'nether' : 'overworld';
   if (typeof save.dayTime === 'number') dayTime = save.dayTime;
   if (typeof save.health === 'number') health = Math.min(MAX_HEALTH, Math.max(1, save.health));
   if (save.inv) for (const k in inv) inv[k] = Math.max(0, save.inv[k] | 0);
   if (save.tools) for (const k in tools) tools[k] = !!save.tools[k];
-  // 작물 메시 복원 (월드의 CROP 블록은 edits로 이미 복원됨)
-  for (const [k, stage] of save.cropStages || []) {
-    const [x, y, z] = k.split(',').map(Number);
-    if (getBlock(x, y, z) === BLOCK.CROP) createCropMesh(x, y, z, stage);
-  }
   selectSlot(save.slot >= 0 && save.slot < HOTBAR.length ? save.slot : 0);
 } else {
   selectSlot(0);
@@ -1742,7 +1974,7 @@ updateHotbar();
   const slotsEl = document.getElementById('saveSlots');
   for (let n = 1; n <= 3; n++) {
     const b = document.createElement('button');
-    const has = !!localStorage.getItem('mc_save_v4_s' + n);
+    const has = !!localStorage.getItem('mc_save_v5_s' + n);
     b.textContent = n === SLOT ? `월드 ${n} ◀` : `월드 ${n}${has ? '' : ' (비었음)'}`;
     if (n === SLOT) b.classList.add('cur');
     b.addEventListener('click', (e) => {
@@ -1756,8 +1988,7 @@ updateHotbar();
   }
 }
 
-rebuildAllChunks();
-spawnAnimals();
+teleport(curDim, true); // 활성 차원 생성 + 청크/몹/플레이어 위치 설정
 // 첫 프레임 전에 카메라를 플레이어 위치로
 camera.position.set(player.pos.x, player.pos.y + EYE_HEIGHT, player.pos.z);
 camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
@@ -1771,7 +2002,7 @@ let waterT = 0;
 function loop(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
-  if (playing()) updatePlayer(dt);
+  if (playing()) { updatePlayer(dt); updatePortal(dt); }
   updateSky(dt);
   updateClouds(dt);
   updateParticles(dt);
@@ -1785,6 +2016,7 @@ function loop(now) {
   updateHud(dt);
   waterT += dt;
   TEX.water.offset.set((waterT * 0.03) % 1, (waterT * 0.02) % 1);
+  TEX.lava.offset.set((waterT * 0.05) % 1, (waterT * 0.04) % 1);
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
