@@ -32,6 +32,7 @@ from typing import Any
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tools.explainability import narrate, render_attribution_block
 from tools.svg_charts import (
     PALETTE,
     gauge,
@@ -174,16 +175,22 @@ def _credit_pages(demo: dict, request: dict) -> dict[str, str]:
     body = f"""
 <p>{_badge(disc['status'])} 변별력 / {_badge(psi['status'])} 안정성 /
 {_badge(cal['status'])} 캘리브레이션</p>
+<p>{narrate("3.disc", disc)}</p>
 {charts}
 <h2>안정성 (PSI)</h2>{psi_g}
+<p>{narrate("3.psi", psi)}</p>
 <p>기준: &lt; 0.10 안정 · 0.10~0.25 주의 · ≥ 0.25 불안정 (참고 임계).</p>
 <h2>캘리브레이션 요약</h2>
+<p>{narrate("3.cal", cal)}</p>
 {_kv_table([("등급 수", cal['outputs'].get('n_grades', '-')),
             ("reject 등급 수 (binomial, Holm)", cal['outputs'].get('n_reject', '-')),
             ("상세", '<a href="credit_calibration.html">등급별 심화 보고서 →</a>')])}
 <h2>표본 적정성</h2>
 {_kv_table([("표본 수", f"{demo['n_rows']:,}"),
             ("판정", _step_row(demo, '2.sample')['detail'])])}
+{render_attribution_block("3.disc")}
+{render_attribution_block("3.psi")}
+{render_attribution_block("3.cal")}
 """
     pages = {"credit.html": _page("신용평가모형 상세 보고서", body)}
 
@@ -266,6 +273,11 @@ def _capital_icaap_page(demo: dict) -> str:
         ]))
     else:
         parts.append("<p>ICAAP 입력 미제공.</p>")
+    parts.append('<h2>왜 이 결과인가 (Explainability)</h2>')
+    parts.append(f"<p>{narrate('3.capital', cap)}</p>")
+    parts.append(f"<p>{narrate('3.icaap', icaap)}</p>")
+    parts.append(render_attribution_block("3.capital"))
+    parts.append(render_attribution_block("3.icaap"))
     return _page("자본적정성 + 내부자본(ICAAP) 상세 보고서", "".join(parts))
 
 
@@ -328,6 +340,13 @@ def _alm_pages(demo: dict, request: dict) -> dict[str, str]:
         ]))
     else:
         parts.append("<p>IRRBB 입력 미제공.</p>")
+    parts.append('<h2>왜 이 결과인가 (Explainability)</h2>')
+    parts.append(f"<p>{narrate('3.liquidity', liq)}</p>")
+    parts.append(f"<p>{narrate('3.alm', alm)}</p>")
+    parts.append(f"<p>{narrate('3.irrbb', irrbb)}</p>")
+    parts.append(render_attribution_block("3.liquidity"))
+    parts.append(render_attribution_block("3.alm"))
+    parts.append(render_attribution_block("3.irrbb"))
     pages = {"alm.html": _page("ALM 상세 보고서 (유동성 · 만기갭 · 조달 · IRRBB)",
                                "".join(parts))}
 
@@ -391,6 +410,15 @@ def _market_ops_page(demo: dict) -> str:
 <h2>거래상대방 신용리스크 (SA-CCR)</h2>
 {_kv_table([("EAD", f"{ccr['outputs'].get('ead', 0):,.2f}"),
             ("alpha", ccr['outputs'].get('alpha', '-'))])}
+<h2>왜 이 결과인가 (Explainability)</h2>
+<p>{narrate("3.market", mkt)}</p>
+<p>{narrate("3.operational", op)}</p>
+<p>{narrate("3.cva", cva)}</p>
+<p>{narrate("3.ccr", ccr)}</p>
+{render_attribution_block("3.market")}
+{render_attribution_block("3.operational")}
+{render_attribution_block("3.cva")}
+{render_attribution_block("3.ccr")}
 """
     return _page("시장 · 운영 · CVA · CCR 상세 보고서", body)
 
@@ -413,8 +441,47 @@ def _concentration_page(demo: dict) -> str:
 {"<h2>위반 내역</h2><table><tr><th>그룹</th><th>규정</th><th>수치</th></tr>" + rows + "</table>" if breaches else ""}
 <p>기준: Basel LEX (Tier1 10% 보고 / 25% 한도) + 은행법 35조 (동일차주
 자기자본 25%, 거액합계 자기자본 5배).</p>
+<h2>왜 이 결과인가 (Explainability)</h2>
+<p>{narrate("3.conc", conc)}</p>
+{render_attribution_block("3.conc")}
 """
     return _page("신용집중리스크 상세 보고서", body)
+
+
+def _explainability_page() -> str:
+    """전 부문 임계 근거·산식·출처 모음 — 검증자/감독 검토용."""
+    from tools.explainability import load_attributions
+
+    attrs = load_attributions()
+    rows = "".join(
+        f'<tr><td><code>{_esc(a["step"])}</code></td>'
+        f'<td><b>{_esc(a["metric"])}</b></td>'
+        f'<td><code>{_esc(a["formula"])}</code></td>'
+        f'<td>{_esc(a["minimum"])}</td>'
+        f'<td>{_esc(a["source"])}</td>'
+        f'<td>{_esc(a["interpretation"])}</td>'
+        f'<td><code>{_esc(a["policy_ssot"])}</code></td></tr>'
+        for a in attrs)
+    body = f"""
+<p>각 부문 임계의 규제 출처(BCBS / 시행세칙 / 은행법) 와 산식 모음. 본 페이지는
+SSoT <code>harness/explainability_attributions.json</code> 에서 자동 생성되며
+임계 자체는 임의 완화 대상이 아닙니다 (CLAUDE.md §5).</p>
+<table>
+<tr><th>step</th><th>지표</th><th>산식</th><th>최소/임계</th><th>출처</th>
+<th>해석</th><th>정책 파일</th></tr>
+{rows}
+</table>
+<h2>해석 가이드</h2>
+<ul>
+<li><b>출처(Source)</b>: BCBS d/SRP/MAR/LIQ/CRE/LEX/OPE 번호 = Bank for International
+Settlements 공식 표준. 시행세칙 = 금융감독원 은행업감독업무시행세칙.</li>
+<li><b>정책 SSoT</b>: 실제 수치 임계가 저장된 JSON. 변경 시 매니페스트 CHG 항목
+필수 (CLAUDE.md §4.3).</li>
+<li><b>임의 완화</b>: 임계를 우회/완화하는 변경은 금지. 변경이 필요하면 MRMC
+승인 + 매니페스트 + 감독원 사전 협의.</li>
+</ul>
+"""
+    return _page("Explainability — 임계 근거·산식·출처 SSoT", body)
 
 
 def _data_quality_page(demo: dict) -> str:
@@ -501,6 +568,7 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 <li><a href="index.html">검증자 요약 보고서 (step 단위)</a></li>
 <li><a href="capital_icaap.html">자본 + 내부자본(ICAAP) 상세</a></li>
 <li><a href="alm.html">ALM 상세 (유동성·만기갭·IRRBB)</a></li>
+<li><a href="explainability.html">Explainability — 임계 근거·산식·출처</a></li>
 </ul>
 """
     title = "경영진 보고서 — CRO 시야 (DRAFT)"
@@ -563,6 +631,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="credit_calibration.html">등급별 캘리브레이션</a></li>
 <li><a href="alm_gap.html">만기 bucket 누적 갭</a></li>
 <li><a href="alm_irrbb.html">IRRBB 시나리오별 ΔEVE</a></li>
+<li><a href="explainability.html">Explainability — 전 부문 임계 근거·산식·출처</a></li>
 </ul>
 """
     title = ("검증 요약 보고서 — stress / escalation"
@@ -597,6 +666,7 @@ def build_pack(
     pages["market_ops.html"] = _market_ops_page(demo)
     pages["concentration.html"] = _concentration_page(demo)
     pages["data_quality.html"] = _data_quality_page(demo)
+    pages["explainability.html"] = _explainability_page()
 
     prov_card = _render_provenance_card(provenance) if provenance else ""
     written = []

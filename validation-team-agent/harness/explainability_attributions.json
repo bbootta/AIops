@@ -1,0 +1,150 @@
+{
+  "policy_version": "1.0",
+  "description": "각 임계값의 규제 근거·산식·해석 — 설명가능성(Explainability) SSoT. 보고서 narrative 가 본 파일을 인용한다. 본 파일은 사실(규제 인용) 만 담고 판정을 만들지 않는다.",
+  "attributions": [
+    {
+      "step": "3.capital",
+      "metric": "CET1 ratio",
+      "formula": "CET1 / RWA",
+      "minimum": "4.5% (BCBS Pillar 1) + 2.5% 자본보전 buffer = 7.0% 요구",
+      "source": "BCBS d189 §50 + 은행업감독업무시행세칙 [별표 3] 자본적정성",
+      "interpretation": "보통주자본 (Common Equity Tier 1) 의 RWA 대비 비율. 7.0% 미만 시 이익배당 제한 (자본보전 buffer 가산 시).",
+      "policy_ssot": "harness/capital_adequacy_thresholds.json"
+    },
+    {
+      "step": "3.capital",
+      "metric": "Leverage ratio",
+      "formula": "Tier1 / Exposure Measure",
+      "minimum": "3.0% (BCBS d365 / 은행업감독업무시행세칙)",
+      "source": "BCBS d365 §6 + 시행세칙 [별표 3-2]",
+      "interpretation": "리스크 가중 없는 총익스포저 대비 Tier1. RWA 모형 의존 한계 보완.",
+      "policy_ssot": "harness/capital_adequacy_thresholds.json"
+    },
+    {
+      "step": "3.icaap",
+      "metric": "내부자본비율",
+      "formula": "가용내부자본 / (Σ 필요내부자본_i − 분산효과)",
+      "minimum": "1.00 (Pillar 2 ICAAP), 스트레스 후 1.00",
+      "source": "BCBS SRP20/30 + 시행세칙 내부자본적정성",
+      "interpretation": "리스크 유형별 경제적 자본 합계를 분산효과 차감 후 가용내부자본과 비교. 분산효과 30% 한도 (보수성), 단일 리스크 60% 경고.",
+      "policy_ssot": "harness/icaap_thresholds.json"
+    },
+    {
+      "step": "3.liquidity",
+      "metric": "LCR",
+      "formula": "HQLA / Net Cash Outflow (30d)",
+      "minimum": "100% (BCBS LIQ40)",
+      "source": "BCBS LIQ40 + 시행세칙 유동성",
+      "interpretation": "30일 스트레스 상황 cash outflow 를 1등급 자산(HQLA) 으로 충당. 외화 LCR 은 80% (감독원 행정지도).",
+      "policy_ssot": "harness/liquidity_risk_thresholds.json"
+    },
+    {
+      "step": "3.liquidity",
+      "metric": "NSFR",
+      "formula": "Available Stable Funding / Required Stable Funding",
+      "minimum": "100% (BCBS LIQ20)",
+      "source": "BCBS LIQ20",
+      "interpretation": "1년 시계 안정적 자금조달 충족. 만기 mismatch 의 구조적 측면 (LCR 은 단기, NSFR 은 중기).",
+      "policy_ssot": "harness/liquidity_risk_thresholds.json"
+    },
+    {
+      "step": "3.irrbb",
+      "metric": "ΔEVE / Tier1",
+      "formula": "max_s |ΔEVE_s| / Tier1, s ∈ {6 표준 시나리오}",
+      "minimum": "≤ 15% (Outlier Bank 기준)",
+      "source": "BCBS SRP31 §117 (Supervisory Outlier Test)",
+      "interpretation": "6개 표준 금리 시나리오 (parallel up/down, steepener, flattener, short_rate up/down) 중 worst ΔEVE 의 Tier1 대비 비중. 15% 초과 시 outlier bank.",
+      "policy_ssot": "harness/irrbb_thresholds.json"
+    },
+    {
+      "step": "3.market",
+      "metric": "VaR backtest zone",
+      "formula": "예외 건수 (250영업일, 99% VaR)",
+      "minimum": "green ≤ 4 / yellow 5~9 / red ≥ 10",
+      "source": "BCBS MAR99 §32.7 (FRTB Traffic Light)",
+      "interpretation": "실현손실 > 사전 VaR 인 일수. red zone 진입 시 multiplier 가산 + 모형 재검증.",
+      "policy_ssot": "harness/market_risk_thresholds.json"
+    },
+    {
+      "step": "3.operational",
+      "metric": "ORC (SMA)",
+      "formula": "ORC = BIC × ILM",
+      "minimum": "BIC 는 BI (Business Indicator) 의 구간별 marginal coefficient 적용",
+      "source": "BCBS OPE25 (SMA, 표준방식) + 시행세칙",
+      "interpretation": "국내 기준 ILM = 1 (BCBS 의 ILDC 사용 시 ≠ 1). BI 구성: 이자/리스/배당 + 서비스 + 재무.",
+      "policy_ssot": "harness/operational_risk_thresholds.json"
+    },
+    {
+      "step": "3.cva",
+      "metric": "BA-CVA / SA-CVA",
+      "formula": "BA-CVA 표준식 또는 SA-CVA 모형 승인",
+      "minimum": "트레이딩북 100bn EUR 초과 시 SA-CVA 적용 검토",
+      "source": "BCBS MAR50 (CVA framework)",
+      "interpretation": "거래상대방 신용도 악화로 인한 derivatives 시가 손실 대비 자본.",
+      "policy_ssot": "harness/cva_thresholds.json"
+    },
+    {
+      "step": "3.ccr",
+      "metric": "SA-CCR EAD",
+      "formula": "EAD = α × (RC + PFE), α = 1.4",
+      "minimum": "α = 1.4 (감독자 보수성)",
+      "source": "BCBS CRE52 (SA-CCR)",
+      "interpretation": "거래상대방 디폴트 시 가능 익스포저. RC 는 현재 시장가, PFE 는 미래 잠재 익스포저.",
+      "policy_ssot": "harness/ccr_thresholds.json"
+    },
+    {
+      "step": "3.conc",
+      "metric": "거액익스포저 / HHI",
+      "formula": "단일 그룹 익스포저 / Tier1; HHI = Σ s_i²",
+      "minimum": "단일 25% Tier1 한도, 동일차주 25% 자기자본 (은행법 35조), 거액합계 5배 자기자본; HHI band: <0.10 low, <0.18 moderate, ≥0.18 high",
+      "source": "BCBS LEX + 은행법 제35조 (동일차주 신용공여한도)",
+      "interpretation": "단일 거래상대방·그룹 집중 + 포트폴리오 다양성 (HHI).",
+      "policy_ssot": "harness/concentration_thresholds.json"
+    },
+    {
+      "step": "3.alm",
+      "metric": "누적 만기갭 / 총자산",
+      "formula": "Σ_{bucket ≤ t} (자산 − 부채) / 총자산",
+      "minimum": "≥ −10% (한도), ≥ −5% (경고)",
+      "source": "내부 ALM 정책 (시행세칙 보조)",
+      "interpretation": "단기 bucket 의 음(−) 갭은 부채 만기 도래 초과 → 차환 위험. ALCO 보고 + 한도 관리.",
+      "policy_ssot": "harness/alm_thresholds.json"
+    },
+    {
+      "step": "3.alm",
+      "metric": "원화 예대율",
+      "formula": "원화대출 / 원화예금",
+      "minimum": "≤ 100% (시행세칙 [별표 14])",
+      "source": "은행업감독업무시행세칙",
+      "interpretation": "원화 예수금 대비 대출 비중. 100% 초과 금지.",
+      "policy_ssot": "harness/alm_thresholds.json"
+    },
+    {
+      "step": "3.disc",
+      "metric": "KS / AUROC / Gini",
+      "formula": "KS = max|F_default(s) − F_normal(s)|; AUROC = ∫ TPR d FPR; Gini = 2·AUROC − 1",
+      "minimum": "참고 임계: KS ≥ 0.30, AUROC ≥ 0.70",
+      "source": "Industry standard (BCBS WP 14 — validation of internal rating systems)",
+      "interpretation": "신용점수의 default ↔ non-default 분리력. 낮을수록 변별 부족.",
+      "policy_ssot": "tools/handlers.py (credit_discrimination_handler)"
+    },
+    {
+      "step": "3.psi",
+      "metric": "PSI",
+      "formula": "PSI = Σ (p_i − q_i) · ln(p_i / q_i)",
+      "minimum": "< 0.10 안정 / 0.10~0.25 주의 / ≥ 0.25 불안정",
+      "source": "Industry standard (PSI for population stability)",
+      "interpretation": "개발 표본 vs 운영 표본의 score 분포 drift. drift 크면 재캘리브레이션.",
+      "policy_ssot": "tools/metric_psi.py"
+    },
+    {
+      "step": "3.cal",
+      "metric": "등급별 binomial 검정",
+      "formula": "H0: 실측 부도율 = 추정 PD, two-sided binomial, Holm 보정",
+      "minimum": "α = 0.05 (Holm 다중검정 보정 후)",
+      "source": "Brier/Hosmer-Lemeshow 보완. BCBS WP 14.",
+      "interpretation": "등급별 PD 정합성. reject 등급은 재캘리브레이션 검토.",
+      "policy_ssot": "tools/binomial_calibration.py"
+    }
+  ]
+}

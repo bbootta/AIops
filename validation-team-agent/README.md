@@ -156,6 +156,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | Basel 리스크 택소노미 | `harness/basel_risk_taxonomy.json` | `harness/basel_risk_taxonomy.schema.json` |
 | 부문별 임계값 (자본/시장/운영/유동성/IRRBB/CVA/CCR/집중/내부자본/ALM) | `harness/{capital_adequacy,market_risk,operational_risk,liquidity_risk,irrbb,cva,ccr,concentration,icaap,alm}_thresholds.json` | (tools/policy_lint 게이트) |
 | 보고서 도메인 사전 | `harness/report_glossary.json` | `harness/report_glossary.schema.json` |
+| 임계 설명가능성 attribution | `harness/explainability_attributions.json` | (tools/explainability 게이트) |
 | 인쇄 CSS | `harness/report_print.css` | — |
 | 감사 보고서 schema | — | `harness/audit_report.schema.json` |
 | Runner 결과 schema | — | `harness/runner_result{,_credit,_macro,_ifrs9}.schema.json` |

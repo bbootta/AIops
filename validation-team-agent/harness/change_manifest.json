@@ -1560,6 +1560,21 @@
       "rollback_rule": "executive_insights/executive 페이지/3 신규 차트 제거 시 index 의 링크 한 줄만 정리하면 R38 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0105",
+      "timestamp": "2026-06-13 13:55:35",
+      "component": "harness/explainability_attributions.json + tools/explainability.py + tools/report_pack.py (narrative + attribution + explainability.html)",
+      "change_type": "create",
+      "evidence": "/goal CRO 보고 수준 R40: 모든 산출값은 설명가능 해야 함. 기존 부문 페이지는 임계 출처(BCBS/시행세칙)·산식·해석을 명시하지 않아 '왜 이 결과인가' 답변 불가",
+      "root_cause": "설명가능성 SSoT 부재. 임계는 코드/JSON 에 있고 출처(규제 문서)는 산재",
+      "targeted_fix": "harness/explainability_attributions.json: 17개 핵심 지표의 산식·최소임계·BCBS/시행세칙 출처·해석·정책 SSoT 파일. tools/explainability: attributions_for/narrate/render_attribution_block. report_pack: 모든 부문 페이지에 narrative ('왜 fail/warning/ok' + 산식 + 임의 완화 금지 명시) + attribution 표 삽입. 전 부문 attribution 모음 explainability.html 추가",
+      "expected_benefit": "검증자/CRO/감독원이 임계 출처를 한 클릭에 확인. attribution 표가 SSoT 와 산식·출처를 1:1 매핑. 임의 완화 금지 명시",
+      "expected_regression_risk": "low — 부문 페이지에 narrative/attribution append 만, 기존 본문 무변경. 신규 페이지 1개 추가",
+      "validation_method": "tests/test_v2_round40.py 17 cases (SSoT 커버리지/narrative/attribution 표/페이지 통합/self-contained) + 전체 655 통과 + ruff/mypy/policy_lint green",
+      "rollback_rule": "report_pack 의 narrative/attribution 호출 제거 + explainability.html 제거 + tools/explainability.py 삭제 시 R39 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
