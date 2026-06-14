@@ -33,7 +33,7 @@ GOLDEN = {
     "macro_weighted_total": 128_504_402_456.8952,
     "reverse_critical_severity": 2.3518753051757812,
 }
-GOLDEN_VALIDATION = {"PASS": 40, "WARN": 2}
+GOLDEN_VALIDATION = {"PASS": 49, "WARN": 2}   # v0.14.0 +9 cross-domain checks
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",

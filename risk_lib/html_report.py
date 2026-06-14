@@ -117,6 +117,7 @@ NAV = [
     ("49_ccar_path.html",    "49. CCAR 경로"),
     ("50_climate_capital.html", "50. 기후 자본"),
     ("51_liquidity_stress.html", "51. 유동성 stress"),
+    ("52_final_attestation.html", "52. 최종 결재"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -2106,19 +2107,42 @@ def _page_nsfr(r: PipelineResult) -> str:
 
 
 def _page_validation(r: PipelineResult) -> str:
+    from risk_lib.validation.cross_domain import domain_status, DOMAINS
     v = r.validation
     summ = v.summary()
     # rows
     rows = [[c.name, _badge(c.status, c.status), c.detail] for c in v.checks]
     cite_rows = [[section, c.standard, c.section, c.note]
                  for section, c in ALL_CITATIONS]
+    # 8-부문 정합성 매트릭스 (BCBS 239 — 위험 집계의 완전성 · 정확성)
+    dom_st = domain_status(v.checks)
+    matrix_rows = [
+        [dom_st[k]["label"], _badge(dom_st[k]["status"], dom_st[k]["status"]),
+         f"{dom_st[k]['n_pass']}/{dom_st[k]['n_warn']}/{dom_st[k]['n_fail']}",
+         "·".join(dom_st[k]["details"][:2]) or "—"]
+        for k, _ in DOMAINS
+    ]
+    # cross-domain 만 분리해서 표시
+    xd_rows = [[c.name, _badge(c.status, c.status), c.detail]
+               for c in v.checks if c.name.startswith("xd_")]
     body = f"""
 <h1 class="title">12. 자체검증 + 출처/준거</h1>
-<p class="section-lead">정합성 체크 (SA/IRB, BIS, ECL, ALM, ICAAP 등) — FAIL이 0건이어야 결재 가능.</p>
+<p class="section-lead">감독세칙 자체검증 + BCBS 239 (Principles for Effective
+Risk Data Aggregation) — FAIL 0건이어야 결재 가능.</p>
 <div class="kpi-grid">
 {_kpi("PASS", f"{summ.get('PASS',0)}", tone="good")}
 {_kpi("WARN", f"{summ.get('WARN',0)}", tone="warn")}
 {_kpi("FAIL", f"{summ.get('FAIL',0)}", tone="bad")}
+{_kpi("종합", "결재 가능" if v.passes() else "결재 불가",
+       tone=("good" if v.passes() else "bad"))}
+</div>
+<div class="card"><h2>8 부문 정합성 매트릭스</h2>
+<p class="section-lead">부문별 PASS/WARN/FAIL 카운트 · 한 부문이라도 FAIL이면 종합 FAIL.</p>
+{_table(["부문","상태","P/W/F","주요 지적"], matrix_rows)}
+</div>
+<div class="card"><h2>Cross-domain 정합성 ({len(xd_rows)}건)</h2>
+<p class="section-lead">PD↔RWA · RWA↔BIS · ECL↔RWA · 한도↔집중 · RAPM↔EC · 스트레스↔BIS</p>
+{_table(["체크","상태","상세"], xd_rows) if xd_rows else "<p>해당 없음</p>"}
 </div>
 <div class="card"><h2>전 체크 상세 ({len(v.checks)}건)</h2>
 {_table(["체크","상태","상세"], rows)}
@@ -2128,6 +2152,116 @@ def _page_validation(r: PipelineResult) -> str:
 </div>
 """
     return _page("자체검증", body, "12_validation.html")
+
+
+def _page_final_attestation(r: PipelineResult) -> str:
+    """52. CRO 결재용 최종 attestation (v0.14.0).
+
+    8 부문 카드 · cross-domain 매트릭스 · 결재 가능/불가 verdict · 서명란.
+    """
+    from risk_lib.validation.cross_domain import domain_status, DOMAINS
+    v = r.validation
+    summ = v.summary()
+    dom_st = domain_status(v.checks)
+    passes = v.passes()
+
+    # Each domain card surfaces a headline metric + status.
+    headline_by_dom = {
+        "pd": f"세그먼트 {len(r.pd_metrics)} · HL p={r.backtest['hosmer_lemeshow']['p_value']:.3f}",
+        "rwa": f"최종 RWA {_won(r.rwa['final_total'])} · "
+               f"SA {_won(r.rwa['sa'])} · IRB {_won(r.rwa['irb'])}",
+        "bis": f"CET1 {_pct(r.bis.cet1_ratio)} · 레버리지 {_pct(r.leverage.leverage_ratio)}",
+        "ecl": f"TTC {_won(r.ecl['total'])} · PIT 가중 {_won(r.macro_ecl.weighted_total)}",
+        "monitoring": f"부도율(EW) {_pct(r.monitoring['default_rate_ew'])} · "
+                      f"회수율 {_pct(r.monitoring['recovery_rate'])}",
+        "limits": f"경보 {len(r.limits)}건 · sector HHI "
+                  f"{r.concentration[r.concentration['dimension']=='sector']['hhi'].iloc[0]:.3f}",
+        "rapm": f"가중 RAROC {_pct(r.rapm_deep.summary['raroc_weighted'])} · "
+                f"hurdle 통과 {_pct(r.rapm_deep.summary['pass_hurdle_pct'])}",
+        "stress": f"baseline CET1 {_pct(r.stress.iloc[0]['cet1_ratio'])} · "
+                  f"severe CET1 {_pct(r.stress.iloc[-1]['cet1_ratio'])}",
+    }
+
+    dom_cards = []
+    for key, label in DOMAINS:
+        st = dom_st[key]
+        tone = {"PASS": "good", "WARN": "warn", "FAIL": "bad"}[st["status"]]
+        head = headline_by_dom.get(key, "—")
+        dom_cards.append(
+            _kpi(label, st["status"],
+                 sub=f"{head} · P/W/F={st['n_pass']}/{st['n_warn']}/{st['n_fail']}",
+                 tone=tone)
+        )
+
+    # cross-domain validation matrix
+    xd_rows = [[c.name, _badge(c.status, c.status), c.detail]
+               for c in v.checks if c.name.startswith("xd_")]
+
+    # FAIL/WARN 상세
+    issue_rows = [[c.name, _badge(c.status, c.status), c.detail]
+                  for c in v.checks if c.status != "PASS"]
+
+    verdict_tone = "good" if passes else "bad"
+    verdict_text = "결재 가능 (PASS)" if passes else "결재 불가 (FAIL)"
+    verdict_lead = ("FAIL 0건 — 모든 부문 정합성 충족, CRO 결재 가능."
+                    if passes else
+                    "FAIL 발생 — 결재 불가, 원인 부문 재산출 필요.")
+
+    seed = r.meta.get("seed", "—")
+    asof = r.meta.get("asof", date.today().isoformat())
+
+    body = f"""
+<h1 class="title">52. 최종 결재 attestation — v0.14.0</h1>
+<p class="section-lead">감독세칙 자체검증 + BCBS 239 (Principles for Effective
+Risk Data Aggregation) 기반 8 부문 통합 결재 페이지.</p>
+
+<div class="card {'good' if passes else 'bad'}">
+<h2>종합 판정</h2>
+<div class="kpi-grid">
+{_kpi("종합 판정", verdict_text, tone=verdict_tone)}
+{_kpi("PASS", f"{summ.get('PASS',0)}건", tone="good")}
+{_kpi("WARN", f"{summ.get('WARN',0)}건", tone="warn")}
+{_kpi("FAIL", f"{summ.get('FAIL',0)}건", tone="bad")}
+</div>
+<p>{_esc(verdict_lead)}</p>
+<p><b>산출 기준일</b> {_esc(asof)} · <b>seed</b> {_esc(seed)} ·
+<b>검증 체크 수</b> {len(v.checks)}건</p>
+</div>
+
+<div class="card"><h2>8 부문 결재 카드</h2>
+<div class="kpi-grid">
+{''.join(dom_cards)}
+</div>
+</div>
+
+<div class="card"><h2>Cross-domain 정합성 매트릭스 ({len(xd_rows)}건)</h2>
+<p class="section-lead">부문 경계를 가로지르는 정합성:
+PD↔RWA · RWA↔BIS · ECL↔RWA · 한도↔집중 · RAPM↔EC · 스트레스↔BIS · 재현성.</p>
+{_table(["체크","상태","상세"], xd_rows) if xd_rows else "<p>해당 없음</p>"}
+</div>
+
+<div class="card"><h2>WARN/FAIL 상세 ({len(issue_rows)}건)</h2>
+{_table(["체크","상태","상세"], issue_rows) if issue_rows else "<p>해당 없음 — 전 체크 PASS</p>"}
+</div>
+
+<div class="card"><h2>결재 서명란</h2>
+<table class="t">
+<thead><tr><th>역할</th><th>성명</th><th>일자</th><th>서명</th></tr></thead>
+<tbody>
+<tr><td>산출 책임자 (리스크 분석부장)</td><td>____________________</td>
+<td>{_esc(asof)}</td><td>____________________</td></tr>
+<tr><td>검증 책임자 (모형검증실장)</td><td>____________________</td>
+<td>{_esc(asof)}</td><td>____________________</td></tr>
+<tr><td>최종 결재 (CRO)</td><td>____________________</td>
+<td>{_esc(asof)}</td><td>____________________</td></tr>
+</tbody>
+</table>
+<p style="color:var(--muted); font-size:12px; margin-top:14px;">
+본 attestation 페이지는 감독세칙 자체검증 + BCBS 239 원칙에 따라 자동 생성되었으며,
+CRO 서명 전 산출/검증 책임자의 사전 결재가 요구됩니다.</p>
+</div>
+"""
+    return _page("최종 attestation", body, "52_final_attestation.html")
 
 
 # ============================================================================
@@ -2212,6 +2346,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "49_ccar_path.html":            page_ccar_path(result),
         "50_climate_capital.html":      page_climate_capital(result),
         "51_liquidity_stress.html":     page_liquidity_stress(result),
+        "52_final_attestation.html":    _page_final_attestation(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)

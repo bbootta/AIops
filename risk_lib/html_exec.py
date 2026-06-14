@@ -293,6 +293,7 @@ WATCH는 operational 조기경보, GREEN은 한계 이내.</p>
 <a href="ops/19_raf.html">RAF 상세</a>
 <a href="ops/20_pillar3.html">Pillar 3 공시</a>
 <a href="ops/12_validation.html">자체검증</a>
+<a href="ops/52_final_attestation.html"><b>최종 결재 attestation</b></a>
 </div>
 </div>
 

@@ -77,6 +77,7 @@ from risk_lib.stress.recovery import (
 from risk_lib.stress.comparison import compare_scenarios
 from risk_lib.validation.consistency import run_consistency_checks
 from risk_lib.validation.backtest import pd_backtest_report
+from risk_lib.validation.cross_domain import run_cross_domain_checks
 from risk_lib.alm.balance_sheet import generate_balance_sheet
 from risk_lib.alm.irrbb import compute_irrbb
 from risk_lib.alm.lcr import compute_lcr
@@ -632,6 +633,22 @@ def run_pipeline(
         alm_results=alm,
         icaap_result=icaap,
     )
+    # v0.14.0 — cross-domain 정합성 (PD↔RWA, RWA↔BIS, ECL↔RWA,
+    # 한도↔집중, RAPM↔EC, 스트레스↔BIS).  재현성 digest는 호출자가
+    # 두 차례 실행을 비교하므로 여기서는 생략 (cross-domain test가 검증).
+    for _xc in run_cross_domain_checks(
+        rwa={"sa": rwa_sa, "irb": rwa_irb, "market": mkt.rwa, "op": op.rwa,
+             "final_total": rwa_final, "output_floor": floor},
+        bis_result=bis,
+        irb_results=irb_res,
+        pd_metrics=pd_metrics,
+        ecl_results=ecl_df,
+        limit_report=limit_report,
+        large_exposure=conc_deep.get("large_exposure"),
+        rapm_by_class=rapm_by_class,
+        stress_results=stress,
+    ):
+        validation.add(_xc)
 
     summary = portfolio.groupby("asset_class").agg(
         n=("exposure_id", "size"), ead=("ead", "sum"),
