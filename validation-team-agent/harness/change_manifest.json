@@ -1755,6 +1755,21 @@
       "rollback_rule": "page + sample + 링크 제거 시 R53 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0118",
+      "timestamp": "2026-06-14 09:13:29",
+      "component": "tools/sample_generators.py (op_bi_components/loss_history) + tools/report_pack.py (operational_bi_deep)",
+      "change_type": "create",
+      "evidence": "/goal R55 운영리스크: BI 5 component 분해 + ILDC 10년 시계열 미반영",
+      "root_cause": "operational_deep 은 BIC 구간만, BI 가 어떤 component (interest/services/financial) 로 구성되는지 + 자체 ILDC 시계열 부재",
+      "targeted_fix": "operational_bi_components_sample (BCBS OPE25 §15-17 5 component) + operational_loss_history_sample (10년 ILDC 손실 시계열). operational_bi_deep.html: 5 component 분해 + BIC 구간 산출 + 10년 손실 trend(총 손실/건수) + ILM 조건",
+      "expected_benefit": "검증자가 운영 BI 가 어떤 사업 활동에서 발생하는지 + 10년 손실 trend 로 ILM 적용 가능성 평가",
+      "expected_regression_risk": "low — 신규 sample/page, 기존 operational_deep 무변경",
+      "validation_method": "tests/test_v2_round55.py 9 cases + 전체 통과 + ruff/mypy clean",
+      "rollback_rule": "page + sample + 링크 제거 시 R54 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

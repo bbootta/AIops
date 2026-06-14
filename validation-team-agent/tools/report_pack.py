@@ -428,6 +428,7 @@ def _market_ops_page(demo: dict) -> str:
 <li><a href="market_backtest_deep.html">시장 — VaR backtest P&amp;L 분해 (250일) →</a></li>
 <li><a href="market_components_deep.html">시장 — VaR 구성요소 + SVaR + IRC →</a></li>
 <li><a href="operational_deep.html">운영 — SMA BI 구성·BIC 구간 →</a></li>
+<li><a href="operational_bi_deep.html">운영 — BI 5 component + 10년 ILDC 시계열 →</a></li>
 <li><a href="op_scenario_deep.html">운영 — 손실 시나리오 (BCBS 7 event class) →</a></li>
 <li><a href="cva_deep.html">CVA — counterparty 분해 →</a></li>
 <li><a href="ccr_deep.html">CCR — SA-CCR EAD 분해 (RC + PFE × α) →</a></li>
@@ -745,6 +746,96 @@ frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.<
 <p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
 """
     return _page("심화 — 운영리스크 손실 시나리오", body)
+
+
+def _operational_bi_deep_page() -> str:
+    """SMA Business Indicator 5 component 분해 + ILDC 10년 시계열."""
+    from tools.sample_generators import (
+        operational_bi_components_sample,
+        operational_loss_history_sample,
+    )
+
+    bi = operational_bi_components_sample()
+    history = operational_loss_history_sample()
+
+    bi_chart = hbar(
+        [(k, float(v)) for k, v in bi["components"].items()],
+        title="Business Indicator 5 component 분해", fmt="{:.2f} bn",
+        colors=[PALETTE["neutral"]] * len(bi["components"]))
+
+    loss_series = [(str(r["year"]), float(r["total_loss_bn"])) for r in history]
+    loss_trend = trend_line(loss_series, title="10년 ILDC — 연간 총 손실 (bn)",
+                            fmt="{:,.0f}")
+
+    n_events_series = [(str(r["year"]), float(r["n_events"])) for r in history]
+    events_trend = trend_line(n_events_series, title="10년 ILDC — 연간 손실 건수",
+                              fmt="{:.0f}")
+
+    history_rows = "".join(
+        f"<tr><td>{r['year']}</td><td>{r['n_events']:,}</td>"
+        f"<td>{r['total_loss_bn']:,.0f}</td>"
+        f"<td>{r['avg_loss_bn']:.1f}</td></tr>"
+        for r in history)
+
+    avg_loss = sum(r["total_loss_bn"] for r in history) / len(history)
+    bi_total = bi["total_bi"]
+    # SMA 산식 (간략): BIC = α × BI (구간별)
+    bic_low = min(bi_total, 1.0) * 0.12
+    bic_mid = max(0, min(bi_total, 30.0) - 1.0) * 0.15
+    bic_high = max(0, bi_total - 30.0) * 0.18
+    bic = bic_low + bic_mid + bic_high
+
+    body = f"""
+<p>운영리스크 SMA 의 BI 5 component 분해 + ILDC 10년 손실 시계열.
+출처: {_esc(bi['framework'])}.</p>
+
+<h2>BI 5 Component 분해</h2>
+{bi_chart}
+<table>
+<tr><th>Component</th><th>값 (bn)</th><th>BCBS OPE25 정의</th></tr>
+<tr><td>Interest/Lease/Dividend</td><td>{bi['components']['Interest/Lease/Dividend']:.2f}</td>
+<td>ILDC — interest income/expense + lease + dividend</td></tr>
+<tr><td>Services</td><td>{bi['components']['Services']:.2f}</td>
+<td>SC — fee & commission income/expense</td></tr>
+<tr><td>Financial (Trading book)</td><td>{bi['components']['Financial (Trading book)']:.2f}</td>
+<td>FC trading — net P&L</td></tr>
+<tr><td>Financial (Banking book)</td><td>{bi['components']['Financial (Banking book)']:.2f}</td>
+<td>FC banking — net P&L</td></tr>
+<tr><th>BI Total</th><th>{bi_total:.2f}</th><th></th></tr>
+</table>
+
+<h2>BIC 산식 (구간별)</h2>
+<table>
+<tr><th>0 ~ 1bn @ 12%</th><td>{bic_low:.4f} bn</td></tr>
+<tr><th>1 ~ 30bn @ 15%</th><td>{bic_mid:.4f} bn</td></tr>
+<tr><th>&gt; 30bn @ 18%</th><td>{bic_high:.4f} bn</td></tr>
+<tr><th>BIC 합계</th><td><b>{bic:.4f} bn</b></td></tr>
+<tr><th>ORC (ILM=1, 국내)</th><td>{bic:.4f} bn</td></tr>
+</table>
+
+<h2>ILDC — 10년 손실 시계열</h2>
+{loss_trend}
+{events_trend}
+<table>
+<tr><th>연도</th><th>건수</th><th>총 손실 (bn)</th><th>평균 손실/건</th></tr>
+{history_rows}
+</table>
+<p>10년 평균 연간 손실: <b>{avg_loss:,.0f} bn</b>. ILDC 도입 시 ILM 산식의 input
+이 되며 ILM ≠ 1 적용 가능 (감독 승인 필요).</p>
+
+<h2>해석 (운영리스크 검증)</h2>
+<ul>
+<li><b>ILDC 비중 높음</b>: 전통적 은행 (대출/이자 중심). 트레이딩북 비중이
+크면 Financial (Trading) component 가 BI 의 dominant.</li>
+<li><b>국내 ILM = 1</b>: 자체 10년 손실 데이터 사용 시 ILM &lt; 1 (이력 우수)
+또는 ILM &gt; 1 (이력 열위) 적용 — 감독 승인 절차 필요.</li>
+<li><b>ILDC 시계열 trend</b>: 손실 추세가 상승하면 BCBS OPE25 ILM 적용 시
+capital 증가. 단년도 이상치는 평균에 큰 영향 — 6년 cutoff (BCBS OPE25 §28)
+참조.</li>
+</ul>
+<p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로</a></p>
+"""
+    return _page("심화 — 운영 SMA BI 5 component + 10년 ILDC", body)
 
 
 def _irrbb_behavioral_page() -> str:
@@ -2307,6 +2398,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="market_components_deep.html">시장 — VaR 구성요소 (General/Specific) + SVaR + IRC</a></li>
 <li><a href="concentration_segments.html">집중 — 산업/지역/통화별 + Top 10 exposures</a></li>
 <li><a href="operational_deep.html">운영 — SMA BI 구성·BIC 구간</a></li>
+<li><a href="operational_bi_deep.html">운영 — BI 5 component + 10년 ILDC 시계열</a></li>
 <li><a href="op_scenario_deep.html">운영 — 손실 시나리오 (BCBS 7 event class)</a></li>
 <li><a href="cva_deep.html">CVA — counterparty 분해 (BA-CVA / SA-CVA)</a></li>
 <li><a href="ccr_deep.html">CCR — SA-CCR EAD 분해</a></li>
@@ -2370,6 +2462,7 @@ def build_pack(
     pages["market_components_deep.html"] = _market_components_deep_page()
     pages["concentration_segments.html"] = _concentration_segments_page()
     pages["irrbb_behavioral.html"] = _irrbb_behavioral_page()
+    pages["operational_bi_deep.html"] = _operational_bi_deep_page()
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)

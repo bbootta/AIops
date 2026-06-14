@@ -244,6 +244,41 @@ def alm_sample(*, stressed: bool = False) -> dict:
     }
 
 
+def operational_bi_components_sample() -> dict:
+    """SMA Business Indicator (BI) 5개 component 분해 (BCBS OPE25)."""
+    components = {
+        "Interest/Lease/Dividend": 1.85,  # bn EUR
+        "Services": 1.20,
+        "Financial (Trading book)": 0.30,
+        "Financial (Banking book)": 0.15,
+        "Other (recurring)": 0.00,
+    }
+    return {
+        "components": components,
+        "total_bi": sum(components.values()),
+        "framework": "BCBS OPE25 (SMA) §15-17",
+    }
+
+
+def operational_loss_history_sample() -> list[dict]:
+    """ILDC (Internal Loss Data Component) — 10년 손실 시계열 (합성)."""
+    base_year = 2016
+    losses = [
+        (45.0, 280.0), (38.0, 220.0), (52.0, 350.0), (41.0, 195.0),
+        (62.0, 410.0), (48.0, 260.0), (55.0, 320.0), (49.0, 290.0),
+        (43.0, 240.0), (51.0, 305.0),
+    ]
+    return [
+        {
+            "year": base_year + i,
+            "n_events": int(n),
+            "total_loss_bn": float(total),
+            "avg_loss_bn": round(total / max(n, 1), 2),
+        }
+        for i, (n, total) in enumerate(losses)
+    ]
+
+
 def irrbb_behavioral_sample() -> dict:
     """IRRBB behavioral assumption — NMD (non-maturity deposits) + prepayment.
 
