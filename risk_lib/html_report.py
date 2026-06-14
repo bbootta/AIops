@@ -92,6 +92,8 @@ NAV = [
     ("24_vintage.html",   "24. Vintage"),
     ("25_data_quality.html","25. DQ·정합성"),
     ("26_comparison.html", "26. 시점 비교"),
+    ("27_lgd_model.html",  "27. LGD모형"),
+    ("28_model_challenger.html", "28. 챔피언/챌린저"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -400,60 +402,383 @@ def _page_portfolio(r: PipelineResult) -> str:
 def _page_pd(r: PipelineResult) -> str:
     pm = r.pd_metrics
     segs = list(pm.keys())
-    gini = [pm[s]["gini"] for s in segs]
-    ks = [pm[s]["ks"] for s in segs]
-    chart = viz.bar_chart(segs, gini, value_fmt=lambda v: f"{v:.3f}",
-                          title="세그먼트별 Gini 변별력",
-                          reference_value=GINI_MIN_GOOD,
-                          reference_label=f"양호 기준 {GINI_MIN_GOOD:.2f}",
-                          colors=[viz.GREEN if g >= GINI_MIN_GOOD else viz.AMBER for g in gini])
     bt = r.backtest
     hl = bt["hosmer_lemeshow"]
+    disc = bt.get("discrimination", {})
+    pof = bt.get("kupiec_pof", {})
+    ccc = bt.get("christoffersen_cc", {})
+    cal_curve = bt.get("calibration_curve", pd.DataFrame())
+
+    # --- 변별력 4지표 차트
+    g_vals = [pm[s]["gini"] for s in segs]
+    disc_chart = viz.bar_chart(
+        segs, g_vals, value_fmt=lambda v: f"{v:.3f}",
+        title="세그먼트별 Gini",
+        reference_value=GINI_MIN_GOOD,
+        reference_label=f"양호 ≥ {GINI_MIN_GOOD:.2f}",
+        colors=[viz.GREEN if g >= GINI_MIN_GOOD else viz.AMBER for g in g_vals],
+    )
+    auc_vals = [pm[s].get("auc_roc", 0.5) for s in segs]
+    auc_chart = viz.bar_chart(
+        segs, auc_vals, value_fmt=lambda v: f"{v:.3f}",
+        title="세그먼트별 AUC-ROC",
+        reference_value=0.75, reference_label="양호 ≥ 0.75",
+        colors=[viz.GREEN if a >= 0.75 else viz.AMBER for a in auc_vals],
+    )
+
+    # --- ROC 곡선 (전체)  — 다시 계산: 정렬 + 누적
+    import numpy as np
+    # corporate 표본 기준 (backtest는 corporate에서 계산)
+    cal_fpr, cal_tpr = [0.0], [0.0]
+    if not cal_curve.empty:
+        # cum_pos/cum_neg from grade-ordered defaults — 이미 cal_curve의 정렬은
+        # 예측 PD 오름차순. ROC용으로는 내림차순으로 누적.
+        # 백테스트 단계에서 raw 데이터가 없으므로 cal_curve로 근사한다.
+        pass
+
+    # --- 캘리브레이션 plot
+    if not cal_curve.empty:
+        cal_plot = viz.calibration_plot(
+            cal_curve["mean_pd"].tolist(),
+            cal_curve["realised_dr"].tolist(),
+            counts=cal_curve["n"].tolist(),
+            title="캘리브레이션 — 코퍼레이트",
+        )
+    else:
+        cal_plot = "<p class='section-lead'>캘리브레이션 데이터 없음</p>"
+
+    # --- 등급 백테스트
     pg = bt["per_grade"].copy()
     zone_counts = pg["zone"].value_counts().to_dict()
     zones_chart = viz.bar_chart(
         list(zone_counts.keys()), list(zone_counts.values()),
         value_fmt=lambda v: f"{int(v)}",
         title="등급별 백테스트 존",
-        colors=[{"GREEN":viz.GREEN,"YELLOW":viz.AMBER,"RED":viz.RED}.get(z, viz.PALETTE[0])
+        colors=[{"GREEN": viz.GREEN, "YELLOW": viz.AMBER,
+                 "RED": viz.RED}.get(z, viz.PALETTE[0])
                 for z in zone_counts.keys()],
     )
 
-    rows = [[s, f"{pm[s]['gini']:.3f}", f"{pm[s]['ks']:.3f}",
-             f"{int(pm[s]['n_train']):,}/{int(pm[s]['n_test']):,}"] for s in segs]
+    # --- 세그먼트별 변별력 표
+    rows = [[s, f"{pm[s]['gini']:.3f}", f"{pm[s].get('auc_roc', 0):.3f}",
+             f"{pm[s]['ks']:.3f}", f"{pm[s].get('auprc', 0):.3f}",
+             f"{pm[s].get('brier', 0):.4f}",
+             f"{pm[s].get('brier_skill', 0):.3f}",
+             f"{int(pm[s]['n_train']):,}/{int(pm[s]['n_test']):,}"]
+            for s in segs]
+
+    # --- 등급별 백테스트 디테일
     pg_rows = []
     for _, row in pg.iterrows():
         pg_rows.append([row.get("grade", "-"),
                         f"{int(row.get('n', 0)):,}",
-                        f"{row.get('mean_pd', 0):.4f}",
-                        f"{row.get('default_rate', 0):.4f}",
-                        _badge(row["zone"], {"GREEN":"GREEN","YELLOW":"WARN","RED":"FAIL"}.get(row["zone"], "NEUTRAL"))])
+                        f"{row.get('calibrated_pd', 0):.4f}",
+                        f"{row.get('realised_dr', 0):.4f}",
+                        f"{row.get('p_value', 1):.3f}",
+                        _badge(row["zone"],
+                               {"GREEN": "GREEN", "YELLOW": "WARN",
+                                "RED": "FAIL"}.get(row["zone"], "NEUTRAL"))])
+
+    # --- 변수 중요도 (코퍼레이트, permutation importance)
+    var_imp_html = ""
+    if "corporate" in r.explain:
+        imp = r.explain["corporate"]["permutation"]
+        var_imp_html = viz.horizontal_bar(
+            imp["feature"].tolist(),
+            imp["gini_drop_mean"].tolist(),
+            title="코퍼레이트 PD — 변수 중요도 (Gini drop)",
+            value_fmt=lambda v: f"{v:.3f}",
+            color=viz.PALETTE[0],
+        )
+
+    # --- 계수 표
+    coef_html = ""
+    if "corporate" in r.explain:
+        ct = r.explain["corporate"]["coefficients"]
+        coef_rows = [[row["feature"], f"{row['coef']:+.3f}",
+                      f"{row['odds_ratio']:.3f}",
+                      f"{row['contribution_pct']*100:.1f}%",
+                      row["direction"]]
+                     for _, row in ct.iterrows()]
+        coef_html = _table(
+            ["변수", "계수β", "Odds ratio", "기여율", "방향"], coef_rows,
+            right_cols=[1, 2, 3],
+        )
+
+    # --- 마스터 스케일 캘리브레이션 (코퍼레이트 세그먼트)
+    ms_html = ""
+    if "corporate" in r.calibration:
+        ms = r.calibration["corporate"]
+        ms_rows = [[row["grade"], f"{row['pd_midpoint']:.4f}",
+                    f"{row['mean_pd_predicted']:.4f}",
+                    f"{row['realised_dr']:.4f}",
+                    f"{row['bias']:+.4f}", f"{int(row['n']):,}"]
+                   for _, row in ms.iterrows()]
+        ms_html = _table(
+            ["등급", "마스터 PD", "평균 모형 PD", "실현 DR", "편차", "건수"],
+            ms_rows, right_cols=[1, 2, 3, 4, 5],
+        )
+
+    # --- 등급 migration PSI
+    mig_rows = []
+    for seg, res in r.grade_migration.items():
+        mig_rows.append([seg, f"{res['psi']:.4f}",
+                         _badge(res["zone"],
+                                {"GREEN": "GREEN", "AMBER": "WARN",
+                                 "RED": "FAIL"}.get(res["zone"], "NEUTRAL"))])
+    mig_html = _table(["세그먼트", "Grade PSI", "Zone"], mig_rows,
+                      right_cols=[1]) if mig_rows else ""
+
+    pof_tone = "good" if pof.get("p_value", 0) >= 0.05 else "warn"
+    cc_tone = "good" if ccc.get("p_value", 0) >= 0.05 else "warn"
 
     body = f"""
-<h1 class="title">2. 신용평가모형(PD) 변별력 & 캘리브레이션</h1>
-<p class="section-lead">세그먼트별 Gini/KS, Hosmer-Lemeshow, 등급별 신호등 백테스트.</p>
+<h1 class="title">2. 신용평가모형(PD) 변별력 · 캘리브레이션 · XAI</h1>
+<p class="section-lead">세그먼트별 Gini/KS/AUC/AUPRC/Brier, Hosmer-Lemeshow,
+Kupiec POF, Christoffersen 조건부 coverage, 캘리브레이션 곡선, 변수 중요도,
+등급 PSI까지 통합. 준거: Basel CRE36, BCBS WP 14, 금감원 모형리스크 모범규준.</p>
+
+<div class="card"><h2>2-1. 변별력 헤드라인 (전체 corporate 백테스트)</h2>
+<div class="kpi-grid">
+{_kpi("AUC-ROC", f"{disc.get('auc_roc', 0):.3f}",
+       sub="양호 ≥ 0.75",
+       tone=("good" if disc.get('auc_roc', 0) >= 0.75 else "warn"))}
+{_kpi("Gini", f"{disc.get('gini', 0):.3f}",
+       sub=f"양호 ≥ {GINI_MIN_GOOD:.2f}",
+       tone=("good" if disc.get('gini', 0) >= GINI_MIN_GOOD else "warn"))}
+{_kpi("AUPRC", f"{disc.get('auprc', 0):.3f}",
+       sub=f"base rate {disc.get('base_rate', 0)*100:.1f}%")}
+{_kpi("Brier", f"{disc.get('brier', 0):.4f}",
+       sub=f"skill {disc.get('brier_skill', 0)*100:+.1f}%")}
+{_kpi("Kupiec POF p", f"{pof.get('p_value', 0):.3f}",
+       sub="≥ 0.05 캘리브레이션 양호", tone=pof_tone)}
+{_kpi("Christoffersen CC p", f"{ccc.get('p_value', 0):.3f}",
+       sub="≥ 0.05 unconditional+독립 양호", tone=cc_tone)}
+</div>
+</div>
+
 <div class="row2">
-<div class="card"><h2>세그먼트별 변별력</h2><div class="chart">{chart}</div>
-{_table(["세그먼트","Gini","KS","학습/검증"], rows, right_cols=[1,2,3])}
+<div class="card"><h2>2-2. 세그먼트별 Gini</h2><div class="chart">{disc_chart}</div></div>
+<div class="card"><h2>2-3. 세그먼트별 AUC-ROC</h2><div class="chart">{auc_chart}</div></div>
 </div>
-<div class="card"><h2>백테스트 존 (전체 등급)</h2><div class="chart">{zones_chart}</div>
-<p class="section-lead">RED 0건이어야 결재 가능. YELLOW 잔존 시 WARN.</p>
+
+<div class="card"><h2>2-4. 세그먼트별 변별력·캘리브레이션 지표</h2>
+{_table(["세그먼트", "Gini", "AUC", "KS", "AUPRC", "Brier",
+         "Brier skill", "학습/검증"], rows, right_cols=[1, 2, 3, 4, 5, 6, 7])}
 </div>
+
+<div class="row2">
+<div class="card"><h2>2-5. 캘리브레이션 곡선 (Reliability)</h2>
+<div class="chart">{cal_plot}</div>
+<p class="section-lead">버블 크기 = bucket 표본 수. 45° 선 위 = 보수적,
+아래 = 과소예측(red).</p>
 </div>
-<div class="card"><h2>Hosmer-Lemeshow 캘리브레이션</h2>
+<div class="card"><h2>2-6. Hosmer-Lemeshow</h2>
 <div class="kpi-grid">
 {_kpi("χ²", f"{hl['chi_square']:.2f}")}
 {_kpi("p-value", f"{hl['p_value']:.3f}",
        tone=("good" if hl['p_value'] >= 0.05 else "warn"))}
-{_kpi("판정", "양호" if hl['p_value']>=0.05 else "주의",
+{_kpi("판정", "양호" if hl['p_value'] >= 0.05 else "주의",
        sub="p ≥ 0.05 시 캘리브레이션 양호")}
 </div>
+<h3>등급별 백테스트 존</h3>
+<div class="chart">{zones_chart}</div>
 </div>
-<div class="card"><h2>등급별 백테스트 (코퍼레이트)</h2>
-{_table(["등급","건수","평균 PD","실현 부도율","존"], pg_rows, right_cols=[1,2,3])}
+</div>
+
+<div class="card"><h2>2-7. 마스터 스케일 캘리브레이션 — 코퍼레이트</h2>
+{ms_html}
+<p class="section-lead">등급별 (마스터 PD midpoint, 평균 모형 PD, 실현 DR).
+편차가 일관되게 양수면 보수적, 음수면 PD 모형이 위반.</p>
+</div>
+
+<div class="card"><h2>2-8. 등급별 신호등 (코퍼레이트)</h2>
+{_table(["등급", "건수", "캘리브 PD", "실현 DR", "p-value", "존"],
+        pg_rows, right_cols=[1, 2, 3, 4])}
+</div>
+
+<div class="row2">
+<div class="card"><h2>2-9. 변수 중요도 (Permutation)</h2>
+<div class="chart">{var_imp_html}</div>
+<p class="section-lead">Breiman(2001) permutation importance — 변수를 셔플했을
+때 Gini drop의 평균(시드=42, n_repeats=3).</p>
+</div>
+<div class="card"><h2>2-10. 회귀 계수 · Odds Ratio</h2>
+{coef_html}
+</div>
+</div>
+
+<div class="card"><h2>2-11. 등급 분포 안정성 (Grade-level PSI)</h2>
+{mig_html}
+<p class="section-lead">train vs test 등급 분포의 PSI. &lt;0.10 GREEN,
+0.10–0.25 AMBER, ≥0.25 RED.</p>
 </div>
 """
     return _page("PD모형", body, "02_pd.html")
+
+
+def _page_lgd_model(r: PipelineResult) -> str:
+    """27. LGD 모형 — 모형 카드 + 백테스트 + 회수 곡선."""
+    lgd = r.lgd_metrics
+    if not lgd:
+        body = ("<h1 class='title'>27. LGD모형</h1>"
+                "<p>LGD 모형 데이터 없음.</p>")
+        return _page("LGD모형", body, "27_lgd_model.html")
+
+    rows = []
+    bias_chart_data = []
+    bias_chart_labels = []
+    for seg, m in lgd.items():
+        bt = m["backtest"]
+        rows.append([seg, ", ".join(m["features"]),
+                     f"{bt['mae']:.4f}", f"{bt['rmse']:.4f}",
+                     f"{bt['r2']:+.3f}", f"{bt['brier']:.4f}",
+                     f"{bt['bias']:+.4f}",
+                     f"{bt['mean_realised']:.3f}",
+                     f"{bt['mean_predicted']:.3f}",
+                     f"{int(bt['n']):,}"])
+        bias_chart_labels.append(seg)
+        bias_chart_data.append(bt["bias"])
+
+    bias_chart = viz.bar_chart(
+        bias_chart_labels, bias_chart_data,
+        value_fmt=lambda v: f"{v:+.3f}",
+        title="세그먼트별 LGD 예측 편차(predicted - realised)",
+        colors=[viz.GREEN if abs(b) < 0.05 else viz.AMBER
+                for b in bias_chart_data],
+    )
+
+    # Histogram for the first segment (corporate if present)
+    import numpy as np
+    hist_html = ""
+    hist_seg = "corporate" if "corporate" in lgd else next(iter(lgd))
+    if hist_seg in lgd and "predicted_full" in lgd[hist_seg]:
+        # need access to realised — pull from pd_metrics indirectly through
+        # backtest's mean_realised but for distribution we re-derive
+        # via the model's residual: use bucket calibration to approximate.
+        m = lgd[hist_seg]
+        # Use the bucket calibration to plot mean per bucket
+        from risk_lib.models.lgd_model import lgd_bucket_calibration
+        # We don't have raw arrays here; rebuild a histogram from
+        # predicted_full only and use mean realised as overlay reference.
+        preds = np.asarray(m["predicted_full"], dtype=float)
+        hist_html = viz.histogram(
+            preds.tolist(), bins=20,
+            title=f"{hist_seg} — 예측 LGD 분포",
+            color=viz.PALETTE[0],
+            value_fmt=lambda v: f"{v*100:.0f}%",
+        )
+
+    body = f"""
+<h1 class="title">27. LGD 모형 — 적합·백테스트·분포</h1>
+<p class="section-lead">세그먼트별 beta(logit) ridge 회귀로 적합한 LGD 모형의
+백테스트 결과. 산식: ŷ = floor + (1-floor)·σ(Xβ); 검증: MAE/RMSE/R²/Brier.
+준거: Basel CRE36 LGD 모형 요건, BCBS WP14, 금감원 「은행업감독업무시행세칙」
+별표 3-25.</p>
+
+<div class="card"><h2>27-1. 세그먼트별 백테스트</h2>
+{_table(["세그먼트", "변수", "MAE", "RMSE", "R²", "Brier", "편차",
+         "실현 평균", "예측 평균", "표본 수"], rows,
+        right_cols=[2, 3, 4, 5, 6, 7, 8, 9])}
+</div>
+
+<div class="row2">
+<div class="card"><h2>27-2. 세그먼트별 편차</h2>
+<div class="chart">{bias_chart}</div>
+<p class="section-lead">|편차| &lt; 5%p 시 양호(녹색).
+양수 = 보수적(과대 예측), 음수 = 과소 예측(자본 부족 위험).</p>
+</div>
+<div class="card"><h2>27-3. 예측 LGD 분포 — {hist_seg}</h2>
+<div class="chart">{hist_html}</div>
+</div>
+</div>
+
+<div class="card"><h2>27-4. 모형 카드</h2>
+<p class="section-lead">현재 모형은 logit-변환 LGD에 ridge α=1을 적용한
+GLM 근사. 표본이 부족하거나 LGD가 0/1에 집중되면 beta regression(GLM)으로
+재학습 권고. floor=0.05.</p>
+</div>
+"""
+    return _page("LGD모형", body, "27_lgd_model.html")
+
+
+def _page_model_challenger(r: PipelineResult) -> str:
+    """28. 챔피언 vs 챌린저 PD 모형 비교."""
+    pm = r.pd_metrics
+    ch = r.challenger_metrics
+    if not ch:
+        body = ("<h1 class='title'>28. 챔피언/챌린저</h1>"
+                "<p>챌린저 데이터 없음.</p>")
+        return _page("챔피언/챌린저", body, "28_model_challenger.html")
+
+    rows = []
+    seg_labels, champ_g, chal_g = [], [], []
+    for seg, c in ch.items():
+        champ = pm.get(seg, {})
+        rows.append([seg,
+                     f"{champ.get('gini', 0):.3f}",
+                     f"{c.get('gini', 0):.3f}",
+                     f"{c['delta_gini']:+.3f}",
+                     f"{champ.get('auc_roc', 0):.3f}",
+                     f"{c.get('auc_roc', 0):.3f}",
+                     f"{champ.get('brier', 0):.4f}",
+                     f"{c.get('brier', 0):.4f}",
+                     ", ".join(c["features"]),
+                     _badge(c["verdict"],
+                            "PASS" if "CHAMPION" in c["verdict"] else
+                            ("WARN" if "CHALLENGER" in c["verdict"]
+                             else "NEUTRAL"))])
+        seg_labels.append(seg)
+        champ_g.append(champ.get("gini", 0))
+        chal_g.append(c.get("gini", 0))
+
+    # side-by-side
+    deltas = [pm.get(s, {}).get("gini", 0) - ch[s]["gini"] for s in seg_labels]
+    delta_chart = viz.bar_chart(
+        seg_labels, deltas,
+        value_fmt=lambda v: f"{v:+.3f}",
+        title="ΔGini = Champion - Challenger",
+        reference_value=0.01, reference_label="유의 차이 0.01",
+        colors=[viz.GREEN if d > 0.01 else (viz.RED if d < -0.01 else viz.AMBER)
+                for d in deltas],
+    )
+
+    # Decision recommendation
+    upgrade = [s for s in seg_labels
+               if "CHALLENGER" in ch[s]["verdict"]]
+    keep = [s for s in seg_labels
+            if "CHAMPION" in ch[s]["verdict"]]
+    tie = [s for s in seg_labels
+           if "동등" in ch[s]["verdict"]]
+
+    body = f"""
+<h1 class="title">28. 챔피언 vs 챌린저 — PD 모형 비교</h1>
+<p class="section-lead">현재 production 모형(champion: 전체 변수)과 단순화된
+benchmark(challenger: 핵심 변수 절반)를 동일 검증 표본에서 비교. ΔGini
+&gt; 0.01 인 세그먼트는 챔피언 유지, 음수면 챌린저 승격 검토.</p>
+
+<div class="card"><h2>28-1. ΔGini (Champion - Challenger)</h2>
+<div class="chart">{delta_chart}</div>
+</div>
+
+<div class="card"><h2>28-2. 상세 비교표</h2>
+{_table(["세그먼트", "Champ Gini", "Chal Gini", "ΔGini",
+         "Champ AUC", "Chal AUC", "Champ Brier", "Chal Brier",
+         "Challenger 변수", "판정"], rows,
+        right_cols=[1, 2, 3, 4, 5, 6, 7])}
+</div>
+
+<div class="card"><h2>28-3. 의사결정 권고</h2>
+<ul>
+<li><b>챔피언 유지:</b> {", ".join(keep) if keep else "(없음)"}</li>
+<li><b>챌린저 승격 검토:</b> {", ".join(upgrade) if upgrade else "(없음)"}</li>
+<li><b>통계적 동등(재검토):</b> {", ".join(tie) if tie else "(없음)"}</li>
+</ul>
+<p class="section-lead">SR 11-7 / 금감원 모형리스크관리 모범규준에 따라 챌린저
+모형은 매년 1회 이상 정기 비교 권고.</p>
+</div>
+"""
+    return _page("챔피언/챌린저", body, "28_model_challenger.html")
 
 
 def _page_rwa(r: PipelineResult) -> str:
@@ -1179,6 +1504,8 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "22_kri_trends.html": page_kri_trends(result),
         "23_attribution.html":page_attribution(result),
         "26_comparison.html": page_comparison(result),
+        "27_lgd_model.html":  _page_lgd_model(result),
+        "28_model_challenger.html": _page_model_challenger(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)
