@@ -851,9 +851,9 @@ def _fx_dependency_page() -> str:
     # FX 자산-부채 차이 (NOP — Net Open Position)
     nop_rows = []
     for currency in f["fx_assets_by_currency"]:
-        a = f["fx_assets_by_currency"][currency]
-        l = f["fx_liabilities_by_currency"].get(currency, 0)
-        nop = a - l
+        asset = f["fx_assets_by_currency"][currency]
+        liability = f["fx_liabilities_by_currency"].get(currency, 0)
+        nop = asset - liability
         nop_rows.append((currency, nop))
 
     nop_chart = hbar(
