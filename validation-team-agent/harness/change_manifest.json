@@ -1680,6 +1680,21 @@
       "rollback_rule": "두 페이지 등록 + 링크 제거 시 R48 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0113",
+      "timestamp": "2026-06-14 09:00:34",
+      "component": "tools/sample_generators.py (rwa+srep) + tools/report_pack.py (capital_rwa_deep)",
+      "change_type": "create",
+      "evidence": "/goal R50 자본 부문: RWA 산정 방식별 분해/Output Floor 효과/SREP P2R+P2G 표시 부재",
+      "root_cause": "capital_icaap.html 은 비율 충족 여부만, RWA 산정 구성(IRBA/IMM/SMA/SA-CVA)과 Output Floor 효과 미표시",
+      "targeted_fix": "rwa_decomposition_sample(IRBA/SA/IMM/SMA/BA-CVA/SA-CCR) + srep_capital_sample(P2R/P2G/stress buffer). capital_rwa_deep.html: 내부 모형/표준 SA 비교 차트 + Output Floor 72.5% binding 표시 + TCR(P1+P2R+P2G+stress buffer) stack",
+      "expected_benefit": "검증자가 RWA 산정 구조 + Output Floor 효과 + SREP add-on 을 한 화면에 확인. floor binding 시 IRBA 효과 소멸 시각화",
+      "expected_regression_risk": "low — 신규 sample/page 만, 기존 페이지 본문 무변경",
+      "validation_method": "tests/test_v2_round50.py 10 cases + 전체 통과 + ruff/mypy clean",
+      "rollback_rule": "page 등록 + sample + 링크 제거 시 R49 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

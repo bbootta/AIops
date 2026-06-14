@@ -280,6 +280,7 @@ def _capital_icaap_page(demo: dict) -> str:
     parts.append('<h2>심화 분석 (Drill-down)</h2>')
     parts.append('<ul>'
                  '<li><a href="capital_buffer_deep.html">자본 buffer 분해 + sensitivity →</a></li>'
+                 '<li><a href="capital_rwa_deep.html">RWA 분해 + Output Floor + SREP →</a></li>'
                  '<li><a href="icaap_deep.html">ICAAP 리스크 유형 분해 + 시나리오 →</a></li>'
                  '</ul>')
     parts.append('<h2>왜 이 결과인가 (Explainability)</h2>')
@@ -737,6 +738,94 @@ frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.<
 <p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
 """
     return _page("심화 — 운영리스크 손실 시나리오", body)
+
+
+def _capital_rwa_deep_page() -> str:
+    """RWA 분해 (Pillar 1 산정 방식별) + Output Floor 72.5% sensitivity."""
+    from tools.sample_generators import rwa_decomposition_sample, srep_capital_sample
+
+    r = rwa_decomposition_sample()
+    s = srep_capital_sample()
+
+    by_internal = r["by_approach"]
+    chart_internal = hbar(
+        [(k, float(v)) for k, v in by_internal.items()],
+        title="RWA — 산정 방식별 (내부 모형)", fmt="{:,.0f}",
+        colors=[PALETTE["neutral"]] * len(by_internal))
+
+    sa_full = r["standardised_full"]
+    chart_sa = hbar(
+        [(k, float(v)) for k, v in sa_full.items()],
+        title="RWA — 표준방식(SA) 전면 적용 시", fmt="{:,.0f}",
+        colors=[PALETTE["warning"]] * len(sa_full))
+
+    floor_chart = hbar(
+        [
+            ("내부 모형 합계", float(r["total_internal"])),
+            (f"표준방식 × {r['output_floor_ratio']:.0%}",
+             r["output_floor_ratio"] * float(r["total_standardised"])),
+            ("Floor 적용 후 RWA", float(r["rwa_after_floor"])),
+        ],
+        title="Output Floor 비교 (FRTB d424)", fmt="{:,.0f}",
+        colors=[PALETTE["neutral"], PALETTE["warning"],
+                PALETTE["fail"] if r["floor_binding"] else PALETTE["ok"]])
+
+    p1_sum = sum(by_internal.values()) * 0.105  # 총자본 10.5% (4.5% + buffer 2.5% + +Tier2)
+    p2r = float(r["rwa_after_floor"]) * s["p2r_pct"]
+    p2g = float(r["rwa_after_floor"]) * s["p2g_pct"]
+    stress_b = float(r["rwa_after_floor"]) * s["stress_buffer_pct"]
+    stack = hbar(
+        [
+            ("Pillar 1 (10.5%)", p1_sum),
+            (f"P2R ({s['p2r_pct']:.1%})", p2r),
+            (f"P2G ({s['p2g_pct']:.1%})", p2g),
+            (f"Stress buffer ({s['stress_buffer_pct']:.1%})", stress_b),
+        ],
+        title="Total Capital Requirement (TCR) 분해", fmt="{:,.0f}")
+
+    rationale_html = "".join(f"<li>{_esc(r)}</li>" for r in s["rationale"])
+
+    body = f"""
+<p>Pillar 1 RWA 산정 방식별 분해 + Basel III 마지막 단계 Output Floor 72.5%
+적용 효과 + Pillar 2 SREP capital add-on.</p>
+
+<h2>RWA 산정 방식별 (내부 모형 적용)</h2>
+{chart_internal}
+<p>총 내부 모형 RWA: <b>{r['total_internal']:,.0f}</b></p>
+
+<h2>표준방식 전면 적용 시 비교</h2>
+{chart_sa}
+<p>총 SA RWA: <b>{r['total_standardised']:,.0f}</b></p>
+
+<h2>Output Floor 효과 (BCBS d424)</h2>
+{floor_chart}
+<table>
+<tr><th>Output Floor 비율</th><td>{r['output_floor_ratio']:.0%}</td></tr>
+<tr><th>Floor 적용 후 RWA</th><td>{r['rwa_after_floor']:,.0f}</td></tr>
+<tr><th>Floor binding?</th>
+<td>{'<b style="color:#c62828">예 — 내부 모형 사용 효과 일부 소멸</b>' if r['floor_binding'] else '아니오 (내부 모형 더 보수적)'}</td></tr>
+</table>
+
+<h2>SREP Capital — Total Capital Requirement</h2>
+{stack}
+<table>
+<tr><th>P2R (binding)</th><td>{s['p2r_pct']:.2%}</td><td>{p2r:,.0f}</td></tr>
+<tr><th>P2G (guidance)</th><td>{s['p2g_pct']:.2%}</td><td>{p2g:,.0f}</td></tr>
+<tr><th>Stress buffer (내부)</th><td>{s['stress_buffer_pct']:.2%}</td><td>{stress_b:,.0f}</td></tr>
+</table>
+<p>출처: {_esc(s['framework'])}.</p>
+
+<h2>해석 (자본계획 관점)</h2>
+<ul>{rationale_html}
+<li><b>Output Floor</b>는 Basel III 마지막 phase 에서 단계적으로 50% → 72.5%
+까지 인상 (BCBS d424). Floor binding 시 IRBA 도입 효과 일부 소멸.</li>
+<li><b>P2R</b>은 강제, <b>P2G</b>는 권고 — 그러나 P2G 미충족 시 감독 대응 강화.</li>
+<li><b>본 분해는 합성</b> — 운영 RWA 는 자체 IRBA / IMM / SMA / SA-CVA 결과로
+대체. 정책 변경 시 매니페스트 CHG 기록 필수.</li>
+</ul>
+<p><a href="capital_icaap.html">← 자본 + ICAAP 상세로</a></p>
+"""
+    return _page("심화 — RWA 분해 + Output Floor + SREP", body)
 
 
 def _credit_segments_page(request: dict) -> str:
@@ -1907,6 +1996,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="challenger.html">신용 — 챔피언 vs 챌린저 비교</a></li>
 <li><a href="data_quality_deep.html">데이터 — 컬럼·결측·분포 분석</a></li>
 <li><a href="capital_buffer_deep.html">자본 — buffer 분해 + sensitivity</a></li>
+<li><a href="capital_rwa_deep.html">자본 — RWA 분해 + Output Floor + SREP</a></li>
 <li><a href="icaap_deep.html">ICAAP — 리스크 유형 분해 + 시나리오</a></li>
 <li><a href="alm_gap.html">ALM — 만기 bucket 누적 갭</a></li>
 <li><a href="alm_irrbb.html">IRRBB — 시나리오별 ΔEVE</a></li>
@@ -1970,6 +2060,7 @@ def build_pack(
     pages["stress_test.html"] = _stress_test_page()
     pages["change_audit.html"] = _change_audit_page()
     pages["capital_buffer_deep.html"] = _capital_buffer_deep_page(demo, request)
+    pages["capital_rwa_deep.html"] = _capital_rwa_deep_page()
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)

@@ -244,6 +244,60 @@ def alm_sample(*, stressed: bool = False) -> dict:
     }
 
 
+def rwa_decomposition_sample() -> dict:
+    """Pillar 1 RWA 분해 (Credit / Market / Operational / CVA + Output Floor).
+
+    합성 가정값. 운영 시스템에서는 자체 RWA 산정 (IRBA / IMM / SMA / SA-CVA)
+    결과로 대체.
+    """
+    rwa_internal = {
+        "credit_irba": 120_000.0,
+        "credit_sa": 25_000.0,
+        "market_imm": 18_000.0,
+        "operational_sma": 14_000.0,
+        "cva_basa": 4_500.0,
+        "ccr_sa": 6_500.0,
+    }
+    rwa_standardised_full = {
+        "credit_sa_full": 175_000.0,
+        "market_sa_full": 22_000.0,
+        "operational_sa_full": 14_000.0,
+        "cva_sa_full": 5_000.0,
+        "ccr_sa_full": 7_000.0,
+    }
+    total_internal = sum(rwa_internal.values())
+    total_sa_full = sum(rwa_standardised_full.values())
+    output_floor_ratio = 0.725  # FRTB Output Floor 72.5% (BCBS d424)
+    floor_applied = max(total_internal, output_floor_ratio * total_sa_full)
+    return {
+        "by_approach": rwa_internal,
+        "standardised_full": rwa_standardised_full,
+        "total_internal": total_internal,
+        "total_standardised": total_sa_full,
+        "output_floor_ratio": output_floor_ratio,
+        "rwa_after_floor": floor_applied,
+        "floor_binding": floor_applied > total_internal,
+    }
+
+
+def srep_capital_sample() -> dict:
+    """SREP (Supervisory Review and Evaluation Process) capital add-on 가정.
+
+    유럽 SSM/SREP 표준 + 국내 시행세칙 보조. 자동 점검 시연용 합성 input.
+    """
+    return {
+        "p2r_pct": 0.020,    # Pillar 2 Requirement (binding)
+        "p2g_pct": 0.010,    # Pillar 2 Guidance (non-binding)
+        "stress_buffer_pct": 0.015,  # 스트레스 결과 반영 buffer
+        "rationale": [
+            "P2R: 시장리스크 모형 위험 + 운영리스크 추가 capital (SSM SREP 가이드).",
+            "P2G: 스트레스 테스트 결과 기반 비강제 권고.",
+            "stress buffer: severely adverse 시나리오 손실 흡수용 내부 buffer.",
+        ],
+        "framework": "SSM SREP Methodology + 시행세칙 [별표 3]",
+    }
+
+
 def quarterly_panel(*, n_quarters: int = 4, seed: int = 31) -> list[dict]:
     """4분기 합성 panel — 자본/유동성/내부자본/IRRBB 지표 시계열.
 
