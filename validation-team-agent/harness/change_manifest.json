@@ -1740,6 +1740,21 @@
       "rollback_rule": "page + sample + 링크 제거 시 R52 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0117",
+      "timestamp": "2026-06-14 09:11:10",
+      "component": "tools/sample_generators.py (irrbb_behavioral) + tools/report_pack.py (irrbb_behavioral)",
+      "change_type": "create",
+      "evidence": "/goal R54 IRRBB: NMD core/non-core 분류·prepayment·duration gap 미반영",
+      "root_cause": "alm_irrbb.html 은 6 시나리오 ΔEVE 만, 모형 가정의 핵심인 behavioral assumption (NMD, prepayment) 누락",
+      "targeted_fix": "irrbb_behavioral_sample (BCBS SRP31 §115 NMD core 70%/repricing lag/prepayment/early withdrawal/duration gap). irrbb_behavioral.html: NMD 분류 차트 + Duration gap 차트 + behavioral assumption 가정값 + ALCO 해석",
+      "expected_benefit": "검증자가 IRRBB 모형 가정의 핵심을 한 페이지 — NMD core 비율과 duration gap 이 ΔEVE 결과를 결정",
+      "expected_regression_risk": "low — 신규 sample/page, 기존 alm 페이지 무변경",
+      "validation_method": "tests/test_v2_round54.py 9 cases + 전체 통과 + ruff/mypy clean",
+      "rollback_rule": "page + sample + 링크 제거 시 R53 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

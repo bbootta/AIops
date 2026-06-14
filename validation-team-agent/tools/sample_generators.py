@@ -244,6 +244,24 @@ def alm_sample(*, stressed: bool = False) -> dict:
     }
 
 
+def irrbb_behavioral_sample() -> dict:
+    """IRRBB behavioral assumption — NMD (non-maturity deposits) + prepayment.
+
+    BCBS SRP31 §115 NMD core/non-core 분류 + prepayment rate.
+    """
+    return {
+        "nmd_total_bn": 480_000.0,
+        "nmd_core_ratio": 0.70,
+        "nmd_repricing_lag_months": 18,
+        "loan_prepayment_rate_annual": 0.08,
+        "term_deposit_early_withdrawal_rate": 0.04,
+        "duration_assets_yrs": 3.2,
+        "duration_liabilities_yrs": 1.8,
+        "duration_gap_yrs": 1.4,
+        "framework": "BCBS SRP31 §115 (Behavioral assumptions)",
+    }
+
+
 def concentration_segments_sample() -> dict:
     """산업·지역·통화별 집중 분해 + top 10 exposures."""
     industry = {

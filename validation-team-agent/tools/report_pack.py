@@ -348,6 +348,7 @@ def _alm_pages(demo: dict, request: dict) -> dict[str, str]:
             ("worst 시나리오", io.get("worst", "-")),
             ("시나리오 심화", '<a href="alm_irrbb.html">시나리오별 ΔEVE →</a>'),
             ("통화/NII 심화", '<a href="alm_currency_deep.html">통화별 LCR + ΔNII + 일중유동성 →</a>'),
+            ("Behavioral 가정", '<a href="irrbb_behavioral.html">NMD/Prepayment/Duration gap →</a>'),
         ]))
     else:
         parts.append("<p>IRRBB 입력 미제공.</p>")
@@ -744,6 +745,72 @@ frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.<
 <p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
 """
     return _page("심화 — 운영리스크 손실 시나리오", body)
+
+
+def _irrbb_behavioral_page() -> str:
+    """IRRBB behavioral assumption + duration gap."""
+    from tools.sample_generators import irrbb_behavioral_sample
+
+    b = irrbb_behavioral_sample()
+    core_bn = b["nmd_total_bn"] * b["nmd_core_ratio"]
+    non_core_bn = b["nmd_total_bn"] * (1 - b["nmd_core_ratio"])
+
+    nmd_chart = hbar(
+        [("Core (안정)", core_bn), ("Non-core (변동)", non_core_bn)],
+        title="NMD 분류", fmt="{:,.0f} bn",
+        colors=[PALETTE["ok"], PALETTE["warning"]])
+
+    dur_chart = hbar(
+        [("자산 duration", b["duration_assets_yrs"]),
+         ("부채 duration", b["duration_liabilities_yrs"]),
+         ("Duration gap", b["duration_gap_yrs"])],
+        title="Duration (yrs)", fmt="{:.1f} yrs",
+        colors=[PALETTE["neutral"], PALETTE["neutral"],
+                PALETTE["fail"] if b["duration_gap_yrs"] > 1.0 else PALETTE["ok"]])
+
+    body = f"""
+<p>IRRBB behavioral assumption (NMD core/non-core, prepayment) + duration gap.
+출처: {_esc(b['framework'])}.</p>
+
+<h2>NMD (Non-Maturity Deposits) 분류</h2>
+{nmd_chart}
+<table>
+<tr><th>NMD 총액</th><td>{b['nmd_total_bn']:,.0f} bn</td></tr>
+<tr><th>Core 비율</th><td>{b['nmd_core_ratio']:.0%} (안정 = 장기 결제계좌·예금)</td></tr>
+<tr><th>Repricing lag (core)</th><td>{b['nmd_repricing_lag_months']} 개월</td></tr>
+</table>
+<p>BCBS SRP31 §115: NMD 의 core 비율과 repricing lag 는 모형 가정이며 자체
+behavioral study 가 필요. core 비율이 너무 높으면 stress 시 deposit run 위험.</p>
+
+<h2>Prepayment / Early Withdrawal</h2>
+<table>
+<tr><th>대출 prepayment rate (연간)</th>
+<td>{b['loan_prepayment_rate_annual']:.1%}</td></tr>
+<tr><th>정기예금 early withdrawal rate</th>
+<td>{b['term_deposit_early_withdrawal_rate']:.1%}</td></tr>
+</table>
+
+<h2>Duration Gap</h2>
+{dur_chart}
+<table>
+<tr><th>자산 duration</th><td>{b['duration_assets_yrs']:.1f} yrs</td></tr>
+<tr><th>부채 duration</th><td>{b['duration_liabilities_yrs']:.1f} yrs</td></tr>
+<tr><th>Duration gap</th>
+<td><b>{b['duration_gap_yrs']:.1f} yrs</b> ({'asset > liab — 금리 상승 시 손실' if b['duration_gap_yrs'] > 0 else 'liab > asset — 금리 하락 시 손실'})</td></tr>
+</table>
+
+<h2>해석 (ALCO 관점)</h2>
+<ul>
+<li><b>NMD core 70%</b>가 IRRBB 모형의 핵심 가정. 가정 변경 시 ΔEVE 결과
+대폭 변화. 자체 behavioral study (12개월 historical) 가 SREP 보고 자료.</li>
+<li><b>Duration gap 1.4 yrs</b>: 자산 만기가 부채보다 길어 금리 상승 시
+시가 손실. ΔEVE worst = parallel_up 와 일관.</li>
+<li><b>prepayment 8%</b>: 금리 하락 시 부동산 담보대출 prepay 증가 → 자산
+duration 단축. 시나리오 sensitivity 필요.</li>
+</ul>
+<p><a href="alm.html">← ALM 상세로</a> · <a href="alm_irrbb.html">시나리오별 ΔEVE →</a></p>
+"""
+    return _page("심화 — IRRBB Behavioral Assumption + Duration Gap", body)
 
 
 def _concentration_segments_page() -> str:
@@ -2235,6 +2302,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="alm_gap.html">ALM — 만기 bucket 누적 갭</a></li>
 <li><a href="alm_irrbb.html">IRRBB — 시나리오별 ΔEVE</a></li>
 <li><a href="alm_currency_deep.html">ALM — 통화별 LCR + ΔNII + 일중유동성</a></li>
+<li><a href="irrbb_behavioral.html">IRRBB — Behavioral assumption (NMD/prepayment) + Duration gap</a></li>
 <li><a href="market_backtest_deep.html">시장 — VaR backtest P&amp;L (250일)</a></li>
 <li><a href="market_components_deep.html">시장 — VaR 구성요소 (General/Specific) + SVaR + IRC</a></li>
 <li><a href="concentration_segments.html">집중 — 산업/지역/통화별 + Top 10 exposures</a></li>
@@ -2301,6 +2369,7 @@ def build_pack(
     pages["alm_currency_deep.html"] = _alm_currency_deep_page()
     pages["market_components_deep.html"] = _market_components_deep_page()
     pages["concentration_segments.html"] = _concentration_segments_page()
+    pages["irrbb_behavioral.html"] = _irrbb_behavioral_page()
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)

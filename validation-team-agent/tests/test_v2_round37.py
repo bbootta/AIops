@@ -195,6 +195,7 @@ EXPECTED_PAGES = {
     "capital_icaap.html", "capital_buffer_deep.html", "capital_rwa_deep.html",
     "icaap_deep.html",
     "alm.html", "alm_gap.html", "alm_irrbb.html", "alm_currency_deep.html",
+    "irrbb_behavioral.html",
     "market_ops.html", "operational_deep.html", "ccr_deep.html",
     "market_backtest_deep.html", "market_components_deep.html",
     "op_scenario_deep.html", "cva_deep.html",
