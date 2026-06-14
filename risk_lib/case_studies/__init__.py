@@ -103,6 +103,72 @@ BANKS = [KAKAO, KBANK, TOSS]
 
 
 # ============================================================================
+# 2026년 1분기 공시 — 최신 스냅샷
+# ============================================================================
+# 출처:
+# - 카카오뱅크 1Q26: 분기 순익 1,873억(+36.3%, 분기 최대), CET1 14%+, 주담대 중심
+# - 케이뱅크   1Q26: 순익 332억(+106.8%), BIS 21.47%(+6.46%p, IPO 자본 효과),
+#                    CET1 +7.04%p 급등, 이자이익 1,252억, 중저신용 평균잔액 31.9%
+# - 토스뱅크   1Q26: 순익 296억(+58%), 여신 15.5조(+4.4%), BIS 16.62%(+0.72%p),
+#                    연체율 1.07%(-0.19%p), NPL 0.87%(-0.11%p), 충당금 320.81%
+#                    고객 1,500만 돌파, 중저신용 잔액 34.75%(제1금융권 최고)
+
+KAKAO_2026Q1 = BankProfile(
+    name="카카오뱅크 (2026Q1)", short="kakao_q1_26",
+    total_loans_krw=48.5e12,                 # ~46.9→48.5조 (분기 성장 추정)
+    total_deposits_krw=70.0e12,
+    bis_capital_ratio=0.18,                  # CET1 14%+ → BIS 18% 추정
+    npl_ratio=0.0058,                        # 사업자대출 확대로 소폭 상승
+    delinquency_ratio=0.0053,
+    coverage_ratio=2.15,
+    quarterly_net_income_krw=1873e8,
+    mid_low_credit_share=0.45,               # 1Q26 추정
+    mix_corporate=0.10,                      # 사업자대출 확대 반영
+    mix_retail_unsecured=0.30,
+    mix_mortgage=0.60,
+    capital_total_krw=7.5e12,
+    notes="1Q26 분기 순익 최대, 주담대 중심 조정 + 사업자대출 확대",
+)
+
+KBANK_2026Q1 = BankProfile(
+    name="케이뱅크 (2026Q1)", short="kbank_q1_26",
+    total_loans_krw=20.5e12,                 # 18.4→20.5조 (분기 성장)
+    total_deposits_krw=30.0e12,
+    bis_capital_ratio=0.2147,                # **공시: 21.47% (IPO 자본 효과)**
+    npl_ratio=0.0058,                        # 기업대출 확대로 소폭 상승
+    delinquency_ratio=0.0060,
+    coverage_ratio=2.50,
+    quarterly_net_income_krw=332e8,
+    mid_low_credit_share=0.335,              # 신규 33.5%
+    mix_corporate=0.13,                      # 기업대출 호조
+    mix_retail_unsecured=0.27,
+    mix_mortgage=0.60,
+    capital_total_krw=4.4e12,                # BIS 21.47% × RWA → 약 2배 자본 확충
+    notes="IPO 자본 확충으로 BIS 21.47% — 인뱅 중 최고",
+)
+
+TOSS_2026Q1 = BankProfile(
+    name="토스뱅크 (2026Q1)", short="toss_q1_26",
+    total_loans_krw=15.50e12,                # 공시: 15조 5,047억
+    total_deposits_krw=31.5e12,
+    bis_capital_ratio=0.1662,                # **공시: 16.62%**
+    npl_ratio=0.0087,                        # 공시: 0.87%
+    delinquency_ratio=0.0107,                # 공시: 1.07%
+    coverage_ratio=3.2081,                   # 공시: 320.81%
+    quarterly_net_income_krw=296e8,
+    mid_low_credit_share=0.3475,             # 잔액 비중 34.75% (제1금융권 최고)
+    mix_corporate=0.17,                      # 개인사업자 확대
+    mix_retail_unsecured=0.55,
+    mix_mortgage=0.28,
+    capital_total_krw=2.6e12,
+    notes="고객 1,500만 돌파, 자산건전성 개선 (NPL/연체율 모두 하락)",
+)
+
+
+BANKS_2026Q1 = [KAKAO_2026Q1, KBANK_2026Q1, TOSS_2026Q1]
+
+
+# ============================================================================
 # Portfolio synthesis
 # ============================================================================
 
@@ -272,9 +338,12 @@ def run_bank_stress(profile: BankProfile, *, seed: int = 42,
     return BankAnalysis(profile=profile, portfolio=portfolio, result=result)
 
 
-def run_all_banks(*, seed: int = 42, scale: float = 1.0) -> list[BankAnalysis]:
-    """3사 모두 분석."""
-    return [run_bank_stress(p, seed=seed, scale=scale) for p in BANKS]
+def run_all_banks(*, seed: int = 42, scale: float = 1.0,
+                  banks: list[BankProfile] | None = None) -> list[BankAnalysis]:
+    """3사 모두 분석. ``banks`` 미지정 시 2025 Q3 default."""
+    if banks is None:
+        banks = BANKS
+    return [run_bank_stress(p, seed=seed, scale=scale) for p in banks]
 
 
 # ============================================================================
