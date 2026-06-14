@@ -244,6 +244,30 @@ def alm_sample(*, stressed: bool = False) -> dict:
     }
 
 
+def var_components_sample() -> dict:
+    """VaR 분해 — General market risk vs Specific risk + SVaR + IRC.
+
+    BCBS MAR99 (Internal Models) 의 capital charge 구성요소.
+    """
+    return {
+        "var_99_total": 18.5,        # bn 원, 일간 99% VaR
+        "var_general_market": 14.2,  # 일반 시장리스크
+        "var_specific": 4.3,         # 개별 발행자 risk
+        "svar_99": 27.8,             # Stressed VaR (2008-2009 calibration)
+        "irc_99_9": 12.0,            # Incremental Risk Charge (credit migration)
+        "multiplier": 3.0,           # 감독자 기본 multiplier (BCBS MAR99 §32.9)
+        "yellow_multiplier_add": 0.4,
+        "asset_classes": {
+            "Interest Rate": 9.2,
+            "Equity": 4.0,
+            "FX": 3.1,
+            "Commodity": 1.2,
+            "Credit Spread": 4.8,
+        },
+        "framework": "BCBS MAR99 (Internal Models) + FRTB MAR50 (Sensitivity-Based)",
+    }
+
+
 def lcr_by_currency_sample() -> list[dict]:
     """통화별 LCR 분해 (시행세칙 외화LCR 80% + BCBS LCR 100%)."""
     return [

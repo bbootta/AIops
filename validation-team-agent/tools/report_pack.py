@@ -425,6 +425,7 @@ def _market_ops_page(demo: dict) -> str:
 <h2>심화 분석 (Drill-down)</h2>
 <ul>
 <li><a href="market_backtest_deep.html">시장 — VaR backtest P&amp;L 분해 (250일) →</a></li>
+<li><a href="market_components_deep.html">시장 — VaR 구성요소 + SVaR + IRC →</a></li>
 <li><a href="operational_deep.html">운영 — SMA BI 구성·BIC 구간 →</a></li>
 <li><a href="op_scenario_deep.html">운영 — 손실 시나리오 (BCBS 7 event class) →</a></li>
 <li><a href="cva_deep.html">CVA — counterparty 분해 →</a></li>
@@ -739,6 +740,81 @@ frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.<
 <p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
 """
     return _page("심화 — 운영리스크 손실 시나리오", body)
+
+
+def _market_components_deep_page() -> str:
+    """VaR 분해 (General/Specific/Asset class) + SVaR + IRC."""
+    from tools.sample_generators import var_components_sample
+
+    v = var_components_sample()
+
+    components_chart = hbar(
+        [
+            ("General Market", v["var_general_market"]),
+            ("Specific", v["var_specific"]),
+            ("Total VaR (99%)", v["var_99_total"]),
+            ("SVaR (99%)", v["svar_99"]),
+            ("IRC (99.9%)", v["irc_99_9"]),
+        ],
+        title="시장리스크 capital 구성요소", fmt="{:,.1f} bn",
+        colors=[PALETTE["neutral"], PALETTE["warning"], PALETTE["neutral"],
+                PALETTE["fail"], PALETTE["fail"]])
+
+    asset_chart = hbar(
+        [(k, v) for k, v in v["asset_classes"].items()],
+        title="VaR by Asset Class", fmt="{:,.1f} bn",
+        colors=[PALETTE["neutral"]] * len(v["asset_classes"]))
+
+    total_capital = (v["var_99_total"] * v["multiplier"]
+                     + v["svar_99"] * v["multiplier"]
+                     + v["irc_99_9"])
+
+    body = f"""
+<p>시장리스크 capital charge 구성요소 분해 — General/Specific risk +
+Stressed VaR + Incremental Risk Charge.</p>
+
+<h2>VaR Capital Charge 분해</h2>
+{components_chart}
+<table>
+<tr><th>구성요소</th><th>값 (bn)</th><th>의미</th></tr>
+<tr><td>General Market</td><td>{v['var_general_market']:.1f}</td>
+<td>금리/주가/FX/원자재의 일반 가격 변동</td></tr>
+<tr><td>Specific Risk</td><td>{v['var_specific']:.1f}</td>
+<td>개별 발행자/issuer specific 변동</td></tr>
+<tr><th>99% VaR (Total)</th><td><b>{v['var_99_total']:.1f}</b></td>
+<td>일간 99% loss 한도</td></tr>
+<tr><td>Stressed VaR (99%)</td><td>{v['svar_99']:.1f}</td>
+<td>2008-2009 위기 기간 calibration (BCBS MAR99 §32.5)</td></tr>
+<tr><td>IRC (99.9%, 1y)</td><td>{v['irc_99_9']:.1f}</td>
+<td>credit migration & default — non-securitisation</td></tr>
+</table>
+
+<h2>Asset Class 별 VaR 기여</h2>
+{asset_chart}
+
+<h2>Capital Charge 산식 (BCBS MAR99)</h2>
+<table>
+<tr><th>최소 capital</th>
+<td><code>max(VaR_t-1, m × VaR_avg_60) + max(SVaR_t-1, ms × SVaR_avg_60) + IRC</code></td></tr>
+<tr><th>기본 multiplier (m, ms)</th><td>{v['multiplier']:.1f}</td></tr>
+<tr><th>Traffic light 가산</th>
+<td>yellow zone (5~9 예외) +{v['yellow_multiplier_add']:.1f} 최대 +1.0</td></tr>
+<tr><th>추정 Capital Charge (예시)</th>
+<td><b>{total_capital:,.1f} bn</b> (VaR × {v['multiplier']:.0f} + SVaR × {v['multiplier']:.0f} + IRC)</td></tr>
+</table>
+
+<h2>해석 (시장리스크 검증)</h2>
+<ul>
+<li><b>SVaR > VaR</b>: 정상 시장 calibration 대비 스트레스 calibration 의
+보수성. SVaR 가 VaR 의 1.5x 미만이면 stress window 재선정 검토.</li>
+<li><b>IRC</b>: 1년 99.9% horizon — credit migration/default 의 cumulative
+손실. 트레이딩북 채권 비중 클수록 IRC 비중 ↑.</li>
+<li><b>Specific risk &gt; General</b>: 단일 issuer 집중 신호 — 분산화 검토.</li>
+<li><b>출처</b>: {_esc(v['framework'])}.</li>
+</ul>
+<p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로</a></p>
+"""
+    return _page("심화 — 시장 VaR 구성요소 + SVaR + IRC", body)
 
 
 def _alm_currency_deep_page() -> str:
@@ -2092,6 +2168,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="alm_irrbb.html">IRRBB — 시나리오별 ΔEVE</a></li>
 <li><a href="alm_currency_deep.html">ALM — 통화별 LCR + ΔNII + 일중유동성</a></li>
 <li><a href="market_backtest_deep.html">시장 — VaR backtest P&amp;L (250일)</a></li>
+<li><a href="market_components_deep.html">시장 — VaR 구성요소 (General/Specific) + SVaR + IRC</a></li>
 <li><a href="operational_deep.html">운영 — SMA BI 구성·BIC 구간</a></li>
 <li><a href="op_scenario_deep.html">운영 — 손실 시나리오 (BCBS 7 event class)</a></li>
 <li><a href="cva_deep.html">CVA — counterparty 분해 (BA-CVA / SA-CVA)</a></li>
@@ -2153,6 +2230,7 @@ def build_pack(
     pages["capital_buffer_deep.html"] = _capital_buffer_deep_page(demo, request)
     pages["capital_rwa_deep.html"] = _capital_rwa_deep_page()
     pages["alm_currency_deep.html"] = _alm_currency_deep_page()
+    pages["market_components_deep.html"] = _market_components_deep_page()
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)

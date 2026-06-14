@@ -1710,6 +1710,21 @@
       "rollback_rule": "page 등록 + 3 sample + 링크 제거 시 R50 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0115",
+      "timestamp": "2026-06-14 09:05:31",
+      "component": "tools/sample_generators.py (var_components) + tools/report_pack.py (market_components_deep)",
+      "change_type": "create",
+      "evidence": "/goal R52 시장리스크: VaR 분해(General/Specific)·SVaR·IRC·Asset class 기여 미반영",
+      "root_cause": "market_ops + market_backtest_deep 은 VaR backtest traffic light + 예외만, capital charge 구성 분해 누락",
+      "targeted_fix": "var_components_sample (BCBS MAR99 VaR/SVaR/IRC + 5 asset class). market_components_deep.html: General/Specific 분해 + SVaR/IRC capital + asset class 차트 + capital charge 산식 + traffic light multiplier 가산 표시",
+      "expected_benefit": "검증자가 시장리스크 capital 구성을 한 화면 — Internal Models capital = m×(VaR_avg) + m×(SVaR_avg) + IRC. asset class 별 risk concentration 식별",
+      "expected_regression_risk": "low — 신규 sample/page, 기존 페이지 본문 무변경",
+      "validation_method": "tests/test_v2_round52.py 9 cases + 전체 통과 + ruff/mypy clean",
+      "rollback_rule": "page + sample + 링크 제거 시 R51 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
