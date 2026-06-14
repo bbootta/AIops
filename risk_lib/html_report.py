@@ -104,6 +104,9 @@ NAV = [
     ("36_pd_term_structure.html","36. PD 잔존기간"),
     ("37_macro_scenario.html","37. 거시 시나리오"),
     ("38_provisioning_attribution.html","38. 충당금 귀속"),
+    ("39_dpd_roll.html",   "39. DPD roll-rate"),
+    ("40_recovery_lgd.html","40. 회수·LGD"),
+    ("41_cure_analysis.html","41. Cure 분석"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -1246,19 +1249,127 @@ def _page_ecl(r: PipelineResult) -> str:
 def _page_monitoring(r: PipelineResult) -> str:
     m = r.monitoring
     delq = m["delinquency"]
+    deep = r.monitoring_deep.get("delinquency") if r.monitoring_deep else None
+    cure = r.monitoring_deep.get("cure") if r.monitoring_deep else None
+    bucket_mx = deep.bucket_matrix if deep is not None else pd.DataFrame()
+    npl = deep.npl_ratio if deep is not None else pd.DataFrame()
+    dr_ts = deep.dr_timeseries if deep is not None else pd.DataFrame()
+    from risk_lib import viz_advanced
+
+    # 1) DPD bucket stacked bar (자산군 × 버킷, EAD)
+    stacked_html = ""
+    if not bucket_mx.empty:
+        segs = sorted(bucket_mx["segment"].unique().tolist())
+        from risk_lib.monitoring.deep import DEEP_DPD_LABELS
+        series = {b: [float(bucket_mx[(bucket_mx["segment"] == s)
+                                       & (bucket_mx["bucket"] == b)]["ead"].sum())
+                       for s in segs] for b in DEEP_DPD_LABELS}
+        stacked_html = viz.stacked_bar(
+            segs, series, value_fmt=_won,
+            title="자산군 × DPD 버킷 EAD (Basel III CRE36.69)",
+        )
+
+    # 2) DR time series chart per segment
+    dr_chart = ""
+    if not dr_ts.empty:
+        quarters = list(pd.Categorical(dr_ts["quarter"],
+                                       categories=sorted(dr_ts["quarter"].unique(),
+                                                         key=lambda q: int(q.split("-")[-1]),
+                                                         reverse=True)).categories)
+        ser = {}
+        for seg, sub in dr_ts.groupby("segment"):
+            sub_sorted = sub.set_index("quarter").reindex(quarters)
+            ser[seg] = sub_sorted["dr_ead"].fillna(0.0).tolist()
+        dr_chart = viz.line_chart(
+            quarters, ser, value_fmt=_pct,
+            title="자산군별 분기 부도율 (EAD 가중, 12M rolling 합성)",
+        )
+
+    # 3) NPL ratio bar
+    npl_chart = ""
+    if not npl.empty:
+        sub = npl[npl["segment"] != "전체"]
+        npl_chart = viz.bar_chart(
+            sub["segment"].tolist(), sub["npl_ratio"].tolist(),
+            value_fmt=_pct, title="자산군별 NPL Ratio",
+            colors=[viz.RED if v > 0.05 else (viz.AMBER if v > 0.02 else viz.GREEN)
+                    for v in sub["npl_ratio"]],
+        )
+
+    # 4) Cure rate horizontal bar
+    cure_chart = ""
+    if cure is not None and not cure.by_segment.empty:
+        c_sub = cure.by_segment[cure.by_segment["segment"] != "전체"]
+        cure_chart = viz.horizontal_bar(
+            c_sub["segment"].tolist(),
+            c_sub["cure_rate_count"].tolist(),
+            value_fmt=_pct, title="자산군별 Cure rate (건수)",
+            color=viz.GREEN,
+        )
+
+    # tables
+    npl_rows = []
+    if not npl.empty:
+        for _, row in npl.iterrows():
+            npl_rows.append([row["segment"], _won(row["total_ead"]),
+                             _won(row["npl_ead"]), _pct(row["npl_ratio"]),
+                             f"{int(row['n_npl']):,}"])
+
+    bucket_rows = []
+    if not bucket_mx.empty:
+        for _, row in bucket_mx.iterrows():
+            bucket_rows.append([row["segment"], str(row["bucket"]),
+                                f"{int(row['n_loans']):,}",
+                                _won(row["ead"]), _pct(row["ead_share"]),
+                                _pct(row["avg_pd"]) if row["avg_pd"] else "-"])
+
     body = f"""
-<h1 class="title">6. 연체율 / 부도율 / 회수율</h1>
-<p class="section-lead">DPD 버킷, 12M 부도율(가중·건수), 워크아웃 누적 회수율.</p>
+<h1 class="title">6. 연체 · 부도 · 회수 모니터링 (자산건전성)</h1>
+<p class="section-lead">DPD 버킷 분포 + NPL ratio + 분기 부도율 시계열 + cure rate.
+기준: Basel III CRE36.69 (부도 정의), 감독세칙 자산건전성 분류, IFRS 9 5.5.5.</p>
+
 <div class="kpi-grid">
-{_kpi("부도율 (노출액 가중)", _pct(m['default_rate_ew']))}
+{_kpi("부도율 (EAD 가중)", _pct(m['default_rate_ew']))}
 {_kpi("부도율 (건수)", _pct(m['default_rate_count']))}
-{_kpi("누적 회수율 (LGD = 1 − 회수율)", _pct(m['recovery_rate']))}
+{_kpi("NPL ratio (전체)",
+       _pct(float(npl[npl['segment']=='전체']['npl_ratio'].iloc[0])) if not npl.empty else "-")}
+{_kpi("누적 회수율", _pct(m['recovery_rate']))}
 </div>
-<div class="card"><h2>자산군별 연체 분포</h2>
+
+<div class="card"><h2>6-1. 자산군 × DPD 버킷 EAD</h2>
+<div class="chart">{stacked_html or "<p>데이터 없음</p>"}</div>
+<p class="section-lead">버킷 정의: Current(0) · 1-29 · 30-59 · 60-89 · 90+(NPL).
+90+ 는 감독세칙 상 고정/회수의문/추정손실 후보.</p>
+{_table(["자산군","버킷","건수","EAD","점유율","평균 PD"], bucket_rows,
+        right_cols=[2,3,4,5]) if bucket_rows else ""}
+</div>
+
+<div class="row2">
+<div class="card"><h2>6-2. NPL Ratio (자산군별)</h2>
+<div class="chart">{npl_chart}</div>
+{_table(["자산군","총 EAD","NPL EAD","NPL ratio","NPL 건수"], npl_rows,
+        right_cols=[1,2,3,4]) if npl_rows else ""}
+</div>
+<div class="card"><h2>6-3. 분기 부도율 시계열</h2>
+<div class="chart">{dr_chart}</div>
+<p class="section-lead">스냅샷 평균 기준 ±β 잡음 시뮬레이션. 시계열 회귀가 가능한
+실 데이터로 교체 시 PIT vs TTC 시점 비교에도 활용.</p>
+</div>
+</div>
+
+<div class="card"><h2>6-4. Cure rate — 부도 후 정상 복귀</h2>
+<div class="chart">{cure_chart or "<p>데이터 없음</p>"}</div>
+<p class="section-lead">window {cure.cure_window if cure else 6}개월 내 DPD 30 미만 복귀 비율.
+상세는 <a href="41_cure_analysis.html">41. Cure 분석</a>.</p>
+</div>
+
+<div class="card"><h2>6-5. 자산군별 (legacy) 연체 분포</h2>
 {_table(list(delq.columns),
         [[(_won(v) if isinstance(v, (int, float)) and abs(v) > 1e5 else _esc(v)) for v in row]
          for row in delq.to_numpy().tolist()],
         right_cols=list(range(1, len(delq.columns))))}
+<p class="section-lead">상세 deep-dive: <a href="39_dpd_roll.html">39. DPD roll-rate</a>,
+<a href="40_recovery_lgd.html">40. 회수·LGD</a>.</p>
 </div>
 """
     return _page("모니터링", body, "06_monitoring.html")
@@ -1782,6 +1893,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         page_capital_stack, page_buffer_layering, page_leverage_deep,
         page_sicr_detail, page_pd_term_structure,
         page_macro_scenario, page_provisioning_attribution,
+        page_dpd_roll, page_recovery_lgd, page_cure_analysis,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -1825,6 +1937,9 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "36_pd_term_structure.html": page_pd_term_structure(result),
         "37_macro_scenario.html":    page_macro_scenario(result),
         "38_provisioning_attribution.html": page_provisioning_attribution(result),
+        "39_dpd_roll.html":            page_dpd_roll(result),
+        "40_recovery_lgd.html":        page_recovery_lgd(result),
+        "41_cure_analysis.html":       page_cure_analysis(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)

@@ -43,6 +43,10 @@ from risk_lib.provisioning.macro import macro_ecl, macro_ecl_path, DEFAULT_MACRO
 from risk_lib.provisioning.ifrs9_deep import compute_ifrs9_deep, IFRS9DeepResult
 from risk_lib.monitoring.delinquency import delinquency_summary, default_rate
 from risk_lib.monitoring.recovery import cumulative_recovery_rate
+from risk_lib.monitoring.deep import compute_delinquency_deep
+from risk_lib.monitoring.recovery_deep import compute_recovery_deep
+from risk_lib.monitoring.cure import compute_cure
+from risk_lib.monitoring.vintage_deep import compute_vintage_deep
 from risk_lib.limits.limit_engine import LimitDefinition, LimitEngine
 from risk_lib.limits.concentration import concentration_report
 from risk_lib.performance.rapm import rapm_report
@@ -137,6 +141,7 @@ class PipelineResult:
     bis_deep: Any = None       # v0.8.0 CRO-grade BIS capital deep-dive
     leverage_deep: Any = None  # v0.8.0 leverage ratio exposure decomposition
     ifrs9_deep: Any = None     # v0.9.0 CRO-grade IFRS9 ECL deep-dive analytics
+    monitoring_deep: dict[str, Any] = field(default_factory=dict)  # v0.10.0
     meta: dict[str, Any] = field(default_factory=dict)
 
 
@@ -320,11 +325,20 @@ def _stage_provisioning(irb_book: pd.DataFrame, quarters: list[str],
 
 def _stage_monitoring(portfolio: pd.DataFrame, seed: int):
     workouts = generate_workout_cashflows(portfolio, seed=seed + 11)
+    delinq_deep = compute_delinquency_deep(portfolio, seed=seed)
+    recovery_deep = compute_recovery_deep(portfolio, workouts, seed=seed)
+    cure = compute_cure(portfolio, seed=seed)
+    vintage_deep = compute_vintage_deep(portfolio, seed=seed)
     return {
         "delinquency": delinquency_summary(portfolio, segment_col="asset_class"),
         "default_rate_ew": default_rate(portfolio, weight_col="ead"),
         "default_rate_count": default_rate(portfolio),
         "recovery_rate": cumulative_recovery_rate(workouts),
+        "workouts": workouts,
+        "delinquency_deep": delinq_deep,
+        "recovery_deep": recovery_deep,
+        "cure": cure,
+        "vintage_deep": vintage_deep,
     }
 
 
@@ -636,6 +650,13 @@ def run_pipeline(
         bis_deep=bis_deep,
         leverage_deep=leverage_deep,
         ifrs9_deep=ifrs9_deep,
+        monitoring_deep={
+            "delinquency": monitoring.get("delinquency_deep"),
+            "recovery": monitoring.get("recovery_deep"),
+            "cure": monitoring.get("cure"),
+            "vintage": monitoring.get("vintage_deep"),
+            "workouts": monitoring.get("workouts"),
+        },
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
               "asof": asof.isoformat(), "quarters": quarters},
     )

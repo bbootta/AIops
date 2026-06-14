@@ -820,6 +820,70 @@ def page_vintage(r: PipelineResult, portfolio: pd.DataFrame) -> str:
         )
         sum_rows = [[k, _pct(v)] for k, v in tm.summary.items()]
 
+    # v0.10.0 — 자산군별 vintage deep + seasoning + drift
+    vd = r.monitoring_deep.get("vintage") if r.monitoring_deep else None
+    deep_block = ""
+    if vd is not None and not vd.by_segment.empty:
+        # one line chart per segment, overlaid
+        seg_ids = sorted(vd.by_segment["segment"].unique())
+        seg_chart_blocks = []
+        for seg in seg_ids:
+            sub = vd.by_segment[vd.by_segment["segment"] == seg]
+            cohorts = sorted(sub["cohort"].unique())[:6]
+            qs = sorted(sub["mob"].unique())
+            series = {}
+            for c in cohorts:
+                cs = sub[sub["cohort"] == c].sort_values("mob")
+                v = [float(cs[cs["mob"] == m]["cum_default_rate"].iloc[0])
+                     if m in cs["mob"].values
+                     else float(cs["cum_default_rate"].iloc[-1])
+                     for m in qs]
+                series[f"M-{c}"] = v
+            ch = viz.line_chart(
+                [str(m) for m in qs], series, value_fmt=_pct,
+                title=f"{seg} — cohort vintage curves",
+            )
+            seg_chart_blocks.append(
+                f'<div class="card"><h3>{_esc(seg)}</h3>'
+                f'<div class="chart">{ch}</div></div>'
+            )
+        seg_charts_html = "<div class='row2'>" + "".join(seg_chart_blocks) + "</div>"
+
+        # seasoning table
+        s_rows = [[row["segment"], f"{int(row['peak_mob']):,}",
+                   _pct(row["peak_dr"]), _pct(row["early_dr"]),
+                   f"{row['seasoning_factor']:.2f}x"]
+                  for _, row in vd.seasoning.iterrows()]
+        # drift table
+        d_rows = []
+        for _, row in vd.drift.iterrows():
+            tone = {"악화": "FAIL", "개선": "PASS", "안정": "NEUTRAL"}[row["verdict"]]
+            d_rows.append([row["segment"], _pct(row["recent_avg_dr"]),
+                           _pct(row["legacy_avg_dr"]),
+                           f"{row['drift']*100:+.1f}%",
+                           _badge(row["verdict"], tone)])
+        deep_block = f"""
+<div class="card"><h2>24-3. 자산군별 vintage curve</h2>
+{seg_charts_html}
+<p class="section-lead">각 자산군 내 6개 cohort를 overlay. 그래프 간격이 좁으면 vintage 안정,
+바닥에 깔린 새 vintage가 위로 올라오면 신규 origination quality 악화.</p>
+</div>
+
+<div class="card"><h2>24-4. Seasoning factor (peak MOB / early MOB)</h2>
+{_table(["자산군","peak MOB(개월)","peak DR","early DR","seasoning factor"],
+        s_rows, right_cols=[1,2,3,4])}
+<p class="section-lead">seasoning factor가 클수록 vintage가 늦게 발현 — 정상 retail 1.5~3x.
+mortgage는 보통 1.0~1.5x (조기 hazard).</p>
+</div>
+
+<div class="card"><h2>24-5. Vintage drift (PSI-like)</h2>
+{_table(["자산군","최근 cohort DR","과거 cohort DR","drift","판정"],
+        d_rows, right_cols=[1,2,3]) if d_rows else "<p>cohort 부족.</p>"}
+<p class="section-lead">최근 cohort의 동일 MOB 부도율을 legacy 평균과 비교. ±10% 이내 안정,
++10% 초과 → 신규 origination 악화 (RED).</p>
+</div>
+"""
+
     body = f"""
 <h1 class="title">24. Vintage 분석 + 등급 이동행렬 (Migration)</h1>
 <p class="section-lead">코호트(origination 시점)별 누적 부도율 곡선 +
@@ -839,6 +903,8 @@ def page_vintage(r: PipelineResult, portfolio: pd.DataFrame) -> str:
 <p class="section-lead">대각선 = stable, 좌측 상삼각 = upgrade, 우측 하삼각 + D열 = downgrade/부도.
 정상 portfolio는 stable 60%+, upgrade ≈ downgrade, default &lt; 5% 정도.</p>
 </div>
+
+{deep_block}
 """
     return _page("Vintage", body, "24_vintage.html")
 
@@ -2013,3 +2079,277 @@ Stage 2 cure 비율이 높으면 SICR 트리거 보정 검토.
 </div>
 """
     return _page("충당금 귀속", body, "38_provisioning_attribution.html")
+
+
+# ============================================================================
+# v0.10.0 — 자산건전성 deep-dive (39 / 40 / 41)
+# ============================================================================
+
+
+def page_dpd_roll(r: PipelineResult) -> str:
+    """39. DPD bucket roll-rate 매트릭스 + Markov 예측."""
+    deep = r.monitoring_deep.get("delinquency") if r.monitoring_deep else None
+    if deep is None or deep.roll_matrix.empty:
+        return _placeholder_page(
+            "39. DPD roll-rate", "roll-rate 데이터가 없습니다.",
+            "39_dpd_roll.html",
+        )
+    rm = deep.roll_matrix
+    labels = list(rm.index)
+    # heatmap of transition probabilities
+    heat = viz_advanced.heatmap(
+        labels, labels, rm.values.tolist(),
+        title="DPD bucket 월간 roll-rate (행=t, 열=t+1)",
+        value_fmt=lambda v: f"{v*100:.0f}" if v >= 0.01 else "",
+        vmin=0.0, vmax=1.0, cell_label=True,
+    )
+    # rows table
+    rows = [[lab] + [_pct(float(rm.loc[lab, c]), 1) for c in labels]
+            for lab in labels]
+
+    # markov projection chart — stacked bar over months
+    proj = deep.projection
+    months = sorted(proj["month"].unique())
+    series = {b: [float(proj[(proj["month"] == m) & (proj["bucket"] == b)]["share"].sum())
+                  for m in months] for b in labels}
+    stacked = viz.stacked_bar(
+        [f"+{m}M" for m in months], series, value_fmt=lambda v: f"{v*100:.0f}%",
+        title="Markov 예측 — 향후 버킷별 EAD 점유율",
+    )
+
+    # projection table (NPL share trajectory)
+    npl_series = [float(proj[(proj["month"] == m) & (proj["bucket"] == "90+")]
+                          ["share"].sum()) for m in months]
+    npl_rows = [[f"+{m}M", _pct(s, 2)] for m, s in zip(months, npl_series)]
+
+    # bucket time-series tabular forecast
+    bm = deep.bucket_matrix
+    bm_summary = bm.groupby("bucket", observed=False).agg(
+        n_loans=("n_loans", "sum"), ead=("ead", "sum"),
+    ).reset_index()
+    bm_summary["share"] = bm_summary["ead"] / max(bm_summary["ead"].sum(), 1.0)
+    cur_rows = [[row["bucket"], f"{int(row['n_loans']):,}", _won(row["ead"]),
+                 _pct(row["share"])] for _, row in bm_summary.iterrows()]
+    roll_header = ["from → to"] + labels
+    roll_table = _table(roll_header, rows, right_cols=list(range(1, len(labels)+1)))
+
+    body = f"""
+<h1 class="title">39. DPD bucket roll-rate (Markov chain)</h1>
+<p class="section-lead">월간 DPD 버킷 전이확률 (1-29 → 30-59 → 60-89 → 90+).
+roll-rate × 현재 버킷 분포 = 향후 3개월 NPL 흐름 예측.
+기준: Basel III CRE36.69, 감독세칙 자산건전성 분류, BCBS 2017 problem assets 보고서.</p>
+
+<div class="row2">
+<div class="card"><h2>39-1. 현재 DPD 버킷 분포</h2>
+{_table(["버킷","건수","EAD","점유율"], cur_rows, right_cols=[1,2,3])}
+</div>
+<div class="card"><h2>39-2. NPL share 예측 (Markov)</h2>
+{_table(["기간","NPL(90+) 점유율"], npl_rows, right_cols=[1])}
+</div>
+</div>
+
+<div class="card"><h2>39-3. Roll-rate 행렬 (월간)</h2>
+<div class="chart">{heat}</div>
+{roll_table}
+<p class="section-lead">대각 = 동일 버킷 유지, 우상 = 악화 (roll-forward),
+좌하 = 개선 (cure/roll-back). 90+ 는 흡수상태 (write-off 전).
+30-59 → 60-89 의 월간 roll rate가 분기 안정성 평가의 핵심.</p>
+</div>
+
+<div class="card"><h2>39-4. Markov 예측 — 향후 3개월 버킷 점유율</h2>
+<div class="chart">{stacked}</div>
+<p class="section-lead">3개월 후 NPL 점유율 증분이 현재의 1.5x 초과 시 vintage 악화 경보.
+실 데이터로 교체 시 quarterly NPL flow projection으로 사용 가능.</p>
+</div>
+"""
+    return _page("DPD roll-rate", body, "39_dpd_roll.html")
+
+
+def page_recovery_lgd(r: PipelineResult) -> str:
+    """40. 회수 곡선 (할인/미할인) + LGD 분포 + collateral 효과."""
+    deep = r.monitoring_deep.get("recovery") if r.monitoring_deep else None
+    if deep is None or deep.curve_dual.empty:
+        return _placeholder_page(
+            "40. 회수·LGD", "회수 데이터가 없습니다.", "40_recovery_lgd.html",
+        )
+
+    # 회수 곡선 (할인/미할인 overlay)
+    curve = deep.curve_dual
+    months = curve["month"].tolist()
+    series = {
+        "undiscounted": curve["cum_recovery_undisc"].tolist(),
+        "discounted (EIR 6%)": curve["cum_recovery_disc"].tolist(),
+    }
+    curve_chart = viz.line_chart(
+        [str(m) for m in months], series, value_fmt=_pct,
+        title="누적 회수율 — workout cashflow 36개월",
+    )
+
+    final_undisc = float(curve["cum_recovery_undisc"].iloc[-1])
+    final_disc = float(curve["cum_recovery_disc"].iloc[-1])
+    spread = final_undisc - final_disc
+
+    # LGD 분포 — quantile table + histogram per segment
+    lq = deep.lgd_quantiles
+    lh = deep.lgd_histogram
+    q_rows = []
+    for _, row in lq.iterrows():
+        q_rows.append([row["segment"], f"{int(row['n']):,}",
+                       _pct(row["p10"]), _pct(row["p25"]), _pct(row["median"]),
+                       _pct(row["p75"]), _pct(row["p90"]), _pct(row["mean"])])
+    # histogram chart per segment (one stacked bar per segment, optional)
+    hist_blocks = []
+    for seg, sub in lh.groupby("segment") if not lh.empty else []:
+        labels_h = [f"{row['bin_lo']:.1f}-{row['bin_hi']:.1f}"
+                    for _, row in sub.iterrows()]
+        ch = viz.bar_chart(
+            labels_h, sub["n"].tolist(),
+            title=f"{seg} — LGD 히스토그램",
+            value_fmt=lambda v: f"{int(v):,}",
+            colors=[viz.PALETTE[i % len(viz.PALETTE)] for i in range(len(sub))],
+        )
+        hist_blocks.append(
+            f'<div class="card"><h3>{_esc(seg)}</h3>'
+            f'<div class="chart">{ch}</div></div>'
+        )
+    hist_html = "<div class='row2'>" + "".join(hist_blocks) + "</div>" \
+                if hist_blocks else "<p>분포 데이터 없음</p>"
+
+    # collateral 효과
+    coll = deep.collateral
+    coll_chart = viz.horizontal_bar(
+        coll["collateral_type"].tolist(),
+        coll["avg_recovery"].tolist(),
+        value_fmt=_pct, title="담보 유형별 평균 회수율",
+        color=viz.GREEN,
+    )
+    coll_rows = [[row["collateral_type"], f"{int(row['n']):,}",
+                  _won(row["ead"]), _pct(row["avg_recovery"]),
+                  _pct(row["avg_lgd"])]
+                 for _, row in coll.iterrows()]
+
+    body = f"""
+<h1 class="title">40. 회수율 · LGD realised deep-dive</h1>
+<p class="section-lead">워크아웃 36개월 cashflow 기반 회수 곡선 (할인/미할인) +
+자산군별 실현 LGD 분위수 + 담보 유형별 회수율 비교.
+기준: Basel III CRE32.46~ (downturn LGD), CRE36.83 (회수 인식),
+IFRS 9 5.5.5 ECL 정의.</p>
+
+<div class="kpi-grid">
+{_kpi("36M 누적 회수율 (미할인)", _pct(final_undisc))}
+{_kpi("36M 누적 회수율 (EIR 6% 할인)", _pct(final_disc))}
+{_kpi("할인 효과 (gap)", f"-{_pct(spread)}")}
+</div>
+
+<div class="card"><h2>40-1. 회수 곡선 (Discounted vs Undiscounted)</h2>
+<div class="chart">{curve_chart}</div>
+<p class="section-lead">undiscounted 는 LGD 산출 표면값, discounted 는 EIR로 현재가치화한 값.
+IFRS 9 ECL는 할인 기준 LGD를 사용 (IFRS 9 B5.5.44). 두 곡선 간 격차는 회수 long tail 의 시간가치.</p>
+</div>
+
+<div class="card"><h2>40-2. 자산군별 실현 LGD 분위수</h2>
+{_table(["자산군","건수","P10","P25","중앙값","P75","P90","평균"],
+        q_rows, right_cols=list(range(1, 8))) if q_rows else "<p>데이터 없음.</p>"}
+<p class="section-lead">downturn LGD는 일반적으로 P75 이상에 위치 — 현재 평균 대비 P75 격차로
+경기침체 LGD floor 보수성 평가.</p>
+</div>
+
+<div class="card"><h2>40-3. LGD 히스토그램 (자산군)</h2>
+{hist_html}
+</div>
+
+<div class="card"><h2>40-4. 담보 유형별 회수율</h2>
+<div class="chart">{coll_chart}</div>
+{_table(["담보 유형","건수","EAD","평균 회수율","평균 LGD"], coll_rows,
+        right_cols=[1,2,3,4])}
+<p class="section-lead">담보 유형 mapping: residential_mortgage→주거용, corporate→상업/회사채,
+retail_other→무담보, sovereign/bank→국채/보증. 실제 collateral master data로 교체 시 직접 산출.</p>
+</div>
+"""
+    return _page("회수·LGD", body, "40_recovery_lgd.html")
+
+
+def page_cure_analysis(r: PipelineResult) -> str:
+    """41. Cure rate + time-to-cure."""
+    cure = r.monitoring_deep.get("cure") if r.monitoring_deep else None
+    if cure is None or cure.by_segment.empty:
+        return _placeholder_page(
+            "41. Cure 분석", "cure 경로 데이터가 없습니다.",
+            "41_cure_analysis.html",
+        )
+
+    # cure rate horizontal bar by segment (count & EAD)
+    seg = cure.by_segment[cure.by_segment["segment"] != "전체"]
+    rate_chart_count = viz.horizontal_bar(
+        seg["segment"].tolist(),
+        seg["cure_rate_count"].tolist(),
+        value_fmt=_pct, title="자산군별 cure rate (건수)",
+        color=viz.GREEN,
+    )
+    rate_chart_ead = viz.horizontal_bar(
+        seg["segment"].tolist(),
+        seg["cure_rate_ead"].tolist(),
+        value_fmt=_pct, title="자산군별 cure rate (EAD 가중)",
+        color=viz.PALETTE[2],
+    )
+    # time-to-cure distribution chart
+    ttc = cure.ttc_distribution
+    if not ttc.empty:
+        ttc_chart = viz.bar_chart(
+            [f"{row['bin_lo']:.1f}-{row['bin_hi']:.1f}M" for _, row in ttc.iterrows()],
+            ttc["n"].tolist(),
+            value_fmt=lambda v: f"{int(v):,}",
+            title=f"time-to-cure 분포 (window {cure.cure_window}M)",
+            colors=[viz.PALETTE[i % len(viz.PALETTE)] for i in range(len(ttc))],
+        )
+    else:
+        ttc_chart = "<p>cure 사례 없음.</p>"
+
+    rows = []
+    for _, row in cure.by_segment.iterrows():
+        rows.append([row["segment"], f"{int(row['n_defaults']):,}",
+                     f"{int(row['n_cured']):,}",
+                     _pct(row["cure_rate_count"]),
+                     _pct(row["cure_rate_ead"]),
+                     f"{row['avg_time_to_cure']:.1f}M"])
+    total = cure.by_segment[cure.by_segment["segment"] == "전체"]
+    headline_rate = float(total["cure_rate_count"].iloc[0]) if not total.empty else 0.0
+    headline_ttc = float(total["avg_time_to_cure"].iloc[0]) if not total.empty else 0.0
+
+    body = f"""
+<h1 class="title">41. Cure rate 분석</h1>
+<p class="section-lead">부도(90+ DPD or UTP) 인식 후 {cure.cure_window}개월 내 DPD 30 미만 복귀 비율.
+기준: Basel III CRE36.81 (cure window), 감독세칙 자산건전성 분류 시행세칙,
+BCBS Guidelines on Prudential Treatment of Problem Assets (2017).</p>
+
+<div class="kpi-grid">
+{_kpi("전체 cure rate (건수)", _pct(headline_rate))}
+{_kpi("평균 time-to-cure", f"{headline_ttc:.1f}M")}
+{_kpi("관측 부도 건수", f"{int(total['n_defaults'].iloc[0]):,}" if not total.empty else "0")}
+{_kpi("cure 부도 건수", f"{int(total['n_cured'].iloc[0]):,}" if not total.empty else "0")}
+</div>
+
+<div class="row2">
+<div class="card"><h2>41-1. Cure rate (건수)</h2>
+<div class="chart">{rate_chart_count}</div>
+</div>
+<div class="card"><h2>41-2. Cure rate (EAD 가중)</h2>
+<div class="chart">{rate_chart_ead}</div>
+</div>
+</div>
+
+<div class="card"><h2>41-3. 자산군별 cure 통계</h2>
+{_table(["자산군","부도 건수","cure 건수","cure rate(건수)","cure rate(EAD)","평균 ttc"],
+        rows, right_cols=[1,2,3,4,5])}
+<p class="section-lead">prior: mortgage 0.42 / corporate 0.28 / retail 0.18 — 담보·worker-out 협의 가능성 차이 반영.
+무담보 retail이 가장 낮고 mortgage가 가장 높은 패턴이 표준.</p>
+</div>
+
+<div class="card"><h2>41-4. time-to-cure 분포</h2>
+<div class="chart">{ttc_chart}</div>
+<p class="section-lead">cure window 내에서 cure 시점 분포 — 1~2개월 조기 cure 비중이 높을수록
+"기술적 연체" 가능성. 본 라이브러리는 cure-policy 적용 후 default_12m 가정 — 자세한 정책은
+CLAUDE.md "금지 사항" 참조.</p>
+</div>
+"""
+    return _page("Cure 분석", body, "41_cure_analysis.html")
