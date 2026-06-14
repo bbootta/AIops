@@ -1695,6 +1695,21 @@
       "rollback_rule": "page 등록 + sample + 링크 제거 시 R49 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0114",
+      "timestamp": "2026-06-14 09:03:24",
+      "component": "tools/sample_generators.py (lcr_by_currency/nii/intraday) + tools/report_pack.py (alm_currency_deep)",
+      "change_type": "create",
+      "evidence": "/goal R51 ALM 부문: 통화별 LCR 분해/ΔNII sensitivity/일중유동성 미반영",
+      "root_cause": "alm.html 은 원화 LCR/NSFR만, 외화 통화 단위 LCR/ΔNII 와 일중유동성 누락",
+      "targeted_fix": "lcr_by_currency_sample(KRW/USD/JPY/EUR/CNY) + nii_sensitivity_sample(6 시나리오) + intraday_liquidity_sample. alm_currency_deep.html: 통화별 LCR 차트(원화 100% / 외화 80% 임계) + ΔNII 시나리오 차트 + 일중유동성 표 (BCBS d423)",
+      "expected_benefit": "ALCO 의 통화 단위 mismatch + 단기 수익 영향(ΔNII) + 일중 결제 risk 한 화면에",
+      "expected_regression_risk": "low — 신규 sample/page, 기존 alm 페이지 본문 무변경",
+      "validation_method": "tests/test_v2_round51.py 10 cases + 전체 통과 + ruff/mypy clean",
+      "rollback_rule": "page 등록 + 3 sample + 링크 제거 시 R50 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

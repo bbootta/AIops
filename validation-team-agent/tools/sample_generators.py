@@ -244,6 +244,47 @@ def alm_sample(*, stressed: bool = False) -> dict:
     }
 
 
+def lcr_by_currency_sample() -> list[dict]:
+    """통화별 LCR 분해 (시행세칙 외화LCR 80% + BCBS LCR 100%)."""
+    return [
+        {"currency": "KRW (원화)", "hqla": 130_000.0, "outflow": 100_000.0,
+         "min_required": 1.00, "note": "원화 LCR ≥ 100%"},
+        {"currency": "USD",       "hqla": 12_000.0,  "outflow": 14_000.0,
+         "min_required": 0.80, "note": "외화 LCR 80% (감독원 행정지도)"},
+        {"currency": "JPY",       "hqla": 3_500.0,   "outflow": 3_000.0,
+         "min_required": 0.80, "note": "외화 LCR 80%"},
+        {"currency": "EUR",       "hqla": 1_800.0,   "outflow": 2_500.0,
+         "min_required": 0.80, "note": "외화 LCR 80% (미달 가능성)"},
+        {"currency": "CNY",       "hqla": 900.0,     "outflow": 1_200.0,
+         "min_required": 0.80, "note": "외화 LCR 80%"},
+    ]
+
+
+def nii_sensitivity_sample() -> list[dict]:
+    """ΔNII (Net Interest Income) sensitivity — 6 표준 시나리오."""
+    base_nii_annual = 3_000.0  # bn 원
+    return [
+        {"scenario": "parallel_up",   "delta_nii_pct": +0.08, "delta_nii_bn": +base_nii_annual*0.08},
+        {"scenario": "parallel_down", "delta_nii_pct": -0.06, "delta_nii_bn": -base_nii_annual*0.06},
+        {"scenario": "steepener",     "delta_nii_pct": +0.03, "delta_nii_bn": +base_nii_annual*0.03},
+        {"scenario": "flattener",     "delta_nii_pct": -0.04, "delta_nii_bn": -base_nii_annual*0.04},
+        {"scenario": "short_rate_up", "delta_nii_pct": +0.05, "delta_nii_bn": +base_nii_annual*0.05},
+        {"scenario": "short_rate_down", "delta_nii_pct": -0.03, "delta_nii_bn": -base_nii_annual*0.03},
+    ]
+
+
+def intraday_liquidity_sample() -> dict:
+    """일중유동성 (intraday liquidity) panel — BCBS d423 monitoring tools."""
+    return {
+        "daily_max_intraday_usage_bn": 4_200.0,
+        "average_intraday_usage_bn": 2_100.0,
+        "intraday_credit_lines_bn": 6_500.0,
+        "stress_day_usage_bn": 5_800.0,
+        "peak_to_average_ratio": 2.0,
+        "framework": "BCBS d423 (Monitoring tools for intraday liquidity management)",
+    }
+
+
 def rwa_decomposition_sample() -> dict:
     """Pillar 1 RWA 분해 (Credit / Market / Operational / CVA + Output Floor).
 

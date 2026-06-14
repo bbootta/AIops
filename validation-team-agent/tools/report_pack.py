@@ -346,7 +346,8 @@ def _alm_pages(demo: dict, request: dict) -> dict[str, str]:
             ("ΔEVE/Tier1 (worst)", f"{io.get('ratio', 0):.1%}"),
             ("outlier (기준 15%)", "예" if io.get("outlier") else "아니오"),
             ("worst 시나리오", io.get("worst", "-")),
-            ("상세", '<a href="alm_irrbb.html">시나리오 심화 →</a>'),
+            ("시나리오 심화", '<a href="alm_irrbb.html">시나리오별 ΔEVE →</a>'),
+            ("통화/NII 심화", '<a href="alm_currency_deep.html">통화별 LCR + ΔNII + 일중유동성 →</a>'),
         ]))
     else:
         parts.append("<p>IRRBB 입력 미제공.</p>")
@@ -738,6 +739,95 @@ frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.<
 <p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
 """
     return _page("심화 — 운영리스크 손실 시나리오", body)
+
+
+def _alm_currency_deep_page() -> str:
+    """통화별 LCR 분해 + ΔNII sensitivity + 일중유동성."""
+    from tools.sample_generators import (
+        intraday_liquidity_sample,
+        lcr_by_currency_sample,
+        nii_sensitivity_sample,
+    )
+
+    lcr = lcr_by_currency_sample()
+    nii = nii_sensitivity_sample()
+    intra = intraday_liquidity_sample()
+
+    lcr_chart = hbar(
+        [(c["currency"], c["hqla"] / max(c["outflow"], 1e-9)) for c in lcr],
+        title="통화별 LCR (HQLA / 30d outflow)", fmt="{:.2f}",
+        vline=1.0, vline_label="원화 min 1.00",
+        colors=[PALETTE["ok"] if (c["hqla"]/c["outflow"]) >= c["min_required"]
+                else PALETTE["fail"] for c in lcr])
+
+    lcr_table = "".join(
+        f"<tr><td><b>{_esc(c['currency'])}</b></td>"
+        f"<td>{c['hqla']:,.0f}</td><td>{c['outflow']:,.0f}</td>"
+        f"<td>{(c['hqla']/c['outflow']):.2f}</td>"
+        f"<td>{c['min_required']:.0%}</td>"
+        f"<td>{'<b style=color:#c62828>미달</b>' if (c['hqla']/c['outflow']) < c['min_required'] else 'ok'}</td>"
+        f"<td>{_esc(c['note'])}</td></tr>"
+        for c in lcr)
+
+    nii_chart = hbar(
+        [(s["scenario"], s["delta_nii_pct"]) for s in nii],
+        title="ΔNII / NII (시나리오별, 1년 horizon)", fmt="{:+.1%}",
+        colors=[PALETTE["fail" if s["delta_nii_pct"] < -0.05
+                else "warning" if s["delta_nii_pct"] < 0 else "ok"]
+                for s in nii])
+
+    nii_table = "".join(
+        f"<tr><td>{_esc(s['scenario'])}</td>"
+        f"<td>{s['delta_nii_pct']:+.1%}</td>"
+        f"<td>{s['delta_nii_bn']:+,.0f} bn</td></tr>"
+        for s in nii)
+
+    body = f"""
+<p>ALM 심화: 통화별 LCR 분해 (BCBS LCR + 시행세칙 외화 LCR) + ΔNII sensitivity
+(IRRBB 의 단기 수익 영향) + 일중유동성 monitoring (BCBS d423).</p>
+
+<h2>통화별 LCR (Multi-Currency)</h2>
+{lcr_chart}
+<table>
+<tr><th>통화</th><th>HQLA</th><th>30d Outflow</th><th>LCR</th>
+<th>최소</th><th>판정</th><th>비고</th></tr>
+{lcr_table}
+</table>
+<p>원화는 BCBS LCR 100% / 외화는 감독원 행정지도 80% 적용. 통화별 mismatch
+가 있어도 총 LCR 충족 가능 — 통화 단위 점검 필수.</p>
+
+<h2>ΔNII (Net Interest Income) Sensitivity</h2>
+{nii_chart}
+<table>
+<tr><th>시나리오</th><th>ΔNII / NII</th><th>ΔNII (bn)</th></tr>
+{nii_table}
+</table>
+<p>IRRBB 는 ΔEVE (자본 관점) 와 ΔNII (수익 관점) 양쪽으로 점검 (BCBS SRP31 §132).
+ΔNII 음수는 단기 수익성 하락 — 변동금리 자산/고정금리 부채 mismatch 신호.</p>
+
+<h2>일중유동성 (Intraday Liquidity)</h2>
+<table>
+<tr><th>일중 최대 사용 (정상일)</th><td>{intra['daily_max_intraday_usage_bn']:,.0f} bn</td></tr>
+<tr><th>평균 일중 사용</th><td>{intra['average_intraday_usage_bn']:,.0f} bn</td></tr>
+<tr><th>일중 신용한도</th><td>{intra['intraday_credit_lines_bn']:,.0f} bn</td></tr>
+<tr><th>스트레스일 사용</th><td>{intra['stress_day_usage_bn']:,.0f} bn</td></tr>
+<tr><th>피크/평균 비율</th><td>{intra['peak_to_average_ratio']:.1f}x</td></tr>
+<tr><th>프레임워크</th><td>{_esc(intra['framework'])}</td></tr>
+</table>
+
+<h2>해석 (ALCO 관점)</h2>
+<ul>
+<li><b>통화별 LCR mismatch</b>: 총 LCR 이 충족되더라도 특정 통화 (EUR/CNY) 미달
+가능. 통화 swap 시장 단절 시나리오에서 stress 보고 필요.</li>
+<li><b>ΔNII vs ΔEVE</b>: ΔEVE 는 long-term capital, ΔNII 는 short-term
+earnings. parallel up 에서 ΔNII +8% 면 단기 이익 증가하나 ΔEVE 손실 시 자본
+잠식 — 양쪽 균형이 ALM 의 핵심.</li>
+<li><b>일중유동성</b>: 분기 monitoring 보고. 스트레스일 사용이 한도의 90%
+초과 시 추가 buffer 확보 (BCBS d423).</li>
+</ul>
+<p><a href="alm.html">← ALM 상세로</a></p>
+"""
+    return _page("심화 — ALM 통화별 LCR + ΔNII + 일중유동성", body)
 
 
 def _capital_rwa_deep_page() -> str:
@@ -2000,6 +2090,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="icaap_deep.html">ICAAP — 리스크 유형 분해 + 시나리오</a></li>
 <li><a href="alm_gap.html">ALM — 만기 bucket 누적 갭</a></li>
 <li><a href="alm_irrbb.html">IRRBB — 시나리오별 ΔEVE</a></li>
+<li><a href="alm_currency_deep.html">ALM — 통화별 LCR + ΔNII + 일중유동성</a></li>
 <li><a href="market_backtest_deep.html">시장 — VaR backtest P&amp;L (250일)</a></li>
 <li><a href="operational_deep.html">운영 — SMA BI 구성·BIC 구간</a></li>
 <li><a href="op_scenario_deep.html">운영 — 손실 시나리오 (BCBS 7 event class)</a></li>
@@ -2061,6 +2152,7 @@ def build_pack(
     pages["change_audit.html"] = _change_audit_page()
     pages["capital_buffer_deep.html"] = _capital_buffer_deep_page(demo, request)
     pages["capital_rwa_deep.html"] = _capital_rwa_deep_page()
+    pages["alm_currency_deep.html"] = _alm_currency_deep_page()
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)
