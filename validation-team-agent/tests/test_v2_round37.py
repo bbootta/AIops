@@ -199,7 +199,8 @@ EXPECTED_PAGES = {
     "market_backtest_deep.html", "market_components_deep.html",
     "op_scenario_deep.html", "cva_deep.html",
     "macro_overlay.html",
-    "concentration.html", "data_quality.html", "data_quality_deep.html",
+    "concentration.html", "concentration_segments.html",
+    "data_quality.html", "data_quality_deep.html",
     "ifrs9_deep.html", "stress_test.html", "change_audit.html",
 }
 

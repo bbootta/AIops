@@ -244,6 +244,47 @@ def alm_sample(*, stressed: bool = False) -> dict:
     }
 
 
+def concentration_segments_sample() -> dict:
+    """산업·지역·통화별 집중 분해 + top 10 exposures."""
+    industry = {
+        "제조업": 220_000.0,
+        "도소매": 180_000.0,
+        "부동산/임대": 160_000.0,
+        "건설": 95_000.0,
+        "금융업": 80_000.0,
+        "정보통신": 70_000.0,
+        "서비스": 60_000.0,
+        "기타": 35_000.0,
+    }
+    region = {
+        "수도권": 580_000.0,
+        "영남권": 180_000.0,
+        "충청권": 95_000.0,
+        "호남권": 70_000.0,
+        "강원/제주": 35_000.0,
+    }
+    currency = {
+        "KRW": 820_000.0,
+        "USD": 110_000.0,
+        "JPY": 18_000.0,
+        "EUR": 12_000.0,
+        "CNY": 7_000.0,
+    }
+    top_exposures = [
+        {"name": f"Group-{i:02d}",
+         "industry": list(industry)[i % len(industry)],
+         "exposure_bn": 280.0 - i * 18.0,
+         "pct_tier1": (280.0 - i * 18.0) / 10_000.0}
+        for i in range(10)
+    ]
+    return {
+        "industry": industry,
+        "region": region,
+        "currency": currency,
+        "top_exposures": top_exposures,
+    }
+
+
 def var_components_sample() -> dict:
     """VaR 분해 — General market risk vs Specific risk + SVaR + IRC.
 

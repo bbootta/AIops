@@ -1725,6 +1725,21 @@
       "rollback_rule": "page + sample + 링크 제거 시 R51 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0116",
+      "timestamp": "2026-06-14 09:07:53",
+      "component": "tools/sample_generators.py (concentration_segments) + tools/report_pack.py (concentration_segments)",
+      "change_type": "create",
+      "evidence": "/goal R53 신용집중: 그룹 단위 HHI 만 표시, 산업/지역/통화 segment 별 집중 미반영",
+      "root_cause": "concentration.html 은 거액익스포저 LEX 한도 점검만, segment 별 분해 누락",
+      "targeted_fix": "concentration_segments_sample: 산업(8) + 지역(5) + 통화(5) + top 10 group exposures (산업 매핑 + tier1 비중). concentration_segments.html: 각 segment 별 HHI band + 차트 + Top 10 표 (LEX 10% 보고 임계 색상)",
+      "expected_benefit": "검증자가 산업/지역/통화 단위 집중 식별. 부동산 stress 시나리오 / 지역 거시 충격 영향 분리 가능",
+      "expected_regression_risk": "low — 신규 sample/page, 기존 페이지 본문 무변경",
+      "validation_method": "tests/test_v2_round53.py 9 cases + 전체 통과 + ruff/mypy clean",
+      "rollback_rule": "page + sample + 링크 제거 시 R52 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

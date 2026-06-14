@@ -462,6 +462,10 @@ def _concentration_page(demo: dict) -> str:
 {"<h2>위반 내역</h2><table><tr><th>그룹</th><th>규정</th><th>수치</th></tr>" + rows + "</table>" if breaches else ""}
 <p>기준: Basel LEX (Tier1 10% 보고 / 25% 한도) + 은행법 35조 (동일차주
 자기자본 25%, 거액합계 자기자본 5배).</p>
+<h2>심화 분석</h2>
+<ul>
+<li><a href="concentration_segments.html">산업/지역/통화별 집중 + Top 10 exposures →</a></li>
+</ul>
 <h2>왜 이 결과인가 (Explainability)</h2>
 <p>{narrate("3.conc", conc)}</p>
 {render_attribution_block("3.conc")}
@@ -740,6 +744,70 @@ frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.<
 <p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
 """
     return _page("심화 — 운영리스크 손실 시나리오", body)
+
+
+def _concentration_segments_page() -> str:
+    """산업/지역/통화별 집중 + top 10 exposures + HHI 별 분해."""
+    from tools.sample_generators import concentration_segments_sample
+    from vta.domains.concentration import herfindahl
+
+    s = concentration_segments_sample()
+
+    def _decompose(d: dict) -> tuple[str, float]:
+        chart = hbar(
+            sorted(d.items(), key=lambda kv: -kv[1]),
+            title="", fmt="{:,.0f}", colors=[PALETTE["neutral"]] * len(d))
+        hhi = herfindahl(list(d.values()))
+        return chart, hhi
+
+    ind_chart, ind_hhi = _decompose(s["industry"])
+    reg_chart, reg_hhi = _decompose(s["region"])
+    cur_chart, cur_hhi = _decompose(s["currency"])
+
+    top_rows = "".join(
+        f"<tr><td><code>{_esc(e['name'])}</code></td>"
+        f"<td>{_esc(e['industry'])}</td>"
+        f"<td>{e['exposure_bn']:,.0f}</td>"
+        f"<td>{e['pct_tier1']:.2%}</td>"
+        f"<td>{'<b style=color:#c62828>10%↑ 보고</b>' if e['pct_tier1'] >= 0.10 else 'ok'}</td></tr>"
+        for e in s["top_exposures"])
+
+    body = f"""
+<p>신용집중 심화 — 산업/지역/통화별 분해 + top 10 그룹 exposure. HHI 는 각
+segment 단위로 산정 (그룹별 HHI 와 별도).</p>
+
+<h2>산업별 집중</h2>
+<table><tr><th>합계 HHI</th><td><b>{ind_hhi:.4f}</b> ({'low' if ind_hhi<0.10 else 'moderate' if ind_hhi<0.18 else 'high'})</td></tr></table>
+{ind_chart}
+
+<h2>지역별 집중</h2>
+<table><tr><th>합계 HHI</th><td><b>{reg_hhi:.4f}</b> ({'low' if reg_hhi<0.10 else 'moderate' if reg_hhi<0.18 else 'high'})</td></tr></table>
+{reg_chart}
+
+<h2>통화별 집중</h2>
+<table><tr><th>합계 HHI</th><td><b>{cur_hhi:.4f}</b> ({'low' if cur_hhi<0.10 else 'moderate' if cur_hhi<0.18 else 'high'})</td></tr></table>
+{cur_chart}
+
+<h2>Top 10 그룹 exposure</h2>
+<table>
+<tr><th>그룹</th><th>산업</th><th>익스포저 (bn)</th><th>Tier1 대비</th><th>판정</th></tr>
+{top_rows}
+</table>
+
+<h2>해석 (검증 관점)</h2>
+<ul>
+<li><b>산업 HHI</b>가 high band 이면 단일 산업 충격에 취약 (예: 부동산 침체).
+산업 분류는 KSIC 대분류 기준.</li>
+<li><b>지역 HHI</b>가 수도권 집중 시 지역 거시 충격 (부동산 가격 하락 등)에
+민감.</li>
+<li><b>통화 HHI</b>: 원화 외 통화 비중이 LCR 외화 80% 적용 대상과 일치 — ALM
+통화별 분석과 cross-check.</li>
+<li><b>거액익스포저</b>: BCBS LEX Tier1 10% 보고 / 25% 한도. 표의 마지막 컬럼
+참조.</li>
+</ul>
+<p><a href="concentration.html">← 신용집중 상세로</a></p>
+"""
+    return _page("심화 — 산업/지역/통화별 집중 + Top 10 exposures", body)
 
 
 def _market_components_deep_page() -> str:
@@ -2169,6 +2237,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="alm_currency_deep.html">ALM — 통화별 LCR + ΔNII + 일중유동성</a></li>
 <li><a href="market_backtest_deep.html">시장 — VaR backtest P&amp;L (250일)</a></li>
 <li><a href="market_components_deep.html">시장 — VaR 구성요소 (General/Specific) + SVaR + IRC</a></li>
+<li><a href="concentration_segments.html">집중 — 산업/지역/통화별 + Top 10 exposures</a></li>
 <li><a href="operational_deep.html">운영 — SMA BI 구성·BIC 구간</a></li>
 <li><a href="op_scenario_deep.html">운영 — 손실 시나리오 (BCBS 7 event class)</a></li>
 <li><a href="cva_deep.html">CVA — counterparty 분해 (BA-CVA / SA-CVA)</a></li>
@@ -2231,6 +2300,7 @@ def build_pack(
     pages["capital_rwa_deep.html"] = _capital_rwa_deep_page()
     pages["alm_currency_deep.html"] = _alm_currency_deep_page()
     pages["market_components_deep.html"] = _market_components_deep_page()
+    pages["concentration_segments.html"] = _concentration_segments_page()
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)
