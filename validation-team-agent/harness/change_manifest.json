@@ -1665,6 +1665,21 @@
       "rollback_rule": "3 신규 페이지 등록 + 2 sample 함수 + link 제거 시 R45 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0112",
+      "timestamp": "2026-06-14 08:58:04",
+      "component": "tools/report_pack.py (credit_segments + credit_vintage)",
+      "change_type": "create",
+      "evidence": "/goal '부문별 순차 고도화' R49 신용평가: 등급별 변별력·dev/oot gap·ROC·score 분포·vintage cohort 분석 부재",
+      "root_cause": "기존 credit.html 은 전체 KS/AUROC + PSI 만, 세그먼트 분해/시계열 cohort 분석 부재",
+      "targeted_fix": "credit_segments.html: 등급별 KS/AUROC 표·차트 + dev/oot AUROC 비교 + ROC curve(50점) + good vs bad score 분포 overlay histogram. credit_vintage.html: 분기 cohort 부도율 trend + 분기별 표 + 등급 × 분기 매트릭스(색상 코딩). credit.html 에서 link",
+      "expected_benefit": "검증자가 등급/세그먼트 단위로 변별력 진단. cohort 분석으로 정책 변경·거시 충격을 시계열로 확인",
+      "expected_regression_risk": "low — 신규 페이지 2개, 기존 페이지 본문 무변경 (link 추가만). svg_charts 대신 inline SVG helper(_roc_svg, _two_histogram_svg) 추가",
+      "validation_method": "tests/test_v2_round49.py 10 cases (페이지 존재/등급/dev_oot/ROC/histogram/vintage/등급×분기/링크/self-contained) + 전체 744 통과",
+      "rollback_rule": "두 페이지 등록 + 링크 제거 시 R48 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

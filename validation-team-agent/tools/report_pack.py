@@ -186,6 +186,8 @@ def _credit_pages(demo: dict, request: dict) -> dict[str, str]:
 {_kv_table([("등급 수", cal['outputs'].get('n_grades', '-')),
             ("reject 등급 수 (binomial, Holm)", cal['outputs'].get('n_reject', '-')),
             ("등급 심화", '<a href="credit_calibration.html">등급별 심화 보고서 →</a>'),
+            ("세그먼트별 변별력", '<a href="credit_segments.html">세그먼트별 + ROC + 분포 →</a>'),
+            ("Vintage 분석", '<a href="credit_vintage.html">cohort별 부도율 →</a>'),
             ("챌린저 비교", '<a href="challenger.html">챔피언 vs 챌린저 →</a>')])}
 <h2>표본 적정성</h2>
 {_kv_table([("표본 수", f"{demo['n_rows']:,}"),
@@ -735,6 +737,287 @@ frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.<
 <p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
 """
     return _page("심화 — 운영리스크 손실 시나리오", body)
+
+
+def _credit_segments_page(request: dict) -> str:
+    """세그먼트별 변별력 + ROC curve + score 분포 (good vs bad)."""
+    df = request.get("df")
+    target_col = request.get("target_col", "target")
+    score_col = request.get("score_col", "score")
+    if df is None or score_col not in df.columns:
+        return _page("심화 — 신용 세그먼트별 분석",
+                     "<p>입력 df 미제공.</p>")
+
+    from tools.metric_ks_auc import calculate_auc_gini, calculate_ks
+
+    # 등급별 KS / AUROC
+    grade_col = request.get("grade_col", "grade")
+    grade_rows = []
+    for grade in sorted(df[grade_col].unique()):
+        sub = df[df[grade_col] == grade]
+        if len(sub) < 30 or sub[target_col].nunique() < 2:
+            grade_rows.append((str(grade), len(sub), float("nan"), float("nan")))
+            continue
+        ks = calculate_ks(sub[target_col].to_numpy(), sub[score_col].to_numpy())["ks"]
+        ag = calculate_auc_gini(sub[target_col].to_numpy(), sub[score_col].to_numpy())
+        grade_rows.append((str(grade), len(sub), ks, ag["auc"]))
+
+    grade_chart = hbar(
+        [(g, k) for g, _, k, _ in grade_rows if not _isnan(k)],
+        title="등급별 KS", fmt="{:.4f}", vline=0.30,
+        vline_label="참고 임계 0.30",
+        colors=[PALETTE["ok" if k >= 0.30 else "fail"]
+                for _, _, k, _ in grade_rows if not _isnan(k)])
+
+    grade_table = "".join(
+        f"<tr><td>{_esc(g)}</td><td>{n:,}</td>"
+        f"<td>{('-' if _isnan(k) else f'{k:.4f}')}</td>"
+        f"<td>{('-' if _isnan(a) else f'{a:.4f}')}</td></tr>"
+        for g, n, k, a in grade_rows)
+
+    # dev vs oot 변별력
+    set_col = request.get("set_col", "set")
+    dev = df[df[set_col] == "dev"]
+    oot = df[df[set_col] == "oot"]
+    set_metrics = []
+    for label, sub in (("dev", dev), ("oot", oot)):
+        if len(sub) < 100 or sub[target_col].nunique() < 2:
+            continue
+        ks = calculate_ks(sub[target_col].to_numpy(), sub[score_col].to_numpy())["ks"]
+        ag = calculate_auc_gini(sub[target_col].to_numpy(), sub[score_col].to_numpy())
+        set_metrics.append((label, len(sub), ks, ag["auc"], ag["gini"]))
+    set_chart = hbar(
+        [(f"{label} (n={n:,})", auc) for label, n, _, auc, _ in set_metrics],
+        title="dev / oot AUROC 비교", fmt="{:.4f}",
+        vline=0.70, vline_label="참고 임계 0.70",
+        colors=[PALETTE["ok" if a >= 0.70 else "fail"]
+                for _, _, _, a, _ in set_metrics])
+
+    # ROC curve (sampled — efficient)
+    import numpy as np
+    y = df[target_col].to_numpy()
+    s = df[score_col].to_numpy()
+    # threshold grid
+    sorted_s = np.sort(s)
+    thresholds = sorted_s[np.linspace(0, len(sorted_s) - 1, 50).astype(int)]
+    roc_pts = []
+    for thr in thresholds:
+        pred = s >= thr
+        tp = float(((pred == 1) & (y == 1)).sum())
+        fp = float(((pred == 1) & (y == 0)).sum())
+        fn = float(((pred == 0) & (y == 1)).sum())
+        tn = float(((pred == 0) & (y == 0)).sum())
+        tpr = tp / max(tp + fn, 1)
+        fpr = fp / max(fp + tn, 1)
+        roc_pts.append((fpr, tpr))
+    roc_svg = _roc_svg(roc_pts)
+
+    # score 분포 (good vs bad)
+    good = s[y == 0]
+    bad = s[y == 1]
+    hist_svg = _two_histogram_svg(good, bad, ("good (target=0)", "bad (target=1)"))
+
+    body = f"""
+<p>신용평가 모형의 세그먼트별 변별력·dev/oot 안정성·ROC·score 분포 분석.
+입력 n = {len(df):,}.</p>
+
+<h2>등급별 변별력</h2>
+{grade_chart}
+<table>
+<tr><th>등급</th><th>건수</th><th>KS</th><th>AUROC</th></tr>
+{grade_table}
+</table>
+
+<h2>dev / oot 안정성</h2>
+{set_chart}
+<table>
+<tr><th>set</th><th>n</th><th>KS</th><th>AUROC</th><th>Gini</th></tr>
+{"".join(f"<tr><td>{label}</td><td>{n:,}</td><td>{k:.4f}</td><td>{a:.4f}</td><td>{g:.4f}</td></tr>" for label, n, k, a, g in set_metrics)}
+</table>
+
+<h2>ROC Curve (전체)</h2>
+{roc_svg}
+
+<h2>Score 분포 (good vs bad)</h2>
+{hist_svg}
+
+<h2>해석 (검증 관점)</h2>
+<ul>
+<li><b>등급별 KS</b>가 일부 등급에서 임계 미달이면 등급 통합 또는 재캘리브레이션
+검토. 표본 30건 미만 등급은 KS 계산 불가 (분산 추정 불안정).</li>
+<li><b>dev/oot AUROC gap</b>이 0.05 이상이면 overfit 의심 — 변수 선정 재검토 +
+out-of-time validation 추가.</li>
+<li><b>ROC curve</b>이 대각선(랜덤)에 가까우면 변별 부족. 곡선이 좌상단으로
+가까울수록 우수.</li>
+<li><b>Score 분포 overlap</b>이 크면 cut-off 결정이 어려움 — KS 위치가 최적
+threshold 후보.</li>
+</ul>
+<p><a href="credit.html">← 신용평가모형 상세로</a></p>
+"""
+    return _page("심화 — 신용 세그먼트별 변별력 + ROC + 분포", body)
+
+
+def _credit_vintage_page(request: dict) -> str:
+    """Vintage cohort 분석 — obs_date 별 부도율 시계열."""
+    df = request.get("df")
+    target_col = request.get("target_col", "target")
+    date_col = request.get("date_col", "obs_date")
+    if df is None or date_col not in df.columns:
+        return _page("심화 — Vintage cohort 분석",
+                     "<p>입력 df / 일자 컬럼 미제공.</p>")
+
+    # Cohort = obs_date 의 분기 (24개월 → 8 분기)
+    import pandas as pd
+
+    d = df.copy()
+    d["_quarter"] = pd.to_datetime(d[date_col]).dt.to_period("Q").astype(str)
+    cohort = (d.groupby("_quarter")[target_col].agg(["mean", "count"])
+              .reset_index())
+
+    series = [(r["_quarter"], float(r["mean"]))
+              for _, r in cohort.iterrows()]
+    trend_svg = trend_line(
+        series, title="분기별 cohort 부도율 (vintage)",
+        fmt="{:.2%}",
+        minimum=0.10)  # 10% 참고선
+
+    rows = "".join(
+        f"<tr><td>{_esc(r['_quarter'])}</td>"
+        f"<td>{int(r['count']):,}</td>"
+        f"<td>{float(r['mean']):.4%}</td></tr>"
+        for _, r in cohort.iterrows())
+
+    # 등급 × 분기 (heatmap-like — 표)
+    grade_col = request.get("grade_col", "grade")
+    if grade_col in df.columns:
+        pivot = (d.groupby(["_quarter", grade_col])[target_col].mean()
+                 .unstack(fill_value=float("nan")))
+        grades = list(pivot.columns)
+        header = "<tr><th>분기</th>" + "".join(
+            f"<th>{_esc(g)}</th>" for g in grades) + "</tr>"
+        body_rows = ""
+        for period, row in pivot.iterrows():
+            cells = ""
+            for g in grades:
+                v = row[g]
+                if pd.isna(v):
+                    cells += "<td>-</td>"
+                else:
+                    color = (PALETTE["fail"] if v > 0.20
+                             else PALETTE["warning"] if v > 0.05
+                             else PALETTE["ok"])
+                    cells += (f'<td style="background:{color};color:white;'
+                              f'text-align:right">{v:.2%}</td>')
+            body_rows += f"<tr><th>{_esc(period)}</th>{cells}</tr>"
+        grade_pivot = f"<table>{header}{body_rows}</table>"
+    else:
+        grade_pivot = "<p>등급 컬럼 없음.</p>"
+
+    body = f"""
+<p>관측일자(obs_date) 기준 분기 cohort 별 실측 부도율 — vintage 분석.
+{len(cohort)} 분기, n = {len(df):,}.</p>
+
+<h2>Cohort 부도율 추세</h2>
+{trend_svg}
+
+<h2>분기별 부도율 표</h2>
+<table>
+<tr><th>cohort</th><th>건수</th><th>부도율</th></tr>
+{rows}
+</table>
+
+<h2>등급 × 분기 매트릭스</h2>
+{grade_pivot}
+
+<h2>해석 (검증 관점)</h2>
+<ul>
+<li><b>Vintage curve</b>: cohort 별로 같은 관찰 시점에 진입한 표본의 부도율
+변화. 운영 상의 정책 변경(인수 기준)이 cohort 단절(structural break)로
+드러난다.</li>
+<li><b>분기별 부도율 상승</b>은 거시 악화 (실업/금리)·정책 완화·운영 표본
+드리프트 신호. PSI 와 함께 보면 원인 분리 가능.</li>
+<li><b>등급 × 분기 매트릭스</b>: 특정 등급에서만 부도율이 튀면 등급 정의
+재검토. 모든 등급에서 동시 상승은 거시 충격.</li>
+<li>본 분석은 합성 obs_date 기반 — 운영 데이터에서는 cohort 정의를 인수
+시점 (origination) 또는 관찰 시점에 맞춰 사용.</li>
+</ul>
+<p><a href="credit.html">← 신용평가모형 상세로</a></p>
+"""
+    return _page("심화 — Vintage cohort 분석", body)
+
+
+def _isnan(x: float) -> bool:
+    import math
+    try:
+        return math.isnan(float(x))
+    except Exception:
+        return True
+
+
+def _roc_svg(points: list[tuple[float, float]], *, size: int = 320) -> str:
+    """ROC curve inline SVG."""
+    pad = 36
+    w = h = size
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
+           f'font-family="sans-serif" font-size="11">']
+    # 대각선
+    out.append(f'<line x1="{pad}" y1="{h-pad}" x2="{w-pad}" y2="{pad}" '
+               f'stroke="#90a4ae" stroke-dasharray="3 3"/>')
+    # 축
+    out.append(f'<line x1="{pad}" y1="{pad}" x2="{pad}" y2="{h-pad}" stroke="#37474f"/>')
+    out.append(f'<line x1="{pad}" y1="{h-pad}" x2="{w-pad}" y2="{h-pad}" stroke="#37474f"/>')
+
+    # 점들 (FPR x, TPR y)
+    pts = sorted(points)
+    path = " ".join(("M" if i == 0 else "L") +
+                    f"{pad + p[0]*(w-2*pad):.1f},{h-pad - p[1]*(h-2*pad):.1f}"
+                    for i, p in enumerate(pts))
+    out.append(f'<path d="{path}" fill="none" stroke="#1565c0" stroke-width="2"/>')
+
+    out.append(f'<text x="{w/2}" y="{h-8}" text-anchor="middle">FPR</text>')
+    out.append(f'<text x="14" y="{h/2}" transform="rotate(-90 14 {h/2})" '
+               f'text-anchor="middle">TPR</text>')
+    out.append(f'<text x="{w-pad}" y="{pad-6}" text-anchor="end" '
+               f'fill="#1565c0" font-weight="600">ROC</text>')
+    out.append('</svg>')
+    return "".join(out)
+
+
+def _two_histogram_svg(a, b, labels: tuple[str, str], *,
+                       width: int = 560, height: int = 200) -> str:
+    """두 분포 histogram overlay (good vs bad)."""
+    import numpy as np
+
+    pad_l, pad_r, pad_t, pad_b = 40, 16, 28, 30
+    bins = np.linspace(min(a.min(), b.min()), max(a.max(), b.max()), 30)
+    ha, _ = np.histogram(a, bins=bins, density=True)
+    hb, _ = np.histogram(b, bins=bins, density=True)
+    vmax = max(ha.max(), hb.max(), 1e-9)
+    inner_w = width - pad_l - pad_r
+    inner_h = height - pad_t - pad_b
+    bar_w = inner_w / len(bins)
+
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" '
+           f'height="{height}" font-family="sans-serif" font-size="11">']
+    out.append('<text x="0" y="14" font-weight="bold">Score 분포 (정규화)</text>')
+    out.append(f'<line x1="{pad_l}" y1="{pad_t}" x2="{pad_l}" y2="{height-pad_b}" stroke="#37474f"/>')
+    out.append(f'<line x1="{pad_l}" y1="{height-pad_b}" x2="{width-pad_r}" y2="{height-pad_b}" stroke="#37474f"/>')
+
+    for i, (va, vb) in enumerate(zip(ha, hb)):
+        x = pad_l + i * bar_w
+        for v, color in ((va, PALETTE["ok"]), (vb, PALETTE["fail"])):
+            bar_h = inner_h * (v / vmax)
+            y = (height - pad_b) - bar_h
+            out.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{bar_w-1:.1f}" '
+                       f'height="{bar_h:.1f}" fill="{color}" fill-opacity="0.45"/>')
+
+    # 범례
+    out.append(f'<rect x="{width-200}" y="{pad_t-4}" width="10" height="10" fill="{PALETTE["ok"]}"/>')
+    out.append(f'<text x="{width-185}" y="{pad_t+5}">{_esc(labels[0])}</text>')
+    out.append(f'<rect x="{width-90}" y="{pad_t-4}" width="10" height="10" fill="{PALETTE["fail"]}"/>')
+    out.append(f'<text x="{width-75}" y="{pad_t+5}">{_esc(labels[1])}</text>')
+    out.append('</svg>')
+    return "".join(out)
 
 
 def _ifrs9_deep_page() -> str:
@@ -1619,6 +1902,8 @@ def _index_page(demo: dict) -> str:
 <h2>심화 보고서 (Drill-down)</h2>
 <ul>
 <li><a href="credit_calibration.html">신용 — 등급별 캘리브레이션</a></li>
+<li><a href="credit_segments.html">신용 — 세그먼트별 변별력 + ROC + 분포</a></li>
+<li><a href="credit_vintage.html">신용 — Vintage cohort 분석</a></li>
 <li><a href="challenger.html">신용 — 챔피언 vs 챌린저 비교</a></li>
 <li><a href="data_quality_deep.html">데이터 — 컬럼·결측·분포 분석</a></li>
 <li><a href="capital_buffer_deep.html">자본 — buffer 분해 + sensitivity</a></li>
@@ -1675,6 +1960,8 @@ def build_pack(
     pages["trends.html"] = _trends_page()
     pages["challenger.html"] = _challenger_page(request)
     pages["data_quality_deep.html"] = _data_quality_deep_page(request)
+    pages["credit_segments.html"] = _credit_segments_page(request)
+    pages["credit_vintage.html"] = _credit_vintage_page(request)
     pages["cva_deep.html"] = _cva_deep_page(request)
     pages["market_backtest_deep.html"] = _market_backtest_deep_page(demo)
     pages["op_scenario_deep.html"] = _op_scenario_deep_page()
