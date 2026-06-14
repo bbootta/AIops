@@ -13,6 +13,10 @@ from risk_lib.models.discrimination import (
     christoffersen_independence, christoffersen_cc,
     calibration_curve, discrimination_summary,
 )
+from risk_lib.models.explain import (
+    coefficient_table, permutation_importance,
+    grade_migration_psi, grade_transition_matrix, master_scale_calibration,
+)
 
 __all__ = [
     "PDModel",
@@ -33,4 +37,9 @@ __all__ = [
     "christoffersen_cc",
     "calibration_curve",
     "discrimination_summary",
+    "coefficient_table",
+    "permutation_importance",
+    "grade_migration_psi",
+    "grade_transition_matrix",
+    "master_scale_calibration",
 ]
