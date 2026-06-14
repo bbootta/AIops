@@ -33,7 +33,11 @@ from risk_lib.capital.op_risk import BusinessIndicator, compute_op_risk_rwa
 from risk_lib.capital.market_risk import compute_market_risk_rwa
 from risk_lib.capital.output_floor import apply_output_floor, FULLY_LOADED_FLOOR
 from risk_lib.capital.rwa_deep import compute_rwa_deep
+from risk_lib.capital.bis_deep import (
+    compute_bis_deep, synthesise_components_from_stack,
+)
 from risk_lib.capital.leverage import compute_leverage_ratio, exposure_measure
+from risk_lib.capital.leverage_deep import compute_leverage_deep
 from risk_lib.provisioning.ecl import compute_ecl
 from risk_lib.provisioning.macro import macro_ecl, macro_ecl_path, DEFAULT_MACRO_SCENARIOS
 from risk_lib.monitoring.delinquency import delinquency_summary, default_rate
@@ -129,6 +133,8 @@ class PipelineResult:
     calibration: dict[str, Any] = field(default_factory=dict)
     grade_migration: dict[str, Any] = field(default_factory=dict)
     rwa_deep: Any = None       # v0.7.0 CRO-grade RWA deep-dive analytics
+    bis_deep: Any = None       # v0.8.0 CRO-grade BIS capital deep-dive
+    leverage_deep: Any = None  # v0.8.0 leverage ratio exposure decomposition
     meta: dict[str, Any] = field(default_factory=dict)
 
 
@@ -536,6 +542,62 @@ def run_pipeline(
         rwa_standardised=rwa_standardised_total,
     )
 
+    # 17. BIS capital deep-dive (CRO-grade, v0.8.0):
+    # CET1/AT1/T2 item-level decomposition, buffer layering (P1→CBR→P2R→P2G),
+    # country-weighted CCyB, DSIB bucket, SREP/Pillar 2, MDA component breakdown,
+    # forward-looking quarterly CET1 path.
+    cet1_c, at1_c, t2_c = synthesise_components_from_stack(
+        cet1_total=capital.cet1,
+        at1_total=capital.additional_t1,
+        tier2_total=capital.tier2,
+        irb_rwa=rwa_irb,
+    )
+    # Jurisdictional exposure split for CCyB weighting (illustrative split
+    # of portfolio EAD: KR-heavy domestic bank profile).
+    exposures_by_country_synth = {
+        "KR": float(portfolio["ead"].sum()) * 0.80,
+        "US": float(portfolio["ead"].sum()) * 0.08,
+        "JP": float(portfolio["ead"].sum()) * 0.05,
+        "CN": float(portfolio["ead"].sum()) * 0.05,
+        "VN": float(portfolio["ead"].sum()) * 0.02,
+    }
+    bis_deep = compute_bis_deep(
+        cet1=cet1_c, at1=at1_c, tier2=t2_c, rwa=rwa_final,
+        threshold_inputs={
+            "dta_temporary_diff": capital.cet1 * 0.03,
+            "msr": capital.cet1 * 0.01,
+            "significant_investments": capital.cet1 * 0.02,
+        },
+        countercyclical=buffers.get("countercyclical", 0.0),
+        dsib_bucket=2,                  # 가산 1.5% — KR 시중은행 가정
+        p2r=0.015, p2g=0.010,            # SREP 가정
+        exposures_by_country=exposures_by_country_synth,
+        mda_request={
+            "dividend": capital.cet1 * 0.012,
+            "buyback": capital.cet1 * 0.006,
+            "variable_comp": capital.cet1 * 0.004,
+            "at1_coupon": capital.additional_t1 * 0.07 / 4,
+        },
+        # Forward 4Q assumptions
+        quarterly_earnings=capital.cet1 * 0.10 / 4,
+        quarterly_dividend=capital.cet1 * 0.012,
+        quarterly_buyback=capital.cet1 * 0.006,
+        rwa_growth_per_q=0.01,
+    )
+
+    # 18. Leverage deep-dive — exposure measure decomposition + G-SIB buffer.
+    leverage_deep = compute_leverage_deep(
+        tier1=capital.tier1,
+        on_balance=total_ead,
+        derivatives_replacement_cost=total_ead * 0.005,
+        derivatives_pfe_notional=total_ead * 0.02,
+        sft_gross=total_ead * 0.03,
+        sft_collateral_offset=total_ead * 0.02,
+        off_balance_notional=total_ead * 0.10,
+        off_balance_ccf=0.20,
+        gsib_bucket=None,   # KR domestic SIFI는 일반적으로 G-SIB 미해당
+    )
+
     return PipelineResult(
         portfolio_summary=summary,
         pd_metrics=pd_metrics,
@@ -566,6 +628,8 @@ def run_pipeline(
         calibration=calibration,
         grade_migration=grade_migration,
         rwa_deep=rwa_deep,
+        bis_deep=bis_deep,
+        leverage_deep=leverage_deep,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
               "asof": asof.isoformat(), "quarters": quarters},
     )

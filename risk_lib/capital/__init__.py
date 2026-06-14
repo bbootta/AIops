@@ -12,6 +12,21 @@ from risk_lib.capital.output_floor import apply_output_floor, FULLY_LOADED_FLOOR
 from risk_lib.capital.leverage import (
     compute_leverage_ratio, exposure_measure, MIN_LEVERAGE_RATIO,
 )
+from risk_lib.capital.bis_deep import (
+    CET1Components, AT1Components, Tier2Components,
+    BufferLayering, SREPResult, BISDeepResult,
+    cet1_threshold_test, at1_t2_recognition_limits,
+    compute_buffer_layering, country_ccyb_weighted, evaluate_srep,
+    dsib_buffer_for_bucket, mda_component_breakdown,
+    cet1_quarterly_path, compute_bis_deep,
+    synthesise_components_from_stack,
+    DSIB_BUCKETS, COUNTRY_CCYB_DEFAULT,
+)
+from risk_lib.capital.leverage_deep import (
+    LeverageExposureBreakdown, LeverageMDAResult, LeverageDeepResult,
+    decompose_exposure_measure, gsib_leverage_buffer, leverage_mda,
+    compute_leverage_deep, GSIB_RWB_BUCKETS,
+)
 
 __all__ = [
     "sa_risk_weight",
@@ -36,4 +51,32 @@ __all__ = [
     "compute_leverage_ratio",
     "exposure_measure",
     "MIN_LEVERAGE_RATIO",
+    # bis_deep
+    "CET1Components",
+    "AT1Components",
+    "Tier2Components",
+    "BufferLayering",
+    "SREPResult",
+    "BISDeepResult",
+    "cet1_threshold_test",
+    "at1_t2_recognition_limits",
+    "compute_buffer_layering",
+    "country_ccyb_weighted",
+    "evaluate_srep",
+    "dsib_buffer_for_bucket",
+    "mda_component_breakdown",
+    "cet1_quarterly_path",
+    "compute_bis_deep",
+    "synthesise_components_from_stack",
+    "DSIB_BUCKETS",
+    "COUNTRY_CCYB_DEFAULT",
+    # leverage_deep
+    "LeverageExposureBreakdown",
+    "LeverageMDAResult",
+    "LeverageDeepResult",
+    "decompose_exposure_measure",
+    "gsib_leverage_buffer",
+    "leverage_mda",
+    "compute_leverage_deep",
+    "GSIB_RWB_BUCKETS",
 ]

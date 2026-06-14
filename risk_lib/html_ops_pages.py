@@ -1214,3 +1214,359 @@ LDA는 손실 분포로부터 99.9% VaR로 산출. 두 수치의 격차는 ICAAP
 </div>
 """
     return _page("운영 D-D", body, "31_op_risk_deep.html")
+
+
+# ============================================================================
+# 32. 자본 스택 분해 — CRE40
+# ============================================================================
+
+
+def _fmt_signed_won(v: float) -> str:
+    if v >= 0:
+        return _won(v)
+    return f"({_won(-v)})"
+
+
+def page_capital_stack(r: PipelineResult) -> str:
+    """32. 자본 스택 항목별 분해 — CET1 / AT1 / Tier2 + recognition limits."""
+    deep = getattr(r, "bis_deep", None)
+    if deep is None:
+        return _placeholder_page(
+            "32. 자본 스택", "BIS deep 데이터가 없습니다.", "32_capital_stack.html")
+    cet1 = deep.cet1; at1 = deep.at1; t2 = deep.tier2
+
+    # CET1 waterfall: gross items plus deductions
+    cet1_df = deep.cet1_table
+    cet1_chart = viz.waterfall(
+        cet1_df["item"].tolist() + ["CET1 (차감 후)"],
+        cet1_df["amount"].tolist() + [cet1.net - cet1_df["amount"].sum() + cet1.net],
+        title="CET1 waterfall — 항목별 가감 (CRE40)",
+        value_fmt=_won,
+    )
+    cet1_rows = [[row["item"], _fmt_signed_won(row["amount"]),
+                  row["ref"]] for _, row in cet1_df.iterrows()]
+    cet1_rows.append(["<b>CET1 합계 (차감 후)</b>", f"<b>{_won(cet1.net)}</b>", ""])
+
+    at1_rows = [[row["item"], _fmt_signed_won(row["amount"]), row["ref"]]
+                for _, row in deep.at1_table.iterrows()]
+    at1_rows.append(["<b>AT1 합계</b>", f"<b>{_won(at1.net)}</b>", ""])
+
+    t2_rows = [[row["item"], _fmt_signed_won(row["amount"]), row["ref"]]
+               for _, row in deep.tier2_table.iterrows()]
+    t2_rows.append(["<b>Tier2 합계</b>", f"<b>{_won(t2.net)}</b>", ""])
+
+    # Stacked composition chart
+    stack_chart = viz.stacked_bar(
+        ["자본 구성"],
+        {"CET1": [cet1.net], "AT1": [at1.net], "Tier2": [t2.net]},
+        title="총자본 구성 (CET1 + AT1 + Tier2)",
+        value_fmt=_won,
+    )
+
+    # Threshold (15%) test
+    th = deep.threshold_test
+    th_rows = []
+    for item in th["individual"]:
+        th_rows.append([item.item, _won(item.amount), _won(item.threshold),
+                        _won(item.recognised), _won(item.deducted)])
+    th_msg = (
+        f"개별 한도 (CET1의 10%) = <b>{_won(th['individual_limit'])}</b>, "
+        f"3항목 합산 한도 (15%) = <b>{_won(th['combined_limit'])}</b>. "
+        f"합산 인정액 <b>{_won(th['recognised_aggregate'])}</b>, "
+        f"합산 초과 차감 <b>{_won(th['combined_excess_deducted'])}</b>, "
+        f"총 차감 <b>{_won(th['total_deducted'])}</b>."
+    )
+
+    # AT1 / T2 recognition limits
+    rec = deep.recognition
+    rec_rows = [
+        ["AT1", _won(at1.net), _won(rec["at1_cap"]),
+         _won(rec["at1_recognised"]), _won(rec["at1_excess"])],
+        ["Tier2", _won(t2.net), _won(rec["t2_cap"]),
+         _won(rec["t2_recognised"]), _won(rec["t2_excess"])],
+    ]
+
+    body = f"""
+<h1 class="title">32. 자본 스택 분해 — CRE40</h1>
+<p class="section-lead">감독목적 자본 (CET1 / AT1 / Tier2) 항목별 분해와 인정 한도 점검.
+Basel III CRE40 / 금감원 감독세칙 §2-1 자본의 정의.</p>
+
+<div class="kpi-grid">
+{_kpi("CET1 (차감 후)", _won(cet1.net),
+       sub=f"gross {_won(cet1.gross)} − 차감 {_won(cet1.total_deductions)}")}
+{_kpi("AT1", _won(at1.net))}
+{_kpi("Tier2", _won(t2.net))}
+{_kpi("Total Capital", _won(cet1.net + at1.net + t2.net))}
+</div>
+
+<div class="card"><h2>32-1. 총자본 구성</h2>
+<div class="chart">{stack_chart}</div>
+</div>
+
+<div class="card"><h2>32-2. CET1 waterfall — 항목별 가감</h2>
+<div class="chart">{cet1_chart}</div>
+{_table(["항목","금액","규정 출처"], cet1_rows, right_cols=[1])}
+<p style="font-size:12px;color:#6b7280">차감 항목은 괄호 표기.
+영업권/무형자산/DTA 한도초과 등은 CET1에서 직접 차감 (CRE40.5~CRE40.11).</p>
+</div>
+
+<div class="card"><h2>32-3. AT1 — 기타기본자본 (CRE40.27)</h2>
+{_table(["항목","금액","규정 출처"], at1_rows, right_cols=[1])}
+</div>
+
+<div class="card"><h2>32-4. Tier2 — 보완자본 (CRE40.42)</h2>
+{_table(["항목","금액","규정 출처"], t2_rows, right_cols=[1])}
+<p style="font-size:12px;color:#6b7280">후순위채 잔존만기 < 5y 부분은 매년 20%씩 인정금액 차감.
+일반대손충당금은 IRB RWA의 1.25% 한도 내에서만 인정 (CRE40.45).</p>
+</div>
+
+<div class="card"><h2>32-5. 15% Threshold Test — DTA / MSR / 중요투자 (CRE40.10)</h2>
+{_table(["항목","총 잔액","개별 한도","인정","차감"], th_rows, right_cols=[1,2,3,4])}
+<div class="callout">{th_msg}</div>
+</div>
+
+<div class="card"><h2>32-6. AT1 · Tier2 인정 한도 (감독세칙 §2-1-2/3)</h2>
+{_table(["계층","순 보유","인정 한도","인정","초과(미인정)"], rec_rows, right_cols=[1,2,3,4])}
+<p style="font-size:12px;color:#6b7280">
+AT1 인정 한도 = CET1 × 1.5/4.5 (Tier1 6% 도달 시점).
+Tier2 인정 한도 = (CET1 + 인정 AT1) × 2/6 (Total 8% 도달 시점).</p>
+</div>
+"""
+    return _page("자본 스택", body, "32_capital_stack.html")
+
+
+# ============================================================================
+# 33. Buffer layering — P1 → CBR → P2R → P2G → OCR
+# ============================================================================
+
+
+def page_buffer_layering(r: PipelineResult) -> str:
+    """33. Buffer layering — 자본 요구의 layer + 국가 CCyB + DSIB 등급."""
+    deep = getattr(r, "bis_deep", None)
+    if deep is None:
+        return _placeholder_page(
+            "33. 버퍼 layering", "BIS deep 데이터가 없습니다.",
+            "33_buffer_layering.html")
+
+    layer = deep.layering
+    layer_df = deep.layering_table
+    srep = deep.srep
+
+    # Waterfall — cumulative layer build-up
+    layer_chart = viz.waterfall(
+        ["기준 0%"] + layer_df["layer"].tolist() + ["OCR 합계"],
+        [0.0] + layer_df["increment"].tolist() + [layer.ocr_cet1],
+        title="CET1 요구 layering — Pillar 1 → CBR → P2R → P2G → OCR",
+        value_fmt=_pct,
+    )
+
+    # Comparison vs. actual CET1
+    cmp_chart = viz.bar_chart(
+        ["P1", "P1+CBR (MDA)", "+P2R (SREP)", "+P2G (OCR)", "실측 CET1"],
+        [layer.p1_cet1, layer.mda_threshold_cet1,
+         layer.srep_cet1, layer.ocr_cet1, srep.cet1_ratio],
+        value_fmt=_pct,
+        title="요구 layer 별 vs 실측 CET1",
+        colors=[viz.PALETTE[0], viz.PALETTE[1], viz.AMBER,
+                viz.RED, viz.GREEN if srep.ocr_pass else viz.RED],
+        reference_value=srep.cet1_ratio,
+        reference_label=f"실측 {_pct(srep.cet1_ratio)}",
+    )
+
+    layer_rows = []
+    cum = 0.0
+    for _, row in layer_df.iterrows():
+        cum = row["cumulative"]
+        layer_rows.append([row["layer"], _pct(row["increment"]),
+                           _pct(cum), row["ref"]])
+
+    # Country CCyB
+    cc = deep.country_ccyb
+    cc_df = cc["by_country"]
+    cc_rows = [[row["country"], _won(row["exposure"]),
+                f"{row['share']*100:.1f}%",
+                _pct(row["ccyb"]),
+                f"{row['weighted']*100:.3f}%p"]
+               for _, row in cc_df.iterrows()]
+    cc_msg = (f"가중평균 CCyB = <b>{_pct(cc['weighted_ccyb'])}</b> "
+              f"(국가별 CCyB율 × 익스포저 가중치).")
+
+    # DSIB buckets table — show all 5
+    from risk_lib.capital.bis_deep import DSIB_BUCKETS
+    dsib_rows = [[str(b), _pct(rate),
+                  ("<b>현재 적용</b>" if abs(rate - layer.dsib) < 1e-9 else "")]
+                 for b, rate in DSIB_BUCKETS.items()]
+
+    # SREP status badges
+    status_tone = "good" if srep.ocr_pass else ("warn" if srep.srep_pass else "bad")
+    status_text = srep.overall_status()
+
+    # Surplus vs SREP / OCR
+    surplus_chart = viz.bar_chart(
+        ["P1 잉여", "MDA 잉여", "SREP 잉여", "OCR 잉여"],
+        [srep.cet1_ratio - layer.p1_cet1,
+         srep.cet1_ratio - layer.mda_threshold_cet1,
+         srep.surplus_to_srep, srep.surplus_to_ocr],
+        value_fmt=lambda v: f"{v*100:+.2f}%p",
+        title="요구 layer 대비 CET1 잉여 / 부족",
+        colors=[viz.GREEN if v >= 0 else viz.RED
+                for v in [srep.cet1_ratio - layer.p1_cet1,
+                          srep.cet1_ratio - layer.mda_threshold_cet1,
+                          srep.surplus_to_srep, srep.surplus_to_ocr]],
+    )
+
+    body = f"""
+<h1 class="title">33. Buffer Layering — RBC20 / RBC40 / SRP20</h1>
+<p class="section-lead">자본 요구의 5단 layering — Pillar 1 (4.5%) → CBR (CCB + CCyB + DSIB)
+→ P2R (감독요구) → P2G (감독가이드). SREP 미달은 결재 불가 / P2G 미달은 supervisory dialog.</p>
+
+<div class="kpi-grid">
+{_kpi("종합 판정", status_text, tone=status_tone)}
+{_kpi("실측 CET1", _pct(srep.cet1_ratio))}
+{_kpi("MDA 임계 (P1+CBR)", _pct(layer.mda_threshold_cet1))}
+{_kpi("SREP 요구 (P1+CBR+P2R)", _pct(layer.srep_cet1),
+       tone="good" if srep.srep_pass else "bad")}
+{_kpi("OCR 요구 (P1+CBR+P2R+P2G)", _pct(layer.ocr_cet1),
+       tone="good" if srep.ocr_pass else "warn")}
+</div>
+
+<div class="card"><h2>33-1. Layer waterfall — 요구 자본의 layer</h2>
+<div class="chart">{layer_chart}</div>
+{_table(["Layer","증분","누적 요구","규정 출처"], layer_rows, right_cols=[1,2])}
+</div>
+
+<div class="card"><h2>33-2. Layer별 요구 vs 실측 CET1</h2>
+<div class="chart">{cmp_chart}</div>
+<div class="chart">{surplus_chart}</div>
+</div>
+
+<div class="card"><h2>33-3. 국가별 CCyB 가중평균 (RBC20 jurisdictional reciprocity)</h2>
+{_table(["국가","익스포저","비중","국가 CCyB율","가중기여"],
+        cc_rows, right_cols=[1,2,3,4])}
+<div class="callout">{cc_msg}</div>
+</div>
+
+<div class="card"><h2>33-4. D-SIB 등급별 가산자본률 (RBC40 / 감독세칙)</h2>
+{_table(["등급","가산률","비고"], dsib_rows, right_cols=[1])}
+<p style="font-size:12px;color:#6b7280">
+D-SIB 등급은 금감원 시스템적 중요성 평가(규모/상호연계성/대체가능성/복잡성) 결과에 따라 결정됨.
+현 산출은 2등급 가정 (1.5% 가산).</p>
+</div>
+"""
+    return _page("버퍼 layering", body, "33_buffer_layering.html")
+
+
+# ============================================================================
+# 34. Leverage deep — exposure decomposition + G-SIB buffer + AT1 lock
+# ============================================================================
+
+
+def page_leverage_deep(r: PipelineResult) -> str:
+    """34. 레버리지 비율 Deep-Dive — 익스포저 측정치 분해 + G-SIB buffer."""
+    deep = getattr(r, "leverage_deep", None)
+    if deep is None:
+        return _placeholder_page(
+            "34. 레버리지 Deep-Dive", "leverage deep 데이터가 없습니다.",
+            "34_leverage_deep.html")
+
+    br = deep.breakdown
+    df = br.to_frame()
+
+    # Horizontal bar chart of exposure components
+    comp_chart = viz.horizontal_bar(
+        df["component"].tolist(),
+        df["exposure"].tolist(),
+        title=f"익스포저 측정치 분해 (총 {_won(br.total_exposure)})",
+        value_fmt=_won,
+    )
+    comp_rows = [[row["component"], _won(row["notional"]),
+                  f"{row['factor']:.2f}",
+                  _won(row["exposure"]),
+                  f"{row['share']*100:.1f}%"]
+                 for _, row in df.iterrows()]
+    comp_rows.append(["<b>합계</b>", "—", "—",
+                      f"<b>{_won(br.total_exposure)}</b>", "100.0%"])
+
+    # Donut composition
+    donut = viz.donut_chart(
+        df["component"].tolist(),
+        df["exposure"].tolist(),
+        title="익스포저 구성",
+        center_label=f"{br.total_exposure/1e12:.1f}\n조원",
+    )
+
+    # Leverage ratio vs requirements bar
+    lr_chart = viz.bar_chart(
+        ["최저 3%", "+G-SIB buffer", "실측 LR"],
+        [deep.minimum, deep.requirement_total, deep.leverage_ratio],
+        value_fmt=_pct,
+        title="레버리지 비율 — 최저 + G-SIB buffer",
+        colors=[viz.PALETTE[0], viz.AMBER,
+                viz.GREEN if deep.passes_with_buffer else viz.RED],
+        reference_value=deep.requirement_total,
+        reference_label=f"요구 {_pct(deep.requirement_total)}",
+    )
+
+    # MDA-equivalent gauge
+    m = deep.mda
+    mda_text = ("정상 — 분배 제한 없음" if not m.in_breach
+                else f"buffer 침범 {m.buffer_quartile}분위 — 분배 {m.distributable_pct*100:.0f}% 허용")
+    mda_tone = "good" if not m.in_breach else "bad"
+
+    surplus_pp = deep.surplus_shortfall * 100
+    surplus_text = f"{surplus_pp:+.2f}%p vs 요구 {_pct(deep.requirement_total)}"
+    surplus_tone = "good" if surplus_pp >= 0 else "bad"
+
+    body = f"""
+<h1 class="title">34. 레버리지 비율 Deep-Dive — LEV10 / LEV30 / LEV40</h1>
+<p class="section-lead">위험기반 비율의 backstop. 익스포저 측정치(EM) = 대차대조표 + 파생(SA-CCR) + SFT
++ 부외(CCF). 최저 3% + G-SIB leverage buffer (LEV40, 위험기반 G-SIB 버퍼의 50%).</p>
+
+<div class="kpi-grid">
+{_kpi("레버리지 비율", _pct(deep.leverage_ratio),
+       sub=surplus_text, tone=surplus_tone)}
+{_kpi("Tier1 자본", _won(deep.tier1))}
+{_kpi("익스포저 측정치", _won(deep.breakdown.total_exposure))}
+{_kpi("G-SIB leverage buffer", _pct(deep.gsib_buffer),
+       sub="= 위험기반 G-SIB buffer의 50%")}
+{_kpi("MDA 상태", mda_text, tone=mda_tone)}
+</div>
+
+<div class="row2">
+<div class="card"><h2>34-1. 익스포저 측정치 구성</h2>
+<div class="chart">{donut}</div>
+</div>
+<div class="card"><h2>34-2. 익스포저 구성 항목 (LEV30)</h2>
+<div class="chart">{comp_chart}</div>
+</div>
+</div>
+
+<div class="card"><h2>34-3. 익스포저 분해 표</h2>
+{_table(["구성","notional","factor","익스포저","비중"],
+        comp_rows, right_cols=[1,2,3,4])}
+<p style="font-size:12px;color:#6b7280">
+파생: RC + α·PFE (α=1.4, SA-CCR LEV30.20).
+SFT: gross − 담보offset (단순화).
+부외: notional × CCF, 최저 10% (LEV30.11).</p>
+</div>
+
+<div class="card"><h2>34-4. 레버리지 비율 vs 요구</h2>
+<div class="chart">{lr_chart}</div>
+<p>최저 3% (LEV10.6) + G-SIB leverage buffer (LEV40.5).
+KR 국내 시중은행은 통상 G-SIB 미지정이므로 가산 0% 적용.</p>
+</div>
+
+<div class="card"><h2>34-5. AT1 쿠폰 분배제한 (LEV40 analogue)</h2>
+{_table(["항목","값"],
+        [["요구 합계 (최저 + G-SIB buffer)", _pct(deep.requirement_total)],
+         ["실측 LR", _pct(deep.leverage_ratio)],
+         ["buffer 부족", _pct(m.buffer_shortfall) if m.in_breach else "—"],
+         ["buffer 분위", str(m.buffer_quartile) if m.in_breach else "—"],
+         ["요구 보유율", _pct(m.retention_ratio)],
+         ["분배가능 비율", _pct(m.distributable_pct)]],
+        right_cols=[1])}
+<p style="font-size:12px;color:#6b7280">
+레버리지 buffer 침범 시 risk-based MDA와 동일한 4분위 분배제한 적용.</p>
+</div>
+"""
+    return _page("레버리지 D-D", body, "34_leverage_deep.html")

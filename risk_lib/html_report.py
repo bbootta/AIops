@@ -97,6 +97,9 @@ NAV = [
     ("29_irb_deep.html",   "29. IRB D-D"),
     ("30_market_risk_deep.html", "30. 시장 D-D"),
     ("31_op_risk_deep.html", "31. 운영 D-D"),
+    ("32_capital_stack.html", "32. 자본 스택"),
+    ("33_buffer_layering.html", "33. 버퍼 layer"),
+    ("34_leverage_deep.html", "34. 레버리지 D-D"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -987,17 +990,126 @@ def _page_capital(r: PipelineResult) -> str:
         reference_label=f"최저 {_pct(LEVERAGE_MIN_RATIO)}",
         colors=[viz.GREEN if lev.passes() else viz.RED],
     )
+
+    # Deep-dive sections (v0.8.0) — only if bis_deep is populated.
+    deep = getattr(r, "bis_deep", None)
+    lev_deep = getattr(r, "leverage_deep", None)
+    deep_section = ""
+    if deep is not None:
+        layer = deep.layering; srep = deep.srep
+        cet1_stack_chart = viz.stacked_bar(
+            ["자본 구성"],
+            {"CET1": [deep.cet1.net],
+             "AT1":  [deep.at1.net],
+             "Tier2":[deep.tier2.net]},
+            title="총자본 구성 (CET1 + AT1 + Tier2)", value_fmt=_won,
+        )
+        layer_chart = viz.bar_chart(
+            ["P1 (4.5%)","P1+CBR (MDA)","P1+CBR+P2R (SREP)","OCR (+P2G)","실측 CET1"],
+            [layer.p1_cet1, layer.mda_threshold_cet1,
+             layer.srep_cet1, layer.ocr_cet1, srep.cet1_ratio],
+            value_fmt=_pct, title="요구 layer 별 vs 실측 CET1",
+            colors=[viz.PALETTE[0], viz.PALETTE[1], viz.AMBER,
+                    viz.RED, viz.GREEN if srep.ocr_pass else viz.RED],
+            reference_value=srep.cet1_ratio,
+            reference_label=f"실측 {_pct(srep.cet1_ratio)}",
+        )
+        srep_tone = ("good" if srep.ocr_pass
+                     else ("warn" if srep.srep_pass else "bad"))
+        cc_msg = (f"국가 가중 CCyB = {_pct(deep.country_ccyb['weighted_ccyb'])}"
+                  if not deep.country_ccyb["by_country"].empty else "—")
+        layer_rows = [
+            ["Pillar 1 최저",       _pct(layer.p1_cet1),        "CRE10.4"],
+            ["+ 자본보전버퍼 (CCB)", _pct(layer.capital_conservation), "RBC20.1"],
+            ["+ 경기대응버퍼 (CCyB)", _pct(layer.countercyclical), "RBC20"],
+            ["+ D-SIB 가산",        _pct(layer.dsib),           "RBC40"],
+            ["+ P2R (감독요구)",    _pct(layer.p2r),            "SRP20"],
+            ["+ P2G (감독가이드)",  _pct(layer.p2g),            "SRP20"],
+            ["<b>OCR (Overall Capital Requirement)</b>",
+             f"<b>{_pct(layer.ocr_cet1)}</b>", "RBC20+SRP20"],
+        ]
+        # Quarterly path table (5 rows: q=0..4)
+        qp = deep.quarterly_path
+        qp_rows = [[f"Q+{int(row['quarter'])}", _pct(row["cet1_ratio"]),
+                    _pct(row["srep_threshold"]) if row["srep_threshold"] is not None else "—",
+                    "<b>침범</b>" if row["breach"] else "정상",
+                    row["supervisory_action"]]
+                   for _, row in qp.iterrows()]
+
+        deep_section = f"""
+<div class="card"><h2>4-4. 자본 스택 구성 (CRE40) — 자세히는 § 32</h2>
+<div class="chart">{cet1_stack_chart}</div>
+<div class="kpi-grid">
+{_kpi("CET1 (차감 후)", _won(deep.cet1.net),
+       sub=f"gross {_won(deep.cet1.gross)} − 차감 {_won(deep.cet1.total_deductions)}")}
+{_kpi("AT1", _won(deep.at1.net))}
+{_kpi("Tier2", _won(deep.tier2.net))}
+</div>
+<p><a href="32_capital_stack.html">자본 스택 분해 페이지 →</a></p>
+</div>
+
+<div class="card"><h2>4-5. 자본 요구 Layering — Pillar 1 → CBR → P2R → P2G (SRP20)</h2>
+<div class="chart">{layer_chart}</div>
+{_table(["Layer","요구치","출처"], layer_rows, right_cols=[1])}
+<div class="kpi-grid">
+{_kpi("판정", srep.overall_status(), tone=srep_tone)}
+{_kpi("SREP 잉여 (vs P1+CBR+P2R)",
+       f"{srep.surplus_to_srep*100:+.2f}%p",
+       tone="good" if srep.srep_pass else "bad")}
+{_kpi("OCR 잉여 (vs OCR)",
+       f"{srep.surplus_to_ocr*100:+.2f}%p",
+       tone="good" if srep.ocr_pass else "warn")}
+{_kpi("D-SIB 가산", _pct(layer.dsib), sub="등급 2 가정 (1.5%)")}
+{_kpi("경기대응버퍼", _pct(layer.countercyclical), sub=cc_msg)}
+</div>
+<p><a href="33_buffer_layering.html">버퍼 layering 페이지 →</a></p>
+</div>
+
+<div class="card"><h2>4-6. CET1 분기별 시뮬레이션 (4Q forward)</h2>
+{_table(["분기","CET1 비율","SREP 임계","상태","supervisory action"],
+        qp_rows, right_cols=[1,2])}
+<p style="font-size:12px;color:#6b7280">
+이익 누적 + 배당 + 자사주 + RWA 성장 가정 하에 분기별 CET1 경로.
+SREP 임계 연속 침범 시 단계별 supervisory action 표시.</p>
+</div>
+"""
+    lev_deep_section = ""
+    if lev_deep is not None:
+        br = lev_deep.breakdown
+        lev_comp_chart = viz.donut_chart(
+            [c.name for c in br.components],
+            [c.exposure for c in br.components],
+            title="익스포저 측정치 분해 (LEV30)",
+            center_label=f"{br.total_exposure/1e12:.1f}\n조원",
+        )
+        lev_deep_section = f"""
+<div class="card"><h2>4-7. 익스포저 측정치 분해 + G-SIB buffer</h2>
+<div class="chart">{lev_comp_chart}</div>
+<div class="kpi-grid">
+{_kpi("G-SIB leverage buffer", _pct(lev_deep.gsib_buffer),
+       sub="= 위험기반 G-SIB buffer의 50%")}
+{_kpi("최저 + G-SIB", _pct(lev_deep.requirement_total),
+       tone="good" if lev_deep.passes_with_buffer else "bad")}
+{_kpi("MDA 상태",
+       "정상" if not lev_deep.mda.in_breach else f"{lev_deep.mda.buffer_quartile}분위 침범",
+       tone="good" if not lev_deep.mda.in_breach else "bad")}
+</div>
+<p><a href="34_leverage_deep.html">레버리지 deep-dive 페이지 →</a></p>
+</div>
+"""
+
     body = f"""
 <h1 class="title">4. BIS 자본적정성 & 레버리지</h1>
-<p class="section-lead">Basel III CRE10.4 + RBC20.1 (자본보전버퍼 2.5%) 기준 비교.</p>
+<p class="section-lead">Basel III CRE10.4 + RBC20.1 (자본보전버퍼 2.5%) 기준 비교.
+v0.8.0: 자본 스택 분해 (CRE40) + buffer layering (RBC20/RBC40) + SREP/Pillar 2 + 레버리지 분해 (LEV30).</p>
 <div class="row2">
-<div class="card"><h2>BIS 비율</h2><div class="chart">{cet1_chart}</div>
+<div class="card"><h2>4-1. BIS 비율</h2><div class="chart">{cet1_chart}</div>
 {_table(["비율","실측","요구","잉여/부족"], rows, right_cols=[1,2,3])}
 판정: {_badge("PASS" if bis.passes() else "FAIL", "PASS" if bis.passes() else "FAIL")}
 </div>
-<div class="card"><h2>잉여 자본</h2><div class="chart">{surplus_chart}</div></div>
+<div class="card"><h2>4-2. 잉여 자본</h2><div class="chart">{surplus_chart}</div></div>
 </div>
-<div class="card"><h2>레버리지 비율 (LEV10.6)</h2>
+<div class="card"><h2>4-3. 레버리지 비율 (LEV10.6)</h2>
 <div class="chart">{lev_chart}</div>
 <div class="kpi-grid">
 {_kpi("레버리지 비율", _pct(lev.leverage_ratio),
@@ -1007,6 +1119,8 @@ def _page_capital(r: PipelineResult) -> str:
 {_kpi("Tier1", _won(r.meta['capital'].tier1))}
 </div>
 </div>
+{deep_section}
+{lev_deep_section}
 """
     return _page("BIS·레버리지", body, "04_capital.html")
 
@@ -1609,6 +1723,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         page_mda, page_kri_trends, page_attribution, page_vintage,
         page_data_quality, page_comparison,
         page_irb_deep, page_market_risk_deep, page_op_risk_deep,
+        page_capital_stack, page_buffer_layering, page_leverage_deep,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -1645,6 +1760,9 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "29_irb_deep.html":   page_irb_deep(result),
         "30_market_risk_deep.html": page_market_risk_deep(result),
         "31_op_risk_deep.html": page_op_risk_deep(result),
+        "32_capital_stack.html": page_capital_stack(result),
+        "33_buffer_layering.html": page_buffer_layering(result),
+        "34_leverage_deep.html": page_leverage_deep(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)
