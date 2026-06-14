@@ -113,6 +113,10 @@ NAV = [
     ("45_eva_sva.html",    "45. EVA/SVA"),
     ("46_pricing_breakeven.html", "46. Pricing"),
     ("47_rapm_scenario.html", "47. RAPM 시나리오"),
+    ("48_reverse_stress_multi.html", "48. Multi-역스트레스"),
+    ("49_ccar_path.html",    "49. CCAR 경로"),
+    ("50_climate_capital.html", "50. 기후 자본"),
+    ("51_liquidity_stress.html", "51. 유동성 stress"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -1566,6 +1570,7 @@ def _page_stress(r: PipelineResult) -> str:
     s = r.stress.copy(); rev = r.reverse_stress
     sp = r.stress_path; troughs = r.stress_path_trough
     qs = r.meta["quarters"]
+    deep = getattr(r, "stress_deep", {}) or {}
 
     cet1_chart = viz.bar_chart(
         s["scenario"].tolist(), s["cet1_ratio"].tolist(),
@@ -1612,24 +1617,171 @@ def _page_stress(r: PipelineResult) -> str:
                      f'임계점: RWA {_won(rev.rwa_total_at_break)}, '
                      f'ECL {_won(rev.ecl_at_break)}, CET1 {_pct(rev.ratio_at_break)}</div>')
 
-    body = f"""
-<h1 class="title">9. 스트레스테스트</h1>
-<p class="section-lead">단년 시나리오(정방향) · 역스트레스(임계 심도) · 분기별 자본 경로.</p>
+    # ---- v0.13.0: macro narrative table (3 시나리오 × 7 지표 × 3 horizon)
+    narrative_block = ""
+    if "narrative_table" in deep:
+        nt = deep["narrative_table"]
+        nsum = deep["narrative_summary"]
+        # 시나리오별 narrative carrousel
+        story_rows = "".join(
+            f'<div class="callout"><b>{_esc(row["scenario"])}</b> · '
+            f'peak {row["peak_year"]}Y: GDP {row["peak_gdp"]:+.1f}%, '
+            f'실업률 {row["peak_unemployment"]:.1f}%, '
+            f'HPI {row["peak_hpi"]:+.1f}%, BBB spread {int(row["peak_bbb_spread"])}bp'
+            f'<br><span style="color:var(--muted)">{_esc(row["narrative"])}</span>'
+            f'</div>'
+            for _, row in nsum.iterrows()
+        )
+        # 시나리오별 macro 표
+        macro_headers = ["시나리오", "연도", "GDP(%)", "실업률(%)", "HPI YoY(%)",
+                          "정책금리(%)", "BBB(bp)", "KOSPI(%)", "USD/KRW(%)"]
+        macro_rows = [[row["scenario"], row["year"],
+                       f"{row['gdp_growth']:+.1f}",
+                       f"{row['unemployment']:.1f}",
+                       f"{row['hpi_change']:+.1f}",
+                       f"{row['policy_rate']:.2f}",
+                       f"{int(row['bbb_spread'])}",
+                       f"{row['kospi_change']:+.1f}",
+                       f"{row['fx_krw_usd']:+.1f}"]
+                      for _, row in nt.iterrows()]
+        narrative_block = f"""
+<div class="card"><h2>9-1. 시나리오 narrative + 거시변수 path</h2>
+<p class="section-lead">CCAR/DFAST 스타일 시나리오 설계서 — narrative storytelling +
+1Y/2Y/3Y 거시변수 가정 (BCBS Stress testing principles §5).</p>
+{story_rows}
+{_table(macro_headers, macro_rows, right_cols=list(range(2,9)))}
+</div>
+"""
+
+    # ---- factor decomposition (adverse + severe)
+    factor_block = ""
+    if "factor_decomp_adverse" in deep:
+        fa = deep["factor_decomp_adverse"]
+        fs = deep["factor_decomp_severe"]
+        # waterfall: base → +pd → +lgd → +gdp → interaction → combined
+        # For each scenario create a waterfall of CET1 deltas
+        def _waterfall_rows(df):
+            base_r = float(df[df["factor"]=="base"]["cet1_ratio"].iloc[0])
+            comb_r = float(df[df["factor"]=="combined"]["cet1_ratio"].iloc[0])
+            labels = ["base"]
+            values = [base_r * 100]
+            for f in ["pd", "lgd", "gdp"]:
+                d = float(df[df["factor"]==f]["delta_cet1_pp"].iloc[0])
+                labels.append(f"+{f.upper()}")
+                values.append(d)
+            inter = float(df[df["factor"]=="interaction"]["delta_cet1_pp"].iloc[0])
+            labels.append("interaction")
+            values.append(inter)
+            labels.append("combined")
+            values.append(comb_r * 100)
+            return labels, values
+        la_a, va_a = _waterfall_rows(fa)
+        la_s, vs_s = _waterfall_rows(fs)
+        # use bar_chart since waterfall has specific semantics
+        chart_a = viz.bar_chart(
+            la_a, va_a,
+            title="adverse: factor별 CET1(%) 기여",
+            value_fmt=lambda v: f"{v:+.2f}%",
+            colors=[viz.PALETTE[i % len(viz.PALETTE)] for i in range(len(la_a))],
+        )
+        chart_s = viz.bar_chart(
+            la_s, vs_s,
+            title="severely_adverse: factor별 CET1(%) 기여",
+            value_fmt=lambda v: f"{v:+.2f}%",
+            colors=[viz.RED if "combined" in x or "interaction" in x else viz.AMBER
+                    for x in la_s],
+        )
+        # tables
+        def _fac_rows(df):
+            return [[row["factor"],
+                     "—" if pd.isna(row["cet1_ratio"]) else _pct(row["cet1_ratio"]),
+                     f"{row['delta_cet1_pp']:+.2f}%p",
+                     _won(row["ecl_uplift"])]
+                    for _, row in df.iterrows()]
+        factor_block = f"""
+<div class="card"><h2>9-2. Factor-by-factor 분해 (PD / LGD / GDP 단독 기여)</h2>
+<p class="section-lead">결합 시나리오 = PD 단독 + LGD 단독 + GDP 단독 + interaction.
+어떤 factor가 자본 잠식의 marginal contribution을 주도하는지 식별.</p>
 <div class="row2">
-<div class="card"><h2>시나리오별 CET1</h2><div class="chart">{cet1_chart}</div>
+<div class="card"><h3>adverse</h3>
+<div class="chart">{chart_a}</div>
+{_table(["factor","CET1","Δ CET1(%p)","ECL uplift"], _fac_rows(fa), right_cols=[1,2,3])}
+</div>
+<div class="card"><h3>severely_adverse</h3>
+<div class="chart">{chart_s}</div>
+{_table(["factor","CET1","Δ CET1(%p)","ECL uplift"], _fac_rows(fs), right_cols=[1,2,3])}
+</div>
+</div>
+</div>
+"""
+
+    # ---- asset-class sensitivity (severe)
+    ac_block = ""
+    if "asset_class_sens_severe" in deep:
+        acs = deep["asset_class_sens_severe"]
+        aca = deep["asset_class_sens_adverse"]
+        chart_acs = viz.horizontal_bar(
+            acs["asset_class"].tolist(),
+            (acs["delta_cet1_pp"].abs() * 100).tolist(),  # bp scale
+            title="severely_adverse — 자산군별 CET1 잠식 (bp)",
+            value_fmt=lambda v: f"{v:.0f}bp",
+            color=viz.RED,
+        )
+        ac_rows = [[row["asset_class"], _won(row["ead"]),
+                     _pct(row["cet1_ratio"]),
+                     f"{row['delta_cet1_pp']:+.2f}%p",
+                     _won(row["ecl_uplift"]),
+                     f"{row['share_of_total_drop_pp']*100:.1f}%"]
+                    for _, row in acs.iterrows()]
+        aca_rows = [[row["asset_class"], f"{row['delta_cet1_pp']:+.2f}%p",
+                      f"{row['share_of_total_drop_pp']*100:.1f}%"]
+                     for _, row in aca.iterrows()]
+        ac_block = f"""
+<div class="card"><h2>9-3. 자산군별 시나리오 sensitivity</h2>
+<p class="section-lead">각 자산군 단독 충격 시 portfolio 전체 CET1 영향 — 어느 자산군이
+스트레스에 가장 취약한지 식별.</p>
+<div class="row2">
+<div class="card"><h3>severely_adverse (자산군 단독 적용)</h3>
+<div class="chart">{chart_acs}</div>
+{_table(["자산군","EAD","CET1","ΔCET1","ECL uplift","총하락 기여"],
+        ac_rows, right_cols=[1,2,3,4,5])}
+</div>
+<div class="card"><h3>adverse (자산군 단독 적용)</h3>
+{_table(["자산군","ΔCET1","총하락 기여"], aca_rows, right_cols=[1,2])}
+</div>
+</div>
+</div>
+"""
+
+    body = f"""
+<h1 class="title">9. 스트레스테스트 — CRO 종합</h1>
+<p class="section-lead">시나리오 narrative + factor 분해 + 자산군 sensitivity +
+역스트레스 + 3년 분기 경로. 상세 multi-target 역스트레스/CCAR/기후/유동성은
+<a href="48_reverse_stress_multi.html">48</a>·<a href="49_ccar_path.html">49</a>·<a href="50_climate_capital.html">50</a>·<a href="51_liquidity_stress.html">51</a>.</p>
+
+{narrative_block}
+
+<div class="row2">
+<div class="card"><h2>9-4. 시나리오별 CET1 (단년)</h2><div class="chart">{cet1_chart}</div>
 {_table(["시나리오","RWA","ECL","CET1","잉여","판정"], s_rows, right_cols=[1,2,3,4])}
 </div>
-<div class="card"><h2>분기별 CET1 경로</h2><div class="chart">{path_chart}</div>
+<div class="card"><h2>9-5. 분기별 CET1 경로 (2Y)</h2><div class="chart">{path_chart}</div>
 {_table(["시나리오","최저 CET1","최저 시점","기말 CET1","최초 위반","전구간"], t_rows, right_cols=[1,3])}
 </div>
 </div>
-<div class="card"><h2>역스트레스테스트 (CET1 임계 시나리오)</h2>
+
+{factor_block}
+{ac_block}
+
+<div class="card"><h2>9-6. 역스트레스테스트 (CET1 임계 시나리오)</h2>
 <div class="kpi-grid">
 {_kpi("기준 CET1", _pct(rev.base_ratio))}
 {_kpi("임계(버퍼포함 요구)", _pct(rev.target_ratio))}
 {_kpi("임계 심도 s", f"{rev.critical_severity:.2f}")}
 </div>
 {rev_block}
+<p class="section-lead">multi-target (CET1/Tier1/LCR/NSFR) 역스트레스는
+<a href="48_reverse_stress_multi.html">48번 페이지</a> 참조.</p>
 </div>
 """
     return _page("스트레스", body, "09_stress.html")
@@ -2002,6 +2154,8 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         page_dpd_roll, page_recovery_lgd, page_cure_analysis,
         page_limit_dashboard, page_large_exposure, page_concentration_stress,
         page_eva_sva, page_pricing_breakeven, page_rapm_scenario,
+        page_reverse_stress_multi, page_ccar_path,
+        page_climate_capital, page_liquidity_stress,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -2054,6 +2208,10 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "45_eva_sva.html":             page_eva_sva(result),
         "46_pricing_breakeven.html":   page_pricing_breakeven(result),
         "47_rapm_scenario.html":       page_rapm_scenario(result),
+        "48_reverse_stress_multi.html": page_reverse_stress_multi(result),
+        "49_ccar_path.html":            page_ccar_path(result),
+        "50_climate_capital.html":      page_climate_capital(result),
+        "51_liquidity_stress.html":     page_liquidity_stress(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)

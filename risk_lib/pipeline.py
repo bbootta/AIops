@@ -53,12 +53,28 @@ from risk_lib.limits.limits_deep import compute_limits_deep, LimitsDeepResult
 from risk_lib.performance.rapm import rapm_report
 from risk_lib.performance.rapm_deep import compute_rapm_deep, RapmDeepResult
 from risk_lib.stress.scenario import (
-    run_stress, StressAxis, BASELINE, ADVERSE, SEVERELY_ADVERSE,
+    run_stress, StressAxis, Scenario, BASELINE, ADVERSE, SEVERELY_ADVERSE,
 )
 from risk_lib.stress.reverse import reverse_stress
 from risk_lib.stress.path import (
     run_stress_path, path_trough_summary, forecast_quarter_labels,
 )
+from risk_lib.stress.narrative import (
+    DEFAULT_PATHS as MACRO_NARRATIVE_PATHS, macro_table, narrative_summary,
+)
+from risk_lib.stress.decomposition import (
+    factor_decomposition, asset_class_sensitivity,
+)
+from risk_lib.stress.multi_reverse import run_multi_reverse
+from risk_lib.stress.ccar import run_ccar
+from risk_lib.stress.climate_capital import run_climate_capital
+from risk_lib.stress.liquidity import (
+    run_liquidity_stress, recovery_priority_ladder,
+)
+from risk_lib.stress.recovery import (
+    build_recovery_plan, scenario_recovery_table,
+)
+from risk_lib.stress.comparison import compare_scenarios
 from risk_lib.validation.consistency import run_consistency_checks
 from risk_lib.validation.backtest import pd_backtest_report
 from risk_lib.alm.balance_sheet import generate_balance_sheet
@@ -149,6 +165,7 @@ class PipelineResult:
     limits_deep: Any = None    # v0.11.0 CRO-grade limit dashboard / LEX / stress
     concentration_hier: dict[str, Any] = field(default_factory=dict)  # v0.11.0
     rapm_deep: Any = None      # v0.12.0 CRO-grade RAPM deep-dive (Du Pont/EVA/pricing/scenarios)
+    stress_deep: dict[str, Any] = field(default_factory=dict)  # v0.13.0 CRO-grade stress 부문
     meta: dict[str, Any] = field(default_factory=dict)
 
 
@@ -433,6 +450,79 @@ def _stage_stress(
     return stress, reverse, stress_path, stress_path_trough
 
 
+def _stage_stress_deep(
+    irb_book, capital, rwa_other_fixed, bis, buffers, alm, stress_df,
+):
+    """CRO-grade stress 부문 (v0.13.0).
+
+    구성:
+      - macro narrative 표 + 시나리오 요약
+      - factor-by-factor 분해 (PD/LGD/GDP) — adverse + severe
+      - 자산군 sensitivity (adverse + severe)
+      - multi-target reverse stress (CET1/Tier1/LCR/NSFR)
+      - 3년 CCAR 분기 경로 + 자본 보충 액션
+      - NGFS 기후 → 자본 30Y horizon
+      - 유동성 stress + 회복 우선순위
+      - 시나리오별 recovery plan 권고
+      - scenario comparison 표
+    """
+    narrative_table = macro_table(MACRO_NARRATIVE_PATHS)
+    narrative_text = narrative_summary(MACRO_NARRATIVE_PATHS)
+
+    fac_adv = factor_decomposition(irb_book, capital, rwa_other_fixed,
+                                    ADVERSE, buffers=buffers)
+    fac_sev = factor_decomposition(irb_book, capital, rwa_other_fixed,
+                                    SEVERELY_ADVERSE, buffers=buffers)
+    ac_adv = asset_class_sensitivity(irb_book, capital, rwa_other_fixed,
+                                      ADVERSE, buffers=buffers)
+    ac_sev = asset_class_sensitivity(irb_book, capital, rwa_other_fixed,
+                                      SEVERELY_ADVERSE, buffers=buffers)
+
+    multi_rev = run_multi_reverse(
+        irb_book, capital, rwa_other_fixed,
+        base_lcr=alm["lcr"], base_nsfr=alm["nsfr"],
+        axis=StressAxis(), buffers=buffers,
+    )
+
+    ccar = run_ccar(irb_book, capital, rwa_other_fixed,
+                    axis=StressAxis(), buffers=buffers)
+
+    climate_cap = run_climate_capital(irb_book, capital, rwa_other_fixed,
+                                       buffers=buffers)
+
+    liq_stress = run_liquidity_stress(alm["lcr"], alm["nsfr"])
+    # LCR breach 시 회복 우선순위 (severe 시나리오 기준)
+    sev_lcr = float(liq_stress.loc[
+        liq_stress["scenario"] == "combined_severe", "lcr"].iloc[0])
+    if sev_lcr < 1.0:
+        shortfall = (1.0 - sev_lcr) * alm["lcr"].net_outflow
+    else:
+        shortfall = alm["lcr"].net_outflow * 0.10   # 10% buffer 시뮬레이션
+    liq_ladder = recovery_priority_ladder(shortfall, alm["lcr"])
+
+    rec_table = scenario_recovery_table(stress_df=stress_df, buffers=buffers)
+
+    comparison = compare_scenarios(
+        stress_df, base_lcr=alm["lcr"], base_nsfr=alm["nsfr"], buffers=buffers,
+    )
+
+    return {
+        "narrative_table": narrative_table,
+        "narrative_summary": narrative_text,
+        "factor_decomp_adverse": fac_adv,
+        "factor_decomp_severe": fac_sev,
+        "asset_class_sens_adverse": ac_adv,
+        "asset_class_sens_severe": ac_sev,
+        "multi_reverse": multi_rev,
+        "ccar": ccar,
+        "climate_capital": climate_cap,
+        "liquidity_stress": liq_stress,
+        "liquidity_recovery_ladder": liq_ladder,
+        "recovery_table": rec_table,
+        "comparison": comparison,
+    }
+
+
 def run_pipeline(
     portfolio: pd.DataFrame | None = None,
     *,
@@ -489,6 +579,11 @@ def run_pipeline(
     # 13. ALM (IRRBB / LCR / NSFR) + 내부자본(ICAAP)
     alm = _stage_alm(portfolio, capital, seed)
     icaap = _stage_icaap(sa_res, irb_res, mkt, op, alm, conc, capital)
+
+    # 12b. CRO-grade stress 부문 (v0.13.0) — ALM 의존 (LCR/NSFR base 입력)
+    stress_deep = _stage_stress_deep(
+        irb_book, capital, rwa_other_fixed, bis, buffers, alm, stress,
+    )
 
     # 14. CRO add-ons: RAF + climate + CCR + Op loss + concentration deep + model cards
     bank_book = portfolio[portfolio["asset_class"] == "bank"]
@@ -684,6 +779,7 @@ def run_pipeline(
         limits_deep=limits_deep_result,
         concentration_hier=concentration_hier,
         rapm_deep=rapm_deep_result,
+        stress_deep=stress_deep,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
               "asof": asof.isoformat(), "quarters": quarters},
     )

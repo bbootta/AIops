@@ -3111,3 +3111,360 @@ PD shock: EL 선형 증가, EC는 시점 자본으로 보수적으로 고정 (Pi
 </div>
 """
     return _page("RAPM scenario", body, "47_rapm_scenario.html")
+
+
+# ============================================================================
+# 48. Multi-target reverse stress (v0.13.0)
+# ============================================================================
+
+def page_reverse_stress_multi(r: PipelineResult) -> str:
+    deep = getattr(r, "stress_deep", {}) or {}
+    if "multi_reverse" not in deep:
+        body = "<h1 class='title'>48. Multi-target 역스트레스</h1><p>미가용.</p>"
+        return _page("Multi-역스트레스", body, "48_reverse_stress_multi.html")
+    mr = deep["multi_reverse"]
+    tgt = mr.targets.copy()
+
+    # binding constraint badge
+    binding_kpi = _kpi(
+        "Binding constraint", _esc(mr.binding_constraint),
+        sub=f"s* = {mr.binding_severity:.2f}", tone="bad",
+    )
+
+    # severity bar chart
+    chart = viz.horizontal_bar(
+        tgt["metric"].tolist(),
+        tgt["critical_severity"].tolist(),
+        value_fmt=lambda v: f"{v:.2f}",
+        title="metric별 임계 심도 s* (낮을수록 먼저 도달 = binding)",
+        color=viz.RED,
+    )
+
+    rows = []
+    for _, row in tgt.iterrows():
+        status = ("이미 위반" if row["already_breached"]
+                  else "최대 충격까지 견딤" if row["resilient"]
+                  else f"s*={row['critical_severity']:.2f}")
+        rows.append([
+            _esc(row["metric"]),
+            f"{row['target']*100:.2f}%" if row["target"] < 10
+            else f"{row['target']*100:.0f}%",
+            f"{row['base']*100:.2f}%" if row["base"] < 10
+            else f"{row['base']*100:.0f}%",
+            f"{row['ratio_at_break']*100:.2f}%" if row["ratio_at_break"] < 10
+            else f"{row['ratio_at_break']*100:.0f}%",
+            status,
+            f"{row['implied_gdp_shock']*100:+.1f}%",
+            f"+{row['implied_lgd_addon']*100:.1f}%p",
+        ])
+
+    pathway = mr.critical_pathway
+
+    body = f"""
+<h1 class="title">48. Multi-target 역스트레스 (CET1·Tier1·LCR·NSFR)</h1>
+<p class="section-lead">BCBS Stress testing principles §7 — reverse stress test는
+binding constraint(가장 먼저 도달하는 임계)와 critical pathway(도달 거시 경로)를
+식별해야 한다.</p>
+
+<div class="kpi-grid">
+{binding_kpi}
+{_kpi("Binding GDP 충격", f"{pathway['implied_gdp_shock']*100:+.1f}%")}
+{_kpi("Binding LGD 가산", f"+{pathway['implied_lgd_addon']*100:.1f}%p")}
+{_kpi("CET1 임계 심도",
+      f"{mr.cet1_result.critical_severity:.2f}",
+      tone="warn" if not mr.cet1_result.resilient else "good")}
+</div>
+
+<div class="card"><h2>48-1. metric별 임계 심도</h2>
+<div class="chart">{chart}</div>
+{_table(["metric","target","base","at break","상태","GDP 충격","LGD 가산"],
+        rows, right_cols=[1,2,3,5,6])}
+</div>
+
+<div class="card"><h2>48-2. Critical pathway (binding constraint 거시 narrative)</h2>
+<div class="callout bad"><b>{_esc(pathway['binding_constraint'])}</b> ·
+s* = {pathway['binding_severity']:.2f}<br>
+{_esc(pathway['narrative'])}</div>
+<p class="section-lead">자본 임계(CET1/Tier1)는 신용손실 누적이, 유동성 임계(LCR/NSFR)는
+HQLA 가치 하락 + funding runoff 가속이 주된 동인. 두 축이 동시 발현 시 더 낮은
+severity에서 위기 도달.</p>
+</div>
+"""
+    return _page("Multi-역스트레스", body, "48_reverse_stress_multi.html")
+
+
+# ============================================================================
+# 49. CCAR / DFAST 3년 분기 자본 경로 (v0.13.0)
+# ============================================================================
+
+def page_ccar_path(r: PipelineResult) -> str:
+    deep = getattr(r, "stress_deep", {}) or {}
+    if "ccar" not in deep:
+        body = "<h1 class='title'>49. CCAR 3Y 경로</h1><p>미가용.</p>"
+        return _page("CCAR 경로", body, "49_ccar_path.html")
+    ccar = deep["ccar"]
+    paths = ccar.paths
+    consec = ccar.consecutive_breach
+    rec = ccar.recovery_summary
+
+    # 분기 라벨 = +1Q..+12Q (12개)
+    qs = paths[paths["scenario"] == "baseline"]["quarter"].tolist()
+    # CET1 path multi-line
+    cet1_series = {}
+    for sc in paths["scenario"].unique():
+        g = paths[paths["scenario"] == sc].sort_values("q_index")
+        cet1_series[sc] = g["cet1_ratio"].tolist()
+    cet1_chart = viz.line_chart(
+        qs, cet1_series, value_fmt=_pct,
+        title="3년 (12 분기) CET1 경로",
+        reference_value=r.bis.required["cet1"],
+        reference_label=f"요구 {_pct(r.bis.required['cet1'])}",
+    )
+
+    # 자본 보충 action별 severely_adverse 경로
+    actions_df = ccar.capital_actions
+    sev = actions_df[actions_df["scenario"] == "severely_adverse"]
+    action_series = {}
+    for act in sev["action"].unique():
+        g = sev[sev["action"] == act].sort_values("q_index")
+        action_series[act] = g["cet1_ratio"].tolist()
+    action_chart = viz.line_chart(
+        qs, action_series, value_fmt=_pct,
+        title="severely_adverse — 자본 보충 액션별 CET1 회복",
+        reference_value=r.bis.required["cet1"],
+        reference_label="CBR 요구선",
+    )
+
+    consec_rows = [[row["scenario"],
+                    str(int(row["max_consecutive_breach"])),
+                    _badge("ACTION", "FAIL") if row["supervisory_trigger"]
+                    else _badge("OK", "PASS"),
+                    _pct(row["min_cet1"]),
+                    _pct(row["min_tier1"])]
+                   for _, row in consec.iterrows()]
+    rec_rows = [[row["action"], _pct(row["trough_cet1"]), row["trough_quarter"],
+                  _pct(row["end_cet1"]),
+                  str(row["recovery_quarter"]) if row["recovered"] else "미회복",
+                  _badge("RECOVERED" if row["recovered"] else "PENDING",
+                         "PASS" if row["recovered"] else "WARN")]
+                for _, row in rec.iterrows()]
+
+    n_trigger = int(consec["supervisory_trigger"].sum())
+
+    body = f"""
+<h1 class="title">49. CCAR / DFAST 3년 분기 자본 경로</h1>
+<p class="section-lead">FED CCAR/DFAST 스타일 9~12 분기 horizon 자본 경로 +
+자본 보충 액션 시뮬레이션 (배당중단·AT1·신주발행). 4분기 연속 CBR 침범 시
+supervisory action 트리거.</p>
+
+<div class="kpi-grid">
+{_kpi("최장 연속 침범 (severe)",
+      f"{int(consec[consec['scenario']=='severely_adverse']['max_consecutive_breach'].iloc[0])}Q")}
+{_kpi("Supervisory trigger 시나리오 수", f"{n_trigger}",
+      tone="bad" if n_trigger > 0 else "good")}
+{_kpi("최저 CET1 (severe)",
+      _pct(float(consec[consec['scenario']=='severely_adverse']['min_cet1'].iloc[0])))}
+{_kpi("최저 Tier1 (severe)",
+      _pct(float(consec[consec['scenario']=='severely_adverse']['min_tier1'].iloc[0])))}
+</div>
+
+<div class="row2">
+<div class="card"><h2>49-1. 시나리오별 분기 CET1 경로 (12Q)</h2>
+<div class="chart">{cet1_chart}</div>
+</div>
+<div class="card"><h2>49-2. 연속 침범 카운트</h2>
+{_table(["시나리오","최장 연속","supervisory","최저 CET1","최저 Tier1"],
+        consec_rows, right_cols=[1,3,4])}
+<p class="section-lead">4Q 이상 연속 CBR 침범 시 감독당국이 추가 보고 + 시정조치
+요구 (감독세칙 §3 자본 적정성 모니터링).</p>
+</div>
+</div>
+
+<div class="card"><h2>49-3. severely_adverse 자본 보충 액션 시뮬레이션</h2>
+<div class="chart">{action_chart}</div>
+{_table(["액션","최저 CET1","최저 시점","기말 CET1","회복 시점","상태"],
+        rec_rows, right_cols=[1,3])}
+<p class="section-lead">passive = 무액션 / dividend_halt = 배당중단 /
+at1_issuance = 1조원 AT1 / rights_issue = 2조원 신주 / full_recovery = 통합.
+신주 발행이 가장 빠른 CET1 회복을 제공하나 주주가치 희석 비용 발생.</p>
+</div>
+"""
+    return _page("CCAR 경로", body, "49_ccar_path.html")
+
+
+# ============================================================================
+# 50. 기후 자본 30Y horizon (NGFS) (v0.13.0)
+# ============================================================================
+
+def page_climate_capital(r: PipelineResult) -> str:
+    deep = getattr(r, "stress_deep", {}) or {}
+    if "climate_capital" not in deep:
+        body = "<h1 class='title'>50. 기후 자본 경로</h1><p>미가용.</p>"
+        return _page("기후 자본", body, "50_climate_capital.html")
+    cc = deep["climate_capital"]
+    p = cc.path
+    worst = cc.worst_point
+
+    years = sorted(p["year"].unique())
+    cet1_series = {}
+    for sc in p["scenario"].unique():
+        g = p[p["scenario"] == sc].sort_values("year")
+        cet1_series[sc] = g["cet1_ratio"].tolist()
+    chart = viz.line_chart(
+        [str(y) for y in years], cet1_series, value_fmt=_pct,
+        title="NGFS 30Y horizon — CET1 비율 경로 (2030~2060)",
+        reference_value=r.bis.required["cet1"],
+        reference_label=f"요구 {_pct(r.bis.required['cet1'])}",
+    )
+
+    # 시나리오별 ECL 경로
+    ecl_series = {}
+    for sc in p["scenario"].unique():
+        g = p[p["scenario"] == sc].sort_values("year")
+        ecl_series[sc] = g["ecl"].tolist()
+    ecl_chart = viz.line_chart(
+        [str(y) for y in years], ecl_series, value_fmt=_won,
+        title="NGFS 30Y horizon — ECL 경로",
+    )
+
+    p_disp = p.copy()
+    rows = [[row["scenario"], str(int(row["year"])),
+              f"${int(row['co2_price'])}/t",
+              f"{row['hazard_intensity']:.0%}",
+              _won(row["rwa_total"]),
+              _won(row["ecl"]),
+              _pct(row["cet1_ratio"]),
+              f"{row['delta_cet1_pp']:+.2f}%p"]
+             for _, row in p_disp.iterrows()]
+
+    binding_rows = [[s, str(y),
+                     _pct(float(p_disp[(p_disp['scenario']==s) &
+                                        (p_disp['year']==y)]['cet1_ratio'].iloc[0]))]
+                    for s, y in cc.binding_year.items()]
+
+    body = f"""
+<h1 class="title">50. 기후 자본 30Y horizon (NGFS)</h1>
+<p class="section-lead">NGFS Phase IV 시나리오 (orderly / disorderly / hot_house)를
+2030~2060 30Y horizon에 매핑. 섹터별 PD/LGD 충격 → RWA + ECL → CET1.</p>
+
+<div class="kpi-grid">
+{_kpi("최악 시점", f"{int(worst['year'])} {_esc(worst['scenario'])}",
+      sub=_pct(worst['cet1_ratio']),
+      tone="bad" if worst['cet1_ratio'] < r.bis.required['cet1'] else "warn")}
+{_kpi("최악 CO2 가격", f"${int(worst['co2_price'])}/t")}
+{_kpi("최악 hazard", f"{worst['hazard_intensity']:.0%}")}
+{_kpi("최악 ECL", _won(worst['ecl']))}
+</div>
+
+<div class="row2">
+<div class="card"><h2>50-1. CET1 30Y 경로</h2><div class="chart">{chart}</div></div>
+<div class="card"><h2>50-2. ECL 30Y 경로</h2><div class="chart">{ecl_chart}</div></div>
+</div>
+
+<div class="card"><h2>50-3. 시나리오별 최저 CET1 도달 연도</h2>
+{_table(["시나리오","도달 연도","CET1"], binding_rows, right_cols=[1,2])}
+<p class="section-lead">disorderly 시나리오는 2030~2040 급격한 정책 강화로 transition shock
+조기 발현. hot_house는 물리리스크 누적으로 후반(2050~2060) 자본 잠식 가속.</p>
+</div>
+
+<div class="card"><h2>50-4. NGFS path 상세 (전 시점)</h2>
+{_table(["시나리오","연도","CO2 $/t","Hazard","RWA","ECL","CET1","Δ CET1"],
+        rows, right_cols=[2,3,4,5,6,7])}
+</div>
+"""
+    return _page("기후 자본", body, "50_climate_capital.html")
+
+
+# ============================================================================
+# 51. 유동성 stress + 회복 우선순위 (v0.13.0)
+# ============================================================================
+
+def page_liquidity_stress(r: PipelineResult) -> str:
+    deep = getattr(r, "stress_deep", {}) or {}
+    if "liquidity_stress" not in deep:
+        body = "<h1 class='title'>51. 유동성 stress</h1><p>미가용.</p>"
+        return _page("유동성 stress", body, "51_liquidity_stress.html")
+    ls = deep["liquidity_stress"]
+    ladder = deep["liquidity_recovery_ladder"]
+
+    chart = viz.bar_chart(
+        ls["scenario"].tolist(),
+        ls["lcr"].tolist(),
+        title="시나리오별 stressed LCR",
+        value_fmt=lambda v: f"{v*100:.0f}%",
+        reference_value=1.0, reference_label="100%",
+        colors=[viz.GREEN if v >= 1.0 else viz.RED for v in ls["lcr"]],
+    )
+    nsfr_chart = viz.bar_chart(
+        ls["scenario"].tolist(),
+        ls["nsfr"].tolist(),
+        title="시나리오별 stressed NSFR",
+        value_fmt=lambda v: f"{v*100:.0f}%",
+        reference_value=1.0, reference_label="100%",
+        colors=[viz.GREEN if v >= 1.0 else viz.RED for v in ls["nsfr"]],
+    )
+
+    ls_rows = [[row["scenario"], row["narrative"][:38],
+                 f"{row['severity']:.1f}",
+                 f"{row['lcr']*100:.0f}%",
+                 f"{row['nsfr']*100:.0f}%",
+                 _badge("PASS" if row["lcr_passes"] else "FAIL",
+                        "PASS" if row["lcr_passes"] else "FAIL"),
+                 _badge("PASS" if row["nsfr_passes"] else "FAIL",
+                        "PASS" if row["nsfr_passes"] else "FAIL")]
+                for _, row in ls.iterrows()]
+
+    ladder_rows = [[str(int(row["rank"])), row["action"],
+                     _won(row["capacity"]),
+                     _won(row["lcr_impact"]),
+                     row["capital_impact"][:32],
+                     row["cost"][:36],
+                     _badge("COVERS" if row["covers_shortfall"] else "PARTIAL",
+                            "PASS" if row["covers_shortfall"] else "WARN")]
+                    for _, row in ladder.iterrows()]
+
+    cumulative_chart = viz.bar_chart(
+        ladder["action"].apply(lambda x: x[:14]).tolist(),
+        ladder["cumulative_lcr_relief"].tolist(),
+        title="누적 LCR 보충 capacity (조원)",
+        value_fmt=_won,
+        colors=[viz.GREEN if v else viz.PALETTE[0] for v in ladder["covers_shortfall"]],
+    )
+
+    n_fail = int((~ls["lcr_passes"]).sum() + (~ls["nsfr_passes"]).sum())
+    body = f"""
+<h1 class="title">51. 유동성 stress + 회복 우선순위</h1>
+<p class="section-lead">시장충격 + funding runoff 가속 시 LCR/NSFR 영향 + 회복 액션
+우선순위 사다리. HQLA 매각 → 도매자금 갱신 → CD발행 → AT1 → 신주.</p>
+
+<div class="kpi-grid">
+{_kpi("Base LCR", f"{ls.loc[0,'lcr']*100:.0f}%", tone="good")}
+{_kpi("Combined severe LCR",
+      f"{ls.loc[ls['scenario']=='combined_severe','lcr'].iloc[0]*100:.0f}%",
+      tone="bad" if ls.loc[ls['scenario']=='combined_severe','lcr'].iloc[0] < 1.0 else "good")}
+{_kpi("Base NSFR", f"{ls.loc[0,'nsfr']*100:.0f}%", tone="good")}
+{_kpi("Liquidity 임계 위반 수", f"{n_fail}",
+      tone="bad" if n_fail > 0 else "good")}
+</div>
+
+<div class="row2">
+<div class="card"><h2>51-1. 시나리오별 LCR</h2><div class="chart">{chart}</div></div>
+<div class="card"><h2>51-2. 시나리오별 NSFR</h2><div class="chart">{nsfr_chart}</div></div>
+</div>
+
+<div class="card"><h2>51-3. 유동성 stress 상세</h2>
+{_table(["시나리오","narrative","s","LCR","NSFR","LCR 판정","NSFR 판정"],
+        ls_rows, right_cols=[2,3,4])}
+<p class="section-lead">market_shock: HQLA L2A −5pp, L2B −10pp. funding_run: 비예금 runoff +25%.
+combined_severe: 두 충격 동시 발현 (severity 2.8).</p>
+</div>
+
+<div class="card"><h2>51-4. 회복 우선순위 사다리</h2>
+<div class="chart">{cumulative_chart}</div>
+{_table(["순위","액션","capacity","LCR 효과","자본 영향","비용","커버"],
+        ladder_rows, right_cols=[2,3])}
+<p class="section-lead">우선순위는 비용·자본효과 trade-off 기준. 가장 위험 없는
+HQLA L2B 매각부터 시작해 신주 발행(자본 직접 보충, 희석 비용)까지 단계적 적용.</p>
+</div>
+"""
+    return _page("유동성 stress", body, "51_liquidity_stress.html")
