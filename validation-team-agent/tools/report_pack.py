@@ -750,6 +750,307 @@ frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.<
     return _page("심화 — 운영리스크 손실 시나리오", body)
 
 
+def _cyber_risk_page() -> str:
+    """Cyber risk scenarios + control maturity + operational resilience."""
+    from tools.sample_generators import cyber_risk_sample
+
+    c = cyber_risk_sample()
+
+    maturity_chart = hbar(
+        list(c["control_maturity"].items()),
+        title="NIST CSF 통제 성숙도 (1-5)", fmt="{:.1f}",
+        vline=4.0, vline_label="목표 4.0",
+        colors=[PALETTE["ok"] if v >= 4.0
+                else PALETTE["warning"] if v >= 3.0
+                else PALETTE["fail"]
+                for v in c["control_maturity"].values()])
+
+    history_series = [(str(r["year"]), float(r["estimated_loss_bn"]))
+                      for r in c["incident_history_5y"]]
+    loss_trend = trend_line(
+        history_series, title="5년 cyber 사고 추정 손실 (bn)",
+        fmt="{:,.0f}")
+
+    scenario_chart = hbar(
+        [(s["name"], s["severity_99_bn"]) for s in c["scenarios"]],
+        title="시나리오별 99% 손실 (bn)", fmt="{:,.0f}",
+        colors=[PALETTE["fail" if s["severity_99_bn"] >= 100 else "warning"]
+                for s in c["scenarios"]])
+
+    history_rows = "".join(
+        f"<tr><td>{r['year']}</td><td>{r['n_incidents']}</td>"
+        f"<td>{_esc(r['max_severity'])}</td>"
+        f"<td>{r['estimated_loss_bn']:,.0f}</td></tr>"
+        for r in c["incident_history_5y"])
+
+    scenario_rows = "".join(
+        f"<tr><td><b>{_esc(s['name'])}</b></td>"
+        f"<td>{s['freq_per_year']:.1f}</td>"
+        f"<td>{s['severity_99_bn']:,.0f}</td>"
+        f"<td>{s['rto_hours']} hr</td></tr>"
+        for s in c["scenarios"])
+
+    total_5y_loss = sum(r["estimated_loss_bn"] for r in c["incident_history_5y"])
+
+    body = f"""
+<p>Cyber risk scenario 분석 + 5년 사고 history + NIST CSF 통제 성숙도 +
+operational resilience (RTO/RPO). 출처: {_esc(c['framework'])}.</p>
+
+<h2>NIST CSF 통제 성숙도 (1-5)</h2>
+{maturity_chart}
+<p>Identify / Protect / Detect / Respond / Recover 5 function. Respond /
+Recover 가 가장 낮음 — incident 대응 역량 강화 필요.</p>
+
+<h2>RTO / RPO 목표</h2>
+<table>
+<tr><th>RTO (Recovery Time Objective)</th>
+<td>{c['rto_target_hours']} hr (critical 시스템)</td></tr>
+<tr><th>RPO (Recovery Point Objective)</th>
+<td>{c['rpo_target_minutes']} min (데이터 손실 한도)</td></tr>
+</table>
+
+<h2>5년 Cyber 사고 history</h2>
+{loss_trend}
+<table>
+<tr><th>연도</th><th>사고 건수</th><th>최대 severity</th><th>추정 손실 (bn)</th></tr>
+{history_rows}
+<tr><th colspan="3">5년 누적 손실</th><th>{total_5y_loss:,.0f}</th></tr>
+</table>
+<p>2025 critical severity 사고 (240bn) — operational risk event class 의
+'Business Disruption & System Failures' (BCBS OPE25 §35.4) 매핑.</p>
+
+<h2>Cyber 시나리오 분석</h2>
+{scenario_chart}
+<table>
+<tr><th>시나리오</th><th>frequency/yr</th><th>99% severity (bn)</th><th>RTO</th></tr>
+{scenario_rows}
+</table>
+
+<h2>해석 (CISO / CRO 관점)</h2>
+<ul>
+<li><b>Ransomware critical systems</b>: 가장 큰 tail risk. frequency 낮지만
+severity 320bn. critical 시스템 segmentation + 백업 검증 분기 보고.</li>
+<li><b>Respond / Recover 성숙도 3.2 / 3.0</b>: NIST 목표 4.0 미달 — incident
+response playbook + tabletop exercise + recovery test 분기 트리거.</li>
+<li><b>Third-party supply chain</b> (frequency 0.8): 클라우드 / SaaS / 외주
+의존 → BCBS d533 operational resilience 의 핵심. 분기 third-party 모니터링.</li>
+<li><b>2025 critical 사고</b>: 운영리스크 Event Class 'Business Disruption'
+또는 'External Fraud' (cyber-enabled) 매핑 — ILDC input.</li>
+</ul>
+<p><a href="executive.html">← 경영진 보고서로</a> · <a href="op_scenario_deep.html">운영 손실 시나리오 →</a></p>
+"""
+    return _page("심화 — Cyber risk + Operational resilience (BCBS d533)", body)
+
+
+def _fx_dependency_page() -> str:
+    """FX 의존도 + USD funding + carry trade + cross-currency swap."""
+    from tools.sample_generators import fx_dependency_sample
+
+    f = fx_dependency_sample()
+
+    # FX 자산-부채 차이 (NOP — Net Open Position)
+    nop_rows = []
+    for currency in f["fx_assets_by_currency"]:
+        a = f["fx_assets_by_currency"][currency]
+        l = f["fx_liabilities_by_currency"].get(currency, 0)
+        nop = a - l
+        nop_rows.append((currency, nop))
+
+    nop_chart = hbar(
+        nop_rows, title="Net Open Position (자산 − 부채)", fmt="{:+,.0f}",
+        colors=[PALETTE["fail"] if abs(n) > 20_000 else PALETTE["warning"]
+                if abs(n) > 5_000 else PALETTE["ok"]
+                for _, n in nop_rows])
+
+    asset_chart = hbar(
+        list(f["fx_assets_by_currency"].items()),
+        title="통화별 자산", fmt="{:,.0f} bn",
+        colors=[PALETTE["neutral"]] * len(f["fx_assets_by_currency"]))
+
+    liab_chart = hbar(
+        list(f["fx_liabilities_by_currency"].items()),
+        title="통화별 부채", fmt="{:,.0f} bn",
+        colors=[PALETTE["neutral"]] * len(f["fx_liabilities_by_currency"]))
+
+    total_fx_assets = sum(v for k, v in f["fx_assets_by_currency"].items()
+                          if k != "KRW")
+    total_fx_liab = sum(v for k, v in f["fx_liabilities_by_currency"].items()
+                        if k != "KRW")
+
+    body = f"""
+<p>외화 의존도 + USD funding + NDF / 외환스왑 + FX VaR + 원화 급락 시나리오.
+출처: {_esc(f['framework'])}.</p>
+
+<h2>통화별 자산 / 부채</h2>
+{asset_chart}
+{liab_chart}
+<table>
+<tr><th>외화 자산 합계</th><td>{total_fx_assets:,.0f} bn</td></tr>
+<tr><th>외화 부채 합계</th><td>{total_fx_liab:,.0f} bn</td></tr>
+<tr><th>외화 NOP</th>
+<td><b>{total_fx_assets - total_fx_liab:+,.0f} bn</b>
+{'(short — 원화 강세 시 이익)' if total_fx_assets < total_fx_liab else '(long — 원화 약세 시 이익)'}</td></tr>
+</table>
+
+<h2>Net Open Position (NOP) by Currency</h2>
+{nop_chart}
+<p>NOP &gt; 0: 자산 초과 (long currency) — 외화 약세 시 손실. NOP &lt; 0:
+부채 초과 (short currency) — 외화 강세 시 손실.</p>
+
+<h2>USD 의존도 / 외환스왑 / NDF</h2>
+<table>
+<tr><th>USD 조달 의존도</th>
+<td>{f['usd_funding_dependency_pct']:.0%} of total funding</td></tr>
+<tr><th>외환스왑 라인 (limit)</th>
+<td>{f['usd_swap_lines_bn']:,.0f} bn</td></tr>
+<tr><th>NDF outstanding</th>
+<td>{f['ndf_outstanding_bn']:,.0f} bn</td></tr>
+<tr><th>FX VaR (99%, 1d)</th>
+<td>{f['fx_var_99_1d_bn']:,.1f} bn</td></tr>
+</table>
+
+<h2>원화 급락 stress</h2>
+<table>
+<tr><th>시나리오</th>
+<td>{_esc(f['fx_stress_won_dollar_shock']['scenario'])}</td></tr>
+<tr><th>추정 손실</th>
+<td><b style="color:#c62828">{f['fx_stress_won_dollar_shock']['estimated_loss_bn']:,.0f} bn</b></td></tr>
+</table>
+
+<h2>해석 (Treasury / CRO 관점)</h2>
+<ul>
+<li><b>USD 의존도 27%</b>: 한국 은행 평균 (20~30%) 범위. USD funding 시장
+단절 시 외환스왑 라인 활용 — 한·미 통화스왑 (2008 / 2020) 의 시스템적
+역할.</li>
+<li><b>NDF (Non-Deliverable Forward)</b>: 원화 비결제 선물 — 역외 hedge 도구.
+NDF outstanding 이 자산 대비 과도하면 reputation/regulatory risk.</li>
+<li><b>NOP 단일 통화 집중</b> (예: USD short 20bn): 환율 충격에 민감 —
+limit 관리 (감독원 외환건전성 규정).</li>
+<li><b>USD/KRW +20% shock</b> 시 220bn 손실 — Pillar 2 ICAAP 시나리오에
+반영 필수.</li>
+</ul>
+<p><a href="alm_currency_deep.html">← 통화별 LCR 로</a> · <a href="executive.html">경영진 보고서로 →</a></p>
+"""
+    return _page("심화 — FX 의존도 + USD funding + NOP + 원화 급락 stress", body)
+
+
+def _esg_climate_page() -> str:
+    """ESG / 기후 위험 분해 — 물리적 / 전환 + NGFS 시나리오."""
+    from tools.sample_generators import esg_climate_sample
+
+    e = esg_climate_sample()
+
+    intensity_chart = hbar(
+        list(e["carbon_intensity_by_sector"].items()),
+        title="부문별 탄소집약도 (tCO2e / bn EUR exposure)",
+        fmt="{:,.0f}",
+        colors=[PALETTE["fail"] if v > 300
+                else PALETTE["warning"] if v > 100
+                else PALETTE["ok"]
+                for v in e["carbon_intensity_by_sector"].values()])
+
+    transition_chart = hbar(
+        [(k, float(v)) for k, v in e["transition_risk_exposure_bn"].items()],
+        title="전환 위험 노출 (bn)", fmt="{:,.0f}",
+        colors=[
+            PALETTE["fail"],     # stranded high
+            PALETTE["warning"],  # stranded medium
+            PALETTE["ok"],       # green transition
+            PALETTE["neutral"],  # neutral
+        ])
+
+    physical_chart = hbar(
+        [(k, float(v)) for k, v in e["physical_risk_exposure_bn"].items()],
+        title="물리적 위험 노출 (bn)", fmt="{:,.0f}",
+        colors=[PALETTE["fail"], PALETTE["fail"], PALETTE["warning"],
+                PALETTE["ok"]])
+
+    ngfs_rows = "".join(
+        f"<tr><td><b>{_esc(s['name'])}</b></td>"
+        f"<td>{s['credit_loss_uplift']:+.1%}</td>"
+        f"<td>{s['physical_loss_uplift']:+.1%}</td></tr>"
+        for s in e["ngfs_scenarios"])
+
+    total_emissions = (e["scope1_emissions_tco2e_thousand"]
+                       + e["scope2_emissions_tco2e_thousand"]
+                       + e["financed_emissions_mtco2e"] * 1_000.0)
+    high_stranded_pct = (e["transition_risk_exposure_bn"]["stranded_assets_high"]
+                         / sum(e["transition_risk_exposure_bn"].values()))
+    high_physical_pct = (
+        (e["physical_risk_exposure_bn"]["high_flood_zone"]
+         + e["physical_risk_exposure_bn"]["high_wildfire_zone"])
+        / sum(e["physical_risk_exposure_bn"].values())
+    )
+
+    body = f"""
+<p>ESG / 기후 위험 panel — Scope 1/2/3 (financed) emissions + 부문별 탄소집약도
++ 전환 위험 (좌초자산 / 친환경) + 물리적 위험 (홍수/산불/가뭄) + NGFS 3 시나리오.
+출처: {_esc(e['framework'])}.</p>
+
+<h2>Emissions 요약</h2>
+<table>
+<tr><th>Scope 1 (직접)</th><td>{e['scope1_emissions_tco2e_thousand']:,.1f} ktCO2e</td></tr>
+<tr><th>Scope 2 (전력)</th><td>{e['scope2_emissions_tco2e_thousand']:,.1f} ktCO2e</td></tr>
+<tr><th>Scope 3 (financed emissions)</th>
+<td><b>{e['financed_emissions_mtco2e']:,.1f} MtCO2e</b> — 은행의 핵심 climate exposure</td></tr>
+<tr><th>총 emissions (천 tCO2e)</th><td>{total_emissions:,.1f}</td></tr>
+</table>
+
+<h2>부문별 탄소집약도</h2>
+{intensity_chart}
+<p>에너지·운송은 transition 위험 집중 부문. 본 표는 PCAF (Partnership for
+Carbon Accounting Financials) 방법론 시연 — 운영 시스템에서는 자체 industry
+mapping 적용.</p>
+
+<h2>전환 위험 (Transition Risk)</h2>
+{transition_chart}
+<table>
+<tr><th>좌초자산 high (석탄/석유)</th>
+<td>{e['transition_risk_exposure_bn']['stranded_assets_high']:,.0f} bn</td>
+<td>{high_stranded_pct:.1%} of total</td></tr>
+<tr><th>좌초자산 medium</th>
+<td>{e['transition_risk_exposure_bn']['stranded_assets_medium']:,.0f} bn</td><td></td></tr>
+<tr><th>녹색 전환 자금 (Green)</th>
+<td>{e['transition_risk_exposure_bn']['green_transition']:,.0f} bn</td><td></td></tr>
+</table>
+
+<h2>물리적 위험 (Physical Risk)</h2>
+{physical_chart}
+<table>
+<tr><th>고홍수 위험 지역</th>
+<td>{e['physical_risk_exposure_bn']['high_flood_zone']:,.0f} bn</td></tr>
+<tr><th>고산불 위험 지역</th>
+<td>{e['physical_risk_exposure_bn']['high_wildfire_zone']:,.0f} bn</td></tr>
+<tr><th>가뭄 노출 농업</th>
+<td>{e['physical_risk_exposure_bn']['drought_exposed_agri']:,.0f} bn</td></tr>
+<tr><th>고위험 합계 비중</th>
+<td><b>{high_physical_pct:.1%}</b> of physical risk total</td></tr>
+</table>
+
+<h2>NGFS 시나리오별 손실 uplift</h2>
+<table>
+<tr><th>시나리오</th><th>신용손실 uplift</th><th>물리적손실 uplift</th></tr>
+{ngfs_rows}
+</table>
+<p>Orderly = 2050 Net Zero 달성, Disorderly = 정책 지연 후 급격 전환,
+Hot House = 정책 부재 + 물리적 위험 극대.</p>
+
+<h2>해석 (CRO / ESG 관점)</h2>
+<ul>
+<li><b>Financed emissions (Scope 3)</b>: 은행 climate 노출의 핵심. 자체
+emissions 보다 100배 이상 큼. PCAF / Net Zero Banking Alliance 보고.</li>
+<li><b>좌초자산 high {high_stranded_pct:.1%}</b>: 석탄/석유 노출. Disorderly
+시나리오에서 신용손실 uplift +18%.</li>
+<li><b>물리적 위험 고위험 {high_physical_pct:.1%}</b>: Hot House 시나리오에서
+주담대/CRE 손실 +35%. 보험 가용성 저하.</li>
+<li><b>본 panel 은 합성</b> — 운영 시스템에서는 NGFS 시나리오 + 자체 climate
+stress test + 회계감리. 감독원 ESG 공시 의무 (시행세칙 별표) 별도.</li>
+</ul>
+<p><a href="executive.html">← 경영진 보고서로</a> · <a href="stress_test.html">스트레스 테스트 →</a></p>
+"""
+    return _page("심화 — ESG / 기후 위험 (NGFS + 전환/물리적)", body)
+
+
 def _icaap_methodology_page() -> str:
     """ICAAP 리스크 유형별 산정 방식 + 3년 자본계획 시계열."""
     from tools.sample_generators import (
@@ -2568,6 +2869,9 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 <li><a href="ifrs9_deep.html">IFRS 9 ECL Stage Migration</a></li>
 <li><a href="ifrs9_fli_deep.html">IFRS 9 FLI overlay + 가중 ECL + PMA</a></li>
 <li><a href="change_audit.html">변경 감사 (Change Manifest)</a></li>
+<li><a href="esg_climate.html">ESG / 기후 위험 (NGFS + 전환/물리적)</a></li>
+<li><a href="cyber_risk.html">Cyber risk + Operational resilience</a></li>
+<li><a href="fx_dependency.html">FX 의존도 + USD funding + 원화 stress</a></li>
 </ul>
 """
     title = "경영진 보고서 — CRO 시야 (DRAFT)"
@@ -2654,6 +2958,9 @@ def _index_page(demo: dict) -> str:
 <li><a href="ifrs9_fli_deep.html">IFRS 9 — FLI overlay + 가중 ECL + PMA</a></li>
 <li><a href="stress_test.html">스트레스 테스트 — baseline / adverse / severe</a></li>
 <li><a href="change_audit.html">변경 감사 — 매니페스트 CHG 추적</a></li>
+<li><a href="esg_climate.html">ESG / 기후 — NGFS 시나리오 + 전환/물리적 위험</a></li>
+<li><a href="cyber_risk.html">Cyber risk + Operational resilience (BCBS d533)</a></li>
+<li><a href="fx_dependency.html">FX — 통화별 NOP + USD funding + 원화 stress</a></li>
 <li><a href="explainability.html">Explainability — 전 부문 임계 근거·산식·출처</a></li>
 <li><a href="trends.html">추세 — 4분기 panel 비교 (합성)</a></li>
 </ul>
@@ -2714,6 +3021,9 @@ def build_pack(
     pages["ccr_netting_deep.html"] = _ccr_netting_deep_page()
     pages["ifrs9_fli_deep.html"] = _ifrs9_fli_page()
     pages["icaap_methodology.html"] = _icaap_methodology_page()
+    pages["esg_climate.html"] = _esg_climate_page()
+    pages["cyber_risk.html"] = _cyber_risk_page()
+    pages["fx_dependency.html"] = _fx_dependency_page()
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)

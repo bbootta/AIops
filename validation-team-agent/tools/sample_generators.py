@@ -244,6 +244,114 @@ def alm_sample(*, stressed: bool = False) -> dict:
     }
 
 
+def cyber_risk_sample() -> dict:
+    """Cyber risk scenarios + control maturity + BCBS d533 operational resilience."""
+    return {
+        "control_maturity": {
+            "Identify (NIST CSF)": 4.0,    # 1-5 scale
+            "Protect": 3.8,
+            "Detect": 3.5,
+            "Respond": 3.2,
+            "Recover": 3.0,
+        },
+        "incident_history_5y": [
+            {"year": 2021, "n_incidents": 3, "max_severity": "medium", "estimated_loss_bn": 12.0},
+            {"year": 2022, "n_incidents": 5, "max_severity": "high", "estimated_loss_bn": 85.0},
+            {"year": 2023, "n_incidents": 4, "max_severity": "medium", "estimated_loss_bn": 28.0},
+            {"year": 2024, "n_incidents": 6, "max_severity": "high", "estimated_loss_bn": 110.0},
+            {"year": 2025, "n_incidents": 5, "max_severity": "critical", "estimated_loss_bn": 240.0},
+        ],
+        "scenarios": [
+            {"name": "Ransomware (Critical systems)", "freq_per_year": 0.3,
+             "severity_99_bn": 320.0, "rto_hours": 24},
+            {"name": "DDoS on online banking", "freq_per_year": 2.0,
+             "severity_99_bn": 45.0, "rto_hours": 4},
+            {"name": "Insider data exfiltration", "freq_per_year": 0.5,
+             "severity_99_bn": 180.0, "rto_hours": 72},
+            {"name": "Third-party supply chain", "freq_per_year": 0.8,
+             "severity_99_bn": 95.0, "rto_hours": 12},
+            {"name": "Cloud provider outage (24h+)", "freq_per_year": 0.2,
+             "severity_99_bn": 60.0, "rto_hours": 24},
+        ],
+        "rto_target_hours": 4,   # critical 시스템 RTO
+        "rpo_target_minutes": 15,  # RPO
+        "framework": "BCBS d533 (Operational resilience, 2021) + NIST CSF + 시행세칙 IT보안",
+    }
+
+
+def fx_dependency_sample() -> dict:
+    """FX / USD 의존도 + carry trade exposure + NDF / cross-currency swap."""
+    return {
+        "fx_assets_by_currency": {
+            "KRW": 820_000.0,
+            "USD": 110_000.0,
+            "JPY": 18_000.0,
+            "EUR": 12_000.0,
+            "CNY": 7_000.0,
+            "기타": 5_000.0,
+        },
+        "fx_liabilities_by_currency": {
+            "KRW": 780_000.0,
+            "USD": 130_000.0,  # USD 부채 > 자산 = short USD position
+            "JPY": 15_000.0,
+            "EUR": 14_000.0,
+            "CNY": 6_500.0,
+            "기타": 5_500.0,
+        },
+        "usd_funding_dependency_pct": 0.27,    # USD 조달 의존도
+        "usd_swap_lines_bn": 65_000.0,         # 외환스왑 라인
+        "ndf_outstanding_bn": 38_000.0,
+        "fx_var_99_1d_bn": 12.5,
+        "fx_stress_won_dollar_shock": {
+            "scenario": "USD/KRW +20% (won 급락)",
+            "estimated_loss_bn": 220.0,
+        },
+        "framework": "BCBS d189 §718 (FX risk) + BCBS MAR50 + 시행세칙 외환건전성",
+    }
+
+
+def esg_climate_sample() -> dict:
+    """ESG / 기후 위험 panel — 물리적/전환 위험 + 탄소집약도 + 부문 비중.
+
+    BCBS d530 (Climate-related financial risks) + ECB Climate Risk Stress
+    Test + NGFS 시나리오. 본 표는 자동 점검 시연용 합성 input — 운영
+    시스템에서는 자체 ESG 데이터 + 회계법인 검토 후 사용.
+    """
+    return {
+        "scope1_emissions_tco2e_thousand": 12.4,
+        "scope2_emissions_tco2e_thousand": 28.7,
+        "financed_emissions_mtco2e": 18.2,   # 가장 큰 비중
+        "carbon_intensity_by_sector": {
+            "에너지": 580.0,        # tCO2e / bn EUR exposure
+            "운송": 320.0,
+            "건설/부동산": 180.0,
+            "제조업": 140.0,
+            "기타": 60.0,
+        },
+        "transition_risk_exposure_bn": {
+            "stranded_assets_high":  35_000.0,   # 좌초자산 노출 (석탄/석유)
+            "stranded_assets_medium": 78_000.0,  # 중간 위험
+            "green_transition": 42_000.0,        # 친환경 전환 자금
+            "neutral": 280_000.0,
+        },
+        "physical_risk_exposure_bn": {
+            "high_flood_zone": 14_000.0,
+            "high_wildfire_zone": 8_000.0,
+            "drought_exposed_agri": 5_500.0,
+            "low_climate_risk": 380_000.0,
+        },
+        "ngfs_scenarios": [
+            {"name": "Orderly (Net Zero 2050)", "credit_loss_uplift": 0.05,
+             "physical_loss_uplift": 0.02},
+            {"name": "Disorderly (Delayed transition)", "credit_loss_uplift": 0.18,
+             "physical_loss_uplift": 0.08},
+            {"name": "Hot House World (No transition)", "credit_loss_uplift": 0.08,
+             "physical_loss_uplift": 0.35},
+        ],
+        "framework": "BCBS d530 (Climate-related financial risks, 2022) + NGFS scenarios + ECB Climate Stress Test 2022 + 시행세칙 (ESG 공시)",
+    }
+
+
 def icaap_methodology_sample() -> list[dict]:
     """ICAAP 리스크 유형별 산정 방식 (Pillar 2)."""
     return [

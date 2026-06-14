@@ -1815,6 +1815,21 @@
       "rollback_rule": "page + 2 sample + 링크 제거 시 R57 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0122",
+      "timestamp": "2026-06-14 12:59:35",
+      "component": "tools/sample_generators.py (esg/cyber/fx) + tools/report_pack.py (3 emerging risk pages)",
+      "change_type": "create",
+      "evidence": "/goal '다 원해' R59-61: 신흥 risk 3 영역 (ESG/기후 + Cyber + FX 의존도) 자동 점검 미반영",
+      "root_cause": "Basel/IFRS9 외 climate/cyber/FX 는 보고서 부재 — 감독원 ESG 공시·BCBS d533 operational resilience·외환건전성 시행세칙 cover 불가",
+      "targeted_fix": "3 sample 함수 + 3 deep page: esg_climate (PCAF Scope 3/financed emissions + 부문 탄소집약도 + 전환/물리적 + NGFS 3 시나리오). cyber_risk (NIST CSF 5 function 성숙도 + 5년 history + RTO/RPO + 5 시나리오). fx_dependency (통화별 자산/부채/NOP + USD 의존도 + NDF/swap + 원화 +20% stress). 출처: BCBS d530/d533/d189 §718 + NGFS + 시행세칙",
+      "expected_benefit": "CRO/감독원 ESG 공시·cyber resilience·외환건전성 한 페이지로 확인. NGFS Disorderly 시 신용손실 +18% 식별",
+      "expected_regression_risk": "low — 신규 sample 3개 + 신규 page 3개, 기존 페이지 본문 무변경",
+      "validation_method": "tests/test_v2_round59.py 14 cases (3 sample + 3 page × 4 검증) + 전체 846 통과 + ruff/mypy clean",
+      "rollback_rule": "3 page + 3 sample + 링크 제거 시 R58 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
