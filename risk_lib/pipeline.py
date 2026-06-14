@@ -20,6 +20,12 @@ from risk_lib.data_gen import (
 )
 from risk_lib.models.pd_model import fit_pd_model, gini, ks_statistic
 from risk_lib.models.rating import pd_to_rating, DEFAULT_MASTER_SCALE
+from risk_lib.models.discrimination import discrimination_summary
+from risk_lib.models.lgd_model import fit_lgd_model, lgd_backtest
+from risk_lib.models.explain import (
+    coefficient_table, permutation_importance, master_scale_calibration,
+    grade_migration_psi,
+)
 from risk_lib.capital.rwa_sa import compute_rwa_sa, standardised_rwa_total
 from risk_lib.capital.rwa_irb import compute_rwa_irb
 from risk_lib.capital.bis import CapitalStack, compute_bis_ratios
@@ -68,6 +74,21 @@ _SEGMENT_FEATURES = {
     "residential_mortgage": ["ltv", "dti", "credit_score", "income_log"],
 }
 
+# Challenger uses half the feature set per segment to stress-test marginal lift.
+_CHALLENGER_FEATURES = {
+    "corporate": ["leverage", "current_ratio"],
+    "retail_other": ["dti", "utilization"],
+    "residential_mortgage": ["ltv", "credit_score"],
+}
+
+# LGD feature sets per segment.
+_LGD_FEATURES = {
+    "corporate": ["leverage", "current_ratio", "log_assets",
+                  "interest_coverage"],
+    "retail_other": ["dti", "utilization", "income_log"],
+    "residential_mortgage": ["ltv", "dti", "credit_score"],
+}
+
 _SA_CORP_BUCKET_BY_GRADE = {g.grade: g.sa_bucket for g in DEFAULT_MASTER_SCALE}
 
 
@@ -101,12 +122,36 @@ class PipelineResult:
     model_cards: list = field(default_factory=list)
     sensitivity: dict[str, Any] = field(default_factory=dict)
     attribution: dict[str, Any] = field(default_factory=dict)
+    lgd_metrics: dict[str, Any] = field(default_factory=dict)
+    challenger_metrics: dict[str, Any] = field(default_factory=dict)
+    explain: dict[str, Any] = field(default_factory=dict)
+    calibration: dict[str, Any] = field(default_factory=dict)
+    grade_migration: dict[str, Any] = field(default_factory=dict)
     meta: dict[str, Any] = field(default_factory=dict)
 
 
-def _fit_segment_pd(portfolio: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """Fit a PD model per credit segment, overwrite pd, attach grade."""
+def _fit_segment_pd(portfolio: pd.DataFrame) -> tuple[
+    pd.DataFrame, dict, dict, dict, dict, dict, dict,
+]:
+    """Fit champion (full features) + challenger (reduced features) PD models
+    per segment, fit LGD model, compute explainability/calibration/PSI.
+
+    Returns
+    -------
+    out            — portfolio with overwritten pd, grade.
+    metrics        — champion variability + discrimination summary per segment.
+    challenger     — challenger metrics + verdict per segment.
+    lgd_metrics    — LGD backtest summary + bucket calibration per segment.
+    explain        — coefficient_table + permutation_importance per segment.
+    calibration    — master-scale calibration table per segment.
+    grade_mig      — train vs test grade-level PSI per segment.
+    """
     metrics: dict[str, dict[str, float]] = {}
+    challenger: dict[str, dict[str, Any]] = {}
+    lgd_metrics: dict[str, dict[str, Any]] = {}
+    explain: dict[str, dict[str, Any]] = {}
+    calibration: dict[str, pd.DataFrame] = {}
+    grade_mig: dict[str, dict[str, Any]] = {}
     out = portfolio.copy()
     for seg, feats in _SEGMENT_FEATURES.items():
         mask = out["asset_class"] == seg
@@ -114,20 +159,81 @@ def _fit_segment_pd(portfolio: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         if seg_df.empty:
             continue
         train, test = split_train_test(seg_df)
+        ct = float(seg_df["default_12m"].mean())
+        # ---- champion
         model = fit_pd_model(train, feats, target="default_12m",
-                             central_tendency=float(seg_df["default_12m"].mean()))
+                             central_tendency=ct)
         test_pd = model.recalibrate(model.predict_pd(test))
+        disc = discrimination_summary(test["default_12m"].values, test_pd)
         metrics[seg] = {
             "gini": gini(test["default_12m"].values, test_pd),
             "ks": ks_statistic(test["default_12m"].values, test_pd),
+            "auc_roc": disc["auc_roc"],
+            "auprc": disc["auprc"],
+            "brier": disc["brier"],
+            "brier_skill": disc["brier_skill"],
             "n_train": float(len(train)),
             "n_test": float(len(test)),
         }
+        # ---- challenger (subset features)
+        ch_feats = _CHALLENGER_FEATURES.get(seg, feats[: max(1, len(feats) // 2)])
+        ch_model = fit_pd_model(train, ch_feats, target="default_12m",
+                                central_tendency=ct)
+        ch_pd = ch_model.recalibrate(ch_model.predict_pd(test))
+        ch_disc = discrimination_summary(test["default_12m"].values, ch_pd)
+        delta_gini = metrics[seg]["gini"] - (2 * ch_disc["auc_roc"] - 1)
+        verdict = "CHAMPION 우월" if delta_gini > 0.01 else (
+            "CHALLENGER 우월" if delta_gini < -0.01 else "통계적 동등")
+        challenger[seg] = {
+            "features": ch_feats,
+            "gini": 2 * ch_disc["auc_roc"] - 1,
+            "auc_roc": ch_disc["auc_roc"],
+            "auprc": ch_disc["auprc"],
+            "brier": ch_disc["brier"],
+            "delta_gini": float(delta_gini),
+            "verdict": verdict,
+        }
+        # ---- explain (champion)
+        explain[seg] = {
+            "coefficients": coefficient_table(model),
+            "permutation": permutation_importance(model, test, n_repeats=3,
+                                                  seed=42),
+        }
+        # ---- LGD model (fit on train, score the full segment)
+        lgd_feats = [f for f in _LGD_FEATURES.get(seg, []) if f in train.columns]
+        if lgd_feats and "lgd_realized" in train.columns:
+            lgd_m = fit_lgd_model(train, lgd_feats, target="lgd_realized")
+            test_lgd_pred = lgd_m.predict_lgd(test)
+            bt = lgd_backtest(test["lgd_realized"].values, test_lgd_pred)
+            lgd_metrics[seg] = {
+                "features": lgd_feats,
+                "backtest": bt,
+                "model": lgd_m,
+                "predicted_full": lgd_m.predict_lgd(seg_df),
+            }
+        # ---- write back PD + grade for segment
         seg_pd = model.recalibrate(model.predict_pd(seg_df))
         out.loc[mask, "pd"] = seg_pd
+        seg_grade = pd.Series([pd_to_rating(p).grade for p in seg_pd],
+                              index=seg_df.index)
+        # ---- master-scale calibration on test
+        test_grade = pd.Series([pd_to_rating(p).grade for p in test_pd])
+        calibration[seg] = master_scale_calibration(
+            test_pd, test["default_12m"].values, test_grade,
+        )
+        # ---- grade migration PSI: train vs test grades
+        train_pd = model.recalibrate(model.predict_pd(train))
+        train_grade = pd.Series([pd_to_rating(p).grade for p in train_pd])
+        grade_mig[seg] = grade_migration_psi(train_grade, test_grade)
+        # write back computed grade so downstream is consistent
+        out.loc[seg_df.index, "_seg_grade"] = seg_grade.values
+
     out["grade"] = [pd_to_rating(p).grade if pd.notna(p) else None
                     for p in out["pd"]]
-    return out, metrics
+    if "_seg_grade" in out.columns:
+        out = out.drop(columns=["_seg_grade"])
+    return (out, metrics, challenger, lgd_metrics, explain,
+            calibration, grade_mig)
 
 
 def _standardised_rwa_all(portfolio: pd.DataFrame) -> float:
@@ -303,8 +409,9 @@ def run_pipeline(
     if portfolio is None:
         portfolio = generate_portfolio(seed=seed)
 
-    # 1. PD models per segment + grades
-    portfolio, pd_metrics = _fit_segment_pd(portfolio)
+    # 1. PD models per segment + grades + challenger + LGD + XAI + calibration
+    (portfolio, pd_metrics, challenger_metrics, lgd_metrics, explain,
+     calibration, grade_migration) = _fit_segment_pd(portfolio)
 
     # 2. SA / IRB split + credit RWA
     sa_book, irb_book = _stage_split_books(portfolio)
@@ -438,6 +545,11 @@ def run_pipeline(
         raf=raf, climate=climate_result, ccr=ccr_result,
         op_loss=op_loss_result, concentration_deep=conc_deep,
         model_cards=model_cards_real, sensitivity=sens, attribution=attr,
+        lgd_metrics=lgd_metrics,
+        challenger_metrics=challenger_metrics,
+        explain=explain,
+        calibration=calibration,
+        grade_migration=grade_migration,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
               "asof": asof.isoformat(), "quarters": quarters},
     )

@@ -17,6 +17,11 @@ from risk_lib.models.lgd_model import (
     fit_lgd_model, lgd_backtest, lgd_bucket_calibration,
 )
 from risk_lib.models.pd_model import fit_pd_model, gini
+from risk_lib.models.explain import (
+    coefficient_table, permutation_importance,
+    grade_migration_psi, grade_transition_matrix, master_scale_calibration,
+)
+from risk_lib.models.rating import pd_to_rating
 
 
 # -------------------------------------------------- discrimination metrics
@@ -139,3 +144,67 @@ def test_pd_backtest_report_new_keys():
               "calibration_curve"):
         assert k in bt, f"missing key {k}"
     assert 0 <= bt["discrimination"]["auc_roc"] <= 1
+
+
+# -------------------------------------------------- explainability
+
+
+def _fit_corp_model():
+    df = generate_portfolio(n_corporate=600, n_retail=0, n_mortgage=0,
+                            n_sovereign=0, n_bank=0)
+    train, test = split_train_test(df, test_frac=0.3)
+    feats = ["leverage", "current_ratio", "log_assets",
+             "interest_coverage", "gdp_growth"]
+    model = fit_pd_model(train, feats, target="default_12m")
+    return model, train, test
+
+
+def test_coefficient_table_signs_and_contributions():
+    model, train, _ = _fit_corp_model()
+    tab = coefficient_table(model)
+    assert set(tab.columns) >= {"feature", "coef", "odds_ratio",
+                                "abs_effect", "direction", "contribution_pct"}
+    assert tab["contribution_pct"].sum() == pytest.approx(1.0, abs=1e-9)
+    # leverage should increase risk (positive direction)
+    row = tab[tab["feature"] == "leverage"].iloc[0]
+    assert row["coef"] > 0
+
+
+def test_permutation_importance_top_feature_dominant():
+    model, _, test = _fit_corp_model()
+    imp = permutation_importance(model, test, n_repeats=3, seed=42)
+    # most important feature has the largest drop
+    assert imp["gini_drop_mean"].iloc[0] == imp["gini_drop_mean"].max()
+    # all features listed
+    assert set(imp["feature"]) == set(model.features)
+
+
+def test_grade_migration_psi_stable_when_same_pop():
+    df = generate_portfolio(n_corporate=400, n_retail=0, n_mortgage=0,
+                            n_sovereign=0, n_bank=0)
+    df["grade"] = [pd_to_rating(p).grade for p in df["pd"]]
+    res = grade_migration_psi(df["grade"], df["grade"])
+    assert res["psi"] < 1e-6
+    assert res["zone"] == "GREEN"
+
+
+def test_grade_transition_matrix_diagonal_when_no_change():
+    df = generate_portfolio(n_corporate=200, n_retail=0, n_mortgage=0,
+                            n_sovereign=0, n_bank=0)
+    grades = pd.Series([pd_to_rating(p).grade for p in df["pd"]])
+    mat = grade_transition_matrix(grades, grades)
+    # diagonal should be 1.0
+    diag = mat[mat["from_grade"] == mat["to_grade"]]
+    nonzero = diag[diag["n"] > 0]["pct"].tolist()
+    assert nonzero == pytest.approx([1.0] * len(nonzero))
+
+
+def test_master_scale_calibration_columns():
+    from risk_lib import run_pipeline
+    r = run_pipeline(seed=42)
+    corp = r.backtest
+    # use the pipeline portfolio_summary path: just call directly
+    cal = r.calibration["corporate"]
+    assert {"grade", "pd_midpoint", "mean_pd_predicted",
+            "realised_dr", "n", "bias"} <= set(cal.columns)
+    assert (cal["n"] > 0).all()
