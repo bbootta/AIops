@@ -199,6 +199,17 @@ def test_grade_transition_matrix_diagonal_when_no_change():
     assert nonzero == pytest.approx([1.0] * len(nonzero))
 
 
+def test_viz_helpers_produce_svg():
+    from risk_lib.viz import roc_curve, calibration_plot, histogram
+    svg1 = roc_curve([0, 0.5, 1], [0, 0.7, 1], auc=0.82)
+    svg2 = calibration_plot([0.01, 0.05, 0.1], [0.012, 0.04, 0.11],
+                            counts=[100, 80, 30])
+    svg3 = histogram([0.1, 0.2, 0.3, 0.4, 0.5], overlay=[0.2, 0.3, 0.4])
+    for svg in (svg1, svg2, svg3):
+        assert svg.startswith("<svg")
+        assert "</svg>" in svg
+
+
 def test_master_scale_calibration_columns():
     from risk_lib import run_pipeline
     r = run_pipeline(seed=42)

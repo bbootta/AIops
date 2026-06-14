@@ -425,3 +425,152 @@ def gauge(
                  f'font-weight="700" font-size="16">{_esc(value_fmt(value))}</text>')
     parts.append('</svg>')
     return "".join(parts)
+
+
+def roc_curve(
+    fpr: Sequence[float], tpr: Sequence[float], *,
+    auc: float | None = None, width: int = 380, height: int = 320,
+    title: str = "ROC 곡선",
+) -> str:
+    """Inline-SVG ROC curve with reference diagonal."""
+    pad_l, pad_r, pad_t, pad_b = 50, 16, 36, 38
+    plot_w = width - pad_l - pad_r
+    plot_h = height - pad_t - pad_b
+    def x(v): return pad_l + plot_w * float(v)
+    def y(v): return pad_t + plot_h * (1.0 - float(v))
+    parts = [_svg_open(width, height, title)]
+    parts.append(f'<text x="{width/2}" y="22" text-anchor="middle" '
+                 f'font-weight="600" font-size="13">{_esc(title)}</text>')
+    for i in range(5):
+        gv = i / 4
+        parts.append(f'<line x1="{pad_l}" x2="{width-pad_r}" y1="{y(gv)}" '
+                     f'y2="{y(gv)}" stroke="#e5e7eb"/>')
+        parts.append(f'<line x1="{x(gv)}" x2="{x(gv)}" y1="{pad_t}" '
+                     f'y2="{height-pad_b}" stroke="#e5e7eb"/>')
+        parts.append(f'<text x="{pad_l-4}" y="{y(gv)+3}" text-anchor="end" '
+                     f'fill="#6b7280" font-size="10">{gv:.2f}</text>')
+        parts.append(f'<text x="{x(gv)}" y="{height-pad_b+14}" text-anchor="middle" '
+                     f'fill="#6b7280" font-size="10">{gv:.2f}</text>')
+    parts.append(f'<line x1="{x(0)}" y1="{y(0)}" x2="{x(1)}" y2="{y(1)}" '
+                 f'stroke="{GREY}" stroke-dasharray="4,3"/>')
+    path = " ".join(f"{'M' if i == 0 else 'L'} {x(f):.1f} {y(t):.1f}"
+                    for i, (f, t) in enumerate(zip(fpr, tpr)))
+    parts.append(f'<path d="{path}" fill="none" stroke="{PALETTE[0]}" '
+                 f'stroke-width="2"/>')
+    parts.append(f'<text x="{(pad_l+width-pad_r)/2}" y="{height-4}" '
+                 f'text-anchor="middle" fill="#374151" font-size="11">FPR</text>')
+    parts.append(f'<text x="14" y="{(pad_t+height-pad_b)/2}" '
+                 f'transform="rotate(-90 14 {(pad_t+height-pad_b)/2})" '
+                 f'text-anchor="middle" fill="#374151" font-size="11">TPR</text>')
+    if auc is not None:
+        parts.append(f'<text x="{width-pad_r-6}" y="{pad_t+14}" text-anchor="end" '
+                     f'fill="#111827" font-size="12" font-weight="600">'
+                     f'AUC = {auc:.3f}</text>')
+    parts.append('</svg>')
+    return "".join(parts)
+
+
+def calibration_plot(
+    mean_pred: Sequence[float], realised: Sequence[float], *,
+    width: int = 380, height: int = 320,
+    title: str = "캘리브레이션 (PD vs 실현 DR)",
+    counts: Sequence[float] | None = None,
+) -> str:
+    """Reliability diagram. 45° 선이 완벽 캘리브레이션."""
+    pad_l, pad_r, pad_t, pad_b = 50, 16, 36, 38
+    plot_w = width - pad_l - pad_r
+    plot_h = height - pad_t - pad_b
+    vmax = max(list(mean_pred) + list(realised) + [0.001])
+    vmax = min(1.0, vmax * 1.15)
+    def x(v): return pad_l + plot_w * (float(v) / vmax)
+    def y(v): return pad_t + plot_h * (1.0 - float(v) / vmax)
+    parts = [_svg_open(width, height, title)]
+    parts.append(f'<text x="{width/2}" y="22" text-anchor="middle" '
+                 f'font-weight="600" font-size="13">{_esc(title)}</text>')
+    for i in range(5):
+        gv = vmax * i / 4
+        parts.append(f'<line x1="{pad_l}" x2="{width-pad_r}" y1="{y(gv)}" '
+                     f'y2="{y(gv)}" stroke="#e5e7eb"/>')
+        parts.append(f'<text x="{pad_l-4}" y="{y(gv)+3}" text-anchor="end" '
+                     f'fill="#6b7280" font-size="10">{gv*100:.1f}%</text>')
+        parts.append(f'<text x="{x(gv)}" y="{height-pad_b+14}" text-anchor="middle" '
+                     f'fill="#6b7280" font-size="10">{gv*100:.1f}%</text>')
+    parts.append(f'<line x1="{x(0)}" y1="{y(0)}" x2="{x(vmax)}" y2="{y(vmax)}" '
+                 f'stroke="{GREY}" stroke-dasharray="4,3"/>')
+    if mean_pred:
+        path = " ".join(f"{'M' if i == 0 else 'L'} {x(p):.1f} {y(r):.1f}"
+                        for i, (p, r) in enumerate(zip(mean_pred, realised)))
+        parts.append(f'<path d="{path}" fill="none" stroke="{PALETTE[0]}" '
+                     f'stroke-width="1.5"/>')
+    cmax = max(counts) if counts else 1
+    for i, (p, r) in enumerate(zip(mean_pred, realised)):
+        cnt = counts[i] if counts else 1
+        radius = 3 + 5 * (cnt / cmax) if cmax else 3
+        fill = PALETTE[2] if r > p else PALETTE[4]
+        parts.append(f'<circle cx="{x(p):.1f}" cy="{y(r):.1f}" '
+                     f'r="{radius:.1f}" fill="{fill}" opacity="0.85"/>')
+    parts.append(f'<text x="{(pad_l+width-pad_r)/2}" y="{height-4}" '
+                 f'text-anchor="middle" fill="#374151" font-size="11">'
+                 f'예측 PD (bucket 평균)</text>')
+    parts.append(f'<text x="14" y="{(pad_t+height-pad_b)/2}" '
+                 f'transform="rotate(-90 14 {(pad_t+height-pad_b)/2})" '
+                 f'text-anchor="middle" fill="#374151" font-size="11">실현 DR</text>')
+    parts.append('</svg>')
+    return "".join(parts)
+
+
+def histogram(
+    values: Sequence[float], *, bins: int = 20,
+    width: int = 380, height: int = 240, title: str = "",
+    color: str = PALETTE[0], overlay: Sequence[float] | None = None,
+    overlay_color: str = RED, overlay_label: str = "예측",
+    value_fmt=_fmt_pct,
+) -> str:
+    """Simple histogram; ``overlay`` adds a second series on identical bins."""
+    pad_l, pad_r, pad_t, pad_b = 50, 16, 36 if title else 16, 30
+    plot_w = width - pad_l - pad_r
+    plot_h = height - pad_t - pad_b
+    vmin = min(list(values) + (list(overlay) if overlay else []))
+    vmax = max(list(values) + (list(overlay) if overlay else []))
+    if vmax == vmin: vmax = vmin + 1
+    def bucket(arr):
+        out = [0] * bins
+        for v in arr:
+            idx = min(int((v - vmin) / (vmax - vmin) * bins), bins - 1)
+            if idx < 0: idx = 0
+            out[idx] += 1
+        return out
+    h1 = bucket(values)
+    h2 = bucket(overlay) if overlay else None
+    cmax = max(h1 + (h2 or []))
+    def x(i): return pad_l + plot_w * i / bins
+    def y(c): return pad_t + plot_h * (1 - c / max(cmax, 1))
+    parts = [_svg_open(width, height, title)]
+    if title:
+        parts.append(f'<text x="{width/2}" y="22" text-anchor="middle" '
+                     f'font-weight="600" font-size="13">{_esc(title)}</text>')
+    bar_w = plot_w / bins
+    for i, c in enumerate(h1):
+        parts.append(f'<rect x="{x(i):.1f}" y="{y(c):.1f}" width="{bar_w-1:.1f}" '
+                     f'height="{plot_h-(y(c)-pad_t):.1f}" fill="{color}" '
+                     f'opacity="{"0.55" if h2 else "0.85"}"/>')
+    if h2:
+        for i, c in enumerate(h2):
+            parts.append(f'<rect x="{x(i):.1f}" y="{y(c):.1f}" width="{bar_w-1:.1f}" '
+                         f'height="{plot_h-(y(c)-pad_t):.1f}" fill="{overlay_color}" '
+                         f'opacity="0.55"/>')
+        parts.append(f'<rect x="{width-pad_r-90}" y="{pad_t+4}" width="10" '
+                     f'height="10" fill="{color}" opacity="0.7"/>')
+        parts.append(f'<text x="{width-pad_r-76}" y="{pad_t+13}" font-size="11" '
+                     f'fill="#374151">실제</text>')
+        parts.append(f'<rect x="{width-pad_r-40}" y="{pad_t+4}" width="10" '
+                     f'height="10" fill="{overlay_color}" opacity="0.7"/>')
+        parts.append(f'<text x="{width-pad_r-26}" y="{pad_t+13}" font-size="11" '
+                     f'fill="#374151">{_esc(overlay_label)}</text>')
+    for i in (0, bins // 2, bins):
+        v = vmin + (vmax - vmin) * i / bins
+        parts.append(f'<text x="{x(i):.1f}" y="{height-pad_b+14}" '
+                     f'text-anchor="middle" fill="#6b7280" font-size="10">'
+                     f'{_esc(value_fmt(v))}</text>')
+    parts.append('</svg>')
+    return "".join(parts)
