@@ -244,6 +244,27 @@ def alm_sample(*, stressed: bool = False) -> dict:
     }
 
 
+def ccr_netting_sample() -> list[dict]:
+    """SA-CCR netting set 분해 — counterparty / asset class / collateral."""
+    return [
+        {"netting_set": "NS-001", "counterparty": "CP-001",
+         "asset_class": "Interest Rate", "rc": 120.0, "pfe": 80.0,
+         "collateral_bn": 50.0, "wrong_way_risk": False},
+        {"netting_set": "NS-002", "counterparty": "CP-001",
+         "asset_class": "FX", "rc": 60.0, "pfe": 45.0,
+         "collateral_bn": 20.0, "wrong_way_risk": False},
+        {"netting_set": "NS-003", "counterparty": "CP-002",
+         "asset_class": "Credit", "rc": 95.0, "pfe": 70.0,
+         "collateral_bn": 10.0, "wrong_way_risk": True},  # WWR
+        {"netting_set": "NS-004", "counterparty": "CP-003",
+         "asset_class": "Equity", "rc": 40.0, "pfe": 30.0,
+         "collateral_bn": 15.0, "wrong_way_risk": False},
+        {"netting_set": "NS-005", "counterparty": "CP-004",
+         "asset_class": "Commodity", "rc": 25.0, "pfe": 20.0,
+         "collateral_bn": 0.0, "wrong_way_risk": False},
+    ]
+
+
 def operational_bi_components_sample() -> dict:
     """SMA Business Indicator (BI) 5개 component 분해 (BCBS OPE25)."""
     components = {

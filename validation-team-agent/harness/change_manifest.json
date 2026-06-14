@@ -1770,6 +1770,21 @@
       "rollback_rule": "page + sample + 링크 제거 시 R54 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0119",
+      "timestamp": "2026-06-14 09:15:35",
+      "component": "tools/sample_generators.py (ccr_netting) + tools/report_pack.py (ccr_netting_deep)",
+      "change_type": "create",
+      "evidence": "/goal R56 CCR: netting set 단위 분해·Wrong-Way Risk 식별·담보 차감 미반영",
+      "root_cause": "ccr_deep 은 α(RC+PFE) 총 EAD 만, netting set 별 분해와 WWR identification 누락",
+      "targeted_fix": "ccr_netting_sample (5 netting set, 4 counterparty, 5 asset class, WWR flag, collateral). ccr_netting_deep.html: netting set 별 EAD 차트 (WWR 빨간색) + asset class 분해 + RC/PFE/Collateral/EAD 표 + WWR 영향 EAD 비중",
+      "expected_benefit": "CCR 검증자가 netting set 단위 EAD + WWR 식별 + 담보 효과를 한 화면. CRE52 §165 대응",
+      "expected_regression_risk": "low — 신규 sample/page, 기존 ccr_deep 무변경",
+      "validation_method": "tests/test_v2_round56.py 10 cases + 전체 통과 + ruff/mypy clean",
+      "rollback_rule": "page + sample + 링크 제거 시 R55 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

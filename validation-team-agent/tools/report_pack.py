@@ -432,6 +432,7 @@ def _market_ops_page(demo: dict) -> str:
 <li><a href="op_scenario_deep.html">운영 — 손실 시나리오 (BCBS 7 event class) →</a></li>
 <li><a href="cva_deep.html">CVA — counterparty 분해 →</a></li>
 <li><a href="ccr_deep.html">CCR — SA-CCR EAD 분해 (RC + PFE × α) →</a></li>
+<li><a href="ccr_netting_deep.html">CCR — Netting set + Wrong-Way Risk + 담보 →</a></li>
 </ul>
 <h2>왜 이 결과인가 (Explainability)</h2>
 <p>{narrate("3.market", mkt)}</p>
@@ -746,6 +747,89 @@ frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.<
 <p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
 """
     return _page("심화 — 운영리스크 손실 시나리오", body)
+
+
+def _ccr_netting_deep_page() -> str:
+    """SA-CCR netting set 분해 + WWR identification + collateral."""
+    from tools.sample_generators import ccr_netting_sample
+
+    nsets = ccr_netting_sample()
+    alpha = 1.4
+
+    ead_by_set = [
+        (ns["netting_set"], alpha * max(0.0, ns["rc"] + ns["pfe"] - ns["collateral_bn"]))
+        for ns in nsets
+    ]
+    asset_class_totals: dict[str, float] = {}
+    for ns in nsets:
+        asset_class_totals.setdefault(ns["asset_class"], 0.0)
+        asset_class_totals[ns["asset_class"]] += alpha * max(
+            0.0, ns["rc"] + ns["pfe"] - ns["collateral_bn"])
+
+    set_chart = hbar(
+        ead_by_set, title="Netting set 별 EAD", fmt="{:,.1f} bn",
+        colors=[PALETTE["fail"] if ns["wrong_way_risk"] else PALETTE["neutral"]
+                for ns in nsets])
+
+    asset_chart = hbar(
+        list(asset_class_totals.items()), title="Asset class 별 EAD",
+        fmt="{:,.1f} bn",
+        colors=[PALETTE["neutral"]] * len(asset_class_totals))
+
+    rows = "".join(
+        f"<tr><td><code>{_esc(ns['netting_set'])}</code></td>"
+        f"<td><code>{_esc(ns['counterparty'])}</code></td>"
+        f"<td>{_esc(ns['asset_class'])}</td>"
+        f"<td>{ns['rc']:,.1f}</td><td>{ns['pfe']:,.1f}</td>"
+        f"<td>{ns['collateral_bn']:,.1f}</td>"
+        f"<td>{alpha * max(0.0, ns['rc'] + ns['pfe'] - ns['collateral_bn']):,.1f}</td>"
+        f"<td>{'<b style=color:#c62828>WWR</b>' if ns['wrong_way_risk'] else 'no'}</td></tr>"
+        for ns in nsets)
+
+    total_ead = sum(e for _, e in ead_by_set)
+    wwr_ead = sum(e for ns, e in zip(nsets, [e for _, e in ead_by_set])
+                  if ns["wrong_way_risk"])
+
+    body = f"""
+<p>SA-CCR (BCBS CRE52) netting set 단위 EAD 분해 + Wrong-Way Risk (WWR)
+식별 + 담보 차감.</p>
+
+<h2>Netting Set 별 EAD</h2>
+{set_chart}
+<table>
+<tr><th>Netting Set</th><th>Counterparty</th><th>Asset Class</th>
+<th>RC</th><th>PFE</th><th>Collateral</th><th>EAD = α(RC+PFE−Col)</th><th>WWR</th></tr>
+{rows}
+<tr><th colspan="6">합계 EAD</th><td><b>{total_ead:,.1f}</b></td><td></td></tr>
+</table>
+
+<h2>Asset Class 별 EAD</h2>
+{asset_chart}
+
+<h2>Wrong-Way Risk (WWR) 식별</h2>
+<table>
+<tr><th>WWR 식별 netting set 수</th>
+<td>{sum(1 for ns in nsets if ns['wrong_way_risk'])} / {len(nsets)}</td></tr>
+<tr><th>WWR 영향 EAD</th>
+<td>{wwr_ead:,.1f} bn ({wwr_ead/max(total_ead,1e-9):.1%} of total)</td></tr>
+<tr><th>대응</th>
+<td>WWR netting set 에 α 가산 적용 + counterparty 신용도 monitoring 강화
+(BCBS CRE52 §165)</td></tr>
+</table>
+
+<h2>해석 (CCR 검증)</h2>
+<ul>
+<li><b>EAD = α × max(0, RC + PFE − Collateral)</b>. 담보가 충분하면 EAD = 0.</li>
+<li><b>Netting set</b>: 단일 master netting agreement (ISDA) 단위.
+counterparty 가 여러 netting set 가질 수 있음 (예: CP-001 has NS-001, NS-002).</li>
+<li><b>WWR</b>: 거래상대방 신용 악화와 동시 EAD 증가 (예: 신용보증사가 CDS
+매도자). 식별 시 α 가산 또는 별도 capital.</li>
+<li><b>Asset class 집중</b>: 단일 asset class (예: IR) 집중은 시장 충격에
+민감.</li>
+</ul>
+<p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로</a> · <a href="ccr_deep.html">CCR EAD 분해 →</a></p>
+"""
+    return _page("심화 — SA-CCR Netting Set + Wrong-Way Risk", body)
 
 
 def _operational_bi_deep_page() -> str:
@@ -2402,6 +2486,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="op_scenario_deep.html">운영 — 손실 시나리오 (BCBS 7 event class)</a></li>
 <li><a href="cva_deep.html">CVA — counterparty 분해 (BA-CVA / SA-CVA)</a></li>
 <li><a href="ccr_deep.html">CCR — SA-CCR EAD 분해</a></li>
+<li><a href="ccr_netting_deep.html">CCR — Netting set + Wrong-Way Risk + 담보</a></li>
 <li><a href="macro_overlay.html">Macroprudential — CCyB/DSR/LTV/SyRB overlay</a></li>
 <li><a href="ifrs9_deep.html">IFRS 9 — Stage migration matrix + ECL 분해</a></li>
 <li><a href="stress_test.html">스트레스 테스트 — baseline / adverse / severe</a></li>
@@ -2463,6 +2548,7 @@ def build_pack(
     pages["concentration_segments.html"] = _concentration_segments_page()
     pages["irrbb_behavioral.html"] = _irrbb_behavioral_page()
     pages["operational_bi_deep.html"] = _operational_bi_deep_page()
+    pages["ccr_netting_deep.html"] = _ccr_netting_deep_page()
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)
