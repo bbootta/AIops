@@ -69,8 +69,7 @@ def test_page_attributes_ifrs9_section(pack):
 
 def test_ifrs9_parent_links_to_fli(pack):
     out, _ = pack
-    text = (out / "ifrs9_deep.html").read_text(encoding="utf-8")
-    # ifrs9_deep -> fli 양쪽 nav 적어도 한쪽은 존재
+    # ifrs9_fli_deep -> ifrs9_deep nav 링크가 존재해야 한다.
     text_fli = (out / "ifrs9_fli_deep.html").read_text(encoding="utf-8")
     assert 'href="ifrs9_deep.html"' in text_fli
 
