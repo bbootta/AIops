@@ -107,6 +107,9 @@ NAV = [
     ("39_dpd_roll.html",   "39. DPD roll-rate"),
     ("40_recovery_lgd.html","40. 회수·LGD"),
     ("41_cure_analysis.html","41. Cure 분석"),
+    ("42_limit_dashboard.html", "42. 한도 dashboard"),
+    ("43_large_exposure.html", "43. 거대익스포저"),
+    ("44_concentration_stress.html","44. 집중 스트레스"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -1406,9 +1409,39 @@ def _page_limits(r: PipelineResult) -> str:
     conc_rows = [[row["dimension"], f"{int(row['n_buckets']):,}",
                   f"{row['hhi']:.4f}", f"{row['normalised_hhi']:.4f}",
                   _pct(row["top1_share"])] for _, row in conc.iterrows()]
+
+    # v0.11.0 deep-dive 요약 — 다차원 한도 + escalation matrix
+    deep_block = ""
+    if getattr(r, "limits_deep", None) is not None:
+        ld = r.limits_deep
+        sev_counts = ld.dashboard["severity"].value_counts().to_dict()
+        sev_chart = viz.bar_chart(
+            ["OK", "WARN", "CRITICAL", "BREACH"],
+            [sev_counts.get(s, 0) for s in ["OK","WARN","CRITICAL","BREACH"]],
+            value_fmt=lambda v: f"{int(v):,}",
+            title="severity별 한도 분포",
+            colors=[viz.GREEN, viz.AMBER, "#E07A1F", viz.RED],
+        )
+        esc_rows = [[r2["severity"], r2["action"], r2["owner"],
+                     r2["report_cycle"], r2["approval_required"]]
+                    for _, r2 in ld.escalation.iterrows()]
+        deep_block = f"""
+<div class="row2">
+<div class="card"><h2>다차원 한도 분포 (총 {len(ld.dashboard):,} 한도×버킷)</h2>
+<div class="chart">{sev_chart}</div>
+<p class="section-lead">상세는 <a href="42_limit_dashboard.html">42. 한도 dashboard</a>,
+거대익스포저(BCBS LEX)는 <a href="43_large_exposure.html">43</a>,
+스트레스 사용률은 <a href="44_concentration_stress.html">44</a>.</p>
+</div>
+<div class="card"><h2>escalation matrix (감독세칙 + 내규)</h2>
+{_table(["severity","조치","책임자","보고주기","승인"], esc_rows)}
+</div>
+</div>"""
+
     body = f"""
 <h1 class="title">7. 한도관리 & 집중리스크</h1>
-<p class="section-lead">한도 사용률 (동일차주 / 섹터 / 국가) + HHI 집중도.</p>
+<p class="section-lead">한도 사용률 (동일차주 / 섹터 / 국가) + HHI 집중도.
+근거: 「은행법」 제35조, 「은행업감독규정」 제29조, BCBS 283 LEX.</p>
 <div class="row2">
 <div class="card"><h2>한도 사용률</h2><div class="chart">{util_chart}</div></div>
 <div class="card"><h2>HHI 집중도</h2><div class="chart">{conc_chart}</div></div>
@@ -1419,6 +1452,7 @@ def _page_limits(r: PipelineResult) -> str:
 <div class="card"><h2>HHI 차원별</h2>
 {_table(["차원","버킷수","HHI","정규화 HHI","최대비중"], conc_rows, right_cols=[1,2,3,4])}
 </div>
+{deep_block}
 """
     return _page("한도·집중도", body, "07_limits.html")
 
@@ -1894,6 +1928,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         page_sicr_detail, page_pd_term_structure,
         page_macro_scenario, page_provisioning_attribution,
         page_dpd_roll, page_recovery_lgd, page_cure_analysis,
+        page_limit_dashboard, page_large_exposure, page_concentration_stress,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -1940,6 +1975,9 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "39_dpd_roll.html":            page_dpd_roll(result),
         "40_recovery_lgd.html":        page_recovery_lgd(result),
         "41_cure_analysis.html":       page_cure_analysis(result),
+        "42_limit_dashboard.html":     page_limit_dashboard(result),
+        "43_large_exposure.html":      page_large_exposure(result),
+        "44_concentration_stress.html": page_concentration_stress(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)

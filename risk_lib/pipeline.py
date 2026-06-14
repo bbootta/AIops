@@ -49,6 +49,7 @@ from risk_lib.monitoring.cure import compute_cure
 from risk_lib.monitoring.vintage_deep import compute_vintage_deep
 from risk_lib.limits.limit_engine import LimitDefinition, LimitEngine
 from risk_lib.limits.concentration import concentration_report
+from risk_lib.limits.limits_deep import compute_limits_deep, LimitsDeepResult
 from risk_lib.performance.rapm import rapm_report
 from risk_lib.stress.scenario import (
     run_stress, StressAxis, BASELINE, ADVERSE, SEVERELY_ADVERSE,
@@ -70,6 +71,8 @@ from risk_lib.ccr import compute_ccr
 from risk_lib.op_loss import compute_op_loss
 from risk_lib.concentration_deep import (
     top_obligors, sector_country_matrix, large_exposure_test, granularity_addon,
+    hierarchical_hhi, top_n_share_table, gini_coefficient, lorenz_curve,
+    wrong_way_correlation, sector_systemic_correlation,
 )
 from risk_lib.model_risk import build_model_cards, drift_report
 from risk_lib.sensitivity import one_factor_grid, two_factor_surface
@@ -142,6 +145,8 @@ class PipelineResult:
     leverage_deep: Any = None  # v0.8.0 leverage ratio exposure decomposition
     ifrs9_deep: Any = None     # v0.9.0 CRO-grade IFRS9 ECL deep-dive analytics
     monitoring_deep: dict[str, Any] = field(default_factory=dict)  # v0.10.0
+    limits_deep: Any = None    # v0.11.0 CRO-grade limit dashboard / LEX / stress
+    concentration_hier: dict[str, Any] = field(default_factory=dict)  # v0.11.0
     meta: dict[str, Any] = field(default_factory=dict)
 
 
@@ -343,6 +348,11 @@ def _stage_monitoring(portfolio: pd.DataFrame, seed: int):
 
 
 def _stage_limits_concentration(portfolio: pd.DataFrame, tier1: float):
+    """Headline limit + HHI report.
+
+    Backward-compatible signature; the CRO deep-dive uses
+    :func:`compute_limits_deep` which is wired in via the limits_deep field.
+    """
     limits = [
         LimitDefinition("동일차주_Tier1_25pct", "obligor_id", None,
                         0.25, basis="pct_tier1"),
@@ -490,6 +500,17 @@ def run_pipeline(
         "sector_country": sector_country_matrix(portfolio),
         "large_exposure": large_exposure_test(portfolio, capital.tier1),
         "granularity_addon_rate": granularity_addon(portfolio),
+    }
+    # v0.11.0 — limit deep-dive + hierarchical HHI + wrong-way + Gini
+    limits_deep_result = compute_limits_deep(portfolio, capital.tier1, seed=seed)
+    obligor_ead = portfolio.groupby("obligor_id")["ead"].sum()
+    concentration_hier = {
+        "hierarchical_hhi": hierarchical_hhi(portfolio),
+        "top_n": top_n_share_table(portfolio),
+        "gini_obligor": gini_coefficient(obligor_ead.values),
+        "lorenz_obligor": lorenz_curve(obligor_ead.values),
+        "wrong_way": wrong_way_correlation(portfolio, seed=seed),
+        "sector_correlation": sector_systemic_correlation(portfolio),
     }
     model_cards = build_model_cards(pd_metrics, backtest["hosmer_lemeshow"]) \
         if False else []   # populate after backtest below
@@ -657,6 +678,8 @@ def run_pipeline(
             "vintage": monitoring.get("vintage_deep"),
             "workouts": monitoring.get("workouts"),
         },
+        limits_deep=limits_deep_result,
+        concentration_hier=concentration_hier,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
               "asof": asof.isoformat(), "quarters": quarters},
     )
