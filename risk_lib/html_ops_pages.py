@@ -1570,3 +1570,446 @@ KR 국내 시중은행은 통상 G-SIB 미지정이므로 가산 0% 적용.</p>
 </div>
 """
     return _page("레버리지 D-D", body, "34_leverage_deep.html")
+
+
+# ============================================================================
+# 35 SICR detail (v0.9.0 IFRS9 deep-dive)
+# ============================================================================
+
+# IFRS 9 trigger labels (short → 한글 long form)
+_SICR_TRIGGER_LABEL = {
+    "dpd30":       "30일 연체 (5.5.11 rebuttable)",
+    "watchlist":   "내부 watchlist",
+    "pd_ratio":    "PD 배수(2x) 초과 (5.5.7)",
+    "ext_rating":  "외부등급 2 notch 하락",
+    "forbearance": "채무재조정(forbearance)",
+    "abs_pd":      f"절대 PD 임계 (5% 이상)",
+}
+
+
+def page_sicr_detail(r: PipelineResult) -> str:
+    """35_sicr_detail.html — multi-trigger Stage 2 attribution + low-credit-risk
+    exemption (IFRS 9 5.5.7 / 5.5.10 / 5.5.11)."""
+    deep = r.ifrs9_deep
+    if deep is None:
+        body = "<h1 class='title'>35. SICR 트리거 분해</h1><p>데이터 없음.</p>"
+        return _page("SICR 분해", body, "35_sicr_detail.html")
+    sicr = deep.sicr
+    sicr_ex = deep.sicr_with_exemption
+
+    s = sicr.summary.copy()
+    s["label"] = s["trigger"].map(_SICR_TRIGGER_LABEL)
+    trig_chart = viz.horizontal_bar(
+        s["label"].tolist(), s["n_stage2"].tolist(),
+        value_fmt=lambda v: f"{int(v):,}",
+        title="SICR 트리거별 Stage 2 진입 건수",
+        color=viz.AMBER,
+    )
+    trig_ead_chart = viz.horizontal_bar(
+        s["label"].tolist(), s["ead_stage2"].tolist(),
+        value_fmt=_won,
+        title="SICR 트리거별 Stage 2 EAD",
+        color=viz.PALETTE[1],
+    )
+    rows = [[lbl, f"{int(row.n_fired):,}", f"{int(row.n_stage2):,}",
+             _won(row.ead_stage2), _pct(row.pct_of_stage2)]
+            for lbl, row in zip(s["label"], s.itertuples())]
+    matrix = deep.stage_asset
+    asset_chart = viz.stacked_bar(
+        list(matrix["asset_class"].unique()),
+        {f"Stage {st}": matrix[matrix["stage"] == st]
+         .set_index("asset_class").reindex(matrix["asset_class"].unique())
+         ["ead"].tolist()
+         for st in (1, 2, 3)},
+        value_fmt=_won,
+        title="자산군 × Stage EAD",
+    )
+    cov_rows = [[row.asset_class, f"Stage {int(row.stage)}", f"{int(row.n):,}",
+                 _won(row.ead), _won(row.ecl), _pct(row.coverage_ratio)]
+                for row in matrix.itertuples()]
+
+    # exemption impact
+    exempt_rows = [
+        ["적용 전 Stage 2 건수", f"{sicr.n_stage2_pre_exemption:,}"],
+        ["적용 후 Stage 2 건수 (5.5.10 carve-out)",
+         f"{sicr_ex.n_stage2_post_exemption:,}"],
+        ["carve-out (Stage 2→1) 건수",
+         f"{int(sicr_ex.low_credit_risk_carve['carved_out'].sum()):,}"],
+    ]
+
+    body = f"""
+<h1 class="title">35. SICR 트리거 분해 + Stage 분류 결과</h1>
+<p class="section-lead">신용위험 유의적 증가(SICR) 다중 트리거 분해.
+IFRS 9 5.5.7 / 5.5.11 / 5.5.10 (low credit risk exemption).</p>
+
+<div class="kpi-grid">
+{_kpi("Stage 2 익스포저 수", f"{sicr.n_stage2_pre_exemption:,}", tone="warn")}
+{_kpi("최다 트리거",
+       _esc(_SICR_TRIGGER_LABEL.get(
+            s.sort_values('n_stage2', ascending=False).iloc[0]['trigger'],
+            s.sort_values('n_stage2', ascending=False).iloc[0]['trigger'])))}
+{_kpi("절대 PD 임계 (5%) 충족",
+       f"{int(s.loc[s['trigger']=='abs_pd','n_fired'].iloc[0]):,}",
+       sub="투자등급 면제 적용 가능")}
+</div>
+
+<div class="row2">
+<div class="card"><h2>35-1. 트리거별 Stage 2 건수</h2>
+<div class="chart">{trig_chart}</div></div>
+<div class="card"><h2>35-2. 트리거별 Stage 2 EAD</h2>
+<div class="chart">{trig_ead_chart}</div></div>
+</div>
+
+<div class="card"><h2>35-3. SICR 트리거 상세</h2>
+{_table(["트리거","발동 건수","Stage 2 진입","Stage 2 EAD","Stage 2 내 비중"],
+        rows, right_cols=[1,2,3,4])}
+<p style="font-size:12px;color:#6b7280">
+한 익스포저에 복수 트리거가 동시에 발동될 수 있으므로 합계 ≠ Stage 2 총수.
+</p>
+</div>
+
+<div class="card"><h2>35-4. 저신용위험 면제(low credit risk exemption, 5.5.10)</h2>
+{_table(["항목","값"], exempt_rows, right_cols=[1])}
+<p style="font-size:12px;color:#6b7280">
+투자등급(BBB- 이상)에 대해 SICR 면제 옵션 적용 시 Stage 2 분류가 축소.
+IFRS 9 5.5.10은 저신용위험을 가정할 권리이며, 의무가 아님.
+</p>
+</div>
+
+<div class="card"><h2>35-5. 자산군 × Stage 분포</h2>
+<div class="chart">{asset_chart}</div>
+{_table(["자산군","Stage","건수","EAD","ECL","커버리지"], cov_rows,
+        right_cols=[2,3,4,5])}
+</div>
+"""
+    return _page("SICR 분해", body, "35_sicr_detail.html")
+
+
+# ============================================================================
+# 36 PD term structure (v0.9.0 IFRS9 deep-dive)
+# ============================================================================
+
+def page_pd_term_structure(r: PipelineResult) -> str:
+    """36_pd_term_structure.html — marginal/cumulative PD curves, survival
+    probability, EIR sensitivity, amortising vs bullet (잔존기간 ECL inputs)."""
+    deep = r.ifrs9_deep
+    if deep is None:
+        body = "<h1 class='title'>36. PD 잔존기간 구조</h1><p>데이터 없음.</p>"
+        return _page("PD 잔존기간", body, "36_pd_term_structure.html")
+
+    pdt = deep.pd_term
+    years = sorted(pdt["year"].unique().tolist())
+    marg_series = {cls: pdt[pdt["asset_class"] == cls]
+                   .sort_values("year")["marginal_pd"].tolist()
+                   for cls in pdt["asset_class"].unique()}
+    cum_series = {cls: pdt[pdt["asset_class"] == cls]
+                  .sort_values("year")["cumulative_pd"].tolist()
+                  for cls in pdt["asset_class"].unique()}
+    surv_series = {cls: pdt[pdt["asset_class"] == cls]
+                   .sort_values("year")["survival"].tolist()
+                   for cls in pdt["asset_class"].unique()}
+    marg_chart = viz.line_chart([str(y) for y in years], marg_series,
+                                 value_fmt=lambda v: f"{v*100:.2f}%",
+                                 title="자산군별 한계 부도확률 (marginal PD)")
+    cum_chart = viz.line_chart([str(y) for y in years], cum_series,
+                                value_fmt=_pct,
+                                title="자산군별 누적 부도확률")
+    surv_chart = viz.line_chart([str(y) for y in years], surv_series,
+                                 value_fmt=_pct,
+                                 title="자산군별 잔존(생존) 확률")
+
+    # EIR sensitivity
+    es = deep.eir_sensitivity
+    eir_pivot = es.pivot(index="eir", columns="asset_class", values="ecl")
+    eir_rows = [[f"{idx*100:.1f}%"] + [_won(eir_pivot.loc[idx, c])
+                                        for c in eir_pivot.columns]
+                for idx in eir_pivot.index]
+    eir_series = {c: eir_pivot[c].tolist() for c in eir_pivot.columns}
+    eir_chart = viz.line_chart(
+        [f"{e*100:.1f}%" for e in eir_pivot.index],
+        eir_series,
+        value_fmt=lambda v: f"{v/1e9:,.0f}십억",
+        title="EIR 감소율 변화에 따른 자산군별 ECL",
+    )
+
+    # amortising vs bullet
+    avb = deep.amortising_vs_bullet
+    avb_chart = viz.bar_chart(
+        avb["type"].tolist(), avb["ecl"].tolist(),
+        value_fmt=_won,
+        title="EAD 잔액구조 (분할상환 vs 만기일시) — 동일 PD/LGD/만기",
+    )
+
+    body = f"""
+<h1 class="title">36. PD 잔존기간 구조 + EIR 시뮬레이션</h1>
+<p class="section-lead">상수-위험률(constant-hazard) 가정 하의 자산군별 잔존기간 PD 곡선과
+유효이자율(EIR) 가정 변화에 따른 ECL 민감도.</p>
+
+<div class="kpi-grid">
+{_kpi("자산군 수", f"{pdt['asset_class'].nunique()}")}
+{_kpi("최대 만기 모사", f"{int(pdt['year'].max())}년")}
+{_kpi("Mortgage 기본 EIR",
+       _pct(0.035), sub="장기 담보부 가정")}
+{_kpi("Retail 기본 EIR",
+       _pct(0.08), sub="단기 무담보 가정")}
+</div>
+
+<div class="row2">
+<div class="card"><h2>36-1. 자산군별 한계 PD</h2>
+<div class="chart">{marg_chart}</div></div>
+<div class="card"><h2>36-2. 누적 부도확률</h2>
+<div class="chart">{cum_chart}</div></div>
+</div>
+
+<div class="card"><h2>36-3. 잔존(생존) 확률 곡선</h2>
+<div class="chart">{surv_chart}</div>
+<p style="font-size:12px;color:#6b7280">
+S(t) = (1 − PD<sub>12m</sub>)<sup>t</sup>;
+잔존기간 ECL = Σ marginal_PD<sub>t</sub> × LGD × EAD<sub>t</sub> × DF<sub>t</sub>.
+</p>
+</div>
+
+<div class="card"><h2>36-4. 유효이자율(EIR) 민감도 — 자산군별</h2>
+<div class="chart">{eir_chart}</div>
+{_table(["EIR"] + list(eir_pivot.columns), eir_rows,
+        right_cols=list(range(1, 1+len(eir_pivot.columns))))}
+<p style="font-size:12px;color:#6b7280">
+EIR 감소 → 미래손실 할인계수 상승 → ECL 증가. IFRS 9 5.5.17.
+</p>
+</div>
+
+<div class="card"><h2>36-5. EAD 잔액구조 비교 (분할상환 vs 만기일시)</h2>
+<div class="chart">{avb_chart}</div>
+{_table(["유형","ECL","커버리지"],
+        [[row["type"], _won(row["ecl"]), _pct(row["coverage_ratio"])]
+         for _, row in avb.iterrows()],
+        right_cols=[1,2])}
+<p style="font-size:12px;color:#6b7280">
+동일한 PD/LGD/만기 하에서 만기일시(bullet)는 잔액이 만기까지 유지되어
+분할상환(amortising) 대비 ECL이 더 큼.
+</p>
+</div>
+"""
+    return _page("PD 잔존기간", body, "36_pd_term_structure.html")
+
+
+# ============================================================================
+# 37 Macro scenario sensitivity (v0.9.0 IFRS9 deep-dive)
+# ============================================================================
+
+def page_macro_scenario(r: PipelineResult) -> str:
+    """37_macro_scenario.html — scenario weighting sensitivity + macro variable
+    narrative + rho sensitivity (IFRS 9 B5.5.42)."""
+    deep = r.ifrs9_deep
+    if deep is None:
+        body = "<h1 class='title'>37. 거시 시나리오 민감도</h1><p>데이터 없음.</p>"
+        return _page("거시 시나리오", body, "37_macro_scenario.html")
+
+    ws = deep.scenario_weights
+    rs = deep.rho_sensitivity
+    nar = deep.macro_narrative
+
+    w_chart = viz.bar_chart(
+        ws["weighting"].tolist(),
+        ws["ecl_total"].tolist(),
+        value_fmt=_won,
+        title="시나리오 확률가중 가정별 통합 ECL",
+        colors=[viz.GREEN] + [viz.PALETTE[0]] * (len(ws) - 1),
+    )
+    w_rows = [[row.weighting,
+               f"{row.weights[0]*100:.0f}/{row.weights[1]*100:.0f}/{row.weights[2]*100:.0f}",
+               _won(row.ecl_total),
+               f"{row.lift_vs_base/1e9:+,.1f}십억",
+               f"{row.lift_pct*100:+.2f}%"]
+              for row in ws.itertuples()]
+
+    rho_chart = viz.line_chart(
+        [f"{rho:.2f}" for rho in rs["rho"]],
+        {"baseline": rs["ecl_baseline"].tolist(),
+         "severe":   rs["ecl_severe"].tolist(),
+         "확률가중": rs["ecl_weighted"].tolist()},
+        value_fmt=lambda v: f"{v/1e9:,.0f}십억",
+        title="rho(자산상관) 민감도 — 시나리오별 ECL",
+    )
+    rho_rows = [[f"{row.rho:.2f}", _won(row.ecl_baseline),
+                 _won(row.ecl_severe), _won(row.ecl_weighted)]
+                for row in rs.itertuples()]
+
+    nar_rows = [[row["scenario"], f"{row['gdp_dev_yr1_pct']:+.1f}%",
+                 f"{row['unemp_dev_pp']:+.1f}pp",
+                 f"{row['hpi_dev_pct']:+.1f}%",
+                 f"{row['policy_rate_bp']:+d}bp",
+                 f"{row['corp_spread_bp']:+d}bp",
+                 row["narrative"]]
+                for _, row in nar.iterrows()]
+
+    body = f"""
+<h1 class="title">37. 거시 시나리오 가중치 + 거시 변수 narrative + rho 민감도</h1>
+<p class="section-lead">IFRS 9 B5.5.42 — 확률가중 다중 시나리오 가정의 민감도.
+시나리오별 거시 변수(GDP, 실업률, HPI, 정책금리, 회사채 spread)와
+자산상관(rho) 가정 변화에 따른 ECL 영향.</p>
+
+<div class="kpi-grid">
+{_kpi("기본 가중치 ECL", _won(ws.iloc[0]['ecl_total']))}
+{_kpi("최대 보수 lift",
+       f"{ws['lift_vs_base'].max()/1e9:+,.1f}십억",
+       sub=f"{ws.loc[ws['lift_vs_base'].idxmax(), 'weighting']}",
+       tone="warn")}
+{_kpi("rho 0.10 → 0.20 ECL 증가",
+       _won(rs.loc[rs['rho']==0.20,'ecl_weighted'].iloc[0]
+            - rs.loc[rs['rho']==0.10,'ecl_weighted'].iloc[0]))}
+</div>
+
+<div class="card"><h2>37-1. 시나리오 확률가중 민감도</h2>
+<div class="chart">{w_chart}</div>
+{_table(["가중치 가정","확률 (Base/Down/Severe)","ECL","Base 대비 차이","비율"],
+        w_rows, right_cols=[1,2,3,4])}
+<p style="font-size:12px;color:#6b7280">
+IFRS 9 B5.5.42는 단일 시나리오가 아닌 확률가중을 요구. 가중치는 reasonable &amp;
+supportable한 가정이며, 본 분석은 5종 가중치 가정의 영향을 보여줌.
+</p>
+</div>
+
+<div class="card"><h2>37-2. 거시 변수 narrative (시나리오별)</h2>
+{_table(["시나리오","GDP 편차(1년차)","실업률 Δ","주택가격 Δ","정책금리 Δ",
+         "회사채 spread Δ","서술"],
+        nar_rows, right_cols=[1,2,3,4,5])}
+<p style="font-size:12px;color:#6b7280">
+거시 변수는 PIT PD 산출 시 z(체계적 요인)로 변환되어 PD를 conditional shift.
+현재 모형은 GDP·LGD shift만 활용; 향후 실업률·HPI·spread 다요인 z 확장 가능.
+</p>
+</div>
+
+<div class="card"><h2>37-3. 자산상관(rho) 민감도</h2>
+<div class="chart">{rho_chart}</div>
+{_table(["rho","baseline ECL","severe ECL","확률가중 ECL"], rho_rows,
+        right_cols=[1,2,3])}
+<p style="font-size:12px;color:#6b7280">
+rho는 Vasicek 1-factor PIT transform 의 자산상관 계수. rho 상승 →
+체계적 요인 민감도 상승 → severe 시나리오 ECL 가속.
+</p>
+</div>
+"""
+    return _page("거시 시나리오", body, "37_macro_scenario.html")
+
+
+# ============================================================================
+# 38 Provisioning attribution (v0.9.0 IFRS9 deep-dive)
+# ============================================================================
+
+def page_provisioning_attribution(r: PipelineResult) -> str:
+    """38_provisioning_attribution.html — Marshall-Edgeworth ECL change
+    decomposition (PD / LGD / EAD / migration) + Stage 1/2 backtest +
+    NPL cure analysis."""
+    deep = r.ifrs9_deep
+    if deep is None:
+        body = "<h1 class='title'>38. 충당금 변화 귀속</h1><p>데이터 없음.</p>"
+        return _page("충당금 귀속", body, "38_provisioning_attribution.html")
+
+    attr = deep.attribution
+    bt = deep.backtest
+    cure = deep.npl_cure
+    cov = deep.coverage_by_asset
+
+    # ECL change waterfall (start → effects → end)
+    middle = attr[attr["effect"].isin(["pd", "lgd", "ead", "migration"])]
+    start = attr[attr["effect"] == "start"]["value"].iloc[0]
+    end = attr[attr["effect"] == "end"]["value"].iloc[0]
+    wf_labels = ["전기 ECL"] + middle["effect"].str.upper().tolist() + ["당기 ECL"]
+    wf_values = ([float(start)]
+                  + middle["value"].astype(float).tolist()
+                  + [float(end)])
+    wf_chart = viz.waterfall(wf_labels, wf_values, value_fmt=_won,
+                              title="전기 → 당기 ECL 변화 귀속 (Marshall-Edgeworth)")
+    attr_rows = [[row.effect.upper(),
+                  _won(row.value) if row.effect not in ("pd", "lgd", "ead", "migration")
+                  else f"{row.value/1e9:+,.1f}십억"]
+                 for row in attr.itertuples()]
+
+    # Stage 1/2 backtest table
+    bt_rows = [[f"Stage {int(row.opening_stage)}", f"{int(row.n_opening):,}",
+                f"{int(row.n_default_realised):,}",
+                f"{int(row.n_cure):,}", f"{int(row.n_remain):,}",
+                _pct(row.realised_default_rate),
+                _pct(row.implied_default_rate),
+                f"{row.gap_pp:+.2f}%p"]
+               for row in bt.itertuples()]
+    bt_chart = viz.bar_chart(
+        [f"Stage {int(s)}" for s in bt["opening_stage"]],
+        bt["realised_default_rate"].tolist(),
+        value_fmt=_pct,
+        title="전기 Stage별 실현 부도율 (backtest)",
+        colors=[viz.PALETTE[0]] + [viz.AMBER],
+    )
+
+    # NPL cure / coverage by asset
+    cure_rows = [[row.asset_class, f"{int(row.n_npl):,}",
+                  _won(row.ead), _won(row.ecl),
+                  _pct(row.coverage_ratio), _pct(row.cure_rate),
+                  _won(row.residual_recovery)]
+                 for row in cure.by_asset.itertuples()]
+    cov_rows = [[row.asset_class, f"{int(row.n):,}", _won(row.ead),
+                 _won(row.ecl), _pct(row.coverage_ratio)]
+                for row in cov.itertuples()]
+    cov_chart = viz.bar_chart(
+        cov["asset_class"].tolist(), cov["coverage_ratio"].tolist(),
+        value_fmt=_pct, title="자산군별 ECL 커버리지율 (ECL / EAD)",
+    )
+
+    body = f"""
+<h1 class="title">38. 충당금 변화 귀속 + Stage backtest + NPL 분석</h1>
+<p class="section-lead">전기 대비 ECL 변화를 PD/LGD/EAD/Stage 마이그레이션 효과로
+분해(Marshall-Edgeworth). 전기 Stage 1/2의 실현 부도율로 ECL 모형 적정성 backtest.</p>
+
+<div class="kpi-grid">
+{_kpi("ECL 변화 총액",
+       f"{(end - start)/1e9:+,.1f}십억",
+       sub=f"{(end/start-1)*100:+.2f}%" if start else "—",
+       tone="warn" if end > start else "good")}
+{_kpi("최대 기여 요인",
+       middle.iloc[middle['value'].abs().argmax()]['effect'].upper(),
+       sub=_won(middle['value'].abs().max()))}
+{_kpi("Stage 3 NPL 비중 (EAD)",
+       _pct(cure.npl_ratio_pct_ead), tone="warn")}
+{_kpi("NPL 잔여 회수가치",
+       _won(cure.residual_recovery_value))}
+</div>
+
+<div class="card"><h2>38-1. ECL 변화 귀속 (waterfall)</h2>
+<div class="chart">{wf_chart}</div>
+{_table(["효과","값"], attr_rows, right_cols=[1])}
+<p style="font-size:12px;color:#6b7280">
+PD 효과: 전기 LGD/EAD 고정, PD만 당기로 교체 시 ECL 변화.
+순서: PD → LGD → EAD → Migration (Stage 전이). Marshall-Edgeworth 분해.
+</p>
+</div>
+
+<div class="card"><h2>38-2. 전기 Stage 1/2 backtest</h2>
+<div class="chart">{bt_chart}</div>
+{_table(["전기 Stage","개체 수","실현 부도","cure","유지",
+         "실현 부도율","모형 내재 PD","gap"],
+        bt_rows, right_cols=[1,2,3,4,5,6,7])}
+<p style="font-size:12px;color:#6b7280">
+Stage 1 실현 부도율이 내재 PD와 큰 차이를 보이면 12m ECL 적정성 재검토 필요.
+Stage 2 cure 비율이 높으면 SICR 트리거 보정 검토.
+</p>
+</div>
+
+<div class="row2">
+<div class="card"><h2>38-3. 자산군별 ECL 커버리지</h2>
+<div class="chart">{cov_chart}</div>
+{_table(["자산군","건수","EAD","ECL","커버리지율"], cov_rows,
+        right_cols=[1,2,3,4])}
+</div>
+<div class="card"><h2>38-4. Stage 3 NPL 회수 분석</h2>
+{_table(["자산군","NPL 건수","NPL EAD","ECL","커버리지",
+         "cure rate","잔여 회수가치"],
+        cure_rows, right_cols=[1,2,3,4,5,6])}
+<p style="font-size:12px;color:#6b7280">
+잔여 회수가치 = EAD × (cure rate + (1 − cure) × collateral_recovery).
+충당금 적립률(coverage)과 잔여 회수가치의 보수성 비교.
+</p>
+</div>
+</div>
+"""
+    return _page("충당금 귀속", body, "38_provisioning_attribution.html")

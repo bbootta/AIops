@@ -100,6 +100,10 @@ NAV = [
     ("32_capital_stack.html", "32. 자본 스택"),
     ("33_buffer_layering.html", "33. 버퍼 layer"),
     ("34_leverage_deep.html", "34. 레버리지 D-D"),
+    ("35_sicr_detail.html",   "35. SICR 분해"),
+    ("36_pd_term_structure.html","36. PD 잔존기간"),
+    ("37_macro_scenario.html","37. 거시 시나리오"),
+    ("38_provisioning_attribution.html","38. 충당금 귀속"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -1159,9 +1163,60 @@ def _page_ecl(r: PipelineResult) -> str:
     stage_rows = [[f"Stage {int(s)}", f"{int(row['n']):,}",
                    _won(row["ead"]), _won(row["ecl"]), _pct(row["coverage"])]
                   for s, row in by_stage.iterrows()]
+
+    # v0.9.0 deep-dive cross-links
+    deep_block = ""
+    if r.ifrs9_deep is not None:
+        deep = r.ifrs9_deep
+        # SICR triggers (top 3)
+        s = deep.sicr.summary.sort_values("n_stage2", ascending=False).head(3)
+        sicr_chart = viz.bar_chart(
+            s["trigger"].tolist(), s["n_stage2"].tolist(),
+            value_fmt=lambda v: f"{int(v):,}",
+            title="Stage 2 진입 트리거 상위 3",
+            colors=[viz.AMBER, viz.PALETTE[1], viz.PALETTE[3]],
+        )
+        # PD term — corporate cumulative as representative
+        pdt = deep.pd_term
+        corp = pdt[pdt["asset_class"] == "corporate"].sort_values("year")
+        retail = pdt[pdt["asset_class"] == "retail_other"].sort_values("year")
+        mort = pdt[pdt["asset_class"] == "residential_mortgage"].sort_values("year")
+        pdt_series = {
+            "corporate": corp["cumulative_pd"].tolist(),
+            "retail_other": retail["cumulative_pd"].tolist(),
+            "residential_mortgage": mort["cumulative_pd"].tolist(),
+        }
+        years_lbl = [str(y) for y in corp["year"].tolist()]
+        pdt_chart = viz.line_chart(
+            years_lbl, pdt_series, value_fmt=_pct,
+            title="자산군별 누적 부도확률 (잔존기간)",
+        )
+        # Attribution mini waterfall
+        attr = deep.attribution
+        middle = attr[attr["effect"].isin(["pd", "lgd", "ead", "migration"])]
+        start_v = float(attr[attr["effect"] == "start"]["value"].iloc[0])
+        end_v   = float(attr[attr["effect"] == "end"]["value"].iloc[0])
+        wf_chart = viz.waterfall(
+            ["전기"] + middle["effect"].str.upper().tolist() + ["당기"],
+            [start_v] + middle["value"].astype(float).tolist() + [end_v],
+            value_fmt=_won,
+            title="ECL 변화 귀속 (PD/LGD/EAD/Migration)",
+        )
+        deep_block = f"""
+<div class="card"><h2>5-5. SICR 트리거 / PD 잔존기간 / 충당금 귀속 (요약)</h2>
+<div class="row2">
+<div><div class="chart">{sicr_chart}</div></div>
+<div><div class="chart">{pdt_chart}</div></div>
+</div>
+<div class="chart">{wf_chart}</div>
+<p style="font-size:12px;color:#6b7280">
+상세는 35 SICR 분해 / 36 PD 잔존기간 / 37 거시 시나리오 / 38 충당금 귀속 페이지.
+</p>
+</div>
+"""
     body = f"""
 <h1 class="title">5. IFRS9 기대신용손실(ECL) 충당금</h1>
-<p class="section-lead">시점추정(TTC) + 거시연계 PIT(확률가중) + 분기별 충당금 경로.</p>
+<p class="section-lead">시점추정(TTC) + 거시연계 PIT(확률가중) + 분기별 충당금 경로 + 트리거/귀속.</p>
 <div class="kpi-grid">
 {_kpi("TTC ECL", _won(r.ecl['total']))}
 {_kpi("PIT 확률가중 ECL", _won(macro.weighted_total),
@@ -1170,19 +1225,20 @@ def _page_ecl(r: PipelineResult) -> str:
        f"{by_stage.loc[3, 'coverage']:.1%}" if 3 in by_stage.index else "—")}
 </div>
 <div class="row2">
-<div class="card"><h2>Stage별 ECL</h2><div class="chart">{stage_chart}</div>
+<div class="card"><h2>5-1. Stage별 ECL</h2><div class="chart">{stage_chart}</div>
 {_table(["Stage","건수","EAD","ECL","커버리지"], stage_rows, right_cols=[1,2,3,4])}
 </div>
-<div class="card"><h2>Stage별 커버리지</h2><div class="chart">{cov_chart}</div></div>
+<div class="card"><h2>5-2. Stage별 커버리지</h2><div class="chart">{cov_chart}</div></div>
 </div>
-<div class="card"><h2>거시연계 PIT 시나리오</h2>
+<div class="card"><h2>5-3. 거시연계 PIT 시나리오</h2>
 <div class="row2">
 <div><div class="chart">{macro_chart}</div></div>
 <div>{_table(["시나리오","확률","ECL"], macro_rows, right_cols=[1,2])}</div>
 </div>
 </div>
-<div class="card"><h2>분기별 ECL 충당금 경로 (IFRS9 forward-looking)</h2>
+<div class="card"><h2>5-4. 분기별 ECL 충당금 경로 (IFRS9 forward-looking)</h2>
 <div class="chart">{path_chart}</div></div>
+{deep_block}
 """
     return _page("ECL", body, "05_ecl.html")
 
@@ -1724,6 +1780,8 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         page_data_quality, page_comparison,
         page_irb_deep, page_market_risk_deep, page_op_risk_deep,
         page_capital_stack, page_buffer_layering, page_leverage_deep,
+        page_sicr_detail, page_pd_term_structure,
+        page_macro_scenario, page_provisioning_attribution,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -1763,6 +1821,10 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "32_capital_stack.html": page_capital_stack(result),
         "33_buffer_layering.html": page_buffer_layering(result),
         "34_leverage_deep.html": page_leverage_deep(result),
+        "35_sicr_detail.html":   page_sicr_detail(result),
+        "36_pd_term_structure.html": page_pd_term_structure(result),
+        "37_macro_scenario.html":    page_macro_scenario(result),
+        "38_provisioning_attribution.html": page_provisioning_attribution(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)

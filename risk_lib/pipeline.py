@@ -40,6 +40,7 @@ from risk_lib.capital.leverage import compute_leverage_ratio, exposure_measure
 from risk_lib.capital.leverage_deep import compute_leverage_deep
 from risk_lib.provisioning.ecl import compute_ecl
 from risk_lib.provisioning.macro import macro_ecl, macro_ecl_path, DEFAULT_MACRO_SCENARIOS
+from risk_lib.provisioning.ifrs9_deep import compute_ifrs9_deep, IFRS9DeepResult
 from risk_lib.monitoring.delinquency import delinquency_summary, default_rate
 from risk_lib.monitoring.recovery import cumulative_recovery_rate
 from risk_lib.limits.limit_engine import LimitDefinition, LimitEngine
@@ -135,6 +136,7 @@ class PipelineResult:
     rwa_deep: Any = None       # v0.7.0 CRO-grade RWA deep-dive analytics
     bis_deep: Any = None       # v0.8.0 CRO-grade BIS capital deep-dive
     leverage_deep: Any = None  # v0.8.0 leverage ratio exposure decomposition
+    ifrs9_deep: Any = None     # v0.9.0 CRO-grade IFRS9 ECL deep-dive analytics
     meta: dict[str, Any] = field(default_factory=dict)
 
 
@@ -303,7 +305,8 @@ def _stage_capital(
             rwa_internal_total, rwa_standardised_total)
 
 
-def _stage_provisioning(irb_book: pd.DataFrame, quarters: list[str]):
+def _stage_provisioning(irb_book: pd.DataFrame, quarters: list[str],
+                         *, seed: int = 42):
     ecl_df = compute_ecl(irb_book)
     ecl_by_stage = ecl_df.groupby("stage").agg(
         n=("exposure_id", "size"), ead=("ead", "sum"),
@@ -311,7 +314,8 @@ def _stage_provisioning(irb_book: pd.DataFrame, quarters: list[str]):
     )
     macro = macro_ecl(irb_book, DEFAULT_MACRO_SCENARIOS)
     macro_path = macro_ecl_path(irb_book, quarters, DEFAULT_MACRO_SCENARIOS)
-    return ecl_df, ecl_by_stage, macro, macro_path
+    deep = compute_ifrs9_deep(irb_book, seed=seed)
+    return ecl_df, ecl_by_stage, macro, macro_path, deep
 
 
 def _stage_monitoring(portfolio: pd.DataFrame, seed: int):
@@ -440,7 +444,8 @@ def run_pipeline(
     # 7. IFRS 9 ECL (TTC + forward-looking PIT) on the quarterly axis
     asof = date.today()
     quarters = forecast_quarter_labels(asof, years_ahead=years_ahead)
-    ecl_df, ecl_by_stage, macro, macro_path = _stage_provisioning(irb_book, quarters)
+    ecl_df, ecl_by_stage, macro, macro_path, ifrs9_deep = _stage_provisioning(
+        irb_book, quarters, seed=seed)
 
     # 8-11. Monitoring, limits/concentration, RAPM
     monitoring = _stage_monitoring(portfolio, seed)
@@ -630,6 +635,7 @@ def run_pipeline(
         rwa_deep=rwa_deep,
         bis_deep=bis_deep,
         leverage_deep=leverage_deep,
+        ifrs9_deep=ifrs9_deep,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
               "asof": asof.isoformat(), "quarters": quarters},
     )

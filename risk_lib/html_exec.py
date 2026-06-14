@@ -276,6 +276,10 @@ WATCH는 operational 조기경보, GREEN은 한계 이내.</p>
 <a href="ops/03_rwa.html">RWA 분해</a>
 <a href="ops/04_capital.html">BIS·레버리지</a>
 <a href="ops/05_ecl.html">IFRS9 ECL</a>
+<a href="ops/35_sicr_detail.html">SICR 분해</a>
+<a href="ops/36_pd_term_structure.html">PD 잔존기간</a>
+<a href="ops/37_macro_scenario.html">거시 시나리오</a>
+<a href="ops/38_provisioning_attribution.html">충당금 귀속</a>
 <a href="ops/09_stress.html">스트레스</a>
 <a href="ops/10_icaap.html">내부자본</a>
 <a href="ops/11a_irrbb.html">IRRBB</a>
