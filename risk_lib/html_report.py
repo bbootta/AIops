@@ -94,6 +94,9 @@ NAV = [
     ("26_comparison.html", "26. 시점 비교"),
     ("27_lgd_model.html",  "27. LGD모형"),
     ("28_model_challenger.html", "28. 챔피언/챌린저"),
+    ("29_irb_deep.html",   "29. IRB D-D"),
+    ("30_market_risk_deep.html", "30. 시장 D-D"),
+    ("31_op_risk_deep.html", "31. 운영 D-D"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -811,6 +814,137 @@ def _page_rwa(r: PipelineResult) -> str:
         [f"Output floor ({of.floor:.1%}) 적용액", _won(of.floor_amount)],
         ["<b>최종 RWA</b>", f"<b>{_won(rwa['final_total'])}</b>"],
     ]
+
+    # ---- v0.7.0 deep-dive sections (CRO grade) -----------------------------
+    deep_html = ""
+    deep = getattr(r, "rwa_deep", None)
+    if deep is not None:
+        from risk_lib import viz_advanced
+        # SA asset-class breakdown
+        sd = deep.sa_decomposition
+        if not sd.empty:
+            sa_chart = viz.bar_chart(
+                sd["asset_class"].tolist(),
+                sd["rwa"].tolist(),
+                title="SA RWA — 자산군별 (CRE20)",
+                value_fmt=_won,
+                colors=[viz.PALETTE[i % len(viz.PALETTE)] for i in range(len(sd))],
+            )
+            sa_rows = [[row["asset_class"], int(row["n"]), _won(row["ead"]),
+                        _won(row["rwa"]), _pct(row["avg_rw"], 0),
+                        _pct(row["rwa_share"], 1)]
+                       for _, row in sd.iterrows()]
+            sa_block = f"""
+<div class="card"><h2>3-1. SA 자산군별 분해 (CRE20)</h2>
+<div class="chart">{sa_chart}</div>
+{_table(["자산군","건수","EAD","RWA","평균 RW","RWA 비중"], sa_rows, right_cols=[1,2,3,4,5])}
+</div>"""
+        else:
+            sa_block = ""
+
+        # Rating × asset_class RW heatmap (avg RW)
+        rm = deep.sa_rating_matrix
+        if not rm.empty:
+            # build matrix
+            ratings = ["AAA-AA","A","BBB","BB","B","CCC-","UNRATED","N/A"]
+            classes = sorted(rm["asset_class"].unique().tolist())
+            ratings = [x for x in ratings if x in rm["rating"].unique()]
+            mat = []
+            for rt in ratings:
+                row = []
+                for c in classes:
+                    sub = rm[(rm["rating"] == rt) & (rm["asset_class"] == c)]
+                    row.append(float(sub["rwa"].sum()))
+                mat.append(row)
+            heat = viz_advanced.heatmap(
+                ratings, classes, mat, title="등급 × 자산군 RWA (CRE20)",
+                value_fmt=lambda v: f"{v/1e9:.0f}B" if v else "·",
+            )
+            heat_block = f'<div class="card"><h2>3-2. 등급 × 자산군 RWA 매트릭스</h2><div class="chart">{heat}</div></div>'
+        else:
+            heat_block = ""
+
+        # IRB summary by class
+        isum = deep.irb_summary
+        if not isum.empty:
+            irb_rows = [[row["asset_class"], int(row["n"]), _won(row["ead"]),
+                         f"{row['pd_w']*100:.2f}%", f"{row['lgd_w']*100:.1f}%",
+                         f"{row['m_w']:.2f}y" if not pd.isna(row['m_w']) else "—",
+                         f"{row['k_w']*100:.2f}%", _won(row["rwa"])]
+                        for _, row in isum.iterrows()]
+            irb_block = f"""
+<div class="card"><h2>3-3. IRB 자산군별 분해 (CRE31)</h2>
+<p>가중평균 PD/LGD/M, 자본요구계수 K, RWA 요약. K = LGD·[N(·) − PD]·MA, RWA = 12.5·K·EAD.</p>
+{_table(["자산군","건수","EAD","평균 PD","평균 LGD","평균 M","평균 K","RWA"], irb_rows, right_cols=[1,2,3,4,5,6,7])}
+<p style="font-size:12px;color:#6b7280">상세 분포는 <a href="29_irb_deep.html">29. IRB Deep-Dive</a> 참조</p>
+</div>"""
+        else:
+            irb_block = ""
+
+        # Market risk by class
+        mkt_d = deep.market
+        if mkt_d is not None and not mkt_d.by_class.empty:
+            bc = mkt_d.by_class
+            mkt_chart = viz.bar_chart(
+                bc["risk_class"].tolist(),
+                bc["rwa"].tolist(),
+                title="시장리스크 RWA — 위험클래스별 (MAR40)",
+                value_fmt=_won,
+                colors=[viz.PALETTE[i % len(viz.PALETTE)] for i in range(len(bc))],
+            )
+            mkt_block = f"""
+<div class="card"><h2>3-4. 시장리스크 위험클래스 분해 (MAR40)</h2>
+<div class="chart">{mkt_chart}</div>
+<p style="font-size:12px;color:#6b7280">VaR/SVaR + Delta·Vega·Curvature는 <a href="30_market_risk_deep.html">30. 시장 Deep-Dive</a> 참조</p>
+</div>"""
+        else:
+            mkt_block = ""
+
+        # Op risk BI decomposition
+        op_d = deep.op
+        if op_d is not None and not op_d.bi_decomp.empty:
+            bi_d = op_d.bi_decomp.iloc[:3]   # exclude total row
+            op_chart = viz.bar_chart(
+                bi_d["component"].tolist(),
+                bi_d["value"].tolist(),
+                title="Business Indicator 구성 (OPE25)",
+                value_fmt=_won, colors=[viz.PALETTE[0], viz.PALETTE[1], viz.PALETTE[2]],
+            )
+            op_block = f"""
+<div class="card"><h2>3-5. 운영리스크 BI 분해 (OPE25)</h2>
+<div class="chart">{op_chart}</div>
+<p style="font-size:12px;color:#6b7280">SMA vs LDA 비교는 <a href="31_op_risk_deep.html">31. 운영 Deep-Dive</a> 참조</p>
+</div>"""
+        else:
+            op_block = ""
+
+        # Output floor phase-in
+        fs = deep.floor_schedule
+        if not fs.empty:
+            floor_chart = viz.line_chart(
+                [str(int(y)) for y in fs["year"]],
+                {"최종 RWA": fs["rwa_final"].tolist(),
+                 "Floor 적용액": fs["floor_amount"].tolist()},
+                title="Output floor 단계 도입 (RBC30.5)",
+                value_fmt=_won,
+            )
+            be = deep.floor_breakeven.get("breakeven_floor", 0.0)
+            floor_msg = (
+                f"내부모형/표준방법 비율 = <b>{be*100:.1f}%</b>. "
+                f"바젤 최종안 72.5%까지의 여유 = "
+                f"<b>{(be-0.725)*100:+.1f}%p</b>. "
+                "이 비율이 floor 수준 이하로 떨어지면 floor가 구속 적용됩니다."
+            )
+            floor_block = f"""
+<div class="card"><h2>3-6. Output floor 단계 도입 (RBC30.5)</h2>
+<div class="chart">{floor_chart}</div>
+<div class="callout">{floor_msg}</div>
+</div>"""
+        else:
+            floor_block = ""
+
+        deep_html = sa_block + heat_block + irb_block + mkt_block + op_block + floor_block
+
     body = f"""
 <h1 class="title">3. 위험가중자산(RWA) — Pillar 1</h1>
 <p class="section-lead">신용·시장·운영 RWA, 표준방법 산출액, output floor 적용 결과.</p>
@@ -820,6 +954,7 @@ def _page_rwa(r: PipelineResult) -> str:
 <div class="callout">{floor_text}</div></div>
 </div>
 <div class="card"><h2>구성 상세</h2>{_table(["구분","금액"], rows, right_cols=[1])}</div>
+{deep_html}
 """
     return _page("RWA", body, "03_rwa.html")
 
@@ -1473,6 +1608,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         page_model_risk, page_concentration_deep, page_raf, page_pillar3,
         page_mda, page_kri_trends, page_attribution, page_vintage,
         page_data_quality, page_comparison,
+        page_irb_deep, page_market_risk_deep, page_op_risk_deep,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -1506,6 +1642,9 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "26_comparison.html": page_comparison(result),
         "27_lgd_model.html":  _page_lgd_model(result),
         "28_model_challenger.html": _page_model_challenger(result),
+        "29_irb_deep.html":   page_irb_deep(result),
+        "30_market_risk_deep.html": page_market_risk_deep(result),
+        "31_op_risk_deep.html": page_op_risk_deep(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)

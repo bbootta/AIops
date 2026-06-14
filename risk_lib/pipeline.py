@@ -32,6 +32,7 @@ from risk_lib.capital.bis import CapitalStack, compute_bis_ratios
 from risk_lib.capital.op_risk import BusinessIndicator, compute_op_risk_rwa
 from risk_lib.capital.market_risk import compute_market_risk_rwa
 from risk_lib.capital.output_floor import apply_output_floor, FULLY_LOADED_FLOOR
+from risk_lib.capital.rwa_deep import compute_rwa_deep
 from risk_lib.capital.leverage import compute_leverage_ratio, exposure_measure
 from risk_lib.provisioning.ecl import compute_ecl
 from risk_lib.provisioning.macro import macro_ecl, macro_ecl_path, DEFAULT_MACRO_SCENARIOS
@@ -127,6 +128,7 @@ class PipelineResult:
     explain: dict[str, Any] = field(default_factory=dict)
     calibration: dict[str, Any] = field(default_factory=dict)
     grade_migration: dict[str, Any] = field(default_factory=dict)
+    rwa_deep: Any = None       # v0.7.0 CRO-grade RWA deep-dive analytics
     meta: dict[str, Any] = field(default_factory=dict)
 
 
@@ -269,7 +271,7 @@ def _stage_market_op_rwa(total_ead: float):
     bi = BusinessIndicator(ildc=total_ead * 0.02, sc=total_ead * 0.01,
                            fc=total_ead * 0.005)
     op = compute_op_risk_rwa(bi, avg_annual_losses_10y=total_ead * 0.001)
-    return mkt, op
+    return mkt, op, mkt_positions, bi
 
 
 def _stage_capital(
@@ -420,7 +422,7 @@ def run_pipeline(
 
     # 3. Market & operational risk RWA (illustrative inputs)
     total_ead = float(portfolio["ead"].sum())
-    mkt, op = _stage_market_op_rwa(total_ead)
+    mkt, op, mkt_positions, bi_components = _stage_market_op_rwa(total_ead)
 
     # 4-6. Output floor → CapitalStack → BIS → leverage
     (floor, rwa_final, capital, bis, leverage,
@@ -521,6 +523,19 @@ def run_pipeline(
         "rwa_components": decompose_rwa(shim),
     }
 
+    # 16. RWA deep-dive (CRO-grade): SA/IRB/market/op decomposition,
+    # LGD downturn, FIRB simulation, VaR/SVaR, BIC bucket split, floor schedule.
+    lda_var = float(getattr(op_loss_result, "var_99_9", 0.0) or 0.0)
+    rwa_deep = compute_rwa_deep(
+        sa_results=sa_res, irb_results=irb_res,
+        sa_results_pre_crm=None,
+        market_positions=mkt_positions, market_sa_result=mkt,
+        bi=bi_components, op_sa_result=op,
+        lda_var_999=lda_var,
+        rwa_internal=rwa_internal_total,
+        rwa_standardised=rwa_standardised_total,
+    )
+
     return PipelineResult(
         portfolio_summary=summary,
         pd_metrics=pd_metrics,
@@ -550,6 +565,7 @@ def run_pipeline(
         explain=explain,
         calibration=calibration,
         grade_migration=grade_migration,
+        rwa_deep=rwa_deep,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
               "asof": asof.isoformat(), "quarters": quarters},
     )

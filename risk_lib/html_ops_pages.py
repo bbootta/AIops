@@ -882,3 +882,335 @@ LIQ1 (LCR), LR1 (레버리지). 모든 값은 본 보고서의 산출 결과를 
 </div>
 """
     return _page("Pillar 3", body, "20_pillar3.html")
+
+
+# ============================================================================
+# v0.7.0 — RWA deep-dive pages (CRO-grade)
+# ============================================================================
+
+
+def _placeholder_page(title: str, msg: str, active: str) -> str:
+    body = f'<h1 class="title">{_esc(title)}</h1><p class="section-lead">{_esc(msg)}</p>'
+    return _page(title, body, active)
+
+
+def page_irb_deep(r: PipelineResult) -> str:
+    """29. IRB Deep-Dive — K/PD/LGD/M/ρ 분포, LGD downturn, AIRB vs FIRB."""
+    deep = getattr(r, "rwa_deep", None)
+    if deep is None or deep.irb_summary.empty:
+        return _placeholder_page(
+            "29. IRB Deep-Dive", "IRB 자산이 없어 분석을 생성할 수 없습니다.",
+            "29_irb_deep.html",
+        )
+
+    isum = deep.irb_summary
+    # asset-class K and RWA bars
+    k_chart = viz.bar_chart(
+        isum["asset_class"].tolist(),
+        (isum["k_w"] * 100).tolist(),
+        title="자산군별 가중평균 K (%) — CRE31",
+        value_fmt=lambda v: f"{v:.2f}%",
+        colors=[viz.PALETTE[i] for i in range(len(isum))],
+    )
+    rho_vals = []
+    for _, row in isum.iterrows():
+        # use per-class median ρ from per-exposure frame
+        sub = deep.irb_per_exposure[
+            deep.irb_per_exposure["asset_class"] == row["asset_class"]
+        ]
+        rho_vals.append(float(sub["rho"].mean()) if len(sub) else 0.0)
+    rho_chart = viz.bar_chart(
+        isum["asset_class"].tolist(),
+        [v * 100 for v in rho_vals],
+        title="자산군별 평균 자산상관 ρ (%) — CRE31",
+        value_fmt=lambda v: f"{v:.1f}%",
+        colors=[viz.PALETTE[i+3] for i in range(len(isum))],
+    )
+
+    irb_rows = [[row["asset_class"], int(row["n"]), _won(row["ead"]),
+                 f"{row['pd_w']*100:.2f}%", f"{row['lgd_w']*100:.1f}%",
+                 f"{row['m_w']:.2f}y" if not pd.isna(row['m_w']) else "—",
+                 f"{rho_vals[i]*100:.1f}%",
+                 f"{row['k_w']*100:.2f}%", _won(row["rwa"])]
+                for i, (_, row) in enumerate(isum.iterrows())]
+
+    # K histogram
+    kh = deep.irb_k_hist
+    if not kh.empty:
+        k_hist_chart = viz.bar_chart(
+            [f"{lo*100:.1f}~{hi*100:.1f}%" for lo, hi in
+             zip(kh["bin_lo"], kh["bin_hi"])],
+            kh["rwa"].tolist(),
+            title="K 분포 — 자본요구계수 분포 (RWA 가중)",
+            value_fmt=_won,
+            colors=[viz.PALETTE[0]] * len(kh),
+        )
+    else:
+        k_hist_chart = ""
+
+    # LGD downturn
+    ld = deep.lgd_downturn
+    ld_rows = []
+    if isinstance(ld, dict) and "by_class" in ld and not ld["by_class"].empty:
+        for _, row in ld["by_class"].iterrows():
+            ld_rows.append([row["asset_class"], _won(row["rwa_base"]),
+                            _won(row["rwa_down"]),
+                            f"+{_won(row['uplift'])}",
+                            f"+{row['uplift_pct']*100:.2f}%"])
+    ld_msg = (
+        f"LGD downturn (max(LGD, 1.06·LGD)) 적용 시 IRB RWA = "
+        f"<b>{_won(ld.get('rwa_base', 0))}</b> → "
+        f"<b>{_won(ld.get('rwa_downturn', 0))}</b> "
+        f"(+{ld.get('uplift_pct', 0)*100:.2f}%). CRE32.41 anchor multiplier 기준."
+    )
+
+    # AIRB vs FIRB
+    fi = deep.firb
+    fi_rows = []
+    if isinstance(fi, dict) and "by_class" in fi and not fi["by_class"].empty:
+        for _, row in fi["by_class"].iterrows():
+            fi_rows.append([row["asset_class"],
+                            f"{row['lgd_airb']*100:.1f}%",
+                            f"{row['lgd_firb']*100:.1f}%",
+                            _won(row["rwa_airb"]),
+                            _won(row["rwa_firb"]),
+                            f"{(row['rwa_firb']-row['rwa_airb'])/(row['rwa_airb'] or 1)*100:+.1f}%"])
+    fi_msg = (
+        f"AIRB(자체 LGD) → FIRB(고정 LGD 45%/75%) 전환 시 IRB RWA = "
+        f"<b>{_won(fi.get('rwa_airb', 0))}</b> → "
+        f"<b>{_won(fi.get('rwa_firb', 0))}</b> "
+        f"({fi.get('delta_pct', 0)*100:+.2f}%). 코퍼레이트는 통상 +방향."
+    )
+
+    body = f"""
+<h1 class="title">29. IRB Deep-Dive — CRE31/CRE32</h1>
+<p class="section-lead">자산군별 PD/LGD/M/ρ/K 분포와 LGD downturn 시나리오 + AIRB↔FIRB 시뮬레이션.</p>
+
+<div class="row2">
+<div class="card"><h2>29-1. 가중평균 K</h2><div class="chart">{k_chart}</div></div>
+<div class="card"><h2>29-2. 평균 자산상관 ρ</h2><div class="chart">{rho_chart}</div></div>
+</div>
+
+<div class="card"><h2>29-3. 자산군별 IRB 분해</h2>
+{_table(["자산군","건수","EAD","평균 PD","평균 LGD","평균 M","평균 ρ","평균 K","RWA"],
+        irb_rows, right_cols=[1,2,3,4,5,6,7,8])}
+<p style="font-size:12px;color:#6b7280">
+ρ = 0.12·w + 0.24·(1−w) (corporate), 0.15 (mortgage), 0.04 (revolving),
+0.03·w + 0.16·(1−w) (retail_other). M floor 1y, cap 5y (CRE31.6).
+</p>
+</div>
+
+<div class="card"><h2>29-4. K(자본요구계수) 분포</h2>
+<div class="chart">{k_hist_chart}</div>
+</div>
+
+<div class="card"><h2>29-5. LGD downturn 시나리오 (CRE32.41)</h2>
+{_table(["자산군","RWA(기준)","RWA(downturn)","증가분","증가율"], ld_rows,
+        right_cols=[1,2,3,4])}
+<div class="callout">{ld_msg}</div>
+</div>
+
+<div class="card"><h2>29-6. AIRB vs FIRB 시뮬레이션 (CRE32.13)</h2>
+{_table(["자산군","LGD(AIRB)","LGD(FIRB)","RWA(AIRB)","RWA(FIRB)","Δ"],
+        fi_rows, right_cols=[1,2,3,4,5])}
+<div class="callout">{fi_msg}</div>
+</div>
+"""
+    return _page("IRB Deep-Dive", body, "29_irb_deep.html")
+
+
+def page_market_risk_deep(r: PipelineResult) -> str:
+    """30. 시장리스크 Deep-Dive — VaR/SVaR + Delta/Vega/Curvature."""
+    deep = getattr(r, "rwa_deep", None)
+    if deep is None or deep.market is None:
+        return _placeholder_page(
+            "30. 시장리스크 Deep-Dive", "시장리스크 데이터가 없습니다.",
+            "30_market_risk_deep.html",
+        )
+    m = deep.market
+    bc = m.by_class
+    bc_chart = viz.bar_chart(
+        bc["risk_class"].tolist(),
+        bc["rwa"].tolist(),
+        title="시장리스크 RWA — 위험클래스별 (MAR40)",
+        value_fmt=_won,
+        colors=[viz.PALETTE[i % len(viz.PALETTE)] for i in range(len(bc))],
+    )
+    bc_rows = [[row["risk_class"], _won(row["capital_charge"]),
+                _won(row["rwa"]), f"{row['share']*100:.1f}%"]
+               for _, row in bc.iterrows()]
+
+    # VaR / SVaR table
+    vt = m.var_table
+    vt_rows = [[row["risk_class"], _won(row["abs_position"]),
+                f"{row['sigma']*100:.1f}%", _won(row["var_99"]),
+                _won(row["es_975"]), _won(row["svar_99"])]
+               for _, row in vt.iterrows()]
+    var_block = ""
+    if not vt.empty:
+        var_chart = viz.bar_chart(
+            vt["risk_class"].tolist(),
+            vt["var_99"].tolist(),
+            title="VaR 99% (10일) — 위험클래스별",
+            value_fmt=_won,
+            colors=[viz.PALETTE[0]] * len(vt),
+        )
+        svar_chart = viz.bar_chart(
+            vt["risk_class"].tolist(),
+            vt["svar_99"].tolist(),
+            title="Stressed VaR 99% — 위험클래스별",
+            value_fmt=_won,
+            colors=[viz.RED] * len(vt),
+        )
+        var_block = f"""
+<div class="row2">
+<div class="card"><div class="chart">{var_chart}</div></div>
+<div class="card"><div class="chart">{svar_chart}</div></div>
+</div>
+"""
+
+    # Capital comparison
+    cc = m.capital_compare
+    cc_chart = viz.horizontal_bar(
+        cc["approach"].tolist(),
+        cc["capital"].tolist(),
+        title="자본요구액 비교 — 접근법별",
+        value_fmt=_won,
+    )
+
+    # Sensitivities (Delta/Vega/Curvature)
+    sens = m.sensitivities
+    sens_block = ""
+    if not sens.empty:
+        sens_chart = viz.stacked_bar(
+            sens["risk_class"].tolist(),
+            {"Delta": sens["delta"].tolist(),
+             "Vega": sens["vega"].tolist(),
+             "Curvature": sens["curvature"].tolist()},
+            title="Sensitivities-based 자본요구액 (FRTB SA, MAR21)",
+            value_fmt=_won,
+        )
+        sens_rows = [[row["risk_class"], _won(row["delta"]),
+                      _won(row["vega"]), _won(row["curvature"]),
+                      _won(row["total"])]
+                     for _, row in sens.iterrows()]
+        sens_block = f"""
+<div class="card"><h2>30-4. Sensitivities (Delta·Vega·Curvature)</h2>
+<div class="chart">{sens_chart}</div>
+{_table(["위험클래스","Delta","Vega","Curvature","합계"], sens_rows,
+        right_cols=[1,2,3,4])}
+</div>"""
+
+    body = f"""
+<h1 class="title">30. 시장리스크 Deep-Dive — MAR20/MAR21</h1>
+<p class="section-lead">SA(MAR40) + 파라메트릭 VaR/ES/SVaR + Delta·Vega·Curvature 분해.</p>
+
+<div class="kpi-grid">
+{_kpi("VaR 99% (10일)", _won(m.var_total))}
+{_kpi("ES 97.5%", _won(m.es_total))}
+{_kpi("Stressed VaR 99%", _won(m.svar_total))}
+{_kpi("VaR + SVaR (IMA 가산)", _won(m.var_total + m.svar_total))}
+</div>
+
+<div class="card"><h2>30-1. 위험클래스별 RWA (MAR40)</h2>
+<div class="chart">{bc_chart}</div>
+{_table(["위험클래스","자본요구액","RWA","비중"], bc_rows, right_cols=[1,2,3])}
+</div>
+
+<div class="card"><h2>30-2. 파라메트릭 VaR · ES · SVaR</h2>
+{_table(["위험클래스","|순포지션|","σ(연환산)","VaR 99% (10일)","ES 97.5%","SVaR 99%"],
+        vt_rows, right_cols=[1,2,3,4,5])}
+{var_block}
+<p style="font-size:12px;color:#6b7280">VaR = z(0.99)·σ·√(10/250)·|포지션|.
+ES = σ·φ(z(0.975))/(1−0.975)·√(10/250)·|포지션|. SVaR = 2.5×VaR (스트레스 윈도우).</p>
+</div>
+
+<div class="card"><h2>30-3. 접근법별 자본요구액 비교</h2>
+<div class="chart">{cc_chart}</div>
+</div>
+
+{sens_block}
+"""
+    return _page("시장 D-D", body, "30_market_risk_deep.html")
+
+
+def page_op_risk_deep(r: PipelineResult) -> str:
+    """31. 운영리스크 Deep-Dive — BI 분해 + ILM + SMA vs LDA."""
+    deep = getattr(r, "rwa_deep", None)
+    if deep is None or deep.op is None:
+        return _placeholder_page(
+            "31. 운영리스크 Deep-Dive", "운영리스크 데이터가 없습니다.",
+            "31_op_risk_deep.html",
+        )
+    op_d = deep.op
+
+    bi_dec = op_d.bi_decomp
+    components = bi_dec.iloc[:3]  # exclude total row
+    bi_chart = viz.donut_chart(
+        components["component"].tolist(),
+        components["value"].tolist(),
+        title="Business Indicator 구성 (OPE25)",
+        center_label=f"BI={components['value'].sum()/1e12:.1f}\n조원",
+    )
+    bi_rows = [[row["component"], _won(row["value"]),
+                f"{row['share']*100:.1f}%"]
+               for _, row in bi_dec.iterrows()]
+
+    bk = op_d.bucket_decomp
+    bk_chart = viz.bar_chart(
+        bk["bucket"].tolist(),
+        bk["marginal_bic"].tolist(),
+        title="BIC 버킷별 한계 기여액 (OPE25.2)",
+        value_fmt=_won,
+        colors=[viz.GREEN, viz.AMBER, viz.RED],
+    )
+    bk_rows = [[row["bucket"],
+                _won(row["lower"]) if row["lower"] != float("inf") else "∞",
+                _won(row["upper"]) if row["upper"] != float("inf") else "∞",
+                f"{row['coefficient']*100:.0f}%",
+                _won(row["applied"]),
+                _won(row["marginal_bic"])]
+               for _, row in bk.iterrows()]
+
+    # SMA vs LDA
+    sma_lda_chart = viz.bar_chart(
+        ["SMA 자본 (ORC)", "LDA VaR 99.9%"],
+        [op_d.sma_capital, op_d.lda_var_999],
+        title="SMA vs LDA 자본요구액 비교",
+        value_fmt=_won,
+        colors=[viz.PALETTE[0], viz.PALETTE[2]],
+    )
+
+    ratio_text = (f"SMA / LDA = <b>{op_d.ratio_sma_lda:.2f}x</b>"
+                  if not pd.isna(op_d.ratio_sma_lda) else "LDA 미산출")
+
+    body = f"""
+<h1 class="title">31. 운영리스크 Deep-Dive — OPE25</h1>
+<p class="section-lead">Business Indicator 분해, BIC 버킷별 한계 기여, SMA vs LDA 비교.</p>
+
+<div class="kpi-grid">
+{_kpi("BI (Business Indicator)", _won(bi_dec.iloc[-1]['value']))}
+{_kpi("BIC (Component)", _won(op_d.sma_capital))}
+{_kpi("LDA VaR 99.9%", _won(op_d.lda_var_999))}
+{_kpi("SMA / LDA 비율", ratio_text)}
+</div>
+
+<div class="row2">
+<div class="card"><h2>31-1. BI 구성 (ILDC·SC·FC)</h2>
+<div class="chart">{bi_chart}</div>
+{_table(["구성","금액","비중"], bi_rows, right_cols=[1,2])}
+</div>
+<div class="card"><h2>31-2. BIC 버킷별 한계계수 (12% / 15% / 18%)</h2>
+<div class="chart">{bk_chart}</div>
+{_table(["버킷","하한","상한","계수","적용액","한계 BIC"], bk_rows,
+        right_cols=[1,2,3,4,5])}
+</div>
+</div>
+
+<div class="card"><h2>31-3. SMA vs LDA 비교</h2>
+<div class="chart">{sma_lda_chart}</div>
+<p>SMA(표준방법)은 BI 버킷 + ILM(국가재량 시 1.0) 기반의 일정량 자본,
+LDA는 손실 분포로부터 99.9% VaR로 산출. 두 수치의 격차는 ICAAP의 Pillar 2 가산 판단 근거가 됩니다.</p>
+</div>
+"""
+    return _page("운영 D-D", body, "31_op_risk_deep.html")
