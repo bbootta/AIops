@@ -110,6 +110,9 @@ NAV = [
     ("42_limit_dashboard.html", "42. 한도 dashboard"),
     ("43_large_exposure.html", "43. 거대익스포저"),
     ("44_concentration_stress.html","44. 집중 스트레스"),
+    ("45_eva_sva.html",    "45. EVA/SVA"),
+    ("46_pricing_breakeven.html", "46. Pricing"),
+    ("47_rapm_scenario.html", "47. RAPM 시나리오"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -1475,9 +1478,77 @@ def _page_rapm(r: PipelineResult) -> str:
              _won(row["ec"]), _won(row["el"]), _won(row["revenue"]),
              _pct(row["raroc_mean"]), _pct(row["pass_hurdle_pct"])]
             for _, row in rapm.iterrows()]
+    # ---- Du Pont decomposition deep-dive --------------------------------
+    deep_block = ""
+    rd = getattr(r, "rapm_deep", None)
+    if rd is not None:
+        dupont = rd.dupont
+        dupont_rows = [[row["asset_class"], f"{int(row['n']):,}",
+                        _pct(row["asset_yield"], 2),
+                        f"{row['capital_velocity']:.2f}x",
+                        _pct(row["efficiency"], 1),
+                        _pct(row["loss_ratio"], 2),
+                        _pct(row["rf_benefit"], 2),
+                        _pct(row["raroc_identity"], 2)]
+                       for _, row in dupont.iterrows()]
+        # Waterfall for the worst (lowest RAROC) asset class
+        worst_idx = dupont["raroc_identity"].idxmin()
+        worst = dupont.loc[worst_idx]
+        from risk_lib.performance.rapm_deep import waterfall_components
+        wf_items = waterfall_components(worst)
+        # waterfall() treats first/last as totals; prepend a 0 baseline so
+        # the gross-spread bar is rendered as a delta from zero.
+        wf_labels = ["기준(0)"] + [k for k, _ in wf_items]
+        wf_values = [0.0] + [v for _, v in wf_items]
+        wf_chart = viz.waterfall(
+            wf_labels, wf_values, value_fmt=_pct,
+            title=f"RAROC 분해 (Du Pont) — {worst['asset_class']}",
+        )
+        # EVA by asset class
+        evac = rd.eva_by_class
+        eva_chart = viz.bar_chart(
+            evac["asset_class"].tolist(), evac["eva"].tolist(),
+            value_fmt=_won, title="자산군별 EVA (KRW)",
+            colors=[viz.GREEN if v >= 0 else viz.RED for v in evac["eva"]],
+        )
+        bench = rd.benchmark
+        deep_block = f"""
+<div class="kpi-grid">
+{_kpi("가중 RAROC", _pct(rd.summary['raroc_weighted'], 2),
+       sub=f"hurdle {_pct(rd.summary['hurdle_rate'])}",
+       tone="good" if rd.summary['raroc_weighted'] >= rd.summary['hurdle_rate']
+            else "bad")}
+{_kpi("EVA 총합", _won(rd.summary['eva_total']),
+       tone="good" if rd.summary['eva_total'] >= 0 else "bad")}
+{_kpi("가치창출 거래 비중", _pct(rd.summary['value_creating_pct'], 1))}
+{_kpi("재가격 대상 건수", f"{rd.summary['n_repricing']:,}",
+       sub="RAROC ∈ [0, hurdle)", tone="warn")}
+{_kpi("종결 검토 건수", f"{rd.summary['n_terminate']:,}",
+       sub="RAROC < -10%", tone="bad")}
+{_kpi("피어 대비", bench['position'],
+       sub=f"gap {bench['gap_to_median']*100:+.2f}%p (median {_pct(bench['peer_median'])})")}
+</div>
+
+<div class="row2">
+<div class="card"><h2>8-1. RAROC 분해 (Du Pont) — 최저 자산군</h2>
+<div class="chart">{wf_chart}</div>
+<p class="section-lead">RAROC = (수익률 × 자본속도 × 효율) − EL/EC + rf.
+구성요소별 기여도 분해(BCBS RAPM appendix).</p></div>
+<div class="card"><h2>8-2. 자산군별 EVA</h2>
+<div class="chart">{eva_chart}</div>
+<p class="section-lead">EVA = (RAROC − hurdle) × EC. 양(+)이면 자기자본비용 대비 가치 창출.</p></div>
+</div>
+
+<div class="card"><h2>8-3. Du Pont 분해 — 자산군별</h2>
+{_table(["자산군","건수","수익률(R/EAD)","자본속도(EAD/EC)","효율(1-C/R)","EL/EC","rf","RAROC(재구성)"],
+        dupont_rows, right_cols=[1,2,3,4,5,6,7])}
+</div>
+"""
     body = f"""
 <h1 class="title">8. RAPM (RAROC)</h1>
-<p class="section-lead">자산군별 위험조정수익률과 hurdle rate({_pct(r.meta['hurdle_rate'])}) 충족 비율.</p>
+<p class="section-lead">자산군별 위험조정수익률과 hurdle rate({_pct(r.meta['hurdle_rate'])}) 충족 비율.
+RAROC = (순이자수익 + 수수료 − 운영비 − EL + EC·rf) / EC.
+EL = PD × LGD × EAD, EC = K × EAD (Basel CRE31 IRB).</p>
 <div class="row2">
 <div class="card"><h2>평균 RAROC</h2><div class="chart">{raroc_chart}</div></div>
 <div class="card"><h2>hurdle 충족 비율</h2><div class="chart">{pass_chart}</div></div>
@@ -1486,6 +1557,7 @@ def _page_rapm(r: PipelineResult) -> str:
 {_table(["자산군","건수","경제자본","EL","수익","평균 RAROC","Hurdle 충족"], rows,
         right_cols=[1,2,3,4,5,6])}
 </div>
+{deep_block}
 """
     return _page("RAPM", body, "08_rapm.html")
 
@@ -1929,6 +2001,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         page_macro_scenario, page_provisioning_attribution,
         page_dpd_roll, page_recovery_lgd, page_cure_analysis,
         page_limit_dashboard, page_large_exposure, page_concentration_stress,
+        page_eva_sva, page_pricing_breakeven, page_rapm_scenario,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -1978,6 +2051,9 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "42_limit_dashboard.html":     page_limit_dashboard(result),
         "43_large_exposure.html":      page_large_exposure(result),
         "44_concentration_stress.html": page_concentration_stress(result),
+        "45_eva_sva.html":             page_eva_sva(result),
+        "46_pricing_breakeven.html":   page_pricing_breakeven(result),
+        "47_rapm_scenario.html":       page_rapm_scenario(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)

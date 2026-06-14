@@ -51,6 +51,7 @@ from risk_lib.limits.limit_engine import LimitDefinition, LimitEngine
 from risk_lib.limits.concentration import concentration_report
 from risk_lib.limits.limits_deep import compute_limits_deep, LimitsDeepResult
 from risk_lib.performance.rapm import rapm_report
+from risk_lib.performance.rapm_deep import compute_rapm_deep, RapmDeepResult
 from risk_lib.stress.scenario import (
     run_stress, StressAxis, BASELINE, ADVERSE, SEVERELY_ADVERSE,
 )
@@ -147,6 +148,7 @@ class PipelineResult:
     monitoring_deep: dict[str, Any] = field(default_factory=dict)  # v0.10.0
     limits_deep: Any = None    # v0.11.0 CRO-grade limit dashboard / LEX / stress
     concentration_hier: dict[str, Any] = field(default_factory=dict)  # v0.11.0
+    rapm_deep: Any = None      # v0.12.0 CRO-grade RAPM deep-dive (Du Pont/EVA/pricing/scenarios)
     meta: dict[str, Any] = field(default_factory=dict)
 
 
@@ -475,6 +477,7 @@ def run_pipeline(
     monitoring = _stage_monitoring(portfolio, seed)
     limit_report, conc = _stage_limits_concentration(portfolio, capital.tier1)
     rapm_by_class = _stage_rapm(irb_book, hurdle_rate)
+    rapm_deep_result = compute_rapm_deep(irb_book, hurdle_rate=hurdle_rate)
 
     # 12. Stress + reverse stress + quarterly capital path.  Hold non-IRB RWA
     # fixed at (rwa_final - rwa_irb) so baseline stress reconciles with BIS.
@@ -680,6 +683,7 @@ def run_pipeline(
         },
         limits_deep=limits_deep_result,
         concentration_hier=concentration_hier,
+        rapm_deep=rapm_deep_result,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
               "asof": asof.isoformat(), "quarters": quarters},
     )
