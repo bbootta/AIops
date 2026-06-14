@@ -2,6 +2,8 @@
 
   - Hosmer-Lemeshow goodness-of-fit on rating buckets
   - Per-grade binomial test (one-sided: realized > predicted)
+  - 변별력(AUC/AUPRC/Brier) + Kupiec POF + Christoffersen 통합
+  - 캘리브레이션 곡선 데이터(reliability diagram)
   - Consolidated report
 """
 
@@ -10,6 +12,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from scipy.stats import chi2, binom
+
+from risk_lib.models.discrimination import (
+    discrimination_summary, kupiec_pof, christoffersen_cc, calibration_curve,
+)
 
 
 def hosmer_lemeshow(
@@ -95,16 +101,36 @@ def pd_backtest_report(
     pd_col: str = "pd",
     default_col: str = "default_12m",
 ) -> dict[str, object]:
-    """Consolidated PD validation: HL test + per-grade binomial."""
-    hl = hosmer_lemeshow(obligors[pd_col].values, obligors[default_col].values)
+    """Consolidated PD validation.
+
+    포함 지표:
+      * Hosmer-Lemeshow χ² (캘리브레이션)
+      * 등급별 신호등 (binomial, 한쪽)
+      * 변별력 summary (AUC, Gini, AUPRC, Brier, base rate)
+      * Kupiec POF (unconditional coverage)
+      * Christoffersen 조건부 coverage (LR_cc)
+      * 캘리브레이션 곡선(reliability diagram, 십분위)
+    """
+    y = obligors[default_col].values
+    p = obligors[pd_col].values
+    hl = hosmer_lemeshow(p, y)
     per_grade = binomial_test_per_grade(
-        obligors[grade_col].values,
-        obligors[pd_col].values,
-        obligors[default_col].values,
+        obligors[grade_col].values, p, y,
     )
+    disc = discrimination_summary(y, p)
+    n = int(len(y))
+    observed = int(y.sum())
+    avg_pd = float(p.mean()) if n else 0.0
+    pof = kupiec_pof(observed, n, avg_pd)
+    cc = christoffersen_cc(y, avg_pd)
+    cal = calibration_curve(p, y, n_bins=10)
     return {
         "hosmer_lemeshow": hl,
         "per_grade": per_grade,
-        "overall_dr": float(obligors[default_col].mean()),
-        "overall_pd": float(obligors[pd_col].mean()),
+        "discrimination": disc,
+        "kupiec_pof": pof,
+        "christoffersen_cc": cc,
+        "calibration_curve": cal,
+        "overall_dr": float(y.mean()),
+        "overall_pd": avg_pd,
     }
