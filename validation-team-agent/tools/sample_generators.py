@@ -244,6 +244,29 @@ def alm_sample(*, stressed: bool = False) -> dict:
     }
 
 
+def ifrs9_fli_overlay_sample() -> dict:
+    """IFRS 9 Forward-Looking Information (FLI) overlay + scenario weight.
+
+    BCBS / IFRS 9 §B5.5.49 (probability-weighted scenarios).
+    """
+    base_ecl = 3_755.75
+    return {
+        "base_ecl_bn": base_ecl,
+        "scenarios": [
+            {"name": "baseline", "weight": 0.50, "ecl_bn": base_ecl * 0.85,
+             "gdp_growth": 0.025, "unemployment": 0.030},
+            {"name": "adverse", "weight": 0.30, "ecl_bn": base_ecl * 1.30,
+             "gdp_growth": -0.015, "unemployment": 0.055},
+            {"name": "severely_adverse", "weight": 0.20, "ecl_bn": base_ecl * 1.95,
+             "gdp_growth": -0.045, "unemployment": 0.085},
+        ],
+        "management_overlay_bn": 320.0,  # post-model adjustment
+        "overlay_rationale": ("부동산 PF 우려 reflect — 자동 산출 ECL 에 부가",
+                              "공급망 충격 가능성 (수출의존 산업)"),
+        "framework": "IFRS 9 §B5.5.42-49 (FLI) + 회계법인 검토 권장",
+    }
+
+
 def ccr_netting_sample() -> list[dict]:
     """SA-CCR netting set 분해 — counterparty / asset class / collateral."""
     return [

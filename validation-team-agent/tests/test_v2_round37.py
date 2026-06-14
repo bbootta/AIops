@@ -203,7 +203,8 @@ EXPECTED_PAGES = {
     "macro_overlay.html",
     "concentration.html", "concentration_segments.html",
     "data_quality.html", "data_quality_deep.html",
-    "ifrs9_deep.html", "stress_test.html", "change_audit.html",
+    "ifrs9_deep.html", "ifrs9_fli_deep.html",
+    "stress_test.html", "change_audit.html",
 }
 
 

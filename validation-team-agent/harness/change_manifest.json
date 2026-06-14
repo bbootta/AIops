@@ -1785,6 +1785,21 @@
       "rollback_rule": "page + sample + 링크 제거 시 R55 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0120",
+      "timestamp": "2026-06-14 09:17:45",
+      "component": "tools/sample_generators.py (fli) + tools/report_pack.py (ifrs9_fli_deep)",
+      "change_type": "create",
+      "evidence": "/goal R57 IFRS 9: FLI 가중 ECL + Management Overlay (PMA) 미반영",
+      "root_cause": "ifrs9_deep 은 stage migration matrix + base ECL 만, FLI 확률 가중 + PMA 누락",
+      "targeted_fix": "ifrs9_fli_overlay_sample (3 시나리오 가중치 + GDP/실업 + ECL + PMA 320bn). ifrs9_fli_deep.html: 시나리오별 ECL + 가중치 차트 + waterfall (base → weighted → PMA → final) + PMA 사유 + IFRS 9 §B5.5.49 attribution",
+      "expected_benefit": "검증자가 IFRS 9 ECL 의 가중 + PMA 효과 분리 확인. 회계감리 대비 자료",
+      "expected_regression_risk": "low — 신규 sample/page, ifrs9_deep 본문 무변경",
+      "validation_method": "tests/test_v2_round57.py 9 cases + 전체 통과 + ruff/mypy clean",
+      "rollback_rule": "page + sample + 링크 제거 시 R56 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

@@ -749,6 +749,86 @@ frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.<
     return _page("심화 — 운영리스크 손실 시나리오", body)
 
 
+def _ifrs9_fli_page() -> str:
+    """IFRS 9 FLI overlay + 시나리오 가중 ECL + management overlay."""
+    from tools.sample_generators import ifrs9_fli_overlay_sample
+
+    f = ifrs9_fli_overlay_sample()
+    weighted = sum(s["ecl_bn"] * s["weight"] for s in f["scenarios"])
+    final_ecl = weighted + f["management_overlay_bn"]
+
+    sc_chart = hbar(
+        [(s["name"], float(s["ecl_bn"])) for s in f["scenarios"]],
+        title="시나리오별 ECL (가중 전)", fmt="{:,.0f} bn",
+        colors=[PALETTE["ok"], PALETTE["warning"], PALETTE["fail"]])
+
+    weight_chart = hbar(
+        [(s["name"], float(s["weight"])) for s in f["scenarios"]],
+        title="시나리오 가중치", fmt="{:.0%}",
+        colors=[PALETTE["ok"], PALETTE["warning"], PALETTE["fail"]])
+
+    waterfall = hbar(
+        [
+            ("Base ECL (model)", f["base_ecl_bn"]),
+            ("Probability-weighted (FLI)", weighted - f["base_ecl_bn"]),
+            ("Management overlay (PMA)", f["management_overlay_bn"]),
+            ("Final ECL", final_ecl),
+        ],
+        title="ECL 산정 흐름 (waterfall)", fmt="{:+,.0f} bn",
+        colors=[PALETTE["neutral"], PALETTE["warning"],
+                PALETTE["warning"], PALETTE["fail"]])
+
+    sc_rows = "".join(
+        f"<tr><td>{_esc(s['name'])}</td><td>{s['weight']:.0%}</td>"
+        f"<td>{s['gdp_growth']:+.1%}</td><td>{s['unemployment']:.1%}</td>"
+        f"<td>{s['ecl_bn']:,.0f}</td>"
+        f"<td>{s['ecl_bn']*s['weight']:,.0f}</td></tr>"
+        for s in f["scenarios"])
+    overlay_rows = "".join(f"<li>{_esc(r)}</li>" for r in f["overlay_rationale"])
+
+    body = f"""
+<p>IFRS 9 Forward-Looking Information (FLI) — 시나리오 가중평균 ECL +
+management overlay (PMA: Post-Model Adjustment). 출처: {_esc(f['framework'])}.</p>
+
+<h2>시나리오 가중치</h2>
+{weight_chart}
+
+<h2>시나리오별 ECL</h2>
+{sc_chart}
+<table>
+<tr><th>시나리오</th><th>가중치</th><th>GDP</th><th>실업</th><th>ECL (bn)</th><th>가중 ECL</th></tr>
+{sc_rows}
+<tr><th colspan="5">Probability-weighted</th><th>{weighted:,.0f}</th></tr>
+</table>
+
+<h2>ECL 산정 흐름</h2>
+{waterfall}
+<table>
+<tr><th>Base ECL (Stage 1/2/3 합계)</th><td>{f['base_ecl_bn']:,.2f} bn</td></tr>
+<tr><th>+ Probability-weighted Δ</th><td>{weighted - f['base_ecl_bn']:+,.2f} bn</td></tr>
+<tr><th>+ Management Overlay (PMA)</th><td>{f['management_overlay_bn']:+,.2f} bn</td></tr>
+<tr><th><b>Final ECL</b></th><td><b>{final_ecl:,.2f} bn</b></td></tr>
+</table>
+
+<h2>Management Overlay 사유</h2>
+<ul>{overlay_rows}</ul>
+
+<h2>해석 (IFRS 9 검증)</h2>
+<ul>
+<li><b>FLI</b> (Forward-Looking Information): IFRS 9 §B5.5.49 — 모든 합리적
+시나리오의 확률 가중 ECL. 단일 시나리오 ECL 부적합.</li>
+<li><b>Management Overlay (PMA)</b>: 모형이 포착 못한 risk (예: 부동산 PF
+재충격) 의 보수적 추가. <b>회계감리 대상</b> — 회계법인 검토 필수.</li>
+<li><b>Severely adverse weight 20%</b>: 가중치 floor 점검 — IFRS 9 시행 초기
+보수성 원칙 (시나리오 가중치 점검은 3.weights step 참조).</li>
+<li><b>Final ECL</b>은 본 자동 점검의 산출이 아니며 실제 ECL 은 운영 ECL
+시스템 + 회계법인 검토 + 감독원 보고 절차 (CLAUDE.md §5).</li>
+</ul>
+<p><a href="ifrs9_deep.html">← IFRS 9 Stage Migration 으로</a></p>
+"""
+    return _page("심화 — IFRS 9 FLI overlay + 가중 ECL + PMA", body)
+
+
 def _ccr_netting_deep_page() -> str:
     """SA-CCR netting set 분해 + WWR identification + collateral."""
     from tools.sample_generators import ccr_netting_sample
@@ -2406,6 +2486,7 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 <li><a href="macro_overlay.html">Macroprudential — 거시건전성 overlay</a></li>
 <li><a href="stress_test.html">스트레스 테스트 시나리오 panel</a></li>
 <li><a href="ifrs9_deep.html">IFRS 9 ECL Stage Migration</a></li>
+<li><a href="ifrs9_fli_deep.html">IFRS 9 FLI overlay + 가중 ECL + PMA</a></li>
 <li><a href="change_audit.html">변경 감사 (Change Manifest)</a></li>
 </ul>
 """
@@ -2489,6 +2570,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="ccr_netting_deep.html">CCR — Netting set + Wrong-Way Risk + 담보</a></li>
 <li><a href="macro_overlay.html">Macroprudential — CCyB/DSR/LTV/SyRB overlay</a></li>
 <li><a href="ifrs9_deep.html">IFRS 9 — Stage migration matrix + ECL 분해</a></li>
+<li><a href="ifrs9_fli_deep.html">IFRS 9 — FLI overlay + 가중 ECL + PMA</a></li>
 <li><a href="stress_test.html">스트레스 테스트 — baseline / adverse / severe</a></li>
 <li><a href="change_audit.html">변경 감사 — 매니페스트 CHG 추적</a></li>
 <li><a href="explainability.html">Explainability — 전 부문 임계 근거·산식·출처</a></li>
@@ -2549,6 +2631,7 @@ def build_pack(
     pages["irrbb_behavioral.html"] = _irrbb_behavioral_page()
     pages["operational_bi_deep.html"] = _operational_bi_deep_page()
     pages["ccr_netting_deep.html"] = _ccr_netting_deep_page()
+    pages["ifrs9_fli_deep.html"] = _ifrs9_fli_page()
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)
