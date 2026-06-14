@@ -244,6 +244,48 @@ def alm_sample(*, stressed: bool = False) -> dict:
     }
 
 
+def icaap_methodology_sample() -> list[dict]:
+    """ICAAP 리스크 유형별 산정 방식 (Pillar 2)."""
+    return [
+        {"risk_type": "신용", "approach": "IRBA / EC-VaR (1y, 99.9%)",
+         "required_bn": 4_800.0, "methodology_doc": "BCBS d189 §201 + 내부 IRBA"},
+        {"risk_type": "시장", "approach": "Internal Model (VaR + SVaR + IRC)",
+         "required_bn": 1_300.0, "methodology_doc": "BCBS MAR99"},
+        {"risk_type": "운영", "approach": "SMA (BIC × ILM)",
+         "required_bn": 900.0, "methodology_doc": "BCBS OPE25"},
+        {"risk_type": "IRRBB", "approach": "ΔEVE Outlier + ΔNII",
+         "required_bn": 800.0, "methodology_doc": "BCBS SRP31"},
+        {"risk_type": "집중", "approach": "HHI + LEX add-on",
+         "required_bn": 700.0, "methodology_doc": "BCBS LEX + 은행법 35조"},
+        {"risk_type": "유동성/funding", "approach": "Liquidity stress + survival period",
+         "required_bn": 500.0, "methodology_doc": "BCBS LIQ40/LIQ20 + 내부 ALCO"},
+        {"risk_type": "Reputational/Strategic", "approach": "Scenario-based (qualitative)",
+         "required_bn": 400.0, "methodology_doc": "ECB SREP Methodology"},
+    ]
+
+
+def capital_plan_timeline_sample() -> list[dict]:
+    """3년 자본계획 시계열 (분기) — Pillar 2 ICAAP 자본계획."""
+    quarters = []
+    base_capital = 12_000.0
+    base_required = 8_500.0
+    for y in (2026, 2027, 2028):
+        for q in (1, 2, 3, 4):
+            qid = f"{y}Q{q}"
+            growth = (y - 2026) * 4 + q
+            quarters.append({
+                "quarter": qid,
+                "available_capital_bn": round(
+                    base_capital + growth * 80.0, 2),
+                "required_capital_bn": round(
+                    base_required + growth * 60.0, 2),
+                "buffer_pct": round(
+                    (base_capital + growth * 80.0) /
+                    (base_required + growth * 60.0) - 1.0, 4),
+            })
+    return quarters
+
+
 def ifrs9_fli_overlay_sample() -> dict:
     """IFRS 9 Forward-Looking Information (FLI) overlay + scenario weight.
 

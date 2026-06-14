@@ -193,7 +193,7 @@ EXPECTED_PAGES = {
     "credit.html", "credit_calibration.html", "challenger.html",
     "credit_segments.html", "credit_vintage.html",
     "capital_icaap.html", "capital_buffer_deep.html", "capital_rwa_deep.html",
-    "icaap_deep.html",
+    "icaap_deep.html", "icaap_methodology.html",
     "alm.html", "alm_gap.html", "alm_irrbb.html", "alm_currency_deep.html",
     "irrbb_behavioral.html",
     "market_ops.html", "operational_deep.html", "operational_bi_deep.html",

@@ -1800,6 +1800,21 @@
       "rollback_rule": "page + sample + 링크 제거 시 R56 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0121",
+      "timestamp": "2026-06-14 09:19:55",
+      "component": "tools/sample_generators.py (icaap_methodology/capital_plan) + tools/report_pack.py (icaap_methodology)",
+      "change_type": "create",
+      "evidence": "/goal R58 ICAAP: 리스크 유형별 산정 방식·3년 자본계획 시계열 미반영",
+      "root_cause": "icaap_deep 은 비중·시나리오만, 산정 방식(IRBA/VaR/SMA 등) 과 3년 자본계획 timeline 누락",
+      "targeted_fix": "icaap_methodology_sample (7 리스크 유형 + approach + methodology doc 출처) + capital_plan_timeline_sample (12 분기). icaap_methodology.html: 유형별 산정 방식 표 + 필요자본 차트 + 3년 자본/필요/buffer trend + ALCO/MRMC 가이드",
+      "expected_benefit": "Pillar 2 SREP 보고용 자료 — 산정 방식별 backtest 요구 + 자본계획 buffer trend 가시화",
+      "expected_regression_risk": "low — 신규 sample/page, icaap_deep 본문 무변경",
+      "validation_method": "tests/test_v2_round58.py 12 cases + 전체 통과 + ruff/mypy clean",
+      "rollback_rule": "page + 2 sample + 링크 제거 시 R57 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

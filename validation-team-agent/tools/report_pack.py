@@ -282,6 +282,7 @@ def _capital_icaap_page(demo: dict) -> str:
                  '<li><a href="capital_buffer_deep.html">자본 buffer 분해 + sensitivity →</a></li>'
                  '<li><a href="capital_rwa_deep.html">RWA 분해 + Output Floor + SREP →</a></li>'
                  '<li><a href="icaap_deep.html">ICAAP 리스크 유형 분해 + 시나리오 →</a></li>'
+                 '<li><a href="icaap_methodology.html">ICAAP 산정 방식 + 3년 자본계획 →</a></li>'
                  '</ul>')
     parts.append('<h2>왜 이 결과인가 (Explainability)</h2>')
     parts.append(f"<p>{narrate('3.capital', cap)}</p>")
@@ -747,6 +748,85 @@ frequency 가 낮아도 severity 가 매우 커서 99% VaR 에 dominate 한다.<
 <p><a href="market_ops.html">← 시장·운영·CVA·CCR 상세로 돌아가기</a></p>
 """
     return _page("심화 — 운영리스크 손실 시나리오", body)
+
+
+def _icaap_methodology_page() -> str:
+    """ICAAP 리스크 유형별 산정 방식 + 3년 자본계획 시계열."""
+    from tools.sample_generators import (
+        capital_plan_timeline_sample,
+        icaap_methodology_sample,
+    )
+
+    methods = icaap_methodology_sample()
+    plan = capital_plan_timeline_sample()
+
+    req_chart = hbar(
+        [(m["risk_type"], float(m["required_bn"])) for m in methods],
+        title="리스크 유형별 필요자본", fmt="{:,.0f} bn",
+        colors=[PALETTE["neutral"]] * len(methods))
+
+    method_rows = "".join(
+        f"<tr><td><b>{_esc(m['risk_type'])}</b></td>"
+        f"<td>{_esc(m['approach'])}</td>"
+        f"<td>{m['required_bn']:,.0f}</td>"
+        f"<td><code>{_esc(m['methodology_doc'])}</code></td></tr>"
+        for m in methods)
+
+    # Capital plan trend
+    cap_series = [(p["quarter"], p["available_capital_bn"]) for p in plan]
+    req_series = [(p["quarter"], p["required_capital_bn"]) for p in plan]
+    buffer_series = [(p["quarter"], p["buffer_pct"]) for p in plan]
+
+    cap_trend = trend_line(cap_series,
+                           title="3년 가용 capital 시계열", fmt="{:,.0f} bn")
+    req_trend = trend_line(req_series,
+                           title="3년 필요 capital 시계열", fmt="{:,.0f} bn")
+    buffer_trend = trend_line(
+        buffer_series, title="자본 buffer (%) 시계열", fmt="{:+.1%}",
+        minimum=0.20)
+
+    plan_rows = "".join(
+        f"<tr><td>{p['quarter']}</td>"
+        f"<td>{p['available_capital_bn']:,.0f}</td>"
+        f"<td>{p['required_capital_bn']:,.0f}</td>"
+        f"<td>{p['buffer_pct']:+.1%}</td></tr>"
+        for p in plan)
+
+    body = f"""
+<p>ICAAP 리스크 유형별 산정 방식 + 3년 (12 분기) 자본계획 시계열. Pillar 2
+SREP 보고용.</p>
+
+<h2>리스크 유형별 산정 방식</h2>
+{req_chart}
+<table>
+<tr><th>리스크 유형</th><th>산정 방식</th><th>필요자본 (bn)</th><th>methodology 출처</th></tr>
+{method_rows}
+</table>
+
+<h2>3년 자본계획 (가용 vs 필요)</h2>
+{cap_trend}
+{req_trend}
+{buffer_trend}
+<table>
+<tr><th>분기</th><th>가용 (bn)</th><th>필요 (bn)</th><th>buffer (%)</th></tr>
+{plan_rows}
+</table>
+
+<h2>해석 (Pillar 2 SREP 관점)</h2>
+<ul>
+<li><b>리스크 유형별 산정 방식</b>은 SREP 보고의 핵심. 각 유형에 대해
+methodology 문서 (자체 IRBA 모형 / VaR 모형 / SMA 등) 와 backtest 결과
+필요.</li>
+<li><b>Reputational/Strategic risk</b>: 정량 모형 부재 — scenario-based
+qualitative 산정 (Pillar 2 expectation, ECB SREP).</li>
+<li><b>자본계획 buffer 시계열</b>: 분기별 20% 이상 유지 권고 (RAS).
+20% 미만 진입 분기 = ALCO/MRMC 보고 트리거.</li>
+<li>본 plan 은 합성 — 운영 자본계획은 거시 시나리오 + 자본정책위원회 +
+감독원 보고 후 적용.</li>
+</ul>
+<p><a href="capital_icaap.html">← 자본 + ICAAP 상세로</a> · <a href="icaap_deep.html">ICAAP 분해 →</a></p>
+"""
+    return _page("심화 — ICAAP 산정 방식 + 3년 자본계획", body)
 
 
 def _ifrs9_fli_page() -> str:
@@ -2555,6 +2635,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="capital_buffer_deep.html">자본 — buffer 분해 + sensitivity</a></li>
 <li><a href="capital_rwa_deep.html">자본 — RWA 분해 + Output Floor + SREP</a></li>
 <li><a href="icaap_deep.html">ICAAP — 리스크 유형 분해 + 시나리오</a></li>
+<li><a href="icaap_methodology.html">ICAAP — 산정 방식 + 3년 자본계획</a></li>
 <li><a href="alm_gap.html">ALM — 만기 bucket 누적 갭</a></li>
 <li><a href="alm_irrbb.html">IRRBB — 시나리오별 ΔEVE</a></li>
 <li><a href="alm_currency_deep.html">ALM — 통화별 LCR + ΔNII + 일중유동성</a></li>
@@ -2632,6 +2713,7 @@ def build_pack(
     pages["operational_bi_deep.html"] = _operational_bi_deep_page()
     pages["ccr_netting_deep.html"] = _ccr_netting_deep_page()
     pages["ifrs9_fli_deep.html"] = _ifrs9_fli_page()
+    pages["icaap_methodology.html"] = _icaap_methodology_page()
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)
