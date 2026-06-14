@@ -155,10 +155,10 @@
   <h1>MINECRAFT</h1>
   <p>
     W A S D : 이동 &nbsp;|&nbsp; Shift : 달리기 &nbsp;|&nbsp; Space : 점프 / 수영<br>
-    좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 먹기 · 씨앗 · 활쏘기 &nbsp;|&nbsp; C : 제작 &nbsp;|&nbsp; E : 인벤토리<br>
+    좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 먹기 · 씨앗 · 활쏘기 &nbsp;|&nbsp; C : 제작 &nbsp;|&nbsp; E : 인벤토리 &nbsp;|&nbsp; M : 음악<br>
     1 ~ 9 / 마우스 휠 : 슬롯 선택 &nbsp;|&nbsp; F : 비행 (Space 상승 / Shift 하강)<br>
-    땅속 동굴엔 다이아몬드, 밤엔 좀비·스켈레톤·보스(좀비 군주)가 출몰<br>
-    나무→판자→곡괭이·검·활, 씨앗→밀→빵, 다이아로 포탈을 만들어 네더(용암)로<br>
+    동굴엔 석탄·철·금·다이아·에메랄드 광석, 밤엔 좀비·스켈레톤·보스가 출몰<br>
+    나무→판자→곡괭이·검·활, 씨앗→밀→빵, 금→황금사과, 다이아로 포탈을 만들어 네더로<br>
     모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼 조작<br>
     월드는 자동 저장됩니다 &nbsp;|&nbsp; ESC : 일시정지
   </p>
@@ -196,25 +196,28 @@ const EYE_HEIGHT = 1.62;
 const SLOT = Math.min(3, Math.max(1, parseInt(localStorage.getItem('mc_slot') || '1', 10) || 1));
 const SAVE_KEY = 'mc_save_v5_s' + SLOT;
 
-const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16 };
+const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18 };
 // 블록이 아닌 아이템 (인벤토리 전용)
-const ITEM = { MEAT: 100, SEEDS: 101, WHEAT: 102, BREAD: 103, DIAMOND: 104, ARROW: 105, BOW: 106 };
+const ITEM = { MEAT: 100, SEEDS: 101, WHEAT: 102, BREAD: 103, DIAMOND: 104, ARROW: 105, BOW: 106, GOLD: 107, EMERALD: 108, GOLD_APPLE: 109 };
 const BLOCK_NAMES = {
   1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석',
-  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈',
-  100: '고기', 101: '씨앗', 102: '밀', 103: '빵', 104: '다이아몬드', 106: '활',
+  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈', 17: '금 광석', 18: '에메랄드 광석',
+  100: '고기', 101: '씨앗', 102: '밀', 103: '빵', 104: '다이아몬드', 106: '활', 107: '금', 108: '에메랄드', 109: '황금 사과',
 };
-const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES, BLOCK.SAND, BLOCK.TORCH, ITEM.MEAT, ITEM.BREAD, ITEM.SEEDS, ITEM.BOW, BLOCK.PORTAL];
+const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES, BLOCK.SAND, BLOCK.TORCH, ITEM.MEAT, ITEM.BREAD, ITEM.GOLD_APPLE, ITEM.SEEDS, ITEM.BOW, BLOCK.PORTAL];
 // 블록별 캐는 시간(초)과 드롭 아이템 [종류, 개수]
-const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1 };
+const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0 };
 const DROPS = {
   [BLOCK.GRASS]: [BLOCK.GRASS, 1], [BLOCK.DIRT]: [BLOCK.DIRT, 1], [BLOCK.STONE]: [BLOCK.STONE, 1],
   [BLOCK.WOOD]: [BLOCK.WOOD, 1], [BLOCK.LEAVES]: [BLOCK.LEAVES, 1], [BLOCK.SAND]: [BLOCK.SAND, 1],
   [BLOCK.COAL_ORE]: [BLOCK.TORCH, 3], [BLOCK.IRON_ORE]: [BLOCK.STONE, 2], [BLOCK.TORCH]: [BLOCK.TORCH, 1],
   [BLOCK.PLANK]: [BLOCK.PLANK, 1], [BLOCK.DIAMOND_ORE]: [ITEM.DIAMOND, 1],
   [BLOCK.NETHERRACK]: [BLOCK.NETHERRACK, 1], [BLOCK.PORTAL]: [BLOCK.PORTAL, 1],
+  [BLOCK.GOLD_ORE]: [ITEM.GOLD, 1], [BLOCK.EMERALD_ORE]: [ITEM.EMERALD, 1],
 };
-const FOODS = { [ITEM.MEAT]: 3, [ITEM.BREAD]: 4 }; // 먹었을 때 회복량
+// 채굴 시 곡괭이가 없으면 드롭하지 않는 광석
+const NEEDS_PICK = new Set([BLOCK.IRON_ORE, BLOCK.DIAMOND_ORE, BLOCK.GOLD_ORE, BLOCK.EMERALD_ORE]);
+const FOODS = { [ITEM.MEAT]: 3, [ITEM.BREAD]: 4, [ITEM.GOLD_APPLE]: MAX_HEALTH }; // 먹었을 때 회복량
 
 // ---------- 시드 난수 / 노이즈 ----------
 function mulberry32(a) {
@@ -305,6 +308,8 @@ const TEX = {
   coalOre: oreTexture([38, 38, 38]),
   ironOre: oreTexture([216, 173, 140]),
   diamondOre: oreTexture([85, 222, 220]),
+  goldOre: oreTexture([240, 205, 70]),
+  emeraldOre: oreTexture([60, 210, 110]),
   torch: makeTexture(C.woodSide, (x, y) => (y < 5 ? [255, 205, 80] : C.woodSide)),
   plank: makeTexture(C.woodTop, (x, y) => (y % 4 === 3 ? [110, 88, 55] : C.woodTop)),
   meat: makeTexture([176, 62, 50], (x, y) => (x > 4 && x < 12 && y > 4 && y < 12 ? [232, 150, 130] : [176, 62, 50])),
@@ -312,6 +317,7 @@ const TEX = {
   seeds: makeTexture([90, 70, 45], (x, y) => (((x * 5 + y * 3) % 7 === 0) ? [150, 200, 90] : [90, 70, 45])),
   bread: makeTexture([196, 142, 74], (x, y) => (y < 3 || y > 12 ? [150, 100, 50] : [210, 165, 100])),
   bow: makeTexture([60, 44, 28], (x, y) => (Math.abs(x - 8) + Math.abs(y - 8) > 9 && x < 11 ? [150, 110, 60] : (x === 11 ? [230, 230, 230] : [60, 44, 28]))),
+  goldApple: makeTexture([218, 180, 40], (x, y) => (Math.hypot(x - 8, y - 8) < 5.5 ? [255, 215, 60] : [40, 30, 10])),
   // 네더
   netherrack: makeTexture([108, 38, 38], (x, y) => (((x * 3 + y * 7) % 11 < 2) ? [70, 20, 20] : [108, 38, 38])),
   lava: makeTexture([222, 110, 30], (x, y) => (((x + y) % 5 === 0) ? [255, 200, 60] : [222, 90, 24])),
@@ -333,6 +339,8 @@ const MATERIALS = {
   [BLOCK.COAL_ORE]: mat(TEX.coalOre),
   [BLOCK.IRON_ORE]: mat(TEX.ironOre),
   [BLOCK.DIAMOND_ORE]: mat(TEX.diamondOre),
+  [BLOCK.GOLD_ORE]: mat(TEX.goldOre),
+  [BLOCK.EMERALD_ORE]: mat(TEX.emeraldOre),
   [BLOCK.TORCH]: new THREE.MeshLambertMaterial({ map: TEX.torch, emissive: 0xff9933, emissiveIntensity: 0.55 }),
   [BLOCK.PLANK]: mat(TEX.plank),
   [BLOCK.NETHERRACK]: mat(TEX.netherrack),
@@ -340,7 +348,7 @@ const MATERIALS = {
   [BLOCK.PORTAL]: new THREE.MeshLambertMaterial({ map: TEX.portal, emissive: 0x8833dd, emissiveIntensity: 0.8, transparent: true, opacity: 0.78 }),
 };
 // 아이템 종류별 핫바 아이콘 텍스처
-const ITEM_ICON = { [ITEM.MEAT]: TEX.meat, [ITEM.SEEDS]: TEX.seeds, [ITEM.BREAD]: TEX.bread, [ITEM.BOW]: TEX.bow };
+const ITEM_ICON = { [ITEM.MEAT]: TEX.meat, [ITEM.SEEDS]: TEX.seeds, [ITEM.BREAD]: TEX.bread, [ITEM.BOW]: TEX.bow, [ITEM.GOLD_APPLE]: TEX.goldApple };
 
 // ---------- 월드 데이터 ----------
 // 차원 전환을 위해 let (스왑 시 다른 Map/Set으로 교체)
@@ -373,13 +381,15 @@ function generateWorld() {
         else if (y >= h - 3) t = BLOCK.DIRT;
         else {
           const r = rand();
-          if (r < 0.004 && y < 5) t = BLOCK.DIAMOND_ORE;
-          else if (r < 0.02 && y < 6) t = BLOCK.IRON_ORE;
-          else if (r < 0.06) t = BLOCK.COAL_ORE;
+          if (r < 0.0025 && y < 4) t = BLOCK.EMERALD_ORE;
+          else if (r < 0.006 && y < 5) t = BLOCK.DIAMOND_ORE;
+          else if (r < 0.014 && y < 8) t = BLOCK.GOLD_ORE;
+          else if (r < 0.03 && y < 6) t = BLOCK.IRON_ORE;
+          else if (r < 0.07) t = BLOCK.COAL_ORE;
           else t = BLOCK.STONE;
         }
         // 동굴 굴착: 표면 두 칸과 바닥은 보존, 그 아래만 비움
-        if (y > 1 && y < h - 1 && caveNoise(x, y, z) > 0.68) continue;
+        if (y > 1 && y < h - 1 && caveNoise(x, y, z) > 0.64) continue;
         setBlock(x, y, z, t);
       }
       for (let y = h + 1; y <= SEA_LEVEL; y++) setBlock(x, y, z, BLOCK.WATER);
@@ -637,6 +647,50 @@ function playSound(freq, dur, type, vol) {
 const soundBreak = () => playSound(95, 0.18, 'triangle', 0.25);
 const soundPlace = () => playSound(240, 0.09, 'square', 0.12);
 
+// ---------- 생성형 배경음악 ----------
+let musicOn = localStorage.getItem('mc_music') !== 'off';
+let musicTimer = 0, musicRunning = false, musicStep = 0;
+const MUSIC_SCALE = [0, 3, 5, 7, 10]; // 단조 펜타토닉
+function musicTick() {
+  try {
+    if (!audioCtx || audioCtx.state !== 'running') return;
+    const t0 = audioCtx.currentTime;
+    const base = curDim === 'nether' ? 110 : 146.83; // 네더는 더 낮고 음울하게
+    const semi = MUSIC_SCALE[Math.floor(Math.random() * MUSIC_SCALE.length)] + (Math.random() < 0.4 ? 12 : 0);
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = base * Math.pow(2, semi / 12);
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(0.045, t0 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + 1.6);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(t0); osc.stop(t0 + 1.7);
+    if (musicStep % 4 === 0) { // 베이스
+      const b = audioCtx.createOscillator(), bg = audioCtx.createGain();
+      b.type = 'triangle'; b.frequency.value = base / 2;
+      bg.gain.setValueAtTime(0.05, t0); bg.gain.exponentialRampToValueAtTime(0.001, t0 + 1.2);
+      b.connect(bg).connect(audioCtx.destination); b.start(t0); b.stop(t0 + 1.3);
+    }
+    musicStep++;
+  } catch (e) { /* 무시 */ }
+}
+function startMusic() {
+  if (musicRunning || !musicOn) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch (e) { return; }
+  musicRunning = true;
+  musicTimer = setInterval(musicTick, 900);
+}
+function stopMusic() { musicRunning = false; if (musicTimer) clearInterval(musicTimer); musicTimer = 0; }
+function toggleMusic() {
+  musicOn = !musicOn;
+  try { localStorage.setItem('mc_music', musicOn ? 'on' : 'off'); } catch (e) {}
+  if (musicOn) { startMusic(); playSound(440, 0.12, 'sine', 0.12); } else stopMusic();
+}
+
 // ---------- 파괴 파티클 ----------
 const particles = [];
 const particleGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
@@ -672,6 +726,38 @@ function updateParticles(dt) {
     p.mesh.scale.setScalar(Math.min(1, p.life * 2.5));
   }
 }
+
+// ---------- 몹 체력바 (빌보드) ----------
+const HPBAR_GEO = new THREE.PlaneGeometry(1, 1);
+const HPBAR_BG = new THREE.MeshBasicMaterial({ color: 0x000000 });
+const HPBAR_FILL = new THREE.MeshBasicMaterial({ color: 0x33dd44 });
+function makeHpBar() {
+  const g = new THREE.Group();
+  const bg = new THREE.Mesh(HPBAR_GEO, HPBAR_BG);
+  bg.scale.set(0.92, 0.14, 1);
+  g.add(bg);
+  const fill = new THREE.Mesh(HPBAR_GEO, HPBAR_FILL);
+  fill.scale.set(0.88, 0.1, 1);
+  fill.position.z = 0.01;
+  g.add(fill);
+  g.userData.fill = fill;
+  g.visible = false;
+  scene.add(g);
+  return g;
+}
+function updateHpBar(m) {
+  const bar = m.bar;
+  if (!bar) return;
+  if (m.hp >= m.maxHp) { bar.visible = false; return; }
+  bar.visible = true;
+  bar.position.set(m.pos.x, m.pos.y + m.hitH + 0.35, m.pos.z);
+  bar.quaternion.copy(camera.quaternion); // 카메라를 향하게 (빌보드)
+  const r = Math.max(0, m.hp / m.maxHp);
+  const fill = bar.userData.fill;
+  fill.scale.x = 0.88 * r;
+  fill.position.x = -0.44 * (1 - r);
+}
+function removeHpBar(m) { if (m.bar) { scene.remove(m.bar); m.bar = null; } }
 
 // ---------- 동물 (돼지 / 양) ----------
 const animals = [];
@@ -716,7 +802,7 @@ function spawnAnimals() {
       walking: false,
       timer: rand() * 3,
       onGround: false,
-      hp: 2, kbT: 0, colH: 0.9, hitH: 1.05,
+      hp: 2, maxHp: 2, kbT: 0, colH: 0.9, hitH: 1.05, bar: makeHpBar(),
     });
   }
 }
@@ -783,6 +869,7 @@ function updateAnimals(dt) {
       a.walking = true;
     }
     stepMob(a, dt, a.walking ? 1.3 : 0);
+    updateHpBar(a);
   }
 }
 
@@ -863,7 +950,7 @@ function trySpawnZombie() {
     vel: new THREE.Vector3(),
     yaw: Math.random() * Math.PI * 2,
     timer: 0, walking: false, onGround: false,
-    hp: 3, kbT: 0, colH: 1.8, hitH: 1.9,
+    hp: 3, maxHp: 3, kbT: 0, colH: 1.8, hitH: 1.9, bar: makeHpBar(),
     atkT: 0, groanT: 2 + Math.random() * 4, shootT: 1 + Math.random() * 2,
   });
 }
@@ -885,7 +972,7 @@ function spawnBoss() {
     vel: new THREE.Vector3(),
     yaw: Math.random() * Math.PI * 2,
     timer: 0, walking: false, onGround: false,
-    hp: 40, maxHp: 40, kbT: 0, colH: 3.6, hitH: 3.8,
+    hp: 40, maxHp: 40, kbT: 0, colH: 3.6, hitH: 3.8, bar: makeHpBar(),
     atkT: 0, groanT: 1.5,
   });
   playSound(55, 0.8, 'sawtooth', 0.25);
@@ -906,6 +993,7 @@ function updateZombies(dt) {
     for (const z of zombies) {
       spawnParticles(z.pos.x - 0.5, z.pos.y + 0.8, z.pos.z - 0.5, z.mesh.userData.bodyMat);
       scene.remove(z.mesh);
+      removeHpBar(z);
     }
     zombies.length = 0;
   }
@@ -937,6 +1025,7 @@ function updateZombies(dt) {
       speed = z.walking ? 0.8 : 0;
     }
     stepMob(z, dt, speed);
+    updateHpBar(z);
     z.atkT -= dt;
     if (!z.ranged && playing() && z.atkT <= 0 && d < (z.boss ? 2.6 : 1.4) && Math.abs(player.pos.y - z.pos.y) < (z.boss ? 4 : 2)) {
       z.atkT = 1.2;
@@ -965,6 +1054,7 @@ function damageMob(m, dmg, dx, dz) {
 }
 function killMob(m) {
   scene.remove(m.mesh);
+  removeHpBar(m);
   const ai = animals.indexOf(m);
   if (ai >= 0) {
     animals.splice(ai, 1);
@@ -1169,6 +1259,7 @@ addEventListener('keydown', (e) => {
   if (n >= 1 && n <= HOTBAR.length) selectSlot(n - 1);
   if (e.code === 'KeyF' && playing()) { flying = !flying; player.vel.y = 0; fallDist = 0; }
   if (e.code === 'KeyC' && (playing() || craftOpen)) toggleCraft(!craftOpen);
+  if (e.code === 'KeyM') toggleMusic();
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 // 창 포커스를 잃으면 눌린 키가 고착되지 않도록 초기화
@@ -1383,6 +1474,7 @@ const joyVec = new THREE.Vector2();
 function playing() { return (locked || touchPlaying) && !craftOpen && !invOpen; }
 
 overlay.addEventListener('click', () => {
+  startMusic(); // 사용자 제스처에서 오디오 시작
   if (isTouch) {
     touchPlaying = true;
     overlay.style.display = 'none';
@@ -1654,7 +1746,7 @@ function updateMining(dt) {
   }
   const type = getBlock(b.x, b.y, b.z);
   const hasPick = tools.pickaxe || tools.diamondPickaxe;
-  const stony = type === BLOCK.STONE || type === BLOCK.COAL_ORE || type === BLOCK.IRON_ORE || type === BLOCK.DIAMOND_ORE;
+  const stony = type === BLOCK.STONE || type === BLOCK.NETHERRACK || type === BLOCK.COAL_ORE || NEEDS_PICK.has(type);
   const pickMul = stony ? (tools.diamondPickaxe ? 5 : tools.pickaxe ? 3 : 1) : 1;
   mineProgress += dt * pickMul / (HARDNESS[type] || 1);
   if (mineProgress >= 1) {
@@ -1669,8 +1761,8 @@ function updateMining(dt) {
     } else {
       editBlock(b.x, b.y, b.z, 0);
       const drop = DROPS[type];
-      // 다이아몬드 광석은 곡괭이가 있어야 드롭
-      if (drop && !(type === BLOCK.DIAMOND_ORE && !hasPick)) {
+      // 일부 광석은 곡괭이가 있어야 드롭
+      if (drop && !(NEEDS_PICK.has(type) && !hasPick)) {
         inv[drop[0]] = (inv[drop[0]] || 0) + drop[1];
       }
       if (type === BLOCK.GRASS && Math.random() < 0.35) inv[ITEM.SEEDS] += 1; // 잔디에서 씨앗
@@ -1704,7 +1796,7 @@ const inv = {
   [BLOCK.GRASS]: 0, [BLOCK.DIRT]: 0, [BLOCK.STONE]: 0, [BLOCK.WOOD]: 0, [BLOCK.PLANK]: 0,
   [BLOCK.LEAVES]: 0, [BLOCK.SAND]: 0, [BLOCK.TORCH]: 2, [ITEM.MEAT]: 0,
   [ITEM.SEEDS]: 0, [ITEM.WHEAT]: 0, [ITEM.BREAD]: 0, [ITEM.DIAMOND]: 0, [ITEM.ARROW]: 0,
-  [BLOCK.PORTAL]: 0,
+  [BLOCK.PORTAL]: 0, [ITEM.GOLD]: 0, [ITEM.EMERALD]: 0, [ITEM.GOLD_APPLE]: 0,
 };
 const tools = { pickaxe: false, sword: false, bow: false, diamondPickaxe: false, diamondSword: false }; // 제작으로 획득 (영구)
 const slotCnts = [];
@@ -1765,6 +1857,7 @@ const RECIPES = [
   { name: '다이아 곡괭이', desc: '다이아 3 · 5배 속도', cost: { [ITEM.DIAMOND]: 3 }, once: 'diamondPickaxe' },
   { name: '다이아 검', desc: '다이아 2 · 공격력 3', cost: { [ITEM.DIAMOND]: 2 }, once: 'diamondSword' },
   { name: '포탈 ×1', desc: '다이아 5 · 설치 후 들어가면 네더 이동', cost: { [ITEM.DIAMOND]: 5 }, make: () => { inv[BLOCK.PORTAL] += 1; } },
+  { name: '황금 사과', desc: '금 5 · 체력 가득 회복', cost: { [ITEM.GOLD]: 5 }, make: () => { inv[ITEM.GOLD_APPLE] += 1; } },
 ];
 const craftEl = document.getElementById('craft');
 const recipesEl = document.getElementById('recipes');
@@ -1820,7 +1913,8 @@ const invListEl = document.getElementById('invList');
 let invOpen = false;
 const INV_ORDER = [
   BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.SAND, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES,
-  BLOCK.TORCH, BLOCK.PORTAL, ITEM.DIAMOND, ITEM.MEAT, ITEM.WHEAT, ITEM.BREAD, ITEM.SEEDS, ITEM.ARROW,
+  BLOCK.TORCH, BLOCK.PORTAL, ITEM.DIAMOND, ITEM.EMERALD, ITEM.GOLD, ITEM.GOLD_APPLE,
+  ITEM.MEAT, ITEM.WHEAT, ITEM.BREAD, ITEM.SEEDS, ITEM.ARROW,
 ];
 function renderInv() {
   let html = '<div class="invgrid">';
@@ -1872,8 +1966,8 @@ function removeAllChunkMeshes() {
   chunks.clear();
 }
 function clearMobs() {
-  for (const a of animals) scene.remove(a.mesh);
-  for (const z of zombies) scene.remove(z.mesh);
+  for (const a of animals) { scene.remove(a.mesh); removeHpBar(a); }
+  for (const z of zombies) { scene.remove(z.mesh); removeHpBar(z); }
   for (const a of arrows) scene.remove(a.mesh);
   animals.length = 0; zombies.length = 0; arrows.length = 0;
   bossBarEl.style.display = 'none';
