@@ -1830,6 +1830,66 @@
       "rollback_rule": "3 page + 3 sample + 링크 제거 시 R58 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0123",
+      "timestamp": "2026-06-15 00:00:00",
+      "component": "middleware/data_safety_guard.py",
+      "change_type": "modify",
+      "evidence": "PR #4 review: scan_text 가 {matched: m.group(0)} 로 RRN/카드/이메일 원문 그대로 반환, scan_dataframe 은 첫 6자(YYMMDD) 부분 마스킹으로 PII 누출.",
+      "root_cause": "민감정보 패턴 finding payload 에 raw / 부분 마스킹된 원문 포함. JSONL 감사로그·표준출력 통한 PII 유출 위험.",
+      "targeted_fix": "scan_text 반환을 {category, span, length} 로 축소. scan_dataframe 은 {row, column, category, length, hash} 만 반환 — hash 는 per-run os.urandom(16) salt SHA-256. salt 인자로 결정적 재현도 가능. 모듈 docstring 에 PII 비유출 원칙 명시.",
+      "expected_benefit": "감사로그·콘솔 어디에도 raw PII 가 흘러가지 않으며, 동일 프로세스 내 중복 탐지 식별은 hash 로 유지.",
+      "expected_regression_risk": "low — 기존 호출자(classify_error, run_validation, registry)는 모두 len(findings)/findings count 만 사용.",
+      "validation_method": "tests/test_data_safety_guard.py 5 cases + tests/test_permission_guard.py 7 cases + 전체 865 통과.",
+      "rollback_rule": "PII 노출 회귀 발견 시 즉시 본 패치 revert + memory/known_limitations.md 에 사고 기록.",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0124",
+      "timestamp": "2026-06-15 00:00:00",
+      "component": "middleware/permission_guard.py",
+      "change_type": "modify",
+      "evidence": "PR #4 review: PermissionFinding.matched=m.group(0) 가 AKIA…/PEM/password 원문 전체를 JSONL 감사로그에 기록.",
+      "root_cause": "credential 탐지 시 finding payload 에 raw secret 포함. 감사로그 자체가 secret 저장소로 변질.",
+      "targeted_fix": "PermissionFinding 의 matched 필드 제거. 대신 length:int, location:tuple[int,int] 보존. to_dict() 키도 동일 갱신. 모듈 docstring 에 'audits, does not enforce' 명시.",
+      "expected_benefit": "감사로그가 secret 저장소가 되지 않으며, 위치 메타데이터로 호출자가 자체 redaction 가능.",
+      "expected_regression_risk": "low — 외부에서 .matched 를 읽는 callsite 없음(레포 grep 으로 확인).",
+      "validation_method": "tests/test_permission_guard.py 7 cases (matched 부재 + 위치 메타 shape 포함) + 전체 865 통과.",
+      "rollback_rule": "감사로그에 매치 원문이 필요한 정당한 요구가 발생할 경우, 별도 secrets-scrubbed 필드로 추가 후 권한 정책 갱신.",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0125",
+      "timestamp": "2026-06-15 00:00:00",
+      "component": "tools/metric_psi.py",
+      "change_type": "modify",
+      "evidence": "PR #4 review: _EPS=1e-6 로 단일 빈 bin (10% expected → 0% actual) 한 개만으로 PSI≈1.15 false alarm.",
+      "root_cause": "epsilon floor 가 너무 작아 ln(eps/e_pct) 항이 과대 계산됨.",
+      "targeted_fix": "_EPS = 1e-4 (=0.01%) 로 상향. Sid Siddiqi/SAS/Open Risk Manual 관행. 모듈 docstring 에 출처와 정량적 영향 명시.",
+      "expected_benefit": "빈 bin 에 기인한 PSI 인플레이션 차단. 실제 drift signal 과의 분리.",
+      "expected_regression_risk": "low — 동일 분포 PSI≈0 등 기존 테스트 영향 없음. drift 테스트(PSI>0.25) 도 유지.",
+      "validation_method": "tests/test_metric_psi.py 7 cases (epsilon 값 + 빈 bin PSI<1 포함) + 전체 865 통과.",
+      "rollback_rule": "PSI 0.10/0.25 임계 해석에 정책 충돌 발생 시 _EPS 를 정책 파일로 분리.",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0126",
+      "timestamp": "2026-06-15 00:00:00",
+      "component": "tools/metric_cdr_sdr.py + tests (data_safety/permission/psi/cdr_sdr/leakage/sample_size)",
+      "change_type": "modify",
+      "evidence": "PR #4 review: SDR 명칭이 모듈 내부에서 survival rate 를 의미하나 문서상 모호. 안전임계 middleware (data_safety/permission/leakage/sample_size) 단위 테스트 부재.",
+      "root_cause": "Naming 모호성 + 안전임계 가드의 회귀 방어 부족.",
+      "targeted_fix": "metric_cdr_sdr 모듈 docstring 에 SDR=Survival Rate 명시. calculate_survival_rate canonical + calculate_sdr alias. test_data_safety_guard/test_permission_guard 확장 + test_metric_cdr_sdr/test_leakage_guard/test_sample_size_guard 신규.",
+      "expected_benefit": "naming 혼동 제거, 안전임계 가드의 PII/secret 비유출 보장이 회귀로 깨지지 않음.",
+      "expected_regression_risk": "low — 기존 함수 시그니처/반환 dict 키 무변경.",
+      "validation_method": "신규/확장 35 cases + 전체 865 통과.",
+      "rollback_rule": "calculate_survival_rate 제거 시 alias 만 잔존하므로 backwards-compat 유지.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
