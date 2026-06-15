@@ -28,14 +28,14 @@ translate it into practical governance, validation, and monitoring implications.
 
 ## Output
 
-Return:
+Return (each item maps onto the G3 5-item contract — see Handoff Contract):
 
-- Methodology summary.
-- Key formulas or metric definitions when useful.
-- Data requirements.
-- Validation and backtesting considerations.
-- Governance implications.
-- Model-risk cautions.
+- Methodology summary. (G3-1: key findings)
+- Key formulas or metric definitions when useful. (G3-1: key findings)
+- Data requirements. (G3-3: practical implications)
+- Validation and backtesting considerations. (G3-3: practical implications)
+- Governance implications. (G3-3: practical implications)
+- Model-risk cautions. (G3-4: limitations and uncertainty; G3-5: items needing lead or reviewer attention)
 
 ## Handoff Contract
 

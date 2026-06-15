@@ -27,14 +27,14 @@ global bank comparisons or if the case requires them.
 
 Return a comparison table with:
 
-- Jurisdiction.
-- Official source.
-- Rule status.
-- Effective date or phase-in.
-- Basel alignment or deviation.
-- Bank scope.
-- Risk-management implication.
-- Open issues.
+- Jurisdiction. (G3-1: key findings)
+- Official source. (G3-2: source-backed claims with date and locator)
+- Rule status. (G3-1: key findings)
+- Effective date or phase-in. (G3-1: key findings)
+- Basel alignment or deviation. (G3-1: key findings)
+- Bank scope. (G3-1: key findings)
+- Risk-management implication. (G3-3: practical implications)
+- Open issues. (G3-4: limitations and uncertainty; G3-5: items needing lead or reviewer attention)
 
 ## Handoff Contract
 

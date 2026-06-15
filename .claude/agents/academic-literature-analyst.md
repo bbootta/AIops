@@ -33,14 +33,14 @@ For each paper, assess:
 
 ## Output
 
-Return:
+Return (each item maps onto the G3 5-item contract — see Handoff Contract):
 
-- Search strategy.
-- Annotated bibliography.
-- Evidence synthesis.
-- Consensus and disagreement.
-- Applicability to bank risk management.
-- Research gaps.
+- Search strategy. (G3-2: audit trail for source-backed claims)
+- Annotated bibliography. (G3-2: source-backed claims with date and locator)
+- Evidence synthesis. (G3-1: key findings)
+- Consensus and disagreement. (G3-1: key findings; G3-5: items for lead attention)
+- Applicability to bank risk management. (G3-3: practical implications)
+- Research gaps. (G3-4: limitations and uncertainty; G3-5: items for reviewer attention)
 
 ## Handoff Contract
 

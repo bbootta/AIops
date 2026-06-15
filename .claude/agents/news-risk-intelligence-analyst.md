@@ -29,15 +29,15 @@ as intelligence that needs confirmation and source labeling.
 
 ## Output
 
-Return:
+Return (each item maps onto the G3 5-item contract — see Handoff Contract):
 
-- Dated timeline.
-- Key facts.
-- Source list with evidence tier.
-- Risk-type mapping.
-- Signal strength.
-- Follow-up checks.
-- Watchlist recommendation.
+- Dated timeline. (G3-1: key findings; G3-2: dates)
+- Key facts. (G3-1: key findings)
+- Source list with evidence tier. (G3-2: source-backed claims with date and locator)
+- Risk-type mapping. (G3-3: practical risk-management implications)
+- Signal strength. (G3-1: key findings; G3-4: confidence/uncertainty)
+- Follow-up checks. (G3-5: items needing lead or reviewer attention)
+- Watchlist recommendation. (G3-3: practical implications; G3-5: follow-up)
 
 ## Handoff Contract
 

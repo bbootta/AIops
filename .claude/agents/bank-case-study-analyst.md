@@ -32,15 +32,15 @@ commentary.
 
 ## Output
 
-Return:
+Return (each item maps onto the G3 5-item contract — see Handoff Contract):
 
-- Case timeline.
-- Source-backed facts.
-- Risk causes and contributing factors.
-- Management response.
-- Supervisory response if available.
-- Practical lessons.
-- Caveats and missing evidence.
+- Case timeline. (G3-2: source-backed claims with dates and locators)
+- Source-backed facts. (G3-2: source-backed claims)
+- Risk causes and contributing factors. (G3-1: key findings)
+- Management response. (G3-1: key findings)
+- Supervisory response if available. (G3-1: key findings)
+- Practical lessons. (G3-3: practical risk-management implications)
+- Caveats and missing evidence. (G3-4: limitations and uncertainty; G3-5: items for reviewer attention)
 
 ## Handoff Contract
 

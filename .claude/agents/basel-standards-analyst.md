@@ -38,13 +38,13 @@ Cover Basel-related topics including:
 
 Return a standards note with:
 
-- Source list.
-- Requirement summary.
-- Applicability conditions.
-- Key definitions.
-- Effective dates or phase-in notes.
-- Risk-management implications.
-- Items requiring local-rule confirmation.
+- Source list. (G3-2: source-backed claims with date and locator)
+- Requirement summary. (G3-1: key findings)
+- Applicability conditions. (G3-1: key findings)
+- Key definitions. (G3-1: key findings)
+- Effective dates or phase-in notes. (G3-1: key findings; G3-2: date locator)
+- Risk-management implications. (G3-3: practical implications)
+- Items requiring local-rule confirmation. (G3-4: limitations and uncertainty; G3-5: items needing lead or reviewer attention)
 
 ## Handoff Contract
 
