@@ -1200,6 +1200,21 @@
       "rollback_rule": "Remove tools/ci_workflow_filters.py and restore the prior test if a dedicated workflow linter fully replaces this recovery helper.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0081",
+      "timestamp": "2026-06-15 00:00:00",
+      "component": "tools/ci_workflow_filters.py + tests/test_ci_workflow_filters.py",
+      "change_type": "modify",
+      "evidence": "PR #8 review surfaced two latent bugs in the recovery helper: _fix_event_block assumed paths precedes paths-ignore and produced garbage with paths-ignore retained if the order was reversed, and _negate_path_line stripped only double quotes so single-quoted YAML values left a stray quote in the negated path.",
+      "root_cause": "Slice indices used unconditional ordering of the two markers, and the quote stripper only handled the double-quoted YAML style used in the current workflow.",
+      "targeted_fix": "Raise ValueError when paths-ignore precedes paths and have the fix CLI catch it with a helpful stderr message instead of crashing. Strip both single and double quotes in _negate_path_line. Add tests for reversed-order refusal, single-quote handling, and fixer idempotency.",
+      "expected_benefit": "Bailing loudly on unexpected ordering prevents silent garbage output; handling single quotes makes the helper safe against either YAML quoting style.",
+      "expected_regression_risk": "Workflows that legitimately list paths-ignore before paths will now refuse instead of attempting repair; that is the intended defensive behavior.",
+      "validation_method": "Run pytest -x -q tests/test_ci_workflow_filters.py and python -m tools.ci_workflow_filters check.",
+      "rollback_rule": "Revert the ValueError guard and the single-quote strip if a future fixer learns to reorder blocks safely.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
