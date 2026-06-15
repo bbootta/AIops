@@ -242,7 +242,8 @@ def _fit_segment_pd(portfolio: pd.DataFrame) -> tuple[
         # ---- LGD model (fit on train, score the full segment)
         lgd_feats = [f for f in _LGD_FEATURES.get(seg, []) if f in train.columns]
         if lgd_feats and "lgd_realized" in train.columns:
-            lgd_m = fit_lgd_model(train, lgd_feats, target="lgd_realized")
+            lgd_m = fit_lgd_model(train, lgd_feats, target="lgd_realized",
+                                  segment=seg)
             test_lgd_pred = lgd_m.predict_lgd(test)
             bt = lgd_backtest(test["lgd_realized"].values, test_lgd_pred)
             lgd_metrics[seg] = {

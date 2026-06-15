@@ -26,6 +26,27 @@ from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler
 
 
+# Regulatory LGD floors per Basel III CRE32.42 (AIRB) — segment-specific.
+# Senior unsecured corporate 25%, retail revolvers 10%, residential mortgage 5%.
+# Anything not in this map falls back to DEFAULT_LGD_FLOOR (0.05).
+DEFAULT_LGD_FLOOR = 0.05
+LGD_FLOORS_BY_SEGMENT: dict[str, float] = {
+    "corporate": 0.25,
+    "sovereign": 0.25,
+    "bank": 0.25,
+    "retail_revolving": 0.10,
+    "retail_other": 0.10,
+    "residential_mortgage": 0.05,
+}
+
+
+def lgd_floor_for_segment(segment: str | None) -> float:
+    """Return the regulatory LGD floor for ``segment`` (CRE32.42)."""
+    if segment is None:
+        return DEFAULT_LGD_FLOOR
+    return LGD_FLOORS_BY_SEGMENT.get(segment, DEFAULT_LGD_FLOOR)
+
+
 def workout_lgd(
     ead_at_default: float,
     recoveries: list[tuple[float, float]],  # (years_since_default, amount)
@@ -50,7 +71,8 @@ class LGDModel:
     features: list[str]
     scaler: StandardScaler
     reg: Ridge
-    floor: float = 0.05
+    floor: float = DEFAULT_LGD_FLOOR
+    segment: str | None = None
 
     def predict_lgd(self, X: pd.DataFrame) -> np.ndarray:
         Xs = self.scaler.transform(X[self.features].values)
@@ -64,8 +86,9 @@ def fit_lgd_model(
     train: pd.DataFrame,
     features: list[str],
     target: str = "lgd_realized",
-    floor: float = 0.05,
+    floor: float | None = None,
     alpha: float = 1.0,
+    segment: str | None = None,
 ) -> LGDModel:
     """Fit ridge regression on logit-transformed LGD (beta-regression approx).
 
@@ -75,7 +98,15 @@ def fit_lgd_model(
     we substitute a closed-form ridge on logit(y) to keep the harness
     dependency-light.  Empirically this matches beta regression closely
     when LGD is bounded away from 0/1 (which we ensure by clipping).
+
+    The applied LGD floor is:
+      * ``floor`` if the caller passes one explicitly (legacy single-float mode);
+      * else the regulatory floor for ``segment`` via :func:`lgd_floor_for_segment`
+        (corporate/sovereign/bank 25%, retail 10%, mortgage 5% — CRE32.42);
+      * else :data:`DEFAULT_LGD_FLOOR`.
     """
+    if floor is None:
+        floor = lgd_floor_for_segment(segment)
     X = train[features].values
     y_raw = train[target].astype(float).values
     y_clip = np.clip(y_raw, 1e-3, 1 - 1e-3)
@@ -83,7 +114,8 @@ def fit_lgd_model(
 
     scaler = StandardScaler().fit(X)
     reg = Ridge(alpha=alpha, random_state=42).fit(scaler.transform(X), y_logit)
-    return LGDModel(features=list(features), scaler=scaler, reg=reg, floor=floor)
+    return LGDModel(features=list(features), scaler=scaler, reg=reg,
+                    floor=floor, segment=segment)
 
 
 def lgd_backtest(

@@ -83,6 +83,42 @@ def test_lgd_model_outputs_within_bounds():
     assert (out <= 1.0 + 1e-9).all()
 
 
+def test_lgd_model_segment_floors_match_cre32_42():
+    """CRE32.42 LGD floors: corporate 25%, retail 10%, mortgage 5%."""
+    from risk_lib.models.lgd_model import lgd_floor_for_segment
+
+    df = generate_portfolio(n_corporate=200, n_retail=0, n_mortgage=0,
+                            n_sovereign=0, n_bank=0)
+    feats = ["leverage", "current_ratio", "log_assets", "interest_coverage"]
+
+    corp = fit_lgd_model(df, feats, target="lgd_realized", segment="corporate")
+    retail = fit_lgd_model(df, feats, target="lgd_realized", segment="retail_other")
+    mortgage = fit_lgd_model(df, feats, target="lgd_realized",
+                             segment="residential_mortgage")
+
+    assert corp.floor == 0.25
+    assert retail.floor == 0.10
+    assert mortgage.floor == 0.05
+    # Floor actually applied at predict-time.
+    assert (corp.predict_lgd(df) >= 0.25 - 1e-9).all()
+    assert (retail.predict_lgd(df) >= 0.10 - 1e-9).all()
+    assert (mortgage.predict_lgd(df) >= 0.05 - 1e-9).all()
+    # Helper exposes the segment table directly.
+    assert lgd_floor_for_segment("corporate") == 0.25
+    assert lgd_floor_for_segment("retail_revolving") == 0.10
+    assert lgd_floor_for_segment("residential_mortgage") == 0.05
+
+
+def test_lgd_model_legacy_floor_override_preserved():
+    """Backwards compat: explicit ``floor=`` overrides the segment table."""
+    df = generate_portfolio(n_corporate=200, n_retail=0, n_mortgage=0,
+                            n_sovereign=0, n_bank=0)
+    feats = ["leverage", "current_ratio", "log_assets", "interest_coverage"]
+    model = fit_lgd_model(df, feats, target="lgd_realized",
+                          floor=0.15, segment="corporate")
+    assert model.floor == 0.15
+
+
 def test_rating_scale_monotone_and_complete():
     uppers = [g.pd_upper for g in DEFAULT_MASTER_SCALE]
     assert uppers == sorted(uppers)
