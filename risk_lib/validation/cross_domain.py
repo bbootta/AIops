@@ -368,7 +368,7 @@ DOMAINS: list[tuple[str, str]] = [
 _CHECK_TO_DOMAIN: dict[str, str] = {
     # PD
     "pd_in_[0,1]": "pd",
-    "pd_floor_3bp": "pd",
+    "pd_floor_5bp": "pd",
     "pd_gini_corporate": "pd",
     "pd_gini_retail_other": "pd",
     "pd_gini_residential_mortgage": "pd",

@@ -105,6 +105,28 @@ def test_binomial_per_grade_zones():
     assert (out["zone"] == "GREEN").all() or (out["zone"] != "RED").all()
 
 
+def test_bis_plausible_flags_tier1_and_total_minima_independently():
+    """Regression: previously only CET1 fired bis_*_min; T1<6% and Total<8% slipped through."""
+    from risk_lib.capital.bis import BISResult
+    # CET1 8% passes 4.5%; T1 5% breaches 6%; Total 7% breaches 8%.
+    # Ordering total >= tier1 >= cet1 intentionally inverted here is unrelated
+    # to what's being tested; we synthesise a result that exercises the per-tier
+    # minimum check, not the ordering check.
+    bis = BISResult(
+        cet1_ratio=0.08, tier1_ratio=0.05, total_ratio=0.07,
+        rwa=100.0,
+        required={"cet1": 0.07, "tier1": 0.085, "total": 0.105},
+        surplus_shortfall={"cet1": 0.01, "tier1": -0.035, "total": -0.035},
+    )
+    rep = run_consistency_checks(bis_result=bis, rwa_total_for_bis=bis.rwa)
+    fails = {c.name for c in rep.checks if c.status == "FAIL"}
+    assert "bis_tier1_ratio_min" in fails
+    assert "bis_total_ratio_min" in fails
+    # CET1 above 4.5% should still report a plausible PASS for cet1.
+    cet1_check = next(c for c in rep.checks if c.name == "bis_cet1_ratio_plausible")
+    assert cet1_check.status == "PASS"
+
+
 def test_pd_backtest_report_structure():
     rng = np.random.default_rng(3)
     n = 1500

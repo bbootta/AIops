@@ -62,11 +62,14 @@ def _check_pd_bounds(df: pd.DataFrame, report: ValidationReport) -> None:
             metric=0.0,
         ))
 
-    floor_violations = df[(df["pd"] > 0) & (df["pd"] < 0.0003)]
+    from risk_lib.references import PD_FLOOR_BPS
+    pd_floor = PD_FLOOR_BPS / 10_000
+    floor_violations = df[(df["pd"] > 0) & (df["pd"] < pd_floor)]
     if len(floor_violations):
         report.add(ConsistencyCheck(
-            "pd_floor_3bp", "WARN",
-            f"{len(floor_violations)} exposures below 3bp PD floor (will be floored in IRB)",
+            f"pd_floor_{PD_FLOOR_BPS}bp", "WARN",
+            f"{len(floor_violations)} exposures below {PD_FLOOR_BPS}bp PD floor "
+            f"(will be floored in IRB)",
             metric=float(len(floor_violations)),
         ))
 
@@ -159,6 +162,8 @@ def _check_sa_irb_no_overlap(
 def _check_bis_plausible(bis_result, report: ValidationReport) -> None:
     if bis_result is None:
         return
+    # Each tier has its own Pillar 1 minimum (CRE10.4): CET1 4.5% / T1 6% / Total 8%.
+    _MIN_KEY = {"cet1_ratio": "cet1", "tier1_ratio": "tier1", "total_ratio": "total"}
     for name, ratio in [
         ("cet1_ratio", bis_result.cet1_ratio),
         ("tier1_ratio", bis_result.tier1_ratio),
@@ -169,10 +174,12 @@ def _check_bis_plausible(bis_result, report: ValidationReport) -> None:
                 f"bis_{name}_plausible", "FAIL",
                 f"{name}={ratio:.4f} outside plausible [0,100%]", metric=ratio,
             ))
-        elif ratio < BIS_MINIMUMS["cet1"] and name == "cet1_ratio":
+            continue
+        minimum = BIS_MINIMUMS[_MIN_KEY[name]]
+        if ratio < minimum:
             report.add(ConsistencyCheck(
                 f"bis_{name}_min", "FAIL",
-                f"CET1 ratio {ratio:.4f} below Pillar 1 minimum {BIS_MINIMUMS['cet1']:.4f}",
+                f"{name} {ratio:.4f} below Pillar 1 minimum {minimum:.4f}",
                 metric=ratio,
             ))
         else:
