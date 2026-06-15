@@ -23,17 +23,20 @@ from risk_lib.report import render_markdown
 # All RWA / capital / ECL / stress aggregates that downstream consumers depend on.
 GOLDEN = {
     "n_rows": 2980,
-    "rwa_final_total": 9_380_438_508_021.75,
+    # Re-pinned after PD floor 3bp→5bp (BCBS d424) and segment-aware LGD floors
+    # (CRE32.42 — corporate 25% / retail 10% / mortgage 5%).
+    "rwa_final_total": 9_380_455_004_957.953,
     "rwa_sa": 1_028_895_833_988.9441,
-    "rwa_irb": 6_544_270_555_442.574,
+    "rwa_irb": 6_544_287_052_378.777,
     "cet1_ratio": 0.115,
     "total_ratio": 0.155,
-    "leverage_ratio": 0.11601309036520205,
+    "leverage_ratio": 0.11601329439196996,
     "ecl_total": 94_531_443_664.94879,
     "macro_weighted_total": 128_504_402_456.8952,
     "reverse_critical_severity": 2.3518753051757812,
 }
-GOLDEN_VALIDATION = {"PASS": 49, "WARN": 2}   # v0.14.0 +9 cross-domain checks
+# +1 WARN: pd_floor_5bp now catches more low-PD exposures (5bp vs 3bp threshold).
+GOLDEN_VALIDATION = {"PASS": 49, "WARN": 3}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",
