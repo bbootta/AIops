@@ -992,13 +992,16 @@ function updateZombies(dt) {
     }
   }
   if (!night && zombies.length) {
-    // 해가 뜨면 연기와 함께 소멸
+    // 해가 뜨면 연기와 함께 소멸 (보스는 낮에도 남음)
+    const survivors = [];
     for (const z of zombies) {
+      if (z.boss) { survivors.push(z); continue; }
       spawnParticles(z.pos.x - 0.5, z.pos.y + 0.8, z.pos.z - 0.5, z.mesh.userData.bodyMat);
       scene.remove(z.mesh);
       removeHpBar(z);
     }
     zombies.length = 0;
+    zombies.push(...survivors);
   }
   let boss = null;
   for (const z of zombies) {
