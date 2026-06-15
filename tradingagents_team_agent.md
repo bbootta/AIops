@@ -28,8 +28,11 @@ TradingAgents는 실제 트레이딩 조직을 모사한 다중 에이전트 구
   1) Analyst Team 개별 보고
   2) Bull/Bear 상반 주장 정리
   3) Trader 단일 액션 제안
-  4) Risk Manager가 사이즈/손실 한도 조정
-  5) Portfolio Manager 최종 승인/보류/거절
+  4) **불일치 해소 라운드** (Bull과 Bear의 결론이 상충하고 confidence 격차가 0.15 이하일 때):
+     - Research Manager 가 양측 thesis 와 risks 를 비교하고 critical assumptions 충돌을 표로 출력.
+     - Trader 의 기본 액션은 HOLD. 단, Risk Manager 가 명시적으로 `bias_resolution: "bull"|"bear"` 를 사이즈 0 이상으로 승인한 경우에만 그 방향을 따른다.
+  5) Risk Manager가 사이즈/손실 한도 조정
+  6) Portfolio Manager 최종 승인/보류/거절
 
 ## 3) 공통 출력 스키마 (최소형)
 
