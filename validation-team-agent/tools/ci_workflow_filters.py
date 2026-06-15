@@ -64,6 +64,10 @@ def _fix_event_block(block: str) -> str:
     lines = block.splitlines()
     paths_idx = lines.index("    paths:")
     ignore_idx = lines.index("    paths-ignore:")
+    if ignore_idx < paths_idx:
+        raise ValueError(
+            f"Unexpected ordering: paths-ignore at line {ignore_idx} precedes paths at line {paths_idx}. Refusing to fix."
+        )
     prefix = lines[: paths_idx + 1]
     positive = lines[paths_idx + 1 : ignore_idx]
     ignored = [_negate_path_line(line) for line in lines[ignore_idx + 1 :] if line.strip().startswith("-")]
@@ -87,7 +91,11 @@ def main(argv: list[str] | None = None) -> int:
 
     text = args.workflow.read_text(encoding="utf-8")
     if args.command == "fix":
-        fixed = fix_text(text)
+        try:
+            fixed = fix_text(text)
+        except ValueError as exc:
+            print(f"refusing to fix: {exc}", file=sys.stderr)
+            return 2
         if fixed != text:
             args.workflow.write_text(fixed, encoding="utf-8")
         text = fixed
