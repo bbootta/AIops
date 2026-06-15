@@ -53,7 +53,7 @@ def check_text(text: str) -> list[str]:
 
 
 def _negate_path_line(line: str) -> str:
-    value = line.strip()[2:].strip().strip('"')
+    value = line.strip()[2:].strip().strip('"').strip("'")
     return f'      - "!{value}"'
 
 
