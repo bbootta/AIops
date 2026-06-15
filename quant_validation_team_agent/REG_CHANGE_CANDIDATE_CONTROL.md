@@ -23,6 +23,7 @@
 | 4 | 후보 통제 제안 | 검증 체크포인트, 필요 데이터, 정책 변경 후보 | 정책 담당부서 미확인 |
 | 5 | 검토 필요 부서 지정 | 리스크감리, 모형개발, 리스크관리, 준법, IT 등 | 승인권자 불명확 |
 | 6 | 승인 전 적용 금지 표시 | 자동 반영 금지 문구 | 사용자 자동 적용 요청 |
+| 7 | R-3 정책 소유자 전달 및 Governance 통보 기록 | `policy_owner_handoff_at`, `governance_notified_at`, `notification_method`, `notification_receipt_id` | 전달 대상 불명확 또는 통보 수단·수령 증적 부재 |
 
 ## 4. 후보 영향분석 양식
 
@@ -74,6 +75,12 @@
 
 ## 7. 승인 전 적용 금지
 본 후보 통제는 검토 초안이며, 공식 승인 전 정책·모형·계산엔진·보고서에 적용하지 않는다.
+
+## 8. R-3 정책 소유자 전달 및 Governance 통보
+- policy_owner_handoff_at:
+- governance_notified_at:
+- notification_method:
+- notification_receipt_id:
 ```
 
 ## 5. 운영상 주의사항
@@ -81,3 +88,4 @@
 - 규제 변화 요약은 원문과 내부 정책 해석을 분리해 작성한다.
 - 시행일이 명확하지 않으면 운영 반영 일정을 확정하지 않는다.
 - 후보 통제는 UAT와 Go/No-Go 체크를 통과하기 전 운영 적용하지 않는다.
+- R-3 완료 기준: `policy_owner_handoff_at`, `governance_notified_at`, `notification_method`, `notification_receipt_id`가 모두 기록되어야 하며, 정책 소유자 전달 기록과 Governance 통보 증적이 동시에 존재하지 않으면 후보 통제 패키지를 완료 처리하지 않는다.
