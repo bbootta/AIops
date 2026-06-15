@@ -68,12 +68,13 @@ def test_sa_risk_weight_vector_full_grid(past_due):
 
 def test_standardised_rwa_total_matches_explicit_sum():
     portfolio = pd.DataFrame({
-        "asset_class": ["corporate", "sovereign", "bank", "retail_other",
+        "asset_class": ["corporate", "sovereign", "bank",
+                        "retail_regulatory", "retail_other",
                         "residential_mortgage", "residential_mortgage"],
-        "ead": [1e9, 2e9, 0.5e9, 3e8, 4e8, 5e8],
-        "rating": ["A", "AAA-AA", "BBB", None, None, None],
-        "grade": ["AAA", None, None, None, None, None],
-        "ltv": [np.nan, np.nan, np.nan, np.nan, 0.55, 0.95],
+        "ead": [1e9, 2e9, 0.5e9, 3e8, 2e8, 4e8, 5e8],
+        "rating": ["A", "AAA-AA", "BBB", None, None, None, None],
+        "grade": ["AAA", None, None, None, None, None, None],
+        "ltv": [np.nan, np.nan, np.nan, np.nan, np.nan, 0.55, 0.95],
     })
     bucket_map = {"AAA": "AAA-AA"}
     out = standardised_rwa_total(portfolio, bucket_map)
@@ -83,10 +84,25 @@ def test_standardised_rwa_total_matches_explicit_sum():
         + 2e9 * 0.00  # sovereign AAA-AA → 0%
         + 0.5e9 * 0.50  # bank BBB → 50%
         + 3e8 * 0.75  # retail_regulatory flat 75%
+        + 2e8 * 1.00  # retail_other flat 100%
         + 4e8 * 0.25  # mortgage LTV 0.55 → 25%
         + 5e8 * 0.50  # mortgage LTV 0.95 → 50%
     )
     assert out == pytest.approx(expected, rel=1e-12)
+
+
+def test_standardised_rwa_total_retail_buckets_not_swapped():
+    """Regression for retail_regulatory(75%) vs retail_other(100%) swap bug."""
+    portfolio = pd.DataFrame({
+        "asset_class": ["retail_regulatory", "retail_other"],
+        "ead": [1e9, 1e9],
+        "rating": [None, None],
+        "grade": [None, None],
+        "ltv": [np.nan, np.nan],
+    })
+    out = standardised_rwa_total(portfolio)
+    # 1e9 * 0.75 + 1e9 * 1.00 = 1.75e9
+    assert out == pytest.approx(1.75e9, rel=1e-12)
 
 
 # ---- CRM / CCF parity ---------------------------------------------------

@@ -67,6 +67,13 @@ SA_RISK_WEIGHTS = {
 _MORTGAGE_LTV_EDGES = np.array([0.50, 0.60, 0.80, 0.90, 1.00])
 _MORTGAGE_LTV_RWS = np.array([0.20, 0.25, 0.30, 0.40, 0.50, 0.70])
 
+# Invariant: there must be exactly one risk-weight bucket per LTV edge plus one
+# tail bucket for LTV above the highest edge.  Catches accidental edits that
+# would silently produce IndexError or skew weights.
+assert len(_MORTGAGE_LTV_RWS) == len(_MORTGAGE_LTV_EDGES) + 1, (
+    "mortgage LTV RW table must have one more entry than edges"
+)
+
 
 def mortgage_rw(ltv: float) -> float:
     """Residential mortgage RW by LTV (Basel III CRE20.82, whole-loan approach).
@@ -204,7 +211,20 @@ def compute_rwa_sa(portfolio: pd.DataFrame) -> pd.DataFrame:
         ltv=df["ltv"].to_numpy() if "ltv" in df.columns else None,
         past_due=df["past_due"].to_numpy(dtype=bool),
     )
-    crm = df["crm_factor"] if "crm_factor" in df.columns else 1.0
+    if "crm_factor" in df.columns:
+        crm_raw = df["crm_factor"].to_numpy(dtype=float)
+        if np.isnan(crm_raw).any():
+            raise ValueError("crm_factor contains NaN")
+        bad = (crm_raw < 0.0) | (crm_raw > 1.0)
+        if bad.any():
+            raise ValueError(
+                f"crm_factor must be within [0, 1]; "
+                f"{int(bad.sum())} row(s) out of range "
+                f"(min={crm_raw.min():.4f}, max={crm_raw.max():.4f})"
+            )
+        crm = crm_raw
+    else:
+        crm = 1.0
     df["rwa"] = df["ead"] * df["rw"] * crm
     df["capital_8pct"] = df["rwa"] * 0.08
     return df
@@ -223,7 +243,8 @@ def standardised_rwa_total(
     Resolves SA risk weights per asset class with vectorised lookups:
       - sovereign/bank: rating column → SA_RISK_WEIGHTS table
       - corporate: internal grade → corp_bucket_by_grade → SA_RISK_WEIGHTS["corporate"]
-      - retail_other: flat retail_regulatory weight
+      - retail_regulatory: flat 75% (CRE20.66)
+      - retail_other: flat 100% (CRE20.68)
       - residential_mortgage: LTV bucket via :func:`mortgage_rw_vector`
       - others: 1.0
     """
@@ -251,7 +272,8 @@ def standardised_rwa_total(
             buckets = pd.Series(["UNRATED"] * int(m.sum()))
         rw[m] = buckets.map(lambda b: table.get(b, table["UNRATED"])).to_numpy()
 
-    rw[ac == "retail_other"] = _RW_RETAIL_REGULATORY
+    rw[ac == "retail_regulatory"] = _RW_RETAIL_REGULATORY
+    rw[ac == "retail_other"] = _RW_RETAIL_OTHER
 
     m = ac == "residential_mortgage"
     if m.any():

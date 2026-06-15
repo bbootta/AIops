@@ -25,6 +25,41 @@ def test_sa_risk_weight_unknown_asset_class():
         sa_risk_weight("unknown")
 
 
+def test_compute_rwa_sa_rejects_crm_factor_out_of_range():
+    """crm_factor outside [0,1] must raise rather than silently propagate."""
+    portfolio = pd.DataFrame({
+        "exposure_id": ["E1", "E2"],
+        "asset_class": ["corporate", "corporate"],
+        "ead": [1_000_000.0, 1_000_000.0],
+        "rating": ["BBB", "BBB"],
+        "ltv": [None, None],
+        "past_due": [False, False],
+        "crm_factor": [0.5, 1.5],   # 1.5 is out of range
+    })
+    with pytest.raises(ValueError, match="crm_factor"):
+        compute_rwa_sa(portfolio)
+
+
+def test_compute_rwa_sa_accepts_valid_crm_factor():
+    portfolio = pd.DataFrame({
+        "exposure_id": ["E1"],
+        "asset_class": ["corporate"],
+        "ead": [1_000_000.0],
+        "rating": ["BBB"],
+        "ltv": [None],
+        "past_due": [False],
+        "crm_factor": [0.5],
+    })
+    res = compute_rwa_sa(portfolio)
+    assert res.loc[0, "rwa"] == pytest.approx(1_000_000.0 * 0.75 * 0.5)
+
+
+def test_mortgage_ltv_rw_table_invariant():
+    """RW table must have one more entry than edges (one tail bucket)."""
+    from risk_lib.capital.rwa_sa import _MORTGAGE_LTV_EDGES, _MORTGAGE_LTV_RWS
+    assert len(_MORTGAGE_LTV_RWS) == len(_MORTGAGE_LTV_EDGES) + 1
+
+
 def test_compute_rwa_sa_basic():
     portfolio = pd.DataFrame({
         "exposure_id": ["E1", "E2"],
