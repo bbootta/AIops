@@ -50,9 +50,17 @@ Preferred sequence:
 Every source entry should capture title, author or institution, publication
 date, URL or document locator, evidence tier, and the claims it supports.
 
-**Gate G2 — source floor passes when** every regulatory or Basel claim in
-scope has at least one T1 source identified, no research question rests solely
-on T4-T5 sources, and each source entry has a publication date and access date.
+**Gate G2 — source floor passes when** every in-scope regulatory or Basel
+claim has at least one T1 source identified, no claim (not just no research
+question) rests solely on T4-T5 sources, and each source entry has a
+publication date and access date.
+
+G2 통과 조건: 범위 내 모든 규제·Basel 주장은 최소 1개의 T1 출처를 보유. T1을
+확보하지 못한 주장은 (a) 범위에서 제외하거나 (b) findings가 아닌
+"open questions" / "후속 과제" 섹션으로 강등해야 한다. T1 미보유 주장을
+finding으로 출시하는 것은 금지. 또한 어떤 주장(질문이 아니라 주장)도
+T4-T5에만 의존해서는 안 되며, T1-T3 출처가 없는 주장은 findings·권고가 아닌
+후속 과제 영역에 둔다.
 
 ## 4. Specialist Analysis
 
@@ -93,6 +101,8 @@ below, and the evidence matrix covers every material claim.
 
 When sources or specialists disagree:
 
+0. T1 후보가 부재한 경우, 해당 주장은 conflict log가 아닌 G2 (출처 수집)
+   단계로 반려한다. T1 없이는 충돌 자체를 평가할 근거가 없다.
 1. Rank by evidence tier: a T1 source beats lower tiers for regulatory and
    factual claims.
 2. Within the same tier, the more recent publication wins; check whether the

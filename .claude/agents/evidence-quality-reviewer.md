@@ -31,6 +31,25 @@ Spot-check at least three material claims against their cited sources before
 issuing `pass`. If a cited URL or document cannot be verified in this run,
 downgrade the claim's confidence or require its removal.
 
+## Rapid-Scan Self-Check
+
+In rapid-scan mode no separate reviewer is invoked; the lead runs this
+checklist as a self-check and records the result on the report's review meta
+line. At minimum:
+
+- Tier compliance: every in-scope regulatory or Basel claim cites at least one
+  T1 source; no claim rests solely on T4-T5; T1-less claims sit in
+  open questions / 후속 과제, not findings.
+- Locator presence: every material claim names its source with a date and a
+  locator (page, section, paragraph) in the evidence matrix.
+- As-of dates: every time-sensitive claim carries an as-of date verified in
+  this run.
+- 3-claim spot check: re-open the sources for three material claims and
+  confirm wording, date, and tier; disclose any miss.
+
+Use the same verdict format (`VERDICT: pass` / `pass-with-edits` / `revise`)
+and disclose items the self-check could not close.
+
 ## Verdict Format
 
 Open your review with exactly one verdict line:
