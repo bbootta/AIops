@@ -26,7 +26,8 @@ TradingAgents는 실제 트레이딩 조직을 모사한 다중 에이전트 구
 - 입력: `ticker`, `date`, `horizon`, `risk_budget`
 - 라운드:
   1) Analyst Team 개별 보고
-  2) Bull/Bear 상반 주장 정리
+  2) Bull/Bear 상반 주장 정리 (Researcher 합성)
+     - 전제: Analyst 4명 중 최소 3명이 valid JSON 산출. 미달 시 Round 1 재실행 또는 결정 보류.
   3) Trader 단일 액션 제안
   4) **불일치 해소 라운드** (Bull과 Bear의 결론이 상충하고 confidence 격차가 0.15 이하일 때):
      - Research Manager 가 양측 thesis 와 risks 를 비교하고 critical assumptions 충돌을 표로 출력.
@@ -64,6 +65,8 @@ TradingAgents는 실제 트레이딩 조직을 모사한 다중 에이전트 구
 - `evidence`: 근거 출처 리스트 (선택).
 
 > 소유권: `size` 와 `stop_loss` 는 **Risk Manager** 소유. Trader 는 제안하고 Risk Manager 가 조정한다. 포트폴리오 누적 `size` 에 대한 최종 권한은 **Portfolio Manager** 에 있다.
+
+> `confidence` ∈ [0.0, 1.0]. action = HOLD 의 경우 confidence 는 0.5 이상 (확신을 가지고 관망), 미만이면 NEEDS_REVIEW 로 라우팅.
 
 ## 4) 역할 프롬프트 (최소형)
 
@@ -127,4 +130,4 @@ Trader 제안을 risk_budget 안으로 조정하라.
 
 - GitHub Repo: https://github.com/TauricResearch/TradingAgents
 - README(프레임워크/팀 구성): https://github.com/TauricResearch/TradingAgents/blob/main/README.md
-- 릴리즈 노트(v0.2.4 언급): README의 News 섹션
+- 릴리즈 노트(v0.2.4 언급): README의 News 섹션 (commit pin: `7c37249f808f9c169ad2198dc384166e7ca7adf9`, https://github.com/TauricResearch/TradingAgents/tree/7c37249f808f9c169ad2198dc384166e7ca7adf9)
