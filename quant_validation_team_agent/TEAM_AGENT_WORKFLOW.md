@@ -55,7 +55,7 @@
 | 7. 감독기준·정책 기준 매핑 | 결과 리뷰 완료 | Basel/FSS/국내 감독기준, 내부 정책, 승인문서, 임계값 출처 매핑 | 기준 출처와 정책 근거 기록 | 기준 매핑표 | 공식 출처, 국내 적용 여부, 정책 버전 불명확 |
 | 8. 판정 후보 작성 | 정책 매핑 완료 | deterministic 우선순위와 tie-break에 따라 Green/Yellow/Red/Gray 중 후보 판정 | 근거, 적용 규칙, 제한사항 명시 | 판정 후보 | 판단 불가 사유 또는 동일 fingerprint 결과 불일치 |
 | 9. 보고서 초안 작성 | 판정 후보 존재 | 보고서 템플릿에 결과 정리 | 인간 검토 가능한 초안 완성 | 보고서 초안 | 핵심 증적 누락 |
-| 10. Action Notice 작성 (Remediation & Action Notice Agent) | 판정 후보가 Yellow/Red/Gray | 사유, 소유자, 기한, 필요 증적, 재검증 조건 정의 | Notice ID 생성 | Action Notice | 비Green인데 Notice 정보 부족 |
+| 10. Action Notice 작성 (Remediation & Action Notice Agent) | 판정 후보가 Yellow/Red/Gray | 사유, 소유자, 기한, 필요 증적, 재검증 트리거 정의 | Notice ID 생성 | Action Notice | 비Green인데 Notice 정보 부족 |
 | 11. 감사추적 패키징 | 보고서/Notice 작성 | 입력, 결과, 정책, Agent 산출물, 인간 검토 항목을 묶고 `artifact_manifest.json`을 생성한다. 매니페스트에는 `sample_fingerprints`, `explainability_index`, `fingerprint_fields`를 포함한다. | 감사추적 체크 및 산출물 매니페스트 생성 완료 | Audit Trail Package, `artifact_manifest.json` | 재현성 항목 또는 매니페스트 필수 필드 누락 |
 | 12. 인간 검증자 검토 및 공식 조직 판단 | 감사추적 완료 | 인간 검증자가 사실관계, 정책 적용, 최종 의견 확인 | 공식 조직 결정 기록 | 최종 검토 기록 | 인간 검토 미완료 → Gray 전환 및 Action Notice 생성 |
 
@@ -81,7 +81,7 @@
 
 ## 6. 비Green 자동 분기
 
-- `Yellow`: 보완 필요 또는 제한적 이슈. Action Notice를 생성하고 재검증 조건을 지정한다.
+- `Yellow`: 보완 필요 또는 제한적 이슈. Action Notice를 생성하고 재검증 트리거를 지정한다.
 - `Red`: 중대한 결함, 정책 위반, 결과 신뢰성 훼손 가능성. Action Notice와 에스컬레이션 후보를 생성한다.
 - `Gray`: 판단 불가. 사유코드와 필요 증적을 Action Notice에 기록한다.
 - `Green`: Action Notice는 생성하지 않지만 제한사항과 최종 승인 아님 문구를 보고서에 기록한다.

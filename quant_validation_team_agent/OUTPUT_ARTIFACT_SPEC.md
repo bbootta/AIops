@@ -17,7 +17,7 @@
 | 산출물 | 파일명 예시 | 주요 사용자 | 목적 |
 |---|---|---|---|
 | 엑셀 검증파일 | `validation_workbook.xlsx` | 실무자, 검증자, 감사추적 담당 | 케이스 목록, 증적 공백, Action Notice, 감사추적 항목을 표 형태로 검토 |
-| 실무자용 보고서 | `practitioner_report.md/html/hwpx/pdf` | 리스크감리 실무자, 모델/데이터 담당자 | 상세 검토 근거, 영역별 이슈, 필요 증적, 재검증 조건 확인 |
+| 실무자용 보고서 | `practitioner_report.md/html/hwpx/pdf` | 리스크감리 실무자, 모델/데이터 담당자 | 상세 검토 근거, 영역별 이슈, 필요 증적, 재검증 트리거 확인 |
 | 경영진 보고서 | `executive_report.md/html/hwpx/pdf` | 부서장, 임원, 위원회 | 핵심 현황, 비Green 요약, 의사결정 필요사항 확인 |
 | 산출물 매니페스트 | `artifact_manifest.json` | 운영자, 감사추적 담당 | 생성 파일 목록, 생성 기준일, 원천 샘플, `sample_fingerprints`, `explainability_index`, `fingerprint_fields`, fingerprint, 설명 인덱스 확인 |
 | 전체 샘플 테스트 상세 보고서 | `sample_test_report.html` | UAT 수행자, 리뷰어 | 전체 샘플 테스트 명령별 결과, 판정/영역 분포, 케이스별 fingerprint와 설명가능성 확인 |

@@ -22,6 +22,8 @@ case_fingerprint_inputs:
   risk_output_domain: ""
   primary_risk_output_domain: ""
   secondary_risk_output_domains: []
+  business_context: ""
+  scope_statement: ""
   obligor_or_portfolio_scope: ""
   product_scope: ""
   model_or_parameter_id: ""
@@ -91,8 +93,8 @@ case_fingerprint_inputs:
 | 판정 후보 | Action Notice | 필수 내용 |
 |---|---|---|
 | Green | 생성하지 않음 | 제한사항과 최종 승인 아님 문구를 보고서에 기록 |
-| Yellow | 생성 | 보완 필요 사유, 소유자, 기한, 필요 증적, 재검증 조건 |
-| Red | 생성 | 중대 이슈 후보, 영향 범위, 에스컬레이션 대상, 재검증 조건 |
+| Yellow | 생성 | 보완 필요 사유, 소유자, 기한, 필요 증적, 재검증 트리거 |
+| Red | 생성 | 중대 이슈 후보, 영향 범위, 에스컬레이션 대상, 재검증 트리거 |
 | Gray | 생성 | Gray 사유코드, 부족 증적, 판단 보류 사유, 인간 검토 필요사항 |
 
 ## 8. 재현성 감사 항목

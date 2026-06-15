@@ -31,7 +31,7 @@
 | 보고서 템플릿 | 수치 출처 표기 | 계산엔진 또는 공식 증적 참조 필수 |  |  |  |
 | 보고서 템플릿 | 인간 검토란 | 검토자, 검토일, 의견, 공식 결정 포함 |  |  |  |
 | Action Notice | 비Green 자동 생성 | Yellow/Red/Gray에서 생성 |  |  |  |
-| Action Notice | 조치관리 필드 | 소유자, 기한, 증적, 재검증 조건 포함 |  |  |  |
+| Action Notice | 조치관리 필드 | 소유자, 기한, 증적, 재검증 트리거 포함 |  |  |  |
 | UAT 결과 | Critical/High 결함 | 모두 조치 및 재테스트 완료 |  |  |  |
 | 샘플 데이터 테스트 | 전 영역 샘플 검증 | `python quant_validation_team_agent/tests/validate_risk_domain_samples.py` 통과 |  |  |  |
 | 운영자 교육 | 사용자 교육 | 금지행위와 Gray 조건 교육 완료 |  |  |  |

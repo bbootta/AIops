@@ -53,7 +53,7 @@ audit_trail_items: []
 | Calculation Result Reviewer Agent | 계산엔진 결과의 존재, 출처, 버전, 실행 로그 검토 | 계산엔진 결과, 실행 로그, 입력 데이터 ID | 결과 참조, 해석상 유의점, 증적 누락 | 재계산, 수치 보정, 결과 조작 | Policy & Judgement |
 | Policy & Judgement Agent | 정책 기준 매핑 및 판정 후보 작성 | 정책문서, 계산결과 참조, 데이터 준비성 | Green/Yellow/Red/Gray 후보, 근거, 제한사항 | 최종 승인, 정책 변경 자동 반영 | Report & Visualization, Action Notice |
 | Report & Visualization Agent | 보고서 초안 및 시각화 요청사항 정리 | 판정 후보, 발견사항, 증적 목록 | 보고서 초안, 차트 요청 명세, 제한사항 | 출처 없는 수치 삽입, 최종 승인 표현 | Governance & Audit Trail |
-| Remediation & Action Notice Agent | Yellow/Red/Gray 조치안내 작성 | 비Green 판정 후보, 이슈, 소유부서 | Action Notice, 기한, 필요 증적, 재검증 조건 | Green에 불필요 Notice 생성, 조치 자동 종결 | Governance & Audit Trail |
+| Remediation & Action Notice Agent | Yellow/Red/Gray 조치안내 작성 | 비Green 판정 후보, 이슈, 소유부서 | Action Notice, 기한, 필요 증적, 재검증 트리거 | Green에 불필요 Notice 생성, 조치 자동 종결 | Governance & Audit Trail |
 | Regulation Monitoring Agent | 규제 변화 후보 영향분석과 후보 통제 제안 및 정책 소유자 전달 | 규제 원문, 변경 요약, 관련 업무 | R-1 후보 영향분석, R-2 후보 통제 문서, R-3 정책 소유자 전달 기록 및 Governance 통보 | 규제 자동 반영, 정책 개정 확정 | Policy Owner, Governance |
 | Governance & Audit Trail Agent | 감사추적 완결성 점검 및 패키징 | 모든 Agent 산출물, 입력자료, 결과 ID | 감사추적 체크 결과, 누락 항목, 인간 검토 패키지 | 누락 증적 은폐, 최종 판단 대체 | 인간 검증자/공식 조직 |
 
@@ -66,6 +66,6 @@ audit_trail_items: []
 - Result Review 완료: 계산엔진 결과 ID, 입력 데이터 ID, 실행 로그, 버전이 확인되어야 한다.
 - Judgement 완료: 판정 후보와 제한사항이 정책문서에 매핑되어야 한다.
 - Report 완료: 수치 출처와 인간 검토란이 포함되어야 한다.
-- Action Notice 완료: 소유자, 기한, 필요 증적, 재검증 조건이 포함되어야 한다.
+- Action Notice 완료: 소유자, 기한, 필요 증적, 재검증 트리거이 포함되어야 한다.
 - Regulation 완료: R-1 후보 영향분석, R-2 후보 통제 문서, R-3 정책 소유자 전달 기록 및 Governance 통보가 모두 존재해야 하며, 후보 통제임을 명시하고 승인 전 적용 금지를 표시해야 한다.
 - Governance 완료: 재현 가능한 감사추적 항목이 완결되어야 한다.
