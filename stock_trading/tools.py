@@ -1,6 +1,8 @@
 """Shared mock market data and trading utilities used by all specialist agents."""
 
+import os
 import random
+import threading
 from datetime import date, timedelta
 
 _PRICES: dict[str, float] = {
@@ -22,6 +24,10 @@ _PORTFOLIO: dict = {
 }
 
 _ORDERS: list[dict] = []
+
+# Serializes every read-modify-write of _PORTFOLIO / _ORDERS so concurrent
+# place_order calls cannot corrupt cash, position counts, or order ids.
+_PORTFOLIO_LOCK = threading.RLock()
 
 
 def get_price(symbol: str) -> dict:
@@ -108,30 +114,42 @@ _NEWS: dict[str, list[str]] = {
 
 
 def get_news(symbol: str) -> dict:
+    """Return news headlines wrapped in an untrusted-data envelope.
+
+    Headlines come from an external source and could contain prompt-injection
+    attempts. Each headline is wrapped in ``<untrusted_news_item>`` so agents
+    can be instructed to treat the contents as data, not instructions.
+    """
     symbol = symbol.upper()
-    headlines = _NEWS.get(symbol, [f"No recent news for {symbol}"])
-    return {"symbol": symbol, "headlines": headlines}
+    raw = _NEWS.get(symbol, [f"No recent news for {symbol}"])
+    today = str(date.today())
+    wrapped = [
+        f'<untrusted_news_item date="{today}" source="mock_newsfeed">\n{h}\n</untrusted_news_item>'
+        for h in raw
+    ]
+    return {"symbol": symbol, "headlines": wrapped}
 
 
 def get_portfolio() -> dict:
-    total_value = _PORTFOLIO["cash"]
-    positions_detail = {}
-    for sym, pos in _PORTFOLIO["positions"].items():
-        if sym in _PRICES:
-            market_value = pos["shares"] * _PRICES[sym]
-            total_value += market_value
-            positions_detail[sym] = {
-                "shares": pos["shares"],
-                "avg_cost": pos["avg_cost"],
-                "current_price": _PRICES[sym],
-                "market_value": round(market_value, 2),
-                "unrealized_pnl": round(market_value - pos["shares"] * pos["avg_cost"], 2),
-            }
-    return {
-        "cash": round(_PORTFOLIO["cash"], 2),
-        "positions": positions_detail,
-        "total_value": round(total_value, 2),
-    }
+    with _PORTFOLIO_LOCK:
+        total_value = _PORTFOLIO["cash"]
+        positions_detail = {}
+        for sym, pos in _PORTFOLIO["positions"].items():
+            if sym in _PRICES:
+                market_value = pos["shares"] * _PRICES[sym]
+                total_value += market_value
+                positions_detail[sym] = {
+                    "shares": pos["shares"],
+                    "avg_cost": pos["avg_cost"],
+                    "current_price": _PRICES[sym],
+                    "market_value": round(market_value, 2),
+                    "unrealized_pnl": round(market_value - pos["shares"] * pos["avg_cost"], 2),
+                }
+        return {
+            "cash": round(_PORTFOLIO["cash"], 2),
+            "positions": positions_detail,
+            "total_value": round(total_value, 2),
+        }
 
 
 def compute_var(symbol: str, shares: int, confidence: float = 0.95) -> dict:
@@ -203,37 +221,53 @@ def place_order(symbol: str, side: str, shares: int) -> dict:
     exec_price = round(exec_price, 2)
     total_cost = exec_price * shares
 
-    if side.lower() == "buy":
-        if _PORTFOLIO["cash"] < total_cost:
-            return {"status": "REJECTED", "reason": "Insufficient cash", "required": total_cost, "available": _PORTFOLIO["cash"]}
-        _PORTFOLIO["cash"] -= total_cost
-        if symbol in _PORTFOLIO["positions"]:
-            pos = _PORTFOLIO["positions"][symbol]
-            new_shares = pos["shares"] + shares
-            new_avg = (pos["shares"] * pos["avg_cost"] + shares * exec_price) / new_shares
-            pos["shares"] = new_shares
-            pos["avg_cost"] = round(new_avg, 2)
-        else:
-            _PORTFOLIO["positions"][symbol] = {"shares": shares, "avg_cost": exec_price}
-    else:
-        pos = _PORTFOLIO["positions"].get(symbol)
-        if not pos or pos["shares"] < shares:
-            held = pos["shares"] if pos else 0
-            return {"status": "REJECTED", "reason": "Insufficient shares", "required": shares, "held": held}
-        _PORTFOLIO["cash"] += total_cost
-        pos["shares"] -= shares
-        if pos["shares"] == 0:
-            del _PORTFOLIO["positions"][symbol]
+    # Hard DRY_RUN gate: require explicit opt-in to mutate the portfolio.
+    if os.getenv("STOCK_TRADING_LIVE") != "1":
+        return {
+            "status": "DRY_RUN",
+            "reason": "STOCK_TRADING_LIVE != 1",
+            "would_have": {
+                "symbol": symbol,
+                "side": side.upper(),
+                "shares": shares,
+                "exec_price": exec_price,
+                "total_value": round(total_cost, 2),
+                "slippage_bps": round(slippage * 10000, 1),
+            },
+        }
 
-    order = {
-        "order_id": f"ORD-{len(_ORDERS) + 1:04d}",
-        "symbol": symbol,
-        "side": side.upper(),
-        "shares": shares,
-        "exec_price": exec_price,
-        "total_value": round(total_cost, 2),
-        "slippage_bps": round(slippage * 10000, 1),
-        "status": "FILLED",
-    }
-    _ORDERS.append(order)
-    return order
+    with _PORTFOLIO_LOCK:
+        if side.lower() == "buy":
+            if _PORTFOLIO["cash"] < total_cost:
+                return {"status": "REJECTED", "reason": "Insufficient cash", "required": total_cost, "available": _PORTFOLIO["cash"]}
+            _PORTFOLIO["cash"] -= total_cost
+            if symbol in _PORTFOLIO["positions"]:
+                pos = _PORTFOLIO["positions"][symbol]
+                new_shares = pos["shares"] + shares
+                new_avg = (pos["shares"] * pos["avg_cost"] + shares * exec_price) / new_shares
+                pos["shares"] = new_shares
+                pos["avg_cost"] = round(new_avg, 2)
+            else:
+                _PORTFOLIO["positions"][symbol] = {"shares": shares, "avg_cost": exec_price}
+        else:
+            pos = _PORTFOLIO["positions"].get(symbol)
+            if not pos or pos["shares"] < shares:
+                held = pos["shares"] if pos else 0
+                return {"status": "REJECTED", "reason": "Insufficient shares", "required": shares, "held": held}
+            _PORTFOLIO["cash"] += total_cost
+            pos["shares"] -= shares
+            if pos["shares"] == 0:
+                del _PORTFOLIO["positions"][symbol]
+
+        order = {
+            "order_id": f"ORD-{len(_ORDERS) + 1:04d}",
+            "symbol": symbol,
+            "side": side.upper(),
+            "shares": shares,
+            "exec_price": exec_price,
+            "total_value": round(total_cost, 2),
+            "slippage_bps": round(slippage * 10000, 1),
+            "status": "FILLED",
+        }
+        _ORDERS.append(order)
+        return order
