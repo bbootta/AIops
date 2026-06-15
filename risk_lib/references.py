@@ -90,7 +90,9 @@ CITE_OUTPUT_FLOOR = Citation("Basel III", "RBC30.1",
 # Credit RWA — IRB / SA
 # ============================================================================
 
-PD_FLOOR_BPS = 3                         # CRE32.5: PD floor 3bp (0.03%)
+PD_FLOOR_BPS = 5                         # BCBS d424 (2017) Basel III finalisation:
+                                         # PD 하한 5bp (AIRB corporate/bank 및 대부분 retail).
+                                         # 직전 CRE32.5 3bp 기준을 대체.
 LGD_FLOOR_UNSECURED_CORP = 0.25          # CRE32 FIRB unsecured senior
 LGD_FLOOR_MORTGAGE = 0.05                # CRE32 residential mortgage
 MATURITY_FLOOR_YEARS = 1.0               # CRE31.6
@@ -100,7 +102,8 @@ CONFIDENCE_LEVEL = 0.999                 # CRE31.4 (G(0.999))
 DEFAULT_DPD_THRESHOLD = 90               # CRE36.69 + IFRS 9 5.5.5 + 감독세칙
 SICR_DPD_THRESHOLD = 30                  # IFRS 9 5.5.11 rebuttable presumption
 
-CITE_PD_FLOOR = Citation("Basel III", "CRE32.5", "PD 하한 3bp")
+CITE_PD_FLOOR = Citation("Basel III", "CRE32.5 / BCBS d424",
+                          "PD 하한 5bp (2017년 최종안에서 3bp→5bp 상향)")
 CITE_MATURITY = Citation("Basel III", "CRE31.6", "M floored at 1y, capped at 5y")
 CITE_DEFAULT_90DPD = Citation("Basel III / IFRS 9", "CRE36.69 / 5.5.5",
                               "90일 이상 연체 시 부도/Stage 3")
