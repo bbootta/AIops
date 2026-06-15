@@ -1,0 +1,26 @@
+validation_objects:
+  - object_id: credit-model-sample
+    risk_domain: credit_model
+    object_family: estimation
+  - object_id: rwa-sample
+    risk_domain: rwa
+    object_family: measurement
+  - object_id: bis-ratio-sample
+    risk_domain: bis_ratio
+    object_family: aggregation
+  - object_id: ddr-sample
+    risk_domain: ddr
+    object_family: estimation
+  - object_id: limit-sample
+    risk_domain: limit
+    object_family: measurement
+  - object_id: rapm-sample
+    risk_domain: rapm
+    object_family: hybrid
+
+  - object_id: climate-risk-sample
+    risk_domain: climate_risk
+    object_family: hybrid
+  - object_id: ai-model-validation-sample
+    risk_domain: ai_model_validation
+    object_family: estimation

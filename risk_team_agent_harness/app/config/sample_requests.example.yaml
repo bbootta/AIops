@@ -1,0 +1,130 @@
+sample_requests:
+  - request_id: req-credit-model-monitoring
+    request_type: monitoring
+    risk_domain: credit_model
+    object_id: credit-model-sample
+    object_family: estimation
+    as_of_period: 2026Q1
+    entity_scope: BANK_SAMPLE
+    portfolio_scope: RETAIL_SAMPLE
+    segment_scope: SCORECARD_A
+    requested_metrics: [pd_stability, calibration_backtest]
+    output_formats: [json]
+    initiated_by: model_validator_sample
+    user_role: model_validator
+    policy_version: policy-sample-v1
+    data_version: data-sample-v1
+    urgency: normal
+  - request_id: req-rwa-validation
+    request_type: validation
+    risk_domain: rwa
+    object_id: rwa-sample
+    object_family: measurement
+    as_of_period: 2026Q1
+    entity_scope: BANK_SAMPLE
+    portfolio_scope: CORPORATE_SAMPLE
+    segment_scope: ALL
+    requested_metrics: [rwa_reperformance, crm_eligibility]
+    output_formats: [json]
+    initiated_by: risk_analyst_sample
+    user_role: risk_analyst
+    policy_version: policy-sample-v1
+    data_version: data-sample-v1
+    urgency: normal
+  - request_id: req-bis-ratio-validation
+    request_type: validation
+    risk_domain: bis_ratio
+    object_id: bis-ratio-sample
+    object_family: aggregation
+    as_of_period: 2026Q1
+    entity_scope: BANK_SAMPLE
+    portfolio_scope: CONSOLIDATED
+    segment_scope: ALL
+    requested_metrics: [bis_ratio_reconciliation]
+    output_formats: [json]
+    initiated_by: risk_manager_sample
+    user_role: risk_manager
+    policy_version: policy-sample-v1
+    data_version: data-sample-v1
+    urgency: high
+  - request_id: req-ddr-monitoring
+    request_type: monitoring
+    risk_domain: ddr
+    object_id: ddr-sample
+    object_family: estimation
+    as_of_period: 2026Q1
+    entity_scope: BANK_SAMPLE
+    portfolio_scope: RETAIL_SAMPLE
+    segment_scope: VINTAGE_SAMPLE
+    requested_metrics: [delinquency_rate, default_rate, recovery_rate]
+    output_formats: [json]
+    initiated_by: risk_analyst_sample
+    user_role: risk_analyst
+    policy_version: policy-sample-v1
+    data_version: data-sample-v1
+    urgency: normal
+  - request_id: req-limit-monitoring
+    request_type: monitoring
+    risk_domain: limit
+    object_id: limit-sample
+    object_family: measurement
+    as_of_period: 2026Q1
+    entity_scope: BANK_SAMPLE
+    portfolio_scope: COUNTERPARTY_SAMPLE
+    segment_scope: INDUSTRY_SAMPLE
+    requested_metrics: [limit_utilization, threshold_proximity]
+    output_formats: [json]
+    initiated_by: risk_analyst_sample
+    user_role: risk_analyst
+    policy_version: policy-sample-v1
+    data_version: data-sample-v1
+    urgency: normal
+  - request_id: req-rapm-analysis
+    request_type: analysis
+    risk_domain: rapm
+    object_id: rapm-sample
+    object_family: hybrid
+    as_of_period: 2026Q1
+    entity_scope: BANK_SAMPLE
+    portfolio_scope: CORPORATE_SAMPLE
+    segment_scope: PRODUCT_SAMPLE
+    requested_metrics: [risk_adjusted_return, capital_cost]
+    output_formats: [json]
+    initiated_by: risk_manager_sample
+    user_role: risk_manager
+    policy_version: policy-sample-v1
+    data_version: data-sample-v1
+    urgency: normal
+
+  - request_id: req-climate-risk-validation
+    request_type: validation
+    risk_domain: climate_risk
+    object_id: climate-risk-sample
+    object_family: hybrid
+    as_of_period: 2026Q1
+    entity_scope: BANK_SAMPLE
+    portfolio_scope: CORPORATE_SAMPLE
+    segment_scope: CLIMATE_SCENARIO_SAMPLE
+    requested_metrics: [scenario_coverage, transition_risk_sensitivity]
+    output_formats: [json]
+    initiated_by: risk_manager_sample
+    user_role: risk_manager
+    policy_version: policy-sample-v1
+    data_version: data-sample-v1
+    urgency: high
+  - request_id: req-ai-model-validation
+    request_type: validation
+    risk_domain: ai_model_validation
+    object_id: ai-model-validation-sample
+    object_family: estimation
+    as_of_period: 2026Q1
+    entity_scope: BANK_SAMPLE
+    portfolio_scope: MODEL_PORTFOLIO_SAMPLE
+    segment_scope: AI_MODEL_SEGMENT
+    requested_metrics: [fairness_stability, drift_monitoring]
+    output_formats: [json]
+    initiated_by: model_validator_sample
+    user_role: model_validator
+    policy_version: policy-sample-v1
+    data_version: data-sample-v1
+    urgency: high

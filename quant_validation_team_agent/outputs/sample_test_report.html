@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>전체 샘플 테스트 상세 결과 보고서</title>
+<style>
+body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', Arial, sans-serif; margin: 32px; color: #17202a; }
+h1 { border-bottom: 4px solid #243b53; padding-bottom: 12px; }
+h2 { margin-top: 30px; border-left: 6px solid #486581; padding-left: 10px; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0 24px; font-size: 12px; }
+th, td { border: 1px solid #bcccdc; padding: 7px; vertical-align: top; }
+th { background: #f0f4f8; }
+pre { white-space: pre-wrap; margin: 0; font-family: Consolas, monospace; }
+code { font-family: Consolas, monospace; word-break: break-all; }
+.summary { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 12px; }
+.card { border: 1px solid #bcccdc; border-radius: 8px; padding: 14px; background: #f8fafc; }
+.card strong { display: block; font-size: 22px; margin-top: 6px; }
+.pass { color: #0b6b3a; font-weight: 700; }
+.fail { color: #b42318; font-weight: 700; }
+.num { text-align: right; }
+.notice { background: #fffbea; border-left: 6px solid #f0b429; padding: 12px; }
+</style>
+</head>
+<body>
+<h1>전체 샘플 테스트 상세 결과 보고서</h1>
+<p class="notice">본 보고서는 샘플 데이터와 생성 산출물의 구조·규칙·재현가능성 검증 결과를 보여준다. LLM 수치 계산 또는 최종 승인 판단은 포함하지 않는다.</p>
+<div class="summary">
+  <div class="card">종합 상태<strong class="pass">PASS</strong></div>
+  <div class="card">샘플 수<strong>10</strong></div>
+  <div class="card">비Green 샘플<strong>6</strong></div>
+  <div class="card">Action Notice 대상<strong>6</strong></div>
+  <div class="card">생성 산출물<strong>56</strong></div>
+  <div class="card">fingerprint 필드<strong>9</strong></div>
+  <div class="card">실행 시각<strong>2026-05-26 00:26:02 UTC</strong></div>
+  <div class="card">보고서 파일<strong>outputs\sample_test_report.html</strong></div>
+</div>
+<h2>실행한 전체 샘플 테스트</h2><table><tr><th>명령</th><th>상태</th><th>종료코드</th><th>stdout</th><th>stderr</th></tr><tr><td><code>python quant_validation_team_agent/scripts/generate_validation_outputs.py</code></td><td class='pass'>PASS</td><td class='num'>0</td><td><pre>generated 56 artifacts in C:\Users\bboot\AIops\quant_validation_team_agent\outputs</pre></td><td><pre></pre></td></tr><tr><td><code>python quant_validation_team_agent/tests/validate_output_artifacts.py</code></td><td class='pass'>PASS</td><td class='num'>0</td><td><pre>validated output artifacts: xlsx, md, html, hwpx, pdf</pre></td><td><pre></pre></td></tr><tr><td><code>python quant_validation_team_agent/tests/validate_risk_domain_samples.py</code></td><td class='pass'>PASS</td><td class='num'>0</td><td><pre>validated 10 samples across 9 risk output domains</pre></td><td><pre></pre></td></tr><tr><td><code>python quant_validation_team_agent/tests/validate_knowledge_graph_links.py</code></td><td class='pass'>PASS</td><td class='num'>0</td><td><pre>validated 33 knowledge graph nodes and 18 source IDs</pre></td><td><pre></pre></td></tr></table>
+<h2>판정 후보 분포</h2><table><tr><th>구분</th><th>건수</th></tr><tr><td>Gray</td><td class='num'>4</td></tr><tr><td>Green</td><td class='num'>4</td></tr><tr><td>Yellow</td><td class='num'>2</td></tr></table>
+<h2>리스크 산출 영역 분포</h2><table><tr><th>구분</th><th>건수</th></tr><tr><td>capital_adequacy_aggregation</td><td class='num'>1</td></tr><tr><td>credit_risk</td><td class='num'>2</td></tr><tr><td>interest_rate_risk</td><td class='num'>1</td></tr><tr><td>liquidity_risk</td><td class='num'>1</td></tr><tr><td>market_risk</td><td class='num'>1</td></tr><tr><td>multi_risk_or_unclear</td><td class='num'>1</td></tr><tr><td>operational_risk</td><td class='num'>1</td></tr><tr><td>reputational_risk</td><td class='num'>1</td></tr><tr><td>strategic_risk</td><td class='num'>1</td></tr></table>
+<h2>1축 검증대상 유형 분포</h2><table><tr><th>구분</th><th>건수</th></tr><tr><td>aggregation_reporting</td><td class='num'>3</td></tr><tr><td>credit_rating_model</td><td class='num'>1</td></tr><tr><td>credit_risk_parameter</td><td class='num'>1</td></tr><tr><td>hybrid_risk_output</td><td class='num'>4</td></tr><tr><td>risk_factor_validation</td><td class='num'>1</td></tr></table>
+<h2>케이스별 상세 검증 결과</h2>
+<table>
+<tr>
+<th>case_id</th><th>request_id</th><th>validation_object_type</th><th>risk_output_domain</th><th>primary_domain</th><th>secondary_domains</th><th>data_readiness</th><th>lineage</th><th>judgement</th><th>action_notice</th><th>gray_reason</th><th>case_fingerprint</th><th>decision_stage</th><th>explanation_summary</th><th>evidence_gaps</th><th>input_documents</th><th>audit_trail_items</th>
+</tr>
+<tr><td>SAMPLE-CAPITAL-001</td><td>REQ-CAPITAL-001</td><td>aggregation_reporting</td><td>capital_adequacy_aggregation</td><td>capital_adequacy_aggregation</td><td>credit_risk, market_risk, operational_risk</td><td>Ready</td><td>Clear</td><td>Yellow</td><td>True</td><td>-</td><td><code>e383711c77a7d3e89953da96928d59534fee49aca6c9c20075d1113355c0fda0</code></td><td>보완 가능 이슈 게이트</td><td>계산엔진 결과와 정책 참조는 존재하나 보완 설명 또는 조치 추적이 필요함</td><td>-</td><td>ICAAP_AGGREGATION_POLICY_2026_V1, RISK_APPETITE_DASHBOARD_SPEC_2026, RECONCILIATION_PACK_2026Q1</td><td>risk_type_mapping_version, aggregation_engine_log, reconciliation_pack_hash, committee_report_reference</td></tr><tr><td>SAMPLE-CREDIT-001</td><td>REQ-CREDIT-001</td><td>credit_risk_parameter</td><td>credit_risk</td><td>credit_risk</td><td>-</td><td>Ready</td><td>Clear</td><td>Green</td><td>False</td><td>-</td><td><code>45994b1b32db616af7bfba3b9ed7b1be5b0e4b08d753b74e4f6f21af4ff5e05b</code></td><td>중대 이슈 미발견 게이트</td><td>필수 정책·데이터·계산엔진 참조가 제공되어 현재 증적 기준 중대 이슈 후보가 발견되지 않음</td><td>-</td><td>PD_METHOD_2026_V1, LGD_WORKOUT_POLICY_2026_V1, EAD_CCF_MONITORING_SPEC_2026_V1</td><td>input_data_hash, engine_version, policy_version, reviewer_queue_id</td></tr><tr><td>SAMPLE-IRRBB-001</td><td>REQ-IRRBB-001</td><td>hybrid_risk_output</td><td>interest_rate_risk</td><td>interest_rate_risk</td><td>-</td><td>Ready</td><td>Clear</td><td>Green</td><td>False</td><td>-</td><td><code>c881c40cb726ea353cd3d007d766bf1dd32c74606c2079df65fe014ecdaee992</code></td><td>중대 이슈 미발견 게이트</td><td>필수 정책·데이터·계산엔진 참조가 제공되어 현재 증적 기준 중대 이슈 후보가 발견되지 않음</td><td>-</td><td>IRRBB_POLICY_2026_V1, ALM_BEHAVIORAL_ASSUMPTION_APPROVAL_2026, RATE_CURVE_SOURCE_EVIDENCE_2026Q1</td><td>cashflow_extract_hash, curve_version, behavioral_assumption_approval, engine_run_log</td></tr><tr><td>SAMPLE-LIQ-001</td><td>REQ-LIQ-001</td><td>aggregation_reporting</td><td>liquidity_risk</td><td>liquidity_risk</td><td>-</td><td>Ready</td><td>Clear</td><td>Green</td><td>False</td><td>-</td><td><code>c0dff39198b29081b0a6dc824a92d26d26ed18762511ac067aef80efd1b35097</code></td><td>중대 이슈 미발견 게이트</td><td>필수 정책·데이터·계산엔진 참조가 제공되어 현재 증적 기준 중대 이슈 후보가 발견되지 않음</td><td>-</td><td>LIQUIDITY_POLICY_2026_V2, HQLA_ELIGIBILITY_PACK_2026Q1, RUNOFF_ASSUMPTION_APPROVAL_2026</td><td>hqla_pack_hash, cashflow_projection_id, runoff_assumption_version, engine_run_log</td></tr><tr><td>SAMPLE-MARKET-001</td><td>REQ-MARKET-001</td><td>hybrid_risk_output</td><td>market_risk</td><td>market_risk</td><td>-</td><td>Ready</td><td>Clear</td><td>Yellow</td><td>True</td><td>-</td><td><code>cc90fd94b2a579ea0d89f324c46f7ede002592169ba5001c569cf21afa76a281</code></td><td>보완 가능 이슈 게이트</td><td>계산엔진 결과와 정책 참조는 존재하나 보완 설명 또는 조치 추적이 필요함</td><td>-</td><td>MARKET_RISK_LIMIT_POLICY_2026_V2, VAR_BACKTESTING_PACK_2026Q1, PLA_EXCEPTION_LOG_2026Q1</td><td>position_snapshot_id, market_data_vendor_version, engine_run_log, limit_breach_review</td></tr><tr><td>SAMPLE-MULTI-001</td><td>REQ-MULTI-001</td><td>hybrid_risk_output</td><td>multi_risk_or_unclear</td><td>multi_risk_or_unclear</td><td>credit_risk, liquidity_risk, market_risk</td><td>Gap</td><td>Unclear</td><td>Gray</td><td>True</td><td>EVIDENCE_INSUFFICIENT</td><td><code>e9c54fd775adf0932cdea22ac070bb91209586357b5b7bac9aa5a6594c93518c</code></td><td>리스크 영역 게이트</td><td>판단 보류: primary_owner, policy_reference, calculation_engine_result_reference, cross_risk_lineage</td><td>primary_owner, policy_reference, calculation_engine_result_reference, cross_risk_lineage</td><td>ENTERPRISE_STRESS_TEST_PACK_2026_DRAFT, SCENARIO_NARRATIVE_2026_DRAFT</td><td>draft_pack_hash, scenario_narrative_version</td></tr><tr><td>SAMPLE-OPRISK-001</td><td>REQ-OPRISK-001</td><td>aggregation_reporting</td><td>operational_risk</td><td>operational_risk</td><td>-</td><td>Gap</td><td>Unclear</td><td>Gray</td><td>True</td><td>LINEAGE_UNCLEAR</td><td><code>6a64d49f3a9c3438a6329be274fa87c3c0f5b84f32e68a843506b37443db65fe</code></td><td>데이터·증적 게이트</td><td>판단 보류: loss_event_boundary_definition, rcsa_to_loss_event_mapping</td><td>loss_event_boundary_definition, rcsa_to_loss_event_mapping</td><td>OP_LOSS_EVENT_REGISTER_2026Q1, KRI_DEFINITION_BOOK_2026_V1, RCSA_RESULT_2026Q1</td><td>loss_event_register_hash, kri_definition_version, rcsa_evidence_pack</td></tr><tr><td>SAMPLE-RATING-001</td><td>REQ-RATING-001</td><td>credit_rating_model</td><td>credit_risk</td><td>credit_risk</td><td>-</td><td>Ready</td><td>Clear</td><td>Green</td><td>False</td><td>-</td><td><code>2152b3b637aea5f8a86b4b180bea6177a3f387f74e03121af09a658e1cc87564</code></td><td>중대 이슈 미발견 게이트</td><td>필수 정책·데이터·계산엔진 참조가 제공되어 현재 증적 기준 중대 이슈 후보가 발견되지 않음</td><td>-</td><td>RATING_MODEL_DOC_2026_V1, GRADE_DEFINITION_POLICY_2026_V1, OVERRIDE_GOVERNANCE_PACK_2026Q1</td><td>model_document_version, validation_engine_log, grade_definition_version, override_pack_hash</td></tr><tr><td>SAMPLE-REPUTATION-001</td><td>REQ-REPUTATION-001</td><td>risk_factor_validation</td><td>reputational_risk</td><td>reputational_risk</td><td>operational_risk</td><td>Gap</td><td>Unclear</td><td>Gray</td><td>True</td><td>POLICY_UNDEFINED</td><td><code>f4fe4446068d077aa766162f804cdfe79448ccad740d80bf043a7daf0668a625</code></td><td>공식 기준 게이트</td><td>판단 보류: approved_event_taxonomy, external_data_usage_permission, deduplication_rule_evidence</td><td>approved_event_taxonomy, external_data_usage_permission, deduplication_rule_evidence</td><td>REPUTATION_EVENT_TAXONOMY_2026_DRAFT, COMPLAINT_DATA_EXTRACT_2026Q1, MEDIA_MONITORING_VENDOR_ATTESTATION_2026</td><td>complaint_extract_hash, vendor_attestation_id, taxonomy_version</td></tr><tr><td>SAMPLE-STRATEGIC-001</td><td>REQ-STRATEGIC-001</td><td>hybrid_risk_output</td><td>strategic_risk</td><td>strategic_risk</td><td>capital_adequacy_aggregation</td><td>Gap</td><td>Clear</td><td>Gray</td><td>True</td><td>EVIDENCE_INSUFFICIENT</td><td><code>89d76e63b330b0339daf3b5eb29547aa706a51a0045ab9557c26b24b36c60216</code></td><td>데이터·증적 게이트</td><td>판단 보류: management_approval_signature</td><td>management_approval_signature</td><td>STRATEGY_SCENARIO_PACK_2026_V1, CAPITAL_PLAN_LINKAGE_MEMO_2026, BOARD_STRATEGY_MINUTES_REF_2026_04</td><td>scenario_pack_hash, capital_plan_version, board_minutes_reference</td></tr>
+</table>
+<h2>검증 기준</h2>
+<ul>
+<li>모든 표준 risk_output_domain 샘플 존재 여부</li>
+<li>모든 validation_object_type 샘플 존재 여부</li>
+<li>case_id/request_id 유일성</li>
+<li>Green/Yellow/Red/Gray 라벨 및 Gray 사유코드 유효성</li>
+<li>비Green Action Notice 요구 규칙</li>
+<li>case_fingerprint 64자리 SHA-256 형식 및 결정성</li>
+<li>통합 및 1축별 XLSX/MD/HTML/HWPX/PDF 산출물 존재와 기본 구조</li>
+<li>artifact_manifest.json의 fingerprint와 explainability index 일관성</li>
+</ul>
+</body>
+</html>

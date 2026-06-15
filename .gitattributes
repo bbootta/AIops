@@ -1,0 +1,12 @@
+* text=auto
+
+*.md text
+*.ps1 text
+*.psm1 text
+
+*.json text eol=crlf
+*.py text eol=crlf
+*.sh text eol=lf
+*.toml text eol=crlf
+*.yml text eol=crlf
+*.yaml text eol=crlf

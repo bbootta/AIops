@@ -1,0 +1,350 @@
+{
+  "metadata": {
+    "sample_set_id": "RISK_DOMAIN_SAMPLE_SET_2026_05_14",
+    "as_of_date": "2026-05-14",
+    "purpose": "UAT-14/UAT-15 risk_output_domain classification and deterministic decision protocol sample set",
+    "calculation_note": "All numeric-looking values are opaque references or official engine result identifiers; the sample set is not a calculation source."
+  },
+  "samples": [
+    {
+      "case_id": "SAMPLE-CREDIT-001",
+      "request_id": "REQ-CREDIT-001",
+      "request_type": "regular_validation",
+      "validation_object_type": "credit_risk_parameter",
+      "risk_output_domain": "credit_risk",
+      "primary_risk_output_domain": "credit_risk",
+      "secondary_risk_output_domains": [],
+      "business_context": "IRB PD/LGD/EAD annual backtesting package review for corporate loan portfolio.",
+      "scope_statement": "Review official calculation engine outputs for PD calibration, LGD workout evidence, and EAD CCF monitoring without recalculation.",
+      "input_documents": [
+        "PD_METHOD_2026_V1",
+        "LGD_WORKOUT_POLICY_2026_V1",
+        "EAD_CCF_MONITORING_SPEC_2026_V1"
+      ],
+      "data_readiness_status": "Ready",
+      "lineage_status": "Clear",
+      "calculation_engine_result_reference": "CRE_ENGINE_RESULT_2026Q1_PD_LGD_EAD_001",
+      "policy_reference": "IRB_POLICY_2026_V1",
+      "regulatory_source_reference": "KR-BANK-SUP-DETAIL-ANNEX3",
+      "evidence_gaps": [],
+      "expected_provisional_judgement": "Green",
+      "expected_action_notice_required": false,
+      "expected_gray_reason_code": null,
+      "human_reviewer_required": true,
+      "audit_trail_items": [
+        "input_data_hash",
+        "engine_version",
+        "policy_version",
+        "reviewer_queue_id"
+      ]
+    },
+    {
+      "case_id": "SAMPLE-RATING-001",
+      "request_id": "REQ-RATING-001",
+      "request_type": "regular_validation",
+      "validation_object_type": "credit_rating_model",
+      "risk_output_domain": "credit_risk",
+      "primary_risk_output_domain": "credit_risk",
+      "secondary_risk_output_domains": [],
+      "business_context": "Corporate credit rating model annual validation package review.",
+      "scope_statement": "Review official rating model validation outputs for discriminatory power, calibration, grade migration, and override governance without recalculation.",
+      "input_documents": [
+        "RATING_MODEL_DOC_2026_V1",
+        "GRADE_DEFINITION_POLICY_2026_V1",
+        "OVERRIDE_GOVERNANCE_PACK_2026Q1"
+      ],
+      "data_readiness_status": "Ready",
+      "lineage_status": "Clear",
+      "calculation_engine_result_reference": "RATING_MODEL_VALIDATION_ENGINE_2026Q1_005",
+      "policy_reference": "CREDIT_RATING_MODEL_POLICY_2026_V1",
+      "regulatory_source_reference": "KR-BANK-SUP-DETAIL-ANNEX3",
+      "evidence_gaps": [],
+      "expected_provisional_judgement": "Green",
+      "expected_action_notice_required": false,
+      "expected_gray_reason_code": null,
+      "human_reviewer_required": true,
+      "audit_trail_items": [
+        "model_document_version",
+        "validation_engine_log",
+        "grade_definition_version",
+        "override_pack_hash"
+      ]
+    },
+    {
+      "case_id": "SAMPLE-MARKET-001",
+      "request_id": "REQ-MARKET-001",
+      "request_type": "ad_hoc_validation",
+      "validation_object_type": "hybrid_risk_output",
+      "risk_output_domain": "market_risk",
+      "primary_risk_output_domain": "market_risk",
+      "secondary_risk_output_domains": [],
+      "business_context": "Trading book VaR backtesting and P&L attribution exception review.",
+      "scope_statement": "Review market risk engine VaR outputs, exception log, market data lineage, and P&L attribution evidence.",
+      "input_documents": [
+        "MARKET_RISK_LIMIT_POLICY_2026_V2",
+        "VAR_BACKTESTING_PACK_2026Q1",
+        "PLA_EXCEPTION_LOG_2026Q1"
+      ],
+      "data_readiness_status": "Ready",
+      "lineage_status": "Clear",
+      "calculation_engine_result_reference": "MR_ENGINE_VAR_PLA_2026Q1_014",
+      "policy_reference": "MARKET_RISK_POLICY_2026_V2",
+      "regulatory_source_reference": "BIS-BF",
+      "evidence_gaps": [],
+      "expected_provisional_judgement": "Yellow",
+      "expected_action_notice_required": true,
+      "expected_gray_reason_code": null,
+      "human_reviewer_required": true,
+      "audit_trail_items": [
+        "position_snapshot_id",
+        "market_data_vendor_version",
+        "engine_run_log",
+        "limit_breach_review"
+      ]
+    },
+    {
+      "case_id": "SAMPLE-OPRISK-001",
+      "request_id": "REQ-OPRISK-001",
+      "request_type": "regular_monitoring",
+      "validation_object_type": "aggregation_reporting",
+      "risk_output_domain": "operational_risk",
+      "primary_risk_output_domain": "operational_risk",
+      "secondary_risk_output_domains": [],
+      "business_context": "Operational loss event and KRI dashboard quarterly validation.",
+      "scope_statement": "Review loss event completeness, RCSA linkage, KRI definitions, and scenario approval evidence.",
+      "input_documents": [
+        "OP_LOSS_EVENT_REGISTER_2026Q1",
+        "KRI_DEFINITION_BOOK_2026_V1",
+        "RCSA_RESULT_2026Q1"
+      ],
+      "data_readiness_status": "Gap",
+      "lineage_status": "Unclear",
+      "calculation_engine_result_reference": "OPRISK_DASHBOARD_RESULT_2026Q1_003",
+      "policy_reference": "OPERATIONAL_RISK_POLICY_2026_V1",
+      "regulatory_source_reference": "BIS-BCP-2024",
+      "evidence_gaps": [
+        "loss_event_boundary_definition",
+        "rcsa_to_loss_event_mapping"
+      ],
+      "expected_provisional_judgement": "Gray",
+      "expected_action_notice_required": true,
+      "expected_gray_reason_code": "LINEAGE_UNCLEAR",
+      "human_reviewer_required": true,
+      "audit_trail_items": [
+        "loss_event_register_hash",
+        "kri_definition_version",
+        "rcsa_evidence_pack"
+      ]
+    },
+    {
+      "case_id": "SAMPLE-IRRBB-001",
+      "request_id": "REQ-IRRBB-001",
+      "request_type": "regular_validation",
+      "validation_object_type": "hybrid_risk_output",
+      "risk_output_domain": "interest_rate_risk",
+      "primary_risk_output_domain": "interest_rate_risk",
+      "secondary_risk_output_domains": [],
+      "business_context": "IRRBB EVE/NII scenario result validation for banking book interest rate risk.",
+      "scope_statement": "Review ALM engine EVE/NII outputs, behavioral assumptions, repricing mapping, and interest rate curve source evidence.",
+      "input_documents": [
+        "IRRBB_POLICY_2026_V1",
+        "ALM_BEHAVIORAL_ASSUMPTION_APPROVAL_2026",
+        "RATE_CURVE_SOURCE_EVIDENCE_2026Q1"
+      ],
+      "data_readiness_status": "Ready",
+      "lineage_status": "Clear",
+      "calculation_engine_result_reference": "ALM_IRRBB_EVE_NII_2026Q1_022",
+      "policy_reference": "IRRBB_POLICY_2026_V1",
+      "regulatory_source_reference": "BIS-BF",
+      "evidence_gaps": [],
+      "expected_provisional_judgement": "Green",
+      "expected_action_notice_required": false,
+      "expected_gray_reason_code": null,
+      "human_reviewer_required": true,
+      "audit_trail_items": [
+        "cashflow_extract_hash",
+        "curve_version",
+        "behavioral_assumption_approval",
+        "engine_run_log"
+      ]
+    },
+    {
+      "case_id": "SAMPLE-LIQ-001",
+      "request_id": "REQ-LIQ-001",
+      "request_type": "regular_monitoring",
+      "validation_object_type": "aggregation_reporting",
+      "risk_output_domain": "liquidity_risk",
+      "primary_risk_output_domain": "liquidity_risk",
+      "secondary_risk_output_domains": [],
+      "business_context": "LCR/NSFR and liquidity stress cash-flow monitoring review.",
+      "scope_statement": "Review liquidity engine outputs, HQLA evidence, runoff assumptions, and cash-flow projection lineage.",
+      "input_documents": [
+        "LIQUIDITY_POLICY_2026_V2",
+        "HQLA_ELIGIBILITY_PACK_2026Q1",
+        "RUNOFF_ASSUMPTION_APPROVAL_2026"
+      ],
+      "data_readiness_status": "Ready",
+      "lineage_status": "Clear",
+      "calculation_engine_result_reference": "LIQ_ENGINE_LCR_NSFR_2026Q1_009",
+      "policy_reference": "LIQUIDITY_RISK_POLICY_2026_V2",
+      "regulatory_source_reference": "BIS-BF",
+      "evidence_gaps": [],
+      "expected_provisional_judgement": "Green",
+      "expected_action_notice_required": false,
+      "expected_gray_reason_code": null,
+      "human_reviewer_required": true,
+      "audit_trail_items": [
+        "hqla_pack_hash",
+        "cashflow_projection_id",
+        "runoff_assumption_version",
+        "engine_run_log"
+      ]
+    },
+    {
+      "case_id": "SAMPLE-STRATEGIC-001",
+      "request_id": "REQ-STRATEGIC-001",
+      "request_type": "ad_hoc_validation",
+      "validation_object_type": "hybrid_risk_output",
+      "risk_output_domain": "strategic_risk",
+      "primary_risk_output_domain": "strategic_risk",
+      "secondary_risk_output_domains": [
+        "capital_adequacy_aggregation"
+      ],
+      "business_context": "New digital banking strategy scenario impact review for profitability and capital planning.",
+      "scope_statement": "Review official strategy scenario pack, management approval evidence, and capital plan linkage without projecting new figures.",
+      "input_documents": [
+        "STRATEGY_SCENARIO_PACK_2026_V1",
+        "CAPITAL_PLAN_LINKAGE_MEMO_2026",
+        "BOARD_STRATEGY_MINUTES_REF_2026_04"
+      ],
+      "data_readiness_status": "Gap",
+      "lineage_status": "Clear",
+      "calculation_engine_result_reference": "STRATEGIC_SCENARIO_ENGINE_2026_004",
+      "policy_reference": "STRATEGIC_RISK_POLICY_2026_V1",
+      "regulatory_source_reference": "KR-ICAAP-ANNEX3-9",
+      "evidence_gaps": [
+        "management_approval_signature"
+      ],
+      "expected_provisional_judgement": "Gray",
+      "expected_action_notice_required": true,
+      "expected_gray_reason_code": "EVIDENCE_INSUFFICIENT",
+      "human_reviewer_required": true,
+      "audit_trail_items": [
+        "scenario_pack_hash",
+        "capital_plan_version",
+        "board_minutes_reference"
+      ]
+    },
+    {
+      "case_id": "SAMPLE-REPUTATION-001",
+      "request_id": "REQ-REPUTATION-001",
+      "request_type": "ad_hoc_validation",
+      "validation_object_type": "risk_factor_validation",
+      "risk_output_domain": "reputational_risk",
+      "primary_risk_output_domain": "reputational_risk",
+      "secondary_risk_output_domains": [
+        "operational_risk"
+      ],
+      "business_context": "Customer complaint, media monitoring, and conduct issue reputational risk indicator review.",
+      "scope_statement": "Review source permission, event taxonomy, duplicate-removal evidence, and action tracking for reputational indicators.",
+      "input_documents": [
+        "REPUTATION_EVENT_TAXONOMY_2026_DRAFT",
+        "COMPLAINT_DATA_EXTRACT_2026Q1",
+        "MEDIA_MONITORING_VENDOR_ATTESTATION_2026"
+      ],
+      "data_readiness_status": "Gap",
+      "lineage_status": "Unclear",
+      "calculation_engine_result_reference": "REPUTATION_MONITOR_RESULT_2026Q1_002",
+      "policy_reference": "REPUTATIONAL_RISK_POLICY_DRAFT_2026",
+      "regulatory_source_reference": "BIS-BCP-2024",
+      "evidence_gaps": [
+        "approved_event_taxonomy",
+        "external_data_usage_permission",
+        "deduplication_rule_evidence"
+      ],
+      "expected_provisional_judgement": "Gray",
+      "expected_action_notice_required": true,
+      "expected_gray_reason_code": "POLICY_UNDEFINED",
+      "human_reviewer_required": true,
+      "audit_trail_items": [
+        "complaint_extract_hash",
+        "vendor_attestation_id",
+        "taxonomy_version"
+      ]
+    },
+    {
+      "case_id": "SAMPLE-CAPITAL-001",
+      "request_id": "REQ-CAPITAL-001",
+      "request_type": "regular_validation",
+      "validation_object_type": "aggregation_reporting",
+      "risk_output_domain": "capital_adequacy_aggregation",
+      "primary_risk_output_domain": "capital_adequacy_aggregation",
+      "secondary_risk_output_domains": [
+        "credit_risk",
+        "market_risk",
+        "operational_risk"
+      ],
+      "business_context": "ICAAP economic capital and risk appetite dashboard aggregation review.",
+      "scope_statement": "Review official aggregation engine output, risk-type mapping, diversification policy, and reconciliation evidence.",
+      "input_documents": [
+        "ICAAP_AGGREGATION_POLICY_2026_V1",
+        "RISK_APPETITE_DASHBOARD_SPEC_2026",
+        "RECONCILIATION_PACK_2026Q1"
+      ],
+      "data_readiness_status": "Ready",
+      "lineage_status": "Clear",
+      "calculation_engine_result_reference": "ICAAP_AGG_ENGINE_2026Q1_011",
+      "policy_reference": "ICAAP_POLICY_2026_V1",
+      "regulatory_source_reference": "KR-ICAAP-ANNEX3-9",
+      "evidence_gaps": [],
+      "expected_provisional_judgement": "Yellow",
+      "expected_action_notice_required": true,
+      "expected_gray_reason_code": null,
+      "human_reviewer_required": true,
+      "audit_trail_items": [
+        "risk_type_mapping_version",
+        "aggregation_engine_log",
+        "reconciliation_pack_hash",
+        "committee_report_reference"
+      ]
+    },
+    {
+      "case_id": "SAMPLE-MULTI-001",
+      "request_id": "REQ-MULTI-001",
+      "request_type": "ad_hoc_validation",
+      "validation_object_type": "hybrid_risk_output",
+      "risk_output_domain": "multi_risk_or_unclear",
+      "primary_risk_output_domain": "multi_risk_or_unclear",
+      "secondary_risk_output_domains": [
+        "credit_risk",
+        "liquidity_risk",
+        "market_risk"
+      ],
+      "business_context": "Enterprise stress test pack with unclear primary owner and mixed risk outputs.",
+      "scope_statement": "Classify primary/secondary risk output domains and request official ownership and policy mapping before quantitative conclusion.",
+      "input_documents": [
+        "ENTERPRISE_STRESS_TEST_PACK_2026_DRAFT",
+        "SCENARIO_NARRATIVE_2026_DRAFT"
+      ],
+      "data_readiness_status": "Gap",
+      "lineage_status": "Unclear",
+      "calculation_engine_result_reference": "",
+      "policy_reference": "",
+      "regulatory_source_reference": "KR-STRESS-ANNEX19",
+      "evidence_gaps": [
+        "primary_owner",
+        "policy_reference",
+        "calculation_engine_result_reference",
+        "cross_risk_lineage"
+      ],
+      "expected_provisional_judgement": "Gray",
+      "expected_action_notice_required": true,
+      "expected_gray_reason_code": "EVIDENCE_INSUFFICIENT",
+      "human_reviewer_required": true,
+      "audit_trail_items": [
+        "draft_pack_hash",
+        "scenario_narrative_version"
+      ]
+    }
+  ]
+}

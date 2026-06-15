@@ -1,0 +1,17 @@
+regulation_mappings:
+  - regulation_mapping_id: basel-fss-sample-map-v1
+    source_family: Basel/FSS
+    mapping_status: sample_configurable_mapping
+    hardcoded_thresholds: false
+    human_approval_required_for_production: true
+
+  - regulation_mapping_id: climate-risk-global-guidance-v1
+    source_family: Basel-Climate/NGFS/TCFD-ISSB
+    mapping_status: sample_configurable_mapping
+    hardcoded_thresholds: false
+    human_approval_required_for_production: true
+  - regulation_mapping_id: ai-model-risk-global-guidance-v1
+    source_family: Basel-principle-aligned/NIST-AI-RMF/OECD-AI
+    mapping_status: sample_configurable_mapping
+    hardcoded_thresholds: false
+    human_approval_required_for_production: true
