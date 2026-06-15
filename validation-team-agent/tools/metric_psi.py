@@ -1,7 +1,16 @@
 """PSI (Population Stability Index) 계산.
 
 bin 정의는 호출자가 결정하거나, 분위수 기반 자동 분할을 사용한다.
-0 division을 방지하기 위해 모든 bin에 epsilon을 더한 후 비율을 계산한다.
+0 division을 방지하기 위해 모든 bin 비율을 epsilon(=floor)으로 clip 한 후
+비율을 계산한다.
+
+Epsilon 정책:
+    ``_EPS = 1e-4`` (=0.01%) 를 사용한다. 이는 업계 관행(Sid Siddiqi, Credit Risk
+    Scorecards; SAS / Open Risk Manual PSI 가이드) 기준의 빈 bin floor 와
+    일치한다. 더 작은 값(예: 1e-6) 을 쓰면 단일 빈 bin 하나만으로 PSI 가 ≈ 1.15
+    까지 부풀어 false alarm 이 발생한다(10% expected → 0% actual 시). 1e-4
+    floor 에서는 동일 시나리오의 단일 bin 기여가 약 0.69 로 묶여, PSI 가 임계
+    0.25 / 0.10 해석 구간을 넘기더라도 ≥ 1 의 임의 인플레이션을 피한다.
 """
 
 from __future__ import annotations
@@ -11,7 +20,9 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-_EPS = 1e-6
+# 빈 bin floor. 업계 관행(0.01%) — 더 작은 값은 단일 빈 bin 만으로 PSI > 1 의
+# false alarm 을 만든다.
+_EPS = 1e-4
 
 
 def _percentile_bins(expected: np.ndarray, bins: int) -> np.ndarray:

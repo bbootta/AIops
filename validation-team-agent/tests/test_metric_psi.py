@@ -46,3 +46,23 @@ def test_psi_by_bucket_basic():
     assert out["n_expected"] == 5
     assert out["n_actual"] == 5
     assert np.isfinite(out["psi"])
+
+
+def test_eps_floor_is_industry_standard():
+    # 빈 bin floor 는 0.01% (=1e-4) — 더 작은 값은 단일 빈 bin 만으로 PSI > 1
+    # false alarm 을 만든다 (모듈 docstring 참조).
+    assert psi._EPS == 1e-4
+
+
+def test_empty_bin_does_not_inflate_psi_above_one():
+    # 시나리오: 두 bucket 분포에서 한 bucket 이 10% expected → 0% actual.
+    # 이전 epsilon=1e-6 floor 에서는 단일 bin 만으로 PSI ≈ 1.15 false alarm.
+    # 새 epsilon=1e-4 floor 에서는 PSI 가 1.0 미만으로 묶여야 한다.
+    expected = ["A"] * 10 + ["B"] * 90  # 10% / 90%
+    actual = ["B"] * 100  # 0% / 100%
+    out = psi.calculate_psi_by_bucket(expected, actual)
+    assert np.isfinite(out["psi"])
+    # 핵심 조건: 빈 bin 한 개의 epsilon-기여만으로 PSI 가 1 을 넘어선 안 된다.
+    assert out["psi"] < 1.0
+    # 동시에, 분명한 drift 이므로 0.25 (보편적 high-drift 임계) 이상은 유지.
+    assert out["psi"] > 0.25
