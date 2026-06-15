@@ -1247,6 +1247,10 @@ function respawn() {
   air = MAX_AIR;
   fallDist = 0;
   drownTimer = 0;
+  flashTimer = 0;
+  lavaTimer = 0;
+  portalTimer = 0;
+  portalCooldown = 0;
 }
 
 function damage(n) {
@@ -1317,10 +1321,10 @@ function updatePlayer(dt) {
   if (flying) {
     player.vel.y = (jumpHeld ? FLY_SPEED : 0) - (running ? FLY_SPEED : 0);
   } else if (swimming) {
-    // 물속: 약한 중력 + Space로 위로 헤엄
-    player.vel.y -= GRAVITY * 0.25 * dt;
+    // 물속: 가벼운 부력으로 천천히 떠오름 + Space로 위로 헤엄
+    player.vel.y += 4 * dt;
     if (jumpHeld) player.vel.y = SWIM_SPEED;
-    player.vel.y = Math.max(player.vel.y, -3);
+    player.vel.y = Math.max(-3, Math.min(player.vel.y, SWIM_SPEED));
   } else {
     if (jumpHeld && player.onGround) { player.vel.y = JUMP_SPEED; player.onGround = false; }
     player.vel.y -= GRAVITY * dt;
