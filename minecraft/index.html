@@ -2042,23 +2042,50 @@ addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-const save = loadGame();
-if (save && save.dims) {
-  for (const name of ['overworld', 'nether']) {
-    const sd = save.dims[name];
-    if (!sd) continue;
-    const d = DIMS[name];
-    for (const [k, t] of sd.edits || []) d.edits.set(k, t);
-    d.pos = sd.pos || null;
-    d.cropStages = sd.crops || [];
+let saveResetReason = '';
+try {
+  const save = loadGame();
+  if (save === null) {
+    selectSlot(0);
+  } else {
+    // 형식 검증: 손상되거나 변조된 저장은 통째로 폐기하고 새 월드로 시작
+    if (!save || typeof save !== 'object') throw new Error('save: bad root');
+    if (save.dims != null && typeof save.dims !== 'object') throw new Error('save: dims not object');
+    if (save.inv != null && typeof save.inv !== 'object') throw new Error('save: inv not object');
+    if (save.tools != null && typeof save.tools !== 'object') throw new Error('save: tools not object');
+    if (save.dims) {
+      for (const name of ['overworld', 'nether']) {
+        const sd = save.dims[name];
+        if (sd == null) continue;
+        if (typeof sd !== 'object') throw new Error('save: dim not object');
+        if (sd.edits != null && !Array.isArray(sd.edits)) throw new Error('save: edits not array');
+        if (sd.crops != null && !Array.isArray(sd.crops)) throw new Error('save: crops not array');
+        const d = DIMS[name];
+        for (const pair of sd.edits || []) {
+          if (!Array.isArray(pair) || pair.length < 2) throw new Error('save: edit pair bad');
+          d.edits.set(pair[0], pair[1]);
+        }
+        d.pos = sd.pos || null;
+        d.cropStages = sd.crops || [];
+      }
+    }
+    curDim = save.curDim === 'nether' ? 'nether' : 'overworld';
+    if (typeof save.dayTime === 'number') dayTime = save.dayTime;
+    if (typeof save.health === 'number') health = Math.min(MAX_HEALTH, Math.max(1, save.health));
+    if (save.inv) for (const k in inv) inv[k] = Math.max(0, save.inv[k] | 0);
+    if (save.tools) for (const k in tools) tools[k] = !!save.tools[k];
+    selectSlot(save.slot >= 0 && save.slot < HOTBAR.length ? save.slot : 0);
   }
-  curDim = save.curDim === 'nether' ? 'nether' : 'overworld';
-  if (typeof save.dayTime === 'number') dayTime = save.dayTime;
-  if (typeof save.health === 'number') health = Math.min(MAX_HEALTH, Math.max(1, save.health));
-  if (save.inv) for (const k in inv) inv[k] = Math.max(0, save.inv[k] | 0);
-  if (save.tools) for (const k in tools) tools[k] = !!save.tools[k];
-  selectSlot(save.slot >= 0 && save.slot < HOTBAR.length ? save.slot : 0);
-} else {
+} catch (e) {
+  console.warn('저장 파일 손상/불일치, 초기화합니다:', e);
+  try { localStorage.removeItem(SAVE_KEY); } catch (_) {}
+  // 부분적으로 적용된 상태를 폐기하고 깨끗한 차원으로 다시 시작
+  for (const name of ['overworld', 'nether']) {
+    const d = DIMS[name];
+    if (d) { d.edits.clear(); d.pos = null; d.cropStages = []; }
+  }
+  curDim = 'overworld';
+  saveResetReason = String(e && e.message || e);
   selectSlot(0);
 }
 updateHotbar();
@@ -2079,6 +2106,15 @@ updateHotbar();
       location.reload();
     });
     slotsEl.appendChild(b);
+  }
+  // 저장 손상/불일치로 초기화한 경우 한 번 알림
+  if (saveResetReason) {
+    const note = document.createElement('div');
+    note.style.marginTop = '10px';
+    note.style.color = '#ffd54a';
+    note.style.fontSize = '13px';
+    note.textContent = '저장 파일이 손상되었거나 호환되지 않아 새 월드로 시작했습니다.';
+    slotsEl.parentNode.insertBefore(note, slotsEl.nextSibling);
   }
 }
 
