@@ -42,11 +42,28 @@ TradingAgents는 실제 트레이딩 조직을 모사한 다중 에이전트 구
   "ticker": "<symbol>",
   "action": "BUY|HOLD|SELL",
   "confidence": 0.0,
+  "rationale": "...",
+  "size": 0.0,
+  "entry_price": null,
+  "stop_loss": null,
+  "time_horizon": "intraday|short|medium|long",
   "thesis": ["..."],
   "risks": ["..."],
-  "invalidators": ["..."]
+  "invalidators": ["..."],
+  "evidence": []
 }
 ```
+
+- `action`: BUY/SELL/HOLD 중 하나.
+- `confidence`: 해당 결론에 대한 확신도.
+- `rationale`: 단문 요약 (한 문장).
+- `size`: 포트폴리오 대비 비중 (0.0~1.0). HOLD 의 경우 반드시 0.0.
+- `entry_price`: 지정 진입가. HOLD 또는 시장가일 경우 null.
+- `stop_loss`: 손절가. 미설정 시 null.
+- `time_horizon`: intraday/short/medium/long 중 하나.
+- `evidence`: 근거 출처 리스트 (선택).
+
+> 소유권: `size` 와 `stop_loss` 는 **Risk Manager** 소유. Trader 는 제안하고 Risk Manager 가 조정한다. 포트폴리오 누적 `size` 에 대한 최종 권한은 **Portfolio Manager** 에 있다.
 
 ## 4) 역할 프롬프트 (최소형)
 
