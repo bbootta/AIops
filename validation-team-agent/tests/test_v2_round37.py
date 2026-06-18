@@ -207,6 +207,7 @@ EXPECTED_PAGES = {
     "stress_test.html", "change_audit.html",
     "esg_climate.html", "cyber_risk.html", "fx_dependency.html",
     "exec_summary.html",
+    "audit_timeseries.html",
 }
 
 

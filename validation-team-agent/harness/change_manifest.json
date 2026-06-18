@@ -1920,6 +1920,21 @@
       "rollback_rule": "tools/report_export.py + 3 sync edit + 테스트 제거 시 R62 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0129",
+      "timestamp": "2026-06-18 23:19:19",
+      "component": "tools/audit_timeseries.py + tools/report_pack.py (audit_timeseries.html)",
+      "change_type": "create",
+      "evidence": "/goal '이어서' R64: 단일 run 만 보고서에 반영 — 누적 run.jsonl 의 시계열 분석 (반복 fail 패턴/elapsed trend/dynamic 활성 history) 부재",
+      "root_cause": "각 보고서 빌드는 단일 demo run 기준. 다회 실행된 워크플로우의 누적 fail rate / latency trend / escalation history 가 시각화되지 않았음",
+      "targeted_fix": "tools/audit_timeseries.py: split_runs (1.req 경계) / summarise_run / step_fail_rates (run 분모 + fail 분자) / dynamic_activations / run_trend / elapsed_stats / analyse_log. report_pack 의 audit_timeseries.html: run 별 fail/warning/elapsed trend 차트 + step 별 fail rate Top 10 + 최근 20 runs 표 + 최근 10 dynamic 활성 + 운영 해석. build_pack 에 log_dir 인자 추가 → 누적 로그 분석",
+      "expected_benefit": "운영자가 어떤 step 이 반복 fail 인지·실행시간 outlier 가 발생한 시점·escalation 패턴을 한 화면에. recurring_findings 와 연결되는 자료",
+      "expected_regression_risk": "low — read-only 도구. build_pack 의 log_dir 은 기본값 None 으로 호환. 로그 미존재 시 안내 메시지 fallback",
+      "validation_method": "tests/test_v2_round64.py 15 cases (split_runs/step_fail_rates/run_trend/dynamic/elapsed/missing log/page 통합/링크/self-contained) + 전체 912 통과 + ruff/mypy strict clean",
+      "rollback_rule": "audit_timeseries 모듈 + 페이지 + build_pack log_dir 인자 제거 시 R63 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

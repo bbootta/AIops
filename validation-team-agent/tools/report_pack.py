@@ -934,6 +934,131 @@ limit 관리 (감독원 외환건전성 규정).</li>
     return _page("심화 — FX 의존도 + USD funding + NOP + 원화 급락 stress", body)
 
 
+def _audit_timeseries_page(log_dir: Path | None) -> str:
+    """누적 run.jsonl 분석 — run 별 trend + step fail rate + dynamic 활성."""
+    from tools.audit_timeseries import analyse_log
+
+    log_path = (Path(log_dir) if log_dir else Path("logs")) / "run.jsonl"
+    if not log_path.exists():
+        body = (f"<p>로그 파일 미존재: <code>{_esc(log_path)}</code>. "
+                f"<code>tools.run_workflow_demo</code> 실행 후 다시 빌드.</p>")
+        return _page("심화 — Audit log 시계열 분석", body)
+
+    a = analyse_log(log_path)
+    run_trend = a["run_trend"]
+    fail_rates = a["step_fail_rates"]
+    dyn = a["dynamic_activations"]
+    elapsed = a["elapsed_stats"]
+
+    if a["n_runs"] == 0:
+        return _page("심화 — Audit log 시계열 분석",
+                     "<p>유효한 run 이벤트 없음.</p>")
+
+    # Trend 차트 (run index → fail / warning / elapsed)
+    fail_chart = trend_line(
+        [(f"#{r['run_index']+1}", float(r["fails"])) for r in run_trend],
+        title="run 별 fail step 수", fmt="{:.0f}")
+    warn_chart = trend_line(
+        [(f"#{r['run_index']+1}", float(r["warnings"])) for r in run_trend],
+        title="run 별 warning step 수", fmt="{:.0f}")
+    elapsed_chart = (
+        trend_line(
+            [(f"#{r['run_index']+1}", float(r["elapsed_sec"] or 0))
+             for r in run_trend],
+            title="run 별 실행 시간 (sec)", fmt="{:.1f}")
+        if any(r["elapsed_sec"] is not None for r in run_trend) else "")
+
+    # 부문별 fail rate 상위 10
+    top_fails = [r for r in fail_rates if r["n_fails"] > 0][:10]
+    fail_chart_bar = hbar(
+        [(r["step_id"], r["fail_rate"]) for r in top_fails],
+        title="step 별 fail rate (Top 10)", fmt="{:.1%}",
+        colors=[PALETTE["fail" if r["fail_rate"] > 0.20
+                else "warning" if r["fail_rate"] > 0.0 else "ok"]
+                for r in top_fails]) if top_fails else "<p>fail step 없음.</p>"
+
+    fail_rows = "".join(
+        f"<tr><td><code>{_esc(r['step_id'])}</code></td>"
+        f"<td>{r['runs_with_step']}</td>"
+        f"<td>{r['n_fails']}</td>"
+        f"<td>{r['fail_rate']:.1%}</td></tr>"
+        for r in fail_rates[:15]) or "<tr><td colspan='4'>step 없음</td></tr>"
+
+    trend_rows = "".join(
+        f"<tr><td>#{r['run_index']+1}</td>"
+        f"<td>{_esc(r['started_at'] or '-')}</td>"
+        f"<td>{r['n_steps']}</td>"
+        f"<td>{r['fails']}</td>"
+        f"<td>{r['warnings']}</td>"
+        f"<td>{'예' if r['escalated'] else '아니오'}</td>"
+        f"<td>{(r['elapsed_sec'] or 0):.1f}</td></tr>"
+        for r in run_trend[-20:])  # 최근 20 runs
+
+    dyn_rows = "".join(
+        f"<tr><td>#{d['run_index']+1}</td>"
+        f"<td><code>{_esc(d['step_id'])}</code></td>"
+        f"<td>{_esc(d['timestamp'] or '-')}</td>"
+        f"<td>{_esc(d['status'] or '-')}</td>"
+        f"<td>{_esc(d['detail'][:80])}</td></tr>"
+        for d in dyn[-10:]) or "<tr><td colspan='5'>dynamic 활성 없음</td></tr>"
+
+    elapsed_table = (_kv_table([
+        ("총 run 수", elapsed["n"]),
+        ("min (sec)", f"{elapsed['min_sec']:.1f}"),
+        ("median (sec)", f"{elapsed['median_sec']:.1f}"),
+        ("p90 (sec)", f"{elapsed['p90_sec']:.1f}"),
+        ("max (sec)", f"{elapsed['max_sec']:.1f}"),
+        ("mean (sec)", f"{elapsed['mean_sec']:.1f}"),
+    ]) if elapsed["n"] else "<p>elapsed 미측정.</p>")
+
+    body = f"""
+<p>누적 워크플로우 실행 로그 (<code>{_esc(a['log_path'])}</code>) 의 시계열 분석.
+총 {a['n_runs']:,} run, {a['n_records']:,} step 이벤트.</p>
+
+<h2>run 별 추세</h2>
+{fail_chart}
+{warn_chart}
+{elapsed_chart}
+
+<h2>실행 시간 통계</h2>
+{elapsed_table}
+
+<h2>step 별 fail rate</h2>
+{fail_chart_bar}
+<table>
+<tr><th>step</th><th>실행 run 수</th><th>fail 발생</th><th>fail rate</th></tr>
+{fail_rows}
+</table>
+
+<h2>최근 20 runs</h2>
+<table>
+<tr><th>run</th><th>시작</th><th>step</th><th>fail</th>
+<th>warning</th><th>escalated</th><th>elapsed (s)</th></tr>
+{trend_rows}
+</table>
+
+<h2>최근 동적 활성 step (escalation 등)</h2>
+<table>
+<tr><th>run</th><th>step</th><th>timestamp</th><th>status</th><th>detail</th></tr>
+{dyn_rows}
+</table>
+
+<h2>해석 (운영 관점)</h2>
+<ul>
+<li><b>step 별 fail rate</b>: 반복 fail 의 부문 식별 — recurring_findings
+연결 (memory/recurring_findings.json).</li>
+<li><b>elapsed median vs p90</b>: 정상 분포에서 p90/median &lt; 1.5 가 안정.
+초과 시 일부 run 이 outlier — handler 별 latency 분석은
+<code>python -m tools.benchmark</code> 로 확장.</li>
+<li><b>dynamic 활성 history</b>: escalation 발동 패턴. 같은 step 의 escalation
+반복 시 임계/모형 재검토.</li>
+<li><b>본 분석은 read-only</b> — 로그 삭제/수정 불가 (CLAUDE.md §5 감사추적).</li>
+</ul>
+<p><a href="change_audit.html">← 변경 매니페스트 추적</a> · <a href="executive.html">경영진 보고서로</a></p>
+"""
+    return _page("심화 — Audit log 시계열 분석", body)
+
+
 def _exec_summary_page(demo: dict) -> str:
     """CRO 1페이지 TL;DR — 신호등 / 헤드라인 3 / 전 분기 대비 / Risk Watch."""
     from tools.executive_insights import (
@@ -2994,6 +3119,7 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 <li><a href="ifrs9_deep.html">IFRS 9 ECL Stage Migration</a></li>
 <li><a href="ifrs9_fli_deep.html">IFRS 9 FLI overlay + 가중 ECL + PMA</a></li>
 <li><a href="change_audit.html">변경 감사 (Change Manifest)</a></li>
+<li><a href="audit_timeseries.html">Audit log 시계열 분석 (run.jsonl)</a></li>
 <li><a href="esg_climate.html">ESG / 기후 위험 (NGFS + 전환/물리적)</a></li>
 <li><a href="cyber_risk.html">Cyber risk + Operational resilience</a></li>
 <li><a href="fx_dependency.html">FX 의존도 + USD funding + 원화 stress</a></li>
@@ -3083,6 +3209,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="ifrs9_fli_deep.html">IFRS 9 — FLI overlay + 가중 ECL + PMA</a></li>
 <li><a href="stress_test.html">스트레스 테스트 — baseline / adverse / severe</a></li>
 <li><a href="change_audit.html">변경 감사 — 매니페스트 CHG 추적</a></li>
+<li><a href="audit_timeseries.html">Audit log 시계열 — run 별 trend + step fail rate</a></li>
 <li><a href="esg_climate.html">ESG / 기후 — NGFS 시나리오 + 전환/물리적 위험</a></li>
 <li><a href="cyber_risk.html">Cyber risk + Operational resilience (BCBS d533)</a></li>
 <li><a href="fx_dependency.html">FX — 통화별 NOP + USD funding + 원화 stress</a></li>
@@ -3103,6 +3230,7 @@ def build_pack(
     out_dir: str | Path,
     *,
     provenance: dict | None = None,
+    log_dir: str | Path | None = None,
 ) -> list[Path]:
     """보고서 팩을 생성하고 생성 파일 목록을 반환한다.
 
@@ -3150,6 +3278,8 @@ def build_pack(
     pages["cyber_risk.html"] = _cyber_risk_page()
     pages["fx_dependency.html"] = _fx_dependency_page()
     pages["exec_summary.html"] = _exec_summary_page(demo)
+    pages["audit_timeseries.html"] = _audit_timeseries_page(
+        Path(log_dir) if log_dir else None)
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)
@@ -3184,7 +3314,8 @@ def main(argv: list[str] | None = None) -> int:
     demo = run_demo(args.n, args.stress, args.seed, log_dir)
     request = build_request(args.n, stress=args.stress, seed=args.seed)
     prov = build_provenance(request, n=args.n, seed=args.seed, stress=args.stress)
-    written = build_pack(demo, request, args.out, provenance=prov)
+    written = build_pack(demo, request, args.out, provenance=prov,
+                         log_dir=log_dir)
     for p in written:
         sys.stdout.write(f"{p}\n")
     sys.stdout.write(f"보고서 팩 {len(written)}개 페이지 생성: {args.out}/index.html\n")
