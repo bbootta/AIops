@@ -1890,6 +1890,21 @@
       "rollback_rule": "calculate_survival_rate 제거 시 alias 만 잔존하므로 backwards-compat 유지.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0127",
+      "timestamp": "2026-06-18 13:08:23",
+      "component": "tools/report_pack.py (exec_summary.html)",
+      "change_type": "create",
+      "evidence": "/goal '이어서' R62: CRO 가 한 화면에서 의사결정 가능한 1페이지 TL;DR 부재 — executive.html 은 정보량은 많으나 신호등/QoQ/decision guide 통합 부재",
+      "root_cause": "executive 페이지는 detail 위주, 1페이지 의사결정 화면이 별도 필요 (CRO 가 30초 안에 결재 가능 수준)",
+      "targeted_fix": "exec_summary.html: 전체 상태 박스 (🟢/🟡/🔴) + KPI strip + 부문별 신호등 (15부문) + QoQ 표 (6 지표 ▲▼ + 임계 위반 마커) + Top 3 Risk Watch + 1페이지 의사결정 가이드 + 인접 보고서 nav. index/executive 에서 link",
+      "expected_benefit": "CRO 가 한 페이지에서 전체 상태 + QoQ 변화 + Top 위험 + 다음 액션 확인. 정상/주의/위험 시각 분리",
+      "expected_regression_risk": "low — 신규 페이지, 기존 executive 본문 무변경",
+      "validation_method": "tests/test_v2_round62.py 11 cases + 전체 통과 + ruff/mypy strict clean",
+      "rollback_rule": "exec_summary 페이지 + 2 link 제거 시 R61 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
