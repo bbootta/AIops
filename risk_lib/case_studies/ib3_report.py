@@ -20,6 +20,7 @@ import pandas as pd
 
 from risk_lib import viz, viz_advanced
 from risk_lib.html_report import CSS, _won, _pct, _esc, _table, _kpi, _badge
+from risk_lib.abbreviations import abbr_dict_card_html
 from risk_lib.case_studies import (
     BankAnalysis, compare_banks, stress_comparison, reverse_stress_comparison,
 )
@@ -224,12 +225,14 @@ def _comparison_index(analyses: list[BankAnalysis], *, ib3_meta: dict) -> str:
 <div class="card">
 <h2>7. 재현성</h2>
 <div class="repro-footer" style="font-family:Menlo,Consolas,monospace;font-size:11px;color:var(--muted);background:#f9fafb;padding:10px 14px;border:1px solid var(--line);border-radius:6px;word-break:break-all">
-산출 일자 {date.today().isoformat()} · seed 42 · risk_lib v0.14.0 + case_studies/internet_banks_2025<br>
+산출 일자 {date.today().isoformat()} · seed 42 · risk_lib v0.16.0 + case_studies/internet_banks_2025<br>
 각 은행 manifest_digest는 <code>manifest_ib3.json</code> 참조.<br>
 재현 명령:
 <code>python -c "from risk_lib.case_studies import run_all_banks; from risk_lib.case_studies.ib3_report import build_ib3_report; build_ib3_report(run_all_banks(seed=42), '/tmp/ib3')"</code>
 </div>
 </div>
+
+{abbr_dict_card_html()}
 """
     meta = (f"산출 기준 {date.today().isoformat()} · seed 42 · 공시 2025 Q3/연말 · 인뱅 3사 비교")
     return f"""<!doctype html>

@@ -9,6 +9,7 @@ import pandas as pd
 
 from risk_lib import viz, viz_advanced
 from risk_lib.html_report import CSS, _won, _pct, _esc, _table, _kpi, _badge
+from risk_lib.abbreviations import abbr_dict_card_html
 from risk_lib.case_studies import BankAnalysis, BANKS_2026Q1
 
 
@@ -191,6 +192,8 @@ NPL 0.84% → 0.87% (소폭), 연체율 1.07% (전년比 -0.19%p), 충당금 적
 <h2>7. 출처 (2026 Q1 공시자료)</h2>
 {sources}
 </div>
+
+{abbr_dict_card_html()}
 """
     meta = f"산출 기준 {date.today().isoformat()} · seed 42 · 공시 2025 Q3 → 2026 Q1 분기 비교"
     return f"""<!doctype html>
