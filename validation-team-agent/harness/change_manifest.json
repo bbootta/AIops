@@ -1905,6 +1905,21 @@
       "rollback_rule": "exec_summary 페이지 + 2 link 제거 시 R61 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0128",
+      "timestamp": "2026-06-18 13:26:16",
+      "component": "tools/report_export.py + cli/dispatch/README sync",
+      "change_type": "create",
+      "evidence": "/goal '이어서' R63: 보고서 팩은 HTML 만 — 실무진 분석용 CSV/JSON, 외부 BI 대시보드 연계용 export, 팩 인덱스(manifest) 부재",
+      "root_cause": "HTML 단일 형식이라 (1) 분석용 데이터 추출 불편 (2) 팩의 카탈로그·무결성 확인 불편 (3) 외부 시스템 연계 단절",
+      "targeted_fix": "tools/report_export.py: KPI/heatmap/QoQ/risk_watch/change_manifest_summary 5 CSV + 통합 export.json + 팩 인덱스 pack_manifest.json (페이지별 제목/부문/size/SHA-256/watermark·provenance 검증). vta dispatch 와 cli_index 와 README 동기화 (R34 sync gate 자동 적용)",
+      "expected_benefit": "검증자가 CSV 로 분석 직접 + 팩 무결성을 SHA-256 으로 검증 + 외부 BI 연계용 JSON. CRO 보고용 인쇄/공유는 HTML 그대로 사용",
+      "expected_regression_risk": "low — read-only 도구. 기존 report_pack 산출물 무변경. tmp dir 에 logs/export_temp 만 생성",
+      "validation_method": "tests/test_v2_round63.py 15 cases (5 CSV well-formed/15 부문/QoQ 산식/proposed status/통합 JSON/pack_manifest 페이지수·SHA-256·도메인 분류/CLI 카탈로그 동기성) + 전체 897 통과 + ruff/mypy strict clean",
+      "rollback_rule": "tools/report_export.py + 3 sync edit + 테스트 제거 시 R62 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

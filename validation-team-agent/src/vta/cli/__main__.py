@@ -33,6 +33,7 @@ _DISPATCH = {
     ("kpi",): "tools.governance_kpi",
     ("report", "pdf"): "tools.report_pdf",
     ("report", "pack"): "tools.report_pack",
+    ("report", "export"): "tools.report_export",
     ("dashboard",): "tools.dashboard",
     ("manifest",): "tools.manifest",
     ("findings",): "tools.findings",
