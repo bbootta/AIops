@@ -203,7 +203,7 @@ const SLOT = Math.min(3, Math.max(1, parseInt(localStorage.getItem('mc_slot') ||
 const SAVE_KEY = 'mc_save_v5_s' + SLOT;
 // 월드 시드 / 월드젠 버전: 시드나 지형 생성 규칙이 바뀌면 기존 저장은 무효화한다
 const WORLD_SEED = 1337 + SLOT * 9973;
-const WORLD_VER = 1;
+const WORLD_VER = 2; // v2: 금·에메랄드 광석 추가, 동굴 굴착 임계값 변경
 
 const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18 };
 // 블록이 아닌 아이템 (인벤토리 전용)
