@@ -934,6 +934,130 @@ limit 관리 (감독원 외환건전성 규정).</li>
     return _page("심화 — FX 의존도 + USD funding + NOP + 원화 급락 stress", body)
 
 
+def _exec_summary_page(demo: dict) -> str:
+    """CRO 1페이지 TL;DR — 신호등 / 헤드라인 3 / 전 분기 대비 / Risk Watch."""
+    from tools.executive_insights import (
+        domain_rows,
+        kpi_cards,
+        top_risks_and_actions,
+    )
+    from tools.sample_generators import quarterly_panel
+
+    summary = demo["summary"]
+    rows = domain_rows(demo)
+    risks, _ = top_risks_and_actions(demo, n=3)
+    cards = kpi_cards(demo)
+
+    n_fail = sum(1 for _, st, _, _ in rows if st == "fail")
+    n_warn = sum(1 for _, st, _, _ in rows if st == "warning")
+    n_ok = sum(1 for _, st, _, _ in rows if st == "ok")
+    overall = ("fail" if n_fail else "warning" if n_warn else "ok")
+    overall_color = PALETTE[overall]
+    overall_label = {"ok": "🟢 안정", "warning": "🟡 주의", "fail": "🔴 위험"}[overall]
+
+    # 신호등 strip — 부문별 1줄
+    light_html = ""
+    for label, status, detail, link in rows:
+        color = PALETTE[status]
+        light_html += (
+            f'<div style="display:flex;align-items:center;'
+            f'padding:.3rem 0;border-bottom:1px solid #eceff1;font-size:.92rem">'
+            f'<span style="width:14px;height:14px;background:{color};'
+            f'border-radius:50%;margin-right:.6rem"></span>'
+            f'<a href="{link}" style="flex:1;color:#212529;text-decoration:none">{_esc(label)}</a>'
+            f'<span style="color:#546e7a;font-size:.85rem">{_esc(detail[:55])}</span></div>')
+
+    # 전 분기 대비 변화 (quarterly_panel 마지막 2분기 비교)
+    panel = quarterly_panel()
+    prev, curr = panel[-2], panel[-1]
+    qoq_metrics = [
+        ("CET1", "{:.2%}", prev["cet1"], curr["cet1"], 0.07, True),
+        ("LCR", "{:.2f}", prev["lcr"], curr["lcr"], 1.0, True),
+        ("ICAAP", "{:.2f}", prev["icaap"], curr["icaap"], 1.0, True),
+        ("ΔEVE/Tier1", "{:.1%}", prev["delta_eve"], curr["delta_eve"], 0.15, False),
+        ("신용 PSI", "{:.3f}", prev["psi"], curr["psi"], 0.25, False),
+        ("집중 HHI", "{:.3f}", prev["hhi"], curr["hhi"], 0.18, False),
+    ]
+    qoq_rows = ""
+    for name, fmt, p, c, threshold, higher_better in qoq_metrics:
+        delta = c - p
+        sig = "▲" if delta > 0 else ("▼" if delta < 0 else "—")
+        good = (delta > 0) if higher_better else (delta < 0)
+        color = PALETTE["ok"] if good and delta != 0 else (
+            PALETTE["fail"] if not good and delta != 0 else PALETTE["neutral"])
+        breach = ((higher_better and c < threshold)
+                  or (not higher_better and c > threshold))
+        breach_html = (' <b style="color:#c62828">⚠ 임계</b>'
+                       if breach else '')
+        qoq_rows += (
+            f'<tr><td>{_esc(name)}</td>'
+            f'<td>{fmt.format(p)}</td>'
+            f'<td>{fmt.format(c)}</td>'
+            f'<td style="color:{color};font-weight:600">{sig} {fmt.format(abs(delta))}</td>'
+            f'<td>{fmt.format(threshold)} ({"min" if higher_better else "max"}){breach_html}</td>'
+            f'</tr>')
+
+    headline = (
+        f"적합성검증 자동 점검 결과 — fail {n_fail} · warning {n_warn} · ok {n_ok}. "
+        + ("Escalation 발동 (인간 검증자/MRMC 보고 필요)."
+           if summary["escalated"]
+           else "Escalation 미발동 (자동 점검 한정 위험 미식별)."))
+
+    risks_top3 = "".join(
+        f'<li><b>{_esc(r["label"])}</b> {_badge(r["status"])} — '
+        f'<a href="{r["link"]}">{_esc(r["detail"][:80])} →</a></li>'
+        for r in risks) or "<li>식별된 fail/warning 없음 — 표준 모니터링 유지.</li>"
+
+    body = f"""
+<div style="background:{overall_color};color:white;padding:1.2rem;
+border-radius:8px;margin-bottom:1rem;text-align:center">
+<div style="font-size:2rem;font-weight:700;margin-bottom:.3rem">{overall_label}</div>
+<div style="font-size:1rem">{headline}</div>
+</div>
+
+<h2>핵심 KPI (한눈에)</h2>
+{kpi_card_strip(cards)}
+
+<h2>부문별 신호등 (15 부문)</h2>
+<div style="border:1px solid #cfd8dc;border-radius:6px;padding:.5rem 1rem">
+{light_html}
+</div>
+
+<h2>전 분기 대비 변화 (QoQ)</h2>
+<table>
+<tr><th>지표</th><th>전 분기</th><th>당 분기</th><th>변화</th><th>임계</th></tr>
+{qoq_rows}
+</table>
+<p style="color:#546e7a;font-size:.88rem">▲ = 증가, ▼ = 감소. 색상: 초록 = 우호적,
+빨강 = 비우호적, 회색 = 변화 없음. 합성 panel (seed=31) 기반 — 운영 연계 시
+실측 panel 로 대체.</p>
+
+<h2>Top 3 Risk Watch (자동 점검 기준)</h2>
+<ol>{risks_top3}</ol>
+
+<h2>1페이지 의사결정 가이드</h2>
+<table>
+<tr><th>구분</th><th>액션</th></tr>
+<tr><th>🟢 안정 (모든 부문 ok)</th>
+<td>표준 모니터링 유지. 분기 KPI 보고 정상 진행.</td></tr>
+<tr><th>🟡 주의 (warning 포함)</th>
+<td>warning 부문 원인 분석 + 다음 분기 재점검 트리거.</td></tr>
+<tr><th>🔴 위험 (fail 포함)</th>
+<td>9.escalate 활성 → 인간 검증자 + MRMC 보고 + 매니페스트 CHG 기록.</td></tr>
+</table>
+
+<h2>인접 보고서</h2>
+<ul>
+<li><a href="executive.html">경영진 보고서 (히트맵 + Top 3 + 권고)</a></li>
+<li><a href="trends.html">4분기 추세</a></li>
+<li><a href="stress_test.html">스트레스 테스트 panel</a></li>
+<li><a href="change_audit.html">변경 매니페스트 추적</a></li>
+<li><a href="index.html">검증자 요약 (step 단위)</a></li>
+</ul>
+"""
+    return _page("CRO 1페이지 TL;DR — 적합성검증 요약 (DRAFT)", body, crumb=False)
+
+
 def _esg_climate_page() -> str:
     """ESG / 기후 위험 분해 — 물리적 / 전환 + NGFS 시나리오."""
     from tools.sample_generators import esg_climate_sample
@@ -2859,6 +2983,7 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 </ul>
 <h2>인접 보고서</h2>
 <ul>
+<li><a href="exec_summary.html">CRO 1페이지 TL;DR (신호등 + QoQ + Top 3 Risk Watch)</a></li>
 <li><a href="index.html">검증자 요약 보고서 (step 단위)</a></li>
 <li><a href="capital_icaap.html">자본 + 내부자본(ICAAP) 상세</a></li>
 <li><a href="alm.html">ALM 상세 (유동성·만기갭·IRRBB)</a></li>
@@ -2919,7 +3044,7 @@ def _index_page(demo: dict) -> str:
             f"<p>trigger: {_esc(', '.join(esc['outputs']['triggered_by']))} → "
             "인간 검증자 / MRMC 보고 필요.</p>")
     body = f"""
-<p><b><a href="executive.html">→ 경영진 보고서 (CRO 시야)</a></b> · 본 페이지는 검증자 시야 (step 단위)</p>
+<p><b><a href="exec_summary.html">→ CRO 1페이지 TL;DR</a></b> · <b><a href="executive.html">→ 경영진 보고서 (CRO 시야)</a></b> · 본 페이지는 검증자 시야 (step 단위)</p>
 {status_donut(s["status_counts"], title="step 판정 분포")}
 {_kv_table([("표본 수 (합성)", f"{demo['n_rows']:,}"),
             ("모드", "stress" if demo['stress_mode'] else "정상"),
@@ -3024,6 +3149,7 @@ def build_pack(
     pages["esg_climate.html"] = _esg_climate_page()
     pages["cyber_risk.html"] = _cyber_risk_page()
     pages["fx_dependency.html"] = _fx_dependency_page()
+    pages["exec_summary.html"] = _exec_summary_page(demo)
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)

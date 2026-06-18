@@ -206,6 +206,7 @@ EXPECTED_PAGES = {
     "ifrs9_deep.html", "ifrs9_fli_deep.html",
     "stress_test.html", "change_audit.html",
     "esg_climate.html", "cyber_risk.html", "fx_dependency.html",
+    "exec_summary.html",
 }
 
 
