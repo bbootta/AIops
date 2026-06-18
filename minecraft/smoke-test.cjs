@@ -121,5 +121,16 @@ try {
     console.log('  [B] 네더 전이 확인됨');
   }, { noMove: true });
 } catch (e) { fails++; console.log('  [B] FAIL:', (e && e.stack) || e); }
+
+// C: 네더에 직접 입장(귀환 포탈 없음) 후 장시간 구동 — 적 스폰/추격/크리퍼 자폭·거미 벽타기 경로 실행
+const saveC = JSON.stringify({
+  curDim: 'nether',
+  dims: { overworld: { edits: [], pos: null, crops: [] }, nether: { edits: [], pos: null, crops: [] } },
+  slot: 0, health: 10, inv: {}, tools: {}, dayTime: 50,
+});
+try {
+  runGame(saveC, 'C: 네더 장시간(적 AI)', ({ step }) => { step(800); }, { noMove: true });
+} catch (e) { fails++; console.log('  [C] FAIL:', (e && e.stack) || e); }
+
 console.log(fails ? `\nSMOKE FAILED (${fails})` : '\nSMOKE PASSED');
 process.exit(fails ? 1 : 0);

@@ -40,6 +40,11 @@
     position: fixed; top: 12px; right: 16px; z-index: 10;
     color: #fff; font: bold 14px monospace; text-shadow: 1px 1px 0 #000;
   }
+  #minimap {
+    position: fixed; top: 36px; right: 16px; z-index: 10;
+    width: 120px; height: 120px; border: 2px solid rgba(0,0,0,0.6);
+    image-rendering: pixelated; opacity: 0.85;
+  }
   #health {
     position: fixed; top: 10px; left: 16px; z-index: 10;
     font: 16px monospace; text-shadow: 1px 1px 0 #000; letter-spacing: 2px;
@@ -132,6 +137,7 @@
 <div id="crosshair"></div>
 <div id="hotbar"></div>
 <div id="clock"></div>
+<canvas id="minimap"></canvas>
 <div id="health"></div>
 <div id="bossBar">☠ 좀비 군주<div class="track"><div id="bossFill"></div></div></div>
 <div id="damageFlash"></div>
@@ -629,6 +635,23 @@ function editBlock(x, y, z, t) {
   }
 }
 
+// 구 형태로 블록 파괴 (크리퍼 폭발) — 영향받은 청크를 한 번씩만 다시 그림
+function destroyBlocks(cx, cy, cz, R) {
+  const dirty = new Set();
+  for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) {
+    if (dx * dx + dy * dy + dz * dz > R * R) continue;
+    const x = cx + dx, y = cy + dy, z = cz + dz;
+    if (y < 0 || y > Y_MAX) continue;
+    const t = getBlock(x, y, z);
+    if (!t || isLiquid(t)) continue;
+    if (t === BLOCK.CROP) removeCropMesh(x, y, z);
+    setBlock(x, y, z, 0);
+    edits.set(key(x, y, z), 0);
+    for (const [ddx, ddz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) dirty.add(Math.floor((x + ddx) / CHUNK) + ',' + Math.floor((z + ddz) / CHUNK));
+  }
+  for (const ck of dirty) { const [a, b] = ck.split(',').map(Number); rebuildChunk(a, b); }
+}
+
 // ---------- 효과음 (WebAudio 합성) ----------
 let audioCtx = null;
 function playSound(freq, dur, type, vol) {
@@ -835,7 +858,10 @@ function stepMob(m, dt, speed) {
   if (mobCollides(m.pos, m.colH)) { m.pos.x -= m.vel.x * dt; hitWall = true; }
   m.pos.z += m.vel.z * dt;
   if (mobCollides(m.pos, m.colH)) { m.pos.z -= m.vel.z * dt; hitWall = true; }
-  if (hitWall && m.onGround) m.vel.y = 7;
+  if (hitWall) {
+    if (m.onGround) m.vel.y = 7;       // 한 칸 자동 점프
+    else if (m.climb) m.vel.y = Math.max(m.vel.y, 4.5); // 거미: 벽 타기
+  }
 
   const prevY = m.pos.y;
   m.pos.y += m.vel.y * dt;
@@ -931,6 +957,40 @@ function makeSkeletonMesh() {
   g.userData.bodyMat = SKEL_BONE;
   return g;
 }
+// 크리퍼: 가까이 오면 자폭 (블록 파괴 + 피해)
+const CREEPER_MAT = new THREE.MeshLambertMaterial({ color: 0x4f9d3a });
+const CREEPER_FACE = new THREE.MeshLambertMaterial({ color: 0x18391a });
+const CG_BODY = new THREE.BoxGeometry(0.5, 0.85, 0.3);
+const CG_HEAD = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+const CG_LEG = new THREE.BoxGeometry(0.22, 0.3, 0.22);
+function makeCreeperMesh() {
+  const g = new THREE.Group();
+  for (const [lx, lz] of [[-0.14, -0.18], [0.14, -0.18], [-0.14, 0.18], [0.14, 0.18]]) {
+    const leg = new THREE.Mesh(CG_LEG, CREEPER_MAT); leg.position.set(lx, 0.15, lz); g.add(leg);
+  }
+  const body = new THREE.Mesh(CG_BODY, CREEPER_MAT); body.position.y = 0.72; g.add(body);
+  const head = new THREE.Mesh(CG_HEAD, CREEPER_FACE); head.position.y = 1.4; g.add(head);
+  g.userData.bodyMat = CREEPER_MAT;
+  return g;
+}
+// 거미: 빠르고 벽을 타는 근접 몹
+const SPIDER_MAT = new THREE.MeshLambertMaterial({ color: 0x2a2320 });
+const SPIDER_EYE = new THREE.MeshLambertMaterial({ color: 0xaa2222 });
+const SPG_BODY = new THREE.BoxGeometry(0.7, 0.4, 0.9);
+const SPG_HEAD = new THREE.BoxGeometry(0.45, 0.4, 0.4);
+const SPG_LEG = new THREE.BoxGeometry(0.08, 0.08, 0.7);
+function makeSpiderMesh() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(SPG_BODY, SPIDER_MAT); body.position.y = 0.45; g.add(body);
+  const head = new THREE.Mesh(SPG_HEAD, SPIDER_MAT); head.position.set(0, 0.45, -0.6); g.add(head);
+  const eye = new THREE.Mesh(SPG_HEAD, SPIDER_EYE); eye.scale.set(0.9, 0.3, 0.2); eye.position.set(0, 0.52, -0.8); g.add(eye);
+  for (const side of [-1, 1]) for (const lz of [-0.25, 0, 0.25]) {
+    const leg = new THREE.Mesh(SPG_LEG, SPIDER_MAT);
+    leg.position.set(side * 0.45, 0.4, lz); leg.rotation.z = side * 0.5; leg.rotation.y = Math.PI / 2; g.add(leg);
+  }
+  g.userData.bodyMat = SPIDER_MAT;
+  return g;
+}
 function surfaceY(x, z) {
   for (let y = Y_MAX; y >= 0; y--) if (occludes(getBlock(x, y, z))) return y + 1;
   return null;
@@ -944,18 +1004,22 @@ function trySpawnZombie() {
   if (x < -half + 2 || x >= half - 2 || z < -half + 2 || z >= half - 2) return;
   const y = surfaceY(x, z);
   if (y === null || (curDim === 'overworld' && y <= SEA_LEVEL)) return; // 물속 제외
-  const ranged = Math.random() < 0.35; // 일부는 스켈레톤(활)
-  const mesh = ranged ? makeSkeletonMesh() : makeZombieMesh();
+  const r = Math.random();
+  let mesh, base;
+  if (r < 0.30) { mesh = makeSkeletonMesh(); base = { ranged: true, hp: 3, colH: 1.8, hitH: 1.9, chaseSpeed: 0 }; }
+  else if (r < 0.45) { mesh = makeCreeperMesh(); base = { creeper: true, hp: 4, colH: 1.6, hitH: 1.7, chaseSpeed: 2.2 }; }
+  else if (r < 0.58) { mesh = makeSpiderMesh(); base = { spider: true, climb: true, hp: 4, colH: 0.85, hitH: 0.95, chaseSpeed: 3.4 }; }
+  else { mesh = makeZombieMesh(); base = { hp: 3, colH: 1.8, hitH: 1.9, chaseSpeed: 2.3 }; }
   scene.add(mesh);
-  zombies.push({
-    mesh, ranged,
+  zombies.push(Object.assign({
+    mesh,
     pos: new THREE.Vector3(x + 0.5, y, z + 0.5),
     vel: new THREE.Vector3(),
     yaw: Math.random() * Math.PI * 2,
     timer: 0, walking: false, onGround: false,
-    hp: 3, maxHp: 3, kbT: 0, colH: 1.8, hitH: 1.9, bar: makeHpBar(),
-    atkT: 0, groanT: 2 + Math.random() * 4, shootT: 1 + Math.random() * 2,
-  });
+    maxHp: base.hp, kbT: 0, bar: makeHpBar(),
+    atkT: 0, groanT: 2 + Math.random() * 4, shootT: 1 + Math.random() * 2, fuse: 0,
+  }, base));
 }
 function spawnBoss() {
   const ang = Math.random() * Math.PI * 2;
@@ -975,7 +1039,7 @@ function spawnBoss() {
     vel: new THREE.Vector3(),
     yaw: Math.random() * Math.PI * 2,
     timer: 0, walking: false, onGround: false,
-    hp: 40, maxHp: 40, kbT: 0, colH: 3.6, hitH: 3.8, bar: makeHpBar(),
+    hp: 40, maxHp: 40, kbT: 0, colH: 3.6, hitH: 3.8, bar: makeHpBar(), chaseSpeed: 1.9,
     atkT: 0, groanT: 1.5,
   });
   playSound(55, 0.8, 'sawtooth', 0.25);
@@ -1016,10 +1080,18 @@ function updateZombies(dt) {
         speed = d > 10 ? 1.8 : d < 5 ? -1.6 : 0;
         z.shootT -= dt;
         if (z.shootT <= 0 && d < 16) { z.shootT = 1.8 + Math.random(); spawnEnemyArrow(z); }
+      } else if (z.creeper) {
+        // 크리퍼: 접근 후 점화 → 폭발
+        speed = z.chaseSpeed;
+        if (d < 2.6) {
+          z.fuse += dt;
+          z.mesh.scale.setScalar(1 + Math.sin(z.fuse * 30) * 0.1); // 부풀며 점멸
+          if (z.fuse >= 1.4) { explodeCreeper(z); continue; }
+        } else { z.fuse = Math.max(0, z.fuse - dt); z.mesh.scale.setScalar(1); }
       } else {
-        speed = z.boss ? 1.9 : 2.3;
+        speed = z.chaseSpeed;
         z.groanT -= dt;
-        if (z.groanT <= 0) { z.groanT = 3 + Math.random() * 3; playSound(z.boss ? 55 : 90, 0.4, 'sawtooth', z.boss ? 0.14 : 0.08); }
+        if (z.groanT <= 0) { z.groanT = 3 + Math.random() * 3; playSound(z.boss ? 55 : z.spider ? 170 : 90, 0.4, 'sawtooth', z.boss ? 0.14 : 0.08); }
       }
     } else {
       z.timer -= dt;
@@ -1033,12 +1105,13 @@ function updateZombies(dt) {
     stepMob(z, dt, speed);
     updateHpBar(z);
     z.atkT -= dt;
-    if (!z.ranged && playing() && z.atkT <= 0 && d < (z.boss ? 2.6 : 1.4) && Math.abs(player.pos.y - z.pos.y) < (z.boss ? 4 : 2)) {
+    if (!z.ranged && !z.creeper && playing() && z.atkT <= 0 && d < (z.boss ? 2.6 : 1.4) && Math.abs(player.pos.y - z.pos.y) < (z.boss ? 4 : 2)) {
       z.atkT = 1.2;
       damage(z.boss ? 4 : 2);
     }
     if (z.boss) boss = z;
   }
+  for (let i = zombies.length - 1; i >= 0; i--) if (zombies[i]._dead) zombies.splice(i, 1); // 폭발한 크리퍼 정리
   // 보스 체력바
   if (boss) {
     bossBarEl.style.display = 'block';
@@ -1046,6 +1119,18 @@ function updateZombies(dt) {
   } else {
     bossBarEl.style.display = 'none';
   }
+}
+
+// 크리퍼 자폭: 주변 블록 파괴 + 거리 비례 피해
+function explodeCreeper(c) {
+  destroyBlocks(Math.floor(c.pos.x), Math.floor(c.pos.y + 0.5), Math.floor(c.pos.z), 3);
+  const d = Math.hypot(player.pos.x - c.pos.x, player.pos.y - c.pos.y, player.pos.z - c.pos.z);
+  if (d < 6) damage(Math.ceil((6 - d) * 1.2));
+  for (let i = 0; i < 3; i++) spawnParticles(c.pos.x - 0.8 + i * 0.6, c.pos.y, c.pos.z - 0.5, BLOCK.STONE);
+  playSound(40, 0.6, 'sawtooth', 0.4);
+  removeHpBar(c);
+  scene.remove(c.mesh);
+  c._dead = true;
 }
 
 // 몹에게 피해 + 넉백 적용, 죽으면 처치 처리
@@ -1407,6 +1492,42 @@ function updateHud(dt) {
   if (air < MAX_AIR) html += '<br>' + '🫧'.repeat(Math.max(0, Math.ceil(air)));
   if (flying) html += '<br>✈ 비행 중';
   if (html !== lastHud) { healthEl.innerHTML = html; lastHud = html; }
+}
+
+// ---------- 미니맵 (위에서 본 지형 + 몹) ----------
+const miniCanvas = document.getElementById('minimap');
+const miniCtx = miniCanvas.getContext('2d');
+miniCanvas.width = 120; miniCanvas.height = 120;
+const MINI_R = 40; // 표시 반경(블록)
+let miniT = 0;
+function miniTerrainColor(x, z) {
+  const h = terrainHeight(x, z);
+  if (h < SEA_LEVEL) return '#3a6ec6';            // 물
+  if (h <= SEA_LEVEL + 1) return '#dacfa0';        // 모래
+  const g = 90 + Math.min(85, (h - SEA_LEVEL) * 6); // 높이에 따라 밝아지는 잔디
+  return 'rgb(60,' + g + ',50)';
+}
+function updateMinimap(dt) {
+  miniT += dt;
+  if (miniT < 0.3) return;
+  miniT = 0;
+  const W = miniCanvas.width, H = miniCanvas.height, scale = W / (MINI_R * 2);
+  const px = player.pos.x, pz = player.pos.z;
+  if (curDim === 'nether') { miniCtx.fillStyle = '#2a0a0a'; miniCtx.fillRect(0, 0, W, H); }
+  else {
+    for (let iy = 0; iy < H; iy += 2) for (let ix = 0; ix < W; ix += 2) {
+      miniCtx.fillStyle = miniTerrainColor(Math.floor(px + ix / scale - MINI_R), Math.floor(pz + iy / scale - MINI_R));
+      miniCtx.fillRect(ix, iy, 2, 2);
+    }
+  }
+  const plot = (wx, wz, col, s) => {
+    const ix = (wx - px + MINI_R) * scale, iy = (wz - pz + MINI_R) * scale;
+    if (ix < 0 || iy < 0 || ix > W || iy > H) return;
+    miniCtx.fillStyle = col; miniCtx.fillRect(ix - s, iy - s, 2 * s, 2 * s);
+  };
+  for (const a of animals) plot(a.pos.x, a.pos.z, '#fff', 1);
+  for (const z of zombies) plot(z.pos.x, z.pos.z, z.boss ? '#ff3' : z.creeper ? '#5e5' : '#f44', z.boss ? 3 : 1);
+  miniCtx.fillStyle = '#39f'; miniCtx.fillRect(W / 2 - 2, H / 2 - 2, 4, 4); // 플레이어
 }
 
 // ---------- 낮 / 밤 ----------
@@ -2157,6 +2278,7 @@ function loop(now) {
   updateTorchLights(dt);
   updateHighlight();
   updateHud(dt);
+  updateMinimap(dt);
   waterT += dt;
   TEX.water.offset.set((waterT * 0.03) % 1, (waterT * 0.02) % 1);
   TEX.lava.offset.set((waterT * 0.05) % 1, (waterT * 0.04) % 1);
