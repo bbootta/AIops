@@ -26,6 +26,7 @@ from risk_lib.pipeline import PipelineResult
 from risk_lib import viz, viz_advanced
 from risk_lib.html_report import _won, _pct, _esc, _table
 from risk_lib.html_exec import _kri_card_data, _top_actions
+from risk_lib.abbreviations import abbr_dict_card_html
 from risk_lib.references import (
     LCR_MIN, NSFR_MIN, IRRBB_OUTLIER_EVE_PCT_TIER1, LEVERAGE_MIN_RATIO,
 )
@@ -268,6 +269,9 @@ LGD <b>+{result.reverse_stress.implied_lgd_addon:.1%}p</b>)</p>
 재현 명령: <code>python -m risk_lib.cli reproduce --manifest manifest.json</code><br>
 실무진 deep-dive 30+ 페이지는 동봉 HTML 보고서(executive.html / ops/) 참조.
 </div>
+
+<h2 style="margin-top:14pt">8. 약어 사전</h2>
+{abbr_dict_card_html()}
 
 </div>
 </body></html>"""

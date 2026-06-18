@@ -23,6 +23,7 @@ from risk_lib import viz, viz_advanced
 from risk_lib.html_report import (
     CSS, _won, _pct, _esc, _kpi, _badge, _table,
 )
+from risk_lib.abbreviations import abbr_dict_card_html
 from risk_lib.references import (
     LCR_MIN, NSFR_MIN, IRRBB_OUTLIER_EVE_PCT_TIER1, LEVERAGE_MIN_RATIO,
 )
@@ -310,6 +311,8 @@ A4 1-pager 형태로 한글이 완벽히 렌더링됩니다.</p>
 포트폴리오 SHA-256 / 파라미터·규제상수 스냅샷·코드 커밋 hash 는 ops/manifest.json 참조.<br>
 재현 명령: <code>python -m risk_lib.cli reproduce --manifest manifest.json</code></div>
 </div>
+
+{abbr_dict_card_html()}
 """
     meta = (f"산출 기준 {result.meta.get('asof','-')} · seed {result.meta.get('seed')} · "
             f"규제 준거 Basel III + IFRS9 + 금감원 감독세칙")
