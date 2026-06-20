@@ -1950,6 +1950,21 @@
       "rollback_rule": "findings_mapping 모듈 + 페이지 + 카탈로그 3 sync edit 제거 시 R64 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0131",
+      "timestamp": "2026-06-20 10:03:43",
+      "component": "tools/governance_timeseries.py + tools/report_pack.py (governance_trend)",
+      "change_type": "create",
+      "evidence": "/goal '이어서' R66: governance_kpi 는 단일 시점만 — 분기별 trend (validated_ratio / fail_ratio / agreement) 시각화 부재",
+      "root_cause": "Phase 2 도입 조건 (validated_ratio ≥ 70%) 의 시계열 모니터링 불가",
+      "targeted_fix": "tools/governance_timeseries: synthetic 4 분기 panel + audit_panel_from_log (run.jsonl 의 timestamp 를 분기로 묶어 fail_ratio 산출) + build_panel (audit live + synthetic merge). 보고서 페이지 governance_trend.html: 4 trend chart (validated/fail/agreement/lint conflicts) + 분기별 표 + Phase 2 threshold 70% line + 인접 보고서 nav",
+      "expected_benefit": "검증팀장이 Phase 2 통합 운영 진입 조건 (validated ≥ 70%) 의 trend 를 한 화면. audit_source 컬럼으로 live vs synthetic 구분",
+      "expected_regression_risk": "low — 신규 모듈/페이지, 기존 governance_kpi 무변경",
+      "validation_method": "tests/test_v2_round66.py 12 cases (synthetic panel/quarter_of/audit panel/build_panel merge/페이지 4 차트/Phase 2 threshold/링크/self-contained) + 전체 942 통과 + ruff/mypy strict clean",
+      "rollback_rule": "module + 페이지 + 링크 제거 시 R65 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

@@ -934,6 +934,94 @@ limit 관리 (감독원 외환건전성 규정).</li>
     return _page("심화 — FX 의존도 + USD funding + NOP + 원화 급락 stress", body)
 
 
+def _governance_trend_page(log_dir: Path | None) -> str:
+    """분기 거버넌스 KPI trend — validated_ratio / fail_ratio / agreement."""
+    from tools.governance_timeseries import build_panel
+
+    log_path = (Path(log_dir) if log_dir else Path("logs")) / "run.jsonl"
+    panel = build_panel(log_path if log_path.exists() else None)
+    if not panel:
+        return _page("심화 — 분기 거버넌스 KPI 추세",
+                     "<p>panel 미생성.</p>")
+
+    quarters = [r["quarter"] for r in panel]
+    validated_chart = trend_line(
+        [(q, float(r["validated_ratio"]))
+         for q, r in zip(quarters, panel)],
+        title="Manifest validated_ratio (분기)", fmt="{:.1%}",
+        minimum=0.70)
+    fail_chart = trend_line(
+        [(q, float(r["audit_fail_ratio"]))
+         for q, r in zip(quarters, panel)],
+        title="Audit fail_ratio (분기)", fmt="{:.1%}",
+        minimum=0.10)
+    agree_chart = trend_line(
+        [(q, float(r["feedback_agreement_rate"]))
+         for q, r in zip(quarters, panel)],
+        title="Classify feedback agreement_rate", fmt="{:.1%}",
+        minimum=0.80)
+    conflicts_chart = trend_line(
+        [(q, float(r["policy_lint_conflicts"]))
+         for q, r in zip(quarters, panel)],
+        title="Policy lint 충돌 건수", fmt="{:.0f}")
+
+    rows = "".join(
+        f"<tr><td>{_esc(r['quarter'])}</td>"
+        f"<td>{r['validated_ratio']:.1%}</td>"
+        f"<td>{r['applied_or_validated_ratio']:.1%}</td>"
+        f"<td>{r['manifest_total']}</td>"
+        f"<td>{r['audit_fail_ratio']:.1%}</td>"
+        f"<td>{r.get('audit_source', 'synthetic')}</td>"
+        f"<td>{r['feedback_agreement_rate']:.1%}</td>"
+        f"<td>{r['policy_lint_conflicts']}</td>"
+        f"<td>{r['rf_total']}</td></tr>"
+        for r in panel)
+
+    body = f"""
+<p>분기별 거버넌스 KPI 시계열 — manifest validated 비율, audit fail
+비율, classify feedback 동의율, policy lint 충돌, recurring findings
+총량. 운영 panel 부재 시 합성 trend 로 fallback (audit_source 컬럼).</p>
+
+<h2>Manifest validated_ratio</h2>
+{validated_chart}
+<p>BCBS Phase 2 통합 운영 조건: validated_ratio ≥ 70% (docs/executive_summary.md).</p>
+
+<h2>Audit fail_ratio</h2>
+{fail_chart}
+<p>step 별 fail 비율의 분기 trend. 10% 초과 분기는 RF 빈도 상향 검토
+(findings_mapping.html 참조).</p>
+
+<h2>Feedback agreement_rate</h2>
+{agree_chart}
+<p>분류기 자동 추론과 사용자 피드백 일치율. 80% 미만 시 룰 보강 필요.</p>
+
+<h2>Policy lint 충돌 건수</h2>
+{conflicts_chart}
+
+<h2>분기별 KPI 표</h2>
+<table>
+<tr><th>분기</th><th>validated</th><th>applied+valid</th><th>CHG total</th>
+<th>fail_ratio</th><th>audit 출처</th>
+<th>agreement</th><th>lint 충돌</th><th>RF total</th></tr>
+{rows}
+</table>
+
+<h2>해석 (거버넌스 관점)</h2>
+<ul>
+<li><b>validated_ratio</b>가 70% 이하면 Phase 2 통합 운영 진입 보류
+(docs/executive_summary.md). 검토 cycle 가속화 필요.</li>
+<li><b>audit 출처 live</b>: 해당 분기의 실 audit 로그 기반 산출.
+<b>synthetic</b>: 합성 fallback — 운영 panel 도입 시 자동 대체.</li>
+<li><b>feedback agreement 추세</b>가 80% 미만 지속 시 분류기 rule 패치
+필요 (<code>tools.classify_error rule-patch</code>).</li>
+<li><b>policy_lint 충돌</b>은 0 으로 수렴해야 정상. 분기 보고서 첨부
+필수.</li>
+</ul>
+<p><a href="findings_mapping.html">← Recurring Findings 매핑</a> · <a href="change_audit.html">변경 감사 →</a></p>
+"""
+    return _page("심화 — 분기 거버넌스 KPI 추세 (R66)", body)
+
+
 def _findings_mapping_page(log_dir: Path | None) -> str:
     """Audit log → recurring_findings 매핑 + 신규 후보."""
     from tools.audit_timeseries import analyse_log
@@ -3218,6 +3306,7 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 <li><a href="change_audit.html">변경 감사 (Change Manifest)</a></li>
 <li><a href="audit_timeseries.html">Audit log 시계열 분석 (run.jsonl)</a></li>
 <li><a href="findings_mapping.html">Recurring Findings 매핑 (RF 후보)</a></li>
+<li><a href="governance_trend.html">분기 거버넌스 KPI 추세</a></li>
 <li><a href="esg_climate.html">ESG / 기후 위험 (NGFS + 전환/물리적)</a></li>
 <li><a href="cyber_risk.html">Cyber risk + Operational resilience</a></li>
 <li><a href="fx_dependency.html">FX 의존도 + USD funding + 원화 stress</a></li>
@@ -3309,6 +3398,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="change_audit.html">변경 감사 — 매니페스트 CHG 추적</a></li>
 <li><a href="audit_timeseries.html">Audit log 시계열 — run 별 trend + step fail rate</a></li>
 <li><a href="findings_mapping.html">Recurring Findings 매핑 (RF 후보 + 빈도 상향)</a></li>
+<li><a href="governance_trend.html">분기 거버넌스 KPI 추세 (validated/fail/agreement)</a></li>
 <li><a href="esg_climate.html">ESG / 기후 — NGFS 시나리오 + 전환/물리적 위험</a></li>
 <li><a href="cyber_risk.html">Cyber risk + Operational resilience (BCBS d533)</a></li>
 <li><a href="fx_dependency.html">FX — 통화별 NOP + USD funding + 원화 stress</a></li>
@@ -3380,6 +3470,8 @@ def build_pack(
     pages["audit_timeseries.html"] = _audit_timeseries_page(
         Path(log_dir) if log_dir else None)
     pages["findings_mapping.html"] = _findings_mapping_page(
+        Path(log_dir) if log_dir else None)
+    pages["governance_trend.html"] = _governance_trend_page(
         Path(log_dir) if log_dir else None)
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
