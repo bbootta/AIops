@@ -2382,6 +2382,8 @@ def build_full_report_package(
     """
     from risk_lib.html_exec import build_executive
     from risk_lib.printable import build_printable_html
+    from risk_lib.audit_trail import build_ledger_from_result
+    from risk_lib.board_pack import build_board_pack
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     ops_dir = out / "ops"
     written_ops = build_report_set(result, ops_dir, portfolio=portfolio)
@@ -2394,9 +2396,20 @@ def build_full_report_package(
     if manifest is not None:
         manifest_path = out / "manifest.json"
         manifest_path.write_text(manifest.to_json(), encoding="utf-8")
+    # Audit ledger + Risk Committee board pack (Top-IB style)
+    git_commit = (manifest.code.get("git_commit", "")
+                  if manifest is not None else "")
+    ledger = build_ledger_from_result(result, git_commit=git_commit or "")
+    ledger_path = ledger.export_json(out / "audit_ledger.json")
+    board_pack_path = build_board_pack(
+        result, out / "board_pack.html",
+        ledger_path=str(out / "audit_ledger.json"),
+    )
     return {
         "executive": str(exec_path.resolve()),
         "printable": str(printable_path),
+        "board_pack": board_pack_path,
+        "audit_ledger": ledger_path,
         "ops_dir": str(ops_dir.resolve()),
         **{f"ops/{k}": v for k, v in written_ops.items()},
         **({"manifest": str(manifest_path.resolve())} if manifest_path else {}),

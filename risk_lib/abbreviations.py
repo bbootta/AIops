@@ -121,6 +121,12 @@ ABBREVIATIONS: dict[str, tuple[str, str]] = {
                "RFET 불통과 risk factor → stressed VaR 가산"),
     "IMA":    ("Internal Models Approach",
                "내부모형방법. 시장리스크 자체 ES 모형 사용 (FRTB 승인 필요)"),
+    "BCBS 239":("BCBS Risk Data Aggregation and Reporting",
+                "리스크 데이터 통합·보고 원칙. audit trail / data lineage 표준"),
+    "SR 11-7": ("Fed SR Letter 11-7",
+                "미 연준 모형리스크관리 지침. 모형 카드·검증·챔피언/챌린저"),
+    "RC":     ("Risk Committee",
+               "리스크 위원회. 이사회 산하 위원회로 전사 리스크 의사결정"),
 
     # ── 유동성·ALM ──
     "ALM":    ("Asset Liability Management",
