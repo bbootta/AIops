@@ -133,6 +133,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.report_export --pack <dir>` | 팩 → CSV/JSON/페이지 manifest export |
 | `python -m tools.findings_mapping --log <jsonl>` | audit log → recurring_findings 후보 매핑 |
 | `python -m tools.pack_diff --prev A --curr B` | 두 보고서 팩 간 변화 detection |
+| `python -m tools.pack_archive add/list/latest/prune --archive <dir>` | 분기별 팩 archive 관리 |
 | `python -m tools.manifest list / add / promote / validate / export` | change_manifest 운영 |
 | `python -m tools.findings list / sync / add / bump` | recurring_findings JSON↔md |
 | `python -m tools.model_notes list / sync` | model_specific_notes JSON↔md |

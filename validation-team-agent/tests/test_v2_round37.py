@@ -211,6 +211,7 @@ EXPECTED_PAGES = {
     "findings_mapping.html",
     "governance_trend.html",
     "pack_diff.html",
+    "archive_index.html",
 }
 
 

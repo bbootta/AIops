@@ -1980,6 +1980,21 @@
       "rollback_rule": "pack_diff 모듈 + 페이지 + build_pack prev_pack_dir 인자 + 4 sync edit 제거 시 R66 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0133",
+      "timestamp": "2026-06-20 12:30:01",
+      "component": "tools/pack_archive.py + tools/report_pack.py (archive_index page + --archive/--keep CLI + auto-prev) + cli/dispatch/README sync",
+      "change_type": "create",
+      "evidence": "/goal '이어서' R68: pack_diff 는 사용자가 --prev-pack 을 매 빌드마다 수동 지정. 분기별 자동 누적/auto-prev/prune 부재",
+      "root_cause": "각 분기마다 prev pack 경로를 수동 입력 — Phase 2 운영 시 휴먼 에러 발생 가능. 오래된 팩 prune 정책도 부재",
+      "targeted_fix": "tools/pack_archive.py: add (copy/move) / list / latest (stress 필터) / latest_pack_dir / _prune (FIFO keep N). manifest.json 인덱스 = entries list (label/stored_at_utc/path/stress/notes/meta). CLI 4 subcommand. report_pack 통합: build_pack(archive_root=...) + CLI --archive/--keep/--archive-label, 같은 stress 모드의 latest 가 auto-prev. 보고서 페이지 archive_index.html (저장된 분기 표 + 운영 가이드). CLAUDE.md §5 — reports/ 하위만, 운영 시스템 영역 아님 명시",
+      "expected_benefit": "Phase 2 분기 보고 cycle 자동화 — python -m tools.report_pack --archive reports/archive --keep 8 한 줄로 (1) 빌드 (2) auto-prev pack_diff (3) archive 등록 (4) 오래된 팩 prune",
+      "expected_regression_risk": "low — 신규 모듈/페이지/인자, 기존 build_pack 호출 호환 (archive_root=None 시 안내 fallback). archive 파일 작업은 reports/ 하위로 한정",
+      "validation_method": "tests/test_v2_round68.py 17 cases (add copy/move/duplicate/keep prune/latest+stress 필터/empty/CLI 4 mode + json/카탈로그 sync/페이지 통합/안내 fallback/self-contained) + 전체 979 통과 + ruff/mypy strict clean",
+      "rollback_rule": "pack_archive 모듈 + report_pack 의 archive_root 인자 + archive_index 페이지 + 카탈로그 4 sync 제거 시 R67 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

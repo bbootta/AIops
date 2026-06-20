@@ -934,6 +934,73 @@ limit 관리 (감독원 외환건전성 규정).</li>
     return _page("심화 — FX 의존도 + USD funding + NOP + 원화 급락 stress", body)
 
 
+def _archive_index_page(archive_root: Path | None) -> str:
+    """archive 인덱스 페이지 — 저장된 분기 팩 목록."""
+    if archive_root is None or not Path(archive_root).is_dir():
+        body = ("<p>archive 미지정 또는 비어 있음. "
+                "<code>python -m tools.pack_archive add --archive &lt;dir&gt; "
+                "--pack &lt;dir&gt;</code> 으로 분기별 팩을 등록하세요.</p>"
+                "<p>또는 빌드 시 <code>--archive &lt;dir&gt;</code> 옵션으로 "
+                "자동 등록 가능합니다.</p>")
+        return _page("Archive — 분기별 보고서 팩 인덱스", body)
+
+    from tools.pack_archive import list_entries
+
+    entries = list_entries(archive_root)
+    if not entries:
+        body = (f"<p>archive 비어 있음: <code>{_esc(archive_root)}</code></p>")
+        return _page("Archive — 분기별 보고서 팩 인덱스", body)
+
+    rows = "".join(
+        f"<tr><td><code>{_esc(e['label'])}</code></td>"
+        f"<td>{_esc(e['stored_at_utc'])}</td>"
+        f"<td>{'stress' if e['stress'] else 'normal'}</td>"
+        f"<td>{e['meta'].get('n_pages', '?')}</td>"
+        f"<td>{'예' if e['meta'].get('all_have_watermark') else '아니오'}</td>"
+        f"<td>{'예' if e['meta'].get('all_have_provenance') else '아니오'}</td>"
+        f"<td><code>{_esc(e['path'])}</code></td>"
+        f"<td>{_esc((e.get('notes') or '')[:60])}</td></tr>"
+        for e in entries)
+
+    # latest pair (latest stress + latest normal)
+    latest_stress = next((e for e in entries if e["stress"]), None)
+    latest_normal = next((e for e in entries if not e["stress"]), None)
+    pair_info = []
+    if latest_stress:
+        pair_info.append(f"latest stress: <code>{_esc(latest_stress['label'])}</code>")
+    if latest_normal:
+        pair_info.append(f"latest normal: <code>{_esc(latest_normal['label'])}</code>")
+
+    body = f"""
+<p>분기별 보고서 팩 archive — 총 <b>{len(entries)}</b> 항목.
+빌드 시 <code>--archive &lt;dir&gt;</code> 옵션이 주어지면 자동 등록되고,
+이전 항목이 자동으로 <code>pack_diff.html</code> 의 prev 로 지정됩니다.</p>
+
+<h2>최근 등록</h2>
+<p>{' · '.join(pair_info) or '없음'}</p>
+
+<h2>항목 목록 (최신순)</h2>
+<table>
+<tr><th>label</th><th>저장 (UTC)</th><th>모드</th><th>페이지</th>
+<th>워터마크</th><th>provenance</th><th>경로</th><th>비고</th></tr>
+{rows}
+</table>
+
+<h2>운영 가이드 (검증팀장)</h2>
+<ul>
+<li>분기 보고 cycle: <code>python -m tools.report_pack --archive
+reports/archive --keep 8 ...</code> — 최근 8 분기 (2 년) 유지.</li>
+<li>자동 prev 매칭: 같은 모드 (stress/normal) 의 가장 최근 항목이
+<code>pack_diff.html</code> 의 prev 로 자동 지정.</li>
+<li>오래된 팩은 FIFO prune. 보존이 필요한 항목은 <code>--label</code> 로
+명시하거나 별도 백업.</li>
+<li>archive 자체는 reports/ 하위 — 운영 시스템 영역 아님 (CLAUDE.md §5).</li>
+</ul>
+<p><a href="pack_diff.html">← Pack diff</a> · <a href="change_audit.html">변경 감사 →</a></p>
+"""
+    return _page("Archive — 분기별 보고서 팩 인덱스", body)
+
+
 def _pack_diff_page(prev_pack_dir: Path | None, curr_pack_dir: Path,
                     demo: dict, prov: dict | None = None) -> str:
     """이전 팩 vs 현재 팩 diff. prev 미제공 시 안내 메시지만.
@@ -3475,6 +3542,7 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 <li><a href="findings_mapping.html">Recurring Findings 매핑 (RF 후보)</a></li>
 <li><a href="governance_trend.html">분기 거버넌스 KPI 추세</a></li>
 <li><a href="pack_diff.html">보고서 팩 변화 detection</a></li>
+<li><a href="archive_index.html">분기별 archive 인덱스</a></li>
 <li><a href="esg_climate.html">ESG / 기후 위험 (NGFS + 전환/물리적)</a></li>
 <li><a href="cyber_risk.html">Cyber risk + Operational resilience</a></li>
 <li><a href="fx_dependency.html">FX 의존도 + USD funding + 원화 stress</a></li>
@@ -3568,6 +3636,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="findings_mapping.html">Recurring Findings 매핑 (RF 후보 + 빈도 상향)</a></li>
 <li><a href="governance_trend.html">분기 거버넌스 KPI 추세 (validated/fail/agreement)</a></li>
 <li><a href="pack_diff.html">보고서 팩 변화 detection (전 분기 대비 diff)</a></li>
+<li><a href="archive_index.html">분기별 archive 인덱스 (저장된 팩 + auto-prev)</a></li>
 <li><a href="esg_climate.html">ESG / 기후 — NGFS 시나리오 + 전환/물리적 위험</a></li>
 <li><a href="cyber_risk.html">Cyber risk + Operational resilience (BCBS d533)</a></li>
 <li><a href="fx_dependency.html">FX — 통화별 NOP + USD funding + 원화 stress</a></li>
@@ -3590,6 +3659,7 @@ def build_pack(
     provenance: dict | None = None,
     log_dir: str | Path | None = None,
     prev_pack_dir: str | Path | None = None,
+    archive_root: str | Path | None = None,
 ) -> list[Path]:
     """보고서 팩을 생성하고 생성 파일 목록을 반환한다.
 
@@ -3647,6 +3717,8 @@ def build_pack(
         Path(prev_pack_dir) if prev_pack_dir else None,
         Path(out_dir),
         demo, provenance)
+    pages["archive_index.html"] = _archive_index_page(
+        Path(archive_root) if archive_root else None)
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)
@@ -3676,6 +3748,14 @@ def main(argv: list[str] | None = None) -> int:
                         help="이전 보고서 팩 디렉터리 (export.json + "
                              "pack_manifest.json 포함). 주어지면 pack_diff.html "
                              "활성화")
+    parser.add_argument("--archive", type=Path, default=None,
+                        help="archive 루트 디렉터리 (예: reports/archive). "
+                             "주어지면 빌드 후 자동 등록 + 직전 동일 모드 팩을 "
+                             "auto-prev 로 지정")
+    parser.add_argument("--keep", type=int, default=None,
+                        help="archive 의 최근 N 개만 유지 (FIFO prune)")
+    parser.add_argument("--archive-label", default=None,
+                        help="archive 등록 시 사용할 label")
     args = parser.parse_args(argv)
 
     from tools.provenance import build_provenance
@@ -3685,11 +3765,34 @@ def main(argv: list[str] | None = None) -> int:
     demo = run_demo(args.n, args.stress, args.seed, log_dir)
     request = build_request(args.n, stress=args.stress, seed=args.seed)
     prov = build_provenance(request, n=args.n, seed=args.seed, stress=args.stress)
+
+    # auto-prev: archive 가 주어지고 prev-pack 이 명시되지 않았다면
+    # 같은 모드의 가장 최근 archive entry 를 prev 로 사용
+    prev_pack = args.prev_pack
+    if args.archive and prev_pack is None:
+        from tools.pack_archive import latest_pack_dir
+        prev_pack = latest_pack_dir(args.archive, stress=args.stress)
+
     written = build_pack(demo, request, args.out, provenance=prov,
-                         log_dir=log_dir, prev_pack_dir=args.prev_pack)
+                         log_dir=log_dir, prev_pack_dir=prev_pack,
+                         archive_root=args.archive)
     for p in written:
         sys.stdout.write(f"{p}\n")
     sys.stdout.write(f"보고서 팩 {len(written)}개 페이지 생성: {args.out}/index.html\n")
+
+    # archive 등록 (export 생성 후가 이상적이지만 add 가 메타데이터만 읽으므로
+    # 빌드 직후에 가능)
+    if args.archive:
+        from tools.pack_archive import add as archive_add
+
+        try:
+            entry = archive_add(
+                args.archive, args.out, label=args.archive_label,
+                stress=args.stress, keep=args.keep)
+            sys.stdout.write(
+                f"archive 등록: {entry['label']} → {entry['path']}\n")
+        except FileExistsError as e:
+            sys.stdout.write(f"archive 등록 건너뜀 (label 중복): {e}\n")
     return 0
 
 
