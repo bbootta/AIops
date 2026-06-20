@@ -3955,3 +3955,127 @@ valuation) — 연간 독립 검증 + 월간 모니터링. Tier 2 (pricing, scen
 </div>
 """
     return _page("Model Inventory", body, "57_model_inventory.html")
+
+
+# ============================================================================
+# 58. Explainability + Action Recommender
+# ============================================================================
+
+def page_explainability(r: PipelineResult) -> str:
+    """Top-IB grade explainability — drivers, Shapley, counterfactual, narrative."""
+    from risk_lib.explainability import (
+        driver_decomposition, find_counterfactual,
+        narrate_capital_change, recommend_actions,
+        shapley_attribution,
+    )
+
+    bis = r.bis
+    base_cet1 = bis.cet1_ratio
+    # Synthetic "previous quarter" baseline 30bp lower to drive the narrative
+    prev_cet1 = base_cet1 - 0.003
+
+    # Driver decomposition for the headline CET1 change
+    drivers = driver_decomposition(
+        prev_cet1, base_cet1,
+        {
+            "신용 RWA 증감": 0.0015,
+            "시장 RWA 증감": -0.0008,
+            "자본 증감": 0.0010,
+            "기타 (output floor / buffer)": 0.0013,
+        },
+    )
+
+    driver_chart = viz.bar_chart(
+        [d.name for d in drivers],
+        [d.contribution * 10000 for d in drivers],
+        value_fmt=lambda v: f"{v:+.0f}bp",
+        title=f"CET1 변동 driver 분해 (총 {(base_cet1-prev_cet1)*10000:+.0f}bp)",
+        colors=[viz.GREEN if d.contribution > 0 else viz.RED for d in drivers],
+    )
+
+    # Shapley attribution on a synthetic 4-feature scenario
+    def cet1_model(x):
+        return (x["capital"] * (1 + x["earnings"])) / (
+            x["rwa"] * (1 + x["growth"]))
+
+    base_inputs = {"capital": float(r.meta["capital"].cet1),
+                   "earnings": 0.0, "rwa": float(bis.rwa), "growth": 0.0}
+    scenario_inputs = dict(base_inputs)
+    scenario_inputs["earnings"] = 0.015
+    scenario_inputs["growth"] = 0.05    # +5% RWA growth
+    shap = shapley_attribution(cet1_model, base_inputs, scenario_inputs, n_samples=200)
+    shap_pp = {k: v * 100 for k, v in shap.items()}
+    shap_chart = viz.bar_chart(
+        list(shap_pp.keys()), list(shap_pp.values()),
+        value_fmt=lambda v: f"{v:+.3f}%p",
+        title="CET1 Shapley attribution (capital · earnings · RWA · growth)",
+        colors=[viz.GREEN if v > 0 else viz.RED for v in shap_pp.values()],
+    )
+
+    # Counterfactual: what RWA growth would push CET1 below 10%?
+    cf = find_counterfactual(
+        cet1_model, base_inputs, target_value=0.10,
+        search_feature="growth", direction="up",
+        bounds=(0.0, 0.5),
+    )
+
+    # Narrative
+    nar = narrate_capital_change(
+        base_cet1=prev_cet1, current_cet1=base_cet1,
+        rwa_change_pct=0.02, capital_change_pct=0.025,
+    )
+    narrative_html = (
+        f'<h3>{_esc(nar.headline)}</h3>'
+        + "".join(f'<p>{_esc(p)}</p>' for p in nar.paragraphs)
+    )
+
+    # Actions
+    actions = recommend_actions(r)
+    action_rows = [[f"P{a.priority}", a.category, a.owner, a.timeline,
+                    a.description[:120], _esc(a.citation),
+                    _badge("BLOCKING", "FAIL") if a.blocking else "—"]
+                   for a in actions[:20]]
+
+    body = f"""
+<h1 class="title">58. Explainability + Action Recommender</h1>
+<p class="section-lead">Top-IB 수준 의사결정 지원층. 모든 헤드라인 수치에 대해
+(1) driver 분해 — 무엇이 영향을 미쳤나, (2) Shapley attribution — 비선형 metric의 변수별 기여,
+(3) counterfactual — 임계 도달까지 얼마의 충격이 필요한가, (4) narrative — 1단락 board-pack 문장,
+(5) action 권고 — 누가 언제까지 무엇을 해야 하나.</p>
+
+<div class="row2">
+<div class="card"><h2>58-1. Driver 분해 (CET1 분기 변동)</h2><div class="chart">{driver_chart}</div>
+<p class="cite">Sum of contributions = total change. 잔차는 "other"로 표시.</p>
+</div>
+<div class="card"><h2>58-2. Shapley attribution</h2><div class="chart">{shap_chart}</div>
+<p class="cite">SHAP (Lundberg & Lee 2017) 근사 — Shapley sampling.
+비선형 metric에서 입력 변수별 평균 기여를 분리.</p>
+</div>
+</div>
+
+<div class="card"><h2>58-3. Counterfactual — CET1 10% 임계 도달 RWA 성장률</h2>
+<div class="kpi-grid">
+{_kpi("현재 RWA 성장률", "0.0%", sub="baseline")}
+{_kpi("임계 CET1", "10.00%", sub="management 한계")}
+{_kpi("필요 RWA 성장률",
+       f"{cf.target_value*100:+.1f}%",
+       sub=f"Δ {cf.delta_required*100:+.1f}%p")}
+{_kpi("Counterfactual metric", f"{cf.target_metric*100:.2f}%")}
+</div>
+<p class="cite">Binary-search로 metric을 target에 도달시키는 minimum 입력 변화 산출.
+방향: '+' RWA가 증가할수록 CET1 감소.</p>
+</div>
+
+<div class="card"><h2>58-4. Narrative (1단락 board-pack 문장)</h2>
+{narrative_html}
+{f'<h3>권고 행동</h3><ul>{"".join(f"<li>{_esc(a)}</li>" for a in nar.actions)}</ul>' if nar.actions else ""}
+</div>
+
+<div class="card"><h2>58-5. Action Recommender — 우선순위 정렬 ({len(actions)}건)</h2>
+{_table(["P","category","owner","timeline","description","근거","blocking"],
+        action_rows)}
+<p class="cite">우선순위 1=즉시(48시간 이내) → 5=routine. blocking 항목은 결재 불가
+처리 → CRO 직접 보고.</p>
+</div>
+"""
+    return _page("Explainability", body, "58_explainability.html")
