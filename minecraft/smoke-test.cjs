@@ -102,6 +102,9 @@ function runGame(saveJson, label, drive, opts) {
   fire(G.keydown, ev({ code: 'KeyF' })); fire(G.keydown, ev({ code: 'KeyF' }));
   fire(G.keydown, ev({ code: 'KeyM' })); fire(G.keydown, ev({ code: 'KeyM' }));
   for (let n = 1; n <= 9; n++) fire(G.keydown, ev({ code: 'Digit' + n, key: String(n) }));
+  // 설정 슬라이더/체크박스 핸들러 실행
+  ['optSens', 'optVol', 'optView'].forEach((id) => { const el = elCache[id]; if (el) { el.value = 30; fire(el._h.input); } });
+  const mu = elCache['optMusic']; if (mu) { mu.checked = !mu.checked; fire(mu._h.change); }
   step(5); fire(G.keyup, ev({ code: 'KeyW' })); fire(G.blur);
   console.log(`  [${label}] OK`);
 }

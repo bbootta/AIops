@@ -111,6 +111,14 @@
   .invgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
   .invcell { font-size: 13px; padding: 3px 0; border-bottom: 1px solid #3a3a4a; }
   .invtools { margin-top: 10px; font-size: 13px; color: #ffd54a; }
+  #settings {
+    margin-top: 18px; display: flex; flex-direction: column; gap: 8px;
+    font: 13px monospace; color: #ddd; background: rgba(0,0,0,0.3);
+    padding: 12px 16px; border: 1px solid #555;
+  }
+  #settings label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #settings input[type=range] { width: 150px; }
+  #settings label.chk { justify-content: flex-start; gap: 8px; }
   #saveSlots { margin-top: 18px; display: flex; gap: 8px; }
   #saveSlots button {
     font-family: monospace; padding: 6px 14px; font-size: 13px;
@@ -170,6 +178,12 @@
     월드는 자동 저장됩니다 &nbsp;|&nbsp; ESC : 일시정지
   </p>
   <div class="start">클릭해서 시작</div>
+  <div id="settings">
+    <label>마우스 감도 <input type="range" id="optSens" min="4" max="40" step="1"></label>
+    <label>음량 <input type="range" id="optVol" min="0" max="100" step="5"></label>
+    <label>시야 거리 <input type="range" id="optView" min="60" max="160" step="10"></label>
+    <label class="chk"><input type="checkbox" id="optMusic"> 음악</label>
+  </div>
   <div id="saveSlots"></div>
   <button class="reset" id="resetBtn">이 월드 초기화</button>
 </div>
@@ -203,6 +217,14 @@ const EYE_HEIGHT = 1.62;
 // 멀티 세이브: 슬롯마다 시드가 달라 서로 다른 월드가 생성됨
 const SLOT = Math.min(3, Math.max(1, parseInt(localStorage.getItem('mc_slot') || '1', 10) || 1));
 const SAVE_KEY = 'mc_save_v5_s' + SLOT;
+
+// 설정 (localStorage 저장)
+let optSens = parseInt(localStorage.getItem('mc_sens') || '20', 10) || 20;   // 1~40
+let optVol = parseInt(localStorage.getItem('mc_vol') || '100', 10);          // 0~100
+let viewDist = parseInt(localStorage.getItem('mc_view') || '110', 10) || 110; // 60~160
+if (isNaN(optVol)) optVol = 100;
+let lookSens = optSens * 0.000125; // 슬라이더 20 → 0.0025 (기존 기본값)
+let masterVol = optVol / 100;
 // 월드 시드 / 월드젠 버전: 시드나 지형 생성 규칙이 바뀌면 기존 저장은 무효화한다
 const WORLD_SEED = 1337 + SLOT * 9973;
 const WORLD_VER = 2; // v2: 금·에메랄드 광석 추가, 동굴 굴착 임계값 변경
@@ -480,6 +502,8 @@ scene.background = skyColor;
 scene.fog = new THREE.Fog(skyColor.getHex(), 50, 110);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 300);
+camera.far = viewDist + 60; camera.updateProjectionMatrix();
+function applyView() { camera.far = viewDist + 60; camera.updateProjectionMatrix(); }
 
 const ambient = new THREE.AmbientLight(0xffffff, 0.65);
 scene.add(ambient);
@@ -657,6 +681,7 @@ function destroyBlocks(cx, cy, cz, R) {
 // ---------- 효과음 (WebAudio 합성) ----------
 let audioCtx = null;
 function playSound(freq, dur, type, vol) {
+  if (masterVol <= 0) return;
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -665,8 +690,8 @@ function playSound(freq, dur, type, vol) {
     osc.type = type;
     osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(freq * 0.5, audioCtx.currentTime + dur);
-    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    gain.gain.setValueAtTime(Math.max(0.0001, vol * masterVol), audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + dur);
     osc.connect(gain).connect(audioCtx.destination);
     osc.start();
     osc.stop(audioCtx.currentTime + dur);
@@ -681,7 +706,7 @@ let musicTimer = 0, musicRunning = false, musicStep = 0;
 const MUSIC_SCALE = [0, 3, 5, 7, 10]; // 단조 펜타토닉
 function musicTick() {
   try {
-    if (!audioCtx || audioCtx.state !== 'running') return;
+    if (!audioCtx || audioCtx.state !== 'running' || masterVol <= 0) return;
     const t0 = audioCtx.currentTime;
     const base = curDim === 'nether' ? 110 : 146.83; // 네더는 더 낮고 음울하게
     const semi = MUSIC_SCALE[Math.floor(Math.random() * MUSIC_SCALE.length)] + (Math.random() < 0.4 ? 12 : 0);
@@ -690,14 +715,14 @@ function musicTick() {
     osc.type = 'sine';
     osc.frequency.value = base * Math.pow(2, semi / 12);
     g.gain.setValueAtTime(0, t0);
-    g.gain.linearRampToValueAtTime(0.045, t0 + 0.05);
-    g.gain.exponentialRampToValueAtTime(0.001, t0 + 1.6);
+    g.gain.linearRampToValueAtTime(0.045 * masterVol, t0 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.6);
     osc.connect(g).connect(audioCtx.destination);
     osc.start(t0); osc.stop(t0 + 1.7);
     if (musicStep % 4 === 0) { // 베이스
       const b = audioCtx.createOscillator(), bg = audioCtx.createGain();
       b.type = 'triangle'; b.frequency.value = base / 2;
-      bg.gain.setValueAtTime(0.05, t0); bg.gain.exponentialRampToValueAtTime(0.001, t0 + 1.2);
+      bg.gain.setValueAtTime(0.05 * masterVol, t0); bg.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.2);
       b.connect(bg).connect(audioCtx.destination); b.start(t0); b.stop(t0 + 1.3);
     }
     musicStep++;
@@ -1590,8 +1615,8 @@ function updateSky(dt) {
     scene.fog.near = 1;
     scene.fog.far = 16;
   } else {
-    scene.fog.near = 50;
-    scene.fog.far = 110;
+    scene.fog.near = viewDist * 0.45;
+    scene.fog.far = viewDist;
   }
   scene.fog.color.copy(skyColor);
 
@@ -1640,8 +1665,8 @@ document.addEventListener('pointerlockchange', () => {
 });
 document.addEventListener('mousemove', (e) => {
   if (!locked) return;
-  player.yaw -= e.movementX * 0.0025;
-  player.pitch -= e.movementY * 0.0025;
+  player.yaw -= e.movementX * lookSens;
+  player.pitch -= e.movementY * lookSens;
   player.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, player.pitch));
 });
 
@@ -1694,8 +1719,8 @@ canvas.addEventListener('touchmove', (e) => {
   e.preventDefault();
   for (const t of e.changedTouches) {
     if (t.identifier === lookId) {
-      player.yaw -= (t.clientX - lookX) * 0.005;
-      player.pitch -= (t.clientY - lookY) * 0.005;
+      player.yaw -= (t.clientX - lookX) * lookSens * 2;
+      player.pitch -= (t.clientY - lookY) * lookSens * 2;
       player.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, player.pitch));
       lookX = t.clientX;
       lookY = t.clientY;
@@ -2269,6 +2294,22 @@ updateHotbar();
     note.textContent = '저장 파일이 손상되었거나 호환되지 않아 새 월드로 시작했습니다.';
     slotsEl.parentNode.insertBefore(note, slotsEl.nextSibling);
   }
+}
+
+// 설정 슬라이더 (시작/일시정지 오버레이) — 클릭이 시작으로 전파되지 않게 차단
+{
+  const settingsEl = document.getElementById('settings');
+  settingsEl.addEventListener('click', (e) => e.stopPropagation());
+  settingsEl.addEventListener('pointerdown', (e) => e.stopPropagation());
+  const sens = document.getElementById('optSens');
+  const vol = document.getElementById('optVol');
+  const view = document.getElementById('optView');
+  const music = document.getElementById('optMusic');
+  sens.value = optSens; vol.value = optVol; view.value = viewDist; music.checked = musicOn;
+  sens.addEventListener('input', () => { optSens = +sens.value; lookSens = optSens * 0.000125; try { localStorage.setItem('mc_sens', optSens); } catch (e) {} });
+  vol.addEventListener('input', () => { optVol = +vol.value; masterVol = optVol / 100; try { localStorage.setItem('mc_vol', optVol); } catch (e) {} });
+  view.addEventListener('input', () => { viewDist = +view.value; applyView(); try { localStorage.setItem('mc_view', viewDist); } catch (e) {} });
+  music.addEventListener('change', () => { if (music.checked !== musicOn) toggleMusic(); });
 }
 
 teleport(curDim, true); // 활성 차원 생성 + 청크/몹/플레이어 위치 설정
