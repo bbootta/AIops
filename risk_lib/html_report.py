@@ -121,6 +121,8 @@ NAV = [
     ("53_xva_full.html",          "53. XVA 전체"),
     ("54_trading_sensitivities.html", "54. Trading Greeks"),
     ("55_scenario_library.html",  "55. Scenario Library"),
+    ("56_frtb_ima.html",          "56. FRTB IMA"),
+    ("57_model_inventory.html",   "57. Model Inventory"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -2294,6 +2296,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         page_reverse_stress_multi, page_ccar_path,
         page_climate_capital, page_liquidity_stress,
         page_xva_full, page_trading_sensitivities, page_scenario_library,
+        page_frtb_ima, page_model_inventory,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -2354,6 +2357,8 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "53_xva_full.html":             page_xva_full(result),
         "54_trading_sensitivities.html": page_trading_sensitivities(result),
         "55_scenario_library.html":      page_scenario_library(result),
+        "56_frtb_ima.html":              page_frtb_ima(result),
+        "57_model_inventory.html":       page_model_inventory(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)

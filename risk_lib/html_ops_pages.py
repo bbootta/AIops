@@ -3756,3 +3756,202 @@ historic + hypothetical + regulatory + climate 4 family.
 </div>
 """
     return _page("Scenario Library", body, "55_scenario_library.html")
+
+
+# ============================================================================
+# 56. FRTB IMA — PLAT + RFET + Backtest traffic light
+# ============================================================================
+
+def page_frtb_ima(r: PipelineResult) -> str:
+    """FRTB IMA capital eligibility: PLAT + RFET + Backtest."""
+    import numpy as np
+    from risk_lib.frtb import (
+        plat_test, rfet_test, backtest_var, compute_ima_capital,
+    )
+
+    seed = r.meta.get("seed", 42)
+    rng = np.random.default_rng(seed + 9091)
+
+    # Synthetic 250-day HPL / RTPL — slightly correlated
+    hpl = rng.normal(0, 10, 250)
+    rtpl = hpl * 0.92 + rng.normal(0, 2.0, 250)
+    plat = plat_test(hpl, rtpl, desk="market_desk")
+
+    # Synthetic price history with some missing rows for RFET
+    n_factors = 12
+    history_rows = 200
+    price_history = pd.DataFrame({
+        f"factor_{i}": rng.normal(100, 5, history_rows) if i % 4 != 0
+        else np.where(rng.random(history_rows) < 0.7,
+                      rng.normal(100, 5, history_rows), np.nan)
+        for i in range(n_factors)
+    })
+    rfet = rfet_test(price_history)
+
+    # Backtest — 1-day VaR vs realised PnL
+    pnl = rng.normal(0, 1, 250)
+    var_99 = np.full(250, 2.326)
+    bt = backtest_var(pnl, var_99)
+
+    # IMA capital
+    es_97_5 = 5e9     # 50억 KRW synthetic
+    sa_charge = 8e9
+    ima = compute_ima_capital(es_97_5, plat, rfet, bt, sa_charge=sa_charge)
+
+    plat_color = {"green": viz.GREEN, "amber": viz.AMBER, "red": viz.RED}
+    plat_chart = viz.bar_chart(
+        ["Spearman ρ", "KS stat"],
+        [plat.spearman, plat.ks_stat],
+        value_fmt=lambda v: f"{v:.3f}",
+        title="PLAT — HPL vs RTPL",
+        colors=[plat_color[plat.spearman_zone], plat_color[plat.ks_zone]],
+    )
+
+    bt_chart = viz.bar_chart(
+        ["Exceptions"], [bt.n_exceptions],
+        value_fmt=lambda v: f"{int(v)}",
+        title=f"Backtest 250d — zone {bt.zone}, multiplier {bt.multiplier:.2f}",
+        colors=[plat_color.get(bt.zone, viz.GREY)],
+    )
+
+    rfet_rows = rfet.factors.head(12).copy()
+    rfet_table = [[r2["risk_factor"], int(r2["n_obs"]),
+                   f"{r2['max_gap_days']:.0f}d",
+                   _badge("modellable", "PASS")
+                   if r2["modellable"] else _badge("NMRF", "FAIL")]
+                  for _, r2 in rfet_rows.iterrows()]
+
+    body = f"""
+<h1 class="title">56. FRTB IMA Suite — PLAT · RFET · Backtest</h1>
+<p class="section-lead">Top-IB 수준 시장리스크 IMA 적격성 평가.
+BCBS MAR Fundamental Review of the Trading Book (2019) 표준에 따라
+PLAT(Spearman ρ ≥ 0.80 + KS ≤ 0.09) + RFET(24 obs/yr, gap ≤ 30d) +
+250d backtest traffic light(≤ 4 exceptions green) 통과 시 IMA 사용 가능,
+실패 시 SA로 강제 fallback + 30% 가산.</p>
+
+<div class="kpi-grid">
+{_kpi("PLAT 등급", plat.overall_zone.upper(),
+       sub=f"ρ={plat.spearman:.3f} / KS={plat.ks_stat:.3f}",
+       tone="good" if plat.overall_zone == "green" else
+       "warn" if plat.overall_zone == "amber" else "bad")}
+{_kpi("Backtest 등급", bt.zone.upper(),
+       sub=f"{bt.n_exceptions}/{bt.n_days}d exc · mult={bt.multiplier:.2f}",
+       tone="good" if bt.zone == "green" else
+       "warn" if bt.zone == "yellow" else "bad")}
+{_kpi("RFET — modellable", f"{rfet.n_modellable}/{rfet.n_factors}",
+       sub=f"NMRF {rfet.n_nmrf}개", tone="good" if rfet.n_nmrf == 0 else "warn")}
+{_kpi("IMA 자본", _won(ima.ima_capital) if ima.ima_capital > 0
+       else "SA fallback",
+       sub=f"status: {ima.pla_status}",
+       tone="good" if ima.pla_status == "active" else "bad")}
+</div>
+
+<div class="row2">
+<div class="card"><h2>56-1. PLAT (P&L Attribution Test)</h2><div class="chart">{plat_chart}</div>
+<p class="cite">기준: Spearman ρ ≥ 0.80 + KS ≤ 0.09 (green) / 0.70–0.80 또는 0.09–0.12 (amber) / 그 외 (red).
+red zone에서 desk는 IMA 사용 불가 → SA로 강제 fallback.</p>
+</div>
+<div class="card"><h2>56-2. Backtest Traffic Light</h2><div class="chart">{bt_chart}</div>
+<p class="cite">기준: ≤4 (green, mult 1.5) / 5–9 (yellow, mult 1.7~1.92) /
+≥10 (red, mult 2.0 + IMA 박탈). BCBS MAR99.</p>
+</div>
+</div>
+
+<div class="card"><h2>56-3. RFET — Risk Factor Eligibility (12개)</h2>
+{_table(["risk factor", "관측치", "최대 gap", "판정"], rfet_table, right_cols=[1,2])}
+<p class="cite">기준: 1년간 ≥24개 관측 + 30d 이내 gap. NMRF는 stressed ES (SES) 가산.</p>
+</div>
+
+<div class="card"><h2>56-4. IMA 자본 산출</h2>
+<p>ES(97.5%, 10d) = {_won(ima.es_97_5)} × multiplier {ima.multiplier:.2f}
++ NMRF add-on {_won(ima.nmrf_addon)} = <b>{_won(ima.ima_capital)}</b></p>
+<p>현재 desk status: <b>{ima.pla_status}</b></p>
+{f'<div class="callout bad">desk가 IMA 자격을 상실했습니다. SA fallback 자본 {_won(ima.sa_capital_fallback)} 적용.</div>' if ima.pla_status == "forced_SA" else ''}
+</div>
+"""
+    return _page("FRTB IMA", body, "56_frtb_ima.html")
+
+
+# ============================================================================
+# 57. Model Inventory — Tier-based SR 11-7 governance
+# ============================================================================
+
+def page_model_inventory(r: PipelineResult) -> str:
+    """Top-IB model inventory with tier-based validation cadence."""
+    from risk_lib.model_inventory import (
+        build_standard_inventory, summarise_inventory,
+    )
+    inv = build_standard_inventory()
+    s = summarise_inventory(inv)
+
+    # Tier breakdown chart
+    tier_chart = viz.bar_chart(
+        [f"Tier {t}" for t in sorted(s.by_tier.keys())],
+        [s.by_tier[t] for t in sorted(s.by_tier.keys())],
+        value_fmt=lambda v: f"{int(v)}",
+        title="Tier별 모형 수",
+        colors=[viz.RED, viz.AMBER, viz.PALETTE[0]],
+    )
+
+    status_chart = viz.bar_chart(
+        list(s.by_status.keys()), list(s.by_status.values()),
+        value_fmt=lambda v: f"{int(v)}",
+        title="Status별 모형 수",
+        colors=[viz.GREEN if k == "PROD" else viz.AMBER if k == "UAT"
+                else viz.GREY for k in s.by_status.keys()],
+    )
+
+    rows = [[e.model_id, e.name,
+             _badge(f"Tier {e.tier}",
+                    "FAIL" if e.tier == 1 else "WARN" if e.tier == 2 else "PASS"),
+             _badge(e.status, "PASS" if e.status == "PROD" else "WARN"),
+             e.owner, e.last_validation, e.next_due,
+             _badge("OVERDUE", "FAIL") if e.is_overdue() else _badge("OK", "PASS"),
+             e.citation[:48]]
+            for e in inv]
+
+    detail_cards = "".join(
+        f"""<div class="callout">
+<b>{e.model_id}</b> — {e.name} (Tier {e.tier}, {e.status})<br/>
+<b>용도:</b> {e.purpose}<br/>
+<b>마지막 검증:</b> {e.last_validation} · <b>다음 due:</b> {e.next_due}<br/>
+<b>근거:</b> <span class="cite">{e.citation}</span><br/>
+{f"<b>알려진 한계:</b> {'; '.join(e.known_limitations)}<br/>" if e.known_limitations else ""}
+{f"<b>의존:</b> {', '.join(e.dependencies)}<br/>" if e.dependencies else ""}
+{f"<b>성능:</b> {', '.join(f'{k}={v}' for k,v in e.metrics.items())}<br/>" if e.metrics else ""}
+</div>""" for e in inv
+    )
+
+    body = f"""
+<h1 class="title">57. Model Inventory — Tier-based Governance</h1>
+<p class="section-lead">Top-IB SR 11-7 기준 모형 인벤토리. Tier 1 (regulatory capital /
+valuation) — 연간 독립 검증 + 월간 모니터링. Tier 2 (pricing, scenario) —
+격년 검증. Tier 3 (management info) — 3년 검증.</p>
+
+<div class="kpi-grid">
+{_kpi("총 모형 수", f"{s.total}")}
+{_kpi("Tier 1 모형", f"{s.by_tier.get(1, 0)}",
+       sub="regulatory capital / valuation")}
+{_kpi("PROD status", f"{s.by_status.get('PROD', 0)}",
+       sub=f"UAT {s.by_status.get('UAT', 0)} · RETIRED {s.by_status.get('RETIRED', 0)}",
+       tone="good")}
+{_kpi("Overdue 검증", f"{s.n_overdue}",
+       sub=f"미루어진 모형: {', '.join(s.overdue_models) if s.overdue_models else '없음'}",
+       tone="good" if s.n_overdue == 0 else "bad")}
+</div>
+
+<div class="row2">
+<div class="card"><h2>57-1. Tier별 분포</h2><div class="chart">{tier_chart}</div></div>
+<div class="card"><h2>57-2. Status별 분포</h2><div class="chart">{status_chart}</div></div>
+</div>
+
+<div class="card"><h2>57-3. 인벤토리 요약표</h2>
+{_table(["ID","name","tier","status","owner","last validation","next due","검증상태","근거"],
+        rows, right_cols=[2,3])}
+</div>
+
+<div class="card"><h2>57-4. 모형별 상세 카드</h2>
+{detail_cards}
+</div>
+"""
+    return _page("Model Inventory", body, "57_model_inventory.html")

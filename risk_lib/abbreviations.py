@@ -127,6 +127,18 @@ ABBREVIATIONS: dict[str, tuple[str, str]] = {
                 "미 연준 모형리스크관리 지침. 모형 카드·검증·챔피언/챌린저"),
     "RC":     ("Risk Committee",
                "리스크 위원회. 이사회 산하 위원회로 전사 리스크 의사결정"),
+    "HPL":    ("Hypothetical P&L",
+               "프론트오피스 가격결정 모형의 가상 P&L. PLAT의 reference"),
+    "RTPL":   ("Risk-Theoretical P&L",
+               "리스크 모형의 이론 P&L. PLAT에서 HPL과 비교"),
+    "SES":    ("Stressed Expected Shortfall",
+               "스트레스 시 ES. NMRF에 대해 가산되는 자본"),
+    "SA-CCR": ("Standardised Approach for Counterparty Credit Risk",
+               "거래상대방신용리스크 표준방법. EAD = α(=1.4) × (RC + PFE)"),
+    "VaR":    ("Value at Risk",
+               "위험가치. 신뢰수준에서의 최대 손실 (예: 99% 1d VaR)"),
+    "ES":     ("Expected Shortfall",
+               "기대 손실. VaR 초과 시 평균 손실. FRTB IMA의 표준 metric"),
 
     # ── 유동성·ALM ──
     "ALM":    ("Asset Liability Management",
