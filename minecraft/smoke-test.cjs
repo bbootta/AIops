@@ -96,7 +96,10 @@ function runGame(saveJson, label, drive, opts) {
   }
   drive && drive({ step });
   fire(doc._h.mousedown, ev({ button: 0 })); step(3); fire(doc._h.mouseup, ev({ button: 0 }));
-  for (let i = 0; i < 13; i++) { fire(G.wheel, ev({ deltaY: 1 })); fire(doc._h.mousedown, ev({ button: 2 })); }
+  for (let i = 0; i < 13; i++) { fire(G.wheel, ev({ deltaY: 1 })); fire(doc._h.mousedown, ev({ button: 2 })); fire(doc._h.mouseup, ev({ button: 2 })); }
+  // 활 차지 → 발사 (BOW 슬롯으로 한 칸 더 이동 후 우클릭 hold/release)
+  fire(G.wheel, ev({ deltaY: 1 }));
+  fire(doc._h.mousedown, ev({ button: 2 })); step(2); fire(doc._h.mouseup, ev({ button: 2 }));
   fire(G.keydown, ev({ code: 'KeyC' })); fire(G.keydown, ev({ code: 'KeyC' }));
   fire(G.keydown, ev({ code: 'KeyE' })); fire(G.keydown, ev({ code: 'KeyE' }));
   fire(G.keydown, ev({ code: 'KeyF' })); fire(G.keydown, ev({ code: 'KeyF' }));
@@ -105,6 +108,7 @@ function runGame(saveJson, label, drive, opts) {
   // 설정 슬라이더/체크박스 핸들러 실행
   ['optSens', 'optVol', 'optView'].forEach((id) => { const el = elCache[id]; if (el) { el.value = 30; fire(el._h.input); } });
   const mu = elCache['optMusic']; if (mu) { mu.checked = !mu.checked; fire(mu._h.change); }
+  const fr = elCache['optFreeze']; if (fr) { fr.checked = false; fire(fr._h.change); }
   step(5); fire(G.keyup, ev({ code: 'KeyW' })); fire(G.blur);
   console.log(`  [${label}] OK`);
 }
@@ -114,7 +118,7 @@ try { runGame(null, 'A: 새 게임(오버월드)'); } catch (e) { fails++; conso
 const saveB = JSON.stringify({
   curDim: 'overworld',
   dims: { overworld: { edits: [['0,11,0', 3], ['0,12,0', 16]], pos: { x: 0.5, y: 12, z: 0.5, yaw: 0, pitch: 0 }, crops: [] }, nether: { edits: [], pos: null, crops: [] } },
-  slot: 0, health: 10, inv: { 12: 9 }, tools: { pickaxe: true, bow: true }, dayTime: 50,
+  slot: 0, health: 10, inv: { 12: 9, 105: 5 }, tools: { pickaxe: true, bow: true }, dayTime: 50,
 });
 try {
   runGame(saveB, 'B: 포탈→네더 전이', ({ step }) => {

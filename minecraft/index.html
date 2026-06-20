@@ -16,6 +16,11 @@
   }
   #crosshair::before { left: 9px; top: 0; width: 2px; height: 20px; }
   #crosshair::after { left: 0; top: 9px; width: 20px; height: 2px; }
+  #chargeBar {
+    position: fixed; left: 50%; top: calc(50% + 18px); transform: translateX(-50%);
+    width: 60px; height: 5px; background: rgba(0,0,0,0.5); z-index: 10; display: none;
+  }
+  #chargeFill { height: 100%; width: 0%; background: #ffd54a; }
   #hotbar {
     position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
     display: flex; gap: 4px; z-index: 10;
@@ -143,6 +148,7 @@
 <body>
 <canvas id="game"></canvas>
 <div id="crosshair"></div>
+<div id="chargeBar"><div id="chargeFill"></div></div>
 <div id="hotbar"></div>
 <div id="clock"></div>
 <canvas id="minimap"></canvas>
@@ -183,6 +189,7 @@
     <label>음량 <input type="range" id="optVol" min="0" max="100" step="5"></label>
     <label>시야 거리 <input type="range" id="optView" min="60" max="160" step="10"></label>
     <label class="chk"><input type="checkbox" id="optMusic"> 음악</label>
+    <label class="chk"><input type="checkbox" id="optFreeze"> 일시정지 시 시간 정지</label>
   </div>
   <div id="saveSlots"></div>
   <button class="reset" id="resetBtn">이 월드 초기화</button>
@@ -231,13 +238,14 @@ const WORLD_VER = 2; // v2: 금·에메랄드 광석 추가, 동굴 굴착 임�
 
 const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18 };
 // 블록이 아닌 아이템 (인벤토리 전용)
-const ITEM = { MEAT: 100, SEEDS: 101, WHEAT: 102, BREAD: 103, DIAMOND: 104, ARROW: 105, BOW: 106, GOLD: 107, EMERALD: 108, GOLD_APPLE: 109 };
+const ITEM = { MEAT: 100, SEEDS: 101, WHEAT: 102, BREAD: 103, DIAMOND: 104, ARROW: 105, BOW: 106, GOLD: 107, EMERALD: 108, GOLD_APPLE: 109, APPLE: 110, MUSHROOM: 111, STEW: 112 };
 const BLOCK_NAMES = {
   1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석',
   10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈', 17: '금 광석', 18: '에메랄드 광석',
   100: '고기', 101: '씨앗', 102: '밀', 103: '빵', 104: '다이아몬드', 106: '활', 107: '금', 108: '에메랄드', 109: '황금 사과',
+  110: '사과', 111: '버섯', 112: '버섯 스튜',
 };
-const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES, BLOCK.SAND, BLOCK.TORCH, ITEM.MEAT, ITEM.BREAD, ITEM.GOLD_APPLE, ITEM.SEEDS, ITEM.BOW, BLOCK.PORTAL];
+const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES, BLOCK.SAND, BLOCK.TORCH, ITEM.MEAT, ITEM.BREAD, ITEM.APPLE, ITEM.GOLD_APPLE, ITEM.STEW, ITEM.SEEDS, ITEM.BOW, BLOCK.PORTAL];
 // 블록별 캐는 시간(초)과 드롭 아이템 [종류, 개수]
 const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0 };
 const DROPS = {
@@ -250,7 +258,7 @@ const DROPS = {
 };
 // 채굴 시 곡괭이가 없으면 드롭하지 않는 광석
 const NEEDS_PICK = new Set([BLOCK.IRON_ORE, BLOCK.DIAMOND_ORE, BLOCK.GOLD_ORE, BLOCK.EMERALD_ORE]);
-const FOODS = { [ITEM.MEAT]: 3, [ITEM.BREAD]: 4, [ITEM.GOLD_APPLE]: MAX_HEALTH }; // 먹었을 때 회복량
+const FOODS = { [ITEM.MEAT]: 3, [ITEM.BREAD]: 4, [ITEM.GOLD_APPLE]: MAX_HEALTH, [ITEM.APPLE]: 3, [ITEM.STEW]: 7 }; // 먹었을 때 회복량
 
 // ---------- 시드 난수 / 노이즈 ----------
 function mulberry32(a) {
@@ -351,6 +359,9 @@ const TEX = {
   bread: makeTexture([196, 142, 74], (x, y) => (y < 3 || y > 12 ? [150, 100, 50] : [210, 165, 100])),
   bow: makeTexture([60, 44, 28], (x, y) => (Math.abs(x - 8) + Math.abs(y - 8) > 9 && x < 11 ? [150, 110, 60] : (x === 11 ? [230, 230, 230] : [60, 44, 28]))),
   goldApple: makeTexture([218, 180, 40], (x, y) => (Math.hypot(x - 8, y - 8) < 5.5 ? [255, 215, 60] : [40, 30, 10])),
+  apple: makeTexture([40, 20, 16], (x, y) => (Math.hypot(x - 8, y - 9) < 5 ? [206, 50, 44] : (x === 8 && y < 5 ? [90, 60, 30] : [40, 20, 16]))),
+  mushroom: makeTexture([60, 44, 38], (x, y) => (y < 7 && Math.hypot(x - 8, y - 6) < 5 ? [200, 60, 60] : (y >= 7 && Math.abs(x - 8) < 2 ? [230, 220, 200] : [60, 44, 38]))),
+  stew: makeTexture([70, 50, 30], (x, y) => (y > 8 ? [120, 90, 55] : (y > 5 ? [150, 100, 60] : [70, 50, 30]))),
   // 네더
   netherrack: makeTexture([108, 38, 38], (x, y) => (((x * 3 + y * 7) % 11 < 2) ? [70, 20, 20] : [108, 38, 38])),
   lava: makeTexture([222, 110, 30], (x, y) => (((x + y) % 5 === 0) ? [255, 200, 60] : [222, 90, 24])),
@@ -381,7 +392,7 @@ const MATERIALS = {
   [BLOCK.PORTAL]: new THREE.MeshLambertMaterial({ map: TEX.portal, emissive: 0x8833dd, emissiveIntensity: 0.8, transparent: true, opacity: 0.78 }),
 };
 // 아이템 종류별 핫바 아이콘 텍스처
-const ITEM_ICON = { [ITEM.MEAT]: TEX.meat, [ITEM.SEEDS]: TEX.seeds, [ITEM.BREAD]: TEX.bread, [ITEM.BOW]: TEX.bow, [ITEM.GOLD_APPLE]: TEX.goldApple };
+const ITEM_ICON = { [ITEM.MEAT]: TEX.meat, [ITEM.SEEDS]: TEX.seeds, [ITEM.BREAD]: TEX.bread, [ITEM.BOW]: TEX.bow, [ITEM.GOLD_APPLE]: TEX.goldApple, [ITEM.APPLE]: TEX.apple, [ITEM.MUSHROOM]: TEX.mushroom, [ITEM.STEW]: TEX.stew };
 
 // ---------- 월드 데이터 ----------
 // 차원 전환을 위해 let (스왑 시 다른 Map/Set으로 교체)
@@ -1224,8 +1235,9 @@ function attackMob() {
 const arrows = [];
 const arrowGeo = new THREE.BoxGeometry(0.06, 0.06, 0.55);
 const ARROW_MAT = new THREE.MeshLambertMaterial({ color: 0x6b4a2a });
-function fireArrow() {
+function fireArrow(power) {
   if (!tools.bow || inv[ITEM.ARROW] <= 0) { playSound(140, 0.08, 'square', 0.08); return; }
+  power = Math.min(1, Math.max(0.2, power == null ? 0.5 : power)); // 차지량 0.2~1
   inv[ITEM.ARROW]--;
   updateHotbar();
   camera.getWorldDirection(_dir);
@@ -1234,8 +1246,8 @@ function fireArrow() {
   mesh.position.copy(pos);
   mesh.lookAt(pos.clone().add(_dir));
   scene.add(mesh);
-  arrows.push({ mesh, pos, vel: _dir.clone().multiplyScalar(30), life: 3 });
-  playSound(300, 0.1, 'triangle', 0.13);
+  arrows.push({ mesh, pos, vel: _dir.clone().multiplyScalar(16 + power * 32), life: 3, dmg: 2 + Math.round(power * 3) });
+  playSound(220 + power * 200, 0.1, 'triangle', 0.13);
 }
 function mobAABBHit(p) {
   for (const m of [...animals, ...zombies]) {
@@ -1274,7 +1286,7 @@ function updateArrows(dt) {
             a.pos.z > p.z - 0.35 && a.pos.z < p.z + 0.35) { damage(2); hit = true; }
       } else {
         const m = mobAABBHit(a.pos);
-        if (m) { damageMob(m, 3, a.vel.x, a.vel.z); hit = true; }
+        if (m) { damageMob(m, a.dmg || 3, a.vel.x, a.vel.z); hit = true; }
       }
     }
     if (hit || a.life <= 0) {
@@ -1348,6 +1360,8 @@ let fallDist = 0;
 let regenTimer = 0, drownTimer = 0, flashTimer = 0, lavaTimer = 0;
 let portalTimer = 0, portalCooldown = 0;
 let hunger = MAX_HUNGER, hungerDrain = 0, starveTimer = 0;
+let charging = false, chargeT = 0; // 활 차지
+let optFreeze = localStorage.getItem('mc_freeze') !== '0'; // 일시정지 시 시간 정지
 const healthEl = document.getElementById('health');
 const damageFlashEl = document.getElementById('damageFlash');
 const bossBarEl = document.getElementById('bossBar');
@@ -1744,7 +1758,7 @@ function bindBtn(id, onDown, onUp) {
 }
 bindBtn('btnJump', () => { touchJump = true; }, () => { touchJump = false; });
 bindBtn('btnBreak', () => startAttack(), () => stopAttack());
-bindBtn('btnPlace', () => doPlace());
+bindBtn('btnPlace', () => rightDown(), () => rightUp());
 bindBtn('btnCraft', () => toggleCraft(!craftOpen));
 bindBtn('btnPause', () => {
   touchPlaying = false;
@@ -1939,7 +1953,11 @@ function updateMining(dt) {
       if (drop && !(NEEDS_PICK.has(type) && !hasPick)) {
         inv[drop[0]] = (inv[drop[0]] || 0) + drop[1];
       }
-      if (type === BLOCK.GRASS && Math.random() < 0.35) inv[ITEM.SEEDS] += 1; // 잔디에서 씨앗
+      if (type === BLOCK.GRASS) {
+        if (Math.random() < 0.35) inv[ITEM.SEEDS] += 1;   // 잔디에서 씨앗
+        if (Math.random() < 0.10) inv[ITEM.MUSHROOM] += 1; // 가끔 버섯
+      }
+      if (type === BLOCK.LEAVES && Math.random() < 0.12) inv[ITEM.APPLE] += 1; // 나뭇잎에서 사과
       updateHotbar();
     }
     spawnParticles(b.x, b.y, b.z, type === BLOCK.CROP ? CROP_RIPE : type);
@@ -1954,13 +1972,28 @@ function updateMining(dt) {
   crackMesh.visible = true;
 }
 
+// 우클릭: 활이면 누르는 동안 차지 후 떼면 발사, 그 외엔 즉시 설치/사용
+const chargeBarEl = document.getElementById('chargeBar');
+const chargeFillEl = document.getElementById('chargeFill');
+function rightDown() {
+  if (!playing()) return;
+  if (HOTBAR[selectedSlot] === ITEM.BOW && tools.bow && inv[ITEM.ARROW] > 0) { charging = true; chargeT = 0; }
+  else doPlace();
+}
+function rightUp() {
+  if (!charging) return;
+  fireArrow(chargeT / 1.2);
+  charging = false; chargeT = 0;
+}
+function cancelCharge() { charging = false; chargeT = 0; }
 document.addEventListener('mousedown', (e) => {
   if (!locked) return;
   if (e.button === 0) startAttack();
-  else if (e.button === 2) doPlace();
+  else if (e.button === 2) rightDown();
 });
 document.addEventListener('mouseup', (e) => {
   if (e.button === 0) stopAttack();
+  else if (e.button === 2) rightUp();
 });
 
 // ---------- 핫바 / 인벤토리 ----------
@@ -1971,6 +2004,7 @@ const inv = {
   [BLOCK.LEAVES]: 0, [BLOCK.SAND]: 0, [BLOCK.TORCH]: 2, [ITEM.MEAT]: 0,
   [ITEM.SEEDS]: 0, [ITEM.WHEAT]: 0, [ITEM.BREAD]: 0, [ITEM.DIAMOND]: 0, [ITEM.ARROW]: 0,
   [BLOCK.PORTAL]: 0, [ITEM.GOLD]: 0, [ITEM.EMERALD]: 0, [ITEM.GOLD_APPLE]: 0,
+  [ITEM.APPLE]: 0, [ITEM.MUSHROOM]: 0, [ITEM.STEW]: 0,
 };
 const tools = { pickaxe: false, sword: false, bow: false, diamondPickaxe: false, diamondSword: false }; // 제작으로 획득 (영구)
 const slotCnts = [];
@@ -1999,6 +2033,7 @@ const slotEls = HOTBAR.map((t, i) => {
 });
 function selectSlot(i) {
   selectedSlot = i;
+  cancelCharge(); // 슬롯 바꾸면 차지 취소
   slotEls.forEach((el, j) => el.classList.toggle('selected', j === i));
 }
 function updateHotbar() {
@@ -2032,6 +2067,7 @@ const RECIPES = [
   { name: '다이아 검', desc: '다이아 2 · 공격력 3', cost: { [ITEM.DIAMOND]: 2 }, once: 'diamondSword' },
   { name: '포탈 ×1', desc: '다이아 5 · 설치 후 들어가면 네더 이동', cost: { [ITEM.DIAMOND]: 5 }, make: () => { inv[BLOCK.PORTAL] += 1; } },
   { name: '황금 사과', desc: '금 5 · 체력 가득 회복', cost: { [ITEM.GOLD]: 5 }, make: () => { inv[ITEM.GOLD_APPLE] += 1; } },
+  { name: '버섯 스튜', desc: '버섯 3 · 허기 +7', cost: { [ITEM.MUSHROOM]: 3 }, make: () => { inv[ITEM.STEW] += 1; } },
 ];
 const craftEl = document.getElementById('craft');
 const recipesEl = document.getElementById('recipes');
@@ -2088,7 +2124,7 @@ let invOpen = false;
 const INV_ORDER = [
   BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.SAND, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES,
   BLOCK.TORCH, BLOCK.PORTAL, ITEM.DIAMOND, ITEM.EMERALD, ITEM.GOLD, ITEM.GOLD_APPLE,
-  ITEM.MEAT, ITEM.WHEAT, ITEM.BREAD, ITEM.SEEDS, ITEM.ARROW,
+  ITEM.MEAT, ITEM.WHEAT, ITEM.BREAD, ITEM.APPLE, ITEM.MUSHROOM, ITEM.STEW, ITEM.SEEDS, ITEM.ARROW,
 ];
 function renderInv() {
   let html = '<div class="invgrid">';
@@ -2310,6 +2346,9 @@ updateHotbar();
   vol.addEventListener('input', () => { optVol = +vol.value; masterVol = optVol / 100; try { localStorage.setItem('mc_vol', optVol); } catch (e) {} });
   view.addEventListener('input', () => { viewDist = +view.value; applyView(); try { localStorage.setItem('mc_view', viewDist); } catch (e) {} });
   music.addEventListener('change', () => { if (music.checked !== musicOn) toggleMusic(); });
+  const freeze = document.getElementById('optFreeze');
+  freeze.checked = optFreeze;
+  freeze.addEventListener('change', () => { optFreeze = freeze.checked; try { localStorage.setItem('mc_freeze', optFreeze ? '1' : '0'); } catch (e) {} });
 }
 
 teleport(curDim, true); // 활성 차원 생성 + 청크/몹/플레이어 위치 설정
@@ -2326,14 +2365,25 @@ let waterT = 0;
 function loop(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
-  if (playing()) { updatePlayer(dt); updatePortal(dt); }
-  updateSky(dt);
-  updateClouds(dt);
-  updateParticles(dt);
-  updateAnimals(dt);
-  updateZombies(dt);
-  updateArrows(dt);
-  updateCrops(dt);
+  const active = playing() || !optFreeze; // 일시정지 시 시간 정지 옵션
+  if (playing()) {
+    updatePlayer(dt);
+    updatePortal(dt);
+    if (charging) chargeT = Math.min(1.2, chargeT + dt);
+  } else if (charging) {
+    cancelCharge();
+  }
+  chargeBarEl.style.display = charging ? 'block' : 'none';
+  if (charging) chargeFillEl.style.width = (chargeT / 1.2 * 100) + '%';
+  if (active) {
+    updateSky(dt);
+    updateClouds(dt);
+    updateParticles(dt);
+    updateAnimals(dt);
+    updateZombies(dt);
+    updateArrows(dt);
+    updateCrops(dt);
+  }
   updateMining(dt);
   updateTorchLights(dt);
   updateHighlight();
