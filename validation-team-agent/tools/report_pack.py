@@ -44,33 +44,289 @@ from tools.svg_charts import (
 )
 
 DRAFT_BANNER = (
-    '<div class="draft">[DRAFT — 외부 제출 금지] 본 보고서는 합성 데이터 기반 '
-    "검증 보조 자료입니다. 최종 판단은 인간 검증자 책임.</div>"
+    '<div class="draft">'
+    '<span style="font-weight:700;letter-spacing:.03em">[DRAFT — 외부 제출 금지]</span> '
+    '<span style="font-weight:500">본 보고서는 합성 데이터 기반 검증 보조 자료입니다. '
+    '최종 판단은 인간 검증자 책임.</span>'
+    "</div>"
 )
 
 _CSS = """
-body { font-family: -apple-system, "Malgun Gothic", sans-serif; margin: 2rem;
-       max-width: 920px; color: #212529; }
-.draft { background: #fff3cd; border: 1px solid #ffc107; padding: .6rem 1rem;
-         font-weight: 600; margin-bottom: 1rem; }
-table { border-collapse: collapse; margin: .8rem 0; }
-th, td { border: 1px solid #dee2e6; padding: .35rem .6rem; text-align: left;
-         font-size: .9rem; }
-th { background: #f8f9fa; }
-.cards { display: flex; flex-wrap: wrap; gap: 12px; }
-.card { border: 1px solid #dee2e6; border-radius: 8px; padding: .8rem 1rem;
-        width: 260px; }
-.card h3 { margin: .2rem 0 .5rem; font-size: 1rem; }
-.badge { display: inline-block; padding: 2px 10px; border-radius: 10px;
-         color: #fff; font-size: .8rem; }
-code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; }
-footer { margin-top: 2rem; color: #6c757d; font-size: .8rem; }
-a { color: #1565c0; }
-.crumb { font-size: .85rem; margin-bottom: .6rem; }
-details.prov { border: 1px solid #cfd8dc; background: #f6f9fc; padding: .4rem .8rem;
-               border-radius: 6px; margin: 1rem 0; font-size: .9rem; }
-details.prov summary { cursor: pointer; padding: .2rem 0; }
-details.prov table { width: 100%; font-size: .85rem; }
+:root {
+  /* color tokens — neutral */
+  --c-bg: #f6f8fb;
+  --c-surface: #ffffff;
+  --c-surface-2: #f8fafc;
+  --c-border: #e4e8ee;
+  --c-border-strong: #cbd2da;
+  --c-text: #0f172a;
+  --c-text-muted: #475569;
+  --c-text-subtle: #64748b;
+  /* brand & semantic */
+  --c-primary: #0b3a6a;
+  --c-primary-2: #1755a6;
+  --c-accent: #c92a2a;
+  --c-success: #2e7d32;
+  --c-warning: #b8860b;
+  --c-danger: #b91c1c;
+  --c-info: #0369a1;
+  /* surfaces */
+  --c-banner-bg: #fff5e6;
+  --c-banner-border: #f5b04a;
+  --c-banner-text: #6b3500;
+  --c-prov-bg: #eef3f8;
+  --c-prov-border: #c8d4e1;
+  --c-code-bg: #eef1f5;
+  /* shape */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.06);
+  --shadow-md: 0 2px 4px rgba(15,23,42,.06), 0 4px 12px rgba(15,23,42,.08);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Pretendard,
+               "Apple SD Gothic Neo", "Malgun Gothic", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  font-feature-settings: "tnum" 1, "kern" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--c-bg);
+  color: var(--c-text);
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+body {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.5rem 1.75rem 4rem;
+}
+
+/* draft banner ── self-contained, no external icons */
+.draft {
+  background: linear-gradient(180deg, var(--c-banner-bg), #fff);
+  border: 1px solid var(--c-banner-border);
+  border-left: 4px solid var(--c-banner-border);
+  color: var(--c-banner-text);
+  padding: .75rem 1.1rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: .95rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  letter-spacing: -0.01em;
+}
+
+/* headings */
+h1 {
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--c-primary);
+  margin: 0 0 1.25rem;
+  padding-bottom: .75rem;
+  border-bottom: 2px solid var(--c-border);
+}
+h2 {
+  font-size: 1.18rem;
+  font-weight: 600;
+  color: var(--c-text);
+  margin: 1.75rem 0 .75rem;
+  letter-spacing: -0.01em;
+}
+h3 {
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--c-text);
+  margin: 1.25rem 0 .5rem;
+}
+h4 {
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--c-text-muted);
+  margin: 1rem 0 .35rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+p { margin: .55rem 0 .9rem; }
+
+/* links */
+a {
+  color: var(--c-primary-2);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color .15s ease;
+}
+a:hover { border-bottom-color: var(--c-primary-2); }
+
+/* breadcrumb */
+.crumb {
+  font-size: .85rem;
+  color: var(--c-text-subtle);
+  margin-bottom: .9rem;
+}
+.crumb a {
+  color: var(--c-text-muted);
+  font-weight: 500;
+}
+
+/* code & mono */
+code {
+  background: var(--c-code-bg);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-family: "SF Mono", "Menlo", "Consolas", "Roboto Mono", monospace;
+  font-size: .88em;
+  color: var(--c-text);
+}
+pre code { padding: 0; background: transparent; }
+pre {
+  background: var(--c-code-bg);
+  padding: .8rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--c-border);
+  overflow-x: auto;
+  font-size: .85rem;
+}
+
+/* tables */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  margin: .9rem 0 1.2rem;
+  font-size: .9rem;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+th, td {
+  padding: .55rem .85rem;
+  text-align: left;
+  border-bottom: 1px solid var(--c-border);
+  vertical-align: top;
+}
+th {
+  background: var(--c-surface-2);
+  color: var(--c-text-muted);
+  font-weight: 600;
+  font-size: .82rem;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  border-bottom: 1px solid var(--c-border-strong);
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--c-surface-2); }
+
+/* domain card grid */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin: 1rem 0;
+}
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .15s ease, transform .15s ease;
+}
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.card h3 {
+  margin: 0 0 .55rem;
+  font-size: 1rem;
+}
+.card h3 a { color: var(--c-text); border-bottom: none; }
+.card h3 a:hover { color: var(--c-primary-2); }
+.card ul {
+  margin: .6rem 0 0;
+  padding-left: 1.1rem;
+  font-size: .85rem;
+  color: var(--c-text-muted);
+}
+.card ul li { margin: .15rem 0; }
+
+/* badges (status) */
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: .76rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* provenance card */
+details.prov {
+  border: 1px solid var(--c-prov-border);
+  background: var(--c-prov-bg);
+  padding: .55rem 1rem;
+  border-radius: var(--radius-md);
+  margin: 1.5rem 0 1rem;
+  font-size: .88rem;
+  color: var(--c-text-muted);
+}
+details.prov[open] { padding-bottom: 1rem; }
+details.prov summary {
+  cursor: pointer;
+  padding: .25rem 0;
+  font-weight: 600;
+  color: var(--c-text);
+  list-style: none;
+}
+details.prov summary::-webkit-details-marker { display: none; }
+details.prov summary::before {
+  content: "▸ ";
+  color: var(--c-text-muted);
+  margin-right: .35rem;
+  display: inline-block;
+  transition: transform .15s ease;
+}
+details.prov[open] summary::before { content: "▾ "; }
+details.prov table {
+  width: 100%;
+  font-size: .8rem;
+  background: var(--c-surface);
+  box-shadow: none;
+  margin: .5rem 0;
+}
+details.prov code { font-size: .8em; }
+
+/* footer */
+footer {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--c-border);
+  color: var(--c-text-subtle);
+  font-size: .78rem;
+  line-height: 1.55;
+}
+
+/* svg charts: enforce neutral container */
+svg { display: block; margin: .5rem 0; max-width: 100%; }
+
+/* list styling */
+ul, ol { padding-left: 1.4rem; margin: .5rem 0 .9rem; }
+ul li, ol li { margin: .2rem 0; }
+
+/* utility */
+.muted { color: var(--c-text-muted); }
+.subtle { color: var(--c-text-subtle); font-size: .85rem; }
 """
 
 _STATUS_KO = {"ok": "정상", "warning": "주의", "fail": "위반", "skipped": "생략",
@@ -1113,8 +1369,9 @@ def _pack_diff_page(prev_pack_dir: Path | None, curr_pack_dir: Path,
 <p>전 분기 (이전 팩) vs 당 분기 (현재 팩) 의 KPI · 부문 status · QoQ · 페이지
 SHA-256 변화 detection.</p>
 
-<div style="background:{summary_color};color:white;padding:.8rem 1.2rem;
-border-radius:6px;margin:1rem 0;text-align:center">
+<div style="background:linear-gradient(135deg,{summary_color},{summary_color}d9);
+color:white;padding:1.1rem 1.4rem;border-radius:10px;margin:1.25rem 0;
+text-align:center;box-shadow:0 2px 8px rgba(15,23,42,.10);font-size:1.02rem">
 <b>요약: 부문 악화 {degraded} · 개선 {improved} · KPI 변경 {len(kpi['changed'])} ·
 페이지 변경 {len(pages['changed_pages'])}</b>
 </div>
@@ -1553,10 +1810,11 @@ def _exec_summary_page(demo: dict) -> str:
         for r in risks) or "<li>식별된 fail/warning 없음 — 표준 모니터링 유지.</li>"
 
     body = f"""
-<div style="background:{overall_color};color:white;padding:1.2rem;
-border-radius:8px;margin-bottom:1rem;text-align:center">
-<div style="font-size:2rem;font-weight:700;margin-bottom:.3rem">{overall_label}</div>
-<div style="font-size:1rem">{headline}</div>
+<div style="background:linear-gradient(135deg,{overall_color},{overall_color}d9);
+color:white;padding:1.5rem 1.75rem;border-radius:12px;margin-bottom:1.5rem;
+text-align:center;box-shadow:0 4px 16px rgba(15,23,42,.12)">
+<div style="font-size:2.25rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.45rem">{overall_label}</div>
+<div style="font-size:1.05rem;opacity:.95">{headline}</div>
 </div>
 
 <h2>핵심 KPI (한눈에)</h2>
@@ -3497,12 +3755,17 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
     esc = _step_row(demo, "9.escalate")
     if esc["status"] != "skipped" and esc["outputs"].get("triggered_by"):
         esc_block = (
-            f'<div style="background:#ffebee;border-left:4px solid #c62828;'
-            f'padding:.6rem 1rem;margin:1rem 0">'
-            f'<b style="color:#c62828">⚠ Escalation 발생</b> — '
-            f'trigger: {_esc(", ".join(esc["outputs"]["triggered_by"]))}<br>'
-            f'대응: 인간 검증자(검증팀장) → MRMC 보고 → 매니페스트 CHG 기록 '
-            f'(HITL). 본 보고서는 보조 자료이며 의견 확정은 인간 결정.</div>')
+            f'<div style="background:linear-gradient(180deg,#fff0f0,#fff);'
+            f'border:1px solid #f3c1c1;border-left:4px solid {PALETTE["fail"]};'
+            f'padding:.85rem 1.1rem;margin:1.25rem 0;border-radius:8px;'
+            f'box-shadow:0 1px 2px rgba(185,28,28,.06)">'
+            f'<b style="color:{PALETTE["fail"]};font-size:1.02em">'
+            f'⚠ Escalation 발생</b><br>'
+            f'<span style="color:#475569">trigger: '
+            f'{_esc(", ".join(esc["outputs"]["triggered_by"]))}</span><br>'
+            f'<span style="font-size:.9em;color:#475569">대응: '
+            f'인간 검증자(검증팀장) → MRMC 보고 → 매니페스트 CHG 기록 (HITL). '
+            f'본 보고서는 보조 자료이며 의견 확정은 인간 결정.</span></div>')
 
     body = f"""
 <p style="font-size:1.05rem">{headline}</p>

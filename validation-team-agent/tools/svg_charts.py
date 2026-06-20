@@ -10,12 +10,13 @@ import html as _html
 from typing import Sequence
 
 PALETTE = {
+    # 보고서 본문 / 차트 공통 — 명도·채도 균형 조정 (R69 디자인 시스템)
     "ok": "#2e7d32",
-    "warning": "#f9a825",
-    "fail": "#c62828",
-    "skipped": "#9e9e9e",
-    "simulated": "#0288d1",
-    "neutral": "#1565c0",
+    "warning": "#b8860b",
+    "fail": "#b91c1c",
+    "skipped": "#94a3b8",
+    "simulated": "#0369a1",
+    "neutral": "#1755a6",
 }
 
 

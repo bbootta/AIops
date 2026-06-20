@@ -1995,6 +1995,21 @@
       "rollback_rule": "pack_archive 모듈 + report_pack 의 archive_root 인자 + archive_index 페이지 + 카탈로그 4 sync 제거 시 R67 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0134",
+      "timestamp": "2026-06-20 13:00:02",
+      "component": "tools/report_pack.py (_CSS 디자인 시스템 + DRAFT 배너 + hero/escalation 박스 polish) + tools/svg_charts.py (PALETTE)",
+      "change_type": "modify",
+      "evidence": "/goal '이어서. 보고서 지금 다자인은 좀 심각하다': CRO/MRMC 검토용 보고서 디자인이 빈약 — 기본 흰 배경/검정 테이블/회색 카드. 데이터·내용은 충분하나 시각 위계와 polish 부재",
+      "root_cause": "_CSS 가 최소한의 reset 만 — 색 토큰·타이포그래피 스케일·shadow·grid·hover 없음",
+      "targeted_fix": "_CSS 전면 재작성: (1) :root CSS variables 21개 (color/radius/shadow 토큰), (2) 한국어 시스템 폰트 stack (Pretendard / Apple SD Gothic Neo / Malgun Gothic), (3) 타이포그래피 스케일 h1-h4 letter-spacing, (4) 카드 grid auto-fill minmax + hover shadow+translateY, (5) 테이블 box-shadow + rounded + sticky header style + hover, (6) badge pill (border-radius 999px), (7) provenance card chevron (▸/▾) + subtle palette, (8) draft banner gradient + box-shadow. DRAFT 배너 markup polish (외부 제출 금지 강조). exec_summary hero / pack_diff summary / executive escalation 박스 linear-gradient + box-shadow polish. svg_charts PALETTE 톤다운 (warning/fail/skipped/neutral). self-contained 원칙 유지",
+      "expected_benefit": "CRO/MRMC 보고용 visual quality 상승 — 카드형 grid, 시각 위계 명확, 한국어 글자 가독성, hover interactivity. self-contained 원칙·DRAFT 워터마크·provenance 검증·외부 호출 없음 유지",
+      "expected_regression_risk": "low — CSS·markup polish 만, 데이터/구조 무변경. 모든 기존 테스트가 의존하는 텍스트(DRAFT/Reproducibility/[DRAFT/외부 제출 금지) 보존. PALETTE 키 6개 유지",
+      "validation_method": "tests/test_v2_round69.py 15 cases (CSS 토큰 :root + 한국어 폰트 stack + self-contained 강제 + DRAFT polish + 테이블 shadow + 카드 grid+hover + exec_summary gradient + escalation 박스 + provenance chevron + badge pill + 타이포그래피 스케일 + 회귀 안전망 4) + 전체 994 통과 + ruff/mypy strict clean",
+      "rollback_rule": "_CSS / DRAFT 배너 / hero·escalation 박스 / PALETTE 의 R69 commit 만 revert 시 R68 디자인 복구 (데이터·구조 무변경)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
