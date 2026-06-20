@@ -169,6 +169,101 @@ BANKS_2026Q1 = [KAKAO_2026Q1, KBANK_2026Q1, TOSS_2026Q1]
 
 
 # ============================================================================
+# 4대 시중은행 — 2026년 1분기 공시 (Big 4 commercial banks, KR)
+# ============================================================================
+# 출처:
+# - KB국민은행 1Q26: CET1 13.63%, BIS 15.75%, NPL 0.73% (커버리지 127.1%),
+#                    총자산 829.7조, 1Q26 순익 1조1,010억(+7.3%)
+# - 신한은행   1Q26: BIS 17.10%, 고정이하여신 0.30% (개별은행 — 그룹 CET1 13.19%),
+#                    ROA 0.70%, 1Q26 총자산 추정 ~600조
+# - 하나은행   1Q26: CET1 13.09%, BIS 15.21%, NIM 1.82%, ROE 10.91% (그룹),
+#                    하나금융 1Q26 순익 1조2,100억(+7.3%)
+# - 우리은행   1Q26: CET1 13.6% (그룹, 2025말 12.9%→+0.7%p), NPL 0.68%,
+#                    연체율 0.37%, 우리금융 1Q26 순익 6,156억(-2.1%)
+#
+# 시중은행 공통 특성: 인뱅 대비 자산 30~50배, 자산건전성 NPL 0.3~0.7%,
+# 가계·기업 균형(인뱅은 가계 90%+), 모기지·사업자대출·기업여신 분산.
+
+# 시중은행 portfolio 비중 가정 — 한국 시중은행 평균 (FSS 통계 + 각사 IR)
+_KB_MIX  = dict(corp=0.42, retail=0.18, mortgage=0.40)   # 균형형
+_SH_MIX  = dict(corp=0.45, retail=0.15, mortgage=0.40)   # 기업 강세
+_HN_MIX  = dict(corp=0.48, retail=0.13, mortgage=0.39)   # 기업 최강
+_WR_MIX  = dict(corp=0.43, retail=0.20, mortgage=0.37)   # 가계 비중 약간 높음
+
+KB_2026Q1 = BankProfile(
+    name="KB국민은행 (2026Q1)", short="kb_q1_26",
+    total_loans_krw=480e12,                     # 총자산 830조 × 여신비중 58%
+    total_deposits_krw=520e12,
+    bis_capital_ratio=0.1575,                   # 공시: BIS 15.75%
+    npl_ratio=0.0073,                           # 공시: 0.73%
+    delinquency_ratio=0.0050,                   # 시중은행 평균 추정
+    coverage_ratio=1.271,                       # 공시: 127.1%
+    quarterly_net_income_krw=11010e8,
+    mid_low_credit_share=0.10,                  # 시중은행 인뱅 대비 낮음
+    mix_corporate=_KB_MIX["corp"],
+    mix_retail_unsecured=_KB_MIX["retail"],
+    mix_mortgage=_KB_MIX["mortgage"],
+    capital_total_krw=480e12 * 0.6 * 0.1575,    # 추정
+    notes="총자산 1위, NPL 커버리지 127.1%로 보수적 적립",
+)
+
+SHINHAN_2026Q1 = BankProfile(
+    name="신한은행 (2026Q1)", short="shinhan_q1_26",
+    total_loans_krw=360e12,                     # 추정
+    total_deposits_krw=400e12,
+    bis_capital_ratio=0.1710,                   # 공시: BIS 17.10% (4사 중 최고)
+    npl_ratio=0.0030,                           # 공시: 0.30% (4사 중 최저)
+    delinquency_ratio=0.0035,
+    coverage_ratio=1.80,                        # 추정
+    quarterly_net_income_krw=12000e8,           # 신한금융 1Q26 추정
+    mid_low_credit_share=0.08,
+    mix_corporate=_SH_MIX["corp"],
+    mix_retail_unsecured=_SH_MIX["retail"],
+    mix_mortgage=_SH_MIX["mortgage"],
+    capital_total_krw=360e12 * 0.6 * 0.171,
+    notes="자산건전성 1위 (NPL 0.30%), 기업여신 강세",
+)
+
+HANA_2026Q1 = BankProfile(
+    name="하나은행 (2026Q1)", short="hana_q1_26",
+    total_loans_krw=330e12,                     # 추정
+    total_deposits_krw=370e12,
+    bis_capital_ratio=0.1521,                   # 공시: BIS 15.21% (4사 중 최저)
+    npl_ratio=0.0050,                           # 추정
+    delinquency_ratio=0.0048,                   # 기업 연체율 0.35~0.61% 평균
+    coverage_ratio=1.55,
+    quarterly_net_income_krw=12100e8,           # 하나금융 1Q26
+    mid_low_credit_share=0.07,
+    mix_corporate=_HN_MIX["corp"],
+    mix_retail_unsecured=_HN_MIX["retail"],
+    mix_mortgage=_HN_MIX["mortgage"],
+    capital_total_krw=330e12 * 0.6 * 0.1521,
+    notes="기업여신 비중 최고 48%, ROE 10.91%",
+)
+
+WOORI_2026Q1 = BankProfile(
+    name="우리은행 (2026Q1)", short="woori_q1_26",
+    total_loans_krw=300e12,                     # 추정
+    total_deposits_krw=340e12,
+    bis_capital_ratio=0.1550,                   # 추정 (그룹 CET1 13.6% + AT1/T2)
+    npl_ratio=0.0068,                           # 공시: 0.68%
+    delinquency_ratio=0.0037,                   # 공시: 0.37%
+    coverage_ratio=1.40,
+    quarterly_net_income_krw=6156e8,            # 우리금융 1Q26
+    mid_low_credit_share=0.10,
+    mix_corporate=_WR_MIX["corp"],
+    mix_retail_unsecured=_WR_MIX["retail"],
+    mix_mortgage=_WR_MIX["mortgage"],
+    capital_total_krw=300e12 * 0.6 * 0.155,
+    notes="토지 재평가로 CET1 +0.6%p, 13% 조기 달성",
+)
+
+
+BIG4_2026Q1 = [KB_2026Q1, SHINHAN_2026Q1, HANA_2026Q1, WOORI_2026Q1]
+BANK7_2026Q1 = BIG4_2026Q1 + BANKS_2026Q1   # 시중 4 + 인뱅 3
+
+
+# ============================================================================
 # Portfolio synthesis
 # ============================================================================
 
