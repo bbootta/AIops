@@ -29,6 +29,7 @@ CLI_MODULES: list[tuple[str, str]] = [
     ("tools.report_pdf", "보고서 markdown → PDF (DRAFT 워터마크 강제)"),
     ("tools.report_pack", "계층형 HTML 보고서 팩 (요약+부문상세+심화, SVG)"),
     ("tools.report_export", "보고서 팩 CSV/JSON/인덱스 export"),
+    ("tools.findings_mapping", "audit log → recurring_findings 매핑/후보"),
     ("tools.manifest", "change_manifest 편집/검증/promote"),
     ("tools.findings", "recurring_findings JSON ↔ md sync"),
     ("tools.model_notes", "model_specific_notes JSON ↔ md sync"),

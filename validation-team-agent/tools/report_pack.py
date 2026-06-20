@@ -934,6 +934,103 @@ limit 관리 (감독원 외환건전성 규정).</li>
     return _page("심화 — FX 의존도 + USD funding + NOP + 원화 급락 stress", body)
 
 
+def _findings_mapping_page(log_dir: Path | None) -> str:
+    """Audit log → recurring_findings 매핑 + 신규 후보."""
+    from tools.audit_timeseries import analyse_log
+    from tools.findings_mapping import map_audit_to_findings
+
+    log_path = (Path(log_dir) if log_dir else Path("logs")) / "run.jsonl"
+    if not log_path.exists():
+        return _page("심화 — Recurring Findings 매핑",
+                     "<p>로그 파일 미존재 — 다회 실행 후 다시 빌드.</p>")
+    audit = analyse_log(log_path)
+    mapping = map_audit_to_findings(audit)
+    if mapping["n_runs"] == 0:
+        return _page("심화 — Recurring Findings 매핑",
+                     "<p>유효한 run 없음.</p>")
+
+    covered = mapping["covered"]
+    candidates = mapping["candidates"]
+
+    covered_rows = "".join(
+        f"<tr><td><code>{_esc(c['step_id'])}</code></td>"
+        f"<td>{c['fail_rate']:.1%}</td>"
+        f"<td><code>{_esc(c['mapped_finding_id'])}</code></td>"
+        f"<td>{_esc(c['mapped_frequency'])}</td>"
+        f"<td>{_esc(c['observed_frequency'])}</td>"
+        f"<td>{'<b style=color:#c62828>예 — RF 빈도 상향 검토</b>' if c['frequency_upgrade_needed'] else '아니오'}</td>"
+        f"<td>{_esc(c['description'][:90])}</td></tr>"
+        for c in covered) or (
+        "<tr><td colspan='7'>기존 RF 매핑 없음 — fail 없음 또는 RF 전무</td></tr>")
+
+    def _cand_row(c: dict) -> str:
+        rate = c.get("fail_rate")
+        rate_s = f"{rate:.1%}" if isinstance(rate, (int, float)) else "-"
+        return (
+            f"<tr><td><code>{_esc(c['step_id'])}</code></td>"
+            f"<td>{rate_s}</td>"
+            f"<td>{_esc(c['suggested_frequency'])}</td>"
+            f"<td>{_esc(c['suggested_domain'])}</td>"
+            f"<td>{_esc(c['suggested_remedy'][:80])}</td>"
+            f"<td>{_esc(c['description'][:100])}</td></tr>")
+
+    cand_rows = "".join(_cand_row(c) for c in candidates) or (
+        "<tr><td colspan='6'>신규 후보 없음 — 기존 RF 가 모든 도메인 cover</td></tr>")
+
+    upgrade_count = sum(1 for c in covered if c["frequency_upgrade_needed"])
+
+    body = f"""
+<p>R64 의 누적 audit log 분석 결과를 <code>memory/recurring_findings.json</code>
+의 기존 RF 와 매핑하고, 매핑되지 않은 신규 패턴을 후보로 제시한다.
+<b>자동 promote 는 하지 않으며</b>, 인간 검증자가 검토 후
+<code>python -m tools.findings add</code> / <code>bump</code> 로 반영한다
+(CLAUDE.md §5).</p>
+
+<h2>요약</h2>
+<table>
+<tr><th>분석 run 수</th><td>{mapping['n_runs']}</td></tr>
+<tr><th>기존 RF 매핑된 step</th><td>{len(covered)}</td></tr>
+<tr><th>RF 빈도 상향 검토 필요</th>
+<td>{upgrade_count}{'  — <b style=color:#c62828>인간 검증자 검토 권장</b>' if upgrade_count else ''}</td></tr>
+<tr><th>신규 RF 후보</th><td>{len(candidates)}</td></tr>
+<tr><th>cover 된 도메인</th><td>{_esc(', '.join(mapping['covered_domains']) or '없음')}</td></tr>
+</table>
+
+<h2>기존 RF 와 매핑된 step</h2>
+<table>
+<tr><th>step</th><th>관측 fail rate</th><th>RF id</th>
+<th>RF 빈도 (기존)</th><th>관측 빈도</th><th>빈도 상향?</th><th>RF 설명</th></tr>
+{covered_rows}
+</table>
+<p>빈도 상향 필요한 RF 는 <code>python -m tools.findings bump RF-XXX</code>
+로 단계 상향. 단, 빈도 변경은 모형 정책에 영향 — MRMC 의견 필수.</p>
+
+<h2>신규 RF 후보 (proposed)</h2>
+<table>
+<tr><th>step</th><th>fail rate</th><th>제안 빈도</th>
+<th>제안 도메인</th><th>제안 권고</th><th>관측 description</th></tr>
+{cand_rows}
+</table>
+<p>후보를 RF 로 반영하려면:</p>
+<pre><code>python -m tools.findings_mapping --emit-add &lt; commands.sh</code></pre>
+<p>또는 수동으로 <code>python -m tools.findings add --domain &lt;도메인&gt;
+--frequency &lt;빈도&gt; --description "..." --tool "..."</code>.</p>
+
+<h2>해석 (검증팀장 관점)</h2>
+<ul>
+<li><b>RF 빈도 상향</b>이 필요한 경우는 같은 step 이 과거보다 자주 fail 한다는
+신호 — 모형 drift / 데이터 품질 / 정책 임계 변경 중 하나가 원인.</li>
+<li><b>신규 후보</b>는 기존 RF 가 cover 하지 못하는 새로운 fail 패턴 — 인간
+검증자가 보고서 추가 후 분기 KPI 에 포함.</li>
+<li><b>자동 promote 금지</b> — 본 페이지는 후보 제시만 수행. 실제 RF 갱신은
+<code>tools.findings</code> CLI + 검증팀장 승인.</li>
+<li>출처: AHE §4.2 Experience Observability + §4.3 Decision Observability.</li>
+</ul>
+<p><a href="audit_timeseries.html">← Audit 시계열</a> · <a href="change_audit.html">변경 매니페스트</a></p>
+"""
+    return _page("심화 — Recurring Findings 자동 매핑 (RF 후보)", body)
+
+
 def _audit_timeseries_page(log_dir: Path | None) -> str:
     """누적 run.jsonl 분석 — run 별 trend + step fail rate + dynamic 활성."""
     from tools.audit_timeseries import analyse_log
@@ -3120,6 +3217,7 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 <li><a href="ifrs9_fli_deep.html">IFRS 9 FLI overlay + 가중 ECL + PMA</a></li>
 <li><a href="change_audit.html">변경 감사 (Change Manifest)</a></li>
 <li><a href="audit_timeseries.html">Audit log 시계열 분석 (run.jsonl)</a></li>
+<li><a href="findings_mapping.html">Recurring Findings 매핑 (RF 후보)</a></li>
 <li><a href="esg_climate.html">ESG / 기후 위험 (NGFS + 전환/물리적)</a></li>
 <li><a href="cyber_risk.html">Cyber risk + Operational resilience</a></li>
 <li><a href="fx_dependency.html">FX 의존도 + USD funding + 원화 stress</a></li>
@@ -3210,6 +3308,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="stress_test.html">스트레스 테스트 — baseline / adverse / severe</a></li>
 <li><a href="change_audit.html">변경 감사 — 매니페스트 CHG 추적</a></li>
 <li><a href="audit_timeseries.html">Audit log 시계열 — run 별 trend + step fail rate</a></li>
+<li><a href="findings_mapping.html">Recurring Findings 매핑 (RF 후보 + 빈도 상향)</a></li>
 <li><a href="esg_climate.html">ESG / 기후 — NGFS 시나리오 + 전환/물리적 위험</a></li>
 <li><a href="cyber_risk.html">Cyber risk + Operational resilience (BCBS d533)</a></li>
 <li><a href="fx_dependency.html">FX — 통화별 NOP + USD funding + 원화 stress</a></li>
@@ -3279,6 +3378,8 @@ def build_pack(
     pages["fx_dependency.html"] = _fx_dependency_page()
     pages["exec_summary.html"] = _exec_summary_page(demo)
     pages["audit_timeseries.html"] = _audit_timeseries_page(
+        Path(log_dir) if log_dir else None)
+    pages["findings_mapping.html"] = _findings_mapping_page(
         Path(log_dir) if log_dir else None)
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)

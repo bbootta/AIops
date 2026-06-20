@@ -1935,6 +1935,21 @@
       "rollback_rule": "audit_timeseries 모듈 + 페이지 + build_pack log_dir 인자 제거 시 R63 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0130",
+      "timestamp": "2026-06-20 10:00:56",
+      "component": "tools/findings_mapping.py + tools/report_pack.py (findings_mapping.html) + cli/dispatch/README sync",
+      "change_type": "create",
+      "evidence": "/goal '이어서' R65: R64 의 step fail rate / dynamic activations 가 memory/recurring_findings.json 과 연결되지 않음 — 반복 패턴 식별을 사람이 수동 매핑",
+      "root_cause": "audit log 와 recurring_findings 사이의 자동 매핑 부재 — 자동 점검이 누적되어도 RF 빈도 상향 / 신규 후보 식별이 수동",
+      "targeted_fix": "tools/findings_mapping.py: step_id → domain 정적 매핑 / fail_rate → frequency bucket / 기존 RF covered + 신규 candidates 분리. emit_add_commands 로 tools.findings add CLI 명령어 생성 (실행은 X — CLAUDE.md §5 자동 promote 금지). 보고서 페이지 findings_mapping.html: 요약 표 + 매핑된 step + 신규 후보 + CLI 사용법. CLI sub: --json/--emit-add. cli_index/vta dispatch/README 동기 (R34 sync gate)",
+      "expected_benefit": "검증팀장이 보고서에서 RF 빈도 상향 검토 필요 / 신규 후보를 한 화면에 확인. emit-add 로 검토 후 일괄 적용 가능",
+      "expected_regression_risk": "low — read-only 매핑. memory/recurring_findings.json 자동 수정 X. emit-add 도 stdout 출력만",
+      "validation_method": "tests/test_v2_round65.py 18 cases (frequency bucket / domain map / covered vs candidate / governance from dynamic / emit-add shell escape / CLI 3 모드 / 카탈로그 sync / 페이지 통합 / 자동 promote 금지 명시) + 전체 930 통과 + ruff/mypy strict clean",
+      "rollback_rule": "findings_mapping 모듈 + 페이지 + 카탈로그 3 sync edit 제거 시 R64 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

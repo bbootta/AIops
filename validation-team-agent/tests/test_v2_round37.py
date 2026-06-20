@@ -208,6 +208,7 @@ EXPECTED_PAGES = {
     "esg_climate.html", "cyber_risk.html", "fx_dependency.html",
     "exec_summary.html",
     "audit_timeseries.html",
+    "findings_mapping.html",
 }
 
 

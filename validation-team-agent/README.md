@@ -131,6 +131,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.report_pdf --demo --out <pdf>` | 보고서 → PDF (DRAFT 워터마크 강제) |
 | `python -m tools.report_pack --out <dir>` | 계층형 HTML 보고서 팩 (요약+부문상세+심화) |
 | `python -m tools.report_export --pack <dir>` | 팩 → CSV/JSON/페이지 manifest export |
+| `python -m tools.findings_mapping --log <jsonl>` | audit log → recurring_findings 후보 매핑 |
 | `python -m tools.manifest list / add / promote / validate / export` | change_manifest 운영 |
 | `python -m tools.findings list / sync / add / bump` | recurring_findings JSON↔md |
 | `python -m tools.model_notes list / sync` | model_specific_notes JSON↔md |
