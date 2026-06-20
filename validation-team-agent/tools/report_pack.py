@@ -934,6 +934,173 @@ limit 관리 (감독원 외환건전성 규정).</li>
     return _page("심화 — FX 의존도 + USD funding + NOP + 원화 급락 stress", body)
 
 
+def _pack_diff_page(prev_pack_dir: Path | None, curr_pack_dir: Path,
+                    demo: dict, prov: dict | None = None) -> str:
+    """이전 팩 vs 현재 팩 diff. prev 미제공 시 안내 메시지만.
+
+    curr 팩은 빌드 중이므로 export.json 이 아직 없다 — demo dict 에서 in-memory
+    로 KPI/heatmap/QoQ 를 즉시 산출해 prev 의 export.json 과 비교한다.
+    """
+    if prev_pack_dir is None:
+        body = ("<p>비교 대상 팩 미지정. 이전 팩 디렉터리를 "
+                "<code>--prev-pack</code> 으로 지정하면 본 페이지가 활성화됩니다.</p>"
+                "<p>또는 빌드 후 <code>python -m tools.pack_diff --prev "
+                "&lt;prev&gt; --curr &lt;curr&gt;</code> 로 별도 실행.</p>")
+        return _page("심화 — 보고서 팩 변화 detection (diff)", body)
+
+    from tools.executive_insights import domain_rows, kpi_cards
+    from tools.pack_diff import diff_against_curr_data
+    from tools.sample_generators import quarterly_panel
+
+    # curr 데이터를 in-memory 로 산출 (export_pack 과 동일 schema)
+    curr_kpi = [{"label": k, "value": v, "status": s}
+                for k, v, s in kpi_cards(demo)]
+    curr_heatmap = [
+        {"domain": label, "status": status, "detail": detail, "link": link}
+        for label, status, detail, link in domain_rows(demo)]
+    # qoq 는 quarterly_panel 마지막 2분기 — 결정론적이므로 prev == curr
+    qoq = []
+    panel = quarterly_panel()
+    if len(panel) >= 2:
+        prev_q, curr_q = panel[-2], panel[-1]
+        for m in ("cet1", "leverage", "lcr", "nsfr", "icaap", "delta_eve",
+                  "psi", "hhi"):
+            qoq.append({
+                "metric": m,
+                "current_value": float(curr_q[m]),
+                "previous_value": float(prev_q[m]),
+            })
+    curr_export = {
+        "generated_at_utc": (prov or {}).get("generated_at_utc", "(in-memory)"),
+        "kpi": curr_kpi,
+        "heatmap": curr_heatmap,
+        "qoq": qoq,
+    }
+
+    try:
+        diff = diff_against_curr_data(prev_pack_dir, curr_export,
+                                      curr_label=str(curr_pack_dir))
+    except FileNotFoundError as e:
+        body = (f"<p>비교용 prev 팩의 export.json 또는 pack_manifest.json "
+                f"부재: <code>{_esc(e)}</code>. <code>python -m tools.report_export "
+                f"--pack &lt;prev&gt;</code> 를 먼저 실행하세요.</p>")
+        return _page("심화 — 보고서 팩 변화 detection (diff)", body)
+
+    kpi = diff["kpi"]
+    hm = diff["heatmap"]
+    qoq = diff["qoq"]
+    pages = diff["pages"]
+
+    # KPI 변화
+    kpi_rows = "".join(
+        f"<tr><td>{_esc(c['label'])}</td>"
+        f"<td>{_esc(c['prev_value'])}</td>"
+        f"<td>{_esc(c['curr_value'])}</td>"
+        f"<td>{_badge(c['prev_status'])} → {_badge(c['curr_status'])}</td>"
+        f"<td style=\"color:{PALETTE['fail' if c['transition']=='degraded' else 'ok' if c['transition']=='improved' else 'neutral']}\"><b>{_esc(c['transition'])}</b></td></tr>"
+        for c in kpi["changed"]) or "<tr><td colspan='5'>변경 없음</td></tr>"
+
+    # Heatmap 전이
+    hm_transitions = sorted(
+        hm["transitions"], key=lambda t: 0 if t["severity"] == "degraded" else 1)
+    hm_rows = "".join(
+        f"<tr><td>{_esc(t['domain'])}</td>"
+        f"<td>{_badge(t['prev_status'])} → {_badge(t['curr_status'])}</td>"
+        f"<td style=\"color:{PALETTE['fail' if t['severity']=='degraded' else 'ok']}\"><b>{_esc(t['severity'])}</b></td>"
+        f"<td>{_esc(t['curr_detail'][:80])}</td></tr>"
+        for t in hm_transitions) or "<tr><td colspan='4'>부문 status 변화 없음</td></tr>"
+
+    # QoQ 변화 차트
+    qoq_chart = hbar(
+        [(q["metric"], float(q["abs_change"])) for q in qoq],
+        title="QoQ current_value 절대 변화", fmt="{:+.4f}",
+        colors=[PALETTE["fail" if q["abs_change"] < 0 else "ok"]
+                for q in qoq]) if qoq else "<p>QoQ 변화 없음.</p>"
+
+    qoq_rows = "".join(
+        f"<tr><td>{_esc(q['metric'])}</td>"
+        f"<td>{q['prev_current_value']:.4f}</td>"
+        f"<td>{q['curr_current_value']:.4f}</td>"
+        f"<td>{q['abs_change']:+.4f}</td>"
+        f"<td>{(q['rel_change']*100 if q['rel_change'] is not None else 0):+.1f}%</td></tr>"
+        for q in qoq) or "<tr><td colspan='5'>변화 없음</td></tr>"
+
+    # Pages
+    added_p = ", ".join(f"<code>{_esc(f)}</code>" for f in pages["added_pages"]) or "(없음)"
+    removed_p = ", ".join(f"<code>{_esc(f)}</code>" for f in pages["removed_pages"]) or "(없음)"
+    changed_p_rows = "".join(
+        f"<tr><td><code>{_esc(c['file'])}</code></td>"
+        f"<td><code>{_esc(c['prev_sha'])}…</code></td>"
+        f"<td><code>{_esc(c['curr_sha'])}…</code></td>"
+        f"<td>{(c.get('curr_size') or 0) - (c.get('prev_size') or 0):+,} B</td></tr>"
+        for c in pages["changed_pages"][:20]) or (
+        "<tr><td colspan='4'>SHA-256 변화 없음 (팩 동일)</td></tr>")
+
+    degraded = sum(1 for t in hm_transitions if t["severity"] == "degraded")
+    improved = sum(1 for t in hm_transitions if t["severity"] == "improved")
+    summary_color = (PALETTE["fail"] if degraded else
+                     PALETTE["ok"] if improved else
+                     PALETTE["neutral"])
+
+    body = f"""
+<p>전 분기 (이전 팩) vs 당 분기 (현재 팩) 의 KPI · 부문 status · QoQ · 페이지
+SHA-256 변화 detection.</p>
+
+<div style="background:{summary_color};color:white;padding:.8rem 1.2rem;
+border-radius:6px;margin:1rem 0;text-align:center">
+<b>요약: 부문 악화 {degraded} · 개선 {improved} · KPI 변경 {len(kpi['changed'])} ·
+페이지 변경 {len(pages['changed_pages'])}</b>
+</div>
+
+<h2>비교 대상</h2>
+<table>
+<tr><th>이전 팩</th><td><code>{_esc(diff['prev_pack'])}</code> ({_esc(diff['prev_generated_at'])})</td></tr>
+<tr><th>현재 팩</th><td><code>{_esc(diff['curr_pack'])}</code> ({_esc(diff['curr_generated_at'])})</td></tr>
+</table>
+
+<h2>KPI 변경 ({len(kpi['changed'])})</h2>
+<table>
+<tr><th>KPI</th><th>이전</th><th>현재</th><th>status 전이</th><th>severity</th></tr>
+{kpi_rows}
+</table>
+<p>추가된 KPI: {len(kpi['added'])} · 제거된 KPI: {len(kpi['removed'])} ·
+변경 없음: {kpi['unchanged_count']}</p>
+
+<h2>부문 status 전이 ({len(hm_transitions)})</h2>
+<table>
+<tr><th>부문</th><th>전이</th><th>severity</th><th>현재 detail</th></tr>
+{hm_rows}
+</table>
+
+<h2>QoQ current_value 변화</h2>
+{qoq_chart}
+<table>
+<tr><th>지표</th><th>이전 current</th><th>현재 current</th><th>절대 변화</th><th>상대 변화</th></tr>
+{qoq_rows}
+</table>
+
+<h2>페이지 변화 (SHA-256 기반)</h2>
+<p>추가된 페이지: {added_p}<br>제거된 페이지: {removed_p}<br>
+변경된 페이지 (SHA-256): {len(pages['changed_pages'])} · 변경 없음: {pages['unchanged_count']}</p>
+<table>
+<tr><th>file</th><th>이전 SHA</th><th>현재 SHA</th><th>크기 변화</th></tr>
+{changed_p_rows}
+</table>
+
+<h2>해석 (검증팀장 관점)</h2>
+<ul>
+<li><b>부문 악화 (ok → warning/fail)</b>: 가장 우선 검토. trigger 가 데이터
+드리프트인지 정책 임계 변경인지 확인.</li>
+<li><b>SHA-256 변경</b>: 같은 입력에서도 정책 SSoT 버전이 바뀌면 페이지가
+달라짐. provenance 카드의 policy_versions 함께 확인.</li>
+<li><b>본 diff 는 자동 점검 한정</b> — 변경 사유 판단·승인은 인간 검증자 영역.
+승인된 변경은 매니페스트 CHG 로 기록 (CLAUDE.md §4.3).</li>
+</ul>
+<p><a href="governance_trend.html">← 분기 거버넌스 KPI 추세</a> · <a href="change_audit.html">변경 감사 →</a></p>
+"""
+    return _page("심화 — 보고서 팩 변화 detection (diff)", body)
+
+
 def _governance_trend_page(log_dir: Path | None) -> str:
     """분기 거버넌스 KPI trend — validated_ratio / fail_ratio / agreement."""
     from tools.governance_timeseries import build_panel
@@ -3307,6 +3474,7 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 <li><a href="audit_timeseries.html">Audit log 시계열 분석 (run.jsonl)</a></li>
 <li><a href="findings_mapping.html">Recurring Findings 매핑 (RF 후보)</a></li>
 <li><a href="governance_trend.html">분기 거버넌스 KPI 추세</a></li>
+<li><a href="pack_diff.html">보고서 팩 변화 detection</a></li>
 <li><a href="esg_climate.html">ESG / 기후 위험 (NGFS + 전환/물리적)</a></li>
 <li><a href="cyber_risk.html">Cyber risk + Operational resilience</a></li>
 <li><a href="fx_dependency.html">FX 의존도 + USD funding + 원화 stress</a></li>
@@ -3399,6 +3567,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="audit_timeseries.html">Audit log 시계열 — run 별 trend + step fail rate</a></li>
 <li><a href="findings_mapping.html">Recurring Findings 매핑 (RF 후보 + 빈도 상향)</a></li>
 <li><a href="governance_trend.html">분기 거버넌스 KPI 추세 (validated/fail/agreement)</a></li>
+<li><a href="pack_diff.html">보고서 팩 변화 detection (전 분기 대비 diff)</a></li>
 <li><a href="esg_climate.html">ESG / 기후 — NGFS 시나리오 + 전환/물리적 위험</a></li>
 <li><a href="cyber_risk.html">Cyber risk + Operational resilience (BCBS d533)</a></li>
 <li><a href="fx_dependency.html">FX — 통화별 NOP + USD funding + 원화 stress</a></li>
@@ -3420,6 +3589,7 @@ def build_pack(
     *,
     provenance: dict | None = None,
     log_dir: str | Path | None = None,
+    prev_pack_dir: str | Path | None = None,
 ) -> list[Path]:
     """보고서 팩을 생성하고 생성 파일 목록을 반환한다.
 
@@ -3473,6 +3643,10 @@ def build_pack(
         Path(log_dir) if log_dir else None)
     pages["governance_trend.html"] = _governance_trend_page(
         Path(log_dir) if log_dir else None)
+    pages["pack_diff.html"] = _pack_diff_page(
+        Path(prev_pack_dir) if prev_pack_dir else None,
+        Path(out_dir),
+        demo, provenance)
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)
@@ -3498,6 +3672,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--log-dir", type=Path, default=None)
+    parser.add_argument("--prev-pack", type=Path, default=None,
+                        help="이전 보고서 팩 디렉터리 (export.json + "
+                             "pack_manifest.json 포함). 주어지면 pack_diff.html "
+                             "활성화")
     args = parser.parse_args(argv)
 
     from tools.provenance import build_provenance
@@ -3508,7 +3686,7 @@ def main(argv: list[str] | None = None) -> int:
     request = build_request(args.n, stress=args.stress, seed=args.seed)
     prov = build_provenance(request, n=args.n, seed=args.seed, stress=args.stress)
     written = build_pack(demo, request, args.out, provenance=prov,
-                         log_dir=log_dir)
+                         log_dir=log_dir, prev_pack_dir=args.prev_pack)
     for p in written:
         sys.stdout.write(f"{p}\n")
     sys.stdout.write(f"보고서 팩 {len(written)}개 페이지 생성: {args.out}/index.html\n")

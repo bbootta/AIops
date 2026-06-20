@@ -1965,6 +1965,21 @@
       "rollback_rule": "module + 페이지 + 링크 제거 시 R65 상태 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0132",
+      "timestamp": "2026-06-20 10:20:21",
+      "component": "tools/pack_diff.py + tools/report_pack.py (pack_diff page + --prev-pack) + cli/dispatch/README sync",
+      "change_type": "create",
+      "evidence": "/goal '이어서' R67: 보고서 팩이 분기마다 누적되어도 '전 분기 대비 무엇이 바뀌었나' 자동 비교 부재 — 검증팀장이 수동으로 두 팩 비교",
+      "root_cause": "보고서가 stateless — 직전 빌드와의 diff (KPI 전이 / 부문 status 변화 / SHA-256 변경 페이지) 자동화 부재",
+      "targeted_fix": "tools/pack_diff.py: diff_kpi (label 매칭, transition severity) / diff_heatmap (domain 매칭, degraded vs improved) / diff_qoq (수치 변화) / diff_pages (SHA-256). diff_export_files (양쪽 export.json 존재 시) + diff_against_curr_data (curr build 중 in-memory 비교). 보고서 페이지 pack_diff.html: 색상 요약 박스 (degraded 빨강 / improved 초록) + 상세 표 4종 + 인접 보고서 nav. build_pack(prev_pack_dir=...) + CLI --prev-pack. cli_index/vta dispatch (pack diff)/README 동기 (R34 sync gate)",
+      "expected_benefit": "검증팀장이 분기 보고서 시작 시 '전 분기 대비 부문 악화' 즉시 확인. SHA-256 기반 페이지 변화로 정책 SSoT 영향 식별. provenance 카드의 policy_versions 와 cross-check",
+      "expected_regression_risk": "low — 신규 모듈/페이지/인자. prev_pack_dir=None 시 안내 메시지 fallback, 기존 빌드 호환. CLAUDE.md §4.3 (검증되지 않은 변경 = 미성공) 원칙 명시",
+      "validation_method": "tests/test_v2_round67.py 20 cases (4 diff 함수 단위 / changed transition severity / pages SHA-256 / 통합 fixture / CLI 2 모드 / 카탈로그 sync / 페이지 4 표 / 안내 fallback / self-contained) + 전체 962 통과 + ruff/mypy strict clean",
+      "rollback_rule": "pack_diff 모듈 + 페이지 + build_pack prev_pack_dir 인자 + 4 sync edit 제거 시 R66 상태 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

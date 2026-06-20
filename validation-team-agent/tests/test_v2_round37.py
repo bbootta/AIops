@@ -210,6 +210,7 @@ EXPECTED_PAGES = {
     "audit_timeseries.html",
     "findings_mapping.html",
     "governance_trend.html",
+    "pack_diff.html",
 }
 
 

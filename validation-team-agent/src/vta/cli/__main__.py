@@ -35,6 +35,7 @@ _DISPATCH = {
     ("report", "pack"): "tools.report_pack",
     ("report", "export"): "tools.report_export",
     ("findings", "map"): "tools.findings_mapping",
+    ("pack", "diff"): "tools.pack_diff",
     ("dashboard",): "tools.dashboard",
     ("manifest",): "tools.manifest",
     ("findings",): "tools.findings",
