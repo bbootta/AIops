@@ -163,7 +163,8 @@
     W A S D : 이동 &nbsp;|&nbsp; Shift : 달리기 &nbsp;|&nbsp; Space : 점프 / 수영<br>
     좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 먹기 · 씨앗 · 활쏘기 &nbsp;|&nbsp; C : 제작 &nbsp;|&nbsp; E : 인벤토리 &nbsp;|&nbsp; M : 음악<br>
     1 ~ 9 / 마우스 휠 : 슬롯 선택 &nbsp;|&nbsp; F : 비행 (Space 상승 / Shift 하강)<br>
-    동굴엔 석탄·철·금·다이아·에메랄드 광석, 밤엔 좀비·스켈레톤·보스가 출몰<br>
+    동굴엔 석탄·철·금·다이아·에메랄드 광석, 밤엔 좀비·스켈레톤·크리퍼·거미·보스가 출몰<br>
+    음식으로 허기(🍗)를 채워야 체력이 자연 회복됩니다<br>
     나무→판자→곡괭이·검·활, 씨앗→밀→빵, 금→황금사과, 다이아로 포탈을 만들어 네더로<br>
     모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼 조작<br>
     월드는 자동 저장됩니다 &nbsp;|&nbsp; ESC : 일시정지
@@ -195,6 +196,7 @@ const SWIM_SPEED = 3.0;
 const FLY_SPEED = 10.0;
 const MAX_HEALTH = 10;
 const MAX_AIR = 10;
+const MAX_HUNGER = 10;
 const PLAYER_HALF_W = 0.3;
 const PLAYER_HEIGHT = 1.8;
 const EYE_HEIGHT = 1.62;
@@ -456,7 +458,7 @@ function saveGame() {
         crops: d.crops.size ? [...d.crops].map(([k, c]) => [k, c.stage]) : (d.cropStages || []),
       };
     }
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ seed: WORLD_SEED, worldVer: WORLD_VER, curDim, dims, slot: selectedSlot, health, inv, tools, dayTime }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ seed: WORLD_SEED, worldVer: WORLD_VER, curDim, dims, slot: selectedSlot, health, hunger, inv, tools, dayTime }));
   } catch (e) { /* 저장 공간 부족 등은 무시 */ }
 }
 function loadGame() {
@@ -1320,6 +1322,7 @@ let air = MAX_AIR;
 let fallDist = 0;
 let regenTimer = 0, drownTimer = 0, flashTimer = 0, lavaTimer = 0;
 let portalTimer = 0, portalCooldown = 0;
+let hunger = MAX_HUNGER, hungerDrain = 0, starveTimer = 0;
 const healthEl = document.getElementById('health');
 const damageFlashEl = document.getElementById('damageFlash');
 const bossBarEl = document.getElementById('bossBar');
@@ -1330,12 +1333,15 @@ function respawn() {
   player.vel.set(0, 0, 0);
   health = MAX_HEALTH;
   air = MAX_AIR;
+  hunger = MAX_HUNGER;
   fallDist = 0;
   drownTimer = 0;
   flashTimer = 0;
   lavaTimer = 0;
   portalTimer = 0;
   portalCooldown = 0;
+  hungerDrain = 0;
+  starveTimer = 0;
 }
 
 function damage(n) {
@@ -1466,10 +1472,18 @@ function updatePlayer(dt) {
     lavaTimer += dt;
     if (lavaTimer >= 0.5) { damage(2); lavaTimer = 0; }
   } else lavaTimer = 0;
-  if (health > 0 && health < MAX_HEALTH) {
+  // 허기 소모 (이동·달리기일수록 빠르게), 충분할 때만 체력 자연 회복, 0이면 굶주림 피해
+  const moving = move.lengthSq() > 0;
+  hungerDrain += dt * (moving ? (running ? 1.6 : 1.0) : 0.35);
+  if (hungerDrain >= 8) { hungerDrain = 0; if (hunger > 0) hunger--; }
+  if (health > 0 && health < MAX_HEALTH && hunger >= 6) {
     regenTimer += dt;
     if (regenTimer >= 5) { health++; regenTimer = 0; }
   }
+  if (hunger <= 0) {
+    starveTimer += dt;
+    if (starveTimer >= 4) { starveTimer = 0; damage(1); }
+  } else starveTimer = 0;
 
   // 맵 밖으로 떨어지면 리스폰
   if (p.y < -20) respawn();
@@ -1489,6 +1503,7 @@ function updateHud(dt) {
   flashTimer = Math.max(0, flashTimer - dt);
   damageFlashEl.style.opacity = flashTimer > 0 ? 1 : 0;
   let html = '❤'.repeat(health) + '🖤'.repeat(MAX_HEALTH - health);
+  html += '<br>' + '🍗'.repeat(hunger) + '<span style="opacity:.35">🍗</span>'.repeat(MAX_HUNGER - hunger);
   if (air < MAX_AIR) html += '<br>' + '🫧'.repeat(Math.max(0, Math.ceil(air)));
   if (flying) html += '<br>✈ 비행 중';
   if (html !== lastHud) { healthEl.innerHTML = html; lastHud = html; }
@@ -1799,10 +1814,13 @@ function doPlace() {
 
   if (type === ITEM.BOW) { fireArrow(); return; } // 활 발사
 
-  if (FOODS[type] !== undefined) { // 고기/빵 먹기
-    if (inv[type] > 0 && health < MAX_HEALTH) {
+  if (FOODS[type] !== undefined) { // 음식 먹기 → 허기 회복 (황금사과는 체력도 가득)
+    const gold = type === ITEM.GOLD_APPLE;
+    const canEat = hunger < MAX_HUNGER || (gold && health < MAX_HEALTH);
+    if (inv[type] > 0 && canEat) {
       inv[type]--;
-      health = Math.min(MAX_HEALTH, health + FOODS[type]);
+      hunger = Math.min(MAX_HUNGER, hunger + FOODS[type]);
+      if (gold) health = MAX_HEALTH;
       updateHotbar();
       playSound(180, 0.18, 'triangle', 0.2);
     } else {
@@ -2206,6 +2224,7 @@ try {
     curDim = save.curDim === 'nether' ? 'nether' : 'overworld';
     if (typeof save.dayTime === 'number') dayTime = save.dayTime;
     if (typeof save.health === 'number') health = Math.min(MAX_HEALTH, Math.max(1, save.health));
+    if (typeof save.hunger === 'number') hunger = Math.min(MAX_HUNGER, Math.max(0, save.hunger));
     if (save.inv) for (const k in inv) inv[k] = Math.max(0, save.inv[k] | 0);
     if (save.tools) for (const k in tools) tools[k] = !!save.tools[k];
     selectSlot(save.slot >= 0 && save.slot < HOTBAR.length ? save.slot : 0);
