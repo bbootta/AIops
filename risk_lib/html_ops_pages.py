@@ -3468,3 +3468,291 @@ HQLA L2B 매각부터 시작해 신주 발행(자본 직접 보충, 희석 비�
 </div>
 """
     return _page("유동성 stress", body, "51_liquidity_stress.html")
+
+
+# ============================================================================
+# 53. XVA full suite (CVA / DVA / FVA / ColVA / MVA)
+# ============================================================================
+
+def page_xva_full(r: PipelineResult) -> str:
+    """Top-IB style XVA decomposition deep-dive."""
+    from risk_lib.xva import compute_xva_portfolio
+    if r.ccr is None or r.ccr.by_counterparty.empty:
+        body = "<h1 class='title'>53. XVA Full Suite</h1><p>은행 거래상대방 노출 없음.</p>"
+        return _page("XVA Full", body, "53_xva_full.html")
+
+    bank_book = r.ccr.by_counterparty.rename(columns={"counterparty": "obligor_id"}).copy()
+    bank_book["ead"] = bank_book.get("ead", bank_book.get("rwa", 1e9))
+    bank_book["maturity"] = 3.0
+    xp = compute_xva_portfolio(bank_book, seed=r.meta.get("seed", 42))
+
+    totals = xp.totals
+    # waterfall: CVA + FVA + ColVA + MVA − DVA = Net XVA
+    waterfall = viz_advanced.attribution_waterfall(
+        ["CVA", "+ FVA", "+ ColVA", "+ MVA", "− DVA"],
+        [totals["cva"], totals["fva"], totals["colva"], totals["mva"], -totals["dva"]],
+        start_value=0, end_value=xp.net_xva_pl,
+        title="XVA Waterfall — Risk-free → Adjusted P&L",
+        value_fmt=_won,
+    )
+
+    comp_bar = viz.bar_chart(
+        ["CVA", "DVA", "FVA", "ColVA", "MVA"],
+        [totals[k] for k in ("cva", "dva", "fva", "colva", "mva")],
+        value_fmt=_won, title="XVA 구성 요소 절대값",
+        colors=[viz.RED, viz.GREEN, viz.AMBER, viz.PALETTE[3], viz.PALETTE[4]],
+    )
+
+    # top 10 counterparties by net XVA
+    top10 = xp.by_cpty.nlargest(10, "net_xva")
+    top_chart = viz.horizontal_bar(
+        [str(c)[:18] for c in top10["counterparty"]],
+        top10["net_xva"].tolist(),
+        title="Top 10 거래상대방 Net XVA", value_fmt=_won,
+        color=viz.PALETTE[0],
+    )
+
+    cpty_rows = [[t["counterparty"][:18], _won(t["notional"]),
+                  f"{t['maturity']:.1f}y", f"{t['cpty_cds_bps']:.0f} bps",
+                  _won(t["cva"]), _won(t["dva"]), _won(t["fva"]),
+                  _won(t["colva"]), _won(t["mva"]), _won(t["net_xva"])]
+                 for _, t in top10.iterrows()]
+
+    body = f"""
+<h1 class="title">53. XVA Full Suite (CVA · DVA · FVA · ColVA · MVA)</h1>
+<p class="section-lead">Top-IB 수준의 5종 valuation adjustment 분해.
+파생거래 가격 V_total = V_risk-free + CVA(상대방 부도) − DVA(자행 부도)
++ FVA(funding) + ColVA(담보) + MVA(initial margin). 출처: Gregory (2020) 'The XVA Challenge',
+BCBS d325 BA-CVA, CRR2 Art. 381–386.</p>
+
+<div class="kpi-grid">
+{_kpi("CVA", _won(totals["cva"]), sub="상대방 부도 손실 충당", tone="bad")}
+{_kpi("DVA", _won(totals["dva"]), sub="자행 부도 시 채무경감", tone="good")}
+{_kpi("FVA", _won(totals["fva"]), sub="비담보 funding 비용")}
+{_kpi("ColVA", _won(totals["colva"]), sub="담보 funding 비용")}
+{_kpi("MVA", _won(totals["mva"]), sub="IM funding 비용")}
+{_kpi("Net XVA P&L", _won(xp.net_xva_pl),
+       sub="P&L 영향", tone="bad" if xp.net_xva_pl > 0 else "good")}
+</div>
+
+<div class="row2">
+<div class="card"><h2>53-1. XVA Waterfall</h2><div class="chart">{waterfall}</div></div>
+<div class="card"><h2>53-2. 구성 요소 절대값</h2><div class="chart">{comp_bar}</div></div>
+</div>
+
+<div class="card"><h2>53-3. XVA 민감도 (Risk-management hooks)</h2>
+<div class="kpi-grid">
+{_kpi("CDS +10bp 민감도", _won(xp.cds_sensitivity_per_10bps),
+       sub="ΔCVA per +10bp 상대방 CDS")}
+{_kpi("EPE +1% 민감도", _won(xp.epe_sensitivity_per_pct),
+       sub="ΔCVA per +1% EPE")}
+{_kpi("50% CDS hedge 잔여", _won(xp.hedge_residual_after_50pct),
+       sub="CDS 50% 매수 헷지 후 잔여 CVA")}
+</div>
+<p class="section-lead">CS01 기반 헷지 결정: 잔여 CVA가 risk limit 이상이면 CDS hedge ratio 상향.
+ISDA SIMM IM 가산 시 MVA는 그 funding cost 반영.</p>
+</div>
+
+<div class="card"><h2>53-4. Top 10 거래상대방</h2>
+<div class="chart">{top_chart}</div>
+{_table(["거래상대방","notional","만기","CDS","CVA","DVA","FVA","ColVA","MVA","Net"],
+        cpty_rows, right_cols=[1,2,3,4,5,6,7,8,9])}
+</div>
+"""
+    return _page("XVA Full", body, "53_xva_full.html")
+
+
+# ============================================================================
+# 54. Trading book Greeks & sensitivities
+# ============================================================================
+
+def page_trading_sensitivities(r: PipelineResult) -> str:
+    """Top-IB trading desk Greeks + linear VaR + PLA test."""
+    from risk_lib.sensitivities import synthesise_trading_book, desk_aggregate
+
+    if r.ccr is None or r.ccr.by_counterparty.empty:
+        body = ("<h1 class='title'>54. Trading Greeks</h1>"
+                "<p>트레이딩 북 정보 없음.</p>")
+        return _page("Trading Greeks", body, "54_trading_sensitivities.html")
+
+    bank_book = r.ccr.by_counterparty.rename(columns={"counterparty":"obligor_id"}).copy()
+    bank_book["ead"] = bank_book.get("ead", 1e9)
+    book = synthesise_trading_book(bank_book, seed=r.meta.get("seed", 42))
+    ds = desk_aggregate(book)
+
+    # by-kind table
+    kind_rows = [[r2["kind"], f"{int(r2['n']):,}",
+                  _won(r2["notional"]),
+                  f"{r2['delta']:,.1f}", f"{r2['gamma']:.3f}",
+                  f"{r2['vega']:,.0f}", f"{r2['theta']:,.2f}",
+                  _won(r2["dv01"]), _won(r2["cs01"])]
+                 for _, r2 in ds.by_kind.iterrows()]
+
+    # Greeks bar chart
+    greek_chart = viz.bar_chart(
+        ["Delta","Gamma","Vega","Theta","dV01","CS01"],
+        [ds.total_delta, ds.total_gamma * 100, ds.total_vega / 100,
+         ds.total_theta * 365, ds.total_dv01 / 1e6, ds.total_cs01 / 1e6],
+        value_fmt=lambda v: f"{v:,.2f}",
+        title="Desk-level Greeks (스케일 normalised)",
+    )
+
+    # VaR component decomposition
+    var_chart = viz.bar_chart(
+        ["Δ (equity)", "Vega (vol)", "dV01 (IR)", "CS01 (credit)"],
+        [abs(ds.total_delta) * 0.012 * 100 * 2.326,
+         abs(ds.total_vega) * 0.05 * 100 * 2.326,
+         abs(ds.total_dv01) * 8 * 2.326,
+         abs(ds.total_cs01) * 6 * 2.326],
+        value_fmt=_won, title="99% 1-day VaR 분해 (component 99%)",
+    )
+
+    body = f"""
+<h1 class="title">54. Trading Book Greeks & Sensitivities</h1>
+<p class="section-lead">트레이딩 데스크 1차·2차 sensitivity. Black-Scholes Greeks +
+dV01(IR risk) + CS01(credit risk). Linear VaR(99% 1d) → P&L Attribution Test(PLAT) →
+FRTB IMA 적격성. 출처: BCBS MAR (FRTB 2019), Hull 'Options, Futures and Other Derivatives'.</p>
+
+<div class="kpi-grid">
+{_kpi("총 trades", f"{len(book.trades):,}",
+       sub=f"options {book.n_options} · swaps {book.n_swaps} · cds {book.n_credit}")}
+{_kpi("총 notional", _won(book.total_notional))}
+{_kpi("Net Delta", f"{ds.total_delta:,.2f}",
+       sub="1% spot shock 시 PV 변동")}
+{_kpi("Net Vega", f"{ds.total_vega:,.0f}", sub="1% vol shock PV 변동")}
+{_kpi("Net dV01", _won(ds.total_dv01), sub="1bp parallel IR shift")}
+{_kpi("Net CS01", _won(ds.total_cs01), sub="1bp credit spread shift")}
+{_kpi("Linear VaR 99% 1d", _won(ds.var_linear_99))}
+{_kpi("PLA residual", f"{ds.pla_residual*100:.1f}%",
+       sub="<10% 목표 → IMA 적격",
+       tone="good" if ds.pla_residual < 0.10 else "warn")}
+</div>
+
+<div class="row2">
+<div class="card"><h2>54-1. Desk-level Greeks</h2><div class="chart">{greek_chart}</div></div>
+<div class="card"><h2>54-2. VaR 분해</h2><div class="chart">{var_chart}</div></div>
+</div>
+
+<div class="card"><h2>54-3. 상품군별 sensitivity</h2>
+{_table(["상품","건수","notional","Δ","Γ","Vega","Theta","dV01","CS01"],
+        kind_rows, right_cols=[1,2,3,4,5,6,7,8])}
+</div>
+
+<div class="card"><h2>54-4. FRTB IMA 적격성 체크</h2>
+<ul>
+<li><b>PLAT</b> (P&L Attribution Test): residual {ds.pla_residual*100:.1f}% — {'<b>적격</b>' if ds.pla_residual<0.10 else '<b>부적격</b>'} (목표 ≤10%)</li>
+<li><b>RFET</b> (Risk Factor Eligibility Test): 충분한 시장 데이터 확보 필요</li>
+<li><b>NMRF</b> (Non-Modellable Risk Factors): stressed VaR 가산 적용</li>
+<li><b>Backtesting traffic light</b>: 250일 1d VaR breaches — green/yellow/red</li>
+</ul>
+<p class="section-lead">FRTB IMA 미충족 시 표준방법(SA) 자본 가산 적용 (보통 +30~50%).</p>
+</div>
+"""
+    return _page("Trading Greeks", body, "54_trading_sensitivities.html")
+
+
+# ============================================================================
+# 55. Scenario Library — historic + hypothetical + regulatory + climate
+# ============================================================================
+
+def page_scenario_library(r: PipelineResult) -> str:
+    """Top-IB grade scenario library — 17 named scenarios with macro shocks."""
+    from risk_lib.scenario_library import (
+        SCENARIO_LIBRARY, by_family, to_dataframe,
+    )
+
+    df = to_dataframe()
+    families = sorted(df["family"].unique())
+
+    # severity heatmap by family
+    sev_chart = viz.bar_chart(
+        df["short"].tolist(), df["severity"].tolist(),
+        value_fmt=lambda v: f"{v:.1f}",
+        title=f"시나리오 severity ({len(df)}개)",
+        colors=[
+            (viz.RED if s == "historic" else viz.AMBER if s == "regulatory"
+             else viz.PALETTE[3] if s == "climate" else viz.PALETTE[0])
+            for s in df["family"]
+        ],
+    )
+
+    # GDP × Equity scatter (size = severity) — visualises shock space
+    gdp_chart = viz.bar_chart(
+        df["short"].tolist()[:10],
+        (df["gdp"] * 100).tolist()[:10],
+        value_fmt=lambda v: f"{v:.1f}%",
+        title="시나리오별 GDP 충격 (top 10)",
+    )
+
+    # family-level rows
+    fam_rows = []
+    for fam in families:
+        sub = df[df["family"] == fam]
+        fam_rows.append([
+            fam, f"{len(sub)}",
+            f"{sub['severity'].mean():.2f}",
+            f"{sub['gdp'].min()*100:.2f}%",
+            f"{sub['gdp'].max()*100:.2f}%",
+            f"{sub['spread'].max()*100:.0f}bp",
+            f"{sub['horizon'].mean():.1f}y",
+        ])
+
+    # detail rows (10 most severe)
+    top10 = df.nlargest(10, "severity")
+    detail_rows = [[
+        f'<b>{row["name"]}</b><br><small>{row["citation"][:60]}</small>',
+        row["family"], f'{row["severity"]:.1f}',
+        f'{row["gdp"]*100:+.2f}%', f'{row["unemp"]*100:+.2f}%p',
+        f'{row["equity"]*100:+.2f}%', f'{row["rate_10y"]*100:+.0f}bp',
+        f'{row["spread"]*100:+.0f}bp', f'{row["hpi"]*100:+.2f}%',
+    ] for _, row in top10.iterrows()]
+
+    narratives = "".join(
+        f'<div class="callout"><b>{row["name"]}</b> '
+        f'({row["family"]}, severity {row["severity"]:.1f}, '
+        f'{row["horizon"]:.1f}y horizon)<br>'
+        f'{row["narrative"]}<br>'
+        f'<small style="color:#6b7280">출처: {row["citation"]}</small></div>'
+        for _, row in df.iterrows()
+    )
+
+    body = f"""
+<h1 class="title">55. Scenario Library — 17 named scenarios</h1>
+<p class="section-lead">Top-IB risk shops가 운영하는 named scenario library.
+historic + hypothetical + regulatory + climate 4 family.
+모든 macro shock은 1년 horizon peak value (GDP·실업률·FX·KOSPI·10y·spread·HPI·oil·CO2).
+출처: Fed CCAR, EBA EU-wide ST, 금감원 가이드라인, NGFS Phase 4, IMF WEO, BIS BCBS.</p>
+
+<div class="kpi-grid">
+{_kpi("Library 크기", f"{len(df)}", sub=f"{len(by_family('historic'))} historic / "
+       f"{len(by_family('hypothetical'))} hypothetical / "
+       f"{len(by_family('regulatory'))} regulatory / "
+       f"{len(by_family('climate'))} climate")}
+{_kpi("최악 GDP", f"{df['gdp'].min()*100:.1f}%",
+       sub=f"{df.loc[df['gdp'].idxmin(),'short']}")}
+{_kpi("최악 Equity", f"{df['equity'].min()*100:.1f}%",
+       sub=f"{df.loc[df['equity'].idxmin(),'short']}")}
+{_kpi("최고 spread shock", f"{df['spread'].max()*100:.0f}bp",
+       sub=f"{df.loc[df['spread'].idxmax(),'short']}")}
+</div>
+
+<div class="row2">
+<div class="card"><h2>55-1. 시나리오 severity</h2><div class="chart">{sev_chart}</div></div>
+<div class="card"><h2>55-2. GDP 충격 분포</h2><div class="chart">{gdp_chart}</div></div>
+</div>
+
+<div class="card"><h2>55-3. Family 비교 통계</h2>
+{_table(["family","건수","평균 severity","min GDP","max GDP","max spread","평균 horizon"],
+        fam_rows, right_cols=[1,2,3,4,5,6])}
+</div>
+
+<div class="card"><h2>55-4. Top 10 severe scenarios — 상세 shocks</h2>
+{_table(["시나리오","family","severity","GDP","실업","Equity","10y","Spread","HPI"],
+        detail_rows, right_cols=[2,3,4,5,6,7,8])}
+</div>
+
+<div class="card"><h2>55-5. 전체 시나리오 narrative + 출처</h2>
+{narratives}
+</div>
+"""
+    return _page("Scenario Library", body, "55_scenario_library.html")
