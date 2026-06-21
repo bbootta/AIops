@@ -97,8 +97,8 @@ function runGame(saveJson, label, drive, opts) {
   drive && drive({ step });
   fire(doc._h.mousedown, ev({ button: 0 })); step(3); fire(doc._h.mouseup, ev({ button: 0 }));
   for (let i = 0; i < 13; i++) { fire(G.wheel, ev({ deltaY: 1 })); fire(doc._h.mousedown, ev({ button: 2 })); fire(doc._h.mouseup, ev({ button: 2 })); }
-  // 활 차지 → 발사 (BOW 슬롯으로 한 칸 더 이동 후 우클릭 hold/release)
-  fire(G.wheel, ev({ deltaY: 1 }));
+  // 활 차지 → 발사 (BOW 슬롯까지 이동 후 우클릭 hold/release)
+  fire(G.wheel, ev({ deltaY: 1 })); fire(G.wheel, ev({ deltaY: 1 }));
   fire(doc._h.mousedown, ev({ button: 2 })); step(2); fire(doc._h.mouseup, ev({ button: 2 }));
   fire(G.keydown, ev({ code: 'KeyC' })); fire(G.keydown, ev({ code: 'KeyC' }));
   fire(G.keydown, ev({ code: 'KeyE' })); fire(G.keydown, ev({ code: 'KeyE' }));
