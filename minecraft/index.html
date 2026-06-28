@@ -92,6 +92,8 @@
   #btnJump { right: 28px; bottom: 90px; }
   #btnBreak { right: 104px; bottom: 156px; }
   #btnPlace { right: 28px; bottom: 182px; }
+  #btnBow { right: 180px; bottom: 156px; }
+  #btnEat { right: 180px; bottom: 90px; }
   #btnCraft { right: 104px; bottom: 64px; }
   #btnPause { right: 16px; top: 36px; width: 44px; height: 44px; font-size: 15px; }
   body { touch-action: none; -webkit-user-select: none; user-select: none; }
@@ -170,6 +172,8 @@
 <div id="btnJump" class="tbtn touchui">⤒</div>
 <div id="btnBreak" class="tbtn touchui">⛏</div>
 <div id="btnPlace" class="tbtn touchui">▣</div>
+<div id="btnEat" class="tbtn touchui">🍗</div>
+<div id="btnBow" class="tbtn touchui">🏹</div>
 <div id="btnCraft" class="tbtn touchui">⚒</div>
 <div id="btnPause" class="tbtn touchui">II</div>
 <div id="craft">
@@ -194,12 +198,13 @@
   <h1>MINECRAFT</h1>
   <p>
     W A S D : 이동 &nbsp;|&nbsp; Shift : 달리기 &nbsp;|&nbsp; Space : 점프 / 수영<br>
-    좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 먹기 · 씨앗 · 활쏘기 &nbsp;|&nbsp; C : 제작 &nbsp;|&nbsp; E : 인벤토리 &nbsp;|&nbsp; M : 음악<br>
-    1 ~ 9 / 마우스 휠 : 슬롯 선택 &nbsp;|&nbsp; F : 비행 (Space 상승 / Shift 하강)<br>
+    좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 씨앗 심기 · 상자 열기<br>
+    <b>Q : 먹기</b> (가진 음식 자동) &nbsp;|&nbsp; <b>R : 활</b> (누르면 차지, 떼면 발사)<br>
+    1 ~ 9 : 핫바 슬롯 &nbsp;|&nbsp; C : 제작 &nbsp;|&nbsp; E : 인벤토리 &nbsp;|&nbsp; F : 비행 &nbsp;|&nbsp; M : 음악<br>
     지형은 평원·사막·눈 바이옴, 동굴엔 석탄·철·금·다이아·에메랄드 광석<br>
     밤엔 좀비·스켈레톤·크리퍼·거미·보스 출몰, 음식으로 허기(🍗)를 채워야 체력 회복<br>
-    나무→판자→곡괭이·검·활·상자, 철/다이아로 갑옷, 상자를 우클릭해 아이템 보관<br>
-    모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼 조작<br>
+    나무→판자→곡괭이·검·활·상자, 철/다이아로 갑옷, 금→황금사과, 다이아로 포탈<br>
+    모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼(먹기🍗·활🏹 포함)<br>
     월드는 자동 저장됩니다 &nbsp;|&nbsp; ESC : 일시정지
   </p>
   <div class="start">클릭해서 시작</div>
@@ -264,7 +269,10 @@ const BLOCK_NAMES = {
   100: '고기', 101: '씨앗', 102: '밀', 103: '빵', 104: '다이아몬드', 106: '활', 107: '금', 108: '에메랄드', 109: '황금 사과',
   110: '사과', 111: '버섯', 112: '버섯 스튜', 113: '철',
 };
-const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES, BLOCK.SAND, BLOCK.TORCH, BLOCK.CHEST, ITEM.MEAT, ITEM.BREAD, ITEM.APPLE, ITEM.GOLD_APPLE, ITEM.STEW, ITEM.SEEDS, ITEM.BOW, BLOCK.PORTAL];
+// 핫바는 9칸으로 고정 (숫자키 1~9로 모두 선택 가능). 음식은 Q, 활은 R로 사용
+const HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.TORCH, BLOCK.CHEST, ITEM.SEEDS, BLOCK.PORTAL];
+// 음식 우선순위 (Q로 먹을 때): 일반 음식부터, 황금사과는 최후
+const FOOD_PRIORITY = [ITEM.STEW, ITEM.BREAD, ITEM.MEAT, ITEM.APPLE, ITEM.GOLD_APPLE];
 // 블록별 캐는 시간(초)과 드롭 아이템 [종류, 개수]
 const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0, 19: 0.45, 20: 0.9 };
 const DROPS = {
@@ -1439,6 +1447,23 @@ function damage(n) {
   if (health <= 0) respawn();
 }
 
+// Q: 슬롯 선택 없이 가진 음식 중 가장 좋은 것을 자동으로 먹음
+function eatBest() {
+  for (const t of FOOD_PRIORITY) {
+    if (inv[t] <= 0) continue;
+    const gold = t === ITEM.GOLD_APPLE;
+    const canEat = hunger < MAX_HUNGER || (gold && health < MAX_HEALTH);
+    if (!canEat) continue;
+    inv[t]--;
+    hunger = Math.min(MAX_HUNGER, hunger + FOODS[t]);
+    if (gold) health = MAX_HEALTH;
+    updateHotbar();
+    playSound(180, 0.18, 'triangle', 0.2);
+    return;
+  }
+  playSound(140, 0.08, 'square', 0.08); // 먹을 게 없거나 허기가 가득
+}
+
 const keys = {};
 addEventListener('keydown', (e) => {
   keys[e.code] = true;
@@ -1447,8 +1472,13 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyF' && playing()) { flying = !flying; player.vel.y = 0; fallDist = 0; }
   if (e.code === 'KeyC' && (playing() || craftOpen)) toggleCraft(!craftOpen);
   if (e.code === 'KeyM') toggleMusic();
+  if (e.code === 'KeyQ' && playing()) eatBest();           // 먹기
+  if (e.code === 'KeyR' && !e.repeat) bowDown();            // 활 차지
 });
-addEventListener('keyup', (e) => { keys[e.code] = false; });
+addEventListener('keyup', (e) => {
+  keys[e.code] = false;
+  if (e.code === 'KeyR') bowUp();                           // 활 발사
+});
 // 창 포커스를 잃으면 눌린 키가 고착되지 않도록 초기화
 addEventListener('blur', () => {
   for (const k in keys) keys[k] = false;
@@ -1591,6 +1621,7 @@ function updateHud(dt) {
   let html = '❤'.repeat(health) + '🖤'.repeat(MAX_HEALTH - health);
   html += '<br>' + '🍗'.repeat(hunger) + '<span style="opacity:.35">🍗</span>'.repeat(MAX_HUNGER - hunger);
   if (armor > 0) html += '<br>' + '🛡'.repeat(armor * 3);
+  if (tools.bow) html += '<br>🏹 ' + (inv[ITEM.ARROW] | 0);
   if (air < MAX_AIR) html += '<br>' + '🫧'.repeat(Math.max(0, Math.ceil(air)));
   if (flying) html += '<br>✈ 비행 중';
   if (html !== lastHud) { healthEl.innerHTML = html; lastHud = html; }
@@ -1809,7 +1840,9 @@ function bindBtn(id, onDown, onUp) {
 }
 bindBtn('btnJump', () => { touchJump = true; }, () => { touchJump = false; });
 bindBtn('btnBreak', () => startAttack(), () => stopAttack());
-bindBtn('btnPlace', () => rightDown(), () => rightUp());
+bindBtn('btnPlace', () => rightDown());
+bindBtn('btnEat', () => { if (playing()) eatBest(); });
+bindBtn('btnBow', () => bowDown(), () => bowUp());
 bindBtn('btnCraft', () => toggleCraft(!craftOpen));
 bindBtn('btnPause', () => {
   touchPlaying = false;
@@ -2034,15 +2067,12 @@ function rightDown() {
   if (!playing()) return;
   const aim = pickBlock();
   if (aim && getBlock(aim.block.x, aim.block.y, aim.block.z) === BLOCK.CHEST) { openChest(aim.block.x, aim.block.y, aim.block.z); return; }
-  if (HOTBAR[selectedSlot] === ITEM.BOW && tools.bow && inv[ITEM.ARROW] > 0) { charging = true; chargeT = 0; }
-  else doPlace();
-}
-function rightUp() {
-  if (!charging) return;
-  fireArrow(chargeT / 1.2);
-  charging = false; chargeT = 0;
+  doPlace();
 }
 function cancelCharge() { charging = false; chargeT = 0; }
+// 활 차지 시작/발사 (R 키 또는 모바일 활 버튼)
+function bowDown() { if (playing() && tools.bow && inv[ITEM.ARROW] > 0) { charging = true; chargeT = 0; } }
+function bowUp() { if (charging) { fireArrow(chargeT / 1.2); charging = false; chargeT = 0; } }
 document.addEventListener('mousedown', (e) => {
   if (!locked) return;
   if (e.button === 0) startAttack();
@@ -2050,7 +2080,6 @@ document.addEventListener('mousedown', (e) => {
 });
 document.addEventListener('mouseup', (e) => {
   if (e.button === 0) stopAttack();
-  else if (e.button === 2) rightUp();
 });
 
 // ---------- 핫바 / 인벤토리 ----------

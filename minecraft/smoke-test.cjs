@@ -97,9 +97,9 @@ function runGame(saveJson, label, drive, opts) {
   drive && drive({ step });
   fire(doc._h.mousedown, ev({ button: 0 })); step(3); fire(doc._h.mouseup, ev({ button: 0 }));
   for (let i = 0; i < 13; i++) { fire(G.wheel, ev({ deltaY: 1 })); fire(doc._h.mousedown, ev({ button: 2 })); fire(doc._h.mouseup, ev({ button: 2 })); }
-  // 활 차지 → 발사 (BOW 슬롯까지 이동 후 우클릭 hold/release)
-  fire(G.wheel, ev({ deltaY: 1 })); fire(G.wheel, ev({ deltaY: 1 }));
-  fire(doc._h.mousedown, ev({ button: 2 })); step(2); fire(doc._h.mouseup, ev({ button: 2 }));
+  // 활 차지(R) → 발사, 먹기(Q)
+  fire(G.keydown, ev({ code: 'KeyR' })); step(2); fire(G.keyup, ev({ code: 'KeyR' }));
+  fire(G.keydown, ev({ code: 'KeyQ' }));
   fire(G.keydown, ev({ code: 'KeyC' })); fire(G.keydown, ev({ code: 'KeyC' }));
   fire(G.keydown, ev({ code: 'KeyE' })); fire(G.keydown, ev({ code: 'KeyE' }));
   fire(G.keydown, ev({ code: 'KeyF' })); fire(G.keydown, ev({ code: 'KeyF' }));
@@ -118,7 +118,7 @@ try { runGame(null, 'A: 새 게임(오버월드)'); } catch (e) { fails++; conso
 const saveB = JSON.stringify({
   curDim: 'overworld',
   dims: { overworld: { edits: [['0,11,0', 3], ['0,12,0', 16]], pos: { x: 0.5, y: 12, z: 0.5, yaw: 0, pitch: 0 }, crops: [] }, nether: { edits: [], pos: null, crops: [] } },
-  slot: 0, health: 10, inv: { 12: 9, 105: 5 }, tools: { pickaxe: true, bow: true }, dayTime: 50,
+  slot: 0, health: 8, hunger: 4, inv: { 12: 9, 105: 5, 100: 3 }, tools: { pickaxe: true, bow: true }, dayTime: 50,
 });
 try {
   runGame(saveB, 'B: 포탈→네더 전이', ({ step }) => {
