@@ -100,6 +100,8 @@ function runGame(saveJson, label, drive, opts) {
   // 활 차지(R) → 발사, 먹기(Q)
   fire(G.keydown, ev({ code: 'KeyR' })); step(2); fire(G.keyup, ev({ code: 'KeyR' }));
   fire(G.keydown, ev({ code: 'KeyQ' }));
+  // 모바일 핫바 슬라이드
+  const hb = elCache['hotbar']; if (hb) { fire(hb._h.touchstart, ev({})); fire(hb._h.touchmove, ev({ clientX: 80 })); }
   fire(G.keydown, ev({ code: 'KeyC' })); fire(G.keydown, ev({ code: 'KeyC' }));
   fire(G.keydown, ev({ code: 'KeyE' })); fire(G.keydown, ev({ code: 'KeyE' }));
   fire(G.keydown, ev({ code: 'KeyF' })); fire(G.keydown, ev({ code: 'KeyF' }));

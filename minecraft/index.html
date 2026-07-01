@@ -23,8 +23,9 @@
   #chargeFill { height: 100%; width: 0%; background: #ffd54a; }
   #hotbar {
     position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
-    display: flex; gap: 4px; z-index: 10;
+    display: flex; gap: 4px; z-index: 13; touch-action: none;
   }
+  body.touch #hotbar { bottom: 12px; padding: 8px 4px; background: rgba(0,0,0,0.25); border-radius: 8px; }
   .slot {
     position: relative; width: 48px; height: 48px; border: 3px solid rgba(0,0,0,0.6);
     background: rgba(0,0,0,0.35); box-sizing: border-box;
@@ -2139,6 +2140,27 @@ addEventListener('wheel', (e) => {
   const d = e.deltaY > 0 ? 1 : -1;
   selectSlot((selectedSlot + d + HOTBAR.length) % HOTBAR.length);
 });
+// 모바일: 핫바 위를 손가락으로 쓸어(슬라이드) 손가락 아래 슬롯 선택
+function hotbarTouch(e) {
+  e.preventDefault();
+  const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+  if (!t) return;
+  const first = slotEls[0].getBoundingClientRect();
+  const last = slotEls[slotEls.length - 1].getBoundingClientRect();
+  let idx;
+  if (t.clientX <= first.left) idx = 0;
+  else if (t.clientX >= last.right) idx = slotEls.length - 1;
+  else {
+    idx = selectedSlot;
+    for (let i = 0; i < slotEls.length; i++) {
+      const r = slotEls[i].getBoundingClientRect();
+      if (t.clientX >= r.left && t.clientX <= r.right) { idx = i; break; }
+    }
+  }
+  if (idx !== selectedSlot) selectSlot(idx);
+}
+hotbarEl.addEventListener('touchstart', hotbarTouch, { passive: false });
+hotbarEl.addEventListener('touchmove', hotbarTouch, { passive: false });
 
 // ---------- 제작 ----------
 const RECIPES = [
