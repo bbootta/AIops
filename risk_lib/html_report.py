@@ -127,6 +127,7 @@ NAV = [
     ("59_pillar3_full.html",      "59. Pillar 3 Full"),
     ("60_capital_simulation.html","60. Capital Simulation"),
     ("61_intraday.html",          "61. Intraday"),
+    ("62_cecl_ifrs9.html",        "62. CECL vs IFRS9"),
 ]
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
@@ -2302,6 +2303,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         page_xva_full, page_trading_sensitivities, page_scenario_library,
         page_frtb_ima, page_model_inventory, page_explainability,
         page_pillar3_full, page_capital_simulation, page_intraday,
+        page_cecl_ifrs9,
     )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -2368,6 +2370,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         "59_pillar3_full.html":          page_pillar3_full(result),
         "60_capital_simulation.html":    page_capital_simulation(result),
         "61_intraday.html":              page_intraday(result),
+        "62_cecl_ifrs9.html":            page_cecl_ifrs9(result),
     }
     if portfolio is not None:
         pages["20_pillar3.html"] = page_pillar3(result, portfolio)
@@ -2398,6 +2401,7 @@ def build_full_report_package(
     from risk_lib.printable import build_printable_html
     from risk_lib.audit_trail import build_ledger_from_result
     from risk_lib.board_pack import build_board_pack
+    from risk_lib.localization import build_english_board_pack
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     ops_dir = out / "ops"
     written_ops = build_report_set(result, ops_dir, portfolio=portfolio)
@@ -2419,10 +2423,13 @@ def build_full_report_package(
         result, out / "board_pack.html",
         ledger_path=str(out / "audit_ledger.json"),
     )
+    board_pack_en_path = build_english_board_pack(
+        result, out / "board_pack_en.html")
     return {
         "executive": str(exec_path.resolve()),
         "printable": str(printable_path),
         "board_pack": board_pack_path,
+        "board_pack_en": board_pack_en_path,
         "audit_ledger": ledger_path,
         "ops_dir": str(ops_dir.resolve()),
         **{f"ops/{k}": v for k, v in written_ops.items()},

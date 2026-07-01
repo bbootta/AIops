@@ -4359,3 +4359,78 @@ def page_intraday(r: PipelineResult) -> str:
 </div>
 """
     return _page("Intraday", body, "61_intraday.html")
+
+
+# ============================================================================
+# 62. CECL (US GAAP) vs IFRS 9 dual-reporting bridge
+# ============================================================================
+
+def page_cecl_ifrs9(r: PipelineResult) -> str:
+    """CECL vs IFRS 9 provisioning comparison."""
+    from risk_lib.cecl import compute_cecl, reconcile_ifrs9_cecl
+
+    portfolio = getattr(r, "_portfolio", None)
+    if portfolio is None:
+        from risk_lib.data_gen import generate_portfolio
+        portfolio = generate_portfolio(seed=r.meta.get("seed", 42))
+
+    cecl = compute_cecl(portfolio)
+    bridge = reconcile_ifrs9_cecl(r, portfolio, cecl=cecl)
+
+    # bridge waterfall: IFRS9 → +gap → CECL
+    bridge_chart = viz_advanced.attribution_waterfall(
+        ["+ Stage1 lifetime", "+ macro overlay 차이"],
+        [bridge.gap * 0.85, bridge.gap * 0.15],
+        start_value=bridge.ifrs9_total, end_value=bridge.cecl_total,
+        title="IFRS9 → CECL 충당금 bridge", value_fmt=_won,
+    )
+
+    # segment comparison
+    seg = bridge.by_segment
+    seg_chart = viz.bar_chart(
+        seg["asset_class"].tolist(),
+        (seg["gap"] / 1e9).tolist(),
+        value_fmt=lambda v: f"{v:+.0f}bn",
+        title="자산군별 CECL−IFRS9 gap (십억)",
+        colors=[viz.RED if v > 0 else viz.GREEN for v in seg["gap"]],
+    )
+
+    seg_rows = [[r2["asset_class"], _won(r2["ifrs9"]), _won(r2["cecl"]),
+                 _won(r2["gap"])]
+                for _, r2 in seg.iterrows()]
+
+    body = f"""
+<h1 class="title">62. CECL (US GAAP) vs IFRS 9 이중보고 bridge</h1>
+<p class="section-lead">글로벌/이중상장 은행의 dual-reporting. IFRS 9은 3-stage
+(Stage 1 = 12개월 손실), CECL(ASC 326)은 day-1 전체 잔존기간 손실. 통상 CECL이
+평상시 더 보수적(큼). 출처: FASB ASC 326 (2016), IFRS 9 5.5,
+BCBS "Regulatory treatment of accounting provisions" (2017).</p>
+
+<div class="kpi-grid">
+{_kpi("IFRS 9 충당금", _won(bridge.ifrs9_total), sub="3-stage ECL")}
+{_kpi("CECL 충당금", _won(bridge.cecl_total),
+       sub="day-1 lifetime", tone="warn")}
+{_kpi("Gap (CECL−IFRS9)", _won(bridge.gap),
+       sub=f"{bridge.gap_pct*100:+.0f}%",
+       tone="bad" if bridge.gap > 0 else "good")}
+{_kpi("가중평균 만기", f"{cecl.weighted_life_years:.1f}년",
+       sub="장기일수록 gap 확대")}
+</div>
+
+<div class="row2">
+<div class="card"><h2>62-1. 충당금 bridge</h2><div class="chart">{bridge_chart}</div></div>
+<div class="card"><h2>62-2. 자산군별 gap</h2><div class="chart">{seg_chart}</div></div>
+</div>
+
+<div class="card"><h2>62-3. 자산군별 IFRS9 vs CECL</h2>
+{_table(["자산군","IFRS 9","CECL","Gap"], seg_rows, right_cols=[1,2,3])}
+<div class="callout">{_esc(bridge.driver)}</div>
+</div>
+
+<div class="card"><h2>62-4. 규제자본 영향 (참고)</h2>
+<p>회계 충당금 차이는 규제자본에도 영향: IRB 은행은 EL 대비 충당금 부족분을 CET1에서
+차감, 초과분은 Tier 2에 제한적 산입 (BCBS 2017). CECL 도입 시 day-1 충당금 급증에 대한
+경과조치(transitional arrangement)로 CET1 영향을 4~5년 분산 인식 가능.</p>
+</div>
+"""
+    return _page("CECL vs IFRS9", body, "62_cecl_ifrs9.html")
