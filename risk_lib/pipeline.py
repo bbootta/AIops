@@ -533,6 +533,7 @@ def run_pipeline(
     output_floor: float = FULLY_LOADED_FLOOR,
     buffers: dict[str, float] | None = None,
     years_ahead: int = 2,
+    asof: "date | str | None" = None,
 ) -> PipelineResult:
     if buffers is None:
         buffers = {"capital_conservation": 0.025, "countercyclical": 0.0, "dsib": 0.01}
@@ -559,8 +560,13 @@ def run_pipeline(
         output_floor=output_floor, buffers=buffers,
     )
 
-    # 7. IFRS 9 ECL (TTC + forward-looking PIT) on the quarterly axis
-    asof = date.today()
+    # 7. IFRS 9 ECL (TTC + forward-looking PIT) on the quarterly axis.
+    # `asof` is overridable so a run can be pinned to a reference date for
+    # bit-for-bit reproducibility independent of wall-clock time.
+    if asof is None:
+        asof = date.today()
+    elif isinstance(asof, str):
+        asof = date.fromisoformat(asof)
     quarters = forecast_quarter_labels(asof, years_ahead=years_ahead)
     ecl_df, ecl_by_stage, macro, macro_path, ifrs9_deep = _stage_provisioning(
         irb_book, quarters, seed=seed)
