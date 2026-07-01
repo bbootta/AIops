@@ -139,6 +139,32 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_dispatch(args: argparse.Namespace) -> int:
+    """Send alert payload to a webhook."""
+    from risk_lib.data_gen import generate_portfolio
+    from risk_lib.integrations import dispatch_alerts
+    portfolio = generate_portfolio(seed=args.seed)
+    result = run_pipeline(portfolio, seed=args.seed)
+    r = dispatch_alerts(result, args.url, kind=args.kind, dry_run=args.dry_run)
+    if args.dry_run:
+        print(f"[dry-run] POST {r.request.url}")
+        print(f"  body ({len(r.request.body)} bytes): {r.request.body[:200]}...")
+        return 0
+    print(f"dispatch {'성공' if r.ok else '실패'} — status {r.status}"
+          + (f" · error {r.error}" if r.error else ""))
+    return 0 if r.ok else 2
+
+
+def _cmd_api_spec(args: argparse.Namespace) -> int:
+    """Emit OpenAPI + GraphQL schema files."""
+    from risk_lib.integrations import write_api_specs
+    paths = write_api_specs(args.out)
+    print("API 스펙 작성 완료:")
+    for k, v in paths.items():
+        print(f"  {k} → {v}")
+    return 0
+
+
 def _cmd_export_json(args: argparse.Namespace) -> int:
     """Export all headline + deep-dive tables as JSON files."""
     from risk_lib.data_gen import generate_portfolio
@@ -295,6 +321,19 @@ def main(argv: list[str] | None = None) -> int:
     cmp_p.add_argument("--manifests", nargs="+", required=True)
     cmp_p.add_argument("--out", help="CSV 저장 경로 (생략 시 stdout)")
     cmp_p.set_defaults(func=_cmd_compare)
+
+    dp = sub.add_parser("dispatch", help="알림을 webhook(Slack 등)으로 발송")
+    dp.add_argument("--url", required=True, help="webhook URL")
+    dp.add_argument("--seed", type=int, default=42)
+    dp.add_argument("--kind", default="slack",
+                    choices=["slack", "teams", "pagerduty", "generic"])
+    dp.add_argument("--dry-run", action="store_true",
+                    help="발송하지 않고 요청만 출력")
+    dp.set_defaults(func=_cmd_dispatch)
+
+    ap = sub.add_parser("api-spec", help="OpenAPI + GraphQL 스키마 생성")
+    ap.add_argument("--out", required=True, help="출력 디렉터리")
+    ap.set_defaults(func=_cmd_api_spec)
 
     args = parser.parse_args(argv)
     return args.func(args)
