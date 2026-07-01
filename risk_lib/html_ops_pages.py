@@ -4268,3 +4268,94 @@ CCAR / DFAST methodology 표준.</p>
 </div>
 """
     return _page("Capital Simulation", body, "60_capital_simulation.html")
+
+
+# ============================================================================
+# 61. Intraday risk — tick-by-tick VaR / limit utilisation / alerts
+# ============================================================================
+
+def page_intraday(r: PipelineResult) -> str:
+    """Realtime intraday risk session simulation."""
+    from risk_lib.intraday import run_intraday_session
+
+    seed = r.meta.get("seed", 42)
+    normal = run_intraday_session(r, seed=seed)
+    stress = run_intraday_session(r, seed=seed, stress_tick=40)
+
+    times = normal.ticks["time"].tolist()
+    var_series = {
+        "정상 세션 VaR": (normal.ticks["var"] / 1e9).tolist(),
+        "스트레스 세션 VaR": (stress.ticks["var"] / 1e9).tolist(),
+    }
+    var_chart = viz.line_chart(
+        times, var_series, value_fmt=lambda v: f"{v:.0f}bn",
+        title="Intraday VaR 경로 (5분 bar × 78틱)",
+        reference_value=normal.ticks["var"].iloc[0] * 2 / 1e9,
+        reference_label="VaR 한도",
+    )
+
+    util_series = {
+        "정상": (normal.ticks["util"] * 100).tolist(),
+        "스트레스": (stress.ticks["util"] * 100).tolist(),
+    }
+    util_chart = viz.line_chart(
+        times, util_series, value_fmt=lambda v: f"{v:.0f}%",
+        title="VaR 한도 사용률 (%)",
+        reference_value=100, reference_label="한도 100%",
+    )
+
+    # P&L attribution path (normal)
+    pnl_series = {
+        "누적 P&L": (normal.ticks["pnl"] / 1e9).tolist(),
+        "Equity Δ": (normal.ticks["delta_pnl"] / 1e9).tolist(),
+        "IR": (normal.ticks["ir_pnl"] / 1e9).tolist(),
+    }
+    pnl_chart = viz.line_chart(
+        times, pnl_series, value_fmt=lambda v: f"{v:+.1f}bn",
+        title="Intraday P&L attribution (정상)",
+    )
+
+    # alert table (stress, first 15)
+    alert_rows = [[str(a.tick), a.time, _badge(a.severity, a.severity),
+                   a.metric, f"{a.value*100:.0f}%", a.message[:60]]
+                  for a in stress.alerts[:15]]
+
+    from collections import Counter
+    sev_counts = Counter(a.severity for a in stress.alerts)
+
+    body = f"""
+<h1 class="title">61. Intraday Risk — Tick-by-tick VaR / 한도 / 알림</h1>
+<p class="section-lead">Top-IB 트레이딩 플로어의 실시간 리스크 refresh 시뮬레이션.
+장 개시(09:00)부터 5분 bar × 78틱, 5개 risk factor (equity·rate·FX·spread·vol) random walk.
+각 틱마다 VaR 재산출 + 한도 사용률 검사 + 알림 발화. seed 고정 → 동일 tick path →
+동일 알림 (감사 재현 가능).</p>
+
+<div class="kpi-grid">
+{_kpi("정상 세션 최대 VaR", _won(normal.peak_var),
+       sub=f"tick {normal.peak_var_tick}, 사용률 {normal.max_util*100:.0f}%")}
+{_kpi("스트레스 최대 사용률", f"{stress.max_util*100:.0f}%",
+       tone="bad" if stress.max_util >= 1.0 else "warn")}
+{_kpi("스트레스 알림 수", f"{stress.n_alerts}",
+       sub=f"RED {sev_counts.get('RED',0)} · AMBER {sev_counts.get('AMBER',0)} · WATCH {sev_counts.get('WATCH',0)}",
+       tone="bad" if sev_counts.get("RED") else "warn")}
+{_kpi("정상 세션 알림 수", f"{normal.n_alerts}")}
+</div>
+
+<div class="row2">
+<div class="card"><h2>61-1. Intraday VaR 경로</h2><div class="chart">{var_chart}</div></div>
+<div class="card"><h2>61-2. 한도 사용률</h2><div class="chart">{util_chart}</div></div>
+</div>
+
+<div class="card"><h2>61-3. Intraday P&L attribution</h2><div class="chart">{pnl_chart}</div>
+<p class="section-lead">P&L을 delta(주식)·IR·credit 요인별로 실시간 분해.
+갑작스러운 P&L 이탈 시 어느 factor가 원인인지 즉시 식별.</p>
+</div>
+
+<div class="card"><h2>61-4. 스트레스 세션 알림 로그 (상위 15)</h2>
+{_table(["tick","시각","등급","지표","사용률","메시지"], alert_rows, right_cols=[4])
+  if alert_rows else "<p>알림 없음.</p>"}
+<p class="section-lead">WATCH 75% → AMBER 90% → RED 100% (한도 침범). RED 발생 시 즉시
+데스크 포지션 축소 또는 헷지 지시. tick 40에 6σ 시장 충격 주입.</p>
+</div>
+"""
+    return _page("Intraday", body, "61_intraday.html")
