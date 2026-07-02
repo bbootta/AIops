@@ -85,18 +85,23 @@
     background: rgba(255,255,255,0.5);
   }
   .tbtn {
-    position: fixed; z-index: 12; width: 58px; height: 58px; border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.5); background: rgba(0,0,0,0.35);
-    color: #fff; font: bold 22px monospace; align-items: center; justify-content: center;
+    position: fixed; z-index: 12; width: 62px; height: 62px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.55); background: rgba(0,0,0,0.4);
+    color: #fff; font: bold 20px monospace;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 1px; line-height: 1;
     touch-action: none; user-select: none; -webkit-user-select: none;
   }
-  #btnJump { right: 28px; bottom: 90px; }
-  #btnBreak { right: 104px; bottom: 156px; }
-  #btnPlace { right: 28px; bottom: 182px; }
-  #btnBow { right: 180px; bottom: 156px; }
-  #btnEat { right: 180px; bottom: 90px; }
-  #btnCraft { right: 104px; bottom: 64px; }
-  #btnPause { right: 16px; top: 36px; width: 44px; height: 44px; font-size: 15px; }
+  .tbtn .lbl { font-size: 10px; font-weight: bold; letter-spacing: 1px; }
+  .tbtn:active { background: rgba(255,213,74,0.45); }
+  #btnJump  { right: 16px;  bottom: 84px; }
+  #btnPlace { right: 16px;  bottom: 158px; }
+  #btnBreak { right: 90px;  bottom: 121px; }
+  #btnBow   { right: 164px; bottom: 158px; }
+  #btnEat   { right: 164px; bottom: 84px; }
+  #btnCraft { right: 90px;  bottom: 46px; width: 54px; height: 54px; }
+  #btnPause { right: 16px; top: 36px; width: 48px; height: 48px; font-size: 14px; }
+  body.touch .slot.selected { transform: scale(1.18); border-color: #ffd54a; }
   /* touch-action:none은 body 전역이 아니라 게임 조작 요소에만 (패널 스크롤 허용) */
   body { -webkit-user-select: none; user-select: none; }
   #game { touch-action: none; }
@@ -202,13 +207,13 @@
 <div id="bossBar">☠ 좀비 군주<div class="track"><div id="bossFill"></div></div></div>
 <div id="damageFlash"></div>
 <div id="joy" class="touchui"><div id="joyStick"></div></div>
-<div id="btnJump" class="tbtn touchui">⤒</div>
-<div id="btnBreak" class="tbtn touchui">⛏</div>
-<div id="btnPlace" class="tbtn touchui">▣</div>
-<div id="btnEat" class="tbtn touchui">🍗</div>
-<div id="btnBow" class="tbtn touchui">🏹</div>
-<div id="btnCraft" class="tbtn touchui">⚒</div>
-<div id="btnPause" class="tbtn touchui">II</div>
+<div id="btnJump" class="tbtn touchui">⤒<span class="lbl">점프</span></div>
+<div id="btnBreak" class="tbtn touchui">⛏<span class="lbl">캐기</span></div>
+<div id="btnPlace" class="tbtn touchui">▣<span class="lbl">놓기</span></div>
+<div id="btnEat" class="tbtn touchui">🍗<span class="lbl">먹기</span></div>
+<div id="btnBow" class="tbtn touchui">🏹<span class="lbl">활</span></div>
+<div id="btnCraft" class="tbtn touchui">⚒<span class="lbl">만들기</span></div>
+<div id="btnPause" class="tbtn touchui">II<span class="lbl">멈춤</span></div>
 <div id="craft">
   <h2>제작</h2>
   <div id="recipes"></div>
@@ -238,6 +243,7 @@
     밤엔 좀비·스켈레톤·크리퍼·거미·보스 출몰, 음식으로 허기(🍗)를 채워야 체력 회복<br>
     나무→판자→곡괭이·검·활·상자, 철/다이아로 갑옷, 금→황금사과, 다이아로 포탈<br>
     모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼(먹기🍗·활🏹 포함)<br>
+    아이와 함께라면 아래 설정에서 <b>🧒 평화 모드</b>를 켜 보세요 (몬스터·배고픔 없음)<br>
     월드는 자동 저장됩니다 &nbsp;|&nbsp; ESC : 일시정지
   </p>
   <div class="start">클릭해서 시작</div>
@@ -247,6 +253,8 @@
     <label>시야 거리 <input type="range" id="optView" min="60" max="160" step="10"></label>
     <label class="chk"><input type="checkbox" id="optMusic"> 음악</label>
     <label class="chk"><input type="checkbox" id="optFreeze"> 일시정지 시 시간 정지</label>
+    <label class="chk"><input type="checkbox" id="optAutoJump"> 자동 점프 (턱 자동 오르기)</label>
+    <label class="chk"><input type="checkbox" id="optPeace"> 🧒 평화 모드 (몬스터·배고픔 없음)</label>
   </div>
   <div id="saveSlots"></div>
   <button class="reset" id="resetBtn">이 월드 초기화</button>
@@ -1165,7 +1173,8 @@ function spawnBoss() {
   playSound(55, 0.8, 'sawtooth', 0.25);
 }
 function updateZombies(dt) {
-  const night = curDim === 'nether' || sunHeight < -0.05;
+  // 평화 모드에서는 밤이어도 스폰하지 않고, 있던 몬스터는 소멸 경로로 정리됨
+  const night = !optPeace && (curDim === 'nether' || sunHeight < -0.05);
   const cap = curDim === 'nether' ? 12 : 8;
   if (night && playing()) {
     zombieSpawnT -= dt;
@@ -1448,6 +1457,8 @@ let hunger = MAX_HUNGER, hungerDrain = 0, starveTimer = 0;
 let armor = 0; // 0 없음 / 1 철 / 2 다이아
 let charging = false, chargeT = 0; // 활 차지
 let optFreeze = localStorage.getItem('mc_freeze') !== '0'; // 일시정지 시 시간 정지
+let optAutoJump = localStorage.getItem('mc_autojump') !== '0'; // 한 칸 턱 자동 오르기 (기본 켬)
+let optPeace = localStorage.getItem('mc_peace') === '1';       // 평화 모드: 몬스터·허기·데미지 없음
 const healthEl = document.getElementById('health');
 const damageFlashEl = document.getElementById('damageFlash');
 const bossBarEl = document.getElementById('bossBar');
@@ -1470,6 +1481,7 @@ function respawn() {
 }
 
 function damage(n) {
+  if (optPeace) return; // 평화 모드: 플레이어는 데미지를 입지 않음
   if (n <= 0 || health <= 0) return;
   const red = [0, 0.3, 0.6][armor] || 0; // 방어구 피해 감소
   n = Math.max(1, Math.ceil(n * (1 - red)));
@@ -1585,6 +1597,11 @@ function updatePlayer(dt) {
 
   // 물가에서 Space를 누른 채 벽에 닿으면 뭍으로 올라갈 수 있게 살짝 띄움
   if (swimming && hitWall && jumpHeld) player.vel.y = Math.max(player.vel.y, 6.5);
+  // 자동 점프: 걷다가 한 칸 턱에 닿으면 자동으로 뛰어오름
+  if (optAutoJump && hitWall && player.onGround && !flying && !swimming) {
+    player.vel.y = 7.5;
+    player.onGround = false;
+  }
 
   const prevY = p.y;
   p.y += player.vel.y * dt;
@@ -1622,17 +1639,26 @@ function updatePlayer(dt) {
     if (lavaTimer >= 0.5) { damage(2); lavaTimer = 0; }
   } else lavaTimer = 0;
   // 허기 소모 (이동·달리기일수록 빠르게), 충분할 때만 체력 자연 회복, 0이면 굶주림 피해
-  const moving = move.lengthSq() > 0;
-  hungerDrain += dt * (moving ? (running ? 1.6 : 1.0) : 0.35);
-  if (hungerDrain >= 8) { hungerDrain = 0; if (hunger > 0) hunger--; }
-  if (health > 0 && health < MAX_HEALTH && hunger >= 6) {
-    regenTimer += dt;
-    if (regenTimer >= 5) { health++; regenTimer = 0; }
+  if (optPeace) {
+    hunger = MAX_HUNGER; // 평화 모드: 허기 없음
+    starveTimer = 0;
+    if (health > 0 && health < MAX_HEALTH) {
+      regenTimer += dt;
+      if (regenTimer >= 2) { health++; regenTimer = 0; }
+    }
+  } else {
+    const moving = move.lengthSq() > 0;
+    hungerDrain += dt * (moving ? (running ? 1.6 : 1.0) : 0.35);
+    if (hungerDrain >= 8) { hungerDrain = 0; if (hunger > 0) hunger--; }
+    if (health > 0 && health < MAX_HEALTH && hunger >= 6) {
+      regenTimer += dt;
+      if (regenTimer >= 5) { health++; regenTimer = 0; }
+    }
+    if (hunger <= 0) {
+      starveTimer += dt;
+      if (starveTimer >= 4) { starveTimer = 0; damage(1); }
+    } else starveTimer = 0;
   }
-  if (hunger <= 0) {
-    starveTimer += dt;
-    if (starveTimer >= 4) { starveTimer = 0; damage(1); }
-  } else starveTimer = 0;
 
   // 맵 밖으로 떨어지면 리스폰
   if (p.y < -20) respawn();
@@ -2546,6 +2572,12 @@ updateHotbar();
   const freeze = document.getElementById('optFreeze');
   freeze.checked = optFreeze;
   freeze.addEventListener('change', () => { optFreeze = freeze.checked; try { localStorage.setItem('mc_freeze', optFreeze ? '1' : '0'); } catch (e) {} });
+  const aj = document.getElementById('optAutoJump');
+  aj.checked = optAutoJump;
+  aj.addEventListener('change', () => { optAutoJump = aj.checked; try { localStorage.setItem('mc_autojump', optAutoJump ? '1' : '0'); } catch (e) {} });
+  const peace = document.getElementById('optPeace');
+  peace.checked = optPeace;
+  peace.addEventListener('change', () => { optPeace = peace.checked; try { localStorage.setItem('mc_peace', optPeace ? '1' : '0'); } catch (e) {} });
 }
 
 teleport(curDim, true); // 활성 차원 생성 + 청크/몹/플레이어 위치 설정

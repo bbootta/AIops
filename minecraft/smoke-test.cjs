@@ -111,6 +111,11 @@ function runGame(saveJson, label, drive, opts) {
   ['optSens', 'optVol', 'optView'].forEach((id) => { const el = elCache[id]; if (el) { el.value = 30; fire(el._h.input); } });
   const mu = elCache['optMusic']; if (mu) { mu.checked = !mu.checked; fire(mu._h.change); }
   const fr = elCache['optFreeze']; if (fr) { fr.checked = false; fire(fr._h.change); }
+  // 평화 모드 켜고 진행 (몬스터 소멸·허기 고정 경로), 자동 점프 토글
+  const aj = elCache['optAutoJump']; if (aj) { aj.checked = true; fire(aj._h.change); }
+  const pc = elCache['optPeace']; if (pc) { pc.checked = true; fire(pc._h.change); }
+  step(30);
+  if (pc) { pc.checked = false; fire(pc._h.change); }
   step(5); fire(G.keyup, ev({ code: 'KeyW' })); fire(G.blur);
   console.log(`  [${label}] OK`);
 }
