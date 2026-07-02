@@ -1,4 +1,11 @@
-"""Pillar 3 disclosure templates (BCBS DIS).
+"""Pillar 3 disclosure templates (BCBS DIS) — legacy summary cut.
+
+.. deprecated::
+    Superseded by :mod:`risk_lib.pillar3_disclosures`, which implements the
+    full 13-template set (KM1/OV1/CR1-5/MR1-2/LIQ1-2/LR1-2) with 행/지표/값/
+    단위 columns and backs ops page 59 (Pillar 3 Full). This module remains
+    only for ops page 20 (summary view); add new templates to
+    pillar3_disclosures, not here.
 
 Implemented:
   - KM1  : Key metrics
