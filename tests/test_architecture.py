@@ -30,3 +30,24 @@ def test_abbreviation_dict_has_no_duplicate_keys():
     assert len(keys) == len(dicts[0].keys), "non-literal key in ABBREVIATIONS"
     dupes = sorted({k for k in keys if keys.count(k) > 1})
     assert not dupes, f"duplicate abbreviation keys (later shadows earlier): {dupes}"
+
+
+def test_page_registry_is_consistent():
+    """Every PageSpec resolves to a callable and filenames are unique."""
+    from risk_lib.page_registry import PAGES
+
+    filenames = [p.filename for p in PAGES]
+    assert len(filenames) == len(set(filenames)), "duplicate page filename"
+    for spec in PAGES:
+        fn = spec.resolve()
+        assert callable(fn), f"{spec.module}.{spec.func} is not callable"
+
+
+def test_nav_matches_registry_order():
+    from risk_lib.html_report import NAV
+    from risk_lib.page_registry import PAGES
+
+    assert NAV == [(p.filename, p.label) for p in PAGES if p.in_nav]
+    # ALM sub pages are in the registry but not the main nav
+    nav_files = {f for f, _ in NAV}
+    assert {"11a_irrbb.html", "11b_lcr.html", "11c_nsfr.html"}.isdisjoint(nav_files)

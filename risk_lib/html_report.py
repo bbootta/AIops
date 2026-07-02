@@ -40,6 +40,7 @@ from risk_lib.references import (
     GINI_MIN_GOOD, HHI_HIGH,
 )
 from risk_lib import viz
+from risk_lib.page_registry import PAGES, nav_items
 
 
 # ---------------------------------------------------------------- formatting
@@ -63,72 +64,9 @@ def _esc(s) -> str:
 
 # ---------------------------------------------------------------- HTML chrome
 
-# Files in render order; links in nav appear in this sequence.
-NAV = [
-    ("index.html",        "0. 요약"),
-    ("01_portfolio.html", "1. 포트폴리오"),
-    ("02_pd.html",        "2. PD모형"),
-    ("03_rwa.html",       "3. RWA"),
-    ("04_capital.html",   "4. BIS·레버리지"),
-    ("05_ecl.html",       "5. ECL"),
-    ("06_monitoring.html","6. 모니터링"),
-    ("07_limits.html",    "7. 한도"),
-    ("08_rapm.html",      "8. RAPM"),
-    ("09_stress.html",    "9. 스트레스"),
-    ("10_icaap.html",     "10. 내부자본"),
-    ("11_alm.html",       "11. ALM"),
-    ("12_validation.html","12. 검증"),
-    ("13_climate.html",   "13. 기후"),
-    ("14_ccr.html",       "14. CCR/CVA"),
-    ("15_op_loss.html",   "15. 운영손실"),
-    ("16_sensitivity.html","16. 민감도"),
-    ("17_model_risk.html","17. 모형"),
-    ("18_concentration_deep.html","18. 집중 D-D"),
-    ("19_raf.html",       "19. RAF"),
-    ("20_pillar3.html",   "20. Pillar 3"),
-    ("21_mda.html",       "21. MDA"),
-    ("22_kri_trends.html","22. KRI 트렌드"),
-    ("23_attribution.html","23. 귀속분석"),
-    ("24_vintage.html",   "24. Vintage"),
-    ("25_data_quality.html","25. DQ·정합성"),
-    ("26_comparison.html", "26. 시점 비교"),
-    ("27_lgd_model.html",  "27. LGD모형"),
-    ("28_model_challenger.html", "28. 챔피언/챌린저"),
-    ("29_irb_deep.html",   "29. IRB D-D"),
-    ("30_market_risk_deep.html", "30. 시장 D-D"),
-    ("31_op_risk_deep.html", "31. 운영 D-D"),
-    ("32_capital_stack.html", "32. 자본 스택"),
-    ("33_buffer_layering.html", "33. 버퍼 layer"),
-    ("34_leverage_deep.html", "34. 레버리지 D-D"),
-    ("35_sicr_detail.html",   "35. SICR 분해"),
-    ("36_pd_term_structure.html","36. PD 잔존기간"),
-    ("37_macro_scenario.html","37. 거시 시나리오"),
-    ("38_provisioning_attribution.html","38. 충당금 귀속"),
-    ("39_dpd_roll.html",   "39. DPD roll-rate"),
-    ("40_recovery_lgd.html","40. 회수·LGD"),
-    ("41_cure_analysis.html","41. Cure 분석"),
-    ("42_limit_dashboard.html", "42. 한도 dashboard"),
-    ("43_large_exposure.html", "43. 거대익스포저"),
-    ("44_concentration_stress.html","44. 집중 스트레스"),
-    ("45_eva_sva.html",    "45. EVA/SVA"),
-    ("46_pricing_breakeven.html", "46. Pricing"),
-    ("47_rapm_scenario.html", "47. RAPM 시나리오"),
-    ("48_reverse_stress_multi.html", "48. Multi-역스트레스"),
-    ("49_ccar_path.html",    "49. CCAR 경로"),
-    ("50_climate_capital.html", "50. 기후 자본"),
-    ("51_liquidity_stress.html", "51. 유동성 stress"),
-    ("52_final_attestation.html", "52. 최종 결재"),
-    ("53_xva_full.html",          "53. XVA 전체"),
-    ("54_trading_sensitivities.html", "54. Trading Greeks"),
-    ("55_scenario_library.html",  "55. Scenario Library"),
-    ("56_frtb_ima.html",          "56. FRTB IMA"),
-    ("57_model_inventory.html",   "57. Model Inventory"),
-    ("58_explainability.html",    "58. Explainability"),
-    ("59_pillar3_full.html",      "59. Pillar 3 Full"),
-    ("60_capital_simulation.html","60. Capital Simulation"),
-    ("61_intraday.html",          "61. Intraday"),
-    ("62_cecl_ifrs9.html",        "62. CECL vs IFRS9"),
-]
+# Page set (filenames, labels, builders) lives in page_registry.PAGES —
+# the single source of truth. NAV is derived: main-nav pages in render order.
+NAV = nav_items()
 ALM_SUB = [
     ("11a_irrbb.html", "IRRBB"),
     ("11b_lcr.html",   "LCR"),
@@ -2283,104 +2221,23 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
                      portfolio=None) -> dict[str, str]:
     """Write the whole report set to out_dir; return {filename: absolute path}.
 
-    `portfolio` is required for Pillar 3 (CR1) — pass the original DataFrame.
-    Falls back to summary-only if omitted.
+    Page set is driven by page_registry.PAGES; builders resolve lazily so
+    html_ops_pages (which imports this module's chrome) loads on demand.
+    `portfolio` is required for Pillar 3 / vintage / DQ pages — those are
+    skipped if it is omitted.
     """
-    from risk_lib.html_ops_pages import (
-        page_climate, page_ccr, page_op_loss, page_sensitivity,
-        page_model_risk, page_concentration_deep, page_raf, page_pillar3,
-        page_mda, page_kri_trends, page_attribution, page_vintage,
-        page_data_quality, page_comparison,
-        page_irb_deep, page_market_risk_deep, page_op_risk_deep,
-        page_capital_stack, page_buffer_layering, page_leverage_deep,
-        page_sicr_detail, page_pd_term_structure,
-        page_macro_scenario, page_provisioning_attribution,
-        page_dpd_roll, page_recovery_lgd, page_cure_analysis,
-        page_limit_dashboard, page_large_exposure, page_concentration_stress,
-        page_eva_sva, page_pricing_breakeven, page_rapm_scenario,
-        page_reverse_stress_multi, page_ccar_path,
-        page_climate_capital, page_liquidity_stress,
-        page_xva_full, page_trading_sensitivities, page_scenario_library,
-        page_frtb_ima, page_model_inventory, page_explainability,
-        page_pillar3_full, page_capital_simulation, page_intraday,
-        page_cecl_ifrs9,
-    )
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    pages = {
-        "index.html":         _page_summary(result),
-        "01_portfolio.html":  _page_portfolio(result),
-        "02_pd.html":         _page_pd(result),
-        "03_rwa.html":        _page_rwa(result),
-        "04_capital.html":    _page_capital(result),
-        "05_ecl.html":        _page_ecl(result),
-        "06_monitoring.html": _page_monitoring(result),
-        "07_limits.html":     _page_limits(result),
-        "08_rapm.html":       _page_rapm(result),
-        "09_stress.html":     _page_stress(result),
-        "10_icaap.html":      _page_icaap(result),
-        "11_alm.html":        _page_alm_hub(result),
-        "11a_irrbb.html":     _page_irrbb(result),
-        "11b_lcr.html":       _page_lcr(result),
-        "11c_nsfr.html":      _page_nsfr(result),
-        "12_validation.html": _page_validation(result),
-        "13_climate.html":    page_climate(result),
-        "14_ccr.html":        page_ccr(result),
-        "15_op_loss.html":    page_op_loss(result),
-        "16_sensitivity.html": page_sensitivity(result),
-        "17_model_risk.html": page_model_risk(result),
-        "18_concentration_deep.html": page_concentration_deep(result),
-        "19_raf.html":        page_raf(result),
-        "21_mda.html":        page_mda(result),
-        "22_kri_trends.html": page_kri_trends(result),
-        "23_attribution.html":page_attribution(result),
-        "26_comparison.html": page_comparison(result),
-        "27_lgd_model.html":  _page_lgd_model(result),
-        "28_model_challenger.html": _page_model_challenger(result),
-        "29_irb_deep.html":   page_irb_deep(result),
-        "30_market_risk_deep.html": page_market_risk_deep(result),
-        "31_op_risk_deep.html": page_op_risk_deep(result),
-        "32_capital_stack.html": page_capital_stack(result),
-        "33_buffer_layering.html": page_buffer_layering(result),
-        "34_leverage_deep.html": page_leverage_deep(result),
-        "35_sicr_detail.html":   page_sicr_detail(result),
-        "36_pd_term_structure.html": page_pd_term_structure(result),
-        "37_macro_scenario.html":    page_macro_scenario(result),
-        "38_provisioning_attribution.html": page_provisioning_attribution(result),
-        "39_dpd_roll.html":            page_dpd_roll(result),
-        "40_recovery_lgd.html":        page_recovery_lgd(result),
-        "41_cure_analysis.html":       page_cure_analysis(result),
-        "42_limit_dashboard.html":     page_limit_dashboard(result),
-        "43_large_exposure.html":      page_large_exposure(result),
-        "44_concentration_stress.html": page_concentration_stress(result),
-        "45_eva_sva.html":             page_eva_sva(result),
-        "46_pricing_breakeven.html":   page_pricing_breakeven(result),
-        "47_rapm_scenario.html":       page_rapm_scenario(result),
-        "48_reverse_stress_multi.html": page_reverse_stress_multi(result),
-        "49_ccar_path.html":            page_ccar_path(result),
-        "50_climate_capital.html":      page_climate_capital(result),
-        "51_liquidity_stress.html":     page_liquidity_stress(result),
-        "52_final_attestation.html":    _page_final_attestation(result),
-        "53_xva_full.html":             page_xva_full(result),
-        "54_trading_sensitivities.html": page_trading_sensitivities(result),
-        "55_scenario_library.html":      page_scenario_library(result),
-        "56_frtb_ima.html":              page_frtb_ima(result),
-        "57_model_inventory.html":       page_model_inventory(result),
-        "58_explainability.html":        page_explainability(result),
-        "59_pillar3_full.html":          page_pillar3_full(result),
-        "60_capital_simulation.html":    page_capital_simulation(result),
-        "61_intraday.html":              page_intraday(result),
-        "62_cecl_ifrs9.html":            page_cecl_ifrs9(result),
-    }
-    if portfolio is not None:
-        pages["20_pillar3.html"] = page_pillar3(result, portfolio)
-        pages["24_vintage.html"] = page_vintage(result, portfolio)
-        pages["25_data_quality.html"] = page_data_quality(result, portfolio)
     written = {}
-    for name, content in pages.items():
-        p = out / name
+    for spec in PAGES:
+        if spec.needs_portfolio and portfolio is None:
+            continue
+        builder = spec.resolve()
+        content = (builder(result, portfolio) if spec.needs_portfolio
+                   else builder(result))
+        p = out / spec.filename
         p.write_text(content, encoding="utf-8")
-        written[name] = str(p.resolve())
+        written[spec.filename] = str(p.resolve())
     return written
 
 
