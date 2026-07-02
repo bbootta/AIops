@@ -127,13 +127,13 @@ def test_index_and_executive_link_to_trends(pack):
 
 def test_trend_line_handles_minimum_violations():
     """차트의 빨간 점은 임계 위반 — trend_line 함수 단위 검증."""
-    from tools.svg_charts import trend_line
+    from tools.svg_charts import PALETTE, trend_line
 
     svg = trend_line(
         [("Q1", 1.10), ("Q2", 0.95)], minimum=1.0, title="t")
     # 1.10 은 ok 색, 0.95 는 fail 색 — palette 색상이 모두 포함
-    assert "#2e7d32" in svg  # ok (Q1)
-    assert "#c62828" in svg  # fail (Q2)
+    assert PALETTE["ok"] in svg  # ok (Q1)
+    assert PALETTE["fail"] in svg  # fail (Q2)
 
 
 def test_pack_total_pages_after_r42(pack):

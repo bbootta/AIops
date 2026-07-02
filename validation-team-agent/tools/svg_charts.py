@@ -10,14 +10,24 @@ import html as _html
 from typing import Sequence
 
 PALETTE = {
-    # 보고서 본문 / 차트 공통 — 명도·채도 균형 조정 (R69 디자인 시스템)
+    # status palette (ok/warning/fail/skipped) + neutral/simulated 시리즈.
+    # dataviz validator: lightness band PASS / contrast ≥3:1 PASS /
+    # CVD adjacent ΔE 13.2 PASS. skipped 는 의도적 무채색 (비활성 status —
+    # categorical chroma floor 적용 대상 아님, WCAG contrast 로 검증).
     "ok": "#2e7d32",
     "warning": "#b8860b",
     "fail": "#b91c1c",
-    "skipped": "#94a3b8",
+    "skipped": "#64748b",
     "simulated": "#0369a1",
     "neutral": "#1755a6",
 }
+
+# 차트 공통 텍스트/축 토큰 — 텍스트는 절대 series 색을 입지 않는다 (dataviz)
+INK = "#0f172a"          # 주 텍스트
+INK_MUTED = "#475569"    # 보조 텍스트 (축 라벨/범례)
+INK_SUBTLE = "#94a3b8"   # 눈금·부가 정보
+GRID = "#e4e8ee"         # recessive grid
+AXIS = "#cbd5e1"         # recessive 축선
 
 
 def _esc(s: object) -> str:
@@ -52,27 +62,41 @@ def hbar(
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{h}" '
            f'font-family="sans-serif" font-size="12">']
     if title:
-        out.append(f'<text x="0" y="16" font-weight="bold">{_esc(title)}</text>')
+        out.append(f'<text x="0" y="16" font-weight="600" fill="{INK}">'
+                   f'{_esc(title)}</text>')
     zero_x = label_w + (chart_w / 2 if any(v < 0 for _, v in items) else 0)
     scale = (chart_w / 2 if any(v < 0 for _, v in items) else chart_w) / max_v
+    # recessive grid — 1/4·1/2·3/4·최대 위치 (제로 기준 우측만)
+    for frac in (0.25, 0.5, 0.75, 1.0):
+        gx = zero_x + frac * max_v * scale
+        if gx <= label_w + chart_w:
+            out.append(f'<line x1="{gx:.1f}" y1="{title_h + 2}" x2="{gx:.1f}" '
+                       f'y2="{h - 2}" stroke="{GRID}" stroke-width="1"/>')
+    # 제로 기준선 (음수 존재 시)
+    if any(v < 0 for _, v in items):
+        out.append(f'<line x1="{zero_x:.1f}" y1="{title_h + 2}" x2="{zero_x:.1f}" '
+                   f'y2="{h - 2}" stroke="{AXIS}" stroke-width="1"/>')
     for i, (label, v) in enumerate(items):
         y = title_h + gap + i * (bar_h + gap)
         color = (colors[i] if colors and i < len(colors) else PALETTE["neutral"])
         w = abs(v) * scale
         x = zero_x - w if v < 0 else zero_x
-        out.append(f'<text x="{label_w - 6}" y="{y + bar_h - 6}" '
-                   f'text-anchor="end">{_esc(label)}</text>')
+        out.append(f'<text x="{label_w - 8}" y="{y + bar_h - 6}" '
+                   f'text-anchor="end" fill="{INK_MUTED}">{_esc(label)}</text>')
         out.append(f'<rect x="{x:.1f}" y="{y}" width="{max(w, 1):.1f}" '
-                   f'height="{bar_h}" fill="{color}" rx="3"/>')
-        out.append(f'<text x="{label_w + chart_w + 6}" y="{y + bar_h - 6}">'
+                   f'height="{bar_h}" fill="{color}" rx="4"/>')
+        out.append(f'<text x="{label_w + chart_w + 8}" y="{y + bar_h - 6}" '
+                   f'fill="{INK}" font-weight="500">'
                    f'{_esc(fmt.format(v))}</text>')
     if vline is not None:
         vx = zero_x + vline * scale
         out.append(f'<line x1="{vx:.1f}" y1="{title_h}" x2="{vx:.1f}" y2="{h - 2}" '
-                   f'stroke="#c62828" stroke-dasharray="4 3" stroke-width="1.5"/>')
+                   f'stroke="{PALETTE["fail"]}" stroke-dasharray="4 3" '
+                   f'stroke-width="1.5"/>')
         if vline_label:
-            out.append(f'<text x="{vx + 4:.1f}" y="{title_h + 12}" '
-                       f'fill="#c62828">{_esc(vline_label)}</text>')
+            out.append(f'<text x="{vx + 5:.1f}" y="{title_h + 12}" '
+                       f'fill="{PALETTE["fail"]}" font-size="11">'
+                       f'{_esc(vline_label)}</text>')
     out.append("</svg>")
     return "".join(out)
 
@@ -104,14 +128,15 @@ def gauge(
                  else PALETTE["ok"])
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{h}" '
            f'font-family="sans-serif" font-size="12">']
-    out.append(f'<text x="0" y="14" font-weight="bold">{_esc(label)} '
-               f'{_esc(fmt.format(value))}</text>')
+    out.append(f'<text x="0" y="14" fill="{INK}">'
+               f'<tspan font-weight="600">{_esc(label)}</tspan> '
+               f'<tspan font-weight="700">{_esc(fmt.format(value))}</tspan></text>')
     out.append(f'<rect x="0" y="{bar_y}" width="{width - 90}" height="{bar_h}" '
-               f'fill="#eceff1" rx="3"/>')
+               f'fill="{GRID}" rx="4"/>')
     out.append(f'<rect x="0" y="{bar_y}" width="{min(value, vmax) * scale:.1f}" '
-               f'height="{bar_h}" fill="{color}" rx="3"/>')
-    for thr, c, name in ((minimum, "#c62828", "min"),
-                         (warning, "#f9a825", "warn")):
+               f'height="{bar_h}" fill="{color}" rx="4"/>')
+    for thr, c, name in ((minimum, PALETTE["fail"], "min"),
+                         (warning, PALETTE["warning"], "warn")):
         if thr is None:
             continue
         tx = thr * scale
@@ -192,7 +217,7 @@ def heatmap(
         out.append(f'<text x="0" y="16" font-weight="bold">{_esc(title)}</text>')
     for i, (name, status, detail, href) in enumerate(rows):
         y = title_h + 8 + i * (row_h + 4)
-        color = PALETTE.get(status, "#9e9e9e")
+        color = PALETTE.get(status, PALETTE["skipped"])
         out.append(f'<rect x="0" y="{y}" width="{width}" height="{row_h}" '
                    f'fill="#f8f9fa" stroke="#dee2e6"/>')
         out.append(f'<rect x="0" y="{y}" width="{label_w}" height="{row_h}" '
@@ -289,31 +314,58 @@ def trend_line(
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
            f'font-family="sans-serif" font-size="11">']
     if title:
-        out.append(f'<text x="0" y="14" font-weight="bold">{_esc(title)}</text>')
-    # 축
+        out.append(f'<text x="0" y="14" font-weight="600" fill="{INK}">'
+                   f'{_esc(title)}</text>')
+    # recessive 수평 grid (3 단계) + y 축 눈금 값
+    for frac in (0.0, 0.5, 1.0):
+        gy = pad_t + inner_h * frac
+        gv = vmax - span * frac
+        out.append(f'<line x1="{pad_l}" y1="{gy:.1f}" x2="{pad_l + inner_w}" '
+                   f'y2="{gy:.1f}" stroke="{GRID}" stroke-width="1"/>')
+        out.append(f'<text x="{pad_l - 6}" y="{gy + 3.5:.1f}" text-anchor="end" '
+                   f'fill="{INK_SUBTLE}" font-size="10">'
+                   f'{_esc(fmt.format(gv))}</text>')
+    # recessive 축
     out.append(f'<line x1="{pad_l}" y1="{pad_t}" x2="{pad_l}" y2="{pad_t + inner_h}" '
-               f'stroke="#90a4ae"/>')
+               f'stroke="{AXIS}" stroke-width="1"/>')
     out.append(f'<line x1="{pad_l}" y1="{pad_t + inner_h}" x2="{pad_l + inner_w}" '
-               f'y2="{pad_t + inner_h}" stroke="#90a4ae"/>')
+               f'y2="{pad_t + inner_h}" stroke="{AXIS}" stroke-width="1"/>')
     # 임계선
     if minimum is not None:
         my = y_of(minimum)
         out.append(f'<line x1="{pad_l}" y1="{my:.1f}" x2="{pad_l + inner_w}" y2="{my:.1f}" '
-                   f'stroke="#c62828" stroke-dasharray="4 3"/>')
+                   f'stroke="{PALETTE["fail"]}" stroke-dasharray="4 3"/>')
         out.append(f'<text x="{pad_l + inner_w - 4}" y="{my - 4:.1f}" '
-                   f'text-anchor="end" fill="#c62828">min {fmt.format(minimum)}</text>')
-    # line + 포인트
+                   f'text-anchor="end" fill="{PALETTE["fail"]}" font-size="10">'
+                   f'min {fmt.format(minimum)}</text>')
+    # line + 포인트 — 값 라벨은 selective (첫/끝/임계 위반) 만.
+    # dataviz anti-pattern: "never a number on every point".
     path = " ".join(("M" if i == 0 else "L") + f"{p[0]:.1f},{p[1]:.1f}"
                     for i, p in enumerate(pts))
     out.append(f'<path d="{path}" fill="none" stroke="{PALETTE["neutral"]}" '
-               f'stroke-width="2"/>')
-    for (label, v), (x, y) in zip(series, pts):
-        color = (PALETTE["fail"] if minimum is not None and v < minimum
-                 else PALETTE["ok"])
+               f'stroke-width="2" stroke-linejoin="round" '
+               f'stroke-linecap="round"/>')
+    breach = [minimum is not None and v < minimum for _, v in series]
+    for i, ((label, v), (x, y)) in enumerate(zip(series, pts)):
+        color = PALETTE["fail"] if breach[i] else PALETTE["ok"]
+        # 2px surface ring (marker ≥ 8px 직경)
+        out.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="5" fill="white"/>')
         out.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="{color}"/>')
-        out.append(f'<text x="{x:.1f}" y="{pad_t + inner_h + 16}" '
-                   f'text-anchor="middle" fill="#546e7a">{_esc(label)}</text>')
-        out.append(f'<text x="{x:.1f}" y="{y - 8:.1f}" text-anchor="middle" '
-                   f'fill="#37474f">{_esc(fmt.format(v))}</text>')
+        # x 축 라벨은 처음/중간/끝만 (혼잡 방지, ≤5 개면 전부)
+        show_x = n <= 5 or i in (0, n // 2, n - 1)
+        if show_x:
+            out.append(f'<text x="{x:.1f}" y="{pad_t + inner_h + 16}" '
+                       f'text-anchor="middle" fill="{INK_MUTED}" '
+                       f'font-size="10">{_esc(label)}</text>')
+        # 값 라벨: 첫 점 / 끝 점 / 임계 위반 점만 (selective)
+        show_v = i == 0 or i == n - 1 or breach[i]
+        if show_v:
+            anchor = ("start" if i == 0 else
+                      "end" if i == n - 1 else "middle")
+            tx = x + (4 if i == 0 else -4 if i == n - 1 else 0)
+            out.append(f'<text x="{tx:.1f}" y="{y - 9:.1f}" '
+                       f'text-anchor="{anchor}" fill="{INK}" '
+                       f'font-weight="500" font-size="10.5">'
+                       f'{_esc(fmt.format(v))}</text>')
     out.append("</svg>")
     return "".join(out)

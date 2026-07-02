@@ -2010,6 +2010,21 @@
       "rollback_rule": "_CSS / DRAFT 배너 / hero·escalation 박스 / PALETTE 의 R69 commit 만 revert 시 R68 디자인 복구 (데이터·구조 무변경)",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0135",
+      "timestamp": "2026-07-02 14:31:59",
+      "component": "tools/svg_charts.py (mark specs + ink 토큰 + selective labels)",
+      "change_type": "modify",
+      "evidence": "/goal '이어서' R70 (R69 디자인 지적 후속): 차트가 dataviz 표준 미달 — trend_line 이 모든 점에 값 라벨 (anti-pattern), grid/축 부재, 텍스트가 임의 hex, skipped 색 contrast 2.5:1 미달",
+      "root_cause": "svg_charts 가 최소 구현 — mark specs (rounded ends/surface ring/recessive grid/selective labels/ink 토큰) 미적용",
+      "targeted_fix": "dataviz 스킬 절차 적용: (1) palette validator 실행 → skipped #94a3b8 (contrast 2.5) → #64748b (≥3:1), CVD adjacent ΔE 13.2 PASS. (2) ink 토큰 5종 (INK/INK_MUTED/INK_SUBTLE/GRID/AXIS) — 텍스트는 series 색 미사용. (3) trend_line: 값 라벨 selective (첫/끝/임계 위반만), x 라벨 thinning (>5 점이면 3개), y 그리드 3단계+눈금값, 마커 white ring(r5)+dot(r4)=8px 직경, stroke round join/cap. (4) hbar: recessive 수직 grid 4단계, rx=4 rounded ends, zero 기준선, vline PALETTE[fail]. (5) gauge: track GRID 토큰, threshold PALETTE 참조. (6) heatmap fallback 색 → PALETTE[skipped]",
+      "expected_benefit": "차트가 dataviz 표준 충족 — 라벨 혼잡 제거 (selective), 시각 위계 (recessive grid + ink 토큰), CVD/contrast 검증 통과, 인쇄 가독성",
+      "expected_regression_risk": "low — 시각 변경만, 데이터/판정 무변경. R42 의 hex hard-code 테스트 1건 PALETTE 참조로 갱신",
+      "validation_method": "dataviz validate_palette.js (lightness/CVD/contrast PASS) + tests/test_v2_round70.py 16 cases (토큰/hbar grid+rx/trend selective+thinning+ring/gauge/구 hex 잔존 금지/self-contained) + 전체 1010 통과",
+      "rollback_rule": "svg_charts 의 R70 commit revert 시 R69 차트 복구 (데이터 무변경)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
