@@ -14,8 +14,6 @@ from pathlib import Path
 import pytest
 
 from risk_lib.cli import main as cli_main
-from risk_lib.data_gen import generate_portfolio
-from risk_lib.pipeline import run_pipeline
 from risk_lib.report import render_markdown
 
 
@@ -44,15 +42,7 @@ EXPECTED_QUARTERS = [
 ]
 
 
-# Pinned reference date so the forecast quarter axis is reproducible
-# independent of wall-clock time (2026-06-11 → forecast opens at 2026Q3).
-PINNED_ASOF = "2026-06-11"
-
-
-@pytest.fixture(scope="module")
-def result():
-    portfolio = generate_portfolio(seed=42)
-    return run_pipeline(portfolio, seed=42, asof=PINNED_ASOF)
+# `result` fixture: session-scoped, asof pinned to 2026-06-11 — see conftest.py.
 
 
 # ---- numeric goldens ----------------------------------------------------

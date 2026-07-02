@@ -7,19 +7,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from risk_lib import generate_portfolio, run_pipeline
 from risk_lib.cecl import compute_cecl, reconcile_ifrs9_cecl
 from risk_lib.localization import build_english_board_pack, _usd
 
-
-@pytest.fixture(scope="module")
-def result():
-    return run_pipeline(generate_portfolio(seed=42), seed=42)
-
-
-@pytest.fixture(scope="module")
-def portfolio():
-    return generate_portfolio(seed=42)
+# `result` / `portfolio` fixtures: session-scoped shared — see conftest.py.
 
 
 # ----- CECL ---------------------------------------------------------------

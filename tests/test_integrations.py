@@ -7,17 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from risk_lib import generate_portfolio, run_pipeline
 from risk_lib.integrations import (
     WebhookDispatcher, WebhookResult, dispatch_alerts,
     build_rest_openapi, build_graphql_schema, write_api_specs,
     _ENDPOINTS,
 )
 
-
-@pytest.fixture(scope="module")
-def result():
-    return run_pipeline(generate_portfolio(seed=42), seed=42)
+# `result` fixture: session-scoped shared — see conftest.py.
 
 
 # ----- webhook dispatch (dry-run only, no network) ------------------------

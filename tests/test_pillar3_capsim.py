@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from risk_lib import generate_portfolio, run_pipeline
 from risk_lib.pillar3_disclosures import (
     km1, ov1, cr1, cr2, cr3, cr4, cr5,
     mr1, mr2, liq1, liq2, lr1, lr2,
@@ -16,15 +15,7 @@ from risk_lib.capital_simulation import (
     _mda_quartile, _mda_retention,
 )
 
-
-@pytest.fixture(scope="module")
-def result():
-    return run_pipeline(generate_portfolio(seed=42), seed=42)
-
-
-@pytest.fixture(scope="module")
-def portfolio():
-    return generate_portfolio(seed=42)
+# `result` / `portfolio` fixtures: session-scoped shared — see conftest.py.
 
 
 # ----- Pillar 3 — each template returns rows -------------------------------

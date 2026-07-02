@@ -27,7 +27,6 @@ from risk_lib.capital.bis import CapitalStack
 from risk_lib.alm.balance_sheet import generate_balance_sheet
 from risk_lib.alm.lcr import compute_lcr
 from risk_lib.alm.nsfr import compute_nsfr
-from risk_lib.data_gen import generate_portfolio
 from risk_lib.stress import (
     BASELINE, ADVERSE, SEVERELY_ADVERSE, StressAxis,
     factor_decomposition, asset_class_sensitivity,
@@ -41,11 +40,7 @@ from risk_lib.stress import (
 
 
 # ---------------------------------------------------------------- fixtures
-
-
-@pytest.fixture(scope="module")
-def portfolio():
-    return generate_portfolio(seed=42)
+# `portfolio` fixture: session-scoped shared — see conftest.py.
 
 
 @pytest.fixture(scope="module")

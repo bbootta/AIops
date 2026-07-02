@@ -6,16 +6,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from risk_lib import generate_portfolio, run_pipeline
+from risk_lib import generate_portfolio
 from risk_lib.intraday import (
     simulate_market_ticks, IntradayEngine, run_intraday_session,
     RISK_FACTORS, AlertEvent,
 )
 
-
-@pytest.fixture(scope="module")
-def result():
-    return run_pipeline(generate_portfolio(seed=42), seed=42)
+# `result` fixture: session-scoped shared — see conftest.py.
 
 
 def test_tick_path_shape():

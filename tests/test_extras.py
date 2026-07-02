@@ -9,10 +9,7 @@ import pytest
 
 from risk_lib import generate_portfolio, run_pipeline
 
-
-@pytest.fixture(scope="module")
-def result():
-    return run_pipeline(generate_portfolio(seed=42), seed=42)
+# `result` fixture: session-scoped shared — see conftest.py.
 
 
 # ---- notifications -------------------------------------------------------

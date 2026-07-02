@@ -7,16 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from risk_lib import generate_portfolio, run_pipeline
+from risk_lib import generate_portfolio
 from risk_lib.audit_trail import (
     LedgerEntry, AuditLedger, build_ledger_from_result,
 )
 from risk_lib.board_pack import build_board_pack
 
-
-@pytest.fixture(scope="module")
-def result():
-    return run_pipeline(generate_portfolio(seed=42), seed=42)
+# `result` fixture: session-scoped shared — see conftest.py.
 
 
 # ----- ledger primitives ---------------------------------------------------
