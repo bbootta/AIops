@@ -108,7 +108,9 @@ function runGame(saveJson, label, drive, opts) {
   fire(G.keydown, ev({ code: 'KeyM' })); fire(G.keydown, ev({ code: 'KeyM' }));
   for (let n = 1; n <= 9; n++) fire(G.keydown, ev({ code: 'Digit' + n, key: String(n) }));
   // 설정 슬라이더/체크박스 핸들러 실행
-  ['optSens', 'optVol', 'optView'].forEach((id) => { const el = elCache[id]; if (el) { el.value = 30; fire(el._h.input); } });
+  ['optSens', 'optVol', 'optView', 'optJoy'].forEach((id) => { const el = elCache[id]; if (el) { el.value = 30; fire(el._h.input); } });
+  // 튜토리얼 말풍선 건너뛰기 경로
+  const tut = elCache['tut']; if (tut) fire(tut._h.click);
   const mu = elCache['optMusic']; if (mu) { mu.checked = !mu.checked; fire(mu._h.change); }
   const fr = elCache['optFreeze']; if (fr) { fr.checked = false; fire(fr._h.change); }
   // 평화 모드 켜고 진행 (몬스터 소멸·허기 고정 경로), 자동 점프 토글
