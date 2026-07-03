@@ -124,7 +124,7 @@ def test_executive_links_resolve(pack):
     out, files = pack
     names = {p.name for p in files}
     text = (out / "executive.html").read_text(encoding="utf-8")
-    for href in re.findall(r'href="([^"]+)"', text):
+    for href in re.findall(r'href="([^"#][^"]*)"', text):
         assert href in names, f"executive 링크 깨짐: {href}"
 
 

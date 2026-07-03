@@ -178,19 +178,20 @@ def status_donut(
             f'stroke="{PALETTE[status]}" stroke-width="{ring}" fill="none"/>')
         angle += sweep
     out.append(f'<text x="{cx}" y="{cy + 4}" text-anchor="middle" '
-               f'font-size="20" font-weight="bold">{total}</text>')
+               f'font-size="20" font-weight="bold" fill="{INK}">{total}</text>')
     ly = 16
     for status in ("ok", "warning", "fail", "skipped", "simulated"):
         n = counts.get(status, 0)
         if not n:
             continue
         out.append(f'<rect x="{size + 6}" y="{ly - 10}" width="10" height="10" '
-                   f'fill="{PALETTE[status]}"/>')
-        out.append(f'<text x="{size + 22}" y="{ly}">{status}: {n}</text>')
+                   f'rx="2" fill="{PALETTE[status]}"/>')
+        out.append(f'<text x="{size + 22}" y="{ly}" fill="{INK_MUTED}">'
+                   f'{status}: {n}</text>')
         ly += 18
     if title:
-        out.append(f'<text x="{size + 6}" y="{ly + 4}" font-weight="bold">'
-                   f'{_esc(title)}</text>')
+        out.append(f'<text x="{size + 6}" y="{ly + 4}" font-weight="600" '
+                   f'fill="{INK}">{_esc(title)}</text>')
     out.append("</svg>")
     return "".join(out)
 
@@ -214,17 +215,19 @@ def heatmap(
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{h}" '
            f'font-family="sans-serif" font-size="12">']
     if title:
-        out.append(f'<text x="0" y="16" font-weight="bold">{_esc(title)}</text>')
+        out.append(f'<text x="0" y="16" font-weight="600" fill="{INK}">'
+                   f'{_esc(title)}</text>')
     for i, (name, status, detail, href) in enumerate(rows):
         y = title_h + 8 + i * (row_h + 4)
         color = PALETTE.get(status, PALETTE["skipped"])
         out.append(f'<rect x="0" y="{y}" width="{width}" height="{row_h}" '
-                   f'fill="#f8f9fa" stroke="#dee2e6"/>')
+                   f'fill="white" stroke="{GRID}" rx="4"/>')
         out.append(f'<rect x="0" y="{y}" width="{label_w}" height="{row_h}" '
-                   f'fill="{color}" fill-opacity="0.15" stroke="{color}"/>')
+                   f'fill="{color}" fill-opacity="0.12" stroke="{color}" rx="4"/>')
         label = name + (" →" if href else "")
+        # 부문 라벨: ink 토큰 (색은 status pill 이 담당 — 텍스트에 series 색 금지)
         out.append(f'<text x="10" y="{y + row_h / 2 + 4:.0f}" '
-                   f'fill="{color}" font-weight="600">{_esc(label)}</text>')
+                   f'fill="{INK}" font-weight="600">{_esc(label)}</text>')
         out.append(f'<rect x="{label_w + 10}" y="{y + 8}" width="80" height="{row_h - 16}" '
                    f'rx="10" fill="{color}"/>')
         out.append(f'<text x="{label_w + 50}" y="{y + row_h / 2 + 4:.0f}" '
@@ -233,7 +236,7 @@ def heatmap(
         # detail (clip 처리)
         d = detail if len(detail) <= 70 else detail[:67] + "…"
         out.append(f'<text x="{label_w + 100}" y="{y + row_h / 2 + 4:.0f}" '
-                   f'fill="#37474f">{_esc(d)}</text>')
+                   f'fill="{INK_MUTED}">{_esc(d)}</text>')
     out.append("</svg>")
     return "".join(out)
 
@@ -264,12 +267,12 @@ def kpi_card_strip(
         y = row * (card_h + gap)
         color = PALETTE.get(key, key) if key else PALETTE["neutral"]
         out.append(f'<rect x="{x}" y="{y}" width="{card_w}" height="{card_h}" '
-                   f'rx="8" fill="white" stroke="{color}" stroke-width="2"/>')
+                   f'rx="8" fill="white" stroke="{GRID}" stroke-width="1"/>')
         out.append(f'<rect x="{x}" y="{y}" width="6" height="{card_h}" '
                    f'rx="3" fill="{color}"/>')
-        out.append(f'<text x="{x + 16}" y="{y + 22}" fill="#546e7a" '
+        out.append(f'<text x="{x + 16}" y="{y + 22}" fill="{INK_MUTED}" '
                    f'font-size="11">{_esc(label)}</text>')
-        out.append(f'<text x="{x + 16}" y="{y + 56}" fill="#212529" '
+        out.append(f'<text x="{x + 16}" y="{y + 56}" fill="{INK}" '
                    f'font-size="22" font-weight="bold">{_esc(value)}</text>')
         out.append(f'<rect x="{x + 16}" y="{y + 70}" width="62" height="14" '
                    f'rx="7" fill="{color}"/>')

@@ -2025,6 +2025,21 @@
       "rollback_rule": "svg_charts 의 R70 commit revert 시 R69 차트 복구 (데이터 무변경)",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0136",
+      "timestamp": "2026-07-03 09:11:27",
+      "component": "tools/report_pack.py (print media + sticky TOC) + tools/svg_charts.py (heatmap/donut/kpi 토큰)",
+      "change_type": "modify",
+      "evidence": "/goal '이어서' R71: 인쇄 (CRO 결재 출력) 시 페이지 넘김/색 손실, 긴 페이지 내 섹션 이동 수단 부재, heatmap/donut/kpi_strip 에 구 hex 잔존",
+      "root_cause": "@media print 부재 + h2 anchor/TOC 부재 + R70 토큰화가 hbar/trend/gauge 까지만",
+      "targeted_fix": "(1) @media print: A4 14mm margin + break-inside avoid (table/svg/card/prov) + print-color-adjust exact + TOC/crumb 숨김 + hover 무효. (2) sticky TOC: _inject_toc 후처리 — h2 3개 이상 페이지에 anchor id 자동 부여 (한글 slug + 중복 유일화) + sticky nav (JS 없음, backdrop blur). (3) heatmap/status_donut/kpi_card_strip 잔여 hex → INK/INK_MUTED/GRID 토큰 + rx 라운드. 링크 무결성 테스트 2건 anchor(#) 제외 정규식으로 갱신",
+      "expected_benefit": "CRO 가 브라우저 인쇄로 A4 결재 문서 생성 가능 (색·페이지 유지). 긴 상세 페이지에서 섹션 즉시 이동. 전 차트 토큰 일관",
+      "expected_regression_risk": "low — CSS/markup 후처리만. h2 < 3 페이지는 TOC 미생성. anchor 는 링크 무결성 검사에서 제외하되 페이지 내 해석 검증 테스트 추가",
+      "validation_method": "tests/test_v2_round71.py 13 cases (_inject_toc 단위 4 / sticky+print CSS 4 / 차트 토큰 3 / anchor 해석 / self-contained) + 전체 1023 통과",
+      "rollback_rule": "print CSS 블록 + _inject_toc 호출 + 차트 토큰 3건 revert 시 R70 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

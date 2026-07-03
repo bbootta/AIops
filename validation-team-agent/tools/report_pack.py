@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import html as _html
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -327,6 +328,62 @@ ul li, ol li { margin: .2rem 0; }
 /* utility */
 .muted { color: var(--c-text-muted); }
 .subtle { color: var(--c-text-subtle); font-size: .85rem; }
+
+/* sticky TOC — 페이지 내 h2 anchor nav (JS 없음) */
+nav.toc {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(4px);
+  border-bottom: 1px solid var(--c-border);
+  margin: 0 -1.75rem 1rem;
+  padding: .45rem 1.75rem;
+  font-size: .82rem;
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+nav.toc a {
+  display: inline-block;
+  color: var(--c-text-muted);
+  padding: .15rem .55rem;
+  margin-right: .15rem;
+  border-radius: 999px;
+  border-bottom: none;
+  font-weight: 500;
+}
+nav.toc a:hover {
+  background: var(--c-surface-2);
+  color: var(--c-primary-2);
+}
+h2[id] { scroll-margin-top: 3.2rem; }
+
+/* 인쇄 (A4) — CRO 결재 출력용 */
+@media print {
+  @page { size: A4; margin: 14mm; }
+  html, body { background: #fff; font-size: 10.5pt; }
+  body { max-width: none; padding: 0; }
+  nav.toc { display: none; }
+  .crumb { display: none; }
+  a { color: inherit; border-bottom: none; }
+  table, svg, .card, details.prov { break-inside: avoid; }
+  h2 { break-after: avoid; }
+  .draft {
+    background: #fff5e6 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .badge, .card, td, th, rect, path, circle {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .card:hover { box-shadow: none; transform: none; }
+  tr:hover td { background: inherit; }
+  details.prov { page-break-before: auto; }
+  details.prov[open] summary::before { content: ""; }
+  footer { page-break-inside: avoid; }
+}
 """
 
 _STATUS_KO = {"ok": "정상", "warning": "주의", "fail": "위반", "skipped": "생략",
@@ -342,6 +399,42 @@ def _badge(status: str) -> str:
             f"{_esc(status)} · {_STATUS_KO.get(status, status)}</span>")
 
 
+_H2_RE = re.compile(r"<h2>([^<]+)</h2>")
+
+
+def _slugify(text: str, used: set[str]) -> str:
+    """h2 텍스트 → anchor id (한글 유지, 공백/특수문자 → 하이픈)."""
+    slug = re.sub(r"[^\w가-힣]+", "-", text).strip("-").lower() or "section"
+    base = slug
+    n = 2
+    while slug in used:
+        slug = f"{base}-{n}"
+        n += 1
+    used.add(slug)
+    return slug
+
+
+def _inject_toc(body: str) -> str:
+    """본문의 h2 에 anchor id 를 부여하고 sticky TOC nav 를 앞에 삽입.
+
+    h2 가 3개 미만이면 TOC 없이 그대로 반환 (nav 가치가 없는 짧은 페이지).
+    """
+    heads = _H2_RE.findall(body)
+    if len(heads) < 3:
+        return body
+    used: set[str] = set()
+    ids = [_slugify(h, used) for h in heads]
+    it = iter(ids)
+
+    def _repl(m: re.Match) -> str:
+        return f'<h2 id="{next(it)}">{m.group(1)}</h2>'
+
+    body = _H2_RE.sub(_repl, body)
+    toc = "".join(
+        f'<a href="#{i}">{_esc(h)}</a>' for h, i in zip(heads, ids))
+    return f'<nav class="toc">{toc}</nav>{body}'
+
+
 def _page(
     title: str,
     body: str,
@@ -350,6 +443,7 @@ def _page(
     provenance_card: str = "",
 ) -> str:
     nav = '<div class="crumb"><a href="index.html">← 요약 보고서</a></div>' if crumb else ""
+    body = _inject_toc(body)
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8"><title>{_esc(title)}</title>
 <style>{_CSS}</style></head><body>

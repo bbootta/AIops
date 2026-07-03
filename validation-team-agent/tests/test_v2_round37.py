@@ -247,7 +247,7 @@ def test_pack_index_links_resolve(pack):
     out, files = pack
     names = {p.name for p in files}
     for p in files:
-        for href in re.findall(r'href="([^"]+)"', p.read_text(encoding="utf-8")):
+        for href in re.findall(r'href="([^"#][^"]*)"', p.read_text(encoding="utf-8")):
             assert href in names, f"{p.name} → 깨진 링크: {href}"
 
 
