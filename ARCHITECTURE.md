@@ -8,8 +8,9 @@
 ```
 CLI / Agents            cli.py, .claude/agents/*
   ↓
-Reports (표현 계층)      html_report, html_ops_pages, html_exec, board_pack,
-                        printable, localization, report(markdown), page_registry
+Reports (표현 계층)      html_report, ops_pages/ (도메인별 심층 페이지), html_exec,
+                        board_pack, printable, localization, report(markdown),
+                        page_registry
   ↓
 Orchestration           pipeline.run_pipeline → PipelineResult
   ↓
@@ -37,10 +38,14 @@ Foundations             data_gen, references, repro, abbreviations, viz, viz_adv
 ops 심층 페이지(66개)의 단일 소스는 `page_registry.PAGES` (PageSpec 튜플)이다.
 NAV·빌더 해석(`build_report_set`)이 모두 여기서 파생된다.
 
-**새 페이지 추가 절차**: ① `html_ops_pages.py`(또는 html_report.py)에
+**새 페이지 추가 절차**: ① `risk_lib/ops_pages/<도메인>.py`(또는 html_report.py)에
 `page_xxx(result) -> str` 빌더 작성 ② `page_registry.PAGES`에 PageSpec 한 줄 추가.
 끝. 빌더는 (module, func) 문자열로 등록되고 build 시점에 importlib으로 해석되므로
-html_ops_pages ↔ html_report 순환 import가 생기지 않는다.
+ops_pages ↔ html_report 순환 import가 생기지 않는다.
+
+ops_pages 도메인 모듈: credit(신용/충당금) · capital_stress(자본/스트레스) ·
+market_trading(시장/트레이딩) · concentration_limits(집중/한도) ·
+performance(성과) · nonfinancial(비재무) · governance(거버넌스/공시).
 
 - `needs_portfolio=True`: 빌더 시그니처가 `(result, portfolio)`이며 portfolio 미제공
   시 해당 페이지는 생략된다 (20 Pillar3 / 24 Vintage / 25 DQ).
@@ -70,8 +75,8 @@ out/
 
 ## 알려진 부채 / 주의
 
-- `html_ops_pages.py`(4.4k줄)·`html_report.py`(2.3k줄)는 표현 계층 모놀리스 —
-  분할 시 page_registry의 module 문자열만 바꾸면 된다.
+- `html_report.py`(2.3k줄)는 chrome + 핵심 페이지(0~12)가 한 파일 — 추가 분할 시
+  page_registry의 module 문자열만 바꾸면 된다.
 - `pillar3.py`는 legacy (ops 20 요약 전용). 신규 공시 템플릿은
   `pillar3_disclosures.py`(13종, ops 59)에 추가.
 - `comparison.py`(2시점 비교)와 `timeseries_ledger.py`(다기간 원장)는 역할이 겹침 —

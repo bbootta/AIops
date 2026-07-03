@@ -2222,7 +2222,7 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
     """Write the whole report set to out_dir; return {filename: absolute path}.
 
     Page set is driven by page_registry.PAGES; builders resolve lazily so
-    html_ops_pages (which imports this module's chrome) loads on demand.
+    the ops_pages modules (which import this module's chrome) load on demand.
     `portfolio` is required for Pillar 3 / vintage / DQ pages — those are
     skipped if it is omitted.
     """
