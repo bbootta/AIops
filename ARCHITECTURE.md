@@ -8,7 +8,8 @@
 ```
 CLI / Agents            cli.py, .claude/agents/*
   ↓
-Reports (표현 계층)      html_report, ops_pages/ (도메인별 심층 페이지), html_exec,
+Reports (표현 계층)      html_report(빌드 오케스트레이터), report_chrome(CSS/NAV/헬퍼),
+                        ops_pages/ (core_* 핵심 + 도메인별 심층 페이지), html_exec,
                         board_pack, printable, localization, report(markdown),
                         page_registry
   ↓
@@ -38,14 +39,21 @@ Foundations             data_gen, references, repro, abbreviations, viz, viz_adv
 ops 심층 페이지(66개)의 단일 소스는 `page_registry.PAGES` (PageSpec 튜플)이다.
 NAV·빌더 해석(`build_report_set`)이 모두 여기서 파생된다.
 
-**새 페이지 추가 절차**: ① `risk_lib/ops_pages/<도메인>.py`(또는 html_report.py)에
-`page_xxx(result) -> str` 빌더 작성 ② `page_registry.PAGES`에 PageSpec 한 줄 추가.
-끝. 빌더는 (module, func) 문자열로 등록되고 build 시점에 importlib으로 해석되므로
-ops_pages ↔ html_report 순환 import가 생기지 않는다.
+**새 페이지 추가 절차**: ① `risk_lib/ops_pages/<도메인>.py`에
+`page_xxx(result) -> str` 빌더 작성 (chrome은 report_chrome에서 import)
+② `page_registry.PAGES`에 PageSpec 한 줄 추가. 끝. 빌더는 (module, func)
+문자열로 등록되고 build 시점에 importlib으로 해석된다.
 
-ops_pages 도메인 모듈: credit(신용/충당금) · capital_stress(자본/스트레스) ·
+ops_pages 모듈: core_overview(요약/검증/결재) · core_credit(PD~RAPM) ·
+core_capital_alm(RWA/BIS/스트레스/ICAAP/ALM) — 핵심 페이지 0~12 · 27 · 28 · 52,
+그리고 심층: credit(신용/충당금) · capital_stress(자본/스트레스) ·
 market_trading(시장/트레이딩) · concentration_limits(집중/한도) ·
 performance(성과) · nonfinancial(비재무) · governance(거버넌스/공시).
+
+의존 방향: ops_pages/* → report_chrome → page_registry (무순환).
+html_report는 build_report_set/build_full_report_package만 가지며, 기존 소비자
+(board_pack, printable, localization, html_exec, systemic, case_studies)를 위해
+chrome 이름을 re-export한다.
 
 - `needs_portfolio=True`: 빌더 시그니처가 `(result, portfolio)`이며 portfolio 미제공
   시 해당 페이지는 생략된다 (20 Pillar3 / 24 Vintage / 25 DQ).
@@ -75,8 +83,6 @@ out/
 
 ## 알려진 부채 / 주의
 
-- `html_report.py`(2.3k줄)는 chrome + 핵심 페이지(0~12)가 한 파일 — 추가 분할 시
-  page_registry의 module 문자열만 바꾸면 된다.
 - `pillar3.py`는 legacy (ops 20 요약 전용). 신규 공시 템플릿은
   `pillar3_disclosures.py`(13종, ops 59)에 추가.
 - `comparison.py`(2시점 비교)와 `timeseries_ledger.py`(다기간 원장)는 역할이 겹침 —

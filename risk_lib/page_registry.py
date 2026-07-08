@@ -1,12 +1,11 @@
 """Single source of truth for the ops report page set.
 
 Adding a page means one PageSpec entry here plus the builder function
-(in risk_lib/ops_pages/<domain>.py for ops deep-dives, or html_report.py
-for the core pages). NAV and build_report_set both derive from PAGES.
+(in risk_lib/ops_pages/<domain>.py; core pages live in ops_pages/core_*). NAV and build_report_set both derive from PAGES.
 
 Builders are referenced by (module, func) strings and resolved with
 importlib at build time, so this module imports nothing heavy and the
-ops page modules can keep importing chrome from html_report without a
+ops page modules can keep importing chrome from report_chrome without a
 circular import.
 """
 
@@ -16,7 +15,9 @@ import importlib
 from dataclasses import dataclass
 from typing import Callable
 
-_REPORT = "risk_lib.html_report"
+_CORE_OVR = "risk_lib.ops_pages.core_overview"
+_CORE_CRD = "risk_lib.ops_pages.core_credit"
+_CORE_CAP = "risk_lib.ops_pages.core_capital_alm"
 _CREDIT = "risk_lib.ops_pages.credit"
 _CAPITAL = "risk_lib.ops_pages.capital_stress"
 _MARKET = "risk_lib.ops_pages.market_trading"
@@ -42,22 +43,22 @@ class PageSpec:
 
 # Files in render order; main-nav links appear in this sequence.
 PAGES: tuple[PageSpec, ...] = (
-    PageSpec("index.html",         "0. 요약",         _REPORT, "_page_summary"),
-    PageSpec("01_portfolio.html",  "1. 포트폴리오",    _REPORT, "_page_portfolio"),
-    PageSpec("02_pd.html",         "2. PD모형",       _REPORT, "_page_pd"),
-    PageSpec("03_rwa.html",        "3. RWA",          _REPORT, "_page_rwa"),
-    PageSpec("04_capital.html",    "4. BIS·레버리지",  _REPORT, "_page_capital"),
-    PageSpec("05_ecl.html",        "5. ECL",          _REPORT, "_page_ecl"),
-    PageSpec("06_monitoring.html", "6. 모니터링",      _REPORT, "_page_monitoring"),
-    PageSpec("07_limits.html",     "7. 한도",         _REPORT, "_page_limits"),
-    PageSpec("08_rapm.html",       "8. RAPM",         _REPORT, "_page_rapm"),
-    PageSpec("09_stress.html",     "9. 스트레스",      _REPORT, "_page_stress"),
-    PageSpec("10_icaap.html",      "10. 내부자본",     _REPORT, "_page_icaap"),
-    PageSpec("11_alm.html",        "11. ALM",         _REPORT, "_page_alm_hub"),
-    PageSpec("11a_irrbb.html",     "IRRBB",           _REPORT, "_page_irrbb", in_nav=False),
-    PageSpec("11b_lcr.html",       "LCR",             _REPORT, "_page_lcr",   in_nav=False),
-    PageSpec("11c_nsfr.html",      "NSFR",            _REPORT, "_page_nsfr",  in_nav=False),
-    PageSpec("12_validation.html", "12. 검증",        _REPORT, "_page_validation"),
+    PageSpec("index.html",         "0. 요약",         _CORE_OVR, "_page_summary"),
+    PageSpec("01_portfolio.html",  "1. 포트폴리오",    _CORE_OVR, "_page_portfolio"),
+    PageSpec("02_pd.html",         "2. PD모형",       _CORE_CRD, "_page_pd"),
+    PageSpec("03_rwa.html",        "3. RWA",          _CORE_CAP, "_page_rwa"),
+    PageSpec("04_capital.html",    "4. BIS·레버리지",  _CORE_CAP, "_page_capital"),
+    PageSpec("05_ecl.html",        "5. ECL",          _CORE_CRD, "_page_ecl"),
+    PageSpec("06_monitoring.html", "6. 모니터링",      _CORE_CRD, "_page_monitoring"),
+    PageSpec("07_limits.html",     "7. 한도",         _CORE_CRD, "_page_limits"),
+    PageSpec("08_rapm.html",       "8. RAPM",         _CORE_CRD, "_page_rapm"),
+    PageSpec("09_stress.html",     "9. 스트레스",      _CORE_CAP, "_page_stress"),
+    PageSpec("10_icaap.html",      "10. 내부자본",     _CORE_CAP, "_page_icaap"),
+    PageSpec("11_alm.html",        "11. ALM",         _CORE_CAP, "_page_alm_hub"),
+    PageSpec("11a_irrbb.html",     "IRRBB",           _CORE_CAP, "_page_irrbb", in_nav=False),
+    PageSpec("11b_lcr.html",       "LCR",             _CORE_CAP, "_page_lcr",   in_nav=False),
+    PageSpec("11c_nsfr.html",      "NSFR",            _CORE_CAP, "_page_nsfr",  in_nav=False),
+    PageSpec("12_validation.html", "12. 검증",        _CORE_OVR, "_page_validation"),
     PageSpec("13_climate.html",    "13. 기후",        _NONFIN, "page_climate"),
     PageSpec("14_ccr.html",        "14. CCR/CVA",     _MARKET, "page_ccr"),
     PageSpec("15_op_loss.html",    "15. 운영손실",     _NONFIN, "page_op_loss"),
@@ -72,8 +73,8 @@ PAGES: tuple[PageSpec, ...] = (
     PageSpec("24_vintage.html",    "24. Vintage",     _CREDIT, "page_vintage", needs_portfolio=True),
     PageSpec("25_data_quality.html", "25. DQ·정합성", _GOV, "page_data_quality", needs_portfolio=True),
     PageSpec("26_comparison.html", "26. 시점 비교",   _GOV, "page_comparison"),
-    PageSpec("27_lgd_model.html",  "27. LGD모형",     _REPORT, "_page_lgd_model"),
-    PageSpec("28_model_challenger.html", "28. 챔피언/챌린저", _REPORT, "_page_model_challenger"),
+    PageSpec("27_lgd_model.html",  "27. LGD모형",     _CORE_CRD, "_page_lgd_model"),
+    PageSpec("28_model_challenger.html", "28. 챔피언/챌린저", _CORE_CRD, "_page_model_challenger"),
     PageSpec("29_irb_deep.html",   "29. IRB D-D",     _CREDIT, "page_irb_deep"),
     PageSpec("30_market_risk_deep.html", "30. 시장 D-D", _MARKET, "page_market_risk_deep"),
     PageSpec("31_op_risk_deep.html", "31. 운영 D-D",  _NONFIN, "page_op_risk_deep"),
@@ -97,7 +98,7 @@ PAGES: tuple[PageSpec, ...] = (
     PageSpec("49_ccar_path.html",  "49. CCAR 경로",   _CAPITAL, "page_ccar_path"),
     PageSpec("50_climate_capital.html", "50. 기후 자본", _CAPITAL, "page_climate_capital"),
     PageSpec("51_liquidity_stress.html", "51. 유동성 stress", _CAPITAL, "page_liquidity_stress"),
-    PageSpec("52_final_attestation.html", "52. 최종 결재", _REPORT, "_page_final_attestation"),
+    PageSpec("52_final_attestation.html", "52. 최종 결재", _CORE_OVR, "_page_final_attestation"),
     PageSpec("53_xva_full.html",   "53. XVA 전체",    _MARKET, "page_xva_full"),
     PageSpec("54_trading_sensitivities.html", "54. Trading Greeks", _MARKET, "page_trading_sensitivities"),
     PageSpec("55_scenario_library.html", "55. Scenario Library", _MARKET, "page_scenario_library"),
