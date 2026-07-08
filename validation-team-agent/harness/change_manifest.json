@@ -2040,6 +2040,21 @@
       "rollback_rule": "print CSS 블록 + _inject_toc 호출 + 차트 토큰 3건 revert 시 R70 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0137",
+      "timestamp": "2026-07-08 14:43:03",
+      "component": "tools/report_pack.py (opinion_draft.html)",
+      "change_type": "create",
+      "evidence": "/goal '이어서' R72: 검증팀 최종 산출물인 검증의견서가 자동 생성되지 않음 — CLAUDE.md §3 의 10섹션 규격을 수동 작성",
+      "root_cause": "보고서 팩이 점검 자료까지만 — 의견서 초안 (10섹션 + 승인 란 + cross-link) 부재",
+      "targeted_fix": "opinion_draft.html: CLAUDE.md §3 10섹션 전체 (요약/목적/입력+지문/방법/KPI 결과/이상징후+근거 링크/한계/의견 초안/추가 확인/감사추적). §8 의견 초안은 fail 시 '유보 사유 존재', warning 시 '조건부 검토 가능', 정상 시 '검토 가능' — 확정 아님을 3중 명시 (제목/§8/subtle). 인쇄용 승인 란 (담당자/팀장/MRMC 서명). sticky TOC + 인쇄 쿼리 상속. index/executive link",
+      "expected_benefit": "검증자가 의견서 작성을 초안에서 시작 — 수치·근거·재현 명령이 채워진 상태. 인쇄 시 수기 결재 문서로 사용 가능. HITL 보존 (확정·서명은 인간)",
+      "expected_regression_risk": "low — 신규 페이지 1개, 기존 페이지 링크 추가만. 의견 확정 로직 없음 (CLAUDE.md §5·§7 준수)",
+      "validation_method": "tests/test_v2_round72.py 11 cases (10섹션 전체/stress 유보 문구/normal 검토 가능 문구/확정 금지 3중 명시/승인 란/지문/cross-link/TOC+print/self-contained) + 전체 1034 통과",
+      "rollback_rule": "opinion_draft 페이지 + 2 link 제거 시 R71 복구",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

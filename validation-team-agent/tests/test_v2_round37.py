@@ -212,6 +212,7 @@ EXPECTED_PAGES = {
     "governance_trend.html",
     "pack_diff.html",
     "archive_index.html",
+    "opinion_draft.html",
 }
 
 

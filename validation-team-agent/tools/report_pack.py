@@ -1284,6 +1284,148 @@ limit 관리 (감독원 외환건전성 규정).</li>
     return _page("심화 — FX 의존도 + USD funding + NOP + 원화 급락 stress", body)
 
 
+def _opinion_draft_page(demo: dict, prov: dict | None) -> str:
+    """검증의견서 초안 — CLAUDE.md §3 10섹션 규격.
+
+    자동 점검 결과를 의견서 구조로 재배열한다. **의견 확정은 하지 않는다**
+    (CLAUDE.md §5·§7 — 모형 승인/부적합 의견 확정은 인간 검증자만 가능).
+    각 섹션은 보고서 팩의 상세 페이지로 cross-link.
+    """
+    from tools.executive_insights import (
+        domain_rows,
+        kpi_cards,
+        top_risks_and_actions,
+    )
+
+    summary = demo["summary"]
+    rows = domain_rows(demo)
+    risks, actions = top_risks_and_actions(demo, n=5)
+    cards = kpi_cards(demo)
+
+    n_fail = sum(1 for _, st, _, _ in rows if st == "fail")
+    n_warn = sum(1 for _, st, _, _ in rows if st == "warning")
+    n_ok = sum(1 for _, st, _, _ in rows if st == "ok")
+
+    # §1 요약
+    s1 = (f"합성 데이터 {demo['n_rows']:,}건 대상 자동 점검 {summary['n_executed']} "
+          f"step 실행. 부문 판정: fail {n_fail} · warning {n_warn} · ok {n_ok}. "
+          + ("Escalation 발동 — MRMC 보고 대상." if summary["escalated"]
+             else "Escalation 미발동."))
+
+    # §3 입력
+    fp = (prov or {}).get("inputs", {}).get("fingerprint", {})
+    df_meta = fp.get("df") or {}
+    s3_rows = _kv_table([
+        ("표본", f"{demo['n_rows']:,}건 (합성, 결정론적 seed)"),
+        ("df 지문 (SHA-256)", f"<code>{_esc((df_meta.get('sha256') or '-')[:20])}…</code>"),
+        ("컬럼", ", ".join(df_meta.get("columns", [])) or "-"),
+        ("전제", "운영 데이터 미사용 · 민감정보 패턴 없음 · 외부 API 호출 없음"),
+    ])
+
+    # §5 주요 결과 — KPI + 부문 신호등 링크
+    s5_kpis = "".join(
+        f"<tr><td>{_esc(label)}</td><td><b>{_esc(value)}</b></td>"
+        f"<td>{_badge(status)}</td></tr>"
+        for label, value, status in cards)
+
+    # §6 이상 징후
+    s6 = "".join(
+        f'<li><b>{_esc(r["label"])}</b> {_badge(r["status"])} — '
+        f'{_esc(r["detail"][:100])} (<a href="{r["link"]}">근거 →</a>)</li>'
+        for r in risks) or "<li>자동 점검 한정 이상 징후 없음.</li>"
+
+    # §8 의견 초안 — 확정 아님을 명시
+    if n_fail:
+        s8 = (f"자동 점검에서 {n_fail}개 부문의 정책 임계 위반이 식별되었다. "
+              "임계는 SSoT 정책 (BCBS + 시행세칙) 기준이며 임의 완화 대상이 "
+              "아니다. 해당 부문의 원인 분석과 시정 계획 확인 전까지 "
+              "<b>적합 의견을 유보할 사유가 존재</b>한다.")
+    elif n_warn:
+        s8 = (f"임계 위반은 없으나 {n_warn}개 부문이 경고 구간이다. "
+              "추세 모니터링 조건부로 <b>적합 의견 검토가 가능</b>하다.")
+    else:
+        s8 = ("자동 점검 범위에서 임계 위반·경고가 식별되지 않았다. "
+              "정성 검토 결과와 결합하여 <b>적합 의견 검토가 가능</b>하다.")
+
+    # §9 추가 확인
+    s9 = "".join(
+        f"<li>{_esc(a['label'])}: {_esc(a['action'])}</li>"
+        for a in actions) or "<li>표준 모니터링 유지.</li>"
+
+    # §10 감사추적
+    git = (prov or {}).get("git", {})
+    s10 = _kv_table([
+        ("실행 로그", "<code>logs/run.jsonl</code> (step 단위 JSONL)"),
+        ("git", f"<code>{_esc(git.get('branch', '-'))}</code> @ "
+                f"<code>{_esc(git.get('rev', '-'))}</code>"),
+        ("재실행 명령", f"<code>{_esc((prov or {}).get('reproduce', '-'))}</code>"),
+        ("변경 이력", '<a href="change_audit.html">Change Manifest (CHG) →</a>'),
+    ])
+
+    body = f"""
+<p class="subtle">본 문서는 CLAUDE.md §3 의 10섹션 규격을 따르는 <b>검증의견서
+초안</b>입니다. 자동 점검 결과의 재배열이며, <b>의견 확정·서명은 인간
+검증자와 MRMC 의 영역</b>입니다 (§5·§7).</p>
+
+<h2>1. 요약</h2>
+<p>{s1}</p>
+
+<h2>2. 검증 목적</h2>
+<p>신용평가·자본적정성·내부자본·유동성·ALM·IRRBB·시장·운영·CVA·CCR·집중·
+IFRS 9 부문의 정책 임계 (BCBS + 은행업감독업무시행세칙) 충족 여부에 대한
+자동 점검 및 검증 보조 자료 생성.</p>
+
+<h2>3. 입력 데이터 및 전제</h2>
+{s3_rows}
+
+<h2>4. 검증 방법</h2>
+<ul>
+<li>동적 워크플로우 엔진 (<code>vta.core.workflow</code>) — 게이트 평가 +
+위상정렬 + fail 시 escalation 동적 활성.</li>
+<li>부문별 순수 함수 점검 (<code>vta.domains.*</code>) — 임계 SSoT 는
+<code>harness/*_thresholds.json</code>.</li>
+<li>산식·출처는 <a href="explainability.html">Explainability SSoT</a> 참조.</li>
+</ul>
+
+<h2>5. 주요 결과</h2>
+<table><tr><th>KPI</th><th>값</th><th>판정</th></tr>{s5_kpis}</table>
+<p>부문별 상세: <a href="index.html">검증자 요약</a> ·
+<a href="executive.html">경영진 보고서</a></p>
+
+<h2>6. 이상 징후 및 원인 후보</h2>
+<ol>{s6}</ol>
+
+<h2>7. 한계와 리스크</h2>
+<ul>
+<li>본 산출물은 <b>합성 데이터 기반 자동 점검 한정</b> — 운영 결과 아님.</li>
+<li>신용 임계 (KS/AUROC/PSI) 는 참고 임계이며 모형 정책으로 강화될 수 있음.</li>
+<li>정성 평가 (모형 사용 적합성·문서화 품질·거버넌스) 는 본 초안 범위 밖.</li>
+<li>알려진 한계: <code>memory/known_limitations.json</code> 참조.</li>
+</ul>
+
+<h2>8. 검증 의견 초안 (확정 아님)</h2>
+<p>{s8}</p>
+<p class="subtle">본 항은 자동 점검 결과에 기반한 <b>초안 문구</b>이며, 검증
+의견의 확정·수정·서명은 인간 검증자 및 MRMC 검토 이후에만 효력을 가진다.</p>
+
+<h2>9. 추가 확인 사항</h2>
+<ol>{s9}</ol>
+
+<h2>10. 감사추적 및 변경 이력</h2>
+{s10}
+
+<h2>승인 란 (인쇄용)</h2>
+<table>
+<tr><th style="width:25%">검증 담당자</th><td style="height:3rem"></td></tr>
+<tr><th>검증팀장</th><td style="height:3rem"></td></tr>
+<tr><th>MRMC 검토</th><td style="height:3rem"></td></tr>
+</table>
+<p class="subtle">서명란은 인쇄 후 수기 결재용. 전자결재 시스템 연계는 운영
+정책 영역.</p>
+"""
+    return _page("검증의견서 초안 (DRAFT — 확정 아님)", body)
+
+
 def _archive_index_page(archive_root: Path | None) -> str:
     """archive 인덱스 페이지 — 저장된 분기 팩 목록."""
     if archive_root is None or not Path(archive_root).is_dir():
@@ -3900,6 +4042,7 @@ def _executive_page(demo: dict, prov: dict | None) -> str:
 <li><a href="governance_trend.html">분기 거버넌스 KPI 추세</a></li>
 <li><a href="pack_diff.html">보고서 팩 변화 detection</a></li>
 <li><a href="archive_index.html">분기별 archive 인덱스</a></li>
+<li><a href="opinion_draft.html">검증의견서 초안 (HITL 확정)</a></li>
 <li><a href="esg_climate.html">ESG / 기후 위험 (NGFS + 전환/물리적)</a></li>
 <li><a href="cyber_risk.html">Cyber risk + Operational resilience</a></li>
 <li><a href="fx_dependency.html">FX 의존도 + USD funding + 원화 stress</a></li>
@@ -3994,6 +4137,7 @@ def _index_page(demo: dict) -> str:
 <li><a href="governance_trend.html">분기 거버넌스 KPI 추세 (validated/fail/agreement)</a></li>
 <li><a href="pack_diff.html">보고서 팩 변화 detection (전 분기 대비 diff)</a></li>
 <li><a href="archive_index.html">분기별 archive 인덱스 (저장된 팩 + auto-prev)</a></li>
+<li><a href="opinion_draft.html">검증의견서 초안 (10섹션 규격 + 승인 란)</a></li>
 <li><a href="esg_climate.html">ESG / 기후 — NGFS 시나리오 + 전환/물리적 위험</a></li>
 <li><a href="cyber_risk.html">Cyber risk + Operational resilience (BCBS d533)</a></li>
 <li><a href="fx_dependency.html">FX — 통화별 NOP + USD funding + 원화 stress</a></li>
@@ -4076,6 +4220,7 @@ def build_pack(
         demo, provenance)
     pages["archive_index.html"] = _archive_index_page(
         Path(archive_root) if archive_root else None)
+    pages["opinion_draft.html"] = _opinion_draft_page(demo, provenance)
     pages["icaap_deep.html"] = _icaap_deep_page(demo)
     pages["operational_deep.html"] = _operational_deep_page(demo, request)
     pages["ccr_deep.html"] = _ccr_deep_page(demo, request)
