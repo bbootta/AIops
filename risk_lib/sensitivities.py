@@ -16,6 +16,9 @@ Outputs roll up to:
 
 Closed-form approximations for Black-Scholes equivalents are used so the
 container can run without scipy.stats.norm (we use Φ approximation via erf).
+
+NOTE: 전행 단위 what-if 민감도(PD/LGD/금리/HQLA 충격 → ECL/RWA/LCR)는 별도
+모듈 `risk_lib.sensitivity` 담당 — 이 모듈은 트레이딩북 Greeks 전용.
 """
 
 from __future__ import annotations

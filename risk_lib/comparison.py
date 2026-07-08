@@ -8,6 +8,10 @@ Two consumer patterns:
 Used by:
   - risk_lib.cli compare
   - new ops page 26_comparison.html
+
+NOTE: 다기간 축적/추세 기능(원장 persistence, QoQ/YoY, trend flags)은
+`risk_lib.timeseries_ledger`가 담당한다 — 신규 시계열 기능은 그쪽에 추가하고,
+이 모듈은 2-스냅샷 bridge와 ops 페이지 26 전용으로 유지한다.
 """
 
 from __future__ import annotations

@@ -7,6 +7,9 @@ that:
   - lands on the realised KRI at the current month (so it reconciles)
   - drifts with auto-correlation typical of monthly bank metrics
   - is reproducible from `seed`
+
+NOTE: 여기서 만드는 back-history는 차트용 *합성* 시계열이다. 실제 분기별 산출을
+축적·추적하는 원장은 `risk_lib.timeseries_ledger` 참조.
 """
 
 from __future__ import annotations

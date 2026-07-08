@@ -13,6 +13,9 @@ to rerun the full pipeline for each shock.
 
 Returned as a DataFrame so the HTML report can render a sensitivity grid; the
 two-factor cross-product gives an exposure surface visualisation.
+
+NOTE: 트레이딩북 Greeks(Δ/Γ/Vega/dV01/CS01)는 별도 모듈
+`risk_lib.sensitivities` 담당 — 이 모듈은 전행 what-if 그리드 전용.
 """
 
 from __future__ import annotations

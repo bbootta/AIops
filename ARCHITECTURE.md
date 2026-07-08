@@ -85,5 +85,8 @@ out/
 
 - `pillar3.py`는 legacy (ops 20 요약 전용). 신규 공시 템플릿은
   `pillar3_disclosures.py`(13종, ops 59)에 추가.
-- `comparison.py`(2시점 비교)와 `timeseries_ledger.py`(다기간 원장)는 역할이 겹침 —
-  신규 시계열 기능은 timeseries_ledger에.
+- 이름이 비슷한 모듈 구분 (각 모듈 docstring에도 상호참조 명시):
+  - `timeseries.py` 차트용 합성 KRI back-history ↔ `timeseries_ledger.py`
+    실제 분기 산출 축적 원장 (신규 시계열 기능은 ledger에)
+  - `comparison.py` 2-스냅샷 bridge (ops 26 전용) ↔ `timeseries_ledger.py` 다기간 추세
+  - `sensitivity.py` 전행 what-if 그리드 ↔ `sensitivities.py` 트레이딩북 Greeks
