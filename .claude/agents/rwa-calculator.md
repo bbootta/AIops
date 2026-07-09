@@ -110,3 +110,11 @@ rwa_final = floor.rwa_final   # max(내부모형, 0.725 × 전부표준방법)
 
 - Basel III CRE20 (SA), CRE31~CRE34 (IRB)
 - 금감원 「은행업감독업무시행세칙」 제25조 및 별표
+
+## AIMS 거버넌스 (ISO/IEC 42001 — 상세는 AIMS_POLICY.md)
+
+- **이벤트 로그(A.6.2.8)**: RWA headline마다 산출 모듈·함수·규정 조항(CRE20/31
+  등)을 남긴다 — audit ledger 항목이 만들어질 수 있는 수준으로.
+- **재현성(A.7.2)**: 산출 결과에 입력 포트폴리오 지문·asof·seed를 병기한다.
+- **인적 감독(A.9.2)**: 산출 방법 전환(SA↔IRB), output floor 파라미터·국가재량
+  적용 변경은 인간 승인 사항 — 영향 추정과 함께 권고만 한다.

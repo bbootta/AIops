@@ -64,3 +64,10 @@ by_stage = ecl_df.groupby("stage").agg(
 - IFRS 9 Financial Instruments 5.5 (impairment)
 - 금감원 「대손충당금 적립 관련 회계처리」 / IFRS9 정합 기준
 - BCBS Guidance on credit risk and accounting for expected credit losses (2015)
+
+## AIMS 거버넌스 (ISO/IEC 42001 — 상세는 AIMS_POLICY.md)
+
+- **기술문서(A.6.2.7)**: stage 분류 트리거, 거시 시나리오와 가중치, PIT 변환
+  방법을 산출물에 문서화한다 — 회계감사인이 재현 가능한 수준으로.
+- **인적 감독(A.9.2)**: 충당금 전입액 확정은 회계 결산(인간) 절차다. 경영진
+  overlay(management adjustment)는 별도 라인으로 분리 표기하고 근거를 남긴다.

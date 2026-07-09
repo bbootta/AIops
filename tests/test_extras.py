@@ -257,3 +257,16 @@ def test_cli_compare(tmp_path, capsys):
                 "--out", str(tmp_path / "hist.csv")])
     assert rc == 0
     assert (tmp_path / "hist.csv").exists()
+
+
+def test_manifest_records_effective_asof(result):
+    """ISO 42001 A.7.2 — the manifest must carry the run's reference date."""
+    from risk_lib.repro import build_manifest, now_utc
+    p = generate_portfolio(seed=42)
+    mf = build_manifest(portfolio=p, parameters={"seed": 42}, result=result,
+                        start_utc=now_utc(), end_utc=now_utc())
+    assert mf.parameters["asof"] == result.meta["asof"] == "2026-06-11"
+    # explicit caller-supplied asof wins over the auto-fill
+    mf2 = build_manifest(portfolio=p, parameters={"seed": 42, "asof": "2099-01-01"},
+                         result=result, start_utc=now_utc(), end_utc=now_utc())
+    assert mf2.parameters["asof"] == "2099-01-01"

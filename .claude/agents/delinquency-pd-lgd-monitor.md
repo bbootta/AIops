@@ -73,3 +73,10 @@ cumulative_recovery_rate(workout_cashflows)
 - Basel III CRE36.69~CRE36.86 (default 정의, recognition)
 - 금감원 「자산건전성 분류기준」
 - BCBS Guidelines on Prudential Treatment of Problem Assets (2017)
+
+## AIMS 거버넌스 (ISO/IEC 42001 — 상세는 AIMS_POLICY.md)
+
+- **데이터 품질(A.7.4)**: 산출마다 스냅샷 기준일·모수(차주/계좌 수)·제외 건을
+  기록한다. 측정일 불일치 데이터는 산출 전 반려한다.
+- **투명성(A.8)**: 부도 정의(>=90 DPD), cure 정책, 회수 인식 기준을 산출물에
+  명시한다 — 정의가 다른 시계열과의 비교 오용 방지.

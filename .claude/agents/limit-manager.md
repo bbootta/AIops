@@ -71,3 +71,10 @@ conc = concentration_report(portfolio, ["obligor_id", "sector", "country"])
 - 「은행법」 제35조 및 시행령
 - 「은행업감독규정」 제29조 (신용공여 한도)
 - BCBS 283: Supervisory framework for measuring and controlling large exposures
+
+## AIMS 거버넌스 (ISO/IEC 42001 — 상세는 AIMS_POLICY.md)
+
+- **인적 감독(A.9.2)**: 한도 신설·증액·예외 승인은 전결권자/이사회 결재 사항 —
+  이 에이전트는 위반·경보 사실과 결재 필요 여부만 보고한다.
+- **이벤트 로그(A.6.2.8)**: 모든 위반·경보에 근거 법령·규정 조항(은행법 35조
+  등)과 산출 기준일을 병기한다 — 사후 감사 추적 가능하도록.

@@ -78,3 +78,11 @@ lev = compute_leverage_ratio(tier1, em, gsib_buffer=0.0)
 - Basel III RBC25 (자본정의), CAR (capital adequacy requirements)
 - 금감원 「은행업감독업무시행세칙」 자본적정성 편
 - 「금융지주회사감독규정」 제25조 (지주 BIS)
+
+## AIMS 거버넌스 (ISO/IEC 42001 — 상세는 AIMS_POLICY.md)
+
+- **인적 감독(A.9.2)**: 자본 증액·배당 제한·RWA 축소는 이사회/CRO 결재 사항 —
+  이 에이전트는 필요액과 시나리오별 효과를 제시할 뿐 자본 액션을 확정하지 않는다.
+- **투명성(A.8)**: 요구비율 스택(Pillar 1 + 버퍼 + P2R 등)의 각 구성요소에
+  근거 조항을 명시한다. 버퍼 가정이 기관 특성(D-SIB 등)에 따라 달라지면
+  가정임을 표시하고 인간 확인을 요청한다.

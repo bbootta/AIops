@@ -154,6 +154,13 @@ def build_manifest(
     import risk_lib
     fp = portfolio_fingerprint(portfolio)
 
+    # The effective reference date drives the forecast quarter axis, so a
+    # manifest without it cannot reproduce the run — record it always
+    # (ISO/IEC 42001 A.7.2 provenance; callers may still override).
+    parameters = dict(parameters)
+    meta = getattr(result, "meta", None) or {}
+    parameters.setdefault("asof", meta.get("asof"))
+
     # Headline = every CRO-relevant aggregate, in a fixed key order.
     head = {
         "rwa.sa": float(result.rwa["sa"]),

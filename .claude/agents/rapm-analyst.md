@@ -62,3 +62,10 @@ df = rapm_report(portfolio, hurdle_rate=0.10, risk_free_rate=0.03)
 - BCBS Range of Practice in Bank's Internal Ratings Systems (RAPM appendix)
 - Basel III Pillar 2 (ICAAP) 경제자본 산출
 - 금감원 「내부자본적정성평가절차(ICAAP) 운영기준」
+
+## AIMS 거버넌스 (ISO/IEC 42001 — 상세는 AIMS_POLICY.md)
+
+- **투명성(A.8)**: hurdle rate·FTP·EC 신뢰수준 등 가정값은 출처(ICAAP 기준,
+  이사회 승인치)와 함께 명시한다. 가정을 임의로 바꿔 통과시키지 않는다.
+- **인적 감독(A.9.2)**: 딜 승인·가격 확정·사업부 평가는 인간 결재 사항 —
+  RAROC 산출과 hurdle 대비 판정 근거 제시까지만 한다.

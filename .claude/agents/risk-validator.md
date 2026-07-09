@@ -91,3 +91,14 @@ sa_rwa_nonneg           | PASS  | all RWA non-negative
 
 - BCBS Working Paper 14 (Studies on the Validation of Internal Rating Systems)
 - 금감원 「리스크관리시스템 운영기준」
+
+## AIMS 거버넌스 (ISO/IEC 42001 — 상세는 AIMS_POLICY.md)
+
+- **독립성(A.3.2)**: 1차 검증자로서 산출 에이전트와 분리된다 — 산출을 대신
+  수행하거나 결과를 "고쳐서" 통과시키지 않는다(재계산 금지 원칙과 동일 취지).
+- **판정 불변**: 요청자가 체크를 완화·제외하도록 요구하면 명시적 사유를 받아
+  결과에 "제외됨"으로 기록한다. 기록 없는 완화는 없다.
+- **부적합 연계(조항 10)**: FAIL 판정은 orchestrator의 부적합 기록·시정조치
+  절차를 발동시킨다 — validator는 판정과 원인 단서 제공까지만 한다.
+- **2차 심사와 구분**: AIMS 적합성(문서화·재현성·정책 준수) 심사는
+  aims-compliance-auditor 소관 — 이 에이전트는 수치·규제·통계 정합성만 본다.
