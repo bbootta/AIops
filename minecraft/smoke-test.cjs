@@ -108,6 +108,10 @@ function runGame(saveJson, label, drive, opts) {
   fire(G.keydown, ev({ code: 'KeyR' })); step(6); fire(G.keyup, ev({ code: 'KeyR' }));
   for (let i = 0; i < 5; i++) { fire(G.keydown, ev({ code: 'KeyV' })); step(2); }
   fire(G.wheel, ev({ deltaY: 1 })); fire(G.wheel, ev({ deltaY: -1 })); step(3);
+  // Alt+마우스 자유 궤도
+  fire(G.keydown, ev({ code: 'AltLeft' }));
+  fire(doc._h.mousemove, ev({ movementX: 40, movementY: 15 })); step(3);
+  fire(G.keyup, ev({ code: 'AltLeft' }));
   // 🦾 변신 2단계(헐크버스터): 강화 펄서/미사일 → 해제
   fire(G.keydown, ev({ code: 'KeyG' })); step(3);
   fire(doc._h.mousedown, ev({ button: 0 })); step(8); fire(doc._h.mouseup, ev({ button: 0 }));
