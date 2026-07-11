@@ -101,12 +101,18 @@ function runGame(saveJson, label, drive, opts) {
   // 활 차지(R) → 발사, 먹기(Q)
   fire(G.keydown, ev({ code: 'KeyR' })); step(2); fire(G.keyup, ev({ code: 'KeyR' }));
   fire(G.keydown, ev({ code: 'KeyQ' }));
-  // 🤖 아이언 슈트: 변신 → 펄서 연사 → 미사일 → 레이저 → 해제 (비행 이동 포함)
+  // 🤖 변신 1단계(아이언): 펄서 연사 → 미사일 → 레이저 + 카메라 프리셋/줌
   fire(G.keydown, ev({ code: 'KeyG' })); step(3);
   fire(doc._h.mousedown, ev({ button: 0 })); step(8); fire(doc._h.mouseup, ev({ button: 0 }));
   fire(doc._h.mousedown, ev({ button: 2 })); step(8); fire(doc._h.mouseup, ev({ button: 2 }));
   fire(G.keydown, ev({ code: 'KeyR' })); step(6); fire(G.keyup, ev({ code: 'KeyR' }));
-  step(10);
+  for (let i = 0; i < 5; i++) { fire(G.keydown, ev({ code: 'KeyV' })); step(2); }
+  fire(G.wheel, ev({ deltaY: 1 })); fire(G.wheel, ev({ deltaY: -1 })); step(3);
+  // 🦾 변신 2단계(헐크버스터): 강화 펄서/미사일 → 해제
+  fire(G.keydown, ev({ code: 'KeyG' })); step(3);
+  fire(doc._h.mousedown, ev({ button: 0 })); step(8); fire(doc._h.mouseup, ev({ button: 0 }));
+  fire(doc._h.mousedown, ev({ button: 2 })); step(10); fire(doc._h.mouseup, ev({ button: 2 }));
+  step(8);
   fire(G.keydown, ev({ code: 'KeyG' })); step(2);
   // 모바일 핫바 슬라이드
   const hb = elCache['hotbar']; if (hb) { fire(hb._h.touchstart, ev({})); fire(hb._h.touchmove, ev({ clientX: 80 })); }
