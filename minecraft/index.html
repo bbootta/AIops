@@ -256,7 +256,7 @@
     <b>G : 🤖 변신</b> (아이언 슈트 → 🦾 헐크버스터) — 3인칭 자유 비행, 좌클릭 펄서 · 우클릭 미사일 · R 레이저<br>
     <b>V / 📷 : 카메라 각도</b> (뒤·멀리·어깨·정면) &nbsp;|&nbsp; 휠 : 카메라 줌<br>
     1 ~ 9 : 핫바 슬롯 &nbsp;|&nbsp; C : 제작 &nbsp;|&nbsp; E : 인벤토리 &nbsp;|&nbsp; F : 비행 &nbsp;|&nbsp; M : 음악<br>
-    지형은 평원·사막·눈 바이옴, 동굴엔 석탄·철·금·다이아·에메랄드 광석<br>
+    지형은 평원·사막·눈·정글·산악·버섯 들판 6가지 바이옴, 동굴엔 5종 광석<br>
     밤엔 좀비·스켈레톤·크리퍼·거미·보스 출몰, 음식으로 허기(🍗)를 채워야 체력 회복<br>
     나무→판자→곡괭이·검·활·상자, 철/다이아로 갑옷, 금→황금사과, 다이아로 포탈<br>
     모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼(먹기🍗·활🏹 포함)<br>
@@ -317,14 +317,14 @@ let lookSens = optSens * 0.000125; // 슬라이더 20 → 0.0025 (기존 기본�
 let masterVol = optVol / 100;
 // 월드 시드 / 월드젠 버전: 시드나 지형 생성 규칙이 바뀌면 기존 저장은 무효화한다
 const WORLD_SEED = 1337 + SLOT * 9973;
-const WORLD_VER = 3; // v3: 사막·눈 바이옴 추가(지표 블록 변경)
+const WORLD_VER = 4; // v4: 정글·산악·버섯 바이옴, 산 융기 지형, 거대 버섯
 
-const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18, SNOW: 19, CHEST: 20 };
+const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18, SNOW: 19, CHEST: 20, MUSH_CAP: 21 };
 // 블록이 아닌 아이템 (인벤토리 전용)
 const ITEM = { MEAT: 100, SEEDS: 101, WHEAT: 102, BREAD: 103, DIAMOND: 104, ARROW: 105, BOW: 106, GOLD: 107, EMERALD: 108, GOLD_APPLE: 109, APPLE: 110, MUSHROOM: 111, STEW: 112, IRON: 113 };
 const BLOCK_NAMES = {
   1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석',
-  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈', 17: '금 광석', 18: '에메랄드 광석', 19: '눈', 20: '상자',
+  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈', 17: '금 광석', 18: '에메랄드 광석', 19: '눈', 20: '상자', 21: '버섯 갓',
   100: '고기', 101: '씨앗', 102: '밀', 103: '빵', 104: '다이아몬드', 106: '활', 107: '금', 108: '에메랄드', 109: '황금 사과',
   110: '사과', 111: '버섯', 112: '버섯 스튜', 113: '철',
 };
@@ -338,7 +338,7 @@ const PLACEABLE = new Set([
 // 음식 우선순위 (Q로 먹을 때): 일반 음식부터, 황금사과는 최후
 const FOOD_PRIORITY = [ITEM.STEW, ITEM.BREAD, ITEM.MEAT, ITEM.APPLE, ITEM.GOLD_APPLE];
 // 블록별 캐는 시간(초)과 드롭 아이템 [종류, 개수]
-const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0, 19: 0.45, 20: 0.9 };
+const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0, 19: 0.45, 20: 0.9, 21: 0.3 };
 const DROPS = {
   [BLOCK.GRASS]: [BLOCK.GRASS, 1], [BLOCK.DIRT]: [BLOCK.DIRT, 1], [BLOCK.STONE]: [BLOCK.STONE, 1],
   [BLOCK.WOOD]: [BLOCK.WOOD, 1], [BLOCK.LEAVES]: [BLOCK.LEAVES, 1], [BLOCK.SAND]: [BLOCK.SAND, 1],
@@ -347,6 +347,7 @@ const DROPS = {
   [BLOCK.NETHERRACK]: [BLOCK.NETHERRACK, 1], [BLOCK.PORTAL]: [BLOCK.PORTAL, 1],
   [BLOCK.GOLD_ORE]: [ITEM.GOLD, 1], [BLOCK.EMERALD_ORE]: [ITEM.EMERALD, 1],
   [BLOCK.SNOW]: [BLOCK.DIRT, 1], [BLOCK.CHEST]: [BLOCK.CHEST, 1],
+  [BLOCK.MUSH_CAP]: [ITEM.MUSHROOM, 1],
 };
 // 채굴 시 곡괭이가 없으면 드롭하지 않는 광석
 const NEEDS_PICK = new Set([BLOCK.IRON_ORE, BLOCK.DIAMOND_ORE, BLOCK.GOLD_ORE, BLOCK.EMERALD_ORE]);
@@ -380,14 +381,25 @@ function noise2(x, y) {
   const c = gridVal(xi, yi + 1), d = gridVal(xi + 1, yi + 1);
   return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
 }
+// 산악 융기 노이즈 (지형 높이와 바이옴 판정이 공유)
+function ridgeAt(x, z) { return noise2(x / 48 + 1500, z / 48 + 1500); }
 function terrainHeight(x, z) {
   const n = noise2(x / 28, z / 28) * 0.7 + noise2(x / 10, z / 10) * 0.3;
-  return 3 + Math.floor(n * 18);
+  let h = 3 + Math.floor(n * 18);
+  const r = ridgeAt(x, z);
+  if (r > 0.72) h += Math.floor((r - 0.72) * 60); // 산악: 최대 +16 융기
+  return h;
 }
-// 바이옴: 저주파 노이즈로 큰 영역을 사막/평원/눈으로 나눔
+// 바이옴: 온도/습도/융기 3채널 노이즈로 6종 환경
 function biomeAt(x, z) {
-  const b = noise2(x / 60 + 500, z / 60 + 500);
-  return b < 0.40 ? 'desert' : b > 0.62 ? 'snow' : 'plains';
+  if (ridgeAt(x, z) > 0.72) return 'mountain';
+  const t = noise2(x / 60 + 500, z / 60 + 500);
+  if (t < 0.36) return 'desert';
+  if (t > 0.66) return 'snow';
+  const m = noise2(x / 85 + 900, z / 85 + 900);
+  if (m > 0.64) return 'jungle';
+  if (m < 0.33) return 'mushroom';
+  return 'plains';
 }
 // 값 노이즈 3개를 평면을 달리해 합쳐 만든 의사 3D 노이즈 (동굴 굴착용)
 function caveNoise(x, y, z) {
@@ -465,6 +477,7 @@ const TEX = {
   snowSide: makeTexture(C.dirt, (x, y) => (y < 5 ? [236, 240, 245] : C.dirt)),
   chestSide: makeTexture([138, 96, 45], (x, y) => (y === 7 || y === 8 ? [70, 48, 22] : (Math.abs(x - 8) < 2 && y > 6 && y < 11 ? [60, 50, 30] : [138, 96, 45]))),
   chestTop: makeTexture([150, 106, 52], (x, y) => (y === 7 || y === 8 ? [70, 48, 22] : [150, 106, 52])),
+  mushCap: makeTexture([190, 42, 42], (x, y) => (((x * 7 + y * 11) % 13) < 2 ? [242, 236, 228] : [190, 42, 42])),
   // 네더
   netherrack: makeTexture([108, 38, 38], (x, y) => (((x * 3 + y * 7) % 11 < 2) ? [70, 20, 20] : [108, 38, 38])),
   lava: makeTexture([222, 110, 30], (x, y) => (((x + y) % 5 === 0) ? [255, 200, 60] : [222, 90, 24])),
@@ -490,6 +503,7 @@ const MATERIALS = {
   [BLOCK.EMERALD_ORE]: mat(TEX.emeraldOre),
   [BLOCK.SNOW]: [mat(TEX.snowSide), mat(TEX.snowSide), mat(TEX.snowTop), mat(TEX.dirt), mat(TEX.snowSide), mat(TEX.snowSide)],
   [BLOCK.CHEST]: [mat(TEX.chestSide), mat(TEX.chestSide), mat(TEX.chestTop), mat(TEX.chestTop), mat(TEX.chestSide), mat(TEX.chestSide)],
+  [BLOCK.MUSH_CAP]: mat(TEX.mushCap),
   [BLOCK.TORCH]: new THREE.MeshLambertMaterial({ map: TEX.torch, emissive: 0xff9933, emissiveIntensity: 0.55 }),
   [BLOCK.PLANK]: mat(TEX.plank),
   [BLOCK.NETHERRACK]: mat(TEX.netherrack),
@@ -529,6 +543,7 @@ function generateWorld() {
         let t;
         if (y === h) {
           if (h <= SEA_LEVEL + 1) t = BLOCK.SAND;            // 해변
+          else if (biome === 'mountain') t = h > 26 ? BLOCK.SNOW : BLOCK.STONE; // 바위산 + 만년설
           else if (biome === 'desert') t = BLOCK.SAND;
           else if (biome === 'snow') t = BLOCK.SNOW;
           else t = BLOCK.GRASS;
@@ -550,21 +565,37 @@ function generateWorld() {
       for (let y = h + 1; y <= SEA_LEVEL; y++) setBlock(x, y, z, BLOCK.WATER);
     }
   }
-  // 나무 심기
-  for (let i = 0; i < 160; i++) {
+  // 식생 심기 (바이옴별: 정글은 크고 빽빽한 나무, 버섯 들판은 거대 버섯)
+  for (let i = 0; i < 280; i++) {
     const x = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
     const z = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
     const h = terrainHeight(x, z);
     const surf = getBlock(x, h, z);
-    if (surf !== BLOCK.GRASS && surf !== BLOCK.SNOW) continue; // 사막엔 나무 없음
-    const trunk = 4 + Math.floor(rand() * 2);
+    if (surf !== BLOCK.GRASS && surf !== BLOCK.SNOW) continue; // 사막·바위산엔 없음
+    const b = biomeAt(x, z);
+    if (b === 'mountain') continue;
+    if (b === 'plains' && rand() < 0.45) continue; // 평원은 듬성듬성
+    if (b === 'snow' && rand() < 0.5) continue;
+    if (b === 'mushroom') { // 거대 버섯: 기둥 + 갓
+      if (rand() < 0.35) continue;
+      const stem = 3 + Math.floor(rand() * 2);
+      for (let y = 1; y <= stem; y++) setBlock(x, h + y, z, BLOCK.WOOD);
+      for (let dx = -1; dx <= 1; dx++)
+        for (let dz = -1; dz <= 1; dz++)
+          if (!getBlock(x + dx, h + stem + 1, z + dz)) setBlock(x + dx, h + stem + 1, z + dz, BLOCK.MUSH_CAP);
+      setBlock(x, h + stem + 2, z, BLOCK.MUSH_CAP);
+      continue;
+    }
+    const jungle = b === 'jungle';
+    const trunk = jungle ? 6 + Math.floor(rand() * 3) : 4 + Math.floor(rand() * 2);
+    const R = jungle ? 3 : 2;
     for (let y = 1; y <= trunk; y++) setBlock(x, h + y, z, BLOCK.WOOD);
-    for (let dx = -2; dx <= 2; dx++) {
-      for (let dz = -2; dz <= 2; dz++) {
+    for (let dx = -R; dx <= R; dx++) {
+      for (let dz = -R; dz <= R; dz++) {
         for (let dy = trunk - 1; dy <= trunk + 2; dy++) {
           const top = dy > trunk;
           if (top && (Math.abs(dx) > 1 || Math.abs(dz) > 1)) continue;
-          if (Math.abs(dx) === 2 && Math.abs(dz) === 2 && rand() < 0.5) continue;
+          if (Math.abs(dx) === R && Math.abs(dz) === R && rand() < 0.5) continue;
           if (dx === 0 && dz === 0 && dy <= trunk) continue;
           if (!getBlock(x + dx, h + dy, z + dz)) setBlock(x + dx, h + dy, z + dz, BLOCK.LEAVES);
         }
@@ -889,6 +920,20 @@ function spawnParticles(x, y, z, typeOrMat) {
     });
   }
 }
+// 이펙트 파티클: 중력 없이 퍼지며 사그라드는 발광 조각 (무기·부스터 연출용)
+function spawnFx(x, y, z, material, n, spd, life) {
+  if (particles.length > 200) return;
+  for (let i = 0; i < n; i++) {
+    const mesh = new THREE.Mesh(particleGeo, material);
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+    particles.push({
+      mesh, fx: true,
+      vel: new THREE.Vector3((Math.random() - 0.5) * spd, (Math.random() - 0.5) * spd, (Math.random() - 0.5) * spd),
+      life: life * (0.7 + Math.random() * 0.6),
+    });
+  }
+}
 function updateParticles(dt) {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
@@ -898,9 +943,30 @@ function updateParticles(dt) {
       particles.splice(i, 1);
       continue;
     }
-    p.vel.y -= GRAVITY * 0.6 * dt;
+    if (!p.fx) p.vel.y -= GRAVITY * 0.6 * dt;
     p.mesh.position.addScaledVector(p.vel, dt);
-    p.mesh.scale.setScalar(Math.min(1, p.life * 2.5));
+    p.mesh.scale.setScalar(Math.min(1, p.life * (p.fx ? 4 : 2.5)));
+  }
+}
+// 순간 섬광 광원 (폭발·명중 연출) — 짧게 밝아졌다 사그라듦
+const fxLights = [];
+function flashLight(x, y, z, color, intensity, dist, life) {
+  if (fxLights.length > 3) return;
+  const l = new THREE.PointLight(color, intensity, dist, 2);
+  l.position.set(x, y, z);
+  scene.add(l);
+  fxLights.push({ l, life, max: life, intensity });
+}
+function updateFxLights(dt) {
+  for (let i = fxLights.length - 1; i >= 0; i--) {
+    const f = fxLights[i];
+    f.life -= dt;
+    if (f.life <= 0) {
+      scene.remove(f.l);
+      fxLights.splice(i, 1);
+    } else {
+      f.l.intensity = f.intensity * (f.life / f.max);
+    }
   }
 }
 
@@ -1744,6 +1810,17 @@ function updatePlayer(dt) {
       f.visible = boost;
       if (boost) f.scale.y = 0.7 + Math.random() * 0.7; // 불꽃 일렁임
     }
+    // 부스터 불빛 + 뒤로 흩날리는 불꽃 트레일
+    suitBoostLight.visible = boost;
+    if (boost) {
+      suitBoostLight.position.set(p.x, p.y + 0.35, p.z);
+      suitBoostLight.intensity = 1.5 + Math.random() * 0.9;
+      boostFxT -= dt;
+      if (boostFxT <= 0 && cruise > 0.15) {
+        boostFxT = 0.05;
+        spawnFx(p.x + Math.sin(player.yaw) * 0.7, p.y + 0.4 + suitTilt * 0.6, p.z + Math.cos(player.yaw) * 0.7, M_FLAME, 2, 1.8, 0.3);
+      }
+    }
     const pre = CAM_PRESETS[camPreset];
     const cyaw = player.yaw + pre.yawOff;
     const dist = st.dist * (pre.zoom || 1) * camZoom;
@@ -1788,8 +1865,11 @@ function miniTerrainColor(x, z) {
   if (h < SEA_LEVEL) return '#3a6ec6';            // 물
   if (h <= SEA_LEVEL + 1) return '#dacfa0';        // 해변 모래
   const b = biomeAt(x, z);
+  if (b === 'mountain') return h > 26 ? '#e9edf2' : '#8a8f96';
   if (b === 'desert') return '#d8c98e';
   if (b === 'snow') return '#e9edf2';
+  if (b === 'jungle') return 'rgb(28,' + (72 + Math.min(55, (h - SEA_LEVEL) * 5)) + ',34)';
+  if (b === 'mushroom') return '#a9838f';
   const g = 90 + Math.min(85, (h - SEA_LEVEL) * 6); // 높이에 따라 밝아지는 잔디
   return 'rgb(60,' + g + ',50)';
 }
@@ -2077,6 +2157,8 @@ const M_GOLD = new THREE.MeshLambertMaterial({ color: 0xd9a916 });
 const M_CORE = new THREE.MeshLambertMaterial({ color: 0xcfefff, emissive: 0x7fd4ff, emissiveIntensity: 1 });
 const M_EYE = new THREE.MeshLambertMaterial({ color: 0xeaffff, emissive: 0xaee8ff, emissiveIntensity: 1 });
 const M_FLAME = new THREE.MeshLambertMaterial({ color: 0xffd27f, emissive: 0xff8c1a, emissiveIntensity: 1, transparent: true, opacity: 0.9 });
+const M_SMOKE = new THREE.MeshLambertMaterial({ color: 0x888888, transparent: true, opacity: 0.55 });
+const M_FIRE = new THREE.MeshLambertMaterial({ color: 0xffb347, emissive: 0xff5a00, emissiveIntensity: 1, transparent: true, opacity: 0.95 });
 function sbox(parent, mat, w, h, d, x, y, z) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.position.set(x, y, z);
@@ -2145,7 +2227,10 @@ function makeSuitMesh(s, bulk) {
 }
 const suitMeshes = [null, makeSuitMesh(1, 1), makeSuitMesh(1.75, 1.85)];
 let suitMesh = suitMeshes[1]; // 현재 표시 중인 슈트 (레벨 0일 땐 숨김)
-let suitTilt = 0, suitTime = 0; // 비행 자세 기울기 / 애니메이션 시계
+let suitTilt = 0, suitTime = 0, boostFxT = 0; // 비행 자세 기울기 / 애니메이션 시계 / 트레일 타이머
+const suitBoostLight = new THREE.PointLight(0xff9a33, 0, 8, 2); // 부스터 불빛
+suitBoostLight.visible = false;
+scene.add(suitBoostLight);
 
 // 3인칭 카메라 프리셋 (V 키 / 📷 버튼으로 순환, 휠로 줌)
 const CAM_PRESETS = [
@@ -2207,6 +2292,7 @@ function firePulse() {
   mesh.lookAt(pos.clone().add(_dir));
   scene.add(mesh);
   bolts.push({ mesh, pos, vel: _dir.clone().multiplyScalar(42), life: 1.2, missile: false, dmg: st.pulseDmg });
+  spawnFx(pos.x + _dir.x * 0.5, pos.y + _dir.y * 0.5, pos.z + _dir.z * 0.5, PULSE_MAT, 4, 2.5, 0.16); // 총구 섬광
   playSound(suitLevel === 2 ? 620 : 880, 0.08, 'square', 0.12);
 }
 function fireMissile() {
@@ -2218,15 +2304,19 @@ function fireMissile() {
   mesh.position.copy(pos);
   mesh.lookAt(pos.clone().add(_dir));
   scene.add(mesh);
-  bolts.push({ mesh, pos, vel: _dir.clone().multiplyScalar(24), life: 4, missile: true, r: st.missileR, dmg: st.missileDmg });
+  bolts.push({ mesh, pos, vel: _dir.clone().multiplyScalar(24), life: 4, missile: true, r: st.missileR, dmg: st.missileDmg, trailT: 0 });
+  spawnFx(pos.x, pos.y, pos.z, M_FIRE, 5, 3, 0.2); // 발사 화염
   playSound(160, 0.25, 'sawtooth', 0.2);
 }
-function explodeAt(x, y, z, r, dmg) { // 미사일 폭발: 블록 파괴 + 주변 몹 피해
+function explodeAt(x, y, z, r, dmg) { // 미사일 폭발: 블록 파괴 + 주변 몹 피해 + 화염구·섬광
   destroyBlocks(Math.floor(x), Math.floor(y), Math.floor(z), r);
   for (const m of [...animals, ...zombies]) {
     const d = Math.hypot(m.pos.x - x, m.pos.y - y, m.pos.z - z);
     if (d < r * 2.2) damageMob(m, dmg, m.pos.x - x, m.pos.z - z);
   }
+  spawnFx(x, y, z, M_FIRE, 16, 9, 0.5);   // 화염구
+  spawnFx(x, y, z, M_SMOKE, 10, 4, 0.9);  // 연기
+  flashLight(x, y, z, 0xff8833, 6, 16, 0.45); // 폭발 섬광
   for (let i = 0; i < 2; i++) spawnParticles(x - 0.5, y - 0.5 + i * 0.5, z - 0.5, BLOCK.NETHERRACK);
   playSound(45, 0.5, 'sawtooth', 0.35);
 }
@@ -2234,6 +2324,10 @@ function updateBolts(dt) {
   for (let i = bolts.length - 1; i >= 0; i--) {
     const b = bolts[i];
     b.life -= dt;
+    if (b.missile) { // 미사일 연기 꼬리
+      b.trailT -= dt;
+      if (b.trailT <= 0) { b.trailT = 0.045; spawnFx(b.pos.x, b.pos.y, b.pos.z, M_SMOKE, 1, 0.8, 0.55); }
+    }
     const steps = 4;
     let hit = false;
     for (let s = 0; s < steps && !hit; s++) {
@@ -2244,7 +2338,13 @@ function updateBolts(dt) {
         if (m) { if (!b.missile) damageMob(m, b.dmg || 3, b.vel.x, b.vel.z); hit = true; }
       }
     }
-    if (hit && b.missile) explodeAt(b.pos.x, b.pos.y, b.pos.z, b.r || 2, b.dmg || 6);
+    if (hit) {
+      if (b.missile) explodeAt(b.pos.x, b.pos.y, b.pos.z, b.r || 2, b.dmg || 6);
+      else { // 펄서 명중: 하늘색 불꽃 + 잔광
+        spawnFx(b.pos.x, b.pos.y, b.pos.z, PULSE_MAT, 7, 4, 0.28);
+        flashLight(b.pos.x, b.pos.y, b.pos.z, 0x66ccff, 2.5, 7, 0.18);
+      }
+    }
     if (hit || b.life <= 0) {
       scene.remove(b.mesh);
       bolts.splice(i, 1);
@@ -2259,24 +2359,32 @@ function updateBolts(dt) {
   }
 }
 
-// 레이저: 누르는 동안 광선을 그리고 조준한 몹에 지속 피해
-const laserGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
-const laserLine = new THREE.Line(laserGeo, new THREE.LineBasicMaterial({ color: 0x7fe6ff }));
-laserLine.visible = false;
-scene.add(laserLine);
+// 레이저: 누르는 동안 굵은 발광 빔을 그리고 조준한 몹에 지속 피해
+const laserMat = new THREE.MeshLambertMaterial({ color: 0x9feaff, emissive: 0x5fd8ff, emissiveIntensity: 1, transparent: true, opacity: 0.85 });
+const laserBeam = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), laserMat);
+laserBeam.visible = false;
+scene.add(laserBeam);
+let laserPulse = 0;
 function updateLaser(dt) {
-  if (!suit || !laserOn || !playing()) { laserLine.visible = false; return; }
+  if (!suit || !laserOn || !playing()) { laserBeam.visible = false; return; }
+  laserPulse += dt;
   const from = aimFrom();
   let end = from.clone().addScaledVector(_dir, 30);
   const m = pickMob(30);
   const hitBlock = pickBlock();
   if (m) end = new THREE.Vector3(m.pos.x, m.pos.y + m.hitH * 0.6, m.pos.z);
   else if (hitBlock) end = new THREE.Vector3(hitBlock.block.x + 0.5, hitBlock.block.y + 0.5, hitBlock.block.z + 0.5);
-  laserGeo.setFromPoints([from, end]);
-  laserLine.visible = true;
+  // 굵기가 고동치는 빔 (중점에 두고 길이만큼 늘림)
+  const len = from.clone().sub(end).length() || 0.001;
+  const w = 0.07 + Math.abs(Math.sin(laserPulse * 14)) * 0.05;
+  laserBeam.position.set((from.x + end.x) / 2, (from.y + end.y) / 2, (from.z + end.z) / 2);
+  laserBeam.scale.set(w, w, len);
+  laserBeam.lookAt(end.x, end.y, end.z);
+  laserBeam.visible = true;
   laserTick -= dt;
   if (laserTick <= 0) {
     laserTick = 0.18;
+    spawnFx(end.x, end.y, end.z, PULSE_MAT, 3, 3, 0.2); // 타격 스파크
     if (m) damageMob(m, SUIT_STATS[suitLevel].laserDmg, _dir.x * 0.3, _dir.z * 0.3);
     playSound(1200, 0.06, 'sine', 0.05);
   }
@@ -3048,6 +3156,7 @@ function loop(now) {
     updateCrops(dt);
   }
   updateLaser(dt);
+  updateFxLights(dt);
   updateMining(dt);
   updateTorchLights(dt);
   updateHighlight();
