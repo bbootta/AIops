@@ -59,6 +59,7 @@ const elCache = {};
 const doc = {
   _h: {}, pointerLockElement: null, body: makeEl('body'),
   getElementById(id) { return elCache[id] || (elCache[id] = makeEl('div')); },
+  querySelector(sel) { return elCache[sel] || (elCache[sel] = makeEl('div')); },
   createElement(tag) { return makeEl(tag); },
   addEventListener(type, fn) { (this._h[type] = this._h[type] || []).push(fn); }, removeEventListener() {},
   exitPointerLock() { doc.pointerLockElement = null; fire(doc._h.pointerlockchange); },
@@ -100,6 +101,13 @@ function runGame(saveJson, label, drive, opts) {
   // 활 차지(R) → 발사, 먹기(Q)
   fire(G.keydown, ev({ code: 'KeyR' })); step(2); fire(G.keyup, ev({ code: 'KeyR' }));
   fire(G.keydown, ev({ code: 'KeyQ' }));
+  // 🤖 아이언 슈트: 변신 → 펄서 연사 → 미사일 → 레이저 → 해제 (비행 이동 포함)
+  fire(G.keydown, ev({ code: 'KeyG' })); step(3);
+  fire(doc._h.mousedown, ev({ button: 0 })); step(8); fire(doc._h.mouseup, ev({ button: 0 }));
+  fire(doc._h.mousedown, ev({ button: 2 })); step(8); fire(doc._h.mouseup, ev({ button: 2 }));
+  fire(G.keydown, ev({ code: 'KeyR' })); step(6); fire(G.keyup, ev({ code: 'KeyR' }));
+  step(10);
+  fire(G.keydown, ev({ code: 'KeyG' })); step(2);
   // 모바일 핫바 슬라이드
   const hb = elCache['hotbar']; if (hb) { fire(hb._h.touchstart, ev({})); fire(hb._h.touchmove, ev({ clientX: 80 })); }
   fire(G.keydown, ev({ code: 'KeyC' })); fire(G.keydown, ev({ code: 'KeyC' }));

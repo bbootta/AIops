@@ -106,6 +106,7 @@
   #btnBow   { right: 164px; bottom: 158px; }
   #btnEat   { right: 164px; bottom: 84px; }
   #btnCraft { right: 90px;  bottom: 46px; width: 54px; height: 54px; }
+  #btnSuit  { left: 16px; top: 150px; width: 54px; height: 54px; }
   #btnPause { right: 16px; top: 36px; width: 48px; height: 48px; font-size: 14px; }
   body.touch .slot.selected { transform: scale(1.18); border-color: #ffd54a; }
   /* touch-action:none은 body 전역이 아니라 게임 조작 요소에만 (패널 스크롤 허용) */
@@ -224,6 +225,7 @@
 <div id="btnEat" class="tbtn touchui">🍗<span class="lbl">먹기</span></div>
 <div id="btnBow" class="tbtn touchui">🏹<span class="lbl">활</span></div>
 <div id="btnCraft" class="tbtn touchui">⚒<span class="lbl">만들기</span></div>
+<div id="btnSuit" class="tbtn touchui">🤖<span class="lbl">변신</span></div>
 <div id="btnPause" class="tbtn touchui">II<span class="lbl">멈춤</span></div>
 <div id="craft">
   <h2>제작</h2>
@@ -249,6 +251,7 @@
     W A S D : 이동 &nbsp;|&nbsp; Shift : 달리기 &nbsp;|&nbsp; Space : 점프 / 수영<br>
     좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 씨앗 심기 · 상자 열기<br>
     <b>Q : 먹기</b> (가진 음식 자동) &nbsp;|&nbsp; <b>R : 활</b> (누르면 차지, 떼면 발사)<br>
+    <b>G : 🤖 아이언 슈트 변신</b> — 3인칭 자유 비행, 좌클릭 펄서 · 우클릭 미사일 · R 레이저<br>
     1 ~ 9 : 핫바 슬롯 &nbsp;|&nbsp; C : 제작 &nbsp;|&nbsp; E : 인벤토리 &nbsp;|&nbsp; F : 비행 &nbsp;|&nbsp; M : 음악<br>
     지형은 평원·사막·눈 바이옴, 동굴엔 석탄·철·금·다이아·에메랄드 광석<br>
     밤엔 좀비·스켈레톤·크리퍼·거미·보스 출몰, 음식으로 허기(🍗)를 채워야 체력 회복<br>
@@ -1305,11 +1308,11 @@ function killMob(m) {
   spawnParticles(m.pos.x - 0.5, m.pos.y + 0.3, m.pos.z - 0.5, m.mesh.userData.bodyMat);
   playSound(330, 0.25, 'sine', 0.2);
 }
-// 레이-AABB 판정으로 조준선 위의 가장 가까운 몹을 찾음
-function pickMob() {
+// 레이-AABB 판정으로 조준선 위의 가장 가까운 몹을 찾음 (range로 사거리 지정 가능)
+function pickMob(range) {
   camera.getWorldDirection(_dir);
   const o = camera.position;
-  let best = null, bestT = REACH;
+  let best = null, bestT = range || REACH;
   for (const m of [...animals, ...zombies]) {
     const s = m.boss ? 2 : 1;
     const min = [m.pos.x - 0.45 * s, m.pos.y, m.pos.z - 0.45 * s];
@@ -1500,7 +1503,7 @@ function respawn() {
 function damage(n) {
   if (optPeace) return; // 평화 모드: 플레이어는 데미지를 입지 않음
   if (n <= 0 || health <= 0) return;
-  const red = [0, 0.3, 0.6][armor] || 0; // 방어구 피해 감소
+  const red = [0, 0.3, 0.6][suit ? 2 : armor] || 0; // 방어구(슈트는 다이아급) 피해 감소
   n = Math.max(1, Math.ceil(n * (1 - red)));
   health = Math.max(0, health - n);
   flashTimer = 0.3;
@@ -1535,7 +1538,8 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyC' && (playing() || craftOpen)) toggleCraft(!craftOpen);
   if (e.code === 'KeyM') toggleMusic();
   if (e.code === 'KeyQ' && playing()) eatBest();           // 먹기
-  if (e.code === 'KeyR' && !e.repeat) bowDown();            // 활 차지
+  if (e.code === 'KeyR' && !e.repeat) bowDown();            // 활 차지 / 레이저
+  if (e.code === 'KeyG' && !e.repeat) toggleSuit();         // 🤖 아이언 슈트 변신
 });
 addEventListener('keyup', (e) => {
   keys[e.code] = false;
@@ -1545,6 +1549,7 @@ addEventListener('keyup', (e) => {
 addEventListener('blur', () => {
   for (const k in keys) keys[k] = false;
   touchJump = false;
+  laserOn = false;
   stopAttack();
 });
 
@@ -1569,12 +1574,21 @@ function eyeInWater() {
 }
 
 function updatePlayer(dt) {
-  const swimming = !flying && inWater();
+  const flight = flying || suit; // 슈트도 비행
+  const swimming = !flight && inWater();
   const jumpHeld = keys['Space'] || touchJump;
 
   // 이동 입력 (키보드 + 터치 조이스틱)
   const forward = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
-  const right = new THREE.Vector3(-forward.z, 0, forward.x);
+  if (suit) {
+    // 슈트 비행: 보는 방향(위/아래 포함)으로 날아감
+    forward.set(
+      -Math.sin(player.yaw) * Math.cos(player.pitch),
+      Math.sin(player.pitch),
+      -Math.cos(player.yaw) * Math.cos(player.pitch)
+    );
+  }
+  const right = new THREE.Vector3(-Math.sin(player.yaw - Math.PI / 2), 0, -Math.cos(player.yaw - Math.PI / 2));
   const move = new THREE.Vector3();
   if (keys['KeyW']) move.add(forward);
   if (keys['KeyS']) move.sub(forward);
@@ -1582,13 +1596,14 @@ function updatePlayer(dt) {
   if (keys['KeyA']) move.sub(right);
   move.addScaledVector(forward, -joyVec.y).addScaledVector(right, joyVec.x);
   const running = keys['ShiftLeft'] || keys['ShiftRight'];
-  const speed = flying ? FLY_SPEED : swimming ? SWIM_SPEED : running ? RUN_SPEED : WALK_SPEED;
+  const speed = suit ? 14 : flying ? FLY_SPEED : swimming ? SWIM_SPEED : running ? RUN_SPEED : WALK_SPEED;
   if (move.lengthSq() > 0) move.normalize().multiplyScalar(speed);
   player.vel.x = move.x;
   player.vel.z = move.z;
 
-  if (flying) {
-    player.vel.y = (jumpHeld ? FLY_SPEED : 0) - (running ? FLY_SPEED : 0);
+  if (flight) {
+    if (suit) player.vel.y = move.y + (jumpHeld ? 7 : 0) - (running ? 7 : 0);
+    else player.vel.y = (jumpHeld ? FLY_SPEED : 0) - (running ? FLY_SPEED : 0);
   } else if (swimming) {
     // 물속: 가벼운 부력으로 천천히 떠오름 + Space로 위로 헤엄
     player.vel.y += 4 * dt;
@@ -1600,8 +1615,8 @@ function updatePlayer(dt) {
     player.vel.y = Math.max(player.vel.y, -50);
   }
 
-  // 낙하 거리 누적 (낙하 데미지용)
-  if (!flying && !swimming && player.vel.y < 0) fallDist -= player.vel.y * dt;
+  // 낙하 거리 누적 (낙하 데미지용) — 비행/슈트 중에는 없음
+  if (!flight && !swimming && player.vel.y < 0) fallDist -= player.vel.y * dt;
   else fallDist = 0;
 
   // 축별 이동 + 충돌 처리
@@ -1615,7 +1630,7 @@ function updatePlayer(dt) {
   // 물가에서 Space를 누른 채 벽에 닿으면 뭍으로 올라갈 수 있게 살짝 띄움
   if (swimming && hitWall && jumpHeld) player.vel.y = Math.max(player.vel.y, 6.5);
   // 자동 점프: 걷다가 한 칸 턱에 닿으면 자동으로 뛰어오름
-  if (optAutoJump && hitWall && player.onGround && !flying && !swimming) {
+  if (optAutoJump && hitWall && player.onGround && !flight && !swimming) {
     player.vel.y = 7.5;
     player.onGround = false;
   }
@@ -1681,12 +1696,29 @@ function updatePlayer(dt) {
   if (p.y < -20) respawn();
 
   // 달리기/비행 시 시야각 연출
-  const targetFov = flying ? 85 : (running && move.lengthSq() > 0 && !swimming ? 82 : 75);
+  const targetFov = suit ? 88 : flying ? 85 : (running && move.lengthSq() > 0 && !swimming ? 82 : 75);
   camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 8);
   camera.updateProjectionMatrix();
 
   camera.position.set(p.x, p.y + EYE_HEIGHT, p.z);
   camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+
+  // 슈트: 아바타 표시 + 3인칭 카메라 (뒤로 물러나되 블록에 막히면 앞으로)
+  suitMesh.position.copy(p);
+  suitMesh.rotation.y = player.yaw;
+  if (suit) {
+    const fx = -Math.sin(player.yaw) * Math.cos(player.pitch);
+    const fy = Math.sin(player.pitch);
+    const fz = -Math.cos(player.yaw) * Math.cos(player.pitch);
+    const ex = p.x, ey = p.y + EYE_HEIGHT, ez = p.z;
+    let cx = ex, cy = ey, cz = ez;
+    for (let d = 0.4; d <= 4.4; d += 0.4) {
+      const nx = ex - fx * d, ny = ey - fy * d + d * 0.12, nz = ez - fz * d;
+      if (occludes(getBlock(Math.floor(nx), Math.floor(ny), Math.floor(nz)))) break;
+      cx = nx; cy = ny; cz = nz;
+    }
+    camera.position.set(cx, cy, cz);
+  }
 }
 
 // 하트/산소 HUD + 피격 효과
@@ -1699,7 +1731,8 @@ function updateHud(dt) {
   if (armor > 0) html += '<br>' + '🛡'.repeat(armor * 3);
   if (tools.bow) html += '<br>🏹 ' + (inv[ITEM.ARROW] | 0);
   if (air < MAX_AIR) html += '<br>' + '🫧'.repeat(Math.max(0, Math.ceil(air)));
-  if (flying) html += '<br>✈ 비행 중';
+  if (suit) html += '<br>🤖 아이언 슈트';
+  else if (flying) html += '<br>✈ 비행 중';
   if (html !== lastHud) { healthEl.innerHTML = html; lastHud = html; }
 }
 
@@ -1988,6 +2021,151 @@ function updateTutorial(dt) {
 tutEl.addEventListener('click', tutDone);
 tutEl.addEventListener('touchstart', (e) => { e.preventDefault(); tutDone(); });
 
+// ---------- 🤖 아이언 슈트 (변신 · 3인칭 · 자유 비행 · 펄서/미사일/레이저) ----------
+let suit = false;
+let pulseHeld = false, pulseT = 0, laserOn = false, laserTick = 0;
+const SUIT_RED = new THREE.MeshLambertMaterial({ color: 0xb3151d });
+const SUIT_GOLD = new THREE.MeshLambertMaterial({ color: 0xd9a916 });
+const SUIT_CORE = new THREE.MeshLambertMaterial({ color: 0x9fdcff, emissive: 0x66ccff, emissiveIntensity: 1 });
+function makeSuitMesh() {
+  const g = new THREE.Group();
+  for (const lx of [-0.12, 0.12]) {
+    const leg = new THREE.Mesh(ZG_LEG, SUIT_RED);
+    leg.position.set(lx, 0.35, 0);
+    g.add(leg);
+  }
+  const body = new THREE.Mesh(ZG_BODY, SUIT_RED);
+  body.position.y = 1.05;
+  g.add(body);
+  const core = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.06), SUIT_CORE); // 가슴 코어
+  core.position.set(0, 1.15, -0.16);
+  g.add(core);
+  const head = new THREE.Mesh(ZG_HEAD, SUIT_RED);
+  head.position.y = 1.65;
+  g.add(head);
+  const face = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.3, 0.06), SUIT_GOLD); // 금색 페이스플레이트
+  face.position.set(0, 1.65, -0.23);
+  g.add(face);
+  for (const ax of [-0.33, 0.33]) {
+    const arm = new THREE.Mesh(ZG_ARM, SUIT_RED);
+    arm.position.set(ax, 1.0, 0);
+    arm.rotation.x = Math.PI / 2; // 팔은 아래로
+    g.add(arm);
+  }
+  g.visible = false;
+  scene.add(g);
+  return g;
+}
+const suitMesh = makeSuitMesh();
+function toggleSuit() {
+  if (!playing()) return;
+  suit = !suit;
+  suitMesh.visible = suit;
+  stopAttack();
+  cancelCharge();
+  laserOn = false;
+  pulseHeld = false;
+  if (suit) { player.vel.set(0, 0, 0); flying = false; }
+  playSound(suit ? 520 : 200, 0.3, 'sawtooth', 0.2);
+  // 모바일 버튼 라벨 전환
+  const lbl = (id, t) => { const el = document.querySelector('#' + id + ' .lbl'); if (el) el.textContent = t; };
+  lbl('btnBreak', suit ? '펄서' : '캐기');
+  lbl('btnPlace', suit ? '미사일' : '놓기');
+  lbl('btnBow', suit ? '레이저' : '활');
+}
+bindBtn('btnSuit', () => toggleSuit());
+
+// 무기 발사체 (펄서 / 미사일)
+const bolts = [];
+const PULSE_MAT = new THREE.MeshLambertMaterial({ color: 0xbfefff, emissive: 0x66ccff, emissiveIntensity: 1 });
+const MISSILE_MAT = new THREE.MeshLambertMaterial({ color: 0xcccccc, emissive: 0xff8833, emissiveIntensity: 0.4 });
+const pulseGeo = new THREE.BoxGeometry(0.14, 0.14, 0.4);
+const missileGeo = new THREE.BoxGeometry(0.16, 0.16, 0.6);
+function aimFrom() { // 조준 방향(_dir) 갱신 + 가슴 위치 반환
+  camera.getWorldDirection(_dir);
+  return new THREE.Vector3(player.pos.x, player.pos.y + 1.3, player.pos.z);
+}
+function firePulse() {
+  if (bolts.length > 30) return;
+  const pos = aimFrom();
+  const mesh = new THREE.Mesh(pulseGeo, PULSE_MAT);
+  mesh.position.copy(pos);
+  mesh.lookAt(pos.clone().add(_dir));
+  scene.add(mesh);
+  bolts.push({ mesh, pos, vel: _dir.clone().multiplyScalar(42), life: 1.2, missile: false });
+  playSound(880, 0.08, 'square', 0.12);
+}
+function fireMissile() {
+  if (bolts.length > 30) return;
+  const pos = aimFrom();
+  const mesh = new THREE.Mesh(missileGeo, MISSILE_MAT);
+  mesh.position.copy(pos);
+  mesh.lookAt(pos.clone().add(_dir));
+  scene.add(mesh);
+  bolts.push({ mesh, pos, vel: _dir.clone().multiplyScalar(24), life: 4, missile: true });
+  playSound(160, 0.25, 'sawtooth', 0.2);
+}
+function explodeAt(x, y, z) { // 미사일 폭발: 블록 파괴 + 주변 몹 피해
+  destroyBlocks(Math.floor(x), Math.floor(y), Math.floor(z), 2);
+  for (const m of [...animals, ...zombies]) {
+    const d = Math.hypot(m.pos.x - x, m.pos.y - y, m.pos.z - z);
+    if (d < 4.5) damageMob(m, 6, m.pos.x - x, m.pos.z - z);
+  }
+  for (let i = 0; i < 2; i++) spawnParticles(x - 0.5, y - 0.5 + i * 0.5, z - 0.5, BLOCK.NETHERRACK);
+  playSound(45, 0.5, 'sawtooth', 0.35);
+}
+function updateBolts(dt) {
+  for (let i = bolts.length - 1; i >= 0; i--) {
+    const b = bolts[i];
+    b.life -= dt;
+    const steps = 4;
+    let hit = false;
+    for (let s = 0; s < steps && !hit; s++) {
+      b.pos.addScaledVector(b.vel, dt / steps);
+      if (occludes(getBlock(Math.floor(b.pos.x), Math.floor(b.pos.y), Math.floor(b.pos.z)))) hit = true;
+      else {
+        const m = mobAABBHit(b.pos);
+        if (m) { if (!b.missile) damageMob(m, 3, b.vel.x, b.vel.z); hit = true; }
+      }
+    }
+    if (hit && b.missile) explodeAt(b.pos.x, b.pos.y, b.pos.z);
+    if (hit || b.life <= 0) {
+      scene.remove(b.mesh);
+      bolts.splice(i, 1);
+    } else {
+      b.mesh.position.copy(b.pos);
+    }
+  }
+  // 펄서 연사 (버튼을 누르고 있는 동안)
+  if (suit && pulseHeld && playing()) {
+    pulseT -= dt;
+    if (pulseT <= 0) { pulseT = 0.22; firePulse(); }
+  }
+}
+
+// 레이저: 누르는 동안 광선을 그리고 조준한 몹에 지속 피해
+const laserGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+const laserLine = new THREE.Line(laserGeo, new THREE.LineBasicMaterial({ color: 0x7fe6ff }));
+laserLine.visible = false;
+scene.add(laserLine);
+function updateLaser(dt) {
+  if (!suit || !laserOn || !playing()) { laserLine.visible = false; return; }
+  const from = aimFrom();
+  let end = from.clone().addScaledVector(_dir, 30);
+  const m = pickMob(30);
+  const hitBlock = pickBlock();
+  if (m) end = new THREE.Vector3(m.pos.x, m.pos.y + m.hitH * 0.6, m.pos.z);
+  else if (hitBlock) end = new THREE.Vector3(hitBlock.block.x + 0.5, hitBlock.block.y + 0.5, hitBlock.block.z + 0.5);
+  laserGeo.setFromPoints([from, end]);
+  laserLine.visible = true;
+  laserTick -= dt;
+  if (laserTick <= 0) {
+    laserTick = 0.18;
+    if (m) damageMob(m, 1, _dir.x * 0.3, _dir.z * 0.3);
+    playSound(1200, 0.06, 'sine', 0.05);
+  }
+}
+
 // ---------- 블록 조준 (복셀 DDA 레이마칭) ----------
 const _dir = new THREE.Vector3();
 function pickBlock() {
@@ -2058,10 +2236,12 @@ let mineProgress = 0;
 
 function startAttack() {
   if (!playing()) return;
+  if (suit) { pulseHeld = true; pulseT = 0.22; firePulse(); return; } // 슈트: 펄서
   if (attackMob()) return; // 조준선에 동물/좀비가 있으면 즉시 공격
   mining = true;
 }
 function stopAttack() {
+  pulseHeld = false;
   mining = false;
   mineTarget = null;
   mineProgress = 0;
@@ -2203,14 +2383,21 @@ const chargeBarEl = document.getElementById('chargeBar');
 const chargeFillEl = document.getElementById('chargeFill');
 function rightDown() {
   if (!playing()) return;
+  if (suit) { fireMissile(); return; } // 슈트: 미사일
   const aim = pickBlock();
   if (aim && getBlock(aim.block.x, aim.block.y, aim.block.z) === BLOCK.CHEST) { openChest(aim.block.x, aim.block.y, aim.block.z); return; }
   doPlace();
 }
 function cancelCharge() { charging = false; chargeT = 0; }
-// 활 차지 시작/발사 (R 키 또는 모바일 활 버튼)
-function bowDown() { if (playing() && tools.bow && inv[ITEM.ARROW] > 0) { charging = true; chargeT = 0; } }
-function bowUp() { if (charging) { fireArrow(chargeT / 1.2); charging = false; chargeT = 0; } }
+// 활 차지 시작/발사 (R 키 또는 모바일 활 버튼) — 슈트 중에는 레이저
+function bowDown() {
+  if (suit) { if (playing()) laserOn = true; return; }
+  if (playing() && tools.bow && inv[ITEM.ARROW] > 0) { charging = true; chargeT = 0; }
+}
+function bowUp() {
+  if (suit) { laserOn = false; return; }
+  if (charging) { fireArrow(chargeT / 1.2); charging = false; chargeT = 0; }
+}
 document.addEventListener('mousedown', (e) => {
   if (!locked) return;
   if (e.button === 0) startAttack();
@@ -2737,8 +2924,10 @@ function loop(now) {
     updateAnimals(dt);
     updateZombies(dt);
     updateArrows(dt);
+    updateBolts(dt);
     updateCrops(dt);
   }
+  updateLaser(dt);
   updateMining(dt);
   updateTorchLights(dt);
   updateHighlight();
