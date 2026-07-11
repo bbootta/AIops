@@ -1726,18 +1726,19 @@ function updatePlayer(dt) {
     const hover = !player.onGround && cruise < 0.25;
     suitMesh.position.set(p.x, p.y + u.pivotY + (hover ? Math.sin(suitTime * 3.2) * 0.06 : 0), p.z);
     suitMesh.rotation.y = player.yaw;
-    suitMesh.rotation.x = suitTilt;
-    // 팔: 순항 시 몸을 따라 뒤로 스윕, 사격 중엔 오른팔을 조준 방향으로 뻗음
+    suitMesh.rotation.x = -suitTilt; // 음수 = 얼굴이 진행 방향(아래)을 향해 엎드림
+    // 팔: 엎드리면 팔은 자연히 몸을 따라 뒤로 가므로 살짝만 들고, 사격 중엔 오른팔을 조준 방향으로
     const firing = pulseHeld || laserOn;
-    const sweep = -(0.35 + suitTilt * 0.75) * cruise;
+    const sweep = -(0.15 + suitTilt * 0.25) * cruise; // 등 쪽으로 살짝
+    const armAim = 1.57 + suitTilt * 0.9;             // 서 있으면 정면(90°), 엎드릴수록 머리 방향
     const lerp8 = Math.min(1, dt * 8);
     u.armL.rotation.x += (sweep - u.armL.rotation.x) * lerp8;
-    u.armR.rotation.x += ((firing ? -1.45 + suitTilt * 0.4 : sweep) - u.armR.rotation.x) * lerp8;
+    u.armR.rotation.x += ((firing ? armAim : sweep) - u.armR.rotation.x) * lerp8;
     u.armL.rotation.z = 0.1 * cruise;
     u.armR.rotation.z = firing ? 0 : -0.1 * cruise;
-    // 다리: 순항 시 몸과 일직선이 되도록 살짝 뒤로 (좌우 미세 차이로 자연스럽게)
-    u.legL.rotation.x += (cruise * 0.22 - u.legL.rotation.x) * lerp8;
-    u.legR.rotation.x += (cruise * 0.15 - u.legR.rotation.x) * lerp8;
+    // 다리: 몸과 일직선 (좌우 미세 차이로 자연스럽게)
+    u.legL.rotation.x += (-cruise * 0.1 - u.legL.rotation.x) * lerp8;
+    u.legR.rotation.x += (-cruise * 0.04 - u.legR.rotation.x) * lerp8;
     const boost = !player.onGround || Math.abs(player.vel.y) > 0.5;
     for (const f of u.flames) {
       f.visible = boost;
@@ -2136,6 +2137,7 @@ function makeSuitMesh(s, bulk) {
     arms.push(arm);
   }
   root.scale.setScalar(s);
+  root.rotation.order = 'YXZ'; // 어느 방향을 봐도 진행 방향으로 기울도록 (카메라와 동일)
   root.userData = { flames, armL: arms[0], armR: arms[1], legL: legs[0], legR: legs[1], pivotY: 1.1 * s };
   root.visible = false;
   scene.add(root);
