@@ -1712,15 +1712,34 @@ function updatePlayer(dt) {
   camera.position.set(p.x, p.y + EYE_HEIGHT, p.z);
   camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
 
-  // 슈트: 아바타 표시(기울임·부스터 불꽃) + 3인칭 카메라 (프리셋 각도/줌, 블록에 막히면 앞으로)
+  // 슈트: 실제 같은 비행 자세 + 3인칭 카메라 (프리셋 각도/줌, 블록에 막히면 앞으로)
   if (suit) {
-    suitMesh.position.copy(p);
-    suitMesh.rotation.y = player.yaw;
     const st = SUIT_STATS[suitLevel];
+    const u = suitMesh.userData;
+    suitTime += dt;
     const hs = Math.hypot(player.vel.x, player.vel.z);
-    suitMesh.rotation.x = Math.min(0.45, (hs / st.speed) * 0.5); // 빠를수록 앞으로 기울임
+    const climb = player.vel.y / st.speed;
+    // 빠를수록 엎드린 슈퍼히어로 자세(~77°), 상승 시 몸을 세우고, 급강하 시 더 숙임
+    const tiltTarget = Math.max(-0.25, Math.min(1.35, (hs / st.speed) * 1.35 - climb * 0.5));
+    suitTilt += (tiltTarget - suitTilt) * Math.min(1, dt * 6);
+    const cruise = Math.min(1, hs / st.speed + Math.abs(climb) * 0.4); // 0=호버 1=순항
+    const hover = !player.onGround && cruise < 0.25;
+    suitMesh.position.set(p.x, p.y + u.pivotY + (hover ? Math.sin(suitTime * 3.2) * 0.06 : 0), p.z);
+    suitMesh.rotation.y = player.yaw;
+    suitMesh.rotation.x = suitTilt;
+    // 팔: 순항 시 몸을 따라 뒤로 스윕, 사격 중엔 오른팔을 조준 방향으로 뻗음
+    const firing = pulseHeld || laserOn;
+    const sweep = -(0.35 + suitTilt * 0.75) * cruise;
+    const lerp8 = Math.min(1, dt * 8);
+    u.armL.rotation.x += (sweep - u.armL.rotation.x) * lerp8;
+    u.armR.rotation.x += ((firing ? -1.45 + suitTilt * 0.4 : sweep) - u.armR.rotation.x) * lerp8;
+    u.armL.rotation.z = 0.1 * cruise;
+    u.armR.rotation.z = firing ? 0 : -0.1 * cruise;
+    // 다리: 순항 시 몸과 일직선이 되도록 살짝 뒤로 (좌우 미세 차이로 자연스럽게)
+    u.legL.rotation.x += (cruise * 0.22 - u.legL.rotation.x) * lerp8;
+    u.legR.rotation.x += (cruise * 0.15 - u.legR.rotation.x) * lerp8;
     const boost = !player.onGround || Math.abs(player.vel.y) > 0.5;
-    for (const f of suitMesh.userData.flames) {
+    for (const f of u.flames) {
       f.visible = boost;
       if (boost) f.scale.y = 0.7 + Math.random() * 0.7; // 불꽃 일렁임
     }
@@ -2057,43 +2076,74 @@ const M_GOLD = new THREE.MeshLambertMaterial({ color: 0xd9a916 });
 const M_CORE = new THREE.MeshLambertMaterial({ color: 0xcfefff, emissive: 0x7fd4ff, emissiveIntensity: 1 });
 const M_EYE = new THREE.MeshLambertMaterial({ color: 0xeaffff, emissive: 0xaee8ff, emissiveIntensity: 1 });
 const M_FLAME = new THREE.MeshLambertMaterial({ color: 0xffd27f, emissive: 0xff8c1a, emissiveIntensity: 1, transparent: true, opacity: 0.9 });
-function sbox(g, mat, w, h, d, x, y, z) {
+function sbox(parent, mat, w, h, d, x, y, z) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.position.set(x, y, z);
-  g.add(m);
+  parent.add(m);
   return m;
 }
-// s: 전체 크기 배율, bulk: 몸통/팔다리 두께 배율 (헐크버스터는 훨씬 두껍게)
+// 관절 리그 슈트. s: 전체 크기 배율, bulk: 덩치 배율 (헐크버스터는 훨씬 두껍게)
+// 루트 원점을 가슴 높이에 두어 비행 기울임이 몸통 중심으로 회전함
 function makeSuitMesh(s, bulk) {
+  const root = new THREE.Group();
   const g = new THREE.Group();
+  g.position.y = -1.1;
+  root.add(g);
   const flames = [];
-  for (const lx of [-0.15 * bulk, 0.15 * bulk]) {
-    sbox(g, M_RED, 0.2 * bulk, 0.5, 0.2 * bulk, lx, 0.55, 0);            // 허벅지
-    sbox(g, M_GOLD, 0.24 * bulk, 0.28, 0.27 * bulk, lx, 0.14, -0.02);    // 금색 부츠
-    flames.push(sbox(g, M_FLAME, 0.13 * bulk, 0.32, 0.13 * bulk, lx, -0.18, 0)); // 부스터 불꽃
+
+  // 다리 (골반 피벗 그룹 → 순항 시 뒤로 뻗음)
+  const legs = [];
+  for (const side of [-1, 1]) {
+    const leg = new THREE.Group();
+    leg.position.set(side * 0.15 * bulk, 0.86, 0);
+    sbox(leg, M_RED, 0.2 * bulk, 0.34, 0.2 * bulk, 0, -0.2, 0);                 // 허벅지
+    sbox(leg, M_DRED, 0.03, 0.3, 0.21 * bulk, side * 0.115 * bulk, -0.2, 0);    // 허벅지 옆 라인
+    sbox(leg, M_GOLD, 0.14 * bulk, 0.08, 0.17 * bulk, 0, -0.4, -0.03);          // 무릎
+    sbox(leg, M_RED, 0.17 * bulk, 0.3, 0.18 * bulk, 0, -0.56, 0);               // 정강이
+    sbox(leg, M_GOLD, 0.22 * bulk, 0.16, 0.28 * bulk, 0, -0.78, -0.03);         // 부츠
+    flames.push(sbox(leg, M_FLAME, 0.12 * bulk, 0.34, 0.12 * bulk, 0, -1.0, 0)); // 부스터 불꽃
+    g.add(leg);
+    legs.push(leg);
   }
-  sbox(g, M_DRED, 0.5 * bulk, 0.16, 0.3 * bulk, 0, 0.86, 0);             // 골반
-  sbox(g, M_RED, 0.62 * bulk, 0.5, 0.36 * bulk, 0, 1.22, 0);             // 가슴
-  sbox(g, M_GOLD, 0.64 * bulk, 0.1, 0.38 * bulk, 0, 0.99, 0);            // 허리 금 장식
-  sbox(g, M_CORE, 0.15, 0.15, 0.05, 0, 1.3, -0.19 * bulk);               // 아크 코어
-  for (const sx of [-0.43 * bulk, 0.43 * bulk]) sbox(g, M_GOLD, 0.26 * bulk, 0.2, 0.32 * bulk, sx, 1.5, 0); // 어깨
-  for (const ax of [-0.45 * bulk, 0.45 * bulk]) {
-    sbox(g, M_RED, 0.17 * bulk, 0.42, 0.17 * bulk, ax, 1.16, 0);         // 위팔
-    sbox(g, M_GOLD, 0.15 * bulk, 0.3, 0.15 * bulk, ax, 0.82, 0);         // 아래팔
-    sbox(g, M_CORE, 0.1 * bulk, 0.05, 0.1 * bulk, ax, 0.65, 0);          // 손바닥 리펄서
+  // 몸통 (골반·복부·가슴 3분절 + 금 라인)
+  sbox(g, M_DRED, 0.46 * bulk, 0.14, 0.3 * bulk, 0, 0.9, 0);                    // 골반
+  sbox(g, M_RED, 0.5 * bulk, 0.18, 0.32 * bulk, 0, 1.04, 0);                    // 복부
+  sbox(g, M_RED, 0.6 * bulk, 0.4, 0.36 * bulk, 0, 1.32, 0);                     // 가슴
+  sbox(g, M_GOLD, 0.62 * bulk, 0.07, 0.37 * bulk, 0, 1.13, 0);                  // 가슴 하단 금 라인
+  sbox(g, M_GOLD, 0.34 * bulk, 0.1, 0.05, 0, 1.45, -0.185 * bulk);              // 상부 금 플레이트
+  sbox(g, M_CORE, 0.14, 0.14, 0.05, 0, 1.3, -0.19 * bulk);                      // 아크 코어
+  sbox(g, M_DRED, 0.44 * bulk, 0.4, 0.06, 0, 1.32, 0.2 * bulk);                 // 등판
+  for (const bx of [-0.12, 0.12]) sbox(g, M_GOLD, 0.09, 0.16, 0.09, bx * bulk, 1.2, 0.24 * bulk); // 등 추진 노즐
+  // 머리 (헬멧 + 크라운 + 페이스플레이트 + 두 눈 + 턱 가드)
+  sbox(g, M_RED, 0.3, 0.3, 0.3, 0, 1.78, 0);
+  sbox(g, M_RED, 0.24, 0.08, 0.24, 0, 1.95, 0);
+  sbox(g, M_GOLD, 0.22, 0.22, 0.05, 0, 1.76, -0.165);
+  for (const ex of [-0.06, 0.06]) sbox(g, M_EYE, 0.055, 0.032, 0.02, ex, 1.81, -0.192);
+  sbox(g, M_GOLD, 0.16, 0.05, 0.06, 0, 1.665, -0.16);
+  // 팔 (어깨 피벗 그룹 → 순항 시 뒤로 스윕, 사격 시 앞으로)
+  const arms = [];
+  for (const side of [-1, 1]) {
+    const arm = new THREE.Group();
+    arm.position.set(side * 0.42 * bulk, 1.48, 0);
+    sbox(arm, M_GOLD, 0.26 * bulk, 0.16, 0.3 * bulk, 0, 0.02, 0);               // 어깨 갑주
+    sbox(arm, M_GOLD, 0.2 * bulk, 0.08, 0.24 * bulk, 0, 0.12, 0);               // 어깨 캡
+    sbox(arm, M_RED, 0.16 * bulk, 0.3, 0.16 * bulk, 0, -0.2, 0);                // 위팔
+    sbox(arm, M_RED, 0.14 * bulk, 0.26, 0.14 * bulk, 0, -0.48, 0);              // 아래팔
+    sbox(arm, M_GOLD, 0.02, 0.14, 0.1 * bulk, side * 0.08 * bulk, -0.48, 0.02); // 팔 핀
+    sbox(arm, M_RED, 0.13 * bulk, 0.1, 0.13 * bulk, 0, -0.66, 0);               // 주먹
+    sbox(arm, M_CORE, 0.09 * bulk, 0.03, 0.09 * bulk, 0, -0.72, 0);             // 손바닥 리펄서
+    g.add(arm);
+    arms.push(arm);
   }
-  sbox(g, M_RED, 0.34, 0.34, 0.34, 0, 1.76, 0);                          // 헬멧
-  sbox(g, M_GOLD, 0.26, 0.24, 0.06, 0, 1.74, -0.18);                     // 페이스플레이트
-  sbox(g, M_EYE, 0.2, 0.045, 0.02, 0, 1.79, -0.215);                     // 발광 눈
-  for (const bx of [-0.14, 0.14]) sbox(g, M_DRED, 0.12, 0.3, 0.12, bx * bulk, 1.35, 0.2 * bulk); // 등 부스터
-  g.scale.setScalar(s);
-  g.userData.flames = flames;
-  g.visible = false;
-  scene.add(g);
-  return g;
+  root.scale.setScalar(s);
+  root.userData = { flames, armL: arms[0], armR: arms[1], legL: legs[0], legR: legs[1], pivotY: 1.1 * s };
+  root.visible = false;
+  scene.add(root);
+  return root;
 }
 const suitMeshes = [null, makeSuitMesh(1, 1), makeSuitMesh(1.75, 1.85)];
 let suitMesh = suitMeshes[1]; // 현재 표시 중인 슈트 (레벨 0일 땐 숨김)
+let suitTilt = 0, suitTime = 0; // 비행 자세 기울기 / 애니메이션 시계
 
 // 3인칭 카메라 프리셋 (V 키 / 📷 버튼으로 순환, 휠로 줌)
 const CAM_PRESETS = [
@@ -2124,6 +2174,7 @@ function toggleSuit() {
   pulseHeld = false;
   camPreset = 0;
   camZoom = 1;
+  suitTilt = 0;
   if (suit) { player.vel.set(0, 0, 0); flying = false; }
   playSound(suitLevel === 0 ? 200 : suitLevel === 1 ? 520 : 320, 0.35, 'sawtooth', 0.22);
   // 모바일 버튼 라벨 전환
