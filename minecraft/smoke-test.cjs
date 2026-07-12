@@ -112,11 +112,17 @@ function runGame(saveJson, label, drive, opts) {
   fire(G.keydown, ev({ code: 'AltLeft' }));
   fire(doc._h.mousemove, ev({ movementX: 40, movementY: 15 })); step(3);
   fire(G.keyup, ev({ code: 'AltLeft' }));
-  // 🦾 변신 2단계(헐크버스터): 강화 펄서/미사일 → 해제
+  // 🦾 변신 2단계(헐크버스터): 강화 펄서/미사일
   fire(G.keydown, ev({ code: 'KeyG' })); step(3);
   fire(doc._h.mousedown, ev({ button: 0 })); step(8); fire(doc._h.mouseup, ev({ button: 0 }));
   fire(doc._h.mousedown, ev({ button: 2 })); step(10); fire(doc._h.mouseup, ev({ button: 2 }));
   step(8);
+  // 🔮 변신 3단계(닥터 스트레인지): 마법 미사일 → 순간이동 → 시간 정지 → 해제
+  fire(G.keydown, ev({ code: 'KeyG' })); step(3);
+  fire(doc._h.mousedown, ev({ button: 0 })); step(6); fire(doc._h.mouseup, ev({ button: 0 }));
+  fire(doc._h.mousedown, ev({ button: 2 })); step(3); fire(doc._h.mouseup, ev({ button: 2 }));
+  fire(G.keydown, ev({ code: 'KeyR' })); step(8); fire(G.keyup, ev({ code: 'KeyR' }));
+  step(5);
   fire(G.keydown, ev({ code: 'KeyG' })); step(2);
   // 모바일 핫바 슬라이드
   const hb = elCache['hotbar']; if (hb) { fire(hb._h.touchstart, ev({})); fire(hb._h.touchmove, ev({ clientX: 80 })); }

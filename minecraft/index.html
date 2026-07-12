@@ -216,7 +216,7 @@
 <div id="clock"></div>
 <canvas id="minimap"></canvas>
 <div id="health"></div>
-<div id="bossBar">☠ 좀비 군주<div class="track"><div id="bossFill"></div></div></div>
+<div id="bossBar"><span id="bossName">☠ 좀비 군주</span><div class="track"><div id="bossFill"></div></div></div>
 <div id="tut"></div>
 <div id="damageFlash"></div>
 <div id="joy" class="touchui"><div id="joyStick"></div></div>
@@ -253,11 +253,12 @@
     W A S D : 이동 &nbsp;|&nbsp; Shift : 달리기 &nbsp;|&nbsp; Space : 점프 / 수영<br>
     좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 씨앗 심기 · 상자 열기<br>
     <b>Q : 먹기</b> (가진 음식 자동) &nbsp;|&nbsp; <b>R : 활</b> (누르면 차지, 떼면 발사)<br>
-    <b>G : 🤖 변신</b> (아이언 슈트 → 🦾 헐크버스터) — 3인칭 자유 비행, 좌클릭 펄서 · 우클릭 미사일 · R 레이저<br>
+    <b>G : 변신</b> 🤖아이언 → 🦾헐크버스터 → 🔮닥터 스트레인지 — 3인칭 자유 비행<br>
+    슈트: 좌클릭 펄서 · 우클릭 미사일 · R 레이저 &nbsp;|&nbsp; 🔮: 마법 미사일 · 순간이동 · R 시간정지<br>
     <b>V / 📷 : 카메라 각도</b> &nbsp;|&nbsp; <b>Alt+마우스 : 자유 궤도</b> &nbsp;|&nbsp; 휠 : 줌 &nbsp;|&nbsp; 모바일 : 두 손가락 드래그·핀치<br>
     1 ~ 9 : 핫바 슬롯 &nbsp;|&nbsp; C : 제작 &nbsp;|&nbsp; E : 인벤토리 &nbsp;|&nbsp; F : 비행 &nbsp;|&nbsp; M : 음악<br>
     지형은 평원·사막·눈·정글·산악·버섯 들판 6가지 바이옴, 동굴엔 5종 광석<br>
-    밤엔 좀비·스켈레톤·크리퍼·거미·보스 출몰, 음식으로 허기(🍗)를 채워야 체력 회복<br>
+    밤엔 좀비·스켈레톤·크리퍼·거미·어둠 마법사, 보스로 좀비 군주와 🌪위더 스톰 출몰<br>
     나무→판자→곡괭이·검·활·상자, 철/다이아로 갑옷, 금→황금사과, 다이아로 포탈<br>
     모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼(먹기🍗·활🏹 포함)<br>
     아이와 함께라면 아래 설정에서 <b>🧒 평화 모드</b>를 켜 보세요 (몬스터·배고픔 없음)<br>
@@ -286,7 +287,7 @@
 import * as THREE from 'three';
 
 // ---------- 상수 ----------
-const WORLD_SIZE = 128;         // 가로/세로 블록 수
+const WORLD_SIZE = 192;         // 가로/세로 블록 수
 const CHUNK = 16;               // 청크 한 변 크기
 const Y_MAX = 48;               // 최대 건설 높이
 const SEA_LEVEL = 8;            // 해수면 높이
@@ -317,7 +318,7 @@ let lookSens = optSens * 0.000125; // 슬라이더 20 → 0.0025 (기존 기본�
 let masterVol = optVol / 100;
 // 월드 시드 / 월드젠 버전: 시드나 지형 생성 규칙이 바뀌면 기존 저장은 무효화한다
 const WORLD_SEED = 1337 + SLOT * 9973;
-const WORLD_VER = 4; // v4: 정글·산악·버섯 바이옴, 산 융기 지형, 거대 버섯
+const WORLD_VER = 5; // v5: 월드 192x192 확장
 
 const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18, SNOW: 19, CHEST: 20, MUSH_CAP: 21 };
 // 블록이 아닌 아이템 (인벤토리 전용)
@@ -566,7 +567,7 @@ function generateWorld() {
     }
   }
   // 식생 심기 (바이옴별: 정글은 크고 빽빽한 나무, 버섯 들판은 거대 버섯)
-  for (let i = 0; i < 280; i++) {
+  for (let i = 0; i < 620; i++) {
     const x = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
     const z = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
     const h = terrainHeight(x, z);
@@ -1030,7 +1031,7 @@ function makeAnimalMesh(type) {
 }
 function spawnAnimals() {
   const half = WORLD_SIZE / 2;
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 28; i++) {
     const x = Math.floor(rand() * (WORLD_SIZE - 16)) - half + 8;
     const z = Math.floor(rand() * (WORLD_SIZE - 16)) - half + 8;
     const h = terrainHeight(x, z);
@@ -1103,6 +1104,7 @@ function stepMob(m, dt, speed) {
 function updateAnimals(dt) {
   const half = WORLD_SIZE / 2;
   for (const a of animals) {
+    if (timeStop) { updateHpBar(a); continue; } // 🔮 시간 정지
     a.timer -= dt;
     if (a.timer <= 0) {
       a.timer = 2 + Math.random() * 4;
@@ -1174,6 +1176,102 @@ function makeSkeletonMesh() {
   g.userData.bodyMat = SKEL_BONE;
   return g;
 }
+// 어둠 마법사: 보라 로브 + 뾰족 모자, 마법 구체를 던지는 원거리 적
+const MAGE_ROBE = new THREE.MeshLambertMaterial({ color: 0x4a2a6e });
+const MAGE_DARK = new THREE.MeshLambertMaterial({ color: 0x2c1843 });
+const MAGE_SKIN = new THREE.MeshLambertMaterial({ color: 0xcfd2be });
+function makeMageMesh() {
+  const g = new THREE.Group();
+  const skirt = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.8, 0.34), MAGE_ROBE); // 치마형 로브
+  skirt.position.y = 0.55;
+  g.add(skirt);
+  const body = new THREE.Mesh(ZG_BODY, MAGE_DARK);
+  body.position.y = 1.15;
+  g.add(body);
+  const head = new THREE.Mesh(ZG_HEAD, MAGE_SKIN);
+  head.position.y = 1.68;
+  g.add(head);
+  const brim = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.06, 0.56), MAGE_DARK); // 모자챙
+  brim.position.y = 1.92;
+  g.add(brim);
+  const cone = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.34, 0.26), MAGE_ROBE); // 모자 꼭대기
+  cone.position.y = 2.1;
+  g.add(cone);
+  for (const ax of [-0.33, 0.33]) {
+    const arm = new THREE.Mesh(ZG_ARM, MAGE_ROBE);
+    arm.position.set(ax, 1.3, -0.3);
+    g.add(arm);
+  }
+  g.userData.bodyMat = MAGE_ROBE;
+  return g;
+}
+// 화염 임프 (네더): 작고 빠르며 불덩이를 던짐
+const IMP_MAT = new THREE.MeshLambertMaterial({ color: 0xc2452a });
+const IMP_HORN = new THREE.MeshLambertMaterial({ color: 0xe8d8a0 });
+function makeImpMesh() {
+  const g = new THREE.Group();
+  for (const lx of [-0.1, 0.1]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.4, 0.14), IMP_MAT);
+    leg.position.set(lx, 0.2, 0);
+    g.add(leg);
+  }
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.26), IMP_MAT);
+  body.position.y = 0.68;
+  g.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.32, 0.32), IMP_MAT);
+  head.position.y = 1.1;
+  g.add(head);
+  for (const hx of [-0.12, 0.12]) {
+    const horn = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.18, 0.07), IMP_HORN); // 뿔
+    horn.position.set(hx, 1.32, 0);
+    g.add(horn);
+  }
+  const eye = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.05, 0.02), M_EYE);
+  eye.position.set(0, 1.12, -0.17);
+  g.add(eye);
+  g.userData.bodyMat = IMP_MAT;
+  return g;
+}
+// 🌪 위더 스톰: 머리 셋 달린 거대 부유 괴수 (슈퍼보스)
+const WITHER_MAT = new THREE.MeshLambertMaterial({ color: 0x1c1c22 });
+const WITHER_DARK = new THREE.MeshLambertMaterial({ color: 0x0d0d12 });
+const WITHER_EYE = new THREE.MeshLambertMaterial({ color: 0xd070ff, emissive: 0xa040e0, emissiveIntensity: 1 });
+function makeWitherMesh() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.4, 1.6), WITHER_MAT); // 몸통
+  body.position.y = 2.2;
+  g.add(body);
+  const spine = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.6, 1.0), WITHER_DARK); // 하부 척추
+  spine.position.y = 0.8;
+  g.add(spine);
+  // 중앙 큰 머리 + 좌우 작은 머리
+  const heads = [[0, 4.2, 0, 1.3], [-1.5, 3.8, 0, 0.8], [1.5, 3.8, 0, 0.8]];
+  for (const [hx, hy, hz, hs] of heads) {
+    const head = new THREE.Mesh(new THREE.BoxGeometry(hs, hs, hs), WITHER_MAT);
+    head.position.set(hx, hy, hz);
+    g.add(head);
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(hs * 0.6, hs * 0.14, 0.04), WITHER_EYE);
+    eye.position.set(hx, hy + hs * 0.1, hz - hs / 2 - 0.02);
+    g.add(eye);
+    if (hx !== 0) { // 목 줄기
+      const neck = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.0, 0.4), WITHER_DARK);
+      neck.position.set(hx * 0.75, 3.3, 0);
+      neck.rotation.z = -hx * 0.35;
+      g.add(neck);
+    }
+  }
+  // 주위를 감싸는 촉수/파편
+  for (let i = 0; i < 6; i++) {
+    const t = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.6, 0.25), WITHER_DARK);
+    const a = (i / 6) * Math.PI * 2;
+    t.position.set(Math.cos(a) * 1.6, 1.6 + (i % 2) * 0.7, Math.sin(a) * 1.6);
+    t.rotation.x = Math.sin(a) * 0.5;
+    t.rotation.z = Math.cos(a) * 0.5;
+    g.add(t);
+  }
+  g.userData.bodyMat = WITHER_MAT;
+  return g;
+}
 // 크리퍼: 가까이 오면 자폭 (블록 파괴 + 피해)
 const CREEPER_MAT = new THREE.MeshLambertMaterial({ color: 0x4f9d3a });
 const CREEPER_FACE = new THREE.MeshLambertMaterial({ color: 0x18391a });
@@ -1223,10 +1321,26 @@ function trySpawnZombie() {
   if (y === null || (curDim === 'overworld' && y <= SEA_LEVEL)) return; // 물속 제외
   const r = Math.random();
   let mesh, base;
-  if (r < 0.30) { mesh = makeSkeletonMesh(); base = { ranged: true, hp: 3, colH: 1.8, hitH: 1.9, chaseSpeed: 0 }; }
-  else if (r < 0.45) { mesh = makeCreeperMesh(); base = { creeper: true, hp: 4, colH: 1.6, hitH: 1.7, chaseSpeed: 2.2 }; }
-  else if (r < 0.58) { mesh = makeSpiderMesh(); base = { spider: true, climb: true, hp: 4, colH: 0.85, hitH: 0.95, chaseSpeed: 3.4 }; }
-  else { mesh = makeZombieMesh(); base = { hp: 3, colH: 1.8, hitH: 1.9, chaseSpeed: 2.3 }; }
+  // rangeCfg: 원거리 적의 거리 유지(far/near)·사거리(shoot)·발사 간격(rate)·투사체(색/피해/속도)
+  if (curDim === 'nether' && r < 0.5) {
+    mesh = makeImpMesh();
+    base = { ranged: true, hp: 2, colH: 1.1, hitH: 1.4, chaseSpeed: 0, rangeCfg: { far: 7, near: 3, shoot: 12, rate: 1.3, color: 0xff6020, dmg: 2, speed: 18 } };
+  } else if (r < 0.25) {
+    mesh = makeSkeletonMesh();
+    base = { ranged: true, hp: 3, colH: 1.8, hitH: 1.9, chaseSpeed: 0 };
+  } else if (r < 0.4) {
+    mesh = makeCreeperMesh();
+    base = { creeper: true, hp: 4, colH: 1.6, hitH: 1.7, chaseSpeed: 2.2 };
+  } else if (r < 0.52) {
+    mesh = makeSpiderMesh();
+    base = { spider: true, climb: true, hp: 4, colH: 0.85, hitH: 0.95, chaseSpeed: 3.4 };
+  } else if (r < 0.66) {
+    mesh = makeMageMesh();
+    base = { ranged: true, hp: 4, colH: 1.9, hitH: 2.2, chaseSpeed: 0, rangeCfg: { far: 13, near: 7, shoot: 20, rate: 2.4, color: 0xb050ff, dmg: 3, speed: 16 } };
+  } else {
+    mesh = makeZombieMesh();
+    base = { hp: 3, colH: 1.8, hitH: 1.9, chaseSpeed: 2.3 };
+  }
   scene.add(mesh);
   zombies.push(Object.assign({
     mesh,
@@ -1261,6 +1375,27 @@ function spawnBoss() {
   });
   playSound(55, 0.8, 'sawtooth', 0.25);
 }
+// 🌪 위더 스톰: 하늘을 떠다니며 폭발하는 스컬을 퍼붓는 슈퍼보스
+function spawnWitherStorm() {
+  const ang = Math.random() * Math.PI * 2;
+  const d = 24 + Math.random() * 12;
+  const x = Math.floor(player.pos.x + Math.cos(ang) * d);
+  const z = Math.floor(player.pos.z + Math.sin(ang) * d);
+  const half = WORLD_SIZE / 2;
+  if (x < -half + 4 || x >= half - 4 || z < -half + 4 || z >= half - 4) return;
+  const y = (surfaceY(x, z) || 12) + 8;
+  const mesh = makeWitherMesh();
+  scene.add(mesh);
+  zombies.push({
+    mesh, boss: true, wither: true, name: '🌪 위더 스톰',
+    pos: new THREE.Vector3(x + 0.5, y, z + 0.5),
+    vel: new THREE.Vector3(),
+    yaw: 0, timer: 0, walking: false, onGround: false,
+    hp: 120, maxHp: 120, kbT: 0, colH: 4.5, hitH: 4.8, hitW: 1.6, bar: makeHpBar(),
+    atkT: 0, skullT: 2,
+  });
+  playSound(35, 1.2, 'sawtooth', 0.35); // 낮게 울리는 등장음
+}
 function updateZombies(dt) {
   // 평화 모드에서는 밤이어도 스폰하지 않고, 있던 몬스터는 소멸 경로로 정리됨
   const night = !optPeace && (curDim === 'nether' || sunHeight < -0.05);
@@ -1269,8 +1404,12 @@ function updateZombies(dt) {
     zombieSpawnT -= dt;
     if (zombieSpawnT <= 0 && zombies.length < cap) {
       zombieSpawnT = curDim === 'nether' ? 2.5 : 4;
-      if (!zombies.some(z => z.boss) && Math.random() < 0.07) spawnBoss();
-      else trySpawnZombie();
+      if (!zombies.some(z => z.boss) && Math.random() < 0.07) {
+        if (Math.random() < 0.3) spawnWitherStorm(); // 보스 등장의 30%는 위더 스톰
+        else spawnBoss();
+      } else {
+        trySpawnZombie();
+      }
     }
   }
   if (!night && zombies.length) {
@@ -1287,17 +1426,43 @@ function updateZombies(dt) {
   }
   let boss = null;
   for (const z of zombies) {
+    if (timeStop) { updateHpBar(z); if (z.boss) boss = z; continue; } // 🔮 시간 정지: 완전 정지
     const dx = player.pos.x - z.pos.x, dz = player.pos.z - z.pos.z;
     const d = Math.hypot(dx, dz);
+    if (z.wither) { // 위더 스톰: 중력 무시 부유 비행 + 스컬 3연발
+      const wantY = Math.max(player.pos.y + 7, (surfaceY(Math.floor(z.pos.x), Math.floor(z.pos.z)) || 10) + 6);
+      z.pos.y += Math.max(-3.5 * dt, Math.min(3.5 * dt, wantY - z.pos.y));
+      if (playing() && d > 0.1) {
+        const spd = 3.2;
+        z.pos.x += (dx / d) * spd * dt;
+        z.pos.z += (dz / d) * spd * dt;
+        z.yaw = Math.atan2(-dx, -dz);
+      }
+      z.mesh.position.copy(z.pos);
+      z.mesh.rotation.y = z.yaw;
+      z.mesh.position.y += Math.sin(suitTime * 1.7) * 0.3; // 으스스한 부유 흔들림
+      updateHpBar(z);
+      z.skullT -= dt;
+      if (playing() && z.skullT <= 0 && d < 44) {
+        z.skullT = 2.2;
+        for (let s = 0; s < 3; s++) {
+          spawnEnemyArrow(z, { color: 0xa040e0, dmg: 4, speed: 14 }, { boom: true, big: true, spread: 0.25, fromY: 4 });
+        }
+        playSound(90, 0.3, 'sawtooth', 0.25);
+      }
+      boss = z;
+      continue;
+    }
     let speed = 0;
     const range = z.boss ? 40 : 24;
     if (playing() && d < range) {
       z.yaw = Math.atan2(-dx, -dz); // 플레이어를 바라봄
       if (z.ranged) {
-        // 스켈레톤: 거리를 유지하며 사격 (음수 속도 = 후퇴, 시선은 유지)
-        speed = d > 10 ? 1.8 : d < 5 ? -1.6 : 0;
+        // 원거리 적: 거리를 유지하며 사격 (음수 속도 = 후퇴, 시선은 유지)
+        const rc = z.rangeCfg || { far: 10, near: 5, shoot: 16, rate: 1.8 };
+        speed = d > rc.far ? 1.8 : d < rc.near ? -1.6 : 0;
         z.shootT -= dt;
-        if (z.shootT <= 0 && d < 16) { z.shootT = 1.8 + Math.random(); spawnEnemyArrow(z); }
+        if (z.shootT <= 0 && d < rc.shoot) { z.shootT = rc.rate + Math.random(); spawnEnemyArrow(z, z.rangeCfg); }
       } else if (z.creeper) {
         // 크리퍼: 접근 후 점화 → 폭발
         speed = z.chaseSpeed;
@@ -1330,9 +1495,10 @@ function updateZombies(dt) {
     if (z.boss) boss = z;
   }
   for (let i = zombies.length - 1; i >= 0; i--) if (zombies[i]._dead) zombies.splice(i, 1); // 폭발한 크리퍼 정리
-  // 보스 체력바
+  // 보스 체력바 (이름은 보스 종류에 따라)
   if (boss) {
     bossBarEl.style.display = 'block';
+    bossNameEl.textContent = boss.name || '☠ 좀비 군주';
     bossFillEl.style.width = Math.max(0, (boss.hp / boss.maxHp) * 100) + '%';
   } else {
     bossBarEl.style.display = 'none';
@@ -1372,7 +1538,8 @@ function killMob(m) {
   } else {
     const zi = zombies.indexOf(m);
     if (zi >= 0) zombies.splice(zi, 1);
-    if (m.boss) { inv[ITEM.DIAMOND] += 3; updateHotbar(); bossBarEl.style.display = 'none'; }
+    if (m.wither) { inv[ITEM.DIAMOND] += 10; inv[ITEM.EMERALD] += 5; updateHotbar(); bossBarEl.style.display = 'none'; playSound(30, 1.5, 'sawtooth', 0.4); }
+    else if (m.boss) { inv[ITEM.DIAMOND] += 3; updateHotbar(); bossBarEl.style.display = 'none'; }
   }
   spawnParticles(m.pos.x - 0.5, m.pos.y + 0.3, m.pos.z - 0.5, m.mesh.userData.bodyMat);
   playSound(330, 0.25, 'sine', 0.2);
@@ -1383,9 +1550,9 @@ function pickMob(range) {
   const o = camera.position;
   let best = null, bestT = range || REACH;
   for (const m of [...animals, ...zombies]) {
-    const s = m.boss ? 2 : 1;
-    const min = [m.pos.x - 0.45 * s, m.pos.y, m.pos.z - 0.45 * s];
-    const max = [m.pos.x + 0.45 * s, m.pos.y + m.hitH, m.pos.z + 0.45 * s];
+    const hw = m.hitW || 0.45 * (m.boss ? 2 : 1);
+    const min = [m.pos.x - hw, m.pos.y, m.pos.z - hw];
+    const max = [m.pos.x + hw, m.pos.y + m.hitH, m.pos.z + hw];
     const oArr = [o.x, o.y, o.z], dArr = [_dir.x, _dir.y, _dir.z];
     let t0 = 0, t1 = bestT, ok = true;
     for (let i = 0; i < 3; i++) {
@@ -1431,25 +1598,45 @@ function fireArrow(power) {
 }
 function mobAABBHit(p) {
   for (const m of [...animals, ...zombies]) {
-    const s = m.boss ? 2 : 1;
-    if (p.x > m.pos.x - 0.45 * s && p.x < m.pos.x + 0.45 * s &&
+    const hw = m.hitW || 0.45 * (m.boss ? 2 : 1);
+    if (p.x > m.pos.x - hw && p.x < m.pos.x + hw &&
         p.y > m.pos.y && p.y < m.pos.y + m.hitH &&
-        p.z > m.pos.z - 0.45 * s && p.z < m.pos.z + 0.45 * s) return m;
+        p.z > m.pos.z - hw && p.z < m.pos.z + hw) return m;
   }
   return null;
 }
-// 적(스켈레톤) 화살: 플레이어를 향해 발사
-function spawnEnemyArrow(z) {
-  const from = new THREE.Vector3(z.pos.x, z.pos.y + 1.5, z.pos.z);
+// 적 투사체: 플레이어를 향해 발사 (cfg로 색/피해/속도, opts로 스컬 등 특수형)
+const enemyBoltMats = new Map(); // 색 → 재질 캐시
+function enemyBoltMat(color) {
+  if (!enemyBoltMats.has(color)) {
+    enemyBoltMats.set(color, new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: 0.7 }));
+  }
+  return enemyBoltMats.get(color);
+}
+function spawnEnemyArrow(z, cfg, opts) {
+  const from = new THREE.Vector3(z.pos.x, z.pos.y + (opts && opts.fromY != null ? opts.fromY : 1.5), z.pos.z);
   const dir = new THREE.Vector3(player.pos.x, player.pos.y + 1.2, player.pos.z).sub(from).normalize();
-  const mesh = new THREE.Mesh(arrowGeo, ARROW_MAT);
+  if (opts && opts.spread) {
+    dir.x += (Math.random() - 0.5) * opts.spread;
+    dir.y += (Math.random() - 0.5) * opts.spread * 0.5;
+    dir.z += (Math.random() - 0.5) * opts.spread;
+    dir.normalize();
+  }
+  const mesh = new THREE.Mesh(arrowGeo, cfg ? enemyBoltMat(cfg.color) : ARROW_MAT);
+  if (opts && opts.big) mesh.scale.setScalar(3.2); // 위더 스컬은 큼직하게
   mesh.position.copy(from);
   mesh.lookAt(player.pos);
   scene.add(mesh);
-  arrows.push({ mesh, pos: from, vel: dir.multiplyScalar(22), life: 4, enemy: true });
-  playSound(280, 0.1, 'triangle', 0.1);
+  arrows.push({
+    mesh, pos: from, life: 4, enemy: true,
+    vel: dir.multiplyScalar(cfg && cfg.speed ? cfg.speed : 22),
+    dmg: cfg && cfg.dmg ? cfg.dmg : 2,
+    boom: !!(opts && opts.boom),
+  });
+  playSound(cfg ? 200 : 280, 0.1, 'triangle', 0.1);
 }
 function updateArrows(dt) {
+  if (timeStop) return; // 🔮 시간 정지: 투사체도 공중에 멈춤
   const p = player.pos;
   for (let i = arrows.length - 1; i >= 0; i--) {
     const a = arrows[i];
@@ -1463,11 +1650,22 @@ function updateArrows(dt) {
       if (occludes(getBlock(Math.floor(a.pos.x), Math.floor(a.pos.y), Math.floor(a.pos.z)))) hit = true;
       else if (a.enemy) {
         if (a.pos.x > p.x - 0.35 && a.pos.x < p.x + 0.35 && a.pos.y > p.y && a.pos.y < p.y + PLAYER_HEIGHT &&
-            a.pos.z > p.z - 0.35 && a.pos.z < p.z + 0.35) { damage(2); hit = true; }
+            a.pos.z > p.z - 0.35 && a.pos.z < p.z + 0.35) {
+          if (!a.boom) damage(a.dmg || 2); // 폭발형은 아래 폭발에서 피해 처리
+          hit = true;
+        }
       } else {
         const m = mobAABBHit(a.pos);
         if (m) { damageMob(m, a.dmg || 3, a.vel.x, a.vel.z); hit = true; }
       }
+    }
+    if (hit && a.boom) { // 위더 스컬: 착탄 시 소형 폭발 (블록 파괴 + 근접 피해)
+      destroyBlocks(Math.floor(a.pos.x), Math.floor(a.pos.y), Math.floor(a.pos.z), 1);
+      spawnFx(a.pos.x, a.pos.y, a.pos.z, enemyBoltMat(0xa040e0), 10, 6, 0.4);
+      flashLight(a.pos.x, a.pos.y, a.pos.z, 0xa040e0, 4, 12, 0.35);
+      const pd = Math.hypot(p.x - a.pos.x, p.y + 0.9 - a.pos.y, p.z - a.pos.z);
+      if (pd < 3) damage(a.dmg || 3);
+      playSound(55, 0.4, 'sawtooth', 0.3);
     }
     if (hit || a.life <= 0) {
       scene.remove(a.mesh);
@@ -1551,6 +1749,7 @@ let optPeace = localStorage.getItem('mc_peace') === '1';       // 평화 모드:
 const healthEl = document.getElementById('health');
 const damageFlashEl = document.getElementById('damageFlash');
 const bossBarEl = document.getElementById('bossBar');
+const bossNameEl = document.getElementById('bossName');
 const bossFillEl = document.getElementById('bossFill');
 
 function respawn() {
@@ -1572,8 +1771,8 @@ function respawn() {
 function damage(n) {
   if (optPeace) return; // 평화 모드: 플레이어는 데미지를 입지 않음
   if (n <= 0 || health <= 0) return;
-  // 방어구 피해 감소 (아이언 슈트 60% / 헐크버스터 75%)
-  const red = suitLevel === 2 ? 0.75 : suitLevel === 1 ? 0.6 : ([0, 0.3, 0.6][armor] || 0);
+  // 방어구 피해 감소 (아이언·스트레인지 60% / 헐크버스터 75%)
+  const red = suitLevel === 2 ? 0.75 : suit ? 0.6 : ([0, 0.3, 0.6][armor] || 0);
   n = Math.max(1, Math.ceil(n * (1 - red)));
   health = Math.max(0, health - n);
   flashTimer = 0.3;
@@ -1622,6 +1821,7 @@ addEventListener('blur', () => {
   for (const k in keys) keys[k] = false;
   touchJump = false;
   laserOn = false;
+  timeStop = false;
   stopAttack();
 });
 
@@ -1811,15 +2011,19 @@ function updatePlayer(dt) {
       f.visible = boost;
       if (boost) f.scale.y = 0.7 + Math.random() * 0.7; // 불꽃 일렁임
     }
-    // 부스터 불빛 + 뒤로 흩날리는 불꽃 트레일
+    if (u.cape) { // 🔮 망토: 속도에 따라 뒤로 펄럭임
+      u.cape.rotation.x = -(0.12 + cruise * 0.85 + Math.sin(suitTime * 6) * 0.07 * (0.3 + cruise));
+    }
+    // 부스터/부양 불빛 + 뒤로 흩날리는 트레일 (스트레인지는 주황 마법 반짝임)
     suitBoostLight.visible = boost;
     if (boost) {
+      suitBoostLight.color.setHex(suitLevel === 3 ? (timeStop ? 0x40ff90 : 0xffa030) : 0xff9a33);
       suitBoostLight.position.set(p.x, p.y + 0.35, p.z);
       suitBoostLight.intensity = 1.5 + Math.random() * 0.9;
       boostFxT -= dt;
       if (boostFxT <= 0 && cruise > 0.15) {
         boostFxT = 0.05;
-        spawnFx(p.x + Math.sin(player.yaw) * 0.7, p.y + 0.4 + suitTilt * 0.6, p.z + Math.cos(player.yaw) * 0.7, M_FLAME, 2, 1.8, 0.3);
+        spawnFx(p.x + Math.sin(player.yaw) * 0.7, p.y + 0.4 + suitTilt * 0.6, p.z + Math.cos(player.yaw) * 0.7, suitLevel === 3 ? M_MAGIC : M_FLAME, 2, 1.8, 0.3);
       }
     }
     // 자유 궤도: 시선(yaw/pitch)에 궤도 오프셋을 더해 어느 각도로든 캐릭터를 봄
@@ -1857,7 +2061,7 @@ function updateHud(dt) {
   if (armor > 0) html += '<br>' + '🛡'.repeat(armor * 3);
   if (tools.bow) html += '<br>🏹 ' + (inv[ITEM.ARROW] | 0);
   if (air < MAX_AIR) html += '<br>' + '🫧'.repeat(Math.max(0, Math.ceil(air)));
-  if (suit) html += '<br>' + SUIT_STATS[suitLevel].name;
+  if (suit) html += '<br>' + SUIT_STATS[suitLevel].name + (timeStop ? ' ⏳시간 정지' : '');
   else if (flying) html += '<br>✈ 비행 중';
   if (html !== lastHud) { healthEl.innerHTML = html; lastHud = html; }
 }
@@ -2191,7 +2395,9 @@ const SUIT_STATS = [
   null,
   { name: '🤖 아이언 슈트', speed: 14, lift: 7, pulseDmg: 3, pulseRate: 0.22, missileR: 2, missileDmg: 6, laserDmg: 1, dist: 4.4 },
   { name: '🦾 헐크버스터', speed: 10, lift: 6, pulseDmg: 5, pulseRate: 0.3, missileR: 3, missileDmg: 10, laserDmg: 2, dist: 6.4 },
+  { name: '🔮 닥터 스트레인지', speed: 12, lift: 7, pulseDmg: 4, pulseRate: 0.18, missileR: 0, missileDmg: 0, laserDmg: 0, dist: 4.4 },
 ];
+let timeStop = false; // 🔮 시간 정지 (R 홀드)
 const M_RED = new THREE.MeshLambertMaterial({ color: 0xb3151d });
 const M_DRED = new THREE.MeshLambertMaterial({ color: 0x7e0e13 });
 const M_GOLD = new THREE.MeshLambertMaterial({ color: 0xd9a916 });
@@ -2266,7 +2472,61 @@ function makeSuitMesh(s, bulk) {
   scene.add(root);
   return root;
 }
-const suitMeshes = [null, makeSuitMesh(1, 1), makeSuitMesh(1.75, 1.85)];
+// 🔮 닥터 스트레인지: 파란 튜닉 + 붉은 망토(펄럭임) + 금 벨트 + 가슴의 초록 보석
+const M_TUNIC = new THREE.MeshLambertMaterial({ color: 0x35507a });
+const M_NAVY = new THREE.MeshLambertMaterial({ color: 0x22304a });
+const M_CAPE = new THREE.MeshLambertMaterial({ color: 0x9e1b1b });
+const M_SKIN2 = new THREE.MeshLambertMaterial({ color: 0xd8b08c });
+const M_HAIR = new THREE.MeshLambertMaterial({ color: 0x241d18 });
+const M_GEM = new THREE.MeshLambertMaterial({ color: 0x8fffb0, emissive: 0x3fd070, emissiveIntensity: 1 });
+const M_MAGIC = new THREE.MeshLambertMaterial({ color: 0xffc060, emissive: 0xff9020, emissiveIntensity: 1 });
+function makeStrangeMesh() {
+  const root = new THREE.Group();
+  const g = new THREE.Group();
+  g.position.y = -1.1;
+  root.add(g);
+  // 다리 (감색 바지 + 검은 부츠)
+  const legs = [];
+  for (const side of [-1, 1]) {
+    const leg = new THREE.Group();
+    leg.position.set(side * 0.14, 0.86, 0);
+    sbox(leg, M_NAVY, 0.18, 0.62, 0.18, 0, -0.34, 0);
+    sbox(leg, M_HAIR, 0.2, 0.2, 0.24, 0, -0.76, -0.02);
+    g.add(leg);
+    legs.push(leg);
+  }
+  // 망토 (어깨 피벗, 펄럭임)
+  const cape = new THREE.Group();
+  cape.position.set(0, 1.52, 0.19);
+  sbox(cape, M_CAPE, 0.6, 1.1, 0.05, 0, -0.55, 0);
+  g.add(cape);
+  // 몸통
+  sbox(g, M_TUNIC, 0.52, 0.62, 0.3, 0, 1.22, 0);   // 튜닉
+  sbox(g, M_GOLD, 0.54, 0.08, 0.32, 0, 0.95, 0);   // 벨트
+  sbox(g, M_GEM, 0.12, 0.12, 0.05, 0, 1.32, -0.17); // 가슴 보석
+  // 머리 (피부 + 머리카락 + 턱수염)
+  sbox(g, M_SKIN2, 0.3, 0.3, 0.3, 0, 1.76, 0);
+  sbox(g, M_HAIR, 0.32, 0.1, 0.32, 0, 1.93, 0.01);
+  sbox(g, M_HAIR, 0.1, 0.07, 0.04, 0, 1.64, -0.16); // 수염
+  // 팔 (소매 + 빛나는 손)
+  const arms = [];
+  for (const side of [-1, 1]) {
+    const arm = new THREE.Group();
+    arm.position.set(side * 0.36, 1.48, 0);
+    sbox(arm, M_TUNIC, 0.15, 0.34, 0.15, 0, -0.18, 0);
+    sbox(arm, M_SKIN2, 0.13, 0.2, 0.13, 0, -0.45, 0);
+    sbox(arm, M_MAGIC, 0.1, 0.04, 0.1, 0, -0.57, 0); // 손의 마법 빛
+    g.add(arm);
+    arms.push(arm);
+  }
+  root.scale.setScalar(1);
+  root.rotation.order = 'YXZ';
+  root.userData = { flames: [], cape, armL: arms[0], armR: arms[1], legL: legs[0], legR: legs[1], pivotY: 1.1 };
+  root.visible = false;
+  scene.add(root);
+  return root;
+}
+const suitMeshes = [null, makeSuitMesh(1, 1), makeSuitMesh(1.75, 1.85), makeStrangeMesh()];
 let suitMesh = suitMeshes[1]; // 현재 표시 중인 슈트 (레벨 0일 땐 숨김)
 let suitTilt = 0, suitTime = 0, boostFxT = 0; // 비행 자세 기울기 / 애니메이션 시계 / 트레일 타이머
 const suitBoostLight = new THREE.PointLight(0xff9a33, 0, 8, 2); // 부스터 불빛
@@ -2299,26 +2559,32 @@ bindBtn('btnCam', () => cycleCam());
 
 function toggleSuit() {
   if (!playing()) return;
-  suitLevel = (suitLevel + 1) % 3; // 사람 → 아이언 → 헐크버스터 → 사람
+  suitLevel = (suitLevel + 1) % 4; // 사람 → 아이언 → 헐크버스터 → 닥터 스트레인지 → 사람
   suit = suitLevel > 0;
-  suitMeshes[1].visible = suitLevel === 1;
-  suitMeshes[2].visible = suitLevel === 2;
+  for (let i = 1; i < suitMeshes.length; i++) suitMeshes[i].visible = i === suitLevel;
   if (suit) suitMesh = suitMeshes[suitLevel];
   stopAttack();
   cancelCharge();
   laserOn = false;
   pulseHeld = false;
+  timeStop = false;
   camPreset = 0;
   applyCamPreset(0);
   camSX = null; // 스무딩 즉시 스냅
   suitTilt = 0;
   if (suit) { player.vel.set(0, 0, 0); flying = false; }
-  playSound(suitLevel === 0 ? 200 : suitLevel === 1 ? 520 : 320, 0.35, 'sawtooth', 0.22);
+  playSound([200, 520, 320, 760][suitLevel], 0.35, suitLevel === 3 ? 'sine' : 'sawtooth', 0.22);
   // 모바일 버튼 라벨 전환
   const lbl = (id, t) => { const el = document.querySelector('#' + id + ' .lbl'); if (el) el.textContent = t; };
-  lbl('btnBreak', suit ? '펄서' : '캐기');
-  lbl('btnPlace', suit ? '미사일' : '놓기');
-  lbl('btnBow', suit ? '레이저' : '활');
+  if (suitLevel === 3) {
+    lbl('btnBreak', '마법');
+    lbl('btnPlace', '순간이동');
+    lbl('btnBow', '시간정지');
+  } else {
+    lbl('btnBreak', suit ? '펄서' : '캐기');
+    lbl('btnPlace', suit ? '미사일' : '놓기');
+    lbl('btnBow', suit ? '레이저' : '활');
+  }
 }
 bindBtn('btnSuit', () => toggleSuit());
 
@@ -2335,15 +2601,39 @@ function aimFrom() { // 조준 방향(_dir) 갱신 + 가슴 위치 반환
 function firePulse() {
   if (bolts.length > 30) return;
   const st = SUIT_STATS[suitLevel] || SUIT_STATS[1];
+  const magic = suitLevel === 3; // 🔮 주황 마법 미사일
+  const mat = magic ? M_MAGIC : PULSE_MAT;
   const pos = aimFrom();
-  const mesh = new THREE.Mesh(pulseGeo, PULSE_MAT);
+  const mesh = new THREE.Mesh(pulseGeo, mat);
   if (suitLevel === 2) mesh.scale.setScalar(1.8); // 헐크버스터는 굵은 펄서
   mesh.position.copy(pos);
   mesh.lookAt(pos.clone().add(_dir));
   scene.add(mesh);
-  bolts.push({ mesh, pos, vel: _dir.clone().multiplyScalar(42), life: 1.2, missile: false, dmg: st.pulseDmg });
-  spawnFx(pos.x + _dir.x * 0.5, pos.y + _dir.y * 0.5, pos.z + _dir.z * 0.5, PULSE_MAT, 4, 2.5, 0.16); // 총구 섬광
-  playSound(suitLevel === 2 ? 620 : 880, 0.08, 'square', 0.12);
+  bolts.push({ mesh, pos, vel: _dir.clone().multiplyScalar(42), life: 1.2, missile: false, dmg: st.pulseDmg, mat });
+  spawnFx(pos.x + _dir.x * 0.5, pos.y + _dir.y * 0.5, pos.z + _dir.z * 0.5, mat, 4, 2.5, 0.16); // 총구 섬광
+  playSound(magic ? 1040 : suitLevel === 2 ? 620 : 880, 0.08, magic ? 'sine' : 'square', 0.12);
+}
+// 🔮 순간이동: 조준 방향으로 최대 12칸, 막히기 직전까지 이동
+function blinkTeleport() {
+  camera.getWorldDirection(_dir);
+  const p = player.pos;
+  spawnFx(p.x, p.y + 1, p.z, M_MAGIC, 10, 3, 0.3); // 출발 지점 스파크 링
+  let tx = p.x, ty = p.y, tz = p.z;
+  const test = new THREE.Vector3();
+  for (let d = 1; d <= 12; d += 0.5) {
+    const nx = p.x + _dir.x * d;
+    const ny = p.y + _dir.y * d;
+    const nz = p.z + _dir.z * d;
+    test.set(nx, ny, nz);
+    if (playerCollides(test)) break;
+    tx = nx; ty = ny; tz = nz;
+  }
+  p.set(tx, ty, tz);
+  player.vel.set(0, 0, 0);
+  camSX = null; // 카메라 즉시 스냅
+  spawnFx(tx, ty + 1, tz, M_MAGIC, 14, 3.5, 0.35); // 도착 지점 스파크 링
+  flashLight(tx, ty + 1, tz, 0xff9020, 3, 9, 0.3);
+  playSound(1200, 0.18, 'sine', 0.2);
 }
 function fireMissile() {
   if (bolts.length > 30) return;
@@ -2657,19 +2947,24 @@ const chargeBarEl = document.getElementById('chargeBar');
 const chargeFillEl = document.getElementById('chargeFill');
 function rightDown() {
   if (!playing()) return;
-  if (suit) { fireMissile(); return; } // 슈트: 미사일
+  if (suit) { suitLevel === 3 ? blinkTeleport() : fireMissile(); return; } // 슈트: 미사일 / 🔮 순간이동
   const aim = pickBlock();
   if (aim && getBlock(aim.block.x, aim.block.y, aim.block.z) === BLOCK.CHEST) { openChest(aim.block.x, aim.block.y, aim.block.z); return; }
   doPlace();
 }
 function cancelCharge() { charging = false; chargeT = 0; }
-// 활 차지 시작/발사 (R 키 또는 모바일 활 버튼) — 슈트 중에는 레이저
+// 활 차지 시작/발사 (R 키 또는 모바일 활 버튼) — 슈트 중에는 레이저 / 🔮 시간 정지
 function bowDown() {
-  if (suit) { if (playing()) laserOn = true; return; }
+  if (suit) {
+    if (!playing()) return;
+    if (suitLevel === 3) { timeStop = true; playSound(1500, 0.2, 'sine', 0.15); }
+    else laserOn = true;
+    return;
+  }
   if (playing() && tools.bow && inv[ITEM.ARROW] > 0) { charging = true; chargeT = 0; }
 }
 function bowUp() {
-  if (suit) { laserOn = false; return; }
+  if (suit) { laserOn = false; timeStop = false; return; }
   if (charging) { fireArrow(chargeT / 1.2); charging = false; chargeT = 0; }
 }
 document.addEventListener('mousedown', (e) => {
