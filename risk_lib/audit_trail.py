@@ -48,7 +48,8 @@ class LedgerEntry:
     reviewer: str = ""          # 2nd line — risk
     approver: str = ""          # CRO / Committee
     approval_dt: str = ""
-    # versioning
+    # versioning — entry 생성시각(UTC). 산출 기준일(asof)이 아니라 ledger 기록
+    # 시각이다; 산출 기준일은 manifest.parameters.asof 참조.
     asof: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     schema_version: str = "1.0"
 
@@ -110,6 +111,24 @@ def build_ledger_from_result(result, *, git_commit: str = "",
                     "maturity_cap": 5.0},
         citation="Basel III CRE31.5 (Vasicek ASRF) + CRE32 PD/LGD floors",
         **common))
+    led.add(LedgerEntry(
+        figure_id="rwa.market", label="시장리스크 RWA",
+        value=float(result.rwa["market"]), unit="KRW",
+        code_module="risk_lib.capital.market_risk",
+        code_function="compute_market_risk_rwa",
+        parameters={"method": "simplified standardised"},
+        citation="Basel III MAR40 (간편표준방법)", **common))
+    led.add(LedgerEntry(
+        figure_id="rwa.op", label="운영리스크 RWA",
+        value=float(result.rwa["op"]), unit="KRW",
+        code_module="risk_lib.capital.op_risk", code_function="compute_op_risk_rwa",
+        parameters={"method": "SMA (BIC x ILM)"},
+        citation="Basel III OPE25 (신표준방법)", **common))
+    led.add(LedgerEntry(
+        figure_id="rwa.standardised_total", label="전부표준방법 RWA (floor 산정용)",
+        value=float(result.rwa["standardised_total"]), unit="KRW",
+        code_module="risk_lib.capital.output_floor", code_function="apply_output_floor",
+        citation="Basel III RBC30 (floor 비교 기준)", **common))
     led.add(LedgerEntry(
         figure_id="rwa.final_total", label="최종 RWA (output floor 적용 후)",
         value=float(result.rwa["final_total"]), unit="KRW",
@@ -189,5 +208,69 @@ def build_ledger_from_result(result, *, git_commit: str = "",
         code_module="risk_lib.stress.reverse",
         code_function="reverse_stress",
         citation="감독세칙 스트레스테스트 가이드라인", **common))
+
+    # Stress path trough (worst scenario minimum CET1 over the horizon)
+    trough = result.stress_path_trough
+    worst = trough.loc[trough["trough_cet1"].idxmin()]
+    led.add(LedgerEntry(
+        figure_id="stress.trough_cet1",
+        label=f"스트레스 경로 최저 CET1 ({worst['scenario']}, {worst['trough_quarter']})",
+        value=float(worst["trough_cet1"]), unit="ratio",
+        code_module="risk_lib.stress.path", code_function="run_stress_path / path_trough_summary",
+        parameters={"scenario": str(worst["scenario"]),
+                    "trough_quarter": str(worst["trough_quarter"])},
+        citation="BCBS Stress testing principles (2018) / Pillar 2", **common))
+
+    # Concentration (worst normalised HHI dimension)
+    conc = result.concentration
+    top = conc.loc[conc["normalised_hhi"].idxmax()]
+    led.add(LedgerEntry(
+        figure_id="concentration.worst_hhi",
+        label=f"집중리스크 최대 HHI ({top['dimension']})",
+        value=float(top["hhi"]), unit="",
+        code_module="risk_lib.limits.concentration", code_function="concentration_report",
+        parameters={"dimension": str(top["dimension"]),
+                    "top1_share": float(top["top1_share"])},
+        citation="BCBS 283 / 감독규정 집중리스크", **common))
+
+    # CCR / CVA
+    if getattr(result, "ccr", None) is not None:
+        led.add(LedgerEntry(
+            figure_id="ccr.cva_charge", label="CVA 자본부과 (BA-CVA)",
+            value=float(result.ccr.cva_charge), unit="KRW",
+            code_module="risk_lib.ccr", code_function="compute_ccr",
+            parameters={"ead_total": float(result.ccr.ead_total),
+                        "n_counterparties": int(result.ccr.n_counterparties)},
+            citation="Basel III CRE52 (SA-CCR) + MAR50 (BA-CVA)", **common))
+
+    # Operational loss distribution
+    if getattr(result, "op_loss", None) is not None:
+        led.add(LedgerEntry(
+            figure_id="op_loss.var_99_9", label="운영손실 VaR 99.9%",
+            value=float(result.op_loss.var_99_9), unit="KRW",
+            code_module="risk_lib.op_loss", code_function="compute_op_loss",
+            parameters={"annual_total": float(result.op_loss.annual_total)},
+            citation="Basel III OPE25 (SMA 비교) / LDA 내부 산출", **common))
+
+    # Climate (worst transition scenario ECL uplift)
+    if getattr(result, "climate", None) is not None:
+        cl = result.climate
+        wt = next(l for l in cl.transition if l.scenario == cl.worst_transition)
+        led.add(LedgerEntry(
+            figure_id="climate.worst_transition_uplift",
+            label=f"기후 전환리스크 최대 ECL uplift ({wt.scenario})",
+            value=float(wt.uplift), unit="KRW",
+            code_module="risk_lib.climate", code_function="run_climate",
+            parameters={"scenario": str(wt.scenario)},
+            citation="NGFS Phase 4 / TCFD", **common))
+
+    # RAF worst grade
+    if getattr(result, "raf", None) is not None:
+        led.add(LedgerEntry(
+            figure_id="raf.worst", label="RAF 최악 KRI 등급",
+            value=result.raf.worst(), unit="grade",
+            code_module="risk_lib.appetite", code_function="build_raf",
+            parameters={"n_kris": len(result.raf.kris)},
+            citation="FSB Principles / 감독세칙 RAF 가이드라인", **common))
 
     return led

@@ -51,12 +51,17 @@ def test_ledger_from_result_covers_headlines(result):
     led = build_ledger_from_result(result, git_commit="testsha")
     ids = {e.figure_id for e in led.entries}
     must_have = {
-        "rwa.sa", "rwa.irb", "rwa.final_total",
+        "rwa.sa", "rwa.irb", "rwa.market", "rwa.op",
+        "rwa.standardised_total", "rwa.final_total",
         "bis.cet1", "bis.tier1", "bis.total",
         "leverage",
         "ecl.ttc_total", "ecl.pit_weighted",
         "alm.lcr", "alm.nsfr", "alm.irrbb_worst_pct_tier1",
         "reverse_stress.severity",
+        # v0.28 coverage extension (ISO 42001 continual improvement)
+        "stress.trough_cet1", "concentration.worst_hhi",
+        "ccr.cva_charge", "op_loss.var_99_9",
+        "climate.worst_transition_uplift", "raf.worst",
     }
     missing = must_have - ids
     assert not missing, f"missing ledger entries: {missing}"
