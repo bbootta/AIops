@@ -2055,6 +2055,21 @@
       "rollback_rule": "opinion_draft 페이지 + 2 link 제거 시 R71 복구",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0138",
+      "timestamp": "2026-07-12 23:36:06",
+      "component": "tools/data_adapter.py + tools/cli_index.py + src/vta/cli/__main__.py + README.md",
+      "change_type": "create",
+      "evidence": "Phase 1 병행 운영에는 합성 데이터가 아닌 운영 추출 파일(CSV/Parquet)을 받아들이는 안전한 입구가 필요. smoke 3종 검증: clean CSV 통과, PII CSV 기본 차단(원문 미노출, exit=1), drop 모드 컬럼 제거 후 통과. YYYY-MM-DD 문자열이 계좌번호 패턴에 200건 오탐(R19 known limitation 재발)되어 date_col 사전 정규화로 해결.",
+      "root_cause": "워크플로우 request 생성 경로가 sample_generators(합성)뿐이라 실데이터 검증 시 PII/스키마 통제 없이 수동 변환해야 했음",
+      "targeted_fix": "load_validation_input: (1) date_col pd.to_datetime 정규화 후 scan_dataframe PII 스캔 — block 시 PIIDetectedError(원문 미노출)/drop 시 비매핑 컬럼만 제거, (2) schema_guard로 score numeric/target binary/pd numeric/date date 검증, (3) id_col을 per-run salt SHA-256 16hex pseudonymize(기본 on). CLI validate/convert 서브커맨드 + cli_index/vta dispatch('data','load')/README 동기 등록",
+      "expected_benefit": "실운영 추출 파일을 CLAUDE.md §5(고객 식별정보 저장 금지) 준수 상태로 워크플로우에 투입 가능 — Phase 1 병행 운영 마지막 블록",
+      "expected_regression_risk": "낮음 — 신규 모듈, 기존 경로 무변경. date 자동 변환이 비표준 날짜 형식에서 MappingError 유발 가능(의도된 차단)",
+      "validation_method": "tests/test_v2_round73.py 16 cases(매핑 3/PII boundary 5/pseudonymize 3/스키마 1/워크플로우 통합 1/CLI 2/카탈로그 sync 1) + 전체 1046 passed",
+      "rollback_rule": "어댑터 경유 로드에서 PII 유출 또는 오차단율 과다 발견 시 모듈 제거(독립 모듈이므로 삭제로 완전 롤백)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

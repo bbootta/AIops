@@ -32,6 +32,7 @@ CLI_MODULES: list[tuple[str, str]] = [
     ("tools.findings_mapping", "audit log → recurring_findings 매핑/후보"),
     ("tools.pack_diff", "두 보고서 팩 간 변화 detection (KPI/heatmap/페이지 SHA)"),
     ("tools.pack_archive", "분기별 보고서 팩 archive (add/list/latest/prune)"),
+    ("tools.data_adapter", "운영 추출 파일 안전 로더 (PII 차단/스키마/pseudonymize)"),
     ("tools.manifest", "change_manifest 편집/검증/promote"),
     ("tools.findings", "recurring_findings JSON ↔ md sync"),
     ("tools.model_notes", "model_specific_notes JSON ↔ md sync"),
