@@ -141,7 +141,7 @@ def _page(title: str, body: str, active: str, *, meta_line: str = "",
 </div></header>
 {_nav_html(active, alm_active=alm_active)}
 <div class="container">{body}</div>
-<footer>risk_lib v0.3 · 산출 기준일 {date.today().isoformat()}</footer>
+<footer>risk_lib v0.3 · 보고서 생성일 {date.today().isoformat()}</footer>
 </body></html>"""
 
 

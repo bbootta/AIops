@@ -281,6 +281,10 @@ def _page_final_attestation(r: PipelineResult) -> str:
     # FAIL/WARN 상세
     issue_rows = [[c.name, _badge(c.status, c.status), c.detail]
                   for c in v.checks if c.status != "PASS"]
+    # 부적합(FAIL만) — ISO/IEC 42001 조항 10 부적합·시정조치 섹션용
+    fail_rows = [[c.name, _badge(c.status, c.status),
+                  f"{c.detail} → 원인 부문 시정조치 후 재검증 필요"]
+                 for c in v.checks if c.status == "FAIL"]
 
     verdict_tone = "good" if passes else "bad"
     verdict_text = "결재 가능 (PASS)" if passes else "결재 불가 (FAIL)"
@@ -323,6 +327,15 @@ PD↔RWA · RWA↔BIS · ECL↔RWA · 한도↔집중 · RAPM↔EC · 스트레�
 
 <div class="card"><h2>WARN/FAIL 상세 ({len(issue_rows)}건)</h2>
 {_table(["체크","상태","상세"], issue_rows) if issue_rows else "<p>해당 없음 — 전 체크 PASS</p>"}
+</div>
+
+<div class="card"><h2>부적합·시정조치 (ISO/IEC 42001 조항 10)</h2>
+{_table(["부적합(FAIL 체크)","상태","상세 / 시정조치"], fail_rows) if fail_rows else
+ f"<p>해당 없음 — 본 산출 주기에서 기록된 부적합(FAIL) 없음. "
+ f"WARN {summ.get('WARN', 0)}건은 상단 WARN/FAIL 상세의 사유 설명으로 갈음.</p>"}
+<p style="color:var(--muted); font-size:12px;">
+부적합 발생 시 AIMS_POLICY.md §6 절차(부적합 기록 → 원인 에이전트 시정조치 →
+재검증)를 따르며, 시정 완료 전 결재 상신이 불가합니다.</p>
 </div>
 
 <div class="card"><h2>결재 서명란</h2>
