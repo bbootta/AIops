@@ -4,6 +4,14 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
+## 0. ISO/IEC 42001 Compliance (MANDATORY)
+
+**Every agent created in this repository MUST satisfy the ISO/IEC 42001 requirements defined in `docs/ISO-42001-AGENT-REQUIREMENTS.md`.**
+
+- Before building or modifying any agent, read that document and apply every required control.
+- Each agent must ship with a completed compliance record (`COMPLIANCE.md` in the agent's directory, copied from `templates/AGENT-COMPLIANCE-RECORD.md`).
+- An agent that does not meet all checklist items must not be merged or deployed.
+
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
