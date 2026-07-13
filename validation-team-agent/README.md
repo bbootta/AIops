@@ -130,6 +130,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.dashboard --out <html>` | 실행 로그 → 정적 HTML 대시보드 |
 | `python -m tools.report_pdf --demo --out <pdf>` | 보고서 → PDF (DRAFT 워터마크 강제) |
 | `python -m tools.report_pack --out <dir>` | 계층형 HTML 보고서 팩 (요약+부문상세+심화) |
+| `python -m tools.report_pack --input-csv <csv> --mapping <json> --out <dir>` | 운영 추출 파일로 보고서 팩 빌드 (어댑터 boundary 경유) |
 | `python -m tools.report_export --pack <dir>` | 팩 → CSV/JSON/페이지 manifest export |
 | `python -m tools.findings_mapping --log <jsonl>` | audit log → recurring_findings 후보 매핑 |
 | `python -m tools.pack_diff --prev A --curr B` | 두 보고서 팩 간 변화 detection |

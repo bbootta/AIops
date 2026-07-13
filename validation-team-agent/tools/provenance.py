@@ -152,14 +152,49 @@ def runtime_info() -> dict[str, str]:
     return info
 
 
+def file_sha256(path: str | Path) -> str:
+    """입력 파일 전체의 SHA-256 (원천 파일 무결성 대조용)."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def build_provenance(
     request: Mapping[str, Any],
     *,
     n: int,
     seed: int,
     stress: bool,
+    source: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """보고서 빌드 시점의 전체 출처 메타데이터."""
+    """보고서 빌드 시점의 전체 출처 메타데이터.
+
+    ``source`` 가 주어지면 (운영 추출 파일 모드) 신용 부문 입력의 원천
+    파일 정보가 기록되고, 재실행 명령이 --input-csv 형태로 바뀐다.
+    """
+    if source:
+        reproduce = (
+            f"python -m tools.report_pack --input-csv {source['input_file']} "
+            f"--mapping {source['mapping_file']} "
+            f"--pii-action {source['pii_action']} --seed {seed} "
+            f"{'--stress ' if stress else ''}--out <dir>"
+        )
+        data_note = (
+            "입력 원천: 신용 부문 df = 운영 추출 파일 (위 source SHA-256 로 "
+            "동일 파일 여부 대조). 기타 부문 스칼라 입력은 합성 예시 — 실측치 "
+            "아님. pseudonymize salt 는 seed 파생 (재현성 우선)."
+        )
+    else:
+        reproduce = (
+            f"python -m tools.report_pack --n {n} --seed {seed} "
+            f"{'--stress ' if stress else ''}--out <dir>"
+        )
+        data_note = (
+            "재현 절차: 위 명령을 동일 git rev 에서 실행하면 동일 입력 해시·동일 "
+            "수치를 산출한다 (합성 데이터 결정론)."
+        )
     return {
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "inputs": {
@@ -167,17 +202,14 @@ def build_provenance(
             "seed": seed,
             "stress": bool(stress),
             "fingerprint": request_fingerprint(request),
+            **({"source": dict(source)} if source else {}),
         },
         "policy_versions": policy_versions(),
         "git": git_info(),
         "runtime": runtime_info(),
-        "reproduce": (
-            f"python -m tools.report_pack --n {n} --seed {seed} "
-            f"{'--stress ' if stress else ''}--out <dir>"
-        ),
+        "reproduce": reproduce,
         "notes": [
-            "재현 절차: 위 명령을 동일 git rev 에서 실행하면 동일 입력 해시·동일 "
-            "수치를 산출한다 (합성 데이터 결정론).",
+            data_note,
             "정책 버전이 변경되면 fingerprint 가 동일해도 판정 결과가 달라질 수 "
             "있다 — policy_versions 표를 함께 확인할 것.",
             "본 산출물은 검증 보조 자료 (DRAFT). 최종 판단은 인간 검증자.",
@@ -187,6 +219,7 @@ def build_provenance(
 
 __all__ = [
     "build_provenance",
+    "file_sha256",
     "request_fingerprint",
     "policy_versions",
     "git_info",

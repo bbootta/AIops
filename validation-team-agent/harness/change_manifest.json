@@ -2070,6 +2070,21 @@
       "rollback_rule": "어댑터 경유 로드에서 PII 유출 또는 오차단율 과다 발견 시 모듈 제거(독립 모듈이므로 삭제로 완전 롤백)",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0139",
+      "timestamp": "2026-07-13 14:52:31",
+      "component": "tools/report_pack.py + tools/run_workflow_demo.py + tools/provenance.py + tools/data_adapter.py",
+      "change_type": "modify",
+      "evidence": "R73 어댑터가 만든 request 를 보고서 팩으로 연결하는 경로가 없어 실데이터 → 보고서가 수동 2단계였음. smoke: 5,000행 CSV --input-csv 빌드로 47페이지 생성, 동일 (파일, seed) 재빌드 시 df 지문 f12fb5ada7135950 동일 (재현성). 전체 스위트에서 pseudonym 이 전부 숫자(확률 ≈5.4e-4/건)로 생성돼 2.safety 계좌번호 패턴 오탐 1건 적발 — flaky 원인 수정.",
+      "root_cause": "report_pack main 이 build_request(합성 전용) 만 호출했고, run_demo 가 외부 request 를 받을 수 없었음. pseudonym hex 16자리는 전부-숫자 가능성이 있어 하류 PII 스캔과 충돌",
+      "targeted_fix": "run_workflow_demo: 부문 스칼라를 _domain_inputs 로 추출, build_request_from_file(어댑터 boundary 경유+스칼라 병합) 추가, run_demo(request=) 지원. report_pack: --input-csv/--mapping/--pii-action + seed 파생 salt (재현성 우선, 한계 주석). provenance: file_sha256 + source 기록 + reproduce 명령 --input-csv 형태. 카드에 입력 원천 행 (운영 추출 파일 vs 합성, 기타 부문 합성 예시 명시). _pseudonymize 를 'p'+15hex 로 변경 (전부-숫자 오탐 구조적 차단). credit_segments 페이지 grade/set 컬럼 부재 시 해당 섹션 생략",
+      "expected_benefit": "실운영 추출 파일 → 47페이지 보고서 팩 원스톱 (PII/스키마/pseudonymize boundary 자동 적용). 신용 부문 실데이터와 기타 부문 합성 예시의 원천 구분이 모든 페이지에 표기되어 수치 출처 오인 방지",
+      "expected_regression_risk": "낮음 — 합성 경로는 build_request 시그니처/구성 불변 (회귀 테스트로 고정). pseudonym 형식 변경은 R73 테스트 (len 16) 와 호환",
+      "validation_method": "tests/test_v2_round74.py 9 cases (병합/회귀/엔진/sha256/provenance/팩빌드/PII차단/mapping필수/pseudonym접두사) + 전체 1056 passed",
+      "rollback_rule": "--input-csv 경로에서 원천 구분 표기 누락 또는 오차단 과다 발견 시 CLI 옵션 제거 (합성 경로 불변이므로 옵션 제거로 완전 롤백)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html as _html
 import re
 import sys
@@ -470,13 +471,26 @@ def _render_provenance_card(prov: dict | None) -> str:
     pv_rows = "".join(
         f"<tr><td><code>{_esc(k)}</code></td><td>{_esc(v)}</td></tr>"
         for k, v in pv.items())
+    src = inputs.get("source")
+    if src:
+        dropped = src.get("dropped_columns") or []
+        source_row = f"""
+<tr><th>입력 원천</th>
+    <td>운영 추출 파일 <code>{_esc(src['input_file'])}</code>
+        (SHA-256 <code>{_esc(src['file_sha256'][:16])}…</code>)
+        · pii_action={_esc(src['pii_action'])}
+        · 제거 컬럼 {len(dropped)}개
+        · <b>기타 부문 스칼라 입력은 합성 예시</b></td></tr>"""
+    else:
+        source_row = """
+<tr><th>입력 원천</th><td>합성 데이터 (결정론적 seed)</td></tr>"""
     return f"""
 <details class="prov" open>
 <summary><b>재현가능성 (Reproducibility)</b> — 입력 해시 · 정책 버전 · git rev</summary>
 <table>
 <tr><th>생성 (UTC)</th><td>{_esc(prov['generated_at_utc'])}</td></tr>
 <tr><th>입력 n / seed / stress</th>
-    <td>n={inputs['n']:,} · seed={inputs['seed']} · stress={inputs['stress']}</td></tr>
+    <td>n={inputs['n']:,} · seed={inputs['seed']} · stress={inputs['stress']}</td></tr>{source_row}
 <tr><th>입력 df 지문 (shape / SHA-256)</th>
     <td>{df.get('shape', '-')} / <code>{_esc((df.get('sha256') or '-')[:16])}…</code></td></tr>
 <tr><th>입력 스칼라 SHA-256</th>
@@ -2938,10 +2952,10 @@ def _credit_segments_page(request: dict) -> str:
 
     from tools.metric_ks_auc import calculate_auc_gini, calculate_ks
 
-    # 등급별 KS / AUROC
+    # 등급별 KS / AUROC (grade_col 미제공 시 — 운영 추출 파일 등 — 생략)
     grade_col = request.get("grade_col", "grade")
     grade_rows = []
-    for grade in sorted(df[grade_col].unique()):
+    for grade in sorted(df[grade_col].unique()) if grade_col in df.columns else []:
         sub = df[df[grade_col] == grade]
         if len(sub) < 30 or sub[target_col].nunique() < 2:
             grade_rows.append((str(grade), len(sub), float("nan"), float("nan")))
@@ -2963,10 +2977,11 @@ def _credit_segments_page(request: dict) -> str:
         f"<td>{('-' if _isnan(a) else f'{a:.4f}')}</td></tr>"
         for g, n, k, a in grade_rows)
 
-    # dev vs oot 변별력
+    # dev vs oot 변별력 (set_col 미제공 시 생략)
     set_col = request.get("set_col", "set")
-    dev = df[df[set_col] == "dev"]
-    oot = df[df[set_col] == "oot"]
+    has_set = set_col in df.columns
+    dev = df[df[set_col] == "dev"] if has_set else df.iloc[:0]
+    oot = df[df[set_col] == "oot"] if has_set else df.iloc[:0]
     set_metrics = []
     for label, sub in (("dev", dev), ("oot", oot)):
         if len(sub) < 100 or sub[target_col].nunique() < 2:
@@ -4258,15 +4273,54 @@ def main(argv: list[str] | None = None) -> int:
                         help="archive 의 최근 N 개만 유지 (FIFO prune)")
     parser.add_argument("--archive-label", default=None,
                         help="archive 등록 시 사용할 label")
+    parser.add_argument("--input-csv", type=Path, default=None,
+                        help="운영 추출 파일 (CSV/Parquet). 주어지면 신용 부문 "
+                             "df 를 합성 대신 이 파일에서 로드 (data_adapter "
+                             "boundary 3중 통과). --mapping 필수")
+    parser.add_argument("--mapping", type=Path, default=None,
+                        help="--input-csv 의 컬럼 매핑 JSON")
+    parser.add_argument("--pii-action", choices=["block", "drop"],
+                        default="block")
     args = parser.parse_args(argv)
 
-    from tools.provenance import build_provenance
+    from tools.provenance import build_provenance, file_sha256
     from tools.run_workflow_demo import build_request, run_demo
 
     log_dir = args.log_dir or (Path(__file__).resolve().parent.parent / "logs")
-    demo = run_demo(args.n, args.stress, args.seed, log_dir)
-    request = build_request(args.n, stress=args.stress, seed=args.seed)
-    prov = build_provenance(request, n=args.n, seed=args.seed, stress=args.stress)
+    if args.input_csv:
+        if not args.mapping:
+            parser.error("--input-csv 는 --mapping 이 필요합니다")
+        from tools.data_adapter import MappingError, PIIDetectedError
+        from tools.run_workflow_demo import build_request_from_file
+
+        # salt 를 seed 파생으로 고정 — 동일 (파일, seed) → 동일 pseudonym →
+        # df 지문 재현 가능. 한계: salt 가 추정 가능하므로 원본 파일 접근자는
+        # 재식별 시도 가능 (원본 식별자는 보고서에 실리지 않음).
+        salt = hashlib.sha256(f"vta-pack-salt-{args.seed}".encode()).digest()
+        try:
+            request, adapter_meta = build_request_from_file(
+                args.input_csv, args.mapping, stress=args.stress,
+                pii_action=args.pii_action, salt=salt)
+        except (PIIDetectedError, MappingError) as e:
+            sys.stderr.write(f"차단: {e}\n")
+            return 1
+        n = adapter_meta["n_rows"]
+        demo = run_demo(n, args.stress, args.seed, log_dir, request=request)
+        prov = build_provenance(
+            request, n=n, seed=args.seed, stress=args.stress,
+            source={
+                "input_file": str(args.input_csv),
+                "file_sha256": file_sha256(args.input_csv),
+                "mapping_file": str(args.mapping),
+                "pii_action": adapter_meta["pii_action"],
+                "dropped_columns": adapter_meta["dropped_columns"],
+                "pseudonymized": adapter_meta["pseudonymized"],
+            })
+    else:
+        demo = run_demo(args.n, args.stress, args.seed, log_dir)
+        request = build_request(args.n, stress=args.stress, seed=args.seed)
+        prov = build_provenance(request, n=args.n, seed=args.seed,
+                                stress=args.stress)
 
     # auto-prev: archive 가 주어지고 prev-pack 이 명시되지 않았다면
     # 같은 모드의 가장 최근 archive entry 를 prev 로 사용

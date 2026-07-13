@@ -51,7 +51,37 @@ def build_request(n: int, *, stress: bool, seed: int) -> dict:
         "key_cols": ["customer_id", "obs_date"],
         "feature_names": ["score", "grade", "pd"],
     }
-    # 부문별 공통 입력 (Round 18: macro/weights/operational/cva/ccr 추가)
+    base.update(_domain_inputs(stress))
+    return base
+
+
+def build_request_from_file(
+    input_path, mapping_path, *, stress: bool = False,
+    pii_action: str = "block", salt: bytes | None = None,
+) -> tuple[dict, dict]:
+    """운영 추출 파일 → 전체 워크플로우 request (신용 부문 = 실데이터).
+
+    data_adapter 의 안전 boundary 3중 (PII/스키마/pseudonymize) 을 통과한
+    신용 부문 입력에, 기타 부문 (자본/ALM/시장/운영/CVA/CCR/ICAAP) 의
+    **합성 스칼라 예시 입력**을 병합한다. 기타 부문 수치는 실데이터가
+    아니므로 provenance 에 원천이 구분 표기되어야 한다.
+
+    Returns:
+        (request, adapter_meta) — adapter_meta 는 request 에서 분리해 반환.
+    """
+    from tools.data_adapter import load_mapping, load_validation_input
+
+    request = load_validation_input(
+        input_path, load_mapping(mapping_path),
+        pii_action=pii_action, salt=salt)
+    adapter_meta = request.pop("_adapter_meta")
+    request.update(_domain_inputs(stress))
+    return request, adapter_meta
+
+
+def _domain_inputs(stress: bool) -> dict:
+    """신용 df 외 부문별 공통 입력 (Round 18: macro/weights/operational/cva/ccr 추가)."""
+    base: dict = {}
     base.update(
         {
             "scenario_weight_panel": ifrs9_weight_panel(balanced=not stress),
@@ -106,9 +136,10 @@ def build_request(n: int, *, stress: bool, seed: int) -> dict:
 
 
 def run_demo(n: int, stress: bool, seed: int, log_dir: Path,
-             *, use_async: bool = False) -> dict:
+             *, use_async: bool = False, request: dict | None = None) -> dict:
     t0 = time.perf_counter()
-    request = build_request(n, stress=stress, seed=seed)
+    if request is None:
+        request = build_request(n, stress=stress, seed=seed)
     eng = WorkflowEngine()
     registered = register_default_handlers(eng)
     if use_async:

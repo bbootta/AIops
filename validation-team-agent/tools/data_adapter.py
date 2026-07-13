@@ -79,9 +79,13 @@ def _read_table(path: str | Path):
 
 
 def _pseudonymize(series, salt: bytes):
-    """식별자 → salt SHA-256 16 hex. 원본은 반환 데이터에 남지 않는다."""
+    """식별자 → 'p' + salt SHA-256 15 hex. 원본은 반환 데이터에 남지 않는다.
+
+    접두사 'p' 는 hex 가 우연히 전부 숫자일 때 (확률 ≈ 5.4e-4/건) 하류
+    PII 스캔의 계좌번호 패턴에 오탐되는 것을 구조적으로 차단한다.
+    """
     def _h(v: object) -> str:
-        return hashlib.sha256(salt + str(v).encode("utf-8")).hexdigest()[:16]
+        return "p" + hashlib.sha256(salt + str(v).encode("utf-8")).hexdigest()[:15]
     return series.map(_h)
 
 
