@@ -22,6 +22,36 @@ from risk_lib.report_chrome import (
 # ============================================================================
 
 
+_DOMAIN_LABEL = {
+    "core_overview": "핵심 — 요약/검증/결재",
+    "core_credit": "핵심 — 신용",
+    "core_capital_alm": "핵심 — 자본/ALM",
+    "credit": "신용/충당금 심층",
+    "capital_stress": "자본/스트레스 심층",
+    "market_trading": "시장/트레이딩 심층",
+    "concentration_limits": "집중/한도 심층",
+    "performance": "성과 심층",
+    "nonfinancial": "비재무 심층",
+    "governance": "거버넌스/공시 심층",
+}
+
+
+def _page_catalog() -> str:
+    """도메인별 전체 페이지 링크 — page_registry에서 파생 (같은 디렉터리 기준)."""
+    from risk_lib.page_registry import PAGES
+    groups: dict[str, list] = {}
+    for spec in PAGES:
+        groups.setdefault(spec.module.rsplit(".", 1)[-1], []).append(spec)
+    parts = []
+    for dom, specs in groups.items():
+        links = " · ".join(f'<a href="{s.filename}">{_esc(s.label)}</a>'
+                           for s in specs)
+        parts.append(
+            f'<p style="margin:6px 0;" class="linklist">'
+            f'<b>{_esc(_DOMAIN_LABEL.get(dom, dom))}</b> — {links}</p>')
+    return "".join(parts)
+
+
 def _page_summary(r: PipelineResult) -> str:
     v = r.validation
     summ = v.summary()
@@ -149,6 +179,12 @@ LCR · NSFR 100% 기준, CET1 · Leverage는 규제 최저 + 자본보전버퍼 
 <div class="card"><h2>주의 / 위반 사항</h2>
 {"".join(f'<div class="callout {("bad" if c.status=="FAIL" else "")}">' + _esc(f"[{c.status}] {c.name}: {c.detail}") + '</div>'
          for c in v.checks if c.status != "PASS") or '<div class="callout good">자체검증 전 항목 통과</div>'}
+</div>
+
+<div class="card"><h2>전 부문 페이지 카탈로그</h2>
+<p class="section-lead">도메인별 전체 심층 페이지 — 상단 NAV와 동일하나 도메인
+단위로 묶어 탐색하기 쉽게 정리했습니다 (page_registry에서 자동 파생).</p>
+{_page_catalog()}
 </div>
 """
     meta = (f"산출 시드 {r.meta.get('seed')} · 포트폴리오 {int(r.portfolio_summary['n'].sum()):,}건 · "
