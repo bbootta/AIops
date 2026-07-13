@@ -110,6 +110,14 @@ def build_printable_html(result: PipelineResult, out_path,
     # ---- KRI scorecard (SVG inline)
     scorecard = viz_advanced.kri_scorecard(_kri_card_data(raf))
 
+    # ---- CRO briefing (links stripped — print target has no hyperlink use)
+    import re as _re
+    from risk_lib.html_exec import _cro_briefing
+    briefing_html = "".join(
+        f'<p style="margin:6pt 0; line-height:1.6;">'
+        f'{_re.sub(r"<a [^>]*>.*?</a>", "", b).rstrip(" ·")}</p>'
+        for b in _cro_briefing(result))
+
     # ---- top actions
     actions = _top_actions(result, max_actions=8)
     actions_html = "".join(
@@ -217,6 +225,9 @@ seed {_esc(result.meta.get('seed'))} ·
 RAF 최악 등급 <span class="badge {raf_worst}">{_esc(raf_worst)}</span>
 (GREEN {raf_summ.get('GREEN',0)} · WATCH {raf_summ.get('WATCH',0)} ·
 AMBER {raf_summ.get('AMBER',0)} · RED {raf_summ.get('RED',0)})</p>
+
+<h2>0-b. CRO 브리핑</h2>
+{briefing_html}
 
 <h2>1. 자본·유동성 핵심 지표</h2>
 <div class="kpi-grid">

@@ -299,6 +299,15 @@ def build_executive(result: PipelineResult,
     # --- CRO briefing (deterministic narrative)
     briefing = _cro_briefing(result)
 
+    # --- CET1 buffer ladder (headroom above each requirement layer)
+    hr = result.attribution["cet1_headroom"]
+    ladder = viz.horizontal_bar(
+        [f"{row['layer']} (요구 {_pct(row['required'],1)})" for _, row in hr.iterrows()],
+        [float(row["headroom"]) * 100 for _, row in hr.iterrows()],
+        title="CET1 버퍼 사다리 — 요구 단계별 여유 (%p)",
+        value_fmt=lambda v: f"{v:+.2f}%p",
+    )
+
     # --- repro
     repro = (f"산출시각 {result.meta.get('asof', '-')} · seed {result.meta.get('seed')} · "
              f"포트폴리오 {int(result.portfolio_summary['n'].sum()):,}건 · "
@@ -341,6 +350,9 @@ WATCH는 operational 조기경보, GREEN은 한계 이내.</p>
 {_kpi("ICAAP 사용률", _pct(result.icaap.utilisation,1), sub=result.icaap.grade, tone={"GREEN":"good","AMBER":"warn","RED":"bad"}[result.icaap.grade])}
 {_kpi("MDA 분배 여력", mda_text, sub=f"CBR 초과 {_won(mda_result.excess_above_cbr)}" if not mda_result.in_breach else f"버퍼 부족 {_won(mda_result.buffer_shortfall)}", tone=mda_tone)}
 </div>
+{ladder}
+<p class="section-lead">막대는 각 요구 단계(최저 → 감독요구) 대비 실측 CET1의 여유 폭 —
+가장 짧은 막대(감독요구 대비)가 실질 분배·성장 여력을 결정합니다.</p>
 </div>
 <div class="card">
 <h2>3-2. 유동성 한눈에</h2>
