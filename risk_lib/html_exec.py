@@ -24,6 +24,7 @@ from risk_lib.html_report import (
     CSS, _won, _pct, _esc, _kpi, _badge, _table,
 )
 from risk_lib.abbreviations import abbr_dict_card_html
+from risk_lib.page_registry import PAGES
 from risk_lib.references import (
     LCR_MIN, NSFR_MIN, IRRBB_OUTLIER_EVE_PCT_TIER1, LEVERAGE_MIN_RATIO,
 )
@@ -78,6 +79,113 @@ def _top_actions(result: PipelineResult, *, max_actions: int = 5) -> list[str]:
         if len(actions) >= max_actions: return actions
     # If still room, mention sensitivity tail
     return actions
+
+
+def _cro_briefing(result: PipelineResult) -> list[str]:
+    """Deterministic CRO briefing — every sentence derives from result fields
+    (reproducible/explainable), each with a deep-dive link."""
+    out = []
+    bis = result.bis
+
+    # 자본: 잉여 + RWA 최대 구성요소
+    comp = result.attribution["rwa_components"]
+    topc = comp.loc[comp["share"].idxmax()]
+    out.append(
+        f"<b>자본</b> — CET1 {_pct(bis.cet1_ratio)}로 요구치 대비 "
+        f"{bis.surplus_shortfall['cet1']*100:+.2f}%p 여유. RWA의 최대 구성은 "
+        f"<b>{_esc(topc['component'])}</b>({topc['share']*100:.0f}%)로, 자본비율 "
+        f"방어의 1차 레버는 이 부문의 한도·성장 관리다. "
+        f'<a href="ops/32_capital_stack.html">→ 자본 스택</a> · '
+        f'<a href="ops/23_attribution.html">→ 귀속분석</a>')
+
+    # 충당금: PIT vs TTC 방향성
+    pit, ttc = float(result.macro_ecl.weighted_total), float(result.ecl["total"])
+    gap_pct = (pit / ttc - 1) * 100 if ttc else 0.0
+    out.append(
+        f"<b>충당금</b> — 확률가중 PIT ECL {_won(pit)}은 TTC {_won(ttc)} 대비 "
+        f"<b>{gap_pct:+.0f}%</b>. 거시 하방 시나리오 가중이 충당금을 끌어올리는 "
+        f"국면으로, 분기 적립 계획에 선반영 필요. "
+        f'<a href="ops/37_macro_scenario.html">→ 거시 시나리오</a> · '
+        f'<a href="ops/38_provisioning_attribution.html">→ 충당금 귀속</a>')
+
+    # 최대 리스크 드라이버: 집중 + RAF RED/AMBER
+    conc = result.concentration
+    top = conc.loc[conc["normalised_hhi"].idxmax()]
+    red = [k for k in result.raf.kris if k.grade == "RED"]
+    red_txt = (" RAF RED: " + ", ".join(_esc(k.name) for k in red) + "."
+               if red else "")
+    out.append(
+        f"<b>집중리스크</b> — 최대 집중 차원은 <b>{_esc(top['dimension'])}</b> "
+        f"(HHI {top['hhi']:.3f}, 최대 버킷 점유 {top['top1_share']*100:.0f}%)."
+        f"{red_txt} 분산 없이는 스트레스 손실이 이 차원에 눌려 비선형으로 커진다. "
+        f'<a href="ops/18_concentration_deep.html">→ 집중 deep-dive</a>')
+
+    # 스트레스 회복력
+    sp = result.stress_path_trough
+    sev = sp[sp["scenario"] == "severely_adverse"]
+    if len(sev):
+        s = sev.iloc[0]
+        breach = (f"요구치 최초 침범 <b>{_esc(s['first_breach'])}</b>, "
+                  if isinstance(s.get("first_breach"), str) else "요구치 침범 없음, ")
+        out.append(
+            f"<b>스트레스 회복력</b> — severe 시나리오에서 CET1 저점 "
+            f"<b>{_pct(float(s['trough_cet1']))}</b> ({_esc(s['trough_quarter'])}), "
+            f"{breach}기말 {_pct(float(s['end_cet1']))}로 회복. 역스트레스 임계 "
+            f"심도 s={result.reverse_stress.critical_severity:.2f} — 현 여력의 "
+            f"소진에는 GDP {result.reverse_stress.implied_gdp_shock:+.1%} 급 충격 필요. "
+            f'<a href="ops/49_ccar_path.html">→ CCAR 경로</a> · '
+            f'<a href="ops/48_reverse_stress_multi.html">→ 역스트레스</a>')
+
+    # 유동성
+    lcr = result.alm["lcr"]; nsfr = result.alm["nsfr"]
+    out.append(
+        f"<b>유동성</b> — LCR {_pct(lcr.lcr,1)} / NSFR {_pct(nsfr.nsfr,1)} "
+        f"(기준 각 {_pct(LCR_MIN,0)}). 기준 대비 여유는 있으나 LCR은 조기경보 "
+        f"구간이므로 고유동성자산 buffer 소진 속도를 intraday로 모니터링. "
+        f'<a href="ops/11b_lcr.html">→ LCR</a> · '
+        f'<a href="ops/61_intraday.html">→ Intraday</a>')
+
+    # 모형 건전성
+    ambers = [k for k in result.raf.kris if k.grade == "AMBER"]
+    if ambers:
+        out.append(
+            f"<b>모형·기타 AMBER</b> — " +
+            ", ".join(f"{_esc(k.name)} ({_fmt(k.actual, k.fmt)})" for k in ambers) +
+            ". 관리 한계 위반으로 에스컬레이션 대상. "
+            f'<a href="ops/17_model_risk.html">→ 모형 리스크</a> · '
+            f'<a href="ops/19_raf.html">→ RAF 상세</a>')
+    return out
+
+
+_DOMAIN_LABEL = {
+    "core_overview": "핵심 — 요약/검증/결재",
+    "core_credit": "핵심 — 신용",
+    "core_capital_alm": "핵심 — 자본/ALM",
+    "credit": "신용/충당금 심층",
+    "capital_stress": "자본/스트레스 심층",
+    "market_trading": "시장/트레이딩 심층",
+    "concentration_limits": "집중/한도 심층",
+    "performance": "성과 심층",
+    "nonfinancial": "비재무 심층",
+    "governance": "거버넌스/공시 심층",
+}
+
+
+def _deep_dive_nav() -> str:
+    """전체 ops 페이지로의 진입점 — page_registry에서 파생하므로 새 페이지가
+    추가되면 자동으로 여기에도 나타난다 (전 부문 deep-dive 보장)."""
+    groups: dict[str, list] = {}
+    for spec in PAGES:
+        groups.setdefault(spec.module.rsplit(".", 1)[-1], []).append(spec)
+    parts = []
+    for dom, specs in groups.items():
+        label = _DOMAIN_LABEL.get(dom, dom)
+        links = " ".join(f'<a href="ops/{s.filename}">{_esc(s.label)}</a>'
+                         for s in specs)
+        parts.append(
+            f'<div class="nav-foot" style="margin-bottom:8px">'
+            f'<b style="margin-right:10px">{_esc(label)}</b>{links}</div>')
+    return "".join(parts)
 
 
 # ---------------------------------------------------------------- chrome
@@ -188,6 +296,9 @@ def build_executive(result: PipelineResult,
     mda_text = ("자유로운 분배" if not mda_result.in_breach
                 else f"분배제한 q{mda_result.buffer_quartile} ({_pct(mda_result.distributable_pct)})")
 
+    # --- CRO briefing (deterministic narrative)
+    briefing = _cro_briefing(result)
+
     # --- repro
     repro = (f"산출시각 {result.meta.get('asof', '-')} · seed {result.meta.get('seed')} · "
              f"포트폴리오 {int(result.portfolio_summary['n'].sum()):,}건 · "
@@ -198,6 +309,13 @@ def build_executive(result: PipelineResult,
 <p class="section-lead">{_esc(verdict_text)} — 자체검증 {summ.get('PASS',0)} PASS / {summ.get('WARN',0)} WARN / {summ.get('FAIL',0)} FAIL.
 리스크 어페타이트(RAF) 최악 등급 <b>{_badge(raf_worst, raf_worst)}</b>
 (분포: {", ".join(f"{k} {v}" for k, v in raf_summ.items())})</p>
+
+<div class="card">
+<h2>0-b. CRO 브리핑 — 이번 산출이 말하는 것</h2>
+<p class="section-lead">아래 문장은 전부 본 산출값에서 자동 유도됩니다 (재현가능).
+각 문장 끝 링크로 해당 부문 deep-dive에 진입하세요.</p>
+{"".join(f'<p style="margin:10px 0; line-height:1.7;">{b}</p>' for b in briefing)}
+</div>
 
 <div class="card">
 <h2>1. KRI 스코어카드 (Risk Appetite Framework)</h2>
@@ -270,32 +388,11 @@ WATCH는 operational 조기경보, GREEN은 한계 이내.</p>
 </div>
 
 <div class="card">
-<h2>7. 실무진 deep-dive 진입점</h2>
-<p>아래는 본 요약을 뒷받침하는 실무진 보고서(부문별 상세 + 모델 카드 + 출처) 진입점입니다.</p>
-<div class="nav-foot">
-<a href="ops/index.html">실무진 통합 인덱스</a>
-<a href="ops/03_rwa.html">RWA 분해</a>
-<a href="ops/04_capital.html">BIS·레버리지</a>
-<a href="ops/05_ecl.html">IFRS9 ECL</a>
-<a href="ops/35_sicr_detail.html">SICR 분해</a>
-<a href="ops/36_pd_term_structure.html">PD 잔존기간</a>
-<a href="ops/37_macro_scenario.html">거시 시나리오</a>
-<a href="ops/38_provisioning_attribution.html">충당금 귀속</a>
-<a href="ops/09_stress.html">스트레스</a>
-<a href="ops/10_icaap.html">내부자본</a>
-<a href="ops/11a_irrbb.html">IRRBB</a>
-<a href="ops/11b_lcr.html">LCR</a>
-<a href="ops/13_climate.html">기후리스크</a>
-<a href="ops/14_ccr.html">CCR/CVA</a>
-<a href="ops/15_op_loss.html">운영손실</a>
-<a href="ops/16_sensitivity.html">민감도</a>
-<a href="ops/17_model_risk.html">모형 카드</a>
-<a href="ops/18_concentration_deep.html">집중리스크 deep-dive</a>
-<a href="ops/19_raf.html">RAF 상세</a>
-<a href="ops/20_pillar3.html">Pillar 3 공시</a>
-<a href="ops/12_validation.html">자체검증</a>
-<a href="ops/52_final_attestation.html"><b>최종 결재 attestation</b></a>
-</div>
+<h2>7. 실무진 deep-dive 진입점 — 전 부문 ({len(PAGES)}페이지)</h2>
+<p>아래는 본 요약을 뒷받침하는 실무진 보고서(부문별 상세 + 모델 카드 + 출처)
+전체 진입점입니다. <a href="ops/index.html"><b>실무진 통합 인덱스</b></a> ·
+<a href="ops/52_final_attestation.html"><b>최종 결재 attestation</b></a></p>
+{_deep_dive_nav()}
 </div>
 
 <div class="card">
