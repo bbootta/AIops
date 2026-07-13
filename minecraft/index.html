@@ -77,6 +77,18 @@
     padding: 10px 16px; border: 2px solid #ffd54a; border-radius: 10px;
     z-index: 14; display: none; max-width: 86vw; text-align: center; line-height: 1.6;
   }
+  #toasts {
+    position: fixed; top: 124px; left: 50%; transform: translateX(-50%);
+    z-index: 16; display: flex; flex-direction: column; gap: 6px; align-items: center;
+    pointer-events: none;
+  }
+  .toast {
+    background: rgba(20, 20, 30, 0.88); border: 1px solid #ffd54a; color: #fff;
+    font: bold 13px monospace; padding: 8px 14px; border-radius: 8px;
+    animation: toastin 0.25s ease-out; max-width: 86vw; text-align: center;
+  }
+  .toast.out { opacity: 0; transition: opacity 0.4s; }
+  @keyframes toastin { from { transform: translateY(-8px); opacity: 0; } }
   /* 터치 UI (터치 기기에서만 표시) */
   .touchui { display: none; }
   body.touch .touchui { display: flex; }
@@ -218,6 +230,7 @@
 <div id="health"></div>
 <div id="bossBar"><span id="bossName">☠ 좀비 군주</span><div class="track"><div id="bossFill"></div></div></div>
 <div id="tut"></div>
+<div id="toasts"></div>
 <div id="damageFlash"></div>
 <div id="joy" class="touchui"><div id="joyStick"></div></div>
 <div id="btnJump" class="tbtn touchui">⤒<span class="lbl">점프</span></div>
@@ -1374,6 +1387,7 @@ function spawnBoss() {
     atkT: 0, groanT: 1.5,
   });
   playSound(55, 0.8, 'sawtooth', 0.25);
+  toast('☠ 좀비 군주 등장!', 3500);
 }
 // 🌪 위더 스톰: 하늘을 떠다니며 폭발하는 스컬을 퍼붓는 슈퍼보스
 function spawnWitherStorm() {
@@ -1395,6 +1409,7 @@ function spawnWitherStorm() {
     atkT: 0, skullT: 2,
   });
   playSound(35, 1.2, 'sawtooth', 0.35); // 낮게 울리는 등장음
+  toast('🌪 위더 스톰이 나타났다!!', 4500);
 }
 function updateZombies(dt) {
   // 평화 모드에서는 밤이어도 스폰하지 않고, 있던 몬스터는 소멸 경로로 정리됨
@@ -1520,6 +1535,7 @@ function explodeCreeper(c) {
 // 몹에게 피해 + 넉백 적용, 죽으면 처치 처리
 function damageMob(m, dmg, dx, dz) {
   m.hp -= dmg;
+  spawnFx(m.pos.x, m.pos.y + m.hitH * 0.6, m.pos.z, enemyBoltMat(0xff4040), 4, 3, 0.18); // 피격 스파크
   const kl = Math.hypot(dx, dz) || 1;
   m.vel.set((dx / kl) * 6, 4, (dz / kl) * 6);
   m.kbT = 0.3;
@@ -1537,9 +1553,23 @@ function killMob(m) {
     updateHotbar();
   } else {
     const zi = zombies.indexOf(m);
-    if (zi >= 0) zombies.splice(zi, 1);
-    if (m.wither) { inv[ITEM.DIAMOND] += 10; inv[ITEM.EMERALD] += 5; updateHotbar(); bossBarEl.style.display = 'none'; playSound(30, 1.5, 'sawtooth', 0.4); }
-    else if (m.boss) { inv[ITEM.DIAMOND] += 3; updateHotbar(); bossBarEl.style.display = 'none'; }
+    if (zi >= 0) {
+      zombies.splice(zi, 1);
+      killCount++;
+      if (killCount >= 10) unlock('hunter', '몬스터 10마리 처치');
+    }
+    if (m.wither) {
+      inv[ITEM.DIAMOND] += 10; inv[ITEM.EMERALD] += 5; updateHotbar();
+      bossBarEl.style.display = 'none';
+      playSound(30, 1.5, 'sawtooth', 0.4);
+      toast('🎉 위더 스톰 격파! 다이아 10 + 에메랄드 5 획득', 4500);
+      unlock('wither', '🌪 위더 스톰 격파!!');
+    } else if (m.boss) {
+      inv[ITEM.DIAMOND] += 3; updateHotbar();
+      bossBarEl.style.display = 'none';
+      toast('🎉 좀비 군주 처치! 다이아 3 획득', 4000);
+      unlock('boss', '좀비 군주 처치');
+    }
   }
   spawnParticles(m.pos.x - 0.5, m.pos.y + 0.3, m.pos.z - 0.5, m.mesh.userData.bodyMat);
   playSound(330, 0.25, 'sine', 0.2);
@@ -1752,7 +1782,32 @@ const bossBarEl = document.getElementById('bossBar');
 const bossNameEl = document.getElementById('bossName');
 const bossFillEl = document.getElementById('bossFill');
 
+// ---------- 토스트 알림 + 업적 ----------
+const toastsEl = document.getElementById('toasts');
+function toast(msg, ms) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  toastsEl.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('out');
+    setTimeout(() => { if (el.remove) el.remove(); }, 450);
+  }, ms || 2600);
+}
+let achv = new Set();
+try { achv = new Set(JSON.parse(localStorage.getItem('mc_achv') || '[]')); } catch (e) {}
+function unlock(id, label) {
+  if (achv.has(id)) return;
+  achv.add(id);
+  try { localStorage.setItem('mc_achv', JSON.stringify([...achv])); } catch (e) {}
+  toast('🏆 업적 달성: ' + label, 3800);
+  playSound(880, 0.25, 'sine', 0.2);
+  playSound(1320, 0.35, 'sine', 0.15);
+}
+let killCount = 0; // 이번 세션 몬스터 처치 수
+
 function respawn() {
+  toast('💀 쓰러졌다... 스폰 지점에서 부활!', 3000);
   player.pos.set(0.5, spawnY(), 0.5);
   player.vel.set(0, 0, 0);
   health = MAX_HEALTH;
@@ -2113,6 +2168,7 @@ const clockEl = document.getElementById('clock');
 const UNDERWATER_COLOR = new THREE.Color(0x21508f);
 const _sunDir = new THREE.Vector3();
 let sunHeight = 1; // 현재 태양 고도 (좀비 스폰 판정용)
+let prevSun = 1;   // 해질녘 감지용
 function updateSky(dt) {
   dayTime = (dayTime + dt) % DAY_LENGTH;
   if (curDim === 'nether') {
@@ -2127,6 +2183,8 @@ function updateSky(dt) {
   }
   const a = (dayTime / DAY_LENGTH) * Math.PI * 2;
   const s = Math.sin(a); // 1 = 정오, -1 = 자정
+  if (prevSun >= -0.05 && s < -0.05 && !optPeace && playing()) toast('🌙 밤이 됩니다 — 몬스터 주의!', 3200);
+  prevSun = s;
   sunHeight = s;
   sun.position.set(Math.cos(a) * 80, s * 80, 30);
   sun.intensity = Math.max(0, s) * 1.05 + 0.05;
@@ -2574,6 +2632,8 @@ function toggleSuit() {
   suitTilt = 0;
   if (suit) { player.vel.set(0, 0, 0); flying = false; }
   playSound([200, 520, 320, 760][suitLevel], 0.35, suitLevel === 3 ? 'sine' : 'sawtooth', 0.22);
+  if (suitLevel === 1) unlock('iron', '아이언 슈트 첫 변신');
+  if (suitLevel === 3) unlock('strange', '마법사로 변신!');
   // 모바일 버튼 라벨 전환
   const lbl = (id, t) => { const el = document.querySelector('#' + id + ' .lbl'); if (el) el.textContent = t; };
   if (suitLevel === 3) {
@@ -2921,6 +2981,9 @@ function updateMining(dt) {
       // 일부 광석은 곡괭이가 있어야 드롭
       if (drop && !(NEEDS_PICK.has(type) && !hasPick)) {
         inv[drop[0]] = (inv[drop[0]] || 0) + drop[1];
+        if (type === BLOCK.WOOD) unlock('wood', '첫 나무를 캤다');
+        if (type === BLOCK.DIAMOND_ORE) unlock('dia', '반짝이는 다이아몬드!');
+        if (type === BLOCK.EMERALD_ORE) unlock('emerald', '희귀한 에메랄드!');
       }
       if (type === BLOCK.GRASS) {
         if (Math.random() < 0.35) inv[ITEM.SEEDS] += 1;   // 잔디에서 씨앗
@@ -3125,6 +3188,7 @@ function renderCraft() {
         for (const [t, n] of Object.entries(r.cost)) inv[t] -= n;
         if (r.once) tools[r.once] = true;
         else r.make();
+        if (r.once === 'pickaxe') unlock('tool', '첫 도구 제작');
         updateHotbar();
         renderCraft();
         playSound(520, 0.12, 'triangle', 0.15);
@@ -3319,6 +3383,8 @@ function teleport(target, initial) {
     portalCooldown = 2.5;
     flying = false;
     playSound(180, 0.5, 'sine', 0.25);
+    if (target === 'nether') { toast('🔥 네더에 도착했다!', 3000); unlock('nether', '네더에 발을 딛다'); }
+    else toast('🌳 오버월드로 귀환!', 2500);
   }
 }
 function applyPos(p) {
