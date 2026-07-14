@@ -42,6 +42,53 @@ _EN_GLOSSARY = [
 ]
 
 
+def _briefing_en(result, fx: float) -> str:
+    """English CRO briefing — same derivations as the Korean narrative
+    (html_exec.briefing_facts), so the two language editions cannot diverge."""
+    from risk_lib.html_exec import briefing_facts
+    f = briefing_facts(result)
+    paras = []
+    paras.append(
+        f"<b>Capital</b> — CET1 {f['cet1']*100:.2f}%, "
+        f"{f['cet1_surplus_pp']:+.2f}pp above requirement. The largest RWA "
+        f"component is <b>{_esc(f['top_rwa_component'])}</b> "
+        f"({f['top_rwa_share']*100:.0f}%), making its limit/growth management "
+        f"the primary lever for ratio defence.")
+    paras.append(
+        f"<b>Provisions</b> — probability-weighted PIT ECL "
+        f"{_usd(f['pit'], fx)} runs <b>{f['gap_pct']:+.0f}%</b> above TTC "
+        f"{_usd(f['ttc'], fx)}; downside macro weights are pushing allowances "
+        f"up and should be pre-funded in the quarterly plan.")
+    red_txt = (" RAF RED: " + ", ".join(_esc(n) for n in f["raf_red"]) + "."
+               if f["raf_red"] else "")
+    paras.append(
+        f"<b>Concentration</b> — the most concentrated dimension is "
+        f"<b>{_esc(f['conc_dim'])}</b> (HHI {f['conc_hhi']:.3f}, top bucket "
+        f"{f['conc_top1']*100:.0f}%).{red_txt}")
+    if f["sev"]:
+        s = f["sev"]
+        breach = (f"first breach in <b>{_esc(s['first_breach'])}</b>, "
+                  if s["first_breach"] else "no breach of the requirement, ")
+        paras.append(
+            f"<b>Stress resilience</b> — under the severely adverse scenario "
+            f"CET1 troughs at <b>{s['trough']*100:.2f}%</b> "
+            f"({_esc(s['trough_q'])}), {breach}recovering to "
+            f"{s['end']*100:.2f}% by horizon end. Reverse-stress critical "
+            f"severity s={f['rev_severity']:.2f} (implied GDP "
+            f"{f['rev_gdp']:+.1%}).")
+    paras.append(
+        f"<b>Liquidity</b> — LCR {f['lcr']*100:.1f}% / NSFR "
+        f"{f['nsfr']*100:.1f}% (minimum 100% each); LCR sits in the "
+        f"early-warning band and HQLA burn-rate is monitored intraday.")
+    if f["raf_amber"]:
+        paras.append(
+            "<b>AMBER escalations</b> — " +
+            ", ".join(f"{_esc(n)} ({v})" for n, v in f["raf_amber"]) +
+            " breach management thresholds and are escalated.")
+    return "".join(f'<p style="margin:8px 0; line-height:1.6;">{p}</p>'
+                   for p in paras)
+
+
 def build_english_board_pack(result, out_path, *,
                              meeting_date: str = "", fx: float = 1350.0) -> str:
     """Condensed English Risk Committee summary."""
@@ -121,6 +168,11 @@ ICAAP grade {_esc(result.icaap.grade if result.icaap else '-')}</p>
 <div class="card">
 <h2>2. Top Action Items</h2>
 <ul>{actions_html}</ul>
+</div>
+
+<div class="card">
+<h2>2-b. CRO Briefing</h2>
+{_briefing_en(result, fx)}
 </div>
 
 <div class="card">

@@ -94,76 +94,103 @@ def _top_actions(result: PipelineResult, *, max_actions: int = 5) -> list[str]:
     return actions
 
 
-def _cro_briefing(result: PipelineResult) -> list[str]:
-    """Deterministic CRO briefing — every sentence derives from result fields
-    (reproducible/explainable), each with a deep-dive link."""
-    out = []
-    bis = result.bis
+def briefing_facts(result: PipelineResult) -> dict:
+    """CRO 브리핑의 원천 값 — 한/영 템플릿이 같은 유도값을 쓰도록 단일화.
 
-    # 자본: 잉여 + RWA 최대 구성요소
+    localization.build_english_board_pack의 영문 브리핑도 이 dict를 사용한다.
+    """
+    bis = result.bis
     comp = result.attribution["rwa_components"]
     topc = comp.loc[comp["share"].idxmax()]
+    pit, ttc = float(result.macro_ecl.weighted_total), float(result.ecl["total"])
+    conc = result.concentration
+    top = conc.loc[conc["normalised_hhi"].idxmax()]
+    sp = result.stress_path_trough
+    sev_rows = sp[sp["scenario"] == "severely_adverse"]
+    sev = None
+    if len(sev_rows):
+        s = sev_rows.iloc[0]
+        sev = {
+            "trough": float(s["trough_cet1"]),
+            "trough_q": str(s["trough_quarter"]),
+            "first_breach": (str(s["first_breach"])
+                             if isinstance(s.get("first_breach"), str) else None),
+            "end": float(s["end_cet1"]),
+        }
+    return {
+        "cet1": float(bis.cet1_ratio),
+        "cet1_surplus_pp": float(bis.surplus_shortfall["cet1"]) * 100,
+        "top_rwa_component": str(topc["component"]),
+        "top_rwa_share": float(topc["share"]),
+        "pit": pit, "ttc": ttc,
+        "gap_pct": (pit / ttc - 1) * 100 if ttc else 0.0,
+        "conc_dim": str(top["dimension"]),
+        "conc_hhi": float(top["hhi"]),
+        "conc_top1": float(top["top1_share"]),
+        "raf_red": [k.name for k in result.raf.kris if k.grade == "RED"],
+        "raf_amber": [(k.name, _fmt(k.actual, k.fmt))
+                      for k in result.raf.kris if k.grade == "AMBER"],
+        "sev": sev,
+        "rev_severity": float(result.reverse_stress.critical_severity),
+        "rev_gdp": float(result.reverse_stress.implied_gdp_shock),
+        "lcr": float(result.alm["lcr"].lcr),
+        "nsfr": float(result.alm["nsfr"].nsfr),
+    }
+
+
+def _cro_briefing(result: PipelineResult) -> list[str]:
+    """Deterministic CRO briefing — every sentence derives from briefing_facts
+    (reproducible/explainable), each with a deep-dive link."""
+    f = briefing_facts(result)
+    out = []
+
     out.append(
-        f"<b>자본</b> — CET1 {_pct(bis.cet1_ratio)}로 요구치 대비 "
-        f"{bis.surplus_shortfall['cet1']*100:+.2f}%p 여유. RWA의 최대 구성은 "
-        f"<b>{_esc(topc['component'])}</b>({topc['share']*100:.0f}%)로, 자본비율 "
+        f"<b>자본</b> — CET1 {_pct(f['cet1'])}로 요구치 대비 "
+        f"{f['cet1_surplus_pp']:+.2f}%p 여유. RWA의 최대 구성은 "
+        f"<b>{_esc(f['top_rwa_component'])}</b>({f['top_rwa_share']*100:.0f}%)로, 자본비율 "
         f"방어의 1차 레버는 이 부문의 한도·성장 관리다. "
         f'<a href="ops/32_capital_stack.html">→ 자본 스택</a> · '
         f'<a href="ops/23_attribution.html">→ 귀속분석</a>')
 
-    # 충당금: PIT vs TTC 방향성
-    pit, ttc = float(result.macro_ecl.weighted_total), float(result.ecl["total"])
-    gap_pct = (pit / ttc - 1) * 100 if ttc else 0.0
     out.append(
-        f"<b>충당금</b> — 확률가중 PIT ECL {_won(pit)}은 TTC {_won(ttc)} 대비 "
-        f"<b>{gap_pct:+.0f}%</b>. 거시 하방 시나리오 가중이 충당금을 끌어올리는 "
+        f"<b>충당금</b> — 확률가중 PIT ECL {_won(f['pit'])}은 TTC {_won(f['ttc'])} 대비 "
+        f"<b>{f['gap_pct']:+.0f}%</b>. 거시 하방 시나리오 가중이 충당금을 끌어올리는 "
         f"국면으로, 분기 적립 계획에 선반영 필요. "
         f'<a href="ops/37_macro_scenario.html">→ 거시 시나리오</a> · '
         f'<a href="ops/38_provisioning_attribution.html">→ 충당금 귀속</a>')
 
-    # 최대 리스크 드라이버: 집중 + RAF RED/AMBER
-    conc = result.concentration
-    top = conc.loc[conc["normalised_hhi"].idxmax()]
-    red = [k for k in result.raf.kris if k.grade == "RED"]
-    red_txt = (" RAF RED: " + ", ".join(_esc(k.name) for k in red) + "."
-               if red else "")
+    red_txt = (" RAF RED: " + ", ".join(_esc(n) for n in f["raf_red"]) + "."
+               if f["raf_red"] else "")
     out.append(
-        f"<b>집중리스크</b> — 최대 집중 차원은 <b>{_esc(top['dimension'])}</b> "
-        f"(HHI {top['hhi']:.3f}, 최대 버킷 점유 {top['top1_share']*100:.0f}%)."
+        f"<b>집중리스크</b> — 최대 집중 차원은 <b>{_esc(f['conc_dim'])}</b> "
+        f"(HHI {f['conc_hhi']:.3f}, 최대 버킷 점유 {f['conc_top1']*100:.0f}%)."
         f"{red_txt} 분산 없이는 스트레스 손실이 이 차원에 눌려 비선형으로 커진다. "
         f'<a href="ops/18_concentration_deep.html">→ 집중 deep-dive</a>')
 
-    # 스트레스 회복력
-    sp = result.stress_path_trough
-    sev = sp[sp["scenario"] == "severely_adverse"]
-    if len(sev):
-        s = sev.iloc[0]
+    if f["sev"]:
+        s = f["sev"]
         breach = (f"요구치 최초 침범 <b>{_esc(s['first_breach'])}</b>, "
-                  if isinstance(s.get("first_breach"), str) else "요구치 침범 없음, ")
+                  if s["first_breach"] else "요구치 침범 없음, ")
         out.append(
             f"<b>스트레스 회복력</b> — severe 시나리오에서 CET1 저점 "
-            f"<b>{_pct(float(s['trough_cet1']))}</b> ({_esc(s['trough_quarter'])}), "
-            f"{breach}기말 {_pct(float(s['end_cet1']))}로 회복. 역스트레스 임계 "
-            f"심도 s={result.reverse_stress.critical_severity:.2f} — 현 여력의 "
-            f"소진에는 GDP {result.reverse_stress.implied_gdp_shock:+.1%} 급 충격 필요. "
+            f"<b>{_pct(s['trough'])}</b> ({_esc(s['trough_q'])}), "
+            f"{breach}기말 {_pct(s['end'])}로 회복. 역스트레스 임계 "
+            f"심도 s={f['rev_severity']:.2f} — 현 여력의 "
+            f"소진에는 GDP {f['rev_gdp']:+.1%} 급 충격 필요. "
             f'<a href="ops/49_ccar_path.html">→ CCAR 경로</a> · '
             f'<a href="ops/48_reverse_stress_multi.html">→ 역스트레스</a>')
 
-    # 유동성
-    lcr = result.alm["lcr"]; nsfr = result.alm["nsfr"]
     out.append(
-        f"<b>유동성</b> — LCR {_pct(lcr.lcr,1)} / NSFR {_pct(nsfr.nsfr,1)} "
+        f"<b>유동성</b> — LCR {_pct(f['lcr'],1)} / NSFR {_pct(f['nsfr'],1)} "
         f"(기준 각 {_pct(LCR_MIN,0)}). 기준 대비 여유는 있으나 LCR은 조기경보 "
         f"구간이므로 고유동성자산 buffer 소진 속도를 intraday로 모니터링. "
         f'<a href="ops/11b_lcr.html">→ LCR</a> · '
         f'<a href="ops/61_intraday.html">→ Intraday</a>')
 
-    # 모형 건전성
-    ambers = [k for k in result.raf.kris if k.grade == "AMBER"]
-    if ambers:
+    if f["raf_amber"]:
         out.append(
             f"<b>모형·기타 AMBER</b> — " +
-            ", ".join(f"{_esc(k.name)} ({_fmt(k.actual, k.fmt)})" for k in ambers) +
+            ", ".join(f"{_esc(n)} ({v})" for n, v in f["raf_amber"]) +
             ". 관리 한계 위반으로 에스컬레이션 대상. "
             f'<a href="ops/17_model_risk.html">→ 모형 리스크</a> · '
             f'<a href="ops/19_raf.html">→ RAF 상세</a>')

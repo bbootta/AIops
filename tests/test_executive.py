@@ -76,3 +76,16 @@ def test_board_pack_carries_briefing(tmp_path, result):
     assert "CRO 브리핑" in body
     seg = body.split("CRO 브리핑")[1].split("<h3>")[0]
     assert "<a " not in seg      # standalone A4 — links stripped
+
+
+def test_english_briefing_shares_derivations(tmp_path, result):
+    """EN board pack briefing uses briefing_facts — same numbers as Korean."""
+    from risk_lib.localization import build_english_board_pack
+    from risk_lib.html_exec import briefing_facts
+    p = build_english_board_pack(result, tmp_path / "en.html")
+    body = Path(p).read_text(encoding="utf-8")
+    assert "CRO Briefing" in body
+    f = briefing_facts(result)
+    assert f"{f['sev']['trough']*100:.2f}%" in body   # severe trough CET1
+    assert f"{f['gap_pct']:+.0f}%" in body            # PIT vs TTC gap
+    assert f"HHI {f['conc_hhi']:.3f}" in body         # concentration
