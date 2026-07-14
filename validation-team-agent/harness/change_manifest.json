@@ -2115,6 +2115,21 @@
       "rollback_rule": "다크모드에서 가독성 저하 신고 시 @media dark 블록 제거 (라이트 불변이므로 블록 삭제로 완전 롤백)",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0142",
+      "timestamp": "2026-07-14 10:48:00",
+      "component": "tools/cro_digest.py (QoQ 섹션)",
+      "change_type": "modify",
+      "evidence": "digest 가 스냅샷만 담아 추세 판단 불가 — CRO 는 전분기 대비 방향이 1차 관심. report_export._qoq_table (SSoT) 재사용으로 CSV export 와 digest 수치 단일 원천",
+      "root_cause": "R75 digest 최초 구현 범위가 당분기 스냅샷으로 한정",
+      "targeted_fix": "QoQ 테이블 (전분기/당분기/변화) 삽입 — 지표별 개선/악화 의미 적용 (cet1/leverage/lcr/nsfr/icaap 높을수록 좋음, delta_eve/psi/hhi 낮을수록 좋음). 합성 panel 예시 문구 강제 (실측 오인 방지). HTML+텍스트 양쪽",
+      "expected_benefit": "CRO 가 이메일만으로 방향성 파악. export CSV 와 수치 일치 보장",
+      "expected_regression_risk": "낮음 — 섹션 추가만, 기존 섹션 불변. 결정론 유지 테스트 재확인",
+      "validation_method": "tests/test_v2_round77.py 5 cases (섹션 존재/합성 표기/방향 의미/SSoT 일치/결정론) + 전체 1076 passed",
+      "rollback_rule": "QoQ 수치가 export CSV 와 불일치 발견 시 섹션 제거",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

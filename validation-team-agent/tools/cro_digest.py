@@ -38,6 +38,18 @@ _STATUS_LABEL = {
     "simulated": "모의",
 }
 
+#: QoQ 지표 — (한글 라벨, 표시 형식, 높을수록 좋은지)
+_QOQ_METRICS = {
+    "cet1": ("CET1 비율", "{:.2%}", True),
+    "leverage": ("Leverage 비율", "{:.2%}", True),
+    "lcr": ("LCR", "{:.2f}", True),
+    "nsfr": ("NSFR", "{:.2f}", True),
+    "icaap": ("내부자본비율", "{:.2f}", True),
+    "delta_eve": ("ΔEVE/Tier1", "{:.1%}", False),
+    "psi": ("PSI", "{:.3f}", False),
+    "hhi": ("HHI", "{:.3f}", False),
+}
+
 
 def _esc(v: object) -> str:
     return html.escape(str(v), quote=True)
@@ -64,6 +76,7 @@ def build_digest(demo: dict, *, stress: bool, seed: int, n: int,
         top_risks_and_actions,
     )
     from tools.provenance import git_info
+    from tools.report_export import _qoq_table
 
     mode = "스트레스" if stress else "정상"
     subject = f"[DRAFT] 분기 적합성검증 요약 — {mode} (n={n:,}, seed={seed})"
@@ -97,6 +110,46 @@ def build_digest(demo: dict, *, stress: bool, seed: int, n: int,
         f'<td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;'
         f'color:#475569;font-size:13px">{_esc(detail)}</td></tr>'
         for label, status, detail, _link in domains)
+
+    # QoQ — 합성 분기 panel (delta 방향에 지표별 개선/악화 판정 적용)
+    qoq = _qoq_table()
+    qoq_rows = []
+    qoq_text = []
+    for row in qoq:
+        label, fmt, higher_better = _QOQ_METRICS.get(
+            row["metric"], (row["metric"], "{:.4f}", True))
+        delta = row["delta"]
+        improved = (delta >= 0) if higher_better else (delta <= 0)
+        arrow = "▲" if delta > 0 else ("▼" if delta < 0 else "→")
+        color = PALETTE["ok"] if improved else PALETTE["fail"]
+        word = "개선" if improved else "악화"
+        if delta == 0:
+            color, word = PALETTE["neutral"], "동일"
+        qoq_rows.append(
+            f'<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">'
+            f"{_esc(label)}</td>"
+            f'<td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;'
+            f'text-align:right;font-variant-numeric:tabular-nums">'
+            f"{_esc(fmt.format(row['previous_value']))}</td>"
+            f'<td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;'
+            f'text-align:right;font-variant-numeric:tabular-nums"><b>'
+            f"{_esc(fmt.format(row['current_value']))}</b></td>"
+            f'<td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;'
+            f'color:{color};font-weight:600">{arrow} '
+            f"{_esc(fmt.format(abs(delta)))} {word}</td></tr>")
+        qoq_text.append(
+            f"- {label}: {fmt.format(row['previous_value'])} → "
+            f"{fmt.format(row['current_value'])} ({arrow} {word})")
+    qoq_block = (
+        f"""<h3 style="margin:18px 0 6px">전분기 대비 (QoQ) — {_esc(qoq[0]['previous_quarter'])} → {_esc(qoq[0]['current_quarter'])}</h3>
+<p style="font-size:12px;color:#475569;margin:0 0 6px">합성 분기 panel 기준 —
+운영 시계열 연계 전 예시 (delta 방향은 지표별 개선/악화 정의 적용).</p>
+<table style="border-collapse:collapse;width:100%">
+<tr><th style="text-align:left;padding:6px 10px;border-bottom:2px solid #334155">지표</th>
+<th style="text-align:right;padding:6px 10px;border-bottom:2px solid #334155">전분기</th>
+<th style="text-align:right;padding:6px 10px;border-bottom:2px solid #334155">당분기</th>
+<th style="text-align:left;padding:6px 10px;border-bottom:2px solid #334155">변화</th></tr>
+{''.join(qoq_rows)}</table>""" if qoq else "")
 
     risk_rows = "".join(
         f'<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">'
@@ -139,6 +192,8 @@ def build_digest(demo: dict, *, stress: bool, seed: int, n: int,
 <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #334155">비고</th></tr>
 {domain_cells}</table>
 
+{qoq_block}
+
 {risk_block}
 
 <p style="font-size:13px;color:#475569;margin-top:14px">상세 분석·심화 페이지는
@@ -163,6 +218,11 @@ def build_digest(demo: dict, *, stress: bool, seed: int, n: int,
         "== 부문 신호등 ==",
         *[f"- {label}: {_STATUS_LABEL.get(s, s)} — {detail}"
           for label, s, detail, _ in domains],
+        "",
+        f"== 전분기 대비 (QoQ, {qoq[0]['previous_quarter']} → "
+        f"{qoq[0]['current_quarter']}) — 합성 panel 예시 =="
+        if qoq else "",
+        *qoq_text,
         "",
         "== Top 리스크 / 표준 조치 ==",
         *([f"- {r['label']} [{_STATUS_LABEL.get(r['status'], r['status'])}]: "
