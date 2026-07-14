@@ -801,6 +801,7 @@ def icaap_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
     return StepResult(
         "3.icaap", status,
         {"ratio": out["ratio"], "post_stress_ratio": out["post_stress_ratio"],
+         "post_stress_level": out["post_stress_level"],
          "required_total": out["required_total"],
          "risk_shares": out["risk_shares"],
          "missing_risk_types": out["missing_risk_types"],

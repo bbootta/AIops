@@ -38,6 +38,7 @@ _DISPATCH = {
     ("pack", "diff"): "tools.pack_diff",
     ("archive",): "tools.pack_archive",
     ("data", "load"): "tools.data_adapter",
+    ("report", "digest"): "tools.cro_digest",
     ("dashboard",): "tools.dashboard",
     ("manifest",): "tools.manifest",
     ("findings",): "tools.findings",

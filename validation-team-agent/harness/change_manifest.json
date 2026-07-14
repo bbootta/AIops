@@ -2085,6 +2085,21 @@
       "rollback_rule": "--input-csv 경로에서 원천 구분 표기 누락 또는 오차단 과다 발견 시 CLI 옵션 제거 (합성 경로 불변이므로 옵션 제거로 완전 롤백)",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0140",
+      "timestamp": "2026-07-14 10:17:19",
+      "component": "tools/cro_digest.py + src/vta/handlers/registry.py + cli_index/dispatch/README sync",
+      "change_type": "create",
+      "evidence": "CRO 보고 라인에 팩(47페이지)만 있고 이메일 요약 채널이 없었음. digest 구현 중 실버그 적발: 정상 모드 1M 팩 executive KPI가 '스트레스 후 ICAAP 1.19'를 fail(적색)로 오표기 — handlers ICAAP 출력에 post_stress_level 누락으로 kpi_cards가 fallback 'skipped'→fail 처리 (임계 min 1.0/warning 1.05 기준 1.1875는 ok가 정답, R39 이후 전체 팩에 존재)",
+      "root_cause": "registry.icaap_handler 가 check_internal_capital 의 post_stress_level 을 outputs 로 전달하지 않았고, executive_insights.kpi_cards 는 부재 시 'skipped'→fail 로 강등",
+      "targeted_fix": "cro_digest: 결정론적 demo 재실행에서 KPI/부문 신호등/Top 리스크를 이메일용 자체완결 HTML(외부 리소스 0, 인라인 스타일)+텍스트 초안으로 생성. 발송 기능 없음 — DRAFT+HITL 고지 강제 삽입(테스트로 smtplib 부재까지 검증). registry: outputs 에 post_stress_level 추가. vta 'report digest' dispatch/cli_index/README 동기",
+      "expected_benefit": "분기 사이클: 팩 빌드 + 이메일 초안까지 자동화, 발송만 인간 승인. 경영진 KPI 오신호(정상을 미달로) 제거",
+      "expected_regression_risk": "낮음 — outputs 키 추가는 additive. digest 는 신규 모듈",
+      "validation_method": "tests/test_v2_round75.py 9 cases (DRAFT/HITL/자체완결/결정론/스트레스/CLI/발송부재/post_stress_level/카탈로그) + 전체 1065 passed",
+      "rollback_rule": "digest 초안에서 수치 불일치(팩 대비) 발견 시 모듈 제거. post_stress_level 노출로 하류 소비자 오동작 시 키 제거 후 kpi_cards 에서 ratio 재판정으로 대체",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
