@@ -2100,6 +2100,21 @@
       "rollback_rule": "digest 초안에서 수치 불일치(팩 대비) 발견 시 모듈 제거. post_stress_level 노출로 하류 소비자 오동작 시 키 제거 후 kpi_cards 에서 ratio 재판정으로 대체",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0141",
+      "timestamp": "2026-07-14 10:27:22",
+      "component": "tools/report_pack.py (_CSS 디자인 토큰)",
+      "change_type": "modify",
+      "evidence": "보고서 팩이 라이트 고정이라 다크모드 브라우저에서 눈부신 화면으로 렌더. 다크 토큰 대비 계산 검증: text/bg 15.19:1, muted/surface 7.93:1, link/bg 7.52:1, banner 10.90:1 — 전 항목 WCAG AA 통과 (계산 스크립트, 눈대중 금지 원칙)",
+      "root_cause": "R69 토큰 체계에 prefers-color-scheme 분기가 없었음",
+      "targeted_fix": "_CSS 에 @media (prefers-color-scheme: dark) 토큰 오버라이드 추가 (semantic 배지색 유지). 차트 SVG 는 인쇄·재현성 때문에 잉크색 고정 → --chart-plate 토큰으로 다크에선 라이트 플레이트 위에 표시. .draft 배너 gradient 의 #fff 리터럴을 var(--c-surface) 로 토큰화. @media print 에서 라이트 토큰 강제 재선언 — 다크 브라우저에서도 결재 출력은 항상 라이트",
+      "expected_benefit": "다크모드 사용 경영진/실무자 가독성. 인쇄 산출물 일관성 보장",
+      "expected_regression_risk": "낮음 — 라이트 모드 시각 결과 불변 (배너 gradient 의 #fff→surface 는 동일 색). JS 추가 없음",
+      "validation_method": "tests/test_v2_round76.py 6 cases (토큰 오버라이드/WCAG 대비 계산/차트 플레이트/인쇄 라이트 강제+순서/리터럴 제거/렌더 포함) + 전체 1071 passed",
+      "rollback_rule": "다크모드에서 가독성 저하 신고 시 @media dark 블록 제거 (라이트 불변이므로 블록 삭제로 완전 롤백)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

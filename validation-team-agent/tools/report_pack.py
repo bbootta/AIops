@@ -85,6 +85,35 @@ _CSS = """
   --radius-lg: 12px;
   --shadow-sm: 0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.06);
   --shadow-md: 0 2px 4px rgba(15,23,42,.06), 0 4px 12px rgba(15,23,42,.08);
+  /* svg 차트 플레이트 — 라이트에선 투명, 다크에선 라이트 표면 */
+  --chart-plate: transparent;
+}
+
+/* 다크모드 — 토큰 오버라이드만으로 전환 (semantic 색은 배지 배경용이라 유지).
+   차트 SVG 는 인쇄·재현성 때문에 잉크색이 고정이므로 라이트 플레이트 위에 표시. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #0b1220;
+    --c-surface: #121b2c;
+    --c-surface-2: #182338;
+    --c-border: #253248;
+    --c-border-strong: #35455f;
+    --c-text: #e2e8f0;
+    --c-text-muted: #a5b1c2;
+    --c-text-subtle: #8091a5;
+    --c-primary: #8ab6e8;
+    --c-primary-2: #6ea8e8;
+    --c-banner-bg: #33240c;
+    --c-banner-border: #a97913;
+    --c-banner-text: #f2d9a4;
+    --c-prov-bg: #101a2a;
+    --c-prov-border: #2a3b52;
+    --c-code-bg: #1a2537;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.35);
+    --shadow-md: 0 2px 4px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.45);
+    --chart-plate: #ffffff;
+  }
+  nav.toc { background: rgba(11,18,32,.92); }
 }
 
 * { box-sizing: border-box; }
@@ -111,7 +140,7 @@ body {
 
 /* draft banner ── self-contained, no external icons */
 .draft {
-  background: linear-gradient(180deg, var(--c-banner-bg), #fff);
+  background: linear-gradient(180deg, var(--c-banner-bg), var(--c-surface));
   border: 1px solid var(--c-banner-border);
   border-left: 4px solid var(--c-banner-border);
   color: var(--c-banner-text);
@@ -319,8 +348,15 @@ footer {
   line-height: 1.55;
 }
 
-/* svg charts: enforce neutral container */
-svg { display: block; margin: .5rem 0; max-width: 100%; }
+/* svg charts: enforce neutral container. 다크모드에선 --chart-plate 가
+   라이트 표면이 되어 고정 잉크색 차트의 가독성을 유지한다. */
+svg {
+  display: block;
+  margin: .5rem 0;
+  max-width: 100%;
+  background: var(--chart-plate);
+  border-radius: var(--radius-md);
+}
 
 /* list styling */
 ul, ol { padding-left: 1.4rem; margin: .5rem 0 .9rem; }
@@ -360,10 +396,29 @@ nav.toc a:hover {
 }
 h2[id] { scroll-margin-top: 3.2rem; }
 
-/* 인쇄 (A4) — CRO 결재 출력용 */
+/* 인쇄 (A4) — CRO 결재 출력용. 다크모드 브라우저에서도 항상 라이트로 출력 */
 @media print {
   @page { size: A4; margin: 14mm; }
-  html, body { background: #fff; font-size: 10.5pt; }
+  :root {
+    --c-bg: #ffffff;
+    --c-surface: #ffffff;
+    --c-surface-2: #f8fafc;
+    --c-border: #e4e8ee;
+    --c-border-strong: #cbd2da;
+    --c-text: #0f172a;
+    --c-text-muted: #475569;
+    --c-text-subtle: #64748b;
+    --c-primary: #0b3a6a;
+    --c-primary-2: #1755a6;
+    --c-banner-bg: #fff5e6;
+    --c-banner-border: #f5b04a;
+    --c-banner-text: #6b3500;
+    --c-prov-bg: #eef3f8;
+    --c-prov-border: #c8d4e1;
+    --c-code-bg: #eef1f5;
+    --chart-plate: transparent;
+  }
+  html, body { background: #fff; color: #0f172a; font-size: 10.5pt; }
   body { max-width: none; padding: 0; }
   nav.toc { display: none; }
   .crumb { display: none; }
