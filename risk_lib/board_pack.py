@@ -148,7 +148,20 @@ def _page_exec_summary(result) -> str:
 
 <h3>주요 조치 사항</h3>
 {cards}
+
+<h3>CRO 브리핑</h3>
+{_briefing_block(result)}
 """)
+
+
+def _briefing_block(result) -> str:
+    """경영진 브리핑 내러티브 — html_exec와 동일 유도식, 링크 제거판."""
+    import re as _re
+    from risk_lib.html_exec import _cro_briefing
+    return "".join(
+        f'<p style="margin:5pt 0; line-height:1.55; font-size:10.5pt;">'
+        f'{_re.sub(r"<a [^>]*>.*?</a>", "", b).rstrip(" ·")}</p>'
+        for b in _cro_briefing(result))
 
 
 def _page_kri_traffic_light(result) -> str:

@@ -157,6 +157,40 @@ def _cro_briefing(result: PipelineResult) -> list[str]:
     return out
 
 
+# 지표별 악화 방향 — 토네이도에서 "나쁜 쪽" 충격만 집계하기 위한 규약
+_ADVERSE_SIGN = {"ECL": 1, "RWA": 1, "CET1": -1, "LCR": -1, "ΔEVE": -1}
+
+
+def _sensitivity_tornado(result: PipelineResult) -> str:
+    """One-factor 민감도에서 factor별 최악(악화) 충격의 상대 영향을 랭킹."""
+    of = result.sensitivity["one_factor"]
+    rows = []
+    for (factor, metric), g in of.groupby(["factor", "metric"]):
+        sign = _ADVERSE_SIGN.get(metric, 1)
+        bad = g["delta"] * sign
+        w = g.loc[bad.idxmax()]
+        worst = float(bad.max())
+        base = float(w["base"])
+        if worst <= 0 or base == 0:
+            continue
+        shock = float(w["shock"])
+        if "bp" in factor:
+            shock_txt = f"{shock:+.0f}bp"
+        elif "abs" in factor:
+            shock_txt = f"{shock*100:+.0f}%p"
+        else:
+            shock_txt = f"{shock:+.0%}"
+        rows.append((f"{factor} {shock_txt} → {metric}",
+                     worst / abs(base) * 100))
+    rows.sort(key=lambda t: -t[1])
+    rows = rows[:8]
+    return viz.horizontal_bar(
+        [r[0] for r in rows], [r[1] for r in rows],
+        title="민감도 토네이도 — 최악 방향 충격의 상대 악화율 (base 대비 %)",
+        value_fmt=lambda v: f"{v:.1f}%", color=viz.AMBER,
+    )
+
+
 _DOMAIN_LABEL = {
     "core_overview": "핵심 — 요약/검증/결재",
     "core_credit": "핵심 — 신용",
@@ -299,6 +333,9 @@ def build_executive(result: PipelineResult,
     # --- CRO briefing (deterministic narrative)
     briefing = _cro_briefing(result)
 
+    # --- sensitivity tornado
+    tornado = _sensitivity_tornado(result)
+
     # --- CET1 buffer ladder (headroom above each requirement layer)
     hr = result.attribution["cet1_headroom"]
     ladder = viz.horizontal_bar(
@@ -369,6 +406,14 @@ WATCH는 operational 조기경보, GREEN은 한계 이내.</p>
 <h2>4. 리스크 프로파일 — 섹터 × 국가 노출 매트릭스</h2>
 {heat}
 <p class="section-lead">색이 진할수록 노출 규모가 큽니다. 단일 셀이 전체의 8% 이상이면 집중리스크 부문 점검 필요.</p>
+</div>
+
+<div class="card">
+<h2>4-b. 민감도 토네이도 — 무엇이 가장 크게 흔드는가</h2>
+{tornado}
+<p class="section-lead">factor별 최악 방향 충격이 해당 지표를 base 대비 몇 %
+악화시키는지의 랭킹. 상위 막대가 헤지·한도의 우선순위다.
+<a href="ops/16_sensitivity.html">→ 민감도 grid 전체</a></p>
 </div>
 
 <div class="card">
