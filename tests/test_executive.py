@@ -56,6 +56,19 @@ def test_tornado_ranks_worst_adverse_first(result):
     assert len(values) >= 5
 
 
+def test_kri_scorecard_sparklines(exec_html, result):
+    """Every KRI card carries a 12M sparkline + trend label, reproducibly."""
+    assert exec_html.count("<polyline") >= len(result.raf.kris)
+    assert exec_html.count("12M ") == len(result.raf.kris)
+    from risk_lib.html_exec import _kri_card_data
+    a = _kri_card_data(result.raf, seed=42)
+    b = _kri_card_data(result.raf, seed=42)
+    assert all(x.get("spark") == y.get("spark") for x, y in zip(a, b))
+    # without seed the scorecard input is unchanged (no spark keys)
+    plain = _kri_card_data(result.raf)
+    assert all("spark" not in row for row in plain)
+
+
 def test_board_pack_carries_briefing(tmp_path, result):
     from risk_lib.board_pack import build_board_pack
     p = build_board_pack(result, tmp_path / "bp.html")

@@ -108,7 +108,8 @@ def build_printable_html(result: PipelineResult, out_path,
     lcr = result.alm["lcr"]; nsfr = result.alm["nsfr"]; irrbb = result.alm["irrbb"]
 
     # ---- KRI scorecard (SVG inline)
-    scorecard = viz_advanced.kri_scorecard(_kri_card_data(raf))
+    scorecard = viz_advanced.kri_scorecard(
+        _kri_card_data(raf, seed=result.meta.get("seed")))
 
     # ---- CRO briefing (links stripped — print target has no hyperlink use)
     import re as _re

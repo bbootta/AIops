@@ -39,19 +39,32 @@ def _fmt(value, fmt: str) -> str:
     return str(value)
 
 
-def _kri_card_data(raf) -> list[dict]:
-    """Translate RAFReport.kris into the kri_scorecard input shape."""
+def _kri_card_data(raf, *, seed: int | None = None) -> list[dict]:
+    """Translate RAFReport.kris into the kri_scorecard input shape.
+
+    `seed`를 주면 12개월 합성 back-history(현재값에 정합)를 스파크라인과
+    추세 라벨로 붙인다 — seed 고정이므로 재현 가능.
+    """
+    spark_by_name: dict[str, Any] = {}
+    if seed is not None:
+        from risk_lib.timeseries import synth_history
+        spark_by_name = {s.name: s for s in synth_history(raf, months=12, seed=seed)}
     out = []
     for k in raf.kris:
         thresh_text = (f"board {_fmt(k.threshold.board, k.fmt)} · "
                        f"mgmt {_fmt(k.threshold.management, k.fmt)}")
-        out.append({
+        row = {
             "name": k.name,
             "category": k.category,
             "actual_text": _fmt(k.actual, k.fmt),
             "grade": k.grade,
             "threshold_text": thresh_text,
-        })
+        }
+        s = spark_by_name.get(k.name)
+        if s is not None:
+            row["spark"] = list(s.values)
+            row["trend"] = s.trend()
+        out.append(row)
     return out
 
 
@@ -273,7 +286,8 @@ def build_executive(result: PipelineResult,
     lcr = result.alm["lcr"]; nsfr = result.alm["nsfr"]; irrbb = result.alm["irrbb"]
 
     # --- KRI scorecard
-    scorecard = viz_advanced.kri_scorecard(_kri_card_data(raf))
+    scorecard = viz_advanced.kri_scorecard(
+        _kri_card_data(raf, seed=result.meta.get("seed")))
 
     # --- top actions
     actions = _top_actions(result, max_actions=6)

@@ -263,6 +263,29 @@ def kri_scorecard(kri_rows: list[dict], *, width: int = 1000) -> str:
                      f'rx="10" fill="{color_map.get(grade, GREY)}"/>')
         parts.append(f'<text x="{x+card_w-34}" y="{y+27}" text-anchor="middle" '
                      f'font-size="11" font-weight="600" fill="#fff">{_esc(grade)}</text>')
+        # optional 12M sparkline + trend label (absent → layout unchanged)
+        spark = k.get("spark")
+        if spark and len(spark) >= 3:
+            sx, sw = x + card_w - 116, 104
+            sy, sh = y + 40, 32
+            lo, hi = min(spark), max(spark)
+            span = (hi - lo) or 1.0
+            pts = " ".join(
+                f"{sx + sw * i / (len(spark)-1):.1f},"
+                f"{sy + sh * (1 - (v - lo) / span):.1f}"
+                for i, v in enumerate(spark))
+            parts.append(f'<polyline points="{pts}" fill="none" '
+                         f'stroke="{GREY}" stroke-width="1.3" opacity="0.85"/>')
+            lx = sx + sw
+            ly = sy + sh * (1 - (spark[-1] - lo) / span)
+            parts.append(f'<circle cx="{lx:.1f}" cy="{ly:.1f}" r="2.6" '
+                         f'fill="{color_map.get(grade, GREY)}"/>')
+            trend = k.get("trend", "")
+            if trend:
+                t_color = {"개선": GREEN, "악화": RED}.get(trend, GREY)
+                arrow = {"개선": "↗", "악화": "↘"}.get(trend, "→")
+                parts.append(f'<text x="{x+card_w-12}" y="{y+92}" text-anchor="end" '
+                             f'font-size="10" fill="{t_color}">12M {arrow} {_esc(trend)}</text>')
     parts.append('</svg>')
     return "".join(parts)
 
