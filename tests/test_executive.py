@@ -36,3 +36,30 @@ def test_executive_links_every_ops_page(exec_html):
 def test_executive_repro_and_abbreviations(exec_html):
     assert "cafebabe12345678"[:16] in exec_html        # manifest digest surfaced
     assert "약어" in exec_html                          # abbreviation card
+
+
+def test_executive_buffer_ladder_and_tornado(exec_html, result):
+    assert "CET1 버퍼 사다리" in exec_html
+    assert "민감도 토네이도" in exec_html
+    # ladder renders one bar per requirement layer
+    hr = result.attribution["cet1_headroom"]
+    for _, row in hr.iterrows():
+        assert f"{row['headroom']*100:+.2f}%p" in exec_html
+
+
+def test_tornado_ranks_worst_adverse_first(result):
+    from risk_lib.html_exec import _sensitivity_tornado
+    import re
+    svg = _sensitivity_tornado(result)
+    values = [float(m) for m in re.findall(r">([\d.]+)%</text>", svg)]
+    assert values == sorted(values, reverse=True)
+    assert len(values) >= 5
+
+
+def test_board_pack_carries_briefing(tmp_path, result):
+    from risk_lib.board_pack import build_board_pack
+    p = build_board_pack(result, tmp_path / "bp.html")
+    body = Path(p).read_text(encoding="utf-8")
+    assert "CRO 브리핑" in body
+    seg = body.split("CRO 브리핑")[1].split("<h3>")[0]
+    assert "<a " not in seg      # standalone A4 — links stripped
