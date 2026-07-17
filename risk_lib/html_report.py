@@ -50,18 +50,28 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
     return written
 
 
+def _quarter_label(asof_iso: str) -> str:
+    y, m = asof_iso[:4], int(asof_iso[5:7])
+    return f"{y}Q{(m - 1) // 3 + 1}"
+
+
 def build_full_report_package(
     result: PipelineResult,
     out_dir: str | Path,
     *,
     portfolio=None,
     manifest=None,
+    history_path: str | Path | None = None,
 ) -> dict[str, str]:
     """Two-tier package: executive.html (root) + ops/ (operational deep-dive)
     plus manifest.json. Returns {label: absolute_path}.
 
     The CRO opens executive.html; analysts use ops/index.html. All cross-links
     are relative so the directory is portable.
+
+    `history_path`: 분기 축적 원장(JSON) 경로. 주면 이번 manifest 스냅샷을
+    append(같은 분기는 교체)하고 trend_history.html을 산출하며, 2기 이상
+    쌓이면 경영진 보고서에 전기 대비(QoQ) 섹션이 나타난다.
     """
     from risk_lib.html_exec import build_executive
     from risk_lib.printable import build_printable_html
@@ -71,8 +81,25 @@ def build_full_report_package(
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     ops_dir = out / "ops"
     written_ops = build_report_set(result, ops_dir, portfolio=portfolio)
+
+    # 시계열 원장 축적 + QoQ 추세 (2기 이상일 때만 exec 노출)
+    trend_flags = None
+    trend_path = None
+    if history_path is not None and manifest is not None:
+        from risk_lib.timeseries_ledger import (
+            TimeSeriesLedger, build_timeseries_report)
+        ts = TimeSeriesLedger.load(history_path)
+        period = _quarter_label(str(manifest.parameters.get("asof", "")) or
+                                result.meta["asof"])
+        ts.add_from_manifest(period, manifest)
+        ts.save(history_path)
+        trend_path = build_timeseries_report(ts, out / "trend_history.html")
+        if len(ts.snapshots) >= 2:
+            trend_flags = ts.trend_flags()
+
     exec_path = build_executive(result, out,
-                                manifest_digest=getattr(manifest, "headline_digest", ""))
+                                manifest_digest=getattr(manifest, "headline_digest", ""),
+                                trend_flags=trend_flags)
     # printable HTML is the recommended PDF route — browser Print-to-PDF
     printable_path = build_printable_html(result, out / "printable.html",
                                            manifest=manifest)
@@ -100,4 +127,7 @@ def build_full_report_package(
         "ops_dir": str(ops_dir.resolve()),
         **{f"ops/{k}": v for k, v in written_ops.items()},
         **({"manifest": str(manifest_path.resolve())} if manifest_path else {}),
+        **({"trend_history": trend_path,
+            "history_ledger": str(Path(history_path).resolve())}
+           if trend_path else {}),
     }

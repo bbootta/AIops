@@ -296,9 +296,42 @@ def _exec_page(title: str, body: str, meta_line: str) -> str:
 
 # ---------------------------------------------------------------- main builder
 
+def _qoq_section(trend_flags) -> str:
+    """전기 대비(QoQ) 카드 — timeseries_ledger.trend_flags() DataFrame 입력."""
+    def fmt_val(v, fmt):
+        if fmt == "pct": return f"{v*100:.2f}%"
+        if fmt == "won": return _won(v)
+        return f"{v:.2f}"
+
+    def fmt_qoq(v, fmt):
+        if fmt == "pct": return f"{v*100:+.2f}%p"
+        if fmt == "won": return ("+" if v >= 0 else "−") + _won(abs(v))
+        return f"{v:+.2f}"
+
+    tone = {"개선": "GREEN", "악화": "RED"}
+    rows = []
+    for _, r in trend_flags.iterrows():
+        breach = (f' · 연속 위반 {int(r["consecutive_breaches"])}분기'
+                  if r["consecutive_breaches"] else "")
+        rows.append([
+            r["label"], fmt_val(r["latest"], r["fmt"]),
+            fmt_qoq(r["qoq"], r["fmt"]),
+            _badge(r["trend"], tone.get(r["trend"], "NEUTRAL")) + _esc(breach),
+        ])
+    return f"""
+<div class="card">
+<h2>0-c. 전기 대비 추이 (QoQ) — 축적 원장 기준</h2>
+<p class="section-lead">분기 축적 원장(headline digest 단위)에서 유도한 실측
+전기 대비. 합성 back-history가 아닌 <b>실제 산출 이력</b>입니다.
+<a href="trend_history.html">→ 시계열 상세</a></p>
+{_table(["지표", "최근", "QoQ", "추세"], rows, right_cols=[1, 2])}
+</div>"""
+
+
 def build_executive(result: PipelineResult,
                     out_dir: str | Path,
-                    *, manifest_digest: str = "") -> Path:
+                    *, manifest_digest: str = "",
+                    trend_flags=None) -> Path:
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
 
     v = result.validation; summ = v.summary()
@@ -403,6 +436,7 @@ def build_executive(result: PipelineResult,
 각 문장 끝 링크로 해당 부문 deep-dive에 진입하세요.</p>
 {"".join(f'<p style="margin:10px 0; line-height:1.7;">{b}</p>' for b in briefing)}
 </div>
+{_qoq_section(trend_flags) if trend_flags is not None and len(trend_flags) else ""}
 
 <div class="card">
 <h2>1. KRI 스코어카드 (Risk Appetite Framework)</h2>

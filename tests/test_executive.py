@@ -78,6 +78,43 @@ def test_board_pack_carries_briefing(tmp_path, result):
     assert "<a " not in seg      # standalone A4 — links stripped
 
 
+def test_history_ledger_accumulates_and_qoq_appears(tmp_path, result, portfolio):
+    """history_path: 1 period → trend page only; 2 periods → QoQ section."""
+    from datetime import datetime, timezone
+    from risk_lib.repro import build_manifest
+    from risk_lib.html_report import build_full_report_package
+    from risk_lib.timeseries_ledger import TimeSeriesLedger, PeriodSnapshot
+
+    now = datetime.now(timezone.utc)
+    mf = build_manifest(portfolio=portfolio, parameters={"seed": 42},
+                        result=result, start_utc=now, end_utc=now)
+    hist = tmp_path / "history.json"
+
+    w1 = build_full_report_package(result, tmp_path / "pkg", portfolio=portfolio,
+                                   manifest=mf, history_path=hist)
+    assert "trend_history" in w1 and Path(w1["trend_history"]).exists()
+    exec1 = Path(w1["executive"]).read_text(encoding="utf-8")
+    assert "전기 대비 추이" not in exec1          # single period — no QoQ yet
+    assert len(TimeSeriesLedger.load(hist).snapshots) == 1
+
+    led = TimeSeriesLedger.load(hist)
+    led.add(PeriodSnapshot(
+        period="2026Q1", asof="2026-03-11",
+        headline={k: (v * 0.97 if isinstance(v, float) else v)
+                  for k, v in mf.headline.items()},
+        headline_digest="prior000", seed=42,
+        validation_summary={"PASS": 49, "WARN": 3}))
+    led.save(hist)
+
+    w2 = build_full_report_package(result, tmp_path / "pkg", portfolio=portfolio,
+                                   manifest=mf, history_path=hist)
+    exec2 = Path(w2["executive"]).read_text(encoding="utf-8")
+    assert "전기 대비 추이" in exec2
+    assert 'href="trend_history.html"' in exec2
+    # idempotent: re-running the same quarter replaced, not duplicated
+    assert len(TimeSeriesLedger.load(hist).snapshots) == 2
+
+
 def test_english_briefing_shares_derivations(tmp_path, result):
     """EN board pack briefing uses briefing_facts — same numbers as Korean."""
     from risk_lib.localization import build_english_board_pack
