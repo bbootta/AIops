@@ -86,8 +86,10 @@ function runGame(saveJson, label, drive, opts) {
   const captured = {};
   let t = 0;
   const perf = { now: () => (t += 16.7) };
-  const runner = new Function('THREE', 'document', 'window', 'navigator', 'localStorage', 'performance', 'requestAnimationFrame', 'setInterval', 'addEventListener', 'console', src);
-  runner(THREE, doc, win, navi, localStorage, perf, (fn) => { captured.loop = fn; }, () => 0, gAdd, console);
+  // setTimeout은 동기 실행(부팅 지연·토스트 타이머가 테스트 안에서 즉시 돌도록)
+  const syncTimeout = (fn) => { fn(); return 0; };
+  const runner = new Function('THREE', 'document', 'window', 'navigator', 'localStorage', 'performance', 'requestAnimationFrame', 'setInterval', 'setTimeout', 'clearTimeout', 'addEventListener', 'console', src);
+  runner(THREE, doc, win, navi, localStorage, perf, (fn) => { captured.loop = fn; }, () => 0, syncTimeout, () => {}, gAdd, console);
   const step = (n) => { for (let i = 0; i < n; i++) captured.loop(perf.now()); };
   step(2);
   fire(elCache['overlay'] && elCache['overlay']._h.click);
@@ -135,6 +137,8 @@ function runGame(saveJson, label, drive, opts) {
   ['optSens', 'optVol', 'optView', 'optJoy'].forEach((id) => { const el = elCache[id]; if (el) { el.value = 30; fire(el._h.input); } });
   // 튜토리얼 말풍선 건너뛰기 경로
   const tut = elCache['tut']; if (tut) fire(tut._h.click);
+  // 업적 패널 열기/닫기
+  const ab = elCache['achvBtn']; if (ab) { fire(ab._h.click, ev({})); fire(ab._h.click, ev({})); }
   const mu = elCache['optMusic']; if (mu) { mu.checked = !mu.checked; fire(mu._h.change); }
   const fr = elCache['optFreeze']; if (fr) { fr.checked = false; fire(fr._h.change); }
   // 평화 모드 켜고 진행 (몬스터 소멸·허기 고정 경로), 자동 점프 토글

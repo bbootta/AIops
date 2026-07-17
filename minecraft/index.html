@@ -89,6 +89,13 @@
   }
   .toast.out { opacity: 0; transition: opacity 0.4s; }
   @keyframes toastin { from { transform: translateY(-8px); opacity: 0; } }
+  #achvPanel {
+    display: none; margin-top: 10px; background: rgba(0,0,0,0.35);
+    border: 1px solid #665; padding: 10px 16px; font: 12px monospace;
+    text-align: left; line-height: 1.8; max-height: 32vh; overflow-y: auto;
+    touch-action: pan-y;
+  }
+  #achvPanel .stats { color: #8fd3ff; border-top: 1px solid #555; margin-top: 6px; padding-top: 6px; }
   /* 터치 UI (터치 기기에서만 표시) */
   .touchui { display: none; }
   body.touch .touchui { display: flex; }
@@ -277,7 +284,7 @@
     아이와 함께라면 아래 설정에서 <b>🧒 평화 모드</b>를 켜 보세요 (몬스터·배고픔 없음)<br>
     월드는 자동 저장됩니다 &nbsp;|&nbsp; ESC : 일시정지
   </p>
-  <div class="start">클릭해서 시작</div>
+  <div class="start" id="startBtn">클릭해서 시작</div>
   <div id="settings">
     <label>마우스 감도 <input type="range" id="optSens" min="4" max="40" step="1"></label>
     <label>음량 <input type="range" id="optVol" min="0" max="100" step="5"></label>
@@ -289,6 +296,8 @@
     <label class="chk"><input type="checkbox" id="optPeace"> 🧒 평화 모드 (몬스터·배고픔 없음)</label>
   </div>
   <div id="saveSlots"></div>
+  <button class="reset" id="achvBtn" style="border-color:#ffd54a;color:#ffd54a">🏆 업적 · 통계 보기</button>
+  <div id="achvPanel"></div>
   <button class="reset" id="resetBtn">이 월드 초기화</button>
 </div>
 
@@ -649,7 +658,7 @@ function saveGame() {
         chests: [...d.chests],
       };
     }
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ seed: WORLD_SEED, worldVer: WORLD_VER, curDim, dims, slot: selectedSlot, hotbar: HOTBAR, health, hunger, armor, inv, tools, dayTime }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ seed: WORLD_SEED, worldVer: WORLD_VER, curDim, dims, slot: selectedSlot, hotbar: HOTBAR, health, hunger, armor, inv, tools, stats, dayTime }));
   } catch (e) { /* 저장 공간 부족 등은 무시 */ }
 }
 function loadGame() {
@@ -1555,8 +1564,8 @@ function killMob(m) {
     const zi = zombies.indexOf(m);
     if (zi >= 0) {
       zombies.splice(zi, 1);
-      killCount++;
-      if (killCount >= 10) unlock('hunter', '몬스터 10마리 처치');
+      stats.kills++;
+      if (stats.kills >= 10) unlock('hunter', '몬스터 10마리 처치');
     }
     if (m.wither) {
       inv[ITEM.DIAMOND] += 10; inv[ITEM.EMERALD] += 5; updateHotbar();
@@ -1804,10 +1813,19 @@ function unlock(id, label) {
   playSound(880, 0.25, 'sine', 0.2);
   playSound(1320, 0.35, 'sine', 0.15);
 }
-let killCount = 0; // 이번 세션 몬스터 처치 수
+// 업적 정의 (id, 이름) — 시작 화면 패널에 잠금/해제 상태로 표시
+const ACHV_DEFS = [
+  ['wood', '첫 나무를 캤다'], ['tool', '첫 도구 제작'], ['dia', '반짝이는 다이아몬드!'],
+  ['emerald', '희귀한 에메랄드!'], ['hunter', '몬스터 10마리 처치'], ['boss', '좀비 군주 처치'],
+  ['wither', '🌪 위더 스톰 격파!!'], ['nether', '네더에 발을 딛다'],
+  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'],
+];
+// 플레이 통계 (저장됨)
+const stats = { kills: 0, mined: 0, placed: 0, deaths: 0, playTime: 0 };
 
 function respawn() {
   toast('💀 쓰러졌다... 스폰 지점에서 부활!', 3000);
+  stats.deaths++;
   player.pos.set(0.5, spawnY(), 0.5);
   player.vel.set(0, 0, 0);
   health = MAX_HEALTH;
@@ -2241,6 +2259,7 @@ const joyVec = new THREE.Vector2();
 function playing() { return (locked || touchPlaying) && !craftOpen && !invOpen && !chestOpen; }
 
 overlay.addEventListener('click', () => {
+  if (!booted) return; // 월드 생성 완료 전에는 시작 불가
   startMusic(); // 사용자 제스처에서 오디오 시작
   if (isTouch) {
     touchPlaying = true;
@@ -2919,6 +2938,7 @@ function doPlace() {
     inv[type]--;
     updateHotbar();
     soundPlace();
+    stats.placed++;
     tutAdvance(3); // 튜토리얼: 첫 설치
   }
 }
@@ -2994,6 +3014,7 @@ function updateMining(dt) {
     }
     spawnParticles(b.x, b.y, b.z, type === BLOCK.CROP ? CROP_RIPE : type);
     soundBreak();
+    stats.mined++;
     tutAdvance(2); // 튜토리얼: 첫 채굴
     mineTarget = null;
     mineProgress = 0;
@@ -3244,6 +3265,7 @@ function renderInv() {
   html += `<div class="invtools">도구: ${owned.length ? owned.join(', ') : '없음'}</div>`;
   html += `<div class="invtools">방어구: ${armor === 2 ? '다이아 갑옷' : armor === 1 ? '철 갑옷' : '없음'}</div>`;
   html += `<div class="invtools">현재 차원: ${curDim === 'nether' ? '🔥 네더' : '🌳 오버월드'}</div>`;
+  html += `<div class="invtools">📊 처치 ${stats.kills} · 채굴 ${stats.mined} · 설치 ${stats.placed} · 플레이 ${Math.floor(stats.playTime / 60)}분</div>`;
   invListEl.innerHTML = html;
 }
 function toggleInv(open) {
@@ -3452,6 +3474,7 @@ try {
     if (typeof save.armor === 'number') armor = Math.min(2, Math.max(0, save.armor | 0));
     if (save.inv) for (const k in inv) inv[k] = Math.max(0, save.inv[k] | 0);
     if (save.tools) for (const k in tools) tools[k] = !!save.tools[k];
+    if (save.stats) for (const k in stats) if (typeof save.stats[k] === 'number') stats[k] = save.stats[k];
     // 커스터마이즈한 핫바 배치 복원 (모두 설치 가능한 종류일 때만)
     if (Array.isArray(save.hotbar) && save.hotbar.length === HOTBAR.length && save.hotbar.every((t) => PLACEABLE.has(t))) {
       HOTBAR = save.hotbar.slice();
@@ -3532,22 +3555,51 @@ refreshHotbar(); // 저장된 핫바 배치 반영 + 아이콘 그리기
   peace.addEventListener('change', () => { optPeace = peace.checked; try { localStorage.setItem('mc_peace', optPeace ? '1' : '0'); } catch (e) {} });
 }
 
-teleport(curDim, true); // 활성 차원 생성 + 청크/몹/플레이어 위치 설정
-// 첫 프레임 전에 카메라를 플레이어 위치로
-camera.position.set(player.pos.x, player.pos.y + EYE_HEIGHT, player.pos.z);
-camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+// 🏆 업적·통계 패널 (시작 화면)
+{
+  const achvBtnEl = document.getElementById('achvBtn');
+  const achvPanelEl = document.getElementById('achvPanel');
+  const stop = (e) => e.stopPropagation();
+  achvPanelEl.addEventListener('click', stop);
+  achvBtnEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = achvPanelEl.style.display !== 'block';
+    if (open) {
+      let html = ACHV_DEFS.map(([id, label]) => `<div>${achv.has(id) ? '🏆' : '🔒'} ${label}</div>`).join('');
+      html += `<div class="stats">📊 처치 ${stats.kills} · 채굴 ${stats.mined} · 설치 ${stats.placed} · 사망 ${stats.deaths} · 플레이 ${Math.floor(stats.playTime / 60)}분<br>달성 ${[...achv].filter((id) => ACHV_DEFS.some(([d]) => d === id)).length} / ${ACHV_DEFS.length}</div>`;
+      achvPanelEl.innerHTML = html;
+    }
+    achvPanelEl.style.display = open ? 'block' : 'none';
+  });
+}
 
-setInterval(saveGame, 10000);
+// 월드 생성(수 초)이 화면을 얼리지 않도록 로딩 문구를 먼저 그린 뒤 부팅
+let last = 0;   // 루프 시각 (부팅에서 초기화)
+let waterT = 0; // 물/용암 텍스처 애니메이션 시계
+let booted = false;
+const startBtnEl = document.getElementById('startBtn');
+startBtnEl.textContent = '⏳ 월드 만드는 중...';
+setTimeout(() => {
+  teleport(curDim, true); // 활성 차원 생성 + 청크/몹/플레이어 위치 설정
+  // 첫 프레임 전에 카메라를 플레이어 위치로
+  camera.position.set(player.pos.x, player.pos.y + EYE_HEIGHT, player.pos.z);
+  camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+  setInterval(saveGame, 10000);
+  booted = true;
+  startBtnEl.textContent = '클릭해서 시작';
+  last = performance.now();
+  requestAnimationFrame(loop);
+}, 50);
+
 addEventListener('beforeunload', saveGame);
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveGame(); });
 
-let last = performance.now();
-let waterT = 0;
 function loop(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
   const active = playing() || !optFreeze; // 일시정지 시 시간 정지 옵션
   if (playing()) {
+    stats.playTime += dt;
     updatePlayer(dt);
     updatePortal(dt);
     if (charging) chargeT = Math.min(1.2, chargeT + dt);
@@ -3580,7 +3632,7 @@ function loop(now) {
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
-requestAnimationFrame(loop);
+// 루프는 부팅(setTimeout) 안에서 시작됨
 </script>
 </body>
 </html>
