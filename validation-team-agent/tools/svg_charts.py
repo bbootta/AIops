@@ -34,6 +34,12 @@ def _esc(s: object) -> str:
     return _html.escape(str(s))
 
 
+def _aria(kind: str, name: str = "") -> str:
+    """스크린리더용 role/aria-label 속성 (WAI-ARIA img role)."""
+    label = f"{kind}: {name}" if name else kind
+    return f'role="img" aria-label="{_esc(label)}"'
+
+
 def hbar(
     items: Sequence[tuple[str, float]],
     *,
@@ -59,7 +65,7 @@ def hbar(
     n = len(items)
     title_h = 24 if title else 0
     h = title_h + n * (bar_h + gap) + gap
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{h}" '
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" {_aria("가로 막대 차트", title)} width="{width}" height="{h}" '
            f'font-family="sans-serif" font-size="12">']
     if title:
         out.append(f'<text x="0" y="16" font-weight="600" fill="{INK}">'
@@ -126,7 +132,7 @@ def gauge(
         color = (PALETTE["fail"] if value > minimum
                  else PALETTE["warning"] if warning is not None and value > warning
                  else PALETTE["ok"])
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{h}" '
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" {_aria("게이지 차트", label)} width="{width}" height="{h}" '
            f'font-family="sans-serif" font-size="12">']
     out.append(f'<text x="0" y="14" fill="{INK}">'
                f'<tspan font-weight="600">{_esc(label)}</tspan> '
@@ -160,7 +166,7 @@ def status_donut(
     total = sum(counts.values()) or 1
     cx = cy = size / 2
     r, ring = size / 2 - 8, 20
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{size + 130}" '
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" {_aria("상태 도넛 차트", title)} width="{size + 130}" '
            f'height="{size}" font-family="sans-serif" font-size="12">']
     angle = -90.0
     for status in ("ok", "warning", "fail", "skipped", "simulated"):
@@ -212,7 +218,7 @@ def heatmap(
     label_w = 220
     title_h = 24 if title else 0
     h = title_h + 8 + len(rows) * (row_h + 4)
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{h}" '
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" {_aria("히트맵", title)} width="{width}" height="{h}" '
            f'font-family="sans-serif" font-size="12">']
     if title:
         out.append(f'<text x="0" y="16" font-weight="600" fill="{INK}">'
@@ -258,7 +264,7 @@ def kpi_card_strip(
     n = len(cards)
     per_row = max(1, (width + gap) // (card_w + gap))
     h = ((n + per_row - 1) // per_row) * (card_h + gap)
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{h}" '
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" {_aria("KPI 카드")} width="{width}" height="{h}" '
            f'font-family="sans-serif" font-size="12">']
     for i, (label, value, key) in enumerate(cards):
         col = i % per_row
@@ -314,7 +320,7 @@ def trend_line(
 
     n = len(series)
     pts = [(pad_l + i * inner_w / max(1, n - 1), y_of(v)) for i, (_, v) in enumerate(series)]
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" {_aria("추이 차트", title)} width="{width}" height="{height}" '
            f'font-family="sans-serif" font-size="11">']
     if title:
         out.append(f'<text x="0" y="14" font-weight="600" fill="{INK}">'

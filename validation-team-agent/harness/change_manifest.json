@@ -2130,6 +2130,21 @@
       "rollback_rule": "QoQ 수치가 export CSV 와 불일치 발견 시 섹션 제거",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0143",
+      "timestamp": "2026-07-17 01:52:43",
+      "component": "tools/svg_charts.py + tools/report_pack.py (_roc_svg/분포 SVG)",
+      "change_type": "modify",
+      "evidence": "모든 차트 SVG 에 접근성 속성 부재 — 스크린리더가 차트를 건너뜀. 빌드된 47페이지 전수 검사 테스트로 미라벨 SVG 0건 확인",
+      "root_cause": "svg_charts 초기 구현이 시각 출력만 고려, WAI-ARIA 미적용",
+      "targeted_fix": "_aria(kind, name) 헬퍼 추가 — 6개 차트 빌더 (hbar/gauge/status_donut/heatmap/kpi_card_strip/trend_line) 와 report_pack 커스텀 2개 (ROC/Score 분포) 의 <svg> 에 role=img + aria-label(차트 종류: 제목, XSS escape) 삽입",
+      "expected_benefit": "스크린리더 사용자에게 차트 종류·제목 전달. 접근성 감사 대응",
+      "expected_regression_risk": "낮음 — 속성 추가만, 시각 렌더 불변",
+      "validation_method": "tests/test_v2_round78.py 4 cases (6종 빌더/제목 포함/escape/팩 전수 무라벨 0건) + 전체 1080 passed",
+      "rollback_rule": "aria 속성이 특정 뷰어에서 렌더 문제 유발 시 헬퍼 호출 제거",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

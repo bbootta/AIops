@@ -3214,9 +3214,12 @@ def _isnan(x: float) -> bool:
 
 def _roc_svg(points: list[tuple[float, float]], *, size: int = 320) -> str:
     """ROC curve inline SVG."""
+    from tools.svg_charts import _aria
+
     pad = 36
     w = h = size
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" '
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" {_aria("ROC 곡선")} '
+           f'width="{w}" height="{h}" '
            f'font-family="sans-serif" font-size="11">']
     # 대각선
     out.append(f'<line x1="{pad}" y1="{h-pad}" x2="{w-pad}" y2="{pad}" '
@@ -3255,7 +3258,10 @@ def _two_histogram_svg(a, b, labels: tuple[str, str], *,
     inner_h = height - pad_t - pad_b
     bar_w = inner_w / len(bins)
 
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" '
+    from tools.svg_charts import _aria
+
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" '
+           f'{_aria("분포 차트", "Score 분포 (good vs bad)")} width="{width}" '
            f'height="{height}" font-family="sans-serif" font-size="11">']
     out.append('<text x="0" y="14" font-weight="bold">Score 분포 (정규화)</text>')
     out.append(f'<line x1="{pad_l}" y1="{pad_t}" x2="{pad_l}" y2="{height-pad_b}" stroke="#37474f"/>')
