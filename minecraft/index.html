@@ -275,7 +275,7 @@
     W A S D : 이동 &nbsp;|&nbsp; Shift : 달리기 &nbsp;|&nbsp; Space : 점프 / 수영<br>
     좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 씨앗 심기 · 상자 열기<br>
     <b>Q : 먹기</b> (가진 음식 자동) &nbsp;|&nbsp; <b>R : 활</b> (누르면 차지, 떼면 발사)<br>
-    <b>G : 변신</b> 🤖아이언 → 🦾헐크버스터 → 🔮닥터 스트레인지 — 3인칭 자유 비행<br>
+    <b>G : 변신</b> 🤖아이언 → 🦾헐크버스터 → 🔮스트레인지 → 🌪위더 스톰 — 3인칭 자유 비행<br>
     슈트: 좌클릭 펄서 · 우클릭 미사일 · R 레이저 · <b>F ✨필살기(광역)</b> &nbsp;|&nbsp; 🔮: 마법 미사일 · 순간이동 · R 시간정지<br>
     포탈은 🌳오버월드 → 🔥네더 → 🌌보이드 순환 — 차원마다 동물과 적이 다릅니다<br>
     <b>V / 📷 : 카메라 각도</b> &nbsp;|&nbsp; <b>Alt+마우스 : 자유 궤도</b> &nbsp;|&nbsp; 휠 : 줌 &nbsp;|&nbsp; 모바일 : 두 손가락 드래그·핀치<br>
@@ -2019,7 +2019,7 @@ const ACHV_DEFS = [
   ['emerald', '희귀한 에메랄드!'], ['hunter', '몬스터 10마리 처치'], ['boss', '좀비 군주 처치'],
   ['wither', '🌪 위더 스톰 격파!!'], ['warden', '👂 워든을 쓰러뜨렸다!'],
   ['nether', '네더에 발을 딛다'], ['void', '🌌 보이드 탐험가'],
-  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'],
+  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'], ['witherform', '🌪 위더 스톰으로 변신!'],
 ];
 const KIND_NAMES = {
   zombie: '좀비', skeleton: '스켈레톤', creeper: '크리퍼', spider: '거미', mage: '마법사',
@@ -2050,7 +2050,7 @@ function damage(n) {
   if (optPeace) return; // 평화 모드: 플레이어는 데미지를 입지 않음
   if (n <= 0 || health <= 0) return;
   // 방어구 피해 감소 (아이언·스트레인지 60% / 헐크버스터 75%)
-  const red = suitLevel === 2 ? 0.75 : suit ? 0.6 : ([0, 0.3, 0.6][armor] || 0);
+  const red = suitLevel === 4 ? 0.8 : suitLevel === 2 ? 0.75 : suit ? 0.6 : ([0, 0.3, 0.6][armor] || 0);
   n = Math.max(1, Math.ceil(n * (1 - red)));
   health = Math.max(0, health - n);
   flashTimer = 0.3;
@@ -2268,11 +2268,11 @@ function updatePlayer(dt) {
     const hs = Math.hypot(player.vel.x, player.vel.z);
     const climb = player.vel.y / st.speed;
     // 빠를수록 엎드린 슈퍼히어로 자세(~77°), 상승 시 몸을 세우고, 급강하 시 더 숙임
-    const tiltTarget = Math.max(-0.25, Math.min(1.35, (hs / st.speed) * 1.35 - climb * 0.5));
+    const tiltTarget = suitLevel === 4 ? 0 : Math.max(-0.25, Math.min(1.35, (hs / st.speed) * 1.35 - climb * 0.5));
     suitTilt += (tiltTarget - suitTilt) * Math.min(1, dt * 6);
     const cruise = Math.min(1, hs / st.speed + Math.abs(climb) * 0.4); // 0=호버 1=순항
     const hover = !player.onGround && cruise < 0.25;
-    suitMesh.position.set(p.x, p.y + u.pivotY + (hover ? Math.sin(suitTime * 3.2) * 0.06 : 0), p.z);
+    suitMesh.position.set(p.x, p.y + u.pivotY + ((hover || suitLevel === 4) ? Math.sin(suitTime * 3.2) * (suitLevel === 4 ? 0.18 : 0.06) : 0), p.z);
     suitMesh.rotation.y = player.yaw;
     suitMesh.rotation.x = -suitTilt; // 음수 = 얼굴이 진행 방향(아래)을 향해 엎드림
     // 팔: 엎드리면 팔은 자연히 몸을 따라 뒤로 가므로 살짝만 들고, 사격 중엔 오른팔을 조준 방향으로
@@ -2314,7 +2314,7 @@ function updatePlayer(dt) {
     const fx = -Math.sin(cyaw) * Math.cos(cpitch);
     const fy = Math.sin(cpitch);
     const fz = -Math.cos(cyaw) * Math.cos(cpitch);
-    const ex = p.x, ey = p.y + EYE_HEIGHT + (suitLevel === 2 ? 0.9 : 0), ez = p.z;
+    const ex = p.x, ey = p.y + EYE_HEIGHT + (suitLevel === 2 ? 0.9 : suitLevel === 4 ? 2 : 0), ez = p.z;
     let cx = ex, cy = ey, cz = ez;
     for (let d = 0.4; d <= dist; d += 0.4) {
       const nx = ex - fx * d, ny = ey - fy * d + d * 0.1, nz = ez - fz * d;
@@ -2740,6 +2740,7 @@ const SUIT_STATS = [
   { name: '🤖 아이언 슈트', speed: 14, lift: 7, pulseDmg: 3, pulseRate: 0.22, missileR: 2, missileDmg: 6, laserDmg: 1, dist: 4.4 },
   { name: '🦾 헐크버스터', speed: 10, lift: 6, pulseDmg: 5, pulseRate: 0.3, missileR: 3, missileDmg: 10, laserDmg: 2, dist: 6.4 },
   { name: '🔮 닥터 스트레인지', speed: 12, lift: 7, pulseDmg: 4, pulseRate: 0.18, missileR: 0, missileDmg: 0, laserDmg: 0, dist: 4.4 },
+  { name: '🌪 위더 스톰', speed: 11, lift: 6, pulseDmg: 6, pulseRate: 0.4, missileR: 3, missileDmg: 12, laserDmg: 2, dist: 8 },
 ];
 let timeStop = false; // 🔮 시간 정지 (R 홀드)
 const M_RED = new THREE.MeshLambertMaterial({ color: 0xb3151d });
@@ -2870,7 +2871,20 @@ function makeStrangeMesh() {
   scene.add(root);
   return root;
 }
-const suitMeshes = [null, makeSuitMesh(1, 1), makeSuitMesh(1.75, 1.85), makeStrangeMesh()];
+// 🌪 위더 스톰 변신체: 보스 메시를 몸통 중심 피벗으로 감싸 재사용
+function makeWitherSuitMesh() {
+  const root = new THREE.Group();
+  const inner = makeWitherMesh();
+  inner.position.y = -2.2;
+  root.add(inner);
+  root.scale.setScalar(0.85);
+  root.rotation.order = 'YXZ';
+  root.userData = { flames: [], armL: new THREE.Group(), armR: new THREE.Group(), legL: new THREE.Group(), legR: new THREE.Group(), pivotY: 2.2 * 0.85 };
+  root.visible = false;
+  scene.add(root);
+  return root;
+}
+const suitMeshes = [null, makeSuitMesh(1, 1), makeSuitMesh(1.75, 1.85), makeStrangeMesh(), makeWitherSuitMesh()];
 let suitMesh = suitMeshes[1]; // 현재 표시 중인 슈트 (레벨 0일 땐 숨김)
 let suitTilt = 0, suitTime = 0, boostFxT = 0; // 비행 자세 기울기 / 애니메이션 시계 / 트레일 타이머
 const suitBoostLight = new THREE.PointLight(0xff9a33, 0, 8, 2); // 부스터 불빛
@@ -2904,7 +2918,7 @@ bindBtn('btnUlt', () => suitUlt());
 
 function toggleSuit() {
   if (!playing()) return;
-  suitLevel = (suitLevel + 1) % 4; // 사람 → 아이언 → 헐크버스터 → 닥터 스트레인지 → 사람
+  suitLevel = (suitLevel + 1) % 5; // 사람 → 아이언 → 헐크버스터 → 닥터 스트레인지 → 위더 스톰 → 사람
   suit = suitLevel > 0;
   for (let i = 1; i < suitMeshes.length; i++) suitMeshes[i].visible = i === suitLevel;
   if (suit) suitMesh = suitMeshes[suitLevel];
@@ -2918,15 +2932,22 @@ function toggleSuit() {
   camSX = null; // 스무딩 즉시 스냅
   suitTilt = 0;
   if (suit) { player.vel.set(0, 0, 0); flying = false; }
-  playSound([200, 520, 320, 760][suitLevel], 0.35, suitLevel === 3 ? 'sine' : 'sawtooth', 0.22);
+  playSound([200, 520, 320, 760, 70][suitLevel], 0.35, suitLevel === 3 ? 'sine' : 'sawtooth', 0.25);
+  laserMat.color.setHex(suitLevel === 4 ? 0xd070ff : 0x9feaff);   // 위더는 보라 레이저
+  laserMat.emissive.setHex(suitLevel === 4 ? 0xa040e0 : 0x5fd8ff);
   if (suitLevel === 1) unlock('iron', '아이언 슈트 첫 변신');
   if (suitLevel === 3) unlock('strange', '마법사로 변신!');
+  if (suitLevel === 4) unlock('witherform', '🌪 위더 스톰으로 변신!');
   // 모바일 버튼 라벨 전환
   const lbl = (id, t) => { const el = document.querySelector('#' + id + ' .lbl'); if (el) el.textContent = t; };
   if (suitLevel === 3) {
     lbl('btnBreak', '마법');
     lbl('btnPlace', '순간이동');
     lbl('btnBow', '시간정지');
+  } else if (suitLevel === 4) {
+    lbl('btnBreak', '스컬');
+    lbl('btnPlace', '미사일');
+    lbl('btnBow', '레이저');
   } else {
     lbl('btnBreak', suit ? '펄서' : '캐기');
     lbl('btnPlace', suit ? '미사일' : '놓기');
@@ -2948,6 +2969,18 @@ function aimFrom() { // 조준 방향(_dir) 갱신 + 가슴 위치 반환
 function firePulse() {
   if (bolts.length > 30) return;
   const st = SUIT_STATS[suitLevel] || SUIT_STATS[1];
+  if (suitLevel === 4) { // 🌪 폭발하는 위더 스컬 연발
+    const pos = aimFrom();
+    const mesh = new THREE.Mesh(missileGeo, enemyBoltMat(0xa040e0));
+    mesh.scale.setScalar(1.5);
+    mesh.position.copy(pos);
+    mesh.lookAt(pos.clone().add(_dir));
+    scene.add(mesh);
+    bolts.push({ mesh, pos, vel: _dir.clone().multiplyScalar(30), life: 2.5, missile: true, r: 1, dmg: st.pulseDmg });
+    spawnFx(pos.x + _dir.x * 0.6, pos.y + _dir.y * 0.6, pos.z + _dir.z * 0.6, enemyBoltMat(0xa040e0), 4, 2.5, 0.18);
+    playSound(85, 0.15, 'sawtooth', 0.2);
+    return;
+  }
   const magic = suitLevel === 3; // 🔮 주황 마법 미사일
   const mat = magic ? M_MAGIC : PULSE_MAT;
   const pos = aimFrom();
@@ -2966,10 +2999,21 @@ function suitUlt() {
   if (!suit || !playing()) return;
   if (ultCd > 0) { playSound(140, 0.08, 'square', 0.08); return; }
   const p = player.pos;
-  const r = suitLevel === 2 ? 12 : 10;
-  const dmg = suitLevel === 2 ? 14 : suitLevel === 3 ? 10 : 8;
-  ultCd = suitLevel === 3 ? 8 : 6;
-  const mat = suitLevel === 3 ? M_MAGIC : PULSE_MAT;
+  const r = suitLevel >= 2 ? 12 : 10;
+  const dmg = suitLevel === 2 ? 14 : suitLevel === 4 ? 12 : suitLevel === 3 ? 10 : 8;
+  ultCd = suitLevel >= 3 ? 8 : 6;
+  const mat = suitLevel === 4 ? enemyBoltMat(0xa040e0) : suitLevel === 3 ? M_MAGIC : PULSE_MAT;
+  if (suitLevel === 4) { // 🌪 사방으로 폭발 스컬 폭풍
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const mesh = new THREE.Mesh(missileGeo, mat);
+      mesh.scale.setScalar(1.5);
+      const pos = new THREE.Vector3(p.x, p.y + 2, p.z);
+      mesh.position.copy(pos);
+      scene.add(mesh);
+      bolts.push({ mesh, pos, vel: new THREE.Vector3(Math.cos(a) * 22, 0.6, Math.sin(a) * 22), life: 2.5, missile: true, r: 1, dmg: 6 });
+    }
+  }
   // 두 겹의 확장 링 + 위로 솟는 기둥
   for (let ring = 0; ring < 2; ring++) {
     const rad = 1.5 + ring * 1.6;

@@ -126,6 +126,12 @@ function runGame(saveJson, label, drive, opts) {
   fire(doc._h.mousedown, ev({ button: 2 })); step(3); fire(doc._h.mouseup, ev({ button: 2 }));
   fire(G.keydown, ev({ code: 'KeyR' })); step(8); fire(G.keyup, ev({ code: 'KeyR' }));
   step(5);
+  // 🌪 변신 4단계(위더 스톰): 폭발 스컬 연발 → 미사일 → 레이저 → 필살(스컬 폭풍) → 해제
+  fire(G.keydown, ev({ code: 'KeyG' })); step(3);
+  fire(doc._h.mousedown, ev({ button: 0 })); step(10); fire(doc._h.mouseup, ev({ button: 0 }));
+  fire(doc._h.mousedown, ev({ button: 2 })); step(8); fire(doc._h.mouseup, ev({ button: 2 }));
+  fire(G.keydown, ev({ code: 'KeyR' })); step(5); fire(G.keyup, ev({ code: 'KeyR' }));
+  fire(G.keydown, ev({ code: 'KeyF' })); step(10);
   fire(G.keydown, ev({ code: 'KeyG' })); step(2);
   // 모바일 핫바 슬라이드
   const hb = elCache['hotbar']; if (hb) { fire(hb._h.touchstart, ev({})); fire(hb._h.touchmove, ev({ clientX: 80 })); }
