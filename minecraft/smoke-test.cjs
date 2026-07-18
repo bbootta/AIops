@@ -108,6 +108,7 @@ function runGame(saveJson, label, drive, opts) {
   fire(doc._h.mousedown, ev({ button: 0 })); step(8); fire(doc._h.mouseup, ev({ button: 0 }));
   fire(doc._h.mousedown, ev({ button: 2 })); step(8); fire(doc._h.mouseup, ev({ button: 2 }));
   fire(G.keydown, ev({ code: 'KeyR' })); step(6); fire(G.keyup, ev({ code: 'KeyR' }));
+  fire(G.keydown, ev({ code: 'KeyF' })); step(4); // ✨ 광역 필살기 (슈트 중 F)
   for (let i = 0; i < 5; i++) { fire(G.keydown, ev({ code: 'KeyV' })); step(2); }
   fire(G.wheel, ev({ deltaY: 1 })); fire(G.wheel, ev({ deltaY: -1 })); step(3);
   // Alt+마우스 자유 궤도
@@ -163,6 +164,11 @@ try {
     const clock = elCache['clock'] && elCache['clock'].textContent;
     if (!/네더/.test(clock || '')) throw new Error('네더 전이 미발생 (clock="' + clock + '")');
     console.log('  [B] 네더 전이 확인됨');
+    // 귀환 포탈 위에 계속 서 있으면 순환으로 보이드까지 이동
+    step(320);
+    const achvRaw = store['mc_achv'] || '[]';
+    if (!achvRaw.includes('void')) throw new Error('보이드 전이 미발생 (achv=' + achvRaw + ')');
+    console.log('  [B] 포탈 순환 → 보이드 도달 확인됨');
   }, { noMove: true });
 } catch (e) { fails++; console.log('  [B] FAIL:', (e && e.stack) || e); }
 

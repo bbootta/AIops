@@ -127,6 +127,7 @@
   #btnCraft { right: 90px;  bottom: 46px; width: 54px; height: 54px; }
   #btnSuit  { left: 16px; top: 150px; width: 54px; height: 54px; }
   #btnCam   { left: 16px; top: 214px; width: 54px; height: 54px; }
+  #btnUlt   { right: 90px; bottom: 192px; }
   #btnPause { right: 16px; top: 36px; width: 48px; height: 48px; font-size: 14px; }
   body.touch .slot.selected { transform: scale(1.18); border-color: #ffd54a; }
   /* touch-action:none은 body 전역이 아니라 게임 조작 요소에만 (패널 스크롤 허용) */
@@ -248,6 +249,7 @@
 <div id="btnCraft" class="tbtn touchui">⚒<span class="lbl">만들기</span></div>
 <div id="btnSuit" class="tbtn touchui">🤖<span class="lbl">변신</span></div>
 <div id="btnCam" class="tbtn touchui">📷<span class="lbl">시점</span></div>
+<div id="btnUlt" class="tbtn touchui">✨<span class="lbl">필살기</span></div>
 <div id="btnPause" class="tbtn touchui">II<span class="lbl">멈춤</span></div>
 <div id="craft">
   <h2>제작</h2>
@@ -274,7 +276,8 @@
     좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 씨앗 심기 · 상자 열기<br>
     <b>Q : 먹기</b> (가진 음식 자동) &nbsp;|&nbsp; <b>R : 활</b> (누르면 차지, 떼면 발사)<br>
     <b>G : 변신</b> 🤖아이언 → 🦾헐크버스터 → 🔮닥터 스트레인지 — 3인칭 자유 비행<br>
-    슈트: 좌클릭 펄서 · 우클릭 미사일 · R 레이저 &nbsp;|&nbsp; 🔮: 마법 미사일 · 순간이동 · R 시간정지<br>
+    슈트: 좌클릭 펄서 · 우클릭 미사일 · R 레이저 · <b>F ✨필살기(광역)</b> &nbsp;|&nbsp; 🔮: 마법 미사일 · 순간이동 · R 시간정지<br>
+    포탈은 🌳오버월드 → 🔥네더 → 🌌보이드 순환 — 차원마다 동물과 적이 다릅니다<br>
     <b>V / 📷 : 카메라 각도</b> &nbsp;|&nbsp; <b>Alt+마우스 : 자유 궤도</b> &nbsp;|&nbsp; 휠 : 줌 &nbsp;|&nbsp; 모바일 : 두 손가락 드래그·핀치<br>
     1 ~ 9 : 핫바 슬롯 &nbsp;|&nbsp; C : 제작 &nbsp;|&nbsp; E : 인벤토리 &nbsp;|&nbsp; F : 비행 &nbsp;|&nbsp; M : 음악<br>
     지형은 평원·사막·눈·정글·산악·버섯 들판 6가지 바이옴, 동굴엔 5종 광석<br>
@@ -342,12 +345,12 @@ let masterVol = optVol / 100;
 const WORLD_SEED = 1337 + SLOT * 9973;
 const WORLD_VER = 5; // v5: 월드 192x192 확장
 
-const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18, SNOW: 19, CHEST: 20, MUSH_CAP: 21 };
+const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18, SNOW: 19, CHEST: 20, MUSH_CAP: 21, END_STONE: 22, VOID_CRYSTAL: 23 };
 // 블록이 아닌 아이템 (인벤토리 전용)
 const ITEM = { MEAT: 100, SEEDS: 101, WHEAT: 102, BREAD: 103, DIAMOND: 104, ARROW: 105, BOW: 106, GOLD: 107, EMERALD: 108, GOLD_APPLE: 109, APPLE: 110, MUSHROOM: 111, STEW: 112, IRON: 113 };
 const BLOCK_NAMES = {
   1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석',
-  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈', 17: '금 광석', 18: '에메랄드 광석', 19: '눈', 20: '상자', 21: '버섯 갓',
+  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈', 17: '금 광석', 18: '에메랄드 광석', 19: '눈', 20: '상자', 21: '버섯 갓', 22: '보이드석', 23: '보이드 수정',
   100: '고기', 101: '씨앗', 102: '밀', 103: '빵', 104: '다이아몬드', 106: '활', 107: '금', 108: '에메랄드', 109: '황금 사과',
   110: '사과', 111: '버섯', 112: '버섯 스튜', 113: '철',
 };
@@ -356,12 +359,12 @@ let HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLO
 // 핫바에 넣을 수 있는(설치 가능한) 종류 — 인벤토리 화면에서 눌러 교체
 const PLACEABLE = new Set([
   BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES, BLOCK.SAND,
-  BLOCK.SNOW, BLOCK.NETHERRACK, BLOCK.TORCH, BLOCK.CHEST, BLOCK.PORTAL, ITEM.SEEDS,
+  BLOCK.SNOW, BLOCK.NETHERRACK, BLOCK.END_STONE, BLOCK.TORCH, BLOCK.CHEST, BLOCK.PORTAL, ITEM.SEEDS,
 ]);
 // 음식 우선순위 (Q로 먹을 때): 일반 음식부터, 황금사과는 최후
 const FOOD_PRIORITY = [ITEM.STEW, ITEM.BREAD, ITEM.MEAT, ITEM.APPLE, ITEM.GOLD_APPLE];
 // 블록별 캐는 시간(초)과 드롭 아이템 [종류, 개수]
-const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0, 19: 0.45, 20: 0.9, 21: 0.3 };
+const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0, 19: 0.45, 20: 0.9, 21: 0.3, 22: 0.9, 23: 1.8 };
 const DROPS = {
   [BLOCK.GRASS]: [BLOCK.GRASS, 1], [BLOCK.DIRT]: [BLOCK.DIRT, 1], [BLOCK.STONE]: [BLOCK.STONE, 1],
   [BLOCK.WOOD]: [BLOCK.WOOD, 1], [BLOCK.LEAVES]: [BLOCK.LEAVES, 1], [BLOCK.SAND]: [BLOCK.SAND, 1],
@@ -371,9 +374,10 @@ const DROPS = {
   [BLOCK.GOLD_ORE]: [ITEM.GOLD, 1], [BLOCK.EMERALD_ORE]: [ITEM.EMERALD, 1],
   [BLOCK.SNOW]: [BLOCK.DIRT, 1], [BLOCK.CHEST]: [BLOCK.CHEST, 1],
   [BLOCK.MUSH_CAP]: [ITEM.MUSHROOM, 1],
+  [BLOCK.END_STONE]: [BLOCK.END_STONE, 1], [BLOCK.VOID_CRYSTAL]: [ITEM.EMERALD, 1],
 };
 // 채굴 시 곡괭이가 없으면 드롭하지 않는 광석
-const NEEDS_PICK = new Set([BLOCK.IRON_ORE, BLOCK.DIAMOND_ORE, BLOCK.GOLD_ORE, BLOCK.EMERALD_ORE]);
+const NEEDS_PICK = new Set([BLOCK.IRON_ORE, BLOCK.DIAMOND_ORE, BLOCK.GOLD_ORE, BLOCK.EMERALD_ORE, BLOCK.VOID_CRYSTAL]);
 const FOODS = { [ITEM.MEAT]: 3, [ITEM.BREAD]: 4, [ITEM.GOLD_APPLE]: MAX_HEALTH, [ITEM.APPLE]: 3, [ITEM.STEW]: 7 }; // 먹었을 때 회복량
 
 // ---------- 시드 난수 / 노이즈 ----------
@@ -501,6 +505,8 @@ const TEX = {
   chestSide: makeTexture([138, 96, 45], (x, y) => (y === 7 || y === 8 ? [70, 48, 22] : (Math.abs(x - 8) < 2 && y > 6 && y < 11 ? [60, 50, 30] : [138, 96, 45]))),
   chestTop: makeTexture([150, 106, 52], (x, y) => (y === 7 || y === 8 ? [70, 48, 22] : [150, 106, 52])),
   mushCap: makeTexture([190, 42, 42], (x, y) => (((x * 7 + y * 11) % 13) < 2 ? [242, 236, 228] : [190, 42, 42])),
+  endStone: makeTexture([214, 210, 168], (x, y) => (((x * 5 + y * 3) % 9) < 2 ? [190, 186, 140] : [214, 210, 168])),
+  voidCrystal: makeTexture([70, 40, 110], (x, y) => (Math.abs(x - 8) + Math.abs(y - 8) < 4 ? [200, 130, 255] : [70, 40, 110])),
   // 네더
   netherrack: makeTexture([108, 38, 38], (x, y) => (((x * 3 + y * 7) % 11 < 2) ? [70, 20, 20] : [108, 38, 38])),
   lava: makeTexture([222, 110, 30], (x, y) => (((x + y) % 5 === 0) ? [255, 200, 60] : [222, 90, 24])),
@@ -527,6 +533,8 @@ const MATERIALS = {
   [BLOCK.SNOW]: [mat(TEX.snowSide), mat(TEX.snowSide), mat(TEX.snowTop), mat(TEX.dirt), mat(TEX.snowSide), mat(TEX.snowSide)],
   [BLOCK.CHEST]: [mat(TEX.chestSide), mat(TEX.chestSide), mat(TEX.chestTop), mat(TEX.chestTop), mat(TEX.chestSide), mat(TEX.chestSide)],
   [BLOCK.MUSH_CAP]: mat(TEX.mushCap),
+  [BLOCK.END_STONE]: mat(TEX.endStone),
+  [BLOCK.VOID_CRYSTAL]: new THREE.MeshLambertMaterial({ map: TEX.voidCrystal, emissive: 0x7030c0, emissiveIntensity: 0.5 }),
   [BLOCK.TORCH]: new THREE.MeshLambertMaterial({ map: TEX.torch, emissive: 0xff9933, emissiveIntensity: 0.55 }),
   [BLOCK.PLANK]: mat(TEX.plank),
   [BLOCK.NETHERRACK]: mat(TEX.netherrack),
@@ -643,13 +651,29 @@ function generateNether() {
   }
 }
 
+// 🌌 보이드 차원: 허공에 떠 있는 창백한 섬들 + 빛나는 보이드 수정
+function generateVoid() {
+  const half = WORLD_SIZE / 2;
+  for (let x = -half; x < half; x++) {
+    for (let z = -half; z < half; z++) {
+      let m = noise2(x / 30 + 3000, z / 30 + 3000);
+      if (Math.hypot(x, z) < 10) m = Math.max(m, 0.7); // 중앙엔 반드시 스폰 섬
+      if (m < 0.55) continue; // 허공
+      const h = 10 + Math.floor(noise2(x / 14 + 3300, z / 14 + 3300) * 8);
+      const depth = 1 + Math.floor((m - 0.55) * 26); // 가장자리는 얇고 중심은 두꺼운 섬
+      for (let y = Math.max(2, h - depth); y <= h; y++) setBlock(x, y, z, BLOCK.END_STONE);
+      if (rand() < 0.03) setBlock(x, h + 1, z, BLOCK.VOID_CRYSTAL); // 표면 수정
+    }
+  }
+}
+
 // ---------- 저장 / 불러오기 ----------
 let dayTime = DAY_LENGTH * 0.25; // 정오에서 시작
 function saveGame() {
   try {
     DIMS[curDim].pos = snapshotPlayer();
     const dims = {};
-    for (const name of ['overworld', 'nether']) {
+    for (const name of DIM_ORDER) {
       const d = DIMS[name];
       dims[name] = {
         edits: [...d.edits],
@@ -1051,25 +1075,66 @@ function makeAnimalMesh(type) {
   g.userData.bodyMat = bodyMat;
   return g;
 }
+// 용암 달팽이(네더): 낮고 느린 주황 생물, 잡으면 금 드롭
+const SNAIL_MAT = new THREE.MeshLambertMaterial({ color: 0xe07830 });
+const SNAIL_SHELL = new THREE.MeshLambertMaterial({ color: 0x6e3a1a });
+function makeSnailMesh() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, 0.8), SNAIL_MAT);
+  body.position.y = 0.13;
+  g.add(body);
+  const shell = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.4, 0.45), SNAIL_SHELL);
+  shell.position.set(0, 0.42, 0.1);
+  g.add(shell);
+  g.userData.bodyMat = SNAIL_MAT;
+  return g;
+}
+// 떠돌이 정령(보이드): 공중을 떠다니는 빛 구슬, 잡으면 에메랄드 드롭
+const WISP_MAT = new THREE.MeshLambertMaterial({ color: 0xbfe8ff, emissive: 0x70c8ff, emissiveIntensity: 1, transparent: true, opacity: 0.9 });
+function makeWispMesh() {
+  const g = new THREE.Group();
+  const core = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), WISP_MAT);
+  core.position.y = 0.5;
+  g.add(core);
+  g.userData.bodyMat = WISP_MAT;
+  return g;
+}
+// 차원마다 다른 동물: 오버월드 돼지/양/소, 네더 용암 달팽이, 보이드 정령
 function spawnAnimals() {
   const half = WORLD_SIZE / 2;
-  for (let i = 0; i < 28; i++) {
+  const count = curDim === 'overworld' ? 28 : 12;
+  for (let i = 0; i < count; i++) {
     const x = Math.floor(rand() * (WORLD_SIZE - 16)) - half + 8;
     const z = Math.floor(rand() * (WORLD_SIZE - 16)) - half + 8;
-    const h = terrainHeight(x, z);
-    if (getBlock(x, h, z) !== BLOCK.GRASS) continue;
-    const mesh = makeAnimalMesh(ANIMAL_TYPES[i % ANIMAL_TYPES.length]);
+    let mesh, y;
+    const extra = {};
+    if (curDim === 'nether') {
+      y = surfaceY(x, z);
+      if (y === null || getBlock(x, y - 1, z) !== BLOCK.NETHERRACK) continue;
+      mesh = makeSnailMesh();
+      Object.assign(extra, { speed: 0.5, colH: 0.5, hitH: 0.7, drop: [ITEM.GOLD, 1], kindName: '용암 달팽이' });
+    } else if (curDim === 'void') {
+      y = surfaceY(x, z);
+      if (y === null) continue;
+      mesh = makeWispMesh();
+      Object.assign(extra, { flyer: true, baseY: y + 2 + rand() * 2, speed: 1.0, colH: 0.6, hitH: 0.9, drop: [ITEM.EMERALD, 1], kindName: '정령' });
+    } else {
+      const h = terrainHeight(x, z);
+      if (getBlock(x, h, z) !== BLOCK.GRASS) continue;
+      y = h + 1;
+      mesh = makeAnimalMesh(ANIMAL_TYPES[i % ANIMAL_TYPES.length]);
+    }
     scene.add(mesh);
-    animals.push({
+    animals.push(Object.assign({
       mesh,
-      pos: new THREE.Vector3(x + 0.5, h + 1, z + 0.5),
+      pos: new THREE.Vector3(x + 0.5, y, z + 0.5),
       vel: new THREE.Vector3(),
       yaw: rand() * Math.PI * 2,
       walking: false,
       timer: rand() * 3,
       onGround: false,
       hp: 2, maxHp: 2, kbT: 0, colH: 0.9, hitH: 1.05, bar: makeHpBar(),
-    });
+    }, extra));
   }
 }
 function mobCollides(pos, h) {
@@ -1138,7 +1203,16 @@ function updateAnimals(dt) {
       a.yaw = Math.atan2(a.pos.x, a.pos.z);
       a.walking = true;
     }
-    stepMob(a, dt, a.walking ? 1.3 : 0);
+    if (a.flyer) { // 정령: 충돌 없이 두둥실 떠다님
+      const sp = a.walking ? a.speed : 0.25;
+      a.pos.x -= Math.sin(a.yaw) * sp * dt;
+      a.pos.z -= Math.cos(a.yaw) * sp * dt;
+      a.pos.y = a.baseY + Math.sin(suitTime * 2 + a.timer * 5) * 0.5;
+      a.mesh.position.copy(a.pos);
+      a.mesh.rotation.y = a.yaw;
+    } else {
+      stepMob(a, dt, a.walking ? (a.speed || 1.3) : 0);
+    }
     updateHpBar(a);
   }
 }
@@ -1294,6 +1368,69 @@ function makeWitherMesh() {
   g.userData.bodyMat = WITHER_MAT;
   return g;
 }
+// 워든: 거대한 심연의 파수꾼 — 느리지만 벽을 뚫는 음파 공격
+const WARDEN_MAT = new THREE.MeshLambertMaterial({ color: 0x0e3535 });
+const WARDEN_DARK = new THREE.MeshLambertMaterial({ color: 0x082222 });
+const WARDEN_SOUL = new THREE.MeshLambertMaterial({ color: 0x7fe8ff, emissive: 0x40c8e8, emissiveIntensity: 1 });
+function makeWardenMesh() {
+  const g = new THREE.Group();
+  for (const lx of [-0.22, 0.22]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.1, 0.3), WARDEN_DARK);
+    leg.position.set(lx, 0.55, 0);
+    g.add(leg);
+  }
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.1, 0.55), WARDEN_MAT);
+  body.position.y = 1.65;
+  g.add(body);
+  const soul = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.06), WARDEN_SOUL); // 가슴의 영혼 불빛
+  soul.position.set(0, 1.6, -0.29);
+  g.add(soul);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.5), WARDEN_DARK);
+  head.position.y = 2.45;
+  g.add(head);
+  for (const hx of [-0.3, 0.3]) { // 더듬이 뿔
+    const horn = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1), WARDEN_DARK);
+    horn.position.set(hx, 2.9, 0);
+    horn.rotation.z = -hx * 0.6;
+    g.add(horn);
+  }
+  for (const ax of [-0.62, 0.62]) {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.24, 1.2, 0.24), WARDEN_MAT);
+    arm.position.set(ax, 1.5, 0);
+    g.add(arm);
+  }
+  g.userData.bodyMat = WARDEN_MAT;
+  return g;
+}
+// 그림자(보이드): 순간이동하며 다가오는 검은 형체
+const SHADOW_MAT = new THREE.MeshLambertMaterial({ color: 0x141020 });
+const SHADOW_EYE = new THREE.MeshLambertMaterial({ color: 0xe070ff, emissive: 0xb040e0, emissiveIntensity: 1 });
+function makeShadowMesh() {
+  const g = new THREE.Group();
+  for (const lx of [-0.09, 0.09]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 0.12), SHADOW_MAT);
+    leg.position.set(lx, 0.45, 0);
+    g.add(leg);
+  }
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.7, 0.2), SHADOW_MAT);
+  body.position.y = 1.25;
+  g.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), SHADOW_MAT);
+  head.position.y = 1.85;
+  g.add(head);
+  for (const ex of [-0.07, 0.07]) {
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.02), SHADOW_EYE);
+    eye.position.set(ex, 1.88, -0.16);
+    g.add(eye);
+  }
+  for (const ax of [-0.24, 0.24]) {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.1), SHADOW_MAT);
+    arm.position.set(ax, 1.2, 0);
+    g.add(arm);
+  }
+  g.userData.bodyMat = SHADOW_MAT;
+  return g;
+}
 // 크리퍼: 가까이 오면 자폭 (블록 파괴 + 피해)
 const CREEPER_MAT = new THREE.MeshLambertMaterial({ color: 0x4f9d3a });
 const CREEPER_FACE = new THREE.MeshLambertMaterial({ color: 0x18391a });
@@ -1343,26 +1480,26 @@ function trySpawnZombie() {
   if (y === null || (curDim === 'overworld' && y <= SEA_LEVEL)) return; // 물속 제외
   const r = Math.random();
   let mesh, base;
-  // rangeCfg: 원거리 적의 거리 유지(far/near)·사거리(shoot)·발사 간격(rate)·투사체(색/피해/속도)
-  if (curDim === 'nether' && r < 0.5) {
-    mesh = makeImpMesh();
-    base = { ranged: true, hp: 2, colH: 1.1, hitH: 1.4, chaseSpeed: 0, rangeCfg: { far: 7, near: 3, shoot: 12, rate: 1.3, color: 0xff6020, dmg: 2, speed: 18 } };
-  } else if (r < 0.25) {
-    mesh = makeSkeletonMesh();
-    base = { ranged: true, hp: 3, colH: 1.8, hitH: 1.9, chaseSpeed: 0 };
-  } else if (r < 0.4) {
-    mesh = makeCreeperMesh();
-    base = { creeper: true, hp: 4, colH: 1.6, hitH: 1.7, chaseSpeed: 2.2 };
-  } else if (r < 0.52) {
-    mesh = makeSpiderMesh();
-    base = { spider: true, climb: true, hp: 4, colH: 0.85, hitH: 0.95, chaseSpeed: 3.4 };
-  } else if (r < 0.66) {
-    mesh = makeMageMesh();
-    base = { ranged: true, hp: 4, colH: 1.9, hitH: 2.2, chaseSpeed: 0, rangeCfg: { far: 13, near: 7, shoot: 20, rate: 2.4, color: 0xb050ff, dmg: 3, speed: 16 } };
+  // 적 원형 정의 (kind는 몹별 통계용, rangeCfg는 원거리 행동/투사체)
+  const T = {
+    zombie: () => { mesh = makeZombieMesh(); base = { kind: 'zombie', hp: 3, colH: 1.8, hitH: 1.9, chaseSpeed: 2.3 }; },
+    skeleton: () => { mesh = makeSkeletonMesh(); base = { kind: 'skeleton', ranged: true, hp: 3, colH: 1.8, hitH: 1.9, chaseSpeed: 0 }; },
+    creeper: () => { mesh = makeCreeperMesh(); base = { kind: 'creeper', creeper: true, hp: 4, colH: 1.6, hitH: 1.7, chaseSpeed: 2.2 }; },
+    spider: () => { mesh = makeSpiderMesh(); base = { kind: 'spider', spider: true, climb: true, hp: 4, colH: 0.85, hitH: 0.95, chaseSpeed: 3.4 }; },
+    mage: () => { mesh = makeMageMesh(); base = { kind: 'mage', ranged: true, hp: 4, colH: 1.9, hitH: 2.2, chaseSpeed: 0, rangeCfg: { far: 13, near: 7, shoot: 20, rate: 2.4, color: 0xb050ff, dmg: 3, speed: 16 } }; },
+    imp: () => { mesh = makeImpMesh(); base = { kind: 'imp', ranged: true, hp: 2, colH: 1.1, hitH: 1.4, chaseSpeed: 0, rangeCfg: { far: 7, near: 3, shoot: 12, rate: 1.3, color: 0xff6020, dmg: 2, speed: 18 } }; },
+    shadow: () => { mesh = makeShadowMesh(); base = { kind: 'shadow', shadow: true, hp: 3, colH: 1.9, hitH: 2.05, chaseSpeed: 2.6, blinkT: 3 }; },
+    warden: () => { mesh = makeWardenMesh(); base = { kind: 'warden', warden: true, hp: 60, colH: 2.9, hitH: 3.1, hitW: 0.8, chaseSpeed: 1.6, meleeDmg: 4, sonicT: 2 }; },
+  };
+  // 차원마다 다른 적 구성
+  if (curDim === 'nether') {
+    (r < 0.5 ? T.imp : r < 0.75 ? T.zombie : T.creeper)();
+  } else if (curDim === 'void') {
+    (r < 0.45 ? T.shadow : r < 0.7 ? T.mage : r < 0.85 ? T.warden : T.skeleton)();
   } else {
-    mesh = makeZombieMesh();
-    base = { hp: 3, colH: 1.8, hitH: 1.9, chaseSpeed: 2.3 };
+    (r < 0.04 ? T.warden : r < 0.27 ? T.skeleton : r < 0.42 ? T.creeper : r < 0.54 ? T.spider : r < 0.67 ? T.mage : T.zombie)();
   }
+  if (base.warden) toast('👂 워든이 깨어났다... 조용히!', 3500);
   scene.add(mesh);
   zombies.push(Object.assign({
     mesh,
@@ -1387,7 +1524,7 @@ function spawnBoss() {
   mesh.scale.setScalar(2.1);
   scene.add(mesh);
   zombies.push({
-    mesh, boss: true,
+    mesh, boss: true, kind: 'boss',
     pos: new THREE.Vector3(x + 0.5, y, z + 0.5),
     vel: new THREE.Vector3(),
     yaw: Math.random() * Math.PI * 2,
@@ -1410,7 +1547,7 @@ function spawnWitherStorm() {
   const mesh = makeWitherMesh();
   scene.add(mesh);
   zombies.push({
-    mesh, boss: true, wither: true, name: '🌪 위더 스톰',
+    mesh, boss: true, wither: true, kind: 'wither', name: '🌪 위더 스톰',
     pos: new THREE.Vector3(x + 0.5, y, z + 0.5),
     vel: new THREE.Vector3(),
     yaw: 0, timer: 0, walking: false, onGround: false,
@@ -1422,13 +1559,14 @@ function spawnWitherStorm() {
 }
 function updateZombies(dt) {
   // 평화 모드에서는 밤이어도 스폰하지 않고, 있던 몬스터는 소멸 경로로 정리됨
-  const night = !optPeace && (curDim === 'nether' || sunHeight < -0.05);
+  // (네더·보이드는 항상 적이 출몰, 보스는 오버월드 밤에만)
+  const night = !optPeace && (curDim !== 'overworld' || sunHeight < -0.05);
   const cap = curDim === 'nether' ? 12 : 8;
-  if (night && playing()) {
+  if (night && playing() && !timeStop) {
     zombieSpawnT -= dt;
     if (zombieSpawnT <= 0 && zombies.length < cap) {
-      zombieSpawnT = curDim === 'nether' ? 2.5 : 4;
-      if (!zombies.some(z => z.boss) && Math.random() < 0.07) {
+      zombieSpawnT = curDim === 'nether' ? 2.5 : curDim === 'void' ? 3.5 : 4;
+      if (curDim === 'overworld' && !zombies.some(z => z.boss) && Math.random() < 0.07) {
         if (Math.random() < 0.3) spawnWitherStorm(); // 보스 등장의 30%는 위더 스톰
         else spawnBoss();
       } else {
@@ -1495,6 +1633,19 @@ function updateZombies(dt) {
           z.mesh.scale.setScalar(1 + Math.sin(z.fuse * 30) * 0.1); // 부풀며 점멸
           if (z.fuse >= 1.4) { explodeCreeper(z); continue; }
         } else { z.fuse = Math.max(0, z.fuse - dt); z.mesh.scale.setScalar(1); }
+      } else if (z.warden) {
+        // 워든: 느리게 다가오며 벽을 뚫는 음파 사격
+        speed = z.chaseSpeed;
+        z.sonicT -= dt;
+        if (z.sonicT <= 0 && d < 18) {
+          z.sonicT = 3.5;
+          for (let i = 1; i <= 8; i++) { // 푸른 음파 궤적 (블록 무시)
+            const t = i / 8;
+            spawnFx(z.pos.x + dx * t, z.pos.y + 2 + (player.pos.y + 1 - z.pos.y - 2) * t, z.pos.z + dz * t, WARDEN_SOUL, 1, 1.2, 0.35);
+          }
+          damage(5);
+          playSound(48, 0.5, 'square', 0.4);
+        }
       } else {
         speed = z.chaseSpeed;
         z.groanT -= dt;
@@ -1510,11 +1661,25 @@ function updateZombies(dt) {
       speed = z.walking ? 0.8 : 0;
     }
     stepMob(z, dt, speed);
+    if (z.shadow && playing()) { // 그림자: 주기적으로 플레이어 곁으로 순간이동
+      z.blinkT -= dt;
+      if (z.blinkT <= 0 && d > 4 && d < 28) {
+        z.blinkT = 3.5 + Math.random() * 2;
+        spawnFx(z.pos.x, z.pos.y + 1, z.pos.z, SHADOW_EYE, 6, 3, 0.3);
+        const a2 = Math.random() * Math.PI * 2;
+        const nx = Math.floor(player.pos.x + Math.cos(a2) * 3);
+        const nz = Math.floor(player.pos.z + Math.sin(a2) * 3);
+        const ny = surfaceY(nx, nz);
+        if (ny !== null) { z.pos.set(nx + 0.5, ny, nz + 0.5); z.vel.set(0, 0, 0); }
+        spawnFx(z.pos.x, z.pos.y + 1, z.pos.z, SHADOW_EYE, 6, 3, 0.3);
+        playSound(700, 0.12, 'sine', 0.12);
+      }
+    }
     updateHpBar(z);
     z.atkT -= dt;
     if (!z.ranged && !z.creeper && playing() && z.atkT <= 0 && d < (z.boss ? 2.6 : 1.4) && Math.abs(player.pos.y - z.pos.y) < (z.boss ? 4 : 2)) {
       z.atkT = 1.2;
-      damage(z.boss ? 4 : 2);
+      damage(z.meleeDmg || (z.boss ? 4 : 2));
     }
     if (z.boss) boss = z;
   }
@@ -1558,13 +1723,17 @@ function killMob(m) {
   const ai = animals.indexOf(m);
   if (ai >= 0) {
     animals.splice(ai, 1);
-    inv[ITEM.MEAT] += 1 + (Math.random() < 0.5 ? 1 : 0); // 고기 드롭
+    const dp = m.drop || [ITEM.MEAT, 1 + (Math.random() < 0.5 ? 1 : 0)]; // 기본은 고기, 차원 동물은 전용 드롭
+    inv[dp[0]] = (inv[dp[0]] || 0) + dp[1];
     updateHotbar();
   } else {
     const zi = zombies.indexOf(m);
     if (zi >= 0) {
       zombies.splice(zi, 1);
       stats.kills++;
+      const kind = m.kind || 'zombie';
+      stats.byKind[kind] = (stats.byKind[kind] || 0) + 1;
+      if (kind === 'warden') unlock('warden', '👂 워든을 쓰러뜨렸다!');
       if (stats.kills >= 10) unlock('hunter', '몬스터 10마리 처치');
     }
     if (m.wither) {
@@ -1817,16 +1986,21 @@ function unlock(id, label) {
 const ACHV_DEFS = [
   ['wood', '첫 나무를 캤다'], ['tool', '첫 도구 제작'], ['dia', '반짝이는 다이아몬드!'],
   ['emerald', '희귀한 에메랄드!'], ['hunter', '몬스터 10마리 처치'], ['boss', '좀비 군주 처치'],
-  ['wither', '🌪 위더 스톰 격파!!'], ['nether', '네더에 발을 딛다'],
+  ['wither', '🌪 위더 스톰 격파!!'], ['warden', '👂 워든을 쓰러뜨렸다!'],
+  ['nether', '네더에 발을 딛다'], ['void', '🌌 보이드 탐험가'],
   ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'],
 ];
-// 플레이 통계 (저장됨)
-const stats = { kills: 0, mined: 0, placed: 0, deaths: 0, playTime: 0 };
+const KIND_NAMES = {
+  zombie: '좀비', skeleton: '스켈레톤', creeper: '크리퍼', spider: '거미', mage: '마법사',
+  imp: '임프', shadow: '그림자', warden: '워든', boss: '좀비 군주', wither: '위더 스톰',
+};
+// 플레이 통계 (저장됨, byKind = 몹별 처치 수)
+const stats = { kills: 0, mined: 0, placed: 0, deaths: 0, playTime: 0, byKind: {} };
 
 function respawn() {
   toast('💀 쓰러졌다... 스폰 지점에서 부활!', 3000);
   stats.deaths++;
-  player.pos.set(0.5, spawnY(), 0.5);
+  player.pos.set(0.5, safeSpawn(0, 0), 0.5); // 현재 차원의 안전한 중앙 지점
   player.vel.set(0, 0, 0);
   health = MAX_HEALTH;
   air = MAX_AIR;
@@ -1877,7 +2051,10 @@ addEventListener('keydown', (e) => {
   if (e.code === 'AltLeft' || e.code === 'AltRight') e.preventDefault(); // 브라우저 메뉴 방지 (카메라 궤도 키)
   const n = parseInt(e.key, 10);
   if (n >= 1 && n <= HOTBAR.length) selectSlot(n - 1);
-  if (e.code === 'KeyF' && playing()) { flying = !flying; player.vel.y = 0; fallDist = 0; }
+  if (e.code === 'KeyF' && playing()) {
+    if (suit) suitUlt(); // 슈트 중 F = ✨ 광역 필살기
+    else { flying = !flying; player.vel.y = 0; fallDist = 0; }
+  }
   if (e.code === 'KeyC' && (playing() || craftOpen)) toggleCraft(!craftOpen);
   if (e.code === 'KeyM') toggleMusic();
   if (e.code === 'KeyQ' && playing()) eatBest();           // 먹기
@@ -2134,7 +2311,7 @@ function updateHud(dt) {
   if (armor > 0) html += '<br>' + '🛡'.repeat(armor * 3);
   if (tools.bow) html += '<br>🏹 ' + (inv[ITEM.ARROW] | 0);
   if (air < MAX_AIR) html += '<br>' + '🫧'.repeat(Math.max(0, Math.ceil(air)));
-  if (suit) html += '<br>' + SUIT_STATS[suitLevel].name + (timeStop ? ' ⏳시간 정지' : '');
+  if (suit) html += '<br>' + SUIT_STATS[suitLevel].name + (timeStop ? ' ⏳시간 정지' : '') + (ultCd > 0 ? ` ✨${Math.ceil(ultCd)}s` : ' ✨준비됨');
   else if (flying) html += '<br>✈ 비행 중';
   if (html !== lastHud) { healthEl.innerHTML = html; lastHud = html; }
 }
@@ -2164,7 +2341,7 @@ function updateMinimap(dt) {
   miniT = 0;
   const W = miniCanvas.width, H = miniCanvas.height, scale = W / (MINI_R * 2);
   const px = player.pos.x, pz = player.pos.z;
-  if (curDim === 'nether') { miniCtx.fillStyle = '#2a0a0a'; miniCtx.fillRect(0, 0, W, H); }
+  if (curDim !== 'overworld') { miniCtx.fillStyle = curDim === 'void' ? '#140a24' : '#2a0a0a'; miniCtx.fillRect(0, 0, W, H); }
   else {
     for (let iy = 0; iy < H; iy += 2) for (let ix = 0; ix < W; ix += 2) {
       miniCtx.fillStyle = miniTerrainColor(Math.floor(px + ix / scale - MINI_R), Math.floor(pz + iy / scale - MINI_R));
@@ -2197,6 +2374,17 @@ function updateSky(dt) {
     sunDisc.visible = false; moonDisc.visible = false; stars.visible = false;
     scene.fog.color.copy(skyColor); scene.fog.near = 6; scene.fog.far = 50;
     clockEl.textContent = '🔥 네더';
+    return;
+  }
+  if (curDim === 'void') { // 🌌 보랏빛 허공 + 항상 별
+    sunHeight = -1;
+    skyColor.setHex(0x140a24);
+    sun.intensity = 0.1;
+    ambient.intensity = 0.5;
+    sunDisc.visible = false; moonDisc.visible = false;
+    stars.visible = true; starMat.opacity = 1; stars.position.copy(camera.position);
+    scene.fog.color.copy(skyColor); scene.fog.near = 20; scene.fog.far = 85;
+    clockEl.textContent = '🌌 보이드';
     return;
   }
   const a = (dayTime / DAY_LENGTH) * Math.PI * 2;
@@ -2238,6 +2426,31 @@ function updateSky(dt) {
   const hours = (dayTime / DAY_LENGTH) * 24 + 6;
   const hh = Math.floor(hours) % 24, mm = Math.floor((hours % 1) * 60);
   clockEl.textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${s >= 0 ? '☀' : '☾'}`;
+}
+
+// 🌠 유성: 오버월드 밤하늘을 가끔 불꽃 궤적이 가로지름
+let meteor = null, meteorT = 18;
+function updateMeteor(dt) {
+  if (curDim !== 'overworld') { meteor = null; return; }
+  if (!meteor) {
+    if (sunHeight < -0.1 && playing()) {
+      meteorT -= dt;
+      if (meteorT <= 0) {
+        meteorT = 25 + Math.random() * 35;
+        meteor = {
+          x: player.pos.x + (Math.random() - 0.5) * 120, y: 72, z: player.pos.z - 60,
+          vx: (Math.random() - 0.5) * 12, vy: -13, vz: 20, life: 3.5,
+        };
+      }
+    }
+    return;
+  }
+  meteor.x += meteor.vx * dt;
+  meteor.y += meteor.vy * dt;
+  meteor.z += meteor.vz * dt;
+  meteor.life -= dt;
+  spawnFx(meteor.x, meteor.y, meteor.z, M_FIRE, 1, 0.6, 0.5); // 불꽃 궤적
+  if (meteor.life <= 0 || meteor.y < 30) meteor = null;
 }
 
 function updateClouds(dt) {
@@ -2633,6 +2846,7 @@ function cycleCam() {
   playSound(700, 0.08, 'sine', 0.12);
 }
 bindBtn('btnCam', () => cycleCam());
+bindBtn('btnUlt', () => suitUlt());
 
 function toggleSuit() {
   if (!playing()) return;
@@ -2692,6 +2906,38 @@ function firePulse() {
   spawnFx(pos.x + _dir.x * 0.5, pos.y + _dir.y * 0.5, pos.z + _dir.z * 0.5, mat, 4, 2.5, 0.16); // 총구 섬광
   playSound(magic ? 1040 : suitLevel === 2 ? 620 : 880, 0.08, magic ? 'sine' : 'square', 0.12);
 }
+// ✨ 광역 필살기 (F / 모바일 ✨버튼): 슈트별로 다른 대폭발
+let ultCd = 0;
+function suitUlt() {
+  if (!suit || !playing()) return;
+  if (ultCd > 0) { playSound(140, 0.08, 'square', 0.08); return; }
+  const p = player.pos;
+  const r = suitLevel === 2 ? 12 : 10;
+  const dmg = suitLevel === 2 ? 14 : suitLevel === 3 ? 10 : 8;
+  ultCd = suitLevel === 3 ? 8 : 6;
+  const mat = suitLevel === 3 ? M_MAGIC : PULSE_MAT;
+  // 두 겹의 확장 링 + 위로 솟는 기둥
+  for (let ring = 0; ring < 2; ring++) {
+    const rad = 1.5 + ring * 1.6;
+    for (let i = 0; i < 26; i++) {
+      const a = (i / 26) * Math.PI * 2;
+      spawnFx(p.x + Math.cos(a) * rad, p.y + 0.8 + ring * 0.5, p.z + Math.sin(a) * rad, mat, 1, 7, 0.55);
+    }
+  }
+  spawnFx(p.x, p.y + 1.5, p.z, mat, 14, 5, 0.5);
+  flashLight(p.x, p.y + 1.2, p.z, suitLevel === 3 ? 0xffa030 : 0x66ccff, 7, r + 8, 0.5);
+  // 반경 내 모든 적에게 피해 + 강한 넉백 (동물은 다치지 않음)
+  for (const z of [...zombies]) {
+    const d = Math.hypot(z.pos.x - p.x, z.pos.y - p.y, z.pos.z - p.z);
+    if (d < r) {
+      damageMob(z, dmg, z.pos.x - p.x, z.pos.z - p.z);
+      if (suitLevel === 3 && z.hp > 0) { z.kbT = 1.4; z.vel.set(0, 0, 0); } // 🔮 잠깐 속박
+    }
+  }
+  playSound(suitLevel === 3 ? 900 : 60, 0.7, suitLevel === 3 ? 'sine' : 'sawtooth', 0.4);
+  playSound(200, 0.5, 'square', 0.25);
+}
+
 // 🔮 순간이동: 조준 방향으로 최대 12칸, 막히기 직전까지 이동
 function blinkTeleport() {
   camera.getWorldDirection(_dir);
@@ -3346,7 +3592,8 @@ document.getElementById('chestClose').addEventListener('click', closeChest);
 function makeDim(gen) {
   return { world: new Map(), edits: new Map(), torches: new Set(), crops: new Map(), chests: new Map(), generated: false, gen, pos: null, cropStages: null };
 }
-const DIMS = { overworld: makeDim(generateWorld), nether: makeDim(generateNether) };
+const DIMS = { overworld: makeDim(generateWorld), nether: makeDim(generateNether), void: makeDim(generateVoid) };
+const DIM_ORDER = ['overworld', 'nether', 'void']; // 포탈은 이 순서로 순환
 
 function snapshotPlayer() {
   return { x: player.pos.x, y: player.pos.y, z: player.pos.z, yaw: player.yaw, pitch: player.pitch };
@@ -3391,7 +3638,7 @@ function teleport(target, initial) {
   if (!d.generated) genDim(d);
   else for (const [, c] of crops) scene.add(c.mesh);
   rebuildAllChunks();
-  if (target === 'overworld' && animals.length === 0) spawnAnimals();
+  if (animals.length === 0) spawnAnimals();
 
   if (!applyPos(d.pos)) {
     const sy = safeSpawn(0, 0);
@@ -3406,6 +3653,7 @@ function teleport(target, initial) {
     flying = false;
     playSound(180, 0.5, 'sine', 0.25);
     if (target === 'nether') { toast('🔥 네더에 도착했다!', 3000); unlock('nether', '네더에 발을 딛다'); }
+    else if (target === 'void') { toast('🌌 보이드에 도착했다! 발밑을 조심해!', 3500); unlock('void', '보이드 탐험가'); }
     else toast('🌳 오버월드로 귀환!', 2500);
   }
 }
@@ -3423,7 +3671,7 @@ function updatePortal(dt) {
   const inPortal = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 0.2), Math.floor(player.pos.z)) === BLOCK.PORTAL;
   if (inPortal) {
     portalTimer += dt;
-    if (portalTimer >= 1.2) { portalTimer = 0; teleport(curDim === 'overworld' ? 'nether' : 'overworld', false); }
+    if (portalTimer >= 1.2) { portalTimer = 0; teleport(DIM_ORDER[(DIM_ORDER.indexOf(curDim) + 1) % DIM_ORDER.length], false); }
   } else portalTimer = 0;
 }
 
@@ -3449,7 +3697,7 @@ try {
     if (save.seed != null && save.seed !== WORLD_SEED) throw new Error('save: seed mismatch');
     if (save.worldVer != null && save.worldVer !== WORLD_VER) throw new Error('save: worldVer mismatch');
     if (save.dims) {
-      for (const name of ['overworld', 'nether']) {
+      for (const name of DIM_ORDER) {
         const sd = save.dims[name];
         if (sd == null) continue;
         if (typeof sd !== 'object') throw new Error('save: dim not object');
@@ -3467,14 +3715,17 @@ try {
         }
       }
     }
-    curDim = save.curDim === 'nether' ? 'nether' : 'overworld';
+    curDim = DIM_ORDER.includes(save.curDim) ? save.curDim : 'overworld';
     if (typeof save.dayTime === 'number') dayTime = save.dayTime;
     if (typeof save.health === 'number') health = Math.min(MAX_HEALTH, Math.max(1, save.health));
     if (typeof save.hunger === 'number') hunger = Math.min(MAX_HUNGER, Math.max(0, save.hunger));
     if (typeof save.armor === 'number') armor = Math.min(2, Math.max(0, save.armor | 0));
     if (save.inv) for (const k in inv) inv[k] = Math.max(0, save.inv[k] | 0);
     if (save.tools) for (const k in tools) tools[k] = !!save.tools[k];
-    if (save.stats) for (const k in stats) if (typeof save.stats[k] === 'number') stats[k] = save.stats[k];
+    if (save.stats) {
+      for (const k in stats) if (typeof save.stats[k] === 'number') stats[k] = save.stats[k];
+      if (save.stats.byKind && typeof save.stats.byKind === 'object') Object.assign(stats.byKind, save.stats.byKind);
+    }
     // 커스터마이즈한 핫바 배치 복원 (모두 설치 가능한 종류일 때만)
     if (Array.isArray(save.hotbar) && save.hotbar.length === HOTBAR.length && save.hotbar.every((t) => PLACEABLE.has(t))) {
       HOTBAR = save.hotbar.slice();
@@ -3485,7 +3736,7 @@ try {
   console.warn('저장 파일 손상/불일치, 초기화합니다:', e);
   try { localStorage.removeItem(SAVE_KEY); } catch (_) {}
   // 부분적으로 적용된 상태를 폐기하고 깨끗한 차원으로 다시 시작
-  for (const name of ['overworld', 'nether']) {
+  for (const name of DIM_ORDER) {
     const d = DIMS[name];
     if (d) { d.edits.clear(); d.pos = null; d.cropStages = []; d.chests.clear(); }
   }
@@ -3566,7 +3817,8 @@ refreshHotbar(); // 저장된 핫바 배치 반영 + 아이콘 그리기
     const open = achvPanelEl.style.display !== 'block';
     if (open) {
       let html = ACHV_DEFS.map(([id, label]) => `<div>${achv.has(id) ? '🏆' : '🔒'} ${label}</div>`).join('');
-      html += `<div class="stats">📊 처치 ${stats.kills} · 채굴 ${stats.mined} · 설치 ${stats.placed} · 사망 ${stats.deaths} · 플레이 ${Math.floor(stats.playTime / 60)}분<br>달성 ${[...achv].filter((id) => ACHV_DEFS.some(([d]) => d === id)).length} / ${ACHV_DEFS.length}</div>`;
+      const byKind = Object.entries(stats.byKind).map(([k, n]) => `${KIND_NAMES[k] || k} ${n}`).join(' · ');
+      html += `<div class="stats">📊 처치 ${stats.kills} · 채굴 ${stats.mined} · 설치 ${stats.placed} · 사망 ${stats.deaths} · 플레이 ${Math.floor(stats.playTime / 60)}분${byKind ? '<br>🗡 ' + byKind : ''}<br>달성 ${[...achv].filter((id) => ACHV_DEFS.some(([d]) => d === id)).length} / ${ACHV_DEFS.length}</div>`;
       achvPanelEl.innerHTML = html;
     }
     achvPanelEl.style.display = open ? 'block' : 'none';
@@ -3600,6 +3852,7 @@ function loop(now) {
   const active = playing() || !optFreeze; // 일시정지 시 시간 정지 옵션
   if (playing()) {
     stats.playTime += dt;
+    ultCd = Math.max(0, ultCd - dt);
     updatePlayer(dt);
     updatePortal(dt);
     if (charging) chargeT = Math.min(1.2, chargeT + dt);
@@ -3610,6 +3863,7 @@ function loop(now) {
   if (charging) chargeFillEl.style.width = (chargeT / 1.2 * 100) + '%';
   if (active) {
     updateSky(dt);
+    updateMeteor(dt);
     updateClouds(dt);
     updateParticles(dt);
     updateAnimals(dt);
