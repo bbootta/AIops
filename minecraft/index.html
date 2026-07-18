@@ -345,12 +345,12 @@ let masterVol = optVol / 100;
 const WORLD_SEED = 1337 + SLOT * 9973;
 const WORLD_VER = 5; // v5: 월드 192x192 확장
 
-const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18, SNOW: 19, CHEST: 20, MUSH_CAP: 21, END_STONE: 22, VOID_CRYSTAL: 23 };
+const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18, SNOW: 19, CHEST: 20, MUSH_CAP: 21, END_STONE: 22, VOID_CRYSTAL: 23, FLOWER_R: 24, FLOWER_Y: 25 };
 // 블록이 아닌 아이템 (인벤토리 전용)
 const ITEM = { MEAT: 100, SEEDS: 101, WHEAT: 102, BREAD: 103, DIAMOND: 104, ARROW: 105, BOW: 106, GOLD: 107, EMERALD: 108, GOLD_APPLE: 109, APPLE: 110, MUSHROOM: 111, STEW: 112, IRON: 113 };
 const BLOCK_NAMES = {
   1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석',
-  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈', 17: '금 광석', 18: '에메랄드 광석', 19: '눈', 20: '상자', 21: '버섯 갓', 22: '보이드석', 23: '보이드 수정',
+  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈', 17: '금 광석', 18: '에메랄드 광석', 19: '눈', 20: '상자', 21: '버섯 갓', 22: '보이드석', 23: '보이드 수정', 24: '빨간 꽃', 25: '노란 꽃',
   100: '고기', 101: '씨앗', 102: '밀', 103: '빵', 104: '다이아몬드', 106: '활', 107: '금', 108: '에메랄드', 109: '황금 사과',
   110: '사과', 111: '버섯', 112: '버섯 스튜', 113: '철',
 };
@@ -360,11 +360,12 @@ let HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLO
 const PLACEABLE = new Set([
   BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES, BLOCK.SAND,
   BLOCK.SNOW, BLOCK.NETHERRACK, BLOCK.END_STONE, BLOCK.TORCH, BLOCK.CHEST, BLOCK.PORTAL, ITEM.SEEDS,
+  BLOCK.FLOWER_R, BLOCK.FLOWER_Y,
 ]);
 // 음식 우선순위 (Q로 먹을 때): 일반 음식부터, 황금사과는 최후
 const FOOD_PRIORITY = [ITEM.STEW, ITEM.BREAD, ITEM.MEAT, ITEM.APPLE, ITEM.GOLD_APPLE];
 // 블록별 캐는 시간(초)과 드롭 아이템 [종류, 개수]
-const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0, 19: 0.45, 20: 0.9, 21: 0.3, 22: 0.9, 23: 1.8 };
+const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0, 19: 0.45, 20: 0.9, 21: 0.3, 22: 0.9, 23: 1.8, 24: 0.05, 25: 0.05 };
 const DROPS = {
   [BLOCK.GRASS]: [BLOCK.GRASS, 1], [BLOCK.DIRT]: [BLOCK.DIRT, 1], [BLOCK.STONE]: [BLOCK.STONE, 1],
   [BLOCK.WOOD]: [BLOCK.WOOD, 1], [BLOCK.LEAVES]: [BLOCK.LEAVES, 1], [BLOCK.SAND]: [BLOCK.SAND, 1],
@@ -375,6 +376,7 @@ const DROPS = {
   [BLOCK.SNOW]: [BLOCK.DIRT, 1], [BLOCK.CHEST]: [BLOCK.CHEST, 1],
   [BLOCK.MUSH_CAP]: [ITEM.MUSHROOM, 1],
   [BLOCK.END_STONE]: [BLOCK.END_STONE, 1], [BLOCK.VOID_CRYSTAL]: [ITEM.EMERALD, 1],
+  [BLOCK.FLOWER_R]: [BLOCK.FLOWER_R, 1], [BLOCK.FLOWER_Y]: [BLOCK.FLOWER_Y, 1],
 };
 // 채굴 시 곡괭이가 없으면 드롭하지 않는 광석
 const NEEDS_PICK = new Set([BLOCK.IRON_ORE, BLOCK.DIAMOND_ORE, BLOCK.GOLD_ORE, BLOCK.EMERALD_ORE, BLOCK.VOID_CRYSTAL]);
@@ -507,6 +509,8 @@ const TEX = {
   mushCap: makeTexture([190, 42, 42], (x, y) => (((x * 7 + y * 11) % 13) < 2 ? [242, 236, 228] : [190, 42, 42])),
   endStone: makeTexture([214, 210, 168], (x, y) => (((x * 5 + y * 3) % 9) < 2 ? [190, 186, 140] : [214, 210, 168])),
   voidCrystal: makeTexture([70, 40, 110], (x, y) => (Math.abs(x - 8) + Math.abs(y - 8) < 4 ? [200, 130, 255] : [70, 40, 110])),
+  flowerR: makeTexture([70, 130, 60], (x, y) => (y < 6 ? [220, 60, 70] : [70, 130, 60])),
+  flowerY: makeTexture([70, 130, 60], (x, y) => (y < 6 ? [240, 200, 60] : [70, 130, 60])),
   // 네더
   netherrack: makeTexture([108, 38, 38], (x, y) => (((x * 3 + y * 7) % 11 < 2) ? [70, 20, 20] : [108, 38, 38])),
   lava: makeTexture([222, 110, 30], (x, y) => (((x + y) % 5 === 0) ? [255, 200, 60] : [222, 90, 24])),
@@ -535,6 +539,8 @@ const MATERIALS = {
   [BLOCK.MUSH_CAP]: mat(TEX.mushCap),
   [BLOCK.END_STONE]: mat(TEX.endStone),
   [BLOCK.VOID_CRYSTAL]: new THREE.MeshLambertMaterial({ map: TEX.voidCrystal, emissive: 0x7030c0, emissiveIntensity: 0.5 }),
+  [BLOCK.FLOWER_R]: mat(TEX.flowerR),
+  [BLOCK.FLOWER_Y]: mat(TEX.flowerY),
   [BLOCK.TORCH]: new THREE.MeshLambertMaterial({ map: TEX.torch, emissive: 0xff9933, emissiveIntensity: 0.55 }),
   [BLOCK.PLANK]: mat(TEX.plank),
   [BLOCK.NETHERRACK]: mat(TEX.netherrack),
@@ -549,19 +555,22 @@ const ITEM_ICON = { [ITEM.MEAT]: TEX.meat, [ITEM.SEEDS]: TEX.seeds, [ITEM.BREAD]
 let world = new Map();  // "x,y,z" -> 블록 타입
 let edits = new Map();  // 플레이어가 바꾼 블록 (저장용)
 let torches = new Set(); // 횃불 위치 (조명용)
+let portals = new Set(); // 포탈 위치 (미니맵 표시용)
 let curDim = 'overworld'; // 현재 차원: 'overworld' | 'nether'
 const key = (x, y, z) => x + ',' + y + ',' + z;
 function getBlock(x, y, z) { return world.get(key(x, y, z)) || 0; }
 function isLiquid(t) { return t === BLOCK.WATER || t === BLOCK.LAVA; }
 function isSolid(t) { return t && !isLiquid(t); }                            // 조준/설치 대상 여부
 // 충돌·면 가림 여부 (액체·횃불·작물·포탈은 통과)
-function occludes(t) { return t && !isLiquid(t) && t !== BLOCK.TORCH && t !== BLOCK.CROP && t !== BLOCK.PORTAL; }
+function occludes(t) { return t && !isLiquid(t) && t !== BLOCK.TORCH && t !== BLOCK.CROP && t !== BLOCK.PORTAL && t !== BLOCK.FLOWER_R && t !== BLOCK.FLOWER_Y; }
 function setBlock(x, y, z, t) {
   const k = key(x, y, z);
   if (t) world.set(k, t);
   else world.delete(k);
   if (t === BLOCK.TORCH) torches.add(k);
   else torches.delete(k);
+  if (t === BLOCK.PORTAL) portals.add(k);
+  else portals.delete(k);
 }
 
 function generateWorld() {
@@ -633,6 +642,16 @@ function generateWorld() {
       }
     }
   }
+  // 꽃: 평원·정글 잔디 위에 흩뿌림
+  for (let i = 0; i < 1400; i++) {
+    const x = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
+    const z = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
+    const h = terrainHeight(x, z);
+    if (getBlock(x, h, z) !== BLOCK.GRASS || getBlock(x, h + 1, z)) continue;
+    const fb = biomeAt(x, z);
+    if (fb !== 'plains' && fb !== 'jungle') continue;
+    setBlock(x, h + 1, z, rand() < 0.5 ? BLOCK.FLOWER_R : BLOCK.FLOWER_Y);
+  }
 }
 
 // 네더 차원 지형 (네더랙 + 용암 호수 + 동굴)
@@ -648,6 +667,15 @@ function generateNether() {
       }
       for (let y = h + 1; y <= LAVA_LEVEL; y++) setBlock(x, y, z, BLOCK.LAVA); // 용암 호수
     }
+  }
+  // 우뚝 솟은 네더랙 기둥 (실루엣용)
+  for (let i = 0; i < 240; i++) {
+    const x = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
+    const z = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
+    const h = 9 + Math.floor(noise2(x / 20 + 100, z / 20 + 100) * 9);
+    if (h <= LAVA_LEVEL) continue;
+    const ph = 3 + Math.floor(rand() * 6);
+    for (let dy = 1; dy <= ph; dy++) setBlock(x, h + dy, z, BLOCK.NETHERRACK);
   }
 }
 
@@ -761,6 +789,8 @@ scene.add(clouds);
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 const torchGeo = new THREE.BoxGeometry(0.14, 0.55, 0.14);
 torchGeo.translate(0, -0.225, 0); // 칸 바닥에 세워지도록
+const flowerGeo = new THREE.BoxGeometry(0.16, 0.5, 0.16);
+flowerGeo.translate(0, -0.25, 0);
 let chunks = new Map(); // "cx,cz" -> { solid: [mesh], water: [mesh] }
 
 // 횃불 조명 풀: 가장 가까운 횃불 5개에만 실제 광원 배치
@@ -812,7 +842,7 @@ function rebuildChunk(cx, cz) {
         const t = getBlock(x, y, z);
         if (!t) continue;
         if (t === BLOCK.CROP) continue; // 작물은 별도 메시로 렌더
-        let exposed = t === BLOCK.TORCH || t === BLOCK.PORTAL; // 횃불·포탈은 항상 보임
+        let exposed = t === BLOCK.TORCH || t === BLOCK.PORTAL || t === BLOCK.FLOWER_R || t === BLOCK.FLOWER_Y; // 횃불·포탈·꽃은 항상 보임
         const liquid = isLiquid(t);
         for (const [dx, dy, dz] of NEIGHBORS) {
           if (exposed) break;
@@ -830,7 +860,8 @@ function rebuildChunk(cx, cz) {
   const entry = { solid: [], water: [] };
   const m4 = new THREE.Matrix4();
   for (const [t, list] of byType) {
-    const mesh = new THREE.InstancedMesh(t === BLOCK.TORCH ? torchGeo : boxGeo, MATERIALS[t], list.length);
+    const geo = t === BLOCK.TORCH ? torchGeo : (t === BLOCK.FLOWER_R || t === BLOCK.FLOWER_Y) ? flowerGeo : boxGeo;
+    const mesh = new THREE.InstancedMesh(geo, MATERIALS[t], list.length);
     list.forEach((p, i) => {
       m4.setPosition(p.x + 0.5, p.y + 0.5, p.z + 0.5);
       mesh.setMatrixAt(i, m4);
@@ -2353,6 +2384,7 @@ function updateMinimap(dt) {
     if (ix < 0 || iy < 0 || ix > W || iy > H) return;
     miniCtx.fillStyle = col; miniCtx.fillRect(ix - s, iy - s, 2 * s, 2 * s);
   };
+  for (const k of portals) { const [px2, , pz2] = k.split(',').map(Number); plot(px2 + 0.5, pz2 + 0.5, '#c060ff', 2); }
   for (const a of animals) plot(a.pos.x, a.pos.z, '#fff', 1);
   for (const z of zombies) plot(z.pos.x, z.pos.z, z.boss ? '#ff3' : z.creeper ? '#5e5' : '#f44', z.boss ? 3 : 1);
   miniCtx.fillStyle = '#39f'; miniCtx.fillRect(W / 2 - 2, H / 2 - 2, 4, 4); // 플레이어
@@ -2451,6 +2483,28 @@ function updateMeteor(dt) {
   meteor.life -= dt;
   spawnFx(meteor.x, meteor.y, meteor.z, M_FIRE, 1, 0.6, 0.5); // 불꽃 궤적
   if (meteor.life <= 0 || meteor.y < 30) meteor = null;
+}
+
+// ✨ 차원별 앰비언트: 밤 반딧불이 / 네더 불티 / 보이드 보랏빛 티끌
+const M_FIREFLY = new THREE.MeshLambertMaterial({ color: 0xfff7a0, emissive: 0xd8e060, emissiveIntensity: 1 });
+let ambT = 0;
+function updateAmbience(dt) {
+  if (!playing()) return;
+  ambT -= dt;
+  if (ambT > 0) return;
+  ambT = 0.22;
+  const p = player.pos;
+  if (curDim === 'overworld') {
+    if (sunHeight < -0.1) { // 반딧불이 (지면 근처에서 깜빡)
+      const ox = p.x + (Math.random() - 0.5) * 16, oz = p.z + (Math.random() - 0.5) * 16;
+      const oy = (surfaceY(Math.floor(ox), Math.floor(oz)) || p.y) + 0.6 + Math.random() * 1.5;
+      spawnFx(ox, oy, oz, M_FIREFLY, 1, 0.25, 1.6);
+    }
+  } else if (curDim === 'nether') {
+    spawnFx(p.x + (Math.random() - 0.5) * 14, p.y + Math.random() * 5, p.z + (Math.random() - 0.5) * 14, M_FIRE, 1, 0.4, 1.4);
+  } else {
+    spawnFx(p.x + (Math.random() - 0.5) * 16, p.y + Math.random() * 6 - 1, p.z + (Math.random() - 0.5) * 16, enemyBoltMat(0xb080ff), 1, 0.3, 1.8);
+  }
 }
 
 function updateClouds(dt) {
@@ -3315,6 +3369,7 @@ const inv = {
   [ITEM.SEEDS]: 0, [ITEM.WHEAT]: 0, [ITEM.BREAD]: 0, [ITEM.DIAMOND]: 0, [ITEM.ARROW]: 0,
   [BLOCK.PORTAL]: 0, [ITEM.GOLD]: 0, [ITEM.EMERALD]: 0, [ITEM.GOLD_APPLE]: 0,
   [ITEM.APPLE]: 0, [ITEM.MUSHROOM]: 0, [ITEM.STEW]: 0, [ITEM.IRON]: 0, [BLOCK.CHEST]: 0,
+  [BLOCK.END_STONE]: 0, [BLOCK.FLOWER_R]: 0, [BLOCK.FLOWER_Y]: 0,
 };
 const tools = { pickaxe: false, sword: false, bow: false, diamondPickaxe: false, diamondSword: false }; // 제작으로 획득 (영구)
 const slotCnts = [];
@@ -3424,7 +3479,7 @@ const RECIPES = [
   { name: '빵', desc: '밀 3 · 체력 +4', cost: { [ITEM.WHEAT]: 3 }, make: () => { inv[ITEM.BREAD] += 1; } },
   { name: '다이아 곡괭이', desc: '다이아 3 · 5배 속도', cost: { [ITEM.DIAMOND]: 3 }, once: 'diamondPickaxe' },
   { name: '다이아 검', desc: '다이아 2 · 공격력 3', cost: { [ITEM.DIAMOND]: 2 }, once: 'diamondSword' },
-  { name: '포탈 ×1', desc: '다이아 5 · 설치 후 들어가면 네더 이동', cost: { [ITEM.DIAMOND]: 5 }, make: () => { inv[BLOCK.PORTAL] += 1; } },
+  { name: '포탈 ×1', desc: '다이아 2 · 설치하면 차원 순환 이동', cost: { [ITEM.DIAMOND]: 2 }, make: () => { inv[BLOCK.PORTAL] += 1; } },
   { name: '황금 사과', desc: '금 5 · 체력 가득 회복', cost: { [ITEM.GOLD]: 5 }, make: () => { inv[ITEM.GOLD_APPLE] += 1; } },
   { name: '버섯 스튜', desc: '버섯 3 · 허기 +7', cost: { [ITEM.MUSHROOM]: 3 }, make: () => { inv[ITEM.STEW] += 1; } },
   { name: '상자', desc: '판자 8 · 아이템 보관', cost: { [BLOCK.PLANK]: 8 }, make: () => { inv[BLOCK.CHEST] += 1; } },
@@ -3488,7 +3543,7 @@ let invOpen = false;
 let chestOpen = false, chestKey = null; // 상자 UI 상태
 const INV_ORDER = [
   BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.SAND, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES,
-  BLOCK.SNOW, BLOCK.NETHERRACK,
+  BLOCK.SNOW, BLOCK.NETHERRACK, BLOCK.END_STONE, BLOCK.FLOWER_R, BLOCK.FLOWER_Y,
   BLOCK.TORCH, BLOCK.PORTAL, BLOCK.CHEST, ITEM.DIAMOND, ITEM.EMERALD, ITEM.GOLD, ITEM.IRON, ITEM.GOLD_APPLE,
   ITEM.MEAT, ITEM.WHEAT, ITEM.BREAD, ITEM.APPLE, ITEM.MUSHROOM, ITEM.STEW, ITEM.SEEDS, ITEM.ARROW,
 ];
@@ -3590,7 +3645,7 @@ document.getElementById('chestClose').addEventListener('click', closeChest);
 
 // ---------- 차원 (오버월드 / 네더) ----------
 function makeDim(gen) {
-  return { world: new Map(), edits: new Map(), torches: new Set(), crops: new Map(), chests: new Map(), generated: false, gen, pos: null, cropStages: null };
+  return { world: new Map(), edits: new Map(), torches: new Set(), portals: new Set(), crops: new Map(), chests: new Map(), generated: false, gen, pos: null, cropStages: null };
 }
 const DIMS = { overworld: makeDim(generateWorld), nether: makeDim(generateNether), void: makeDim(generateVoid) };
 const DIM_ORDER = ['overworld', 'nether', 'void']; // 포탈은 이 순서로 순환
@@ -3609,8 +3664,25 @@ function clearMobs() {
   animals.length = 0; zombies.length = 0; arrows.length = 0;
   bossBarEl.style.display = 'none';
 }
+function placeSpawnPortal() {
+  // 스폰 근처에 돌 아치 + 2칸 포탈 (제작 없이 바로 차원 여행 가능)
+  const px = 4, pz = 4;
+  const y = surfaceY(px, pz);
+  if (y === null) return;
+  for (let dy = 0; dy < 3; dy++) {
+    setBlock(px - 1, y + dy, pz, BLOCK.STONE);
+    setBlock(px + 1, y + dy, pz, BLOCK.STONE);
+  }
+  setBlock(px - 1, y + 3, pz, BLOCK.STONE);
+  setBlock(px, y + 3, pz, BLOCK.STONE);
+  setBlock(px + 1, y + 3, pz, BLOCK.STONE);
+  setBlock(px, y, pz, BLOCK.PORTAL);
+  setBlock(px, y + 1, pz, BLOCK.PORTAL);
+  setBlock(px, y + 2, pz, BLOCK.PORTAL);
+}
 function genDim(d) {
   d.gen(); // 현재 활성 world(=d.world)에 기본 지형 생성
+  placeSpawnPortal();
   for (const [k, t] of d.edits) { const [x, y, z] = k.split(',').map(Number); setBlock(x, y, z, t); }
   for (const [k, stage] of d.cropStages || []) {
     const [x, y, z] = k.split(',').map(Number);
@@ -3634,7 +3706,7 @@ function teleport(target, initial) {
   }
   curDim = target;
   const d = DIMS[target];
-  world = d.world; edits = d.edits; torches = d.torches; crops = d.crops; chests = d.chests;
+  world = d.world; edits = d.edits; torches = d.torches; portals = d.portals; crops = d.crops; chests = d.chests;
   if (!d.generated) genDim(d);
   else for (const [, c] of crops) scene.add(c.mesh);
   rebuildAllChunks();
@@ -3649,7 +3721,7 @@ function teleport(target, initial) {
     // 도착 지점에 귀환 포탈을 세워 되돌아올 수 있게 함
     const px = Math.floor(player.pos.x), py = Math.floor(player.pos.y), pz = Math.floor(player.pos.z);
     if (getBlock(px, py, pz) !== BLOCK.PORTAL) editBlock(px, py, pz, BLOCK.PORTAL);
-    portalCooldown = 2.5;
+    portalCooldown = 2;
     flying = false;
     playSound(180, 0.5, 'sine', 0.25);
     if (target === 'nether') { toast('🔥 네더에 도착했다!', 3000); unlock('nether', '네더에 발을 딛다'); }
@@ -3671,7 +3743,8 @@ function updatePortal(dt) {
   const inPortal = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 0.2), Math.floor(player.pos.z)) === BLOCK.PORTAL;
   if (inPortal) {
     portalTimer += dt;
-    if (portalTimer >= 1.2) { portalTimer = 0; teleport(DIM_ORDER[(DIM_ORDER.indexOf(curDim) + 1) % DIM_ORDER.length], false); }
+    if (Math.random() < 0.6) spawnFx(player.pos.x, player.pos.y + 1 + Math.random(), player.pos.z, enemyBoltMat(0xc060ff), 1, 1.5, 0.3); // 충전 소용돌이
+    if (portalTimer >= 0.6) { portalTimer = 0; teleport(DIM_ORDER[(DIM_ORDER.indexOf(curDim) + 1) % DIM_ORDER.length], false); }
   } else portalTimer = 0;
 }
 
@@ -3864,6 +3937,7 @@ function loop(now) {
   if (active) {
     updateSky(dt);
     updateMeteor(dt);
+    updateAmbience(dt);
     updateClouds(dt);
     updateParticles(dt);
     updateAnimals(dt);
