@@ -345,12 +345,12 @@ let masterVol = optVol / 100;
 const WORLD_SEED = 1337 + SLOT * 9973;
 const WORLD_VER = 5; // v5: 월드 192x192 확장
 
-const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18, SNOW: 19, CHEST: 20, MUSH_CAP: 21, END_STONE: 22, VOID_CRYSTAL: 23, FLOWER_R: 24, FLOWER_Y: 25 };
+const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18, SNOW: 19, CHEST: 20, MUSH_CAP: 21, END_STONE: 22, VOID_CRYSTAL: 23, FLOWER_R: 24, FLOWER_Y: 25, TNT: 26 };
 // 블록이 아닌 아이템 (인벤토리 전용)
 const ITEM = { MEAT: 100, SEEDS: 101, WHEAT: 102, BREAD: 103, DIAMOND: 104, ARROW: 105, BOW: 106, GOLD: 107, EMERALD: 108, GOLD_APPLE: 109, APPLE: 110, MUSHROOM: 111, STEW: 112, IRON: 113 };
 const BLOCK_NAMES = {
   1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석',
-  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈', 17: '금 광석', 18: '에메랄드 광석', 19: '눈', 20: '상자', 21: '버섯 갓', 22: '보이드석', 23: '보이드 수정', 24: '빨간 꽃', 25: '노란 꽃',
+  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈', 17: '금 광석', 18: '에메랄드 광석', 19: '눈', 20: '상자', 21: '버섯 갓', 22: '보이드석', 23: '보이드 수정', 24: '빨간 꽃', 25: '노란 꽃', 26: 'TNT',
   100: '고기', 101: '씨앗', 102: '밀', 103: '빵', 104: '다이아몬드', 106: '활', 107: '금', 108: '에메랄드', 109: '황금 사과',
   110: '사과', 111: '버섯', 112: '버섯 스튜', 113: '철',
 };
@@ -360,12 +360,12 @@ let HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLO
 const PLACEABLE = new Set([
   BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES, BLOCK.SAND,
   BLOCK.SNOW, BLOCK.NETHERRACK, BLOCK.END_STONE, BLOCK.TORCH, BLOCK.CHEST, BLOCK.PORTAL, ITEM.SEEDS,
-  BLOCK.FLOWER_R, BLOCK.FLOWER_Y,
+  BLOCK.FLOWER_R, BLOCK.FLOWER_Y, BLOCK.TNT,
 ]);
 // 음식 우선순위 (Q로 먹을 때): 일반 음식부터, 황금사과는 최후
 const FOOD_PRIORITY = [ITEM.STEW, ITEM.BREAD, ITEM.MEAT, ITEM.APPLE, ITEM.GOLD_APPLE];
 // 블록별 캐는 시간(초)과 드롭 아이템 [종류, 개수]
-const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0, 19: 0.45, 20: 0.9, 21: 0.3, 22: 0.9, 23: 1.8, 24: 0.05, 25: 0.05 };
+const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0, 19: 0.45, 20: 0.9, 21: 0.3, 22: 0.9, 23: 1.8, 24: 0.05, 25: 0.05, 26: 0.15 };
 const DROPS = {
   [BLOCK.GRASS]: [BLOCK.GRASS, 1], [BLOCK.DIRT]: [BLOCK.DIRT, 1], [BLOCK.STONE]: [BLOCK.STONE, 1],
   [BLOCK.WOOD]: [BLOCK.WOOD, 1], [BLOCK.LEAVES]: [BLOCK.LEAVES, 1], [BLOCK.SAND]: [BLOCK.SAND, 1],
@@ -511,6 +511,7 @@ const TEX = {
   voidCrystal: makeTexture([70, 40, 110], (x, y) => (Math.abs(x - 8) + Math.abs(y - 8) < 4 ? [200, 130, 255] : [70, 40, 110])),
   flowerR: makeTexture([70, 130, 60], (x, y) => (y < 6 ? [220, 60, 70] : [70, 130, 60])),
   flowerY: makeTexture([70, 130, 60], (x, y) => (y < 6 ? [240, 200, 60] : [70, 130, 60])),
+  tnt: makeTexture([196, 46, 30], (x, y) => (y >= 6 && y <= 9 ? ((x % 5) < 2 && y >= 7 && y <= 8 ? [40, 30, 26] : [235, 228, 214]) : [196, 46, 30])),
   // 네더
   netherrack: makeTexture([108, 38, 38], (x, y) => (((x * 3 + y * 7) % 11 < 2) ? [70, 20, 20] : [108, 38, 38])),
   lava: makeTexture([222, 110, 30], (x, y) => (((x + y) % 5 === 0) ? [255, 200, 60] : [222, 90, 24])),
@@ -541,6 +542,7 @@ const MATERIALS = {
   [BLOCK.VOID_CRYSTAL]: new THREE.MeshLambertMaterial({ map: TEX.voidCrystal, emissive: 0x7030c0, emissiveIntensity: 0.5 }),
   [BLOCK.FLOWER_R]: mat(TEX.flowerR),
   [BLOCK.FLOWER_Y]: mat(TEX.flowerY),
+  [BLOCK.TNT]: mat(TEX.tnt),
   [BLOCK.TORCH]: new THREE.MeshLambertMaterial({ map: TEX.torch, emissive: 0xff9933, emissiveIntensity: 0.55 }),
   [BLOCK.PLANK]: mat(TEX.plank),
   [BLOCK.NETHERRACK]: mat(TEX.netherrack),
@@ -894,21 +896,85 @@ function editBlock(x, y, z, t) {
   }
 }
 
-// 구 형태로 블록 파괴 (크리퍼 폭발) — 영향받은 청크를 한 번씩만 다시 그림
+// 구 형태로 블록 파괴 (폭발 공통) — 영향받은 청크를 한 번씩만 다시 그림.
+// 반경 안의 TNT는 지워지지 않고 짧은 도화선으로 연쇄 점화됨!
 function destroyBlocks(cx, cy, cz, R) {
   const dirty = new Set();
+  const chain = [];
+  // 중심 칸의 청크는 항상 리빌드 (호출 전에 중심 블록만 지워진 경우 대비)
+  for (const [ddx, ddz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) dirty.add(Math.floor((cx + ddx) / CHUNK) + ',' + Math.floor((cz + ddz) / CHUNK));
   for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) {
     if (dx * dx + dy * dy + dz * dz > R * R) continue;
     const x = cx + dx, y = cy + dy, z = cz + dz;
     if (y < 0 || y > Y_MAX) continue;
     const t = getBlock(x, y, z);
     if (!t || isLiquid(t)) continue;
+    if (t === BLOCK.TNT) { chain.push([x, y, z]); continue; }
+    if (t === BLOCK.PORTAL || t === BLOCK.CHEST) continue; // 포탈·상자는 폭발 면역 (갇힘·아이템 소실 방지)
     if (t === BLOCK.CROP) removeCropMesh(x, y, z);
     setBlock(x, y, z, 0);
     edits.set(key(x, y, z), 0);
     for (const [ddx, ddz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) dirty.add(Math.floor((x + ddx) / CHUNK) + ',' + Math.floor((z + ddz) / CHUNK));
   }
   for (const ck of dirty) { const [a, b] = ck.split(',').map(Number); rebuildChunk(a, b); }
+  for (const [x, y, z] of chain) igniteTNT(x, y, z, 0.25 + Math.random() * 0.4);
+}
+
+// ---------- 💣 TNT: 설치 후 캐면 점화 → 대폭발, 폭발끼리 연쇄 ----------
+const tnts = []; // 활성 도화선 { key, x, y, z, t, flash }
+const tntFuseSet = new Set();
+const TNT_FLASH = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.65, depthWrite: false });
+function igniteTNT(x, y, z, fuse) {
+  const k = key(x, y, z);
+  if (tntFuseSet.has(k) || getBlock(x, y, z) !== BLOCK.TNT) return;
+  tntFuseSet.add(k);
+  const flash = new THREE.Mesh(boxGeo, TNT_FLASH);
+  flash.scale.setScalar(1.02);
+  flash.position.set(x + 0.5, y + 0.5, z + 0.5);
+  scene.add(flash);
+  tnts.push({ key: k, x, y, z, t: fuse != null ? fuse : 1.6, flash });
+  playSound(1400, 0.12, 'square', 0.12); // 도화선 착화음
+}
+function clearTnts() { // 차원 전환 등에서 도화선 안전 정리
+  for (const f of tnts) scene.remove(f.flash);
+  tnts.length = 0;
+  tntFuseSet.clear();
+}
+// 투사체가 TNT에 맞으면 점화
+function maybeIgniteAt(px, py, pz) {
+  const x = Math.floor(px), y = Math.floor(py), z = Math.floor(pz);
+  if (getBlock(x, y, z) === BLOCK.TNT) igniteTNT(x, y, z, 0.5);
+}
+function updateTNT(dt) {
+  if (timeStop || !playing()) return; // 🔮 시간 정지·일시정지 중엔 도화선도 멈춤 (크리퍼와 동일 규약)
+  for (let i = tnts.length - 1; i >= 0; i--) {
+    const f = tnts[i];
+    f.t -= dt;
+    f.flash.visible = Math.sin(f.t * 24) > 0; // 점멸
+    if (f.t > 0) continue;
+    scene.remove(f.flash);
+    tnts.splice(i, 1);
+    tntFuseSet.delete(f.key);
+    if (getBlock(f.x, f.y, f.z) === BLOCK.TNT) { // 리빌드는 아래 destroyBlocks가 1회 수행
+      setBlock(f.x, f.y, f.z, 0);
+      edits.set(f.key, 0);
+    }
+    // 대폭발: 반경 4 파괴(내부 TNT는 연쇄) + 몹 큰 피해 + 근접 플레이어 피해 (중심은 블록 중앙)
+    destroyBlocks(f.x, f.y, f.z, 4);
+    const wx = f.x + 0.5, wy = f.y + 0.5, wz = f.z + 0.5;
+    for (const m of [...animals, ...zombies]) {
+      const d = Math.hypot(m.pos.x - wx, m.pos.y - wy, m.pos.z - wz);
+      if (d < 9) damageMob(m, Math.max(6, Math.ceil(20 - d * 1.6)), m.pos.x - wx, m.pos.z - wz);
+    }
+    const pd = Math.hypot(player.pos.x - wx, player.pos.y + 0.9 - wy, player.pos.z - wz);
+    if (pd < 7) damage(Math.ceil((7 - pd) * 1.4));
+    spawnFx(wx, wy, wz, M_FIRE, 26, 12, 0.6);   // 화염구
+    spawnFx(wx, wy, wz, M_SMOKE, 18, 5, 1.1);   // 버섯 연기
+    flashLight(wx, wy + 1, wz, 0xffa030, 9, 22, 0.55);
+    playSound(35, 0.8, 'sawtooth', 0.5);
+    playSound(120, 0.35, 'square', 0.3);
+    unlock('tnt', '💣 첫 대폭발!');
+  }
 }
 
 // ---------- 효과음 (WebAudio 합성) ----------
@@ -1992,7 +2058,7 @@ function updateArrows(dt) {
     let hit = false;
     for (let s = 0; s < steps && !hit; s++) {
       a.pos.addScaledVector(a.vel, dt / steps);
-      if (occludes(getBlock(Math.floor(a.pos.x), Math.floor(a.pos.y), Math.floor(a.pos.z)))) hit = true;
+      if (occludes(getBlock(Math.floor(a.pos.x), Math.floor(a.pos.y), Math.floor(a.pos.z)))) { hit = true; maybeIgniteAt(a.pos.x, a.pos.y, a.pos.z); }
       else if (a.enemy) {
         if (a.pos.x > p.x - 0.35 && a.pos.x < p.x + 0.35 && a.pos.y > p.y && a.pos.y < p.y + PLAYER_HEIGHT &&
             a.pos.z > p.z - 0.35 && a.pos.z < p.z + 0.35) {
@@ -2125,7 +2191,7 @@ const ACHV_DEFS = [
   ['emerald', '희귀한 에메랄드!'], ['hunter', '몬스터 10마리 처치'], ['boss', '좀비 군주 처치'],
   ['wither', '🌪 위더 스톰 격파!!'], ['warden', '👂 워든을 쓰러뜨렸다!'],
   ['nether', '네더에 발을 딛다'], ['void', '🌌 보이드 탐험가'],
-  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'], ['witherform', '🌪 위더 스톰으로 변신!'],
+  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'], ['witherform', '🌪 위더 스톰으로 변신!'], ['tnt', '💣 첫 대폭발!'],
 ];
 const KIND_NAMES = {
   zombie: '좀비', skeleton: '스켈레톤', creeper: '크리퍼', spider: '거미', mage: '마법사',
@@ -3202,7 +3268,7 @@ function updateBolts(dt) {
     let hit = false;
     for (let s = 0; s < steps && !hit; s++) {
       b.pos.addScaledVector(b.vel, dt / steps);
-      if (occludes(getBlock(Math.floor(b.pos.x), Math.floor(b.pos.y), Math.floor(b.pos.z)))) hit = true;
+      if (occludes(getBlock(Math.floor(b.pos.x), Math.floor(b.pos.y), Math.floor(b.pos.z)))) { hit = true; maybeIgniteAt(b.pos.x, b.pos.y, b.pos.z); }
       else {
         const m = mobAABBHit(b.pos);
         if (m) { if (!b.missile) damageMob(m, b.dmg || 3, b.vel.x, b.vel.z); hit = true; }
@@ -3434,6 +3500,13 @@ function updateMining(dt) {
   const pickMul = stony ? (tools.diamondPickaxe ? 5 : tools.pickaxe ? 3 : 1) : 1;
   mineProgress += dt * pickMul / (HARDNESS[type] || 1);
   if (mineProgress >= 1) {
+    if (type === BLOCK.TNT) { // 💣 캐면 회수가 아니라 점화!
+      igniteTNT(b.x, b.y, b.z);
+      mineTarget = null;
+      mineProgress = 0;
+      crackMesh.visible = false;
+      return;
+    }
     if (type === BLOCK.CROP) {
       const c = crops.get(key(b.x, b.y, b.z));
       const ripe = c && c.stage >= 3;
@@ -3520,7 +3593,7 @@ const inv = {
   [ITEM.SEEDS]: 0, [ITEM.WHEAT]: 0, [ITEM.BREAD]: 0, [ITEM.DIAMOND]: 0, [ITEM.ARROW]: 0,
   [BLOCK.PORTAL]: 0, [ITEM.GOLD]: 0, [ITEM.EMERALD]: 0, [ITEM.GOLD_APPLE]: 0,
   [ITEM.APPLE]: 0, [ITEM.MUSHROOM]: 0, [ITEM.STEW]: 0, [ITEM.IRON]: 0, [BLOCK.CHEST]: 0,
-  [BLOCK.END_STONE]: 0, [BLOCK.FLOWER_R]: 0, [BLOCK.FLOWER_Y]: 0,
+  [BLOCK.END_STONE]: 0, [BLOCK.FLOWER_R]: 0, [BLOCK.FLOWER_Y]: 0, [BLOCK.TNT]: 0,
 };
 const tools = { pickaxe: false, sword: false, bow: false, diamondPickaxe: false, diamondSword: false }; // 제작으로 획득 (영구)
 const slotCnts = [];
@@ -3631,6 +3704,7 @@ const RECIPES = [
   { name: '다이아 곡괭이', desc: '다이아 3 · 5배 속도', cost: { [ITEM.DIAMOND]: 3 }, once: 'diamondPickaxe' },
   { name: '다이아 검', desc: '다이아 2 · 공격력 3', cost: { [ITEM.DIAMOND]: 2 }, once: 'diamondSword' },
   { name: '포탈 ×1', desc: '다이아 2 · 설치하면 차원 순환 이동', cost: { [ITEM.DIAMOND]: 2 }, make: () => { inv[BLOCK.PORTAL] += 1; } },
+  { name: '💣 TNT ×2', desc: '모래 4 + 횃불 1 · 설치 후 캐면 점화!', cost: { [BLOCK.SAND]: 4, [BLOCK.TORCH]: 1 }, make: () => { inv[BLOCK.TNT] += 2; } },
   { name: '황금 사과', desc: '금 5 · 체력 가득 회복', cost: { [ITEM.GOLD]: 5 }, make: () => { inv[ITEM.GOLD_APPLE] += 1; } },
   { name: '버섯 스튜', desc: '버섯 3 · 허기 +7', cost: { [ITEM.MUSHROOM]: 3 }, make: () => { inv[ITEM.STEW] += 1; } },
   { name: '상자', desc: '판자 8 · 아이템 보관', cost: { [BLOCK.PLANK]: 8 }, make: () => { inv[BLOCK.CHEST] += 1; } },
@@ -3694,7 +3768,7 @@ let invOpen = false;
 let chestOpen = false, chestKey = null; // 상자 UI 상태
 const INV_ORDER = [
   BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.SAND, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES,
-  BLOCK.SNOW, BLOCK.NETHERRACK, BLOCK.END_STONE, BLOCK.FLOWER_R, BLOCK.FLOWER_Y,
+  BLOCK.SNOW, BLOCK.NETHERRACK, BLOCK.END_STONE, BLOCK.FLOWER_R, BLOCK.FLOWER_Y, BLOCK.TNT,
   BLOCK.TORCH, BLOCK.PORTAL, BLOCK.CHEST, ITEM.DIAMOND, ITEM.EMERALD, ITEM.GOLD, ITEM.IRON, ITEM.GOLD_APPLE,
   ITEM.MEAT, ITEM.WHEAT, ITEM.BREAD, ITEM.APPLE, ITEM.MUSHROOM, ITEM.STEW, ITEM.SEEDS, ITEM.ARROW,
 ];
@@ -3854,6 +3928,7 @@ function teleport(target, initial) {
     removeAllChunkMeshes();
     for (const [, c] of crops) scene.remove(c.mesh);
     clearMobs();
+    clearTnts();
   }
   curDim = target;
   const d = DIMS[target];
@@ -4095,6 +4170,7 @@ function loop(now) {
     updateZombies(dt);
     updateArrows(dt);
     updateBolts(dt);
+    updateTNT(dt);
     updateCrops(dt);
   }
   updateLaser(dt);

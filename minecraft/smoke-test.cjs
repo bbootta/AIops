@@ -40,7 +40,20 @@ class Vec3 {
   lookAt() { return this; }
 }
 class Vec2 { constructor(x = 0, y = 0) { this.x = x; this.y = y; } set(x, y) { this.x = x; this.y = y; return this; } }
-const THREE = new Proxy({}, { get(t, prop) { return prop === 'Vector3' ? Vec3 : prop === 'Vector2' ? Vec2 : P; } });
+// 카메라는 진짜 조준 방향을 돌려주는 최소 구현 — pickBlock/DDA가 실제로 지형을 맞혀
+// 설치·채굴·발사 경로가 하니스에서 진짜로 실행되게 한다 (앞-아래 45도쯤 조준)
+class Cam {
+  constructor() { this.position = new Vec3(); this.rotation = { set() {}, order: '' }; this.quaternion = {}; this.fov = 75; this.aspect = 1; this.far = 300; }
+  updateProjectionMatrix() {}
+  lookAt() {}
+  getWorldDirection(t) {
+    t.x = 0.45; t.y = -0.85; t.z = 0.15;
+    const l = Math.hypot(t.x, t.y, t.z);
+    t.x /= l; t.y /= l; t.z /= l;
+    return t;
+  }
+}
+const THREE = new Proxy({}, { get(t, prop) { return prop === 'Vector3' ? Vec3 : prop === 'Vector2' ? Vec2 : prop === 'PerspectiveCamera' ? Cam : P; } });
 
 function makeCtx() { return { fillRect() {}, set fillStyle(v) {}, get fillStyle() { return ''; }, set strokeStyle(v) {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {}, drawImage() {}, clearRect() {}, fillText() {} }; }
 function makeEl(tag) {
@@ -182,10 +195,20 @@ try {
 const saveC = JSON.stringify({
   curDim: 'nether',
   dims: { overworld: { edits: [], pos: null, crops: [] }, nether: { edits: [], pos: null, crops: [] } },
-  slot: 0, health: 10, inv: {}, tools: {}, dayTime: 50,
+  slot: 8, hotbar: [1, 2, 3, 4, 11, 10, 20, 101, 26],
+  health: 10, inv: { 26: 5 }, tools: {}, dayTime: 50,
 });
 try {
-  runGame(saveC, 'C: 네더 장시간(적 AI)', ({ step }) => { step(800); }, { noMove: true });
+  runGame(saveC, 'C: 네더 장시간(적 AI + TNT)', ({ step }) => {
+    // 💣 TNT 설치 → 캐서 점화 → 도화선 → 대폭발(연쇄 포함) 경로 — 실제 실행을 단언으로 확인
+    fire(doc._h.mousedown, ev({ button: 2 })); fire(doc._h.mouseup, ev({ button: 2 })); step(2);
+    fire(doc._h.mousedown, ev({ button: 0 })); step(20); fire(doc._h.mouseup, ev({ button: 0 }));
+    step(130); // 도화선 1.6s + 폭발 처리
+    const achvRaw = store['mc_achv'] || '[]';
+    if (!achvRaw.includes('tnt')) throw new Error('TNT 폭발 미발생 (achv=' + achvRaw + ')');
+    console.log('  [C] TNT 설치→점화→대폭발 확인됨');
+    step(650);
+  }, { noMove: true });
 } catch (e) { fails++; console.log('  [C] FAIL:', (e && e.stack) || e); }
 
 console.log(fails ? `\nSMOKE FAILED (${fails})` : '\nSMOKE PASSED');
