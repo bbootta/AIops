@@ -1359,45 +1359,137 @@ function makeImpMesh() {
   g.userData.bodyMat = IMP_MAT;
   return g;
 }
-// 🌪 위더 스톰: 머리 셋 달린 거대 부유 괴수 (슈퍼보스)
+// 🌪 위더 스톰: 스토리 모드풍 — 비대칭 검은 덩어리 몸체, 입 벌린 스컬 머리 셋,
+// 갈비뼈, 보라 코어, 꿈틀대는 촉수, 주위를 도는 빨려든 블록 파편
 const WITHER_MAT = new THREE.MeshLambertMaterial({ color: 0x1c1c22 });
 const WITHER_DARK = new THREE.MeshLambertMaterial({ color: 0x0d0d12 });
 const WITHER_EYE = new THREE.MeshLambertMaterial({ color: 0xd070ff, emissive: 0xa040e0, emissiveIntensity: 1 });
+const WITHER_GLOW = new THREE.MeshLambertMaterial({ color: 0xf4eaff, emissive: 0xcfa8ff, emissiveIntensity: 1 });
+function makeWitherSkull(parent, hx, hy, hs, withJaw) {
+  const head = new THREE.Group();
+  head.position.set(hx, hy, 0);
+  const skull = new THREE.Mesh(new THREE.BoxGeometry(hs, hs, hs), WITHER_MAT);
+  head.add(skull);
+  for (const ex of [-hs * 0.22, hs * 0.22]) { // 움푹한 발광 눈
+    const socket = new THREE.Mesh(new THREE.BoxGeometry(hs * 0.3, hs * 0.24, 0.05), WITHER_DARK);
+    socket.position.set(ex, hs * 0.14, -hs / 2 - 0.01);
+    head.add(socket);
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(hs * 0.18, hs * 0.13, 0.05), WITHER_EYE);
+    eye.position.set(ex, hs * 0.14, -hs / 2 - 0.03);
+    head.add(eye);
+  }
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(hs * 0.6, hs * 0.22, 0.06), WITHER_DARK); // 벌어진 입
+  mouth.position.set(0, -hs * 0.26, -hs / 2 - 0.01);
+  head.add(mouth);
+  for (let ti = -1; ti <= 1; ti++) { // 이빨
+    const tooth = new THREE.Mesh(new THREE.BoxGeometry(hs * 0.08, hs * 0.1, 0.05), WITHER_GLOW);
+    tooth.position.set(ti * hs * 0.2, -hs * 0.2, -hs / 2 - 0.02);
+    head.add(tooth);
+  }
+  let jaw = null;
+  if (withJaw) { // 중앙 머리는 턱이 벌어졌다 닫힘
+    jaw = new THREE.Mesh(new THREE.BoxGeometry(hs * 0.7, hs * 0.22, hs * 0.7), WITHER_MAT);
+    jaw.position.set(0, -hs * 0.62, 0);
+    head.add(jaw);
+  }
+  parent.add(head);
+  return { head, jaw };
+}
 function makeWitherMesh() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.4, 1.6), WITHER_MAT); // 몸통
-  body.position.y = 2.2;
-  g.add(body);
-  const spine = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.6, 1.0), WITHER_DARK); // 하부 척추
-  spine.position.y = 0.8;
-  g.add(spine);
-  // 중앙 큰 머리 + 좌우 작은 머리
-  const heads = [[0, 4.2, 0, 1.3], [-1.5, 3.8, 0, 0.8], [1.5, 3.8, 0, 0.8]];
-  for (const [hx, hy, hz, hs] of heads) {
-    const head = new THREE.Mesh(new THREE.BoxGeometry(hs, hs, hs), WITHER_MAT);
-    head.position.set(hx, hy, hz);
-    g.add(head);
-    const eye = new THREE.Mesh(new THREE.BoxGeometry(hs * 0.6, hs * 0.14, 0.04), WITHER_EYE);
-    eye.position.set(hx, hy + hs * 0.1, hz - hs / 2 - 0.02);
-    g.add(eye);
-    if (hx !== 0) { // 목 줄기
-      const neck = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.0, 0.4), WITHER_DARK);
-      neck.position.set(hx * 0.75, 3.3, 0);
-      neck.rotation.z = -hx * 0.35;
-      g.add(neck);
+  const U = { tentacles: [], debris: [], bodyMat: WITHER_MAT };
+  // 몸통: 비대칭으로 겹친 검은 덩어리들
+  const lumps = [
+    [2.2, 2.2, 1.6, 0, 2.3, 0], [1.5, 1.5, 1.3, -0.9, 1.7, 0.3], [1.4, 1.6, 1.2, 0.8, 1.5, -0.2],
+    [1.2, 1.4, 1.0, 0, 0.9, 0.2], [1.0, 1.0, 0.9, -0.5, 3.1, -0.3], [0.9, 1.0, 0.9, 0.7, 3.2, 0.2],
+  ];
+  for (const [w, h, d2, x, y, z] of lumps) {
+    const lump = new THREE.Mesh(new THREE.BoxGeometry(w, h, d2), Math.random() < 0.4 ? WITHER_DARK : WITHER_MAT);
+    lump.position.set(x, y, z);
+    lump.rotation.y = (Math.random() - 0.5) * 0.5;
+    g.add(lump);
+  }
+  // 갈비뼈
+  for (let i = 0; i < 3; i++) {
+    for (const side of [-1, 1]) {
+      const rib = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.9, 0.16), WITHER_DARK);
+      rib.position.set(side * (0.9 + i * 0.12), 1.5 - i * 0.35, -0.5);
+      rib.rotation.z = side * (0.5 + i * 0.15);
+      g.add(rib);
     }
   }
-  // 주위를 감싸는 촉수/파편
-  for (let i = 0; i < 6; i++) {
-    const t = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.6, 0.25), WITHER_DARK);
-    const a = (i / 6) * Math.PI * 2;
-    t.position.set(Math.cos(a) * 1.6, 1.6 + (i % 2) * 0.7, Math.sin(a) * 1.6);
-    t.rotation.x = Math.sin(a) * 0.5;
-    t.rotation.z = Math.cos(a) * 0.5;
-    g.add(t);
+  // 가슴의 명령 블록 코어 (보라 발광 + 흰 심장)
+  const core = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.3), WITHER_EYE);
+  core.position.set(0, 2.3, -0.85);
+  g.add(core);
+  const heart = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.1), WITHER_GLOW);
+  heart.position.set(0, 2.3, -1.0);
+  g.add(heart);
+  // 머리 셋: 중앙 대형(턱 개폐) + 좌우 (목 줄기 포함, 두리번거림)
+  const center = makeWitherSkull(g, 0, 4.35, 1.4, true);
+  U.jaw = center.jaw;
+  U.jawY = -1.4 * 0.62;
+  for (const side of [-1, 1]) {
+    const neck = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.1, 0.45), WITHER_DARK);
+    neck.position.set(side * 1.15, 3.4, 0);
+    neck.rotation.z = -side * 0.4;
+    g.add(neck);
+    const sk = makeWitherSkull(g, side * 1.6, 3.95, 0.85, false);
+    if (side < 0) U.headL = sk.head; else U.headR = sk.head;
   }
-  g.userData.bodyMat = WITHER_MAT;
+  // 꿈틀대는 촉수 (아래로 늘어진 마디)
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + 0.4;
+    const tc = new THREE.Group();
+    tc.position.set(Math.cos(a) * 1.0, 0.6, Math.sin(a) * 0.8);
+    let segY = 0;
+    for (let s2 = 0; s2 < 3; s2++) {
+      const w = 0.3 - s2 * 0.07;
+      const seg = new THREE.Mesh(new THREE.BoxGeometry(w, 0.75, w), s2 === 2 ? WITHER_DARK : WITHER_MAT);
+      seg.position.set(0, segY - 0.35, 0);
+      tc.add(seg);
+      segY -= 0.7;
+    }
+    tc.baseRx = Math.sin(a) * 0.35;
+    tc.baseRz = Math.cos(a) * 0.3;
+    g.add(tc);
+    U.tentacles.push(tc);
+  }
+  // 빨려 들어와 주위를 도는 블록 파편 (상징!)
+  const debrisMats = [MATERIALS[BLOCK.DIRT], MATERIALS[BLOCK.STONE], MATERIALS[BLOCK.NETHERRACK], MATERIALS[BLOCK.WOOD]];
+  for (let i = 0; i < 9; i++) {
+    const sizeD = 0.3 + Math.random() * 0.35;
+    const dm = debrisMats[i % debrisMats.length];
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(sizeD, sizeD, sizeD), Array.isArray(dm) ? dm[0] : dm);
+    g.add(mesh);
+    U.debris.push({ mesh, rad: 2.1 + Math.random() * 1.7, spd: 0.5 + Math.random() * 0.9, phase: Math.random() * Math.PI * 2, h: 0.8 + Math.random() * 3.2 });
+  }
+  g.userData = U;
   return g;
+}
+// 공용 애니메이션: 파편 궤도, 촉수 꿈틀, 턱 개폐, 곁머리 두리번
+function animateWither(root, dt) {
+  const u = root.userData;
+  if (!u || !u.debris) return;
+  u.orbitT = (u.orbitT || 0) + dt;
+  const t = u.orbitT;
+  for (let i = 0; i < u.debris.length; i++) {
+    const d = u.debris[i];
+    const a = t * d.spd + d.phase;
+    d.mesh.position.set(Math.cos(a) * d.rad, d.h + Math.sin(t * 1.3 + i) * 0.5, Math.sin(a) * d.rad);
+    d.mesh.rotation.x += dt * 2;
+    d.mesh.rotation.y += dt * 1.3;
+  }
+  for (let i = 0; i < u.tentacles.length; i++) {
+    const tc = u.tentacles[i];
+    tc.rotation.x = Math.sin(t * 1.6 + i * 1.1) * 0.35 + tc.baseRx;
+    tc.rotation.z = Math.cos(t * 1.4 + i * 0.9) * 0.3 + tc.baseRz;
+  }
+  if (u.jaw) u.jaw.position.y = u.jawY - Math.abs(Math.sin(t * 0.9)) * 0.3;
+  if (u.headL) {
+    u.headL.rotation.y = Math.sin(t * 0.9) * 0.4;
+    u.headR.rotation.y = Math.sin(t * 0.9 + 2) * 0.4;
+  }
 }
 // 워든: 거대한 심연의 파수꾼 — 느리지만 벽을 뚫는 음파 공격
 const WARDEN_MAT = new THREE.MeshLambertMaterial({ color: 0x0e3535 });
@@ -1634,6 +1726,20 @@ function updateZombies(dt) {
       z.mesh.position.copy(z.pos);
       z.mesh.rotation.y = z.yaw;
       z.mesh.position.y += Math.sin(suitTime * 1.7) * 0.3; // 으스스한 부유 흔들림
+      animateWither(z.mesh, dt); // 파편 궤도·촉수·턱 애니메이션
+      // 지형 흡수: 주기적으로 근처 블록을 뜯어 삼킴 (빨려 올라가는 연기)
+      z.devourT = (z.devourT || 0) - dt;
+      if (playing() && z.devourT <= 0) {
+        z.devourT = 4;
+        const bx = Math.floor(z.pos.x + (Math.random() - 0.5) * 8);
+        const bz = Math.floor(z.pos.z + (Math.random() - 0.5) * 8);
+        const by = surfaceY(bx, bz);
+        if (by !== null && by > 2) {
+          destroyBlocks(bx, by - 1, bz, 1);
+          for (let f = 0; f < 5; f++) spawnFx(bx + 0.5, by + f * 0.9, bz + 0.5, M_SMOKE, 1, 1, 0.5);
+          playSound(70, 0.3, 'sawtooth', 0.15);
+        }
+      }
       updateHpBar(z);
       z.skullT -= dt;
       if (playing() && z.skullT <= 0 && d < 44) {
@@ -2295,6 +2401,7 @@ function updatePlayer(dt) {
     if (u.cape) { // 🔮 망토: 속도에 따라 뒤로 펄럭임
       u.cape.rotation.x = -(0.12 + cruise * 0.85 + Math.sin(suitTime * 6) * 0.07 * (0.3 + cruise));
     }
+    if (suitLevel === 4 && u.inner) animateWither(u.inner, dt); // 🌪 파편 궤도·촉수·턱
     // 부스터/부양 불빛 + 뒤로 흩날리는 트레일 (스트레인지는 주황 마법 반짝임)
     suitBoostLight.visible = boost;
     if (boost) {
@@ -2879,7 +2986,7 @@ function makeWitherSuitMesh() {
   root.add(inner);
   root.scale.setScalar(0.85);
   root.rotation.order = 'YXZ';
-  root.userData = { flames: [], armL: new THREE.Group(), armR: new THREE.Group(), legL: new THREE.Group(), legR: new THREE.Group(), pivotY: 2.2 * 0.85 };
+  root.userData = { flames: [], armL: new THREE.Group(), armR: new THREE.Group(), legL: new THREE.Group(), legR: new THREE.Group(), pivotY: 2.2 * 0.85, inner };
   root.visible = false;
   scene.add(root);
   return root;
