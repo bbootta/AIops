@@ -221,6 +221,10 @@ try {
     console.log('  [C] ⚡ 번개 TNT 낙뢰 확인됨');
     if (!bomb(9, 'quake', 300)) throw new Error('지진 TNT 폭발 미발생');
     console.log('  [C] 🌋 지진 TNT 충격파 확인됨');
+    // 🐷 네더 스폰 믹스의 피글린 — 첫 조우 업적으로 스폰 경로를 단언
+    for (let i = 0; i < 80 && !(store['mc_achv'] || '').includes('piglin'); i++) step(40);
+    if (!(store['mc_achv'] || '').includes('piglin')) throw new Error('피글린 스폰 미발생 (achv=' + (store['mc_achv'] || '[]') + ')');
+    console.log('  [C] 🐷 피글린 스폰 확인됨');
     step(250);
   }, { noMove: true });
 } catch (e) { fails++; console.log('  [C] FAIL:', (e && e.stack) || e); }

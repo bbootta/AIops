@@ -1557,6 +1557,47 @@ function makeImpMesh() {
   g.userData.bodyMat = IMP_MAT;
   return g;
 }
+// 피글린 (네더): 금검을 든 돼지 전사 — 잡으면 금을 떨어뜨림
+const PIGLIN_SKIN = new THREE.MeshLambertMaterial({ color: 0xf0a2a0 });
+const PIGLIN_SNOUT = new THREE.MeshLambertMaterial({ color: 0xd97f80 });
+const PIGLIN_GOLD = new THREE.MeshLambertMaterial({ color: 0xf2c33e, emissive: 0x6b5210, emissiveIntensity: 0.4 });
+const PIGLIN_PANTS = new THREE.MeshLambertMaterial({ color: 0x5a3a24 });
+function makePiglinMesh() {
+  const g = new THREE.Group();
+  for (const lx of [-0.12, 0.12]) {
+    const leg = new THREE.Mesh(ZG_LEG, PIGLIN_PANTS);
+    leg.position.set(lx, 0.35, 0);
+    g.add(leg);
+  }
+  const body = new THREE.Mesh(ZG_BODY, PIGLIN_SKIN);
+  body.position.y = 1.05;
+  g.add(body);
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.14, 0.32), PIGLIN_GOLD); // 금 벨트
+  belt.position.y = 0.78;
+  g.add(belt);
+  const head = new THREE.Mesh(ZG_HEAD, PIGLIN_SKIN);
+  head.position.y = 1.65;
+  g.add(head);
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.08), PIGLIN_SNOUT); // 돼지 코
+  snout.position.set(0, 1.58, -0.26);
+  g.add(snout);
+  for (const ex of [-0.24, 0.24]) { // 접힌 귀
+    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.12), PIGLIN_SKIN);
+    ear.position.set(ex, 1.55, 0.05);
+    ear.rotation.z = ex > 0 ? -0.35 : 0.35;
+    g.add(ear);
+  }
+  for (const ax of [-0.33, 0.33]) {
+    const arm = new THREE.Mesh(ZG_ARM, PIGLIN_SKIN);
+    arm.position.set(ax, 1.3, -0.3);
+    g.add(arm);
+  }
+  const sword = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.5, 0.07), PIGLIN_GOLD); // 치켜든 금검
+  sword.position.set(0.33, 1.42, -0.55);
+  g.add(sword);
+  g.userData.bodyMat = PIGLIN_SKIN;
+  return g;
+}
 // 🌪 위더 스톰: 스토리 모드풍 — 비대칭 검은 덩어리 몸체, 입 벌린 스컬 머리 셋,
 // 갈비뼈, 보라 코어, 꿈틀대는 촉수, 주위를 도는 빨려든 블록 파편
 const WITHER_MAT = new THREE.MeshLambertMaterial({ color: 0x1c1c22 });
@@ -1808,19 +1849,21 @@ function trySpawnZombie() {
     creeper: () => { mesh = makeCreeperMesh(); base = { kind: 'creeper', creeper: true, hp: 4, colH: 1.6, hitH: 1.7, chaseSpeed: 2.2 }; },
     spider: () => { mesh = makeSpiderMesh(); base = { kind: 'spider', spider: true, climb: true, hp: 4, colH: 0.85, hitH: 0.95, chaseSpeed: 3.4 }; },
     mage: () => { mesh = makeMageMesh(); base = { kind: 'mage', ranged: true, hp: 4, colH: 1.9, hitH: 2.2, chaseSpeed: 0, rangeCfg: { far: 13, near: 7, shoot: 20, rate: 2.4, color: 0xb050ff, dmg: 3, speed: 16 } }; },
+    piglin: () => { mesh = makePiglinMesh(); base = { kind: 'piglin', hp: 4, colH: 1.8, hitH: 1.9, chaseSpeed: 2.7, meleeDmg: 2 }; },
     imp: () => { mesh = makeImpMesh(); base = { kind: 'imp', ranged: true, hp: 2, colH: 1.1, hitH: 1.4, chaseSpeed: 0, rangeCfg: { far: 7, near: 3, shoot: 12, rate: 1.3, color: 0xff6020, dmg: 2, speed: 18 } }; },
     shadow: () => { mesh = makeShadowMesh(); base = { kind: 'shadow', shadow: true, hp: 3, colH: 1.9, hitH: 2.05, chaseSpeed: 2.6, blinkT: 3 }; },
     warden: () => { mesh = makeWardenMesh(); base = { kind: 'warden', warden: true, hp: 60, colH: 2.9, hitH: 3.1, hitW: 0.8, chaseSpeed: 1.6, meleeDmg: 4, sonicT: 2 }; },
   };
   // 차원마다 다른 적 구성
   if (curDim === 'nether') {
-    (r < 0.5 ? T.imp : r < 0.75 ? T.zombie : T.creeper)();
+    (r < 0.3 ? T.imp : r < 0.65 ? T.piglin : r < 0.85 ? T.zombie : T.creeper)();
   } else if (curDim === 'void') {
     (r < 0.45 ? T.shadow : r < 0.7 ? T.mage : r < 0.85 ? T.warden : T.skeleton)();
   } else {
     (r < 0.04 ? T.warden : r < 0.27 ? T.skeleton : r < 0.42 ? T.creeper : r < 0.54 ? T.spider : r < 0.67 ? T.mage : T.zombie)();
   }
   if (base.warden) toast('👂 워든이 깨어났다... 조용히!', 3500);
+  if (base.kind === 'piglin') unlock('piglin', '🐷 피글린과 마주쳤다!');
   scene.add(mesh);
   zombies.push(Object.assign({
     mesh,
@@ -2069,6 +2112,7 @@ function killMob(m) {
       const kind = m.kind || 'zombie';
       stats.byKind[kind] = (stats.byKind[kind] || 0) + 1;
       if (kind === 'warden') unlock('warden', '👂 워든을 쓰러뜨렸다!');
+      if (kind === 'piglin') { inv[ITEM.GOLD] += 1; updateHotbar(); toast('🪙 피글린이 금을 떨어뜨렸다! (+1)', 2500); }
       if (stats.kills >= 10) unlock('hunter', '몬스터 10마리 처치');
     }
     if (m.wither) {
@@ -2323,11 +2367,11 @@ const ACHV_DEFS = [
   ['emerald', '희귀한 에메랄드!'], ['hunter', '몬스터 10마리 처치'], ['boss', '좀비 군주 처치'],
   ['wither', '🌪 위더 스톰 격파!!'], ['warden', '👂 워든을 쓰러뜨렸다!'],
   ['nether', '네더에 발을 딛다'], ['void', '🌌 보이드 탐험가'],
-  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'], ['witherform', '🌪 위더 스톰으로 변신!'], ['tnt', '💣 첫 대폭발!'], ['meganuke', '💥 10000% 대폭발!!'], ['lightning', '⚡ 번개 소환!'], ['quake', '🌋 대지진!'],
+  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'], ['witherform', '🌪 위더 스톰으로 변신!'], ['tnt', '💣 첫 대폭발!'], ['meganuke', '💥 10000% 대폭발!!'], ['lightning', '⚡ 번개 소환!'], ['quake', '🌋 대지진!'], ['piglin', '🐷 피글린과 마주쳤다!'],
 ];
 const KIND_NAMES = {
   zombie: '좀비', skeleton: '스켈레톤', creeper: '크리퍼', spider: '거미', mage: '마법사',
-  imp: '임프', shadow: '그림자', warden: '워든', boss: '좀비 군주', wither: '위더 스톰',
+  imp: '임프', piglin: '피글린', shadow: '그림자', warden: '워든', boss: '좀비 군주', wither: '위더 스톰',
 };
 // 플레이 통계 (저장됨, byKind = 몹별 처치 수)
 const stats = { kills: 0, mined: 0, placed: 0, deaths: 0, playTime: 0, byKind: {} };
