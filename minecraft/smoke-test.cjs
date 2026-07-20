@@ -195,32 +195,33 @@ try {
 const saveC = JSON.stringify({
   curDim: 'nether',
   dims: { overworld: { edits: [], pos: null, crops: [] }, nether: { edits: [], pos: null, crops: [] } },
-  slot: 7, hotbar: [1, 2, 3, 4, 11, 10, 20, 26, 27],
-  health: 10, inv: { 26: 5, 27: 3 }, tools: {}, dayTime: 50,
+  slot: 5, hotbar: [1, 2, 3, 10, 20, 26, 27, 28, 29],
+  health: 10, inv: { 26: 6, 27: 3, 28: 3, 29: 3 }, tools: {}, dayTime: 50,
 });
 try {
-  runGame(saveC, 'C: 네더 장시간(적 AI + TNT)', ({ step }) => {
-    // 💣 TNT 설치 → 캐서 점화 → 도화선 → 대폭발(연쇄 포함) 경로 — 실제 실행을 단언으로 확인
-    fire(doc._h.mousedown, ev({ button: 2 })); fire(doc._h.mouseup, ev({ button: 2 })); step(2);
-    fire(doc._h.mousedown, ev({ button: 0 })); step(20); fire(doc._h.mouseup, ev({ button: 0 }));
-    step(130); // 도화선 1.6s + 폭발 처리
-    const achvRaw = store['mc_achv'] || '[]';
-    if (!achvRaw.includes('tnt')) throw new Error('TNT 폭발 미발생 (achv=' + achvRaw + ')');
-    console.log('  [C] TNT 설치→점화→대폭발 확인됨');
-    // 💥 슈퍼 TNT: 설치 → 점화 → 3초 도화선 → 12500% 폭발
+  runGame(saveC, 'C: 네더 장시간(적 AI + TNT 4종)', ({ step }) => {
+    // 공용: 슬롯 선택 → 설치 → 캐서 점화 → 도화선 대기, 업적으로 폭발을 단언
     // (직전 폭발 크레이터로 낙하 중일 수 있어 안정화 후 재시도)
-    fire(G.keydown, ev({ code: 'Digit9', key: '9' }));
-    let mega = false;
-    for (let attempt = 0; attempt < 6 && !mega; attempt++) {
-      step(50); // 착지·안정화
-      fire(doc._h.mousedown, ev({ button: 2 })); fire(doc._h.mouseup, ev({ button: 2 })); step(2);
-      fire(doc._h.mousedown, ev({ button: 0 })); step(26); fire(doc._h.mouseup, ev({ button: 0 }));
-      step(210); // 3초 도화선 + 폭발
-      mega = (store['mc_achv'] || '').includes('meganuke');
-    }
-    if (!mega) throw new Error('슈퍼 TNT 폭발 미발생 (achv=' + (store['mc_achv'] || '[]') + ')');
+    const bomb = (digit, id, fuseSteps) => {
+      fire(G.keydown, ev({ code: 'Digit' + digit, key: String(digit) }));
+      for (let a = 0; a < 6; a++) {
+        if ((store['mc_achv'] || '').includes(id)) return true;
+        step(50); // 착지·안정화
+        fire(doc._h.mousedown, ev({ button: 2 })); fire(doc._h.mouseup, ev({ button: 2 })); step(2);
+        fire(doc._h.mousedown, ev({ button: 0 })); step(26); fire(doc._h.mouseup, ev({ button: 0 }));
+        step(fuseSteps);
+      }
+      return (store['mc_achv'] || '').includes(id);
+    };
+    if (!bomb(6, 'tnt', 130)) throw new Error('TNT 폭발 미발생 (achv=' + (store['mc_achv'] || '[]') + ')');
+    console.log('  [C] TNT 설치→점화→대폭발 확인됨');
+    if (!bomb(7, 'meganuke', 210)) throw new Error('슈퍼 TNT 폭발 미발생');
     console.log('  [C] 💥 슈퍼 TNT 12500% 폭발 확인됨');
-    step(300);
+    if (!bomb(8, 'lightning', 170)) throw new Error('번개 TNT 폭발 미발생');
+    console.log('  [C] ⚡ 번개 TNT 낙뢰 확인됨');
+    if (!bomb(9, 'quake', 300)) throw new Error('지진 TNT 폭발 미발생');
+    console.log('  [C] 🌋 지진 TNT 충격파 확인됨');
+    step(250);
   }, { noMove: true });
 } catch (e) { fails++; console.log('  [C] FAIL:', (e && e.stack) || e); }
 

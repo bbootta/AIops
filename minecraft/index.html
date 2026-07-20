@@ -345,12 +345,12 @@ let masterVol = optVol / 100;
 const WORLD_SEED = 1337 + SLOT * 9973;
 const WORLD_VER = 5; // v5: 월드 192x192 확장
 
-const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18, SNOW: 19, CHEST: 20, MUSH_CAP: 21, END_STONE: 22, VOID_CRYSTAL: 23, FLOWER_R: 24, FLOWER_Y: 25, TNT: 26, MEGA_TNT: 27 };
+const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18, SNOW: 19, CHEST: 20, MUSH_CAP: 21, END_STONE: 22, VOID_CRYSTAL: 23, FLOWER_R: 24, FLOWER_Y: 25, TNT: 26, MEGA_TNT: 27, LIGHT_TNT: 28, QUAKE_TNT: 29 };
 // 블록이 아닌 아이템 (인벤토리 전용)
 const ITEM = { MEAT: 100, SEEDS: 101, WHEAT: 102, BREAD: 103, DIAMOND: 104, ARROW: 105, BOW: 106, GOLD: 107, EMERALD: 108, GOLD_APPLE: 109, APPLE: 110, MUSHROOM: 111, STEW: 112, IRON: 113 };
 const BLOCK_NAMES = {
   1: '잔디', 2: '흙', 3: '돌', 4: '나무', 5: '나뭇잎', 6: '모래', 8: '석탄 광석', 9: '철 광석',
-  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈', 17: '금 광석', 18: '에메랄드 광석', 19: '눈', 20: '상자', 21: '버섯 갓', 22: '보이드석', 23: '보이드 수정', 24: '빨간 꽃', 25: '노란 꽃', 26: 'TNT', 27: '💥 슈퍼 TNT',
+  10: '횃불', 11: '판자', 12: '다이아몬드 광석', 14: '네더랙', 16: '포탈', 17: '금 광석', 18: '에메랄드 광석', 19: '눈', 20: '상자', 21: '버섯 갓', 22: '보이드석', 23: '보이드 수정', 24: '빨간 꽃', 25: '노란 꽃', 26: 'TNT', 27: '💥 슈퍼 TNT', 28: '⚡ 번개 TNT', 29: '🌋 지진 TNT',
   100: '고기', 101: '씨앗', 102: '밀', 103: '빵', 104: '다이아몬드', 106: '활', 107: '금', 108: '에메랄드', 109: '황금 사과',
   110: '사과', 111: '버섯', 112: '버섯 스튜', 113: '철',
 };
@@ -360,12 +360,12 @@ let HOTBAR = [BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLO
 const PLACEABLE = new Set([
   BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES, BLOCK.SAND,
   BLOCK.SNOW, BLOCK.NETHERRACK, BLOCK.END_STONE, BLOCK.TORCH, BLOCK.CHEST, BLOCK.PORTAL, ITEM.SEEDS,
-  BLOCK.FLOWER_R, BLOCK.FLOWER_Y, BLOCK.TNT, BLOCK.MEGA_TNT,
+  BLOCK.FLOWER_R, BLOCK.FLOWER_Y, BLOCK.TNT, BLOCK.MEGA_TNT, BLOCK.LIGHT_TNT, BLOCK.QUAKE_TNT,
 ]);
 // 음식 우선순위 (Q로 먹을 때): 일반 음식부터, 황금사과는 최후
 const FOOD_PRIORITY = [ITEM.STEW, ITEM.BREAD, ITEM.MEAT, ITEM.APPLE, ITEM.GOLD_APPLE];
 // 블록별 캐는 시간(초)과 드롭 아이템 [종류, 개수]
-const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0, 19: 0.45, 20: 0.9, 21: 0.3, 22: 0.9, 23: 1.8, 24: 0.05, 25: 0.05, 26: 0.15, 27: 0.2 };
+const HARDNESS = { 1: 0.45, 2: 0.45, 3: 1.1, 4: 0.7, 5: 0.2, 6: 0.4, 8: 1.4, 9: 1.8, 10: 0.05, 11: 0.7, 12: 2.4, 13: 0.05, 14: 0.6, 16: 0.1, 17: 1.6, 18: 2.0, 19: 0.45, 20: 0.9, 21: 0.3, 22: 0.9, 23: 1.8, 24: 0.05, 25: 0.05, 26: 0.15, 27: 0.2, 28: 0.2, 29: 0.2 };
 const DROPS = {
   [BLOCK.GRASS]: [BLOCK.GRASS, 1], [BLOCK.DIRT]: [BLOCK.DIRT, 1], [BLOCK.STONE]: [BLOCK.STONE, 1],
   [BLOCK.WOOD]: [BLOCK.WOOD, 1], [BLOCK.LEAVES]: [BLOCK.LEAVES, 1], [BLOCK.SAND]: [BLOCK.SAND, 1],
@@ -377,7 +377,7 @@ const DROPS = {
   [BLOCK.MUSH_CAP]: [ITEM.MUSHROOM, 1],
   [BLOCK.END_STONE]: [BLOCK.END_STONE, 1], [BLOCK.VOID_CRYSTAL]: [ITEM.EMERALD, 1],
   [BLOCK.FLOWER_R]: [BLOCK.FLOWER_R, 1], [BLOCK.FLOWER_Y]: [BLOCK.FLOWER_Y, 1],
-  [BLOCK.MEGA_TNT]: [BLOCK.MEGA_TNT, 1],
+  [BLOCK.MEGA_TNT]: [BLOCK.MEGA_TNT, 1], [BLOCK.LIGHT_TNT]: [BLOCK.LIGHT_TNT, 1], [BLOCK.QUAKE_TNT]: [BLOCK.QUAKE_TNT, 1],
 };
 // 채굴 시 곡괭이가 없으면 드롭하지 않는 광석
 const NEEDS_PICK = new Set([BLOCK.IRON_ORE, BLOCK.DIAMOND_ORE, BLOCK.GOLD_ORE, BLOCK.EMERALD_ORE, BLOCK.VOID_CRYSTAL]);
@@ -514,6 +514,8 @@ const TEX = {
   flowerY: makeTexture([70, 130, 60], (x, y) => (y < 6 ? [240, 200, 60] : [70, 130, 60])),
   tnt: makeTexture([196, 46, 30], (x, y) => (y >= 6 && y <= 9 ? ((x % 5) < 2 && y >= 7 && y <= 8 ? [40, 30, 26] : [235, 228, 214]) : [196, 46, 30])),
   megaTnt: makeTexture([130, 20, 20], (x, y) => ((y >= 3 && y <= 5) || (y >= 10 && y <= 12) ? ((x % 4) < 2 ? [50, 36, 20] : [255, 200, 60]) : [130, 20, 20])),
+  lightTnt: makeTexture([36, 52, 120], (x, y) => (((x + y) % 16) >= 7 && ((x + y) % 16) <= 9 ? [255, 230, 80] : [36, 52, 120])),
+  quakeTnt: makeTexture([124, 88, 52], (x, y) => (((x * 3 + y * 5) % 11) < 2 ? [50, 36, 24] : [124, 88, 52])),
   // 네더
   netherrack: makeTexture([108, 38, 38], (x, y) => (((x * 3 + y * 7) % 11 < 2) ? [70, 20, 20] : [108, 38, 38])),
   lava: makeTexture([222, 110, 30], (x, y) => (((x + y) % 5 === 0) ? [255, 200, 60] : [222, 90, 24])),
@@ -546,6 +548,8 @@ const MATERIALS = {
   [BLOCK.FLOWER_Y]: mat(TEX.flowerY),
   [BLOCK.TNT]: mat(TEX.tnt),
   [BLOCK.MEGA_TNT]: new THREE.MeshLambertMaterial({ map: TEX.megaTnt, emissive: 0x662200, emissiveIntensity: 0.25 }),
+  [BLOCK.LIGHT_TNT]: new THREE.MeshLambertMaterial({ map: TEX.lightTnt, emissive: 0x223a88, emissiveIntensity: 0.3 }),
+  [BLOCK.QUAKE_TNT]: mat(TEX.quakeTnt),
   [BLOCK.TORCH]: new THREE.MeshLambertMaterial({ map: TEX.torch, emissive: 0xff9933, emissiveIntensity: 0.55 }),
   [BLOCK.PLANK]: mat(TEX.plank),
   [BLOCK.NETHERRACK]: mat(TEX.netherrack),
@@ -910,10 +914,10 @@ function destroyBlocks(cx, cy, cz, R) {
   for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) {
     if (dx * dx + dy * dy + dz * dz > R * R) continue;
     const x = cx + dx, y = cy + dy, z = cz + dz;
-    if (y < 0 || y > Y_MAX) continue;
+    if (y < 2 || y > Y_MAX) continue; // 최하층 2칸은 기반암처럼 보존 (허공 구덩이·리스폰 루프 방지)
     const t = getBlock(x, y, z);
     if (!t || isLiquid(t)) continue;
-    if (t === BLOCK.TNT || t === BLOCK.MEGA_TNT) { chain.push([x, y, z]); continue; }
+    if (TNT_BLOCKS.has(t)) { chain.push([x, y, z]); continue; }
     if (t === BLOCK.PORTAL || t === BLOCK.CHEST) continue; // 포탈·상자는 폭발 면역 (갇힘·아이템 소실 방지)
     if (t === BLOCK.CROP) removeCropMesh(x, y, z);
     setBlock(x, y, z, 0);
@@ -925,21 +929,23 @@ function destroyBlocks(cx, cy, cz, R) {
 }
 
 // ---------- 💣 TNT: 설치 후 캐면 점화 → 대폭발, 폭발끼리 연쇄 ----------
-const tnts = []; // 활성 도화선 { key, x, y, z, t, flash, mega }
+const TNT_BLOCKS = new Set([BLOCK.TNT, BLOCK.MEGA_TNT, BLOCK.LIGHT_TNT, BLOCK.QUAKE_TNT]);
+const tnts = []; // 활성 도화선 { key, x, y, z, t, flash, kind, mega }
 let shakeT = 0;   // 폭발 화면 흔들림 잔여 시간
 const tntFuseSet = new Set();
 const TNT_FLASH = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.65, depthWrite: false });
 function igniteTNT(x, y, z, fuse) {
   const k = key(x, y, z);
   const bt = getBlock(x, y, z);
-  if (tntFuseSet.has(k) || (bt !== BLOCK.TNT && bt !== BLOCK.MEGA_TNT)) return;
+  if (tntFuseSet.has(k) || !TNT_BLOCKS.has(bt)) return;
   const mega = bt === BLOCK.MEGA_TNT;
+  const baseFuse = mega ? 3 : (bt === BLOCK.LIGHT_TNT || bt === BLOCK.QUAKE_TNT) ? 2 : 1.6;
   tntFuseSet.add(k);
   const flash = new THREE.Mesh(boxGeo, TNT_FLASH);
   flash.scale.setScalar(1.02);
   flash.position.set(x + 0.5, y + 0.5, z + 0.5);
   scene.add(flash);
-  tnts.push({ key: k, x, y, z, t: fuse != null ? fuse : (mega ? 3 : 1.6), flash, mega, beepT: 0 });
+  tnts.push({ key: k, x, y, z, t: fuse != null ? fuse : baseFuse, flash, kind: bt, mega, beepT: 0 });
   playSound(mega ? 800 : 1400, 0.15, 'square', 0.15); // 도화선 착화음
 }
 function clearTnts() { // 차원 전환 등에서 도화선 안전 정리
@@ -947,11 +953,107 @@ function clearTnts() { // 차원 전환 등에서 도화선 안전 정리
   tnts.length = 0;
   tntFuseSet.clear();
 }
+// ⚡ 번개 TNT: 소형 폭발 후 반경 14의 모든 적 + 무작위 지점에 낙뢰
+const M_BOLT = new THREE.MeshLambertMaterial({ color: 0xeaffff, emissive: 0x9fd8ff, emissiveIntensity: 1 });
+function lightningExplosion(f) {
+  const wx = f.x + 0.5, wy = f.y + 0.5, wz = f.z + 0.5;
+  destroyBlocks(f.x, f.y, f.z, 2);
+  const targets = [];
+  for (const m of [...zombies]) { // 동물은 안전
+    if (Math.hypot(m.pos.x - wx, m.pos.z - wz) <= 14) targets.push({ x: m.pos.x, y: m.pos.y, z: m.pos.z, m });
+  }
+  for (let i = 0; i < 4; i++) { // 무작위 지면 낙뢰
+    const tx = wx + (Math.random() - 0.5) * 22, tz = wz + (Math.random() - 0.5) * 22;
+    const ty = surfaceY(Math.floor(tx), Math.floor(tz));
+    if (ty !== null) targets.push({ x: tx, y: ty, z: tz });
+  }
+  for (const t of targets.slice(0, 10)) {
+    for (let h = 0; h < 22; h += 2) { // 하늘에서 내리꽂히는 빛기둥
+      spawnFx(t.x + (Math.random() - 0.5) * 0.5, t.y + h, t.z + (Math.random() - 0.5) * 0.5, M_BOLT, 1, 0.4, 0.3);
+    }
+    flashLight(t.x, t.y + 2, t.z, 0xaaddff, 8, 18, 0.25);
+    if (t.m) damageMob(t.m, 15, t.x - wx, t.z - wz);
+    else destroyBlocks(Math.floor(t.x), Math.max(1, t.y - 1), Math.floor(t.z), 1);
+    const pd = Math.hypot(player.pos.x - t.x, player.pos.z - t.z);
+    if (pd < 3) damage(4);
+  }
+  shakeT = Math.max(shakeT, 0.5);
+  playSound(1800, 0.15, 'square', 0.35); // 낙뢰 파열음
+  playSound(70, 0.9, 'sawtooth', 0.4);   // 천둥
+  unlock('lightning', '⚡ 번개 소환!');
+}
+// 🌋 지진 TNT: 땅을 가르며 퍼지는 충격파 링 (지형 균열 + 몹을 공중으로)
+const quakes = [];
+function startQuake(f) {
+  destroyBlocks(f.x, f.y, f.z, 2);
+  quakes.push({ x: f.x + 0.5, z: f.z + 0.5, r: 2, prev: 2, maxR: 16, dirty: new Set(), rebuildT: 0.12, rumbleT: 0, playerHit: false });
+  unlock('quake', '🌋 대지진!');
+}
+function updateQuakes(dt) {
+  if (timeStop || !playing()) return;
+  for (let i = quakes.length - 1; i >= 0; i--) {
+    const q = quakes[i];
+    q.prev = q.r;
+    q.r = Math.min(q.maxR, q.r + 8 * dt);
+    // 링 밴드의 지표를 2칸 깊이로 갈라놓음
+    const lim = Math.ceil(q.r) + 1;
+    for (let ix = Math.floor(q.x - lim); ix <= Math.floor(q.x + lim); ix++) {
+      for (let iz = Math.floor(q.z - lim); iz <= Math.floor(q.z + lim); iz++) {
+        const d = Math.hypot(ix + 0.5 - q.x, iz + 0.5 - q.z);
+        if (d <= q.prev || d > q.r) continue;
+        const sy = surfaceY(ix, iz);
+        if (sy === null) continue;
+        for (let dd = 1; dd <= 2; dd++) {
+          const yy = sy - dd;
+          if (yy <= 1) break;
+          const t = getBlock(ix, yy, iz);
+          if (!t || isLiquid(t) || t === BLOCK.PORTAL || t === BLOCK.CHEST) continue;
+          if (TNT_BLOCKS.has(t)) { igniteTNT(ix, yy, iz, 0.3 + Math.random() * 0.4); continue; }
+          if (t === BLOCK.CROP) removeCropMesh(ix, yy, iz);
+          setBlock(ix, yy, iz, 0);
+          edits.set(key(ix, yy, iz), 0);
+          for (const [ddx, ddz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) q.dirty.add(Math.floor((ix + ddx) / CHUNK) + ',' + Math.floor((iz + ddz) / CHUNK));
+        }
+        if (Math.random() < 0.3) spawnFx(ix + 0.5, sy + 0.5, iz + 0.5, M_SMOKE, 1, 2, 0.6); // 흙먼지
+      }
+    }
+    // 링이 지나갈 때 몹은 공중으로, 플레이어도 휘청
+    for (const z of zombies) {
+      const d = Math.hypot(z.pos.x - q.x, z.pos.z - q.z);
+      if (Math.abs(d - q.r) < 1.3 && z._qhit !== q) {
+        z._qhit = q;
+        damageMob(z, 10, z.pos.x - q.x, z.pos.z - q.z);
+        z.vel.y = 12;
+        z.onGround = false;
+      }
+    }
+    const pdq = Math.hypot(player.pos.x - q.x, player.pos.z - q.z);
+    if (!q.playerHit && Math.abs(pdq - q.r) < 1.3) {
+      q.playerHit = true;
+      damage(5);
+      player.vel.y = Math.max(player.vel.y, 9);
+      player.onGround = false;
+    }
+    shakeT = Math.max(shakeT, 0.45);
+    q.rumbleT -= dt;
+    if (q.rumbleT <= 0) { q.rumbleT = 0.3; playSound(26, 0.4, 'sawtooth', 0.35); }
+    // 청크 리빌드는 배칭 (프레임 히칭 완화)
+    q.rebuildT -= dt;
+    const done = q.r >= q.maxR;
+    if (q.rebuildT <= 0 || done) {
+      q.rebuildT = 0.12;
+      for (const ck of q.dirty) { const [a, b] = ck.split(',').map(Number); rebuildChunk(a, b); }
+      q.dirty.clear();
+    }
+    if (done) quakes.splice(i, 1);
+  }
+}
+
 // 투사체가 TNT에 맞으면 점화
 function maybeIgniteAt(px, py, pz) {
   const x = Math.floor(px), y = Math.floor(py), z = Math.floor(pz);
   const bt = getBlock(x, y, z);
-  if (bt === BLOCK.TNT || bt === BLOCK.MEGA_TNT) igniteTNT(x, y, z, 0.5);
+  if (TNT_BLOCKS.has(bt)) igniteTNT(x, y, z, 0.5);
 }
 function updateTNT(dt) {
   if (timeStop || !playing()) return; // 🔮 시간 정지·일시정지 중엔 도화선도 멈춤 (크리퍼와 동일 규약)
@@ -969,10 +1071,12 @@ function updateTNT(dt) {
     scene.remove(f.flash);
     tnts.splice(i, 1);
     tntFuseSet.delete(f.key);
-    if (getBlock(f.x, f.y, f.z) === BLOCK.TNT) { // 리빌드는 아래 destroyBlocks가 1회 수행
+    if (TNT_BLOCKS.has(getBlock(f.x, f.y, f.z))) { // 리빌드는 아래 destroyBlocks가 1회 수행
       setBlock(f.x, f.y, f.z, 0);
       edits.set(f.key, 0);
     }
+    if (f.kind === BLOCK.LIGHT_TNT) { lightningExplosion(f); continue; } // ⚡
+    if (f.kind === BLOCK.QUAKE_TNT) { startQuake(f); continue; }         // 🌋
     // 대폭발 (일반 r4 / 💥 슈퍼 r20 = 부피 12500%) — 내부 TNT는 연쇄, 중심은 블록 중앙
     const R = f.mega ? 20 : 4;
     destroyBlocks(f.x, f.y, f.z, R);
@@ -2219,7 +2323,7 @@ const ACHV_DEFS = [
   ['emerald', '희귀한 에메랄드!'], ['hunter', '몬스터 10마리 처치'], ['boss', '좀비 군주 처치'],
   ['wither', '🌪 위더 스톰 격파!!'], ['warden', '👂 워든을 쓰러뜨렸다!'],
   ['nether', '네더에 발을 딛다'], ['void', '🌌 보이드 탐험가'],
-  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'], ['witherform', '🌪 위더 스톰으로 변신!'], ['tnt', '💣 첫 대폭발!'], ['meganuke', '💥 10000% 대폭발!!'],
+  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'], ['witherform', '🌪 위더 스톰으로 변신!'], ['tnt', '💣 첫 대폭발!'], ['meganuke', '💥 10000% 대폭발!!'], ['lightning', '⚡ 번개 소환!'], ['quake', '🌋 대지진!'],
 ];
 const KIND_NAMES = {
   zombie: '좀비', skeleton: '스켈레톤', creeper: '크리퍼', spider: '거미', mage: '마법사',
@@ -3549,7 +3653,7 @@ function updateMining(dt) {
   const pickMul = stony ? (tools.diamondPickaxe ? 5 : tools.pickaxe ? 3 : 1) : 1;
   mineProgress += dt * pickMul / (HARDNESS[type] || 1);
   if (mineProgress >= 1) {
-    if (type === BLOCK.TNT || type === BLOCK.MEGA_TNT) { // 💣 캐면 회수가 아니라 점화!
+    if (TNT_BLOCKS.has(type)) { // 💣 캐면 회수가 아니라 점화!
       igniteTNT(b.x, b.y, b.z);
       mineTarget = null;
       mineProgress = 0;
@@ -3642,7 +3746,7 @@ const inv = {
   [ITEM.SEEDS]: 0, [ITEM.WHEAT]: 0, [ITEM.BREAD]: 0, [ITEM.DIAMOND]: 0, [ITEM.ARROW]: 0,
   [BLOCK.PORTAL]: 0, [ITEM.GOLD]: 0, [ITEM.EMERALD]: 0, [ITEM.GOLD_APPLE]: 0,
   [ITEM.APPLE]: 0, [ITEM.MUSHROOM]: 0, [ITEM.STEW]: 0, [ITEM.IRON]: 0, [BLOCK.CHEST]: 0,
-  [BLOCK.END_STONE]: 0, [BLOCK.FLOWER_R]: 0, [BLOCK.FLOWER_Y]: 0, [BLOCK.TNT]: 0, [BLOCK.MEGA_TNT]: 0,
+  [BLOCK.END_STONE]: 0, [BLOCK.FLOWER_R]: 0, [BLOCK.FLOWER_Y]: 0, [BLOCK.TNT]: 0, [BLOCK.MEGA_TNT]: 0, [BLOCK.LIGHT_TNT]: 0, [BLOCK.QUAKE_TNT]: 0,
 };
 const tools = { pickaxe: false, sword: false, bow: false, diamondPickaxe: false, diamondSword: false }; // 제작으로 획득 (영구)
 const slotCnts = [];
@@ -3755,6 +3859,8 @@ const RECIPES = [
   { name: '포탈 ×1', desc: '다이아 2 · 설치하면 차원 순환 이동', cost: { [ITEM.DIAMOND]: 2 }, make: () => { inv[BLOCK.PORTAL] += 1; } },
   { name: '💣 TNT ×2', desc: '모래 4 + 횃불 1 · 설치 후 캐면 점화!', cost: { [BLOCK.SAND]: 4, [BLOCK.TORCH]: 1 }, make: () => { inv[BLOCK.TNT] += 2; } },
   { name: '💥 슈퍼 TNT', desc: 'TNT 4 + 다이아 1 · 12500% 대폭발 — 아주 멀리서!', cost: { [BLOCK.TNT]: 4, [ITEM.DIAMOND]: 1 }, make: () => { inv[BLOCK.MEGA_TNT] += 1; } },
+  { name: '⚡ 번개 TNT', desc: 'TNT 2 + 에메랄드 1 · 주변 적 전원에 낙뢰!', cost: { [BLOCK.TNT]: 2, [ITEM.EMERALD]: 1 }, make: () => { inv[BLOCK.LIGHT_TNT] += 1; } },
+  { name: '🌋 지진 TNT', desc: 'TNT 2 + 철 2 · 땅을 가르는 충격파 링!', cost: { [BLOCK.TNT]: 2, [ITEM.IRON]: 2 }, make: () => { inv[BLOCK.QUAKE_TNT] += 1; } },
   { name: '황금 사과', desc: '금 5 · 체력 가득 회복', cost: { [ITEM.GOLD]: 5 }, make: () => { inv[ITEM.GOLD_APPLE] += 1; } },
   { name: '버섯 스튜', desc: '버섯 3 · 허기 +7', cost: { [ITEM.MUSHROOM]: 3 }, make: () => { inv[ITEM.STEW] += 1; } },
   { name: '상자', desc: '판자 8 · 아이템 보관', cost: { [BLOCK.PLANK]: 8 }, make: () => { inv[BLOCK.CHEST] += 1; } },
@@ -3818,7 +3924,7 @@ let invOpen = false;
 let chestOpen = false, chestKey = null; // 상자 UI 상태
 const INV_ORDER = [
   BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.SAND, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES,
-  BLOCK.SNOW, BLOCK.NETHERRACK, BLOCK.END_STONE, BLOCK.FLOWER_R, BLOCK.FLOWER_Y, BLOCK.TNT, BLOCK.MEGA_TNT,
+  BLOCK.SNOW, BLOCK.NETHERRACK, BLOCK.END_STONE, BLOCK.FLOWER_R, BLOCK.FLOWER_Y, BLOCK.TNT, BLOCK.MEGA_TNT, BLOCK.LIGHT_TNT, BLOCK.QUAKE_TNT,
   BLOCK.TORCH, BLOCK.PORTAL, BLOCK.CHEST, ITEM.DIAMOND, ITEM.EMERALD, ITEM.GOLD, ITEM.IRON, ITEM.GOLD_APPLE,
   ITEM.MEAT, ITEM.WHEAT, ITEM.BREAD, ITEM.APPLE, ITEM.MUSHROOM, ITEM.STEW, ITEM.SEEDS, ITEM.ARROW,
 ];
@@ -4241,6 +4347,7 @@ function loop(now) {
     updateArrows(dt);
     updateBolts(dt);
     updateTNT(dt);
+    updateQuakes(dt);
     updateCrops(dt);
   }
   updateLaser(dt);
