@@ -796,6 +796,7 @@ const torchGeo = new THREE.BoxGeometry(0.14, 0.55, 0.14);
 torchGeo.translate(0, -0.225, 0); // 칸 바닥에 세워지도록
 const flowerGeo = new THREE.BoxGeometry(0.16, 0.5, 0.16);
 flowerGeo.translate(0, -0.25, 0);
+const portalGeo = new THREE.SphereGeometry(0.62, 16, 12); // 포탈은 빛나는 구체
 let chunks = new Map(); // "cx,cz" -> { solid: [mesh], water: [mesh] }
 
 // 횃불 조명 풀: 가장 가까운 횃불 5개에만 실제 광원 배치
@@ -865,7 +866,7 @@ function rebuildChunk(cx, cz) {
   const entry = { solid: [], water: [] };
   const m4 = new THREE.Matrix4();
   for (const [t, list] of byType) {
-    const geo = t === BLOCK.TORCH ? torchGeo : (t === BLOCK.FLOWER_R || t === BLOCK.FLOWER_Y) ? flowerGeo : boxGeo;
+    const geo = t === BLOCK.TORCH ? torchGeo : t === BLOCK.PORTAL ? portalGeo : (t === BLOCK.FLOWER_R || t === BLOCK.FLOWER_Y) ? flowerGeo : boxGeo;
     const mesh = new THREE.InstancedMesh(geo, MATERIALS[t], list.length);
     list.forEach((p, i) => {
       m4.setPosition(p.x + 0.5, p.y + 0.5, p.z + 0.5);
@@ -2713,6 +2714,21 @@ function updateAmbience(dt) {
   }
 }
 
+// 포탈 오브 주위 보랏빛 소용돌이 입자
+let portalFxT = 0;
+function updatePortalAura(dt) {
+  portalFxT -= dt;
+  if (portalFxT > 0) return;
+  portalFxT = 0.18;
+  for (const k of portals) {
+    const [px2, py2, pz2] = k.split(',').map(Number);
+    const dx2 = px2 + 0.5 - player.pos.x, dz2 = pz2 + 0.5 - player.pos.z;
+    if (dx2 * dx2 + dz2 * dz2 > 900) continue; // 가까운 포탈만
+    const a2 = Math.random() * Math.PI * 2;
+    spawnFx(px2 + 0.5 + Math.cos(a2) * 0.85, py2 + 0.5 + (Math.random() - 0.5) * 1.1, pz2 + 0.5 + Math.sin(a2) * 0.85, enemyBoltMat(0xc060ff), 1, 0.5, 0.8);
+  }
+}
+
 function updateClouds(dt) {
   for (const c of clouds.children) {
     c.position.x += 1.2 * dt;
@@ -3935,9 +3951,7 @@ function placeSpawnPortal() {
   setBlock(px - 1, y + 3, pz, BLOCK.STONE);
   setBlock(px, y + 3, pz, BLOCK.STONE);
   setBlock(px + 1, y + 3, pz, BLOCK.STONE);
-  setBlock(px, y, pz, BLOCK.PORTAL);
-  setBlock(px, y + 1, pz, BLOCK.PORTAL);
-  setBlock(px, y + 2, pz, BLOCK.PORTAL);
+  setBlock(px, y + 1, pz, BLOCK.PORTAL); // 아치 가운데 떠 있는 포탈 오브
 }
 function genDim(d) {
   d.gen(); // 현재 활성 world(=d.world)에 기본 지형 생성
@@ -4000,7 +4014,9 @@ function applyPos(p) {
 // 포탈에 들어가 잠시 머무르면 차원 이동
 function updatePortal(dt) {
   if (portalCooldown > 0) { portalCooldown -= dt; portalTimer = 0; return; }
-  const inPortal = getBlock(Math.floor(player.pos.x), Math.floor(player.pos.y + 0.2), Math.floor(player.pos.z)) === BLOCK.PORTAL;
+  const pfx = Math.floor(player.pos.x), pfz = Math.floor(player.pos.z);
+  const inPortal = getBlock(pfx, Math.floor(player.pos.y + 0.2), pfz) === BLOCK.PORTAL ||
+                   getBlock(pfx, Math.floor(player.pos.y + 1.2), pfz) === BLOCK.PORTAL;
   if (inPortal) {
     portalTimer += dt;
     if (Math.random() < 0.6) spawnFx(player.pos.x, player.pos.y + 1 + Math.random(), player.pos.z, enemyBoltMat(0xc060ff), 1, 1.5, 0.3); // 충전 소용돌이
@@ -4198,6 +4214,7 @@ function loop(now) {
     updateSky(dt);
     updateMeteor(dt);
     updateAmbience(dt);
+    updatePortalAura(dt);
     updateClouds(dt);
     updateParticles(dt);
     updateAnimals(dt);
