@@ -115,6 +115,10 @@ def briefing_facts(result: PipelineResult) -> dict:
             "trough_q": str(s["trough_quarter"]),
             "first_breach": (str(s["first_breach"])
                              if isinstance(s.get("first_breach"), str) else None),
+            # 침범된 요구치 이름 — CET1에 여유가 있어도 Tier1/Total이 걸릴 수
+            # 있으므로 어느 비율인지 밝혀야 오독이 없다 (RYNTA ST-F006).
+            "breach_ratio": (str(s["breach_ratio"])
+                             if isinstance(s.get("breach_ratio"), str) else None),
             "end": float(s["end_cet1"]),
         }
     return {
@@ -169,7 +173,10 @@ def _cro_briefing(result: PipelineResult) -> list[str]:
 
     if f["sev"]:
         s = f["sev"]
-        breach = (f"요구치 최초 침범 <b>{_esc(s['first_breach'])}</b>, "
+        ratio_label = {"cet1": "CET1", "tier1": "Tier1",
+                       "total": "총자본"}.get(s.get("breach_ratio") or "", "자본")
+        breach = (f"<b>{_esc(ratio_label)}</b> 요구치 최초 침범 "
+                  f"<b>{_esc(s['first_breach'])}</b>, "
                   if s["first_breach"] else "요구치 침범 없음, ")
         out.append(
             f"<b>스트레스 회복력</b> — severe 시나리오에서 CET1 저점 "

@@ -67,7 +67,11 @@ def _briefing_en(result, fx: float) -> str:
         f"{f['conc_top1']*100:.0f}%).{red_txt}")
     if f["sev"]:
         s = f["sev"]
-        breach = (f"first breach in <b>{_esc(s['first_breach'])}</b>, "
+        ratio_label = {"cet1": "CET1", "tier1": "Tier 1",
+                       "total": "Total capital"}.get(s.get("breach_ratio") or "",
+                                                     "capital")
+        breach = (f"first <b>{_esc(ratio_label)}</b> requirement breach in "
+                  f"<b>{_esc(s['first_breach'])}</b>, "
                   if s["first_breach"] else "no breach of the requirement, ")
         paras.append(
             f"<b>Stress resilience</b> — under the severely adverse scenario "

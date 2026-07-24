@@ -94,7 +94,13 @@ def run_stress_path(
     """Project RWA / ECL / BIS quarter-by-quarter for each stress path.
 
     Returns a long DataFrame: scenario, quarter, q_index, severity, gdp_shock,
-    lgd_addon, rwa_total, ecl, cet1_ratio, cet1_surplus, passes.
+    lgd_addon, rwa_total, ecl, cet1_ratio, tier1_ratio, total_ratio,
+    cet1_surplus, binding, passes.
+
+    `binding`은 그 분기에 여유가 가장 얇은(또는 침범된) 자본비율 이름이다.
+    `passes`는 CET1·Tier1·Total 세 요구치를 **모두** 충족할 때만 True이므로,
+    CET1에 여유가 있어도 Tier1/Total 때문에 False가 될 수 있다 — 보고서가
+    어느 요구치를 침범했는지 말할 수 있어야 오독이 없다 (RYNTA ST-F006).
     """
     if paths is None:
         paths = DEFAULT_STRESS_PATHS
@@ -111,6 +117,8 @@ def run_stress_path(
             sc = axis.scenario_at(s)
             ev = evaluate_scenario(irb_portfolio, capital, rwa_other, sc,
                                    base_ecl=base_ecl, buffers=buffers, eir=eir)
+            surplus = ev["bis"].surplus_shortfall
+            binding = min(surplus, key=surplus.get)
             rows.append({
                 "scenario": path.name,
                 "quarter": qlabel,
@@ -121,7 +129,11 @@ def run_stress_path(
                 "rwa_total": ev["rwa_total"],
                 "ecl": ev["ecl"],
                 "cet1_ratio": ev["cet1_ratio"],
+                "tier1_ratio": ev["tier1_ratio"],
+                "total_ratio": ev["total_ratio"],
                 "cet1_surplus": ev["cet1_surplus"],
+                "binding": binding,
+                "binding_surplus": float(surplus[binding]),
                 "passes": ev["passes"],
             })
     return pd.DataFrame(rows)
@@ -135,14 +147,21 @@ def path_trough_summary(path_df: pd.DataFrame) -> pd.DataFrame:
         trough = g.loc[g["cet1_ratio"].idxmin()]
         end = g.loc[g["q_index"].idxmax()]
         breaches = g[~g["passes"]]
-        first_breach = breaches.loc[breaches["q_index"].idxmin(), "quarter"] \
-            if len(breaches) else None
+        first_breach = None
+        breach_ratio = None
+        if len(breaches):
+            first = breaches.loc[breaches["q_index"].idxmin()]
+            first_breach = first["quarter"]
+            # 어느 요구치가 침범됐는지 — CET1에 여유가 있어도 Tier1/Total이
+            # 걸릴 수 있으므로 명시해야 보고서 오독이 없다 (RYNTA ST-F006).
+            breach_ratio = first.get("binding")
         rows.append({
             "scenario": name,
             "trough_cet1": float(trough["cet1_ratio"]),
             "trough_quarter": trough["quarter"],
             "end_cet1": float(end["cet1_ratio"]),
             "first_breach": first_breach,
+            "breach_ratio": breach_ratio,
             "passes_all": bool(g["passes"].all()),
         })
     return pd.DataFrame(rows)
