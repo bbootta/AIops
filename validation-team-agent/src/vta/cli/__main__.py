@@ -39,6 +39,7 @@ _DISPATCH = {
     ("archive",): "tools.pack_archive",
     ("data", "load"): "tools.data_adapter",
     ("report", "digest"): "tools.cro_digest",
+    ("pack", "verify"): "tools.pack_verify",
     ("dashboard",): "tools.dashboard",
     ("manifest",): "tools.manifest",
     ("findings",): "tools.findings",

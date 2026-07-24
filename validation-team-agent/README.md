@@ -134,6 +134,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.report_export --pack <dir>` | 팩 → CSV/JSON/페이지 manifest export |
 | `python -m tools.findings_mapping --log <jsonl>` | audit log → recurring_findings 후보 매핑 |
 | `python -m tools.pack_diff --prev A --curr B` | 두 보고서 팩 간 변화 detection |
+| `python -m tools.pack_verify --pack <dir> [--deep]` | 팩 재현성 자체검증 (입력해시·정책·코드·페이지 재빌드) |
 | `python -m tools.pack_archive add/list/latest/prune --archive <dir>` | 분기별 팩 archive 관리 |
 | `python -m tools.data_adapter validate/convert --input <csv>` | 운영 추출 파일 안전 로더 (PII 차단) |
 | `python -m tools.cro_digest --out <html>` | CRO 분기 요약 이메일 초안 (발송 없음 — HITL) |

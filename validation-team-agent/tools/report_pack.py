@@ -4312,6 +4312,14 @@ def build_pack(
         p = out / name
         p.write_text(content_html, encoding="utf-8")
         written.append(p)
+    if provenance:
+        # 기계 판독용 provenance — tools.pack_verify 가 이 파일만으로 재현
+        # 검증을 수행한다 (HTML 카드는 사람용, 이 파일은 도구용).
+        import json as _json
+
+        (out / "provenance.json").write_text(
+            _json.dumps(provenance, ensure_ascii=False, indent=2, default=str),
+            encoding="utf-8")
     return written
 
 

@@ -2145,6 +2145,21 @@
       "rollback_rule": "aria 속성이 특정 뷰어에서 렌더 문제 유발 시 헬퍼 호출 제거",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0144",
+      "timestamp": "2026-07-24 23:08:45",
+      "component": "tools/pack_verify.py + tools/report_pack.py (provenance.json) + cli_index/dispatch/README sync",
+      "change_type": "create",
+      "evidence": "팩은 재현 방법(입력 해시·정책 버전·재실행 명령)을 기록만 했고 그 기록이 맞는지 아무도 검증하지 않았음. 도구 구현 후 실측: 1M 규격과 동일 파이프라인의 팩에서 입력 결정 44개 페이지 전부 바이트 일치. deep 대조 과정에서 index.html 이 wall-clock 실행시간 때문에, audit_timeseries/findings_mapping/governance_trend 3개가 누적 logs/ 의존 때문에 재현되지 않음을 적발",
+      "root_cause": "재현성이 주장·기록 수준에 머물고 이를 반증할 실행 가능한 게이트가 없었음. 또한 팩에 기계 판독용 provenance 가 없어 자동 검증 자체가 불가",
+      "targeted_fix": "report_pack: build_pack 이 provenance.json 을 팩에 기록 (written 목록에는 넣지 않아 47페이지 규격 불변). pack_verify: (1) provenance 입력으로 request 재구성 후 df/스칼라 SHA-256 대조, (2) 정책 SSoT 버전 drift 를 실패로 판정, (3) git rev 대조, (4) --deep 시 팩 전체 재빌드해 페이지별 정규화 해시 대조. 생성시각·dirty·실행시간만 정규화하고 수치 결과는 정규화 금지(테스트로 강제). 로그 파생 3개 페이지는 조용히 통과시키지 않고 사유 명시 SKIP 으로 분리 보고. 원천 파일 부재는 '증명 불가'이므로 SKIP 이 아닌 FAIL",
+      "expected_benefit": "CRO 요구 '모든 산출값은 재현가능' 을 주장이 아니라 실행 가능한 게이트로 전환. 분기 팩 배포 전 CI 에서 exit code 로 차단 가능. 재현 불가 영역(로그 파생)이 명시적으로 드러남",
+      "expected_regression_risk": "낮음 — 신규 모듈이며 report_pack 변경은 파일 1개 추가 기록. deep 모드는 팩 1회 재빌드 비용",
+      "validation_method": "tests/test_v2_round79.py 14 cases (provenance 기록/47페이지 불변/정규화 대상·비대상/fast 통과/지문 변조 탐지/seed 변조 탐지/provenance 부재 실패/deep 44개 일치/로그파생 SKIP 보고/페이지 변조 탐지/요약 표기/CLI exit code/카탈로그) + 전체 1094 passed",
+      "rollback_rule": "정규화 규칙이 실제 회귀를 가려 오탐 통과가 발생하면 해당 규칙 제거. 모듈 자체 문제 시 삭제로 완전 롤백(읽기 전용 도구)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
