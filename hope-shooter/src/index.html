@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>호프: 마지막 거리</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #06060a;
+    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif;
+    color: #e8e4d8; }
+  canvas#game { position: fixed; inset: 0; display: block; }
+
+  /* ---------------- HUD ---------------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; }
+
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px;
+    transform: translate(-50%, -50%); opacity: 0.85; }
+  #crosshair i { position: absolute; background: #efeadc; box-shadow: 0 0 3px rgba(0,0,0,0.9); }
+  #crosshair i:nth-child(1) { left: 50%; top: 0; width: 1.5px; height: 8px; margin-left: -0.75px; }
+  #crosshair i:nth-child(2) { left: 50%; bottom: 0; width: 1.5px; height: 8px; margin-left: -0.75px; }
+  #crosshair i:nth-child(3) { top: 50%; left: 0; height: 1.5px; width: 8px; margin-top: -0.75px; }
+  #crosshair i:nth-child(4) { top: 50%; right: 0; height: 1.5px; width: 8px; margin-top: -0.75px; }
+
+  #hitMarker { position: absolute; left: 50%; top: 50%; width: 20px; height: 20px;
+    transform: translate(-50%, -50%) rotate(45deg); opacity: 0; transition: opacity .09s; }
+  #hitMarker i { position: absolute; background: #ff6a42; box-shadow: 0 0 4px #000; }
+  #hitMarker i:nth-child(1) { left: 50%; top: 0; width: 2px; height: 7px; margin-left: -1px; }
+  #hitMarker i:nth-child(2) { left: 50%; bottom: 0; width: 2px; height: 7px; margin-left: -1px; }
+  #hitMarker i:nth-child(3) { top: 50%; left: 0; height: 2px; width: 7px; margin-top: -1px; }
+  #hitMarker i:nth-child(4) { top: 50%; right: 0; height: 2px; width: 7px; margin-top: -1px; }
+
+  #damage { position: absolute; inset: 0; opacity: 0; transition: opacity .4s;
+    background: radial-gradient(ellipse at center, transparent 38%, rgba(150,16,8,.62) 100%); }
+
+  .panel { position: absolute; background: rgba(10,10,12,.62);
+    border: 1px solid rgba(180,174,152,.34); backdrop-filter: blur(2px); }
+
+  #ammo { right: 26px; bottom: 26px; padding: 9px 16px; display: flex; align-items: center; gap: 14px; }
+  #ammo canvas { display: block; opacity: .85; }
+  #ammoNum { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: .5px;
+    font-variant-numeric: tabular-nums; }
+  #ammoRes { font-size: 13px; color: #a19d8e; font-variant-numeric: tabular-nums; }
+
+  #vitals { left: 26px; bottom: 26px; padding: 9px 14px; width: 232px; }
+  #vitals span { font-size: 11px; letter-spacing: 2px; color: #b6b1a0; }
+  #hpTrack { height: 8px; margin-top: 6px; background: rgba(0,0,0,.55);
+    border: 1px solid rgba(180,174,152,.3); }
+  #hpFill { height: 100%; width: 100%; transition: width .16s;
+    background: linear-gradient(90deg, #a83c25, #d98a3c); }
+
+  #wave { top: 18px; left: 50%; transform: translateX(-50%); text-align: center;
+    text-shadow: 0 1px 4px rgba(0,0,0,.9); }
+  #wave b { font-size: 19px; font-weight: 700; letter-spacing: 5px; }
+  #wave small { display: block; font-size: 12px; color: #b6b1a0; margin-top: 2px; letter-spacing: 1px; }
+
+  #banner { position: absolute; top: 33%; left: 50%; transform: translateX(-50%);
+    font-size: 40px; font-weight: 700; letter-spacing: 12px; opacity: 0;
+    transition: opacity .5s; text-shadow: 0 0 22px rgba(255,146,64,.5), 0 2px 8px #000;
+    white-space: nowrap; }
+
+  #reloadHint { position: absolute; right: 30px; bottom: 92px; font-size: 13px;
+    color: #ffb552; letter-spacing: 1px; text-shadow: 0 0 5px #000; display: none; }
+
+  /* ---------------- Overlays ---------------- */
+  .overlay { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: radial-gradient(ellipse at center, rgba(26,22,18,.86), rgba(4,4,5,.97)); }
+  .overlay h1 { font-size: 44px; letter-spacing: 16px; font-weight: 700; text-indent: 16px;
+    text-shadow: 0 0 26px rgba(255,150,70,.45); }
+  .overlay .sub { margin-top: 8px; font-size: 14px; letter-spacing: 4px; color: #a8a290; }
+  .overlay .keys { margin-top: 34px; font-size: 13.5px; line-height: 2.1; color: #c9c4b3; }
+  .overlay .keys b { color: #ffb552; font-weight: 700; }
+  .overlay button { margin-top: 34px; pointer-events: auto; cursor: pointer;
+    font: inherit; font-size: 17px; letter-spacing: 7px; text-indent: 7px;
+    padding: 13px 44px; color: #f2eee1; background: rgba(168,60,37,.22);
+    border: 1px solid #c8792f; transition: background .18s; }
+  .overlay button:hover, .overlay button:focus-visible { background: rgba(200,121,47,.36); }
+  .overlay[hidden] { display: none; }
+  #over h1 { color: #e0553a; }
+  #score { margin-top: 26px; font-size: 16px; color: #c9c4b3; letter-spacing: 2px; }
+
+  #loading { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; background: #06060a; gap: 18px; }
+  #loading .t { font-size: 13px; letter-spacing: 6px; color: #8d8878; }
+  #loadTrack { width: 260px; height: 2px; background: rgba(255,255,255,.12); }
+  #loadFill { height: 100%; width: 0; background: #c8792f; transition: width .25s; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div id="damage"></div>
+  <div id="crosshair"><i></i><i></i><i></i><i></i></div>
+  <div id="hitMarker"><i></i><i></i><i></i><i></i></div>
+  <div id="wave" class="panel" style="background:none;border:none;backdrop-filter:none">
+    <b>WAVE <span id="waveNum">1</span></b>
+    <small>사살 <span id="kills">0</span></small>
+  </div>
+  <div id="banner"></div>
+  <div id="vitals" class="panel">
+    <span>체력</span>
+    <div id="hpTrack"><div id="hpFill"></div></div>
+  </div>
+  <div id="ammo" class="panel">
+    <canvas id="gunIcon" width="92" height="30"></canvas>
+    <div>
+      <div id="ammoNum">30</div>
+      <div id="ammoRes">/ 90</div>
+    </div>
+  </div>
+  <div id="reloadHint">R — 재장전</div>
+</div>
+
+<div id="start" class="overlay" hidden>
+  <h1>호프</h1>
+  <div class="sub">마지막 거리</div>
+  <div class="keys">
+    <b>W A S D</b> 이동 &nbsp;·&nbsp; <b>마우스</b> 조준 &nbsp;·&nbsp; <b>클릭</b> 사격<br>
+    <b>R</b> 재장전 &nbsp;·&nbsp; <b>SHIFT</b> 달리기 &nbsp;·&nbsp; <b>우클릭</b> 정조준<br>
+    <br>
+    무너진 거리로 그림자가 밀려온다. 살아남아라.
+  </div>
+  <button id="startBtn">작전 개시</button>
+</div>
+
+<div id="over" class="overlay" hidden>
+  <h1>작전 실패</h1>
+  <div class="sub">그림자에게 잡혔다</div>
+  <div id="score"></div>
+  <button id="againBtn">재투입</button>
+</div>
+
+<div id="loading">
+  <div class="t">거리를 재구성하는 중</div>
+  <div id="loadTrack"><div id="loadFill"></div></div>
+</div>
+
+<!--BUNDLE-->
+</body>
+</html>
