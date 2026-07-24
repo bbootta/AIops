@@ -69,3 +69,20 @@ df = rapm_report(portfolio, hurdle_rate=0.10, risk_free_rate=0.03)
   이사회 승인치)와 함께 명시한다. 가정을 임의로 바꿔 통과시키지 않는다.
 - **인적 감독(A.9.2)**: 딜 승인·가격 확정·사업부 평가는 인간 결재 사항 —
   RAROC 산출과 hurdle 대비 판정 근거 제시까지만 한다.
+
+## RYNTA v9.0 정합
+
+| 항목 | 값 |
+|---|---|
+| Canonical Product | `PRD-CAP` — Capital Ratio & RAPM |
+| 상업 Suite | RYNTA-CAP |
+| 담당 BRD 요건 | BNK-CAP-002 |
+
+**필수 가드레일** (BRD AIG-002~005·012 · 상세는 AIMS_POLICY.md §8):
+조회 전용 → 제안 전용 → 승인 우선 → 최소 권한 → 인간 최종판단.
+
+**자동확정 금지**: 신용등급·여신승인, 가격·거래, PD·LGD·EAD 등 핵심 위험파라미터,
+ECL·충당금·회계전표, RWA·NCR·BIS 비율, 감독제출·공시, 경영조치, 운영코드·모형 배포.
+이 항목들은 산출·권고까지만 하고 확정은 책임 있는 사람이 한다.
+
+요건 커버리지 추적: `risk_lib/rynta.py` · 보고서 `ops/63_rynta_coverage.html`.

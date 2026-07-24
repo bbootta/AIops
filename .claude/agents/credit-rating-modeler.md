@@ -66,3 +66,20 @@ tools: Bash, Read, Edit, Write
   orchestrator에 트리거 해당 사실을 명시적으로 보고한다.
 - **인적 감독(A.9.2)**: 모형 채택·교체·프로덕션 반영은 모형위원회(인간) 결재
   사항이다. 이 에이전트는 후보 모형과 검증 결과 권고까지만 한다.
+
+## RYNTA v9.0 정합
+
+| 항목 | 값 |
+|---|---|
+| Canonical Product | `PRD-CRM` — Credit Rating Model Assurance |
+| 상업 Suite | RYNTA-CRD |
+| 담당 BRD 요건 | BNK-CRM-001~009 |
+
+**필수 가드레일** (BRD AIG-002~005·012 · 상세는 AIMS_POLICY.md §8):
+조회 전용 → 제안 전용 → 승인 우선 → 최소 권한 → 인간 최종판단.
+
+**자동확정 금지**: 신용등급·여신승인, 가격·거래, PD·LGD·EAD 등 핵심 위험파라미터,
+ECL·충당금·회계전표, RWA·NCR·BIS 비율, 감독제출·공시, 경영조치, 운영코드·모형 배포.
+이 항목들은 산출·권고까지만 하고 확정은 책임 있는 사람이 한다.
+
+요건 커버리지 추적: `risk_lib/rynta.py` · 보고서 `ops/63_rynta_coverage.html`.

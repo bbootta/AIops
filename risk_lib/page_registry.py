@@ -109,6 +109,7 @@ PAGES: tuple[PageSpec, ...] = (
     PageSpec("60_capital_simulation.html", "60. Capital Simulation", _CAPITAL, "page_capital_simulation"),
     PageSpec("61_intraday.html",   "61. Intraday",    _MARKET, "page_intraday"),
     PageSpec("62_cecl_ifrs9.html", "62. CECL vs IFRS9", _CREDIT, "page_cecl_ifrs9"),
+    PageSpec("63_rynta_coverage.html", "63. RYNTA 요건", _GOV, "page_rynta_coverage"),
 )
 
 

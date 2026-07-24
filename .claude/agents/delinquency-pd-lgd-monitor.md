@@ -80,3 +80,20 @@ cumulative_recovery_rate(workout_cashflows)
   기록한다. 측정일 불일치 데이터는 산출 전 반려한다.
 - **투명성(A.8)**: 부도 정의(>=90 DPD), cure 정책, 회수 인식 기준을 산출물에
   명시한다 — 정의가 다른 시계열과의 비교 오용 방지.
+
+## RYNTA v9.0 정합
+
+| 항목 | 값 |
+|---|---|
+| Canonical Product | `PRD-CRM` — Credit Rating Model Assurance |
+| 상업 Suite | RYNTA-CRD |
+| 담당 BRD 요건 | BNK-CRM-009 |
+
+**필수 가드레일** (BRD AIG-002~005·012 · 상세는 AIMS_POLICY.md §8):
+조회 전용 → 제안 전용 → 승인 우선 → 최소 권한 → 인간 최종판단.
+
+**자동확정 금지**: 신용등급·여신승인, 가격·거래, PD·LGD·EAD 등 핵심 위험파라미터,
+ECL·충당금·회계전표, RWA·NCR·BIS 비율, 감독제출·공시, 경영조치, 운영코드·모형 배포.
+이 항목들은 산출·권고까지만 하고 확정은 책임 있는 사람이 한다.
+
+요건 커버리지 추적: `risk_lib/rynta.py` · 보고서 `ops/63_rynta_coverage.html`.

@@ -78,3 +78,20 @@ conc = concentration_report(portfolio, ["obligor_id", "sector", "country"])
   이 에이전트는 위반·경보 사실과 결재 필요 여부만 보고한다.
 - **이벤트 로그(A.6.2.8)**: 모든 위반·경보에 근거 법령·규정 조항(은행법 35조
   등)과 산출 기준일을 병기한다 — 사후 감사 추적 가능하도록.
+
+## RYNTA v9.0 정합
+
+| 항목 | 값 |
+|---|---|
+| Canonical Product | `PRD-ST` — ICAAP & Integrated Stress Analytics |
+| 상업 Suite | RYNTA-CAP |
+| 담당 BRD 요건 | BNK-ST-005 |
+
+**필수 가드레일** (BRD AIG-002~005·012 · 상세는 AIMS_POLICY.md §8):
+조회 전용 → 제안 전용 → 승인 우선 → 최소 권한 → 인간 최종판단.
+
+**자동확정 금지**: 신용등급·여신승인, 가격·거래, PD·LGD·EAD 등 핵심 위험파라미터,
+ECL·충당금·회계전표, RWA·NCR·BIS 비율, 감독제출·공시, 경영조치, 운영코드·모형 배포.
+이 항목들은 산출·권고까지만 하고 확정은 책임 있는 사람이 한다.
+
+요건 커버리지 추적: `risk_lib/rynta.py` · 보고서 `ops/63_rynta_coverage.html`.

@@ -93,3 +93,20 @@ A.7.2 재현성             | 적합      | headline_digest 재산출 일치 (sh
 - 부속서 A.6 (수명주기), A.7 (데이터), A.8 (투명성), A.9 (인적 감독)
 - AIMS_POLICY.md (본 저장소 — 통제 ↔ 구현 대응표 §5)
 - BCBS 239 (리스크 데이터 집계·보고 원칙)
+
+## RYNTA v9.0 정합
+
+| 항목 | 값 |
+|---|---|
+| Canonical Product | `PRD-AIG` — AI Governance & Agentic |
+| 상업 Suite | RYNTA-FND |
+| 담당 BRD 요건 | AIG-001~012 · GOV-007 |
+
+**필수 가드레일** (BRD AIG-002~005·012 · 상세는 AIMS_POLICY.md §8):
+조회 전용 → 제안 전용 → 승인 우선 → 최소 권한 → 인간 최종판단.
+
+**자동확정 금지**: 신용등급·여신승인, 가격·거래, PD·LGD·EAD 등 핵심 위험파라미터,
+ECL·충당금·회계전표, RWA·NCR·BIS 비율, 감독제출·공시, 경영조치, 운영코드·모형 배포.
+이 항목들은 산출·권고까지만 하고 확정은 책임 있는 사람이 한다.
+
+요건 커버리지 추적: `risk_lib/rynta.py` · 보고서 `ops/63_rynta_coverage.html`.

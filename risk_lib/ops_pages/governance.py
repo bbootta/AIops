@@ -639,3 +639,169 @@ def page_pillar3_full(r: PipelineResult) -> str:
 {body_sections}
 """
     return _page("Pillar 3 Full", body, "59_pillar3_full.html")
+
+
+# ============================================================================
+# 63. RYNTA v9.0 요건 커버리지 매트릭스
+# ============================================================================
+
+_RYNTA_STATUS_TONE = {
+    "covered": "PASS", "partial": "WARN", "backlog": "FAIL", "platform": "NEUTRAL",
+}
+_RYNTA_STATUS_LABEL = {
+    "covered": "구현·증빙", "partial": "부분구현",
+    "backlog": "미구현", "platform": "플랫폼 계층",
+}
+
+
+def page_rynta_coverage(r: PipelineResult) -> str:
+    """63_rynta_coverage.html — BRD 126건 ↔ 하니스 증빙 추적 매트릭스.
+
+    RYNTA v9.0 Requirement Manifest의 모든 요건이 이 산출 하니스의 어떤
+    모듈·페이지로 증빙되는지를 1:1로 보인다. 미구현을 구현으로 표기하지
+    않는 것이 이 페이지의 존재 이유다 (AIMS_POLICY §2-5).
+    """
+    from risk_lib import rynta
+
+    df = rynta.coverage_frame()
+    summ = rynta.coverage_summary()
+    mf = rynta.load_manifest()
+    scoped = df[df["status"] != "platform"]
+
+    kpis = "".join([
+        _kpi("BRD 요건", f"{len(df)}건", sub="RYNTA v9.0 Requirement Manifest"),
+        _kpi("구현·증빙", f"{summ.get('covered', 0)}건",
+             sub=f"산출범위 {len(scoped)}건 중 {rynta.in_scope_ratio()*100:.0f}%",
+             tone="good"),
+        _kpi("부분구현", f"{summ.get('partial', 0)}건",
+             sub="gap 명시 — 아래 표 참조", tone="warn"),
+        _kpi("미구현", f"{summ.get('backlog', 0)}건",
+             sub="RYNTA 범위이나 본 하니스 미구현", tone="bad"),
+        _kpi("플랫폼 계층", f"{summ.get('platform', 0)}건",
+             sub="커넥터·IAM·UI·GTM — 산출 하니스 범위 밖"),
+    ])
+
+    # suite × status 매트릭스
+    suite_rows = []
+    for sid, sname in rynta.SUITES.items():
+        sub = df[df["suite"] == sid]
+        if sub.empty:
+            continue
+        cnt = sub["status"].value_counts()
+        scoped_n = len(sub[sub["status"] != "platform"])
+        cov = cnt.get("covered", 0)
+        pct = f"{cov / scoped_n * 100:.0f}%" if scoped_n else "—"
+        suite_rows.append([
+            f"{sid} · {sname}", len(sub),
+            int(cnt.get("covered", 0)), int(cnt.get("partial", 0)),
+            int(cnt.get("backlog", 0)), int(cnt.get("platform", 0)), pct,
+        ])
+
+    status_chart = viz.bar_chart(
+        [_RYNTA_STATUS_LABEL[s] for s in ("covered", "partial", "backlog", "platform")],
+        [summ.get(s, 0) for s in ("covered", "partial", "backlog", "platform")],
+        title="요건 커버리지 분포 (126건)", value_fmt=lambda v: f"{v:.0f}건",
+        colors=[viz.GREEN, viz.AMBER, viz.RED, viz.GREY],
+    )
+
+    # 제품별 커버리지
+    prod_rows = []
+    for p in rynta.PRODUCTS:
+        sub = df[df["product"] == p.id]
+        if sub.empty:
+            continue
+        cnt = sub["status"].value_counts()
+        prod_rows.append([
+            p.id, p.name, p.suite, len(sub),
+            int(cnt.get("covered", 0)), int(cnt.get("partial", 0)),
+            int(cnt.get("backlog", 0)), int(cnt.get("platform", 0)),
+        ])
+
+    # 전체 요건 표 (플랫폼 계층 제외 — 산출 하니스가 책임지는 범위)
+    detail_rows = []
+    for _, row in scoped.sort_values(["status", "id"]).iterrows():
+        evidence = row["pages"] or "—"
+        detail_rows.append([
+            row["id"], row["title"], row["product"],
+            f'{row["priority"]}/{row["stage"]}',
+            _badge(_RYNTA_STATUS_LABEL[row["status"]],
+                   _RYNTA_STATUS_TONE[row["status"]]),
+            row["modules"] or "—",
+            _esc(evidence) + (f'<br/><span class="cite">gap: {_esc(row["gap"])}</span>'
+                              if row["gap"] else ""),
+        ])
+
+    platform_rows = [
+        [row["id"], row["title"], row["product"], row["gap"] or "플랫폼 계층"]
+        for _, row in df[df["status"] == "platform"].sort_values("id").iterrows()
+    ]
+
+    guardrails = _table(
+        ["가드레일", "내용", "요건 ID"],
+        [[g[0], g[1], g[2]] for g in rynta.GUARDRAILS])
+
+    standards = _table(
+        ["준거 기준", "통제 목적"],
+        [[s[0], s[1]] for s in rynta.AI_STANDARDS])
+
+    body = f"""
+<h1 class="title">63. RYNTA v9.0 요건 커버리지 — BRD ↔ 산출 증빙 추적</h1>
+<p class="section-lead">{_esc(rynta.PACKAGE_NAME)} · {_esc(rynta.PACKAGE_TAGLINE)}<br/>
+BRD 요건 {len(df)}건이 이 하니스의 어떤 모듈·보고서 페이지로 증빙되는지의 1:1 매핑입니다.
+<b>미구현을 구현으로 표기하지 않습니다</b> — 그렇게 하면 추적성 자체가 무효가 되기 때문입니다.</p>
+
+<div class="card"><h2>커버리지 요약</h2>
+<div class="kpi-grid">{kpis}</div>
+<div class="chart">{status_chart}</div>
+<p class="section-lead">「구현·증빙」은 산출값과 보고서 증빙이 모두 존재하는 요건입니다.
+「플랫폼 계층」은 커넥터·IAM·UI 스튜디오·GTM 등 본 산출 하니스가 책임지지 않는
+요건으로, 커버리지 분모에서 제외합니다.</p>
+</div>
+
+<div class="card"><h2>Suite별 커버리지 (6개 상업 suite)</h2>
+{_table(["Suite", "요건", "구현", "부분", "미구현", "플랫폼", "산출범위 구현율"],
+        suite_rows, right_cols=[1, 2, 3, 4, 5, 6])}
+</div>
+
+<div class="card"><h2>Canonical Product별 커버리지 (12종)</h2>
+{_table(["Product ID", "제품명", "Suite", "요건", "구현", "부분", "미구현", "플랫폼"],
+        prod_rows, right_cols=[3, 4, 5, 6, 7])}
+</div>
+
+<div class="card"><h2>AI 필수 가드레일 (As-is/To-be 문서 · BRD AIG)</h2>
+{guardrails}
+<div class="callout bad"><b>AI 자동확정 금지</b> — Agent는 다음을 자동확정하지 않습니다:
+{_esc(" · ".join(rynta.NO_AUTO_DECISION))}</div>
+<p class="section-lead">본 하니스의 에이전트 정의(.claude/agents)와 AIMS_POLICY.md가
+이 가드레일을 구현합니다 — AIG-002/003/004/005/012 참조.</p>
+</div>
+
+<div class="card"><h2>A–F 공통 AI Governance Baseline 준거</h2>
+{standards}
+<p class="cite">통제 설계·교차매핑 참조 기준이며 자동 준수·인증·법률자문을 의미하지 않습니다.</p>
+</div>
+
+<div class="card"><h2>산출 하니스 책임 요건 상세 ({len(detail_rows)}건)</h2>
+<p class="section-lead">플랫폼 계층 요건을 제외한 전체. 부분구현은 gap을 함께 표기합니다.</p>
+{_table(["요건 ID", "요건명", "Product", "우선/단계", "상태", "구현 모듈", "증빙 페이지 / gap"],
+        detail_rows)}
+</div>
+
+<div class="card"><h2>플랫폼 계층 요건 ({len(platform_rows)}건) — 산출 하니스 범위 밖</h2>
+{_table(["요건 ID", "요건명", "Product", "사유"], platform_rows)}
+</div>
+
+<div class="card"><h2>매니페스트 출처 · 무결성</h2>
+{_table(["항목", "값"], [
+    ["패키지", f"{rynta.PACKAGE_NAME} {rynta.PACKAGE_VERSION}"],
+    ["원본 파일", mf["source_file"]],
+    ["원본 SHA-256", mf["source_sha256"]],
+    ["시트", mf["sheet"]],
+    ["Requirement Manifest v8.4 Fingerprint", mf["manifest_fingerprint_v8_4"]],
+    ["요건 수", f'{len(mf["requirements"])}건'],
+])}
+<p class="cite">v9.0은 상업 Q&amp;A를 업데이트했으므로 기존 Question Fingerprint를
+현행값으로 주장하지 않습니다. 개발 baseline 고정 전 Question Fingerprint 재생성이 필요합니다.</p>
+</div>
+"""
+    return _page("RYNTA 요건 커버리지", body, "63_rynta_coverage.html")
