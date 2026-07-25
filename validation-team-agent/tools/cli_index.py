@@ -36,6 +36,7 @@ CLI_MODULES: list[tuple[str, str]] = [
     ("tools.cro_digest", "CRO 분기 요약 이메일 초안 생성 (발송 없음 — HITL)"),
     ("tools.pack_verify", "보고서 팩 재현성 자체검증 (입력해시/정책/코드/페이지)"),
     ("tools.val_coverage", "PRD-VAL 업무요건 대비 구현 커버리지 (근거 실재성 검증)"),
+    ("tools.validation_trigger", "상시 모니터링 트리거 평가 → 검증 사례·검토 큐"),
     ("tools.manifest", "change_manifest 편집/검증/promote"),
     ("tools.findings", "recurring_findings JSON ↔ md sync"),
     ("tools.model_notes", "model_specific_notes JSON ↔ md sync"),

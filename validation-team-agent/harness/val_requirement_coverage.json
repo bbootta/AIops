@@ -13,30 +13,39 @@
       "id": "VAL-001",
       "title": "검증 트리거·임계 등록",
       "phase": "01 Monitoring Trigger",
-      "status": "missing",
-      "evidence": [],
-      "gap": "지표·임계치·평가주기·소유자를 담은 트리거 원장이 없다. 부문별 임계치는 harness/*_thresholds.json 에 흩어져 있으나 '위반 시 검증사례 생성' 이라는 트리거 개념과 소유자·주기 메타가 없다."
+      "status": "implemented",
+      "evidence": [
+        "harness/validation_triggers.json",
+        "tools/validation_trigger.py",
+        "tests/test_v2_round81.py"
+      ],
+      "gap": "트리거 원장·임계·평가주기·소유자·중대도가 SSoT 로 존재하고 위반 시 사례를 생성한다. 임계치는 정책 SSoT 인용(policy_key 대조 테스트)이며, 임계 변경 승인 workflow 는 change_manifest 경유로 간접 통제된다 (전용 승인 화면은 없음)."
     },
     {
       "id": "VAL-002",
       "title": "상시 성능·안정성 모니터링",
       "phase": "01 Monitoring Trigger",
-      "status": "partial",
+      "status": "implemented",
       "evidence": [
         "tools/metric_ks_auc.py",
         "tools/metric_psi.py",
         "tools/binomial_calibration.py",
-        "tools/governance_timeseries.py"
+        "tools/validation_trigger.py",
+        "tools/governance_timeseries.py",
+        "tests/test_v2_round81.py"
       ],
-      "gap": "변별력·안정성·캘리브레이션 지표 산출은 있으나 Observed/Expected/Variance/Tolerance 4요소 구조로 표준화되어 있지 않고, 임계 위반 목록을 산출물로 내지 않는다."
+      "gap": "Observed/Expected/Variance/Tolerance 4요소 구조와 임계 위반 목록을 산출한다. 기준표본·관측표본 정의는 request 입력과 provenance 스냅샷에 의존하며 평가셋 자체를 관리하지는 않는다 (VAL-005 참조)."
     },
     {
       "id": "VAL-003",
       "title": "검증 사례 자동 생성·검토 큐",
       "phase": "01 Monitoring Trigger",
-      "status": "missing",
-      "evidence": [],
-      "gap": "임계 위반을 사례(중대도·기한·담당자)로 전환하는 원장과 검토 큐가 없다. escalation_report 는 워크플로우 실행 내 에스컬레이션만 다루며 사례 수명주기를 관리하지 않는다."
+      "status": "implemented",
+      "evidence": [
+        "tools/validation_trigger.py",
+        "tests/test_v2_round81.py"
+      ],
+      "gap": "임계 위반이 중대도별 SLA 기한·담당 역할을 가진 사례로 전환되고 append-only 원장·검토 큐로 관리된다. 사례의 상태 전이(보완·재검증·종결)는 Finding 원장(VAL-013)의 책임이며 현재는 open 생성까지만 지원한다."
     },
     {
       "id": "VAL-004",
