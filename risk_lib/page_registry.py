@@ -115,6 +115,8 @@ PAGES: tuple[PageSpec, ...] = (
              "page_manual_adjustments"),
     PageSpec("66_ipv.html",        "66. IPV·평가조정", _MARKET, "page_ipv"),
     PageSpec("67_market_data.html", "67. 시장데이터", _MARKET, "page_market_data"),
+    PageSpec("68_datamodel.html", "68. 데이터모델", _GOV, "page_datamodel",
+             needs_portfolio=True),
 )
 
 
