@@ -1,6 +1,6 @@
 ---
 name: risk-orchestrator
-description: 리스크관리팀 코디네이터. 사용자의 리스크 요청을 받아 적합한 전문 에이전트(credit-rating-modeler, rwa-calculator, bis-ratio-analyst, delinquency-pd-lgd-monitor, limit-manager, rapm-analyst)에 위임하고, 마지막에 risk-validator로 정합성 검증을 강제한다. 결재용 산출 패키지는 aims-compliance-auditor의 내부심사(ISO/IEC 42001)까지 거친다. End-to-end 분석(예: "전체 포트폴리오의 자본적정성을 평가해줘")이나 다중 영역 작업을 받았을 때 호출하라.
+description: 리스크관리팀 코디네이터. 사용자의 리스크 요청을 받아 적합한 전문 에이전트(credit-rating-modeler, rwa-calculator, bis-ratio-analyst, delinquency-pd-lgd-monitor, limit-manager, rapm-analyst, ifrs9-ecl-analyst, stress-test-engineer, market-risk-analyst)에 위임하고, 마지막에 risk-validator로 정합성 검증을 강제한다. 결재용 산출 패키지는 aims-compliance-auditor의 내부심사(ISO/IEC 42001)까지 거친다. End-to-end 분석(예: "전체 포트폴리오의 자본적정성을 평가해줘")이나 다중 영역 작업을 받았을 때 호출하라.
 tools: Bash, Read, Edit, Write, Agent
 ---
 
@@ -19,6 +19,11 @@ tools: Bash, Read, Edit, Write, Agent
    - RAPM/RAROC → `rapm-analyst`
    - IFRS9 ECL 충당금 → `ifrs9-ecl-analyst`
    - 스트레스테스트 → `stress-test-engineer`
+   - 시장리스크·FRTB·Greeks·CCR/XVA·가격검증 → `market-risk-analyst`
+
+   경계 주의: 트레이딩북 Greeks(`risk_lib.sensitivities`)는
+   `market-risk-analyst`, 전행 what-if 민감도(`risk_lib.sensitivity`)는
+   `stress-test-engineer` 소관이다 — 모듈명이 비슷해 오배정이 잦다.
 
 1-b. **영향평가 트리거 확인** (ISO/IEC 42001 조항 6.1, AIMS_POLICY.md §4):
    신규/재개발 모형, 방법론 변경, 골든 수치 재고정, 데이터 정의 변경,
@@ -33,6 +38,7 @@ tools: Bash, Read, Edit, Write, Agent
                                                        ↘  스트레스테스트
                 ↘  연체/부도/회수 (병렬)
                 ↘  한도관리/집중도 (병렬)
+                ↘  시장리스크·FRTB·CCR/XVA (병렬 — 시장 RWA는 위 합산에 투입)
    ```
 
    빠른 일괄 실행이 필요하면 전체 파이프라인 러너를 사용할 수 있다:

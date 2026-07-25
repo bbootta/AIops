@@ -723,13 +723,24 @@ def page_rynta_coverage(r: PipelineResult) -> str:
         evidence = row["pages"] or "—"
         detail_rows.append([
             row["id"], row["title"], row["product"],
-            f'{row["priority"]}/{row["stage"]}',
+            row["owner"] or _badge("미배정", "FAIL"),
             _badge(_RYNTA_STATUS_LABEL[row["status"]],
                    _RYNTA_STATUS_TONE[row["status"]]),
             row["modules"] or "—",
             _esc(evidence) + (f'<br/><span class="cite">gap: {_esc(row["gap"])}</span>'
                               if row["gap"] else ""),
         ])
+
+    # 담당 에이전트별 요건 수 — 주인 없는 요건을 드러낸다
+    owner_rows = []
+    for owner, g in scoped.groupby(scoped["owner"].replace("", "(미배정)")):
+        cnt = g["status"].value_counts()
+        owner_rows.append([
+            owner, len(g), int(cnt.get("covered", 0)),
+            int(cnt.get("partial", 0)), int(cnt.get("backlog", 0)),
+        ])
+    owner_rows.sort(key=lambda r: (r[0] == "(미배정)", -r[1]))
+    unassigned = int((scoped["owner"] == "").sum())
 
     platform_rows = [
         [row["id"], row["title"], row["product"], row["gap"] or "플랫폼 계층"]
@@ -783,8 +794,15 @@ BRD 요건 {len(df)}건이 이 하니스의 어떤 모듈·보고서 페이지�
 
 <div class="card"><h2>산출 하니스 책임 요건 상세 ({len(detail_rows)}건)</h2>
 <p class="section-lead">플랫폼 계층 요건을 제외한 전체. 부분구현은 gap을 함께 표기합니다.</p>
-{_table(["요건 ID", "요건명", "Product", "우선/단계", "상태", "구현 모듈", "증빙 페이지 / gap"],
+{_table(["요건 ID", "요건명", "Product", "담당 에이전트", "상태", "구현 모듈", "증빙 페이지 / gap"],
         detail_rows)}
+</div>
+
+<div class="card"><h2>담당 에이전트별 요건 배정</h2>
+<p class="section-lead">산출 책임의 소재입니다. <b>주인 없는 요건은 아무도
+산출하지 않으므로</b> 미배정 건수를 그대로 노출합니다 (현재 {unassigned}건).</p>
+{_table(["담당 에이전트", "요건", "구현", "부분", "미구현"], owner_rows,
+        right_cols=[1, 2, 3, 4])}
 </div>
 
 <div class="card"><h2>플랫폼 계층 요건 ({len(platform_rows)}건) — 산출 하니스 범위 밖</h2>

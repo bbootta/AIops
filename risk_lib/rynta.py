@@ -368,6 +368,43 @@ _PLATFORM_PREFIX = {
 }
 
 
+# 요건 ↔ 담당 팀 에이전트 (.claude/agents). 산출 책임의 소재를 명시한다 —
+# 주인 없는 요건은 아무도 산출하지 않는다.
+AGENT_OWNER: dict[str, str] = {
+    "PRD-CRM": "credit-rating-modeler",
+    "PRD-RWA": "rwa-calculator",
+    "PRD-ECL": "ifrs9-ecl-analyst",
+    "PRD-ST":  "stress-test-engineer",
+    "PRD-CAP": "bis-ratio-analyst",
+    "PRD-MKT": "market-risk-analyst",
+    "PRD-VAL": "risk-validator",
+    "PRD-AIG": "aims-compliance-auditor",
+    "PRD-RDM": "risk-orchestrator",
+    "PRD-OPR": "risk-orchestrator",
+    "PRD-ALM": "stress-test-engineer",
+    "PRD-NCR": "",                       # 미배정 — 국내 NCR 담당 에이전트 없음
+}
+
+# 개별 요건 단위 예외 (제품 기본값과 다른 담당).
+_AGENT_OVERRIDE: dict[str, str] = {
+    "BNK-CAP-002": "rapm-analyst",
+    "BNK-ST-005":  "limit-manager",
+    "BNK-CRM-009": "delinquency-pd-lgd-monitor",
+    "BNK-OTH-002": "market-risk-analyst",
+    "GOV-006":     "market-risk-analyst",
+    "SEC-CCR-001": "market-risk-analyst",
+    "SEC-CCR-002": "market-risk-analyst",
+    "SEC-CCR-003": "market-risk-analyst",
+}
+
+
+def agent_owner(req_id: str, product_id: str) -> str:
+    """요건의 담당 에이전트 — 미배정이면 빈 문자열."""
+    if req_id in _AGENT_OVERRIDE:
+        return _AGENT_OVERRIDE[req_id]
+    return AGENT_OWNER.get(product_id, "")
+
+
 def coverage_for(req_id: str) -> Coverage:
     """요건 ID의 커버리지 — 미등록 접두사는 플랫폼 계층 기본값."""
     if req_id in COVERAGE:
@@ -388,6 +425,7 @@ def coverage_frame():
             "id": r["id"], "title": r["title"], "product": r["product"],
             "suite": product_suite(r["product"]),
             "priority": r["priority"], "stage": r["stage"], "type": r["type"],
+            "owner": agent_owner(r["id"], r["product"]),
             "status": c.status, "modules": c.modules, "pages": c.pages,
             "gap": c.gap,
         })

@@ -137,3 +137,42 @@ def test_coverage_page_registered():
     specs = [p for p in PAGES if p.filename == "63_rynta_coverage.html"]
     assert len(specs) == 1
     assert callable(specs[0].resolve())
+
+
+# ----- 요건 ↔ 담당 에이전트 배정 --------------------------------------------
+
+def test_agent_owners_are_real_agent_files():
+    """배정된 담당 에이전트는 실제 정의 파일이 있어야 한다."""
+    df = rynta.coverage_frame()
+    owners = {o for o in df["owner"] if o}
+    for o in owners:
+        assert (AGENTS / f"{o}.md").exists(), f"에이전트 정의 없음: {o}"
+
+
+def test_market_requirements_have_an_owner():
+    """PRD-MKT 요건은 market-risk-analyst가 담당한다 (신설 전에는 미배정)."""
+    df = rynta.coverage_frame()
+    mkt = df[df["product"] == "PRD-MKT"]
+    assert not mkt.empty
+    assert (mkt["owner"] == "market-risk-analyst").all(), (
+        f"미배정 시장 요건: {list(mkt[mkt['owner'] != 'market-risk-analyst']['id'])}")
+
+
+def test_unassigned_requirements_are_visible_not_hidden(result):
+    """미배정 요건이 있으면 커버리지 페이지에 건수가 노출돼야 한다."""
+    from risk_lib.ops_pages.governance import page_rynta_coverage
+    df = rynta.coverage_frame()
+    scoped = df[df["status"] != "platform"]
+    n_unassigned = int((scoped["owner"] == "").sum())
+    html = page_rynta_coverage(result)
+    assert "담당 에이전트별 요건 배정" in html
+    assert f"현재 {n_unassigned}건" in html
+    if n_unassigned:
+        assert "미배정" in html
+
+
+def test_every_scoped_covered_requirement_has_an_owner():
+    """구현 완료로 표기된 요건은 담당 에이전트가 반드시 있어야 한다."""
+    df = rynta.coverage_frame()
+    orphan = df[(df["status"] == "covered") & (df["owner"] == "")]
+    assert orphan.empty, f"주인 없는 covered 요건: {list(orphan['id'])}"

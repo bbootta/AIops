@@ -260,6 +260,8 @@ def test_agents_declare_their_canonical_formulas():
         "risk-validator": ["VAL-F001", "VAL-F002"],
         "aims-compliance-auditor": ["AIG-F001", "AIG-F002"],
         "risk-orchestrator": ["AIG-F001"],
+        "market-risk-analyst": ["MR-F001", "MR-F003", "MR-F005",
+                                "MR-F006", "MR-F007"],
     }
     for agent, fids in expected.items():
         txt = (agents / f"{agent}.md").read_text(encoding="utf-8")
@@ -275,3 +277,44 @@ def test_documented_deviations_appear_in_owning_agent():
     # CR-F003(PD 하한) 이탈은 credit-rating-modeler가 담당
     txt = (agents / "credit-rating-modeler.md").read_text(encoding="utf-8")
     assert "5bp" in txt and "d424" in txt, "PD 하한 이탈이 담당 에이전트에 미기재"
+
+
+# ----- 시장리스크 에이전트 신설 검증 ----------------------------------------
+
+def test_market_agent_owns_all_market_formulas():
+    """MR-F001~F007이 모두 담당 에이전트를 갖는다 (주인 없는 산식 방지)."""
+    from pathlib import Path
+    txt = (Path(__file__).resolve().parent.parent / ".claude" / "agents"
+           / "market-risk-analyst.md").read_text(encoding="utf-8")
+    for i in range(1, 8):
+        assert f"MR-F00{i}" in txt, f"MR-F00{i} 미담당"
+
+
+def test_market_agent_declares_module_boundary():
+    """sensitivity(전행 what-if) vs sensitivities(트레이딩북 Greeks) 경계 명시."""
+    from pathlib import Path
+    agents = Path(__file__).resolve().parent.parent / ".claude" / "agents"
+    mkt = (agents / "market-risk-analyst.md").read_text(encoding="utf-8")
+    orch = (agents / "risk-orchestrator.md").read_text(encoding="utf-8")
+    for txt, who in ((mkt, "market-risk-analyst"), (orch, "risk-orchestrator")):
+        assert "risk_lib.sensitivities" in txt and "risk_lib.sensitivity" in txt, (
+            f"{who}: 유사 모듈 경계 미명시")
+        assert "stress-test-engineer" in txt, f"{who}: 인접 에이전트 미표기"
+
+
+def test_orchestrator_routes_to_market_agent():
+    from pathlib import Path
+    orch = (Path(__file__).resolve().parent.parent / ".claude" / "agents"
+            / "risk-orchestrator.md").read_text(encoding="utf-8")
+    assert "market-risk-analyst" in orch.split("---")[1], (
+        "orchestrator frontmatter description에 미등록")
+    assert "→ `market-risk-analyst`" in orch, "위임 라우팅 미등록"
+
+
+def test_market_agent_forbids_gate_manipulation():
+    """PLAT/백테스트 red 완화 금지가 명시돼야 한다 (IMA 자격 조작 방지)."""
+    from pathlib import Path
+    txt = (Path(__file__).resolve().parent.parent / ".claude" / "agents"
+           / "market-risk-analyst.md").read_text(encoding="utf-8")
+    assert "red 판정을 완화하거나 재실행으로 우회하지 말 것" in txt
+    assert "SA로 강제 전환" in txt
