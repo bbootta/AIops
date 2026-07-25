@@ -28,7 +28,7 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.82;
+renderer.toneMappingExposure = 0.76;
 setAnisotropy(renderer.capabilities.getMaxAnisotropy());
 
 const scene = new THREE.Scene();
@@ -532,7 +532,7 @@ const gradeShader = {
   uniforms: {
     tDiffuse: { value: null },
     uTime: { value: 0 },
-    uAberration: { value: 0.0016 },
+    uAberration: { value: 0.0008 },
   },
   vertexShader: `
     varying vec2 vUv;
@@ -554,9 +554,9 @@ const gradeShader = {
       c.b = texture2D(tDiffuse, vUv - off).b;
       // dusty warm grade, slight desaturation, gentle S-curve
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-      c = mix(vec3(l), c, 0.86);
+      c = mix(vec3(l), c, 0.92);
       c *= vec3(1.035, 1.0, 0.945);
-      c = (c - 0.5) * 1.13 + 0.5;
+      c = (c - 0.5) * 1.2 + 0.5;
       c += vec3(0.014, 0.010, 0.004);
       // vignette
       c *= 0.66 + 0.34 * smoothstep(0.86, 0.16, sqrt(r2));

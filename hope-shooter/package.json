@@ -8,6 +8,7 @@
     "dev": "http-server -p 8080 -s -c-1"
   },
   "devDependencies": {
+    "@pmndrs/assets": "^1.7.0",
     "esbuild": "^0.25.0"
   },
   "dependencies": {

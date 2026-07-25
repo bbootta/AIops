@@ -7,14 +7,20 @@ import { pbr, makeCanvas, makeRng, noiseOverlay, texture, heightToNormal,
 // ============================================================
 
 // ---------- asphalt ----------
-// The road is two layers: a mirror plane underneath, and this surface on
-// top with puddles punched out of its alpha so only wet patches reflect.
-export function asphalt() {
+// The road is two layers: a mirror plane underneath, and this surface on top
+// with puddles punched out of its alpha so only the wet patches reflect.
+//
+// Surface detail and puddles tile at completely different rates — grit needs
+// to repeat every few metres to stay sharp underfoot, while puddles repeating
+// that often would read as wallpaper. three gives every texture slot its own
+// UV transform, so the alpha mask is stretched far longer than the base maps.
+export function asphalt({ detailRepeat = [2, 38], puddleRepeat = [1, 7] } = {}) {
   const S = 1024;
+  const P = 2048;
   const rng = makeRng(7);
   const puddles = [];
-  for (let i = 0; i < 15; i++) {
-    puddles.push({ x: rng() * S, y: rng() * S, r: 24 + rng() * 74 });
+  for (let i = 0; i < 11; i++) {
+    puddles.push({ x: rng() * P, y: rng() * P, r: 40 + rng() * 150 });
   }
 
   const paintBase = (ctx, w, h, r) => {
@@ -47,20 +53,7 @@ export function asphalt() {
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(ox, oy, rad, 0, 7); ctx.fill();
     }
-    // worn centre line, broken into chips
-    for (let y = 0; y < h; y += 256) {
-      ctx.fillStyle = `rgba(196,180,132,${0.32 + r() * 0.3})`;
-      ctx.fillRect(w / 2 - 13, y + r() * 20, 26, 132);
-      ctx.fillStyle = '#3f3d38';
-      for (let k = 0; k < 22; k++) {
-        ctx.fillRect(w / 2 - 13 + r() * 26, y + r() * 150, 3 + r() * 6, 3 + r() * 7);
-      }
-    }
     cracks(ctx, w, h, 26, r, 'rgba(15,14,12,0.72)', 2.1);
-    // damp darkening inside each puddle
-    for (const p of puddles) {
-      blob(ctx, p.x, p.y, p.r, makeRng(p.x | 0), 'rgba(18,18,20,0.55)');
-    }
   };
 
   const height = (ctx, w, h) => {
@@ -71,41 +64,34 @@ export function asphalt() {
     noiseOverlay(ctx, w, h, { seed: 41, grid: 40, octaves: 3, color: [0, 0, 0], alpha: 0.4 });
     grit(ctx, w, h, 30000, r, 0.5, 0.5);
     cracks(ctx, w, h, 26, makeRng(7), 'rgba(0,0,0,0.9)', 2.1);
-    // puddles sit in shallow depressions
-    for (const p of puddles) blob(ctx, p.x, p.y, p.r, makeRng(p.x | 0), 'rgba(40,40,40,0.75)');
   };
 
   const rough = (ctx, w, h) => {
-    const r = makeRng(7);
     ctx.fillStyle = '#d8d8d8'; // dry asphalt: very rough
     ctx.fillRect(0, 0, w, h);
-    noiseOverlay(ctx, w, h, { seed: 61, grid: 6, octaves: 4, color: [150, 150, 150], alpha: 0.55 });
-    // damp halo around each puddle, glassy in the middle
-    for (const p of puddles) {
-      blob(ctx, p.x, p.y, p.r * 1.35, makeRng(p.x | 0), 'rgba(96,96,96,0.75)');
-      blob(ctx, p.x, p.y, p.r, makeRng(p.x | 0), 'rgba(62,62,62,0.9)');
-    }
+    // damp streaks that never quite dried out
+    noiseOverlay(ctx, w, h, { seed: 61, grid: 6, octaves: 4, color: [140, 140, 140], alpha: 0.6 });
+    noiseOverlay(ctx, w, h, { seed: 83, grid: 2, octaves: 3, color: [88, 88, 88], alpha: 0.45 });
   };
 
   // alpha: puddle centres go transparent so the mirror plane shows through
-  const alphaCanvas = makeCanvas(S, S, (ctx, w, h) => {
+  const alphaCanvas = makeCanvas(P, P, (ctx, w, h) => {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
     for (const p of puddles) {
-      const g = ctx.createRadialGradient(p.x, p.y, p.r * 0.15, p.x, p.y, p.r);
-      g.addColorStop(0, 'rgba(0,0,0,0.6)');
+      const g = ctx.createRadialGradient(p.x, p.y, p.r * 0.2, p.x, p.y, p.r);
+      g.addColorStop(0, 'rgba(0,0,0,0.72)');
       g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
       blob(ctx, p.x, p.y, p.r, makeRng(p.x | 0), g);
     }
   });
 
   const mat = pbr({
     size: S, albedo, height, rough,
-    repeat: [1, 9], normalScale: 1.0, roughness: 1.0, metalness: 0.0,
+    repeat: detailRepeat, normalScale: 1.0, roughness: 1.0, metalness: 0.0,
     transparent: true, depthWrite: true,
   });
-  mat.alphaMap = texture(alphaCanvas, { repeat: [1, 9] });
+  mat.alphaMap = texture(alphaCanvas, { repeat: puddleRepeat });
   return mat;
 }
 
@@ -145,7 +131,7 @@ export function sidewalk() {
       grit(ctx, w, h, 16000, makeRng(23), 0.5, 0.5);
       slab(ctx, w, h, 'rgba(0,0,0,0.9)');
     },
-    repeat: [2, 26], normalScale: 1.1, roughness: 0.94,
+    repeat: [2, 56], normalScale: 1.1, roughness: 0.94,
   });
 }
 
@@ -385,5 +371,35 @@ export function dirt() {
       grit(ctx, w, h, 12000, r, 0.3, 0.2);
     },
     repeat: [40, 40], normalScale: 0.8, roughness: 0.98,
+  });
+}
+
+// ---------- painted road markings ----------
+// Kept off the asphalt texture: that tiles several times across the road
+// width, which would paint a centre line in every lane.
+export function roadLine() {
+  return pbr({
+    size: [128, 512],
+    albedo: (ctx, w, h) => {
+      const r = makeRng(131);
+      // the canvas stays transparent between dashes so alphaTest cuts them out
+      for (let y = 0; y < h; y += 256) {
+        ctx.fillStyle = `rgb(198,180,126)`;
+        ctx.fillRect(10, y + 8, w - 20, 150);
+      }
+      // tyres have scrubbed chips out of the paint
+      ctx.globalCompositeOperation = 'destination-out';
+      for (let k = 0; k < 220; k++) {
+        ctx.fillStyle = `rgba(0,0,0,${0.5 + r() * 0.5})`;
+        ctx.fillRect(4 + r() * (w - 8), r() * h, 3 + r() * 11, 3 + r() * 10);
+      }
+      // grime settling on the paint, clipped to the dashes
+      ctx.globalCompositeOperation = 'source-atop';
+      noiseOverlay(ctx, w, h, { seed: 7, grid: 9, octaves: 4, color: [40, 34, 26], alpha: 0.5 });
+      ctx.globalCompositeOperation = 'source-over';
+    },
+    repeat: [1, 34], normalScale: 0.4, roughness: 0.88,
+    transparent: true, alphaTest: 0.35, depthWrite: false, polygonOffset: true,
+    polygonOffsetFactor: -2, polygonOffsetUnits: -2,
   });
 }

@@ -4,6 +4,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import * as M from './materials.js';
 import { makeRng } from './tex.js';
 import { flattenByMaterial } from './util.js';
+import { loadEnvironment } from './env.js';
 
 export const STREET_LENGTH = 210;
 export const STREET_WIDTH = 14;
@@ -37,7 +38,7 @@ const SKY_SHADER = {
 
 export function setupSky(scene, renderer) {
   const sunDir = new THREE.Vector3().setFromSphericalCoords(
-    1, THREE.MathUtils.degToRad(90 - 42), THREE.MathUtils.degToRad(62));
+    1, THREE.MathUtils.degToRad(90 - 29), THREE.MathUtils.degToRad(62));
 
   const horizon = new THREE.Color().setRGB(1.26, 1.13, 0.93, THREE.LinearSRGBColorSpace);
   const zenith = new THREE.Color().setRGB(0.58, 0.64, 0.8, THREE.LinearSRGBColorSpace);
@@ -57,19 +58,19 @@ export function setupSky(scene, renderer) {
   const dome = makeDome(760);
   scene.add(dome);
 
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const envScene = new THREE.Scene();
-  envScene.add(makeDome(40));
-  scene.environment = pmrem.fromScene(envScene, 0, 1, 200).texture;
-  scene.environmentIntensity = 0.62;
-  pmrem.dispose();
+  // The visible sky stays analytic so it matches the fog exactly, but the
+  // lighting comes from a photographed urban HDRI — that structure is what
+  // makes the glass, chrome and wet asphalt read as real rather than plastic.
+  scene.environment = loadEnvironment(renderer, { tint: [1.07, 1.0, 0.88] });
+  scene.environmentIntensity = 0.72;
+  scene.environmentRotation = new THREE.Euler(0, THREE.MathUtils.degToRad(62), 0);
 
   // distance fades into exactly the sky's horizon colour
-  scene.fog = new THREE.FogExp2(0x000000, 0.0062);
+  scene.fog = new THREE.FogExp2(0x000000, 0.0050);
   scene.fog.color.copy(horizon);
 
   const sunPos = sunDir;
-  const sun = new THREE.DirectionalLight(0xffe6bf, 2.0);
+  const sun = new THREE.DirectionalLight(0xffe8c4, 3.3);
   sun.position.copy(sunPos).multiplyScalar(140);
   sun.castShadow = true;
   sun.shadow.mapSize.set(4096, 4096);
@@ -81,7 +82,7 @@ export function setupSky(scene, renderer) {
   scene.add(sun, sun.target);
 
   // the sky IBL already supplies ambient; this only lifts the ground bounce
-  scene.add(new THREE.HemisphereLight(0xd0c3a4, 0x4a4238, 0.18));
+  scene.add(new THREE.HemisphereLight(0xd0c3a4, 0x4a4238, 0.08));
 
   return { dome, sun, sunDir: sunDir.clone() };
 }
@@ -103,8 +104,9 @@ export function buildMaterials() {
     brick: [M.brick(11), M.brick(12)],
     trim: M.stucco(21),
     kerb: M.stucco(22),
-    walk: M.sidewalk(),
-    road: M.asphalt(),
+    walk: Object.assign(M.sidewalk(), { vertexColors: true }),
+    road: Object.assign(M.asphalt(), { vertexColors: true }),
+    roadLine: M.roadLine(),
     dirt: M.dirt(),
     glass: [M.glass(2), M.glass(3)],
     shutter: [M.shutter(31), M.shutter(32)],
@@ -323,6 +325,30 @@ function makeBuilding({ width, floors, seed, rng, lib }) {
   return g;
 }
 
+/**
+ * Paints slow, non-repeating light and dirt variation into a ground plane's
+ * vertex colours. The asphalt texture has to tile every few metres to stay
+ * sharp underfoot, and tiling that tight reads as wallpaper; this rides on
+ * top of it at a scale nothing repeats at.
+ */
+function mottled(geo, amount) {
+  const pos = geo.attributes.position;
+  const col = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    // the plane is still in XY here — it gets rotated flat afterwards
+    const x = pos.getX(i), z = pos.getY(i);
+    const n = Math.sin(x * 0.13) * Math.cos(z * 0.071)
+            + Math.sin(z * 0.037 + x * 0.19) * 0.7
+            + Math.sin(x * 0.41 + z * 0.011) * 0.35;
+    const v = 1 - amount * 0.5 + (n / 2.05) * amount * 0.5;
+    col[i * 3] = v;
+    col[i * 3 + 1] = v * 0.995;
+    col[i * 3 + 2] = v * 0.985;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return geo;
+}
+
 // ============================================================
 // The street
 // ============================================================
@@ -347,11 +373,18 @@ export function buildStreet(scene, lib) {
   root.add(mirror);
 
   const road = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_WIDTH, STREET_LENGTH + 60), lib.road);
+    mottled(new THREE.PlaneGeometry(STREET_WIDTH, STREET_LENGTH + 60, 10, 150), 0.24),
+    lib.road);
   road.rotation.x = -Math.PI / 2;
   road.position.set(0, 0.014, -STREET_LENGTH / 2 + 12);
   road.receiveShadow = true;
   root.add(road);
+
+  const line = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.22, STREET_LENGTH + 60), lib.roadLine);
+  line.rotation.x = -Math.PI / 2;
+  line.position.set(0, 0.016, -STREET_LENGTH / 2 + 12);
+  root.add(line);
 
   const statics = new THREE.Group();
 
@@ -360,7 +393,8 @@ export function buildStreet(scene, lib) {
       new RoundedBoxGeometry(0.4, 0.2, STREET_LENGTH + 60, 2, 0.04), lib.kerb);
     kerb.position.set(side * (STREET_WIDTH / 2 + 0.2), 0.1, -STREET_LENGTH / 2 + 12);
     statics.add(kerb);
-    const walk = new THREE.Mesh(new THREE.PlaneGeometry(6.4, STREET_LENGTH + 60), lib.walk);
+    const walk = new THREE.Mesh(
+      mottled(new THREE.PlaneGeometry(6.4, STREET_LENGTH + 60, 4, 120), 0.2), lib.walk);
     walk.rotation.x = -Math.PI / 2;
     walk.position.set(side * (STREET_WIDTH / 2 + 3.6), 0.2, -STREET_LENGTH / 2 + 12);
     statics.add(walk);
