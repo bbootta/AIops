@@ -152,9 +152,12 @@ COVERAGE: dict[str, Coverage] = {
                       "ops/02_pd · ops/27_lgd_model · ops/40_recovery_lgd"),
     "BNK-CRE-002": _C("covered", "risk_lib.capital.rwa_sa · rwa_irb · output_floor",
                       "ops/03_rwa · ops/29_irb_deep"),
-    "BNK-CRE-003": _C("partial", "risk_lib.capital.crm",
-                      "ops/03_rwa",
-                      "담보 haircut·CCF·보증대체는 구현, 법률적 집행가능성(legal enforceability) 검토 워크플로는 미구현"),
+    "BNK-CRE-003": _C("partial", "risk_lib.capital.crm · datamodel.materialize",
+                      "ops/03_rwa · ops/68_datamodel",
+                      "담보 haircut·CCF·보증대체 모듈은 구현됐으나 **run_pipeline이 "
+                      "apply_crm을 호출하지 않아 공표 RWA에 반영되지 않는다** — "
+                      "rwa_crm_allocation 테이블이 '적용했다면'의 효과만 보유. "
+                      "법률적 집행가능성 검토 워크플로도 미구현"),
     "BNK-CRE-004": _C("covered", "risk_lib.provisioning.ecl · ifrs9_deep",
                       "ops/35_sicr_detail · ops/05_ecl"),
     "BNK-CRE-005": _C("covered", "risk_lib.provisioning.ecl · provisioning.macro",

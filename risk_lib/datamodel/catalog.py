@@ -165,3 +165,180 @@ def by_name(name: str) -> TableSpec:
 
 def by_product(product: str) -> list[TableSpec]:
     return [t for t in ALL_TABLES if t.product == product]
+
+
+# ---------------------------------------------------------------- R2 · CRM
+APPROACHES = ("SA", "FIRB", "AIRB")
+MODEL_STATUS = ("DEV", "UAT", "PROD", "RETIRED")
+GRADES = tuple(f"{p}{s}" for p in ("AAA", "AA", "A", "BBB", "BB", "B", "CCC")
+               for s in ("+", "", "-"))[:17] + ("D",)
+
+MODEL_INVENTORY = TableSpec(
+    name="crm_model", korean="모형 인벤토리", product="PRD-CRM",
+    grain="모형 1개당 1행",
+    columns=(
+        C("model_id", "string", "모형 식별자", nullable=False),
+        C("model_name", "text", "모형명", nullable=False),
+        C("segment", "string", "적용 세그먼트", nullable=False,
+          allowed=ASSET_CLASSES),
+        C("tier", "int", "모형 등급", nullable=False, min_value=1, max_value=3,
+          citation="SR 11-7 모형 중요도 등급"),
+        C("status", "string", "운영 상태", nullable=False, allowed=MODEL_STATUS),
+        C("last_validation", "date", "최근 검증일", nullable=True),
+        C("next_due", "date", "차기 검증 기한", nullable=True),
+        C("owner", "text", "모형 소유부서", nullable=False),
+    ),
+    primary_key=("model_id",),
+    note="검증 기한 경과(overdue) 모형의 산출값은 사용 전 재검증 대상.",
+)
+
+RATING_HISTORY = TableSpec(
+    name="crm_rating", korean="등급·PD 이력", product="PRD-CRM",
+    grain="차주 × 기준일 1행",
+    columns=(
+        C("obligor_id", "string", "차주 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("model_id", "string", "산출 모형", nullable=False),
+        C("pd", "float", "부도확률", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0,
+          citation="CRE32.5 PD 하한 5bp (BCBS d424)"),
+        C("grade", "string", "내부등급", nullable=False,
+          citation="Master scale 17등급"),
+        C("override_flag", "int", "Override 여부", nullable=False,
+          min_value=0, max_value=1,
+          note="Override는 승인 원장과 대사돼야 한다 (BNK-CRM-009)"),
+    ),
+    primary_key=("obligor_id", "asof"),
+    foreign_keys=(FK(("obligor_id",), "rdm_obligor", ("obligor_id",)),
+                  FK(("model_id",), "crm_model", ("model_id",))),
+)
+
+MODEL_PERFORMANCE = TableSpec(
+    name="crm_performance", korean="모형 성능 지표", product="PRD-CRM",
+    grain="모형 × 세그먼트 × 기준일 1행",
+    columns=(
+        C("model_id", "string", "모형 식별자", nullable=False),
+        C("segment", "string", "세그먼트", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("gini", "float", "변별력 (Gini)", nullable=False, unit="ratio",
+          min_value=-1.0, max_value=1.0, citation="BCBS WP14 변별력"),
+        C("ks", "float", "KS 통계량", nullable=True, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("psi", "float", "안정성 (PSI)", nullable=True, unit="ratio",
+          min_value=0.0, citation="PSI<0.10 안정 · 0.25 초과 불안정"),
+        C("n_obs", "int", "관측 수", nullable=False, min_value=0),
+    ),
+    primary_key=("model_id", "segment", "asof"),
+    foreign_keys=(FK(("model_id",), "crm_model", ("model_id",)),),
+)
+
+CRM_TABLES = (MODEL_INVENTORY, RATING_HISTORY, MODEL_PERFORMANCE)
+
+# ---------------------------------------------------------------- R3 · RWA
+
+RWA_RESULT = TableSpec(
+    name="rwa_result", korean="RWA 산출 결과", product="PRD-RWA",
+    grain="익스포저 × 기준일 1행",
+    columns=(
+        C("exposure_id", "string", "익스포저 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("approach", "string", "산출 방법", nullable=False, allowed=APPROACHES,
+          citation="CRE20(SA) · CRE31~32(IRB)"),
+        C("ead_final", "float", "CRM 후 EAD", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("pd", "float", "PD", nullable=True, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("lgd", "float", "LGD", nullable=True, unit="ratio",
+          min_value=0.0, max_value=1.0, citation="CRE32.42 LGD 하한"),
+        C("risk_weight", "float", "위험가중치", nullable=False, unit="ratio",
+          min_value=0.0, max_value=15.0),
+        C("rwa", "float", "위험가중자산", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("expected_loss", "float", "기대손실(EL)", nullable=True, unit="KRW",
+          min_value=0.0, citation="CRE31 EL = PD×LGD×EAD"),
+    ),
+    primary_key=("exposure_id", "asof"),
+    foreign_keys=(FK(("exposure_id",), "rdm_exposure", ("exposure_id",)),),
+    note="동일 exposure_id가 SA·IRB에 중복 산출되면 이중계상 — PK가 이를 막는다.",
+)
+
+CRM_ALLOCATION = TableSpec(
+    name="rwa_crm_allocation", korean="신용위험경감 배분", product="PRD-RWA",
+    grain="익스포저 × 담보 1행",
+    columns=(
+        C("exposure_id", "string", "익스포저 식별자", nullable=False),
+        C("collateral_id", "string", "담보 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("eligible_value", "float", "적격 담보가치", nullable=False, unit="KRW",
+          min_value=0.0, citation="CRE22.49 haircut 적용 후"),
+        C("allocated", "float", "배분액", nullable=False, unit="KRW",
+          min_value=0.0, citation="CR-F008 초과배분 금지"),
+        C("secured_ead", "float", "담보부 EAD", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("unsecured_ead", "float", "무담보부 EAD", nullable=False, unit="KRW",
+          min_value=0.0),
+    ),
+    primary_key=("exposure_id", "collateral_id", "asof"),
+    foreign_keys=(FK(("exposure_id",), "rdm_exposure", ("exposure_id",)),
+                  FK(("collateral_id",), "rdm_collateral", ("collateral_id",))),
+    note="CR-F013: 담보배분은 PD를 바꾸지 않는다. LGD·EAD 경로 중복효과 금지(CR-F016).",
+)
+
+RWA_TABLES = (RWA_RESULT, CRM_ALLOCATION)
+
+# ---------------------------------------------------------------- R4 · ECL
+
+STAGES = (1, 2, 3)
+SICR_TRIGGERS = ("none", "dpd30", "watchlist", "pd_ratio", "ext_rating",
+                 "forbearance", "abs_pd")
+
+ECL_RESULT = TableSpec(
+    name="ecl_result", korean="IFRS9 ECL 산출", product="PRD-ECL",
+    grain="익스포저 × 기준일 1행",
+    columns=(
+        C("exposure_id", "string", "익스포저 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("stage", "int", "Stage", nullable=False, min_value=1, max_value=3,
+          citation="IFRS 9 5.5.3(12M) · 5.5.5(lifetime) · 5.5.11"),
+        C("sicr_trigger", "string", "SICR 트리거", nullable=False,
+          allowed=SICR_TRIGGERS),
+        C("pd_pit", "float", "PIT PD", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0,
+          citation="B5.5.42 — TTC가 아닌 PIT를 쓴다"),
+        C("lgd", "float", "LGD", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("ead", "float", "EAD", nullable=False, unit="KRW", min_value=0.0),
+        C("ecl", "float", "기대신용손실", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("coverage_ratio", "float", "커버리지", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0,
+          note="Stage 1≤2≤3 단조 — 비단조는 스테이징 오류 신호"),
+    ),
+    primary_key=("exposure_id", "asof"),
+    foreign_keys=(FK(("exposure_id",), "rdm_exposure", ("exposure_id",)),),
+)
+
+MACRO_SCENARIO = TableSpec(
+    name="ecl_macro_scenario", korean="거시 시나리오", product="PRD-ECL",
+    grain="시나리오 × 분기 1행",
+    columns=(
+        C("scenario", "string", "시나리오", nullable=False),
+        C("quarter", "string", "분기", nullable=False),
+        C("weight", "float", "확률가중치", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0,
+          citation="IFRS 9 B5.5.42 다중 시나리오 확률가중"),
+        C("gdp_growth", "float", "GDP 성장률", nullable=False, unit="ratio",
+          min_value=-0.5, max_value=0.5),
+        C("unemployment", "float", "실업률", nullable=True, unit="ratio",
+          min_value=0.0, max_value=0.5),
+        C("pd_multiplier", "float", "PD 배수", nullable=False, unit="ratio",
+          min_value=0.0, citation="ST-F002 위성모형 대용치"),
+    ),
+    primary_key=("scenario", "quarter"),
+    note="시나리오 가중치 합은 1이어야 한다 — 아니면 확률가중 ECL이 편향된다.",
+)
+
+ECL_TABLES = (ECL_RESULT, MACRO_SCENARIO)
+
+# 누적 등록
+ALL_TABLES = RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
