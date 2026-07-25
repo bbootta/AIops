@@ -681,7 +681,7 @@ def page_ncr(r: PipelineResult) -> str:
     """
     from risk_lib.ncr import (
         compute_ncr_from_result, compute_ncr, reconcile_prior_period,
-        LICENSE_CAPITAL_REQUIREMENT, synthesise_securities_firm)
+        LICENSE_MINIMUM_CAPITAL, MAINTENANCE_FACTOR, synthesise_securities_firm)
     from risk_lib.references import (
         NCR_MIN, NCR_PROMPT_ACTION, NCR_EARLY_WARNING,
         CITE_NCR, CITE_NCR_DEDUCTION, CITE_NCR_RISK)
@@ -741,7 +741,8 @@ def page_ncr(r: PipelineResult) -> str:
     risk_rows = [[row["component"], _won(row["amount"]), row["method"],
                   _pct(row["amount"] / n.risk.total, 1)]
                  for _, row in n.risk.by_component.iterrows()]
-    lic_rows = [[row["license"], _won(row["requirement"])]
+    lic_rows = [[row["license"], _won(row["minimum_capital"]),
+                 _won(row["requirement"])]
                 for _, row in n.licenses.iterrows()]
 
     recon_rows = []
@@ -790,7 +791,12 @@ BIS 체계의 경제자본 합산(상관계수 반영)과 다른 점에 유의�
 </div>
 
 <div class="card"><h2>64-4. 필요유지자기자본 (인가업무 단위별)</h2>
-{_table(["인가업무 단위", "법정 필요자기자본"], lic_rows, right_cols=[1])}
+{_table(["인가업무 단위", "최저자기자본(진입요건)",
+         f"필요유지자기자본(×{MAINTENANCE_FACTOR:.0%})"], lic_rows,
+        right_cols=[1, 2])}
+<p class="section-lead">분모는 <b>최저자기자본이 아니라 그 {MAINTENANCE_FACTOR:.0%}</b>
+입니다 (제3-6조). 진입요건 금액을 그대로 분모로 쓰면 분모가
+{1/MAINTENANCE_FACTOR - 1:.0%} 과대되어 순자본비율이 그만큼 낮게 나옵니다.</p>
 <p class="cite">합계 {_won(n.required_capital)} — 인가 내역 변경 시 분모가 바뀌므로
 비율 시계열 해석에 주의.</p>
 </div>

@@ -400,15 +400,12 @@ AGENT_OWNER: dict[str, str] = {
 }
 
 # 개별 요건 단위 예외 (제품 기본값과 다른 담당).
+# 제품 기본값과 **다른** 담당만 등록한다 — 기본값과 같은 항목은 무효 중복이다.
 _AGENT_OVERRIDE: dict[str, str] = {
-    "BNK-CAP-002": "rapm-analyst",
-    "BNK-ST-005":  "limit-manager",
-    "BNK-CRM-009": "delinquency-pd-lgd-monitor",
-    "BNK-OTH-002": "market-risk-analyst",
-    "GOV-006":     "market-risk-analyst",
-    "SEC-CCR-001": "market-risk-analyst",
-    "SEC-CCR-002": "market-risk-analyst",
-    "SEC-CCR-003": "market-risk-analyst",
+    "BNK-CAP-002": "rapm-analyst",                  # 기본 bis-ratio-analyst
+    "BNK-ST-005":  "limit-manager",                 # 기본 stress-test-engineer
+    "BNK-CRM-009": "delinquency-pd-lgd-monitor",    # 기본 credit-rating-modeler
+    "GOV-006":     "market-risk-analyst",           # 기본 aims-compliance-auditor
 }
 
 

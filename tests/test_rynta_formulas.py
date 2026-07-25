@@ -134,25 +134,53 @@ def test_orf001_recovery_never_exceeds_gross(result):
 
 # ----- MR-F005 · 백테스트 예외 = 손실이 VaR 초과 ----------------------------
 
-def test_mrf005_backtest_exception_rule(result):
-    """예외는 실손실이 VaR 임계를 초과한 경우로만 카운트된다."""
-    bt = result.frtb.backtest if hasattr(result, "frtb") else None
-    if bt is None:
-        pytest.skip("FRTB 백테스트 미산출")
-    assert bt.exceptions_99 >= 0
-    assert bt.exceptions_99 <= bt.n_days
+def test_mrf005_backtest_exception_rule():
+    """예외 = 손실이 VaR 임계를 초과한 날. 실제 API로 직접 검증한다.
+
+    (이전 구현은 존재하지 않는 `result.frtb` 를 참조해 영구 skip이었다 —
+    skip된 테스트는 검증이 아니다.)
+    """
+    from risk_lib.frtb import backtest_var
+    pnl = np.array([-1.0, -3.0, 0.5, -2.5, -10.0])
+    var = np.array([2.0, 2.0, 2.0, 2.0, 2.0])
+    bt = backtest_var(pnl, var)
+    # 손실 3.0·10.0 두 건만 VaR 2.0 초과 (2.5도 초과 → 3건)
+    expected = int(sum(1 for p_, v_ in zip(pnl, var) if -p_ > v_))
+    assert bt.n_exceptions == expected == 3
+    assert bt.n_days == 5
+    assert 0 <= bt.n_exceptions <= bt.n_days
+
+
+def test_mrf005_traffic_light_zones():
+    """MAR99 신호등 — 예외 수에 따른 구간·승수."""
+    from risk_lib.frtb import backtest_var
+    def zone_for(n_exc, n_days=250):
+        pnl = np.array([-10.0] * n_exc + [0.0] * (n_days - n_exc))
+        var = np.array([1.0] * n_days)
+        return backtest_var(pnl, var)
+    assert zone_for(4).zone == "green" and zone_for(4).multiplier == 1.50
+    assert zone_for(5).zone == "yellow" and zone_for(5).multiplier == 1.70
+    assert zone_for(9).zone == "yellow"
+    r10 = zone_for(10)
+    assert r10.zone == "red" and r10.multiplier == 2.00 and r10.failed
 
 
 # ----- MR-F006 · PLA 잔차 = HPL − RTPL --------------------------------------
 
-def test_mrf006_pla_residual_definition(result):
-    if not hasattr(result, "frtb"):
-        pytest.skip("FRTB 미산출")
-    plat = result.frtb.plat
-    hpl = plat["hpl"].to_numpy(dtype=float)
-    rtpl = plat["rtpl"].to_numpy(dtype=float)
-    resid = plat["residual"].to_numpy(dtype=float)
-    np.testing.assert_allclose(resid, hpl - rtpl, rtol=1e-9)
+def test_mrf006_pla_residual_definition():
+    """PLAT은 HPL vs RTPL의 Spearman·KS로 판정하며, 완전 일치 시 green."""
+    from risk_lib.frtb import plat_test
+    rng = np.random.default_rng(42)
+    hpl = rng.normal(0, 1, 250)
+    # RTPL이 HPL과 동일하면 잔차 0 → 최상 구간
+    same = plat_test(hpl, hpl.copy(), desk="d")
+    assert same.spearman == pytest.approx(1.0, abs=1e-9)
+    assert same.overall_zone == "green"
+    assert same.n_days == 250
+    # 무관한 RTPL이면 상관이 무너져 구간이 악화돼야 한다
+    noise = plat_test(hpl, rng.normal(0, 1, 250), desk="d")
+    assert noise.spearman < same.spearman
+    assert noise.overall_zone in ("amber", "red")
 
 
 # ----- ST-F001 · 충격형태 (정점 → 회복 경로) --------------------------------

@@ -1,7 +1,7 @@
 """Report package orchestrator.
 
-`build_report_set(result, out_dir)`  — page_registry.PAGES 기반으로 전체 페이지
-세트(66p)를 기록. `build_full_report_package` — executive/printable/board pack/
+`build_report_set(result, out_dir)`  — page_registry.PAGES 기반으로 전체
+페이지 세트를 기록 (페이지 수는 registry가 단일 소스). `build_full_report_package` — executive/printable/board pack/
 audit ledger/manifest + ops/ 2계층 패키지를 산출.
 
 페이지 빌더는 risk_lib/ops_pages/ (core_* 포함), chrome은 report_chrome 참조.
@@ -62,6 +62,7 @@ def build_full_report_package(
     portfolio=None,
     manifest=None,
     history_path: str | Path | None = None,
+    adjustment_ledger=None,
 ) -> dict[str, str]:
     """Two-tier package: executive.html (root) + ops/ (operational deep-dive)
     plus manifest.json. Returns {label: absolute_path}.
@@ -72,6 +73,10 @@ def build_full_report_package(
     `history_path`: 분기 축적 원장(JSON) 경로. 주면 이번 manifest 스냅샷을
     append(같은 분기는 교체)하고 trend_history.html을 산출하며, 2기 이상
     쌓이면 경영진 보고서에 전기 대비(QoQ) 섹션이 나타난다.
+
+    `adjustment_ledger`: 수동조정 원장. 주면 adjustment_ledger.json으로 기록한다.
+    manifest의 지문 연동은 `build_manifest(adjustment_ledger=...)` 로 별도 수행해야
+    하며, 하지 않으면 manifest에 "none"이 남는다.
     """
     from risk_lib.html_exec import build_executive
     from risk_lib.printable import build_printable_html
@@ -112,6 +117,12 @@ def build_full_report_package(
                   if manifest is not None else "")
     ledger = build_ledger_from_result(result, git_commit=git_commit or "")
     ledger_path = ledger.export_json(out / "audit_ledger.json")
+    # 수동조정 원장 — 주어지면 패키지에 기록한다. manifest 지문 연동은
+    # 호출자가 build_manifest(adjustment_ledger=...)로 해야 하며, 그렇지
+    # 않으면 65번 페이지가 "manifest에 실려 있다"고 단언할 수 없다.
+    adj_path = None
+    if adjustment_ledger is not None:
+        adj_path = adjustment_ledger.export_json(out / "adjustment_ledger.json")
     board_pack_path = build_board_pack(
         result, out / "board_pack.html",
         ledger_path=str(out / "audit_ledger.json"),
@@ -130,4 +141,5 @@ def build_full_report_package(
         **({"trend_history": trend_path,
             "history_ledger": str(Path(history_path).resolve())}
            if trend_path else {}),
+        **({"adjustment_ledger": adj_path} if adj_path else {}),
     }

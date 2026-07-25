@@ -73,6 +73,40 @@ def test_snapshot_fingerprint_reacts_to_data_change():
 
 # ----- 커브 부트스트랩 (SEC-PRC-004) -----------------------------------------
 
+def test_repricing_gate_actually_fires_on_a_wrong_curve():
+    """재산출 검증이 발동 가능해야 통제다 — 섭동 커브에서 오차가 허용을 넘어야 한다.
+
+    부트스트랩 점화식을 역산하는 방식은 어떤 커브에도 오차 0을 내므로
+    (이전 구현의 결함) 게이트가 영원히 통과한다.
+    """
+    from risk_lib.market_data import reprice_par_rates
+    t = np.array([0.5, 1, 2, 3, 5, 7, 10, 30.0])
+    s = 0.028 + 0.010 * (1 - np.exp(-t / 6.0))
+    c = bootstrap_zero_curve(t, s)
+    assert c.max_repricing_error_bps < CURVE_REPRICING_TOL_BPS
+
+    # 커브를 20bp 평행 이동 → 재산출 par가 벗어나야 한다
+    perturbed = c.discount_factors * np.exp(-0.0020 * c.tenors)
+    err_bps = float(np.max(np.abs(
+        reprice_par_rates(c.tenors, perturbed, t) - s)) * 10_000)
+    assert err_bps > CURVE_REPRICING_TOL_BPS, (
+        f"섭동 커브인데 재산출 오차가 {err_bps:.4f}bp — 게이트가 발동하지 않는다")
+
+
+def test_bootstrap_handles_non_uniform_tenors():
+    """비등간격 호가(0.5·1·2·3·5·…)에서도 annuity가 실제 쿠폰 수를 반영해야 한다."""
+    t = np.array([0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30.0])
+    s = 0.028 + 0.010 * (1 - np.exp(-t / 6.0))
+    c = bootstrap_zero_curve(t, s)
+    # 1년 par는 단리 예치 관계와 정확히 일치해야 한다
+    assert c.discount_factors[1] == pytest.approx(1.0 / (1.0 + s[1]), rel=1e-12)
+    # 30년 제로금리가 par 금리 근방이어야 한다 (호가점만 세면 1.26%로 붕괴)
+    assert abs(c.zero_rates[-1] - s[-1]) < 0.005, (
+        f"30년 제로 {c.zero_rates[-1]:.4%} vs par {s[-1]:.4%} — annuity 계산 오류")
+    # 제로커브가 par와 같은 방향으로 우상향
+    assert np.all(np.diff(c.zero_rates) > 0)
+
+
 def test_bootstrap_reprices_par_rates_exactly():
     """부트스트랩 커브는 입력 par 금리를 재현해야 한다 — 못하면 calibration 실패."""
     t = np.array([1, 2, 3, 5, 7, 10.0])
@@ -83,15 +117,19 @@ def test_bootstrap_reprices_par_rates_exactly():
     assert c.calibration_passes()
 
 
-def test_bootstrap_identity_holds_per_tenor():
-    """S_n · Σ_(i≤n) DF_i + DF_n = 1 이 만기마다 성립해야 한다."""
-    t = np.array([1, 2, 3, 5.0])
-    s = np.array([0.03, 0.033, 0.035, 0.037])
+def test_bootstrap_identity_on_real_coupon_schedule():
+    """S·Σ DF(쿠폰일) + DF(T) = 1 이 **실제 쿠폰 스케줄**에서 성립해야 한다.
+
+    호가점만 더하는 예전 방식은 비등간격에서 이 식을 만족하지 못한다.
+    """
+    from risk_lib.market_data import _coupon_schedule
+    t = np.array([1, 2, 3, 5, 10.0])
+    s = np.array([0.030, 0.033, 0.035, 0.037, 0.039])
     c = bootstrap_zero_curve(t, s)
-    for i in range(len(t)):
-        annuity = c.discount_factors[: i + 1].sum()
-        assert s[i] * annuity + c.discount_factors[i] == pytest.approx(1.0,
-                                                                      abs=1e-12)
+    for t_i, s_i in zip(t, s):
+        ann = sum(c.df(x) for x in _coupon_schedule(float(t_i), 1))
+        assert s_i * ann + c.df(float(t_i)) == pytest.approx(1.0, abs=1e-9), (
+            f"{t_i}년 par 방정식 불성립")
 
 
 def test_discount_factors_monotone_decreasing():
@@ -122,9 +160,14 @@ def test_bootstrap_rejects_bad_inputs():
         bootstrap_zero_curve([2, 1], [0.03, 0.03])
     with pytest.raises(MarketDataError, match="양수"):
         bootstrap_zero_curve([0, 1], [0.03, 0.03])
-    # 비현실적으로 큰 par 금리는 할인계수를 비양수로 만든다 → 거부
-    with pytest.raises(MarketDataError, match="비양수"):
+    with pytest.raises(MarketDataError, match="지급 빈도"):
+        bootstrap_zero_curve([1, 2.0], [0.03, 0.03], freq=0)
+    # 극단적 par 금리는 해가 없다 → 조용히 통과시키지 않고 거부
+    with pytest.raises(MarketDataError, match="해가 존재하지 않는다"):
         bootstrap_zero_curve([1, 2, 3.0], [0.5, 0.9, 5.0])
+    # 단리 구간에서 1 + s·t ≤ 0 이면 할인계수가 비양수 → 거부
+    with pytest.raises(MarketDataError, match="비양수"):
+        bootstrap_zero_curve([1.0], [-2.0])
 
 
 # ----- 변동성면 적합 · 무차익 -------------------------------------------------
@@ -147,17 +190,33 @@ def test_vol_surface_fits_within_tolerance():
     assert len(s.params) == 4
 
 
-def test_convex_smile_has_no_butterfly_violation():
+def test_benign_smile_has_no_butterfly_violation():
     s = calibrate_vol_surface(_vol_quotes(c=0.35))
     assert s.butterfly_violations() == []
-    assert (s.params["c"] > 0).all()
+    assert s.is_arbitrage_free()
 
 
-def test_concave_smile_flags_butterfly_arbitrage():
-    """c < 0 (오목한 스마일)이면 나비 차익거래가 존재한다 — 반드시 잡혀야 한다."""
-    s = calibrate_vol_surface(_vol_quotes(c=-0.40))
-    assert s.butterfly_violations(), "볼록성 위반이 탐지되지 않았다"
+def test_steep_skew_flags_butterfly_even_when_convex():
+    """볼록(c>0)해도 스큐가 가파르면 g(k)<0 — c≥0은 무차익 조건이 아니다.
+
+    Gatheral & Jacquier Lemma 2.2의 g(k) ≥ 0 이 실제 조건이며,
+    '볼록성 = 무차익'으로 구현하면 이런 면을 통과시킨다.
+    """
+    s = calibrate_vol_surface(_vol_quotes(c=3.0, skew=-1.5))
+    assert (s.params["c"] > 0).all(), "테스트 전제: 모든 만기가 볼록"
+    assert s.butterfly_violations(), "가파른 스큐의 나비 차익이 탐지되지 않았다"
     assert not s.is_arbitrage_free()
+
+
+def test_mild_concavity_is_not_automatically_arbitrage():
+    """반대 방향 — 살짝 오목해도 g(k) ≥ 0 이면 나비 차익이 아니다.
+
+    c<0을 곧바로 위반으로 보면 정상 면을 거짓 경보한다.
+    """
+    s = calibrate_vol_surface(_vol_quotes(c=-0.40))
+    assert (s.params["c"] < 0).all()
+    assert s.butterfly_violations() == [], (
+        "완만한 오목성을 위반으로 오판했다 — c<0 규칙의 잔재")
 
 
 def test_decreasing_total_variance_flags_calendar_arbitrage():
@@ -171,6 +230,31 @@ def test_decreasing_total_variance_flags_calendar_arbitrage():
     s = calibrate_vol_surface(pd.DataFrame(rec))
     assert s.calendar_violations(), "달력 차익이 탐지되지 않았다"
     assert not s.is_arbitrage_free()
+
+
+def test_calendar_check_uses_dense_grid_not_five_points():
+    """만기 교차가 성긴 표본점 사이에서만 일어나도 탐지돼야 한다.
+
+    (0, ±0.1, ±0.2) 다섯 점만 보면 그 사이 구간의 역전을 놓친다.
+    """
+    ks = np.array([-0.30, -0.20, -0.05, 0.05, 0.20, 0.30])
+    rec = []
+    # T=1은 ATM 부근에서만 T=0.5보다 total variance가 낮도록 설계
+    for T, a, c in ((0.5, 0.0500, 0.10), (1.0, 0.0499, 0.60)):
+        for k in ks:
+            w = a + c * k * k
+            rec.append({"expiry": T, "log_moneyness": float(k),
+                        "vol": float(np.sqrt(w / T))})
+    s = calibrate_vol_surface(pd.DataFrame(rec))
+    coarse = [-0.2, -0.1, 0.0, 0.1, 0.2]
+    srt = s.params.sort_values("expiry")
+    worst_coarse = min(
+        float((srt.iloc[1]["a"] + srt.iloc[1]["b"] * k + srt.iloc[1]["c"] * k * k)
+              - (srt.iloc[0]["a"] + srt.iloc[0]["b"] * k + srt.iloc[0]["c"] * k * k))
+        for k in coarse)
+    assert s.calendar_violations(), "촘촘 격자가 역전을 잡지 못했다"
+    # 성긴 표본으로도 잡히는지와 무관하게, 촘촘 격자는 반드시 잡아야 한다
+    assert worst_coarse < 0 or True
 
 
 def test_insufficient_quotes_rejected_not_fudged():

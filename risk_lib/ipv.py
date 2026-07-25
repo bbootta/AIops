@@ -127,11 +127,13 @@ def run_ipv(trades: pd.DataFrame, *, seed: int = 42,
     kinds = trades["kind"].to_numpy()
     notional = trades["notional"].to_numpy(dtype=float)
 
-    # FO 가격: 옵션은 산출 price, 그 외는 명목 기준 평가액 대용.
-    fo_price = np.where(
-        trades["price"].to_numpy(dtype=float) != 0.0,
-        trades["price"].to_numpy(dtype=float),
-        notional * 0.01)
+    # FO 평가액(원) — 옵션은 단위가격×명목, 그 외는 명목 기준 평가액 대용.
+    # 단위가격과 금액을 섞으면 공통 절대 허용오차가 옵션에는 사실상 무한대가
+    # 되어 어떤 오평가도 BREAK가 나지 않는다 — 전부 '금액' 단위로 통일한다.
+    unit_price = trades["price"].to_numpy(dtype=float)
+    fo_price = np.where(unit_price != 0.0,
+                        unit_price * notional / 100.0,   # 옵션: 명목 대비 평가액
+                        notional * 0.01)
 
     # 독립 소스 배정 — 유동성이 높은 상품일수록 상위 소스 확보 확률이 높다.
     src_choices = np.array(["consensus", "broker", "exchange",
@@ -146,12 +148,12 @@ def run_ipv(trades: pd.DataFrame, *, seed: int = 42,
     # 독립 가격 = FO 가격 ± 잡음 (소스가 독립적일수록 잡음 작음).
     # 잡음 폭은 허용오차(0.5~1.0%)보다 작게 잡아 BREAK가 예외로 나타나게 한다 —
     # 정상 운영에서 BREAK는 소수여야 하고, 다수면 허용오차나 소스가 문제다.
+    # FO 소스에도 잠재 오차를 부여한다: 검증되지 않았을 뿐 가격이 맞다는 뜻은
+    # 아니며, 이 값이 Day-1 이연 조정의 근거가 된다.
     noise_scale = np.array([
         {"consensus": 0.0015, "broker": 0.0030, "exchange": 0.0010,
-         "model": 0.0060, "front_office": 0.0}[s] for s in sources])
+         "model": 0.0060, "front_office": 0.0080}[s] for s in sources])
     bench = fo_price * (1.0 + rng.normal(0.0, 1.0, n) * noise_scale)
-    # FO 소스는 자기 가격 — 차이가 0이며 검증으로 인정하지 않는다.
-    bench = np.where(sources == "front_office", fo_price, bench)
 
     tol_abs = np.empty(n)
     tol_rel = np.empty(n)
@@ -163,6 +165,7 @@ def run_ipv(trades: pd.DataFrame, *, seed: int = 42,
     limit = np.maximum(tol_abs, np.abs(bench) * tol_rel)
     verified = np.array([is_independent(s) for s in sources])
     # 미검증 건은 BREAK 판정 자체가 불가 — 통과로 세지 않는다.
+    # (diff는 계산되지만 판정 근거로 쓰지 않고, Day-1 이연 조정의 크기로만 쓴다.)
     is_break = verified & (np.abs(diff) > limit)
 
     days_open = np.where(is_break, rng.integers(1, 120, n), 0)

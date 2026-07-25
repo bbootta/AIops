@@ -122,13 +122,12 @@ class ZeroCurve:
     par_repriced: np.ndarray       # 커브로 재산출한 par 금리
     max_repricing_error_bps: float
     snapshot: MarketDataSnapshot | None = None
+    freq: int = 1
 
     def df(self, t: float) -> float:
-        """로그선형 보간 할인계수 (구간 밖은 평탄 외삽)."""
-        if t <= 0:
-            return 1.0
-        logdf = np.interp(t, self.tenors, np.log(self.discount_factors))
-        return float(np.exp(logdf))
+        """로그선형 보간 할인계수 — 부트스트랩과 동일한 보간 규약."""
+        return _df_interp(float(t), [float(x) for x in self.tenors],
+                          [float(x) for x in np.log(self.discount_factors)])
 
     def calibration_passes(self, tol_bps: float = CURVE_REPRICING_TOL_BPS) -> bool:
         return self.max_repricing_error_bps <= tol_bps
@@ -138,15 +137,69 @@ class ZeroCurve:
         return bool(np.all(np.diff(self.discount_factors) < 1e-12))
 
 
-def bootstrap_zero_curve(tenors, par_rates, *,
+def _coupon_schedule(maturity: float, freq: int = 1) -> list[float]:
+    """만기까지의 쿠폰일 목록 (연 단위). 잔여 stub은 첫 쿠폰으로 둔다."""
+    tau = 1.0 / freq
+    n = int(round(maturity * freq))
+    if abs(maturity * freq - n) < 1e-9 and n >= 1:
+        return [i * tau for i in range(1, n + 1)]
+    # 비정수 만기: stub + 정규 쿠폰
+    times, t_i = [], maturity
+    while t_i > 1e-9:
+        times.append(t_i)
+        t_i -= tau
+    return sorted(x for x in times if x > 1e-9)
+
+
+def _df_interp(t_query: float, nodes_t: list[float],
+               nodes_logdf: list[float]) -> float:
+    """로그선형 보간 할인계수. 첫 노드 이전 구간은 원점(DF=1)과 보간한다."""
+    if t_query <= 1e-12:
+        return 1.0
+    tt = [0.0] + nodes_t
+    ll = [0.0] + nodes_logdf
+    return float(np.exp(np.interp(t_query, tt, ll)))
+
+
+def reprice_par_rates(node_tenors, node_dfs, tenors, *, freq: int = 1):
+    """주어진 할인커브로 par swap 금리를 재산출한다 (독립 검증용).
+
+    부트스트랩 점화식의 역산이 아니라 **할인계수로부터 다시 가격을 계산**하는
+    경로다. 따라서 커브가 틀리면(외부 공급·섭동·보간 규약 불일치) 재산출값이
+    입력 par 금리에서 벗어나고 calibration 게이트가 발동한다 — 역산 방식은
+    어떤 커브에도 오차 0을 내므로 통제가 되지 못한다.
+    """
+    nt = [float(x) for x in np.asarray(node_tenors, dtype=float)]
+    nl = [float(x) for x in np.log(np.asarray(node_dfs, dtype=float))]
+    tau = 1.0 / freq
+    out = np.empty(len(tenors), dtype=float)
+    for i, t_i in enumerate(np.asarray(tenors, dtype=float)):
+        df_T = _df_interp(float(t_i), nt, nl)
+        if t_i <= tau + 1e-12:
+            out[i] = (1.0 / df_T - 1.0) / t_i
+        else:
+            ann = sum(tau * _df_interp(c, nt, nl)
+                      for c in _coupon_schedule(float(t_i), freq))
+            out[i] = (1.0 - df_T) / ann
+    return out
+
+
+def bootstrap_zero_curve(tenors, par_rates, *, freq: int = 1,
                          snapshot: MarketDataSnapshot | None = None) -> ZeroCurve:
-    """연 1회 지급 par swap 금리에서 제로커브를 부트스트랩한다.
+    """par swap 금리에서 제로커브를 부트스트랩한다 (만기 간격을 실제로 반영).
 
-        S_n · Σ_{i≤n} DF_i + DF_n = 1
-        ⇒ DF_n = (1 − S_n · Σ_{i<n} DF_i) / (1 + S_n)
+    - 만기 ≤ 1/freq: 단리 예치 관행 ``DF = 1/(1 + s·t)``
+    - 그 외: 실제 쿠폰 스케줄 [1/freq, 2/freq, …, T] 전체에 대해
+      ``s·Σ τ·DF(t_i) + DF(T) = 1`` 을 만족하는 DF(T)를 이분법으로 구한다.
+      중간 쿠폰일의 DF는 이미 확정된 노드에서 로그선형 보간한다.
 
-    입력 par 금리를 커브로 재산출해 오차(bp)를 함께 반환한다 — 재현하지 못하는
-    커브는 calibration 실패다.
+    호가 만기가 비등간격(0.5·1·2·3·5·7·10·…)이어도 annuity가 실제 쿠폰 수를
+    반영한다 — 호가점만 더하면 30년 스왑의 annuity가 10개 쿠폰으로 계산돼
+    할인계수가 배로 틀린다.
+
+    재산출 검증은 **부트스트랩 점화식의 역산이 아니라** 얻어진 커브로 실제
+    쿠폰 스케줄을 다시 할인해 par 금리를 구하는 방식이다 — 역산은 어떤
+    입력에도 오차 0을 내는 항등식이라 통제가 되지 못한다.
     """
     t = np.asarray(tenors, dtype=float)
     s = np.asarray(par_rates, dtype=float)
@@ -156,26 +209,56 @@ def bootstrap_zero_curve(tenors, par_rates, *,
         raise MarketDataError("만기는 증가 순이어야 한다")
     if np.any(t <= 0):
         raise MarketDataError("만기는 양수여야 한다")
+    if freq < 1:
+        raise MarketDataError("지급 빈도는 1 이상이어야 한다")
 
-    dfs = np.empty_like(t)
-    running = 0.0
-    for i in range(len(t)):
-        dfs[i] = (1.0 - s[i] * running) / (1.0 + s[i])
-        if dfs[i] <= 0:
-            raise MarketDataError(
-                f"만기 {t[i]}년에서 할인계수가 비양수 — par 금리 {s[i]:.4%} 확인 필요")
-        running += dfs[i]
+    tau = 1.0 / freq
+    nodes_t: list[float] = []
+    nodes_logdf: list[float] = []
 
-    zero = -np.log(dfs) / t
+    for t_i, s_i in zip(t, s):
+        if t_i <= tau + 1e-12:
+            df_i = 1.0 / (1.0 + s_i * t_i)          # 단리 예치
+            if df_i <= 0:
+                raise MarketDataError(
+                    f"만기 {t_i}년에서 할인계수가 비양수 — par 금리 {s_i:.4%} 확인 필요")
+        else:
+            sched = _coupon_schedule(float(t_i), freq)
 
-    # 재산출: annuity로 par 금리를 되돌린다.
-    annuity = np.cumsum(dfs)
-    repriced = (1.0 - dfs) / annuity
+            def pv(df_guess: float) -> float:
+                tt = nodes_t + [float(t_i)]
+                ll = nodes_logdf + [float(np.log(df_guess))]
+                ann = sum(tau * _df_interp(c, tt, ll) for c in sched)
+                return s_i * ann + _df_interp(float(t_i), tt, ll) - 1.0
+
+            lo, hi = 1e-12, 1.0
+            if pv(lo) * pv(hi) > 0:
+                raise MarketDataError(
+                    f"만기 {t_i}년에서 부트스트랩 해가 존재하지 않는다 "
+                    f"— par 금리 {s_i:.4%} 확인 필요")
+            for _ in range(200):                      # 이분법 (scipy 비의존)
+                mid = 0.5 * (lo + hi)
+                if pv(lo) * pv(mid) <= 0:
+                    hi = mid
+                else:
+                    lo = mid
+            df_i = 0.5 * (lo + hi)
+
+        nodes_t.append(float(t_i))
+        nodes_logdf.append(float(np.log(df_i)))
+
+    dfs = np.exp(np.asarray(nodes_logdf))
+    zero = -np.asarray(nodes_logdf) / t
+
+    # ---- 독립 재산출: 얻어진 커브로 par 금리를 다시 구한다 ----
+    repriced = reprice_par_rates(np.asarray(nodes_t), np.exp(nodes_logdf),
+                                 t, freq=freq)
     err_bps = float(np.max(np.abs(repriced - s)) * 10_000)
 
     return ZeroCurve(tenors=t, discount_factors=dfs, zero_rates=zero,
                      par_input=s, par_repriced=repriced,
-                     max_repricing_error_bps=err_bps, snapshot=snapshot)
+                     max_repricing_error_bps=err_bps, snapshot=snapshot,
+                     freq=freq)
 
 
 # ---------------------------------------------------------------- 변동성면
@@ -192,8 +275,13 @@ class VolSurface:
     snapshot: MarketDataSnapshot | None = None
 
     def total_variance(self, k: float, T: float) -> float:
-        row = self.params.iloc[int(np.argmin(np.abs(self.expiries - T)))]
-        return float(row["a"] + row["b"] * k + row["c"] * k * k)
+        """만기 간 total variance **선형보간** (nearest 사용 시 노드 사이
+        내재변동성이 크게 틀리고 기간구조가 비단조가 된다). total variance에
+        대한 선형보간은 calendar 무차익성을 보존한다."""
+        ws = np.array([float(r["a"] + r["b"] * k + r["c"] * k * k)
+                       for _, r in self.params.sort_values("expiry").iterrows()])
+        ts = np.sort(self.expiries)
+        return float(np.interp(float(T), ts, ws))
 
     def implied_vol(self, k: float, T: float) -> float:
         w = max(self.total_variance(k, T), 1e-12)
@@ -203,23 +291,61 @@ class VolSurface:
         return self.rmse <= tol
 
     # ---- 무차익 ----
-    def butterfly_violations(self) -> list[str]:
-        """볼록성 — c < 0 이면 나비 차익거래가 존재한다."""
-        return [f"T={row['expiry']:.2f}: c={row['c']:.5f} < 0 (볼록성 위반)"
-                for _, row in self.params.iterrows() if row["c"] < 0]
+    def _g(self, k: float, row) -> float:
+        """Gatheral & Jacquier (2014) Lemma 2.2 의 g(k).
 
-    def calendar_violations(self, k_grid=(-0.2, -0.1, 0.0, 0.1, 0.2)) -> list[str]:
-        """만기가 길수록 total variance가 커야 한다 (달력 차익 방지)."""
+            g = (1 − k·w′/(2w))² − (w′²/4)(1/w + 1/4) + w″/2
+
+        w(k)=a+bk+ck² 에서 w′=b+2ck, w″=2c. g(k) ≥ 0 이 나비 차익거래
+        부재의 조건이다. **c ≥ 0(볼록성)은 이 조건과 동치가 아니다** —
+        볼록해도 스큐가 가파르면 g<0 이 되고, 살짝 오목해도 g≥0 일 수 있다.
+        """
+        a, b, c = float(row["a"]), float(row["b"]), float(row["c"])
+        w = a + b * k + c * k * k
+        if w <= 0:
+            return -1.0                      # total variance 비양수 자체가 위반
+        wp = b + 2.0 * c * k
+        wpp = 2.0 * c
+        return ((1.0 - k * wp / (2.0 * w)) ** 2
+                - (wp * wp / 4.0) * (1.0 / w + 0.25) + wpp / 2.0)
+
+    def _k_grid(self, n: int = 201) -> np.ndarray:
+        """적합 구간을 촘촘히 덮는 격자 — 성긴 표본은 구간 내 위반을 놓친다."""
+        return np.linspace(-0.4, 0.4, n)
+
+    def butterfly_violations(self, n_grid: int = 201) -> list[str]:
+        """g(k) < 0 인 지점 탐색 (Gatheral 조건)."""
         out = []
-        srt = self.params.sort_values("expiry")
-        for k in k_grid:
-            w = [float(r["a"] + r["b"] * k + r["c"] * k * k)
-                 for _, r in srt.iterrows()]
-            for i in range(1, len(w)):
-                if w[i] < w[i - 1] - 1e-12:
-                    out.append(
-                        f"k={k:+.2f}: T={srt.iloc[i]['expiry']:.2f} total variance "
-                        f"{w[i]:.5f} < T={srt.iloc[i-1]['expiry']:.2f} {w[i-1]:.5f}")
+        for _, row in self.params.iterrows():
+            ks = self._k_grid(n_grid)
+            gs = np.array([self._g(float(k), row) for k in ks])
+            bad = gs < -1e-12
+            if bad.any():
+                i = int(np.argmin(gs))
+                out.append(
+                    f"T={row['expiry']:.2f}: g(k)<0 구간 {int(bad.sum())}/{len(ks)}점 "
+                    f"(최소 g={gs[i]:.5f} @ k={ks[i]:+.3f}, c={row['c']:+.4f})")
+        return out
+
+    def calendar_violations(self, n_grid: int = 201) -> list[str]:
+        """만기가 길수록 total variance가 커야 한다 (달력 차익 방지).
+
+        고정 5점 표본은 그 사이 구간의 역전을 놓치므로 촘촘한 격자를 쓴다.
+        """
+        out = []
+        srt = self.params.sort_values("expiry").reset_index(drop=True)
+        ks = self._k_grid(n_grid)
+        for i in range(1, len(srt)):
+            prev, cur = srt.iloc[i - 1], srt.iloc[i]
+            w_prev = prev["a"] + prev["b"] * ks + prev["c"] * ks ** 2
+            w_cur = cur["a"] + cur["b"] * ks + cur["c"] * ks ** 2
+            gap = w_cur - w_prev
+            if (gap < -1e-12).any():
+                j = int(np.argmin(gap))
+                out.append(
+                    f"T={cur['expiry']:.2f} vs {prev['expiry']:.2f}: "
+                    f"total variance 역전 {int((gap < -1e-12).sum())}/{len(ks)}점 "
+                    f"(최대 역전 {gap[j]:.5f} @ k={ks[j]:+.3f})")
         return out
 
     def is_arbitrage_free(self) -> bool:

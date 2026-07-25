@@ -33,9 +33,12 @@ from risk_lib.references import (
 )
 
 
-# 인가업무 단위별 법정 필요자기자본 (억원 단위 관행값 → 원 단위로 보관).
-# 실제 값은 인가 내역에 따라 달라지므로 호출자가 재정의할 수 있다.
-LICENSE_CAPITAL_REQUIREMENT: dict[str, float] = {
+# 인가업무 단위별 **법정 최저자기자본** (진입요건, 원 단위).
+# 필요유지자기자본은 이 값의 100분의 70이다 — 두 개념을 혼동하면 분모가
+# 43% 과대되어 순자본비율이 그만큼 낮게 나온다.
+MAINTENANCE_FACTOR = 0.70          # 금융투자업규정 제3-6조
+
+LICENSE_MINIMUM_CAPITAL: dict[str, float] = {
     "투자매매업(인수)":       50_000_000_000.0,
     "투자매매업(자기매매)":   20_000_000_000.0,
     "투자중개업":             3_000_000_000.0,
@@ -146,20 +149,37 @@ def compute_total_risk(market_risk: float, credit_risk: float,
                      total=float(sum(vals.values())))
 
 
-def required_capital(licenses: list[str] | dict[str, float]) -> tuple[float, pd.DataFrame]:
-    """필요유지자기자본 = 보유 인가업무 단위별 법정 필요자기자본의 합."""
+def required_capital(licenses: list[str] | dict[str, float]
+                     ) -> tuple[float, pd.DataFrame]:
+    """필요유지자기자본 = Σ (인가업무 단위별 최저자기자본 × 70%).
+
+    dict를 주면 그 값을 **최저자기자본**으로 보고 동일하게 70%를 적용한다.
+    분모가 0이나 음수가 되면 비율의 부호가 뒤집혀 자본부족 회사가 통과로
+    표시되므로, 모든 값을 양수로 강제한다.
+    """
     if isinstance(licenses, dict):
         table = dict(licenses)
     else:
-        unknown = set(licenses) - set(LICENSE_CAPITAL_REQUIREMENT)
+        unknown = set(licenses) - set(LICENSE_MINIMUM_CAPITAL)
         if unknown:
             raise ValueError(f"미등록 인가업무 단위: {sorted(unknown)}")
-        table = {lic: LICENSE_CAPITAL_REQUIREMENT[lic] for lic in licenses}
+        table = {lic: LICENSE_MINIMUM_CAPITAL[lic] for lic in licenses}
     if not table:
         raise ValueError("인가업무 단위가 없다 — 필요유지자기자본 분모가 0")
-    df = pd.DataFrame({"license": list(table),
-                       "requirement": [float(v) for v in table.values()]})
-    return float(df["requirement"].sum()), df
+    bad = {k: v for k, v in table.items() if not (float(v) > 0)}
+    if bad:
+        raise ValueError(
+            f"최저자기자본은 양수여야 한다 (분모 부호 역전 방지): {sorted(bad)}")
+
+    df = pd.DataFrame({
+        "license": list(table),
+        "minimum_capital": [float(v) for v in table.values()],
+    })
+    df["requirement"] = df["minimum_capital"] * MAINTENANCE_FACTOR
+    total = float(df["requirement"].sum())
+    if total <= 0:
+        raise ValueError("필요유지자기자본 합계가 비양수 — 산출 불가")
+    return total, df
 
 
 def prompt_action_grade(ncr: float) -> str:

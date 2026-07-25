@@ -850,7 +850,11 @@ def page_manual_adjustments(r: PipelineResult) -> str:
         "rwa.final_total": float(r.rwa["final_total"]),
         "alm.lcr": float(r.alm["lcr"].lcr),
     }
-    reported = {k: v + led.net_effect(k) for k, v in engine.items()}
+    # 보고값은 **원장과 독립된 출처**여야 한다. 이 패키지의 다른 페이지들은
+    # 조정을 반영하지 않은 엔진값을 그대로 싣으므로, 실제 공표값이 곧 엔진값이다.
+    # 원장에서 역산한 값을 넣으면 잔차가 항상 0이 되어 "미기록 조정 0건"이
+    # 구조적으로 보장된다 — 발동 불가능한 체크는 허위 안심이다.
+    reported = dict(engine)
     recon = reconcile(led, engine, reported)
     unrecorded = unrecorded_adjustments(recon)
 
@@ -864,8 +868,8 @@ def page_manual_adjustments(r: PipelineResult) -> str:
              tone="bad" if n_blocked else "good"),
         _kpi("원장 지문", led.fingerprint()[:16],
              sub="manifest 연동 — 조정 포함/미포함 구분"),
-        _kpi("미기록 조정", f"{len(unrecorded)}건",
-             sub="대사 잔차 — 0이어야 정상",
+        _kpi("대사 불일치", f"{len(unrecorded)}건",
+             sub="보고값 ≠ 엔진값+적용조정 — 조사 대상",
              tone="bad" if len(unrecorded) else "good"),
     ])
 
@@ -947,15 +951,25 @@ def page_manual_adjustments(r: PipelineResult) -> str:
 <div class="card"><h2>65-4. 엔진값 ↔ 보고값 대사 (RDM-005)</h2>
 {_table(["수치", "엔진 산출", "적용 조정", "기대 보고값", "실제 보고값",
          "잔차", "대사", "적용/차단"], recon_rows, right_cols=[1, 2, 3, 4, 5])}
-<p class="section-lead">잔차는 <b>0이어야 정상</b>입니다. 0이 아니면 원장에 없는
-조정이 개입한 것이므로 즉시 조사 대상입니다. 보고값이 제공되지 않은 수치는
-"미대사"로 표기하며 — <b>대사하지 않은 것을 통과로 적지 않습니다</b>.</p>
+<p class="section-lead">「실제 보고값」은 <b>원장과 독립된 출처</b>(이 패키지의
+다른 페이지가 실제로 싣는 값)에서 가져옵니다 — 원장에서 역산해 넣으면 잔차가
+항상 0이 되어 <b>발동할 수 없는 체크</b>가 됩니다.
+현재 다른 페이지들은 조정 미반영 엔진값을 공표하므로, 적용된 조정이 있는 수치는
+<b>의도적으로 잔차가 남습니다</b>: 조정이 승인됐으나 아직 보고서에 반영되지
+않았다는 뜻이며, 반영하거나 조정을 철회해야 해소됩니다.
+보고값이 없는 수치는 "미대사"로 표기하며 — <b>대사하지 않은 것을 통과로 적지
+않습니다</b>.</p>
 </div>
 
 <div class="card"><h2>재현성 연동</h2>
-<p>원장 지문 <code>{led.fingerprint()}</code> 이 manifest에 실려, 동일 seed·asof
-산출이라도 <b>조정 포함본과 미포함본이 digest 수준에서 구분</b>됩니다.
-승인 상태까지 지문에 포함되므로 승인 전후도 다른 값이 됩니다.</p>
+<p>원장 지문: <code>{led.fingerprint()}</code></p>
+<p><code>build_manifest(adjustment_ledger=...)</code> 로 산출하면 이 지문이
+manifest의 <code>parameters.adjustment_fingerprint</code> 에 실려, 동일
+seed·asof 산출이라도 <b>조정 포함본과 미포함본이 digest 수준에서 구분</b>됩니다.
+승인 상태까지 지문에 포함되므로 승인 전후도 다른 값이 됩니다.
+<b>원장을 넘기지 않고 산출하면 manifest에는 <code>"none"</code> 이 기록되며</b>,
+이 경우 조정이 없었다는 뜻이 아니라 기록되지 않았다는 뜻입니다 —
+manifest의 값을 직접 확인하세요.</p>
 <p class="cite">담당: risk-orchestrator (RYNTA PRD-RDM) · 요건 DAT-006 · RDM-007 ·
 근거 BCBS 239 원칙 3(정확성·무결성) · AIMS_POLICY.md §2-1(인적 감독) ·
 커버리지 <a href="63_rynta_coverage.html">63번 페이지</a></p>

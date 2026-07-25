@@ -9,7 +9,7 @@ import pytest
 from risk_lib.ncr import (
     compute_ncr, compute_net_operating_capital, compute_total_risk,
     required_capital, prompt_action_grade, reconcile_prior_period,
-    compute_ncr_from_result, LICENSE_CAPITAL_REQUIREMENT,
+    compute_ncr_from_result, LICENSE_MINIMUM_CAPITAL, MAINTENANCE_FACTOR,
 )
 from risk_lib.references import NCR_MIN, NCR_PROMPT_ACTION, NCR_EARLY_WARNING
 
@@ -65,12 +65,20 @@ def test_total_risk_rejects_negative():
 
 # ----- 필요유지자기자본 -----------------------------------------------------
 
-def test_required_capital_sums_licenses():
+def test_required_capital_applies_maintenance_factor():
+    """필요유지자기자본 = 최저자기자본 × 70% (금융투자업규정 제3-6조).
+
+    최저자기자본(진입요건)을 그대로 분모로 쓰면 43% 과대되어 순자본비율이
+    그만큼 낮게 나온다.
+    """
     total, df = required_capital(["투자중개업", "신탁업"])
-    assert total == pytest.approx(
-        LICENSE_CAPITAL_REQUIREMENT["투자중개업"]
-        + LICENSE_CAPITAL_REQUIREMENT["신탁업"])
+    minimum = (LICENSE_MINIMUM_CAPITAL["투자중개업"]
+               + LICENSE_MINIMUM_CAPITAL["신탁업"])
+    assert MAINTENANCE_FACTOR == 0.70
+    assert total == pytest.approx(minimum * MAINTENANCE_FACTOR)
+    assert total < minimum
     assert len(df) == 2
+    assert (df["requirement"] < df["minimum_capital"]).all()
 
 
 def test_required_capital_rejects_empty_and_unknown():
@@ -80,6 +88,22 @@ def test_required_capital_rejects_empty_and_unknown():
         required_capital(["존재하지않는업무"])
 
 
+def test_required_capital_rejects_zero_and_negative_denominator():
+    """분모가 0·음수가 되면 비율 부호가 뒤집혀 자본부족 회사가 통과로 표시된다."""
+    with pytest.raises(ValueError, match="양수여야"):
+        required_capital({"단위A": 0.0})
+    with pytest.raises(ValueError, match="양수여야"):
+        required_capital({"단위A": -1e9})
+
+
+def test_negative_denominator_cannot_flip_the_verdict():
+    """음수 분모 경로가 막혔는지 — 순자본 부족인데 통과로 뒤집히면 안 된다."""
+    with pytest.raises(ValueError):
+        compute_ncr(1_000.0, 900.0,           # 영업용순자본 100
+                    market_risk=200.0, credit_risk=0.0, operational_risk=0.0,
+                    licenses={"단위A": -100.0})   # 음수 분모 시도
+
+
 # ----- 순자본비율 · 적기시정조치 --------------------------------------------
 
 def test_ncr_identity():
@@ -87,13 +111,15 @@ def test_ncr_identity():
     n = compute_ncr(
         1_000.0, 400.0,
         market_risk=100.0, credit_risk=80.0, operational_risk=20.0,
-        licenses={"단위A": 200.0},
+        licenses={"단위A": 200.0},          # 최저자기자본 → 유지 140
         deductions={"고정자산": 100.0}, additions={"후순위차입금": 50.0})
     noc = 1_000 - 400 - 100 + 50            # 550
+    req = 200.0 * MAINTENANCE_FACTOR        # 140
     assert n.noc.net_operating_capital == pytest.approx(noc)
     assert n.risk.total == pytest.approx(200.0)
     assert n.surplus == pytest.approx(noc - 200.0)
-    assert n.ncr == pytest.approx((noc - 200.0) / 200.0)
+    assert n.required_capital == pytest.approx(req)
+    assert n.ncr == pytest.approx((noc - 200.0) / req)
 
 
 def test_prompt_action_thresholds_at_the_boundary():

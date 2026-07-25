@@ -75,8 +75,14 @@ class ManualAdjustment:
         return abs(self.delta) >= MATERIALITY_ABS or self.rel_delta >= MATERIALITY_REL
 
     def is_expired(self, asof: str | date) -> bool:
-        asof = asof if isinstance(asof, str) else asof.isoformat()
-        return self.expires_on < asof
+        """ISO date로 파싱해 비교한다 — 문자열 사전순 비교는 비ISO 형식이나
+        자릿수 미보정 날짜에서 통제를 영구히 무력화한다."""
+        a = date.fromisoformat(asof if isinstance(asof, str) else asof.isoformat())
+        try:
+            exp = date.fromisoformat(self.expires_on)
+        except (ValueError, TypeError):
+            return True          # 파싱 불가 = 유효기간 없음 = 사용 불가
+        return exp < a
 
     # ---- 통제 ----
     def control_violations(self, asof: str | date) -> list[str]:
@@ -99,6 +105,10 @@ class ManualAdjustment:
             v.append(f"상위 승인자 자격 미달: {self.senior_approval}")
         if self.status not in VALID_STATUS:
             v.append(f"알 수 없는 상태: {self.status}")
+        try:
+            date.fromisoformat(self.expires_on)
+        except (ValueError, TypeError):
+            v.append(f"유효기간 형식 오류 (ISO date 아님): {self.expires_on!r}")
         return v
 
     def can_apply(self, asof: str | date) -> bool:
@@ -118,10 +128,40 @@ class AdjustmentLedger:
                 f"{adj.adjustment_id}: 사유·증빙 없는 조정은 등록할 수 없다")
         self.adjustments.append(adj)
 
+    def cumulative_violations(self, asof: str | date) -> dict[str, str]:
+        """figure_id별 **누적** 중요성 검사 — 쪼개기(splitting) 우회 차단.
+
+        건별로는 임계 미만이어도 같은 수치에 대한 조정 합이 임계를 넘으면
+        상위 승인이 필요하다. 상위 승인이 하나도 없으면 그 수치의 조정을
+        모두 차단한다 — 큰 조정을 잘게 나누면 통제가 무력화되기 때문이다.
+        """
+        out: dict[str, str] = {}
+        by_fig: dict[str, list[ManualAdjustment]] = {}
+        for a in self.adjustments:
+            if a.status == "rejected":
+                continue
+            if a.control_violations(asof):
+                continue                       # 개별 위반은 별도로 차단됨
+            by_fig.setdefault(a.figure_id, []).append(a)
+
+        for fig, items in by_fig.items():
+            total = sum(x.delta for x in items)
+            base = items[0].base_value
+            rel = abs(total) / abs(base) if base else float("inf")
+            if len(items) < 2:
+                continue                       # 단건은 개별 임계로 이미 판정
+            if abs(total) >= MATERIALITY_ABS or rel >= MATERIALITY_REL:
+                if not any(x.senior_approval.strip() for x in items):
+                    out[fig] = (
+                        f"누적 중요성 초과 — {len(items)}건 합 Δ {total:,.0f} "
+                        f"({rel:.2%}), 상위 승인 없음 (쪼개기 우회 차단)")
+        return out
+
     def apply_all(self, asof: str | date) -> list[str]:
         """통제를 통과한 조정만 applied로, 만료분은 expired로 전이.
 
         반환값은 적용되지 못한 조정의 사유 목록 — 조용히 넘어가지 않는다.
+        개별 통제를 통과해도 figure_id별 누적 중요성에 걸리면 차단된다.
         """
         blocked = []
         for a in self.adjustments:
@@ -134,6 +174,13 @@ class AdjustmentLedger:
                                + " · ".join(violations))
             else:
                 a.status = "applied"
+
+        # 누적 임계는 개별 판정이 끝난 뒤 적용한다.
+        for fig, reason in self.cumulative_violations(asof).items():
+            for a in self.adjustments:
+                if a.figure_id == fig and a.status == "applied":
+                    a.status = "pending"
+                    blocked.append(f"{a.adjustment_id} ({fig}): {reason}")
         return blocked
 
     # ---- 조회 ----

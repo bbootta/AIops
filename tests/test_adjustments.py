@@ -248,6 +248,31 @@ def test_adjustment_page_renders_blocked_reasons(result):
     assert "상위 승인 필요" in html
 
 
+def test_page_reconciliation_is_not_self_referential(result):
+    """65-4 대사의 '실제 보고값'이 원장에서 역산된 값이면 잔차가 항상 0이라
+    미기록 조정을 영원히 못 잡는다 — 발동 가능한 체크여야 한다."""
+    from risk_lib.ops_pages.governance import page_manual_adjustments
+    from risk_lib.adjustments import demo_ledger, reconcile
+    led = demo_ledger(result, asof=ASOF)
+    led.apply_all(ASOF)
+    engine = {"ecl.ttc_total": float(result.ecl["total"]),
+              "rwa.final_total": float(result.rwa["final_total"])}
+    # 페이지와 동일한 규약(보고값 = 엔진값)으로 대사하면, 적용된 조정이 있는
+    # 수치는 잔차가 남아야 한다 — 0이면 자기참조다.
+    recon = reconcile(led, engine, dict(engine))
+    adjusted = [fid for fid in engine if abs(led.net_effect(fid)) > 0]
+    assert adjusted, "테스트 전제: 적용된 조정이 있어야 한다"
+    for fid in adjusted:
+        row = recon[recon["figure_id"] == fid].iloc[0]
+        assert abs(row["residual"]) > 0, (
+            f"{fid}: 적용 조정이 있는데 잔차 0 — 자기참조 대사")
+        assert row["reconciles"] is False or not row["reconciles"]
+    # 페이지도 이를 숨기지 않고 '대사 불일치' 건수로 노출해야 한다
+    html = page_manual_adjustments(result)
+    assert "대사 불일치" in html
+    assert "원장과 독립된 출처" in html
+
+
 def test_adjustment_page_registered():
     from risk_lib.page_registry import PAGES
     specs = [p for p in PAGES if p.filename == "65_manual_adjustments.html"]
