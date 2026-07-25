@@ -111,6 +111,8 @@ PAGES: tuple[PageSpec, ...] = (
     PageSpec("62_cecl_ifrs9.html", "62. CECL vs IFRS9", _CREDIT, "page_cecl_ifrs9"),
     PageSpec("63_rynta_coverage.html", "63. RYNTA 요건", _GOV, "page_rynta_coverage"),
     PageSpec("64_ncr.html",        "64. 순자본비율(NCR)", _MARKET, "page_ncr"),
+    PageSpec("65_manual_adjustments.html", "65. 수동조정 원장", _GOV,
+             "page_manual_adjustments"),
 )
 
 

@@ -149,6 +149,7 @@ def build_manifest(
     start_utc: datetime,
     end_utc: datetime,
     notes: str = "",
+    adjustment_ledger: Any = None,
 ) -> RunManifest:
     """Construct a RunManifest from a portfolio, parameters, and the PipelineResult."""
     import risk_lib
@@ -160,6 +161,16 @@ def build_manifest(
     parameters = dict(parameters)
     meta = getattr(result, "meta", None) or {}
     parameters.setdefault("asof", meta.get("asof"))
+    # 수동조정 원장 지문 — 조정 포함 산출과 미포함 산출을 digest 수준에서
+    # 구분한다. 원장이 없으면 "none"으로 기록해 '조정 없음'과 '미기록'을
+    # 구분한다 (DAT-006, AIMS_POLICY §2-2).
+    if adjustment_ledger is not None:
+        parameters.setdefault("adjustment_fingerprint",
+                              adjustment_ledger.fingerprint())
+        parameters.setdefault("adjustments_applied",
+                              len(adjustment_ledger.applied()))
+    else:
+        parameters.setdefault("adjustment_fingerprint", "none")
 
     # Headline = every CRO-relevant aggregate, in a fixed key order.
     head = {

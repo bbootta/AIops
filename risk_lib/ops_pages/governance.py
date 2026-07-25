@@ -823,3 +823,145 @@ BRD 요건 {len(df)}건이 이 하니스의 어떤 모듈·보고서 페이지�
 </div>
 """
     return _page("RYNTA 요건 커버리지", body, "63_rynta_coverage.html")
+
+
+# ============================================================================
+# 65. 수동조정 원장 (DAT-006)
+# ============================================================================
+
+def page_manual_adjustments(r: PipelineResult) -> str:
+    """65_manual_adjustments.html — 수동조정 통제·대사.
+
+    기록되지 않은 조정은 보고서 전체를 재현 불가로 만든다. 이 페이지는
+    조정이 통제(직무분리·중요성·유효기간·증빙)를 통과했는지, 그리고 엔진값과
+    보고값이 원장으로 설명되는지를 보인다.
+    """
+    from risk_lib.adjustments import (
+        demo_ledger, reconcile, unrecorded_adjustments,
+        MATERIALITY_ABS, MATERIALITY_REL, SENIOR_APPROVERS)
+
+    asof = r.meta.get("asof", "")
+    led = demo_ledger(r, asof=asof)
+    blocked = led.apply_all(asof)
+    df = led.to_frame()
+
+    engine = {
+        "ecl.ttc_total": float(r.ecl["total"]),
+        "rwa.final_total": float(r.rwa["final_total"]),
+        "alm.lcr": float(r.alm["lcr"].lcr),
+    }
+    reported = {k: v + led.net_effect(k) for k, v in engine.items()}
+    recon = reconcile(led, engine, reported)
+    unrecorded = unrecorded_adjustments(recon)
+
+    n_applied, n_blocked = len(led.applied()), len(blocked)
+    kpis = "".join([
+        _kpi("등록 조정", f"{len(df)}건", sub=f"적용 {n_applied} · 차단 {n_blocked}"),
+        _kpi("적용 조정", f"{n_applied}건",
+             sub="통제 통과분만 수치 반영", tone="good" if n_applied else ""),
+        _kpi("차단 조정", f"{n_blocked}건",
+             sub="통제 위반 — 수치 미반영",
+             tone="bad" if n_blocked else "good"),
+        _kpi("원장 지문", led.fingerprint()[:16],
+             sub="manifest 연동 — 조정 포함/미포함 구분"),
+        _kpi("미기록 조정", f"{len(unrecorded)}건",
+             sub="대사 잔차 — 0이어야 정상",
+             tone="bad" if len(unrecorded) else "good"),
+    ])
+
+    def _sv(v, fid):
+        return _pct(v, 2) if fid.startswith("alm.") else _won(v)
+
+    adj_rows = []
+    for _, a in df.iterrows():
+        st_tone = {"applied": "PASS", "pending": "WARN",
+                   "expired": "FAIL", "rejected": "FAIL"}[a["status"]]
+        st_label = {"applied": "적용", "pending": "차단(미승인)",
+                    "expired": "만료", "rejected": "반려"}[a["status"]]
+        adj_rows.append([
+            a["adjustment_id"], a["label"], a["figure_id"],
+            _sv(a["base_value"], a["figure_id"]),
+            _sv(a["adjusted_value"], a["figure_id"]),
+            ("+" if a["delta"] >= 0 else "−") + _sv(abs(a["delta"]), a["figure_id"]),
+            _badge("중요", "WARN") if a["material"] else "일반",
+            _badge(st_label, st_tone),
+            f'{a["requester"]} → {a["approver"]}'
+            + (f'<br/><span class="cite">상위: {a["senior_approval"]}</span>'
+               if a["senior_approval"] else ""),
+            f'{a["reason"]}<br/><span class="cite">증빙: {a["evidence_ref"]} · '
+            f'유효 ~{a["expires_on"]}</span>',
+        ])
+
+    blocked_html = ("".join(f'<div class="callout bad">{_esc(b)}</div>'
+                            for b in blocked)
+                    if blocked else
+                    '<div class="callout good">차단된 조정 없음.</div>')
+
+    recon_rows = []
+    for _, row in recon.iterrows():
+        fid = row["figure_id"]
+        ok = row["reconciles"]
+        recon_rows.append([
+            fid, _sv(row["engine_value"], fid),
+            ("+" if row["adjustment"] >= 0 else "−") + _sv(abs(row["adjustment"]), fid),
+            _sv(row["expected_reported"], fid),
+            _sv(row["actual_reported"], fid),
+            _sv(row["residual"], fid) if abs(row["residual"]) > 1e-9 else "0",
+            _badge("대사" if ok is True else ("불일치" if ok is False else "미대사"),
+                   "PASS" if ok is True else ("FAIL" if ok is False else "NEUTRAL")),
+            f'{int(row["n_applied"])} / {int(row["n_blocked"])}',
+        ])
+
+    body = f"""
+<h1 class="title">65. 수동조정 원장 — 사람이 덮어쓴 수치의 통제</h1>
+<p class="section-lead">모형·엔진 산출값을 사람이 조정하는 일은 불가피하지만,
+<b>기록되지 않은 조정 한 건이 보고서 전체를 재현 불가로 만듭니다</b>.
+본 원장은 조정마다 사유·증빙·요청자·승인자·유효기간을 강제하고, 통제를 통과한
+조정만 수치에 반영합니다.</p>
+
+<div class="card"><h2>요약</h2>
+<div class="kpi-grid">{kpis}</div>
+</div>
+
+<div class="card"><h2>65-1. 조정 통제 기준</h2>
+{_table(["통제", "기준", "위반 시"], [
+    ["직무분리 (SoD)", "요청자 ≠ 승인자", "적용 차단"],
+    ["중요성 임계", f"절대 {_won(MATERIALITY_ABS)} 또는 기준값 대비 {_pct(MATERIALITY_REL, 0)} 초과",
+     f"상위 승인 필요 ({' · '.join(SENIOR_APPROVERS)})"],
+    ["유효기간", "만료일 경과 시 자동 무효", "상태 expired — 임시조정 영구화 방지"],
+    ["근거 필수", "사유 + 증빙 참조", "등록 자체 거부"],
+])}
+</div>
+
+<div class="card"><h2>65-2. 조정 내역 ({len(df)}건)</h2>
+{_table(["ID", "내용", "대상 수치", "조정 전", "조정 후", "증감", "중요성",
+         "상태", "요청 → 승인", "사유 / 증빙"], adj_rows, right_cols=[3, 4, 5])}
+</div>
+
+<div class="card"><h2>65-3. 차단 사유</h2>
+{blocked_html}
+<p class="section-lead">차단된 조정은 <b>수치에 반영되지 않습니다</b>. 통제를
+충족시키거나(상위 승인 확보·승인자 교체) 반려해야 하며, 조용히 넘어가지 않습니다.</p>
+</div>
+
+<div class="card"><h2>65-4. 엔진값 ↔ 보고값 대사 (RDM-005)</h2>
+{_table(["수치", "엔진 산출", "적용 조정", "기대 보고값", "실제 보고값",
+         "잔차", "대사", "적용/차단"], recon_rows, right_cols=[1, 2, 3, 4, 5])}
+<p class="section-lead">잔차는 <b>0이어야 정상</b>입니다. 0이 아니면 원장에 없는
+조정이 개입한 것이므로 즉시 조사 대상입니다. 보고값이 제공되지 않은 수치는
+"미대사"로 표기하며 — <b>대사하지 않은 것을 통과로 적지 않습니다</b>.</p>
+</div>
+
+<div class="card"><h2>재현성 연동</h2>
+<p>원장 지문 <code>{led.fingerprint()}</code> 이 manifest에 실려, 동일 seed·asof
+산출이라도 <b>조정 포함본과 미포함본이 digest 수준에서 구분</b>됩니다.
+승인 상태까지 지문에 포함되므로 승인 전후도 다른 값이 됩니다.</p>
+<p class="cite">담당: risk-orchestrator (RYNTA PRD-RDM) · 요건 DAT-006 · RDM-007 ·
+근거 BCBS 239 원칙 3(정확성·무결성) · AIMS_POLICY.md §2-1(인적 감독) ·
+커버리지 <a href="63_rynta_coverage.html">63번 페이지</a></p>
+</div>
+
+<div class="callout"><b>예시 원장</b> — 본 페이지의 조정 4건은 통제 작동을 보이기
+위한 합성 사례입니다(통과 2 · 차단 2). 실무 원장이 아닙니다.</div>
+"""
+    return _page("수동조정 원장", body, "65_manual_adjustments.html")
