@@ -113,6 +113,19 @@ function runGame(saveJson, label, drive, opts) {
   drive && drive({ step });
   fire(doc._h.mousedown, ev({ button: 0 })); step(3); fire(doc._h.mouseup, ev({ button: 0 }));
   for (let i = 0; i < 13; i++) { fire(G.wheel, ev({ deltaY: 1 })); fire(doc._h.mousedown, ev({ button: 2 })); fire(doc._h.mouseup, ev({ button: 2 })); }
+  // 🎛 변신 핫키(Z/X/B/N/0) + Tab 픽커 + 아이콘 클릭 — 업적으로 실제 변신을 단언
+  fire(G.keydown, ev({ code: 'KeyZ' })); step(2);
+  if (!(store['mc_achv'] || '').includes('iron')) throw new Error('Z 핫키 변신 실패');
+  fire(G.keydown, ev({ code: 'KeyZ' })); step(2);   // 같은 키 재입력 → 해제
+  fire(G.keydown, ev({ code: 'KeyN' })); step(2);
+  if (!(store['mc_achv'] || '').includes('witherform')) throw new Error('N 핫키 변신 실패');
+  fire(G.keydown, ev({ code: 'KeyX' })); step(2);
+  fire(G.keydown, ev({ code: 'Digit0' })); step(2); // 0 → 사람으로
+  fire(G.keydown, ev({ code: 'Tab' })); step(2);    // 커서 풀고 아이콘 픽커 열기
+  const chip3 = elCache['suitChip3']; if (chip3) fire(chip3._h.click, ev({}));
+  if (!(store['mc_achv'] || '').includes('strange')) throw new Error('아이콘 클릭 변신 실패');
+  step(2);
+  fire(G.keydown, ev({ code: 'Digit0' })); step(2); // 다시 사람 상태로 되돌려 이후 시나리오 유지
   // 활 차지(R) → 발사, 먹기(Q)
   fire(G.keydown, ev({ code: 'KeyR' })); step(2); fire(G.keyup, ev({ code: 'KeyR' }));
   fire(G.keydown, ev({ code: 'KeyQ' }));

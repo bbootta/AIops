@@ -96,6 +96,36 @@
     touch-action: pan-y;
   }
   #achvPanel .stats { color: #8fd3ff; border-top: 1px solid #555; margin-top: 6px; padding-top: 6px; }
+  /* 🎛 변신 아이콘 바 (데스크톱·모바일 공통) — 작은 아이콘을 눌러 바로 변신 */
+  #suitBar {
+    position: fixed; left: 14px; top: 150px; z-index: 15; /* 튜토리얼 말풍선보다 위 — 언제나 누를 수 있게 */
+    display: flex; gap: 5px; align-items: flex-start;
+  }
+  .suitChip {
+    width: 36px; height: 36px; border-radius: 9px; box-sizing: border-box;
+    border: 2px solid rgba(255,255,255,0.35); background: rgba(0,0,0,0.45);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font: 17px monospace; color: #fff; line-height: 1; cursor: pointer;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .suitChip .k { font-size: 8px; font-weight: bold; opacity: 0.6; letter-spacing: 1px; }
+  .suitChip.on { border-color: #ffd54a; background: rgba(255,213,74,0.32); }
+  body.touch #suitBar { gap: 4px; }
+  body.touch .suitChip { width: 30px; height: 30px; font-size: 15px; }
+  body.touch .suitChip .k { display: none; }
+  /* 화면이 낮은 가로 모드: 왼쪽은 조이스틱 자리라 상단(체력~미니맵 사이)으로 이동 */
+  @media (max-height: 420px) {
+    #suitBar { left: auto; right: 120px; top: 4px; }
+  }
+  /* Tab: 마우스 커서를 풀고 크게 띄워 아이콘으로 고르기 (데스크톱) */
+  #suitBar.picking { left: 50%; right: auto; top: 42%; transform: translate(-50%, -50%); gap: 12px; z-index: 17; }
+  #suitBar.picking .suitChip { width: 74px; height: 74px; font-size: 34px; border-radius: 14px; }
+  #suitBar.picking .suitChip .k { font-size: 12px; opacity: 0.8; }
+  #suitPickHint { display: none; }
+  #suitBar.picking #suitPickHint {
+    display: block; position: absolute; left: 50%; top: -34px; transform: translateX(-50%);
+    white-space: nowrap; color: #ffd54a; font: bold 13px monospace; text-shadow: 1px 1px 0 #000;
+  }
   /* 터치 UI (터치 기기에서만 표시) */
   .touchui { display: none; }
   body.touch .touchui { display: flex; }
@@ -125,7 +155,6 @@
   #btnBow   { right: 164px; bottom: 158px; }
   #btnEat   { right: 164px; bottom: 84px; }
   #btnCraft { right: 90px;  bottom: 46px; width: 54px; height: 54px; }
-  #btnSuit  { left: 16px; top: 150px; width: 54px; height: 54px; }
   #btnCam   { left: 16px; top: 214px; width: 54px; height: 54px; }
   #btnUlt   { right: 90px; bottom: 192px; }
   #btnPause { right: 16px; top: 36px; width: 48px; height: 48px; font-size: 14px; }
@@ -247,10 +276,17 @@
 <div id="btnEat" class="tbtn touchui">🍗<span class="lbl">먹기</span></div>
 <div id="btnBow" class="tbtn touchui">🏹<span class="lbl">활</span></div>
 <div id="btnCraft" class="tbtn touchui">⚒<span class="lbl">만들기</span></div>
-<div id="btnSuit" class="tbtn touchui">🤖<span class="lbl">변신</span></div>
 <div id="btnCam" class="tbtn touchui">📷<span class="lbl">시점</span></div>
 <div id="btnUlt" class="tbtn touchui">✨<span class="lbl">필살기</span></div>
 <div id="btnPause" class="tbtn touchui">II<span class="lbl">멈춤</span></div>
+<div id="suitBar">
+  <div id="suitPickHint">🖱 아이콘을 눌러 변신 · 빈 곳을 클릭하면 닫기</div>
+  <div id="suitChip0" class="suitChip on" title="사람으로 돌아가기 (0)">🧍<span class="k">0</span></div>
+  <div id="suitChip1" class="suitChip" title="아이언 슈트 (Z)">🤖<span class="k">Z</span></div>
+  <div id="suitChip2" class="suitChip" title="헐크버스터 (X)">🦾<span class="k">X</span></div>
+  <div id="suitChip3" class="suitChip" title="닥터 스트레인지 (B)">🔮<span class="k">B</span></div>
+  <div id="suitChip4" class="suitChip" title="위더 스톰 (N)">🌪<span class="k">N</span></div>
+</div>
 <div id="craft">
   <h2>제작</h2>
   <div id="recipes"></div>
@@ -276,6 +312,7 @@
     좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 씨앗 심기 · 상자 열기<br>
     <b>Q : 먹기</b> (가진 음식 자동) &nbsp;|&nbsp; <b>R : 활</b> (누르면 차지, 떼면 발사)<br>
     <b>G : 변신</b> 🤖아이언 → 🦾헐크버스터 → 🔮스트레인지 → 🌪위더 스톰 — 3인칭 자유 비행<br>
+    <b>변신 핫키</b> Z🤖 · X🦾 · B🔮 · N🌪 · 0🧍해제 (같은 키를 다시 누르면 해제) &nbsp;|&nbsp; <b>Tab</b> : 마우스로 아이콘 고르기<br>
     슈트: 좌클릭 펄서 · 우클릭 미사일 · R 레이저 · <b>F ✨필살기(광역)</b> &nbsp;|&nbsp; 🔮: 마법 미사일 · 순간이동 · R 시간정지<br>
     포탈은 🌳오버월드 → 🔥네더 → 🌌보이드 순환 — 차원마다 동물과 적이 다릅니다<br>
     <b>V / 📷 : 카메라 각도</b> &nbsp;|&nbsp; <b>Alt+마우스 : 자유 궤도</b> &nbsp;|&nbsp; 휠 : 줌 &nbsp;|&nbsp; 모바일 : 두 손가락 드래그·핀치<br>
@@ -284,6 +321,7 @@
     밤엔 좀비·스켈레톤·크리퍼·거미·어둠 마법사, 보스로 좀비 군주와 🌪위더 스톰 출몰<br>
     나무→판자→곡괭이·검·활·상자, 철/다이아로 갑옷, 금→황금사과, 다이아로 포탈<br>
     모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼(먹기🍗·활🏹 포함)<br>
+    화면 왼쪽 위 <b>🧍🤖🦾🔮🌪 아이콘</b>을 누르면 원하는 모습으로 바로 변신합니다<br>
     아이와 함께라면 아래 설정에서 <b>🧒 평화 모드</b>를 켜 보세요 (몬스터·배고픔 없음)<br>
     월드는 자동 저장됩니다 &nbsp;|&nbsp; ESC : 일시정지
   </p>
@@ -2438,8 +2476,14 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyM') toggleMusic();
   if (e.code === 'KeyQ' && playing()) eatBest();           // 먹기
   if (e.code === 'KeyR' && !e.repeat) bowDown();            // 활 차지 / 레이저
-  if (e.code === 'KeyG' && !e.repeat) toggleSuit();         // 🤖 변신 (아이언 → 헐크버스터 → 해제)
+  if (e.code === 'KeyG' && !e.repeat) toggleSuit();         // 🤖 변신 순환 (아이언 → 헐크버스터 → …)
   if (e.code === 'KeyV') cycleCam();                        // 3인칭 카메라 각도 전환
+  if (e.code === 'Tab') { e.preventDefault(); if (!isTouch && (playing() || suitPickOpen)) toggleSuitPick(!suitPickOpen); }
+  // 변신 종류별 핫키 (같은 키를 다시 누르면 사람으로 돌아옴)
+  if (!e.repeat && (playing() || suitPickOpen)) {
+    const lv = { KeyZ: 1, KeyX: 2, KeyB: 3, KeyN: 4, Digit0: 0 }[e.code];
+    if (lv !== undefined) pickSuit(lv);
+  }
 });
 addEventListener('keyup', (e) => {
   keys[e.code] = false;
@@ -2890,10 +2934,11 @@ const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 if (isTouch) document.body.classList.add('touch');
 let locked = false;
 let touchPlaying = false;
+let suitPickOpen = false; // 🎛 Tab: 커서를 풀고 아이콘으로 변신 고르기 (데스크톱)
 let touchJump = false;
 const joyVec = new THREE.Vector2();
 // 제작/인벤토리/상자 창이 열려 있으면 어느 플랫폼에서든 게임을 멈춤 (모바일 일시정지 일관성)
-function playing() { return (locked || touchPlaying) && !craftOpen && !invOpen && !chestOpen; }
+function playing() { return (locked || touchPlaying) && !craftOpen && !invOpen && !chestOpen && !suitPickOpen; }
 
 overlay.addEventListener('click', () => {
   if (!booted) return; // 월드 생성 완료 전에는 시작 불가
@@ -2921,7 +2966,7 @@ resetBtnEl.addEventListener('click', (e) => {
 });
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
-  overlay.style.display = (locked || craftOpen || invOpen || chestOpen) ? 'none' : 'flex';
+  overlay.style.display = (locked || craftOpen || invOpen || chestOpen || suitPickOpen) ? 'none' : 'flex';
   if (!locked) { saveGame(); stopAttack(); }
 });
 document.addEventListener('mousemove', (e) => {
@@ -3286,9 +3331,16 @@ function cycleCam() {
 bindBtn('btnCam', () => cycleCam());
 bindBtn('btnUlt', () => suitUlt());
 
-function toggleSuit() {
-  if (!playing()) return;
-  suitLevel = (suitLevel + 1) % 5; // 사람 → 아이언 → 헐크버스터 → 닥터 스트레인지 → 위더 스톰 → 사람
+function toggleSuit() { setSuit((suitLevel + 1) % 5); } // G: 사람 → 아이언 → 헐크버스터 → 스트레인지 → 위더 스톰 → 사람
+// 핫키·아이콘: 원하는 모습을 바로 선택 (같은 것을 다시 고르면 해제)
+function pickSuit(level) {
+  if (level === 0 && suitLevel === 0) return;
+  setSuit(level === suitLevel ? 0 : level);
+  if (suitPickOpen) toggleSuitPick(false);
+}
+function setSuit(level) {
+  if (!playing() && !suitPickOpen) return;
+  suitLevel = level;
   suit = suitLevel > 0;
   for (let i = 1; i < suitMeshes.length; i++) suitMeshes[i].visible = i === suitLevel;
   if (suit) suitMesh = suitMeshes[suitLevel];
@@ -3323,8 +3375,35 @@ function toggleSuit() {
     lbl('btnPlace', suit ? '미사일' : '놓기');
     lbl('btnBow', suit ? '레이저' : '활');
   }
+  updateSuitBar();
 }
-bindBtn('btnSuit', () => toggleSuit());
+// 🎛 변신 아이콘 바 — 데스크톱·모바일 모두 작은 아이콘을 눌러 바로 변신
+const suitBarEl = document.getElementById('suitBar');
+function updateSuitBar() {
+  for (let i = 0; i < 5; i++) {
+    const el = document.getElementById('suitChip' + i);
+    if (el) el.className = 'suitChip' + (i === suitLevel ? ' on' : '');
+  }
+}
+// 데스크톱은 마우스가 시선에 묶여 있으므로, Tab으로 커서를 풀고 아이콘을 크게 띄워 고름
+function toggleSuitPick(open) {
+  suitPickOpen = open;
+  suitBarEl.classList.toggle('picking', open);
+  if (open) {
+    stopAttack();
+    cancelCharge();
+    if (locked) document.exitPointerLock();
+  } else if (!isTouch) {
+    canvas.requestPointerLock();
+  }
+}
+for (let i = 0; i < 5; i++) {
+  const el = document.getElementById('suitChip' + i);
+  if (!el) continue;
+  el.addEventListener('touchstart', (e) => { e.preventDefault(); pickSuit(i); });
+  el.addEventListener('click', () => pickSuit(i));
+}
+canvas.addEventListener('click', () => { if (suitPickOpen) toggleSuitPick(false); }); // 빈 곳 클릭 → 픽커 닫기
 
 // 무기 발사체 (펄서 / 미사일)
 const bolts = [];
