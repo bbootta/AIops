@@ -10,9 +10,10 @@ import { CSM } from 'three/addons/csm/CSM.js';
 
 import { setupSky, buildMaterials, buildStreet, STREET_LENGTH, STREET_WIDTH } from './world.js';
 import { makeShadowCreature, makeRifle } from './actors.js';
-import { makeOfficer, poseOfficer } from './player.js';
+import { makeOfficer, poseOfficer, attachScannedHead } from './player.js';
 import { makeCanvas, makeRng, setAnisotropy, setDetailNormals, texture } from './tex.js';
 import { loadDetailNormals } from './detail.js';
+import { loadScannedHead } from './head.js';
 
 const EYE_HEIGHT = 1.68;
 const MAG_SIZE = 30;
@@ -1009,6 +1010,10 @@ async function boot() {
   ui.loading.querySelector('.t').textContent = '표면 디테일';
   await yield_();
   setDetailNormals(await loadDetailNormals());
+
+  ui.loading.querySelector('.t').textContent = '스캔 데이터';
+  await yield_();
+  attachScannedHead(officer, await loadScannedHead());
 
   for (let i = 0; i < steps.length; i++) {
     ui.loading.querySelector('.t').textContent = steps[i][0];

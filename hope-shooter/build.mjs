@@ -8,6 +8,9 @@ const result = await build({
   target: 'es2022',
   minify: true,
   legalComments: 'none',
+  // the scanned head and its skin maps are inlined, so the built page stays
+  // a single file with no side-car requests
+  loader: { '.glb': 'base64', '.jpg': 'base64' },
   write: false,
 });
 

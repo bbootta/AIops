@@ -135,6 +135,8 @@ function jointedLimb(mat, upperLen, lowerLen, r, { boot = null, hand = null } = 
   }
   pivot.add(upper, lower);
   pivot.userData.lower = lower;
+  pivot.userData.upperLen = upperLen;
+  pivot.userData.lowerLen = lowerLen;
   return pivot;
 }
 
@@ -188,14 +190,14 @@ export function makeOfficer() {
   spine.position.y = 1.02;
   root.add(spine);
 
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.185, 0.2, 4, 14), shirt);
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.148, 0.22, 4, 14), shirt);
   torso.position.y = 0.16;
   spine.add(torso);
 
   // the jacket: a slightly larger shell over the shirt, open at the hem
-  const jacket = new THREE.Mesh(new THREE.CapsuleGeometry(0.215, 0.26, 4, 16), leather);
+  const jacket = new THREE.Mesh(new THREE.CapsuleGeometry(0.176, 0.28, 4, 16), leather);
   jacket.position.y = 0.24;
-  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.225, 0.235, 0.16, 16, 1, true), leather);
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.184, 0.196, 0.17, 16, 1, true), leather);
   skirt.position.y = 0.05;
   skirt.material = leather;
   const collar = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.042, 8, 16), leather);
@@ -203,28 +205,28 @@ export function makeOfficer() {
   collar.rotation.x = Math.PI / 2;
   spine.add(jacket, skirt, collar);
 
-  const shoulders = new THREE.Mesh(new RoundedBoxGeometry(0.46, 0.16, 0.24, 3, 0.06), leather);
+  const shoulders = new THREE.Mesh(new RoundedBoxGeometry(0.4, 0.14, 0.21, 3, 0.06), leather);
   shoulders.position.y = 0.42;
   spine.add(shoulders);
 
   // cuffs and a yoke seam across the back, which is the side the player sees
-  for (const cx of [-0.21, 0.21]) {
+  for (const cx of [-0.185, 0.185]) {
     const cuffBand = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.014, 6, 14), leather);
     cuffBand.position.set(cx, 0.4, 0);
     cuffBand.rotation.x = Math.PI / 2;
     spine.add(cuffBand);
   }
-  const yoke = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.014, 0.02), leather);
-  yoke.position.set(0, 0.34, -0.2);
+  const yoke = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.014, 0.02), leather);
+  yoke.position.set(0, 0.34, -0.166);
   spine.add(yoke);
-  const waistband = new THREE.Mesh(new THREE.TorusGeometry(0.208, 0.026, 8, 20), leather);
+  const waistband = new THREE.Mesh(new THREE.TorusGeometry(0.174, 0.024, 8, 20), leather);
   waistband.position.y = 0.04;
   waistband.rotation.x = Math.PI / 2;
   spine.add(waistband);
 
   // shoulder emblem, on the left arm as in the still
   const emblem = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.13), patch);
-  emblem.position.set(-0.212, 0.34, 0.02);
+  emblem.position.set(-0.178, 0.34, 0.02);
   emblem.rotation.y = -Math.PI / 2;
   spine.add(emblem);
 
@@ -259,13 +261,18 @@ export function makeOfficer() {
     0, Math.PI * 2, Math.PI * 0.4, Math.PI * 0.35), hairMat);
   nape.position.set(0, 0.622, -0.028);
   nape.scale.set(1, 1.05, 0.9);
-  spine.add(neck, head, jaw, brow, nose, ears, hair, nape);
+  // The procedural head is a stand-in: it renders immediately, then the
+  // scanned head swaps in once its mesh has decoded.
+  const headSocket = new THREE.Group();
+  headSocket.userData.hairMat = hairMat;
+  headSocket.add(head, jaw, brow, nose, ears, hair, nape);
+  spine.add(neck, headSocket);
 
   // ---- arms ----
   const armL = jointedLimb(leather, 0.3, 0.28, 0.062, { hand: skin });
-  armL.position.set(-0.21, 0.4, 0);
+  armL.position.set(-0.185, 0.4, 0);
   const armR = jointedLimb(leather, 0.3, 0.28, 0.062, { hand: skin });
-  armR.position.set(0.21, 0.4, 0);
+  armR.position.set(0.185, 0.4, 0);
   spine.add(armL, armR);
 
   // where the rifle rides — parented to the spine so it tracks the aim.
@@ -279,8 +286,39 @@ export function makeOfficer() {
     if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; }
   });
 
-  root.userData = { spine, legL, legR, armL, armR, grip, phase: 0 };
+  root.userData = { spine, legL, legR, armL, armR, grip, headSocket, phase: 0 };
   return root;
+}
+
+/**
+ * Swaps the placeholder head for the photogrammetry scan.
+ * The scan is normalised and centred on its own origin, so it only needs
+ * placing at the neck and turning to face the officer's forward, which is -Z.
+ */
+export function attachScannedHead(officer, mesh) {
+  const socket = officer.userData.headSocket;
+  const hairMat = socket.userData.hairMat;
+  socket.clear();
+  mesh.position.set(0, 0.63, 0.012);
+  mesh.rotation.y = Math.PI;
+  socket.add(mesh);
+
+  // The scan is a bare head, so the hair is still ours. It has to wrap the
+  // skull down past the ears — a hemisphere sitting on the crown reads as a
+  // helmet floating above the scalp.
+  const cap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.094, 24, 18, 0, Math.PI * 2, 0, Math.PI * 0.76), hairMat);
+  cap.position.set(0, 0.652, -0.004);
+  cap.scale.set(1.0, 1.06, 1.04);
+  cap.rotation.x = -0.2;          // sits back off the forehead
+  cap.castShadow = true;
+  // a shorter crop at the nape, below where the cap stops
+  const nape = new THREE.Mesh(
+    new THREE.SphereGeometry(0.088, 20, 14, 0, Math.PI * 2, Math.PI * 0.42, Math.PI * 0.3), hairMat);
+  nape.position.set(0, 0.63, -0.018);
+  nape.scale.set(1.0, 1.12, 0.94);
+  nape.castShadow = true;
+  socket.add(cap, nape);
 }
 
 /**
@@ -308,13 +346,7 @@ export function poseOfficer(officer, s) {
   spine.rotation.x = THREE.MathUtils.clamp(s.pitch * 0.55, -0.7, 0.7)
     + (s.sprinting && s.moving ? 0.16 : 0.04);
 
-  // arms stay locked around the rifle; aiming pulls them in tight
   const aim = s.aiming ? 1 : 0;
-  const readyX = THREE.MathUtils.lerp(-1.02, -1.36, aim);
-  armR.rotation.set(readyX + s.recoil * 0.12, THREE.MathUtils.lerp(-0.2, -0.06, aim), -0.2);
-  armR.userData.lower.rotation.x = THREE.MathUtils.lerp(-0.85, -0.5, aim);
-  armL.rotation.set(readyX - 0.12, THREE.MathUtils.lerp(0.55, 0.34, aim), 0.34);
-  armL.userData.lower.rotation.x = THREE.MathUtils.lerp(-1.15, -0.95, aim);
 
   u.grip.position.set(
     THREE.MathUtils.lerp(0.13, 0.03, aim),
@@ -324,4 +356,49 @@ export function poseOfficer(officer, s) {
     THREE.MathUtils.lerp(0.22, 0.0, aim) + s.recoil * 0.1,
     THREE.MathUtils.lerp(-0.16, 0.0, aim),
     THREE.MathUtils.lerp(0.1, 0.0, aim));
+
+  // The hands are solved onto the weapon rather than posed by eye: hand-tuned
+  // Euler angles never quite land on the grip, and any change to the rifle's
+  // position silently breaks them again.
+  officer.updateMatrixWorld(true);
+  reachFor(armR, u.grip, spine, RIGHT_HAND, 1);
+  reachFor(armL, u.grip, spine, LEFT_HAND, -1);
+}
+
+const DOWN = new THREE.Vector3(0, -1, 0);
+const RIGHT_HAND = new THREE.Vector3(0.005, -0.1, 0.075);   // pistol grip
+const LEFT_HAND = new THREE.Vector3(0, 0.0, -0.3);          // handguard
+const _target = new THREE.Vector3();
+const _origin = new THREE.Vector3();
+const _dir = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+
+/**
+ * Two-bone IK: swings the shoulder so the hand lands on `localTarget`
+ * (expressed in the weapon grip's space) and bends the elbow to match.
+ * `side` flips which way the elbow breaks.
+ */
+function reachFor(arm, grip, spine, localTarget, side) {
+  _target.copy(localTarget);
+  grip.localToWorld(_target);
+  spine.worldToLocal(_target);
+
+  _origin.copy(arm.position);
+  _dir.copy(_target).sub(_origin);
+
+  const l1 = arm.userData.upperLen;
+  const l2 = arm.userData.lowerLen;
+  const d = THREE.MathUtils.clamp(_dir.length(), Math.abs(l1 - l2) + 0.02, l1 + l2 - 0.02);
+  _dir.normalize();
+
+  // law of cosines for the shoulder offset and the elbow's interior angle
+  const shoulder = Math.acos(
+    THREE.MathUtils.clamp((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d), -1, 1));
+  const elbow = Math.acos(
+    THREE.MathUtils.clamp((l1 * l1 + l2 * l2 - d * d) / (2 * l1 * l2), -1, 1));
+
+  arm.quaternion.copy(_q.setFromUnitVectors(DOWN, _dir));
+  arm.rotateX(shoulder);
+  arm.rotateY(side * 0.12);          // let the elbows break outward a little
+  arm.userData.lower.rotation.set(-(Math.PI - elbow), 0, 0);
 }
