@@ -242,3 +242,36 @@ def test_every_deviation_states_a_reason():
     for fid, reason in DEVIATIONS.items():
         assert len(reason) > 40, f"{fid}: 이탈 사유가 불충분"
         assert "카탈로그" in reason and "하니스" in reason
+
+
+# ----- 수식 카탈로그 ↔ 에이전트 정의 연결 -----------------------------------
+
+def test_agents_declare_their_canonical_formulas():
+    """각 에이전트가 담당 도메인의 정식 산식 ID를 자체 보유해야 한다."""
+    from pathlib import Path
+    agents = Path(__file__).resolve().parent.parent / ".claude" / "agents"
+    expected = {
+        "rwa-calculator": ["CR-F001", "CR-F008", "CR-F013"],
+        "credit-rating-modeler": ["CR-F002", "CR-F003", "CR-F004"],
+        "ifrs9-ecl-analyst": ["CR-F005"],
+        "delinquency-pd-lgd-monitor": ["CR-F007", "CR-F011"],
+        "stress-test-engineer": ["ST-F001", "ST-F004", "ST-F006"],
+        "bis-ratio-analyst": ["CAP-F001", "SCN-F002"],
+        "risk-validator": ["VAL-F001", "VAL-F002"],
+        "aims-compliance-auditor": ["AIG-F001", "AIG-F002"],
+        "risk-orchestrator": ["AIG-F001"],
+    }
+    for agent, fids in expected.items():
+        txt = (agents / f"{agent}.md").read_text(encoding="utf-8")
+        assert "정식 산식" in txt, f"{agent}: 산식 섹션 없음"
+        for fid in fids:
+            assert fid in txt, f"{agent}: {fid} 미표기"
+
+
+def test_documented_deviations_appear_in_owning_agent():
+    """의도적 이탈은 해당 산식을 담당하는 에이전트 정의에도 명시돼야 한다."""
+    from pathlib import Path
+    agents = Path(__file__).resolve().parent.parent / ".claude" / "agents"
+    # CR-F003(PD 하한) 이탈은 credit-rating-modeler가 담당
+    txt = (agents / "credit-rating-modeler.md").read_text(encoding="utf-8")
+    assert "5bp" in txt and "d424" in txt, "PD 하한 이탈이 담당 에이전트에 미기재"

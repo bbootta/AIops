@@ -135,3 +135,22 @@ ECL·충당금·회계전표, RWA·NCR·BIS 비율, 감독제출·공시, 경영
 이 항목들은 산출·권고까지만 하고 확정은 책임 있는 사람이 한다.
 
 요건 커버리지 추적: `risk_lib/rynta.py` · 보고서 `ops/63_rynta_coverage.html`.
+
+### 정식 산식 (RYNTA 수식랩 `12_Formula_Catalog`)
+
+담당 도메인의 정식 산식이다. 새 공식을 임의로 만들지 말고 아래를 따르며,
+이탈이 필요하면 사유를 명시하고 `tests/test_rynta_formulas.py`에 고정한다.
+
+| 수식 ID | 목적 | 논리 |
+|---|---|---|
+| `CR-F001` | EAD | 인출액 + CCF × 미인출액 |
+| `CR-F008` | CRM 배분 | MIN(적격풀, MAX(0, EAD − 선배분액)) — 초과배분 금지 |
+| `CR-F013` | CRM 후 PD | PD_After = PD_Before (PD_Delta=0 Negative Test) |
+| `CR-F014` | CRM 조정 EAD | MAX(0, Gross_EAD − Allocated_Collateral) |
+| `CR-F015` | CRM 후 LGD | (배분×Secured_LGD + 무담보×LGD_Before)/Gross_EAD |
+| `CR-F016` | CRM 방법선택 | EAD 경로와 LGD 경로 중복효과 금지 — 목적별 택일 |
+| `CR-F009` | 검증 위험가중치 | MIN(1.5, MAX(0.2, RW + LTV조정 + 불일치가산)) |
+| `CR-F010` | 검증 RWA·차이 | Validated_RWA = EAD × Validated_RW, Delta 대사 |
+
+카탈로그는 "데모 수식이며 운영 적용 전 기관 승인 사양과 독립검증으로 교체해야
+한다"고 명시한다 — 운영 적용 시 기관 승인 산식으로 교체가 전제다.

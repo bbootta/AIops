@@ -83,3 +83,20 @@ ECL·충당금·회계전표, RWA·NCR·BIS 비율, 감독제출·공시, 경영
 이 항목들은 산출·권고까지만 하고 확정은 책임 있는 사람이 한다.
 
 요건 커버리지 추적: `risk_lib/rynta.py` · 보고서 `ops/63_rynta_coverage.html`.
+
+### 정식 산식 (RYNTA 수식랩 `12_Formula_Catalog`)
+
+담당 도메인의 정식 산식이다. 새 공식을 임의로 만들지 말고 아래를 따르며,
+이탈이 필요하면 사유를 명시하고 `tests/test_rynta_formulas.py`에 고정한다.
+
+| 수식 ID | 목적 | 논리 |
+|---|---|---|
+| `CR-F002` | PD Logit | β0 + Σβk·xk |
+| `CR-F003` | PD | MIN(상한, MAX(하한, 1/(1+exp(−logit)))) — 하한은 5bp 적용(주1) |
+| `CR-F004` | LGD | 1 − 유효담보/EAD + 경기하강 가산 |
+| `CR-F006` | EWS | DPD·사용률·점수변화·관찰대상 규칙기반 조기경보 |
+
+> **주1** 카탈로그 PD 하한은 데모값 3bp이나 본 하니스는 Basel III 최종안(BCBS d424 / CRE32.42)의 **5bp**를 적용한다. 의도적 이탈이며 `tests/test_rynta_formulas.py::DEVIATIONS`에 사유가 고정돼 있다.
+
+카탈로그는 "데모 수식이며 운영 적용 전 기관 승인 사양과 독립검증으로 교체해야
+한다"고 명시한다 — 운영 적용 시 기관 승인 산식으로 교체가 전제다.

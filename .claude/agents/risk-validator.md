@@ -119,3 +119,16 @@ ECL·충당금·회계전표, RWA·NCR·BIS 비율, 감독제출·공시, 경영
 이 항목들은 산출·권고까지만 하고 확정은 책임 있는 사람이 한다.
 
 요건 커버리지 추적: `risk_lib/rynta.py` · 보고서 `ops/63_rynta_coverage.html`.
+
+### 정식 산식 (RYNTA 수식랩 `12_Formula_Catalog`)
+
+담당 도메인의 정식 산식이다. 새 공식을 임의로 만들지 말고 아래를 따르며,
+이탈이 필요하면 사유를 명시하고 `tests/test_rynta_formulas.py`에 고정한다.
+
+| 수식 ID | 목적 | 논리 |
+|---|---|---|
+| `VAL-F001` | 운영/관측 차이 | Observed − Expected (고정표본·모델/규칙버전 명시) |
+| `VAL-F002` | 승인 Gate | 검증 PASS ∧ 직무분리 PASS → PENDING_HUMAN_SIGNOFF (자동승격 FALSE) |
+
+카탈로그는 "데모 수식이며 운영 적용 전 기관 승인 사양과 독립검증으로 교체해야
+한다"고 명시한다 — 운영 적용 시 기관 승인 산식으로 교체가 전제다.
