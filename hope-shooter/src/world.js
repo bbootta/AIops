@@ -69,22 +69,13 @@ export function setupSky(scene, renderer) {
   scene.fog = new THREE.FogExp2(0x000000, 0.0050);
   scene.fog.color.copy(horizon);
 
-  const sunPos = sunDir;
-  const sun = new THREE.DirectionalLight(0xffe8c4, 3.3);
-  sun.position.copy(sunPos).multiplyScalar(140);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(4096, 4096);
-  const c = sun.shadow.camera;
-  c.left = -48; c.right = 48; c.top = 48; c.bottom = -30;
-  c.near = 60; c.far = 320;
-  sun.shadow.bias = -0.0005;
-  sun.shadow.normalBias = 0.03;
-  scene.add(sun, sun.target);
+  // The sun itself is owned by the cascaded shadow rig in main.js, which
+  // needs the camera to split its frustum.
 
   // the sky IBL already supplies ambient; this only lifts the ground bounce
   scene.add(new THREE.HemisphereLight(0xd0c3a4, 0x4a4238, 0.08));
 
-  return { dome, sun, sunDir: sunDir.clone() };
+  return { dome, sunDir: sunDir.clone() };
 }
 
 // ============================================================
@@ -364,10 +355,16 @@ export function buildStreet(scene, lib) {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // wet road: mirror plane below, asphalt with puddle alpha above
+  // Wet road: a mirror plane below, asphalt with puddle alpha above.
+  //
+  // A planar reflector is used rather than screen-space reflections. For a
+  // flat road it is exact where SSR would drop out at the screen edges, and
+  // three's SSRPass renders the scene into its own target the same way the
+  // ambient-occlusion pass does, so the two cannot share a chain — SSR would
+  // have cost the contact shadows across the whole street.
   const mirror = new Reflector(
     new THREE.PlaneGeometry(STREET_WIDTH, STREET_LENGTH + 60),
-    { textureWidth: 512, textureHeight: 512, color: 0x303134 });
+    { textureWidth: 1024, textureHeight: 1024, color: 0x303134 });
   mirror.rotation.x = -Math.PI / 2;
   mirror.position.set(0, 0.004, -STREET_LENGTH / 2 + 12);
   root.add(mirror);

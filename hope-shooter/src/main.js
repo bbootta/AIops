@@ -6,9 +6,11 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { CSM } from 'three/addons/csm/CSM.js';
 
 import { setupSky, buildMaterials, buildStreet, STREET_LENGTH, STREET_WIDTH } from './world.js';
 import { makeShadowCreature, makeRifle } from './actors.js';
+import { makeOfficer, poseOfficer } from './player.js';
 import { makeCanvas, makeRng, setAnisotropy, texture } from './tex.js';
 
 const EYE_HEIGHT = 1.68;
@@ -33,8 +35,12 @@ setAnisotropy(renderer.capabilities.getMaxAnisotropy());
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.02, 900);
-camera.position.set(0, EYE_HEIGHT, -4);
 scene.add(camera);
+
+// The player's feet. The camera is derived from this every frame, so the
+// same movement code drives both the first- and third-person views.
+const player = new THREE.Vector3(0, 0, -4);
+const eye = new THREE.Vector3();
 
 // Dust, smoke and muzzle flashes live on their own layer. The ambient-occlusion
 // pass renders the scene with an override material, which turns a billboard
@@ -143,14 +149,24 @@ function buildAtmosphere() {
 }
 
 // ============================================================
-// Weapon view model
+// Two ways to hold the same rifle.
+//
+// The film still is framed over the officer's shoulder, so third person is
+// the default; first person keeps the detailed view model and gloved hands.
+// Both share one muzzle, which is re-parented when the view changes.
 // ============================================================
-const rifle = makeRifle();
+const viewRifle = makeRifle({ hands: true });
 const REST = new THREE.Vector3(0.15, -0.17, -0.5);
 const AIM = new THREE.Vector3(0, -0.075, -0.4);
-rifle.scale.setScalar(0.86);
-rifle.position.copy(REST);
-camera.add(rifle);
+viewRifle.scale.setScalar(0.86);
+viewRifle.position.copy(REST);
+camera.add(viewRifle);
+
+const officer = makeOfficer();
+const bodyRifle = makeRifle({ hands: false });
+bodyRifle.rotation.set(0, 0, 0);
+officer.userData.grip.add(bodyRifle);
+scene.add(officer);
 
 const muzzle = new THREE.Sprite(new THREE.SpriteMaterial({
   map: flashTex, transparent: true, opacity: 0, depthWrite: false, depthTest: false,
@@ -159,10 +175,15 @@ const muzzle = new THREE.Sprite(new THREE.SpriteMaterial({
 toFx(muzzle);
 muzzle.scale.setScalar(0.32);
 muzzle.position.set(0, 0.01, -0.79);
-rifle.add(muzzle);
 const muzzleLight = new THREE.PointLight(0xffb15c, 0, 12, 2);
 muzzleLight.position.copy(muzzle.position);
-rifle.add(muzzleLight);
+
+function applyView() {
+  const host = S.thirdPerson ? bodyRifle : viewRifle;
+  host.add(muzzle, muzzleLight);
+  viewRifle.visible = !S.thirdPerson;
+  officer.visible = S.thirdPerson;
+}
 
 // ============================================================
 // Transient effects
@@ -285,6 +306,59 @@ function growl() {
 }
 
 // ============================================================
+// Pickups dropped by the dead
+// ============================================================
+const pickups = [];
+const PICKUP_MATS = {
+  ammo: new THREE.MeshStandardMaterial({
+    color: 0x4a4b3c, roughness: 0.7, metalness: 0.3,
+    emissive: 0xffb552, emissiveIntensity: 0.5,
+  }),
+  health: new THREE.MeshStandardMaterial({
+    color: 0xd8d2c4, roughness: 0.6, metalness: 0.05,
+    emissive: 0xd0402c, emissiveIntensity: 0.7,
+  }),
+};
+const PICKUP_GEO = new THREE.BoxGeometry(0.3, 0.2, 0.22);
+
+function dropPickup(at) {
+  const roll = rng();
+  const kind = roll < 0.34 ? 'ammo' : (roll < 0.5 ? 'health' : null);
+  if (!kind) return;
+  const box = new THREE.Mesh(PICKUP_GEO, PICKUP_MATS[kind]);
+  box.position.set(at.x, 0.22, at.z);
+  box.castShadow = true;
+  box.userData = { kind, spin: 0.9 + rng() * 0.5, life: 26 };
+  scene.add(box);
+  pickups.push(box);
+}
+
+function collectPickups(dt) {
+  for (const p of [...pickups]) {
+    p.userData.life -= dt;
+    p.rotation.y += p.userData.spin * dt;
+    p.position.y = 0.22 + Math.sin(clock.elapsedTime * 2.4 + p.id) * 0.045;
+
+    const near = Math.hypot(p.position.x - player.x, p.position.z - player.z) < 1.15;
+    if (near) {
+      if (p.userData.kind === 'ammo') {
+        S.reserve += 30;
+        banner('탄약 보급');
+      } else {
+        S.hp = Math.min(100, S.hp + 30);
+        banner('응급 처치');
+      }
+      click(660, 0.09);
+      syncHUD();
+    }
+    if (near || p.userData.life <= 0) {
+      scene.remove(p);
+      pickups.splice(pickups.indexOf(p), 1);
+    }
+  }
+}
+
+// ============================================================
 // Game state
 // ============================================================
 const S = {
@@ -293,9 +367,10 @@ const S = {
   firing: false, aiming: false, fireT: 0,
   reloading: false, reloadT: 0,
   ammo: MAG_SIZE, reserve: 90,
-  hp: 100, kills: 0,
+  hp: 100, kills: 0, score: 0,
   wave: 0, pending: 0, spawnT: 0,
   recoil: 0, kick: 0, bob: 0, shake: 0, aimBlend: 0,
+  thirdPerson: true, camDist: 2.35,
 };
 
 const enemies = [];
@@ -347,12 +422,16 @@ function banner(text) {
 // ============================================================
 function spawnEnemy() {
   const e = makeShadowCreature(rng);
+  // from wave three a heavier one shows up: slower, far harder to put down
+  const brute = S.wave >= 3 && rng() < 0.2;
   e.position.set(
     (rng() - 0.5) * (STREET_WIDTH - 3), 0,
-    Math.max(camera.position.z - (56 + rng() * 60), -STREET_LENGTH + 8));
-  e.userData.hp = 3 + Math.floor(S.wave / 2);
-  e.userData.speed = (1.55 + rng() * 0.8) * (1 + S.wave * 0.065);
-  e.scale.setScalar(1.08 + rng() * 0.34);
+    Math.max(player.z - (56 + rng() * 60), -STREET_LENGTH + 8));
+  e.userData.brute = brute;
+  e.userData.hp = (3 + Math.floor(S.wave / 2)) * (brute ? 3 : 1);
+  e.userData.speed = (1.55 + rng() * 0.8) * (1 + S.wave * 0.065) * (brute ? 0.62 : 1);
+  e.scale.setScalar(brute ? 1.6 + rng() * 0.2 : 1.08 + rng() * 0.34);
+  if (brute) e.userData.eyeMat.emissive.setHex(0xff5a2a);
   scene.add(e);
   enemies.push(e);
   e.traverse((m) => { if (m.isMesh) enemyMeshes.push(m); });
@@ -410,16 +489,21 @@ function shoot() {
   if (hit) {
     to = hit.point;
     const e = hit.object.userData.enemy;
-    e.userData.hp -= hit.object.userData.headshot ? 3 : 1;
+    const head = !!hit.object.userData.headshot;
+    e.userData.hp -= head ? 3 : 1;
     e.userData.hitT = 0.14;
-    burst(hit.point, 0x30234a, 18, 3.6, 0.055);
+    burst(hit.point, 0x30234a, head ? 26 : 18, head ? 4.4 : 3.6, 0.055);
     shedWisp(hit.point, 0.75);
     ui.hitMarker.style.opacity = 1;
+    ui.hitMarker.classList.toggle('head', head);
+    if (head) click(880, 0.06);
     setTimeout(() => { ui.hitMarker.style.opacity = 0; }, 90);
     if (e.userData.hp <= 0) {
       e.userData.state = 'dying';
       e.userData.dieT = 0.85;
       S.kills++;
+      S.score += (e.userData.brute ? 250 : 100) + (head ? 50 : 0);
+      dropPickup(e.position);
       growl();
     }
   } else {
@@ -458,6 +542,7 @@ addEventListener('contextmenu', (e) => e.preventDefault());
 addEventListener('keydown', (e) => {
   S.keys[e.code] = true;
   if (e.code === 'KeyR') reload();
+  if (e.code === 'KeyV') { S.thirdPerson = !S.thirdPerson; applyView(); }
 });
 addEventListener('keyup', (e) => { S.keys[e.code] = false; });
 
@@ -482,11 +567,12 @@ function begin() {
 
 function restart() {
   for (const e of [...enemies]) dropEnemy(e);
+  for (const p of [...pickups]) { scene.remove(p); pickups.splice(pickups.indexOf(p), 1); }
   Object.assign(S, {
-    over: false, hp: 100, kills: 0, wave: 0, ammo: MAG_SIZE, reserve: 90,
+    over: false, hp: 100, kills: 0, score: 0, wave: 0, ammo: MAG_SIZE, reserve: 90,
     reloading: false, firing: false, aiming: false, yaw: 0, pitch: 0,
   });
-  camera.position.set(0, EYE_HEIGHT, -4);
+  player.set(0, 0, -4);
   nextWave();
   begin();
 }
@@ -497,7 +583,7 @@ function gameOver() {
   S.firing = false;
   document.exitPointerLock();
   ui.hud.style.display = 'none';
-  ui.score.textContent = `사살 ${S.kills} · 도달 웨이브 ${S.wave}`;
+  ui.score.textContent = `점수 ${S.score} · 사살 ${S.kills} · 도달 웨이브 ${S.wave}`;
   ui.over.hidden = false;
 }
 
@@ -523,6 +609,47 @@ function collide(p) {
       else p.z = o.maxZ + R;
     }
   }
+}
+
+// ============================================================
+// Cascaded shadow maps
+//
+// One shadow map stretched over the whole street has to trade near detail
+// against distant coverage. Cascades give the metres around the player their
+// own high-resolution slice while still catching the far end.
+// ============================================================
+let csm = null;
+
+function setupShadows() {
+  csm = new CSM({
+    camera, parent: scene,
+    cascades: 4,
+    maxFar: 130,
+    mode: 'practical',
+    shadowMapSize: 2048,
+    lightDirection: sunDir.clone().negate().normalize(),
+    lightIntensity: 3.3,
+    lightMargin: 160,
+    shadowBias: -0.00022,
+  });
+  csm.fade = true;
+  for (const light of csm.lights) {
+    light.color.setHex(0xffe8c4);
+    light.shadow.normalBias = 0.028;
+  }
+
+  // setupMaterial installs its own onBeforeCompile, so anything that already
+  // uses one — the shadow creatures' rim shader — is left alone. They read as
+  // near-black silhouettes anyway, so they lose nothing visible.
+  const seen = new Set();
+  scene.traverse((o) => {
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) {
+      if (!m || seen.has(m) || !m.isMeshStandardMaterial || m.onBeforeCompile) continue;
+      seen.add(m);
+      csm.setupMaterial(m);
+    }
+  });
 }
 
 // ============================================================
@@ -598,6 +725,7 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
   composer?.setSize(innerWidth, innerHeight);
   gtao?.setSize(innerWidth, innerHeight);
+  csm?.updateFrustums();
 });
 
 // ============================================================
@@ -605,7 +733,10 @@ addEventListener('resize', () => {
 // ============================================================
 const clock = new THREE.Clock();
 const fwd = new THREE.Vector3(), right = new THREE.Vector3(), move = new THREE.Vector3();
-let sun = null;
+const camDir = new THREE.Vector3(), camOff = new THREE.Vector3();
+const camRay = new THREE.Raycaster();
+camRay.layers.set(0);
+let solids = [];
 
 function frame() {
   requestAnimationFrame(frame);
@@ -647,36 +778,66 @@ function frame() {
     const walking = move.lengthSq() > 0;
     if (walking) {
       move.normalize().multiplyScalar(speed * dt);
-      camera.position.add(move);
-      collide(camera.position);
+      player.add(move);
+      collide(player);
       S.bob += dt * (sprint ? 10.5 : 7.2);
     }
 
     S.shake = Math.max(0, S.shake - dt * 4.2);
     const bobY = Math.sin(S.bob * 2) * 0.022 * (walking ? 1 : 0);
     const breathe = Math.sin(t * 1.3) * 0.0022;
-    camera.position.y = EYE_HEIGHT + bobY;
+    S.aimBlend += ((S.aiming ? 1 : 0) - S.aimBlend) * Math.min(1, dt * 12);
+    S.recoil = Math.max(0, S.recoil - dt * 7.5);
+    S.kick = Math.max(0, S.kick - dt * 9);
+
+    // ---- camera rig ----
+    eye.set(player.x, EYE_HEIGHT + bobY, player.z);
     camera.rotation.set(
       S.pitch + (rng() - 0.5) * 0.005 * S.shake + breathe - S.kick * 0.045,
       S.yaw + (rng() - 0.5) * 0.005 * S.shake + Math.cos(S.bob) * 0.0016 * (walking ? 1 : 0),
       Math.sin(S.bob) * 0.005 * (walking ? 1 : 0),
       'YXZ');
 
+    if (S.thirdPerson) {
+      // over the officer's right shoulder, tucked in closer while aiming
+      const back = THREE.MathUtils.lerp(2.35, 1.55, S.aimBlend);
+      const side = THREE.MathUtils.lerp(0.52, 0.42, S.aimBlend);
+      const lift = THREE.MathUtils.lerp(0.14, 0.1, S.aimBlend);
+      camDir.set(0, 0, 1).applyQuaternion(camera.quaternion);
+      camOff.copy(right).multiplyScalar(side).addScaledVector(camDir, back);
+      camOff.y += lift;
+      // never let a wall end up between the camera and the officer
+      const len = camOff.length();
+      camRay.set(eye, camOff.clone().normalize());
+      camRay.far = len;
+      const blocked = camRay.intersectObjects(solids, false)[0];
+      const dist = blocked ? Math.max(0.5, blocked.distance - 0.25) : len;
+      S.camDist += (dist - S.camDist) * Math.min(1, dt * 14);
+      camera.position.copy(eye).addScaledVector(camOff.normalize(), S.camDist);
+    } else {
+      camera.position.copy(eye);
+    }
+
     // ---- weapon pose ----
-    S.aimBlend += ((S.aiming ? 1 : 0) - S.aimBlend) * Math.min(1, dt * 12);
-    S.recoil = Math.max(0, S.recoil - dt * 7.5);
-    S.kick = Math.max(0, S.kick - dt * 9);
     const target = REST.clone().lerp(AIM, S.aimBlend);
-    rifle.position.set(
+    viewRifle.position.set(
       target.x + Math.sin(S.bob) * 0.005 * (walking ? 1 : 0) * (1 - S.aimBlend),
       target.y + bobY * 0.5 - (S.reloading ? 0.11 : 0),
       target.z + S.recoil * 0.055);
-    rifle.rotation.set(
+    viewRifle.rotation.set(
       S.recoil * 0.1 - (S.reloading ? 0.45 : 0),
       -0.02 * (1 - S.aimBlend),
       (S.reloading ? 0.3 : 0) + Math.sin(S.bob * 0.5) * 0.008 * (walking ? 1 : 0));
     camera.fov = THREE.MathUtils.lerp(68, 50, S.aimBlend);
     camera.updateProjectionMatrix();
+
+    // ---- the officer ----
+    officer.position.set(player.x, 0, player.z);
+    officer.rotation.y = S.yaw;
+    poseOfficer(officer, {
+      dt, moving: walking, sprinting: sprint, aiming: S.aiming,
+      pitch: S.pitch, recoil: S.recoil,
+    });
 
     muzzle.material.opacity = Math.max(0, muzzle.material.opacity - dt * 15);
     muzzleLight.intensity = Math.max(0, muzzleLight.intensity - dt * 260);
@@ -715,6 +876,8 @@ function frame() {
       setTimeout(() => { if (!S.over) nextWave(); }, 2300);
     }
 
+    collectPickups(dt);
+
     // ---- enemies ----
     for (const e of [...enemies]) {
       const u = e.userData;
@@ -743,10 +906,10 @@ function frame() {
         shedWisp(v3, 0.45 + rng() * 0.5);
       }
 
-      v3.copy(camera.position).sub(e.position);
+      v3.copy(player).sub(e.position);
       v3.y = 0;
       const dist = v3.length();
-      e.lookAt(camera.position.x, e.position.y, camera.position.z);
+      e.lookAt(player.x, e.position.y, player.z);
 
       if (dist > 1.55) {
         e.position.addScaledVector(v3.normalize(), u.speed * dt);
@@ -768,7 +931,7 @@ function frame() {
         u.attackCooldown -= dt;
         if (u.attackCooldown <= 0) {
           u.attackCooldown = 1.0;
-          S.hp -= 12;
+          S.hp -= u.brute ? 22 : 12;
           growl();
           ui.damage.style.opacity = 1;
           setTimeout(() => { ui.damage.style.opacity = 0; }, 340);
@@ -805,12 +968,8 @@ function frame() {
     if (l.userData.life <= 0) { scene.remove(l); tracers.splice(tracers.indexOf(l), 1); }
   }
 
-  // keep the shadow frustum tight around the player
-  if (sun) {
-    sun.target.position.set(camera.position.x, 0, camera.position.z);
-    sun.target.updateMatrixWorld();
-    sun.position.copy(sun.target.position).addScaledVector(sunDir, 140);
-  }
+  // the cascades re-fit themselves to the camera every frame
+  csm?.update();
 
   composer.render();
 }
@@ -824,14 +983,16 @@ const yield_ = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r
 
 async function boot() {
   const steps = [
-    ['하늘과 빛', () => { const s = setupSky(scene, renderer); sun = s.sun; sunDir = s.sunDir; }],
+    ['하늘과 빛', () => { sunDir = setupSky(scene, renderer).sunDir; }],
     ['거리 재질', () => { window.__lib = buildMaterials(); }],
     ['건물과 잔해', () => {
       const r = buildStreet(scene, window.__lib);
       obstacles = r.obstacles;
+      r.root.traverse((o) => { if (o.isMesh && !o.isInstancedMesh) solids.push(o); });
     }],
     ['먼지와 연기', () => { buildAtmosphere(); }],
-    ['후처리', () => { setupPost(); drawGunIcon(); }],
+    ['그림자 캐스케이드', () => { setupShadows(); }],
+    ['후처리', () => { setupPost(); drawGunIcon(); applyView(); }],
   ];
   for (let i = 0; i < steps.length; i++) {
     ui.loading.querySelector('.t').textContent = steps[i][0];

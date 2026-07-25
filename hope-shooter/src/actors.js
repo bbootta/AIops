@@ -123,7 +123,7 @@ export function makeShadowCreature(rng) {
 // ============================================================
 // The rifle, plus the hands holding it
 // ============================================================
-export function makeRifle() {
+export function makeRifle({ hands = true } = {}) {
   const g = new THREE.Group();
 
   // Parkerised steel is a dark matte grey; keep metalness moderate or the
@@ -253,7 +253,7 @@ export function makeRifle() {
     fing.rotation.set(0.1, 0, -1.45);
     handL.add(fing);
   }
-  g.add(handR, handL);
+  if (hands) g.add(handR, handL);
 
   g.traverse((m) => { if (m.isMesh) { m.castShadow = false; m.receiveShadow = false; } });
   return g;
