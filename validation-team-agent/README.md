@@ -135,6 +135,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.findings_mapping --log <jsonl>` | audit log → recurring_findings 후보 매핑 |
 | `python -m tools.pack_diff --prev A --curr B` | 두 보고서 팩 간 변화 detection |
 | `python -m tools.pack_verify --pack <dir> [--deep]` | 팩 재현성 자체검증 (입력해시·정책·코드·페이지 재빌드) |
+| `python -m tools.val_coverage report / verify` | PRD-VAL 업무요건 대비 구현 커버리지 (근거 실재성 강제) |
 | `python -m tools.pack_archive add/list/latest/prune --archive <dir>` | 분기별 팩 archive 관리 |
 | `python -m tools.data_adapter validate/convert --input <csv>` | 운영 추출 파일 안전 로더 (PII 차단) |
 | `python -m tools.cro_digest --out <html>` | CRO 분기 요약 이메일 초안 (발송 없음 — HITL) |
@@ -165,6 +166,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | 부문별 임계값 (자본/시장/운영/유동성/IRRBB/CVA/CCR/집중/내부자본/ALM) | `harness/{capital_adequacy,market_risk,operational_risk,liquidity_risk,irrbb,cva,ccr,concentration,icaap,alm}_thresholds.json` | (tools/policy_lint 게이트) |
 | 보고서 도메인 사전 | `harness/report_glossary.json` | `harness/report_glossary.schema.json` |
 | 임계 설명가능성 attribution | `harness/explainability_attributions.json` | (tools/explainability 게이트) |
+| PRD-VAL 요건 커버리지 | `harness/val_requirement_coverage.json` | (tools/val_coverage verify 게이트) |
 | 인쇄 CSS | `harness/report_print.css` | — |
 | 감사 보고서 schema | — | `harness/audit_report.schema.json` |
 | Runner 결과 schema | — | `harness/runner_result{,_credit,_macro,_ifrs9}.schema.json` |
