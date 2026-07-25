@@ -667,3 +667,150 @@ def page_intraday(r: PipelineResult) -> str:
 </div>
 """
     return _page("Intraday", body, "61_intraday.html")
+
+
+# ============================================================================
+# 64. 순자본비율 (NCR) — 금융투자업자 건전성자본
+# ============================================================================
+
+def page_ncr(r: PipelineResult) -> str:
+    """64_ncr.html — 신 NCR 산출·적기시정조치 판정·전월 대사 (RYNTA PRD-NCR).
+
+    주의: 합성 증권사 재무구조 기반 **예시 산출**이다. 실제 인가업무 단위와
+    승인된 위험액 산출방법으로 교체되기 전에는 규제 제출용이 아니다.
+    """
+    from risk_lib.ncr import (
+        compute_ncr_from_result, compute_ncr, reconcile_prior_period,
+        LICENSE_CAPITAL_REQUIREMENT, synthesise_securities_firm)
+    from risk_lib.references import (
+        NCR_MIN, NCR_PROMPT_ACTION, NCR_EARLY_WARNING,
+        CITE_NCR, CITE_NCR_DEDUCTION, CITE_NCR_RISK)
+
+    seed = r.meta.get("seed", 42)
+    n = compute_ncr_from_result(r, seed=seed)
+
+    # 전월 대사용 — 자산·위험액을 소폭 다르게 한 직전월 스냅샷 (예시)
+    prior_in = synthesise_securities_firm(r, seed=seed)
+    prior = compute_ncr(
+        prior_in["total_assets"] * 0.97,
+        prior_in["total_liabilities"] * 0.975,
+        market_risk=prior_in["market_risk"] * 1.06,
+        credit_risk=prior_in["credit_risk"] * 0.98,
+        operational_risk=prior_in["operational_risk"],
+        licenses=prior_in["licenses"],
+        deductions=prior_in["deductions"],
+        additions=prior_in["additions"],
+    )
+    recon = reconcile_prior_period(n, prior)
+
+    tone = ("good" if n.ncr >= NCR_EARLY_WARNING else
+            "warn" if n.passes() else "bad")
+    action_tone = "PASS" if n.action == "해당없음" else "FAIL"
+
+    kpis = "".join([
+        _kpi("순자본비율 (NCR)", _pct(n.ncr, 1),
+             sub=f"기준 {_pct(NCR_MIN, 0)} · 조기경보 {_pct(NCR_EARLY_WARNING, 0)}",
+             tone=tone),
+        _kpi("적기시정조치", n.action,
+             sub="금융투자업규정 제3-26조",
+             tone="good" if n.action == "해당없음" else "bad"),
+        _kpi("영업용순자본", _won(n.noc.net_operating_capital),
+             sub=f"자산−부채 {_won(n.noc.net_worth)}"),
+        _kpi("총위험액", _won(n.risk.total),
+             sub="시장+신용+운영 (분산효과 미인정)"),
+        _kpi("필요유지자기자본", _won(n.required_capital),
+             sub=f"인가 {len(n.licenses)}개 단위"),
+        _kpi("순자본 여유", _won(n.surplus),
+             sub="영업용순자본 − 총위험액",
+             tone="good" if n.surplus > 0 else "bad"),
+    ])
+
+    ncr_chart = viz.bar_chart(
+        ["순자본비율", "경영개선권고", "경영개선요구", "경영개선명령"],
+        [n.ncr, NCR_PROMPT_ACTION["경영개선권고"],
+         NCR_PROMPT_ACTION["경영개선요구"], NCR_PROMPT_ACTION["경영개선명령"]],
+        title="순자본비율 vs 적기시정조치 임계", value_fmt=lambda v: f"{v*100:.0f}%",
+        colors=[viz.GREEN if n.passes() else viz.RED,
+                viz.AMBER, viz.AMBER, viz.RED],
+    )
+
+    ded_rows = [[row["item"], _won(row["amount"])]
+                for _, row in n.noc.deductions.iterrows()]
+    add_rows = [[row["item"], _won(row["amount"])]
+                for _, row in n.noc.additions.iterrows()]
+    risk_rows = [[row["component"], _won(row["amount"]), row["method"],
+                  _pct(row["amount"] / n.risk.total, 1)]
+                 for _, row in n.risk.by_component.iterrows()]
+    lic_rows = [[row["license"], _won(row["requirement"])]
+                for _, row in n.licenses.iterrows()]
+
+    recon_rows = []
+    for _, row in recon.iterrows():
+        contrib = row["NCR 기여(%p, 분모불변 가정)"]
+        recon_rows.append([
+            row["항목"], _won(row["전월"]), _won(row["당월"]),
+            ("+" if row["증감"] >= 0 else "−") + _won(abs(row["증감"])),
+            "—" if pd.isna(contrib) else f"{contrib:+.1f}%p",
+        ])
+
+    body = f"""
+<h1 class="title">64. 순자본비율 (NCR) — 금융투자업자 건전성자본</h1>
+<p class="section-lead">
+<b>순자본비율 = (영업용순자본 − 총위험액) / 필요유지자기자본</b><br/>
+2016년 개편된 신 NCR 체계입니다. 舊 NCR(영업용순자본/총위험액, 참고값
+{_pct(n.legacy_ncr, 0)})과 분모·의미가 다르므로 시계열 비교 시 체계를 명시해야 합니다.</p>
+
+<div class="callout bad"><b>예시 산출</b> — 본 페이지는 합성 증권사 재무구조 기반
+구조 시연입니다. 실제 인가업무 단위·승인된 위험액 산출방법·차감항목 인정범위로
+교체되기 전에는 <b>규제 제출용이 아닙니다</b>.</div>
+
+<div class="card"><h2>핵심 지표</h2>
+<div class="kpi-grid">{kpis}</div>
+<div class="chart">{ncr_chart}</div>
+<p class="section-lead">{_badge(n.action, action_tone)}
+{'조기경보 구간(150% 미만) — 자본확충·위험액 축소 검토 필요.' if n.early_warning
+ else '조기경보 임계 이상.'}</p>
+</div>
+
+<div class="row2">
+<div class="card"><h2>64-1. 차감항목 (제3-11조)</h2>
+{_table(["항목", "금액"], ded_rows, right_cols=[1])}
+<p class="cite">합계 {_won(n.noc.total_deduction)} · 즉시 현금화 곤란 자산</p>
+</div>
+<div class="card"><h2>64-2. 가산항목</h2>
+{_table(["항목", "금액"], add_rows, right_cols=[1])}
+<p class="cite">합계 {_won(n.noc.total_addition)} · 손실흡수 가능 항목</p>
+</div>
+</div>
+
+<div class="card"><h2>64-3. 총위험액 구성 (제3-21조)</h2>
+{_table(["위험 구분", "위험액", "산출방법", "비중"], risk_rows, right_cols=[1, 3])}
+<p class="section-lead">세 위험액은 <b>단순합</b>이며 분산효과를 인정하지 않습니다 —
+BIS 체계의 경제자본 합산(상관계수 반영)과 다른 점에 유의하세요.</p>
+</div>
+
+<div class="card"><h2>64-4. 필요유지자기자본 (인가업무 단위별)</h2>
+{_table(["인가업무 단위", "법정 필요자기자본"], lic_rows, right_cols=[1])}
+<p class="cite">합계 {_won(n.required_capital)} — 인가 내역 변경 시 분모가 바뀌므로
+비율 시계열 해석에 주의.</p>
+</div>
+
+<div class="card"><h2>64-5. 전월 대비 대사 (SEC-NCR-004)</h2>
+{_table(["항목", "전월", "당월", "증감", "NCR 기여"], recon_rows,
+        right_cols=[1, 2, 3, 4])}
+<p class="section-lead">전월 순자본비율 {_pct(prior.ncr, 1)} → 당월 {_pct(n.ncr, 1)}
+({(n.ncr - prior.ncr) * 100:+.1f}%p). 기여도는 필요유지자기자본 불변 가정 하의
+근사이며, 인가 변경으로 분모가 달라지면 성립하지 않습니다.</p>
+</div>
+
+<div class="card"><h2>근거 규정</h2>
+{_table(["조항", "내용"], [
+    [f"{CITE_NCR.standard} {CITE_NCR.section}", CITE_NCR.note],
+    [f"{CITE_NCR_DEDUCTION.standard} {CITE_NCR_DEDUCTION.section}", CITE_NCR_DEDUCTION.note],
+    [f"{CITE_NCR_RISK.standard} {CITE_NCR_RISK.section}", CITE_NCR_RISK.note],
+])}
+<p class="cite">담당: <b>prudential-capital-analyst</b> (RYNTA PRD-NCR) ·
+요건 SEC-NCR-001~004 · 커버리지 <a href="63_rynta_coverage.html">63번 페이지</a></p>
+</div>
+"""
+    return _page("순자본비율 (NCR)", body, "64_ncr.html")

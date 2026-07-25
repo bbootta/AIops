@@ -245,10 +245,20 @@ COVERAGE: dict[str, Coverage] = {
                       "Greeks 산출 구현, 회귀테스트 harness는 미구현"),
     "SEC-PRC-004": _C("backlog", "", "", "Curve·Vol calibration 미구현"),
     "SEC-PRC-005": _C("backlog", "", "", "IPV·Valuation Adjustment workflow 미구현"),
-    "SEC-NCR-001": _C("backlog", "", "", "Korea NCR 적용범위·인가 Rule Pack 미구현"),
-    "SEC-NCR-002": _C("backlog", "", "", "영업용순자본 산출 미구현"),
-    "SEC-NCR-003": _C("backlog", "", "", "총위험액 산출 미구현"),
-    "SEC-NCR-004": _C("backlog", "", "", "전월·공시 대사 미구현"),
+    "SEC-NCR-001": _C("partial", "risk_lib.ncr.required_capital · LICENSE_CAPITAL_REQUIREMENT",
+                      "ops/64_ncr",
+                      "인가업무 단위별 필요자기자본 구조는 구현, 실제 인가 내역·"
+                      "국가별 Rule Pack(US Net Capital·EU IFR/IFD)은 미구현"),
+    "SEC-NCR-002": _C("partial", "risk_lib.ncr.compute_net_operating_capital",
+                      "ops/64_ncr",
+                      "자산−부채−차감+가산 구조와 규정 항목목록은 구현, "
+                      "차감항목별 인정범위는 기관 승인 사양 필요"),
+    "SEC-NCR-003": _C("partial", "risk_lib.ncr.compute_total_risk",
+                      "ops/64_ncr",
+                      "시장+신용+운영 단순합 구조는 구현, 위험액 세부 산출방법"
+                      "(표준방법 세율·포지션 매핑)은 승인 사양 필요"),
+    "SEC-NCR-004": _C("covered", "risk_lib.ncr.reconcile_prior_period",
+                      "ops/64_ncr"),
     "SEC-OAI-001": _C("partial", "risk_lib.op_loss",
                       "ops/15_op_loss",
                       "손실 LDA 구현, RCSA/KRI 등록·조치 workflow는 미구현"),
@@ -382,7 +392,7 @@ AGENT_OWNER: dict[str, str] = {
     "PRD-RDM": "risk-orchestrator",
     "PRD-OPR": "risk-orchestrator",
     "PRD-ALM": "stress-test-engineer",
-    "PRD-NCR": "",                       # 미배정 — 국내 NCR 담당 에이전트 없음
+    "PRD-NCR": "prudential-capital-analyst",
 }
 
 # 개별 요건 단위 예외 (제품 기본값과 다른 담당).
