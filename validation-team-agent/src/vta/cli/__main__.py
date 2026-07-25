@@ -42,6 +42,7 @@ _DISPATCH = {
     ("pack", "verify"): "tools.pack_verify",
     ("coverage",): "tools.val_coverage",
     ("trigger",): "tools.validation_trigger",
+    ("finding",): "tools.validation_finding",
     ("dashboard",): "tools.dashboard",
     ("manifest",): "tools.manifest",
     ("findings",): "tools.findings",

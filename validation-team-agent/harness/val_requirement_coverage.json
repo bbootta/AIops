@@ -135,24 +135,25 @@
       "id": "VAL-013",
       "title": "Finding 원장·보완조치 추적",
       "phase": "05 Finding·보완",
-      "status": "partial",
+      "status": "implemented",
       "evidence": [
-        "memory/recurring_findings.json",
+        "tools/validation_finding.py",
+        "tests/test_v2_round82.py",
         "tools/findings.py",
-        "tools/findings_mapping.py"
+        "memory/recurring_findings.json"
       ],
-      "gap": "recurring_findings 는 반복 finding '패턴' 지식베이스이고 개별 사례 원장이 아니다. 중대도·담당자·기한·보완조치·재검증·종결 상태와 SLA 추적이 없다."
+      "gap": "append-only 이벤트 원장으로 발견–원인–보완–재검증–종결 계보를 보존하고, 재검증 pass·근본원인 없이는 종결이 거부된다. SLA 초과는 큐에 표시된다. 미충족: 담당자가 역할(owner_role) 단위이며 개인 배정·알림 채널 연동은 없다."
     },
     {
       "id": "VAL-014",
       "title": "반복 Finding·재발 관리",
       "phase": "05 Finding·보완",
-      "status": "partial",
+      "status": "implemented",
       "evidence": [
-        "tools/findings.py",
-        "memory/recurring_findings.json"
+        "tools/validation_finding.py",
+        "tests/test_v2_round82.py"
       ],
-      "gap": "frequency bump 로 반복을 수동 기록할 수 있으나, 종결 건과 신규 건의 근본원인 대조·중대도 자동 상향·보완조치 실효성 재평가가 없다."
+      "gap": "종결 Finding 과 (도메인·근본원인·대상) 일치 시 재발로 판정하고 중대도를 한 단계 상향한다(critical 상한). 미충족: 보완조치 실효성의 정량 재평가(재발률·해소 지속기간)는 없다."
     },
     {
       "id": "VAL-015",
@@ -175,9 +176,11 @@
       "evidence": [
         "harness/change_manifest.json",
         "tools/manifest.py",
-        "middleware/permission_guard.py"
+        "tools/validation_finding.py",
+        "middleware/permission_guard.py",
+        "tests/test_v2_round82.py"
       ],
-      "gap": "CHG 는 proposed 로만 생성되고 promote 는 인간만 가능하다. 다만 미종결 Critical Finding 과 승인 요청을 연결해 차단하는 규칙은 없다(VAL-013 선행 필요)."
+      "gap": "CHG 는 proposed 로만 생성되고 promote 는 인간만 가능하다. R82 에서 미종결 Critical Finding 이 applied 승격을 차단하도록 연결했다(우회는 명시적 인자로만 가능). 미충족: 조건부 승인 경로는 VAL-017 미구현."
     },
     {
       "id": "VAL-017",

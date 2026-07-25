@@ -3,7 +3,7 @@
   "changes": [
     {
       "change_id": "CHG-0001",
-      "timestamp": "2026-05-06 00:00:00",
+      "timestamp": "2026-07-25 15:21:02",
       "component": "validation-team-agent/*",
       "change_type": "create",
       "evidence": "검증팀 AHE 하니스 최초 구축 요청 (CLAUDE Code 세션). 디렉터리·정책·도구·미들웨어·테스트 골격을 일괄 생성.",
@@ -14,7 +14,7 @@
       "validation_method": "tests/ pytest 통과, README와 CLAUDE.md 일관성 점검, change_manifest.schema.json에 본 항목이 부합하는지 점검.",
       "rollback_rule": "테스트 실패 또는 정책 충돌이 발견되면 해당 컴포넌트 단위로 되돌리고 본 항목의 status를 rolled_back으로 변경.",
       "human_approval_required": true,
-      "status": "proposed"
+      "status": "rolled_back"
     },
     {
       "change_id": "CHG-0002",
@@ -2188,6 +2188,21 @@
       "expected_regression_risk": "낮음 — 신규 모듈이며 기존 handler·판정 로직 무변경(값을 읽어 정책과 대조만 함). 사례 원장은 append-only 로 기존 로그와 분리",
       "validation_method": "tests/test_v2_round81.py 27 cases (원장 형태/ID 유일성/정책 SSoT 값 대조/한도형 tolerance 0/정상 무위반/스트레스 위반 탐지/4요소 구조/VAL-F001 정의/방향 판정/경계값/미산출 비통과/bool 비지표/중첩경로/사례 생성/SLA 기한/결정성/ID 연속/append-only/큐 정렬·초과·필터·비open 제외/보고/CLI exit code/카탈로그) + 전체 1138 passed",
       "rollback_rule": "트리거 오탐으로 검증 큐가 신뢰를 잃으면 해당 트리거를 원장에서 제거(정책 파일 무변경). 모듈 전체는 삭제로 완전 롤백 — 기존 경로에 개입하지 않음",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0147",
+      "timestamp": "2026-07-25 15:23:22",
+      "component": "tools/validation_finding.py + tools/manifest.py (promote 게이트) + harness/val_requirement_coverage.json + cli_index/dispatch/README sync",
+      "change_type": "modify",
+      "evidence": "R80 매트릭스에서 VAL-013/014 는 부분(패턴 지식베이스만 존재, 사례 원장 없음), VAL-016 은 '미종결 Critical 연결 없음' 으로 확인된 공백. 실측: 재검증 없이 종결 시도 거부, 재검증 fail 시 remediating 으로 되돌림 후 종결 재차 거부, 근본원인 없는 종결 거부, 동일 (도메인·근본원인·대상) 재발 시 medium→high 상향, 미종결 Critical 존재 시 manifest promote applied 차단",
+      "root_cause": "memory/recurring_findings 는 반복 finding '패턴' 지식베이스이지 개별 사례의 중대도·담당·기한·보완·재검증·종결을 추적하는 원장이 아니었음. 승인 게이트도 Finding 상태와 연결되지 않아 미해소 위험 위에서 승격이 가능했음",
+      "targeted_fix": "tools/validation_finding: append-only 이벤트 로그(opened/remediation_recorded/reverified/closed/severity_raised)를 폴딩해 상태·계보 유도. 종결은 (1) 마지막 재검증 pass, (2) 근본원인 존재 두 조건을 모두 요구하고 재검증 fail 은 보완 단계로 되돌린다. 재발은 종결 건과 (도메인·근본원인·대상) 일치로 판정해 중대도 1단계 상향(critical 상한), 미종결 건은 재발 기준에서 제외. SLA 는 validation_triggers.json 의 sla_days_by_severity 를 재사용(중복 SSoT 생성 안 함). manifest.promote 는 to='applied' 일 때 approval_blockers 를 조회해 차단하고 rolled_back 은 위험 해소 방향이므로 통과, 우회는 check_findings=False 명시로만 가능",
+      "expected_benefit": "As-is/To-be F 6단계의 '05 Finding·보완' 과 '06 변경 승인 Gate' 가 실행 가능한 통제로 성립. 미해소 Critical 위에서의 운영 반영이 구조적으로 차단됨. 커버리지 50.0% → 55.6%",
+      "expected_regression_risk": "중간 — manifest.promote 시그니처에 키워드 인자를 추가하고 applied 경로에 게이트를 넣었다. 기존 호출부는 위치 인자 사용이라 호환되며, Finding 원장이 비어 있으면 차단이 발생하지 않는다(현 상태). 회귀 테스트로 우회 인자 동작을 고정",
+      "validation_method": "tests/test_v2_round82.py 28 cases (개시·SLA/ID증가/중대도·원인 검증/재검증없는 종결 차단/fail 되돌림/근본원인 없는 종결 차단/정상 종결/중복 종결/전이 위반/미존재/재발 상향/critical 상한/원인 상이 시 비재발/미종결은 재발기준 아님/큐 정렬·초과·필터/계보/고아 이벤트/승인 차단 3종/promote 차단·명시 우회/append-only/분류 상수/카탈로그) + 전체 1166 passed",
+      "rollback_rule": "승인 차단이 운영을 과도하게 막으면 promote 의 check_findings 기본값을 False 로 되돌린다(게이트 코드는 보존). 원장 자체 문제 시 모듈 삭제로 롤백 — 기존 recurring_findings 경로는 무변경",
       "human_approval_required": true,
       "status": "proposed"
     }

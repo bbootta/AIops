@@ -110,10 +110,25 @@ def add_change(
     return entry
 
 
-def promote(change_id: str, to: str, manifest_path: Path | None = None) -> dict:
-    """상태 전환을 수행한다. 위반 시 ManifestError."""
+def promote(change_id: str, to: str, manifest_path: Path | None = None,
+            *, check_findings: bool = True) -> dict:
+    """상태 전환을 수행한다. 위반 시 ManifestError.
+
+    PRD-VAL VAL-016: 미종결 Critical Finding 이 있으면 운영 반영(``applied``)을
+    차단한다. ``rolled_back`` 은 위험 해소 방향이므로 차단하지 않는다.
+    """
     if to not in {"applied", "validated", "rolled_back"}:
         raise ManifestError(f"invalid target status: {to}")
+    if check_findings and to == "applied":
+        from tools.validation_finding import approval_blockers
+
+        blockers = approval_blockers()
+        if blockers:
+            ids = ", ".join(b["finding_id"] for b in blockers)
+            raise ManifestError(
+                f"미종결 Critical Finding {len(blockers)}건으로 승인 차단 "
+                f"({ids}). 종결 후 재시도하거나 검증 책임자가 조건부 승인 "
+                "여부를 판단해야 한다 (VAL-016).")
     m = load(manifest_path)
     target = None
     for c in m["changes"]:
