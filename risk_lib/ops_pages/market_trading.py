@@ -814,3 +814,138 @@ BIS 체계의 경제자본 합산(상관계수 반영)과 다른 점에 유의�
 </div>
 """
     return _page("순자본비율 (NCR)", body, "64_ncr.html")
+
+
+# ============================================================================
+# 66. 독립가격검증(IPV) · 평가조정
+# ============================================================================
+
+def page_ipv(r: PipelineResult) -> str:
+    """66_ipv.html — IPV 게이트·가격차이·평가조정 (SEC-PRC-005 · MR-F003)."""
+    from risk_lib.ipv import (
+        run_ipv_from_result, DEFAULT_TOLERANCE, SOURCE_RANK,
+        CONCENTRATION_THRESHOLD)
+
+    res = run_ipv_from_result(r)
+    gate = res.passes()
+
+    kpis = "".join([
+        _kpi("IPV 게이트", "통과" if gate else "미통과",
+             sub="BREAK율 ≤5% · 커버리지 ≥90% 동시 충족",
+             tone="good" if gate else "bad"),
+        _kpi("독립검증 커버리지", _pct(res.coverage, 1),
+             sub=f"{res.n_verified}/{res.n_positions}건 · 명목기준 "
+                 f"{_pct(res.coverage_by_notional, 1)}",
+             tone="good" if res.coverage >= 0.90 else "warn"),
+        _kpi("가격차이 BREAK", f"{res.n_breaks}건",
+             sub=f"검증분 대비 {_pct(res.break_rate, 1)}",
+             tone="good" if res.break_rate <= 0.05 else "bad"),
+        _kpi("확인 차이 합계", _won(res.gross_diff), sub="|FO − 독립가격|"),
+        _kpi("평가조정 합계", _won(res.total_adjustment),
+             sub="신중한 평가 — 가치 차감", tone="warn"),
+    ])
+
+    src_rows = []
+    for src, cnt in res.positions["source"].value_counts().items():
+        sub = res.positions[res.positions["source"] == src]
+        src_rows.append([
+            src, SOURCE_RANK.get(src, 99), int(cnt),
+            _badge("독립", "PASS") if bool(sub["verified"].iloc[0])
+            else _badge("검증 불인정", "FAIL"),
+            f'{int(sub["is_break"].sum())}건',
+        ])
+    src_rows.sort(key=lambda x: x[1])
+
+    tol_rows = [[k, _won(a), _pct(rel, 2),
+                 f'{int((res.positions["kind"] == k).sum())}건',
+                 _pct(res.positions[(res.positions["kind"] == k)
+                                    & res.positions["verified"]]["is_break"].mean()
+                      if ((res.positions["kind"] == k)
+                          & res.positions["verified"]).any() else 0.0, 1)]
+                for k, (a, rel) in DEFAULT_TOLERANCE.items()]
+
+    top_breaks = [[
+        b["kind"], _won(b["notional"]), _won(b["fo_price"]),
+        f'{b["source"]}', _won(b["benchmark_price"]),
+        ("+" if b["diff"] >= 0 else "−") + _won(abs(b["diff"])),
+        _won(b["limit"]), f'{int(b["days_open"])}일',
+    ] for _, b in res.breaks.head(12).iterrows()]
+
+    adj_rows = [[row["항목"], _won(row["금액"]), row["근거"]]
+                for _, row in res.adjustments.iterrows()]
+
+    aging_rows = [[row["bucket"], f'{int(row["n"])}건', _won(row["amount"]),
+                   _badge(row["escalation"],
+                          "PASS" if row["escalation"] == "정상" else
+                          "WARN" if "검토" in row["escalation"] else "FAIL")]
+                  for _, row in res.aging.iterrows()]
+
+    adj_chart = viz.bar_chart(
+        list(res.adjustments["항목"]), list(res.adjustments["금액"]),
+        title="평가조정 구성", value_fmt=_won, colors=[viz.AMBER] * len(res.adjustments))
+
+    body = f"""
+<h1 class="title">66. 독립가격검증(IPV) · 평가조정</h1>
+<p class="section-lead">Front Office 가격을 독립 소스로 재검증하고, 확인된 차이와
+평가 불확실성을 조정으로 반영합니다.
+<b>가격차이 판정은 절대·상대 허용오차를 동시에 적용</b>합니다 (MR-F003) —
+하나만 쓰면 소액에서 과다 BREAK, 대액에서 미탐지가 발생합니다.</p>
+
+<div class="card"><h2>IPV 게이트</h2>
+<div class="kpi-grid">{kpis}</div>
+<div class="callout {'good' if gate else 'bad'}">
+{'게이트 통과 — BREAK율·커버리지 모두 충족.' if gate else
+ f'게이트 미통과 — BREAK율 {_pct(res.break_rate, 1)}(한도 5%) · '
+ f'커버리지 {_pct(res.coverage, 1)}(한도 90%). 미충족 항목의 원인(허용오차 부적정 · '
+ f'소스 미확보 · 모형 오류)을 규명하기 전까지 해당 데스크 평가는 신뢰할 수 없습니다.'}
+</div>
+</div>
+
+<div class="card"><h2>66-1. 가격 소스 위계</h2>
+{_table(["소스", "위계", "포지션", "독립성", "BREAK"], src_rows, right_cols=[1, 2, 4])}
+<p class="section-lead"><b>Front Office 자체 가격은 독립검증으로 인정하지 않습니다</b> —
+자기 가격을 자기가 확인하는 것은 검증이 아니므로 커버리지에서 제외되며,
+BREAK 판정 대상도 아닙니다(미검증을 "통과"로 세지 않습니다).</p>
+</div>
+
+<div class="card"><h2>66-2. 상품군별 허용오차와 BREAK율</h2>
+{_table(["상품군", "절대 허용", "상대 허용", "포지션", "BREAK율"], tol_rows,
+        right_cols=[1, 2, 3, 4])}
+<p class="cite">허용오차는 상품·유동성·평가정책으로 통제되는 승인값입니다 —
+산출 편의로 늘리는 것은 통제 무력화입니다.</p>
+</div>
+
+<div class="card"><h2>66-3. 주요 BREAK ({res.n_breaks}건 중 상위 {len(top_breaks)}건)</h2>
+{_table(["상품", "명목", "FO 가격", "독립 소스", "독립 가격", "차이", "허용한도", "미해소"],
+        top_breaks, right_cols=[1, 2, 4, 5, 6]) if top_breaks
+ else '<p>BREAK 없음.</p>'}
+</div>
+
+<div class="card"><h2>66-4. 미해소 BREAK aging · 에스컬레이션</h2>
+{_table(["경과", "건수", "금액", "조치"], aging_rows, right_cols=[1, 2])}
+<p class="section-lead">미해소 기간이 길수록 상위 보고가 강제됩니다. 오래된 BREAK는
+가격이 틀렸거나 해소 역량이 없다는 신호이므로, 방치는 그 자체가 통제 실패입니다.</p>
+</div>
+
+<div class="card"><h2>66-5. 평가조정 (Prudent Valuation)</h2>
+<div class="chart">{adj_chart}</div>
+{_table(["조정 항목", "금액", "근거"], adj_rows, right_cols=[1])}
+<p class="section-lead">조정은 <b>가치 차감 방향으로만</b> 작동합니다(신중한 평가).
+집중도는 단일 상품군 비중 {_pct(CONCENTRATION_THRESHOLD, 0)} 초과분에,
+Day-1 이연은 독립검증 미완 포지션에 부과됩니다.</p>
+</div>
+
+<div class="card"><h2>근거 · 담당</h2>
+<p class="cite">BCBS Prudent valuation guidance · CRR Art.105 ·
+RYNTA 수식랩 MR-F003 · BRD SEC-PRC-003/005 · GOV-006<br/>
+담당: <b>market-risk-analyst</b> (RYNTA PRD-MKT) ·
+커버리지 <a href="63_rynta_coverage.html">63번 페이지</a> ·
+Greeks <a href="54_trading_sensitivities.html">54번</a> ·
+FRTB <a href="56_frtb_ima.html">56번</a></p>
+</div>
+
+<div class="callout"><b>예시 산출</b> — 독립 소스 가격은 seed 고정 합성값입니다.
+실제 운영에서는 컨센서스·브로커 피드로 대체되며, 허용오차·조정 계수는 기관
+승인 사양으로 교체가 전제입니다.</div>
+"""
+    return _page("IPV · 평가조정", body, "66_ipv.html")
