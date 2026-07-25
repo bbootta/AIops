@@ -30,7 +30,10 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPrefer
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// PCFSoftShadowMap is deprecated in this three version and silently falls back
+// to PCFShadowMap, so the "soft" shadows were never soft. Ask for what we
+// actually get; the softness comes from the cascade resolution instead.
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.76;
 setAnisotropy(renderer.capabilities.getMaxAnisotropy());
@@ -166,7 +169,10 @@ camera.add(viewRifle);
 
 const officer = makeOfficer();
 const bodyRifle = makeRifle({ hands: false });
-bodyRifle.rotation.set(0, 0, 0);
+// slide the weapon back inside the grip so its butt lands at the shoulder
+// instead of poking out through the officer's back
+bodyRifle.scale.setScalar(0.85);
+bodyRifle.position.set(0, 0, -0.18);
 officer.userData.grip.add(bodyRifle);
 scene.add(officer);
 
@@ -339,7 +345,7 @@ function collectPickups(dt) {
   for (const p of [...pickups]) {
     p.userData.life -= dt;
     p.rotation.y += p.userData.spin * dt;
-    p.position.y = 0.22 + Math.sin(clock.elapsedTime * 2.4 + p.id) * 0.045;
+    p.position.y = 0.22 + Math.sin(elapsed * 2.4 + p.id) * 0.045;
 
     const near = Math.hypot(p.position.x - player.x, p.position.z - player.z) < 1.15;
     if (near) {
@@ -372,7 +378,7 @@ const S = {
   hp: 100, kills: 0, score: 0,
   wave: 0, pending: 0, spawnT: 0,
   recoil: 0, kick: 0, bob: 0, shake: 0, aimBlend: 0,
-  thirdPerson: true, camDist: 2.35,
+  thirdPerson: true, camDist: 2.35, wasLocked: false,
 };
 
 const enemies = [];
@@ -525,8 +531,11 @@ function reload() {
 // ============================================================
 // Input
 // ============================================================
+// Aim tracks raw mouse movement whether or not the pointer is locked. Locking
+// can be refused — Electron does it depending on how the page was loaded — and
+// gating aim on it left the player unable to look around at all.
 addEventListener('mousemove', (e) => {
-  if (!S.running || document.pointerLockElement !== canvas) return;
+  if (!S.running) return;
   const sens = S.aiming ? 0.0011 : 0.0021;
   S.yaw -= e.movementX * sens;
   S.pitch = THREE.MathUtils.clamp(S.pitch - e.movementY * sens, -1.3, 1.3);
@@ -548,13 +557,16 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => { S.keys[e.code] = false; });
 
+// Esc releases the pointer; that pauses the round rather than leaving the
+// player firing blind at a cursor they can no longer see.
 document.addEventListener('pointerlockchange', () => {
-  if (document.pointerLockElement !== canvas && S.running && !S.over) {
+  if (document.pointerLockElement !== canvas && S.running && !S.over && S.wasLocked) {
     S.running = false;
     S.firing = false;
     ui.start.hidden = false;
     $('startBtn').textContent = '작전 재개';
   }
+  S.wasLocked = document.pointerLockElement === canvas;
 });
 
 function begin() {
@@ -564,7 +576,11 @@ function begin() {
   ui.over.hidden = true;
   ui.hud.style.display = 'block';
   S.running = true;
-  canvas.requestPointerLock();
+  // Chromium returns a promise here and rejects it when the document is not
+  // eligible — an unhandled rejection either way, and pointerlockchange
+  // already covers the not-locked case.
+  const lock = canvas.requestPointerLock();
+  if (lock && typeof lock.catch === 'function') lock.catch(() => {});
 }
 
 function restart() {
@@ -744,7 +760,10 @@ addEventListener('resize', () => {
 // ============================================================
 // Frame
 // ============================================================
-const clock = new THREE.Clock();
+// THREE.Clock is deprecated in this three version, and the loop only needs a
+// clamped delta and a running total.
+let prevTime = performance.now() / 1000;
+let elapsed = 0;
 const fwd = new THREE.Vector3(), right = new THREE.Vector3(), move = new THREE.Vector3();
 const camDir = new THREE.Vector3(), camOff = new THREE.Vector3();
 const camRay = new THREE.Raycaster();
@@ -753,8 +772,11 @@ let solids = [];
 
 function frame() {
   requestAnimationFrame(frame);
-  const dt = Math.min(clock.getDelta(), 0.05);
-  const t = clock.elapsedTime;
+  const now = performance.now() / 1000;
+  const dt = Math.min(now - prevTime, 0.05);
+  prevTime = now;
+  elapsed += dt;
+  const t = elapsed;
   gradePass.uniforms.uTime.value = t;
 
   aoCamera.position.copy(camera.position);

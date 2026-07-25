@@ -269,9 +269,9 @@ export function makeOfficer() {
   spine.add(neck, headSocket);
 
   // ---- arms ----
-  const armL = jointedLimb(leather, 0.3, 0.28, 0.062, { hand: skin });
+  const armL = jointedLimb(leather, 0.32, 0.3, 0.062, { hand: skin });
   armL.position.set(-0.185, 0.4, 0);
-  const armR = jointedLimb(leather, 0.3, 0.28, 0.062, { hand: skin });
+  const armR = jointedLimb(leather, 0.32, 0.3, 0.062, { hand: skin });
   armR.position.set(0.185, 0.4, 0);
   spine.add(armL, armR);
 
@@ -348,14 +348,18 @@ export function poseOfficer(officer, s) {
 
   const aim = s.aiming ? 1 : 0;
 
+  // Right-handed: the stock sits into the right shoulder and the muzzle runs
+  // down the aim line, crossing very slightly left the way a right-hander's
+  // rifle does. Sighting brings it in under the right eye rather than centring
+  // it on the chest.
   u.grip.position.set(
-    THREE.MathUtils.lerp(0.13, 0.03, aim),
-    THREE.MathUtils.lerp(0.31, 0.42, aim),
-    THREE.MathUtils.lerp(-0.2, -0.24, aim));
+    THREE.MathUtils.lerp(0.12, 0.05, aim),
+    THREE.MathUtils.lerp(0.3, 0.42, aim),
+    THREE.MathUtils.lerp(-0.16, -0.2, aim));
   u.grip.rotation.set(
-    THREE.MathUtils.lerp(0.22, 0.0, aim) + s.recoil * 0.1,
-    THREE.MathUtils.lerp(-0.16, 0.0, aim),
-    THREE.MathUtils.lerp(0.1, 0.0, aim));
+    THREE.MathUtils.lerp(0.14, 0.0, aim) + s.recoil * 0.1,
+    THREE.MathUtils.lerp(0.07, 0.0, aim),
+    THREE.MathUtils.lerp(0.06, 0.0, aim));
 
   // The hands are solved onto the weapon rather than posed by eye: hand-tuned
   // Euler angles never quite land on the grip, and any change to the rifle's
@@ -366,8 +370,8 @@ export function poseOfficer(officer, s) {
 }
 
 const DOWN = new THREE.Vector3(0, -1, 0);
-const RIGHT_HAND = new THREE.Vector3(0.005, -0.1, 0.075);   // pistol grip
-const LEFT_HAND = new THREE.Vector3(0, 0.0, -0.3);          // handguard
+const RIGHT_HAND = new THREE.Vector3(0.0, -0.1, -0.1);    // pistol grip, trigger hand
+const LEFT_HAND = new THREE.Vector3(0, 0.0, -0.44);       // handguard, support hand
 const _target = new THREE.Vector3();
 const _origin = new THREE.Vector3();
 const _dir = new THREE.Vector3();
