@@ -63,6 +63,7 @@ def build_full_report_package(
     manifest=None,
     history_path: str | Path | None = None,
     adjustment_ledger=None,
+    studio=None,
 ) -> dict[str, str]:
     """Two-tier package: executive.html (root) + ops/ (operational deep-dive)
     plus manifest.json. Returns {label: absolute_path}.
@@ -73,6 +74,8 @@ def build_full_report_package(
     `history_path`: 분기 축적 원장(JSON) 경로. 주면 이번 manifest 스냅샷을
     append(같은 분기는 교체)하고 trend_history.html을 산출하며, 2기 이상
     쌓이면 경영진 보고서에 전기 대비(QoQ) 섹션이 나타난다.
+
+    `studio`: 이미 조립한 Studio 스냅샷. 주면 업무보고서 산출에 재사용한다.
 
     `adjustment_ledger`: 수동조정 원장. 주면 adjustment_ledger.json으로 기록한다.
     manifest의 지문 연동은 `build_manifest(adjustment_ledger=...)` 로 별도 수행해야
@@ -129,6 +132,19 @@ def build_full_report_package(
     )
     board_pack_en_path = build_english_board_pack(
         result, out / "board_pack_en.html")
+
+    # 감독보고 — 업무보고서는 **항상** 패키지에 들어간다. "보고서 패키지"를
+    # 받은 사람이 감독 제출본을 따로 만들러 가야 한다면 패키지가 아니다.
+    reg_path = None
+    if studio is not None or portfolio is not None:
+        from risk_lib.ui_studio.studio import build_studio
+        from risk_lib.regulatory import write_workbook
+        # 호출자가 이미 조립한 스냅샷이 있으면 재사용한다 — 두 번 조립하면
+        # 지문이 같더라도 산출 시간이 두 배가 된다.
+        studio = studio if studio is not None else build_studio(result, portfolio)
+        reg_path = str(write_workbook(
+            studio.built_forms, out / "업무보고서_금감원기준.xlsx",
+            asof=studio.asof, meta={"seed": result.meta.get("seed", 42)}))
     return {
         "executive": str(exec_path.resolve()),
         "printable": str(printable_path),
@@ -142,4 +158,5 @@ def build_full_report_package(
             "history_ledger": str(Path(history_path).resolve())}
            if trend_path else {}),
         **({"adjustment_ledger": adj_path} if adj_path else {}),
+        **({"regulatory_report": reg_path} if reg_path else {}),
     }

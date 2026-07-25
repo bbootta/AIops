@@ -19,6 +19,8 @@ from typing import Callable
 
 import pandas as pd
 
+from risk_lib.regulatory.form_ids import FormId, form_id
+
 
 # ---------------------------------------------------------------- 자료 구조
 
@@ -61,6 +63,15 @@ class FormSpec:
     sheet_order: int
     source_domain: str
     builder: Callable
+
+    @property
+    def form_no(self) -> "FormId":
+        """업무보고서 서식번호 — 공식 번호가 없으면 내부 코드를 쓴다."""
+        return form_id(self.form_id)
+
+    @property
+    def form_no_display(self) -> str:
+        return self.form_no.display()
 
 
 @dataclass
@@ -775,7 +786,10 @@ def form_frames(built: list[BuiltForm], asof: str, *,
     """PRD-REG 정규 테이블 4장으로 실체화한다."""
     digest = submission_digest(built)
     forms = pd.DataFrame([{
-        "form_id": b.spec.form_id, "form_name": b.spec.form_name,
+        "form_id": b.spec.form_id,
+        "form_no": b.spec.form_no.internal_code,
+        "official_form_no": b.spec.form_no.official_code,
+        "form_name": b.spec.form_name,
         "frequency": b.spec.frequency, "citation": b.spec.citation,
         "sheet_order": b.spec.sheet_order,
         "source_domain": b.spec.source_domain,

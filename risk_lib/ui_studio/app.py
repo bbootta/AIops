@@ -15,9 +15,22 @@ from pathlib import Path
 import pandas as pd
 
 from risk_lib.datamodel import catalog as cat
-from risk_lib.ui_studio.studio import Studio
+from risk_lib.ui_studio.studio import DEMO_PROMPTS, DEMO_QUERIES, Studio
 
 PREVIEW_ROWS = 12
+
+# 화면 안에서 조회·필터를 실제로 돌리기 위한 행 예산. 시연 대상 테이블은
+# 넉넉히, 나머지는 미리보기 수준으로만 싣는다.
+INTERACTIVE_ROWS = 200
+INTERACTIVE_ROWS_DEMO = 3000
+DEMO_TABLES = (
+    "rdm_asset_quality", "rdm_exposure", "rdm_exposure_balance",
+    "rwa_sa_bucket", "rwa_irb_pool", "ecl_result", "crm_ews_signal",
+    "alm_lcr_item", "alm_nsfr_item", "mkt_ipv", "opr_loss_event",
+    "reg_form_line", "st_capital_path",
+)
+
+_ENGINE_JS = (Path(__file__).with_name("engine.js")).read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------- 직렬화
@@ -108,6 +121,36 @@ def _payload(s: Studio) -> dict:
     previews = {name: _frame(df) for name, df in t.items()
                 if isinstance(df, pd.DataFrame) and name in spec_by_name}
 
+    # ---- 브라우저에서 실제로 조회·필터가 돌아가려면 데이터가 화면 안에
+    # 있어야 한다. 전량을 실으면 파일이 감당이 안 되므로 상한을 두되,
+    # **모집단 건수를 함께 남겨** 잘린 사실이 화면에 드러나게 한다.
+    views_meta, data = {}, {}
+    fp = t["ui_field_policy"]
+    policy_by_view: dict[str, list[dict]] = {}
+    for _, r in fp.iterrows():
+        policy_by_view.setdefault(str(r["view_id"]), []).append({
+            "field_name": str(r["field_name"]), "korean": str(r["korean"]),
+            "permitted": bool(r["permitted"]), "masking": str(r["masking"]),
+            "min_aggregation": int(r["min_aggregation"]),
+        })
+    for _, v in t["ui_view"].iterrows():
+        vid = str(v["view_id"])
+        tref = v["table_ref"]
+        if not isinstance(tref, str) or tref not in t:
+            continue
+        df = t[tref]
+        budget = (INTERACTIVE_ROWS_DEMO if tref in DEMO_TABLES
+                  else INTERACTIVE_ROWS)
+        views_meta[vid] = {
+            "view_id": vid, "view_name": str(v["view_name"]),
+            "domain": str(v["domain"]), "table_ref": tref,
+            "row_limit": int(v["row_limit"]),
+            "fields": policy_by_view.get(vid, []),
+            "total_rows": int(len(df)), "embedded_rows": int(min(len(df), budget)),
+        }
+        if tref not in data:
+            data[tref] = _frame(df, budget)
+
     plans = []
     for p in s.plans:
         res = s.plan_results.get(p.plan_id, pd.DataFrame())
@@ -163,7 +206,9 @@ def _payload(s: Studio) -> dict:
         })
 
     forms = [{
-        "form_id": b.spec.form_id, "form_name": b.spec.form_name,
+        "form_id": b.spec.form_id, "form_no": b.spec.form_no_display,
+        "official": b.spec.form_no.is_official,
+        "form_name": b.spec.form_name,
         "frequency": b.spec.frequency, "citation": b.spec.citation,
         "n_lines": len(b.lines), "n_checks": len(b.checks),
         "n_failed": b.n_failed,
@@ -190,6 +235,16 @@ def _payload(s: Studio) -> dict:
         "previews": previews,
         "views": _frame(t["ui_view"], 10_000),
         "field_policy": _frame(t["ui_field_policy"], 10_000),
+        "view_meta": views_meta,
+        "data": data,
+        "demo_queries": [
+            {"view_id": v, "utterance": u, "intent": i}
+            for v, u, i in DEMO_QUERIES if v in views_meta
+        ],
+        "demo_prompts": [
+            {"view_id": v, "prompt": q}
+            for v, q in DEMO_PROMPTS if v in views_meta
+        ],
         "plans": plans,
         "proposals": proposals,
         "forms": forms,
@@ -295,6 +350,26 @@ padding:9px 12px;border-radius:0 8px 8px 0;font-size:11.5px;color:var(--muted);
 margin:12px 0}
 footer{padding:20px 18px;color:var(--muted);font-size:11px;
 border-top:1px solid var(--line);margin-top:24px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin:10px 0}
+.input{flex:1;min-width:280px;background:var(--panel);color:var(--text);
+border:1px solid var(--line);border-radius:6px;padding:8px 11px;
+font-family:inherit;font-size:12.5px}
+.input:focus{outline:none;border-color:var(--accent)}
+textarea.input{resize:vertical;line-height:1.5}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 10px}
+.chip{background:var(--chip);border:1px solid var(--line);color:var(--muted);
+border-radius:999px;padding:4px 11px;font-size:11px;cursor:pointer;
+font-family:inherit;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+white-space:nowrap}
+.chip:hover{color:var(--text);border-color:var(--accent)}
+.btn{background:var(--chip);border:1px solid var(--line);color:var(--text);
+border-radius:6px;padding:6px 13px;font-size:12px;cursor:pointer;
+font-family:inherit}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.spark{width:100%;height:120px;display:block}
+.kill.on{background:var(--bad);color:#fff}
 """
 
 _JS = r"""
@@ -366,96 +441,304 @@ function cockpit(root){
   root.appendChild(c3);
 }
 
-/* ---- 정형 조회 스튜디오 ---- */
+/* ---- 정형 조회 스튜디오 (라이브) ---- */
+const STATE = {killed: false, approved: {}, history: {}};
+
+function viewSelect(onChange, filterFn){
+  const sel=el('select','sel');
+  Object.values(D.view_meta).filter(filterFn||(()=>true))
+    .sort((a,b)=>a.domain.localeCompare(b.domain))
+    .forEach(v=>{const o=el('option');o.value=v.view_id;
+      o.textContent=`${v.domain} · ${v.view_name}`;sel.appendChild(o)});
+  sel.onchange=()=>onChange(sel.value);
+  return sel;
+}
+function chips(items, onPick){
+  const box=el('div','chips');
+  items.forEach(t=>{const b=el('button','chip',t);
+    b.onclick=()=>onPick(t);box.appendChild(b)});
+  return box;
+}
+
 function structured(root){
   root.appendChild(el('p','lead',
-    '자연어를 승인된 스키마·필드·연산자·권한으로 변환한다. 화면 열과 레이아웃은 고정하고 조회조건만 구성한다. '+
-    '인식하지 못한 필드는 조용히 무시하지 않고 차단 사유로 남는다.'));
-  const wrap=el('div','split');
-  const list=el('div','list');
-  const pane=el('div');
-  D.plans.forEach((p,i)=>{
-    const b=el('button');b.appendChild(document.createTextNode(p.intent));
-    const s=el('small',null,`${p.view_id} · ${p.status==='validated'?'검증됨':'차단'} · ${p.n_rows.toLocaleString()}행`);
-    b.appendChild(s);
-    b.onclick=()=>{[...list.children].forEach(x=>x.classList.remove('on'));
-      b.classList.add('on');renderPlan(pane,p)};
-    list.appendChild(b);
-    if(i===0){b.classList.add('on');renderPlan(pane,p)}
-  });
-  wrap.appendChild(list);wrap.appendChild(pane);root.appendChild(wrap);
+    '문장을 고치면 조회계획이 즉시 다시 만들어진다. 자연어는 승인된 스키마·필드·연산자·권한으로만 번역되며, '+
+    '인식하지 못한 필드는 조용히 무시하지 않고 차단 사유로 남는다. 화면 열과 레이아웃은 고정이다.'));
+
+  const bar=el('div','toolbar');
+  let viewId=(D.demo_queries[0]||{}).view_id||Object.keys(D.view_meta)[0];
+  const sel=viewSelect(v=>{viewId=v;syncMeta();run()});
+  sel.value=viewId;
+  const input=el('input','input');
+  input.type='text';
+  input.placeholder='예) 연체일수 30 이상 그리고 잔액 100억 이상';
+  input.value=(D.demo_queries[0]||{}).utterance||'';
+  bar.appendChild(sel);bar.appendChild(input);
+  root.appendChild(bar);
+
+  const presetBox=el('div');root.appendChild(presetBox);
+  const metaLine=el('div','meta');root.appendChild(metaLine);
+  const pane=el('div');root.appendChild(pane);
+
+  function syncMeta(){
+    const v=D.view_meta[viewId];
+    presetBox.innerHTML='';
+    const mine=D.demo_queries.filter(q=>q.view_id===viewId).map(q=>q.utterance);
+    const usable=v.fields.filter(f=>f.permitted&&f.min_aggregation===1);
+    const num=usable.filter(f=>D.data[v.table_ref].rows.some(
+      r=>typeof r[D.data[v.table_ref].columns.indexOf(f.field_name)]==='number'));
+    const fallback=[];
+    if(num.length>=2)fallback.push(`${num[0].korean} 0 초과 그리고 ${num[1].korean} 0 이상`);
+    usable.slice(0,2).forEach(f=>fallback.push(`${f.korean} 0 이상`));
+    /* 차단 시연 — 마스킹 필드가 있으면 그것을 조건으로 쓰는 문장을 하나 준다.
+       통제가 실제로 걸리는 걸 눈으로 보여주는 게 시연의 핵심이다. */
+    const masked=v.fields.find(f=>f.masking!=='none'||!f.permitted);
+    fallback.push(masked
+      ? `${masked.korean} X0001  ← 차단 시연`
+      /* 마스킹 필드가 없는 View라도 차단 경로는 보여줄 수 있어야 한다 —
+         조건 없는 문장은 전건 조회로 통과하지 않는다. */
+      : '전부 다 보여줘  ← 차단 시연');
+    presetBox.appendChild(chips(mine.concat(fallback),t=>{
+      input.value=t.replace(/\s*←.*$/,'');run()}));
+    metaLine.textContent=
+      `View ${v.view_id} · 원장 ${v.table_ref} · 조회 가능 필드 `+
+      `${v.fields.filter(f=>f.permitted).length}/${v.fields.length} · 화면 내 데이터 `+
+      `${v.embedded_rows.toLocaleString()}행 (모집단 ${v.total_rows.toLocaleString()}행) · 행 상한 ${v.row_limit}`;
+  }
+
+  function run(){
+    const v=D.view_meta[viewId];
+    const plan=RY.compileQuery(input.value,{viewId:v.view_id,asof:D.meta.asof,
+      fields:v.fields, population:v.view_name});
+    const res=RY.execute(plan, D.data[v.table_ref], v.row_limit);
+    renderLivePlan(pane, res.plan, res, v);
+  }
+  input.addEventListener('input',run);
+  syncMeta();run();
 }
-function renderPlan(pane,p){
+
+function renderLivePlan(pane, plan, res, v){
   pane.innerHTML='';
   const c=el('div','card');
-  c.appendChild(el('h3',null,'사용자 문장'));
-  c.appendChild(el('div','mono',p.utterance));
+  const killed=STATE.killed;
   const st=el('div','steps');
-  p.steps.forEach(([k,v])=>{const s=el('div','step');
-    s.appendChild(el('b',null,k));s.appendChild(el('div',null,v));st.appendChild(s)});
+  const cond=plan.conditions.map(RY.describe).join(' ∧ ')||'—';
+  [['01 의도',plan.utterance.slice(0,40)||'조회'],['02 기준일',plan.asof],
+   ['03 모집단',v.view_name],['04 조건',cond],['05 정책',plan.policy]]
+   .forEach(([k,val])=>{const b=el('div','step');
+     b.appendChild(el('b',null,k));b.appendChild(el('div',null,val));st.appendChild(b)});
   c.appendChild(st);
-  const meta=el('div','meta');
-  meta.appendChild(document.createTextNode('조회 지문 '+p.hash+' · '));
-  meta.appendChild(pill(p.status==='validated'?'Read-only 실행':'차단',
-    p.status==='validated'?'good':'bad'));
-  c.appendChild(meta);
-  c.appendChild(el('div','mono','AST: '+p.ast));
-  if(p.block_reason){const n=el('div','note','차단 사유 — '+p.block_reason);
-    c.appendChild(n)}
-  c.appendChild(el('h3',null,`고정 컬럼 결과 · 모집단 ${p.n_rows.toLocaleString()}건`));
-  c.appendChild(table(p.result));
+
+  const m=el('div','meta');
+  m.appendChild(document.createTextNode('조회 지문 '+plan.query_hash+' · 계획 '+plan.plan_id+' · '));
+  m.appendChild(pill(killed?'비상정지 — 실행 차단'
+    :plan.status==='validated'?'Read-only 실행':'차단',
+    killed?'bad':plan.status==='validated'?'good':'bad'));
+  c.appendChild(m);
+  c.appendChild(el('div','mono','AST: '+plan.ast));
+  if(plan.block_reason)c.appendChild(el('div','note','차단 사유 — '+plan.block_reason));
+  if(killed)c.appendChild(el('div','note',
+    'Kill Switch가 걸려 있어 신규 조회를 실행하지 않는다. 진행 중이던 결정론적 계산은 완료 후 중단된다.'));
+
+  if(plan.status==='validated'&&!killed){
+    c.appendChild(el('h3',null,
+      `고정 컬럼 결과 · 모집단 ${plan.n_rows.toLocaleString()}건`));
+    c.appendChild(table({columns:res.columns,rows:res.rows,
+      total:plan.n_rows,shown:res.rows.length}));
+    if(v.embedded_rows<v.total_rows)c.appendChild(el('div','meta',
+      `※ 화면에는 원장 ${v.total_rows.toLocaleString()}행 중 ${v.embedded_rows.toLocaleString()}행이 실려 있다 — 위 건수는 그 범위 기준이다.`));
+  }
   pane.appendChild(c);
 }
 
-/* ---- 비정형 Adaptive UI ---- */
+/* ---- 비정형 Adaptive UI (라이브) ---- */
 function adaptive(root){
   root.appendChild(el('p','lead',
-    '프롬프트는 UI 구성안만 만든다. 승인되지 않은 필드, 행 수준 개인정보, 규제산출 변경, 판단 확정은 하지 않는다. '+
-    '세 검증을 모두 통과해야 사람이 승인할 수 있고, 승인 전에는 화면에 반영되지 않는다.'));
-  D.proposals.forEach(p=>{
-    const c=el('div','card');
-    c.appendChild(el('h3',null,p.proposal_id+' · '+p.view_id));
-    c.appendChild(el('div','mono',p.prompt));
-    const st=el('div','steps');
-    p.checks.forEach(([k,v])=>{const s=el('div','step');
-      s.appendChild(el('b',null,k));const d=el('div');d.appendChild(ok(v));
-      s.appendChild(d);st.appendChild(s)});
-    c.appendChild(st);
-    const m=el('div','meta');
-    m.appendChild(document.createTextNode('제안 레이아웃 — '));
-    m.appendChild(el('span','mono',p.layout));
-    c.appendChild(m);
-    const s2=el('div','meta');
-    s2.appendChild(pill(p.status==='approved'?'승인 적용':
-      p.status==='rejected'?'정책 거부':'미리보기',
-      p.status==='approved'?'good':p.status==='rejected'?'bad':'warn'));
-    c.appendChild(s2);
-    if(p.rejected.length){c.appendChild(el('div','note',
-      '차단된 열 — '+p.rejected.join(', ')+' (미승인 또는 마스킹 필드)'))}
-    else if(!p.checks[2][1]){c.appendChild(el('div','note',
-      '집계 최소단위 위반 — 마스킹 필드를 행 단위 열로 세울 수 없다'))}
-    if(p.status==='approved'&&p.preview.rows.length){
-      c.appendChild(el('h3',null,'승인 적용 화면'));
-      const bc=p.preview.bar_column;
-      if(bc&&p.blocks.some(b=>b[0]==='bar'||b[0]==='line')){
-        const j=p.preview.columns.indexOf(bc);
-        const lab=p.preview.columns.indexOf(p.preview.label_column);
-        const max=Math.max(...p.preview.rows.map(r=>Math.abs(r[j]||0)))||1;
-        const box=el('div');
-        p.preview.rows.forEach(r=>{
-          const line=el('div');line.style.margin='6px 0';
-          const t=el('div','meta');
-          t.textContent=(lab>=0?esc(r[lab]):bc)+' · '+fmtNum(r[j]);
-          const b=el('div','bar'),i=el('i');
-          i.style.width=(Math.abs(r[j]||0)/max*100).toFixed(1)+'%';
-          b.appendChild(i);line.appendChild(t);line.appendChild(b);
-          box.appendChild(line)});
-        c.appendChild(box);
-      }
-      c.appendChild(table(p.preview));
+    '프롬프트를 고치면 레이아웃 제안이 즉시 바뀐다. 프롬프트는 UI 구성안만 만들 뿐 승인되지 않은 필드, '+
+    '행 수준 개인정보, 규제산출 변경, 판단 확정은 하지 않는다. 세 검증을 모두 통과해야 사람이 승인할 수 있고, '+
+    '승인 전에는 화면에 반영되지 않는다.'));
+
+  const bar=el('div','toolbar');
+  let viewId=(D.demo_prompts[0]||{}).view_id||Object.keys(D.view_meta)[0];
+  const sel=viewSelect(v=>{viewId=v;syncMeta();run()});
+  sel.value=viewId;
+  const ta=el('textarea','input');
+  ta.rows=2;
+  ta.placeholder='예) 자산군별 기여도를 막대차트로 보여주고 아래에 EAD·위험가중치 검토 표를 배치해줘. 상위 10건.';
+  ta.value=(D.demo_prompts[0]||{}).prompt||'';
+  bar.appendChild(sel);bar.appendChild(ta);
+  root.appendChild(bar);
+
+  const presetBox=el('div');root.appendChild(presetBox);
+  const fieldHint=el('div','meta');root.appendChild(fieldHint);
+  const pane=el('div');root.appendChild(pane);
+
+  function syncMeta(){
+    const v=D.view_meta[viewId];
+    presetBox.innerHTML='';
+    const mine=D.demo_prompts.filter(q=>q.view_id===viewId).map(q=>q.prompt);
+    const cols=v.fields.filter(f=>f.permitted&&f.masking==='none')
+      .slice(0,4).map(f=>f.korean);
+    const fallback=[
+      `${cols.slice(0,2).join('과 ')} 기여도를 막대차트로 보여주고 아래에 검토 표를 배치해줘. 상위 10건.`,
+      `${cols.slice(0,3).join(', ')} 추이를 보여줘`,
+      `${cols.slice(0,2).join('와 ')}를 카드로 보여줘`];
+    presetBox.appendChild(chips(mine.concat(fallback),t=>{ta.value=t;run()}));
+    fieldHint.textContent='사용 가능한 열 — '+v.fields
+      .filter(f=>f.permitted&&f.masking==='none').map(f=>f.korean).join(' · ');
+  }
+  function run(){
+    const v=D.view_meta[viewId];
+    const pr=RY.compose(ta.value,{viewId:v.view_id,fields:v.fields,
+      rowLimit:v.row_limit});
+    renderProposal(pane, pr, v, run);
+  }
+  ta.addEventListener('input',run);
+  syncMeta();run();
+}
+
+function renderProposal(pane, pr, v, rerun){
+  pane.innerHTML='';
+  const approved=STATE.approved[v.view_id];
+  const c=el('div','card');
+  c.appendChild(el('h3',null,pr.proposal_id+' · '+v.view_name));
+  const st=el('div','steps');
+  [['필드 권한',pr.field_policy_pass],['스키마·단위',pr.schema_pass],
+   ['집계 최소단위',pr.aggregation_pass],
+   ['사람 적용승인',!!(approved&&approved.proposal_id===pr.proposal_id)]]
+   .forEach(([k,val])=>{const b=el('div','step');
+     b.appendChild(el('b',null,k));const d=el('div');d.appendChild(ok(val));
+     b.appendChild(d);st.appendChild(b)});
+  c.appendChild(st);
+  const m=el('div','meta');
+  m.appendChild(document.createTextNode('제안 레이아웃 — '));
+  m.appendChild(el('span','mono',pr.layout_text));
+  c.appendChild(m);
+
+  const acts=el('div','toolbar');
+  const bPrev=el('button','btn','미리보기 생성');
+  const bApp=el('button','btn primary','승인 적용');
+  const bRb=el('button','btn','Rollback');
+  bApp.disabled=!pr.all_pass;
+  bRb.disabled=!STATE.history[v.view_id]||!STATE.history[v.view_id].length;
+  acts.appendChild(bPrev);acts.appendChild(bApp);acts.appendChild(bRb);
+  c.appendChild(acts);
+
+  const status=el('div','meta');
+  status.appendChild(pill(
+    approved&&approved.proposal_id===pr.proposal_id?'승인 적용':
+    pr.all_pass?'미리보기 · 승인 대기':'정책 거부',
+    approved&&approved.proposal_id===pr.proposal_id?'good':
+    pr.all_pass?'warn':'bad'));
+  c.appendChild(status);
+
+  if(pr.rejected_fields.length)c.appendChild(el('div','note',
+    '차단된 열 — '+pr.rejected_fields.join(', ')+' (미승인 필드는 레이아웃에 세울 수 없다)'));
+  else if(!pr.aggregation_pass)c.appendChild(el('div','note',
+    '집계 최소단위 위반 — 마스킹 필드를 행 단위 열로 세울 수 없다'));
+  else if(!pr.schema_pass)c.appendChild(el('div','note',
+    '승인된 열을 하나도 짚지 못했다 — 위 "사용 가능한 열"의 이름을 문장에 포함할 것'));
+
+  const previewBox=el('div');
+  c.appendChild(previewBox);
+  pane.appendChild(c);
+
+  function draw(applied){
+    previewBox.innerHTML='';
+    if(!pr.all_pass){previewBox.appendChild(el('div','note',
+      '정책검증 미통과 — 미리보기를 그리지 않는다.'));return}
+    previewBox.appendChild(el('h3',null,
+      applied?'승인 적용 화면':'미리보기 (운영 반영 전)'));
+    renderBlocks(previewBox, pr, v);
+  }
+  bPrev.onclick=()=>draw(false);
+  bApp.onclick=()=>{
+    try{
+      const a=RY.approve(pr,'리스크관리부장');
+      (STATE.history[v.view_id]=STATE.history[v.view_id]||[])
+        .push(STATE.approved[v.view_id]||null);
+      STATE.approved[v.view_id]=a;
+      rerun();
+    }catch(e){alert(e.message)}
+  };
+  bRb.onclick=()=>{
+    const h=STATE.history[v.view_id]||[];
+    STATE.approved[v.view_id]=h.pop()||null;
+    rerun();
+  };
+  if(approved&&approved.proposal_id===pr.proposal_id)draw(true);
+  else if(pr.all_pass)draw(false);
+  else draw(false);
+}
+
+function renderBlocks(box, pr, v){
+  const frame=D.data[v.table_ref];
+  const idx={};frame.columns.forEach((c,i)=>{idx[c]=i});
+  const cols=pr.columns.filter(c=>c in idx);
+  const numCol=cols.find(c=>frame.rows.some(r=>typeof r[idx[c]]==='number'));
+  const labCol=cols.find(c=>c!==numCol&&frame.rows.some(r=>typeof r[idx[c]]==='string'));
+  let rows=frame.rows.slice();
+  if(numCol)rows.sort((a,b)=>(b[idx[numCol]]||0)-(a[idx[numCol]]||0));
+  rows=rows.slice(0,pr.row_limit);
+  const sub={columns:cols,rows:rows.map(r=>cols.map(c=>r[idx[c]])),
+             total:frame.total,shown:rows.length};
+
+  /* 블록 순서는 프롬프트에 나온 순서 그대로다 — 사용자가 "위에 차트, 아래에 표"
+     라고 쓰면 그 순서로 배치돼야 레이아웃이 바뀐 것으로 읽힌다. */
+  pr.blocks.forEach(([viz,title])=>{
+    if(viz==='kpi'){
+      const g=el('div','grid');
+      cols.slice(0,4).forEach(cName=>{
+        const j=idx[cName];
+        const nums=rows.map(r=>r[j]).filter(x=>typeof x==='number');
+        const card=el('div','card kpi');
+        card.appendChild(el('div','lab',cName));
+        card.appendChild(el('div','val',nums.length
+          ? fmtNum(nums.reduce((a,b)=>a+b,0)) : String(rows.length)+'행'));
+        card.appendChild(el('div','sub',nums.length?'합계':'건수'));
+        g.appendChild(card)});
+      box.appendChild(g);
+    } else if(viz==='bar'&&numCol){
+      const max=Math.max(...rows.map(r=>Math.abs(r[idx[numCol]]||0)))||1;
+      const w=el('div');
+      w.appendChild(el('div','meta',`${title} · ${numCol}`));
+      rows.slice(0,12).forEach((r,i)=>{
+        const line=el('div');line.style.margin='6px 0';
+        line.appendChild(el('div','meta',
+          (labCol?esc(r[idx[labCol]]):'#'+(i+1))+' · '+fmtNum(r[idx[numCol]])));
+        const b=el('div','bar'),f=el('i');
+        f.style.width=(Math.abs(r[idx[numCol]]||0)/max*100).toFixed(1)+'%';
+        b.appendChild(f);line.appendChild(b);w.appendChild(line)});
+      box.appendChild(w);
+    } else if(viz==='line'&&numCol){
+      box.appendChild(sparkline(rows.map(r=>r[idx[numCol]]||0), title+' · '+numCol));
+    } else {
+      box.appendChild(table(sub));
     }
-    root.appendChild(c);
   });
+}
+
+function sparkline(values, title){
+  const w=680,h=120,pad=6;
+  const max=Math.max(...values,0),min=Math.min(...values,0);
+  const span=(max-min)||1;
+  const pts=values.slice(0,60).map((v,i,arr)=>{
+    const x=pad+i*(w-2*pad)/Math.max(arr.length-1,1);
+    const y=h-pad-((v-min)/span)*(h-2*pad);
+    return `${x.toFixed(1)},${y.toFixed(1)}`}).join(' ');
+  const box=el('div');
+  box.appendChild(el('div','meta',title));
+  const ns='http://www.w3.org/2000/svg';
+  const svg=document.createElementNS(ns,'svg');
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  svg.setAttribute('class','spark');
+  const pl=document.createElementNS(ns,'polyline');
+  pl.setAttribute('points',pts);
+  pl.setAttribute('fill','none');
+  pl.setAttribute('stroke','var(--accent)');
+  pl.setAttribute('stroke-width','2');
+  svg.appendChild(pl);box.appendChild(svg);
+  return box;
 }
 
 /* ---- 부문 뷰 ---- */
@@ -508,8 +791,10 @@ function regulatory(root){
 function renderForm(pane,f){
   pane.innerHTML='';
   const c=el('div','card');
-  c.appendChild(el('h3',null,`[${f.form_id}] ${f.form_name}`));
-  c.appendChild(el('div','meta',`제출주기 ${f.frequency} · 근거 ${f.citation}`));
+  c.appendChild(el('h3',null,`[${f.form_no}] ${f.form_name}`));
+  c.appendChild(el('div','meta',`내부 ID ${f.form_id} · 제출주기 ${f.frequency} · 근거 ${f.citation}`));
+  if(!f.official)c.appendChild(el('div','note',
+    '서식번호는 내부 배정 코드다 — 금감원 배포본 서식번호 확보 후 대조가 필요하다.'));
   const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
   ['라인','항목명','단위','값','산식','규정 근거'].forEach(x=>tr.appendChild(el('th',null,x)));
   th.appendChild(tr);t.appendChild(th);
@@ -625,10 +910,20 @@ function boot(){
     nav.appendChild(b);main.appendChild(s);
     if(i===0)b.onclick();
   });
-  $('.kill').onclick=()=>{
-    alert('범위형 비상정지 — 데모 화면에서는 실제 정지를 실행하지 않는다.\n'+
-      '운영에서는 에이전트·도구·워크플로·테넌트 범위를 선택하고 사유와 '+
-      '독립된 2차 확인을 거쳐야 하며, 진행 중 결정론적 계산은 완료 후 중단된다.');
+  const kb=$('.kill');
+  kb.onclick=()=>{
+    if(!STATE.killed){
+      const reason=prompt('비상정지 사유를 입력하세요 (필수). 중요 범위는 운영에서 '+
+        '독립된 2차 확인이 추가로 필요합니다.','시장데이터 지연 확인 중 신규 재계산 보류');
+      if(!reason)return;                    /* 사유 없는 정지는 없다 */
+      STATE.killed=true;STATE.killReason=reason;
+      kb.textContent='Kill Switch 해제';kb.classList.add('on');
+    } else {
+      STATE.killed=false;kb.textContent='Kill Switch';kb.classList.remove('on');
+    }
+    /* 정지 상태는 화면 전체에 즉시 반영된다 — 정형 조회 탭을 다시 그린다. */
+    [...main.children].forEach(x=>{x.dataset.done='';x.innerHTML=''});
+    [...nav.children].forEach((b,i)=>{if(b.classList.contains('on'))b.onclick()});
   };
 }
 boot();
@@ -666,7 +961,9 @@ def render(s: Studio) -> str:
   NSFR(순안정자금조달비율) · IPV(독립가격검증) · SICR(신용위험 유의적 증가) ·
   DQ(데이터품질) · AST(구문트리) · PSMOR(운영리스크 건전관리 원칙).
 </footer>
-<script>window.__RYNTA__={json.dumps(d, ensure_ascii=False, default=str)};</script>
+<script>window.__RYNTA__={json.dumps(d, ensure_ascii=False, default=str,
+                                     separators=(",", ":"))};</script>
+<script>{_ENGINE_JS}</script>
 <script>{_JS}</script>
 </body></html>"""
 

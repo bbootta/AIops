@@ -51,15 +51,17 @@ risk_lib/                        # Python 계산 라이브러리
     backtest.py                  ── HL test, 등급별 binomial
   datamodel/
     spec.py                      ── 테이블/컬럼 스펙 · 검증 · DDL 생성
-    catalog.py                   ── 정규 카탈로그 (71 테이블 / 513 컬럼)
+    catalog.py                   ── 정규 카탈로그 (71 테이블 / 515 컬럼)
     materialize.py               ── 부문 결과 → 정규 테이블
     materialize_detail.py        ── 세분화 테이블 실체화 (규제 라인 입도)
   regulatory/
     forms.py                     ── 금감원 업무보고서 서식 14장 + 자체대사
+    form_ids.py                  ── 서식번호 매핑 (내부 BA#### ↔ 배포본 공식번호)
     excel.py                     ── 표지·목차·서식·검증·산출근거 .xlsx
   ui_studio/
     nl_query.py                  ── 자연어 → Filter AST → 정책검증 → 실행
     layout.py                    ── 프롬프트 → 레이아웃 제안 → 3중 검증 → 승인
+    engine.js                    ── 위 둘의 브라우저 실행판 (입력 즉시 재컴파일)
     governance.py                ── View·필드정책·에이전트·증빙·변경 원장
     studio.py / app.py           ── 스냅샷 조립 · 자체 완결 HTML 렌더
   deliverables.py                ── 산출물 패키징 (ZIP + SHA-256 매니페스트)
@@ -69,7 +71,7 @@ risk_lib/                        # Python 계산 라이브러리
   cli.py                         ── CLI 러너
 
 examples/run_end_to_end.py       # 전체 흐름 데모
-tests/                           # pytest (902건)
+tests/                           # pytest (919건)
 ```
 
 ## 빠른 시작

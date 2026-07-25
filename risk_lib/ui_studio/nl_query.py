@@ -55,7 +55,9 @@ class Condition:
                "==": "=", "!=": "≠"}[self.op]
         v = self.value
         if isinstance(v, float):
-            v = f"{v:,.4g}"
+            # 큰 정수형 금액은 천단위 구분, 그 외는 최소 표기. 지수 표기(1e+10)를
+            # 쓰면 실무자가 자릿수를 셀 수 없다.
+            v = f"{v:,.0f}" if abs(v) >= 1000 and v == int(v) else f"{v:g}"
         return f"{self.label} {sym} {v}"
 
 

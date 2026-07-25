@@ -21,7 +21,7 @@ Reports (표현 계층)      html_report(빌드 오케스트레이터), report_c
                         page_registry
   ↓
 Canonical data model    datamodel/ (spec·catalog·decompose·materialize·
-                        materialize_detail) — 71 테이블 / 513 컬럼
+                        materialize_detail) — 71 테이블 / 515 컬럼
   ↓
 Orchestration           pipeline.run_pipeline → PipelineResult
   ↓
@@ -84,7 +84,7 @@ out/
 
 ## 정규 데이터모델 (datamodel/)
 
-`catalog.ALL_TABLES`가 단일 소스다 — 테이블 71장 / 컬럼 513개. 각 컬럼은 타입·
+`catalog.ALL_TABLES`가 단일 소스다 — 테이블 71장 / 컬럼 515개. 각 컬럼은 타입·
 단위·허용값·범위·규정 근거를 스펙으로 선언하고, DDL·검증·DQ 규칙이 모두 여기서
 파생된다.
 
@@ -109,9 +109,11 @@ out/
 모듈을 함께 남기고, 소계·비율은 서식이 **스스로 대사**한다(`FormCheck`).
 검증 실패가 하나라도 있으면 `reg_submission.status`가 `approved`로 올라가지 않는다.
 
-서식 식별자(`BR-01` …)는 내부 코드다. 배포본 서식 파일이 입력으로 주어지지
-않았으므로 서식번호를 지어내지 않았고, 연결은 `reg_form.form_id ↔ 배포 서식번호`
-매핑 한 장으로 끝난다.
+서식번호는 `regulatory/form_ids.py` 한 장이 단일 소스다. `internal_code`(BA####,
+감독규정 편제 대응)와 `official_code`(금감원 배포본) 두 칸으로 나눠 두고, 공식
+번호가 없으면 화면·엑셀에 `(내부)` 표시가 붙는다. 공개 웹에서 공식 번호표를
+확보하지 못해 **추측해서 채우지 않았다** — 배포본을 받으면 `official_code`만
+채우면 서식·라인·검증·UI가 모두 따라온다.
 
 ## 에이전틱 UI (ui_studio/)
 
@@ -122,7 +124,13 @@ out/
   최소단위) → 사람 승인 (PLT-011~013). 검증 미통과 제안은 `approve()` 자체가 실패.
 - `governance.py` — View·필드정책·에이전트·활동·비상정지·변경·증빙 원장. 값은
   저장소의 실제 구성(카탈로그·page_registry·`.claude/agents`)에서 유도한다.
-- `studio.py` / `app.py` — 조립과 렌더. HTML은 자체 완결(외부 CDN 없음).
+- `engine.js` — 위 두 규칙의 **브라우저 실행판**. 화면에서 문장·프롬프트를
+  고치면 서버 왕복 없이 조회계획과 레이아웃이 즉시 다시 만들어진다. 구현이 둘이
+  되므로 `tests/test_ui_engine_parity.py`가 node로 돌려 동일 입력 → 동일 AST·
+  지문·판정을 고정한다(SHA-256도 자체 구현해 파이썬 해시와 일치).
+- `studio.py` / `app.py` — 조립과 렌더. HTML은 자체 완결(외부 CDN 없음)이며
+  조회·필터가 화면 안에서 돌도록 View별 데이터를 임베드한다(시연 대상 테이블
+  3,000행, 그 외 200행 — 잘린 사실은 화면에 표시된다).
 
 불변식: **어떤 에이전트도 `write_allowed=True`가 아니다** (NO AUTONOMOUS WRITE).
 

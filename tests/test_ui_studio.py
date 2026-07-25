@@ -263,9 +263,13 @@ def test_digest_matches_the_regulatory_submission(studio):
 def test_render_is_self_contained(studio):
     h = render(studio)
     assert h.startswith("<!doctype html>")
-    # 폐쇄망 전제 — 외부 호스트를 부르는 순간 화면이 열리지 않는다.
-    assert "http://" not in h
-    assert not re.search(r"src=\"https?://", h)
+    # 폐쇄망 전제 — 외부 리소스를 **가져오는** 순간 화면이 열리지 않는다.
+    # (SVG 네임스페이스 URI는 요청이 아니라 상수이므로 예외다.)
+    assert not re.search(r"(?:src|href)\s*=\s*[\"']https?://", h)
+    assert not re.search(r"@import\s+url\(", h)
+    assert not re.search(r"\bfetch\s*\(|XMLHttpRequest|new WebSocket", h)
+    for url in re.findall(r"https?://[^\s\"'`)]+", h):
+        assert url.startswith("http://www.w3.org/"), url
     assert "<script>window.__RYNTA__=" in h
 
 

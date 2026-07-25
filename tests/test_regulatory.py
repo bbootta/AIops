@@ -197,7 +197,8 @@ def test_workbook_has_a_sheet_per_form_plus_control_sheets(built, tmp_path):
     assert wb.sheetnames[0] == "표지"
     assert wb.sheetnames[1] == "목차"
     for b in built:
-        assert b.spec.form_id in wb.sheetnames
+        # 시트명은 서식번호다 — 감독당국이 서식번호로 찾는다.
+        assert b.spec.form_no.internal_code in wb.sheetnames
     assert "검증" in wb.sheetnames and "산출근거" in wb.sheetnames
 
 
@@ -205,12 +206,12 @@ def test_workbook_values_round_trip(built, tmp_path):
     p = write_workbook(built, tmp_path / "br.xlsx", asof="2026-06-11",
                        meta={"seed": 42})
     wb = load_workbook(p, data_only=True)
-    ws = wb["BR-01"]
+    ws = wb[built[0].spec.form_no.internal_code]
     found = {}
     for row in ws.iter_rows(min_row=5, values_only=True):
         if row[0]:
             found[str(row[0])] = row[3]
-    b = next(x for x in built if x.spec.form_id == "BR-01")
+    b = built[0]
     for ln in b.lines:
         if ln.unit != "text":
             assert found[ln.line_code] == pytest.approx(ln.value, rel=1e-12)

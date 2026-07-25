@@ -192,7 +192,7 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
     # 02 · 보고서
     rep = build_full_report_package(
         result, root / "02_reports", portfolio=portfolio, manifest=manifest,
-        adjustment_ledger=adjustment_ledger)
+        adjustment_ledger=adjustment_ledger, studio=studio)
 
     # 03 · 증빙 (보고서 패키지에서 복사)
     ev_dir = root / "03_evidence"

@@ -13,6 +13,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from risk_lib.regulatory.form_ids import UNASSIGNED_NOTE, n_official
 from risk_lib.regulatory.forms import BuiltForm, submission_digest
 
 _HEAD_FILL = PatternFill("solid", fgColor="1F3864")
@@ -67,6 +68,8 @@ def _cover(wb: Workbook, built: list[BuiltForm], asof: str, meta: dict) -> None:
         ("검토자", meta.get("reviewed_by", "리스크관리부장")),
         ("승인자", meta.get("approved_by", "리스크담당임원(CRO)")),
         ("서식 수", f"{len(built)}장"),
+        ("서식번호 확보", f"공식 {n_official()}장 / 내부 배정 "
+                          f"{len(built) - n_official()}장"),
         ("라인 수", f"{sum(len(b.lines) for b in built):,}행"),
         ("검증 항목", f"{sum(len(b.checks) for b in built)}건 "
                       f"(실패 {sum(b.n_failed for b in built)}건)"),
@@ -91,9 +94,8 @@ def _cover(wb: Workbook, built: list[BuiltForm], asof: str, meta: dict) -> None:
     ws.cell(row=r, column=2, value="유의사항").font = _TITLE_FONT
     r += 1
     for note in (
-        "① 서식 식별자(BR-01 …)는 내부 코드다. 금융감독원 배포본 서식번호가 "
-        "확정되면 서식 식별자 매핑표 한 장만 교체하면 되고 라인코드·산식·근거는 "
-        "그대로 쓴다. 배포본을 받지 않은 상태에서 서식번호를 지어내지 않았다.",
+        "① " + UNASSIGNED_NOTE + " 배포본을 받지 않은 상태에서 공식 서식번호를 "
+        "지어내지 않았다 — '(내부)' 표시가 붙은 번호는 대조 전이라는 뜻이다.",
         "② 모든 값은 합성 포트폴리오에서 산출한 것이며 실제 기관 수치가 아니다. "
         "재현 방법: run_pipeline(generate_portfolio(seed), seed=seed, asof=기준일).",
         "③ 자산건전성 분류는 연체일수 기준 대용 규칙이다. 감독규정 제27조는 "
@@ -122,28 +124,34 @@ def _toc(wb: Workbook, built: list[BuiltForm]) -> None:
     ws.sheet_view.showGridLines = False
     row = _sheet_title(ws, "목차", "서식별 제출 주기와 근거 규정", span=6)
     row = _write_header(ws, row,
-                        ("서식", "서식명", "제출주기", "라인 수", "검증 실패",
-                         "근거 규정"),
-                        (10, 40, 10, 10, 10, 70))
+                        ("서식번호", "내부 ID", "서식명", "제출주기", "라인 수",
+                         "검증 실패", "근거 규정"),
+                        (16, 10, 40, 10, 10, 10, 70))
     for b in built:
-        vals = (b.spec.form_id, b.spec.form_name, b.spec.frequency,
-                len(b.lines), b.n_failed, b.spec.citation)
+        vals = (b.spec.form_no_display, b.spec.form_id, b.spec.form_name,
+                b.spec.frequency, len(b.lines), b.n_failed, b.spec.citation)
         for c, v in enumerate(vals, start=1):
             cell = ws.cell(row=row, column=c, value=v)
             cell.font = _BODY_FONT
             cell.border = _BORDER
-            if c == 5 and b.n_failed:
+            if c == 6 and b.n_failed:
                 cell.fill = _FAIL_FILL
         row += 1
+    row += 1
+    n = ws.cell(row=row, column=1, value="※ " + UNASSIGNED_NOTE)
+    n.font = Font(name="맑은 고딕", size=8, italic=True, color="595959")
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=7)
 
 
 def _form_sheet(wb: Workbook, b: BuiltForm) -> None:
     # 시트명은 31자 제한 + 특수문자 불가 — 서식ID로 짧게 고정한다.
-    ws = wb.create_sheet(f"{b.spec.form_id}")
+    ws = wb.create_sheet(b.spec.form_no.internal_code)
     ws.sheet_view.showGridLines = False
     ws.freeze_panes = "A5"
-    row = _sheet_title(ws, f"[{b.spec.form_id}] {b.spec.form_name}",
-                       f"제출주기 {b.spec.frequency} · 근거 {b.spec.citation}")
+    row = _sheet_title(
+        ws, f"[{b.spec.form_no_display}] {b.spec.form_name}",
+        f"내부 ID {b.spec.form_id} · 제출주기 {b.spec.frequency} · "
+        f"근거 {b.spec.citation}")
     row = _write_header(ws, row)
     for ln in b.lines:
         indent = "    " * ln.level
@@ -181,12 +189,13 @@ def _checks_sheet(wb: Workbook, built: list[BuiltForm]) -> None:
         "소계 = 구성요소 합, 비율 = 분자 ÷ 분모. 실패가 하나라도 있으면 제출 불가.",
         span=6)
     row = _write_header(ws, row,
-                        ("서식", "검증 항목", "기대값", "실제값", "차이", "판정"),
-                        (10, 46, 22, 22, 18, 10))
+                        ("서식번호", "검증 항목", "기대값", "실제값", "차이",
+                         "판정"),
+                        (16, 46, 22, 22, 18, 10))
     for b in built:
         for c in b.checks:
-            vals = (b.spec.form_id, c.check_name, c.expected, c.actual,
-                    c.diff, c.status)
+            vals = (b.spec.form_no_display, c.check_name, c.expected,
+                    c.actual, c.diff, c.status)
             for i, v in enumerate(vals, start=1):
                 cell = ws.cell(row=row, column=i, value=v)
                 cell.font = _BODY_FONT
@@ -238,14 +247,15 @@ def _lineage_sheet(wb: Workbook, built: list[BuiltForm], asof: str,
     row += 1
     ws.cell(row=row, column=1, value="서식 라인별 산출 모듈").font = _TITLE_FONT
     row += 1
-    row = _write_header(ws, row, ("서식", "라인코드", "항목명", "산출 모듈"),
-                        (10, 12, 46, 62))
+    row = _write_header(ws, row,
+                        ("서식번호", "라인코드", "항목명", "산출 모듈"),
+                        (16, 12, 46, 62))
     for b in built:
         for ln in b.lines:
             if not ln.source_module:
                 continue
-            for i, v in enumerate((b.spec.form_id, ln.line_code, ln.line_name,
-                                   ln.source_module), start=1):
+            for i, v in enumerate((b.spec.form_no_display, ln.line_code,
+                                   ln.line_name, ln.source_module), start=1):
                 cell = ws.cell(row=row, column=i, value=v)
                 cell.font = _BODY_FONT
                 cell.border = _BORDER
