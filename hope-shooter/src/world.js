@@ -40,7 +40,7 @@ export function setupSky(scene, renderer) {
   const sunDir = new THREE.Vector3().setFromSphericalCoords(
     1, THREE.MathUtils.degToRad(90 - 29), THREE.MathUtils.degToRad(62));
 
-  const horizon = new THREE.Color().setRGB(1.26, 1.13, 0.93, THREE.LinearSRGBColorSpace);
+  const horizon = new THREE.Color().setRGB(1.08, 0.99, 0.86, THREE.LinearSRGBColorSpace);
   const zenith = new THREE.Color().setRGB(0.58, 0.64, 0.8, THREE.LinearSRGBColorSpace);
   const glow = new THREE.Color().setRGB(1.5, 1.28, 0.92, THREE.LinearSRGBColorSpace);
 
@@ -62,11 +62,11 @@ export function setupSky(scene, renderer) {
   // lighting comes from a photographed urban HDRI — that structure is what
   // makes the glass, chrome and wet asphalt read as real rather than plastic.
   scene.environment = loadEnvironment(renderer, { tint: [1.07, 1.0, 0.88] });
-  scene.environmentIntensity = 0.72;
+  scene.environmentIntensity = 0.88;
   scene.environmentRotation = new THREE.Euler(0, THREE.MathUtils.degToRad(62), 0);
 
   // distance fades into exactly the sky's horizon colour
-  scene.fog = new THREE.FogExp2(0x000000, 0.0050);
+  scene.fog = new THREE.FogExp2(0x000000, 0.0042);
   scene.fog.color.copy(horizon);
 
   // The sun itself is owned by the cascaded shadow rig in main.js, which

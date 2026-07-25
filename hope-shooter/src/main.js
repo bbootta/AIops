@@ -11,7 +11,8 @@ import { CSM } from 'three/addons/csm/CSM.js';
 import { setupSky, buildMaterials, buildStreet, STREET_LENGTH, STREET_WIDTH } from './world.js';
 import { makeShadowCreature, makeRifle } from './actors.js';
 import { makeOfficer, poseOfficer } from './player.js';
-import { makeCanvas, makeRng, setAnisotropy, texture } from './tex.js';
+import { makeCanvas, makeRng, setAnisotropy, setDetailNormals, texture } from './tex.js';
+import { loadDetailNormals } from './detail.js';
 
 const EYE_HEIGHT = 1.68;
 const MAG_SIZE = 30;
@@ -660,6 +661,7 @@ const gradeShader = {
     tDiffuse: { value: null },
     uTime: { value: 0 },
     uAberration: { value: 0.0008 },
+    uTexel: { value: new THREE.Vector2(1 / 1920, 1 / 1080) },
   },
   vertexShader: `
     varying vec2 vUv;
@@ -668,6 +670,7 @@ const gradeShader = {
     uniform sampler2D tDiffuse;
     uniform float uTime;
     uniform float uAberration;
+    uniform vec2 uTexel;
     varying vec2 vUv;
     float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     void main() {
@@ -679,6 +682,13 @@ const gradeShader = {
       c.r = texture2D(tDiffuse, vUv + off).r;
       c.g = texture2D(tDiffuse, vUv).g;
       c.b = texture2D(tDiffuse, vUv - off).b;
+      // unsharp mask: antialiasing costs micro-contrast, this buys it back
+      vec3 blur = (
+        texture2D(tDiffuse, vUv + vec2( uTexel.x, 0.0)).rgb +
+        texture2D(tDiffuse, vUv + vec2(-uTexel.x, 0.0)).rgb +
+        texture2D(tDiffuse, vUv + vec2(0.0,  uTexel.y)).rgb +
+        texture2D(tDiffuse, vUv + vec2(0.0, -uTexel.y)).rgb) * 0.25;
+      c += (c - blur) * 0.26;
       // dusty warm grade, slight desaturation, gentle S-curve
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
       c = mix(vec3(l), c, 0.92);
@@ -714,6 +724,7 @@ function setupPost() {
   composer.addPass(new OutputPass());
 
   gradePass = new ShaderPass(gradeShader);
+  gradePass.uniforms.uTexel.value.set(1 / innerWidth, 1 / innerHeight);
   composer.addPass(gradePass);
 
   composer.addPass(new SMAAPass(innerWidth, innerHeight));
@@ -726,6 +737,7 @@ addEventListener('resize', () => {
   composer?.setSize(innerWidth, innerHeight);
   gtao?.setSize(innerWidth, innerHeight);
   csm?.updateFrustums();
+  gradePass?.uniforms.uTexel.value.set(1 / innerWidth, 1 / innerHeight);
 });
 
 // ============================================================
@@ -994,6 +1006,10 @@ async function boot() {
     ['그림자 캐스케이드', () => { setupShadows(); }],
     ['후처리', () => { setupPost(); drawGunIcon(); applyView(); }],
   ];
+  ui.loading.querySelector('.t').textContent = '표면 디테일';
+  await yield_();
+  setDetailNormals(await loadDetailNormals());
+
   for (let i = 0; i < steps.length; i++) {
     ui.loading.querySelector('.t').textContent = steps[i][0];
     ui.loadFill.style.width = `${(i / steps.length) * 100}%`;

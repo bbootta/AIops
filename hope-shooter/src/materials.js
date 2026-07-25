@@ -89,6 +89,7 @@ export function asphalt({ detailRepeat = [2, 38], puddleRepeat = [1, 7] } = {}) 
   const mat = pbr({
     size: S, albedo, height, rough,
     repeat: detailRepeat, normalScale: 1.0, roughness: 1.0, metalness: 0.0,
+    detail: 2, detailTiles: 3, detailStrength: 0.5,
     transparent: true, depthWrite: true,
   });
   mat.alphaMap = texture(alphaCanvas, { repeat: puddleRepeat });
@@ -132,6 +133,7 @@ export function sidewalk() {
       slab(ctx, w, h, 'rgba(0,0,0,0.9)');
     },
     repeat: [2, 56], normalScale: 1.1, roughness: 0.94,
+    detail: 1, detailTiles: 3, detailStrength: 0.5,
   });
 }
 
@@ -160,6 +162,7 @@ export function stucco(seed) {
       cracks(ctx, w, h, 7, makeRng(seed), 'rgba(0,0,0,0.85)', 1.1);
     },
     repeat: [0.5, 0.5], normalScale: 0.85, roughness: 0.93,
+    detail: 1, detailTiles: 4, detailStrength: 0.72,
   });
 }
 
@@ -197,6 +200,7 @@ export function brick(seed) {
     albedo: (ctx, w, h) => paint(ctx, w, h, 'a'),
     height: (ctx, w, h) => paint(ctx, w, h, 'h'),
     repeat: [0.55, 0.55], normalScale: 1.35, roughness: 0.95,
+    detail: 1, detailTiles: 5, detailStrength: 0.55,
   });
 }
 
@@ -356,6 +360,7 @@ export function paintedMetal(hex, seed, { rust = 0.5, rough = 0.55 } = {}) {
       grit(ctx, w, h, 4000, r, 0.2, 0.12);
     },
     repeat: [1, 1], normalScale: 0.6, roughness: rough, metalness: 0.72,
+    detail: 2, detailTiles: 3, detailStrength: 0.4,
   });
 }
 
@@ -371,6 +376,7 @@ export function dirt() {
       grit(ctx, w, h, 12000, r, 0.3, 0.2);
     },
     repeat: [40, 40], normalScale: 0.8, roughness: 0.98,
+    detail: 2, detailTiles: 2, detailStrength: 0.45,
   });
 }
 

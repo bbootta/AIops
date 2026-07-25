@@ -112,6 +112,47 @@ export function heightToNormal(heightCanvas, strength = 2.2) {
 let maxAniso = 8;
 export function setAnisotropy(v) { maxAniso = v; }
 
+// Authored micro-detail normals, installed once at boot and blended into
+// every generated normal map that asks for them.
+let detailMaps = [];
+export function setDetailNormals(bitmaps) { detailMaps = bitmaps || []; }
+
+/**
+ * UDN-blends a tiled detail normal into a base normal map, in place.
+ * Tangents add, the base's z is kept — cheap and stable, and it never
+ * flattens the large-scale relief the way a straight average would.
+ */
+export function detailNormal(baseCanvas, tiles, strength, which = 1) {
+  const map = detailMaps[which - 1];
+  return map ? blendDetail(baseCanvas, map, tiles, strength) : baseCanvas;
+}
+
+function blendDetail(baseCanvas, bitmap, tiles, strength) {
+  const w = baseCanvas.width, h = baseCanvas.height;
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  const tctx = tmp.getContext('2d', { willReadFrequently: true });
+  const tw = w / tiles, th = h / tiles;
+  for (let y = 0; y < tiles; y++) {
+    for (let x = 0; x < tiles; x++) tctx.drawImage(bitmap, x * tw, y * th, tw, th);
+  }
+  const bctx = baseCanvas.getContext('2d', { willReadFrequently: true });
+  const base = bctx.getImageData(0, 0, w, h);
+  const det = tctx.getImageData(0, 0, w, h);
+  const a = base.data, d = det.data;
+  for (let i = 0; i < a.length; i += 4) {
+    const ax = a[i] / 127.5 - 1, ay = a[i + 1] / 127.5 - 1, az = a[i + 2] / 127.5 - 1;
+    const bx = (d[i] / 127.5 - 1) * strength, by = (d[i + 1] / 127.5 - 1) * strength;
+    let nx = ax + bx, ny = ay + by, nz = az;
+    const len = Math.hypot(nx, ny, nz) || 1;
+    a[i] = (nx / len * 0.5 + 0.5) * 255;
+    a[i + 1] = (ny / len * 0.5 + 0.5) * 255;
+    a[i + 2] = (nz / len * 0.5 + 0.5) * 255;
+  }
+  bctx.putImageData(base, 0, 0);
+  return baseCanvas;
+}
+
 export function texture(canvas, { srgb = false, repeat = [1, 1] } = {}) {
   const t = new THREE.CanvasTexture(canvas);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -128,14 +169,18 @@ export function texture(canvas, { srgb = false, repeat = [1, 1] } = {}) {
  */
 export function pbr({ size = 512, albedo, height, rough, repeat = [1, 1],
                       normalScale = 1, roughness = 0.9, metalness = 0,
-                      color = 0xffffff, ...rest }) {
+                      color = 0xffffff, detail = 0, detailTiles = 4,
+                      detailStrength = 0.65, ...rest }) {
   const [w, h] = Array.isArray(size) ? size : [size, size];
   const albedoCanvas = makeCanvas(w, h, albedo);
   const heightCanvas = height ? makeCanvas(w, h, height) : greyscale(albedoCanvas);
+  let normalCanvas = heightToNormal(heightCanvas, 2.4);
+  const detailMap = detailMaps[detail - 1];
+  if (detailMap) normalCanvas = blendDetail(normalCanvas, detailMap, detailTiles, detailStrength);
   const mat = new THREE.MeshStandardMaterial({
     color,
     map: texture(albedoCanvas, { srgb: true, repeat }),
-    normalMap: texture(heightToNormal(heightCanvas, 2.4), { repeat }),
+    normalMap: texture(normalCanvas, { repeat }),
     roughness, metalness,
     ...rest,
   });

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { makeCanvas, makeRng, noiseOverlay, texture, heightToNormal,
+import { makeCanvas, makeRng, noiseOverlay, texture, heightToNormal, detailNormal,
          grit, streaks, blob } from './tex.js';
 
 // ============================================================
@@ -34,6 +34,16 @@ function leatherMaterial() {
   return {
     map: texture(makeCanvas(512, 512, (c, w, h) => paint(c, w, h, 'a')), { srgb: true }),
     height: makeCanvas(512, 512, (c, w, h) => paint(c, w, h, 'h')),
+    // creased leather is polished where it rubs and matte in the folds
+    rough: texture(makeCanvas(512, 512, (ctx, w, h) => {
+      const r2 = makeRng(402);
+      ctx.fillStyle = '#b4b4b4';
+      ctx.fillRect(0, 0, w, h);
+      noiseOverlay(ctx, w, h, { seed: 19, grid: 34, octaves: 3, color: [230, 230, 230], alpha: 0.5 });
+      for (let i = 0; i < 26; i++) {
+        blob(ctx, r2() * w, r2() * h, 6 + r2() * 26, r2, `rgba(70,70,70,${0.3 + r2() * 0.4})`);
+      }
+    })),
   };
 }
 
@@ -107,9 +117,21 @@ function jointedLimb(mat, upperLen, lowerLen, r, { boot = null, hand = null } = 
     lower.add(foot);
   }
   if (hand) {
-    const palm = new THREE.Mesh(new RoundedBoxGeometry(r * 1.7, r * 2.0, r * 1.1, 3, 0.015), hand);
+    const palm = new THREE.Mesh(new RoundedBoxGeometry(r * 1.7, r * 1.9, r * 1.05, 3, 0.015), hand);
     palm.position.y = -lowerLen - r * 0.8;
     lower.add(palm);
+    // curled fingers and an opposed thumb, so the grip reads as a hand
+    for (let f = 0; f < 4; f++) {
+      const finger = new THREE.Mesh(
+        new THREE.CapsuleGeometry(r * 0.19, r * 0.62, 3, 8), hand);
+      finger.position.set(r * (0.42 - f * 0.28), -lowerLen - r * 1.62, r * 0.16);
+      finger.rotation.x = 1.25;
+      lower.add(finger);
+    }
+    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(r * 0.22, r * 0.5, 3, 8), hand);
+    thumb.position.set(r * 0.72, -lowerLen - r * 1.15, -r * 0.2);
+    thumb.rotation.set(0.5, 0, -0.75);
+    lower.add(thumb);
   }
   pivot.add(upper, lower);
   pivot.userData.lower = lower;
@@ -122,8 +144,9 @@ export function makeOfficer() {
   const lea = leatherMaterial();
   const leather = new THREE.MeshStandardMaterial({
     map: lea.map, roughness: 0.46, metalness: 0.04, color: 0xffffff,
+    roughnessMap: lea.rough,
   });
-  leather.normalMap = texture(heightToNormal(lea.height, 1.9));
+  leather.normalMap = texture(detailNormal(heightToNormal(lea.height, 1.9), 3, 0.6));
   leather.normalScale.set(0.9, 0.9);
 
   const trousers = fabricMaterial(0x24262c, 71);
@@ -137,6 +160,22 @@ export function makeOfficer() {
   const hips = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.1, 4, 12), trousers);
   hips.position.y = 0.95;
   root.add(hips);
+
+  // duty belt with a holster and a radio, the details that read from behind
+  const belt = new THREE.Mesh(new THREE.TorusGeometry(0.172, 0.028, 8, 22), boots);
+  belt.position.y = 1.0;
+  belt.rotation.x = Math.PI / 2;
+  const buckle = new THREE.Mesh(new RoundedBoxGeometry(0.07, 0.05, 0.02, 2, 0.008),
+    new THREE.MeshStandardMaterial({ color: 0x9c8a5e, roughness: 0.42, metalness: 0.8 }));
+  buckle.position.set(0, 1.0, -0.185);
+  const holster = new THREE.Mesh(new RoundedBoxGeometry(0.1, 0.2, 0.07, 3, 0.02), boots);
+  holster.position.set(0.185, 0.9, 0.03);
+  holster.rotation.z = -0.12;
+  const radio = new THREE.Mesh(new RoundedBoxGeometry(0.07, 0.13, 0.05, 3, 0.015), boots);
+  radio.position.set(-0.175, 0.95, 0.04);
+  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.005, 0.16, 5), boots);
+  antenna.position.set(-0.175, 1.08, 0.04);
+  root.add(belt, buckle, holster, radio, antenna);
 
   const legL = jointedLimb(trousers, 0.47, 0.45, 0.085, { boot: boots });
   legL.position.set(-0.105, 0.95, 0);
@@ -168,6 +207,21 @@ export function makeOfficer() {
   shoulders.position.y = 0.42;
   spine.add(shoulders);
 
+  // cuffs and a yoke seam across the back, which is the side the player sees
+  for (const cx of [-0.21, 0.21]) {
+    const cuffBand = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.014, 6, 14), leather);
+    cuffBand.position.set(cx, 0.4, 0);
+    cuffBand.rotation.x = Math.PI / 2;
+    spine.add(cuffBand);
+  }
+  const yoke = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.014, 0.02), leather);
+  yoke.position.set(0, 0.34, -0.2);
+  spine.add(yoke);
+  const waistband = new THREE.Mesh(new THREE.TorusGeometry(0.208, 0.026, 8, 20), leather);
+  waistband.position.y = 0.04;
+  waistband.rotation.x = Math.PI / 2;
+  spine.add(waistband);
+
   // shoulder emblem, on the left arm as in the still
   const emblem = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.13), patch);
   emblem.position.set(-0.212, 0.34, 0.02);
@@ -182,6 +236,13 @@ export function makeOfficer() {
   head.scale.set(0.94, 1.12, 1.04);
   const jaw = new THREE.Mesh(new RoundedBoxGeometry(0.15, 0.1, 0.15, 3, 0.05), skin);
   jaw.position.set(0, 0.567, 0.016);
+  // a brow ridge and nose, enough to break the silhouette of a bare sphere
+  const brow = new THREE.Mesh(new RoundedBoxGeometry(0.15, 0.026, 0.05, 3, 0.012), skin);
+  brow.position.set(0, 0.645, 0.086);
+  brow.rotation.x = -0.16;
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.027, 0.062, 8), skin);
+  nose.position.set(0, 0.607, 0.108);
+  nose.rotation.x = Math.PI * 0.52;
   const ears = new THREE.Group();
   for (const ex of [-0.098, 0.098]) {
     const ear = new THREE.Mesh(new THREE.SphereGeometry(0.026, 8, 8), skin);
@@ -198,7 +259,7 @@ export function makeOfficer() {
     0, Math.PI * 2, Math.PI * 0.4, Math.PI * 0.35), hairMat);
   nape.position.set(0, 0.622, -0.028);
   nape.scale.set(1, 1.05, 0.9);
-  spine.add(neck, head, jaw, ears, hair, nape);
+  spine.add(neck, head, jaw, brow, nose, ears, hair, nape);
 
   // ---- arms ----
   const armL = jointedLimb(leather, 0.3, 0.28, 0.062, { hand: skin });
