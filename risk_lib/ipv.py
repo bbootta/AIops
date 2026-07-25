@@ -7,8 +7,9 @@ Front Office가 산출한 가격을 독립 소스로 재검증하고, 검증 결
 
   가격차이 판정 (MR-F003)
       Break = |P_front − P_bench| > max(T_abs, |P_bench| × T_rel)
-      **절대·상대 허용오차를 동시에 적용**한다. 하나만 쓰면 소액 상품에서
-      과다 BREAK, 대액 상품에서 미탐지가 발생한다.
+      절대·상대 허용오차를 **함께 정의**하고 한도는 그 중 큰 값을 쓴다.
+      절대치만 쓰면 대액에서 미탐지, 상대치만 쓰면 소액에서 과다 BREAK가
+      나므로 두 실패 모드를 서로 막는 구조다.
 
   소스 위계 (Price Source Hierarchy)
       consensus > broker > model. Front Office 자체 모형만으로 검증된
@@ -78,9 +79,30 @@ class IPVResult:
     total_adjustment: float       # 평가조정 합계 (양수 = 가치 차감)
 
     def passes(self, *, max_break_rate: float = 0.05,
-               min_coverage: float = 0.90) -> bool:
-        """IPV 게이트 — BREAK율과 커버리지를 동시에 충족해야 통과."""
-        return self.break_rate <= max_break_rate and self.coverage >= min_coverage
+               min_coverage: float = 0.90,
+               min_coverage_notional: float = 0.90) -> bool:
+        """IPV 게이트 — BREAK율·건수 커버리지·**명목 커버리지**를 모두 충족.
+
+        건수만 보면 소액 포지션 다수를 검증하고 대형 포지션을 빠뜨려도 통과한다
+        — 리스크는 금액에 있으므로 명목 기준도 함께 요구한다.
+        """
+        return (self.break_rate <= max_break_rate
+                and self.coverage >= min_coverage
+                and self.coverage_by_notional >= min_coverage_notional)
+
+    def gate_failures(self, *, max_break_rate: float = 0.05,
+                      min_coverage: float = 0.90,
+                      min_coverage_notional: float = 0.90) -> list[str]:
+        """미충족 항목 — 어느 조건이 걸렸는지 보고서가 말할 수 있어야 한다."""
+        out = []
+        if self.break_rate > max_break_rate:
+            out.append(f"BREAK율 {self.break_rate:.1%} > 한도 {max_break_rate:.0%}")
+        if self.coverage < min_coverage:
+            out.append(f"건수 커버리지 {self.coverage:.1%} < {min_coverage:.0%}")
+        if self.coverage_by_notional < min_coverage_notional:
+            out.append(f"명목 커버리지 {self.coverage_by_notional:.1%} "
+                       f"< {min_coverage_notional:.0%}")
+        return out
 
 
 # ---------------------------------------------------------------- 가격차이

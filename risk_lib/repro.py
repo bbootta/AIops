@@ -165,10 +165,10 @@ def build_manifest(
     # 구분한다. 원장이 없으면 "none"으로 기록해 '조정 없음'과 '미기록'을
     # 구분한다 (DAT-006, AIMS_POLICY §2-2).
     if adjustment_ledger is not None:
-        parameters.setdefault("adjustment_fingerprint",
-                              adjustment_ledger.fingerprint())
-        parameters.setdefault("adjustments_applied",
-                              len(adjustment_ledger.applied()))
+        # setdefault를 쓰면 parameters에 이미 키가 있을 때 넘긴 원장이 조용히
+        # 무시된다 — 명시적으로 전달된 원장이 항상 이긴다.
+        parameters["adjustment_fingerprint"] = adjustment_ledger.fingerprint()
+        parameters["adjustments_applied"] = len(adjustment_ledger.applied())
     else:
         parameters.setdefault("adjustment_fingerprint", "none")
 

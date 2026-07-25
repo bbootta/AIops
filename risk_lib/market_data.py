@@ -19,8 +19,9 @@ IPV(66)의 상류 의존성이다. 독립 가격을 만들려면 그 가격이 �
       호가를 RMSE 임계 내로 적합하는지 검증한다.
 
   무차익 (No-arbitrage)
-      할인계수 단조감소 · 변동성면의 butterfly(볼록성) · calendar(만기 간
-      total variance 비감소). 위반은 곧 모형이 만들어낸 가짜 기회다.
+      할인계수 단조감소 · 변동성면의 butterfly(Gatheral g(k) ≥ 0) ·
+      calendar(만기 간 total variance 비감소). 위반은 곧 모형이
+      만들어낸 가짜 기회다. **볼록성(c ≥ 0)은 butterfly 조건이 아니다.**
 
 **주의**: 허용 경과일·RMSE 임계는 상품·시장·평가정책으로 통제되는 승인값이며,
 본 모듈 기본값은 구조 시연용이다.
@@ -39,8 +40,12 @@ from datetime import date, datetime, timezone
 import numpy as np
 import pandas as pd
 
-# 소스 등급 — IPV의 SOURCE_RANK와 정합.
-CURVE_SOURCES = ("consensus", "exchange", "broker", "internal")
+# 소스 어휘 — IPV의 SOURCE_RANK와 **동일 어휘**를 쓴다. 두 모듈이 다른 이름을
+# 쓰면 IPV가 독립으로 인정한 소스가 여기서는 미등록 위반이 되어 통제가 어긋난다.
+# ('internal'은 시장데이터 전용 — 내부 산출 커브를 뜻하며 독립성은 불인정.)
+CURVE_SOURCES = ("consensus", "exchange", "broker", "model",
+                 "front_office", "internal")
+NON_INDEPENDENT_SOURCES = ("internal", "front_office")
 
 # 데이터 종류별 허용 경과(일). 초과 시 평가 사용 불가.
 MAX_STALENESS_DAYS: dict[str, int] = {
@@ -50,7 +55,9 @@ MAX_STALENESS_DAYS: dict[str, int] = {
     "fx": 1,
     "equity": 1,
 }
-DEFAULT_MAX_STALENESS = 5
+# 미등록 종류는 **가장 엄격한** 한도를 적용한다 (fail-closed). 느슨한 기본값을
+# 두면 타입 오타 하나로 stale 데이터가 통제를 빠져나간다.
+DEFAULT_MAX_STALENESS = min(MAX_STALENESS_DAYS.values())
 
 # Calibration 품질 임계.
 CURVE_REPRICING_TOL_BPS = 0.5     # 부트스트랩 커브의 par 금리 재현 오차
@@ -87,8 +94,11 @@ class MarketDataSnapshot:
         v = []
         if self.source not in CURVE_SOURCES:
             v.append(f"미등록 소스: {self.source}")
-        if self.source == "internal":
-            v.append("내부 소스 단독 — 독립 검증 소스 확보 필요")
+        if self.data_type not in MAX_STALENESS_DAYS:
+            v.append(f"미등록 데이터 종류: {self.data_type} "
+                     f"(최엄격 {DEFAULT_MAX_STALENESS}일 한도 적용)")
+        if self.source in NON_INDEPENDENT_SOURCES:
+            v.append(f"비독립 소스 단독 ({self.source}) — 독립 검증 소스 확보 필요")
         age = self.age_days(asof)
         if age < 0:
             v.append(f"미래 스냅샷 ({self.snapshot_date} > {asof})")
@@ -288,7 +298,18 @@ class VolSurface:
         return float(np.sqrt(w / T))
 
     def fit_passes(self, tol: float = VOL_FIT_RMSE_TOL) -> bool:
+        """RMSE 임계 통과 여부. 자유도 0 적합(호가 3개)은 RMSE가 구조적으로
+        0이므로 통과로 세지 않는다 — 호가를 덜 낼수록 게이트가 쉬워지는
+        역인센티브를 막는다."""
+        if bool(self.params.get("degenerate_fit", pd.Series(dtype=bool)).any()):
+            return False
         return self.rmse <= tol
+
+    def degenerate_expiries(self) -> list[float]:
+        if "degenerate_fit" not in self.params.columns:
+            return []
+        return [float(r["expiry"]) for _, r in self.params.iterrows()
+                if r["degenerate_fit"]]
 
     # ---- 무차익 ----
     def _g(self, k: float, row) -> float:
@@ -312,6 +333,16 @@ class VolSurface:
     def _k_grid(self, n: int = 201) -> np.ndarray:
         """적합 구간을 촘촘히 덮는 격자 — 성긴 표본은 구간 내 위반을 놓친다."""
         return np.linspace(-0.4, 0.4, n)
+
+    def min_g_by_expiry(self, n_grid: int = 201) -> list[tuple[float, float, float]]:
+        """만기별 (expiry, min g, 그 지점의 k) — 보고서가 실제 판정을 쓰도록."""
+        out = []
+        for _, row in self.params.iterrows():
+            ks = self._k_grid(n_grid)
+            gs = np.array([self._g(float(k), row) for k in ks])
+            i = int(np.argmin(gs))
+            out.append((float(row["expiry"]), float(gs[i]), float(ks[i])))
+        return out
 
     def butterfly_violations(self, n_grid: int = 201) -> list[str]:
         """g(k) < 0 인 지점 탐색 (Gatheral 조건)."""
@@ -381,7 +412,10 @@ def calibrate_vol_surface(quotes: pd.DataFrame, *,
         rows.append({"expiry": float(T), "a": float(a), "b": float(b),
                      "c": float(c),
                      "rmse": float(np.sqrt(np.mean(resid ** 2))),
-                     "n_quotes": int(len(g))})
+                     "n_quotes": int(len(g)),
+                     # 파라미터 3개를 호가 3개로 적합하면 자유도 0이라 RMSE가
+                     # 항상 ~0이다 — 품질을 증명하지 못하므로 표시한다.
+                     "degenerate_fit": bool(len(g) <= 3)})
 
     params = pd.DataFrame(rows).sort_values("expiry").reset_index(drop=True)
     rmse = float(np.sqrt(np.mean(np.concatenate(resid_all) ** 2)))

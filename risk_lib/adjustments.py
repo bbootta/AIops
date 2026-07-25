@@ -126,6 +126,12 @@ class AdjustmentLedger:
         if not adj.reason.strip() or not adj.evidence_ref.strip():
             raise AdjustmentError(
                 f"{adj.adjustment_id}: 사유·증빙 없는 조정은 등록할 수 없다")
+        # 등록 시점에 'applied'로 들어오면 apply_all 전에 net_effect가 그 값을
+        # 반영해 통제를 건너뛴다. 적용 상태는 통제를 통과해야만 부여된다.
+        if adj.status not in ("pending", "rejected"):
+            raise AdjustmentError(
+                f"{adj.adjustment_id}: 등록 상태는 pending/rejected만 허용된다 "
+                f"(받은 값 {adj.status!r}) — 적용은 apply_all의 통제를 거쳐야 한다")
         self.adjustments.append(adj)
 
     def cumulative_violations(self, asof: str | date) -> dict[str, str]:
@@ -241,8 +247,14 @@ class AdjustmentLedger:
         if not p.exists():
             return cls()
         data = json.loads(p.read_text(encoding="utf-8"))
-        return cls(adjustments=[ManualAdjustment(**d)
-                                for d in data.get("adjustments", [])])
+        led = cls(adjustments=[ManualAdjustment(**d)
+                               for d in data.get("adjustments", [])])
+        # 외부 파일이 applied를 주장해도 그대로 믿지 않는다 — 통제 재평가 전까지
+        # pending으로 되돌린다 (파일 변조로 통제를 건너뛰지 못하게).
+        for a in led.adjustments:
+            if a.status == "applied":
+                a.status = "pending"
+        return led
 
 
 # ---------------------------------------------------------------- 대사

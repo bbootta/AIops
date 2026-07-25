@@ -900,11 +900,15 @@ def page_ipv(r: PipelineResult) -> str:
 <div class="card"><h2>IPV 게이트</h2>
 <div class="kpi-grid">{kpis}</div>
 <div class="callout {'good' if gate else 'bad'}">
-{'게이트 통과 — BREAK율·커버리지 모두 충족.' if gate else
- f'게이트 미통과 — BREAK율 {_pct(res.break_rate, 1)}(한도 5%) · '
- f'커버리지 {_pct(res.coverage, 1)}(한도 90%). 미충족 항목의 원인(허용오차 부적정 · '
- f'소스 미확보 · 모형 오류)을 규명하기 전까지 해당 데스크 평가는 신뢰할 수 없습니다.'}
+{'게이트 통과 — BREAK율·건수/명목 커버리지 모두 충족.' if gate else
+ '게이트 미통과 — ' + ' · '.join(res.gate_failures()) +
+ '. 원인(허용오차 부적정 · 소스 미확보 · 모형 오류)을 규명하기 전까지 해당 '
+ '데스크 평가는 신뢰할 수 없습니다.'}
 </div>
+<p class="cite">게이트 임계(BREAK율 5% · 커버리지 90%)는 <b>내부 관리값이며
+규정에 정해진 수치가 아닙니다</b> — 기관 승인 사양으로 교체가 전제입니다.
+아래 「근거」의 규제 인용은 평가조정 방법론에 대한 것이지 이 임계에 대한 것이
+아닙니다.</p>
 </div>
 
 <div class="card"><h2>66-1. 가격 소스 위계</h2>
@@ -1004,12 +1008,19 @@ def page_market_data(r: PipelineResult) -> str:
         curve.tenors, curve.par_input, curve.par_repriced,
         curve.discount_factors, curve.zero_rates)]
 
-    vol_rows = [[
-        f'{row["expiry"]:g}년', f'{row["a"]:.5f}', f'{row["b"]:+.5f}',
-        f'{row["c"]:+.5f}',
-        _badge("볼록", "PASS") if row["c"] >= 0 else _badge("위반", "FAIL"),
-        f'{row["rmse"]:.5f}', f'{int(row["n_quotes"])}개',
-    ] for _, row in vol.params.iterrows()]
+    # butterfly 판정은 **실제 g(k) 최소값**으로 한다 — c의 부호로 판정하면
+    # 볼록한 위반 면을 통과시키고 완만히 오목한 정상 면을 거짓 경보한다.
+    g_by_exp = {e: (g, k) for e, g, k in vol.min_g_by_expiry()}
+    vol_rows = []
+    for _, row in vol.params.iterrows():
+        g_min, k_at = g_by_exp[float(row["expiry"])]
+        vol_rows.append([
+            f'{row["expiry"]:g}년', f'{row["a"]:.5f}', f'{row["b"]:+.5f}',
+            f'{row["c"]:+.5f}',
+            f'{g_min:+.4f} @ k={k_at:+.2f}',
+            _badge("무차익", "PASS") if g_min >= -1e-12 else _badge("위반", "FAIL"),
+            f'{row["rmse"]:.5f}', f'{int(row["n_quotes"])}개',
+        ])
 
     curve_chart = viz.line_chart(
         [f"{t:g}Y" for t in curve.tenors],
@@ -1064,12 +1075,15 @@ def page_market_data(r: PipelineResult) -> str:
 
 <div class="card"><h2>67-3. 변동성면 적합 · 무차익 (SEC-PRC-004)</h2>
 <div class="chart">{vol_chart}</div>
-{_table(["만기", "a", "b (스큐)", "c (볼록성)", "butterfly", "RMSE", "호가"],
-        vol_rows, right_cols=[1, 2, 3, 5, 6])}
+{_table(["만기", "a", "b (스큐)", "c", "min g(k)", "butterfly", "RMSE", "호가"],
+        vol_rows, right_cols=[1, 2, 3, 4, 6, 7])}
 <p class="section-lead">total variance <code>w(k,T) = a + b·k + c·k²</code>
 (k = ln(K/F)) 로 적합합니다.
-<b>butterfly</b>: c &lt; 0 이면 볼록성이 깨져 나비 차익거래가 존재합니다
+<b>butterfly</b>: Gatheral &amp; Jacquier Lemma 2.2 의
+<code>g(k) = (1 − k·w′/2w)² − (w′²/4)(1/w + 1/4) + w″/2 ≥ 0</code> 로 판정합니다
 (현재 위반 {len(bf)}건).
+<b>볼록성(c ≥ 0)은 이 조건이 아닙니다</b> — 볼록해도 스큐가 가파르면 g&lt;0 이 되고,
+살짝 오목해도 g≥0 일 수 있어 c의 부호로 판정하면 양방향으로 오판합니다.
 <b>calendar</b>: 같은 k에서 만기가 길수록 total variance가 커야 합니다
 (현재 위반 {len(cal)}건).
 만기당 호가가 3개 미만이면 적합 자체를 거부합니다 — 부족한 데이터를 억지로

@@ -52,16 +52,38 @@ def test_future_snapshot_is_a_violation():
     assert any("미래 스냅샷" in x for x in v)
 
 
-def test_internal_only_source_is_a_violation():
-    """내부 소스 단독은 독립 검증 소스가 아니다."""
-    v = _snap(source="internal").violations(ASOF)
-    assert any("내부 소스 단독" in x for x in v)
+def test_non_independent_sources_are_violations():
+    """내부 산출·FO 자체 가격 단독은 독립 검증 소스가 아니다."""
+    from risk_lib.market_data import NON_INDEPENDENT_SOURCES
+    for src in NON_INDEPENDENT_SOURCES:
+        v = _snap(source=src).violations(ASOF)
+        assert any("비독립 소스 단독" in x for x in v), f"{src} 미탐지"
+    # 독립 소스는 위반이 아니어야 한다
+    assert _snap(source="consensus").violations(ASOF) == []
+
+
+def test_source_vocabulary_matches_ipv():
+    """시장데이터와 IPV가 다른 소스 어휘를 쓰면 통제가 어긋난다."""
+    from risk_lib.market_data import CURVE_SOURCES
+    from risk_lib.ipv import SOURCE_RANK
+    missing = set(SOURCE_RANK) - set(CURVE_SOURCES)
+    assert not missing, f"IPV가 아는 소스를 시장데이터가 미등록 처리: {missing}"
 
 
 def test_unknown_source_and_empty_quotes_rejected():
     assert any("미등록 소스" in x for x in _snap(source="어디선가").violations(ASOF))
     empty = _snap(quotes=pd.DataFrame())
     assert any("호가 없음" in x for x in empty.violations(ASOF))
+
+
+def test_unknown_data_type_fails_closed():
+    """미등록 종류에 느슨한 한도를 주면 오타 하나로 통제를 빠져나간다."""
+    from risk_lib.market_data import DEFAULT_MAX_STALENESS, MAX_STALENESS_DAYS
+    assert DEFAULT_MAX_STALENESS == min(MAX_STALENESS_DAYS.values()), (
+        "미등록 종류 기본값이 최엄격이 아니다 — fail-open")
+    v = _snap(data_type="오타타입", snapshot_date="2026-06-08").violations(ASOF)
+    assert any("미등록 데이터 종류" in x for x in v)
+    assert any("Staleness 초과" in x for x in v)
 
 
 def test_snapshot_fingerprint_reacts_to_data_change():
@@ -255,6 +277,18 @@ def test_calendar_check_uses_dense_grid_not_five_points():
     assert s.calendar_violations(), "촘촘 격자가 역전을 잡지 못했다"
     # 성긴 표본으로도 잡히는지와 무관하게, 촘촘 격자는 반드시 잡아야 한다
     assert worst_coarse < 0 or True
+
+
+def test_degenerate_fit_does_not_pass_the_quality_gate():
+    """호가 3개면 파라미터 3개를 정확히 맞춰 RMSE가 항상 ~0이 된다 —
+    호가를 덜 낼수록 품질 게이트가 쉬워지는 역인센티브를 막아야 한다."""
+    thin = pd.DataFrame([
+        {"expiry": 1.0, "log_moneyness": k, "vol": 0.20 + 0.3 * k * k}
+        for k in (-0.1, 0.0, 0.1)])
+    s = calibrate_vol_surface(thin)
+    assert s.rmse < 1e-10, "테스트 전제: 자유도 0이면 RMSE가 0에 수렴"
+    assert not s.fit_passes(), "RMSE 0인 자유도 0 적합이 게이트를 통과했다"
+    assert s.degenerate_expiries() == [1.0]
 
 
 def test_insufficient_quotes_rejected_not_fudged():

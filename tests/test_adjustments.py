@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from risk_lib.adjustments import (
@@ -170,14 +172,64 @@ def test_empty_ledger_fingerprint_is_stable():
     assert AdjustmentLedger().fingerprint() == AdjustmentLedger().fingerprint()
 
 
-def test_json_roundtrip(tmp_path):
+def test_json_roundtrip_requires_recontrol_before_applying(tmp_path):
+    """파일에서 읽은 조정은 applied를 그대로 믿지 않고 재평가를 거쳐야 한다 —
+    파일을 고쳐 status='applied'로 만들면 통제를 건너뛸 수 있기 때문."""
     led = AdjustmentLedger()
     led.add(_adj(requester="A", approver="B"))
     led.apply_all(ASOF)
     p = led.export_json(tmp_path / "adj.json")
+
     back = AdjustmentLedger.load(p)
-    assert back.fingerprint() == led.fingerprint()
+    assert len(back.adjustments) == 1
+    assert back.applied() == [], "로드 직후 applied를 그대로 신뢰하면 안 된다"
+    assert back.net_effect("ecl.ttc_total") == 0.0
+    # 재평가하면 통제를 통과하므로 다시 적용되고 지문도 원래대로
+    assert back.apply_all(ASOF) == []
     assert len(back.applied()) == 1
+    assert back.fingerprint() == led.fingerprint()
+
+
+def test_cannot_register_as_applied():
+    """등록 시 applied를 주장하면 apply_all 전에 수치에 반영된다 — 차단."""
+    led = AdjustmentLedger()
+    with pytest.raises(AdjustmentError, match="pending/rejected"):
+        led.add(_adj(status="applied"))
+    assert led.adjustments == []
+    assert led.net_effect() == 0.0
+
+
+def test_tampered_file_cannot_bypass_controls(tmp_path):
+    """파일을 조작해 SoD 위반 조정을 applied로 만들어도 재평가에서 차단된다."""
+    import json
+    led = AdjustmentLedger()
+    led.add(_adj(adjustment_id="EVIL", requester="같은사람", approver="같은사람"))
+    p = led.export_json(tmp_path / "adj.json")
+    data = json.loads(Path(p).read_text(encoding="utf-8"))
+    data["adjustments"][0]["status"] = "applied"          # 변조
+    Path(p).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    back = AdjustmentLedger.load(p)
+    assert back.applied() == []
+    blocked = back.apply_all(ASOF)
+    assert any("직무분리 위반" in b for b in blocked)
+    assert back.net_effect() == 0.0
+
+
+def test_splitting_cannot_evade_senior_approval():
+    """건별 임계 미만으로 쪼개도 누적이 넘으면 상위 승인이 필요하다."""
+    led = AdjustmentLedger()
+    for i in range(2):
+        led.add(_adj(adjustment_id=f"SPLIT{i}", figure_id="rwa.final_total",
+                     base_value=1e13,
+                     adjusted_value=1e13 + MATERIALITY_ABS * 0.6,
+                     requester="A", approver="B"))
+    # 개별로는 임계 미만
+    assert not led.adjustments[0].is_material()
+    blocked = led.apply_all(ASOF)
+    assert any("누적 중요성" in b for b in blocked)
+    assert led.applied() == []
+    assert led.net_effect("rwa.final_total") == 0.0
 
 
 # ----- 대사 -----------------------------------------------------------------
