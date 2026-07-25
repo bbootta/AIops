@@ -9,7 +9,7 @@ import pandas as pd
 from risk_lib.pipeline import PipelineResult
 from risk_lib import viz, viz_advanced
 from risk_lib.html_report import (
-    _page, _table, _kpi, _badge, _won, _pct,
+    _page, _table, _kpi, _badge, _won, _pct, _esc,
 )
 from risk_lib.ops_pages._shared import _placeholder_page
 
@@ -949,3 +949,139 @@ FRTB <a href="56_frtb_ima.html">56번</a></p>
 승인 사양으로 교체가 전제입니다.</div>
 """
     return _page("IPV · 평가조정", body, "66_ipv.html")
+
+
+# ============================================================================
+# 67. 시장데이터 거버넌스 · Curve/Vol Calibration
+# ============================================================================
+
+def page_market_data(r: PipelineResult) -> str:
+    """67_market_data.html — 스냅샷 통제·부트스트랩·변동성면 무차익 검증."""
+    from risk_lib.market_data import (
+        assess_from_result, MAX_STALENESS_DAYS,
+        CURVE_REPRICING_TOL_BPS, VOL_FIT_RMSE_TOL)
+
+    g = assess_from_result(r)
+    curve, vol = g.curve, g.vol
+    ok = g.passes()
+
+    kpis = "".join([
+        _kpi("거버넌스 판정", "통과" if ok else f"위반 {len(g.violations)}건",
+             sub="스냅샷·calibration·무차익 종합",
+             tone="good" if ok else "bad"),
+        _kpi("스냅샷", f'{len(g.snapshots)}건',
+             sub=f'Stale {int(g.snapshots["stale"].sum())}건',
+             tone="good" if not g.snapshots["stale"].any() else "bad"),
+        _kpi("커브 par 재현", f"{curve.max_repricing_error_bps:.3f}bp",
+             sub=f"허용 {CURVE_REPRICING_TOL_BPS}bp",
+             tone="good" if curve.calibration_passes() else "bad"),
+        _kpi("변동성면 RMSE", f"{vol.rmse:.4f}",
+             sub=f"허용 {VOL_FIT_RMSE_TOL:.4f}",
+             tone="good" if vol.fit_passes() else "bad"),
+        _kpi("무차익", "충족" if curve.is_arbitrage_free() and vol.is_arbitrage_free()
+             else "위반", sub="DF 단조 · butterfly · calendar",
+             tone="good" if curve.is_arbitrage_free() and vol.is_arbitrage_free()
+             else "bad"),
+    ])
+
+    snap_rows = [[
+        row["name"], row["type"], row["source"], row["snapshot_date"],
+        f'{int(row["age_days"])}일 / 허용 {int(row["max_age"])}일',
+        _badge("OK", "PASS") if row["status"] == "OK" else _badge("위반", "FAIL"),
+        row["detail"], f'<code>{row["fingerprint"]}</code>',
+    ] for _, row in g.snapshots.iterrows()]
+
+    curve_rows = [[
+        f'{t:g}년', _pct(pr, 3), _pct(rp, 3),
+        f'{(rp - pr) * 10_000:+.4f}bp', f'{df:.6f}', _pct(z, 3),
+    ] for t, pr, rp, df, z in zip(
+        curve.tenors, curve.par_input, curve.par_repriced,
+        curve.discount_factors, curve.zero_rates)]
+
+    vol_rows = [[
+        f'{row["expiry"]:g}년', f'{row["a"]:.5f}', f'{row["b"]:+.5f}',
+        f'{row["c"]:+.5f}',
+        _badge("볼록", "PASS") if row["c"] >= 0 else _badge("위반", "FAIL"),
+        f'{row["rmse"]:.5f}', f'{int(row["n_quotes"])}개',
+    ] for _, row in vol.params.iterrows()]
+
+    curve_chart = viz.line_chart(
+        [f"{t:g}Y" for t in curve.tenors],
+        {"par 금리": list(curve.par_input),
+         "제로 금리(연속복리)": list(curve.zero_rates)},
+        title="부트스트랩 제로커브 vs 시장 par 금리", value_fmt=lambda v: _pct(v, 2))
+
+    atm = [vol.implied_vol(0.0, float(T)) for T in vol.expiries]
+    smile_25 = [vol.implied_vol(0.25, float(T)) for T in vol.expiries]
+    vol_chart = viz.line_chart(
+        [f"{T:g}Y" for T in vol.expiries],
+        {"ATM": atm, "k=+0.25": smile_25},
+        title="적합된 변동성 기간구조", value_fmt=lambda v: _pct(v, 1))
+
+    viol_html = ("".join(f'<div class="callout bad">{_esc(v)}</div>'
+                         for v in g.violations)
+                 if g.violations else
+                 '<div class="callout good">통제 위반 없음.</div>')
+
+    bf = vol.butterfly_violations()
+    cal = vol.calendar_violations()
+
+    body = f"""
+<h1 class="title">67. 시장데이터 거버넌스 · Curve/Vol Calibration</h1>
+<p class="section-lead">IPV(<a href="66_ipv.html">66번</a>)의 상류 통제입니다.
+출처를 모르거나 오래됐거나 차익거래가 존재하는 곡선 위에서 산출한 "독립 가격"은
+검증 근거가 되지 못합니다.</p>
+
+<div class="card"><h2>종합 판정</h2>
+<div class="kpi-grid">{kpis}</div>
+{viol_html}
+</div>
+
+<div class="card"><h2>67-1. 스냅샷 통제 (SEC-PRC-001)</h2>
+{_table(["데이터", "종류", "소스", "스냅샷", "경과", "판정", "상세", "지문"], snap_rows)}
+<p class="section-lead">Staleness 허용치는 데이터 종류별로 다릅니다
+({' · '.join(f'{k} {v}일' for k, v in MAX_STALENESS_DAYS.items())}).
+<b>"오래됐지만 없는 것보단 낫다"는 판단은 담당자가 아니라 정책이 합니다</b> —
+초과 데이터는 평가에 쓸 수 없습니다. 내부 소스 단독도 위반입니다.</p>
+</div>
+
+<div class="card"><h2>67-2. 금리커브 부트스트랩 (SEC-PRC-004)</h2>
+<div class="chart">{curve_chart}</div>
+{_table(["만기", "par 금리(시장)", "par 재산출", "오차", "할인계수", "제로금리"],
+        curve_rows, right_cols=[1, 2, 3, 4, 5])}
+<p class="section-lead">
+<code>S_n · Σ_(i≤n) DF_i + DF_n = 1</code> 에서 순차 부트스트랩하고,
+얻은 커브로 par 금리를 <b>재산출해 오차를 확인</b>합니다 — 입력을 재현하지
+못하는 커브는 calibration 실패입니다 (현재 최대 {curve.max_repricing_error_bps:.4f}bp).
+할인계수 단조감소는 양의 forward 금리와 동치이며, 위반 시 무위험 차익이 생깁니다.</p>
+</div>
+
+<div class="card"><h2>67-3. 변동성면 적합 · 무차익 (SEC-PRC-004)</h2>
+<div class="chart">{vol_chart}</div>
+{_table(["만기", "a", "b (스큐)", "c (볼록성)", "butterfly", "RMSE", "호가"],
+        vol_rows, right_cols=[1, 2, 3, 5, 6])}
+<p class="section-lead">total variance <code>w(k,T) = a + b·k + c·k²</code>
+(k = ln(K/F)) 로 적합합니다.
+<b>butterfly</b>: c &lt; 0 이면 볼록성이 깨져 나비 차익거래가 존재합니다
+(현재 위반 {len(bf)}건).
+<b>calendar</b>: 같은 k에서 만기가 길수록 total variance가 커야 합니다
+(현재 위반 {len(cal)}건).
+만기당 호가가 3개 미만이면 적합 자체를 거부합니다 — 부족한 데이터를 억지로
+적합하면 c의 부호가 임의로 정해져 없던 차익거래가 생깁니다.</p>
+</div>
+
+<div class="card"><h2>재현성 · 담당</h2>
+<p>스냅샷 지문이 바뀌면 그 위에서 산출한 모든 가격이 달라집니다 — 지문을
+보고서에 남겨야 가격 재현이 가능합니다.</p>
+<p class="cite">BRD SEC-PRC-001(시장데이터) · SEC-PRC-004(Curve·Vol calibration) ·
+GOV-006 · Gatheral &amp; Jacquier (2014) arbitrage-free surfaces<br/>
+담당: <b>market-risk-analyst</b> (RYNTA PRD-MKT) ·
+IPV <a href="66_ipv.html">66번</a> ·
+커버리지 <a href="63_rynta_coverage.html">63번</a></p>
+</div>
+
+<div class="callout"><b>예시 데이터</b> — 호가는 seed 고정 합성값입니다. 실제
+운영에서는 컨센서스·거래소·브로커 피드로 대체되며, 허용 경과일·RMSE 임계는
+기관 승인 사양으로 교체가 전제입니다.</div>
+"""
+    return _page("시장데이터 거버넌스", body, "67_market_data.html")
