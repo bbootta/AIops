@@ -1,0 +1,26 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "",
+	"Category": "Game",
+	"Description": "호프: 마지막 거리 — 영화 '호프' 시가전 장면 기반 3인칭 슈팅게임",
+	"Modules": [
+		{
+			"Name": "HopeLastStreet",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "PythonScriptPlugin",
+			"Enabled": true
+		},
+		{
+			"Name": "EditorScriptingUtilities",
+			"Enabled": true
+		}
+	]
+}
