@@ -6,7 +6,9 @@
       01_datamodel/    테이블 CSV + 통합 DDL + 카탈로그 요약
       02_reports/      경영진·실무진 HTML 전체 (기존 패키지)
       03_evidence/     manifest · audit ledger · 조정 원장 · 검증 결과
-      04_work_report/  업무보고서 (HTML · Markdown)
+      04_work_report/  개발 작업보고서 (HTML · Markdown)
+      05_regulatory/   금감원 배포 기준 업무보고서 (.xlsx) + 서식 원장 CSV
+      06_agentic_ui/   에이전틱 UI 스튜디오 (자체 완결 HTML)
       MANIFEST.txt     ZIP 내 모든 파일의 SHA-256 + 크기
       README.md        패키지 안내
 
@@ -160,9 +162,11 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
                        adjustment_ledger=None, zip_name: str = "deliverables.zip"
                        ) -> dict:
     """10라운드 산출물 전체를 디렉터리로 구성하고 ZIP으로 묶는다."""
-    from risk_lib.datamodel.materialize import materialize_all
     from risk_lib.html_report import build_full_report_package
     from risk_lib.work_report import write_work_report
+    from risk_lib.ui_studio.studio import build_studio
+    from risk_lib.ui_studio.app import write_app
+    from risk_lib.regulatory import write_workbook
     from risk_lib import datamodel as dm
 
     root = Path(out_root)
@@ -171,8 +175,11 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
         shutil.rmtree(root)
     root.mkdir(parents=True)
 
-    # 01 · 데이터모델
-    tables = materialize_all(result, portfolio)
+    # 01 · 데이터모델 — 스튜디오 조립이 카탈로그 전체(세분화·업무보고서·UIX
+    # 통제 원장 포함)를 채운다. 부문 엔진만 돌리면 CSV가 카탈로그보다 적어져
+    # "선언은 됐지만 산출은 없는" 테이블이 조용히 생긴다.
+    studio = build_studio(result, portfolio)
+    tables = studio.tables
     dm_dir = root / "01_datamodel"
     csvs = export_tables(tables, dm_dir / "tables")
     sql = export_ddl(dm_dir)
@@ -196,11 +203,27 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
         if src and Path(src).exists():
             shutil.copy2(src, ev_dir / Path(src).name)
 
-    # 04 · 업무보고서
+    # 04 · 개발 작업보고서 (라운드별 산출 이력)
     wr = write_work_report(result, portfolio, tables, root / "04_work_report")
 
+    # 05 · 감독보고 — 금감원 배포 기준 업무보고서
+    reg_dir = root / "05_regulatory"
+    xlsx = write_workbook(
+        studio.built_forms, reg_dir / "업무보고서_금감원기준.xlsx",
+        asof=studio.asof,
+        meta={"seed": result.meta.get("seed", 42),
+              "institution": "(기관명 — 제출 시 기재)"})
+    for name in ("reg_form", "reg_form_line", "reg_form_check",
+                 "reg_submission"):
+        tables[name].to_csv(reg_dir / f"{name}.csv", index=False,
+                            encoding="utf-8-sig")
+
+    # 06 · 에이전틱 UI (자체 완결 HTML — 외부 CDN 없음)
+    ui_dir = root / "06_agentic_ui"
+    ui_html = write_app(studio, ui_dir / "RYNTA_에이전틱UI_스튜디오.html")
+
     # README + 무결성 매니페스트
-    (root / "README.md").write_text(_readme(result, tables, len(csvs)),
+    (root / "README.md").write_text(_readme(result, tables, len(csvs), studio),
                                     encoding="utf-8")
     write_manifest(root)
     zip_path = make_zip(root, root.parent / zip_name)
@@ -210,14 +233,22 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
         "n_tables": len(tables), "n_csv": len(csvs),
         "ddl": str(sql), "catalog": str(cat_csv),
         "work_report": wr, "reports": len(rep),
+        "regulatory_xlsx": str(xlsx),
+        "n_forms": len(studio.built_forms),
+        "n_form_lines": int(len(tables["reg_form_line"])),
+        "n_form_checks_failed": int(
+            (tables["reg_form_check"]["status"] == "FAIL").sum()),
+        "agentic_ui": str(ui_html),
         "schema_violations": len(viol),
         "zip_verified": check,
     }
 
 
-def _readme(result, tables, n_csv: int) -> str:
+def _readme(result, tables, n_csv: int, studio=None) -> str:
     from risk_lib.datamodel import catalog as cat
     asof = result.meta.get("asof", "")
+    n_forms = len(studio.built_forms) if studio else 0
+    n_lines = int(len(tables.get("reg_form_line", []))) if studio else 0
     return f"""# 리스크관리 에이전트 하니스 — 산출물 패키지
 
 산출 기준일 **{asof}** · seed **{result.meta.get('seed')}**
@@ -229,15 +260,27 @@ def _readme(result, tables, n_csv: int) -> str:
 | `01_datamodel/` | 정규 테이블 CSV {n_csv}개 · 통합 DDL(`schema.sql`) · 카탈로그 요약 · 스키마 검증 결과 |
 | `02_reports/` | 경영진 보고서 · 실무진 심층 페이지 · 리스크위원회 board pack(국/영문) · 인쇄용 |
 | `03_evidence/` | manifest(재현) · audit ledger(산출근거) · 수동조정 원장 |
-| `04_work_report/` | 업무보고서 (Markdown · HTML) |
+| `04_work_report/` | **개발 작업보고서** — 라운드별 산출 이력 (Markdown · HTML) |
+| `05_regulatory/` | **금감원 배포 기준 업무보고서** — 서식 {n_forms}장 · 라인 {n_lines}행 (.xlsx) + 서식 원장 CSV |
+| `06_agentic_ui/` | **에이전틱 UI 스튜디오** — 전 모듈 관리 화면 (자체 완결 HTML) |
 | `MANIFEST.txt` | 전 파일 SHA-256 + 크기 — 전달 후 무결성 자가검증용 |
+
+`04_work_report`(개발 진행 보고)와 `05_regulatory`(감독당국 제출 서식)는 서로
+다른 문서다. 감독보고용은 **05**다.
 
 ## 확인 순서
 
-1. `04_work_report/업무보고서.html` — 무엇을 만들었고 무엇이 남았는지
-2. `02_reports/executive.html` — 리스크 결과 (CRO용)
-3. `02_reports/ops/index.html` — 부문별 심층 (실무진용)
-4. `01_datamodel/schema.sql` — 물리 스키마 (테이블 {len(cat.ALL_TABLES)}개)
+1. `06_agentic_ui/RYNTA_에이전틱UI_스튜디오.html` — 전 모듈 통제 상태 한 화면
+2. `05_regulatory/업무보고서_금감원기준.xlsx` — 감독보고 서식 (표지 → 목차 → 서식 → 검증)
+3. `02_reports/executive.html` — 리스크 결과 (CRO용)
+4. `02_reports/ops/index.html` — 부문별 심층 (실무진용)
+5. `01_datamodel/schema.sql` — 물리 스키마 (테이블 {len(cat.ALL_TABLES)}개)
+
+## 업무보고서 서식번호에 관한 전제
+
+금융감독원 배포 서식 파일이 입력으로 주어지지 않아 서식 식별자는 내부 코드
+(`BR-01` …)를 쓴다. 배포본과 연결할 때는 `reg_form.form_id ↔ 배포 서식번호`
+매핑 한 장만 추가하면 되며, 라인 코드·산식·규정 근거는 그대로 쓸 수 있다.
 
 ## 무결성 검증
 

@@ -11,10 +11,17 @@
 ```
 CLI / Agents            cli.py, .claude/agents/*
   ↓
+Delivery (산출물)        ui_studio/ (에이전틱 UI — 조립·조회·레이아웃·렌더),
+                        regulatory/ (금감원 업무보고서 서식·엑셀),
+                        deliverables(패키징·ZIP·매니페스트)
+  ↓
 Reports (표현 계층)      html_report(빌드 오케스트레이터), report_chrome(CSS/NAV/헬퍼),
                         ops_pages/ (core_* 핵심 + 도메인별 심층 페이지), html_exec,
                         board_pack, printable, localization, report(markdown),
                         page_registry
+  ↓
+Canonical data model    datamodel/ (spec·catalog·decompose·materialize·
+                        materialize_detail) — 71 테이블 / 513 컬럼
   ↓
 Orchestration           pipeline.run_pipeline → PipelineResult
   ↓
@@ -74,6 +81,50 @@ out/
 ├── manifest.json       # RunManifest (repro.py)
 └── ops/                # index + 01..62 실무 심층 페이지 (page_registry 주도)
 ```
+
+## 정규 데이터모델 (datamodel/)
+
+`catalog.ALL_TABLES`가 단일 소스다 — 테이블 71장 / 컬럼 513개. 각 컬럼은 타입·
+단위·허용값·범위·규정 근거를 스펙으로 선언하고, DDL·검증·DQ 규칙이 모두 여기서
+파생된다.
+
+- **R1~R9** 부문 결과 테이블 (`materialize.py`)
+- **R11 세분화** (`materialize_detail.py`) — 규제 라인·UI 통제가 요구하는 입도로
+  쪼갠 46장. 예: `rwa_sa_bucket`(자산군×위험가중치), `rwa_irb_pool`(PD 구간),
+  `alm_lcr_item`(항목별 잔액·적용률·가중액), `rdm_asset_quality`(건전성 5단계).
+- **PRD-REG** 업무보고서 원장 (`regulatory.forms.form_frames`)
+- **PRD-UIX** UI 통제 원장 (`ui_studio.governance`)
+
+전 테이블을 채우는 진입점은 `ui_studio.studio.build_studio(result, portfolio)`다.
+부문 엔진만 돌리면 카탈로그에 선언만 되고 산출은 없는 테이블이 생긴다.
+
+**도메인 값은 반드시 실제 데이터에서 가져온다.** 추정으로 적으면 정상 산출이
+위반으로 잡히거나(거짓 경보) 신규 값이 조용히 통과한다. `GRADES`는
+`models.rating.DEFAULT_MASTER_SCALE`에서, `REPRICING_BUCKETS`는 `alm.irrbb`가
+실제로 만드는 라벨에서 파생한다.
+
+## 감독보고 (regulatory/)
+
+금융감독원 배포 기준 업무보고서 서식 14장. 라인마다 값·산식·규정근거·산출
+모듈을 함께 남기고, 소계·비율은 서식이 **스스로 대사**한다(`FormCheck`).
+검증 실패가 하나라도 있으면 `reg_submission.status`가 `approved`로 올라가지 않는다.
+
+서식 식별자(`BR-01` …)는 내부 코드다. 배포본 서식 파일이 입력으로 주어지지
+않았으므로 서식번호를 지어내지 않았고, 연결은 `reg_form.form_id ↔ 배포 서식번호`
+매핑 한 장으로 끝난다.
+
+## 에이전틱 UI (ui_studio/)
+
+- `nl_query.py` — 자연어 → Filter AST → 정책검증 → 실행 (PLT-009 · RDM-008).
+  제한 문법이며 인식하지 못한 필드는 조용히 무시하지 않고 **차단 사유로 남긴다**.
+  마스킹(최소 집계단위 > 1) 필드는 조회조건으로 쓸 수 없다.
+- `layout.py` — 프롬프트 → 레이아웃 제안 → 3중 검증(필드권한·스키마·집계
+  최소단위) → 사람 승인 (PLT-011~013). 검증 미통과 제안은 `approve()` 자체가 실패.
+- `governance.py` — View·필드정책·에이전트·활동·비상정지·변경·증빙 원장. 값은
+  저장소의 실제 구성(카탈로그·page_registry·`.claude/agents`)에서 유도한다.
+- `studio.py` / `app.py` — 조립과 렌더. HTML은 자체 완결(외부 CDN 없음).
+
+불변식: **어떤 에이전트도 `write_allowed=True`가 아니다** (NO AUTONOMOUS WRITE).
 
 ## 테스트
 

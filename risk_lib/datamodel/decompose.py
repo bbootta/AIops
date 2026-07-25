@@ -130,8 +130,17 @@ def validate_all(tables: dict[str, pd.DataFrame], *,
 def dq_result_frame(violations: list[Violation], *, asof: str) -> pd.DataFrame:
     """검증 결과를 rdm_dq_result 스펙 형태로 — 통과 이력도 저장돼야 증명이 된다."""
     if not violations:
-        return pd.DataFrame(columns=["asof", "table_name", "column_name",
-                                     "rule", "severity", "n_rows", "detail"])
+        # 빈 프레임도 스펙 dtype을 지켜야 한다 — object로 두면 위반 0건일 때만
+        # 스키마 검증이 실패하는, 가장 헷갈리는 형태의 오류가 된다.
+        return pd.DataFrame({
+            "asof": pd.Series(dtype="object"),
+            "table_name": pd.Series(dtype="object"),
+            "column_name": pd.Series(dtype="object"),
+            "rule": pd.Series(dtype="object"),
+            "severity": pd.Series(dtype="object"),
+            "n_rows": pd.Series(dtype="int64"),
+            "detail": pd.Series(dtype="object"),
+        })
     return pd.DataFrame([{
         "asof": asof, "table_name": v.table,
         "column_name": v.column or None, "rule": v.rule,

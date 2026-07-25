@@ -21,7 +21,14 @@ from risk_lib.datamodel.materialize import (
 
 @pytest.fixture(scope="module")
 def tables(result, portfolio):
-    return materialize_all(result, portfolio)
+    """R2~R9 부문 테이블 + R11 세분화 + 업무보고서·UIX 통제 원장.
+
+    세분화 이후 카탈로그는 71장이고 그중 상당수는 스튜디오 조립 단계에서
+    채워진다. 부문 엔진만 돌려서 검증하면 '나머지는 검증되지 않은 채로 남는'
+    사각이 생긴다.
+    """
+    from risk_lib.ui_studio.studio import build_studio
+    return build_studio(result, portfolio).tables
 
 
 # ----- 전체 정합 --------------------------------------------------------------
@@ -37,7 +44,7 @@ def test_every_catalog_table_is_materialized_or_declared(tables):
     built = set(tables)
     # 산출 엔진이 아직 없는 테이블 (라운드 진행 중) — 명시적으로 나열
     pending = declared - built
-    assert pending <= {"rdm_dq_result"}, f"미실체화 테이블: {sorted(pending)}"
+    assert pending == set(), f"미실체화 테이블: {sorted(pending)}"
 
 
 # ----- 대사 (RDM-005) ---------------------------------------------------------
@@ -407,8 +414,10 @@ def test_all_products_with_tables_are_materialized(tables):
     from risk_lib.datamodel.materialize import _MATERIALIZERS
     with_tables = {s.product for s in cat.ALL_TABLES} - {"PRD-RDM"}
     missing = with_tables - set(_MATERIALIZERS)
-    # NCR은 MKT 엔진이 함께 생성한다
-    assert missing <= {"PRD-NCR", "PRD-CAP", "PRD-AIG"}, f"엔진 없는 제품: {missing}"
+    # NCR·CAP·AIG는 인접 엔진이 함께 생성하고, REG는 업무보고서 빌더가,
+    # UIX는 UI 통제 원장 빌더가 채운다.
+    assert missing <= {"PRD-NCR", "PRD-CAP", "PRD-AIG", "PRD-REG", "PRD-UIX"}, \
+        f"엔진 없는 제품: {missing}"
     for prod in with_tables:
         for spec in cat.by_product(prod):
             assert spec.name in tables, f"{spec.name} 미실체화"

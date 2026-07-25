@@ -183,6 +183,54 @@ def _cmd_export_json(args: argparse.Namespace) -> int:
     return 0
 
 
+def _build_studio(args: argparse.Namespace):
+    """CLI 두 명령이 같은 스냅샷을 쓰도록 조립을 한 곳에 둔다."""
+    from risk_lib.data_gen import generate_portfolio
+    from risk_lib.ui_studio.studio import build_studio
+
+    portfolio = generate_portfolio(seed=args.seed)
+    result = run_pipeline(portfolio, seed=args.seed, asof=args.asof)
+    return build_studio(result, portfolio,
+                        institution=getattr(args, "institution", "(기관명)"))
+
+
+def _cmd_reg_report(args: argparse.Namespace) -> int:
+    """금감원 배포 기준 업무보고서 엑셀."""
+    import os
+    from risk_lib.regulatory import write_workbook
+
+    studio = _build_studio(args)
+    out = write_workbook(studio.built_forms, args.out, asof=studio.asof,
+                         meta={"seed": args.seed,
+                               "institution": args.institution})
+    checks = studio.tables["reg_form_check"]
+    n_fail = int((checks["status"] == "FAIL").sum())
+    print(f"업무보고서 작성 완료 — {out} ({os.path.getsize(out)/1024:.1f} KB)")
+    print(f"  서식 {len(studio.built_forms)}장 · 라인 "
+          f"{len(studio.tables['reg_form_line']):,}행 · "
+          f"자체대사 {len(checks)}건 (실패 {n_fail}건)")
+    print(f"  산출 지문 {studio.digest[:16]} · 기준일 {studio.asof} · seed {args.seed}")
+    if n_fail:
+        print("  검증 실패가 있어 제출 상태는 draft로 남습니다.")
+    return 1 if n_fail else 0
+
+
+def _cmd_ui_studio(args: argparse.Namespace) -> int:
+    """에이전틱 UI 스튜디오 — 전 모듈 관리 화면."""
+    import os
+    from risk_lib.datamodel import catalog as cat
+    from risk_lib.ui_studio.app import write_app
+
+    studio = _build_studio(args)
+    out = write_app(studio, args.out)
+    n_rows = sum(len(df) for df in studio.tables.values())
+    print(f"에이전틱 UI 작성 완료 — {out} ({os.path.getsize(out)/1024:.1f} KB)")
+    print(f"  테이블 {len(cat.ALL_TABLES)}장 · 행 {n_rows:,} · "
+          f"조회계획 {len(studio.plans)}건 · 레이아웃 제안 {len(studio.proposals)}건")
+    print(f"  실행 {studio.run_id} · 지문 {studio.digest[:16]}")
+    return 0
+
+
 def _cmd_printable(args: argparse.Namespace) -> int:
     """Generate a print-optimised single-file HTML. Open in browser and
     'Print -> Save as PDF' for a perfectly-rendered Korean PDF."""
@@ -334,6 +382,21 @@ def main(argv: list[str] | None = None) -> int:
     ap = sub.add_parser("api-spec", help="OpenAPI + GraphQL 스키마 생성")
     ap.add_argument("--out", required=True, help="출력 디렉터리")
     ap.set_defaults(func=_cmd_api_spec)
+
+    rg = sub.add_parser("reg-report",
+                        help="금감원 배포 기준 업무보고서 엑셀 생성")
+    rg.add_argument("--out", required=True, help=".xlsx 출력 경로")
+    rg.add_argument("--seed", type=int, default=42)
+    rg.add_argument("--asof", default=None, help="기준일 (YYYY-MM-DD)")
+    rg.add_argument("--institution", default="(기관명)")
+    rg.set_defaults(func=_cmd_reg_report)
+
+    ui = sub.add_parser("ui-studio",
+                        help="에이전틱 UI 스튜디오 HTML 생성 (전 모듈 관리 화면)")
+    ui.add_argument("--out", required=True, help="HTML 출력 경로")
+    ui.add_argument("--seed", type=int, default=42)
+    ui.add_argument("--asof", default=None, help="기준일 (YYYY-MM-DD)")
+    ui.set_defaults(func=_cmd_ui_studio)
 
     args = parser.parse_args(argv)
     return args.func(args)

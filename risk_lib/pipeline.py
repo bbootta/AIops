@@ -770,6 +770,9 @@ def run_pipeline(
             "standardised_total": rwa_standardised_total,
             "output_floor": floor, "final_total": rwa_final,
             "market_detail": mkt, "op_detail": op,
+            # BI 구성요소(ILDC/SC/FC)는 op_detail에 총액으로만 남는다 —
+            # 사업부문별 자본배분과 업무보고서 라인은 구성요소가 있어야 한다.
+            "bi_detail": bi_components,
         },
         bis=bis, leverage=leverage,
         ecl={"total": float(ecl_df["ecl"].sum()), "by_stage": ecl_by_stage},

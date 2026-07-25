@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from risk_lib.datamodel.spec import ColumnSpec as C, ForeignKey as FK, TableSpec
+from risk_lib.models.rating import DEFAULT_MASTER_SCALE as _MASTER_SCALE
 
 # ---------------------------------------------------------------- 공통 도메인
 ASSET_CLASSES = ("sovereign", "bank", "corporate", "retail_other",
@@ -170,8 +171,10 @@ def by_product(product: str) -> list[TableSpec]:
 # ---------------------------------------------------------------- R2 · CRM
 APPROACHES = ("SA", "FIRB", "AIRB")
 MODEL_STATUS = ("DEV", "UAT", "PROD", "RETIRED")
-GRADES = tuple(f"{p}{s}" for p in ("AAA", "AA", "A", "BBB", "BB", "B", "CCC")
-               for s in ("+", "", "-"))[:17] + ("D",)
+# 등급 도메인은 **실제 master scale**에서 가져온다. 문자열 조합을 잘라 쓰면
+# 쓰이지 않는 등급(AAA+/AAA-)이 들어가고 실제로 나오는 등급(B-/CCC+)이 빠져
+# 정상 산출이 도메인 위반으로 잡힌다.
+GRADES = tuple(g.grade for g in _MASTER_SCALE) + ("D",)
 
 MODEL_INVENTORY = TableSpec(
     name="crm_model", korean="모형 인벤토리", product="PRD-CRM",
@@ -597,3 +600,1001 @@ VAL_TABLES = (VALIDATION_RESULT, AUDIT_LEDGER, ADJUSTMENT)
 
 ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
               + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES)
+
+
+# ================================================================ R11 · 세분화
+# 「테이블이 너무 단순하다」는 지적에 대한 대응. R1~R9는 부문마다 결과 1~3장을
+# 두는 수준이었다 — 그 입도로는 (a) 금감원 업무보고서 라인 항목을 채울 수 없고,
+# (b) 에이전틱 UI가 관리할 대상(View·권한·에이전트·변경)이 데이터로 존재하지
+# 않는다. 아래 섹션은 실제 요건(감독규정 라인 · Basel 산출 분해 · RYNTA BRD
+# 플랫폼 요건)을 기준으로 기존 테이블을 쪼개고 누락된 원장을 신설한다.
+
+# ---------------------------------------------------------------- R11-A · RDM
+ASSET_QUALITY = ("정상", "요주의", "고정", "회수의문", "추정손실")
+PROTECTION_TYPES = ("guarantee", "credit_derivative")
+INTERFACE_STATUS = ("PASS", "WARN", "FAIL")
+MAP_STATUS = ("mapped", "unmapped", "deprecated")
+DQ_RULE_TYPES = ("not_null", "range", "allowed", "unique", "referential",
+                 "reconciliation", "timeliness")
+
+OBLIGOR_FINANCIAL = TableSpec(
+    name="rdm_obligor_financial", korean="차주 재무·행동정보", product="PRD-RDM",
+    grain="차주 × 기준일 1행",
+    columns=(
+        C("obligor_id", "string", "차주 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("segment", "string", "모형 세그먼트", nullable=False,
+          allowed=ASSET_CLASSES),
+        C("leverage", "float", "부채비율", nullable=True, unit="ratio",
+          min_value=0.0, max_value=50.0, note="기업 세그먼트 PD 모형 투입변수"),
+        C("current_ratio", "float", "유동비율", nullable=True, unit="ratio",
+          min_value=0.0, max_value=50.0),
+        C("log_assets", "float", "자산규모(로그)", nullable=True, unit="log_KRW"),
+        C("interest_coverage", "float", "이자보상배율", nullable=True,
+          unit="ratio", min_value=-100.0, max_value=1000.0),
+        C("dti", "float", "총부채원리금상환비율", nullable=True, unit="ratio",
+          min_value=0.0, max_value=10.0),
+        C("utilization", "float", "한도소진율", nullable=True, unit="ratio",
+          min_value=0.0, max_value=2.0),
+        C("income_log", "float", "소득(로그)", nullable=True, unit="log_KRW"),
+        C("months_employed", "float", "재직개월", nullable=True, unit="months",
+          min_value=0.0, max_value=720.0),
+        C("credit_score", "float", "신용점수", nullable=True, unit="score",
+          min_value=0.0, max_value=1200.0),
+    ),
+    primary_key=("obligor_id", "asof"),
+    foreign_keys=(FK(("obligor_id",), "rdm_obligor", ("obligor_id",)),),
+    note="PD 모형 투입변수를 차주 원장에서 분리한다 — 원장은 정적 속성, 재무는 시점 속성.",
+)
+
+EXPOSURE_BALANCE = TableSpec(
+    name="rdm_exposure_balance", korean="익스포저 잔액 스냅샷", product="PRD-RDM",
+    grain="익스포저 × 기준일 1행",
+    columns=(
+        C("exposure_id", "string", "익스포저 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("balance", "float", "장부잔액", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("drawn", "float", "인출액", nullable=False, unit="KRW", min_value=0.0),
+        C("undrawn", "float", "미인출 약정", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("ccf", "float", "적용 신용환산율", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0, citation="CRE20.94 CCF 표"),
+        C("ead", "float", "EAD", nullable=False, unit="KRW", min_value=0.0,
+          citation="CR-F001 EAD = 인출 + CCF × 미인출"),
+        C("currency", "string", "통화", nullable=False, allowed=("KRW",),
+          note="다통화 확장 시 환산일·환율 원장이 함께 필요하다"),
+    ),
+    primary_key=("exposure_id", "asof"),
+    foreign_keys=(FK(("exposure_id",), "rdm_exposure", ("exposure_id",)),),
+    note="계약 정적속성(rdm_exposure)과 시점 잔액을 분리해야 시계열 비교가 성립한다.",
+)
+
+ASSET_QUALITY_TABLE = TableSpec(
+    name="rdm_asset_quality", korean="자산건전성 분류", product="PRD-RDM",
+    grain="익스포저 × 기준일 1행",
+    columns=(
+        C("exposure_id", "string", "익스포저 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("classification", "string", "건전성 분류", nullable=False,
+          allowed=ASSET_QUALITY,
+          citation="은행업감독규정 제27조 — 5단계 자산건전성 분류"),
+        C("borrower_type", "string", "여신 구분", nullable=False,
+          allowed=("기업여신", "가계여신"),
+          note="최저적립률이 구분별로 다르다 — 잘못 분류하면 충당금이 과소적립된다"),
+        C("dpd", "int", "연체일수", nullable=False, unit="days", min_value=0),
+        C("balance", "float", "잔액", nullable=False, unit="KRW", min_value=0.0),
+        C("min_provision_rate", "float", "최저적립률", nullable=False,
+          unit="ratio", min_value=0.0, max_value=1.0,
+          citation="은행업감독규정 제29조 제1항 대손충당금 최저적립률"),
+        C("min_provision", "float", "최저적립액", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("ifrs9_provision", "float", "IFRS9 충당금", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("reserve_shortfall", "float", "대손준비금 소요액", nullable=False,
+          unit="KRW", min_value=0.0,
+          citation="은행업감독규정 제29조 제2항 — max(0, 최저적립액 − IFRS9 충당금)"),
+    ),
+    primary_key=("exposure_id", "asof"),
+    foreign_keys=(FK(("exposure_id",), "rdm_exposure", ("exposure_id",)),),
+    note="업무보고서 「자산건전성 분류 및 대손충당금」의 원천. 분류 규칙은 "
+         "연체일수 대용 규칙이며 실제 규정은 채무상환능력 평가를 함께 요구한다.",
+)
+
+GUARANTEE = TableSpec(
+    name="rdm_guarantee", korean="보증·신용보장 원장", product="PRD-RDM",
+    grain="보장계약 1건당 1행",
+    columns=(
+        C("guarantee_id", "string", "보장 식별자", nullable=False),
+        C("exposure_id", "string", "익스포저 식별자", nullable=False),
+        C("guarantor_id", "string", "보장제공자", nullable=False),
+        C("protection_type", "string", "보장 형태", nullable=False,
+          allowed=PROTECTION_TYPES, citation="CRE22.70 unfunded protection"),
+        C("guarantor_rating", "string", "보장제공자 등급", nullable=False,
+          allowed=RATINGS,
+          note="대체법(substitution)은 보장제공자 위험가중치를 쓴다"),
+        C("guaranteed_amount", "float", "보장금액", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("maturity_mismatch", "bool", "만기 불일치", nullable=False,
+          citation="CRE22.85 — 만기 불일치 시 보장효과 축소"),
+        C("currency_mismatch", "bool", "통화 불일치", nullable=False,
+          citation="CRE22.84 — 8% haircut"),
+        C("eligible", "bool", "적격 여부", nullable=False),
+    ),
+    primary_key=("guarantee_id",),
+    foreign_keys=(FK(("exposure_id",), "rdm_exposure", ("exposure_id",)),),
+)
+
+SOURCE_CONTRACT = TableSpec(
+    name="rdm_source_contract", korean="원천 인터페이스 계약", product="PRD-RDM",
+    grain="원천 시스템 × 테이블 × 기준일 1행",
+    columns=(
+        C("source_system", "string", "원천 시스템", nullable=False,
+          allowed=SOURCE_SYSTEMS),
+        C("table_name", "string", "대상 테이블", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("expected_rows", "int", "계약 건수", nullable=False, min_value=0),
+        C("actual_rows", "int", "수신 건수", nullable=False, min_value=0),
+        C("expected_sum", "float", "계약 합계", nullable=False, unit="KRW"),
+        C("actual_sum", "float", "수신 합계", nullable=False, unit="KRW"),
+        C("schema_hash", "text", "스키마 지문", nullable=False),
+        C("status", "string", "판정", nullable=False, allowed=INTERFACE_STATUS,
+          note="건수·합계·스키마 중 하나라도 어긋나면 하류 산출을 신뢰할 수 없다"),
+    ),
+    primary_key=("source_system", "table_name", "asof"),
+    note="RYNTA Interface Watch의 데이터 근거 — 스키마·건수·합계·시점 4종 계약.",
+)
+
+CANONICAL_MAP = TableSpec(
+    name="rdm_canonical_map", korean="표준코드 매핑", product="PRD-RDM",
+    grain="원천 시스템 × 도메인 × 원천코드 1행",
+    columns=(
+        C("source_system", "string", "원천 시스템", nullable=False,
+          allowed=SOURCE_SYSTEMS),
+        C("domain", "string", "코드 도메인", nullable=False),
+        C("source_code", "string", "원천 코드", nullable=False),
+        C("canonical_code", "string", "표준 코드", nullable=True,
+          note="미매핑(NULL)이면 그 상품은 산출에서 조용히 빠진다 — 차단 대상"),
+        C("status", "string", "매핑 상태", nullable=False, allowed=MAP_STATUS),
+        C("effective_from", "date", "적용 시작일", nullable=False),
+    ),
+    primary_key=("source_system", "domain", "source_code"),
+    note="신상품 코드 미매핑은 RWA·시장리스크 누락으로 직결된다(RDM-003).",
+)
+
+RECONCILIATION = TableSpec(
+    name="rdm_reconciliation", korean="집계 대사 결과", product="PRD-RDM",
+    grain="대사 규칙 × 기준일 1행",
+    columns=(
+        C("recon_id", "string", "대사 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("axis", "string", "집계축", nullable=False),
+        C("source_total", "float", "원천 합계", nullable=False, unit="KRW"),
+        C("target_total", "float", "대상 합계", nullable=False, unit="KRW"),
+        C("gap", "float", "차이", nullable=False, unit="KRW"),
+        C("gap_ratio", "float", "차이 비율", nullable=False, unit="ratio"),
+        C("tolerance", "float", "허용 오차", nullable=False, unit="ratio",
+          min_value=0.0),
+        C("status", "string", "판정", nullable=False, allowed=INTERFACE_STATUS),
+        C("downstream", "text", "하위 영향", nullable=True),
+    ),
+    primary_key=("recon_id", "asof"),
+)
+
+DQ_RULE = TableSpec(
+    name="rdm_dq_rule", korean="데이터품질 규칙 마스터", product="PRD-RDM",
+    grain="검증 규칙 1개당 1행",
+    columns=(
+        C("rule_id", "string", "규칙 식별자", nullable=False),
+        C("table_name", "string", "대상 테이블", nullable=False),
+        C("column_name", "string", "대상 컬럼", nullable=True),
+        C("rule_type", "string", "규칙 유형", nullable=False,
+          allowed=DQ_RULE_TYPES),
+        C("severity", "string", "심각도", nullable=False,
+          allowed=("FAIL", "WARN")),
+        C("expression", "text", "규칙 표현", nullable=False),
+        C("citation", "text", "근거", nullable=True),
+    ),
+    primary_key=("rule_id",),
+    note="rdm_dq_result에 규칙 결과만 있고 규칙 정의가 없으면 "
+         "'왜 이 규칙인가'를 증명할 수 없다 (BCBS 239 원칙3).",
+)
+
+RDM_DETAIL_TABLES = (OBLIGOR_FINANCIAL, EXPOSURE_BALANCE, ASSET_QUALITY_TABLE,
+                     GUARANTEE, SOURCE_CONTRACT, CANONICAL_MAP, RECONCILIATION,
+                     DQ_RULE)
+
+
+# ---------------------------------------------------------------- R11-B · CRM
+EWS_LEVELS = ("관찰", "주의", "경보")
+LGD_COMPONENTS = ("gross_recovery", "direct_cost", "indirect_cost",
+                  "discount_effect", "net_lgd")
+
+PD_CALIBRATION = TableSpec(
+    name="crm_pd_calibration", korean="PD 등급별 보정 검증", product="PRD-CRM",
+    grain="세그먼트 × 등급 × 기준일 1행",
+    columns=(
+        C("segment", "string", "세그먼트", nullable=False, allowed=ASSET_CLASSES),
+        C("grade", "string", "등급", nullable=False, allowed=GRADES),
+        C("asof", "date", "기준일", nullable=False),
+        C("n_obligors", "int", "차주 수", nullable=False, min_value=0),
+        C("pd_predicted", "float", "예측 PD", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("dr_observed", "float", "관측 부도율", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("oe_ratio", "float", "관측/예측 비율", nullable=True, unit="ratio",
+          min_value=0.0, citation="CR-F011 보정 O/E — 1 근방이 적정"),
+        C("within_tolerance", "bool", "허용범위 내", nullable=False,
+          note="등급별 O/E가 벗어나면 등급 재보정 대상"),
+    ),
+    primary_key=("segment", "grade", "asof"),
+    note="모형 전체 Gini만으로는 등급별 과소·과대 추정을 볼 수 없다.",
+)
+
+RATING_MIGRATION = TableSpec(
+    name="crm_rating_migration", korean="등급 전이행렬", product="PRD-CRM",
+    grain="세그먼트 × 시작등급 × 도착등급 × 기준일 1행",
+    columns=(
+        C("segment", "string", "세그먼트", nullable=False, allowed=ASSET_CLASSES),
+        C("asof", "date", "기준일", nullable=False),
+        C("from_grade", "string", "시작 등급", nullable=False, allowed=GRADES),
+        C("to_grade", "string", "도착 등급", nullable=False, allowed=GRADES),
+        C("n_obligors", "int", "차주 수", nullable=False, min_value=0),
+        C("share", "float", "전이 비율", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0,
+          note="from_grade별 합이 1이어야 한다 — 아니면 관측치 누락"),
+    ),
+    primary_key=("segment", "asof", "from_grade", "to_grade"),
+)
+
+LGD_COMPONENT = TableSpec(
+    name="crm_lgd_component", korean="LGD 구성요소 분해", product="PRD-CRM",
+    grain="세그먼트 × 구성요소 × 기준일 1행",
+    columns=(
+        C("segment", "string", "세그먼트", nullable=False, allowed=ASSET_CLASSES),
+        C("asof", "date", "기준일", nullable=False),
+        C("component", "string", "구성요소", nullable=False,
+          allowed=LGD_COMPONENTS,
+          citation="CRE36.83 — 회수·직접비용·간접비용·할인 분리"),
+        C("value", "float", "EAD 대비 비율", nullable=False, unit="ratio",
+          min_value=-1.0, max_value=2.0),
+        C("basis", "text", "산출 근거", nullable=False),
+    ),
+    primary_key=("segment", "asof", "component"),
+    note="LGD를 단일 수치로만 두면 회수시점·비용 가정 변경의 영향을 추적할 수 없다.",
+)
+
+EWS_SIGNAL = TableSpec(
+    name="crm_ews_signal", korean="조기경보 신호", product="PRD-CRM",
+    grain="차주 × 기준일 × 신호 1행",
+    columns=(
+        C("obligor_id", "string", "차주 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("signal", "string", "신호", nullable=False),
+        C("level", "string", "경보 단계", nullable=False, allowed=EWS_LEVELS),
+        C("score", "float", "신호 강도", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("ead", "float", "익스포저", nullable=False, unit="KRW", min_value=0.0),
+        C("action", "text", "권고 조치", nullable=False,
+          note="에이전트는 순위를 제안할 뿐 등급·여신 결정을 확정하지 않는다"),
+    ),
+    primary_key=("obligor_id", "asof", "signal"),
+    foreign_keys=(FK(("obligor_id",), "rdm_obligor", ("obligor_id",)),),
+)
+
+CRM_DETAIL_TABLES = (PD_CALIBRATION, RATING_MIGRATION, LGD_COMPONENT,
+                     EWS_SIGNAL)
+
+# ---------------------------------------------------------------- R11-C · RWA
+MARKET_RISK_CLASSES = ("interest_rate", "equity", "fx", "commodity",
+                       "credit_spread")
+BI_COMPONENTS = ("ILDC", "SC", "FC")
+
+RWA_SA_BUCKET = TableSpec(
+    name="rwa_sa_bucket", korean="표준방법 위험가중치 구간별 집계",
+    product="PRD-RWA",
+    grain="기준일 × 자산군 × 위험가중치 구간 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("asset_class", "string", "자산군", nullable=False,
+          allowed=ASSET_CLASSES, citation="CRE20 자산군"),
+        C("rating_bucket", "string", "등급 구간", nullable=False,
+          allowed=RATINGS + ("PAST_DUE", "LTV_BAND")),
+        C("risk_weight", "float", "위험가중치", nullable=False, unit="ratio",
+          min_value=0.0, max_value=15.0),
+        C("n_exposures", "int", "익스포저 수", nullable=False, min_value=0),
+        C("ead", "float", "EAD", nullable=False, unit="KRW", min_value=0.0),
+        C("rwa", "float", "위험가중자산", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("capital_required", "float", "소요자기자본", nullable=False,
+          unit="KRW", min_value=0.0, citation="RWA × 8% (CRE20.1)"),
+    ),
+    primary_key=("asof", "asset_class", "rating_bucket", "risk_weight"),
+    note="업무보고서 「신용리스크 표준방법」 라인의 직접 원천.",
+)
+
+RWA_IRB_POOL = TableSpec(
+    name="rwa_irb_pool", korean="내부등급법 PD 구간별 pool", product="PRD-RWA",
+    grain="기준일 × 자산군 × PD 구간 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("asset_class", "string", "자산군", nullable=False,
+          allowed=ASSET_CLASSES),
+        C("pd_band", "string", "PD 구간", nullable=False,
+          citation="CRE32 · Pillar 3 CR6 서식 PD 구간"),
+        C("n_exposures", "int", "익스포저 수", nullable=False, min_value=0),
+        C("ead", "float", "EAD", nullable=False, unit="KRW", min_value=0.0),
+        C("pd_weighted", "float", "EAD 가중 PD", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("lgd_weighted", "float", "EAD 가중 LGD", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("maturity_weighted", "float", "EAD 가중 만기", nullable=False,
+          unit="years", min_value=0.0, max_value=50.0),
+        C("rwa", "float", "위험가중자산", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("rw_average", "float", "평균 위험가중치", nullable=False, unit="ratio",
+          min_value=0.0, max_value=15.0),
+        C("expected_loss", "float", "기대손실", nullable=False, unit="KRW",
+          min_value=0.0),
+    ),
+    primary_key=("asof", "asset_class", "pd_band"),
+    note="Pillar 3 CR6(IRB — 자산군·PD 구간별 익스포저) 공시 서식과 같은 입도.",
+)
+
+RWA_MARKET_COMPONENT = TableSpec(
+    name="rwa_market_component", korean="시장리스크 위험군별 소요자본",
+    product="PRD-RWA",
+    grain="기준일 × 위험군 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("risk_class", "string", "위험군", nullable=False,
+          allowed=MARKET_RISK_CLASSES,
+          citation="MAR40 간편표준방법 위험군"),
+        C("position", "float", "포지션", nullable=False, unit="KRW"),
+        C("capital", "float", "소요자기자본", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("rwa", "float", "위험가중자산", nullable=False, unit="KRW",
+          min_value=0.0, citation="RWA = 12.5 × 소요자기자본"),
+    ),
+    primary_key=("asof", "risk_class"),
+)
+
+RWA_OPERATIONAL_BI = TableSpec(
+    name="rwa_operational_bi", korean="운영리스크 사업지표 구성", product="PRD-RWA",
+    grain="기준일 × BI 구성요소 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("component", "string", "BI 구성요소", nullable=False,
+          allowed=BI_COMPONENTS,
+          citation="OPE25.3 — 이자·리스·배당(ILDC), 수수료(SC), 금융(FC)"),
+        C("amount", "float", "금액", nullable=False, unit="KRW", min_value=0.0),
+        C("share", "float", "구성비", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0),
+    ),
+    primary_key=("asof", "component"),
+    note="BI 구간(bucket)과 한계계수는 opr_capital의 산출 근거이며 "
+         "구성요소가 분리되어야 사업부문별 자본배분이 가능하다.",
+)
+
+RWA_OUTPUT_FLOOR = TableSpec(
+    name="rwa_output_floor", korean="산출하한 적용내역", product="PRD-RWA",
+    grain="기준일 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("internal_rwa", "float", "내부모형 RWA", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("standardised_rwa", "float", "표준방법 RWA", nullable=False,
+          unit="KRW", min_value=0.0),
+        C("floor_pct", "float", "하한 비율", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0,
+          citation="RBC20.11 — 최종 72.5%"),
+        C("floored_rwa", "float", "하한 적용 RWA", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("binding", "bool", "하한 구속 여부", nullable=False,
+          note="구속되면 내부모형 개선이 자본에 반영되지 않는다"),
+        C("uplift", "float", "하한 증가분", nullable=False, unit="KRW",
+          min_value=0.0),
+    ),
+    primary_key=("asof",),
+)
+
+RWA_DETAIL_TABLES = (RWA_SA_BUCKET, RWA_IRB_POOL, RWA_MARKET_COMPONENT,
+                     RWA_OPERATIONAL_BI, RWA_OUTPUT_FLOOR)
+
+# ---------------------------------------------------------------- R11-D · ECL
+# 단계는 ifrs9_deep.attribution이 실제로 산출하는 요인이다. IFRS 7 35H의
+# 신규취득·제거 구분을 쓰려면 기초/기말 두 시점 원장이 필요한데 현재 엔진은
+# 요인별 귀속(PD·LGD·EAD·이동)만 산출한다 — 있지도 않은 구분을 적지 않는다.
+PROVISION_BRIDGE_STEPS = ("opening", "pd_effect", "lgd_effect", "ead_effect",
+                          "migration_effect", "closing")
+
+ECL_STAGE_TRANSITION = TableSpec(
+    name="ecl_stage_transition", korean="Stage 전이", product="PRD-ECL",
+    grain="기준일 × 시작 Stage × 도착 Stage 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("from_stage", "int", "시작 Stage", nullable=False,
+          min_value=1, max_value=3),
+        C("to_stage", "int", "도착 Stage", nullable=False,
+          min_value=1, max_value=3),
+        C("n_exposures", "int", "익스포저 수", nullable=False, min_value=0),
+        C("ead", "float", "EAD", nullable=False, unit="KRW", min_value=0.0),
+        C("ecl_delta", "float", "ECL 증감", nullable=False, unit="KRW",
+          citation="IFRS 9 5.5.3↔5.5.5 전이 시 12M↔lifetime 전환"),
+    ),
+    primary_key=("asof", "from_stage", "to_stage"),
+)
+
+ECL_SICR_STAT = TableSpec(
+    name="ecl_sicr_trigger_stat", korean="SICR 트리거별 통계", product="PRD-ECL",
+    grain="기준일 × 트리거 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("trigger", "string", "SICR 트리거", nullable=False,
+          allowed=SICR_TRIGGERS, citation="IFRS 9 5.5.9 · B5.5.17"),
+        C("n_exposures", "int", "익스포저 수", nullable=False, min_value=0),
+        C("ead", "float", "EAD", nullable=False, unit="KRW", min_value=0.0),
+        C("ecl", "float", "ECL", nullable=False, unit="KRW", min_value=0.0),
+        C("share_of_stage2", "float", "Stage2 내 비중", nullable=False,
+          unit="ratio", min_value=0.0, max_value=1.0),
+    ),
+    primary_key=("asof", "trigger"),
+    note="어느 트리거가 Stage2를 만들었는지 분해되지 않으면 "
+         "'30일 연체 반증'(B5.5.20) 논거를 세울 수 없다.",
+)
+
+ECL_PROVISION_BRIDGE = TableSpec(
+    name="ecl_provision_bridge", korean="충당금 증감 브리지", product="PRD-ECL",
+    grain="기준일 × 단계 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("step", "string", "단계", nullable=False,
+          allowed=PROVISION_BRIDGE_STEPS,
+          citation="IFRS 7 35H — 손실충당금 조정표"),
+        C("seq", "int", "순서", nullable=False, min_value=1),
+        C("amount", "float", "금액", nullable=False, unit="KRW"),
+        C("cumulative", "float", "누계", nullable=False, unit="KRW"),
+    ),
+    primary_key=("asof", "step"),
+)
+
+ECL_DETAIL_TABLES = (ECL_STAGE_TRANSITION, ECL_SICR_STAT, ECL_PROVISION_BRIDGE)
+
+
+# ---------------------------------------------------------------- R11-E · ALM
+LCR_SECTIONS = ("HQLA", "OUTFLOW", "INFLOW")
+NSFR_SECTIONS = ("ASF", "RSF")
+# 버킷 라벨은 alm.irrbb가 실제로 만드는 값이다 — 추정으로 적으면 정상 산출이
+# 도메인 위반으로 잡힌다.
+REPRICING_BUCKETS = ("0-1m", "1-3m", "3-6m", "6-12m", "1-2y", "2-3y", "3-5y",
+                     "5-10y", "10y+")
+
+LCR_ITEM = TableSpec(
+    name="alm_lcr_item", korean="LCR 항목별 내역", product="PRD-ALM",
+    grain="기준일 × 구분 × 항목 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("section", "string", "구분", nullable=False, allowed=LCR_SECTIONS,
+          citation="LCR30(HQLA) · LCR40(유출·유입)"),
+        C("category", "string", "항목", nullable=False),
+        C("amount", "float", "잔액", nullable=False, unit="KRW", min_value=0.0),
+        C("factor", "float", "적용률", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0,
+          note="HQLA는 haircut, 유출은 이탈률, 유입은 인식률"),
+        C("weighted", "float", "가중 후 금액", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("citation", "text", "근거", nullable=True),
+    ),
+    primary_key=("asof", "section", "category"),
+    note="LCR을 비율 한 줄로만 두면 업무보고서 라인도, 원인분석도 불가능하다.",
+)
+
+NSFR_ITEM = TableSpec(
+    name="alm_nsfr_item", korean="NSFR 항목별 내역", product="PRD-ALM",
+    grain="기준일 × 구분 × 항목 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("section", "string", "구분", nullable=False, allowed=NSFR_SECTIONS,
+          citation="NSF20(ASF) · NSF30(RSF)"),
+        C("category", "string", "항목", nullable=False),
+        C("amount", "float", "잔액", nullable=False, unit="KRW", min_value=0.0),
+        C("factor", "float", "인정률", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("weighted", "float", "가중 후 금액", nullable=False, unit="KRW",
+          min_value=0.0),
+    ),
+    primary_key=("asof", "section", "category"),
+)
+
+REPRICING_GAP = TableSpec(
+    name="alm_repricing_gap", korean="금리 재설정 갭", product="PRD-ALM",
+    grain="기준일 × 만기 버킷 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("bucket", "string", "만기 버킷", nullable=False,
+          allowed=REPRICING_BUCKETS, citation="SRP31.94 표준 만기 구간"),
+        C("seq", "int", "순서", nullable=False, min_value=1),
+        C("asset", "float", "자산", nullable=False, unit="KRW", min_value=0.0),
+        C("liability", "float", "부채", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("gap", "float", "갭", nullable=False, unit="KRW"),
+        C("cumulative_gap", "float", "누적 갭", nullable=False, unit="KRW"),
+    ),
+    primary_key=("asof", "bucket"),
+)
+
+ALM_DETAIL_TABLES = (LCR_ITEM, NSFR_ITEM, REPRICING_GAP)
+
+# ---------------------------------------------------------------- R11-F · MKT
+BACKTEST_ZONES = ("green", "amber", "red")
+RISK_MEASURES = ("VaR_99", "ES_97_5", "sVaR_99")
+
+RISK_FACTOR = TableSpec(
+    name="mkt_risk_factor", korean="위험요소 마스터", product="PRD-MKT",
+    grain="위험요소 × 기준일 1행",
+    columns=(
+        C("factor_id", "string", "위험요소 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("risk_class", "string", "위험군", nullable=False,
+          allowed=MARKET_RISK_CLASSES),
+        C("curve", "string", "커브·표면", nullable=False),
+        C("tenor", "float", "만기", nullable=False, unit="years",
+          min_value=0.0, max_value=50.0),
+        C("value", "float", "관측값", nullable=False, unit="mixed"),
+        C("source", "string", "소스", nullable=False, allowed=PRICE_SOURCES),
+        C("staleness_days", "int", "경과일수", nullable=False, unit="days",
+          min_value=0, note="MAR31 stale data — 한도 초과 시 산출 신뢰 불가"),
+        C("modellable", "bool", "모형화 가능", nullable=False,
+          citation="MAR31.12 RFET — 미충족 시 NMRF로 SES 부과"),
+    ),
+    primary_key=("factor_id", "asof"),
+)
+
+BACKTEST_EXCEPTION = TableSpec(
+    name="mkt_backtest_exception", korean="백테스팅 예외", product="PRD-MKT",
+    grain="관측일 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("obs_date", "date", "관측일", nullable=False),
+        C("var_99", "float", "1일 99% VaR", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("pnl", "float", "손익", nullable=False, unit="KRW"),
+        C("exception", "bool", "예외 여부", nullable=False,
+          citation="MAR99.5 — 손실이 VaR를 초과한 날"),
+        C("zone", "string", "신호등", nullable=False, allowed=BACKTEST_ZONES,
+          citation="MAR99.6 누적 예외 4/10 구간"),
+        C("cause", "string", "원인 후보", nullable=True),
+    ),
+    primary_key=("asof", "obs_date"),
+)
+
+VAR_ES = TableSpec(
+    name="mkt_var_es", korean="VaR·ES 산출", product="PRD-MKT",
+    grain="기준일 × 측정치 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("measure", "string", "측정치", nullable=False, allowed=RISK_MEASURES),
+        C("horizon_days", "int", "보유기간", nullable=False, unit="days",
+          min_value=1),
+        C("confidence", "float", "신뢰수준", nullable=False, unit="ratio",
+          min_value=0.5, max_value=1.0),
+        C("value", "float", "값", nullable=False, unit="KRW", min_value=0.0),
+        C("method", "string", "산출방법", nullable=False,
+          allowed=("historical", "parametric", "monte_carlo")),
+    ),
+    primary_key=("asof", "measure"),
+)
+
+MKT_DETAIL_TABLES = (RISK_FACTOR, BACKTEST_EXCEPTION, VAR_ES)
+
+# ---------------------------------------------------------------- R11-G · OPR
+RECOVERY_TYPES = ("insurance", "direct", "third_party")
+KRI_STATUS = ("green", "amber", "red")
+
+OP_RECOVERY = TableSpec(
+    name="opr_recovery", korean="운영손실 회수 내역", product="PRD-OPR",
+    grain="회수 1건당 1행",
+    columns=(
+        C("recovery_id", "string", "회수 식별자", nullable=False),
+        C("event_id", "string", "사건 식별자", nullable=False),
+        C("recovery_type", "string", "회수 유형", nullable=False,
+          allowed=RECOVERY_TYPES,
+          citation="OPE25.20 — 보험회수는 적격 요건 충족 시에만 인정"),
+        C("amount", "float", "회수액", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("eligible", "bool", "적격 여부", nullable=False),
+    ),
+    primary_key=("recovery_id",),
+    foreign_keys=(FK(("event_id",), "opr_loss_event", ("event_id",)),),
+    note="사건 단위 회수 합계는 opr_loss_event.recovery와 일치해야 한다.",
+)
+
+OP_KRI = TableSpec(
+    name="opr_kri", korean="운영리스크 KRI", product="PRD-OPR",
+    grain="기준일 × 지표 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("kri_id", "string", "지표 식별자", nullable=False),
+        C("kri_name", "text", "지표명", nullable=False),
+        C("value", "float", "실측치", nullable=False, unit="mixed"),
+        C("threshold_amber", "float", "주의 임계", nullable=False, unit="mixed"),
+        C("threshold_red", "float", "경보 임계", nullable=False, unit="mixed"),
+        C("status", "string", "판정", nullable=False, allowed=KRI_STATUS),
+    ),
+    primary_key=("asof", "kri_id"),
+)
+
+OP_CONTROL = TableSpec(
+    name="opr_control", korean="PSMOR 원칙·통제 매핑", product="PRD-OPR",
+    grain="통제 1건당 1행",
+    columns=(
+        C("control_id", "string", "통제 식별자", nullable=False),
+        C("principle", "int", "PSMOR 원칙", nullable=False,
+          min_value=1, max_value=12,
+          citation="BCBS Principles for the Sound Management of Operational "
+                   "Risk — 12개 원칙 (매핑이며 준수 인증이 아님)"),
+        C("description", "text", "통제 내용", nullable=False),
+        C("evidence_status", "string", "증빙 상태", nullable=False,
+          allowed=("완결", "검토", "누락")),
+        C("owner", "text", "책임 부서", nullable=False),
+    ),
+    primary_key=("control_id",),
+)
+
+OPR_DETAIL_TABLES = (OP_RECOVERY, OP_KRI, OP_CONTROL)
+
+
+# ------------------------------------------------------- R11-H · REG 업무보고서
+# 금융감독원 배포 기준 업무보고서(감독규정·시행세칙 별지 서식)를 채우기 위한
+# 원장. 서식 라인 하나하나가 어떤 산식·어떤 모듈에서 나왔는지 남지 않으면
+# 제출본을 재현할 수 없다.
+REPORT_FREQUENCY = ("월", "분기", "반기", "연")
+FORM_UNITS = ("KRW", "ratio", "count", "text")
+SUBMISSION_STATUS = ("draft", "reviewed", "approved", "submitted")
+
+REG_FORM = TableSpec(
+    name="reg_form", korean="업무보고서 서식 마스터", product="PRD-REG",
+    grain="서식 1개당 1행",
+    columns=(
+        C("form_id", "string", "서식 식별자", nullable=False),
+        C("form_name", "text", "서식명", nullable=False),
+        C("frequency", "string", "제출 주기", nullable=False,
+          allowed=REPORT_FREQUENCY),
+        C("citation", "text", "근거 규정", nullable=False,
+          citation="은행업감독규정·동 시행세칙 별지 서식"),
+        C("sheet_order", "int", "시트 순서", nullable=False, min_value=1),
+        C("source_domain", "string", "산출 부문", nullable=False),
+    ),
+    primary_key=("form_id",),
+    note="서식번호는 기관 배포본과 매핑이 필요하다 — 본 카탈로그는 내부 식별자를 쓴다.",
+)
+
+REG_FORM_LINE = TableSpec(
+    name="reg_form_line", korean="업무보고서 라인", product="PRD-REG",
+    grain="서식 × 라인코드 1행",
+    columns=(
+        C("form_id", "string", "서식 식별자", nullable=False),
+        C("line_code", "string", "라인 코드", nullable=False),
+        C("line_name", "text", "항목명", nullable=False),
+        C("level", "int", "들여쓰기 단계", nullable=False,
+          min_value=0, max_value=4),
+        C("unit", "string", "단위", nullable=False, allowed=FORM_UNITS),
+        C("value", "float", "값", nullable=True, unit="mixed",
+          note="text 단위 라인(구분·비고)은 값이 없다"),
+        C("text_value", "text", "문자값", nullable=True),
+        C("formula", "text", "산식", nullable=True),
+        C("citation", "text", "규정 근거", nullable=True),
+        C("source_module", "text", "산출 모듈", nullable=True),
+        C("is_subtotal", "bool", "소계 여부", nullable=False),
+    ),
+    primary_key=("form_id", "line_code"),
+    foreign_keys=(FK(("form_id",), "reg_form", ("form_id",)),),
+)
+
+REG_FORM_CHECK = TableSpec(
+    name="reg_form_check", korean="업무보고서 내부 검증", product="PRD-REG",
+    grain="서식 × 검증항목 1행",
+    columns=(
+        C("form_id", "string", "서식 식별자", nullable=False),
+        C("check_name", "string", "검증 항목", nullable=False),
+        C("expected", "float", "기대값", nullable=False, unit="mixed"),
+        C("actual", "float", "실제값", nullable=False, unit="mixed"),
+        C("diff", "float", "차이", nullable=False, unit="mixed"),
+        C("tolerance", "float", "허용 오차", nullable=False, unit="mixed",
+          min_value=0.0),
+        C("status", "string", "판정", nullable=False,
+          allowed=("PASS", "FAIL")),
+    ),
+    primary_key=("form_id", "check_name"),
+    foreign_keys=(FK(("form_id",), "reg_form", ("form_id",)),),
+    note="소계=구성요소 합, 비율=분자/분모 — 제출 전에 서식 스스로 대사한다.",
+)
+
+REG_SUBMISSION = TableSpec(
+    name="reg_submission", korean="업무보고서 제출 이력", product="PRD-REG",
+    grain="서식 × 기준일 1행",
+    columns=(
+        C("form_id", "string", "서식 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("prepared_by", "text", "작성자", nullable=False),
+        C("reviewed_by", "text", "검토자", nullable=False),
+        C("approved_by", "text", "승인자", nullable=False,
+          note="작성자와 동일하면 직무분리 위반"),
+        C("digest", "text", "산출 지문", nullable=False,
+          citation="DAT-004 재현성 — 같은 지문이면 같은 제출본"),
+        C("n_lines", "int", "라인 수", nullable=False, min_value=0),
+        C("n_failed_checks", "int", "검증 실패 수", nullable=False, min_value=0),
+        C("status", "string", "상태", nullable=False,
+          allowed=SUBMISSION_STATUS),
+    ),
+    primary_key=("form_id", "asof"),
+    foreign_keys=(FK(("form_id",), "reg_form", ("form_id",)),),
+)
+
+REG_TABLES = (REG_FORM, REG_FORM_LINE, REG_FORM_CHECK, REG_SUBMISSION)
+
+# ------------------------------------------------------ R11-I · UIX 에이전틱 UI
+# 「모든 모듈을 관리하는 에이전틱 UI」가 화면 코드만으로 끝나면 그 UI가 무엇을
+# 허용했는지 증명할 수 없다. View·필드권한·조회계획·레이아웃 제안·에이전트
+# 권한·활동·비상정지를 원장으로 둔다 (PLT-009~013 · RDM-008).
+UI_MODES = ("structured", "adaptive", "cockpit")
+SCHEMA_STATUS = ("승인됨", "초안", "폐기")
+MASKING = ("none", "mask", "deny")
+PLAN_STATUS = ("draft", "validated", "blocked")
+PROPOSAL_STATUS = ("draft", "previewed", "approved", "rolled_back", "rejected")
+AGENT_MODES = ("조회전용", "제안전용", "승인우선")
+GATE_STATUS = ("통과", "검토", "대기", "차단")
+KILL_SCOPES = ("agent", "tool", "workflow", "tenant")
+
+UI_VIEW = TableSpec(
+    name="ui_view", korean="승인 View 마스터", product="PRD-UIX",
+    grain="View 1개당 1행",
+    columns=(
+        C("view_id", "string", "View 식별자", nullable=False),
+        C("view_name", "text", "View 명", nullable=False),
+        C("domain", "string", "부문", nullable=False),
+        C("ui_mode", "string", "지원 모드", nullable=False, allowed=UI_MODES,
+          citation="PLT-010 정형 · PLT-011 비정형"),
+        C("schema_status", "string", "스키마 상태", nullable=False,
+          allowed=SCHEMA_STATUS),
+        C("row_limit", "int", "최대 행", nullable=False, min_value=1,
+          note="상한이 없으면 대량 추출이 통제 밖으로 나간다"),
+        C("read_only", "bool", "조회 전용", nullable=False),
+        C("page_ref", "text", "연결 보고서 페이지", nullable=True),
+        C("table_ref", "text", "연결 정규 테이블", nullable=True),
+    ),
+    primary_key=("view_id",),
+    note="UI가 조회할 수 있는 대상은 이 원장에 등록된 View로 한정된다.",
+)
+
+UI_FIELD_POLICY = TableSpec(
+    name="ui_field_policy", korean="필드 권한·마스킹 정책", product="PRD-UIX",
+    grain="View × 필드 1행",
+    columns=(
+        C("view_id", "string", "View 식별자", nullable=False),
+        C("field_name", "string", "필드", nullable=False),
+        C("korean", "text", "한글명", nullable=False),
+        C("permitted", "bool", "조회 허용", nullable=False),
+        C("masking", "string", "마스킹", nullable=False, allowed=MASKING,
+          citation="PLT-013 미승인 필드 차단 · 개인정보 보호"),
+        C("min_aggregation", "int", "최소 집계단위", nullable=False,
+          min_value=1, note="1이면 행 단위 조회 허용 — 개인정보 필드는 금지"),
+    ),
+    primary_key=("view_id", "field_name"),
+    foreign_keys=(FK(("view_id",), "ui_view", ("view_id",)),),
+)
+
+UI_QUERY_PLAN = TableSpec(
+    name="ui_query_plan", korean="자연어 조회계획", product="PRD-UIX",
+    grain="조회계획 1건당 1행",
+    columns=(
+        C("plan_id", "string", "계획 식별자", nullable=False),
+        C("view_id", "string", "View 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("utterance", "text", "사용자 문장", nullable=False),
+        C("intent", "text", "의도", nullable=False),
+        C("population", "text", "모집단", nullable=False),
+        C("condition_ast", "text", "조건 AST", nullable=False,
+          citation="PLT-009 자연어 → Filter AST → 정책 → 조회계획"),
+        C("policy", "text", "적용 정책", nullable=False),
+        C("query_hash", "text", "조회 지문", nullable=False,
+          note="같은 문장이라도 정책·기준일이 다르면 다른 지문이어야 한다"),
+        C("n_rows", "int", "결과 행 수", nullable=False, min_value=0),
+        C("status", "string", "상태", nullable=False, allowed=PLAN_STATUS),
+        C("block_reason", "text", "차단 사유", nullable=True),
+    ),
+    primary_key=("plan_id",),
+    foreign_keys=(FK(("view_id",), "ui_view", ("view_id",)),),
+)
+
+UI_LAYOUT_PROPOSAL = TableSpec(
+    name="ui_layout_proposal", korean="비정형 레이아웃 제안", product="PRD-UIX",
+    grain="제안 1건당 1행",
+    columns=(
+        C("proposal_id", "string", "제안 식별자", nullable=False),
+        C("view_id", "string", "View 식별자", nullable=False),
+        C("prompt", "text", "사용자 프롬프트", nullable=False),
+        C("layout", "text", "제안 레이아웃", nullable=False),
+        C("field_policy_pass", "bool", "필드권한 통과", nullable=False),
+        C("schema_pass", "bool", "스키마·단위 통과", nullable=False),
+        C("aggregation_pass", "bool", "집계 최소단위 통과", nullable=False),
+        C("human_approved", "bool", "사람 승인", nullable=False,
+          citation="PLT-012 — 미리보기·승인·Rollback 없이 화면 반영 금지"),
+        C("status", "string", "상태", nullable=False, allowed=PROPOSAL_STATUS),
+        C("rollback_of", "string", "되돌림 대상", nullable=True),
+    ),
+    primary_key=("proposal_id",),
+    foreign_keys=(FK(("view_id",), "ui_view", ("view_id",)),),
+    note="세 검증 중 하나라도 실패하면 human_approved는 참이 될 수 없다.",
+)
+
+AGENT_REGISTRY = TableSpec(
+    name="agent_registry", korean="에이전트 레지스트리", product="PRD-UIX",
+    grain="에이전트 1개당 1행",
+    columns=(
+        C("agent_id", "string", "에이전트 식별자", nullable=False),
+        C("agent_name", "text", "에이전트명", nullable=False),
+        C("mode", "string", "권한 모드", nullable=False, allowed=AGENT_MODES),
+        C("tools", "text", "허용 도구", nullable=False),
+        C("scope", "text", "데이터 범위", nullable=False),
+        C("write_allowed", "bool", "운영 반영 권한", nullable=False,
+          note="NO AUTONOMOUS WRITE — 전 에이전트가 거짓이어야 한다"),
+        C("owner", "text", "책임 부서", nullable=False),
+        C("domain", "string", "담당 부문", nullable=False),
+    ),
+    primary_key=("agent_id",),
+)
+
+AGENT_ACTIVITY = TableSpec(
+    name="agent_activity", korean="에이전트 활동 원장", product="PRD-UIX",
+    grain="활동 1건당 1행",
+    columns=(
+        C("activity_id", "string", "활동 식별자", nullable=False),
+        C("run_id", "string", "실행 식별자", nullable=False),
+        C("seq", "int", "순서", nullable=False, min_value=1),
+        C("actor", "text", "수행 주체", nullable=False),
+        C("tool", "text", "사용 도구", nullable=False),
+        C("output", "text", "결과", nullable=False),
+        C("gate", "string", "게이트", nullable=False, allowed=GATE_STATUS),
+    ),
+    primary_key=("activity_id",),
+    note="프롬프트·도구·출력·승인이 남지 않으면 AI 개입 정당성을 증명할 수 없다 "
+         "(ISO/IEC 42001 A.6.2.8 · EU AI Act 제12조 기록).",
+)
+
+AGENT_KILLSWITCH = TableSpec(
+    name="agent_killswitch", korean="범위형 비상정지 이력", product="PRD-UIX",
+    grain="정지 이벤트 1건당 1행",
+    columns=(
+        C("event_id", "string", "이벤트 식별자", nullable=False),
+        C("scope_type", "string", "정지 범위", nullable=False,
+          allowed=KILL_SCOPES),
+        C("scope_ref", "text", "대상", nullable=False),
+        C("mode", "string", "정지 방식", nullable=False,
+          allowed=("safe_stop", "immediate")),
+        C("reason", "text", "사유", nullable=False),
+        C("requested_by", "text", "요청자", nullable=False),
+        C("confirmed_by", "text", "2차 확인자", nullable=True,
+          note="중요 범위는 독립된 2차 확인이 필요하다"),
+    ),
+    primary_key=("event_id",),
+)
+
+UIX_TABLES = (UI_VIEW, UI_FIELD_POLICY, UI_QUERY_PLAN, UI_LAYOUT_PROPOSAL,
+              AGENT_REGISTRY, AGENT_ACTIVITY, AGENT_KILLSWITCH)
+
+# ---------------------------------------------------- R11-J · 변경·증빙 (GOV)
+CHANGE_TYPES = ("new_exposure_type", "new_product", "regulatory_rule",
+                "data_schema")
+CHANGE_STATUS = ("draft", "branch", "tested", "reviewed", "blocked")
+EVIDENCE_STAGES = ("출처", "변환", "계산", "검증", "증빙", "승인", "보고")
+
+CHANGE_REQUEST = TableSpec(
+    name="chg_change_request", korean="리스크 변경 요청", product="PRD-VAL",
+    grain="변경 요청 1건당 1행",
+    columns=(
+        C("change_id", "string", "변경 식별자", nullable=False),
+        C("change_type", "string", "변경 유형", nullable=False,
+          allowed=CHANGE_TYPES),
+        C("target_domain", "string", "대상 부문", nullable=False),
+        C("branch", "text", "브랜치", nullable=False),
+        C("requested_by", "text", "요청자", nullable=False),
+        C("n_components", "int", "영향 구성요소 수", nullable=False,
+          min_value=0),
+        C("deploy_allowed", "bool", "배포 허용", nullable=False,
+          note="테스트·검토가 끝나기 전에는 항상 거짓"),
+        C("status", "string", "상태", nullable=False, allowed=CHANGE_STATUS),
+    ),
+    primary_key=("change_id",),
+)
+
+CHANGE_IMPACT = TableSpec(
+    name="chg_impact_map", korean="변경 영향도 맵", product="PRD-VAL",
+    grain="변경 × 계층 × 노드 1행",
+    columns=(
+        C("change_id", "string", "변경 식별자", nullable=False),
+        C("layer", "string", "계층", nullable=False,
+          allowed=("data", "formula", "report", "owner")),
+        C("node", "text", "노드", nullable=False),
+        C("impact", "text", "영향", nullable=False),
+    ),
+    primary_key=("change_id", "layer", "node"),
+    foreign_keys=(FK(("change_id",), "chg_change_request", ("change_id",)),),
+)
+
+CHANGE_REGRESSION = TableSpec(
+    name="chg_regression_test", korean="변경 회귀테스트", product="PRD-VAL",
+    grain="변경 × 테스트 1행",
+    columns=(
+        C("change_id", "string", "변경 식별자", nullable=False),
+        C("test_name", "string", "테스트", nullable=False),
+        C("scope", "text", "범위", nullable=False),
+        C("covers_calc", "bool", "산출 검증", nullable=False),
+        C("covers_report", "bool", "보고서 검증", nullable=False),
+        C("status", "string", "판정", nullable=False,
+          allowed=("통과", "검토", "실패")),
+    ),
+    primary_key=("change_id", "test_name"),
+    foreign_keys=(FK(("change_id",), "chg_change_request", ("change_id",)),),
+)
+
+EVIDENCE_NODE = TableSpec(
+    name="gov_evidence_node", korean="증빙 계보 노드", product="PRD-VAL",
+    grain="실행 × 노드 1행",
+    columns=(
+        C("run_id", "string", "실행 식별자", nullable=False),
+        C("node_id", "string", "노드 식별자", nullable=False),
+        C("stage", "string", "단계", nullable=False, allowed=EVIDENCE_STAGES,
+          citation="RYNTA 7단계 증빙 그래프 — 출처→변환→계산→검증→증빙→승인→보고"),
+        C("label", "text", "라벨", nullable=False),
+        C("ref", "text", "참조", nullable=False),
+        C("status", "string", "상태", nullable=False,
+          allowed=("완결", "검토", "누락")),
+    ),
+    primary_key=("run_id", "node_id"),
+)
+
+EVIDENCE_EDGE = TableSpec(
+    name="gov_evidence_edge", korean="증빙 계보 간선", product="PRD-VAL",
+    grain="실행 × 시작노드 × 도착노드 1행",
+    columns=(
+        C("run_id", "string", "실행 식별자", nullable=False),
+        C("from_node", "string", "시작 노드", nullable=False),
+        C("to_node", "string", "도착 노드", nullable=False),
+        C("relation", "string", "관계", nullable=False,
+          allowed=("derives", "verifies", "approves", "reports")),
+    ),
+    primary_key=("run_id", "from_node", "to_node"),
+    note="노드만 있고 간선이 없으면 '연결된 계보'가 아니라 목록일 뿐이다.",
+)
+
+APPROVAL = TableSpec(
+    name="gov_approval", korean="4-Eyes 승인 기록", product="PRD-VAL",
+    grain="승인 1건당 1행",
+    columns=(
+        C("approval_id", "string", "승인 식별자", nullable=False),
+        C("subject_type", "string", "대상 유형", nullable=False),
+        C("subject_id", "string", "대상 식별자", nullable=False),
+        C("reviewer", "text", "검토자", nullable=False),
+        C("approver", "text", "승인자", nullable=False),
+        C("segregation_ok", "bool", "직무분리 충족", nullable=False,
+          note="검토자 = 승인자면 거짓 — 승인 효력 없음"),
+        C("decision", "string", "결정", nullable=False,
+          allowed=("승인", "반려", "대기")),
+        C("evidence_ref", "text", "증빙 참조", nullable=False),
+    ),
+    primary_key=("approval_id",),
+)
+
+GOV_DETAIL_TABLES = (CHANGE_REQUEST, CHANGE_IMPACT, CHANGE_REGRESSION,
+                     EVIDENCE_NODE, EVIDENCE_EDGE, APPROVAL)
+
+# ------------------------------------------------------------- 최종 누적 등록
+DETAIL_TABLES = (RDM_DETAIL_TABLES + CRM_DETAIL_TABLES + RWA_DETAIL_TABLES
+                 + ECL_DETAIL_TABLES + ALM_DETAIL_TABLES + MKT_DETAIL_TABLES
+                 + OPR_DETAIL_TABLES + REG_TABLES + UIX_TABLES
+                 + GOV_DETAIL_TABLES)
+
+ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
+              + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES
+              + DETAIL_TABLES)

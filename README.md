@@ -8,7 +8,7 @@
 ## 구조
 
 ```
-.claude/agents/                  # 10개 서브에이전트
+.claude/agents/                  # 13개 서브에이전트
   risk-orchestrator.md           ── 코디네이터 (작업 분해·위임·검증 강제)
   credit-rating-modeler.md       ── PD/LGD 모형 개발 및 등급화
   rwa-calculator.md              ── RWA 산출 (신용 SA+IRB, 시장, 운영, CRM/CCF, output floor)
@@ -49,13 +49,27 @@ risk_lib/                        # Python 계산 라이브러리
   validation/
     consistency.py               ── 정합성 자동 체크 (21종)
     backtest.py                  ── HL test, 등급별 binomial
+  datamodel/
+    spec.py                      ── 테이블/컬럼 스펙 · 검증 · DDL 생성
+    catalog.py                   ── 정규 카탈로그 (71 테이블 / 513 컬럼)
+    materialize.py               ── 부문 결과 → 정규 테이블
+    materialize_detail.py        ── 세분화 테이블 실체화 (규제 라인 입도)
+  regulatory/
+    forms.py                     ── 금감원 업무보고서 서식 14장 + 자체대사
+    excel.py                     ── 표지·목차·서식·검증·산출근거 .xlsx
+  ui_studio/
+    nl_query.py                  ── 자연어 → Filter AST → 정책검증 → 실행
+    layout.py                    ── 프롬프트 → 레이아웃 제안 → 3중 검증 → 승인
+    governance.py                ── View·필드정책·에이전트·증빙·변경 원장
+    studio.py / app.py           ── 스냅샷 조립 · 자체 완결 HTML 렌더
+  deliverables.py                ── 산출물 패키징 (ZIP + SHA-256 매니페스트)
   data_gen.py                    ── 합성 포트폴리오 생성
   pipeline.py                    ── end-to-end 오케스트레이션
   report.py                      ── markdown 결재 리포트 생성
   cli.py                         ── CLI 러너
 
 examples/run_end_to_end.py       # 전체 흐름 데모
-tests/                           # pytest (67건)
+tests/                           # pytest (902건)
 ```
 
 ## 빠른 시작
@@ -70,9 +84,18 @@ python -m risk_lib.cli run --data book.csv --seed 7     # 실제 포트폴리오
 # 2) 단계별 데모
 python examples/run_end_to_end.py
 
-# 3) 테스트
+# 3) 금감원 배포 기준 업무보고서 (.xlsx) — 서식 14장, 자체대사 포함
+python -m risk_lib.cli reg-report --out 업무보고서.xlsx --asof 2026-06-30 \
+    --institution "○○은행"
+
+# 4) 에이전틱 UI 스튜디오 — 전 모듈 관리 화면 (자체 완결 HTML)
+python -m risk_lib.cli ui-studio --out studio.html --asof 2026-06-30
+
+# 5) 테스트
 pytest -q
 ```
+
+`reg-report`는 서식 자체대사에서 실패가 있으면 종료코드 1을 반환한다(제출 불가 게이트).
 
 CLI는 검증에서 FAIL이 하나라도 있으면 종료코드 1을 반환한다(결재 불가 게이트).
 

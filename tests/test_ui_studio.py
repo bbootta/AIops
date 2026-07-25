@@ -1,0 +1,293 @@
+"""에이전틱 UI 스튜디오 — 자연어 컴파일러·레이아웃 정책·통제 원장·렌더링.
+
+핵심 명제:
+  1) 자연어는 **승인된 필드만** 조건으로 만들 수 있고, 인식 실패는 조용히
+     통과하지 않고 차단 사유로 남는다.
+  2) 레이아웃 제안은 세 검증을 모두 통과해야만 사람이 승인할 수 있다.
+  3) 어떤 에이전트도 운영 반영 권한을 갖지 않는다 (NO AUTONOMOUS WRITE).
+  4) 화면에 나오는 수치는 원장에서 온다 — 별도 계산 경로가 없다.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+
+import pandas as pd
+import pytest
+
+from risk_lib.datamodel import catalog as cat
+from risk_lib.ui_studio import governance as gov
+from risk_lib.ui_studio import layout as lay
+from risk_lib.ui_studio.app import render
+from risk_lib.ui_studio.nl_query import compile_query, execute
+from risk_lib.ui_studio.studio import build_studio
+
+
+@pytest.fixture(scope="module")
+def studio(result, portfolio):
+    return build_studio(result, portfolio)
+
+
+def _fields(rows):
+    return pd.DataFrame(rows, columns=["view_id", "field_name", "korean",
+                                       "permitted", "masking", "min_aggregation"])
+
+
+_DEMO_FIELDS = _fields([
+    ("V_T", "ltv", "담보인정비율", True, "none", 1),
+    ("V_T", "ead", "익스포저(EAD)", True, "none", 1),
+    ("V_T", "classification", "건전성 분류", True, "none", 1),
+    ("V_T", "obligor_id", "차주 식별자", True, "mask", 5),
+    ("V_T", "secret", "미승인 항목", False, "deny", 1),
+])
+
+
+# ----- 자연어 컴파일러 --------------------------------------------------------
+
+def test_percent_and_scale_literals():
+    p = compile_query("담보인정비율 70% 초과 그리고 익스포저(EAD) 100억 이상",
+                      view_id="V_T", asof="2026-06-11", fields=_DEMO_FIELDS)
+    assert p.status == "validated"
+    assert [(c.field, c.op, c.value) for c in p.conditions] == [
+        ("ltv", ">", 0.70), ("ead", ">=", 1e10)]
+
+
+def test_categorical_equality_without_operator():
+    p = compile_query("건전성 분류 고정", view_id="V_T", asof="2026-06-11",
+                      fields=_DEMO_FIELDS)
+    assert [(c.field, c.op, c.value) for c in p.conditions] == [
+        ("classification", "==", "고정")]
+
+
+def test_unapproved_field_is_blocked_not_ignored():
+    p = compile_query("미승인 항목 5 초과", view_id="V_T", asof="2026-06-11",
+                      fields=_DEMO_FIELDS)
+    assert p.status == "blocked"
+    assert "미승인" in p.block_reason
+
+
+def test_masked_field_cannot_be_used_as_a_condition():
+    """마스킹 필드를 조건으로 쓰면 특정 개체를 지목해 행을 되받을 수 있다."""
+    p = compile_query("차주 식별자 OBL_0001", view_id="V_T", asof="2026-06-11",
+                      fields=_DEMO_FIELDS)
+    assert p.status == "blocked"
+    assert "집계 최소단위" in p.block_reason
+
+
+def test_unparseable_sentence_does_not_become_a_full_scan():
+    p = compile_query("전부 다 보여줘", view_id="V_T", asof="2026-06-11",
+                      fields=_DEMO_FIELDS)
+    assert p.status == "blocked"
+    assert p.condition_ast == "TRUE"
+
+
+def test_query_hash_depends_on_policy_and_asof():
+    a = compile_query("담보인정비율 70% 초과", view_id="V_T", asof="2026-06-11",
+                      fields=_DEMO_FIELDS)
+    b = compile_query("담보인정비율 70% 초과", view_id="V_T", asof="2026-09-30",
+                      fields=_DEMO_FIELDS)
+    c = compile_query("담보인정비율 70% 초과", view_id="V_T", asof="2026-06-11",
+                      fields=_DEMO_FIELDS, policy="Read-only")
+    assert a.query_hash != b.query_hash != c.query_hash
+    assert a.query_hash != c.query_hash
+
+
+def test_execution_applies_every_condition():
+    df = pd.DataFrame({"ltv": [0.6, 0.8, 0.9], "ead": [1e9, 2e10, 5e9]})
+    p = compile_query("담보인정비율 70% 초과 그리고 익스포저(EAD) 100억 이상",
+                      view_id="V_T", asof="2026-06-11", fields=_DEMO_FIELDS)
+    out, p2 = execute(p, df, row_limit=100)
+    assert len(out) == 1 and p2.n_rows == 1
+
+
+def test_blocked_plan_returns_no_rows():
+    df = pd.DataFrame({"ltv": [0.9]})
+    p = compile_query("미승인 항목 1 초과", view_id="V_T", asof="2026-06-11",
+                      fields=_DEMO_FIELDS)
+    out, _ = execute(p, df, row_limit=100)
+    assert out.empty
+
+
+def test_row_limit_truncates_but_population_count_survives():
+    df = pd.DataFrame({"ltv": [0.9] * 50})
+    p = compile_query("담보인정비율 70% 초과", view_id="V_T", asof="2026-06-11",
+                      fields=_DEMO_FIELDS)
+    out, p2 = execute(p, df, row_limit=10)
+    assert len(out) == 10 and p2.n_rows == 50
+
+
+def test_missing_column_blocks_instead_of_raising():
+    p = compile_query("담보인정비율 70% 초과", view_id="V_T", asof="2026-06-11",
+                      fields=_DEMO_FIELDS)
+    out, p2 = execute(p, pd.DataFrame({"other": [1]}), row_limit=10)
+    assert out.empty and p2.status == "blocked" and "없는 필드" in p2.block_reason
+
+
+# ----- 레이아웃 정책 ----------------------------------------------------------
+
+def test_layout_picks_allowed_visualisations():
+    p = lay.compose("담보인정비율 기여도를 막대차트로 보고 아래 검토 표",
+                    view_id="V_T", fields=_DEMO_FIELDS)
+    assert [v for v, _ in p.blocks] == ["bar", "table"]
+    assert set(v for v, _ in p.blocks) <= set(lay.ALLOWED_VIZ)
+
+
+def test_layout_rejects_denied_columns_and_says_which():
+    p = lay.compose("미승인 항목과 담보인정비율을 표로", view_id="V_T",
+                    fields=_DEMO_FIELDS)
+    assert not p.field_policy_pass and p.rejected_fields == ("secret",)
+    assert p.status == "rejected"
+
+
+def test_layout_rejects_row_level_masked_columns():
+    p = lay.compose("차주 식별자와 익스포저(EAD)를 표로", view_id="V_T",
+                    fields=_DEMO_FIELDS)
+    assert not p.aggregation_pass and p.status == "rejected"
+
+
+def test_layout_top_n_is_capped_by_the_view_row_limit():
+    p = lay.compose("담보인정비율 상위 900건을 표로", view_id="V_T",
+                    fields=_DEMO_FIELDS, row_limit=500)
+    assert p.row_limit == 500
+
+
+def test_failed_proposal_cannot_be_approved():
+    p = lay.compose("미승인 항목 표", view_id="V_T", fields=_DEMO_FIELDS)
+    with pytest.raises(ValueError):
+        lay.approve(p, approver="리스크관리부장")
+
+
+def test_approval_requires_an_approver():
+    p = lay.compose("담보인정비율 표", view_id="V_T", fields=_DEMO_FIELDS)
+    with pytest.raises(ValueError):
+        lay.approve(p, approver="")
+    assert lay.approve(p, approver="리스크관리부장").status == "approved"
+
+
+# ----- 통제 원장 --------------------------------------------------------------
+
+def test_every_canonical_table_has_a_governed_view():
+    views, policies = gov.build_views()
+    refs = set(views["table_ref"].dropna())
+    assert {s.name for s in cat.ALL_TABLES} <= refs
+    # 필드 정책은 컬럼 하나도 빠뜨리지 않는다 — 빠지면 조회가 조용히 막힌다.
+    for spec in cat.ALL_TABLES:
+        got = policies[policies["view_id"] == f"V_{spec.name.upper()}"]
+        assert set(got["field_name"]) == {c.name for c in spec.columns}
+
+
+def test_no_agent_has_operational_write_permission():
+    reg = gov.build_agent_registry()
+    assert len(reg) >= 10
+    assert not reg["write_allowed"].any(), "NO AUTONOMOUS WRITE 위반"
+    assert set(reg["mode"]) <= {"조회전용", "제안전용", "승인우선"}
+
+
+def test_agent_registry_comes_from_the_real_agent_definitions():
+    reg = gov.build_agent_registry()
+    names = set(reg["agent_name"])
+    assert {"risk-orchestrator", "risk-validator", "market-risk-analyst"} <= names
+
+
+def test_activity_ledger_ends_with_a_human_gate(studio):
+    act = studio.tables["agent_activity"].sort_values("seq")
+    assert act.iloc[-1]["gate"] == "대기"
+    assert "CRO" in act.iloc[-1]["actor"]
+
+
+def test_evidence_graph_is_connected_seven_stages(studio):
+    nodes = studio.tables["gov_evidence_node"]
+    edges = studio.tables["gov_evidence_edge"]
+    assert list(nodes["stage"]) == list(cat.EVIDENCE_STAGES)
+    ids = set(nodes["node_id"])
+    assert set(edges["from_node"]) <= ids and set(edges["to_node"]) <= ids
+    # 첫 노드를 뺀 모든 노드는 들어오는 간선이 하나 이상 있어야 계보가 된다.
+    incoming = set(edges["to_node"])
+    assert ids - incoming == {nodes.iloc[0]["node_id"]}
+
+
+def test_approvals_enforce_segregation_of_duties(studio):
+    ap = studio.tables["gov_approval"]
+    assert len(ap) > 0
+    for _, r in ap.iterrows():
+        assert bool(r["segregation_ok"]) == (r["reviewer"] != r["approver"])
+        if not r["segregation_ok"]:
+            assert r["decision"] != "승인"
+
+
+def test_change_requests_never_allow_deploy(studio):
+    chg = studio.tables["chg_change_request"]
+    assert not chg["deploy_allowed"].any()
+
+
+def test_change_requests_trace_back_to_unmapped_codes(studio):
+    cmap = studio.tables["rdm_canonical_map"]
+    unmapped = set(cmap[cmap["status"] == "unmapped"]["source_code"])
+    ids = {c.replace("CHG-", "") for c in studio.tables["chg_change_request"]["change_id"]}
+    assert ids == unmapped
+
+
+# ----- 스튜디오 조립 ----------------------------------------------------------
+
+def test_studio_materialises_the_entire_catalog(studio):
+    assert set(studio.tables) >= {s.name for s in cat.ALL_TABLES}
+
+
+def test_studio_plans_execute_against_real_tables(studio):
+    assert studio.plans
+    validated = [p for p in studio.plans if p.status == "validated"]
+    assert validated, "실행된 조회계획이 하나도 없다"
+    for p in validated:
+        assert p.plan_id in studio.plan_results
+        assert p.n_rows >= len(studio.plan_results[p.plan_id])
+
+
+def test_studio_includes_a_deliberately_blocked_plan(studio):
+    """차단 경로가 실제로 걸리는 걸 화면에서 보여줘야 통제가 증명된다."""
+    assert any(p.status == "blocked" for p in studio.plans)
+
+
+def test_studio_includes_a_rejected_layout_proposal(studio):
+    assert any(p.status == "rejected" for p in studio.proposals)
+    assert any(p.status == "approved" for p in studio.proposals)
+
+
+def test_digest_matches_the_regulatory_submission(studio):
+    subs = studio.tables["reg_submission"]
+    assert set(subs["digest"]) == {studio.digest}
+
+
+# ----- 렌더링 -----------------------------------------------------------------
+
+def test_render_is_self_contained(studio):
+    h = render(studio)
+    assert h.startswith("<!doctype html>")
+    # 폐쇄망 전제 — 외부 호스트를 부르는 순간 화면이 열리지 않는다.
+    assert "http://" not in h
+    assert not re.search(r"src=\"https?://", h)
+    assert "<script>window.__RYNTA__=" in h
+
+
+def test_render_embeds_a_parseable_payload(studio):
+    h = render(studio)
+    m = re.search(r"window\.__RYNTA__=(\{.*?\});</script>", h, re.S)
+    assert m
+    d = json.loads(m.group(1))
+    assert d["meta"]["n_tables"] == len(cat.ALL_TABLES)
+    assert len(d["forms"]) == len(studio.built_forms)
+    assert len(d["catalog"]) == len(cat.ALL_TABLES)
+    assert all(r["materialised"] for r in d["catalog"])
+
+
+def test_rendered_kpis_match_the_engine(studio):
+    h = render(studio)
+    d = json.loads(re.search(r"window\.__RYNTA__=(\{.*?\});</script>", h, re.S).group(1))
+    cet1 = next(k for k in d["kpis"] if "CET1" in k["label"])
+    assert cet1["value"] == f"{studio.result.bis.cet1_ratio:.2%}"
+
+
+def test_render_carries_the_no_autonomous_write_statement(studio):
+    h = render(studio)
+    assert "자동확정하지 않는다" in h
+    assert "합성 포트폴리오" in h      # 실제 기관 수치가 아님을 화면에 남긴다
