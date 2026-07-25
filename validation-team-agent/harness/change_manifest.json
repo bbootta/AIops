@@ -2160,6 +2160,21 @@
       "rollback_rule": "정규화 규칙이 실제 회귀를 가려 오탐 통과가 발생하면 해당 규칙 제거. 모듈 자체 문제 시 삭제로 완전 롤백(읽기 전용 도구)",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0145",
+      "timestamp": "2026-07-25 02:26:50",
+      "component": "harness/val_requirement_coverage.json + tools/val_coverage.py + cli_index/dispatch/README sync",
+      "change_type": "create",
+      "evidence": "사용자 확인 결과, RYNTA v9.1 로 정리한 PRD-VAL 업무요건 18건이 본 하니스에는 반영되지 않은 상태였음. 조사 결과 커버리지는 구현 3 / 부분 7 / 미구현 8 (36.1%). 근거 파일 실재성 검사로 전 항목 대조 완료",
+      "root_cause": "외부 업무요건과 하니스 구현 사이에 추적 가능한 매핑이 없어 무엇이 없는지 주장 수준으로만 말할 수 있었음",
+      "targeted_fix": "harness/val_requirement_coverage.json 을 SSoT 로 신설 (요건별 status/evidence/gap). tools/val_coverage 가 4개 규칙을 강제: (1) implemented·partial 은 evidence 파일이 실재해야 주장 가능, (2) missing 은 evidence 보유 불가, (3) partial·missing 은 gap 서술 필수, (4) 요건 ID 연속성. partial 을 0.5 가중해 진행률 과대표기 방지. verify 는 위반 시 exit 1",
+      "expected_benefit": "커버리지 문서가 방치돼 거짓말이 되는 것을 구조적으로 차단. 이후 라운드의 구현 대상과 우선순위가 근거 있는 산출물로 고정되고, 라운드마다 커버리지 상승이 추적됨",
+      "expected_regression_risk": "낮음 — 읽기 전용 도구. 다만 evidence 로 지목된 파일을 이동·삭제하면 게이트가 실패하므로 리팩터링 시 매트릭스 동반 갱신 필요 (의도된 결합)",
+      "validation_method": "tests/test_v2_round80.py 17 cases (18건 완전성/단계 6개/근거 실재/무근거 구현주장 거부/파일부재 거부/missing 근거보유 거부/gap 누락 거부/요건 누락 거부/status 값 검증/가중 점수/보고서/CLI/카탈로그) + R34 동기 게이트가 README 정책표 미기재를 실제로 적발 → 등재. 전체 1111 passed",
+      "rollback_rule": "매트릭스가 실제 구현과 어긋나 유지비만 발생하면 SSoT 삭제 후 도구 제거 (읽기 전용이므로 삭제로 완전 롤백)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

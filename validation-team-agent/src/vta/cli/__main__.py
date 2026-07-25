@@ -40,6 +40,7 @@ _DISPATCH = {
     ("data", "load"): "tools.data_adapter",
     ("report", "digest"): "tools.cro_digest",
     ("pack", "verify"): "tools.pack_verify",
+    ("coverage",): "tools.val_coverage",
     ("dashboard",): "tools.dashboard",
     ("manifest",): "tools.manifest",
     ("findings",): "tools.findings",
