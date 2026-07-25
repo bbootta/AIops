@@ -342,3 +342,258 @@ ECL_TABLES = (ECL_RESULT, MACRO_SCENARIO)
 
 # 누적 등록
 ALL_TABLES = RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
+
+
+# ---------------------------------------------------------------- R5 · ST/CAP
+SCENARIOS = ("baseline", "adverse", "severely_adverse")
+CAPITAL_TIERS = ("CET1", "AT1", "T2")
+
+STRESS_PATH = TableSpec(
+    name="st_capital_path", korean="스트레스 자본경로", product="PRD-ST",
+    grain="시나리오 × 분기 1행",
+    columns=(
+        C("scenario", "string", "시나리오", nullable=False, allowed=SCENARIOS),
+        C("quarter", "string", "분기", nullable=False),
+        C("severity", "float", "충격 심도", nullable=False, unit="ratio",
+          min_value=0.0, citation="ST-F001 정점→감쇠 경로"),
+        C("rwa_total", "float", "총 RWA", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("ecl", "float", "ECL", nullable=False, unit="KRW", min_value=0.0),
+        C("cet1_ratio", "float", "CET1 비율", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0, citation="ST-F004 CET1 roll-forward"),
+        C("tier1_ratio", "float", "Tier1 비율", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("total_ratio", "float", "총자본 비율", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("binding", "string", "제약 비율", nullable=False,
+          allowed=("cet1", "tier1", "total"),
+          note="ST-F006 — 침범 시 어느 요구치인지 반드시 명시"),
+        C("passes", "bool", "요구치 충족", nullable=False),
+    ),
+    primary_key=("scenario", "quarter"),
+)
+
+CAPITAL_STACK = TableSpec(
+    name="cap_stack", korean="자본 스택", product="PRD-CAP",
+    grain="자본 계층 × 기준일 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("tier", "string", "자본 계층", nullable=False, allowed=CAPITAL_TIERS),
+        C("amount", "float", "금액", nullable=False, unit="KRW", min_value=0.0),
+        C("ratio", "float", "비율", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("required", "float", "요구 비율", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0, citation="CRE10.4 + 버퍼"),
+        C("surplus", "float", "잉여/부족", nullable=False, unit="ratio",
+          citation="음수는 자본 부족 — 부호가 곧 판정"),
+    ),
+    primary_key=("asof", "tier"),
+)
+
+ST_TABLES = (STRESS_PATH, CAPITAL_STACK)
+
+# ---------------------------------------------------------------- R6 · ALM
+ALM_METRICS = ("LCR", "NSFR", "IRRBB_EVE", "IRRBB_NII")
+IRRBB_SCENARIOS = ("parallel_up", "parallel_down", "steepener", "flattener",
+                   "short_up", "short_down")
+
+ALM_RESULT = TableSpec(
+    name="alm_result", korean="ALM 지표 산출", product="PRD-ALM",
+    grain="지표 × 기준일 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("metric", "string", "지표", nullable=False, allowed=ALM_METRICS),
+        C("value", "float", "실측치", nullable=False, unit="ratio"),
+        C("minimum", "float", "규제 최저", nullable=True, unit="ratio",
+          citation="LCR20.1 / NSF20.1 각 100%"),
+        C("numerator", "float", "분자", nullable=False, unit="KRW"),
+        C("denominator", "float", "분모", nullable=False, unit="KRW",
+          min_value=0.0, note="분모 0이면 비율 자체가 정의되지 않는다"),
+        C("passes", "bool", "기준 충족", nullable=True),
+    ),
+    primary_key=("asof", "metric"),
+)
+
+IRRBB_SHOCK = TableSpec(
+    name="alm_irrbb_shock", korean="IRRBB 충격 시나리오", product="PRD-ALM",
+    grain="충격 시나리오 × 기준일 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("scenario", "string", "충격 시나리오", nullable=False,
+          allowed=IRRBB_SCENARIOS, citation="SRP31.90 표준 6개 시나리오"),
+        C("delta_eve", "float", "ΔEVE", nullable=False, unit="KRW"),
+        C("pct_tier1", "float", "Tier1 대비", nullable=False, unit="ratio",
+          citation="SRP31.92 outlier test — 15% 초과 시 이상치"),
+    ),
+    primary_key=("asof", "scenario"),
+)
+
+ALM_TABLES = (ALM_RESULT, IRRBB_SHOCK)
+
+# ---------------------------------------------------------------- R7 · MKT/NCR
+TRADE_KINDS = ("option", "swap", "cds")
+PRICE_SOURCES = ("consensus", "exchange", "broker", "model", "front_office")
+
+TRADE = TableSpec(
+    name="mkt_trade", korean="트레이딩북 포지션", product="PRD-MKT",
+    grain="거래 1건당 1행",
+    columns=(
+        C("trade_id", "string", "거래 식별자", nullable=False),
+        C("counterparty", "string", "거래상대방", nullable=False),
+        C("kind", "string", "상품 유형", nullable=False, allowed=TRADE_KINDS),
+        C("notional", "float", "명목금액", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("maturity", "float", "잔존만기", nullable=False, unit="years",
+          min_value=0.0, max_value=50.0),
+        C("fo_value", "float", "FO 평가액", nullable=False, unit="KRW"),
+        C("delta", "float", "Δ", nullable=True, unit="KRW"),
+        C("vega", "float", "Vega", nullable=True, unit="KRW"),
+        C("dv01", "float", "dV01", nullable=True, unit="KRW",
+          citation="1bp 평행이동 민감도"),
+        C("cs01", "float", "CS01", nullable=True, unit="KRW"),
+    ),
+    primary_key=("trade_id",),
+)
+
+PRICE_VERIFICATION = TableSpec(
+    name="mkt_ipv", korean="독립가격검증 결과", product="PRD-MKT",
+    grain="거래 × 기준일 1행",
+    columns=(
+        C("trade_id", "string", "거래 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("source", "string", "독립 소스", nullable=False, allowed=PRICE_SOURCES),
+        C("fo_value", "float", "FO 평가액", nullable=False, unit="KRW"),
+        C("benchmark_value", "float", "독립 평가액", nullable=False, unit="KRW"),
+        C("diff", "float", "차이", nullable=False, unit="KRW"),
+        C("limit", "float", "허용 한도", nullable=False, unit="KRW",
+          min_value=0.0, citation="MR-F003 max(절대, |기준가|×상대)"),
+        C("verified", "bool", "독립검증 여부", nullable=False,
+          note="FO 자체 가격은 검증으로 인정하지 않는다"),
+        C("is_break", "bool", "BREAK 여부", nullable=False),
+        C("days_open", "int", "미해소 일수", nullable=False, min_value=0),
+    ),
+    primary_key=("trade_id", "asof"),
+    foreign_keys=(FK(("trade_id",), "mkt_trade", ("trade_id",)),),
+)
+
+NCR_COMPONENT = TableSpec(
+    name="ncr_component", korean="순자본비율 구성요소", product="PRD-NCR",
+    grain="구성요소 × 기준일 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("component", "string", "구성요소", nullable=False),
+        C("category", "string", "분류", nullable=False,
+          allowed=("영업용순자본", "총위험액", "필요유지자기자본")),
+        C("amount", "float", "금액", nullable=False, unit="KRW"),
+        C("citation", "text", "근거 조항", nullable=True,
+          citation="금융투자업규정 제3-6·11·21조"),
+    ),
+    primary_key=("asof", "component"),
+)
+
+MKT_TABLES = (TRADE, PRICE_VERIFICATION, NCR_COMPONENT)
+
+ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
+              + ST_TABLES + ALM_TABLES + MKT_TABLES)
+
+
+# ---------------------------------------------------------------- R8 · OPR
+OP_EVENT_TYPES = ("internal_fraud", "external_fraud", "employment",
+                  "clients_products", "physical_assets", "business_disruption",
+                  "execution_delivery")
+
+OP_LOSS_EVENT = TableSpec(
+    name="opr_loss_event", korean="운영손실 사건", product="PRD-OPR",
+    grain="손실사건 1건당 1행",
+    columns=(
+        C("event_id", "string", "사건 식별자", nullable=False),
+        C("event_date", "date", "발생일", nullable=False),
+        C("event_type", "string", "사건 유형", nullable=False,
+          allowed=OP_EVENT_TYPES, citation="Basel III OPE25 7개 사건유형"),
+        C("gross_loss", "float", "총손실", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("recovery", "float", "회수액", nullable=False, unit="KRW",
+          min_value=0.0, note="총손실 초과 불가 — 초과 시 순손실이 음수가 된다"),
+        C("net_loss", "float", "순손실", nullable=False, unit="KRW",
+          min_value=0.0, citation="OR-F001 max(0, 총손실 − 회수)"),
+    ),
+    primary_key=("event_id",),
+)
+
+OP_CAPITAL = TableSpec(
+    name="opr_capital", korean="운영리스크 자본", product="PRD-OPR",
+    grain="산출 방법 × 기준일 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("method", "string", "산출 방법", nullable=False,
+          allowed=("SMA", "LDA"), citation="OPE25 신표준방법 / 내부 LDA"),
+        C("capital", "float", "자본요구액", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("rwa", "float", "RWA", nullable=False, unit="KRW", min_value=0.0,
+          citation="RWA = 12.5 × 자본요구액 (CRE20.1)"),
+        C("var_999", "float", "99.9% VaR", nullable=True, unit="KRW",
+          min_value=0.0),
+    ),
+    primary_key=("asof", "method"),
+)
+
+OPR_TABLES = (OP_LOSS_EVENT, OP_CAPITAL)
+
+# ---------------------------------------------------------------- R9 · AIG/VAL
+VALIDATION_STATUS = ("PASS", "WARN", "FAIL")
+ADJ_STATUS = ("pending", "applied", "rejected", "expired")
+
+VALIDATION_RESULT = TableSpec(
+    name="val_check", korean="자체검증 결과", product="PRD-VAL",
+    grain="검증 체크 × 기준일 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("check_name", "string", "체크명", nullable=False),
+        C("status", "string", "판정", nullable=False, allowed=VALIDATION_STATUS),
+        C("detail", "text", "상세", nullable=True),
+        C("domain", "string", "부문", nullable=True),
+    ),
+    primary_key=("asof", "check_name"),
+    note="FAIL 1건이라도 있으면 결재 불가 (AIMS_POLICY §2-4).",
+)
+
+AUDIT_LEDGER = TableSpec(
+    name="val_audit_ledger", korean="산출 근거 원장", product="PRD-VAL",
+    grain="공표 수치 1건당 1행",
+    columns=(
+        C("figure_id", "string", "수치 식별자", nullable=False),
+        C("label", "text", "수치명", nullable=False),
+        C("value", "float", "값", nullable=True, unit="mixed",
+          note="비율·금액·등급이 섞이므로 단위는 unit 컬럼이 아니라 label로 판별"),
+        C("code_module", "text", "산출 모듈", nullable=False),
+        C("code_function", "text", "산출 함수", nullable=False),
+        C("citation", "text", "규정 근거", nullable=False,
+          citation="BCBS 239 — 수치마다 근거가 있어야 한다"),
+    ),
+    primary_key=("figure_id",),
+)
+
+ADJUSTMENT = TableSpec(
+    name="aig_adjustment", korean="수동조정 원장", product="PRD-AIG",
+    grain="조정 1건당 1행",
+    columns=(
+        C("adjustment_id", "string", "조정 식별자", nullable=False),
+        C("figure_id", "string", "대상 수치", nullable=False),
+        C("base_value", "float", "조정 전", nullable=False, unit="mixed"),
+        C("adjusted_value", "float", "조정 후", nullable=False, unit="mixed"),
+        C("delta", "float", "증감", nullable=False, unit="mixed"),
+        C("requester", "text", "요청자", nullable=False),
+        C("approver", "text", "승인자", nullable=False,
+          note="요청자와 같으면 직무분리 위반 — 적용 불가"),
+        C("senior_approval", "text", "상위 승인자", nullable=True),
+        C("status", "string", "상태", nullable=False, allowed=ADJ_STATUS),
+        C("expires_on", "date", "유효기간", nullable=False),
+        C("evidence_ref", "text", "증빙 참조", nullable=False),
+    ),
+    primary_key=("adjustment_id",),
+)
+
+VAL_TABLES = (VALIDATION_RESULT, AUDIT_LEDGER, ADJUSTMENT)
+
+ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
+              + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES)

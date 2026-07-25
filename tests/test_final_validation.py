@@ -177,7 +177,9 @@ def test_domain_status_keys_match_DOMAINS():
 def test_domain_status_fail_dominates():
     checks = [
         ConsistencyCheck("xd_rwa_components_sum", "FAIL", "bad"),
-        ConsistencyCheck("ead_nonneg", "PASS", "ok"),
+        # SA·IRB EAD 체크는 이름이 분리돼 있다 — 같은 이름으로 두 번 등록하면
+        # 이름 조회 시 한쪽이 가려지므로 label을 붙였다.
+        ConsistencyCheck("ead_nonneg_sa", "PASS", "ok"),
     ]
     out = domain_status(checks)
     assert out["rwa"]["status"] == "FAIL"

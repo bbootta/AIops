@@ -378,7 +378,8 @@ _CHECK_TO_DOMAIN: dict[str, str] = {
     "xd_pd_segment_mean": "pd",
     # RWA
     "lgd_in_[0,1]": "rwa",
-    "ead_nonneg": "rwa",
+    "ead_nonneg_sa": "rwa",
+    "ead_nonneg_irb": "rwa",
     "sa_rwa_nonneg": "rwa",
     "irb_rwa_nonneg": "rwa",
     "el_le_ead": "rwa",

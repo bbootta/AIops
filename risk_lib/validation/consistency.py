@@ -91,20 +91,28 @@ def _check_lgd_bounds(df: pd.DataFrame, report: ValidationReport) -> None:
         ))
 
 
-def _check_ead_positive(df: pd.DataFrame, report: ValidationReport) -> None:
+def _check_ead_positive(df: pd.DataFrame, report: ValidationReport,
+                        label: str = "") -> None:
+    """EAD 비음수 검사.
+
+    SA·IRB 북에 각각 호출되므로 **체크명이 달라야** 한다 — 같은 이름으로 두 번
+    등록하면 이름으로 조회할 때 한쪽이 조용히 가려져, SA는 통과하고 IRB는
+    실패한 상황이 통과로 보일 수 있다. (_check_rwa_nonneg와 동일 규약)
+    """
     if "ead" not in df.columns:
         return
+    name = f"ead_nonneg_{label}" if label else "ead_nonneg"
     bad = df[df["ead"] < 0]
     if len(bad):
         report.add(ConsistencyCheck(
-            "ead_nonneg", "FAIL",
-            f"{len(bad)} exposures with negative EAD",
+            name, "FAIL",
+            f"{len(bad)} exposures with negative EAD ({label or 'all'})",
             metric=float(len(bad)),
         ))
     else:
         report.add(ConsistencyCheck(
-            "ead_nonneg", "PASS",
-            "all EAD non-negative",
+            name, "PASS",
+            f"all EAD non-negative ({label or 'all'})",
         ))
 
 
@@ -655,13 +663,13 @@ def run_consistency_checks(
     rep = ValidationReport()
 
     if sa_results is not None:
-        _check_ead_positive(sa_results, rep)
+        _check_ead_positive(sa_results, rep, "sa")
         _check_rwa_nonneg(sa_results, rep, "sa")
 
     if irb_results is not None:
         _check_pd_bounds(irb_results, rep)
         _check_lgd_bounds(irb_results, rep)
-        _check_ead_positive(irb_results, rep)
+        _check_ead_positive(irb_results, rep, "irb")
         _check_rwa_nonneg(irb_results, rep, "irb")
         _check_el_le_ead(irb_results, rep)
 

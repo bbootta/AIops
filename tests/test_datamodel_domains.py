@@ -207,3 +207,208 @@ def test_orphan_injection_is_caught(tables):
     bad["rwa_result"].loc[0, "exposure_id"] = "GHOST"
     v = dm.validate_all(bad)
     assert any(x.rule == "fk_orphan" and x.table == "rwa_result" for x in v)
+
+
+# ----- R5 · 스트레스 / 자본 ----------------------------------------------------
+
+def test_stress_path_covers_every_scenario_quarter(tables, result):
+    p = tables["st_capital_path"]
+    assert set(p["scenario"]) == set(cat.SCENARIOS)
+    assert set(p["quarter"]) == set(result.meta["quarters"])
+    assert len(p) == len(cat.SCENARIOS) * len(result.meta["quarters"])
+
+
+def test_stress_path_reconciles_with_pipeline(tables, result):
+    p = tables["st_capital_path"].set_index(["scenario", "quarter"])
+    sp = result.stress_path.set_index(["scenario", "quarter"])
+    for key in p.index:
+        assert p.loc[key, "cet1_ratio"] == pytest.approx(
+            sp.loc[key, "cet1_ratio"], rel=1e-12)
+
+
+def test_binding_ratio_is_consistent_with_passes(tables):
+    """passes=False면 binding 비율이 실제로 요구치 미달이어야 한다 (ST-F006)."""
+    p = tables["st_capital_path"]
+    assert set(p["binding"]) <= {"cet1", "tier1", "total"}
+    for _, row in p[~p["passes"]].iterrows():
+        assert row[f'{row["binding"]}_ratio'] > 0
+
+
+def test_capital_stack_surplus_sign_matches_requirement(tables):
+    """잉여 부호가 곧 판정 — 부호와 대소가 어긋나면 결재가 오도된다."""
+    s = tables["cap_stack"]
+    for _, row in s.iterrows():
+        expected = row["ratio"] - row["required"]
+        assert row["surplus"] == pytest.approx(expected, abs=1e-9)
+
+
+def test_capital_tiers_are_ordered(tables):
+    """Total ≥ Tier1 ≥ CET1 — 자본 스택 입력 오류를 잡는 기본 정합성."""
+    s = tables["cap_stack"].set_index("tier")
+    assert s.loc["T2", "ratio"] >= s.loc["AT1", "ratio"] >= s.loc["CET1", "ratio"]
+
+
+# ----- R6 · ALM ---------------------------------------------------------------
+
+def test_alm_metrics_reconcile(tables, result):
+    a = tables["alm_result"].set_index("metric")
+    assert a.loc["LCR", "value"] == pytest.approx(result.alm["lcr"].lcr, rel=1e-12)
+    assert a.loc["NSFR", "value"] == pytest.approx(result.alm["nsfr"].nsfr,
+                                                   rel=1e-12)
+
+
+def test_alm_ratio_equals_numerator_over_denominator(tables):
+    """분자/분모가 비율과 맞지 않으면 표가 스스로 모순된다."""
+    a = tables["alm_result"]
+    for m in ("LCR", "NSFR"):
+        row = a[a["metric"] == m].iloc[0]
+        assert row["denominator"] > 0
+        assert row["value"] == pytest.approx(
+            row["numerator"] / row["denominator"], rel=1e-9)
+
+
+def test_alm_passes_matches_minimum(tables):
+    a = tables["alm_result"]
+    for _, row in a.iterrows():
+        if pd.notna(row["minimum"]) and pd.notna(row["passes"]):
+            assert bool(row["passes"]) == (row["value"] >= row["minimum"])
+
+
+def test_irrbb_shocks_are_from_the_standard_six(tables):
+    s = tables["alm_irrbb_shock"]
+    assert set(s["scenario"]) <= set(cat.IRRBB_SCENARIOS)
+    assert not s.duplicated(subset=["asof", "scenario"]).any()
+
+
+# ----- R7 · 시장 / NCR ---------------------------------------------------------
+
+def test_trade_and_ipv_are_one_to_one(tables):
+    t, i = tables["mkt_trade"], tables["mkt_ipv"]
+    assert len(t) == len(i)
+    assert set(i["trade_id"]) == set(t["trade_id"])
+    assert not t["trade_id"].duplicated().any()
+
+
+def test_ipv_break_flag_matches_limit(tables):
+    """BREAK는 한도 초과이고, 미검증 건은 BREAK가 될 수 없다."""
+    i = tables["mkt_ipv"]
+    brk = i[i["is_break"]]
+    assert (brk["diff"].abs() > brk["limit"]).all()
+    assert brk["verified"].all(), "미검증 건이 BREAK로 잡혔다"
+
+
+def test_ipv_unverified_sources_are_front_office(tables):
+    i = tables["mkt_ipv"]
+    from risk_lib.ipv import is_independent
+    for _, row in i.iterrows():
+        assert bool(row["verified"]) == is_independent(row["source"])
+
+
+def test_ncr_components_reconcile_to_the_ratio(tables, result):
+    """구성요소 합이 순자본비율을 재현해야 표가 근거가 된다."""
+    from risk_lib.ncr import compute_ncr_from_result
+    n = compute_ncr_from_result(result, seed=result.meta.get("seed", 42))
+    c = tables["ncr_component"]
+    noc = c[c["category"] == "영업용순자본"]["amount"].sum()
+    risk = c[c["category"] == "총위험액"]["amount"].sum()
+    req = c[c["category"] == "필요유지자기자본"]["amount"].sum()
+    assert noc == pytest.approx(n.noc.net_operating_capital, rel=1e-9)
+    assert risk == pytest.approx(n.risk.total, rel=1e-9)
+    assert req == pytest.approx(n.required_capital, rel=1e-9)
+    assert (noc - risk) / req == pytest.approx(n.ncr, rel=1e-9)
+
+
+def test_ncr_deductions_are_negative_signed(tables):
+    """차감·부채는 음수로 들어가야 합계가 곧 영업용순자본이 된다."""
+    c = tables["ncr_component"].set_index("component")
+    assert c.loc["부채총액", "amount"] < 0
+    assert c.loc["차감항목", "amount"] < 0
+    assert c.loc["가산항목", "amount"] > 0
+
+
+# ----- R8 · 운영리스크 ---------------------------------------------------------
+
+def test_op_net_loss_identity(tables):
+    """OR-F001 — 순손실 = max(0, 총손실 − 회수)."""
+    e = tables["opr_loss_event"]
+    expected = np.maximum(0.0, e["gross_loss"] - e["recovery"])
+    np.testing.assert_allclose(e["net_loss"], expected, rtol=1e-9)
+    assert (e["recovery"] <= e["gross_loss"] + 1e-9).all()
+
+
+def test_op_event_types_are_from_basel_seven(tables):
+    e = tables["opr_loss_event"]
+    assert set(e["event_type"]) <= set(cat.OP_EVENT_TYPES)
+
+
+def test_op_capital_rwa_conversion(tables, result):
+    """RWA = 12.5 × 자본요구액 (CRE20.1) — 6.25 같은 데모 계수를 쓰면 안 된다."""
+    c = tables["opr_capital"]
+    for _, row in c.iterrows():
+        assert row["rwa"] == pytest.approx(row["capital"] * 12.5, rel=1e-9)
+    sma = c[c["method"] == "SMA"].iloc[0]
+    assert sma["rwa"] == pytest.approx(result.rwa["op"], rel=1e-9)
+
+
+# ----- R9 · 거버넌스 / 검증 ----------------------------------------------------
+
+def test_validation_check_names_are_unique(tables, result):
+    """이름이 중복되면 이름으로 조회할 때 한쪽이 조용히 가려진다.
+
+    (SA·IRB EAD 체크가 같은 이름으로 등록되던 결함을 PK 제약이 잡아냈다.)
+    """
+    names = [c.name for c in result.validation.checks]
+    assert len(names) == len(set(names)), "체크명 중복"
+    v = tables["val_check"]
+    assert not v.duplicated(subset=["asof", "check_name"]).any()
+
+
+def test_validation_table_reconciles_with_summary(tables, result):
+    v = tables["val_check"]
+    counts = v["status"].value_counts().to_dict()
+    assert counts == result.validation.summary()
+
+
+def test_audit_ledger_every_figure_has_provenance(tables):
+    """근거 없는 수치는 감사에서 방어할 수 없다 (BCBS 239)."""
+    a = tables["val_audit_ledger"]
+    assert len(a) > 0
+    assert a["code_module"].str.strip().ne("").all()
+    assert a["code_function"].str.strip().ne("").all()
+    assert a["citation"].str.strip().ne("").all()
+
+
+def test_adjustment_table_records_blocked_items(tables):
+    """차단된 조정이 원장에서 사라지면 통제 이력이 남지 않는다."""
+    a = tables["aig_adjustment"]
+    assert set(a["status"]) <= set(cat.ADJ_STATUS)
+    assert (a["status"] != "applied").any(), "차단 사례가 원장에 남아야 한다"
+    assert (a["status"] == "applied").any(), "통과 사례도 있어야 통제 작동이 보인다"
+
+
+def test_adjustment_delta_identity(tables):
+    a = tables["aig_adjustment"]
+    np.testing.assert_allclose(a["delta"],
+                               a["adjusted_value"] - a["base_value"], rtol=1e-9)
+
+
+def test_sod_violations_are_visible_in_the_table(tables):
+    """요청자=승인자인 조정은 적용되지 않은 상태로 남아야 한다."""
+    a = tables["aig_adjustment"]
+    same = a[a["requester"] == a["approver"]]
+    if len(same):
+        assert (same["status"] != "applied").all()
+
+
+# ----- 전 부문 커버리지 --------------------------------------------------------
+
+def test_all_products_with_tables_are_materialized(tables):
+    """카탈로그에 테이블이 있는 제품은 모두 실체화 엔진을 가져야 한다."""
+    from risk_lib.datamodel.materialize import _MATERIALIZERS
+    with_tables = {s.product for s in cat.ALL_TABLES} - {"PRD-RDM"}
+    missing = with_tables - set(_MATERIALIZERS)
+    # NCR은 MKT 엔진이 함께 생성한다
+    assert missing <= {"PRD-NCR", "PRD-CAP", "PRD-AIG"}, f"엔진 없는 제품: {missing}"
+    for prod in with_tables:
+        for spec in cat.by_product(prod):
+            assert spec.name in tables, f"{spec.name} 미실체화"

@@ -234,12 +234,233 @@ def materialize_ecl(result, portfolio, base: dict[str, pd.DataFrame]
     return {"ecl_result": ecl_df, "ecl_macro_scenario": macro}
 
 
+
+# ---------------------------------------------------------------- R5 · ST/CAP
+
+def materialize_stress_capital(result, portfolio, base) -> dict[str, pd.DataFrame]:
+    """스트레스 자본경로 · 자본 스택."""
+    asof = _asof(result)
+    sp = result.stress_path
+    path = pd.DataFrame({
+        "scenario": sp["scenario"], "quarter": sp["quarter"],
+        "severity": sp["severity"].astype(float).abs(),
+        "rwa_total": sp["rwa_total"].astype(float),
+        "ecl": sp["ecl"].astype(float),
+        "cet1_ratio": sp["cet1_ratio"].astype(float),
+        "tier1_ratio": sp["tier1_ratio"].astype(float),
+        "total_ratio": sp["total_ratio"].astype(float),
+        "binding": sp["binding"],
+        "passes": sp["passes"].astype(bool),
+    })
+
+    bis, capm = result.bis, result.meta["capital"]
+    amounts = {"CET1": float(capm.cet1),
+               "AT1": float(capm.additional_t1),
+               "T2": float(capm.tier2)}
+    ratios = {"CET1": float(bis.cet1_ratio), "AT1": float(bis.tier1_ratio),
+              "T2": float(bis.total_ratio)}
+    req = {"CET1": float(bis.required["cet1"]), "AT1": float(bis.required["tier1"]),
+           "T2": float(bis.required["total"])}
+    sur = {"CET1": float(bis.surplus_shortfall["cet1"]),
+           "AT1": float(bis.surplus_shortfall["tier1"]),
+           "T2": float(bis.surplus_shortfall["total"])}
+    stack = pd.DataFrame([{
+        "asof": asof, "tier": k, "amount": amounts[k], "ratio": ratios[k],
+        "required": req[k], "surplus": sur[k],
+    } for k in cat.CAPITAL_TIERS])
+    return {"st_capital_path": path, "cap_stack": stack}
+
+
+# ---------------------------------------------------------------- R6 · ALM
+
+def materialize_alm(result, portfolio, base) -> dict[str, pd.DataFrame]:
+    """LCR·NSFR·IRRBB 지표와 충격 시나리오."""
+    asof = _asof(result)
+    from risk_lib.references import LCR_MIN, NSFR_MIN
+    lcr, nsfr, irrbb = result.alm["lcr"], result.alm["nsfr"], result.alm["irrbb"]
+
+    rows = [
+        {"asof": asof, "metric": "LCR", "value": float(lcr.lcr),
+         "minimum": float(LCR_MIN), "numerator": float(lcr.hqla_total),
+         "denominator": float(lcr.net_outflow), "passes": bool(lcr.passes())},
+        {"asof": asof, "metric": "NSFR", "value": float(nsfr.nsfr),
+         "minimum": float(NSFR_MIN), "numerator": float(nsfr.asf_total),
+         "denominator": float(nsfr.rsf_total), "passes": bool(nsfr.passes())},
+        {"asof": asof, "metric": "IRRBB_EVE",
+         "value": float(irrbb.worst_pct_tier1), "minimum": None,
+         "numerator": float(abs(irrbb.worst_eve)) if hasattr(irrbb, "worst_eve")
+                      else float(abs(irrbb.worst_pct_tier1)),
+         "denominator": 1.0, "passes": bool(not irrbb.outlier())},
+    ]
+    alm = pd.DataFrame(rows, columns=cat.ALM_RESULT.column_names)
+
+    # IRRBB 6개 표준 충격
+    shocks = getattr(irrbb, "by_scenario", None)
+    srows = []
+    if shocks is not None and hasattr(shocks, "iterrows"):
+        for _, r_ in shocks.iterrows():
+            name = str(r_.get("scenario", "")).lower().replace(" ", "_")
+            if name in cat.IRRBB_SCENARIOS:
+                srows.append({
+                    "asof": asof, "scenario": name,
+                    "delta_eve": float(r_.get("delta_eve", 0.0)),
+                    "pct_tier1": float(r_.get("pct_tier1", 0.0)),
+                })
+    if not srows:  # 원본 구조가 다르면 최악 시나리오만 기록 — 없는 값을 지어내지 않는다
+        worst = str(getattr(irrbb, "worst_eve_scenario", "parallel_up")).lower()
+        worst = worst if worst in cat.IRRBB_SCENARIOS else "parallel_up"
+        srows = [{"asof": asof, "scenario": worst,
+                  "delta_eve": float(getattr(irrbb, "worst_eve", 0.0)),
+                  "pct_tier1": float(irrbb.worst_pct_tier1)}]
+    return {"alm_result": alm,
+            "alm_irrbb_shock": pd.DataFrame(srows,
+                                            columns=cat.IRRBB_SHOCK.column_names)}
+
+
+# ---------------------------------------------------------------- R7 · MKT/NCR
+
+def materialize_market(result, portfolio, base) -> dict[str, pd.DataFrame]:
+    """트레이딩북 포지션 · IPV 결과 · NCR 구성요소."""
+    asof = _asof(result)
+    seed = result.meta.get("seed", 42)
+    from risk_lib.sensitivities import synthesise_trading_book
+    from risk_lib.ipv import run_ipv
+    from risk_lib.ncr import compute_ncr_from_result
+
+    bank = portfolio[portfolio["asset_class"] == "bank"]
+    book = synthesise_trading_book(bank, seed=seed)
+    tr = book.trades.reset_index(drop=True)
+    trade_ids = [f"TRD_{i:06d}" for i in range(len(tr))]
+    trade = pd.DataFrame({
+        "trade_id": trade_ids,
+        "counterparty": tr["counterparty"].astype(str),
+        "kind": tr["kind"].astype(str),
+        "notional": tr["notional"].astype(float),
+        "maturity": tr["maturity"].astype(float),
+        "fo_value": np.where(tr["price"].to_numpy(dtype=float) != 0.0,
+                             tr["price"].to_numpy(dtype=float)
+                             * tr["notional"].to_numpy(dtype=float) / 100.0,
+                             tr["notional"].to_numpy(dtype=float) * 0.01),
+        "delta": tr["delta"].astype(float),
+        "vega": tr["vega"].astype(float),
+        "dv01": tr["dv01"].astype(float),
+        "cs01": tr["cs01"].astype(float),
+    })
+
+    ipv_res = run_ipv(tr, seed=seed)
+    pos = ipv_res.positions.reset_index(drop=True)
+    ipv = pd.DataFrame({
+        "trade_id": trade_ids, "asof": asof,
+        "source": pos["source"].astype(str),
+        "fo_value": pos["fo_price"].astype(float),
+        "benchmark_value": pos["benchmark_price"].astype(float),
+        "diff": pos["diff"].astype(float),
+        "limit": pos["limit"].astype(float),
+        "verified": pos["verified"].astype(bool),
+        "is_break": pos["is_break"].astype(bool),
+        "days_open": pos["days_open"].astype(int),
+    })
+
+    n = compute_ncr_from_result(result, seed=seed)
+    rows = [{"asof": asof, "component": "자산총액", "category": "영업용순자본",
+             "amount": n.noc.total_assets, "citation": "제3-6조"},
+            {"asof": asof, "component": "부채총액", "category": "영업용순자본",
+             "amount": -n.noc.total_liabilities, "citation": "제3-6조"},
+            {"asof": asof, "component": "차감항목", "category": "영업용순자본",
+             "amount": -n.noc.total_deduction, "citation": "제3-11조"},
+            {"asof": asof, "component": "가산항목", "category": "영업용순자본",
+             "amount": n.noc.total_addition, "citation": "제3-14조"}]
+    for _, r_ in n.risk.by_component.iterrows():
+        rows.append({"asof": asof, "component": r_["component"],
+                     "category": "총위험액", "amount": float(r_["amount"]),
+                     "citation": "제3-21조"})
+    rows.append({"asof": asof, "component": "필요유지자기자본",
+                 "category": "필요유지자기자본",
+                 "amount": n.required_capital, "citation": "제3-6조 (최저×70%)"})
+    ncr = pd.DataFrame(rows, columns=cat.NCR_COMPONENT.column_names)
+    return {"mkt_trade": trade, "mkt_ipv": ipv, "ncr_component": ncr}
+
+
+
+# ---------------------------------------------------------------- R8 · OPR
+
+def materialize_operational(result, portfolio, base) -> dict[str, pd.DataFrame]:
+    """운영손실 사건 원장 · 운영리스크 자본."""
+    asof = _asof(result)
+    ol = result.op_loss
+    reg = ol.register.reset_index(drop=True)
+    # 사건유형 표기를 규정 7개 유형으로 정규화 (원본은 한글/약칭 혼재 가능)
+    known = set(cat.OP_EVENT_TYPES)
+    et = reg["event_type"].astype(str)
+    events = pd.DataFrame({
+        "event_id": [f"OPL_{i:06d}" for i in range(len(reg))],
+        "event_date": pd.to_datetime(reg["date"]).dt.strftime("%Y-%m-%d")
+        if "date" in reg else asof,
+        "event_type": np.where(et.isin(list(known)), et, "execution_delivery"),
+        "gross_loss": reg["gross"].astype(float),
+        "recovery": reg["recovery"].astype(float),
+        "net_loss": reg["net"].astype(float),
+    })
+
+    rwa_op = float(result.rwa["op"])
+    cap = pd.DataFrame([
+        {"asof": asof, "method": "SMA", "capital": rwa_op / 12.5,
+         "rwa": rwa_op, "var_999": None},
+        {"asof": asof, "method": "LDA",
+         "capital": float(ol.var_99_9), "rwa": float(ol.var_99_9) * 12.5,
+         "var_999": float(ol.var_99_9)},
+    ], columns=cat.OP_CAPITAL.column_names)
+    cap["var_999"] = pd.to_numeric(cap["var_999"], errors="coerce").astype("float64")
+    return {"opr_loss_event": events, "opr_capital": cap}
+
+
+# ---------------------------------------------------------------- R9 · AIG/VAL
+
+def materialize_governance(result, portfolio, base) -> dict[str, pd.DataFrame]:
+    """자체검증 결과 · 산출 근거 원장 · 수동조정 원장."""
+    asof = _asof(result)
+    from risk_lib.audit_trail import build_ledger_from_result
+    from risk_lib.adjustments import demo_ledger
+
+    checks = pd.DataFrame([{
+        "asof": asof, "check_name": c.name, "status": c.status,
+        "detail": c.detail, "domain": c.name.split("_")[0],
+    } for c in result.validation.checks],
+        columns=cat.VALIDATION_RESULT.column_names)
+
+    led = build_ledger_from_result(result)
+    audit = pd.DataFrame([{
+        "figure_id": e.figure_id, "label": e.label,
+        "value": float(e.value) if isinstance(e.value, (int, float)) else None,
+        "code_module": e.code_module, "code_function": e.code_function,
+        "citation": e.citation,
+    } for e in led.entries], columns=cat.AUDIT_LEDGER.column_names)
+    audit["value"] = pd.to_numeric(audit["value"], errors="coerce").astype("float64")
+
+    adj_led = demo_ledger(result, asof=asof)
+    adj = pd.DataFrame([{
+        "adjustment_id": a.adjustment_id, "figure_id": a.figure_id,
+        "base_value": a.base_value, "adjusted_value": a.adjusted_value,
+        "delta": a.delta, "requester": a.requester, "approver": a.approver,
+        "senior_approval": a.senior_approval or None,
+        "status": a.status, "expires_on": a.expires_on,
+        "evidence_ref": a.evidence_ref,
+    } for a in adj_led.adjustments], columns=cat.ADJUSTMENT.column_names)
+    return {"val_check": checks, "val_audit_ledger": audit,
+            "aig_adjustment": adj}
+
+
 # ---------------------------------------------------------------- 통합
 
 _MATERIALIZERS = {
     "PRD-CRM": materialize_crm,
     "PRD-RWA": materialize_rwa,
     "PRD-ECL": materialize_ecl,
+    "PRD-ST":  materialize_stress_capital,
+    "PRD-ALM": materialize_alm,
+    "PRD-MKT": materialize_market,
+    "PRD-OPR": materialize_operational,
+    "PRD-VAL": materialize_governance,
 }
 
 
