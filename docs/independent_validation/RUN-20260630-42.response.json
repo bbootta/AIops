@@ -1,9 +1,9 @@
 {
-  "request_id": "IVR-0DC4055ED5AF",
+  "request_id": "IVR-AC56730A9613",
   "run_id": "RUN-20260630-42",
   "verdict": "경부적합",
   "validated_by": "적합성검증 팀에이전트",
-  "validated_at": "2026-07-26T07:15:00+00:00",
+  "validated_at": "2026-07-26T08:30:00+00:00",
   "recalc_matches": {
     "rwa_final_total": true,
     "cet1_ratio": true,
@@ -18,50 +18,42 @@
   },
   "findings": [
     {
-      "finding_id": "F-301",
+      "finding_id": "F-401",
       "severity": "경부적합",
       "target": "rwa_final_total",
-      "detail": "request_id 지문의 stale 방어가 아직 완전하지 않다. 지문은 run_id · headline_digest · KNOWN_ASSUMPTIONS · 자체검증 요약 · FAIL 목록 · WARN 본문 여섯 항목을 손으로 열거하는데, recalc_targets 의 citation 과 korean 은 빠져 있다. 반증 실험: cet1_ratio 의 citation 을 '은행업감독규정 제26조' 에서 '전혀 다른 규정 XYZ-999' 로 바꿔 요청을 재생성했으나 request_id 가 IVR-0DC4055ED5AF 그대로였다(가정 1건 추가 시에는 IVR-8512E92EE1B2 로 정상 변동). 규정 근거가 바뀌면 3선은 같은 수치를 다른 기준으로 검증해야 하므로 재검증 대상인데, 이전 응답이 그대로 승인으로 통한다. 이번에 시정한 결함과 동일한 종류이며 범위만 좁아졌다. 근본 원인은 지문 대상을 필드 단위로 열거한 설계다 — F-102 에서 '파급 목록을 손으로 적지 않는다' 는 원칙을 세웠는데 같은 원칙이 지문 설계에는 적용되지 않았다. ValidationRequest 전체를 (request_id · created_at 제외) 직렬화해 지문화하면 필드가 늘어도 자동으로 덮인다.",
+      "detail": "서식번호를 금감원 FINES 마스터와 대조·정정했는데 known_assumptions 7번은 여전히 '업무보고서 서식번호는 내부 배정 코드 — 금감원 배포본과 대조 전이다' 로 남아 있다. 실제로는 fss_master.py 가 은행 업권 299건을 기계 생성으로 굳혔고 form_ids.FSS_SOURCE 가 '금감원 FINES 업무보고서 ID 마스터 (조사기준일 2025-09-05)' 를 명시하므로 '대조 전' 은 거짓이다. 개선을 하면서 그 개선을 반영해 가정을 내리지 않아, 3선에게 넘어온 공시가 코드 현실보다 보수적으로 낡았다. 이는 F-103(문서 수치 오기) · F-201(문서 주장 오류) 에 이어 **세 번째로 반복된 같은 유형**이다. 개별 중대도는 낮으나 패턴이 있다 — 파급 목록(F-102)과 지문 대상(F-301)은 '손으로 적지 않는다' 로 고쳤는데 가정 목록은 여전히 수기 관리다. 가정을 코드 사실과 대조하는 자체검증 체크를 두면 기계 판정이 가능하다(예: FSS_SOURCE 존재 여부로 '대조 전' 문구 모순 검출).",
       "recomputed": null,
       "reported": null
     },
     {
-      "finding_id": "F-302",
+      "finding_id": "F-402",
+      "severity": "경부적합",
+      "target": "rwa_final_total",
+      "detail": "서식 대응 범위의 실태가 요청 패키지에 공시되지 않았다. 커밋 메시지에만 '리스크 소관 제출대상 117건 중 24건 대응, 93건 신설 필요' 가 적혀 있고 known_assumptions·self_validation_warnings 에는 없다. 독립 실측 결과 층이 셋으로 갈린다: (1) 리스크 소관 제출대상 117건, (2) form_ids.FORM_IDS 에 서식번호가 등록된 것 127건(BR- 34 + 마스터 생성 93), (3) 실제 보고서 빌더가 있는 것 forms.FORMS 34건. 즉 서식번호 등록은 117건을 덮지만 값이 실리는 보고서는 34건이며, 번호 등록을 대응 완료로 읽으면 83건을 준비된 것으로 오인한다. 아울러 마스터 조사기준일이 2025-09-05 로 산출 기준일 2026-06-30 보다 9개월 앞서므로 그 사이 서식 개정 반영 여부가 미확인이다. 세 층의 구분과 마스터 기준일 갭을 공시해야 3선이 검증 범위를 오판하지 않는다.",
+      "recomputed": null,
+      "reported": null
+    },
+    {
+      "finding_id": "F-403",
       "severity": "적합",
       "target": "rwa_final_total",
-      "detail": "F-207 해소 확인. passes 는 '적합 + 중부적합 0건' 으로 유지하고 conditional 속성을 신설해 경부적합을 '통과도 부적합도 아닌 세 번째 상태' 로 분리했으며, check_gate 가 이를 '조건부' 로 반환한다. docstring 도 구현과 일치하도록 다시 썼다. 게이트를 느슨하게 만들지 않은 점이 중요하다 — 경부적합이 자동 통과가 되지 않고 사람이 잔여위험·후속조건·이행기한을 기록해야 결재되는 경로로 남았다. 3선 지적은 '둘 중 하나를 고치라' 였는데 통제를 약화시키지 않는 쪽을 택했다.",
+      "detail": "F-301 완전 해소 확인 — 조건부 결재의 후속조건 1·2가 기한(2026-08-09) 전에 이행됐다. request_identifier(request) 가 asdict(request) 에서 request_id·created_at 만 제외하고 canonical JSON 으로 해시한다. 강화 모니터링 조건에 따라 3선이 **전 필드 반증을 재수행**했다: ValidationRequest 의 17개 필드 중 제외 2건을 뺀 15개 전부를 하나씩 변형해 식별자 변동을 확인했고 놓치는 필드가 0건이다(run_id·asof·seed·headline_digest·portfolio_fingerprint·requested_by·requested_to·branch·reproduce·recalc_targets·self_validation·self_validation_failures·self_validation_warnings·artefacts·known_assumptions). F-301 의 반증 실험(citation 변경 시 ID 불변)이 더는 재현되지 않는다. 회귀 테스트도 dataclasses.fields() 기반 전수 명제로 일반화되어 새 필드가 자동 커버된다.",
       "recomputed": null,
       "reported": null
     },
     {
-      "finding_id": "F-303",
+      "finding_id": "F-404",
       "severity": "적합",
       "target": "rwa_final_total",
-      "detail": "2선이 스스로 발견한 stale 방어 결함의 시정을 확인했다. 이전 지문이 run_id 와 headline 수치만 사용해, 산출값이 하나도 바뀌지 않는 시정(문서·통제·가정 공시)에서 request_id 가 그대로 나오고 3차 응답이 4차 승인으로 통했다. 반증 실험으로 시정 효과를 확인했다 — KNOWN_ASSUMPTIONS 에 1건을 추가하니 request_id 가 IVR-0DC4055ED5AF → IVR-8512E92EE1B2 로 변동했다. 게이트도 실제로 3차 응답(IVR-573F73DBBF35)을 '부적합 — 응답 request_id 불일치' 로 거절함을 실행 확인했다. 3선이 지적하지 않은 결함을 판정 도구 검증이라는 같은 축에서 스스로 찾아 고친 점을 기록한다.",
+      "detail": "3선이 지적하지 않은 결함을 자체 발견·정정한 점을 기록한다. known_assumptions 7번에 '금감원 배포본과 대조 전' 이라고 스스로 적어 둔 가정을 실제로 대조해, BA#### 내부 코드 16건이 실재 FINES 코드와 한 글자 차이로 전혀 다른 서식을 가리키고 있었음을 찾았다(BA2101 자기자본비율 총괄 대 B2101 대차대조표, BA2401 운영리스크 대 B2401 여신건전성 분류 등). 'BA 접두어가 실재하며 바젤III 신설 서식 8건 전용' 이라는 이름공간 충돌까지 확인했고, 대응 서식이 없는 8건은 마스터 전수 검색으로 0건임을 확인한 뒤 RM- 접두어 내부 관리보고로 분리했다(실측 8건 일치). '틀린 서식번호는 번호가 없는 것보다 나쁘다' 는 판단이 타당하다 — 제출 단계에서 잘못된 서식에 값이 실린다. 공시한 가정을 실제로 검증해 스스로 부적합을 찾는 것은 자체검증이 형식이 아니라는 증거다.",
       "recomputed": null,
       "reported": null
     },
     {
-      "finding_id": "F-304",
-      "severity": "적합",
-      "target": "cet1_ratio",
-      "detail": "F-201 해소 확인. 신규 자체검증 체크 capital_source 가 '합성 자본 사용 — CET1 1,094,368,959,484 중 규모 비례분(이익잉여금) 54.3%, 고정 발행자본 기여 51.8% · 자산 대비 고정분 6.15%' 를 WARN 으로 상시 노출한다. 3선이 지적한 수치(유보분 54.3%)를 그대로 자체검증 항목으로 편입해, 문서 문구를 고치는 데 그치지 않고 다음 실행부터 자동 감시되도록 만든 조치가 적절하다. 산출값은 3차와 동일함을 재현으로 확인했다(headline 10종 전부 불변).",
-      "recomputed": 0.11648890029339716,
-      "reported": 0.11648890029339716
-    },
-    {
-      "finding_id": "F-305",
-      "severity": "적합",
-      "target": "leverage_ratio",
-      "detail": "F-202 해소 확인. capital_source WARN 의 '희석될수록 레버리지 반응성이 소멸' 문구와 '자산 대비 고정분 6.15%' 지표로, 3선이 지적한 수렴 위험이 관측 가능한 형태로 공시된다. 고정분 비중이 떨어지면 WARN 수치가 먼저 움직이므로 반응성 소멸을 사전에 감지할 수 있다. 아울러 known_assumptions 가 12건 → 15건으로 늘며 F-004(부외 CCF 일률 10%) · F-005(Stage 1 커버리지 8.1%) · F-006(표준방법 RWA 78%)이 명문화됐다.",
-      "recomputed": 0.11712632046549173,
-      "reported": 0.11712632046549173
-    },
-    {
-      "finding_id": "F-306",
+      "finding_id": "F-405",
       "severity": "적합",
       "target": "ecl_total",
-      "detail": "산출 불변 확인. 이번 시정은 문서·통제·공시만 바꾸고 산출 로직을 건드리지 않았다는 주장을 검증했다 — headline 10종을 재현해 3차 값과 전부 일치했고 headline_digest 도 edf5c9899da404df6ae3dc4d6c8e64d9 로 동일하다. 산출을 바꾸지 않는 시정에서 request_id 만 바뀐 것이 정상이며, 이는 F-303 시정이 의도대로 작동한 결과다.",
+      "detail": "산출 불변 확인. 서식번호 정정은 규제 보고 계층의 변경이므로 headline 에 영향이 없어야 한다는 전제를 재현으로 검증했다 — headline 10종이 4차와 전부 일치하고 headline_digest 도 edf5c9899da404df6ae3dc4d6c8e64d9 로 동일하다. 독립 재계산도 10/10 일치한다. 산출값이 바뀌지 않았는데 request_id 가 IVR-0DC4055ED5AF → IVR-AC56730A9613 으로 변동한 것은 F-403 시정이 의도대로 작동한 결과다(이전 지문 설계에서는 이 변경이 통째로 누락됐을 것이다).",
       "recomputed": 94531443664.94879,
       "reported": 94531443664.94879
     }
