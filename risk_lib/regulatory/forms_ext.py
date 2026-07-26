@@ -500,7 +500,10 @@ def br_stress_trace(ctx):
                   citation="SRP20 다축 시나리오 — 모든 축이 같은 심도에서 동시 발동",
                   source_module="risk_lib.stress.axes", is_subtotal=True)]
     for i, (_, a) in enumerate(axes.iterrows(), start=1):
-        L.append(FormLine(f"11{i:02d}", f"축 · {a['korean']}", 1, "ratio",
+        # bp·notch·multiple을 "ratio"로 담으면 엑셀이 60bp를 6,000%로 표시한다.
+        # 서식 단위 어휘에 없는 축은 count로 담고 단위를 산식에 남긴다.
+        unit = "ratio" if str(a["unit"]) == "ratio" else "count"
+        L.append(FormLine(f"11{i:02d}", f"축 · {a['korean']}", 1, unit,
                           float(a["per_severity"]),
                           formula=f"심도 1.0당 충격 ({a['unit']})",
                           citation=str(a["citation"]),

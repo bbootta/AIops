@@ -50,11 +50,12 @@ risk_lib/                        # Python 계산 라이브러리
     multi_axis.py                ── 전 축 동시 충격 엔진 (경로·역스트레스)
     trace.py                     ── 심각도별 전 단계 산출과정 (13블록 72단계)
   validation/
-    consistency.py               ── 정합성 자동 체크 (21종)
+    consistency.py               ── 자체검증(2선) 정합성 체크 (21종)
     backtest.py                  ── HL test, 등급별 binomial
+    independent.py               ── 상시 독립검증(3선) 위임·게이트 (fail-closed)
   datamodel/
     spec.py                      ── 테이블/컬럼 스펙 · 검증 · DDL 생성
-    catalog.py                   ── 정규 카탈로그 (79 테이블 / 576 컬럼)
+    catalog.py                   ── 정규 카탈로그 (81 테이블 / 594 컬럼)
     materialize.py               ── 부문 결과 → 정규 테이블
     materialize_detail.py        ── 세분화 테이블 실체화 (규제 라인 입도)
   prudential/
@@ -81,7 +82,7 @@ risk_lib/                        # Python 계산 라이브러리
   cli.py                         ── CLI 러너
 
 examples/run_end_to_end.py       # 전체 흐름 데모
-tests/                           # pytest (979건)
+tests/                           # pytest (1,009건)
 ```
 
 ## 빠른 시작
@@ -103,9 +104,14 @@ python -m risk_lib.cli reg-report --out 업무보고서.xlsx --asof 2026-06-30 \
 # 4) 에이전틱 UI 스튜디오 — 전 모듈 관리 화면 (자체 완결 HTML)
 python -m risk_lib.cli ui-studio --out studio.html --asof 2026-06-30
 
-# 5) 테스트
+# 5) 상시 독립검증(3선) 요청 — 적합성검증 팀에이전트에 위임
+python -m risk_lib.cli validation-request --asof 2026-06-30
+
+# 6) 테스트
 pytest -q
 ```
+
+`validation-request`는 게이트가 `적합`이 아니면 종료코드 1을 반환한다.
 
 `reg-report`는 서식 자체대사에서 실패가 있으면 종료코드 1을 반환한다(제출 불가 게이트).
 
@@ -148,6 +154,14 @@ Claude Code에서:
 
 `run_consistency_checks()`는 `ValidationReport`를 반환하며, `passes()`가
 True인 경우에만 다음 단계로 진행한다.
+
+### 이것은 자체검증(2선)이다 — 독립검증(3선)은 별도
+
+위 체크는 **같은 코드·같은 가정**으로 점검한 결과다. 결재에는 적합성검증
+팀에이전트(`claude/validation-team-agent-Pw9F5`)의 상시 독립검증이 함께
+필요하며, **매 작업 예외 없이** 요청한다. 게이트는 fail-closed —
+응답이 없으면 `응답대기`이고 결재 상신이 막힌다.
+절차: `.claude/skills/independent-validation/SKILL.md`.
 
 ## 준거 기준
 

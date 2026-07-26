@@ -1,0 +1,95 @@
+{
+  "request_id": "IVR-E6BEA5DA0D5F",
+  "run_id": "RUN-20260630-42",
+  "asof": "2026-06-30",
+  "seed": 42,
+  "headline_digest": "823aa66c5311e5eaa1c413a47eaa52a6",
+  "portfolio_fingerprint": "4f3e5da6b8923b33feb67bf287d00625",
+  "requested_by": "리스크관리 팀에이전트",
+  "requested_to": "적합성검증 팀에이전트",
+  "branch": "claude/validation-team-agent-Pw9F5",
+  "reproduce": [
+    "generate_portfolio(seed=42)",
+    "run_pipeline(portfolio, seed=42, asof='2026-06-30')",
+    "build_studio(result, portfolio)   # 정규 테이블 전체"
+  ],
+  "recalc_targets": [
+    {
+      "key": "rwa_final_total",
+      "korean": "위험가중자산 합계",
+      "value": 9380455004957.953,
+      "citation": "CRE20.1 · RBC20.11"
+    },
+    {
+      "key": "cet1_ratio",
+      "korean": "보통주자본비율",
+      "value": 0.115,
+      "citation": "은행업감독규정 제26조"
+    },
+    {
+      "key": "total_ratio",
+      "korean": "총자본비율",
+      "value": 0.15500000000000003,
+      "citation": "은행업감독규정 제26조"
+    },
+    {
+      "key": "leverage_ratio",
+      "korean": "레버리지비율",
+      "value": 0.11601329439196996,
+      "citation": "LEV20.1"
+    },
+    {
+      "key": "ecl_total",
+      "korean": "기대신용손실 합계",
+      "value": 94531443664.94879,
+      "citation": "IFRS 9 5.5"
+    },
+    {
+      "key": "lcr",
+      "korean": "유동성커버리지비율",
+      "value": 1.1787547961323583,
+      "citation": "LCR20.1"
+    },
+    {
+      "key": "nsfr",
+      "korean": "순안정자금조달비율",
+      "value": 1.1301680744145886,
+      "citation": "NSF20.1"
+    },
+    {
+      "key": "stress_trough_cet1",
+      "korean": "심각 시나리오 CET1 저점",
+      "value": 0.046052468386960414,
+      "citation": "SRP20"
+    },
+    {
+      "key": "reverse_critical_severity",
+      "korean": "역스트레스 임계 심도",
+      "value": 0.9447097778320312,
+      "citation": "SRP20"
+    },
+    {
+      "key": "reserve_shortfall",
+      "korean": "대손준비금 소요액",
+      "value": 80848614462.93535,
+      "citation": "은행업감독규정 제29조 제2항"
+    }
+  ],
+  "self_validation": {
+    "PASS": 49,
+    "WARN": 3
+  },
+  "self_validation_failures": [],
+  "artefacts": [],
+  "known_assumptions": [
+    "자산건전성 분류는 연체일수 대용 규칙 — 감독규정 제27조는 채무상환능력 평가를 함께 요구한다 (risk_lib.datamodel.materialize_detail).",
+    "파이프라인은 CRM 조정을 RWA에 반영하지 않는다 — 담보 배분은 정상화 후보로만 제시된다 (rwa_crm_allocation).",
+    "시장리스크는 MAR40 간편표준방법이며 SBM 재산출이 아니다. 스트레스 시장 RWA는 위험계수 배수 근사다 (risk_lib.stress.multi_axis).",
+    "트레이딩·스프레드 손익은 듀레이션 근사(3.0y/4.0y)로 산출한다.",
+    "위기상황 충격 축 크기는 내부 관리값 — 기관 승인 시나리오로 교체 전제 (risk_lib.stress.axes).",
+    "대주주 지정 원장이 없어 대주주 신용공여 사용액을 0으로 두었다 (risk_lib.prudential.ownership).",
+    "업무보고서 서식번호는 내부 배정 코드 — 금감원 배포본과 대조 전이다 (risk_lib.regulatory.form_ids).",
+    "합성 대차대조표에 통화 구분이 없어 외화 비중을 자산·부채 동일하게 가정했다."
+  ],
+  "created_at": "2026-07-26T03:14:45+00:00"
+}

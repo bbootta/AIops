@@ -9,6 +9,7 @@
       04_work_report/  개발 작업보고서 (HTML · Markdown)
       05_regulatory/   금감원 배포 기준 업무보고서 (.xlsx) + 서식 원장 CSV
       06_agentic_ui/   에이전틱 UI 스튜디오 (자체 완결 HTML)
+      07_independent_validation/  독립검증 요청 패키지 + 게이트 상태 (3선 위임)
       MANIFEST.txt     ZIP 내 모든 파일의 SHA-256 + 크기
       README.md        패키지 안내
 
@@ -222,6 +223,21 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
     ui_dir = root / "06_agentic_ui"
     ui_html = write_app(studio, ui_dir / "RYNTA_에이전틱UI_스튜디오.html")
 
+    # 07 · 상시 독립검증(3선) 위임 — 요청 패키지는 **항상** 들어간다.
+    # 필요할 때만 넣으면 결국 넣지 않게 된다.
+    iv_dir = root / "07_independent_validation"
+    iv_req = studio.iv_request.write(iv_dir)
+    for name in ("val_independent_request", "val_independent_target"):
+        tables[name].to_csv(iv_dir / f"{name}.csv", index=False,
+                            encoding="utf-8-sig")
+    (iv_dir / "GATE.txt").write_text(
+        f"상태: {studio.iv_gate.status}\n"
+        f"사유: {studio.iv_gate.reason}\n"
+        f"요청: {studio.iv_request.request_id}\n"
+        f"수신: {studio.iv_request.requested_to} / {studio.iv_request.branch}\n"
+        f"\n게이트가 '적합'이 되기 전에는 결재 상신 불가 (fail-closed).\n",
+        encoding="utf-8")
+
     # README + 무결성 매니페스트
     (root / "README.md").write_text(_readme(result, tables, len(csvs), studio),
                                     encoding="utf-8")
@@ -239,6 +255,8 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
         "n_form_checks_failed": int(
             (tables["reg_form_check"]["status"] == "FAIL").sum()),
         "agentic_ui": str(ui_html),
+        "independent_validation_request": str(iv_req),
+        "independent_validation_status": studio.iv_gate.status,
         "schema_violations": len(viol),
         "zip_verified": check,
     }
@@ -263,6 +281,7 @@ def _readme(result, tables, n_csv: int, studio=None) -> str:
 | `04_work_report/` | **개발 작업보고서** — 라운드별 산출 이력 (Markdown · HTML) |
 | `05_regulatory/` | **금감원 배포 기준 업무보고서** — 서식 {n_forms}장 · 라인 {n_lines}행 (.xlsx) + 서식 원장 CSV |
 | `06_agentic_ui/` | **에이전틱 UI 스튜디오** — 전 모듈 관리 화면 (자체 완결 HTML) |
+| `07_independent_validation/` | **상시 독립검증 위임** — 요청 패키지 · 재계산 대상 · 게이트 상태 |
 | `MANIFEST.txt` | 전 파일 SHA-256 + 크기 — 전달 후 무결성 자가검증용 |
 
 `04_work_report`(개발 진행 보고)와 `05_regulatory`(감독당국 제출 서식)는 서로
@@ -275,6 +294,13 @@ def _readme(result, tables, n_csv: int, studio=None) -> str:
 3. `02_reports/executive.html` — 리스크 결과 (CRO용)
 4. `02_reports/ops/index.html` — 부문별 심층 (실무진용)
 5. `01_datamodel/schema.sql` — 물리 스키마 (테이블 {len(cat.ALL_TABLES)}개)
+
+## 검증의 두 층
+
+이 패키지의 자체검증(2선) 결과는 **같은 코드·같은 가정**으로 점검한 것이다.
+결재에는 적합성검증 팀에이전트(`claude/validation-team-agent-Pw9F5`)의 상시
+독립검증(3선)이 함께 필요하다. `07_independent_validation/GATE.txt`가 현재
+게이트 상태를 담고 있으며, `적합`이 아니면 결재 상신 대상이 아니다.
 
 ## 업무보고서 서식번호에 관한 전제
 

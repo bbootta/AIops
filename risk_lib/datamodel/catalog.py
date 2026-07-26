@@ -1785,3 +1785,58 @@ DETAIL_TABLES = DETAIL_TABLES + PRU_TABLES
 ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
               + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES
               + DETAIL_TABLES)
+
+
+# ==================================== R13 · 상시 독립검증 (3선) 위임 원장
+# 자체검증(2선)과 독립검증(3선)은 다른 것이다. 자체검증 결과만 남기면
+# "우리 코드가 우리 코드를 통과시켰다"가 결재 근거가 된다.
+IV_STATUS = ("요청됨", "응답대기", "적합", "부적합")
+
+INDEPENDENT_REQUEST = TableSpec(
+    name="val_independent_request", korean="독립검증 요청", product="PRD-VAL",
+    grain="요청 1건당 1행",
+    columns=(
+        C("request_id", "string", "요청 식별자", nullable=False),
+        C("run_id", "string", "실행 식별자", nullable=False),
+        C("asof", "date", "기준일", nullable=False),
+        C("requested_by", "text", "요청 주체", nullable=False),
+        C("requested_to", "text", "수신 팀", nullable=False,
+          note="적합성검증 팀에이전트 — 개발조직과 분리된 3선"),
+        C("branch", "text", "수신 브랜치", nullable=False),
+        C("headline_digest", "text", "산출 지문", nullable=False,
+          citation="DAT-004 — 지문이 다르면 다른 산출이다"),
+        C("n_recalc_targets", "int", "재계산 대상 수", nullable=False,
+          min_value=1, note="0이면 독립검증이 아무것도 다시 계산하지 않는다"),
+        C("n_self_fail", "int", "자체검증 FAIL 수", nullable=False,
+          min_value=0),
+        C("status", "string", "게이트 상태", nullable=False, allowed=IV_STATUS),
+        C("reason", "text", "판정 사유", nullable=False),
+    ),
+    primary_key=("request_id",),
+    note="응답이 없으면 '적합'이 아니라 '응답대기'다 — fail-closed.",
+)
+
+INDEPENDENT_TARGET = TableSpec(
+    name="val_independent_target", korean="독립 재계산 대상", product="PRD-VAL",
+    grain="요청 × 재계산 대상 1행",
+    columns=(
+        C("request_id", "string", "요청 식별자", nullable=False),
+        C("target", "string", "대상 키", nullable=False),
+        C("korean", "text", "대상명", nullable=False),
+        C("reported", "float", "공표값", nullable=True, unit="mixed"),
+        C("recomputed", "float", "독립 재계산값", nullable=True, unit="mixed",
+          note="3선 응답 전에는 NULL — 0으로 채우면 일치한 것처럼 보인다"),
+        C("matched", "bool", "일치 여부", nullable=True,
+          note="응답 전에는 NULL — False로 채우면 '불일치'로 오독된다"),
+        C("citation", "text", "근거", nullable=False),
+    ),
+    primary_key=("request_id", "target"),
+    foreign_keys=(FK(("request_id",), "val_independent_request",
+                     ("request_id",)),),
+)
+
+IV_TABLES = (INDEPENDENT_REQUEST, INDEPENDENT_TARGET)
+DETAIL_TABLES = DETAIL_TABLES + IV_TABLES
+ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
+              + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES
+              + DETAIL_TABLES)

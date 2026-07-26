@@ -1,0 +1,317 @@
+"""상시 독립검증 위임 — 적합성검증 팀에이전트(3선)로의 요청·응답·게이트.
+
+**자체검증과 독립검증은 다른 것이다.**
+
+  자체검증 (2선)   risk-validator. 이 팀이 만든 산출을 이 팀이 점검한다.
+                   정합성·규제기준·통계 체크. 만든 사람과 분리돼 있지만
+                   **같은 코드·같은 가정**을 쓴다.
+  독립검증 (3선)   적합성검증 팀에이전트 (branch `claude/validation-team-agent-Pw9F5`).
+                   개발조직과 분리된 기준셋으로 **다시 계산**한다. 같은 가정을
+                   공유하지 않는 것이 요점이다.
+
+자체검증만으로 결재하면 "우리 코드가 우리 코드를 통과시켰다"가 된다. 그래서
+매 작업마다 독립검증을 **요청**하고, 응답이 오기 전에는 결재 상신을 막는다.
+
+게이트는 **fail-closed**다 — 응답이 없으면 통과가 아니라 대기다. 응답 파일이
+없을 때 조용히 통과시키면 위임 자체가 형식이 된다.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pandas as pd
+
+# 독립검증 팀에이전트가 사는 곳. 요청 패키지에 박아 두어 수신자가 분명해진다.
+VALIDATION_TEAM_BRANCH = "claude/validation-team-agent-Pw9F5"
+VALIDATION_TEAM = "적합성검증 팀에이전트"
+
+# 응답 파일 규약 — 요청 옆에 같은 run_id로 떨어진다.
+RESPONSE_SUFFIX = ".response.json"
+DEFAULT_DIR = Path("docs/independent_validation")
+
+VERDICTS = ("적합", "경부적합", "중부적합")
+STATUSES = ("요청됨", "응답대기", "적합", "부적합")
+
+# 독립검증에 반드시 넘기는 재계산 대상. 여기 없는 수치는 3선이 다시 계산하지
+# 않으므로, 새 headline을 만들면 여기에도 넣어야 한다.
+RECALC_SCOPE: tuple[tuple[str, str, str], ...] = (
+    ("rwa_final_total", "위험가중자산 합계", "CRE20.1 · RBC20.11"),
+    ("cet1_ratio", "보통주자본비율", "은행업감독규정 제26조"),
+    ("total_ratio", "총자본비율", "은행업감독규정 제26조"),
+    ("leverage_ratio", "레버리지비율", "LEV20.1"),
+    ("ecl_total", "기대신용손실 합계", "IFRS 9 5.5"),
+    ("lcr", "유동성커버리지비율", "LCR20.1"),
+    ("nsfr", "순안정자금조달비율", "NSF20.1"),
+    ("stress_trough_cet1", "심각 시나리오 CET1 저점", "SRP20"),
+    ("reverse_critical_severity", "역스트레스 임계 심도", "SRP20"),
+    ("reserve_shortfall", "대손준비금 소요액", "은행업감독규정 제29조 제2항"),
+)
+
+
+class IndependentValidationPending(Exception):
+    """독립검증 응답 전 결재 상신 시도 — 게이트가 막는다."""
+
+
+@dataclass(frozen=True)
+class ValidationRequest:
+    request_id: str
+    run_id: str
+    asof: str
+    seed: int
+    headline_digest: str
+    portfolio_fingerprint: str
+    requested_by: str
+    requested_to: str
+    branch: str
+    reproduce: list[str]
+    recalc_targets: list[dict]        # key, korean, value, citation
+    self_validation: dict[str, int]   # PASS/WARN/FAIL 집계 — 3선의 출발점
+    self_validation_failures: list[str]
+    artefacts: list[str]
+    known_assumptions: list[str]      # 3선이 반드시 도전해야 할 가정
+    created_at: str
+
+    def to_json(self, indent: int = 2) -> str:
+        return json.dumps(asdict(self), indent=indent, ensure_ascii=False)
+
+    def write(self, directory: str | Path = DEFAULT_DIR) -> Path:
+        d = Path(directory)
+        d.mkdir(parents=True, exist_ok=True)
+        p = d / f"{self.run_id}.request.json"
+        p.write_text(self.to_json(), encoding="utf-8")
+        return p
+
+    def response_path(self, directory: str | Path = DEFAULT_DIR) -> Path:
+        return Path(directory) / f"{self.run_id}{RESPONSE_SUFFIX}"
+
+
+@dataclass(frozen=True)
+class Finding:
+    finding_id: str
+    severity: str                     # 적합 · 경부적합 · 중부적합
+    target: str
+    detail: str
+    recomputed: float | None = None
+    reported: float | None = None
+
+
+@dataclass(frozen=True)
+class ValidationResponse:
+    request_id: str
+    run_id: str
+    verdict: str                      # 적합 · 경부적합 · 중부적합
+    validated_by: str
+    validated_at: str
+    findings: list[Finding] = field(default_factory=list)
+    recalc_matches: dict[str, bool] = field(default_factory=dict)
+
+    @property
+    def passes(self) -> bool:
+        """경부적합까지는 조건부 통과, 중부적합은 결재 불가."""
+        return self.verdict == "적합" and not any(
+            f.severity == "중부적합" for f in self.findings)
+
+    @classmethod
+    def read(cls, path: str | Path) -> "ValidationResponse":
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+        raw["findings"] = [Finding(**f) for f in raw.get("findings", [])]
+        return cls(**raw)
+
+
+@dataclass(frozen=True)
+class ValidationGate:
+    status: str                       # 요청됨 · 응답대기 · 적합 · 부적합
+    request: ValidationRequest
+    response: ValidationResponse | None
+    reason: str
+
+    @property
+    def approved(self) -> bool:
+        return self.status == "적합"
+
+    def require(self) -> None:
+        """결재 상신 직전에 호출한다. 통과하지 못하면 예외를 던진다."""
+        if not self.approved:
+            raise IndependentValidationPending(
+                f"독립검증 미완료 — {self.reason} "
+                f"(요청 {self.request.request_id} → {VALIDATION_TEAM}/"
+                f"{VALIDATION_TEAM_BRANCH})")
+
+
+# ---------------------------------------------------------------- 요청 생성
+
+def _digest(*parts: object) -> str:
+    h = hashlib.sha256()
+    for p in parts:
+        h.update(str(p).encode("utf-8"))
+    return h.hexdigest()
+
+
+def _headline(result, tables: dict[str, pd.DataFrame] | None) -> dict[str, float]:
+    t = tables or {}
+    sev = result.stress_path_trough
+    sev = sev[sev["scenario"] == "severely_adverse"]
+    aq = t.get("rdm_asset_quality")
+    return {
+        "rwa_final_total": float(result.rwa["final_total"]),
+        "cet1_ratio": float(result.bis.cet1_ratio),
+        "total_ratio": float(result.bis.total_ratio),
+        "leverage_ratio": float(result.leverage.leverage_ratio),
+        "ecl_total": float(result.ecl["total"]),
+        "lcr": float(result.alm["lcr"].lcr),
+        "nsfr": float(result.alm["nsfr"].nsfr),
+        "stress_trough_cet1": (float(sev["trough_cet1"].iloc[0])
+                               if len(sev) else float("nan")),
+        "reverse_critical_severity": float(
+            result.reverse_stress.critical_severity),
+        "reserve_shortfall": (float(aq["reserve_shortfall"].sum())
+                              if aq is not None and len(aq) else 0.0),
+    }
+
+
+# 3선이 반드시 도전해야 하는 가정. 우리가 스스로 알고 있는 약한 고리를 숨기지
+# 않고 넘기는 것이 독립검증의 출발점이다.
+KNOWN_ASSUMPTIONS: tuple[str, ...] = (
+    "자산건전성 분류는 연체일수 대용 규칙 — 감독규정 제27조는 채무상환능력 "
+    "평가를 함께 요구한다 (risk_lib.datamodel.materialize_detail).",
+    "파이프라인은 CRM 조정을 RWA에 반영하지 않는다 — 담보 배분은 정상화 "
+    "후보로만 제시된다 (rwa_crm_allocation).",
+    "시장리스크는 MAR40 간편표준방법이며 SBM 재산출이 아니다. 스트레스 시장 "
+    "RWA는 위험계수 배수 근사다 (risk_lib.stress.multi_axis).",
+    "트레이딩·스프레드 손익은 듀레이션 근사(3.0y/4.0y)로 산출한다.",
+    "위기상황 충격 축 크기는 내부 관리값 — 기관 승인 시나리오로 교체 전제 "
+    "(risk_lib.stress.axes).",
+    "대주주 지정 원장이 없어 대주주 신용공여 사용액을 0으로 두었다 "
+    "(risk_lib.prudential.ownership).",
+    "업무보고서 서식번호는 내부 배정 코드 — 금감원 배포본과 대조 전이다 "
+    "(risk_lib.regulatory.form_ids).",
+    "합성 대차대조표에 통화 구분이 없어 외화 비중을 자산·부채 동일하게 가정했다.",
+)
+
+
+def build_request(result, portfolio: pd.DataFrame,
+                  tables: dict[str, pd.DataFrame] | None = None, *,
+                  manifest=None, requested_by: str = "리스크관리 팀에이전트",
+                  artefacts: list[str] | None = None) -> ValidationRequest:
+    """독립검증 요청 패키지 — 3선이 **다시 계산**할 수 있는 최소 집합."""
+    asof = result.meta.get("asof", "1970-01-01")
+    seed = int(result.meta.get("seed", 42))
+    run_id = f"RUN-{asof.replace('-', '')}-{seed}"
+
+    head = _headline(result, tables)
+    digest = (getattr(manifest, "headline_digest", "") or
+              _digest(sorted(head.items()))[:32])
+    fingerprint = ""
+    if manifest is not None:
+        fingerprint = str(getattr(manifest, "portfolio", {}).get("sha256", ""))
+    if not fingerprint:
+        fingerprint = _digest(len(portfolio), tuple(portfolio.columns))[:32]
+
+    checks = tables.get("val_check") if tables else None
+    if checks is not None and len(checks):
+        summary = {k: int(v) for k, v in
+                   checks["status"].value_counts().items()}
+        failures = list(checks.loc[checks["status"] == "FAIL", "check_name"])
+    else:
+        summary = dict(result.validation.summary())
+        failures = [c.name for c in result.validation.checks
+                    if c.status == "FAIL"]
+
+    return ValidationRequest(
+        request_id=f"IVR-{_digest(run_id, digest)[:12].upper()}",
+        run_id=run_id, asof=asof, seed=seed,
+        headline_digest=digest, portfolio_fingerprint=fingerprint,
+        requested_by=requested_by, requested_to=VALIDATION_TEAM,
+        branch=VALIDATION_TEAM_BRANCH,
+        reproduce=[
+            f"generate_portfolio(seed={seed})",
+            f"run_pipeline(portfolio, seed={seed}, asof='{asof}')",
+            "build_studio(result, portfolio)   # 정규 테이블 전체",
+        ],
+        recalc_targets=[
+            {"key": k, "korean": ko, "value": head.get(k), "citation": cite}
+            for k, ko, cite in RECALC_SCOPE
+        ],
+        self_validation=summary,
+        self_validation_failures=failures,
+        artefacts=artefacts or [],
+        known_assumptions=list(KNOWN_ASSUMPTIONS),
+        created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    )
+
+
+# ---------------------------------------------------------------- 게이트
+
+def check_gate(request: ValidationRequest,
+               directory: str | Path = DEFAULT_DIR) -> ValidationGate:
+    """응답 파일을 찾아 게이트 상태를 판정한다 (fail-closed)."""
+    p = request.response_path(directory)
+    if not p.exists():
+        return ValidationGate("응답대기", request, None,
+                              f"{VALIDATION_TEAM} 응답 없음 ({p})")
+    try:
+        resp = ValidationResponse.read(p)
+    except Exception as exc:                      # noqa: BLE001
+        return ValidationGate("부적합", request, None,
+                              f"응답 파일을 읽을 수 없음: {exc}")
+    if resp.run_id != request.run_id:
+        # 다른 실행의 응답을 이 실행의 승인으로 쓰면 게이트가 무의미해진다.
+        return ValidationGate("부적합", request, resp,
+                              f"응답 run_id 불일치 ({resp.run_id} ≠ {request.run_id})")
+    if resp.request_id != request.request_id:
+        return ValidationGate("부적합", request, resp,
+                              "응답 request_id 불일치 — 재요청 필요")
+    if not resp.passes:
+        bad = [f.target for f in resp.findings if f.severity == "중부적합"]
+        return ValidationGate("부적합", request, resp,
+                              f"판정 {resp.verdict}"
+                              + (f" · 중부적합 {', '.join(bad)}" if bad else ""))
+    mismatched = [k for k, ok in resp.recalc_matches.items() if not ok]
+    if mismatched:
+        return ValidationGate("부적합", request, resp,
+                              f"독립 재계산 불일치: {', '.join(mismatched)}")
+    return ValidationGate("적합", request, resp, "독립 재계산 일치 · 판정 적합")
+
+
+def request_frames(request: ValidationRequest, gate: ValidationGate
+                   ) -> dict[str, pd.DataFrame]:
+    """PRD-VAL 정규 테이블로 실체화한다."""
+    req = pd.DataFrame([{
+        "request_id": request.request_id, "run_id": request.run_id,
+        "asof": request.asof, "requested_by": request.requested_by,
+        "requested_to": request.requested_to, "branch": request.branch,
+        "headline_digest": request.headline_digest,
+        "n_recalc_targets": len(request.recalc_targets),
+        "n_self_fail": len(request.self_validation_failures),
+        "status": gate.status, "reason": gate.reason,
+    }])
+    rows = []
+    resp = gate.response
+    for t in request.recalc_targets:
+        key = str(t["key"])
+        matched = (resp.recalc_matches.get(key) if resp else None)
+        rows.append({
+            "request_id": request.request_id, "target": key,
+            "korean": str(t["korean"]),
+            "reported": float(t["value"]) if t["value"] is not None else None,
+            "recomputed": None, "matched": matched,
+            "citation": str(t["citation"]),
+        })
+    if resp:
+        by_target = {f.target: f for f in resp.findings}
+        for r in rows:
+            f = by_target.get(r["target"])
+            if f is not None and f.recomputed is not None:
+                r["recomputed"] = float(f.recomputed)
+    tgt = pd.DataFrame(rows)
+    # 응답 전에는 전부 None이라 object dtype이 된다 — 스펙 dtype을 지켜야
+    # "위반 0건일 때만 검증이 실패하는" 형태의 오류가 생기지 않는다.
+    tgt["recomputed"] = pd.to_numeric(tgt["recomputed"], errors="coerce"
+                                      ).astype("float64")
+    tgt["matched"] = tgt["matched"].astype("boolean")
+    return {"val_independent_request": req, "val_independent_target": tgt}

@@ -231,6 +231,25 @@ def _cmd_ui_studio(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_validation_request(args: argparse.Namespace) -> int:
+    """상시 독립검증(3선) 요청 생성 + 게이트 확인."""
+    from risk_lib.validation.independent import check_gate
+
+    studio = _build_studio(args)
+    path = studio.iv_request.write(args.dir)
+    gate = check_gate(studio.iv_request, args.dir)
+    print(f"독립검증 요청 작성 — {path}")
+    print(f"  요청 {studio.iv_request.request_id} → "
+          f"{studio.iv_request.requested_to} / {studio.iv_request.branch}")
+    print(f"  재계산 대상 {len(studio.iv_request.recalc_targets)}종 · "
+          f"도전 대상 가정 {len(studio.iv_request.known_assumptions)}건")
+    sv = studio.iv_request.self_validation
+    print(f"  자체검증(2선) " + " · ".join(f"{k} {v}" for k, v in sorted(sv.items())))
+    print(f"  게이트 {gate.status} — {gate.reason}")
+    # 게이트가 적합이 아니면 종료코드 1 — 결재 파이프라인이 조용히 지나가지 않는다.
+    return 0 if gate.approved else 1
+
+
 def _cmd_printable(args: argparse.Namespace) -> int:
     """Generate a print-optimised single-file HTML. Open in browser and
     'Print -> Save as PDF' for a perfectly-rendered Korean PDF."""
@@ -390,6 +409,14 @@ def main(argv: list[str] | None = None) -> int:
     rg.add_argument("--asof", default=None, help="기준일 (YYYY-MM-DD)")
     rg.add_argument("--institution", default="(기관명)")
     rg.set_defaults(func=_cmd_reg_report)
+
+    iv = sub.add_parser("validation-request",
+                        help="상시 독립검증(3선) 요청 생성 + 게이트 확인")
+    iv.add_argument("--dir", default="docs/independent_validation",
+                    help="요청·응답 교환 디렉터리")
+    iv.add_argument("--seed", type=int, default=42)
+    iv.add_argument("--asof", default=None, help="기준일 (YYYY-MM-DD)")
+    iv.set_defaults(func=_cmd_validation_request)
 
     ui = sub.add_parser("ui-studio",
                         help="에이전틱 UI 스튜디오 HTML 생성 (전 모듈 관리 화면)")

@@ -336,3 +336,26 @@ def test_regulatory_tab_covers_every_regulation_section(page):
     for code in ("BA1101", "BA2101", "BA3301", "BA4301", "BA5301",
                  "BA6401", "BA7201", "BA8201"):
         assert code in txt, code
+
+
+# ----- F 검증: 두 층이 화면에서 구분되는가 --------------------------------------
+
+def test_validation_tab_separates_self_and_independent(page):
+    from risk_lib.validation.independent import VALIDATION_TEAM_BRANCH
+    labels = page.eval_on_selector_all("nav button", "els => els.map(e => e.textContent)")
+    _tab(page, labels.index("F 검증"))
+    txt = _text(page)
+    assert "자체검증 (2선)" in txt
+    assert "상시 독립검증 (3선)" in txt
+    assert VALIDATION_TEAM_BRANCH in txt
+    assert "fail-closed" in txt
+
+
+def test_validation_tab_shows_the_gate_is_pending(page):
+    """2선이 전건 PASS여도 3선 게이트는 열리지 않는다."""
+    labels = page.eval_on_selector_all("nav button", "els => els.map(e => e.textContent)")
+    _tab(page, labels.index("F 검증"))
+    txt = _text(page)
+    assert "응답대기" in txt
+    assert "독립 재계산 대상" in txt
+    assert "3선이 도전해야 할 가정" in txt

@@ -60,6 +60,35 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. 검증의 두 층 (이 저장소 고유)
+
+**자체검증과 상시 독립검증은 다른 것이다. 하나로 대체하지 않는다.**
+
+| 층 | 담당 | 하는 일 |
+|---|---|---|
+| 자체검증 (2선) | 이 저장소의 `risk-validator` | 정합성·규제기준·통계 체크. **같은 코드·같은 가정**을 쓴다 |
+| 상시 독립검증 (3선) | 적합성검증 팀에이전트<br>`claude/validation-team-agent-Pw9F5` | 개발조직과 분리된 기준셋으로 **독립 재계산**. 가정을 도전한다 |
+
+리스크 산출 작업을 하면 **매번 예외 없이**:
+
+1. 자체검증을 돌린다 (`run_consistency_checks` → `val_check`).
+2. 독립검증 요청을 만들어 적합성검증 팀에 위임한다
+   (`risk_lib.validation.independent.build_request` → `docs/independent_validation/`).
+   절차는 `.claude/skills/independent-validation/SKILL.md`.
+3. 결재 상신 직전에 게이트를 확인한다 (`check_gate(...).require()`).
+   게이트는 **fail-closed** — 응답이 없으면 `응답대기`이며 결재 불가다.
+
+보고할 때는 두 줄을 함께 적는다. 독립검증이 `응답대기`인데 "검증 완료"라고
+쓰지 않는다.
+
+```
+자체검증 (2선)      PASS n · WARN n · FAIL 0
+상시 독립검증 (3선)  응답대기 (IVR-…)  또는  적합 (IVR-…)
+```
+
+새 headline 수치를 만들면 `independent.RECALC_SCOPE`에 넣는다. 거기 없으면
+3선이 그 수치를 다시 계산하지 않는다.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

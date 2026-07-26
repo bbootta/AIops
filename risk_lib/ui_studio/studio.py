@@ -65,6 +65,8 @@ class Studio:
     plan_results: dict[str, pd.DataFrame] = field(default_factory=dict)
     proposals: list[lay.LayoutProposal] = field(default_factory=list)
     result: object = None
+    iv_request: object = None      # 독립검증 요청 (3선 위임)
+    iv_gate: object = None         # 게이트 상태 — 결재 가능 여부
 
     def view_fields(self, view_id: str) -> pd.DataFrame:
         p = self.tables["ui_field_policy"]
@@ -102,8 +104,18 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     tables.update(gov.build_evidence_graph(tables, run_id, digest=digest))
     tables["gov_approval"] = gov.build_approvals(tables, run_id)
 
+    # ---- 상시 독립검증(3선) 위임 — 매 조립마다 요청을 만들고 게이트를 본다.
+    # 요청을 "필요할 때만" 만들면 결국 만들지 않게 된다.
+    from risk_lib.validation.independent import (
+        build_request, check_gate, request_frames,
+    )
+    iv_request = build_request(result, portfolio, tables)
+    iv_gate = check_gate(iv_request)
+    tables.update(request_frames(iv_request, iv_gate))
+
     studio = Studio(asof=asof, run_id=run_id, digest=digest, tables=tables,
-                    built_forms=built, result=result)
+                    built_forms=built, result=result,
+                    iv_request=iv_request, iv_gate=iv_gate)
 
     # ---- 조회계획 컴파일 + 실행
     plans, plan_results = [], {}

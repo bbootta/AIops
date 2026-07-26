@@ -265,6 +265,19 @@ def _payload(s: Studio) -> dict:
         "contracts": _frame(t["rdm_source_contract"], 50),
         "canonical_map": _frame(t["rdm_canonical_map"], 200),
         "validation": _frame(t["val_check"], 400),
+        "independent": {
+            "status": str(t["val_independent_request"]["status"].iloc[0]),
+            "reason": str(t["val_independent_request"]["reason"].iloc[0]),
+            "request_id": str(t["val_independent_request"]["request_id"].iloc[0]),
+            "requested_to": str(t["val_independent_request"]["requested_to"].iloc[0]),
+            "branch": str(t["val_independent_request"]["branch"].iloc[0]),
+            "n_targets": int(t["val_independent_request"]["n_recalc_targets"].iloc[0]),
+            "self_validation": " · ".join(
+                f"{k} {v}" for k, v in sorted(
+                    (s.iv_request.self_validation if s.iv_request else {}).items())),
+            "assumptions": list(s.iv_request.known_assumptions) if s.iv_request else [],
+        },
+        "independent_targets": _frame(t["val_independent_target"], 50),
         "domains": sorted({r["product"] for r in catalog_rows}),
     }
 
@@ -1020,8 +1033,36 @@ function renderForm(pane,f){
 /* ---- 검증 · 에이전트 · 변경 · 카탈로그 ---- */
 function validation(root){
   root.appendChild(el('p','lead',
-    '상시 모니터링과 개발조직에서 분리된 독립 재계산을 하나의 관문으로 통제한다. FAIL이 하나라도 있으면 결재 불가.'));
-  const c=el('div','card');c.appendChild(el('h3',null,'자체검증 결과'));
+    '검증은 두 층이다. 자체검증(2선)은 같은 코드·같은 가정으로 점검하고, 상시 독립검증(3선)은 '+
+    '개발조직과 분리된 적합성검증 팀에이전트가 다시 계산한다. 2선 PASS만으로는 결재할 수 없다.'));
+
+  /* --- 3선 게이트 --- */
+  const iv=D.independent;
+  const g=el('div','card');
+  g.appendChild(el('h3',null,'상시 독립검증 (3선) — 게이트'));
+  const tone=iv.status==='적합'?'good':iv.status==='부적합'?'bad':'warn';
+  const kg=el('div','grid');
+  [['게이트 상태',iv.status,tone],['요청 식별자',iv.request_id,''],
+   ['수신 팀',iv.requested_to,''],['수신 브랜치',iv.branch,''],
+   ['재계산 대상',iv.n_targets+'종',''],
+   ['자체검증(2선)',iv.self_validation,'']].forEach(([k,v,t])=>{
+    const c=el('div','card kpi');
+    c.appendChild(el('div','lab',k));
+    c.appendChild(el('div','val '+(t||''),String(v)));
+    kg.appendChild(c)});
+  g.appendChild(kg);
+  g.appendChild(el('div','note',iv.reason+
+    ' — 게이트는 fail-closed다. 응답이 없으면 통과가 아니라 대기이며 결재 상신이 막힌다.'));
+  g.appendChild(el('h3',null,'독립 재계산 대상'));
+  g.appendChild(table(D.independent_targets));
+  g.appendChild(el('h3',null,'3선이 도전해야 할 가정'));
+  const ul=el('div');
+  iv.assumptions.forEach((a,i)=>{const d=el('div','meta','· '+a);ul.appendChild(d)});
+  g.appendChild(ul);
+  root.appendChild(g);
+
+  const c=el('div','card');
+  c.appendChild(el('h3',null,'자체검증 (2선) 결과 — 같은 코드·같은 가정'));
   c.appendChild(table(D.validation,{rowClass:r=>r[2]==='FAIL'?'bad':null}));
   root.appendChild(c);
 }
@@ -1089,7 +1130,7 @@ const TABS=[
    r=>domain(r,'PRD-ALM',null,'항목별 잔액·적용률·가중 후 금액까지 분해해 규제 비율의 원인을 추적한다.')],
   ['E 위기상황','E · 통합위기상황분석 — 심각도별 전 단계 산출과정',stressDeepDive],
   ['R 감독보고','R · 금감원 업무보고서',regulatory],
-  ['F 검증','F · 상시·독립 적합성검증 게이트',validation],
+  ['F 검증','F · 검증 두 층 — 자체검증(2선) · 상시 독립검증(3선)',validation],
   ['G 에이전트','G · 에이전트 운영 · 권한 · Kill Switch',agents],
   ['Δ 변경','Δ · 리스크 변경 팩토리',changes],
   ['데이터모델','정규 데이터모델 카탈로그',catalogView],

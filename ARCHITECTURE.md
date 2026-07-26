@@ -21,7 +21,7 @@ Reports (표현 계층)      html_report(빌드 오케스트레이터), report_c
                         page_registry
   ↓
 Canonical data model    datamodel/ (spec·catalog·decompose·materialize·
-                        materialize_detail) — 79 테이블 / 576 컬럼
+                        materialize_detail) — 81 테이블 / 594 컬럼
   ↓
 Orchestration           pipeline.run_pipeline → PipelineResult
   ↓
@@ -86,7 +86,7 @@ out/
 
 ## 정규 데이터모델 (datamodel/)
 
-`catalog.ALL_TABLES`가 단일 소스다 — 테이블 79장 / 컬럼 576개. 각 컬럼은 타입·
+`catalog.ALL_TABLES`가 단일 소스다 — 테이블 81장 / 컬럼 594개. 각 컬럼은 타입·
 단위·허용값·범위·규정 근거를 스펙으로 선언하고, DDL·검증·DQ 규칙이 모두 여기서
 파생된다.
 
@@ -171,6 +171,40 @@ out/
 신용 단독보다 반드시 더 가혹함도 함께 고정한다.
 
 역스트레스도 전 축을 쓴다 — 신용만 보면 임계 심도가 과대평가된다 (2.35 → 0.94).
+
+## 검증의 두 층 (validation/)
+
+**자체검증(2선)과 상시 독립검증(3선)은 서로 대체할 수 없다.**
+
+| 층 | 담당 | 무엇을 | 구현 |
+|---|---|---|---|
+| 자체검증 | `risk-validator` | 정합성·규제기준·통계 체크. **같은 코드·같은 가정** | `validation/consistency.py` · `backtest.py` |
+| 상시 독립검증 | 적합성검증 팀에이전트<br>`claude/validation-team-agent-Pw9F5` | 개발조직과 분리된 기준셋으로 **독립 재계산**·가정 도전 | `validation/independent.py` |
+
+자체검증만으로 결재하면 "우리 코드가 우리 코드를 통과시켰다"가 결재 근거가
+된다. 그래서 `build_studio`는 **매 조립마다** 요청을 만들고 게이트를 판정한다 —
+"필요할 때만" 만들면 결국 만들지 않게 된다.
+
+요청 패키지(`build_request`)에 담기는 것:
+
+- 재현 명령 (seed·asof·파이프라인 호출)
+- 재계산 대상 10종 (`RECALC_SCOPE`) — RWA·CET1·총자본·레버리지·ECL·LCR·NSFR·
+  위기상황 저점·역스트레스 임계 심도·대손준비금
+- 자체검증 결과 요약과 **FAIL 항목명** (숨기지 않는다)
+- 우리가 아는 가정 8건 (`KNOWN_ASSUMPTIONS`) — 3선이 도전해야 할 약한 고리
+- 산출 지문·포트폴리오 지문
+
+게이트(`check_gate`)는 **fail-closed**다.
+
+| 상태 | 조건 | 결재 |
+|---|---|---|
+| `응답대기` | 응답 파일 없음 | 불가 |
+| `부적합` | 중부적합 · 재계산 불일치 · run_id/request_id 불일치 · 파일 손상 | 불가 |
+| `적합` | 판정 적합 + 재계산 전건 일치 | 가능 |
+
+교환 디렉터리는 `docs/independent_validation/`이며, CLI `validation-request`는
+게이트가 `적합`이 아니면 **종료코드 1**을 낸다. 절차는
+`.claude/skills/independent-validation/SKILL.md`, 정책은 `AIMS_POLICY.md` §2-4·§3.
 
 ## 에이전틱 UI (ui_studio/)
 
