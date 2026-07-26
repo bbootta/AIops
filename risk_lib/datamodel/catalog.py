@@ -1809,6 +1809,8 @@ INDEPENDENT_REQUEST = TableSpec(
           min_value=1, note="0이면 독립검증이 아무것도 다시 계산하지 않는다"),
         C("n_self_fail", "int", "자체검증 FAIL 수", nullable=False,
           min_value=0),
+        C("n_self_warn", "int", "자체검증 WARN 수", nullable=False, min_value=0,
+          note="FAIL 0이어도 WARN이 규제 미달을 담을 수 있다 — 집계만 보면 놓친다"),
         C("status", "string", "게이트 상태", nullable=False, allowed=IV_STATUS),
         C("reason", "text", "판정 사유", nullable=False),
     ),

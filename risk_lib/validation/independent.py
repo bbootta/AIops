@@ -72,6 +72,7 @@ class ValidationRequest:
     recalc_targets: list[dict]        # key, korean, value, citation
     self_validation: dict[str, int]   # PASS/WARN/FAIL 집계 — 3선의 출발점
     self_validation_failures: list[str]
+    self_validation_warnings: list[dict]   # WARN 본문 (집계만으로는 못 읽는다)
     artefacts: list[str]
     known_assumptions: list[str]      # 3선이 반드시 도전해야 할 가정
     created_at: str
@@ -193,9 +194,11 @@ KNOWN_ASSUMPTIONS: tuple[str, ...] = (
     "합성 대차대조표에 통화 구분이 없어 외화 비중을 자산·부채 동일하게 가정했다.",
     # ---- 독립검증 IVR-E6BEA5DA0D5F 지적으로 추가된 항목.
     # 공시 기준이 방향에 따라 비대칭이면(보수적인 것만 공시) 공시가 아니다.
-    "자본은 총익스포저의 10%(AT1 13%·T2 22% 발행 비중)로 **합성**한다 — 실제 "
-    "자본 원장이 아니다. RWA에서 역산하지는 않으므로 비율이 RWA에 반응한다 "
-    "(risk_lib.capital.bis.synthesise_capital · 지적 F-001).",
+    "자본은 실제 원장이 아니라 **합성값**이다 — 고정 발행자본(자본금·AT1·T2)에 "
+    "수익성 기반 이익잉여금(연간이익 × 4년)을 더한다. RWA에도 익스포저에도 "
+    "비례하지 않으므로 자본비율과 레버리지비율이 **둘 다** 반응한다. 실제 원장은 "
+    "run_pipeline(capital_ledger=...)로 주입한다 "
+    "(risk_lib.capital.bis.synthesise_capital · 지적 F-001 · F-101).",
     "레버리지 부외항목에 CCF 하한 10%를 일률 적용한다 — 약정 유형별 "
     "CCF(20/40/50/100%) 구분이 없어 가장 관대한 계수를 쓴 것이다 (지적 F-004).",
     "Stage 1 커버리지가 8.1%로 12개월 기대손실치고 높다. 합성 데이터의 PD "
@@ -223,15 +226,21 @@ def build_request(result, portfolio: pd.DataFrame,
     if not fingerprint:
         fingerprint = _digest(len(portfolio), tuple(portfolio.columns))[:32]
 
+    # 자체검증 WARN은 집계만 넘기면 결재선이 내용을 읽지 못한다 — 본문을 싣는다
+    # (독립검증 F-106 권고). FAIL이 0이어도 WARN이 규제 미달을 담을 수 있다.
     checks = tables.get("val_check") if tables else None
     if checks is not None and len(checks):
         summary = {k: int(v) for k, v in
                    checks["status"].value_counts().items()}
         failures = list(checks.loc[checks["status"] == "FAIL", "check_name"])
+        warnings = [{"check": str(r["check_name"]), "detail": str(r["detail"])}
+                    for _, r in checks[checks["status"] == "WARN"].iterrows()]
     else:
         summary = dict(result.validation.summary())
         failures = [c.name for c in result.validation.checks
                     if c.status == "FAIL"]
+        warnings = [{"check": c.name, "detail": str(c.detail)}
+                    for c in result.validation.checks if c.status == "WARN"]
 
     return ValidationRequest(
         request_id=f"IVR-{_digest(run_id, digest)[:12].upper()}",
@@ -250,6 +259,7 @@ def build_request(result, portfolio: pd.DataFrame,
         ],
         self_validation=summary,
         self_validation_failures=failures,
+        self_validation_warnings=warnings,
         artefacts=artefacts or [],
         known_assumptions=list(KNOWN_ASSUMPTIONS),
         created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -299,6 +309,7 @@ def request_frames(request: ValidationRequest, gate: ValidationGate
         "headline_digest": request.headline_digest,
         "n_recalc_targets": len(request.recalc_targets),
         "n_self_fail": len(request.self_validation_failures),
+        "n_self_warn": len(request.self_validation_warnings),
         "status": gate.status, "reason": gate.reason,
     }])
     rows = []

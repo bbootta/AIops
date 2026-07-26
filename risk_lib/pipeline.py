@@ -317,13 +317,15 @@ def _stage_market_op_rwa(total_ead: float):
 
 def _stage_capital(
     portfolio, rwa_sa, rwa_irb, mkt, op, total_ead, *, output_floor, buffers,
-    ccr=None,
+    ccr=None, capital=None,
 ):
     """자본·비율·레버리지.
 
     독립검증 시정 3건이 여기 반영돼 있다:
-      F-001  자본을 RWA에서 역산하지 않는다 — 익스포저 규모에서 합성한다.
-             역산하면 cet1_ratio가 상수가 되어 RWA 오류를 드러내지 못한다.
+      F-001  자본을 RWA에서 역산하지 않는다.
+      F-101  익스포저에도 비례시키지 않는다 — 비례시키면 이번엔 레버리지비율이
+             상수가 된다(실측 변동 1.4bp). 자본은 **입력**이며, 없을 때만
+             수익성 기반 합성기를 쓴다.
       F-002  거래상대방신용리스크(SA-CCR)와 CVA를 신용 RWA에 합산한다.
              CRE52·MAR50이 RWA 포함을 요구하는데 산출만 하고 빠져 있었다.
       F-004  레버리지 익스포저에 파생상품(SA-CCR EAD)을 포함한다 (LEV20.1).
@@ -341,7 +343,10 @@ def _stage_capital(
     floor = apply_output_floor(rwa_internal_total, rwa_standardised_total,
                                output_floor)
     rwa_final = floor.rwa_final
-    capital = synthesise_capital(total_ead)
+    if capital is None:
+        annual_profit = float(portfolio["revenue"].sum()
+                              - portfolio["operating_cost"].sum())
+        capital = synthesise_capital(annual_profit)
     bis = compute_bis_ratios(capital, rwa_final, buffers=buffers)
     em = exposure_measure(on_balance=total_ead,
                           off_balance_notional=total_ead * 0.1,
@@ -614,7 +619,10 @@ def run_pipeline(
     buffers: dict[str, float] | None = None,
     years_ahead: int = 2,
     asof: "date | str | None" = None,
+    capital_ledger: CapitalStack | None = None,
 ) -> PipelineResult:
+    """`capital_ledger`를 주면 실제 자본 원장으로 산출한다. 주지 않으면
+    수익성 기반 합성기를 쓰며, 그 사실이 독립검증 요청에 공시된다."""
     if buffers is None:
         buffers = {"capital_conservation": 0.025, "countercyclical": 0.0, "dsib": 0.01}
     if portfolio is None:
@@ -643,6 +651,7 @@ def run_pipeline(
      rwa_internal_total, rwa_standardised_total, rwa_ccr) = _stage_capital(
         portfolio, rwa_sa, rwa_irb, mkt, op, total_ead,
         output_floor=output_floor, buffers=buffers, ccr=ccr_result,
+        capital=capital_ledger,
     )
 
     # 7. IFRS 9 ECL (TTC + forward-looking PIT) on the quarterly axis.

@@ -1,9 +1,9 @@
 {
-  "request_id": "IVR-52D8B21C1A1E",
+  "request_id": "IVR-573F73DBBF35",
   "run_id": "RUN-20260630-42",
   "asof": "2026-06-30",
   "seed": 42,
-  "headline_digest": "ea7a14ac15b787d588a2ac6c00268441",
+  "headline_digest": "edf5c9899da404df6ae3dc4d6c8e64d9",
   "portfolio_fingerprint": "4f3e5da6b8923b33feb67bf287d00625",
   "requested_by": "리스크관리 팀에이전트",
   "requested_to": "적합성검증 팀에이전트",
@@ -23,19 +23,19 @@
     {
       "key": "cet1_ratio",
       "korean": "보통주자본비율",
-      "value": 0.11077937299194433,
+      "value": 0.11648890029339716,
       "citation": "은행업감독규정 제26조"
     },
     {
       "key": "total_ratio",
       "korean": "총자본비율",
-      "value": 0.14955215353912488,
+      "value": 0.1569375823652485,
       "citation": "은행업감독규정 제26조"
     },
     {
       "key": "leverage_ratio",
       "korean": "레버리지비율",
-      "value": 0.1115902049428025,
+      "value": 0.11712632046549173,
       "citation": "LEV20.1"
     },
     {
@@ -47,25 +47,25 @@
     {
       "key": "lcr",
       "korean": "유동성커버리지비율",
-      "value": 1.174087449788168,
+      "value": 1.1807093493508851,
       "citation": "LCR20.1"
     },
     {
       "key": "nsfr",
       "korean": "순안정자금조달비율",
-      "value": 1.1289606835435482,
+      "value": 1.1306708599813413,
       "citation": "NSF20.1"
     },
     {
       "key": "stress_trough_cet1",
       "korean": "심각 시나리오 CET1 저점",
-      "value": 0.04371066747423117,
+      "value": 0.046912066660822246,
       "citation": "SRP20"
     },
     {
       "key": "reverse_critical_severity",
       "korean": "역스트레스 임계 심도",
-      "value": 0.8426284790039062,
+      "value": 0.9822463989257812,
       "citation": "SRP20"
     },
     {
@@ -80,6 +80,24 @@
     "WARN": 4
   },
   "self_validation_failures": [],
+  "self_validation_warnings": [
+    {
+      "check": "stress_trough_meets_requirement",
+      "detail": "위기상황 요구치 침범 (자본계획·회복계획 연계 필요) — adverse: 7.94% < 요구 8.00% (2027Q3, 제약 total); severely_adverse: 4.69% < 요구 8.00% (2027Q2, 제약 total)"
+    },
+    {
+      "check": "pd_floor_5bp",
+      "detail": "1 exposures below 5bp PD floor (will be floored in IRB)"
+    },
+    {
+      "check": "concentration_hhi",
+      "detail": "HHI above 0.18 on: country=0.295"
+    },
+    {
+      "check": "pd_gini_retail_other",
+      "detail": "retail_other Gini 0.220 acceptable but below 양호 기준 0.4"
+    }
+  ],
   "artefacts": [],
   "known_assumptions": [
     "자산건전성 분류는 연체일수 대용 규칙 — 감독규정 제27조는 채무상환능력 평가를 함께 요구한다 (risk_lib.datamodel.materialize_detail).",
@@ -90,10 +108,10 @@
     "대주주 지정 원장이 없어 대주주 신용공여 사용액을 0으로 두었다 (risk_lib.prudential.ownership).",
     "업무보고서 서식번호는 내부 배정 코드 — 금감원 배포본과 대조 전이다 (risk_lib.regulatory.form_ids).",
     "합성 대차대조표에 통화 구분이 없어 외화 비중을 자산·부채 동일하게 가정했다.",
-    "자본은 총익스포저의 10%(AT1 13%·T2 22% 발행 비중)로 **합성**한다 — 실제 자본 원장이 아니다. RWA에서 역산하지는 않으므로 비율이 RWA에 반응한다 (risk_lib.capital.bis.synthesise_capital · 지적 F-001).",
+    "자본은 실제 원장이 아니라 **합성값**이다 — 고정 발행자본(자본금·AT1·T2)에 수익성 기반 이익잉여금(연간이익 × 4년)을 더한다. RWA에도 익스포저에도 비례하지 않으므로 자본비율과 레버리지비율이 **둘 다** 반응한다. 실제 원장은 run_pipeline(capital_ledger=...)로 주입한다 (risk_lib.capital.bis.synthesise_capital · 지적 F-001 · F-101).",
     "레버리지 부외항목에 CCF 하한 10%를 일률 적용한다 — 약정 유형별 CCF(20/40/50/100%) 구분이 없어 가장 관대한 계수를 쓴 것이다 (지적 F-004).",
     "Stage 1 커버리지가 8.1%로 12개월 기대손실치고 높다. 합성 데이터의 PD 스케일에서 비롯된 것이며 실무 수치로 읽으면 오해를 부른다 (지적 F-005).",
     "표준방법 RWA가 내부모형의 78% 수준이라 산출하한이 현 구성에서 구속되지 않는다. 통상 표준방법이 더 보수적인 점과 배치된다 (지적 F-006)."
   ],
-  "created_at": "2026-07-26T04:19:51+00:00"
+  "created_at": "2026-07-26T06:08:08+00:00"
 }

@@ -105,27 +105,29 @@ def compute_bis_ratios(
         surplus_shortfall=surplus,
     )
 
-# ---------------------------------------------------------------- 자본 합성
+# ---------------------------------------------------------------- 자본 원장
 
-# 자본은 **익스포저 규모**에서 나온다 — 위험가중자산에서 역산하면 안 된다.
-# cet1 = rwa × k 로 만들면 cet1_ratio = k 가 되어 비율이 RWA·포트폴리오와
-# 무관한 상수가 되고, RWA 오류를 자본비율이 전혀 드러내지 못한다
-# (독립검증 F-001). 아래 계수는 자기자본/총익스포저 수준과 발행 구성 가정이며
-# 실제 자본 원장으로 교체가 전제다.
-CET1_TO_EXPOSURE = 0.10      # 보통주자본 / 총익스포저
-AT1_TO_CET1 = 0.13           # 기타기본자본 발행 비중
-T2_TO_CET1 = 0.22            # 보완자본 발행 비중
+# 자본은 **RWA에서도 익스포저에서도 파생되지 않는다**. 어느 쪽에 비례시켜도
+# 그쪽을 감시하는 비율이 상수가 되어 통제가 소멸한다 —
+#   cet1 = rwa × k      → cet1_ratio 가 상수 (독립검증 F-001)
+#   cet1 = ead × k      → leverage  가 상수 (독립검증 F-101, 변동 1.4bp)
+# 그래서 자본 원장은 파이프라인의 **입력**이며, 실제 원장이 없을 때만 아래
+# 합성기를 쓴다. 합성기의 두 축은 규모에 비례하지 않는다:
+#   발행자본(고정)  — 증자는 이산적 사건이지 자산 증가에 비례하지 않는다
+#   이익잉여금      — 수익성(수익−비용)의 함수이지 익스포저의 함수가 아니다
+PAID_IN_CAPITAL = 5.0e11      # 자본금 + 자본잉여금 (고정 발행액)
+RETAINED_YEARS = 4.0          # 누적 유보 연수
+AT1_ISSUED = 1.40e11          # 신종자본증권 발행잔액 (고정)
+TIER2_ISSUED = 2.40e11        # 후순위채 발행잔액 (고정)
 
 
-def synthesise_capital(total_exposure: float) -> CapitalStack:
-    """총익스포저 규모에서 자본 스택을 만든다 (RWA와 독립).
+def synthesise_capital(annual_profit: float) -> CapitalStack:
+    """자본 원장 합성 — RWA·익스포저 어느 쪽에도 비례하지 않는다.
 
-    RWA가 커지면 비율이 내려가야 통제가 작동한다 — 그것이 이 함수가 RWA를
-    인자로 받지 않는 이유다.
+    `annual_profit`은 연간 영업이익(수익 − 비용)이다. 규모가 아니라 **수익성**이
+    자본을 키운다. 실제 자본 원장이 있으면 `run_pipeline(capital=...)`로 주입하고
+    이 함수를 쓰지 않는다.
     """
-    if total_exposure <= 0:
-        raise ValueError("total_exposure must be positive")
-    cet1 = total_exposure * CET1_TO_EXPOSURE
-    return CapitalStack(cet1=cet1,
-                        additional_t1=cet1 * AT1_TO_CET1,
-                        tier2=cet1 * T2_TO_CET1)
+    retained = max(annual_profit, 0.0) * RETAINED_YEARS
+    return CapitalStack(cet1=PAID_IN_CAPITAL + retained,
+                        additional_t1=AT1_ISSUED, tier2=TIER2_ISSUED)
