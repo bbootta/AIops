@@ -44,6 +44,7 @@ _DISPATCH = {
     ("trigger",): "tools.validation_trigger",
     ("finding",): "tools.validation_finding",
     ("recalc",): "tools.independent_recalc",
+    ("golden",): "tools.golden_regression",
     ("dashboard",): "tools.dashboard",
     ("manifest",): "tools.manifest",
     ("findings",): "tools.findings",

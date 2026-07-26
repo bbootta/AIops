@@ -2235,6 +2235,21 @@
       "rollback_rule": "재계산 결과가 도메인 산출과 체계적으로 어긋나 오탐이 반복되면 해당 계산기를 RECALCULATORS 에서 제거(정책·도메인 코드 무변경). 모듈 전체는 삭제로 완전 롤백",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0150",
+      "timestamp": "2026-07-26 02:24:19",
+      "component": "harness/golden_cases.json + tools/golden_regression.py + harness/val_requirement_coverage.json + cli_index/dispatch/README sync",
+      "change_type": "create",
+      "evidence": "R80 매트릭스에서 VAL-010 미구현, VAL-012 부분('변경요청 범위 대조 없음')으로 확인된 공백. 실측 탐지력 검증: LCR 계산기에 0.01 편향 주입 시 GC-001·GC-007 실패로 배포 차단, 금지행위 통제 무력화(분모 0 을 0.0 반환) 시 GC-013 이 '거부되어야 할 입력이 값 0.0 을 산출했다' 로 적발. 변경요청 범위 선언 시 의도된 변경으로 재분류되어 배포 허용, 무관한 대상만 선언하면 여전히 차단",
+      "root_cause": "pytest 는 하니스 코드의 회귀를 막지만 검증 산출값의 회귀를 막지 못했고, 산출 변화가 의도된 것인지 판단할 기준(변경요청 범위)이 없었음",
+      "targeted_fix": "harness/golden_cases.json 신설 — 회귀 6·경계값 4·민감도 2·금지행위 4 총 16건, 각 사례에 rationale 과 critical 플래그. tools/golden_regression: 유형별 판정(금지행위는 반드시 거부되어야 통과, 조용히 값을 내면 실패), 실패 사례를 변경요청 scope(targets/cases)와 대조해 의도/비의도 분류, 범위 밖 critical 실패 시 exit 1 로 배포 차단. 변경요청이 없으면 모든 변화가 비의도 — 아무도 바뀐다고 선언하지 않았기 때문. 시연 중 적발한 결함(계산기가 예상 밖 예외를 던지면 회귀 실행 전체가 크래시)을 _invoke 예외 격리로 수정하되 삼키지 않고 '정의되지 않은 예외로 실패' 로 보고",
+      "expected_benefit": "As-is/To-be F '04 Benchmark·회귀' 가 실행 가능한 배포 게이트로 성립. 검증 산출값의 비의도 변경이 배포 전에 차단됨. 커버리지 72.2% → 80.6%",
+      "expected_regression_risk": "낮음 — 신규 모듈이며 기존 경로에 개입하지 않는다. Golden Case 기대값이 현행 코드 기준이므로 의도된 산식 변경 시 사례 갱신이 필요(설계 의도이며 변경요청 범위 선언으로 처리)",
+      "validation_method": "tests/test_v2_round85.py 25 cases (전량 통과 기준선/4유형 존재/ID 유일·rationale/금지·경계 critical 강제/대상 등록/편향 주입 탐지/금지행위 무력화 탐지/예외 격리 후 실행 지속/거부 사유 불일치/민감도 방향·크기 위반/미등록 대상/변경요청 없음·대상 선언·사례 선언·무관 범위 4종/비critical 비차단/통과 사례 미분류/보고/CLI 4종/카탈로그) + 전체 1248 passed",
+      "rollback_rule": "Golden Case 가 정당한 개선을 반복 차단하면 해당 사례의 critical 을 낮추거나 사례를 제거한다(정책 파일 편집, 코드 변경 불필요). 모듈 전체는 삭제로 완전 롤백",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
