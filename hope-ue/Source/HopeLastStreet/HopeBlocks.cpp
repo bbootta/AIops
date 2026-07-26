@@ -62,14 +62,17 @@ namespace HopeBlocks
 		float Roughness,
 		float Metallic)
 	{
+		// Preferred: the material instance built by Tools/build_content.py and
+		// possibly re-pointed at a scanned surface by Tools/import_megascans.py.
 		UMaterialInterface* Base = LoadObject<UMaterialInterface>(
-			nullptr, *FString::Printf(TEXT("/Game/Materials/M_Hope_%s.M_Hope_%s"), *Key, *Key));
+			nullptr, *FString::Printf(TEXT("/Game/Materials/MI_Hope_%s.MI_Hope_%s"), *Key, *Key));
 
+		// Last resort: neither script has been run. The engine's basic shape
+		// material at least takes a colour, so the street reads as a street
+		// rather than as untextured white.
+		const bool bGenerated = Base != nullptr;
 		if (!Base)
 		{
-			// build_content.py has not been run. Fall back to the engine's
-			// basic shape material so the street is at least correctly
-			// coloured rather than default white.
 			Base = LoadObject<UMaterialInterface>(
 				nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
 		}
@@ -85,10 +88,17 @@ namespace HopeBlocks
 			return Base;
 		}
 
-		// Parameter names that miss are ignored, so the same call works against
-		// the generated materials and against the engine fallback.
+		if (bGenerated)
+		{
+			// The instance already carries its tint, roughness and tiling, and
+			// import_megascans.py neutralises the tint to white when it assigns
+			// a scanned albedo. Overwriting those here would multiply a scan
+			// back down to the placeholder colour and undo the import — so the
+			// generated instance is left exactly as authored.
+			return Instance;
+		}
+
 		Instance->SetVectorParameterValue(TEXT("Color"), Tint);
-		Instance->SetVectorParameterValue(TEXT("BaseColorTint"), Tint);
 		Instance->SetScalarParameterValue(TEXT("Roughness"), Roughness);
 		Instance->SetScalarParameterValue(TEXT("Metallic"), Metallic);
 

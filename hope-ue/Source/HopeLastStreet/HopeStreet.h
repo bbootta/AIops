@@ -27,6 +27,13 @@ public:
 	static constexpr float StreetLength = 210.0f;
 	static constexpr float StreetWidth = 14.0f;
 
+	/**
+	 * Direct sun illuminance in lux — a real photometric quantity, not a
+	 * brightness dial. AHopeCharacter derives its shutter/ISO/aperture from
+	 * this figure, so the two must be changed together.
+	 */
+	static constexpr float SunIlluminanceLux = 32000.0f;
+
 	virtual void BeginPlay() override;
 
 private:

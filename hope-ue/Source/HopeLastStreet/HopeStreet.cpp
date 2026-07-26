@@ -81,7 +81,11 @@ void AHopeStreet::BuildAtmosphere()
 		Sun->SetMobility(EComponentMobility::Movable);
 		if (UDirectionalLightComponent* C = Cast<UDirectionalLightComponent>(Sun->GetLightComponent()))
 		{
-			C->SetIntensity(6.0f);
+			// Lux, not an arbitrary multiplier. Clear midday sun is around
+			// 100,000; this is a low sun through heavy dust, so roughly a
+			// third of that. The camera's exposure triangle in HopeCharacter
+			// is matched to this figure — change one and the other has to move.
+			C->SetIntensity(SunIlluminanceLux);
 			C->SetLightColor(SunColour);
 			C->LightSourceAngle = 1.2f;              // soft-edged shadows from a hazy disc
 			C->bCastVolumetricShadow = true;
@@ -152,12 +156,24 @@ void AHopeStreet::BuildAtmosphere()
 		S.bOverride_LumenMaxTraceDistance = true;       S.LumenMaxTraceDistance = 30000.0f;
 		S.bOverride_LumenReflectionQuality = true;      S.LumenReflectionQuality = 2.0f;
 
-		// Manual exposure. Auto-exposure hunts badly on a scene this
-		// low-contrast, which is exactly what went wrong in the WebGL build.
+		// Exposure comes from the camera, not from a dial.
+		//
+		// Manual metering, with the exposure computed from the shutter, ISO and
+		// aperture set on the cine camera. Check the arithmetic against the
+		// 32,000 lux sun: an 18% grey card returns L = 32000 x 0.18 / pi, about
+		// 1830 cd/m2, which needs EV100 = log2(1830 x 100 / 12.5) = 13.8.
+		// The camera is set to f/8 at 1/250s, ISO 100 -> log2(64 x 250) = 14.0.
+		// Within a sixth of a stop, so the street exposes correctly with no
+		// fudge factor. Auto-exposure is off deliberately: it hunts badly on a
+		// scene this low-contrast, which is what overexposed the WebGL build.
 		S.bOverride_AutoExposureMethod = true;
 		S.AutoExposureMethod = EAutoExposureMethod::AEM_Manual;
+		S.bOverride_AutoExposureApplyPhysicalCameraExposure = true;
+		S.AutoExposureApplyPhysicalCameraExposure = true;
 		S.bOverride_AutoExposureBias = true;
-		S.AutoExposureBias = 10.6f;
+		S.AutoExposureBias = 0.0f;   // the one knob to turn if the image is off
+		S.bOverride_CameraShutterSpeed = true;          S.CameraShutterSpeed = 250.0f;
+		S.bOverride_CameraISO = true;                   S.CameraISO = 100.0f;
 
 		S.bOverride_BloomIntensity = true;              S.BloomIntensity = 0.42f;
 		S.bOverride_BloomThreshold = true;              S.BloomThreshold = 1.1f;
@@ -166,8 +182,6 @@ void AHopeStreet::BuildAtmosphere()
 		S.bOverride_VignetteIntensity = true;           S.VignetteIntensity = 0.42f;
 		S.bOverride_SceneFringeIntensity = true;        S.SceneFringeIntensity = 1.6f;
 		S.bOverride_MotionBlurAmount = true;            S.MotionBlurAmount = 0.32f;
-		S.bOverride_DepthOfFieldFocalDistance = true;   S.DepthOfFieldFocalDistance = 900.0f;
-		S.bOverride_DepthOfFieldFstop = true;           S.DepthOfFieldFstop = 5.0f;
 
 		// Bleached, dust-warm grade: pull saturation down, push the shadows
 		// cool and the midtones warm.
@@ -289,6 +303,45 @@ void AHopeStreet::BuildShop(float Side, float CentreX, float Width, FRandomStrea
 		HopeBlocks::AddBox(this, Root, FVector(Width * 0.86f, 150.0f, 10.0f),
 			FVector(CentreX, FrontY - Side * 78.0f, 330.0f), FRotator(0.0f, 0.0f, Side * 8.0f),
 			Mat(TEXT("Awning")));
+	}
+
+	// --- relief -------------------------------------------------------------
+	// A flat wall is the single thing that gives a box away, because there is
+	// nothing for the raking sun to cast a shadow across. These are cheap and
+	// they are what make the facade read at a distance.
+
+	// Parapet capping the roofline, proud of the wall on both sides.
+	HopeBlocks::AddBox(this, Root, FVector(Width + 16.0f, Depth + 16.0f, 46.0f),
+		FVector(CentreX, CentreY, Height + 40.0f), FRotator::ZeroRotator, Shell);
+
+	// String course between the shopfront and the upper floors.
+	HopeBlocks::AddBox(this, Root, FVector(Width, 26.0f, 22.0f),
+		FVector(CentreX, FrontY - Side * 16.0f, 470.0f), FRotator::ZeroRotator, Shell);
+
+	// Downpipe running the full height, one edge of the lot.
+	const float PipeX = CentreX + (Rng.FRand() < 0.5f ? -1.0f : 1.0f) * Width * 0.46f;
+	HopeBlocks::AddBox(this, Root, FVector(16.0f, 16.0f, Height),
+		FVector(PipeX, FrontY - Side * 12.0f, Height * 0.5f + 20.0f),
+		FRotator::ZeroRotator, Mat(TEXT("Metal")));
+
+	// Air conditioner boxes bracketed off the wall, at odd heights.
+	const int32 Units = Rng.RandRange(0, 3);
+	for (int32 U = 0; U < Units; ++U)
+	{
+		const float UX = CentreX + Rng.FRandRange(-Width * 0.36f, Width * 0.36f);
+		const float UZ = 560.0f + Rng.FRand() * FMath::Max(120.0f, Height - 700.0f);
+		HopeBlocks::AddBox(this, Root, FVector(62.0f, 46.0f, 44.0f),
+			FVector(UX, FrontY - Side * 30.0f, UZ), FRotator::ZeroRotator, Mat(TEXT("Metal")));
+	}
+
+	// Projecting blade sign, hung perpendicular to the wall the way Korean
+	// shop streets stack them — the strongest depth cue down a long block.
+	if (Rng.FRand() < 0.45f)
+	{
+		const float SignZ = 520.0f + Rng.FRand() * 260.0f;
+		HopeBlocks::AddBox(this, Root, FVector(30.0f, 190.0f, 150.0f),
+			FVector(CentreX + Width * 0.3f, FrontY - Side * 120.0f, SignZ),
+			FRotator::ZeroRotator, Mat(TEXT("Sign")));
 	}
 
 	// Hangul shop sign. The lettering itself is a texture on the generated

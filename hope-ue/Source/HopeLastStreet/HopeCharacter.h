@@ -5,7 +5,7 @@
 #include "HopeCharacter.generated.h"
 
 class USpringArmComponent;
-class UCameraComponent;
+class UCineCameraComponent;
 class UPointLightComponent;
 class USceneComponent;
 class UStaticMeshComponent;
@@ -38,6 +38,14 @@ public:
 	static constexpr float MaxHealth = 100.0f;
 	static constexpr float TraceRange = 22000.0f;
 
+	/**
+	 * Focal lengths in millimetres on a Super 35 sensor, so the framing change
+	 * on aiming is a lens change rather than an arbitrary field-of-view lerp.
+	 * 18mm gives roughly 69 degrees horizontal, 40mm roughly 35.
+	 */
+	static constexpr float LensWide = 18.0f;
+	static constexpr float LensAimed = 40.0f;
+
 	int32 Ammo = MagazineSize;
 	int32 Reserve = 150;
 	float Health = MaxHealth;
@@ -69,8 +77,20 @@ private:
 
 	void FireOnce();
 
+	/** Pulls focus onto whatever the officer is looking at. */
+	void UpdateFocus(float DeltaSeconds);
+
+	/**
+	 * Uses a MetaHuman (or any skeletal mesh) dropped at
+	 * /Game/Characters/Officer instead of the primitive body, if one is there.
+	 * Returns true when it took over. See README.
+	 */
+	bool ApplyScannedCharacter();
+
+	void BuildPlaceholderBody();
+
 	UPROPERTY() TObjectPtr<USpringArmComponent> Boom;
-	UPROPERTY() TObjectPtr<UCameraComponent> Camera;
+	UPROPERTY() TObjectPtr<UCineCameraComponent> Camera;
 	UPROPERTY() TObjectPtr<USceneComponent> BodyRoot;
 	UPROPERTY() TObjectPtr<USceneComponent> RifleRoot;
 	UPROPERTY() TObjectPtr<USceneComponent> MuzzleSocket;
@@ -82,4 +102,11 @@ private:
 	float ReloadTimer = 0.0f;
 	float Recoil = 0.0f;       // decays to zero, drives the rifle kick
 	float MuzzleTimer = 0.0f;
+
+	/**
+	 * True once the rifle is parented to a skeleton's hand socket. The hand
+	 * then owns its transform, so Tick must stop writing one — otherwise the
+	 * two fight and the weapon jitters between them every frame.
+	 */
+	bool bRifleOnSocket = false;
 };
