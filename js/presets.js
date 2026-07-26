@@ -27,8 +27,8 @@
    * blood = 관절·손끝에 도는 혈색(subsurface). 핏기를 만드는 색.
    */
   var SKINS = [
-    { id: 's1', name: '라이트',    base: '#f7d5c0', dark: '#dda284', light: '#fff1e7', warm: '#ef9d87', blood: '#e2705c', shade: '#8d3d24' },
-    { id: 's2', name: '아이보리',  base: '#f2caab', dark: '#d3946b', light: '#fee9d7', warm: '#e89275', blood: '#d8654e', shade: '#83351d' },
+    { id: 's1', name: '라이트',    base: '#f8dac4', dark: '#deaa89', light: '#fff4ea', warm: '#eda389', blood: '#dd7360', shade: '#8b4327' },
+    { id: 's2', name: '아이보리',  base: '#f4d2b2', dark: '#d69d72', light: '#fff0dc', warm: '#e59a78', blood: '#d46e54', shade: '#7f3c20' },
     { id: 's3', name: '내추럴',    base: '#e3b189', dark: '#bb7c4f', light: '#f7dabd', warm: '#d47a58', blood: '#bf5539', shade: '#6d2a13' },
     { id: 's4', name: '탠',        base: '#c98d57', dark: '#985d33', light: '#e7b98b', warm: '#b55c3c', blood: '#a34526', shade: '#57200c' },
     { id: 's5', name: '딥',        base: '#8d5734', dark: '#5e3119', light: '#b57e54', warm: '#843c20', blood: '#772f16', shade: '#3d1608' },

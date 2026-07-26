@@ -7,7 +7,10 @@
   var VIEW_ZOOM = '196 216 456 296';   // 네일만 가까이
   var FRENCH_START = 0.68;             // 프렌치 팁이 시작되는 위치 (네일 길이 비율)
 
-  var HI = '#fff3e2';   // 하이라이트도 순백이 아니라 따뜻한 흰색
+  /* 살의 하이라이트 색은 피부톤에서 뽑아야 한다. 모든 톤에 고정된 흰색을 쓰면
+   * 어두운 톤에서 재를 뿌린 것처럼 창백한 줄무늬가 생긴다. (네일 광택은 폴리시
+   * 표면의 반사라 흰색이 맞으므로 거기엔 그대로 흰색을 쓴다.) */
+  function hiOf(sk) { return C.lighten(sk.light, 0.3); }
 
   function skinOf(id) {
     for (var i = 0; i < D.SKINS.length; i++) if (D.SKINS[i].id === id) return D.SKINS[i];
@@ -20,6 +23,7 @@
 
   /* ── defs ── */
   function skinDefs(sk) {
+    var HI = hiOf(sk);
     return [
       // 손가락을 가로지르는 원통 음영. 살색을 덮어쓰지 않고 명암만 얹어야
       // 전체 조명·피부톤과 자연스럽게 합성된다. 그늘은 검정이 아니라 sk.shade —
@@ -165,7 +169,7 @@
   /* 손가락 원통 음영. 밑동에서는 baseFade 로 평평하게 되돌려 손등과 살이 이어져 보이게 한다 —
    * 손등을 별도 실루엣으로 위에 덮으면 벙어리장갑처럼 보인다. */
   function fingerShading(fg, sk, d) {
-    var p = G.fingerPath(fg), L = fg.len, out = [];
+    var p = G.fingerPath(fg), L = fg.len, out = [], HI = hiOf(sk);
     out.push('<g clip-path="url(#fclip-' + fg.id + ')">');
     out.push('<path d="' + p + '" fill="url(#skinCyl)"/>');
     out.push('<path d="' + p + '" fill="url(#skinTip)" opacity="0.85"/>');
@@ -179,17 +183,7 @@
       out.push('<ellipse cx="0" cy="' + k.y + '" rx="' + (k.w * 1.5) + '" ry="' + (k.w * 1.1) +
         '" fill="' + sk.blood + '" opacity="' + (i ? 0.16 : 0.2) + '" filter="url(#soft14)"/>');
       // 주름은 한 줄이 아니라 잔주름 여러 줄. 한 줄이면 원통 이음새처럼 보인다.
-      // 주름 바로 위는 살이 접혀 올라오므로 밝은 능선이 생긴다
-      out.push('<path d="M ' + (-k.w) + ' ' + (k.y - 6) + ' Q ' + (k.w * 0.1) + ' ' + (k.y - 1) +
-        ' ' + k.w + ' ' + (k.y - 6) + '" fill="none" stroke="' + HI +
-        '" stroke-opacity="0.3" stroke-width="3.5" filter="url(#soft3)"/>');
-      for (var j = -1; j <= 1; j++) {
-        var y = k.y + j * 4;
-        var w = k.w * (1 - Math.abs(j) * 0.22);
-        out.push('<path d="M ' + (-w) + ' ' + y + ' Q ' + (w * 0.1) + ' ' + (y + 5) + ' ' + w + ' ' + y +
-          '" fill="none" stroke="' + sk.shade + '" stroke-opacity="' + (j ? 0.17 : 0.3) +
-          '" stroke-width="1.4" filter="url(#soft1)"/>');
-      }
+      out.push(knuckleWrinkles(fg, k, sk, i));
       out.push('</g>');
     });
 
@@ -218,6 +212,54 @@
     return out.join('');
   }
 
+  /* 관절 주름. 실제 손은 가는 가로 주름이 촘촘히 겹치고 세로 주름이 살짝 얽힌다.
+   * 굵고 진하게 그으면 손가락에 해시태그를 새긴 것처럼 보이므로, 아주 옅고 짧게
+   * 여러 줄 깔고 전체를 한 번 흐린다. 사진에서도 이 주름은 "선"이 아니라 질감이다. */
+  function knuckleWrinkles(fg, k, sk, jointIndex) {
+    var r = prng(fg.id.charCodeAt(0) * 31 + fg.id.length * 7 + jointIndex * 101 + 3);
+    var HI = hiOf(sk);
+    var band = k.w * 0.95;          // 주름이 모여 있는 띠의 높이
+    var maxHalf = k.w * 0.72;       // 실루엣 가장자리까지 닿지 않게
+    var out = [];
+    // 관절 부위 자체가 살짝 어둡다 — 주름만으로는 띠로 읽히지 않는다
+    out.push('<ellipse cx="0" cy="' + k.y + '" rx="' + (k.w * 1.25) + '" ry="' + (band * 1.1) +
+      '" fill="' + sk.shade + '" opacity="0.075" filter="url(#soft6)"/>');
+    out.push('<g filter="url(#soft1)">');
+
+    // 주름 띠 위쪽으로 접힌 살의 밝은 능선
+    out.push('<path d="M ' + (-maxHalf) + ' ' + (k.y - band * 0.85) + ' Q 0 ' +
+      (k.y - band * 0.85 + 4) + ' ' + maxHalf + ' ' + (k.y - band * 0.85) +
+      '" fill="none" stroke="' + HI + '" stroke-opacity="0.2" stroke-width="3.5"/>');
+
+    var n = 12;
+    for (var i = 0; i < n; i++) {
+      var f = i / (n - 1) - 0.5;
+      var y = k.y + f * band * 1.7 + (r() - 0.5) * 2;
+      var half = maxHalf * (0.45 + r() * 0.5) * (1 - Math.abs(f) * 0.5);
+      var xo = (r() - 0.5) * k.w * 0.45;
+      var sag = 1.5 + r() * 3;
+      var op = (0.11 + r() * 0.13) * (1 - Math.abs(f) * 0.5);
+      out.push('<path d="M ' + (xo - half).toFixed(1) + ' ' + y.toFixed(1) +
+        ' Q ' + xo.toFixed(1) + ' ' + (y + sag).toFixed(1) + ' ' + (xo + half).toFixed(1) + ' ' + y.toFixed(1) +
+        '" fill="none" stroke="' + sk.shade + '" stroke-opacity="' + op.toFixed(3) +
+        '" stroke-width="' + (0.8 + r() * 0.45).toFixed(2) + '"/>');
+    }
+
+    // 가로 주름 사이를 짧게 잇는 세로 주름 — 길면 격자무늬가 되어버린다
+    for (var j = 0; j < 4; j++) {
+      var cx = (r() - 0.5) * k.w * 1.1;
+      var cy = k.y + (r() - 0.5) * band * 0.9;
+      var h = band * (0.14 + r() * 0.16);
+      out.push('<path d="M ' + cx.toFixed(1) + ' ' + (cy - h).toFixed(1) +
+        ' Q ' + (cx + (r() - 0.5) * 3).toFixed(1) + ' ' + cy.toFixed(1) +
+        ' ' + (cx + (r() - 0.5) * 3).toFixed(1) + ' ' + (cy + h).toFixed(1) +
+        '" fill="none" stroke="' + sk.shade + '" stroke-opacity="' + (0.07 + r() * 0.07).toFixed(3) +
+        '" stroke-width="0.75"/>');
+    }
+    out.push('</g>');
+    return out.join('');
+  }
+
   function silhouette(order) {
     var parts = ['<path d="' + G.dorsumPath() + '"/>'];
     order.forEach(function (fg) { parts.push(fingerPathAbs(fg)); });
@@ -242,7 +284,7 @@
 
   /* 손등 음영. 테두리가 생기는 채움 대신 흐린 덩어리만 써서 손가락과의 경계선을 만들지 않는다. */
   function dorsumShading(sk) {
-    var out = [];
+    var out = [], HI = hiOf(sk);
     // 힘줄 — 너클에서 손목 방향으로
     [[402, 512, 448, 742], [476, 494, 484, 748], [548, 506, 530, 744], [612, 552, 574, 736]].forEach(function (t) {
       out.push('<path d="M ' + t[0] + ' ' + t[1] + ' C ' + t[0] + ' ' + (t[1] + 80) + ' ' + t[2] + ' ' + (t[3] - 100) +
