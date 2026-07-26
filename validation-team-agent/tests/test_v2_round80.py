@@ -58,10 +58,14 @@ def test_all_evidence_paths_exist(data):
 
 
 def test_implemented_without_evidence_is_rejected(data):
-    """근거 없이 '구현됨' 을 주장하면 검증이 실패해야 한다."""
+    """근거 없이 '구현됨' 을 주장하면 검증이 실패해야 한다.
+
+    규칙을 검증하는 테스트이므로 실제 매트릭스의 상태 분포에 의존하지 않는다
+    (미구현 항목이 0 이 되어도 규칙 검증은 계속 성립해야 한다).
+    """
     bad = copy.deepcopy(data)
-    target = next(r for r in bad["requirements"] if r["status"] == "missing")
-    target["status"] = "implemented"
+    bad["requirements"][0].update(status="implemented", evidence=[],
+                                  gap="근거 없는 구현 주장")
     problems = verify(bad)
     assert any("evidence 가 없다" in p for p in problems), problems
 
@@ -76,8 +80,9 @@ def test_nonexistent_evidence_is_rejected(data):
 
 def test_missing_with_evidence_is_rejected(data):
     bad = copy.deepcopy(data)
-    target = next(r for r in bad["requirements"] if r["status"] == "missing")
-    target["evidence"] = ["tools/val_coverage.py"]
+    bad["requirements"][0].update(status="missing",
+                                  evidence=["tools/val_coverage.py"],
+                                  gap="미구현인데 근거 보유")
     assert any("evidence 가 있다" in p for p in verify(bad))
 
 

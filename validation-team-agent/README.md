@@ -140,6 +140,8 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.validation_finding open / remediate / reverify / close / queue / lineage / blockers` | Finding 원장 — 재검증 없는 종결 차단·재발 시 중대도 상향 |
 | `python -m tools.independent_recalc list / run` | 독립 재계산 + 차이 원인 분해 (데이터/모형/산식/구현 기여도) |
 | `python -m tools.golden_regression run [--change-request <json>]` | Golden Case 회귀검증 — 범위 밖 변경 시 배포 차단 |
+| `python -m tools.validation_scope tiers / score / check` | 모형 중요도 등급 + 검증계획 최소 심도·주기 강제 |
+| `python -m tools.conditional_approval grant / fulfil / status / check-scope` | 조건부 승인 — 잔여위험·후속조건·제한 배포 범위 |
 | `python -m tools.pack_archive add/list/latest/prune --archive <dir>` | 분기별 팩 archive 관리 |
 | `python -m tools.data_adapter validate/convert --input <csv>` | 운영 추출 파일 안전 로더 (PII 차단) |
 | `python -m tools.cro_digest --out <html>` | CRO 분기 요약 이메일 초안 (발송 없음 — HITL) |
@@ -174,6 +176,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | 검증 트리거 원장 | `harness/validation_triggers.json` | (tools/validation_trigger 게이트) |
 | 직무분리(SoD) 정책 | `harness/sod_policy.json` | (middleware/sod_guard 게이트) |
 | Golden Case 집합 | `harness/golden_cases.json` | (tools/golden_regression 게이트) |
+| 모형 중요도 기준 | `harness/model_materiality.json` | (tools/validation_scope 게이트) |
 | 인쇄 CSS | `harness/report_print.css` | — |
 | 감사 보고서 schema | — | `harness/audit_report.schema.json` |
 | Runner 결과 schema | — | `harness/runner_result{,_credit,_macro,_ifrs9}.schema.json` |

@@ -2250,6 +2250,21 @@
       "rollback_rule": "Golden Case 가 정당한 개선을 반복 차단하면 해당 사례의 critical 을 낮추거나 사례를 제거한다(정책 파일 편집, 코드 변경 불필요). 모듈 전체는 삭제로 완전 롤백",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0151",
+      "timestamp": "2026-07-26 03:16:56",
+      "component": "harness/model_materiality.json + tools/validation_scope.py + tools/conditional_approval.py + tests/test_v2_round80.py (데이터 의존성 제거) + cli_index/dispatch/README sync",
+      "change_type": "create",
+      "evidence": "R80 매트릭스의 마지막 미구현 2건(VAL-004/017). 실측: 고중요 모형(익스포저 35%·규제직접·자동확정·통계모형) 11/12점 → tier1, light/36개월/독립검증 없음 계획에 위반 3건 판정. 유효 예외로 심도 완화 허용, 만료 후 재차 위반. 독립검증은 예외로도 면제 불가 확인. 조건부 승인: 조건·잔여위험·범위 누락과 비승인자(DEV-101/REV-201) 승인을 각각 거부, 기한 경과 시 에스컬레이션, 선언 범위 밖 사용 차단. 미구현 0 이 되면서 R80 테스트 2건이 실데이터에 missing 항목이 있다고 가정해 StopIteration 으로 실패 — 규칙 검증이 데이터 분포에 의존한 설계 결함",
+      "root_cause": "모형 중요도 개념 자체가 없어 검증 심도가 규율되지 않았고, VAL-016 차단에 대한 정규 대안(조건부 승인)이 없어 차단 아니면 우회뿐이었음",
+      "targeted_fix": "harness/model_materiality.json: 요소 4종(익스포저 비중·규제 사용·의사결정 영향·복잡도) 배점과 등급 밴드, 등급별 최소 심도·재검증 주기·독립검증 필요 여부, 예외 필수항목(사유·승인권자·만료일). tools/validation_scope: 점수 근거를 함께 반환해 등급을 설명 가능하게 하고, 심도·주기 완화는 유효 예외에서만 허용하되 독립검증 면제는 등급 변경과 같으므로 예외로도 불가. tools/conditional_approval: 조건·잔여위험·제한 배포 범위가 모두 있어야 승인이 성립(조건 없는 조건부 승인은 그냥 승인이므로 거부), approver 역할만 승인 가능(sod_guard 연동), append-only 이벤트로 조건 이행 추적, 기한 초과 자동 에스컬레이션, 범위 판정은 불일치 시 차단하고 사람 확인으로 보내는 보수적 규칙. R80 테스트 2건은 합성 fixture 로 전환해 데이터 분포 비의존화",
+      "expected_benefit": "PRD-VAL 18건 중 미구현 0. 검증 심도가 중요도로 규율되고, 미해소 위험 위의 배포가 '기록된 조건부 승인' 이라는 정규 경로로만 가능해짐. 커버리지 80.6% → 91.7%",
+      "expected_regression_risk": "낮음 — 신규 모듈 2개이며 기존 경로 무변경. R80 테스트 수정은 검증 규칙이 아니라 fixture 구성 방식 변경으로 규칙 자체는 동일하게 검증됨",
+      "validation_method": "tests/test_v2_round86.py 43 cases (중요도 등급 19: 등급 산정·설명가능성·입력검증 4종·심도/주기/독립성 위반·엄격계획·유효예외·만료예외·불완전예외 3종·독립성 면제불가·미지 심도·주기 누락·렌더·CLI / 조건부 승인 24: 조건·잔여위험·범위 필수·권한 3종·중복·형식·필드·에스컬레이션·이행·증빙·중복이행·범위밖·고아이벤트·범위확인 3종·렌더·CLI 6종·카탈로그) + 전체 1291 passed",
+      "rollback_rule": "중요도 등급이 실무와 어긋나면 model_materiality.json 의 배점·밴드를 조정한다(코드 변경 불필요). 조건부 승인이 남용되면 grant 의 enforce_sod 를 유지한 채 승인자 목록을 축소한다. 두 모듈 모두 삭제로 완전 롤백",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

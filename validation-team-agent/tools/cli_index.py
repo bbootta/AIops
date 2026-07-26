@@ -40,6 +40,8 @@ CLI_MODULES: list[tuple[str, str]] = [
     ("tools.validation_finding", "Finding 원장 (발견·원인·보완·재검증·종결 계보)"),
     ("tools.independent_recalc", "독립 재계산 + 차이 원인 분해 (VAL-007/008)"),
     ("tools.golden_regression", "Golden Case 회귀검증 + 비의도 변경 차단"),
+    ("tools.validation_scope", "모형 중요도 등급 + 검증계획 최소 심도 강제"),
+    ("tools.conditional_approval", "조건부 승인·제한 배포 (잔여위험·후속조건 추적)"),
     ("tools.manifest", "change_manifest 편집/검증/promote"),
     ("tools.findings", "recurring_findings JSON ↔ md sync"),
     ("tools.model_notes", "model_specific_notes JSON ↔ md sync"),
