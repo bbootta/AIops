@@ -27,6 +27,8 @@ AI 경영시스템 정책. 각 에이전트 정의의 「AIMS 거버넌스」 �
    - 상시 독립검증: 적합성검증 팀에이전트(`claude/validation-team-agent-Pw9F5`)에
      **매 작업 요청**하고, 게이트가 `적합`이 되기 전에는 결재 상신 불가.
      게이트는 fail-closed — 응답이 없으면 `응답대기`이며 통과가 아니다.
+     판정이 `경부적합`이면 `조건부`이고, 사람이 잔여위험·후속조건·이행기한을
+     기록해야 결재된다 (`ConditionalApproval`).
      구현: `risk_lib.validation.independent` · 절차:
      `.claude/skills/independent-validation/SKILL.md`.
 5. **기준 준거**: Basel/금감원/IFRS 기준에 없는 임의 임계치·가정 금지.

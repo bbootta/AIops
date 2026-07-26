@@ -739,6 +739,9 @@ def run_pipeline(
         limit_report=limit_report,
         alm_results=alm,
         icaap_result=icaap,
+        capital_source="ledger" if capital_ledger is not None else "synthetic",
+        capital_stack=capital,
+        total_ead=total_ead,
     )
     # v0.14.0 — cross-domain 정합성 (PD↔RWA, RWA↔BIS, ECL↔RWA,
     # 한도↔집중, RAPM↔EC, 스트레스↔BIS).  재현성 digest는 호출자가

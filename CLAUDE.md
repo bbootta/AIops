@@ -77,6 +77,9 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
    절차는 `.claude/skills/independent-validation/SKILL.md`.
 3. 결재 상신 직전에 게이트를 확인한다 (`check_gate(...).require()`).
    게이트는 **fail-closed** — 응답이 없으면 `응답대기`이며 결재 불가다.
+   판정이 `경부적합`(중부적합 0건)이면 게이트는 `조건부`이며, 결재 책임자가
+   잔여위험·후속조건·이행기한·배포 범위를 기록해야만 통과한다
+   (`require(ConditionalApproval(...))`). 기록 없이는 통과하지 않는다.
 
 보고할 때는 두 줄을 함께 적는다. 독립검증이 `응답대기`인데 "검증 완료"라고
 쓰지 않는다.

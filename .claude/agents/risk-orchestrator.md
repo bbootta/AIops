@@ -64,11 +64,13 @@ tools: Bash, Read, Edit, Write, Agent
    from risk_lib.validation.independent import build_request, check_gate
    request = build_request(result, portfolio, tables, manifest=manifest)
    request.write()                     # docs/independent_validation/<run_id>.request.json
-   gate = check_gate(request)          # 응답대기 · 적합 · 부적합
+   gate = check_gate(request)          # 응답대기 · 적합 · 조건부 · 부적합
    ```
 
    게이트는 **fail-closed**다 — 응답 파일이 없으면 `응답대기`이고 결재 상신
-   불가다. `응답대기`를 `적합`으로 바꿔 부르지 않는다. 절차 상세는
+   불가다. `응답대기`를 `적합`으로 바꿔 부르지 않는다. 판정이 `경부적합`이면
+   `조건부`이며 결재 책임자의 `ConditionalApproval` 기록 없이는 통과하지
+   않는다 — `조건부`도 `적합`으로 적지 않는다. 절차 상세는
    `.claude/skills/independent-validation/SKILL.md`.
 
    "가벼운 요청이라 생략"은 없다. 생략을 허용하면 결국 하지 않게 된다.

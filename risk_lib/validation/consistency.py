@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from risk_lib.capital.bis import BIS_MINIMUMS
+from risk_lib.capital.bis import AT1_ISSUED, BIS_MINIMUMS, PAID_IN_CAPITAL
 
 
 @dataclass
@@ -671,6 +671,39 @@ def _check_stress_trough_requirement(path_df, bis_result,
         + "; ".join(breached)))
 
 
+def _check_capital_source(capital_source: str | None, capital: Any,
+                          total_ead: float | None,
+                          report: ValidationReport) -> None:
+    """자본이 어디서 왔는지, 그중 얼마가 규모 비례분인지 매 실행 드러낸다.
+
+    독립검증 F-201·F-202: 합성 자본의 이익잉여금은 연간이익 × 4년인데 합성
+    데이터의 수익이 `ead × spread`라 이익잉여금이 익스포저를 따라간다. 규모와
+    무관한 축은 고정 발행자본뿐이고, 자산이 커지면 그 비중이 희석돼 레버리지
+    비율의 반응성이 소멸한다. 지표가 상수로 수렴하는 구조는 조용히 진행되므로
+    비중을 매번 결재선에 올린다 (3선 권고 — 2·3차 연속 제기).
+    """
+    if capital_source is None or capital is None:
+        return
+    if capital_source == "ledger":
+        report.add(ConsistencyCheck(
+            "capital_source", "PASS", "실제 자본 원장 주입 (합성기 미사용)"))
+        return
+    cet1 = float(getattr(capital, "cet1", 0.0))
+    if cet1 <= 0:
+        return
+    scaled = max(cet1 - PAID_IN_CAPITAL, 0.0)      # 이익잉여금 = 규모 비례분
+    share = scaled / cet1
+    fixed = PAID_IN_CAPITAL + AT1_ISSUED
+    tier1 = cet1 + AT1_ISSUED
+    detail = (f"합성 자본 사용 — CET1 {cet1:,.0f} 중 규모 비례분(이익잉여금) "
+              f"{share:.1%}, 고정 발행자본 기여 {fixed / tier1:.1%}")
+    if total_ead:
+        detail += (f" · 자산 대비 고정분 {fixed / float(total_ead):.2%}"
+                   f" (희석될수록 레버리지 반응성이 소멸)")
+    report.add(ConsistencyCheck(
+        "capital_source", "WARN" if share >= 0.5 else "PASS", detail))
+
+
 def run_consistency_checks(
     *,
     sa_results: pd.DataFrame | None = None,
@@ -693,11 +726,15 @@ def run_consistency_checks(
     limit_report: pd.DataFrame | None = None,
     alm_results: dict | None = None,
     icaap_result: Any = None,
+    capital_source: str | None = None,
+    capital_stack: Any = None,
+    total_ead: float | None = None,
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
 
     _check_stress_trough_requirement(stress_path_result, bis_result, rep)
+    _check_capital_source(capital_source, capital_stack, total_ead, rep)
 
     if sa_results is not None:
         _check_ead_positive(sa_results, rep, "sa")

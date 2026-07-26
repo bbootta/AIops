@@ -113,8 +113,21 @@ class ValidationResponse:
 
     @property
     def passes(self) -> bool:
-        """경부적합까지는 조건부 통과, 중부적합은 결재 불가."""
+        """기계 판정으로 무조건 통과하는 경우 — 판정 '적합' + 중부적합 0건.
+
+        '경부적합'은 여기서 통과하지 않는다. 통과도 부적합도 아닌 세 번째
+        상태이며 `conditional`이 True가 되어 게이트가 `조건부`로 넘긴다.
+        조건부는 사람이 잔여위험·후속조건·이행기한을 기록해야 결재된다
+        (독립검증 지적 F-207 — 이전 docstring은 '경부적합까지 조건부 통과'라고
+        썼으나 구현에 그 경로가 없었다).
+        """
         return self.verdict == "적합" and not any(
+            f.severity == "중부적합" for f in self.findings)
+
+    @property
+    def conditional(self) -> bool:
+        """조건부 승인 경로로 갈 수 있는가 — 판정 '경부적합' + 중부적합 0건."""
+        return self.verdict == "경부적합" and not any(
             f.severity == "중부적합" for f in self.findings)
 
     @classmethod
@@ -125,8 +138,32 @@ class ValidationResponse:
 
 
 @dataclass(frozen=True)
+class ConditionalApproval:
+    """경부적합 판정을 사람이 조건부로 인수한 기록.
+
+    기계가 만들 수 없다 — 잔여위험을 누가 지고, 무엇을 언제까지 고치며, 그때까지
+    어디에만 쓰는지는 결재 책임자의 판단이다.
+    """
+    approver: str                     # 인간 결재 책임자
+    residual_risk: str                # 잔여위험 — 무엇을 안고 가는가
+    conditions: tuple[str, ...]       # 후속조건 — 무엇을 고칠 것인가
+    due_date: str                     # 이행기한 (YYYY-MM-DD)
+    scope: str                        # 배포 범위 제한
+    findings_accepted: tuple[str, ...] = ()   # 인수한 경부적합 finding_id
+
+    def require_complete(self) -> None:
+        missing = [n for n in ("approver", "residual_risk", "due_date", "scope")
+                   if not str(getattr(self, n) or "").strip()]
+        if not self.conditions:
+            missing.append("conditions")
+        if missing:
+            raise IndependentValidationPending(
+                f"조건부 승인 기록 미비 — 누락 항목: {', '.join(missing)}")
+
+
+@dataclass(frozen=True)
 class ValidationGate:
-    status: str                       # 요청됨 · 응답대기 · 적합 · 부적합
+    status: str                       # 요청됨 · 응답대기 · 적합 · 조건부 · 부적합
     request: ValidationRequest
     response: ValidationResponse | None
     reason: str
@@ -135,13 +172,21 @@ class ValidationGate:
     def approved(self) -> bool:
         return self.status == "적합"
 
-    def require(self) -> None:
-        """결재 상신 직전에 호출한다. 통과하지 못하면 예외를 던진다."""
-        if not self.approved:
-            raise IndependentValidationPending(
-                f"독립검증 미완료 — {self.reason} "
-                f"(요청 {self.request.request_id} → {VALIDATION_TEAM}/"
-                f"{VALIDATION_TEAM_BRANCH})")
+    def require(self, conditional: ConditionalApproval | None = None) -> None:
+        """결재 상신 직전에 호출한다. 통과하지 못하면 예외를 던진다.
+
+        `조건부`(경부적합·중부적합 0건)일 때만 `conditional` 기록으로 통과할 수
+        있다. 기록이 없거나 항목이 비면 통과하지 않는다 — fail-closed.
+        """
+        if self.approved:
+            return
+        if self.status == "조건부" and conditional is not None:
+            conditional.require_complete()
+            return
+        raise IndependentValidationPending(
+            f"독립검증 미완료 — {self.reason} "
+            f"(요청 {self.request.request_id} → {VALIDATION_TEAM}/"
+            f"{VALIDATION_TEAM_BRANCH})")
 
 
 # ---------------------------------------------------------------- 요청 생성
@@ -195,10 +240,21 @@ KNOWN_ASSUMPTIONS: tuple[str, ...] = (
     # ---- 독립검증 IVR-E6BEA5DA0D5F 지적으로 추가된 항목.
     # 공시 기준이 방향에 따라 비대칭이면(보수적인 것만 공시) 공시가 아니다.
     "자본은 실제 원장이 아니라 **합성값**이다 — 고정 발행자본(자본금·AT1·T2)에 "
-    "수익성 기반 이익잉여금(연간이익 × 4년)을 더한다. RWA에도 익스포저에도 "
-    "비례하지 않으므로 자본비율과 레버리지비율이 **둘 다** 반응한다. 실제 원장은 "
-    "run_pipeline(capital_ledger=...)로 주입한다 "
-    "(risk_lib.capital.bis.synthesise_capital · 지적 F-001 · F-101).",
+    "이익잉여금(연간이익 × 4년)을 더한다. RWA에서는 파생되지 않으므로 자본비율과 "
+    "레버리지비율이 둘 다 반응한다. 실제 원장은 run_pipeline(capital_ledger=...)로 "
+    "주입한다 (risk_lib.capital.bis.synthesise_capital · 지적 F-001 · F-101).",
+    # ---- 독립검증 IVR-573F73DBBF35(3차) 지적으로 추가·정정된 항목.
+    "합성 자본의 이익잉여금은 **익스포저의 함수다** — data_gen이 "
+    "revenue = ead × spread로 수익을 만들므로 연간이익이 EAD를 따라간다"
+    "(이익/EAD 변동계수 3.8%). CET1의 약 54%가 이 규모 비례분이며, 규모와 "
+    "무관한 축은 고정 발행자본 6,400억뿐이다 (지적 F-201).",
+    "합성기의 규모 독립성은 자산이 커지면 희석된다 — 레버리지비율이 "
+    "4×margin/1.01로 수렴한다. 실측: EAD 10.4조 0.1171 → 104조 0.0625 → "
+    "520조 0.0576. 합성기는 시험용이며 규모 민감도가 필요한 산출에는 실제 자본 "
+    "원장을 주입해야 한다 (지적 F-202).",
+    "역스트레스 임계 심도는 자본 수준에 민감해 자본 가정이 바뀌면 크게 움직인다 "
+    "— 1차 0.9447 → 2차 0.8426 → 3차 0.9822 (진폭 0.14). 절대 수준보다 동일 "
+    "자본 가정 하의 비교로 읽어야 한다 (3선 권고).",
     "레버리지 부외항목에 CCF 하한 10%를 일률 적용한다 — 약정 유형별 "
     "CCF(20/40/50/100%) 구분이 없어 가장 관대한 계수를 쓴 것이다 (지적 F-004).",
     "Stage 1 커버리지가 8.1%로 12개월 기대손실치고 높다. 합성 데이터의 PD "
@@ -242,8 +298,20 @@ def build_request(result, portfolio: pd.DataFrame,
         warnings = [{"check": c.name, "detail": str(c.detail)}
                     for c in result.validation.checks if c.status == "WARN"]
 
+    # 요청 식별자는 **3선에게 넘기는 것 전부**를 지문화한다. headline 수치만
+    # 넣으면 공시 가정이나 자체검증 WARN이 바뀌어도 식별자가 그대로여서, 그
+    # 변경을 본 적 없는 이전 응답이 계속 승인으로 통한다. 산출값이 안 바뀌는
+    # 시정(문서·통제·가정 공시)일수록 재검증이 필요한데 그때 정확히 뚫린다.
+    request_id = "IVR-" + _digest(
+        run_id, digest,
+        tuple(KNOWN_ASSUMPTIONS),
+        tuple(sorted(summary.items())),
+        tuple(sorted(failures)),
+        tuple(sorted((w["check"], w["detail"]) for w in warnings)),
+    )[:12].upper()
+
     return ValidationRequest(
-        request_id=f"IVR-{_digest(run_id, digest)[:12].upper()}",
+        request_id=request_id,
         run_id=run_id, asof=asof, seed=seed,
         headline_digest=digest, portfolio_fingerprint=fingerprint,
         requested_by=requested_by, requested_to=VALIDATION_TEAM,
@@ -287,16 +355,24 @@ def check_gate(request: ValidationRequest,
     if resp.request_id != request.request_id:
         return ValidationGate("부적합", request, resp,
                               "응답 request_id 불일치 — 재요청 필요")
-    if not resp.passes:
-        bad = [f.target for f in resp.findings if f.severity == "중부적합"]
-        return ValidationGate("부적합", request, resp,
-                              f"판정 {resp.verdict}"
-                              + (f" · 중부적합 {', '.join(bad)}" if bad else ""))
     mismatched = [k for k, ok in resp.recalc_matches.items() if not ok]
     if mismatched:
+        # 재계산이 어긋나면 판정과 무관하게 부적합이다.
         return ValidationGate("부적합", request, resp,
                               f"독립 재계산 불일치: {', '.join(mismatched)}")
-    return ValidationGate("적합", request, resp, "독립 재계산 일치 · 판정 적합")
+    if resp.passes:
+        return ValidationGate("적합", request, resp, "독립 재계산 일치 · 판정 적합")
+    if resp.conditional:
+        minor = [f.finding_id for f in resp.findings if f.severity == "경부적합"]
+        return ValidationGate(
+            "조건부", request, resp,
+            f"판정 경부적합 · 중부적합 0건 · 경부적합 {len(minor)}건"
+            + (f" ({', '.join(minor)})" if minor else "")
+            + " — 잔여위험·후속조건·이행기한을 기록해야 결재 가능")
+    bad = [f.target for f in resp.findings if f.severity == "중부적합"]
+    return ValidationGate("부적합", request, resp,
+                          f"판정 {resp.verdict}"
+                          + (f" · 중부적합 {', '.join(bad)}" if bad else ""))
 
 
 def request_frames(request: ValidationRequest, gate: ValidationGate

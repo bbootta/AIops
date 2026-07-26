@@ -1052,7 +1052,9 @@ function validation(root){
     kg.appendChild(c)});
   g.appendChild(kg);
   g.appendChild(el('div','note',iv.reason+
-    ' — 게이트는 fail-closed다. 응답이 없으면 통과가 아니라 대기이며 결재 상신이 막힌다.'));
+    ' — 게이트는 fail-closed다. 응답이 없으면 통과가 아니라 대기이며 결재 상신이 막힌다. '+
+    '판정이 경부적합이면 상태는 조건부이며, 결재 책임자가 잔여위험·후속조건·이행기한·'+
+    '배포 범위를 기록해야만 통과한다 — 조건부는 적합이 아니다.'));
   g.appendChild(el('h3',null,'독립 재계산 대상'));
   g.appendChild(table(D.independent_targets));
   g.appendChild(el('h3',null,'3선이 도전해야 할 가정'));

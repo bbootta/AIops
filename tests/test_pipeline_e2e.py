@@ -58,7 +58,10 @@ GOLDEN = {
 # +1 WARN: pd_floor_5bp now catches more low-PD exposures (5bp vs 3bp threshold).
 # +1 WARN: stress_trough_meets_requirement — 위기상황 CET1 저점이 요구치를
 # 침범하는 사실이 자체검증에 전혀 남지 않던 공백을 메웠다 (독립검증 F-003).
-GOLDEN_VALIDATION = {"PASS": 49, "WARN": 4}
+# +1 WARN: capital_source — 합성 자본의 규모 비례분이 CET1의 54.3%라는 사실을
+# 매 실행 드러낸다. 자산이 커지면 고정분이 희석돼 레버리지 반응성이 소멸하는데
+# 그 진행이 조용하다 (독립검증 F-201·F-202).
+GOLDEN_VALIDATION = {"PASS": 49, "WARN": 5}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",

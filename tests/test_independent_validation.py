@@ -167,6 +167,106 @@ def test_gate_rejects_a_non_compliant_verdict(request_obj, tmp_path):
     assert check_gate(request_obj, tmp_path).status == "부적합"
 
 
+# ----- 조건부 승인 (독립검증 지적 F-207) --------------------------------------
+#
+# 3선이 게이트 코드 자체를 검증해 docstring–구현 모순을 찾았다. docstring은
+# "경부적합까지는 조건부 통과"라고 했으나 구현은 verdict == "적합"만 통과시켜,
+# 약속한 조건부 경로가 존재하지 않았다. 판정 도구가 스스로 모순되면 그 위의
+# 모든 판정이 흔들린다.
+
+def test_a_minor_verdict_is_neither_pass_nor_fail(request_obj, tmp_path):
+    _write(tmp_path, request_obj, _response(
+        request_obj, verdict="경부적합", findings=[asdict(Finding(
+            "F-201", "경부적합", "cet1_ratio", "문서 주장과 코드 불일치"))]))
+    gate = check_gate(request_obj, tmp_path)
+    assert gate.status == "조건부"
+    assert not gate.approved              # 기계 판정만으로는 결재 불가
+    assert "F-201" in gate.reason and "이행기한" in gate.reason
+
+
+def test_conditional_status_still_blocks_without_a_record(request_obj, tmp_path):
+    """조건부는 통과가 아니다 — 기록 없이 require()하면 여전히 막힌다."""
+    _write(tmp_path, request_obj, _response(request_obj, verdict="경부적합"))
+    with pytest.raises(IndependentValidationPending):
+        check_gate(request_obj, tmp_path).require()
+
+
+def test_conditional_approval_record_unblocks_the_gate(request_obj, tmp_path):
+    from risk_lib.validation.independent import ConditionalApproval
+    _write(tmp_path, request_obj, _response(request_obj, verdict="경부적합"))
+    gate = check_gate(request_obj, tmp_path)
+    gate.require(ConditionalApproval(
+        approver="리스크관리책임자",
+        residual_risk="합성 자본의 규모 비례분 54.3%",
+        conditions=("실 자본 원장 확보 후 재산출",),
+        due_date="2026-09-30",
+        scope="내부 검토용 제한 배포",
+        findings_accepted=("F-201", "F-202")))
+
+
+def test_an_incomplete_conditional_record_does_not_unblock(request_obj, tmp_path):
+    """빈 기록으로 조건부를 통과시키면 조건부가 무조건이 된다."""
+    from risk_lib.validation.independent import ConditionalApproval
+    _write(tmp_path, request_obj, _response(request_obj, verdict="경부적합"))
+    gate = check_gate(request_obj, tmp_path)
+    with pytest.raises(IndependentValidationPending, match="누락 항목"):
+        gate.require(ConditionalApproval(
+            approver="", residual_risk="", conditions=(),
+            due_date="", scope=""))
+
+
+def test_conditional_never_applies_when_a_material_finding_exists(
+        request_obj, tmp_path):
+    """중부적합이 하나라도 있으면 조건부 경로 자체가 열리지 않는다."""
+    from risk_lib.validation.independent import ConditionalApproval
+    _write(tmp_path, request_obj, _response(
+        request_obj, verdict="경부적합", findings=[asdict(Finding(
+            "F-900", "중부적합", "cet1_ratio", "재계산 불일치"))]))
+    gate = check_gate(request_obj, tmp_path)
+    assert gate.status == "부적합"
+    with pytest.raises(IndependentValidationPending):
+        gate.require(ConditionalApproval(
+            approver="리스크관리책임자", residual_risk="—",
+            conditions=("—",), due_date="2026-09-30", scope="—"))
+
+
+def test_conditional_does_not_survive_a_recalculation_mismatch(
+        request_obj, tmp_path):
+    """재계산이 어긋나면 판정과 무관하게 부적합이다."""
+    matches = {k: True for k, *_ in RECALC_SCOPE}
+    matches["rwa_final_total"] = False
+    _write(tmp_path, request_obj,
+           _response(request_obj, verdict="경부적합", matches=matches))
+    assert check_gate(request_obj, tmp_path).status == "부적합"
+
+
+def test_request_id_changes_when_the_disclosed_content_changes(
+        result, portfolio, studio, monkeypatch):
+    """산출값이 그대로여도 3선에게 넘기는 내용이 바뀌면 재검증 대상이다.
+
+    request_id가 headline 수치만 지문화하면, 가정 공시나 자체검증 WARN이 바뀌어도
+    식별자가 그대로여서 그 변경을 본 적 없는 이전 응답이 계속 승인으로 통한다.
+    산출값이 안 바뀌는 시정(문서·통제·가정 공시)일수록 재검증이 필요한데 그때
+    정확히 뚫리므로, 넘기는 것 전부를 지문에 넣는다.
+    """
+    import risk_lib.validation.independent as iv
+    before = build_request(result, portfolio, studio.tables).request_id
+    monkeypatch.setattr(
+        iv, "KNOWN_ASSUMPTIONS", KNOWN_ASSUMPTIONS + ("새로 공시한 가정",))
+    after = build_request(result, portfolio, studio.tables)
+    assert after.request_id != before
+    assert after.headline_digest == studio.iv_request.headline_digest  # 수치는 그대로
+
+
+def test_passes_docstring_matches_the_implementation():
+    """F-207의 재발 방지 — docstring이 약속한 경로가 코드에 있어야 한다."""
+    resp = ValidationResponse(
+        request_id="IVR-X", run_id="RUN-X", verdict="경부적합",
+        validated_by=VALIDATION_TEAM, validated_at="2026-07-26T00:00:00+00:00")
+    assert resp.passes is False          # 무조건 통과는 아니고
+    assert resp.conditional is True      # 조건부 경로는 열린다
+
+
 def test_gate_rejects_an_unreadable_response(request_obj, tmp_path):
     p = request_obj.response_path(tmp_path)
     p.parent.mkdir(parents=True, exist_ok=True)
