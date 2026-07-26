@@ -415,9 +415,9 @@ def test_all_products_with_tables_are_materialized(tables):
     with_tables = {s.product for s in cat.ALL_TABLES} - {"PRD-RDM"}
     missing = with_tables - set(_MATERIALIZERS)
     # NCR·CAP·AIG는 인접 엔진이 함께 생성하고, REG는 업무보고서 빌더가,
-    # UIX는 UI 통제 원장 빌더가 채운다.
-    assert missing <= {"PRD-NCR", "PRD-CAP", "PRD-AIG", "PRD-REG", "PRD-UIX"}, \
-        f"엔진 없는 제품: {missing}"
+    # UIX는 UI 통제 원장 빌더가, PRU는 세분화 엔진(materialize_prudential)이 채운다.
+    assert missing <= {"PRD-NCR", "PRD-CAP", "PRD-AIG", "PRD-REG", "PRD-UIX",
+                       "PRD-PRU"}, f"엔진 없는 제품: {missing}"
     for prod in with_tables:
         for spec in cat.by_product(prod):
             assert spec.name in tables, f"{spec.name} 미실체화"

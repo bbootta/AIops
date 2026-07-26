@@ -227,3 +227,90 @@ def test_kill_switch_requires_a_reason(page):
     assert "Kill Switch 해제" not in page.inner_text(".kill")
     _tab(page, 1)
     assert "비상정지 — 실행 차단" not in page.inner_text("section.on .card")
+
+
+# ----- E 위기상황: 심각도별 전 단계 산출과정 ------------------------------------
+
+def _stress_tab(pg) -> None:
+    labels = pg.eval_on_selector_all("nav button", "els => els.map(e => e.textContent)")
+    _tab(pg, labels.index("E 위기상황"))
+    pg.wait_for_timeout(400)
+
+
+def test_stress_screen_shows_every_calculation_block(page):
+    _stress_tab(page)
+    txt = _text(page)
+    for block in ("거시", "위험파라미터", "손실", "손익", "RWA", "자본", "비율", "판정"):
+        assert block in txt, block
+    # 산식·투입값·근거가 화면에 있어야 "산출 과정"이다.
+    assert "logit(PD)" in txt and "IFRS 9 5.5" in txt
+
+
+def test_stress_screen_compares_every_severity(page):
+    _stress_tab(page)
+    txt = _text(page)
+    for sc in ("baseline", "adverse", "severely_adverse"):
+        assert sc in txt, sc
+    assert "심각도 비교" in txt
+
+
+def test_changing_severity_changes_the_traced_values(page):
+    _stress_tab(page)
+    import re
+
+    def pd_shock() -> float:
+        m = re.search(r"PD \(충격 후\)\s+([\d.]+)%", _text(page))
+        assert m, _text(page)[:600]
+        return float(m.group(1))
+
+    severe = pd_shock()
+    page.eval_on_selector_all(
+        "section.on .chips .chip",
+        "els => els.find(e => e.textContent === 'baseline').click()")
+    page.wait_for_timeout(400)
+    base = pd_shock()
+    assert base < severe, "심도를 낮췄는데 충격 PD가 줄지 않았다"
+
+
+def test_changing_quarter_changes_the_trace(page):
+    _stress_tab(page)
+    first = _text(page)
+    opts = page.eval_on_selector_all("section.on select.sel option",
+                                     "els => els.map(e => e.value)")
+    page.select_option("section.on select.sel", opts[0])
+    page.wait_for_timeout(400)
+    a = _text(page)
+    page.select_option("section.on select.sel", opts[-1])
+    page.wait_for_timeout(400)
+    assert a != _text(page)
+
+
+def test_trough_button_selects_the_worst_quarter(page):
+    _stress_tab(page)
+    page.eval_on_selector_all(
+        "section.on .btn", "els => els.find(e => e.textContent === '저점 분기로').click()")
+    page.wait_for_timeout(400)
+    q = page.eval_on_selector("section.on select.sel", "s => s.value")
+    assert q                                  # 저점 분기가 선택돼 있다
+    assert "심각도 비교 · " + q in _text(page)
+
+
+def test_blocks_collapse_and_expand(page):
+    _stress_tab(page)
+    assert "logit(PD)" in _text(page)
+    page.eval_on_selector_all(
+        "section.on .blockhead",
+        "els => els.find(e => e.textContent.includes('위험파라미터')).click()")
+    page.wait_for_timeout(300)
+    assert "logit(PD)" not in _text(page)
+
+
+# ----- R 감독보고: 편제 전 영역 -------------------------------------------------
+
+def test_regulatory_tab_covers_every_regulation_section(page):
+    labels = page.eval_on_selector_all("nav button", "els => els.map(e => e.textContent)")
+    _tab(page, labels.index("R 감독보고"))
+    txt = _text(page)
+    for code in ("BA1101", "BA2101", "BA3301", "BA4301", "BA5301",
+                 "BA6401", "BA7201", "BA8201"):
+        assert code in txt, code

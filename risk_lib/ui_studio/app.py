@@ -27,7 +27,9 @@ DEMO_TABLES = (
     "rdm_asset_quality", "rdm_exposure", "rdm_exposure_balance",
     "rwa_sa_bucket", "rwa_irb_pool", "ecl_result", "crm_ews_signal",
     "alm_lcr_item", "alm_nsfr_item", "mkt_ipv", "opr_loss_event",
-    "reg_form_line", "st_capital_path",
+    "reg_form_line", "st_capital_path", "st_calc_trace",
+    "pru_balance_sheet", "pru_income_statement", "pru_liquidity_ratio",
+    "pru_ownership_limit", "pru_camel", "pru_prompt_action",
 )
 
 _ENGINE_JS = (Path(__file__).with_name("engine.js")).read_text(encoding="utf-8")
@@ -210,6 +212,7 @@ def _payload(s: Studio) -> dict:
         "official": b.spec.form_no.is_official,
         "form_name": b.spec.form_name,
         "frequency": b.spec.frequency, "citation": b.spec.citation,
+        "section": b.spec.section,
         "n_lines": len(b.lines), "n_checks": len(b.checks),
         "n_failed": b.n_failed,
         "lines": [{
@@ -370,6 +373,15 @@ font-family:inherit}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .spark{width:100%;height:120px;display:block}
 .kill.on{background:var(--bad);color:#fff}
+.blockhead{display:flex;align-items:center;gap:10px;width:100%;
+background:transparent;border:none;color:var(--text);cursor:pointer;
+font-family:inherit;font-size:13px;font-weight:600;padding:2px 0;text-align:left}
+.blockhead small{margin-left:auto;color:var(--muted);font-weight:400;font-size:11px}
+.bnum{background:var(--accent);color:#fff;border-radius:5px;padding:2px 7px;
+font-size:11px;font-variant-numeric:tabular-nums}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.listsec{background:var(--panel2);border-bottom:1px solid var(--line);
+padding:6px 10px;font-size:11px;font-weight:600;color:var(--muted)}
 """
 
 _JS = r"""
@@ -741,6 +753,190 @@ function sparkline(values, title){
   return box;
 }
 
+
+/* ---- E 위기상황: 심각도별 전 단계 산출과정 ---- */
+const TRACE_BLOCKS=['거시','위험파라미터','손실','손익','RWA','자본','비율','판정'];
+
+function traceRows(){
+  const f=D.data['st_calc_trace'];
+  if(!f)return null;
+  const i={};f.columns.forEach((c,k)=>{i[c]=k});
+  return {f,i};
+}
+function stressDeepDive(root){
+  const T=traceRows();
+  if(!T){root.appendChild(el('div','note','추적표가 없다.'));return}
+  const {f,i}=T;
+  root.appendChild(el('p','lead',
+    '거시 충격이 위험파라미터 → 손실 → 손익 → RWA → 자본 → 비율 → 판정으로 전이되는 '+
+    '전 과정을 심각도별·분기별로 펼친다. 각 단계는 산식·투입값·규정 근거를 함께 가지며, '+
+    '마지막 단계 값은 스트레스 경로 결과와 정확히 일치한다.'));
+
+  const scenarios=[...new Set(f.rows.map(r=>r[i.scenario]))];
+  const quarters=[...new Set(f.rows.map(r=>r[i.quarter]))];
+  let scenario=scenarios[scenarios.length-1], quarter=quarters[0];
+  const collapsed=new Set();
+
+  /* 저점 분기 = 선택 시나리오의 보통주자본비율 최솟값 분기 */
+  function troughQuarter(sc){
+    let best=null,bv=Infinity;
+    f.rows.forEach(r=>{
+      if(r[i.scenario]===sc&&r[i.step]==='보통주자본비율'&&r[i.value]<bv){
+        bv=r[i.value];best=r[i.quarter]}});
+    return best;
+  }
+  quarter=troughQuarter(scenario)||quarters[0];
+
+  const bar=el('div','toolbar');
+  const scBox=el('div','chips');
+  scenarios.forEach(sc=>{const b=el('button','chip',sc);
+    b.onclick=()=>{scenario=sc;quarter=troughQuarter(sc)||quarters[0];draw()};
+    scBox.appendChild(b)});
+  const qsel=el('select','sel');
+  quarters.forEach(q=>{const o=el('option');o.value=q;o.textContent=q;qsel.appendChild(o)});
+  qsel.onchange=()=>{quarter=qsel.value;draw()};
+  const btnTrough=el('button','btn','저점 분기로');
+  btnTrough.onclick=()=>{quarter=troughQuarter(scenario);draw()};
+  bar.appendChild(scBox);bar.appendChild(qsel);bar.appendChild(btnTrough);
+  root.appendChild(bar);
+
+  const pane=el('div');root.appendChild(pane);
+
+  function pick(sc,q,step){
+    const r=f.rows.find(x=>x[i.scenario]===sc&&x[i.quarter]===q&&x[i.step]===step);
+    return r?r[i.value]:null;
+  }
+  function fmtUnit(v,u){
+    if(v===null)return '—';
+    if(u==='ratio')return (v*100).toFixed(4)+'%';
+    if(u==='count')return fmtNum(v);
+    return fmtNum(v);
+  }
+
+  function draw(){
+    [...scBox.children].forEach(b=>b.classList.toggle('on',b.textContent===scenario));
+    qsel.value=quarter;
+    pane.innerHTML='';
+
+    /* --- 심각도 비교: 같은 분기, 모든 시나리오 --- */
+    const cmp=el('div','card');
+    cmp.appendChild(el('h3',null,`심각도 비교 · ${quarter}`));
+    /* 비율 열은 %로 환산해 둔다 — 0.0819를 그대로 두면 금액 열과 자릿수가
+       섞여 읽히지 않는다. 열 이름에 단위를 박아 오해를 없앤다. */
+    const pc=v=>v===null?null:v*100;
+    cmp.appendChild(table({
+      columns:['시나리오','충격 심도','ΔGDP %','PD(충격) %','LGD(충격) %',
+               'ECL(충격)','증분 ECL','RWA 합계','CET1 %','총자본비율 %',
+               '요구치 충족'],
+      rows:scenarios.map(sc=>[sc,
+        pick(sc,quarter,'충격 심도 (severity)'),
+        pc(pick(sc,quarter,'GDP 성장률 충격')),
+        pc(pick(sc,quarter,'PD (충격 후)')),
+        pc(pick(sc,quarter,'LGD (충격 후)')),
+        pick(sc,quarter,'기대신용손실 (충격 후)'),
+        pick(sc,quarter,'증분 ECL'),
+        pick(sc,quarter,'위험가중자산 합계'),
+        pc(pick(sc,quarter,'보통주자본비율')),
+        pc(pick(sc,quarter,'총자본비율')),
+        pick(sc,quarter,'요구치 충족')===1?'충족':'침범']),
+      total:scenarios.length,shown:scenarios.length}));
+    pane.appendChild(cmp);
+
+    /* --- CET1 경로: 시나리오별 --- */
+    const path=el('div','card');
+    path.appendChild(el('h3',null,'보통주자본비율 경로 · 심각도별'));
+    const series=scenarios.map(sc=>({name:sc,
+      values:quarters.map(q=>pick(sc,q,'보통주자본비율'))}));
+    const req=pick(scenario,quarter,'보통주자본 요구비율');
+    path.appendChild(multiLine(series,quarters,req));
+    pane.appendChild(path);
+
+    /* --- 전 단계 워터폴 --- */
+    const steps=f.rows.filter(r=>r[i.scenario]===scenario&&r[i.quarter]===quarter)
+                      .sort((a,b)=>a[i.seq]-b[i.seq]);
+    TRACE_BLOCKS.forEach(bk=>{
+      const rows=steps.filter(r=>r[i.block]===bk);
+      if(!rows.length)return;
+      const c=el('div','card');
+      const h=el('button','blockhead');
+      h.appendChild(el('span','bnum',String(TRACE_BLOCKS.indexOf(bk)+1).padStart(2,'0')));
+      h.appendChild(document.createTextNode(' '+bk));
+      h.appendChild(el('small',null,`${rows.length}단계`));
+      const body=el('div');
+      const open=!collapsed.has(bk);
+      h.onclick=()=>{collapsed.has(bk)?collapsed.delete(bk):collapsed.add(bk);draw()};
+      c.appendChild(h);
+      if(open){
+        body.appendChild(table({
+          columns:['#','단계','산출값','단위','산식','투입값','근거'],
+          rows:rows.map(r=>[r[i.seq],r[i.step],
+            fmtUnit(r[i.value],r[i.unit]),r[i.unit],r[i.formula],
+            r[i.inputs],r[i.citation]]),
+          total:rows.length,shown:rows.length},{numeric:false}));
+        c.appendChild(body);
+      }
+      pane.appendChild(c);
+    });
+
+    const note=el('div','note',
+      '추적표의 마지막 단계 값은 st_capital_path(스트레스 경로 결과)와 정확히 일치한다 — '+
+      '어긋나면 추적이 아니라 두 번째 모형이다. 본 시나리오 축은 신용 파라미터만 충격하며, '+
+      '시장·운영 충격은 별도 축에서 다룬다(해당 단계에 불변으로 표시).');
+    pane.appendChild(note);
+  }
+  draw();
+}
+
+function multiLine(series, labels, threshold){
+  const w=900,h=240,padL=56,padR=10,padT=12,padB=26;
+  const all=series.flatMap(s=>s.values).filter(v=>v!==null);
+  if(threshold!==null&&threshold!==undefined)all.push(threshold);
+  const max=Math.max(...all),min=Math.min(...all);
+  const span=(max-min)||1;
+  const x=k=>padL+k*(w-padL-padR)/Math.max(labels.length-1,1);
+  const y=v=>h-padB-((v-min)/span)*(h-padT-padB);
+  const ns='http://www.w3.org/2000/svg';
+  const svg=document.createElementNS(ns,'svg');
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  svg.setAttribute('class','spark');
+  svg.style.height='240px';
+  const colors=['#3fb950','#d29922','#f85149','#4a9eff'];
+  if(threshold!==null&&threshold!==undefined){
+    const l=document.createElementNS(ns,'line');
+    l.setAttribute('x1',padL);l.setAttribute('x2',w-padR);
+    l.setAttribute('y1',y(threshold));l.setAttribute('y2',y(threshold));
+    l.setAttribute('stroke','currentColor');l.setAttribute('stroke-dasharray','4 3');
+    l.setAttribute('opacity','.5');svg.appendChild(l);
+    const t=document.createElementNS(ns,'text');
+    t.setAttribute('x',padL);t.setAttribute('y',y(threshold)-4);
+    t.setAttribute('fill','currentColor');t.setAttribute('font-size','10');
+    t.setAttribute('opacity','.7');
+    t.textContent=`요구 ${(threshold*100).toFixed(2)}%`;svg.appendChild(t);
+  }
+  series.forEach((s,si)=>{
+    const pts=s.values.map((v,k)=>v===null?null:`${x(k)},${y(v)}`)
+                      .filter(Boolean).join(' ');
+    const pl=document.createElementNS(ns,'polyline');
+    pl.setAttribute('points',pts);pl.setAttribute('fill','none');
+    pl.setAttribute('stroke',colors[si%colors.length]);
+    pl.setAttribute('stroke-width','2');svg.appendChild(pl);
+    const t=document.createElementNS(ns,'text');
+    t.setAttribute('x',w-padR);t.setAttribute('y',y(s.values[s.values.length-1])-4);
+    t.setAttribute('text-anchor','end');t.setAttribute('font-size','10');
+    t.setAttribute('fill',colors[si%colors.length]);
+    t.textContent=s.name;svg.appendChild(t);
+  });
+  labels.forEach((lb,k)=>{
+    if(k%2)return;
+    const t=document.createElementNS(ns,'text');
+    t.setAttribute('x',x(k));t.setAttribute('y',h-8);
+    t.setAttribute('text-anchor','middle');t.setAttribute('font-size','9');
+    t.setAttribute('fill','currentColor');t.setAttribute('opacity','.6');
+    t.textContent=lb;svg.appendChild(t);
+  });
+  const box=el('div');box.appendChild(svg);return box;
+}
+
 /* ---- 부문 뷰 ---- */
 function domain(root, product, title, lead){
   root.appendChild(el('p','lead',lead));
@@ -775,9 +971,11 @@ function regulatory(root){
     '서식 식별자(BR-01…)는 내부 코드이며 배포본 서식번호와의 매핑이 필요하다.'));
   const wrap=el('div','split');
   const list=el('div','list');const pane=el('div');
+  let sec=null;
   D.forms.forEach((f,i)=>{
-    const b=el('button');b.appendChild(document.createTextNode(`${f.form_id} ${f.form_name}`));
-    b.appendChild(el('small',null,`${f.frequency} · ${f.n_lines}행 · 검증 ${f.n_checks}건 실패 ${f.n_failed}`));
+    if(f.section!==sec){sec=f.section;list.appendChild(el('div','listsec',sec))}
+    const b=el('button');b.appendChild(document.createTextNode(`${f.form_no} ${f.form_name}`));
+    b.appendChild(el('small',null,`${f.form_id} · ${f.frequency} · ${f.n_lines}행 · 검증 ${f.n_checks}건 실패 ${f.n_failed}`));
     b.onclick=()=>{[...list.children].forEach(x=>x.classList.remove('on'));
       b.classList.add('on');renderForm(pane,f)};
     list.appendChild(b);
@@ -792,7 +990,7 @@ function renderForm(pane,f){
   pane.innerHTML='';
   const c=el('div','card');
   c.appendChild(el('h3',null,`[${f.form_no}] ${f.form_name}`));
-  c.appendChild(el('div','meta',`내부 ID ${f.form_id} · 제출주기 ${f.frequency} · 근거 ${f.citation}`));
+  c.appendChild(el('div','meta',`${f.section} · 내부 ID ${f.form_id} · 제출주기 ${f.frequency} · 근거 ${f.citation}`));
   if(!f.official)c.appendChild(el('div','note',
     '서식번호는 내부 배정 코드다 — 금감원 배포본 서식번호 확보 후 대조가 필요하다.'));
   const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
@@ -885,8 +1083,7 @@ const TABS=[
    r=>domain(r,'PRD-OPR',null,'내·외부 사건·회수·KRI·PSMOR 원칙 매핑을 연결한다. 매핑이며 준수 인증이 아니다.')],
   ['E ALM','E · ALM — IRRBB·LCR·NSFR',
    r=>domain(r,'PRD-ALM',null,'항목별 잔액·적용률·가중 후 금액까지 분해해 규제 비율의 원인을 추적한다.')],
-  ['E 위기상황','E · 통합위기상황분석 — 시나리오→자본',
-   r=>domain(r,'PRD-ST',null,'거시경로에서 위험전이·손익·RWA·자본까지 하나의 통제경로로 연결한다.')],
+  ['E 위기상황','E · 통합위기상황분석 — 심각도별 전 단계 산출과정',stressDeepDive],
   ['R 감독보고','R · 금감원 업무보고서',regulatory],
   ['F 검증','F · 상시·독립 적합성검증 게이트',validation],
   ['G 에이전트','G · 에이전트 운영 · 권한 · Kill Switch',agents],

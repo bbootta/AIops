@@ -12,7 +12,7 @@
 CLI / Agents            cli.py, .claude/agents/*
   ↓
 Delivery (산출물)        ui_studio/ (에이전틱 UI — 조립·조회·레이아웃·렌더),
-                        regulatory/ (금감원 업무보고서 서식·엑셀),
+                        regulatory/ (금감원 업무보고서 서식 34장·엑셀),
                         deliverables(패키징·ZIP·매니페스트)
   ↓
 Reports (표현 계층)      html_report(빌드 오케스트레이터), report_chrome(CSS/NAV/헬퍼),
@@ -21,12 +21,14 @@ Reports (표현 계층)      html_report(빌드 오케스트레이터), report_c
                         page_registry
   ↓
 Canonical data model    datamodel/ (spec·catalog·decompose·materialize·
-                        materialize_detail) — 71 테이블 / 515 컬럼
+                        materialize_detail) — 78 테이블 / 570 컬럼
   ↓
 Orchestration           pipeline.run_pipeline → PipelineResult
   ↓
 Domain engines          capital/, provisioning/, models/, stress/, alm/, icaap/,
                         limits/, monitoring/, performance/, validation/,
+                        prudential/ (재무제표·국내유동성·자산운용한도·
+                        경영실태평가·적기시정조치),
                         + 단일 모듈 도메인 (xva, frtb, cecl, systemic, intraday,
                         climate, ccr, op_loss, capital_simulation, ...)
   ↓
@@ -84,7 +86,7 @@ out/
 
 ## 정규 데이터모델 (datamodel/)
 
-`catalog.ALL_TABLES`가 단일 소스다 — 테이블 71장 / 컬럼 515개. 각 컬럼은 타입·
+`catalog.ALL_TABLES`가 단일 소스다 — 테이블 78장 / 컬럼 570개. 각 컬럼은 타입·
 단위·허용값·범위·규정 근거를 스펙으로 선언하고, DDL·검증·DQ 규칙이 모두 여기서
 파생된다.
 
@@ -105,7 +107,21 @@ out/
 
 ## 감독보고 (regulatory/)
 
-금융감독원 배포 기준 업무보고서 서식 14장. 라인마다 값·산식·규정근거·산출
+금융감독원 배포 기준 업무보고서 서식 **34장**을 은행업감독규정 편제 순으로 낸다.
+
+| 편 | 서식 |
+|---|---|
+| 제1편 재무·손익 | BA1101 재무상태표 · BA1201 손익계산서 |
+| 제2편 자본적정성 | BA2101 총괄 · BA2102 자본명세 · BA2201/2202 신용 SA·IRB · BA2203 CRM · BA2301 시장 · BA2302 위험요소·백테스팅 · BA2401 운영 · BA2402 운영손실 · BA2501 레버리지 · BA2601 산출하한 · BA2701 완충자본·MDA |
+| 제3편 유동성 | BA3101 LCR · BA3201 NSFR · BA3301 원화유동성 · BA3401 외화유동성 · BA3501 예대율 |
+| 제4편 자산건전성 | BA4101 건전성분류 · BA4102 자산군별 · BA4201 대손준비금 · BA4301 부실채권·연체 |
+| 제5편 자산운용 한도 | BA5101 거액여신·동일차주 · BA5201 대주주 · BA5301 유가증권·자회사·부동산 |
+| 제6편 금리리스크 | BA6101 IRRBB |
+| 제7편 내부자본·위기 | BA6201 스트레스테스트 · BA6301 ICAAP · BA6401 위기상황 산출과정 |
+| 제8편 경영실태·조치 | BA7101 경영실태평가 · BA7201 적기시정조치 |
+| 제9편 집중도·거래상대방 | BA8101 집중도·거액익스포저 · BA8201 CCR·CVA |
+
+편제와 서식 순서의 단일 소스는 `form_ids.SECTIONS`다. 라인마다 값·산식·규정근거·산출
 모듈을 함께 남기고, 소계·비율은 서식이 **스스로 대사**한다(`FormCheck`).
 검증 실패가 하나라도 있으면 `reg_submission.status`가 `approved`로 올라가지 않는다.
 
@@ -114,6 +130,19 @@ out/
 번호가 없으면 화면·엑셀에 `(내부)` 표시가 붙는다. 공개 웹에서 공식 번호표를
 확보하지 못해 **추측해서 채우지 않았다** — 배포본을 받으면 `official_code`만
 채우면 서식·라인·검증·UI가 모두 따라온다.
+
+## 위기상황분석 산출과정 (stress/trace.py)
+
+`run_stress_path`는 결과만 낸다. 추적 엔진은 **같은 함수로 같은 계산을 다시
+밟으며** 시나리오 × 분기마다 35단계를 남긴다 — 거시 → 위험파라미터 → 손실 →
+손익 → RWA → 자본 → 비율 → 판정. 각 단계는 산식·투입값·단위·규정 근거를 갖는다.
+
+불변식: 추적표의 CET1·RWA·ECL은 `st_capital_path`와 **정확히(rel 1e-12)** 일치
+한다. 어긋나면 그건 설명이 아니라 두 번째 모형이고, 같은 은행에 CET1 저점이
+두 개 존재하게 된다. `tests/test_stress_trace.py`가 전 셀에서 이를 고정한다.
+
+구성요소 합(SA+시장+운영)이 `rwa_other`와 다르면 조용히 다른 총계를 그리지 않고
+`ValueError`를 던진다.
 
 ## 에이전틱 UI (ui_studio/)
 

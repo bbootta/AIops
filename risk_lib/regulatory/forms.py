@@ -19,7 +19,7 @@ from typing import Callable
 
 import pandas as pd
 
-from risk_lib.regulatory.form_ids import FormId, form_id
+from risk_lib.regulatory.form_ids import FormId, form_id, section_of
 
 
 # ---------------------------------------------------------------- 자료 구조
@@ -72,6 +72,11 @@ class FormSpec:
     @property
     def form_no_display(self) -> str:
         return self.form_no.display()
+
+    @property
+    def section(self) -> str:
+        """감독규정 편제 — 목차·UI가 이 순서로 묶는다."""
+        return section_of(self.form_id)
 
 
 @dataclass
@@ -716,6 +721,20 @@ def _br14(ctx) -> BuiltForm:
 
 # ---------------------------------------------------------------- 서식 등록
 
+def _ext(form_id: str, builder_name: str):
+    """forms_ext의 (lines, checks) 빌더를 BuiltForm으로 감싼다.
+
+    확장 빌더가 FORMS_BY_ID를 직접 참조하면 순환 import가 된다 — 서식 등록은
+    이 파일에만 두고, 확장 모듈은 순수하게 라인·검증만 만든다.
+    """
+    def _run(ctx):
+        from risk_lib.regulatory import forms_ext
+        lines, checks = getattr(forms_ext, builder_name)(ctx)
+        return BuiltForm(FORMS_BY_ID[form_id], lines, checks)
+    _run.__name__ = f"_run_{form_id.replace('-', '_')}"
+    return _run
+
+
 FORMS: tuple[FormSpec, ...] = (
     FormSpec("BR-01", "자기자본비율 산출 총괄", "분기",
              "은행업감독규정 제26조 · Basel III CRE20·CRE40·RBC20", 1,
@@ -747,6 +766,80 @@ FORMS: tuple[FormSpec, ...] = (
              "Basel III SRP31", 13, "PRD-ALM", _br13),
     FormSpec("BR-14", "스트레스테스트 결과", "연",
              "Basel III SRP20 ICAAP · 스트레스 완충자본", 14, "PRD-ST", _br14),
+
+    # ---- 제1편 재무·손익 (제99조 업무보고서 기본)
+    FormSpec("BR-15", "재무상태표", "분기",
+             "은행업감독규정 제99조 업무보고서", 15, "PRD-PRU",
+             _ext("BR-15", "br_balance_sheet")),
+    FormSpec("BR-16", "손익계산서", "분기",
+             "은행업감독규정 제99조 업무보고서", 16, "PRD-PRU",
+             _ext("BR-16", "br_income_statement")),
+
+    # ---- 제2편 자본적정성 (나머지)
+    FormSpec("BR-17", "신용위험경감 (담보·보증)", "분기",
+             "Basel III CRE22", 17, "PRD-RWA", _ext("BR-17", "br_crm")),
+    FormSpec("BR-18", "시장리스크 위험요소 및 백테스팅", "분기",
+             "Basel III MAR31·MAR33·MAR99", 18, "PRD-MKT",
+             _ext("BR-18", "br_market_factors")),
+    FormSpec("BR-19", "운영손실 사건 및 회수", "분기",
+             "Basel III OPE25 · BCBS PSMOR", 19, "PRD-OPR",
+             _ext("BR-19", "br_op_loss")),
+    FormSpec("BR-20", "산출하한 적용내역", "분기",
+             "Basel III RBC20.11", 20, "PRD-RWA",
+             _ext("BR-20", "br_output_floor")),
+    FormSpec("BR-21", "완충자본 및 배당가능액 (MDA)", "분기",
+             "은행업감독규정 제26조의2~4 · CRE10.4", 21, "PRD-CAP",
+             _ext("BR-21", "br_buffer_mda")),
+
+    # ---- 제3편 유동성 (국내 고유 지표)
+    FormSpec("BR-22", "원화유동성비율", "월",
+             "은행업감독규정 제26조 제1항", 22, "PRD-PRU",
+             _ext("BR-22", "br_krw_liquidity")),
+    FormSpec("BR-23", "외화유동성비율", "월",
+             "은행업감독규정 제63조", 23, "PRD-PRU",
+             _ext("BR-23", "br_fx_liquidity")),
+    FormSpec("BR-24", "원화예대율", "월",
+             "은행업감독규정 제26조 제1항", 24, "PRD-PRU",
+             _ext("BR-24", "br_loan_deposit")),
+
+    # ---- 제4편 자산건전성 (나머지)
+    FormSpec("BR-25", "자산건전성 분류 — 자산군별", "분기",
+             "은행업감독규정 제27조", 25, "PRD-RDM",
+             _ext("BR-25", "br_asset_quality_by_class")),
+    FormSpec("BR-26", "부실채권 및 연체 현황", "월",
+             "은행업감독규정 제27조 · Basel III CRE36.69", 26, "PRD-RDM",
+             _ext("BR-26", "br_npl")),
+
+    # ---- 제5편 자산운용 한도
+    FormSpec("BR-27", "대주주 신용공여 및 주식취득 한도", "분기",
+             "은행법 제35조의2·제35조의3", 27, "PRD-PRU",
+             _ext("BR-27", "br_major_shareholder")),
+    FormSpec("BR-28", "유가증권·자회사·부동산 한도", "분기",
+             "은행법 제37조·제38조", 28, "PRD-PRU",
+             _ext("BR-28", "br_investment_limits")),
+
+    # ---- 제7편 내부자본·위기상황분석
+    FormSpec("BR-29", "내부자본적정성 (ICAAP)", "연",
+             "Basel III SRP20", 29, "PRD-CAP", _ext("BR-29", "br_icaap")),
+    FormSpec("BR-30", "위기상황분석 산출과정", "연",
+             "Basel III SRP20 · ST-F001~F006", 30, "PRD-ST",
+             _ext("BR-30", "br_stress_trace")),
+
+    # ---- 제8편 경영실태평가·적기시정조치
+    FormSpec("BR-31", "경영실태평가", "반기",
+             "은행업감독규정 제31조~제33조", 31, "PRD-PRU",
+             _ext("BR-31", "br_camel")),
+    FormSpec("BR-32", "적기시정조치 판정", "분기",
+             "은행업감독규정 제34조~제36조", 32, "PRD-PRU",
+             _ext("BR-32", "br_prompt_action")),
+
+    # ---- 제9편 집중도·거래상대방
+    FormSpec("BR-33", "부문별 집중도 및 거액익스포저", "분기",
+             "Basel III SRP30 · LEX10 · 은행법 제35조", 33, "PRD-RDM",
+             _ext("BR-33", "br_concentration")),
+    FormSpec("BR-34", "파생상품 및 거래상대방 신용위험", "분기",
+             "Basel III CRE52 SA-CCR · MAR50 CVA", 34, "PRD-MKT",
+             _ext("BR-34", "br_ccr")),
 )
 
 FORMS_BY_ID = {f.form_id: f for f in FORMS}
@@ -765,7 +858,13 @@ def build_forms(result, portfolio, tables: dict[str, pd.DataFrame]
                 ) -> list[BuiltForm]:
     """전 서식을 산출값으로 채운다. 서식 순서는 sheet_order를 따른다."""
     ctx = _Ctx(result, portfolio, tables)
-    return [f.builder(ctx) for f in sorted(FORMS, key=lambda s: s.sheet_order)]
+    # 편제 순서가 제출 순서다. sheet_order는 편제 안에서의 순번으로만 쓴다.
+    from risk_lib.regulatory.form_ids import SECTIONS
+    order = {fid: i for i, (_, ids) in enumerate(SECTIONS)
+             for fid in ids}
+    ordered = sorted(FORMS, key=lambda s: (order.get(s.form_id, 99),
+                                           s.sheet_order))
+    return [f.builder(ctx) for f in ordered]
 
 
 def submission_digest(built: list[BuiltForm]) -> str:
@@ -789,7 +888,7 @@ def form_frames(built: list[BuiltForm], asof: str, *,
         "form_id": b.spec.form_id,
         "form_no": b.spec.form_no.internal_code,
         "official_form_no": b.spec.form_no.official_code,
-        "form_name": b.spec.form_name,
+        "form_name": b.spec.form_name, "section": b.spec.section,
         "frequency": b.spec.frequency, "citation": b.spec.citation,
         "sheet_order": b.spec.sheet_order,
         "source_domain": b.spec.source_domain,

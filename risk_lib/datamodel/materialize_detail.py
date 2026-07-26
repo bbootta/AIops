@@ -766,3 +766,59 @@ def materialize_detail(result, portfolio, base: dict[str, pd.DataFrame]
     for fn in DETAIL_MATERIALIZERS.values():
         out.update(fn(result, portfolio, base))
     return out
+
+
+# ============================================ R12 · 건전성 · 위기상황 추적
+
+def materialize_stress_trace(result, portfolio, base) -> dict[str, pd.DataFrame]:
+    """위기상황분석 산출과정 — 시나리오 × 분기 × 단계."""
+    from risk_lib.stress.trace import trace_from_result
+    return {"st_calc_trace": trace_from_result(result, portfolio)}
+
+
+def materialize_prudential(result, portfolio, base) -> dict[str, pd.DataFrame]:
+    """재무제표 · 국내 유동성 지표 · 자산운용 한도 · 경영실태평가 · 적기시정조치."""
+    from risk_lib.prudential import (
+        assess_prompt_action, build_financials, compute_liquidity_ratios,
+        compute_ownership_limits, evaluate_camel,
+    )
+    asof = _asof(result)
+    out: dict[str, pd.DataFrame] = {}
+
+    fin = build_financials(result, portfolio)
+    bal = fin.balance.copy()
+    bal.insert(0, "asof", asof)
+    out["pru_balance_sheet"] = bal
+    inc = fin.income.copy()
+    inc.insert(0, "asof", asof)
+    out["pru_income_statement"] = inc[["asof", "seq", "item", "amount", "formula"]]
+
+    liq = compute_liquidity_ratios(result)
+    d = liq.detail.copy()
+    d.insert(0, "asof", asof)
+    out["pru_liquidity_ratio"] = d
+
+    own = compute_ownership_limits(result, portfolio)
+    o = own.detail.copy()
+    o.insert(0, "asof", asof)
+    out["pru_ownership_limit"] = o
+
+    # CAMEL 유동성 부문이 국내 지표 위반을 반영하려면 방금 만든 표가 보여야 한다.
+    camel = evaluate_camel(result, {**base, **out})
+    c = camel.detail.copy()
+    c.insert(0, "asof", asof)
+    out["pru_camel"] = c
+
+    pca = assess_prompt_action(result, camel=camel)
+    p = pca.detail.copy()
+    p.insert(0, "asof", asof)
+    # 종합 판정은 행마다 같은 값이다 — 판정 하나를 여러 행에 흩어 두면
+    # "어떤 조치인가"를 읽는 쪽이 행을 골라야 한다.
+    p["action"] = pca.action
+    out["pru_prompt_action"] = p[["asof", "test", "value", "threshold",
+                                  "triggered", "action", "citation"]]
+    return out
+
+
+DETAIL_MATERIALIZERS["stress_trace"] = materialize_stress_trace
+DETAIL_MATERIALIZERS["prudential"] = materialize_prudential

@@ -46,16 +46,24 @@ risk_lib/                        # Python 계산 라이브러리
     rapm.py                      ── RAROC, 경제자본
   stress/
     scenario.py                  ── 시나리오 PD/LGD 충격 → RWA/BIS/ECL
+    trace.py                     ── 심각도별 전 단계 산출과정 추적 (35단계)
   validation/
     consistency.py               ── 정합성 자동 체크 (21종)
     backtest.py                  ── HL test, 등급별 binomial
   datamodel/
     spec.py                      ── 테이블/컬럼 스펙 · 검증 · DDL 생성
-    catalog.py                   ── 정규 카탈로그 (71 테이블 / 515 컬럼)
+    catalog.py                   ── 정규 카탈로그 (78 테이블 / 570 컬럼)
     materialize.py               ── 부문 결과 → 정규 테이블
     materialize_detail.py        ── 세분화 테이블 실체화 (규제 라인 입도)
+  prudential/
+    financials.py                ── 재무상태표·손익계산서 (업무보고서 기본 서식)
+    liquidity.py                 ── 원화·외화유동성비율, 원화예대율
+    ownership.py                 ── 대주주·유가증권·자회사·부동산 한도
+    camel.py                     ── 경영실태평가 6개 부문
+    pca.py                       ── 적기시정조치 판정 (권고·요구·명령)
   regulatory/
-    forms.py                     ── 금감원 업무보고서 서식 14장 + 자체대사
+    forms.py                     ── 금감원 업무보고서 서식 (편제 9편 · 34장)
+    forms_ext.py                 ── 확장 서식 빌더
     form_ids.py                  ── 서식번호 매핑 (내부 BA#### ↔ 배포본 공식번호)
     excel.py                     ── 표지·목차·서식·검증·산출근거 .xlsx
   ui_studio/
@@ -71,7 +79,7 @@ risk_lib/                        # Python 계산 라이브러리
   cli.py                         ── CLI 러너
 
 examples/run_end_to_end.py       # 전체 흐름 데모
-tests/                           # pytest (919건)
+tests/                           # pytest (968건)
 ```
 
 ## 빠른 시작
@@ -86,7 +94,7 @@ python -m risk_lib.cli run --data book.csv --seed 7     # 실제 포트폴리오
 # 2) 단계별 데모
 python examples/run_end_to_end.py
 
-# 3) 금감원 배포 기준 업무보고서 (.xlsx) — 서식 14장, 자체대사 포함
+# 3) 금감원 배포 기준 업무보고서 (.xlsx) — 감독규정 편제 9편·서식 34장
 python -m risk_lib.cli reg-report --out 업무보고서.xlsx --asof 2026-06-30 \
     --institution "○○은행"
 

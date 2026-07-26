@@ -122,12 +122,26 @@ def _cover(wb: Workbook, built: list[BuiltForm], asof: str, meta: dict) -> None:
 def _toc(wb: Workbook, built: list[BuiltForm]) -> None:
     ws = wb.create_sheet("목차", 1)
     ws.sheet_view.showGridLines = False
-    row = _sheet_title(ws, "목차", "서식별 제출 주기와 근거 규정", span=6)
+    row = _sheet_title(ws, "목차",
+                       "감독규정 편제 순 · 서식별 제출 주기와 근거 규정",
+                       span=7)
     row = _write_header(ws, row,
                         ("서식번호", "내부 ID", "서식명", "제출주기", "라인 수",
                          "검증 실패", "근거 규정"),
                         (16, 10, 40, 10, 10, 10, 70))
+    section = None
     for b in built:
+        if b.spec.section != section:
+            section = b.spec.section
+            c = ws.cell(row=row, column=1, value=section)
+            c.font = _SUB_FONT
+            c.fill = _SUB_FILL
+            c.border = _BORDER
+            for col in range(2, 8):
+                cc = ws.cell(row=row, column=col, value="")
+                cc.fill = _SUB_FILL
+                cc.border = _BORDER
+            row += 1
         vals = (b.spec.form_no_display, b.spec.form_id, b.spec.form_name,
                 b.spec.frequency, len(b.lines), b.n_failed, b.spec.citation)
         for c, v in enumerate(vals, start=1):

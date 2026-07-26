@@ -1262,6 +1262,8 @@ REG_FORM = TableSpec(
         C("official_form_no", "string", "서식번호(금감원 배포본)", nullable=True,
           note="배포본 대조 전에는 NULL. 공식 번호를 추측해 채우지 않는다."),
         C("form_name", "text", "서식명", nullable=False),
+        C("section", "string", "감독규정 편제", nullable=False,
+          citation="은행업감독규정 편제 — 편별로 제출 담당·주기가 다르다"),
         C("frequency", "string", "제출 주기", nullable=False,
           allowed=REPORT_FREQUENCY),
         C("citation", "text", "근거 규정", nullable=False,
@@ -1599,6 +1601,162 @@ DETAIL_TABLES = (RDM_DETAIL_TABLES + CRM_DETAIL_TABLES + RWA_DETAIL_TABLES
                  + OPR_DETAIL_TABLES + REG_TABLES + UIX_TABLES
                  + GOV_DETAIL_TABLES)
 
+ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
+              + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES
+              + DETAIL_TABLES)
+
+
+# ============================================ R12 · 건전성 감독 · 위기상황 추적
+# 감독규정 편제상 업무보고서가 요구하지만 R1~R11에 없던 산출을 담는다.
+
+TRACE_BLOCKS = ("거시", "위험파라미터", "손실", "손익", "RWA", "자본", "비율", "판정")
+
+STRESS_TRACE = TableSpec(
+    name="st_calc_trace", korean="위기상황분석 산출과정", product="PRD-ST",
+    grain="시나리오 × 분기 × 단계 1행",
+    columns=(
+        C("scenario", "string", "시나리오", nullable=False, allowed=SCENARIOS),
+        C("quarter", "string", "분기", nullable=False),
+        C("q_index", "int", "분기 순번", nullable=False, min_value=0),
+        C("seq", "int", "단계 순번", nullable=False, min_value=1),
+        C("block", "string", "단계 블록", nullable=False, allowed=TRACE_BLOCKS,
+          citation="거시→위험파라미터→손실→손익→RWA→자본→비율→판정"),
+        C("step", "text", "단계명", nullable=False),
+        C("formula", "text", "산식", nullable=False),
+        C("inputs", "text", "투입값", nullable=False),
+        C("value", "float", "산출값", nullable=False, unit="mixed"),
+        C("unit", "string", "단위", nullable=False,
+          allowed=("KRW", "ratio", "count", "years")),
+        C("citation", "text", "근거", nullable=False),
+    ),
+    primary_key=("scenario", "quarter", "seq"),
+    note="마지막 단계 값은 st_capital_path와 정확히 일치해야 한다 — 어긋나면 "
+         "추적이 아니라 두 번째 모형이다.",
+)
+
+# ST_TABLES에 넣고 DETAIL_TABLES에도 넣으면 ALL_TABLES에 두 번 들어간다.
+# 위기상황 추적표는 ST 부문 소속이므로 여기에만 등록한다.
+ST_TABLES = ST_TABLES + (STRESS_TRACE,)
+
+# ---------------------------------------------------------------- 건전성 (PRU)
+BALANCE_SECTIONS = ("자산", "부채", "자본")
+PRUDENTIAL_METRICS = ("원화유동성비율", "외화유동성비율", "원화예대율")
+CAMEL_COMPONENTS = ("자본적정성", "자산건전성", "경영관리", "수익성", "유동성",
+                    "리스크관리")
+PCA_ACTIONS = ("해당없음", "경영개선권고", "경영개선요구", "경영개선명령")
+
+BALANCE_SHEET = TableSpec(
+    name="pru_balance_sheet", korean="재무상태표", product="PRD-PRU",
+    grain="기준일 × 구분 × 계정 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("section", "string", "구분", nullable=False, allowed=BALANCE_SECTIONS),
+        C("item", "text", "계정", nullable=False),
+        C("amount", "float", "금액", nullable=False, unit="KRW"),
+    ),
+    primary_key=("asof", "section", "item"),
+    note="자산 = 부채 + 자본이 성립해야 한다 — 대손충당금은 자산 차감표시.",
+)
+
+INCOME_STATEMENT = TableSpec(
+    name="pru_income_statement", korean="손익계산서", product="PRD-PRU",
+    grain="기준일 × 계정 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("seq", "int", "순서", nullable=False, min_value=1),
+        C("item", "text", "계정", nullable=False),
+        C("amount", "float", "금액", nullable=False, unit="KRW"),
+        C("formula", "text", "산식", nullable=False),
+    ),
+    primary_key=("asof", "item"),
+)
+
+LIQUIDITY_RATIO = TableSpec(
+    name="pru_liquidity_ratio", korean="국내 유동성 지표", product="PRD-PRU",
+    grain="기준일 × 지표 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("metric", "string", "지표", nullable=False,
+          allowed=PRUDENTIAL_METRICS),
+        C("numerator", "float", "분자", nullable=False, unit="KRW"),
+        C("denominator", "float", "분모", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("value", "float", "비율", nullable=False, unit="ratio",
+          min_value=0.0),
+        C("threshold", "float", "기준값", nullable=False, unit="ratio",
+          min_value=0.0),
+        C("direction", "string", "방향", nullable=False, allowed=("min", "max"),
+          note="min은 이상, max는 이하 — 방향을 잃으면 판정이 뒤집힌다"),
+        C("passes", "bool", "충족", nullable=False),
+        C("citation", "text", "근거", nullable=False),
+    ),
+    primary_key=("asof", "metric"),
+)
+
+OWNERSHIP_LIMIT = TableSpec(
+    name="pru_ownership_limit", korean="자산운용 한도", product="PRD-PRU",
+    grain="기준일 × 한도 항목 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("item", "string", "한도 항목", nullable=False),
+        C("used", "float", "사용액", nullable=False, unit="KRW", min_value=0.0),
+        C("limit_pct", "float", "자기자본 대비 한도", nullable=False,
+          unit="ratio", min_value=0.0, max_value=5.0,
+          citation="은행법 제35조의2·제35조의3·제37조·제38조"),
+        C("limit_amount", "float", "한도 금액", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("utilisation", "float", "한도 소진율", nullable=False, unit="ratio",
+          min_value=0.0),
+        C("passes", "bool", "한도 내", nullable=False),
+        C("citation", "text", "근거", nullable=False),
+        C("basis", "text", "사용액 산출 근거", nullable=False,
+          note="원장이 없어 배분치를 쓴 항목은 그 사실을 여기에 남긴다"),
+    ),
+    primary_key=("asof", "item"),
+)
+
+CAMEL = TableSpec(
+    name="pru_camel", korean="경영실태평가", product="PRD-PRU",
+    grain="기준일 × 부문 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("component", "string", "부문", nullable=False,
+          allowed=CAMEL_COMPONENTS,
+          citation="은행업감독규정 제31조~제33조"),
+        C("indicator", "text", "평가지표", nullable=False),
+        C("value", "float", "지표값", nullable=False, unit="mixed"),
+        C("grade", "int", "등급", nullable=False, min_value=1, max_value=5),
+        C("grade_label", "string", "등급 명칭", nullable=False,
+          allowed=("우수", "양호", "보통", "취약", "위험")),
+        C("weight", "float", "가중치", nullable=False, unit="ratio",
+          min_value=0.0, max_value=1.0),
+        C("basis", "text", "평가 근거", nullable=False),
+    ),
+    primary_key=("asof", "component"),
+    note="경영관리 부문은 정성평가다 — 계량 대용지표를 쓴 사실을 basis에 남긴다.",
+)
+
+PROMPT_ACTION = TableSpec(
+    name="pru_prompt_action", korean="적기시정조치 판정", product="PRD-PRU",
+    grain="기준일 × 판정 항목 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("test", "string", "판정 항목", nullable=False),
+        C("value", "float", "실측치", nullable=False, unit="mixed"),
+        C("threshold", "float", "기준치", nullable=False, unit="mixed"),
+        C("triggered", "bool", "해당 여부", nullable=False),
+        C("action", "string", "종합 판정", nullable=False, allowed=PCA_ACTIONS),
+        C("citation", "text", "근거", nullable=False),
+    ),
+    primary_key=("asof", "test"),
+    note="자본비율 축과 경영실태평가 축을 각각 판정하고 더 무거운 쪽을 택한다 — "
+         "AND로 묶으면 자본이 멀쩡한 취약 은행이 빠져나간다.",
+)
+
+PRU_TABLES = (BALANCE_SHEET, INCOME_STATEMENT, LIQUIDITY_RATIO,
+              OWNERSHIP_LIMIT, CAMEL, PROMPT_ACTION)
+
+DETAIL_TABLES = DETAIL_TABLES + PRU_TABLES
 ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
               + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES
               + DETAIL_TABLES)
