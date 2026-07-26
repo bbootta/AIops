@@ -85,11 +85,26 @@ def saccr_rwa(ead: pd.DataFrame, bank_rw: float = 0.50) -> pd.DataFrame:
     return out
 
 
+# CVA 소요자기자본을 위험가중자산으로 환산하는 배수. 최저자기자본비율 8%의
+# 역수이며, Basel은 소요자본 기준으로 산출되는 항목(CVA·시장·운영)을 RWA에
+# 합산할 때 이 배수를 쓴다 (MAR50.2 · RBC20.6).
+CVA_RWA_MULTIPLIER = 12.5
+
+
 def cva_capital_charge(ead: pd.DataFrame, *, kappa: float = 0.05) -> float:
     """Simplified BA-CVA: K_BA = κ · √(Σ (S_i · EAD_i)²) — supervisory weights
     folded into κ for an MVP; ~5% of total EAD typical.
+
+    반환값은 **소요자기자본(K)**이지 위험가중자산이 아니다. RWA로 합산하려면
+    `cva_rwa()`를 쓴다 — 파이프라인이 K를 그대로 RWA에 더하면 CVA가 12.5배
+    과소계상된다.
     """
     return float(kappa * np.sqrt((ead["ead"] ** 2).sum()))
+
+
+def cva_rwa(charge: float) -> float:
+    """CVA 소요자기자본 → 위험가중자산 (MAR50.2 · RBC20.6)."""
+    return float(charge) * CVA_RWA_MULTIPLIER
 
 
 def compute_ccr(bank_book: pd.DataFrame, *, seed: int = 42) -> SACCRResult:

@@ -59,6 +59,8 @@ _DEFAULT_TILT = (0.40, 0.30, 0.18, 0.12)
 
 GUARANTEE_CCF = ("direct_credit_substitute", "transaction_related")
 
+_SUBRO_RATE_BAND = (0.008, 0.015)   # 대지급 전이율 가정 구간 — 관측 근거 없음
+
 
 def rng(key: str) -> np.random.Generator:
     """기준일+키에서 유도한 난수원 — 키가 같으면 언제 어디서 불러도 같은 수열이다."""
@@ -104,6 +106,10 @@ def _assign_product(df: pd.DataFrame) -> list[str]:
 
 RESTRUCT_METHODS = ("만기연장", "이자율 조정", "원금상환 유예", "출자전환")
 
+# 요주의이하 중 재조정 대상 비중. 원장·통계 근거가 있는 값이 아니라 **가정**이다 —
+# 이 값을 바꾸면 B2407 규모가 통째로 바뀐다. 실제 TDR 원장이 붙으면 삭제한다.
+_RESTRUCT_PICK = 0.28
+
 
 def restructured(ctx) -> pd.DataFrame:
     """채권재조정 대상 — 요주의이하 익스포저 중에서 고른다.
@@ -115,7 +121,8 @@ def restructured(ctx) -> pd.DataFrame:
     sub = book[book["classification"] != "정상"].reset_index(drop=True)
     if not len(sub):
         return sub.assign(method=pd.Series(dtype=object))
-    picked = sub[rng("채권재조정선정").random(len(sub)) < 0.28].reset_index(drop=True)
+    picked = sub[rng("채권재조정선정").random(len(sub))
+                 < _RESTRUCT_PICK].reset_index(drop=True)
     idx = rng("채권재조정방식").integers(0, len(RESTRUCT_METHODS), len(picked))
     picked["method"] = [RESTRUCT_METHODS[int(i)] for i in idx]
     return picked
@@ -140,14 +147,25 @@ def derive_flow(key: str, closing: float,
 
     증가 총액은 `기말 − 기초 + 감소 총액`으로 역산한다 — 이렇게 해야 항등식이
     파생 난수와 무관하게 성립하고, FormCheck가 서식 자체의 오류만 잡아낸다.
+
+    `gross`(기말 대비 감소 총액 비율 35%)와 `open_band`(기초 = 기말 ±15%)는 관측
+    근거가 없는 가정치다 — 총량 규모를 정하는 손잡이이지 측정값이 아니다.
+
+    `dec_total`을 주면 감소 총액은 산출값이며 **고정 불변**이다. 이때 증가가 음수가
+    되면 감소가 아니라 기초를 당긴다 — 감소를 손대면 "감소 계 = 산출 회수액" 대사가
+    소리 없이 깨진다.
     """
     g = rng(key)
     opening = closing * float(g.uniform(*open_band))
-    dec = abs(closing) * gross * float(g.uniform(0.8, 1.2)) \
-        if dec_total is None else float(dec_total)
+    pinned = dec_total is not None
+    dec = (float(dec_total) if pinned
+           else abs(closing) * gross * float(g.uniform(0.8, 1.2)))
     inc = dec + (closing - opening)
-    if inc < 0.0:                 # 순감소가 파생 감소액보다 크면 음수 증가가 된다
-        dec, inc = dec - inc, 0.0
+    if inc < 0.0:                 # 순감소가 감소 총액보다 크면 음수 증가가 된다
+        if pinned:
+            opening, inc = closing + dec, 0.0
+        else:
+            dec, inc = dec - inc, 0.0
     return (opening, dict(zip(inc_labels, _split(g, inc, len(inc_labels)))),
             dict(zip(dec_labels, _split(g, dec, len(dec_labels)))))
 
@@ -158,9 +176,10 @@ def guarantee_frame(ctx) -> tuple[float, float]:
     """(지급보증 잔액, 지급보증대지급금 잔액).
 
     지급보증 잔액은 지급보증 성격 부외약정의 미사용액 — 원장값이다.
-    대지급 전이율만 파생한다.
+    대지급 전이율만 파생한다. 전이율 구간(0.8~1.5%)은 관측치가 아니라 **가정**이며,
+    따라서 대지급금 잔액은 실측이 아니라 파생 규모다. 대지급 원장이 붙으면 삭제한다.
     """
     book = loan_book(ctx)
     base = float(book[book["ccf_type"].isin(GUARANTEE_CCF)]["undrawn"].sum())
-    rate = float(rng("대지급전이율").uniform(0.008, 0.015))
+    rate = float(rng("대지급전이율").uniform(*_SUBRO_RATE_BAND))
     return base, base * rate

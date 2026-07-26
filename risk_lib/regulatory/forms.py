@@ -801,13 +801,34 @@ def _fss_specs() -> tuple[FormSpec, ...]:
         for j, (code, (citation, domain, _)) in enumerate(
                 sorted(mod.BUILDERS.items())):
             f = BY_CODE[code]
-            out.append(FormSpec(code, f.name, f.frequency, citation,
+            out.append(FormSpec(code, f.name, _FREQUENCY[f.frequency], citation,
                                 (i + 1) * 1000 + j, domain,
                                 _fss_runner(module, code)))
     return tuple(out)
 
 
-FORMS = FORMS + _fss_specs()
+# FINES는 연 1회를 "년"으로 적고 이 저장소는 "연"을 쓴다. 같은 주기를 두 철자로
+# 두면 정규 테이블의 도메인이 갈라지므로 등록 시점에 하나로 모은다. 마스터
+# 원문은 fss_master.py가 그대로 보존한다.
+_FREQUENCY = {"월": "월", "분기": "분기", "반기": "반기", "년": "연", "연": "연",
+              "결산": "연"}
+
+
+def _renumber(specs: tuple[FormSpec, ...]) -> tuple[FormSpec, ...]:
+    """sheet_order를 제출 순서대로 1..N 조밀하게 다시 매긴다.
+
+    편제별로 1000단위를 띄워 두면 서식이 늘 때마다 구멍이 생기고, 시트 순서가
+    곧 제출 순서인 엑셀에서 그 구멍이 누락처럼 읽힌다.
+    """
+    from dataclasses import replace
+    from risk_lib.regulatory.form_ids import SECTIONS
+    order = {fid: i for i, (_, ids) in enumerate(SECTIONS) for fid in ids}
+    ordered = sorted(specs, key=lambda s: (order.get(s.form_id, 99),
+                                           s.sheet_order))
+    return tuple(replace(s, sheet_order=i) for i, s in enumerate(ordered, 1))
+
+
+FORMS = _renumber(FORMS + _fss_specs())
 FORMS_BY_ID = {f.form_id: f for f in FORMS}
 
 

@@ -87,7 +87,7 @@ from risk_lib.alm.nsfr import compute_nsfr
 from risk_lib.icaap.economic_capital import compute_icaap
 from risk_lib.appetite import build_raf
 from risk_lib.climate import run_climate
-from risk_lib.ccr import compute_ccr
+from risk_lib.ccr import compute_ccr, cva_rwa as _cva_rwa
 from risk_lib.op_loss import compute_op_loss
 from risk_lib.concentration_deep import (
     top_obligors, sector_country_matrix, large_exposure_test, granularity_addon,
@@ -331,9 +331,13 @@ def _stage_capital(
       F-004  레버리지 익스포저에 파생상품(SA-CCR EAD)을 포함한다 (LEV20.1).
     """
     ccr_rwa = float(getattr(ccr, "rwa_total", 0.0) or 0.0)
-    # CVA 소요자본은 자본 기준이 아니라 이미 RWA 환산치로 산출된다(ccr 모듈).
-    cva_rwa = float(getattr(ccr, "cva_charge", 0.0) or 0.0)
-    ccr_total = ccr_rwa + cva_rwa
+    # CVA는 **소요자기자본(K_BA)** 으로 산출되므로 RWA에 합산하려면 12.5배
+    # 환산해야 한다 (MAR50.2 · RBC20.6). 이전 주석은 "이미 RWA 환산치"라고
+    # 적었으나 ccr 모듈의 반환 기준과 반대였고, 그 결과 CVA가 12.5배 과소
+    # 계상되고 있었다 — 서식 저작 중 적대적 검토에서 드러났다. 근거 없는
+    # 주석 한 줄이 산출을 조용히 틀리게 하는 전형이다.
+    cva_rwa_amount = _cva_rwa(float(getattr(ccr, "cva_charge", 0.0) or 0.0))
+    ccr_total = ccr_rwa + cva_rwa_amount
 
     rwa_internal_total = rwa_sa + rwa_irb + ccr_total + mkt.rwa + op.rwa
     rwa_standardised_total = (

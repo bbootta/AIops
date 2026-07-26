@@ -330,12 +330,20 @@ def test_blocks_collapse_and_expand(page):
 # ----- R 감독보고: 편제 전 영역 -------------------------------------------------
 
 def test_regulatory_tab_covers_every_regulation_section(page):
+    """편제마다 최소 한 서식의 번호가 화면에 보여야 한다.
+
+    이전에는 서식번호 8개를 손으로 박아 뒀는데, 금감원 FINES 마스터를 확보해
+    번호를 전부 정정하자 테스트가 옛 코드를 찾다가 깨졌다. 번호는 마스터가
+    정본이므로 여기서 다시 적지 않고 레지스트리에서 가져온다.
+    """
+    from risk_lib.regulatory.form_ids import SECTIONS, form_id
     labels = page.eval_on_selector_all("nav button", "els => els.map(e => e.textContent)")
     _tab(page, labels.index("R 감독보고"))
     txt = _text(page)
-    for code in ("BA1101", "BA2101", "BA3301", "BA4301", "BA5301",
-                 "BA6401", "BA7201", "BA8201"):
-        assert code in txt, code
+    for section, ids in SECTIONS:
+        assert ids, section
+        code = form_id(ids[0]).display().split(" ")[0]
+        assert code in txt, (section, code)
 
 
 # ----- F 검증: 두 층이 화면에서 구분되는가 --------------------------------------

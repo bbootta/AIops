@@ -40,11 +40,11 @@ GOLDEN = {
     #           수익성 기반 이익잉여금으로 바꿨다. RWA·익스포저 어느 쪽에도
     #           비례하지 않으므로 두 비율이 함께 반응한다
     #           (레버리지 변동 1.4bp → 136.8bp, CV 0.044% → 3.741%).
-    "rwa_final_total": 9_394_620_060_178.572,
+    "rwa_final_total": 9_399_913_501_716.785,
     "rwa_sa": 1_028_895_833_988.9441,
     "rwa_irb": 6_544_287_052_378.777,
-    "cet1_ratio": 0.11648890029339716,
-    "total_ratio": 0.1569375823652485,
+    "cet1_ratio": 0.11642330105320828,
+    "total_ratio": 0.1568492049650472,
     "leverage_ratio": 0.11712632046549173,
     "ecl_total": 94_531_443_664.94879,
     "macro_weighted_total": 128_504_402_456.8952,
@@ -53,8 +53,13 @@ GOLDEN = {
     # 심도가 낮아지는 것이 다축 위기상황분석의 요점이다 (SRP20).
     # 2차 시정(F-101 자본 원장 독립화) 후 0.9822 — 자본이 커져 견디는 심도가
     # 올라갔다. 1차 시정 시점 값은 0.8426이었다.
-    "reverse_critical_severity": 0.9822463989257812,
+    "reverse_critical_severity": 0.9811019897460938,
 }
+# 재고정 4 — 서식 저작 중 적대적 검토에서 드러난 CVA 기준 오류:
+#   risk_lib.ccr.cva_capital_charge는 반환값을 K_BA(소요자기자본)로 문서화하는데
+#   pipeline은 그것을 RWA로 그대로 합산하고 있었다. 주석은 "이미 RWA 환산치"라고
+#   반대로 적혀 있었다. MAR50.2·RBC20.6에 따라 12.5배 환산하도록 고쳤다 —
+#   CVA RWA 4.6억 → 57.5억, 총 RWA +53억(+0.056%).
 # +1 WARN: pd_floor_5bp now catches more low-PD exposures (5bp vs 3bp threshold).
 # +1 WARN: stress_trough_meets_requirement — 위기상황 CET1 저점이 요구치를
 # 침범하는 사실이 자체검증에 전혀 남지 않던 공백을 메웠다 (독립검증 F-003).
