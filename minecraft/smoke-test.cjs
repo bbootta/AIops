@@ -61,9 +61,9 @@ function makeEl(tag) {
     tagName: tag, _h: {}, style: {}, width: 16, height: 16, title: '', disabled: false, textContent: '', innerHTML: '',
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     addEventListener(type, fn) { (this._h[type] = this._h[type] || []).push(fn); }, removeEventListener() {},
-    appendChild(c) { return c; }, getContext() { return makeCtx(); },
+    appendChild(c) { (this.children = this.children || []).push(c); return c; }, getContext() { return makeCtx(); },
     getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; },
-    cloneNode() { return makeEl(tag); },
+    cloneNode() { return makeEl(tag); }, scrollIntoView() {},
     requestPointerLock() { doc.pointerLockElement = el; fire(doc._h.pointerlockchange); }, focus() {}, click() {},
   };
   return el;
@@ -241,6 +241,32 @@ try {
     step(250);
   }, { noMove: true });
 } catch (e) { fails++; console.log('  [C] FAIL:', (e && e.stack) || e); }
+
+// D: 모바일(터치) — 핫바가 전체 아이템을 담고, 9칸 밖의 💥 슈퍼 TNT도 눌러서 쓸 수 있는지
+const saveD = JSON.stringify({
+  curDim: 'nether',
+  dims: { overworld: { edits: [], pos: null, crops: [] }, nether: { edits: [], pos: null, crops: [] } },
+  slot: 0, health: 10, inv: { 27: 5 }, tools: {}, dayTime: 50,
+});
+navi.maxTouchPoints = 1; // isTouch → 모바일 UI 경로
+try {
+  runGame(saveD, 'D: 모바일 전체 아이템 핫바', ({ step }) => {
+    const slots = (elCache['hotbar'] && elCache['hotbar'].children) || [];
+    if (slots.length < 20) throw new Error('모바일 핫바에 아이템이 다 없음: ' + slots.length);
+    const i = slots.findIndex((el) => (el.title || '').includes('슈퍼 TNT'));
+    if (i < 9) throw new Error('슈퍼 TNT가 9칸 안에 있어 검증 의미 없음 (idx=' + i + ')');
+    fire(slots[i]._h.click, ev({})); // 칸을 눌러 선택 (슬라이드로 도달하는 자리)
+    for (let a = 0; a < 6 && !(store['mc_achv'] || '').includes('meganuke'); a++) {
+      step(50);
+      fire(elCache['btnPlace']._h.touchstart, ev({})); step(2);
+      fire(elCache['btnBreak']._h.touchstart, ev({})); step(26); fire(elCache['btnBreak']._h.touchend, ev({}));
+      step(210);
+    }
+    if (!(store['mc_achv'] || '').includes('meganuke')) throw new Error('모바일에서 슈퍼 TNT 사용 실패');
+    console.log('  [D] 📱 9칸 밖 슈퍼 TNT 선택→설치→폭발 확인됨 (핫바 ' + slots.length + '칸)');
+  }, { noMove: true });
+} catch (e) { fails++; console.log('  [D] FAIL:', (e && e.stack) || e); }
+navi.maxTouchPoints = 0;
 
 console.log(fails ? `\nSMOKE FAILED (${fails})` : '\nSMOKE PASSED');
 process.exit(fails ? 1 : 0);

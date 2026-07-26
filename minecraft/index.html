@@ -25,7 +25,17 @@
     position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
     display: flex; gap: 4px; z-index: 13; touch-action: none;
   }
-  body.touch #hotbar { bottom: 12px; padding: 8px 4px; background: rgba(0,0,0,0.25); border-radius: 8px; }
+  /* 📱 모바일: 화면 폭에 갇히지 않도록 가로 스크롤 스트립 — 좌우로 밀어 모든 아이템 열람 */
+  body.touch #hotbar {
+    left: 0; right: 0; bottom: 12px; transform: none;
+    padding: 8px 6px; background: rgba(0,0,0,0.3);
+    overflow-x: auto; overflow-y: hidden; touch-action: pan-x;
+    scroll-snap-type: x proximity; overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  body.touch #hotbar::-webkit-scrollbar { display: none; }
+  body.touch .slot { flex: 0 0 auto; scroll-snap-align: center; }
+  body.touch .slot .num { display: none; } /* 숫자키가 없는 기기에선 번호 불필요 */
   .slot {
     position: relative; width: 48px; height: 48px; border: 3px solid rgba(0,0,0,0.6);
     background: rgba(0,0,0,0.35); box-sizing: border-box;
@@ -420,6 +430,15 @@ const DROPS = {
 // 채굴 시 곡괭이가 없으면 드롭하지 않는 광석
 const NEEDS_PICK = new Set([BLOCK.IRON_ORE, BLOCK.DIAMOND_ORE, BLOCK.GOLD_ORE, BLOCK.EMERALD_ORE, BLOCK.VOID_CRYSTAL]);
 const FOODS = { [ITEM.MEAT]: 3, [ITEM.BREAD]: 4, [ITEM.GOLD_APPLE]: MAX_HEALTH, [ITEM.APPLE]: 3, [ITEM.STEW]: 7 }; // 먹었을 때 회복량
+// 인벤토리 화면에 보여줄 순서
+const INV_ORDER = [
+  BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.SAND, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES,
+  BLOCK.SNOW, BLOCK.NETHERRACK, BLOCK.END_STONE, BLOCK.FLOWER_R, BLOCK.FLOWER_Y, BLOCK.TNT, BLOCK.MEGA_TNT, BLOCK.LIGHT_TNT, BLOCK.QUAKE_TNT,
+  BLOCK.TORCH, BLOCK.PORTAL, BLOCK.CHEST, ITEM.DIAMOND, ITEM.EMERALD, ITEM.GOLD, ITEM.IRON, ITEM.GOLD_APPLE,
+  ITEM.MEAT, ITEM.WHEAT, ITEM.BREAD, ITEM.APPLE, ITEM.MUSHROOM, ITEM.STEW, ITEM.SEEDS, ITEM.ARROW,
+];
+// 📱 모바일 핫바: 9칸 제약 없이 쓸 수 있는 아이템 전부를 담아 좌우로 밀어 고름 (설치 블록 + 음식 + 활)
+const MOBILE_BAR = [...INV_ORDER.filter((t) => PLACEABLE.has(t) || FOODS[t] !== undefined), ITEM.BOW];
 
 // ---------- 시드 난수 / 노이즈 ----------
 function mulberry32(a) {
@@ -3102,7 +3121,7 @@ const TUT_STEPS = isTouch ? [
   '👆 화면 오른쪽을 쓸어서 주위를 둘러보세요',
   '⛏ [캐기]를 꾹 눌러 흙이나 나무를 캐 보세요',
   '▣ [놓기]를 눌러 캔 블록을 놓아 보세요',
-  '⚒ [만들기]에서 도구를 만들 수 있어요!',
+  '⚒ [만들기]로 도구를 만들고, 아래 아이템 칸을 좌우로 밀면 TNT까지 전부 나와요!',
 ] : [
   'W A S D 키로 걸어 보세요',
   '🖱 마우스를 움직여 주위를 둘러보세요',
@@ -3880,6 +3899,7 @@ function iconImageFor(t) {
   return (Array.isArray(m) ? m[4] : m).map.image; // 옆면 텍스처를 아이콘으로
 }
 const slotIcons = [];
+if (isTouch) HOTBAR = MOBILE_BAR.slice(); // 모바일은 칸 수 제한 없이 전부 표시 (좌우 슬라이드)
 const slotEls = HOTBAR.map((t, i) => {
   const slot = document.createElement('div');
   slot.className = 'slot';
@@ -3924,6 +3944,7 @@ function selectSlot(i) {
   selectedSlot = i;
   cancelCharge(); // 슬롯 바꾸면 차지 취소
   slotEls.forEach((el, j) => el.classList.toggle('selected', j === i));
+  if (isTouch) slotEls[i].scrollIntoView({ inline: 'center', block: 'nearest' }); // 고른 칸을 가운데로
 }
 function updateHotbar() {
   HOTBAR.forEach((t, i) => {
@@ -3946,27 +3967,7 @@ addEventListener('wheel', (e) => {
   const d = e.deltaY > 0 ? 1 : -1;
   selectSlot((selectedSlot + d + HOTBAR.length) % HOTBAR.length);
 });
-// 모바일: 핫바 위를 손가락으로 쓸어(슬라이드) 손가락 아래 슬롯 선택
-function hotbarTouch(e) {
-  e.preventDefault();
-  const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
-  if (!t) return;
-  const first = slotEls[0].getBoundingClientRect();
-  const last = slotEls[slotEls.length - 1].getBoundingClientRect();
-  let idx;
-  if (t.clientX <= first.left) idx = 0;
-  else if (t.clientX >= last.right) idx = slotEls.length - 1;
-  else {
-    idx = selectedSlot;
-    for (let i = 0; i < slotEls.length; i++) {
-      const r = slotEls[i].getBoundingClientRect();
-      if (t.clientX >= r.left && t.clientX <= r.right) { idx = i; break; }
-    }
-  }
-  if (idx !== selectedSlot) selectSlot(idx);
-}
-hotbarEl.addEventListener('touchstart', hotbarTouch, { passive: false });
-hotbarEl.addEventListener('touchmove', hotbarTouch, { passive: false });
+// 모바일: 핫바를 좌우로 쓸면 전체 아이템 목록이 넘어가고(브라우저 가로 스크롤), 칸을 누르면 선택
 
 // ---------- 제작 ----------
 const RECIPES = [
@@ -4045,19 +4046,13 @@ const invScreenEl = document.getElementById('invScreen');
 const invListEl = document.getElementById('invList');
 let invOpen = false;
 let chestOpen = false, chestKey = null; // 상자 UI 상태
-const INV_ORDER = [
-  BLOCK.GRASS, BLOCK.DIRT, BLOCK.STONE, BLOCK.SAND, BLOCK.WOOD, BLOCK.PLANK, BLOCK.LEAVES,
-  BLOCK.SNOW, BLOCK.NETHERRACK, BLOCK.END_STONE, BLOCK.FLOWER_R, BLOCK.FLOWER_Y, BLOCK.TNT, BLOCK.MEGA_TNT, BLOCK.LIGHT_TNT, BLOCK.QUAKE_TNT,
-  BLOCK.TORCH, BLOCK.PORTAL, BLOCK.CHEST, ITEM.DIAMOND, ITEM.EMERALD, ITEM.GOLD, ITEM.IRON, ITEM.GOLD_APPLE,
-  ITEM.MEAT, ITEM.WHEAT, ITEM.BREAD, ITEM.APPLE, ITEM.MUSHROOM, ITEM.STEW, ITEM.SEEDS, ITEM.ARROW,
-];
 function renderInv() {
-  let html = `<div class="invhint">🖐 블록을 누르면 핫바 ${selectedSlot + 1}번 칸에 들어갑니다</div>`;
+  let html = `<div class="invhint">${isTouch ? '🖐 모든 아이템은 아래 핫바를 좌우로 밀어 바로 고를 수 있어요' : `🖐 블록을 누르면 핫바 ${selectedSlot + 1}번 칸에 들어갑니다`}</div>`;
   html += '<div class="invgrid">';
   for (const t of INV_ORDER) {
     const n = inv[t] || 0;
     if (n <= 0) continue;
-    const sel = PLACEABLE.has(t);
+    const sel = !isTouch && PLACEABLE.has(t); // 모바일 핫바엔 이미 전부 들어 있음
     html += `<div class="invcell${sel ? ' invsel' : ''}"${sel ? ` data-t="${t}"` : ''}>${BLOCK_NAMES[t] || t} ×${n}${sel ? ' <span class="put">▸핫바</span>' : ''}</div>`;
   }
   html += '</div>';
@@ -4324,7 +4319,7 @@ try {
       if (save.stats.byKind && typeof save.stats.byKind === 'object') Object.assign(stats.byKind, save.stats.byKind);
     }
     // 커스터마이즈한 핫바 배치 복원 (모두 설치 가능한 종류일 때만)
-    if (Array.isArray(save.hotbar) && save.hotbar.length === HOTBAR.length && save.hotbar.every((t) => PLACEABLE.has(t))) {
+    if (!isTouch && Array.isArray(save.hotbar) && save.hotbar.length === HOTBAR.length && save.hotbar.every((t) => PLACEABLE.has(t))) {
       HOTBAR = save.hotbar.slice();
     }
     selectSlot(save.slot >= 0 && save.slot < HOTBAR.length ? save.slot : 0);
