@@ -199,7 +199,10 @@ try {
 } catch (e) { fails++; console.log('  [A] FAIL:', (e && e.stack) || e); }
 const saveB = JSON.stringify({
   curDim: 'overworld',
-  dims: { overworld: { edits: [['0,11,0', 3], ['0,12,0', 16]], pos: { x: 0.5, y: 12, z: 0.5, yaw: 0, pitch: 0 }, crops: [] }, nether: { edits: [], pos: null, crops: [] } },
+  dims: {
+    overworld: { edits: [['0,11,0', 3], ['0,12,0', 30]], pos: { x: 0.5, y: 12, z: 0.5, yaw: 0, pitch: 0 }, crops: [] },
+    nether: { edits: [['0,10,0', 31], ['0,12,0', 31], ['0,14,0', 31], ['0,16,0', 31]], pos: null, crops: [] },
+  },
   slot: 0, health: 8, hunger: 4, inv: { 12: 9, 105: 5, 100: 3 }, tools: { pickaxe: true, bow: true }, dayTime: 50,
 });
 try {
@@ -207,12 +210,12 @@ try {
     step(120);
     const clock = elCache['clock'] && elCache['clock'].textContent;
     if (!/네더/.test(clock || '')) throw new Error('네더 전이 미발생 (clock="' + clock + '")');
-    console.log('  [B] 네더 전이 확인됨');
-    // 귀환 포탈 위에 계속 서 있으면 순환으로 보이드까지 이동
+    console.log('  [B] 🔥 빨간 포탈 → 네더 전이 확인됨');
+    // 네더 스폰에 미리 깔아 둔 보라 포탈(31)로 → 보이드 (색=목적지 확인)
     step(320);
     const achvRaw = store['mc_achv'] || '[]';
-    if (!achvRaw.includes('void')) throw new Error('보이드 전이 미발생 (achv=' + achvRaw + ')');
-    console.log('  [B] 포탈 순환 → 보이드 도달 확인됨');
+    if (!achvRaw.includes('void')) throw new Error('보라 포탈 → 보이드 전이 미발생 (achv=' + achvRaw + ')');
+    console.log('  [B] 🌌 보라 포탈 → 보이드 전이 확인됨');
   }, { noMove: true });
 } catch (e) { fails++; console.log('  [B] FAIL:', (e && e.stack) || e); }
 
@@ -279,6 +282,41 @@ try {
   }, { noMove: true });
 } catch (e) { fails++; console.log('  [D] FAIL:', (e && e.stack) || e); }
 navi.maxTouchPoints = 0;
+
+// E: ⚔ 공성전 — 금색 포탈로 입장, 웨이브 스폰, 공성군이 성벽/코어를 실제로 공격하는지
+const saveE = JSON.stringify({
+  curDim: 'overworld',
+  dims: { overworld: { edits: [['0,11,0', 3], ['0,12,0', 32]], pos: { x: 0.5, y: 12, z: 0.5, yaw: 0, pitch: 0 }, crops: [] } },
+  slot: 2, health: 10, inv: {}, tools: {}, dayTime: 50,
+});
+try {
+  runGame(saveE, 'E: ⚔ 공성전(금색 포탈)', ({ step }) => {
+    step(120);
+    const clock = () => (elCache['clock'] && elCache['clock'].textContent) || '';
+    if (!/공성전/.test(clock())) throw new Error('공성전 맵 진입 실패 (clock="' + clock() + '")');
+    console.log('  [E] ⚔ 금색 포탈 → 공성전 맵 진입 확인됨');
+    let m = null;
+    for (let i = 0; i < 40 && !m; i++) { step(60); m = clock().match(/(\d+)웨이브 · 적 (\d+)/); if (m && +m[1] < 1) m = null; }
+    if (!m || +m[2] < 4) throw new Error('공성 웨이브 미출현 (clock="' + clock() + '")');
+    console.log(`  [E] ⚔ ${m[1]}웨이브 · 공성군 ${m[2]}명 출현 확인됨`);
+    // 성벽까지 진군해 성벽/코어를 때리는지 (코어 체력 감소 또는 성벽 블록 파괴)
+    const coreOf = () => { const h = (elCache['health'] && elCache['health'].innerHTML) || ''; const c = h.match(/🏰[^0-9]*(\d+)/); return c ? +c[1] : -1; };
+    const core0 = coreOf();
+    if (core0 !== 100) throw new Error('코어 체력 표시 이상: ' + core0);
+    let hit = false;
+    for (let i = 0; i < 60 && !hit; i++) { step(60); hit = coreOf() < core0; }
+    if (!hit) throw new Error('공성군이 코어를 공격하지 못함 (core=' + coreOf() + ')');
+    console.log('  [E] 🏰 공성군이 성벽을 뚫고 코어를 공격함 확인됨 (코어 ' + coreOf() + ')');
+    // 코어가 무너지면 잃는 것 없이 1웨이브부터 재시작되는지 (소프트락 방지)
+    let reset = false;
+    for (let i = 0; i < 80 && !reset; i++) { step(60); reset = /0웨이브/.test(clock()) && coreOf() === 100; }
+    if (!reset) throw new Error('코어 함락 후 재시작 실패 (clock="' + clock() + '", core=' + coreOf() + ')');
+    let again = false;
+    for (let i = 0; i < 40 && !again; i++) { step(60); again = /[1-9]웨이브 · 적 [1-9]/.test(clock()); }
+    if (!again) throw new Error('재시작 후 웨이브 미시작 (clock="' + clock() + '")');
+    console.log('  [E] 🔁 코어 함락 → 성 복구 → 다음 웨이브 재개 확인됨');
+  }, { noMove: true });
+} catch (e) { fails++; console.log('  [E] FAIL:', (e && e.stack) || e); }
 
 console.log(fails ? `\nSMOKE FAILED (${fails})` : '\nSMOKE PASSED');
 process.exit(fails ? 1 : 0);
