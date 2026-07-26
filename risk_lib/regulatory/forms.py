@@ -770,7 +770,8 @@ FORMS: tuple[FormSpec, ...] = (
 
 _FSS_BUILDER_MODULES: tuple[str, ...] = (
     "forms_fss_capital",      # 자본적정성
-    "forms_fss_asset",        # 자산건전성
+    "forms_fss_asset",        # 자산건전성 — 기업·일반여신
+    "forms_fss_retail",       # 자산건전성 — 가계·주담대·부동산
     "forms_fss_liquidity",    # 유동성
     "forms_fss_indicator",    # 리스크 지표
     "forms_fss_compliance",   # 업무규제 준수
