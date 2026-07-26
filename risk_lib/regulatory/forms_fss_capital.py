@@ -50,6 +50,7 @@ import pandas as pd
 from risk_lib.regulatory.forms_base import (
     FormCheck, FormLine, _ratio_check, _sum_check, _val,
 )
+from risk_lib.ccr import cva_rwa as _cva_rwa
 
 _M_CAP = "risk_lib.capital.bis · risk_lib.capital.output_floor"
 _M_RWA = "risk_lib.capital.rwa_sa · risk_lib.capital.rwa_irb"
@@ -1012,18 +1013,19 @@ def _b2328(ctx):
                  formula="산출 결과에서 역산 (K_BA ÷ √(Σ EAD_i²)) — "
                          "감독당국 고시 계수가 아니라 risk_lib.ccr의 파라미터다",
                  citation="MAR50.14 (축약 적용)", source_module=_M_CCR),
-        FormLine("3000", "CVA 위험가중자산 (기초법)", 0, "KRW",
+        FormLine("3000", "CVA 소요자기자본 K_BA", 0, "KRW",
                  float(c.cva_charge),
-                 formula="κ × √(Σ EAD_i²) — 파이프라인은 이 값을 RWA로 합산한다",
+                 formula="κ × √(Σ EAD_i²) — 자본 기준 산출액",
                  citation="MAR50.14", source_module=_M_CCR, is_subtotal=True),
-        FormLine("3100", "CVA 소요자기자본", 0, "KRW", float(c.cva_charge) * 0.08,
-                 formula="CVA 위험가중자산 × 8%", citation="CRE20.1",
-                 source_module=_M_CCR),
+        FormLine("3100", "CVA 위험가중자산", 0, "KRW", _cva_rwa(c.cva_charge),
+                 formula="CVA 소요자기자본 × 12.5 (최저비율 8%의 역수)",
+                 citation="MAR50.2 · RBC20.6", source_module=_M_CCR,
+                 is_subtotal=True),
         FormLine("4000", "거래상대방신용리스크 위험가중자산 (SA-CCR)", 0, "KRW",
                  float(c.rwa_total), formula="Σ EAD × 위험가중치",
                  citation="CRE52", source_module=_M_CCR, is_subtotal=True),
         FormLine("5000", "CCR + CVA 합계", 0, "KRW", float(ctx.result.rwa["ccr"]),
-                 formula="SA-CCR RWA + CVA", citation="CRE52 · MAR50",
+                 formula="SA-CCR RWA + CVA RWA", citation="CRE52 · MAR50",
                  source_module=_M_CAP, is_subtotal=True),
         FormLine("9000", "적용 방법 비고", 0, "text", None,
                  text_value="현 산출은 BA-CVA 축약형(헤지 미인정)이다. 표준방법"
@@ -1035,15 +1037,15 @@ def _b2328(ctx):
                             "집계하는 식이나, risk_lib.ccr는 감독 위험가중치와 ρ를 "
                             "단일 계수 κ에 접어 넣고 EAD에 직접 적용한다 — 본 라인의 "
                             "산식은 MAR50.14의 대용치이지 그 자체가 아니다. "
-                            "(2) 산출 함수의 이름·주석은 이 값을 소요자기자본(K_BA)"
-                            "이라 하지만 파이프라인은 이를 위험가중자산으로 합산한다. "
-                            "3000·3100 라인은 파이프라인 관행을 그대로 따랐으며, "
-                            "어느 쪽이 정본인지는 제출 전 확정해야 한다 "
-                            "(자본으로 볼 경우 CVA 위험가중자산은 12.5배가 된다).",
+                            "(2) 단위 기준은 확정됐다 — 산출값은 소요자기자본"
+                            "(K_BA)이며 RWA는 12.5배 환산치다(MAR50.2·RBC20.6). "
+                            "이전에는 K를 RWA로 그대로 합산해 CVA가 12.5배 과소"
+                            "계상되고 있었고, 본 서식 저작 중 드러나 정정했다.",
                  citation="MAR50.14 · CRE20.1"),
     ]
     checks = [
-        _sum_check("CCR+CVA 합계 = SA-CCR + CVA", L, "5000", ("4000", "3000")),
+        _sum_check("CCR+CVA 합계 = SA-CCR RWA + CVA RWA", L, "5000",
+                   ("4000", "3100")),
         FormCheck("EAD 합계 = 거래상대방별 EAD 합",
                   float(bc["ead"].sum()) if len(bc) else 0.0,
                   float(c.ead_total), 1.0),
@@ -1052,8 +1054,8 @@ def _b2328(ctx):
         FormCheck("CVA 재계산 = 산출 결과",
                   float(cva_capital_charge(bc)) if len(bc) else 0.0,
                   float(c.cva_charge), 1.0),
-        FormCheck("소요자기자본 = RWA × 8%", float(c.cva_charge) * 0.08,
-                  _val(L, "3100"), 1.0),
+        FormCheck("소요자기자본 = CVA RWA × 8%", _val(L, "3100") * 0.08,
+                  _val(L, "3000"), 1.0),
     ]
     return L, checks
 
@@ -1072,9 +1074,12 @@ def _b2328_1(ctx):
         FormLine("1200", "√(Σ EAD_i²)", 0, "KRW", root,
                  formula="상계 미인정 축약형의 집계항", citation="MAR50.14",
                  source_module=_M_CCR),
-        FormLine("2000", "CVA 위험가중자산 (기초법)", 0, "KRW",
+        FormLine("2000", "CVA 소요자기자본 K_BA (기초법)", 0, "KRW",
                  float(c.cva_charge), citation="MAR50.14", source_module=_M_CCR,
                  is_subtotal=True),
+        FormLine("2100", "CVA 위험가중자산", 0, "KRW", _cva_rwa(c.cva_charge),
+                 formula="K_BA × 12.5", citation="MAR50.2 · RBC20.6",
+                 source_module=_M_CCR, is_subtotal=True),
     ]
     ead_codes, w_codes = [], []
     for i, (_, row) in enumerate(bc.iterrows(), start=1):
