@@ -328,6 +328,7 @@
     <b>V / 📷 : 카메라 각도</b> &nbsp;|&nbsp; <b>Alt+마우스 : 자유 궤도</b> &nbsp;|&nbsp; 휠 : 줌 &nbsp;|&nbsp; 모바일 : 두 손가락 드래그·핀치<br>
     1 ~ 9 : 핫바 슬롯 &nbsp;|&nbsp; C : 제작 &nbsp;|&nbsp; E : 인벤토리 &nbsp;|&nbsp; F : 비행 &nbsp;|&nbsp; M : 음악<br>
     지형은 평원·사막·눈·정글·산악·버섯 들판 6가지 바이옴, 동굴엔 5종 광석<br>
+    월드가 10배 넓어졌어요! 곳곳의 <b>🏘 마을</b>에는 주민과 소·돼지·양이 살고 있습니다 (미니맵의 주황 점)<br>
     밤엔 좀비·스켈레톤·크리퍼·거미·어둠 마법사, 보스로 좀비 군주와 🌪위더 스톰 출몰<br>
     나무→판자→곡괭이·검·활·상자, 철/다이아로 갑옷, 금→황금사과, 다이아로 포탈<br>
     모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼(먹기🍗·활🏹 포함)<br>
@@ -360,7 +361,7 @@
 import * as THREE from 'three';
 
 // ---------- 상수 ----------
-const WORLD_SIZE = 192;         // 가로/세로 블록 수
+const WORLD_SIZE = 608;         // 가로/세로 블록 수 (192 → 608, 면적 약 10배)
 const CHUNK = 16;               // 청크 한 변 크기
 const Y_MAX = 48;               // 최대 건설 높이
 const SEA_LEVEL = 8;            // 해수면 높이
@@ -391,7 +392,7 @@ let lookSens = optSens * 0.000125; // 슬라이더 20 → 0.0025 (기존 기본�
 let masterVol = optVol / 100;
 // 월드 시드 / 월드젠 버전: 시드나 지형 생성 규칙이 바뀌면 기존 저장은 무효화한다
 const WORLD_SEED = 1337 + SLOT * 9973;
-const WORLD_VER = 5; // v5: 월드 192x192 확장
+const WORLD_VER = 6; // v6: 월드 608x608 + 청크 지연 생성 + 마을
 
 const BLOCK = { GRASS: 1, DIRT: 2, STONE: 3, WOOD: 4, LEAVES: 5, SAND: 6, WATER: 7, COAL_ORE: 8, IRON_ORE: 9, TORCH: 10, PLANK: 11, DIAMOND_ORE: 12, CROP: 13, NETHERRACK: 14, LAVA: 15, PORTAL: 16, GOLD_ORE: 17, EMERALD_ORE: 18, SNOW: 19, CHEST: 20, MUSH_CAP: 21, END_STONE: 22, VOID_CRYSTAL: 23, FLOWER_R: 24, FLOWER_Y: 25, TNT: 26, MEGA_TNT: 27, LIGHT_TNT: 28, QUAKE_TNT: 29 };
 // 블록이 아닌 아이템 (인벤토리 전용)
@@ -618,147 +619,343 @@ const ITEM_ICON = { [ITEM.MEAT]: TEX.meat, [ITEM.SEEDS]: TEX.seeds, [ITEM.BREAD]
 
 // ---------- 월드 데이터 ----------
 // 차원 전환을 위해 let (스왑 시 다른 Map/Set으로 교체)
-let world = new Map();  // "x,y,z" -> 블록 타입
+// 월드가 10배 넓어져 블록마다 문자열 키를 쓰면 메모리가 감당 안 됨 →
+// 청크 하나를 Uint8Array 한 덩어리(16×16×49)로 저장 (청크당 12.5KB)
+let world = new Map();  // "cx,cz" -> Uint8Array
 let edits = new Map();  // 플레이어가 바꾼 블록 (저장용)
 let torches = new Set(); // 횃불 위치 (조명용)
+let editIdx = new Map();  // 청크키 -> 그 청크 안의 편집 키들 (지연 생성 대비)
+let dimDone = new Set();  // 이미 생성한 청크 키
+let dimCol = null, dimDeco = null; // 현재 차원의 열/장식 생성기
 let portals = new Set(); // 포탈 위치 (미니맵 표시용)
 let curDim = 'overworld'; // 현재 차원: 'overworld' | 'nether'
 const key = (x, y, z) => x + ',' + y + ',' + z;
-function getBlock(x, y, z) { return world.get(key(x, y, z)) || 0; }
+const COL_H = Y_MAX + 1;
+const CHUNK_VOL = CHUNK * CHUNK * COL_H;
+const chunkKeyOf = (x, z) => Math.floor(x / CHUNK) + ',' + Math.floor(z / CHUNK);
+const blockIdx = (x, y, z) => ((((x % CHUNK) + CHUNK) % CHUNK) * CHUNK + (((z % CHUNK) + CHUNK) % CHUNK)) * COL_H + y;
+function getBlock(x, y, z) {
+  if (y < 0 || y > Y_MAX) return 0;
+  const a = world.get(chunkKeyOf(x, z));
+  return a ? a[blockIdx(x, y, z)] : 0;
+}
 function isLiquid(t) { return t === BLOCK.WATER || t === BLOCK.LAVA; }
 function isSolid(t) { return t && !isLiquid(t); }                            // 조준/설치 대상 여부
 // 충돌·면 가림 여부 (액체·횃불·작물·포탈은 통과)
 function occludes(t) { return t && !isLiquid(t) && t !== BLOCK.TORCH && t !== BLOCK.CROP && t !== BLOCK.PORTAL && t !== BLOCK.FLOWER_R && t !== BLOCK.FLOWER_Y; }
-function setBlock(x, y, z, t) {
+// 편집 기록: 저장용 Map + 아직 생성 안 된 청크를 위해 청크별 색인도 갱신
+function noteEdit(x, y, z, t) {
   const k = key(x, y, z);
-  if (t) world.set(k, t);
-  else world.delete(k);
+  edits.set(k, t);
+  const ck = Math.floor(x / CHUNK) + ',' + Math.floor(z / CHUNK);
+  let set = editIdx.get(ck);
+  if (!set) editIdx.set(ck, set = new Set());
+  set.add(k);
+}
+function setBlock(x, y, z, t) {
+  if (y < 0 || y > Y_MAX) return;
+  const ck = chunkKeyOf(x, z);
+  let a = world.get(ck);
+  if (!a) {
+    if (!t) return;
+    world.set(ck, a = new Uint8Array(CHUNK_VOL));
+  }
+  a[blockIdx(x, y, z)] = t;
+  const k = key(x, y, z);
   if (t === BLOCK.TORCH) torches.add(k);
   else torches.delete(k);
   if (t === BLOCK.PORTAL) portals.add(k);
   else portals.delete(k);
 }
 
-function generateWorld() {
-  const half = WORLD_SIZE / 2;
-  for (let x = -half; x < half; x++) {
-    for (let z = -half; z < half; z++) {
-      const h = terrainHeight(x, z);
-      const biome = biomeAt(x, z);
-      for (let y = 0; y <= h; y++) {
-        let t;
-        if (y === h) {
-          if (h <= SEA_LEVEL + 1) t = BLOCK.SAND;            // 해변
-          else if (biome === 'mountain') t = h > 26 ? BLOCK.SNOW : BLOCK.STONE; // 바위산 + 만년설
-          else if (biome === 'desert') t = BLOCK.SAND;
-          else if (biome === 'snow') t = BLOCK.SNOW;
-          else t = BLOCK.GRASS;
-        }
-        else if (y >= h - 3) t = BLOCK.DIRT;
-        else {
-          const r = rand();
-          if (r < 0.0025 && y < 4) t = BLOCK.EMERALD_ORE;
-          else if (r < 0.006 && y < 5) t = BLOCK.DIAMOND_ORE;
-          else if (r < 0.014 && y < 8) t = BLOCK.GOLD_ORE;
-          else if (r < 0.03 && y < 6) t = BLOCK.IRON_ORE;
-          else if (r < 0.07) t = BLOCK.COAL_ORE;
-          else t = BLOCK.STONE;
-        }
-        // 동굴 굴착: 표면 두 칸과 바닥은 보존, 그 아래만 비움
-        if (y > 1 && y < h - 1 && caveNoise(x, y, z) > 0.64) continue;
-        setBlock(x, y, z, t);
-      }
-      for (let y = h + 1; y <= SEA_LEVEL; y++) setBlock(x, y, z, BLOCK.WATER);
+// 청크를 아무 순서로 만들어도 결과가 같도록, 생성용 난수는 전부 위치 기반 해시
+function hash01(x, y, z, salt) {
+  let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(z | 0, 2246822519) ^ Math.imul(salt | 0, 3266489917) ^ WORLD_SEED;
+  h = Math.imul(h ^ (h >>> 15), 2246822519);
+  h = Math.imul(h ^ (h >>> 13), 3266489917);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+// 청크(또는 마을) 하나에 고정된 난수열 — 장식물 배치용
+function seedRand(a, b, salt) {
+  return mulberry32((Math.imul(a | 0, 341873128) ^ Math.imul(b | 0, 132897987) ^ Math.imul(salt | 0, 2654435761) ^ WORLD_SEED) >>> 0);
+}
+// 장식물이 옆 청크를 침범하지 않도록 쓰기 범위를 제한 (이웃 청크는 자기 차례에 같은 계산을 반복)
+let genBox = null;
+function putB(x, y, z, t) {
+  if (y < 0 || y > Y_MAX) return;
+  if (genBox && (x < genBox[0] || x > genBox[1] || z < genBox[2] || z > genBox[3])) return;
+  setBlock(x, y, z, t);
+}
+// 지형 높이/바이옴만으로 정해지는 지표 블록 (블록이 생성되기 전에도 알 수 있어야 함)
+function surfaceBlockAt(x, z) {
+  const h = terrainHeight(x, z);
+  if (h <= SEA_LEVEL + 1) return BLOCK.SAND;            // 해변
+  const b = biomeAt(x, z);
+  if (b === 'mountain') return h > 26 ? BLOCK.SNOW : BLOCK.STONE; // 바위산 + 만년설
+  if (b === 'desert') return BLOCK.SAND;
+  if (b === 'snow') return BLOCK.SNOW;
+  return BLOCK.GRASS;
+}
+
+// 오버월드 한 열(column) 생성
+function owColumn(x, z) {
+  const h = terrainHeight(x, z);
+  const top = surfaceBlockAt(x, z);
+  for (let y = 0; y <= h; y++) {
+    // 동굴 굴착: 표면 두 칸과 바닥은 보존, 그 아래만 비움
+    if (y > 1 && y < h - 1 && caveNoise(x, y, z) > 0.64) continue;
+    let t;
+    if (y === h) t = top;
+    else if (y >= h - 3) t = BLOCK.DIRT;
+    else {
+      const r = hash01(x, y, z, 1);
+      if (r < 0.0025 && y < 4) t = BLOCK.EMERALD_ORE;
+      else if (r < 0.006 && y < 5) t = BLOCK.DIAMOND_ORE;
+      else if (r < 0.014 && y < 8) t = BLOCK.GOLD_ORE;
+      else if (r < 0.03 && y < 6) t = BLOCK.IRON_ORE;
+      else if (r < 0.07) t = BLOCK.COAL_ORE;
+      else t = BLOCK.STONE;
     }
+    setBlock(x, y, z, t);
   }
-  // 식생 심기 (바이옴별: 정글은 크고 빽빽한 나무, 버섯 들판은 거대 버섯)
-  for (let i = 0; i < 620; i++) {
-    const x = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
-    const z = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
+  for (let y = h + 1; y <= SEA_LEVEL; y++) setBlock(x, y, z, BLOCK.WATER);
+}
+// 나무 (바이옴별: 정글은 크고 빽빽, 버섯 들판은 거대 버섯)
+function owTrees(cx, cz) {
+  const r = seedRand(cx, cz, 11);
+  for (let i = 0; i < 5; i++) {
+    const x = cx * CHUNK + Math.floor(r() * CHUNK);
+    const z = cz * CHUNK + Math.floor(r() * CHUNK);
     const h = terrainHeight(x, z);
-    const surf = getBlock(x, h, z);
+    const surf = surfaceBlockAt(x, z);
     if (surf !== BLOCK.GRASS && surf !== BLOCK.SNOW) continue; // 사막·바위산엔 없음
     const b = biomeAt(x, z);
     if (b === 'mountain') continue;
-    if (b === 'plains' && rand() < 0.45) continue; // 평원은 듬성듬성
-    if (b === 'snow' && rand() < 0.5) continue;
+    if (b === 'plains' && r() < 0.45) continue; // 평원은 듬성듬성
+    if (b === 'snow' && r() < 0.5) continue;
+    if (inVillage(x, z)) continue;              // 마을 안에는 심지 않음
     if (b === 'mushroom') { // 거대 버섯: 기둥 + 갓
-      if (rand() < 0.35) continue;
-      const stem = 3 + Math.floor(rand() * 2);
-      for (let y = 1; y <= stem; y++) setBlock(x, h + y, z, BLOCK.WOOD);
+      if (r() < 0.35) continue;
+      const stem = 3 + Math.floor(r() * 2);
+      for (let y = 1; y <= stem; y++) putB(x, h + y, z, BLOCK.WOOD);
       for (let dx = -1; dx <= 1; dx++)
-        for (let dz = -1; dz <= 1; dz++)
-          if (!getBlock(x + dx, h + stem + 1, z + dz)) setBlock(x + dx, h + stem + 1, z + dz, BLOCK.MUSH_CAP);
-      setBlock(x, h + stem + 2, z, BLOCK.MUSH_CAP);
+        for (let dz = -1; dz <= 1; dz++) putB(x + dx, h + stem + 1, z + dz, BLOCK.MUSH_CAP);
+      putB(x, h + stem + 2, z, BLOCK.MUSH_CAP);
       continue;
     }
     const jungle = b === 'jungle';
-    const trunk = jungle ? 6 + Math.floor(rand() * 3) : 4 + Math.floor(rand() * 2);
+    const trunk = jungle ? 6 + Math.floor(r() * 3) : 4 + Math.floor(r() * 2);
     const R = jungle ? 3 : 2;
-    for (let y = 1; y <= trunk; y++) setBlock(x, h + y, z, BLOCK.WOOD);
+    for (let y = 1; y <= trunk; y++) putB(x, h + y, z, BLOCK.WOOD);
     for (let dx = -R; dx <= R; dx++) {
       for (let dz = -R; dz <= R; dz++) {
         for (let dy = trunk - 1; dy <= trunk + 2; dy++) {
           const top = dy > trunk;
           if (top && (Math.abs(dx) > 1 || Math.abs(dz) > 1)) continue;
-          if (Math.abs(dx) === R && Math.abs(dz) === R && rand() < 0.5) continue;
+          if (Math.abs(dx) === R && Math.abs(dz) === R && hash01(x + dx, dy, z + dz, 2) < 0.5) continue;
           if (dx === 0 && dz === 0 && dy <= trunk) continue;
-          if (!getBlock(x + dx, h + dy, z + dz)) setBlock(x + dx, h + dy, z + dz, BLOCK.LEAVES);
+          if (!getBlock(x + dx, h + dy, z + dz)) putB(x + dx, h + dy, z + dz, BLOCK.LEAVES);
         }
       }
     }
   }
-  // 꽃: 평원·정글 잔디 위에 흩뿌림
-  for (let i = 0; i < 1400; i++) {
-    const x = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
-    const z = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
-    const h = terrainHeight(x, z);
-    if (getBlock(x, h, z) !== BLOCK.GRASS || getBlock(x, h + 1, z)) continue;
+}
+// 꽃: 평원·정글 잔디 위에 흩뿌림
+function owFlowers(cx, cz) {
+  const r = seedRand(cx, cz, 13);
+  for (let i = 0; i < 10; i++) {
+    const x = cx * CHUNK + Math.floor(r() * CHUNK);
+    const z = cz * CHUNK + Math.floor(r() * CHUNK);
     const fb = biomeAt(x, z);
     if (fb !== 'plains' && fb !== 'jungle') continue;
-    setBlock(x, h + 1, z, rand() < 0.5 ? BLOCK.FLOWER_R : BLOCK.FLOWER_Y);
+    if (surfaceBlockAt(x, z) !== BLOCK.GRASS) continue;
+    const h = terrainHeight(x, z);
+    if (getBlock(x, h + 1, z)) continue;
+    putB(x, h + 1, z, r() < 0.5 ? BLOCK.FLOWER_R : BLOCK.FLOWER_Y);
   }
+}
+function owDeco(cx, cz) {
+  for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) stampVillages(cx + dx, cz + dz);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) owTrees(cx + dx, cz + dz);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) owFlowers(cx + dx, cz + dz);
+}
+
+// ---------- 🏘 마을 ----------
+// 격자 한 칸에 최대 하나. 위치·구조는 좌표만으로 정해져서 청크를 언제 만들든 같은 마을이 나온다.
+const VILLAGE_GRID = 176;   // 마을 간격(블록)
+const VILLAGE_R = 22;       // 마을 반경(평탄화·판정)
+const villageCache = new Map();
+function villageSpotOk(cx, cz) {
+  const half = WORLD_SIZE / 2;
+  const b = biomeAt(cx, cz);
+  const h = terrainHeight(cx, cz);
+  if (Math.abs(cx) > half - VILLAGE_R - 4 || Math.abs(cz) > half - VILLAGE_R - 4) return false;
+  if (h <= SEA_LEVEL + 1 || b === 'mountain' || b === 'mushroom') return false; // 물·산은 피함
+  for (const [dx, dz] of [[-16, 0], [16, 0], [0, -16], [0, 16], [12, 12], [-12, -12]]) {
+    if (Math.abs(terrainHeight(cx + dx, cz + dz) - h) > 4) return false;        // 너무 험한 곳도 피함
+  }
+  return true;
+}
+function villageAt(gx, gz) {
+  const gk = gx + ',' + gz;
+  if (villageCache.has(gk)) return villageCache.get(gk);
+  let v = null;
+  const home = gx === 0 && gz === 0; // 스폰 격자엔 항상 마을 — 시작하자마자 찾을 수 있게
+  const r = seedRand(gx, gz, 77);
+  if (home || r() < 0.72) {
+    for (let i = 0; i < 6 && !v; i++) {
+      let cx, cz;
+      if (home) { // 스폰 주위 반경 46의 여섯 방향 중 쓸 만한 곳
+        const a = 0.4 + i * 1.05;
+        cx = Math.round(Math.cos(a) * 46);
+        cz = Math.round(Math.sin(a) * 46);
+      } else {
+        cx = gx * VILLAGE_GRID + 30 + Math.floor(r() * (VILLAGE_GRID - 60));
+        cz = gz * VILLAGE_GRID + 30 + Math.floor(r() * (VILLAGE_GRID - 60));
+      }
+      if (villageSpotOk(cx, cz)) v = { id: gk, x: cx, z: cz, y: terrainHeight(cx, cz) };
+    }
+  }
+  villageCache.set(gk, v);
+  return v;
+}
+// (x,z)에서 반경 R(체비셰프) 안에 중심이 있는 마을들
+function villagesNear(x, z, R, out) {
+  const g0x = Math.floor((x - R) / VILLAGE_GRID), g1x = Math.floor((x + R) / VILLAGE_GRID);
+  const g0z = Math.floor((z - R) / VILLAGE_GRID), g1z = Math.floor((z + R) / VILLAGE_GRID);
+  for (let gx = g0x; gx <= g1x; gx++)
+    for (let gz = g0z; gz <= g1z; gz++) {
+      const v = villageAt(gx, gz);
+      if (v && Math.abs(v.x - x) <= R && Math.abs(v.z - z) <= R) out.push(v);
+    }
+  return out;
+}
+function inVillage(x, z) { return villagesNear(x, z, VILLAGE_R, []).length > 0; }
+// 마을 배치(집·우물·밭·가축 우리 위치)를 좌표만으로 계산
+function villagePlan(v) {
+  if (v.plan) return v.plan;
+  const r = seedRand(v.x, v.z, 123);
+  const houses = [];
+  const spots = [[-13, -11], [12, -12], [-14, 9], [11, 11], [0, -16], [-16, 0], [15, 0]];
+  const n = 4 + Math.floor(r() * 3);
+  for (let i = 0; i < n; i++) {
+    const [ox, oz] = spots[i % spots.length];
+    houses.push({ x: v.x + ox, z: v.z + oz, w: 5 + (r() < 0.5 ? 0 : 2), d: 5 + (r() < 0.5 ? 0 : 1) });
+  }
+  v.plan = { houses, pen: { x: v.x + 14, z: v.z - 6, r: 4 }, farm: { x: v.x - 8, z: v.z + 14 } };
+  return v.plan;
+}
+// 이 청크에 걸치는 마을 구조물만 기록 (genBox 밖은 putB가 버림)
+function stampVillages(cx, cz) {
+  for (const v of villagesNear(cx * CHUNK + CHUNK / 2, cz * CHUNK + CHUNK / 2, VILLAGE_R + CHUNK, [])) stampVillage(v);
+}
+function stampVillage(v) {
+  const y = v.y;
+  const plan = villagePlan(v);
+  // 1) 마을 터 평탄화: 잔디 바닥 깔고 위는 비움
+  for (let dx = -VILLAGE_R; dx <= VILLAGE_R; dx++) {
+    for (let dz = -VILLAGE_R; dz <= VILLAGE_R; dz++) {
+      if (dx * dx + dz * dz > VILLAGE_R * VILLAGE_R) continue;
+      const x = v.x + dx, z = v.z + dz;
+      if (genBox && (x < genBox[0] || x > genBox[1] || z < genBox[2] || z > genBox[3])) continue;
+      for (let yy = y - 2; yy <= y; yy++) putB(x, yy, z, yy === y ? BLOCK.GRASS : BLOCK.DIRT);
+      for (let yy = y + 1; yy <= y + 8; yy++) setBlock(x, yy, z, 0);
+      // 십자 흙길
+      if (Math.abs(dx) <= 1 || Math.abs(dz) <= 1) putB(x, y, z, BLOCK.DIRT);
+    }
+  }
+  // 2) 우물 (돌 테두리 + 물 + 지붕)
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const edge = Math.abs(dx) === 1 || Math.abs(dz) === 1;
+    putB(v.x + dx, y + 1, v.z + dz, edge ? BLOCK.STONE : BLOCK.WATER);
+    if (!edge) putB(v.x + dx, y, v.z + dz, BLOCK.WATER);
+  }
+  for (const [px, pz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    for (let h = 2; h <= 3; h++) putB(v.x + px, y + h, v.z + pz, BLOCK.WOOD);
+  }
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) putB(v.x + dx, y + 4, v.z + dz, BLOCK.PLANK);
+  // 3) 집들
+  for (const hs of plan.houses) stampHouse(hs.x, hs.z, y, hs.w, hs.d);
+  // 4) 가축 우리 (판자 울타리 + 문 틈)
+  const pen = plan.pen;
+  for (let dx = -pen.r; dx <= pen.r; dx++) for (let dz = -pen.r; dz <= pen.r; dz++) {
+    const edge = Math.abs(dx) === pen.r || Math.abs(dz) === pen.r;
+    if (!edge) continue;
+    if (dx === 0 && dz === -pen.r) continue; // 드나드는 문
+    putB(pen.x + dx, y + 1, pen.z + dz, BLOCK.PLANK);
+  }
+  // 5) 밭 (물길 + 꽃밭)
+  const f = plan.farm;
+  for (let dx = -3; dx <= 3; dx++) for (let dz = -2; dz <= 2; dz++) {
+    if (dz === 0) { putB(f.x + dx, y, f.z + dz, BLOCK.WATER); continue; }
+    putB(f.x + dx, y, f.z + dz, BLOCK.DIRT);
+    if ((dx + dz) % 2 === 0) putB(f.x + dx, y + 1, f.z + dz, (dx & 1) ? BLOCK.FLOWER_Y : BLOCK.FLOWER_R);
+  }
+  // 6) 가로등 (기둥 + 횃불)
+  for (const [lx, lz] of [[-7, -7], [7, -7], [-7, 7], [7, 7]]) {
+    for (let h = 1; h <= 3; h++) putB(v.x + lx, y + h, v.z + lz, BLOCK.WOOD);
+    putB(v.x + lx, y + 4, v.z + lz, BLOCK.TORCH);
+  }
+}
+// 판자집: 벽 + 나무 기둥 + 지붕 + 문 틈 + 창문 + 안쪽 횃불
+function stampHouse(hx, hz, y, w, d) {
+  const x0 = hx - (w >> 1), x1 = x0 + w - 1, z0 = hz - (d >> 1), z1 = z0 + d - 1;
+  for (let x = x0; x <= x1; x++) {
+    for (let z = z0; z <= z1; z++) {
+      const wall = x === x0 || x === x1 || z === z0 || z === z1;
+      putB(x, y, z, BLOCK.PLANK); // 바닥
+      if (wall) {
+        const corner = (x === x0 || x === x1) && (z === z0 || z === z1);
+        for (let h = 1; h <= 3; h++) {
+          const door = x === hx && z === z0 && h <= 2;           // 앞문
+          const window = h === 2 && !corner && (x === x0 || x === x1) && z === hz;
+          if (door || window) continue;
+          putB(x, y + h, z, corner ? BLOCK.WOOD : BLOCK.PLANK);
+        }
+      }
+      putB(x, y + 4, z, BLOCK.WOOD); // 지붕
+    }
+  }
+  putB(hx, y + 3, hz, BLOCK.TORCH);          // 실내 조명
+  putB(hx, y, z0 - 1, BLOCK.DIRT);           // 문 앞 길
 }
 
 // 네더 차원 지형 (네더랙 + 용암 호수 + 동굴)
 const LAVA_LEVEL = 6;
-function generateNether() {
-  const half = WORLD_SIZE / 2;
-  for (let x = -half; x < half; x++) {
-    for (let z = -half; z < half; z++) {
-      const h = 9 + Math.floor(noise2(x / 20 + 100, z / 20 + 100) * 9); // 9~18
-      for (let y = 0; y <= h; y++) {
-        if (y > 1 && y < h - 1 && caveNoise(x + 500, y, z + 500) > 0.66) continue; // 동굴
-        setBlock(x, y, z, BLOCK.NETHERRACK);
-      }
-      for (let y = h + 1; y <= LAVA_LEVEL; y++) setBlock(x, y, z, BLOCK.LAVA); // 용암 호수
-    }
+function netherHeight(x, z) { return 9 + Math.floor(noise2(x / 20 + 100, z / 20 + 100) * 9); } // 9~18
+function netherColumn(x, z) {
+  const h = netherHeight(x, z);
+  for (let y = 0; y <= h; y++) {
+    if (y > 1 && y < h - 1 && caveNoise(x + 500, y, z + 500) > 0.66) continue; // 동굴
+    setBlock(x, y, z, BLOCK.NETHERRACK);
   }
-  // 우뚝 솟은 네더랙 기둥 (실루엣용)
-  for (let i = 0; i < 240; i++) {
-    const x = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
-    const z = Math.floor(rand() * (WORLD_SIZE - 8)) - half + 4;
-    const h = 9 + Math.floor(noise2(x / 20 + 100, z / 20 + 100) * 9);
-    if (h <= LAVA_LEVEL) continue;
-    const ph = 3 + Math.floor(rand() * 6);
-    for (let dy = 1; dy <= ph; dy++) setBlock(x, h + dy, z, BLOCK.NETHERRACK);
+  for (let y = h + 1; y <= LAVA_LEVEL; y++) setBlock(x, y, z, BLOCK.LAVA); // 용암 호수
+}
+// 우뚝 솟은 네더랙 기둥 (실루엣용)
+function netherDeco(cx, cz) {
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    const gx = cx + dx, gz = cz + dz;
+    const r = seedRand(gx, gz, 21);
+    for (let i = 0; i < 2; i++) {
+      const x = gx * CHUNK + Math.floor(r() * CHUNK);
+      const z = gz * CHUNK + Math.floor(r() * CHUNK);
+      const ph = 3 + Math.floor(r() * 6);
+      const h = netherHeight(x, z);
+      if (h <= LAVA_LEVEL) continue;
+      for (let dy = 1; dy <= ph; dy++) putB(x, h + dy, z, BLOCK.NETHERRACK);
+    }
   }
 }
 
 // 🌌 보이드 차원: 허공에 떠 있는 창백한 섬들 + 빛나는 보이드 수정
-function generateVoid() {
-  const half = WORLD_SIZE / 2;
-  for (let x = -half; x < half; x++) {
-    for (let z = -half; z < half; z++) {
-      let m = noise2(x / 30 + 3000, z / 30 + 3000);
-      if (Math.hypot(x, z) < 10) m = Math.max(m, 0.7); // 중앙엔 반드시 스폰 섬
-      if (m < 0.55) continue; // 허공
-      const h = 10 + Math.floor(noise2(x / 14 + 3300, z / 14 + 3300) * 8);
-      const depth = 1 + Math.floor((m - 0.55) * 26); // 가장자리는 얇고 중심은 두꺼운 섬
-      for (let y = Math.max(2, h - depth); y <= h; y++) setBlock(x, y, z, BLOCK.END_STONE);
-      if (rand() < 0.03) setBlock(x, h + 1, z, BLOCK.VOID_CRYSTAL); // 표면 수정
-    }
-  }
+function voidColumn(x, z) {
+  let m = noise2(x / 30 + 3000, z / 30 + 3000);
+  if (Math.hypot(x, z) < 10) m = Math.max(m, 0.7); // 중앙엔 반드시 스폰 섬
+  if (m < 0.55) return; // 허공
+  const h = 10 + Math.floor(noise2(x / 14 + 3300, z / 14 + 3300) * 8);
+  const depth = 1 + Math.floor((m - 0.55) * 26); // 가장자리는 얇고 중심은 두꺼운 섬
+  for (let y = Math.max(2, h - depth); y <= h; y++) setBlock(x, y, z, BLOCK.END_STONE);
+  if (hash01(x, 0, z, 5) < 0.03) setBlock(x, h + 1, z, BLOCK.VOID_CRYSTAL); // 표면 수정
 }
 
 // ---------- 저장 / 불러오기 ----------
@@ -772,7 +969,7 @@ function saveGame() {
       dims[name] = {
         edits: [...d.edits],
         pos: d.pos,
-        crops: d.crops.size ? [...d.crops].map(([k, c]) => [k, c.stage]) : (d.cropStages || []),
+        crops: d.crops.size ? [...d.crops].map(([k, c]) => [k, c.stage]) : (d.cropStages ? [...d.cropStages] : []),
         chests: [...d.chests],
       };
     }
@@ -891,9 +1088,44 @@ function updateTorchLights(dt) {
 const NEIGHBORS = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 const CHUNK_MIN = -WORLD_SIZE / 2 / CHUNK, CHUNK_MAX = WORLD_SIZE / 2 / CHUNK - 1;
 
-function rebuildChunk(cx, cz) {
+// 청크 지형을 처음 필요할 때 만든다 (10배 넓어진 월드를 한 번에 만들지 않기 위함)
+function ensureChunk(cx, cz) {
+  if (cx < CHUNK_MIN || cx > CHUNK_MAX || cz < CHUNK_MIN || cz > CHUNK_MAX) return false;
+  const ck = cx + ',' + cz;
+  if (dimDone.has(ck)) return false;
+  dimDone.add(ck);
+  const x0 = cx * CHUNK, z0 = cz * CHUNK;
+  for (let x = x0; x < x0 + CHUNK; x++)
+    for (let z = z0; z < z0 + CHUNK; z++) dimCol(x, z);
+  if (dimDeco) {
+    genBox = [x0, x0 + CHUNK - 1, z0, z0 + CHUNK - 1];
+    dimDeco(cx, cz);
+    genBox = null;
+  }
+  // 플레이어가 바꿔 둔 블록(저장본 포함) 되살리기
+  const es = editIdx.get(ck);
+  if (es) {
+    for (const k of es) {
+      const [x, y, z] = k.split(',').map(Number);
+      setBlock(x, y, z, edits.get(k) || 0);
+      const stage = DIMS[curDim].cropStages && DIMS[curDim].cropStages.get(k);
+      if (stage !== undefined && getBlock(x, y, z) === BLOCK.CROP) {
+        createCropMesh(x, y, z, stage);
+        DIMS[curDim].cropStages.delete(k);
+      }
+    }
+  }
+  return true;
+}
+// 플레이어 발밑이 빈 공간이 되지 않도록 주변 청크 지형은 즉시 생성
+function ensureNear(wx, wz, r) {
+  const cx = Math.floor(wx / CHUNK), cz = Math.floor(wz / CHUNK);
+  for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) ensureChunk(cx + dx, cz + dz);
+}
+function rebuildChunk(cx, cz, force) {
   if (cx < CHUNK_MIN || cx > CHUNK_MAX || cz < CHUNK_MIN || cz > CHUNK_MAX) return;
   const ck = cx + ',' + cz;
+  if (!force && !chunks.has(ck)) return; // 아직 안 띄운 먼 청크는 스트리밍이 만들 때 그림
   const old = chunks.get(ck);
   if (old) {
     for (const m of [...old.solid, ...old.water]) {
@@ -941,16 +1173,51 @@ function rebuildChunk(cx, cz) {
   chunks.set(ck, entry);
 }
 
-function rebuildAllChunks() {
-  for (let cx = CHUNK_MIN; cx <= CHUNK_MAX; cx++)
-    for (let cz = CHUNK_MIN; cz <= CHUNK_MAX; cz++)
-      rebuildChunk(cx, cz);
+// 지금 떠 있는 청크만 다시 그림 (차원 전환·설정 변경용)
+function rebuildLoadedChunks() {
+  for (const ck of [...chunks.keys()]) {
+    const [cx, cz] = ck.split(',').map(Number);
+    rebuildChunk(cx, cz, true);
+  }
+}
+// 특정 지점 주변을 즉시 만들고 그림 (시작·차원 이동 직후 빈 화면 방지)
+function primeChunks(wx, wz, r) {
+  const cx = Math.floor(wx / CHUNK), cz = Math.floor(wz / CHUNK);
+  for (let dx = -r - 1; dx <= r + 1; dx++) for (let dz = -r - 1; dz <= r + 1; dz++) ensureChunk(cx + dx, cz + dz);
+  for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) rebuildChunk(cx + dx, cz + dz, true);
+}
+// 플레이어를 따라 청크를 만들고(가까운 것부터) 멀어진 청크는 메모리에서 내림
+function updateStreaming() {
+  const R = Math.max(3, Math.min(8, Math.ceil(viewDist / CHUNK))); // 안개 너머는 안 그림
+  const pcx = Math.floor(player.pos.x / CHUNK), pcz = Math.floor(player.pos.z / CHUNK);
+  for (const [ck, c] of chunks) {
+    const [cx, cz] = ck.split(',').map(Number);
+    if (Math.abs(cx - pcx) > R + 1 || Math.abs(cz - pcz) > R + 1) {
+      for (const m of [...c.solid, ...c.water]) { scene.remove(m); m.dispose(); }
+      chunks.delete(ck);
+    }
+  }
+  let budget = 2; // 프레임당 청크 생성 개수 (끊김 방지)
+  for (let r = 0; r <= R && budget > 0; r++) {
+    for (let dx = -r; dx <= r && budget > 0; dx++) {
+      for (let dz = -r; dz <= r && budget > 0; dz++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; // 링 순회 = 가까운 것부터
+        const cx = pcx + dx, cz = pcz + dz;
+        if (cx < CHUNK_MIN || cx > CHUNK_MAX || cz < CHUNK_MIN || cz > CHUNK_MAX) continue;
+        if (chunks.has(cx + ',' + cz)) continue;
+        ensureChunk(cx, cz);
+        for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) ensureChunk(cx + ax, cz + az); // 경계면 판정용
+        rebuildChunk(cx, cz, true);
+        budget--;
+      }
+    }
+  }
 }
 
 // 블록 편집: 월드 갱신 + 해당/인접 청크 다시 그리기 + 저장 기록
 function editBlock(x, y, z, t) {
   setBlock(x, y, z, t);
-  edits.set(key(x, y, z), t);
+  noteEdit(x, y, z, t);
   const dirty = new Set();
   for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
     dirty.add(Math.floor((x + dx) / CHUNK) + ',' + Math.floor((z + dz) / CHUNK));
@@ -978,7 +1245,7 @@ function destroyBlocks(cx, cy, cz, R) {
     if (t === BLOCK.PORTAL || t === BLOCK.CHEST) continue; // 포탈·상자는 폭발 면역 (갇힘·아이템 소실 방지)
     if (t === BLOCK.CROP) removeCropMesh(x, y, z);
     setBlock(x, y, z, 0);
-    edits.set(key(x, y, z), 0);
+    noteEdit(x, y, z, 0);
     for (const [ddx, ddz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) dirty.add(Math.floor((x + ddx) / CHUNK) + ',' + Math.floor((z + ddz) / CHUNK));
   }
   for (const ck of dirty) { const [a, b] = ck.split(',').map(Number); rebuildChunk(a, b); }
@@ -1068,7 +1335,7 @@ function updateQuakes(dt) {
           if (TNT_BLOCKS.has(t)) { igniteTNT(ix, yy, iz, 0.3 + Math.random() * 0.4); continue; }
           if (t === BLOCK.CROP) removeCropMesh(ix, yy, iz);
           setBlock(ix, yy, iz, 0);
-          edits.set(key(ix, yy, iz), 0);
+          noteEdit(ix, yy, iz, 0);
           for (const [ddx, ddz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) q.dirty.add(Math.floor((ix + ddx) / CHUNK) + ',' + Math.floor((iz + ddz) / CHUNK));
         }
         if (Math.random() < 0.3) spawnFx(ix + 0.5, sy + 0.5, iz + 0.5, M_SMOKE, 1, 2, 0.6); // 흙먼지
@@ -1130,7 +1397,7 @@ function updateTNT(dt) {
     tntFuseSet.delete(f.key);
     if (TNT_BLOCKS.has(getBlock(f.x, f.y, f.z))) { // 리빌드는 아래 destroyBlocks가 1회 수행
       setBlock(f.x, f.y, f.z, 0);
-      edits.set(f.key, 0);
+      noteEdit(f.x, f.y, f.z, 0);
     }
     if (f.kind === BLOCK.LIGHT_TNT) { lightningExplosion(f); continue; } // ⚡
     if (f.kind === BLOCK.QUAKE_TNT) { startQuake(f); continue; }         // 🌋
@@ -1386,28 +1653,35 @@ function makeWispMesh() {
   return g;
 }
 // 차원마다 다른 동물: 오버월드 돼지/양/소, 네더 용암 달팽이, 보이드 정령
+// 월드가 10배 넓어져 전 지역에 뿌리는 대신, 플레이어 주변에서 태우고 멀어지면 정리한다
+const ANIMAL_CAP = 16;
 function spawnAnimals() {
+  for (let i = 0; i < ANIMAL_CAP * 4 && animals.length < ANIMAL_CAP; i++) spawnAnimalNear(i);
+}
+function spawnAnimalNear(i) {
   const half = WORLD_SIZE / 2;
-  const count = curDim === 'overworld' ? 28 : 12;
-  for (let i = 0; i < count; i++) {
-    const x = Math.floor(rand() * (WORLD_SIZE - 16)) - half + 8;
-    const z = Math.floor(rand() * (WORLD_SIZE - 16)) - half + 8;
+  {
+    const ang = Math.random() * Math.PI * 2;
+    const d = 12 + Math.random() * 40;
+    const x = Math.floor(player.pos.x + Math.cos(ang) * d);
+    const z = Math.floor(player.pos.z + Math.sin(ang) * d);
+    if (x < -half + 4 || x >= half - 4 || z < -half + 4 || z >= half - 4) return;
     let mesh, y;
     const extra = {};
     if (curDim === 'nether') {
       y = surfaceY(x, z);
-      if (y === null || getBlock(x, y - 1, z) !== BLOCK.NETHERRACK) continue;
+      if (y === null || getBlock(x, y - 1, z) !== BLOCK.NETHERRACK) return;
       mesh = makeSnailMesh();
       Object.assign(extra, { speed: 0.5, colH: 0.5, hitH: 0.7, drop: [ITEM.GOLD, 1], kindName: '용암 달팽이' });
     } else if (curDim === 'void') {
       y = surfaceY(x, z);
-      if (y === null) continue;
+      if (y === null) return;
       mesh = makeWispMesh();
-      Object.assign(extra, { flyer: true, baseY: y + 2 + rand() * 2, speed: 1.0, colH: 0.6, hitH: 0.9, drop: [ITEM.EMERALD, 1], kindName: '정령' });
+      Object.assign(extra, { flyer: true, baseY: y + 2 + Math.random() * 2, speed: 1.0, colH: 0.6, hitH: 0.9, drop: [ITEM.EMERALD, 1], kindName: '정령' });
     } else {
-      const h = terrainHeight(x, z);
-      if (getBlock(x, h, z) !== BLOCK.GRASS) continue;
-      y = h + 1;
+      // 마을처럼 지형이 바뀐 곳도 있으므로 실제 지표를 본다
+      y = surfaceY(x, z);
+      if (y === null || y <= SEA_LEVEL || getBlock(x, y - 1, z) !== BLOCK.GRASS) return;
       mesh = makeAnimalMesh(ANIMAL_TYPES[i % ANIMAL_TYPES.length]);
     }
     scene.add(mesh);
@@ -1415,9 +1689,9 @@ function spawnAnimals() {
       mesh,
       pos: new THREE.Vector3(x + 0.5, y, z + 0.5),
       vel: new THREE.Vector3(),
-      yaw: rand() * Math.PI * 2,
+      yaw: Math.random() * Math.PI * 2,
       walking: false,
-      timer: rand() * 3,
+      timer: Math.random() * 3,
       onGround: false,
       hp: 2, maxHp: 2, kbT: 0, colH: 0.9, hitH: 1.05, bar: makeHpBar(),
     }, extra));
@@ -1474,8 +1748,24 @@ function stepMob(m, dt, speed) {
   m.mesh.position.copy(m.pos);
   m.mesh.rotation.y = m.yaw;
 }
+let animalTopupT = 0;
 function updateAnimals(dt) {
   const half = WORLD_SIZE / 2;
+  // 넓은 월드: 멀어진 야생 동물은 정리하고, 부족하면 플레이어 근처에 새로 태움
+  animalTopupT -= dt;
+  if (animalTopupT <= 0 && playing()) {
+    animalTopupT = 3;
+    let wild = 0;
+    for (let i = animals.length - 1; i >= 0; i--) {
+      const a = animals[i];
+      if (a.village) continue; // 마을 가축·주민은 마을이 관리
+      if (Math.hypot(a.pos.x - player.pos.x, a.pos.z - player.pos.z) > 150) {
+        scene.remove(a.mesh); removeHpBar(a); animals.splice(i, 1); continue;
+      }
+      wild++;
+    }
+    for (let n = 0; n < 3 && wild + n < ANIMAL_CAP; n++) spawnAnimalNear(Math.floor(Math.random() * 3));
+  }
   for (const a of animals) {
     if (timeStop) { updateHpBar(a); continue; } // 🔮 시간 정지
     a.timer -= dt;
@@ -1489,6 +1779,27 @@ function updateAnimals(dt) {
       a.yaw = Math.atan2(a.pos.x, a.pos.z);
       a.walking = true;
     }
+    if (a.home) { // 마을 주민은 집 근처, 가축은 우리 안에서만 돌아다님
+      const lim = a.penned || 10;
+      const hx = a.pos.x - a.home[0], hz = a.pos.z - a.home[1];
+      if (Math.hypot(hx, hz) > lim) { a.yaw = Math.atan2(hx, hz); a.walking = true; }
+    }
+    if (a.villager) {
+      const fx = a.pos.x - player.pos.x, fz = a.pos.z - player.pos.z;
+      const pd = Math.hypot(fx, fz);
+      if (a.fleeT > 0) { // 맞으면 잠시 도망
+        a.fleeT -= dt;
+        a.yaw = Math.atan2(-fx, -fz);
+        a.walking = true;
+      } else if (pd < 3.5) {
+        a.yaw = Math.atan2(-fx, -fz) + Math.PI; // 플레이어를 바라봄
+        a.walking = false;
+        if (greetT <= 0) {
+          greetT = 18;
+          toast(VILLAGER_LINES[Math.floor(Math.random() * VILLAGER_LINES.length)], 2600);
+        }
+      }
+    }
     if (a.flyer) { // 정령: 충돌 없이 두둥실 떠다님
       const sp = a.walking ? a.speed : 0.25;
       a.pos.x -= Math.sin(a.yaw) * sp * dt;
@@ -1500,6 +1811,103 @@ function updateAnimals(dt) {
       stepMob(a, dt, a.walking ? (a.speed || 1.3) : 0);
     }
     updateHpBar(a);
+  }
+}
+
+// ---------- 🧑‍🌾 마을 주민 & 가축 (마을 근처에 오면 나타남) ----------
+const VILL_ROBE = new THREE.MeshLambertMaterial({ color: 0x7a5230 });
+const VILL_APRON = new THREE.MeshLambertMaterial({ color: 0x9c6b3c });
+const VILL_SKIN = new THREE.MeshLambertMaterial({ color: 0xd8a882 });
+function makeVillagerMesh() {
+  const g = new THREE.Group();
+  for (const lx of [-0.12, 0.12]) {
+    const leg = new THREE.Mesh(ZG_LEG, VILL_ROBE);
+    leg.position.set(lx, 0.35, 0);
+    g.add(leg);
+  }
+  const body = new THREE.Mesh(ZG_BODY, VILL_ROBE);
+  body.position.y = 1.05;
+  g.add(body);
+  const apron = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.31), VILL_APRON); // 앞치마
+  apron.position.set(0, 1.0, 0);
+  g.add(apron);
+  const head = new THREE.Mesh(ZG_HEAD, VILL_SKIN);
+  head.position.y = 1.65;
+  g.add(head);
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.14), VILL_SKIN); // 큼직한 코
+  nose.position.set(0, 1.62, -0.28);
+  g.add(nose);
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.06, 0.02), VILL_ROBE);
+  brow.position.set(0, 1.78, -0.23);
+  g.add(brow);
+  for (const ax of [-0.33, 0.33]) { // 배 앞에 모은 팔
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), VILL_ROBE);
+    arm.position.set(ax, 1.15, -0.05);
+    g.add(arm);
+  }
+  g.userData.bodyMat = VILL_ROBE;
+  return g;
+}
+const VILLAGER_LINES = ['🧑‍🌾 마을 주민: 안녕하세요!', '🧑‍🌾 마을 주민: 어서 오세요, 우리 마을에!', '🧑‍🌾 마을 주민: 밤에는 조심하세요!', '🧑‍🌾 마을 주민: 소랑 돼지 구경할래요?'];
+const activeVillages = new Set();
+let villageT = 0, greetT = 0;
+function addVillageMob(v, x, z, mesh, extra) {
+  ensureChunk(Math.floor(x / CHUNK), Math.floor(z / CHUNK)); // 발밑 지형 확보
+  const y = surfaceY(Math.floor(x), Math.floor(z));
+  if (y === null) return false;
+  scene.add(mesh);
+  animals.push(Object.assign({
+    mesh, village: v.id,
+    pos: new THREE.Vector3(x + 0.5, y, z + 0.5),
+    vel: new THREE.Vector3(),
+    yaw: Math.random() * Math.PI * 2,
+    walking: false, timer: Math.random() * 3, onGround: false,
+    hp: 2, maxHp: 2, kbT: 0, colH: 0.9, hitH: 1.05, bar: makeHpBar(),
+  }, extra));
+  return true;
+}
+function activateVillage(v) {
+  activeVillages.add(v.id);
+  const plan = villagePlan(v);
+  const r = seedRand(v.x, v.z, 555);
+  let people = 0, herd = 0;
+  const n = 4 + Math.floor(r() * 3); // 주민
+  for (let i = 0; i < n; i++) {
+    const hs = plan.houses[i % plan.houses.length];
+    if (addVillageMob(v, hs.x + Math.floor(r() * 7) - 3, hs.z + 4 + Math.floor(r() * 3), makeVillagerMesh(),
+      { villager: true, speed: 1.1, colH: 1.8, hitH: 1.9, hp: 6, maxHp: 6, kindName: '마을 주민', home: [hs.x, hs.z] })) people++;
+  }
+  const pen = plan.pen; // 우리 안 가축
+  for (let i = 0; i < 6; i++) {
+    if (addVillageMob(v, pen.x + Math.floor(r() * (pen.r * 2 - 1)) - (pen.r - 1), pen.z + Math.floor(r() * (pen.r * 2 - 1)) - (pen.r - 1),
+      makeAnimalMesh(ANIMAL_TYPES[i % ANIMAL_TYPES.length]), { home: [pen.x, pen.z], penned: pen.r - 1 })) herd++;
+  }
+  people = animals.filter((a) => a.village === v.id && a.villager).length;
+  herd = animals.filter((a) => a.village === v.id && !a.villager).length;
+  toast(`🏘 마을 발견! 주민 ${people}명 · 가축 ${herd}마리`, 3500);
+  unlock('village', '🏘 마을을 발견했다!');
+}
+function deactivateVillage(id) {
+  activeVillages.delete(id);
+  for (let i = animals.length - 1; i >= 0; i--) {
+    if (animals[i].village !== id) continue;
+    scene.remove(animals[i].mesh);
+    removeHpBar(animals[i]);
+    animals.splice(i, 1);
+  }
+}
+function updateVillages(dt) {
+  if (curDim !== 'overworld') return;
+  greetT -= dt;
+  villageT -= dt;
+  if (villageT > 0) return;
+  villageT = 1;
+  const near = villagesNear(player.pos.x, player.pos.z, 60, []);
+  for (const v of near) if (!activeVillages.has(v.id)) activateVillage(v);
+  for (const id of [...activeVillages]) {
+    const [gx, gz] = id.split(',').map(Number);
+    const v = villageAt(gx, gz);
+    if (!v || Math.hypot(v.x - player.pos.x, v.z - player.pos.z) > 150) deactivateVillage(id);
   }
 }
 
@@ -2144,6 +2552,7 @@ function explodeCreeper(c) {
 // 몹에게 피해 + 넉백 적용, 죽으면 처치 처리
 function damageMob(m, dmg, dx, dz) {
   m.hp -= dmg;
+  if (m.villager) m.fleeT = 6;
   spawnFx(m.pos.x, m.pos.y + m.hitH * 0.6, m.pos.z, enemyBoltMat(0xff4040), 4, 3, 0.18); // 피격 스파크
   const kl = Math.hypot(dx, dz) || 1;
   m.vel.set((dx / kl) * 6, 4, (dz / kl) * 6);
@@ -2158,9 +2567,13 @@ function killMob(m) {
   const ai = animals.indexOf(m);
   if (ai >= 0) {
     animals.splice(ai, 1);
-    const dp = m.drop || [ITEM.MEAT, 1 + (Math.random() < 0.5 ? 1 : 0)]; // 기본은 고기, 차원 동물은 전용 드롭
-    inv[dp[0]] = (inv[dp[0]] || 0) + dp[1];
-    updateHotbar();
+    if (m.villager) {
+      toast('😢 마을 주민이 쓰러졌어요... 주민은 때리지 말아요', 3000);
+    } else {
+      const dp = m.drop || [ITEM.MEAT, 1 + (Math.random() < 0.5 ? 1 : 0)]; // 기본은 고기, 차원 동물은 전용 드롭
+      inv[dp[0]] = (inv[dp[0]] || 0) + dp[1];
+      updateHotbar();
+    }
   } else {
     const zi = zombies.indexOf(m);
     if (zi >= 0) {
@@ -2424,7 +2837,7 @@ const ACHV_DEFS = [
   ['emerald', '희귀한 에메랄드!'], ['hunter', '몬스터 10마리 처치'], ['boss', '좀비 군주 처치'],
   ['wither', '🌪 위더 스톰 격파!!'], ['warden', '👂 워든을 쓰러뜨렸다!'],
   ['nether', '네더에 발을 딛다'], ['void', '🌌 보이드 탐험가'],
-  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'], ['witherform', '🌪 위더 스톰으로 변신!'], ['tnt', '💣 첫 대폭발!'], ['meganuke', '💥 10000% 대폭발!!'], ['lightning', '⚡ 번개 소환!'], ['quake', '🌋 대지진!'], ['piglin', '🐷 피글린과 마주쳤다!'],
+  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'], ['witherform', '🌪 위더 스톰으로 변신!'], ['tnt', '💣 첫 대폭발!'], ['meganuke', '💥 10000% 대폭발!!'], ['lightning', '⚡ 번개 소환!'], ['quake', '🌋 대지진!'], ['piglin', '🐷 피글린과 마주쳤다!'], ['village', '🏘 마을을 발견했다!'],
 ];
 const KIND_NAMES = {
   zombie: '좀비', skeleton: '스켈레톤', creeper: '크리퍼', spider: '거미', mage: '마법사',
@@ -2802,6 +3215,7 @@ function updateMinimap(dt) {
     if (ix < 0 || iy < 0 || ix > W || iy > H) return;
     miniCtx.fillStyle = col; miniCtx.fillRect(ix - s, iy - s, 2 * s, 2 * s);
   };
+  if (curDim === 'overworld') for (const v of villagesNear(px, pz, MINI_R + 8, [])) plot(v.x, v.z, '#ffb040', 3); // 🏘 마을
   for (const k of portals) { const [px2, , pz2] = k.split(',').map(Number); plot(px2 + 0.5, pz2 + 0.5, '#c060ff', 2); }
   for (const a of animals) plot(a.pos.x, a.pos.z, '#fff', 1);
   for (const z of zombies) plot(z.pos.x, z.pos.z, z.boss ? '#ff3' : z.creeper ? '#5e5' : '#f44', z.boss ? 3 : 1);
@@ -4143,10 +4557,11 @@ function closeChest() {
 document.getElementById('chestClose').addEventListener('click', closeChest);
 
 // ---------- 차원 (오버월드 / 네더) ----------
-function makeDim(gen) {
-  return { world: new Map(), edits: new Map(), torches: new Set(), portals: new Set(), crops: new Map(), chests: new Map(), generated: false, gen, pos: null, cropStages: null };
+function makeDim(col, deco) {
+  // done: 이미 생성한 청크 키, editIdx: 아직 안 만든 청크의 편집을 되살리기 위한 청크별 색인
+  return { world: new Map(), edits: new Map(), editIdx: new Map(), torches: new Set(), portals: new Set(), crops: new Map(), chests: new Map(), done: new Set(), generated: false, col, deco, pos: null, cropStages: null };
 }
-const DIMS = { overworld: makeDim(generateWorld), nether: makeDim(generateNether), void: makeDim(generateVoid) };
+const DIMS = { overworld: makeDim(owColumn, owDeco), nether: makeDim(netherColumn, netherDeco), void: makeDim(voidColumn, null) };
 const DIM_ORDER = ['overworld', 'nether', 'void']; // 포탈은 이 순서로 순환
 
 function snapshotPlayer() {
@@ -4187,14 +4602,8 @@ function placeSpawnPortal() {
   setBlock(spot.x, spot.y + 2, spot.z, BLOCK.PORTAL);
 }
 function genDim(d) {
-  d.gen(); // 현재 활성 world(=d.world)에 기본 지형 생성
+  ensureNear(0, 0, 2);  // 스폰 주변 지형 (나머지는 플레이어를 따라 스트리밍)
   placeSpawnPortal();
-  for (const [k, t] of d.edits) { const [x, y, z] = k.split(',').map(Number); setBlock(x, y, z, t); }
-  for (const [k, stage] of d.cropStages || []) {
-    const [x, y, z] = k.split(',').map(Number);
-    if (getBlock(x, y, z) === BLOCK.CROP) createCropMesh(x, y, z, stage);
-  }
-  d.cropStages = null;
   d.generated = true;
 }
 function safeSpawn(sx, sz) {
@@ -4213,17 +4622,19 @@ function teleport(target, initial) {
   }
   curDim = target;
   const d = DIMS[target];
-  world = d.world; edits = d.edits; torches = d.torches; portals = d.portals; crops = d.crops; chests = d.chests;
+  world = d.world; edits = d.edits; editIdx = d.editIdx; torches = d.torches; portals = d.portals; crops = d.crops; chests = d.chests;
+  dimDone = d.done; dimCol = d.col; dimDeco = d.deco;
   if (!d.generated) genDim(d);
   else for (const [, c] of crops) scene.add(c.mesh);
-  rebuildAllChunks();
-  if (animals.length === 0) spawnAnimals();
 
   if (!applyPos(d.pos)) {
     const sy = safeSpawn(0, 0);
     player.pos.set(0.5, sy, 0.5);
     player.vel.set(0, 0, 0);
   }
+  primeChunks(player.pos.x, player.pos.z, 3); // 도착 지점 주변을 먼저 그려 둠
+  activeVillages.clear();
+  if (animals.length === 0) spawnAnimals();
   if (!initial) {
     // 도착 지점 근처 마른 땅 위에 귀환 오브를 띄움 (물·용암 회피)
     const spot = findDryColumn(Math.floor(player.pos.x), Math.floor(player.pos.z), 10);
@@ -4299,9 +4710,14 @@ try {
         for (const pair of sd.edits || []) {
           if (!Array.isArray(pair) || pair.length < 2) throw new Error('save: edit pair bad');
           d.edits.set(pair[0], pair[1]);
+          const [ex, , ez] = String(pair[0]).split(',').map(Number);
+          const eck = Math.floor(ex / CHUNK) + ',' + Math.floor(ez / CHUNK);
+          let eset = d.editIdx.get(eck);
+          if (!eset) d.editIdx.set(eck, eset = new Set());
+          eset.add(pair[0]);
         }
         d.pos = sd.pos || null;
-        d.cropStages = sd.crops || [];
+        d.cropStages = new Map(sd.crops || []);
         for (const pair of sd.chests || []) {
           if (Array.isArray(pair) && pair.length >= 2 && pair[1] && typeof pair[1] === 'object') d.chests.set(pair[0], pair[1]);
         }
@@ -4330,7 +4746,7 @@ try {
   // 부분적으로 적용된 상태를 폐기하고 깨끗한 차원으로 다시 시작
   for (const name of DIM_ORDER) {
     const d = DIMS[name];
-    if (d) { d.edits.clear(); d.pos = null; d.cropStages = []; d.chests.clear(); }
+    if (d) { d.edits.clear(); d.editIdx.clear(); d.pos = null; d.cropStages = null; d.chests.clear(); }
   }
   curDim = 'overworld';
   saveResetReason = String(e && e.message || e);
@@ -4445,6 +4861,7 @@ function loop(now) {
   if (playing()) {
     stats.playTime += dt;
     ultCd = Math.max(0, ultCd - dt);
+    ensureNear(player.pos.x, player.pos.z, 1); // 발밑 청크는 항상 준비
     updatePlayer(dt);
     updatePortal(dt);
     if (charging) chargeT = Math.min(1.2, chargeT + dt);
@@ -4467,6 +4884,8 @@ function loop(now) {
     updateTNT(dt);
     updateQuakes(dt);
     updateCrops(dt);
+    updateStreaming();
+    updateVillages(dt);
   }
   updateLaser(dt);
   updateFxLights(dt);

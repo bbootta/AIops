@@ -184,7 +184,19 @@ function runGame(saveJson, label, drive, opts) {
 }
 
 let fails = 0;
-try { runGame(null, 'A: 새 게임(오버월드)'); } catch (e) { fails++; console.log('  [A] FAIL:', (e && e.stack) || e); }
+try {
+  runGame(null, 'A: 새 게임(오버월드)', ({ step }) => {
+    step(90); // 마을 활성화(1초 주기) 대기
+    const achv = store['mc_achv'] || '[]';
+    if (!achv.includes('village')) throw new Error('스폰 근처 마을 미생성 (achv=' + achv + ')');
+    const texts = ((elCache['toasts'] && elCache['toasts'].children) || []).map((e) => e.textContent || '');
+    const line = texts.find((t) => t.includes('마을 발견'));
+    if (!line) throw new Error('마을 토스트 없음: ' + JSON.stringify(texts));
+    const m = line.match(/주민 (\d+)명 · 가축 (\d+)마리/);
+    if (!m || +m[1] < 1 || +m[2] < 1) throw new Error('주민/가축이 안 생김: ' + line);
+    console.log('  [A] 🏘 마을 생성 + ' + line.replace(/^.*🏘 /, '🏘 ') + ' 확인됨');
+  });
+} catch (e) { fails++; console.log('  [A] FAIL:', (e && e.stack) || e); }
 const saveB = JSON.stringify({
   curDim: 'overworld',
   dims: { overworld: { edits: [['0,11,0', 3], ['0,12,0', 16]], pos: { x: 0.5, y: 12, z: 0.5, yaw: 0, pitch: 0 }, crops: [] }, nether: { edits: [], pos: null, crops: [] } },
