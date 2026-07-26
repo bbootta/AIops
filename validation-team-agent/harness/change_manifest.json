@@ -2265,6 +2265,21 @@
       "rollback_rule": "중요도 등급이 실무와 어긋나면 model_materiality.json 의 배점·밴드를 조정한다(코드 변경 불필요). 조건부 승인이 남용되면 grant 의 enforce_sod 를 유지한 채 승인자 목록을 축소한다. 두 모듈 모두 삭제로 완전 롤백",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0152",
+      "timestamp": "2026-07-26 03:22:21",
+      "component": "harness/adversarial_protocol.json + tools/adversarial_review.py + harness/val_requirement_coverage.json + cli_index/dispatch/README sync",
+      "change_type": "create",
+      "evidence": "사용자 지시: 리스크관리팀 검증 의뢰에 적대적 검증으로 대응하고 상시 대기. 애드혹 대응은 재현 불가하므로 프로토콜로 고정. 실측: LCR 1.30 주장에 검증 입력 126/100 을 대입하니 ADV-CALC-01 반증(차이 -0.04 > 허용 0.001), 동일인 보완·재검증 시 ADV-PROC-01 반증, 근거 미제출 의뢰는 18건 전부 미확인으로 의견 확정 불가(exit 1). 테스트가 두 결함을 적발: (1) '반증 실패 ≠ 참' 경고가 의견 확정 가능할 때만 표시됨, (2) 의뢰가 대상을 지정하지 않아도 Golden Case 가 survived 로 집계돼 의뢰와 무관한 통과처럼 보임",
+      "root_cause": "검증 의뢰 대응 절차가 정의되어 있지 않아 '주장을 지지하는 근거 수집' 으로 흐를 위험이 있었고, 근거 미제출 항목이 조용히 통과로 처리될 구조적 여지가 있었음",
+      "targeted_fix": "harness/adversarial_protocol.json: 5개 범주 18개 challenge 각각에 disconfirming_evidence(무엇이 관측되면 주장이 무너지는가)를 사전 고정해 사후 기준 변경을 차단. 입증 책임은 의뢰자에게 있음을 stance 에 명시. tools/adversarial_review: refuted/survived/unanswered 3분 판정으로 미확인을 통과와 구분하고, Critical 미해소 시 의견 확정 불가(exit 1). 자동 판정은 독립재계산·기여도대사·Golden Case·SoD·표본충분성에 한정하고 나머지는 사람 검토로 명시. 산출물은 CLAUDE.md §3 10섹션 검증의견 초안이며 적합·부적합을 확정하지 않는다. 지적된 2건 수정: 경고를 무조건 표시, Golden Case 는 의뢰가 등록된 대상을 지정한 경우에만 판정",
+      "expected_benefit": "검증 의뢰 대응이 재현 가능한 절차가 됨. 반증 기준이 사전 고정되어 결론에 맞춘 합리화가 어렵고, 근거 미제출이 통과로 위장되지 않음",
+      "expected_regression_risk": "낮음 — 신규 모듈이며 기존 경로 무변경. 자동 판정 범위가 좁아 대부분 사람 검토로 남지만 이는 과대주장을 피하기 위한 의도된 보수성",
+      "validation_method": "tests/test_v2_round87.py 25 cases (프로토콜 무결성 5·의뢰 검증 1·반증 판정 9·의견 확정 6·CLI 3·카탈로그 1) + 전체 1316 passed",
+      "rollback_rule": "challenge 가 과도한 미확인을 양산해 실무가 마비되면 severity 를 조정하거나 challenge 를 축소한다(정책 파일 편집). 모듈 전체는 삭제로 완전 롤백",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

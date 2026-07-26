@@ -47,6 +47,7 @@ _DISPATCH = {
     ("golden",): "tools.golden_regression",
     ("scope",): "tools.validation_scope",
     ("approval",): "tools.conditional_approval",
+    ("adversarial",): "tools.adversarial_review",
     ("dashboard",): "tools.dashboard",
     ("manifest",): "tools.manifest",
     ("findings",): "tools.findings",

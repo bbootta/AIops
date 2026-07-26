@@ -42,6 +42,7 @@ CLI_MODULES: list[tuple[str, str]] = [
     ("tools.golden_regression", "Golden Case 회귀검증 + 비의도 변경 차단"),
     ("tools.validation_scope", "모형 중요도 등급 + 검증계획 최소 심도 강제"),
     ("tools.conditional_approval", "조건부 승인·제한 배포 (잔여위험·후속조건 추적)"),
+    ("tools.adversarial_review", "적대적 검증 — 검증 의뢰 반증 시도 + 의견 초안"),
     ("tools.manifest", "change_manifest 편집/검증/promote"),
     ("tools.findings", "recurring_findings JSON ↔ md sync"),
     ("tools.model_notes", "model_specific_notes JSON ↔ md sync"),

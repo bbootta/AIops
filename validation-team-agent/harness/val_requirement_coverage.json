@@ -135,9 +135,12 @@
       "phase": "04 Benchmark·회귀",
       "status": "partial",
       "evidence": [
-        "tools/report_pack.py"
+        "tools/report_pack.py",
+        "tools/adversarial_review.py",
+        "harness/adversarial_protocol.json",
+        "tests/test_v2_round87.py"
       ],
-      "gap": "challenger 페이지로 대안모형 비교를 제시하나, 벤치마크 출처·기준시점 등록과 성능격차의 통계적 유의성 판정이 없다."
+      "gap": "challenger 페이지로 대안모형 비교를 제시하고, 적대적 검증 프로토콜의 ADV-MODEL-04 가 '단순 벤치마크와의 차이가 표본오차 범위 내인가' 를 반증 기준으로 명시한다. 미충족: 벤치마크 출처·기준시점 등록과 성능격차의 통계적 유의성 자동 판정은 없어 해당 challenge 는 사람 검토 항목으로 남는다."
     },
     {
       "id": "VAL-012",
