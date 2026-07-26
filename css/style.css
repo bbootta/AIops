@@ -1,3 +1,4 @@
+/* 색은 전부 토큰으로만 쓴다 — 라이트/다크는 이 블록에서만 갈린다. */
 :root {
   --bg: #faf6f3;
   --panel: #ffffff;
@@ -6,10 +7,53 @@
   --muted: #8b7d75;
   --accent: #c2185b;
   --accent-soft: #fdeaf1;
+  --swatch-edge: rgba(0, 0, 0, .12);
   --radius: 12px;
+  color-scheme: light;
+}
+
+/* 다크: 살짝 붉은 기가 도는 중성색 + 어두운 바탕에서도 버티는 액센트 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171214;
+    --panel: #221c1f;
+    --line: #392f33;
+    --ink: #f2e9ea;
+    --muted: #a89298;
+    --accent: #f06292;
+    --accent-soft: #3a222b;
+    --swatch-edge: rgba(255, 255, 255, .18);
+    color-scheme: dark;
+  }
+}
+
+/* 보는 사람이 테마를 직접 바꾸면 위 미디어 쿼리를 양방향으로 덮어써야 한다. */
+:root[data-theme="dark"] {
+  --bg: #171214;
+  --panel: #221c1f;
+  --line: #392f33;
+  --ink: #f2e9ea;
+  --muted: #a89298;
+  --accent: #f06292;
+  --accent-soft: #3a222b;
+  --swatch-edge: rgba(255, 255, 255, .18);
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #faf6f3;
+  --panel: #ffffff;
+  --line: #ebe1da;
+  --ink: #2f2723;
+  --muted: #8b7d75;
+  --accent: #c2185b;
+  --accent-soft: #fdeaf1;
+  --swatch-edge: rgba(0, 0, 0, .12);
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 body {
   margin: 0;
@@ -97,7 +141,7 @@ body {
   color: var(--ink);
   cursor: pointer;
 }
-.btn:hover { border-color: #d8c8bd; }
+.btn:hover { border-color: var(--muted); }
 .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn-sm { padding: 6px 12px; font-size: 13px; }
 .btn-ghost { color: var(--muted); }
@@ -131,7 +175,7 @@ body {
 .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 6px; }
 .swatch {
   aspect-ratio: 1;
-  border: 1px solid rgba(0, 0, 0, .12);
+  border: 1px solid var(--swatch-edge);
   border-radius: 8px;
   cursor: pointer;
   padding: 0;
@@ -147,10 +191,10 @@ body {
   border: 1px solid var(--line); border-radius: 10px;
   background: var(--panel); color: var(--ink); cursor: pointer;
 }
-.design:hover { border-color: #d8c8bd; }
+.design:hover { border-color: var(--muted); }
 .design i {
   flex: none; width: 18px; height: 18px; border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, .12);
+  border: 1px solid var(--swatch-edge);
 }
 
 /* ── 슬라이더 ── */
@@ -160,6 +204,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .text {
   font: inherit; flex: 1 1 120px; min-width: 0;
   padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); color: var(--ink);
 }
 .looks { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
 .looks li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
