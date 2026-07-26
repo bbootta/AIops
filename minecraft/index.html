@@ -325,7 +325,8 @@
     <b>변신 핫키</b> Z🤖 · X🦾 · B🔮 · N🌪 · 0🧍해제 (같은 키를 다시 누르면 해제) &nbsp;|&nbsp; <b>Tab</b> : 마우스로 아이콘 고르기<br>
     슈트: 좌클릭 펄서 · 우클릭 미사일 · R 레이저 · <b>F ✨필살기(광역)</b> &nbsp;|&nbsp; 🔮: 마법 미사일 · 순간이동 · R 시간정지<br>
     <b>포탈은 색으로 목적지가 정해져요</b> — 🟢초록 오버월드 · 🔴빨강 네더 · 🟣보라 보이드 · 🟡금색 ⚔공성전 (미니맵에도 같은 색)<br>
-    <b>⚔ 공성전</b>: 성채 코어를 지키는 수성전! 10가지 공성 부대가 웨이브로 몰려옵니다 — 성 안 보급 상자(화살·TNT·돌벽돌)를 쓰세요<br>
+    <b>⚔ 공성전</b>: 거대 성채(101×101, 성벽 높이 10·대탑 19)를 지키는 수성전! 10가지 공성 부대가 <b>웨이브마다 100명</b> 몰려옵니다<br>
+    성 안 보급 상자(화살·TNT·돌벽돌)를 쓰고, 성벽 계단으로 올라가 활·TNT·변신 필살기로 막아 보세요<br>
     <b>V / 📷 : 카메라 각도</b> &nbsp;|&nbsp; <b>Alt+마우스 : 자유 궤도</b> &nbsp;|&nbsp; 휠 : 줌 &nbsp;|&nbsp; 모바일 : 두 손가락 드래그·핀치<br>
     1 ~ 9 : 핫바 슬롯 &nbsp;|&nbsp; C : 제작 &nbsp;|&nbsp; E : 인벤토리 &nbsp;|&nbsp; F : 비행 &nbsp;|&nbsp; M : 음악<br>
     지형은 평원·사막·눈·정글·산악·버섯 들판 6가지 바이옴, 동굴엔 5종 광석<br>
@@ -968,7 +969,10 @@ function netherDeco(cx, cz) {
 
 // ---------- ⚔ 공성전 맵: 평원 한복판의 성채를 지키는 전장 ----------
 const SIEGE_Y = 12;        // 평탄한 지면 높이
-const CASTLE_R = 16;       // 성벽 반경(정사각 반변)
+const CASTLE_R = 50;       // 바깥 성벽 반경 (33×33 → 101×101, 면적 약 10배)
+const KEEP_R = 15;         // 안쪽 성채(내성) 반경
+const WALL_H = 10;         // 바깥 성벽 높이
+const TOWER_H = 19;        // 모서리 탑 높이
 const CORE_POS = [0, SIEGE_Y + 2, 0];
 function siegeColumn(x, z) {
   for (let y = 0; y <= SIEGE_Y; y++) {
@@ -982,55 +986,98 @@ function siegeDeco(cx, cz) {
     const r = seedRand(gx, gz, 404);
     for (let i = 0; i < 2; i++) {
       const x = gx * CHUNK + Math.floor(r() * CHUNK), z = gz * CHUNK + Math.floor(r() * CHUNK);
-      if (Math.max(Math.abs(x), Math.abs(z)) < CASTLE_R + 6) continue; // 성 주변은 비워 둠
+      if (Math.max(Math.abs(x), Math.abs(z)) < CASTLE_R + 8) continue; // 성 주변은 비워 둠
       if (r() < 0.55) { for (let h = 1; h <= 1 + Math.floor(r() * 2); h++) putB(x, SIEGE_Y + h, z, BLOCK.STONE); }
       else { putB(x, SIEGE_Y + 1, z, r() < 0.5 ? BLOCK.FLOWER_R : BLOCK.FLOWER_Y); }
     }
   }
 }
-// 성채: 사각 성벽 + 흉벽 + 네 모서리 탑 + 성문 + 계단 + 중앙 코어 + 보급 상자
+// 웅장한 성채: 두께 2의 높은 바깥 성벽 + 흉벽 + 모서리 대탑 4개 + 성문루 +
+// 성벽 위를 걷는 통로와 계단 + 안쪽 내성 + 중앙 코어 + 보급 상자
+// (청크 생성 때마다 불리므로, 지금 만드는 청크와 겹치는 부분만 계산한다)
 function stampCastle() {
-  const y = SIEGE_Y;
-  const R = CASTLE_R;
-  for (let x = -R; x <= R; x++) {
-    for (let z = -R; z <= R; z++) {
-      if (genBox && (x < genBox[0] || x > genBox[1] || z < genBox[2] || z > genBox[3])) continue;
-      const edge = Math.abs(x) === R || Math.abs(z) === R;
-      const corner = Math.abs(x) > R - 3 && Math.abs(z) > R - 3;
-      putB(x, y, z, BLOCK.STONE_BRICK); // 성 안 바닥은 돌벽돌
-      if (edge) {
-        const gate = z === R && Math.abs(x) <= 1; // 남쪽 성문
-        for (let h = 1; h <= 4; h++) {
-          if (gate && h <= 3) continue;
+  const y = SIEGE_Y, R = CASTLE_R;
+  const x0 = Math.max(-R, genBox ? genBox[0] : -R), x1 = Math.min(R, genBox ? genBox[1] : R);
+  const z0 = Math.max(-R, genBox ? genBox[2] : -R), z1 = Math.min(R, genBox ? genBox[3] : R);
+  for (let x = x0; x <= x1; x++) {
+    for (let z = z0; z <= z1; z++) {
+      const ax = Math.abs(x), az = Math.abs(z), m = Math.max(ax, az);
+      // 성 안 바닥 (안뜰은 돌벽돌 포장)
+      if (m <= R) putB(x, y, z, BLOCK.STONE_BRICK);
+      // ── 바깥 성벽: 두께 2 (m = R, R-1)
+      if (m >= R - 1) {
+        const gate = z === R && ax <= 2;                    // 남쪽 성문 (4칸 폭)
+        const gateSide = z >= R - 1 && ax <= 2;
+        for (let h = 1; h <= WALL_H; h++) {
+          if (gateSide && h <= 6) continue;                 // 성문 통로
           putB(x, y + h, z, BLOCK.STONE_BRICK);
         }
-        if ((x + z) % 2 === 0) putB(x, y + 5, z, BLOCK.STONE_BRICK); // 흉벽 톱니
+        if (!gate && (x + z) % 2 === 0) putB(x, y + WALL_H + 1, z, BLOCK.STONE_BRICK); // 흉벽 톱니
+        if (m === R - 1 && (x + z) % 8 === 0) putB(x, y + WALL_H + 1, z, BLOCK.TORCH); // 성벽 위 횃불
       }
-      if (corner) { // 모서리 탑
-        const tw = Math.abs(x) === R || Math.abs(z) === R || Math.abs(x) === R - 2 || Math.abs(z) === R - 2;
-        if (tw) for (let h = 5; h <= 8; h++) putB(x, y + h, z, BLOCK.STONE_BRICK);
-        if (Math.abs(x) === R - 1 && Math.abs(z) === R - 1) putB(x, y + 9, z, BLOCK.TORCH);
+      // ── 모서리 대탑 (5칸 두께, 더 높이)
+      const corner = ax >= R - 4 && az >= R - 4;
+      if (corner) {
+        const shell = ax >= R - 1 || az >= R - 1 || ax === R - 4 || az === R - 4;
+        if (shell) {
+          for (let h = 1; h <= TOWER_H; h++) putB(x, y + h, z, BLOCK.STONE_BRICK);
+          if ((x + z) % 2 === 0) putB(x, y + TOWER_H + 1, z, BLOCK.STONE_BRICK);
+        } else {
+          putB(x, y + TOWER_H, z, BLOCK.STONE_BRICK); // 탑 지붕(바닥)
+        }
+        if (ax === R - 2 && az === R - 2) putB(x, y + TOWER_H + 1, z, BLOCK.TORCH);
+      }
+      // ── 성문루: 성문 양옆 기둥을 더 높게
+      if (z >= R - 1 && ax >= 3 && ax <= 4) {
+        for (let h = WALL_H + 1; h <= WALL_H + 5; h++) putB(x, y + h, z, BLOCK.STONE_BRICK);
+      }
+      // ── 내성(안쪽 성채): 높이 6, 남쪽에 문
+      const km = Math.max(ax, az);
+      if (km === KEEP_R) {
+        const kgate = z === KEEP_R && ax <= 1;
+        for (let h = 1; h <= 6; h++) {
+          if (kgate && h <= 4) continue;
+          putB(x, y + h, z, BLOCK.STONE_BRICK);
+        }
+        if ((x + z) % 2 === 0) putB(x, y + 7, z, BLOCK.STONE_BRICK);
+        if (ax >= KEEP_R - 1 && az >= KEEP_R - 1) { // 내성 모서리 작은 탑
+          for (let h = 7; h <= 11; h++) putB(x, y + h, z, BLOCK.STONE_BRICK);
+          putB(x, y + 12, z, BLOCK.TORCH);
+        }
+      }
+      // ── 중앙 단상 + 🏰 코어
+      if (ax <= 3 && az <= 3) {
+        putB(x, y + 1, z, BLOCK.STONE_BRICK);
+        if (ax === 3 && az === 3) { for (let h = 2; h <= 4; h++) putB(x, y + h, z, BLOCK.WOOD); putB(x, y + 5, z, BLOCK.TORCH); }
       }
     }
   }
-  // 성벽에 오르는 계단 (북서쪽 안쪽)
-  for (let i = 0; i < 4; i++) {
-    for (let w = -1; w <= 1; w++) putB(-R + 2 + i, y + 1 + i, -R + 4 + w, BLOCK.STONE_BRICK);
-  }
-  // 중앙 단상 + 🏰 코어
-  for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
-    putB(dx, y + 1, dz, BLOCK.STONE_BRICK);
-    if (Math.abs(dx) === 2 && Math.abs(dz) === 2) { putB(dx, y + 2, dz, BLOCK.WOOD); putB(dx, y + 3, dz, BLOCK.TORCH); }
-  }
+  stampCastleParts();
+}
+// 계단·상자·장식처럼 좌표가 정해진 구조물 (putB가 청크 밖은 알아서 버림)
+function stampCastleParts() {
+  const y = SIEGE_Y, R = CASTLE_R;
   putB(CORE_POS[0], CORE_POS[1], CORE_POS[2], BLOCK.CORE);
-  // 보급 상자 두 개 (화살·TNT·빵)
-  putB(-4, y + 1, 0, BLOCK.CHEST);
-  putB(4, y + 1, 0, BLOCK.CHEST);
-  // 성벽 안쪽 횃불
-  for (let i = -R + 4; i <= R - 4; i += 6) {
-    putB(i, y + 1, -R + 1, BLOCK.TORCH);
-    putB(i, y + 1, R - 1, BLOCK.TORCH);
+  // 보급 상자 4개
+  for (const [sx, sz] of [[-5, 0], [5, 0], [0, -5], [0, 5]]) putB(sx, y + 1, sz, BLOCK.CHEST);
+  // 안뜰 → 성벽 위로 오르는 계단 4곳 (동서남북)
+  for (let i = 1; i <= WALL_H; i++) {
+    for (let w = -1; w <= 1; w++) {
+      putB(-R + 2 + i, y + i, w, BLOCK.STONE_BRICK);      // 서쪽
+      putB(R - 2 - i, y + i, w, BLOCK.STONE_BRICK);       // 동쪽
+      putB(w, y + i, -R + 2 + i, BLOCK.STONE_BRICK);      // 북쪽
+      putB(w + 8, y + i, R - 2 - i, BLOCK.STONE_BRICK);   // 남쪽(성문 옆)
+    }
   }
+  // 내성 위로 오르는 계단
+  for (let i = 1; i <= 6; i++) for (let w = -1; w <= 1; w++) putB(-KEEP_R + 1 + i, y + i, w, BLOCK.STONE_BRICK);
+  // 안뜰 횃불 기둥
+  for (const [tx, tz] of [[-30, -30], [30, -30], [-30, 30], [30, 30], [0, -34], [0, 34], [-34, 0], [34, 0]]) {
+    for (let h = 1; h <= 4; h++) putB(tx, y + h, tz, BLOCK.WOOD);
+    putB(tx, y + 5, tz, BLOCK.TORCH);
+  }
+  // 성문 앞 흙길
+  for (let d = 1; d <= 12; d++) for (let w = -2; w <= 2; w++) putB(w, y, R + d, BLOCK.DIRT);
 }
 
 // 🌌 보이드 차원: 허공에 떠 있는 창백한 섬들 + 빛나는 보이드 수정
@@ -2103,6 +2150,38 @@ function makeSoldierMesh(cfg) {
   g.userData.bodyMat = cloth;
   return g;
 }
+// 100마리가 동시에 몰려와도 가볍도록, 병사 한 명을 "한 덩어리 메시"로 합쳐 종류별로 재사용한다
+// (부위별 색은 정점 색으로 굽고, 재질은 전부 공유 → 병사 1명 = 오브젝트 1개)
+const SOLDIER_MAT = new THREE.MeshLambertMaterial({ vertexColors: true });
+const SOLDIER_GEO = {};
+function mergeToGeometry(group) {
+  const pos = [], nor = [], col = [];
+  group.updateMatrixWorld(true);
+  group.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.geometry.attributes) return;
+    const g = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone());
+    g.applyMatrix4(o.matrixWorld);
+    const p = g.attributes.position, n = g.attributes.normal;
+    const c = o.material.color;
+    if (!p || !n || !c) return;
+    for (let i = 0; i < p.count; i++) {
+      pos.push(p.getX(i), p.getY(i), p.getZ(i));
+      nor.push(n.getX(i), n.getY(i), n.getZ(i));
+      col.push(c.r, c.g, c.b);
+    }
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(nor), 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(col), 3));
+  return geo;
+}
+function soldierMesh(t) {
+  if (!SOLDIER_GEO[t.kind]) SOLDIER_GEO[t.kind] = mergeToGeometry(makeSoldierMesh(t));
+  const m = new THREE.Mesh(SOLDIER_GEO[t.kind], SOLDIER_MAT);
+  m.userData.bodyMat = soldierMat(t.cloth);
+  return m;
+}
 // 10가지 공성 부대 (kind는 통계·표시용)
 const SIEGE_TYPES = [
   { kind: 'sword', name: '⚔ 검병', cloth: 0x8c2f2f, metal: 0xb0b6c0, helm: true, prop: 'sword', hp: 5, speed: 2.6, dmg: 2, wall: 1, weight: 3 },
@@ -2121,10 +2200,12 @@ const SIEGE_TYPES = [
 const SIEGE_BY_KIND = {};
 for (const t of SIEGE_TYPES) SIEGE_BY_KIND[t.kind] = t;
 
-const siege = { wave: 0, restT: 5, coreHp: 100, coreMax: 100, alive: 0, cleared: 0 };
+const SIEGE_WAVE_SIZE = 100; // 한 웨이브에 몰려오는 적 수
+const siege = { wave: 0, restT: 5, coreHp: 400, coreMax: 400, alive: 0, cleared: 0, queue: [], spawnT: 0 };
 const wallHp = new Map(); // 성벽 블록 내구도 (부수는 중인 것만)
 function siegeReset() {
   siege.wave = 0; siege.restT = 5; siege.coreHp = siege.coreMax; siege.alive = 0; siege.cleared = 0;
+  siege.queue.length = 0; siege.spawnT = 0;
   wallHp.clear();
 }
 function spawnSiegeUnit(t, ang, dist) {
@@ -2132,7 +2213,7 @@ function spawnSiegeUnit(t, ang, dist) {
   ensureChunk(Math.floor(x / CHUNK), Math.floor(z / CHUNK));
   const y = surfaceY(x, z);
   if (y === null) return false;
-  const mesh = makeSoldierMesh(t);
+  const mesh = soldierMesh(t);
   scene.add(mesh);
   zombies.push({
     mesh, siege: true, kind: t.kind, name: t.name, boss: !!t.boss,
@@ -2149,36 +2230,36 @@ function spawnSiegeUnit(t, ang, dist) {
 }
 function startSiegeWave() {
   siege.wave++;
-  const n = Math.min(22, 4 + siege.wave * 2);
+  const n = SIEGE_WAVE_SIZE;
   const pool = [];
   for (const t of SIEGE_TYPES) {
     if (t.boss) continue;
     let w = t.weight;
-    if (t.kind === 'golem' && siege.wave < 3) w = 0;      // 골렘은 3웨이브부터
-    if (t.kind === 'scout' && siege.wave < 2) w = 0;
+    if (t.kind === 'golem' && siege.wave < 2) w = 0;      // 골렘은 2웨이브부터
     for (let i = 0; i < w; i++) pool.push(t);
   }
-  let spawned = 0;
-  for (let i = 0; i < n; i++) {
+  siege.queue.length = 0;
+  for (let i = 0; i < n; i++) { // 사방에서 밀려오도록 각도를 고루 나눔
     const t = pool[Math.floor(Math.random() * pool.length)];
-    if (spawnSiegeUnit(t, (i / n) * Math.PI * 2 + Math.random() * 0.3, 52 + Math.random() * 10)) spawned++;
+    siege.queue.push([t, (i / n) * Math.PI * 2 + Math.random() * 0.25, CASTLE_R + 14 + Math.random() * 16]);
   }
   if (siege.wave % 3 === 0) { // 3웨이브마다 대장 등장
-    if (spawnSiegeUnit(SIEGE_BY_KIND.commander, Math.random() * Math.PI * 2, 56)) spawned++;
+    siege.queue.push([SIEGE_BY_KIND.commander, Math.random() * Math.PI * 2, CASTLE_R + 18]);
     toast('👑 공성 대장이 나타났다!', 3500);
   }
-  siege.alive = spawned;
-  toast(`⚔ ${siege.wave}웨이브! 적 ${spawned}명이 성으로 몰려온다!`, 3500);
+  siege.spawnT = 0;
+  toast(`⚔ ${siege.wave}웨이브! 적 ${n}명이 성으로 몰려온다!`, 4000);
   playSound(70, 0.7, 'sawtooth', 0.3);
 }
 function siegeWaveCleared() {
   siege.cleared = siege.wave;
-  siege.restT = 12;
-  inv[ITEM.ARROW] += 10;
-  inv[ITEM.BREAD] += 2;
-  if (siege.wave % 3 === 0) inv[ITEM.DIAMOND] += 1;
+  siege.restT = 15;
+  inv[ITEM.ARROW] += 40;
+  inv[ITEM.BREAD] += 4;
+  inv[BLOCK.TNT] += 4;
+  inv[ITEM.DIAMOND] += 1;
   updateHotbar();
-  toast(`🎉 ${siege.wave}웨이브 방어 성공! 화살 10 · 빵 2 획득 (12초 뒤 다음 웨이브)`, 4500);
+  toast(`🎉 ${siege.wave}웨이브 방어 성공! 화살 40 · 빵 4 · TNT 4 · 다이아 1 획득 (15초 뒤 다음 웨이브)`, 5000);
   playSound(880, 0.4, 'sine', 0.2);
   if (siege.wave >= 3) unlock('siege3', '⚔ 3웨이브 방어 성공!');
   if (siege.wave >= 5) unlock('siege5', '🏰 5웨이브까지 성을 지켜냈다!');
@@ -2280,9 +2361,20 @@ function updateSiegeMob(z, dt, dPlayer) {
 }
 function updateSiege(dt) {
   if (curDim !== 'siege' || !playing() || timeStop) return;
+  if (siege.queue.length) { // 대기 중인 부대를 조금씩 전장에 올림
+    siege.spawnT -= dt;
+    if (siege.spawnT <= 0) {
+      siege.spawnT = 0.12;
+      for (let i = 0; i < 6 && siege.queue.length; i++) {
+        const [t, ang, dist] = siege.queue.shift();
+        spawnSiegeUnit(t, ang, dist);
+      }
+    }
+  }
   let alive = 0;
   for (const z of zombies) if (z.siege) alive++;
   siege.alive = alive;
+  if (siege.queue.length) return;   // 아직 다 나오지 않았으면 웨이브 판정 보류
   if (alive === 0) {
     if (siege.wave > 0 && siege.cleared < siege.wave) siegeWaveCleared();
     siege.restT -= dt;
@@ -2743,7 +2835,11 @@ function spawnBoss() {
   playSound(55, 0.8, 'sawtooth', 0.25);
   toast('☠ 좀비 군주 등장!', 3500);
 }
-// 🌪 위더 스톰: 하늘을 떠다니며 폭발하는 스컬을 퍼붓는 슈퍼보스
+// 🌪 적 위더 스톰: 하늘을 뒤덮는 거체 (플레이어 변신 슈트 크기는 그대로 유지)
+const WITHER_BOSS_SCALE = 8;
+const WITHER_BEAM_W = 8;      // 광선 굵기(블록) — 나무(약 5칸)보다 두껍게
+const witherBeamMat = new THREE.MeshLambertMaterial({ color: 0xe0a8ff, emissive: 0xb040ff, emissiveIntensity: 1, transparent: true, opacity: 0.75 });
+const beamGeo = new THREE.BoxGeometry(1, 1, 1);
 function spawnWitherStorm() {
   const ang = Math.random() * Math.PI * 2;
   const d = 24 + Math.random() * 12;
@@ -2751,19 +2847,54 @@ function spawnWitherStorm() {
   const z = Math.floor(player.pos.z + Math.sin(ang) * d);
   const half = WORLD_SIZE / 2;
   if (x < -half + 4 || x >= half - 4 || z < -half + 4 || z >= half - 4) return;
-  const y = (surfaceY(x, z) || 12) + 8;
+  const S = WITHER_BOSS_SCALE;
+  const y = (surfaceY(x, z) || 12) + 3;
   const mesh = makeWitherMesh();
+  mesh.scale.setScalar(S);
   scene.add(mesh);
   zombies.push({
-    mesh, boss: true, wither: true, kind: 'wither', name: '🌪 위더 스톰',
+    mesh, boss: true, wither: true, kind: 'wither', name: '🌪 거대 위더 스톰',
     pos: new THREE.Vector3(x + 0.5, y, z + 0.5),
     vel: new THREE.Vector3(),
     yaw: 0, timer: 0, walking: false, onGround: false,
-    hp: 120, maxHp: 120, kbT: 0, colH: 4.5, hitH: 4.8, hitW: 1.6, bar: makeHpBar(),
-    atkT: 0, skullT: 2,
+    hp: 600, maxHp: 600, kbT: 0, colH: 4.5 * S, hitH: 4.8 * S, hitW: 1.6 * S, bar: makeHpBar(),
+    atkT: 0, skullT: 2, beamT: 8, beamOn: 0, scale: S,
   });
   playSound(35, 1.2, 'sawtooth', 0.35); // 낮게 울리는 등장음
-  toast('🌪 위더 스톰이 나타났다!!', 4500);
+  toast('🌪 거대 위더 스톰이 하늘을 뒤덮었다!! 보라 광선을 피하세요', 5000);
+}
+// 🌪 대형 광선: 굵기 8칸(나무보다 두꺼움)으로 지형을 갈아엎으며 훑는다
+function updateWitherBeam(z, dt) {
+  const S = z.scale || 1;
+  const ox = z.pos.x, oy = z.pos.y + 4.1 * S, oz = z.pos.z; // 가운데 머리 입 높이
+  if (!z.beamAim) z.beamAim = new THREE.Vector3(player.pos.x, player.pos.y + 1, player.pos.z);
+  // 조준은 천천히 따라와서 뛰어서 피할 수 있게
+  const lerp = Math.min(1, dt * 0.9);
+  z.beamAim.x += (player.pos.x - z.beamAim.x) * lerp;
+  z.beamAim.y += (player.pos.y + 1 - z.beamAim.y) * lerp;
+  z.beamAim.z += (player.pos.z - z.beamAim.z) * lerp;
+  const charging = z.beamOn > 1.6;                 // 처음 0.6초는 충전(경고)
+  const dx = z.beamAim.x - ox, dy = z.beamAim.y - oy, dz = z.beamAim.z - oz;
+  const len = Math.hypot(dx, dy, dz) || 1;
+  if (!z.beamMesh) { z.beamMesh = new THREE.Mesh(beamGeo, witherBeamMat); scene.add(z.beamMesh); }
+  const w = charging ? WITHER_BEAM_W * 0.25 : WITHER_BEAM_W * (0.9 + Math.sin(suitTime * 25) * 0.1);
+  z.beamMesh.visible = true;
+  z.beamMesh.scale.set(w, w, len);
+  z.beamMesh.position.set(ox + dx / 2, oy + dy / 2, oz + dz / 2);
+  z.beamMesh.lookAt(z.beamAim.x, z.beamAim.y, z.beamAim.z);
+  if (charging) return;
+  // 착탄 지점 주변을 통째로 날림 + 플레이어 피해
+  z.beamTick = (z.beamTick || 0) - dt;
+  if (z.beamTick <= 0) {
+    z.beamTick = 0.35;
+    const bx = Math.floor(z.beamAim.x), by = Math.floor(z.beamAim.y), bz = Math.floor(z.beamAim.z);
+    destroyBlocks(bx, by, bz, Math.round(WITHER_BEAM_W / 2));
+    for (let i = 0; i < 6; i++) spawnFx(bx + 0.5 + (Math.random() - 0.5) * WITHER_BEAM_W, by + 1 + Math.random() * 3, bz + 0.5 + (Math.random() - 0.5) * WITHER_BEAM_W, witherBeamMat, 1, 4, 0.4);
+    shakeT = Math.max(shakeT, 0.4);
+    playSound(140, 0.25, 'sawtooth', 0.22);
+    const pd = Math.hypot(player.pos.x - z.beamAim.x, player.pos.z - z.beamAim.z);
+    if (pd < WITHER_BEAM_W / 2 + 0.5) damage(4);
+  }
 }
 function updateZombies(dt) {
   // 평화 모드에서는 밤이어도 스폰하지 않고, 있던 몬스터는 소멸 경로로 정리됨
@@ -2801,7 +2932,9 @@ function updateZombies(dt) {
     const d = Math.hypot(dx, dz);
     if (z.siege) { updateSiegeMob(z, dt, d); if (z.boss) boss = z; continue; }
     if (z.wither) { // 위더 스톰: 중력 무시 부유 비행 + 스컬 3연발
-      const wantY = Math.max(player.pos.y + 7, (surfaceY(Math.floor(z.pos.x), Math.floor(z.pos.z)) || 10) + 6);
+      const wantY = z.scale
+        ? (surfaceY(Math.floor(z.pos.x), Math.floor(z.pos.z)) || 10) + 2   // 거대체는 지면 가까이 떠서 몸이 하늘을 덮음
+        : Math.max(player.pos.y + 7, (surfaceY(Math.floor(z.pos.x), Math.floor(z.pos.z)) || 10) + 6);
       z.pos.y += Math.max(-3.5 * dt, Math.min(3.5 * dt, wantY - z.pos.y));
       if (playing() && d > 0.1) {
         const spd = 3.2;
@@ -2827,11 +2960,27 @@ function updateZombies(dt) {
         }
       }
       updateHpBar(z);
+      if (z.scale) { // 거대 위더: 주기적으로 대형 광선 발사
+        if (z.beamOn > 0) {
+          z.beamOn -= dt;
+          updateWitherBeam(z, dt);
+          if (z.beamOn <= 0 && z.beamMesh) z.beamMesh.visible = false;
+        } else {
+          z.beamT -= dt;
+          if (playing() && z.beamT <= 0 && d < 70) {
+            z.beamT = 12;
+            z.beamOn = 2.2;
+            z.beamAim = null;
+            toast('⚠ 위더 스톰이 광선을 모으고 있다! 피하세요!', 2000);
+            playSound(200, 0.6, 'sine', 0.25);
+          }
+        }
+      }
       z.skullT -= dt;
       if (playing() && z.skullT <= 0 && d < 44) {
         z.skullT = 2.2;
         for (let s = 0; s < 3; s++) {
-          spawnEnemyArrow(z, { color: 0xa040e0, dmg: 4, speed: 14 }, { boom: true, big: true, spread: 0.25, fromY: 4 });
+          spawnEnemyArrow(z, { color: 0xa040e0, dmg: 4, speed: 14 }, { boom: true, big: true, spread: 0.25, fromY: z.scale ? 4 * z.scale : 4 });
         }
         playSound(90, 0.3, 'sawtooth', 0.25);
       }
@@ -2943,6 +3092,7 @@ function damageMob(m, dmg, dx, dz) {
 }
 function killMob(m) {
   scene.remove(m.mesh);
+  if (m.beamMesh) { scene.remove(m.beamMesh); m.beamMesh = null; }
   removeHpBar(m);
   const ai = animals.indexOf(m);
   if (ai >= 0) {
@@ -4981,7 +5131,7 @@ function removeAllChunkMeshes() {
 }
 function clearMobs() {
   for (const a of animals) { scene.remove(a.mesh); removeHpBar(a); }
-  for (const z of zombies) { scene.remove(z.mesh); removeHpBar(z); }
+  for (const z of zombies) { scene.remove(z.mesh); if (z.beamMesh) scene.remove(z.beamMesh); removeHpBar(z); }
   for (const a of arrows) scene.remove(a.mesh);
   animals.length = 0; zombies.length = 0; arrows.length = 0;
   bossBarEl.style.display = 'none';

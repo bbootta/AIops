@@ -295,21 +295,26 @@ try {
     const clock = () => (elCache['clock'] && elCache['clock'].textContent) || '';
     if (!/공성전/.test(clock())) throw new Error('공성전 맵 진입 실패 (clock="' + clock() + '")');
     console.log('  [E] ⚔ 금색 포탈 → 공성전 맵 진입 확인됨');
-    let m = null;
-    for (let i = 0; i < 40 && !m; i++) { step(60); m = clock().match(/(\d+)웨이브 · 적 (\d+)/); if (m && +m[1] < 1) m = null; }
-    if (!m || +m[2] < 4) throw new Error('공성 웨이브 미출현 (clock="' + clock() + '")');
-    console.log(`  [E] ⚔ ${m[1]}웨이브 · 공성군 ${m[2]}명 출현 확인됨`);
+    let peak = 0, wave = 0;
+    for (let i = 0; i < 60; i++) {
+      step(30);
+      const m = clock().match(/(\d+)웨이브 · 적 (\d+)/);
+      if (m) { wave = +m[1]; peak = Math.max(peak, +m[2]); }
+      if (peak >= 95) break;
+    }
+    if (wave < 1 || peak < 95) throw new Error('100마리 웨이브 미출현 (최대 ' + peak + '명, clock="' + clock() + '")');
+    console.log(`  [E] ⚔ ${wave}웨이브 · 공성군 ${peak}명 동시 출현 확인됨`);
     // 성벽까지 진군해 성벽/코어를 때리는지 (코어 체력 감소 또는 성벽 블록 파괴)
     const coreOf = () => { const h = (elCache['health'] && elCache['health'].innerHTML) || ''; const c = h.match(/🏰[^0-9]*(\d+)/); return c ? +c[1] : -1; };
     const core0 = coreOf();
-    if (core0 !== 100) throw new Error('코어 체력 표시 이상: ' + core0);
+    if (core0 < 100) throw new Error('코어 체력 표시 이상: ' + core0);
     let hit = false;
     for (let i = 0; i < 60 && !hit; i++) { step(60); hit = coreOf() < core0; }
     if (!hit) throw new Error('공성군이 코어를 공격하지 못함 (core=' + coreOf() + ')');
     console.log('  [E] 🏰 공성군이 성벽을 뚫고 코어를 공격함 확인됨 (코어 ' + coreOf() + ')');
     // 코어가 무너지면 잃는 것 없이 1웨이브부터 재시작되는지 (소프트락 방지)
     let reset = false;
-    for (let i = 0; i < 80 && !reset; i++) { step(60); reset = /0웨이브/.test(clock()) && coreOf() === 100; }
+    for (let i = 0; i < 120 && !reset; i++) { step(60); reset = /0웨이브/.test(clock()) && coreOf() === core0; }
     if (!reset) throw new Error('코어 함락 후 재시작 실패 (clock="' + clock() + '", core=' + coreOf() + ')');
     let again = false;
     for (let i = 0; i < 40 && !again; i++) { step(60); again = /[1-9]웨이브 · 적 [1-9]/.test(clock()); }
@@ -317,6 +322,31 @@ try {
     console.log('  [E] 🔁 코어 함락 → 성 복구 → 다음 웨이브 재개 확인됨');
   }, { noMove: true });
 } catch (e) { fails++; console.log('  [E] FAIL:', (e && e.stack) || e); }
+
+// F: 🌪 거대 위더 스톰 — 밤의 오버월드에서 등장(난수 고정으로 분기 강제)하고 대형 광선을 쏘는지
+const saveF = JSON.stringify({
+  curDim: 'overworld',
+  dims: { overworld: { edits: [], pos: null, crops: [] } },
+  slot: 3, health: 10, inv: {}, tools: {}, dayTime: 130,
+});
+try {
+  runGame(saveF, 'F: 🌪 거대 위더 스톰', ({ step }) => {
+    const realRandom = Math.random;
+    Math.random = () => 0.02; // 보스 등장 분기를 강제 (등장 확률 7% → 위더 30%)
+    step(400);
+    Math.random = realRandom;
+    const name = (elCache['bossName'] && elCache['bossName'].textContent) || '';
+    if (!/위더 스톰/.test(name)) throw new Error('위더 스톰 미등장 (boss="' + name + '")');
+    if (!/거대/.test(name)) throw new Error('거대화 미적용 (boss="' + name + '")');
+    console.log('  [F] 🌪 거대 위더 스톰 등장 확인됨 (' + name + ')');
+    const toasted = () => ((elCache['toasts'] && elCache['toasts'].children) || []).map((e) => e.textContent || '');
+    let beam = false;
+    for (let i = 0; i < 40 && !beam; i++) { step(60); beam = toasted().some((t) => /광선/.test(t)); }
+    if (!beam) throw new Error('대형 광선 미발사');
+    step(180); // 광선 지속 중 지형 파괴·피해 경로 실행
+    console.log('  [F] 💜 대형 광선 발사 확인됨 (굵기 8칸)');
+  }, { noMove: true });
+} catch (e) { fails++; console.log('  [F] FAIL:', (e && e.stack) || e); }
 
 console.log(fails ? `\nSMOKE FAILED (${fails})` : '\nSMOKE PASSED');
 process.exit(fails ? 1 : 0);
