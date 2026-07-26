@@ -138,6 +138,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.val_coverage report / verify` | PRD-VAL 업무요건 대비 구현 커버리지 (근거 실재성 강제) |
 | `python -m tools.validation_trigger triggers / evaluate / queue` | 상시 모니터링 트리거 평가 → 검증 사례 생성·검토 큐 |
 | `python -m tools.validation_finding open / remediate / reverify / close / queue / lineage / blockers` | Finding 원장 — 재검증 없는 종결 차단·재발 시 중대도 상향 |
+| `python -m tools.independent_recalc list / run` | 독립 재계산 + 차이 원인 분해 (데이터/모형/산식/구현 기여도) |
 | `python -m tools.pack_archive add/list/latest/prune --archive <dir>` | 분기별 팩 archive 관리 |
 | `python -m tools.data_adapter validate/convert --input <csv>` | 운영 추출 파일 안전 로더 (PII 차단) |
 | `python -m tools.cro_digest --out <html>` | CRO 분기 요약 이메일 초안 (발송 없음 — HITL) |

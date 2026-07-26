@@ -38,6 +38,7 @@ CLI_MODULES: list[tuple[str, str]] = [
     ("tools.val_coverage", "PRD-VAL 업무요건 대비 구현 커버리지 (근거 실재성 검증)"),
     ("tools.validation_trigger", "상시 모니터링 트리거 평가 → 검증 사례·검토 큐"),
     ("tools.validation_finding", "Finding 원장 (발견·원인·보완·재검증·종결 계보)"),
+    ("tools.independent_recalc", "독립 재계산 + 차이 원인 분해 (VAL-007/008)"),
     ("tools.manifest", "change_manifest 편집/검증/promote"),
     ("tools.findings", "recurring_findings JSON ↔ md sync"),
     ("tools.model_notes", "model_specific_notes JSON ↔ md sync"),

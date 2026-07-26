@@ -43,6 +43,7 @@ _DISPATCH = {
     ("coverage",): "tools.val_coverage",
     ("trigger",): "tools.validation_trigger",
     ("finding",): "tools.validation_finding",
+    ("recalc",): "tools.independent_recalc",
     ("dashboard",): "tools.dashboard",
     ("manifest",): "tools.manifest",
     ("findings",): "tools.findings",

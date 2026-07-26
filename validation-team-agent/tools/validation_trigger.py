@@ -90,10 +90,15 @@ def evaluate_trigger(trigger: Mapping[str, Any],
     observed = float(observed)
     variance = observed - base["expected"]
     tol = base["tolerance"]
+    # 부동소수점 표현오차로 경계값이 위반으로 뒤집히지 않게 한다 (R84).
+    # 임계 자체는 완화하지 않는다 — 동등성만 보정한다.
+    from tools.independent_recalc import within_tolerance
+
+    at_boundary = within_tolerance(variance, tol)
     if trigger["direction"] == "lower":
-        breach = variance < -tol
+        breach = (variance < -tol) and not at_boundary
     else:
-        breach = variance > tol
+        breach = (variance > tol) and not at_boundary
     return {**base, "observed": observed, "variance": variance,
             "status": STATUS_BREACH if breach else STATUS_OK,
             "detail": f"observed={observed:.4f} vs expected={base['expected']:.4f}"
