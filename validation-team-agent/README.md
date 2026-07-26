@@ -170,6 +170,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | 임계 설명가능성 attribution | `harness/explainability_attributions.json` | (tools/explainability 게이트) |
 | PRD-VAL 요건 커버리지 | `harness/val_requirement_coverage.json` | (tools/val_coverage verify 게이트) |
 | 검증 트리거 원장 | `harness/validation_triggers.json` | (tools/validation_trigger 게이트) |
+| 직무분리(SoD) 정책 | `harness/sod_policy.json` | (middleware/sod_guard 게이트) |
 | 인쇄 CSS | `harness/report_print.css` | — |
 | 감사 보고서 schema | — | `harness/audit_report.schema.json` |
 | Runner 결과 schema | — | `harness/runner_result{,_credit,_macro,_ifrs9}.schema.json` |

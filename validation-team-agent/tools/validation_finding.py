@@ -112,6 +112,8 @@ def derive(events: Iterable[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
                 "opened_at": e["at"],
                 "due_at": e["due_at"],
                 "status": "open",
+                "remediation_actor": None,
+                "reverification_actor": None,
                 "recurrence_of": e.get("recurrence_of"),
                 "history": [e],
             }
@@ -123,6 +125,7 @@ def derive(events: Iterable[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
         if e["event"] == "remediation_recorded":
             cur["status"] = "remediating"
             cur["remediation"] = e["action"]
+            cur["remediation_actor"] = e.get("actor")
             if e.get("root_cause"):
                 cur["root_cause"] = e["root_cause"]
         elif e["event"] == "reverified":
@@ -130,9 +133,12 @@ def derive(events: Iterable[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
             cur["status"] = ("reverifying" if e["result"] == "pass"
                              else "remediating")
             cur["last_reverification"] = e["result"]
+            cur["reverification_actor"] = e.get("actor")
         elif e["event"] == "closed":
             cur["status"] = "closed"
             cur["closed_at"] = e["at"]
+            cur["closure_actor"] = e.get("actor")
+            cur["sod_status"] = e.get("sod_status")
         elif e["event"] == "severity_raised":
             cur["severity"] = e["to"]
             cur["due_at"] = e["due_at"]
@@ -208,28 +214,36 @@ def open_finding(*, title: str, domain: str, severity: str, owner_role: str,
 
 def record_remediation(finding_id: str, *, action: str, root_cause: str,
                        as_of: date, events: list[dict[str, Any]],
-                       ) -> dict[str, Any]:
+                       actor: str | None = None) -> dict[str, Any]:
     if root_cause not in ROOT_CAUSES:
         raise FindingError(f"알 수 없는 근본원인: {root_cause}")
     _require_transition(finding_id, "remediating", events)
     return {"event": "remediation_recorded", "finding_id": finding_id,
             "at": as_of.isoformat(), "action": action,
-            "root_cause": root_cause}
+            "root_cause": root_cause, "actor": actor}
 
 
 def record_reverification(finding_id: str, *, result: str, evidence: str,
                           as_of: date, events: list[dict[str, Any]],
-                          ) -> dict[str, Any]:
+                          actor: str | None = None) -> dict[str, Any]:
     if result not in ("pass", "fail"):
         raise FindingError("result 는 pass 또는 fail")
     _require_transition(finding_id, "reverifying", events)
     return {"event": "reverified", "finding_id": finding_id,
-            "at": as_of.isoformat(), "result": result, "evidence": evidence}
+            "at": as_of.isoformat(), "result": result, "evidence": evidence,
+            "actor": actor}
 
 
 def close_finding(finding_id: str, *, as_of: date,
-                  events: list[dict[str, Any]]) -> dict[str, Any]:
-    """재검증 pass 와 근본원인이 있어야만 종결할 수 있다."""
+                  events: list[dict[str, Any]],
+                  actor: str | None = None,
+                  enforce_sod: bool = True) -> dict[str, Any]:
+    """재검증 pass·근본원인·직무분리를 모두 만족해야 종결할 수 있다.
+
+    SoD(VAL-006)는 보완·재검증·종결 수행자가 모두 기록된 경우에만 판정한다.
+    수행자가 기록되지 않은 건은 ``sod_status=NOT_EVALUATED`` 로 남겨 판정
+    불가임을 드러내며, 통과로 위장하지 않는다.
+    """
     states = derive(events)
     cur = states.get(finding_id)
     if cur is None:
@@ -244,8 +258,21 @@ def close_finding(finding_id: str, *, as_of: date,
     if not cur.get("root_cause"):
         raise FindingError(
             f"{finding_id}: 근본원인 없이 종결할 수 없다 (재발 관리 불가)")
+
+    from middleware.sod_guard import SoDViolation, check_sod
+
+    sod = check_sod({
+        "remediation": cur.get("remediation_actor"),
+        "reverification": cur.get("reverification_actor"),
+        "closure_approval": actor,
+    })
+    if enforce_sod and not sod["passed"] and sod["violations"]:
+        raise SoDViolation(
+            f"{finding_id} 종결 거부 — "
+            + " / ".join(v["detail"] for v in sod["violations"]))
     return {"event": "closed", "finding_id": finding_id,
-            "at": as_of.isoformat()}
+            "at": as_of.isoformat(), "actor": actor,
+            "sod_status": sod["status"]}
 
 
 def _require_transition(finding_id: str, to: str,
@@ -324,6 +351,9 @@ def render_lineage(state: Mapping[str, Any]) -> str:
 
 
 # --------------------------------------------------------------------- CLI
+from middleware.sod_guard import SoDViolation as _SoDViolation  # noqa: E402
+
+
 def _as_of(args: argparse.Namespace) -> date:
     return date.fromisoformat(args.as_of) if args.as_of else date.today()
 
@@ -347,16 +377,19 @@ def main(argv: list[str] | None = None) -> int:
     p_rem.add_argument("--id", required=True)
     p_rem.add_argument("--action", required=True)
     p_rem.add_argument("--root-cause", required=True, choices=ROOT_CAUSES)
+    p_rem.add_argument("--actor", default=None, help="보완 수행자 actor_id")
     p_rem.add_argument("--as-of", default=None)
 
     p_rev = sub.add_parser("reverify", help="재검증 결과 기록")
     p_rev.add_argument("--id", required=True)
     p_rev.add_argument("--result", required=True, choices=["pass", "fail"])
     p_rev.add_argument("--evidence", default="")
+    p_rev.add_argument("--actor", default=None, help="재검증 수행자 actor_id")
     p_rev.add_argument("--as-of", default=None)
 
     p_cls = sub.add_parser("close", help="종결 (재검증 pass 필요)")
     p_cls.add_argument("--id", required=True)
+    p_cls.add_argument("--actor", default=None, help="종결 승인자 actor_id")
     p_cls.add_argument("--as-of", default=None)
 
     p_q = sub.add_parser("queue", help="미종결 Finding 큐")
@@ -391,14 +424,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "remediate":
             append_events([record_remediation(
                 args.id, action=args.action, root_cause=args.root_cause,
-                as_of=_as_of(args), events=events)])
+                as_of=_as_of(args), events=events, actor=args.actor)])
         elif args.cmd == "reverify":
             append_events([record_reverification(
                 args.id, result=args.result, evidence=args.evidence,
-                as_of=_as_of(args), events=events)])
+                as_of=_as_of(args), events=events, actor=args.actor)])
         elif args.cmd == "close":
             append_events([close_finding(
-                args.id, as_of=_as_of(args), events=events)])
+                args.id, as_of=_as_of(args), events=events,
+                actor=args.actor)])
             sys.stdout.write(f"{args.id} 종결 — 종결 판단의 책임은 "
                              "인간 검증자에게 있습니다 (HITL).\n")
             return 0
@@ -424,7 +458,7 @@ def main(argv: list[str] | None = None) -> int:
                     f"  {r['finding_id']} {r['title']} "
                     f"({r['status']}, 기한 {r['due_at']}, {r['owner_role']})\n")
             return 1
-    except FindingError as exc:
+    except (FindingError, _SoDViolation) as exc:
         sys.stderr.write(f"거부: {exc}\n")
         return 1
 

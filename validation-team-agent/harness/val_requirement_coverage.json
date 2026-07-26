@@ -70,9 +70,14 @@
       "id": "VAL-006",
       "title": "직무분리(SoD)·검증 권한 통제",
       "phase": "02 Scope·평가셋",
-      "status": "missing",
-      "evidence": [],
-      "gap": "permission_guard 는 명령어 단위 권한만 통제한다. 개발자/독립검증자/승인자 역할을 등록하고 동일인 겸직을 차단하는 SoD 판정이 없다."
+      "status": "implemented",
+      "evidence": [
+        "harness/sod_policy.json",
+        "middleware/sod_guard.py",
+        "tools/validation_finding.py",
+        "tests/test_v2_round83.py"
+      ],
+      "gap": "역할 정의·활동별 적격 역할·겸직 금지 규칙이 SSoT 로 존재하고, Finding 종결 시 보완·재검증·승인 수행자의 겸직과 역할 부적격을 차단한다. 수행자 미기록은 NOT_EVALUATED 로 남겨 통과로 위장하지 않는다. 미충족: actor 는 가명 식별자이며 기관 인사·권한 시스템 연동과 평가셋 접근 분리(VAL-005)는 별도."
     },
     {
       "id": "VAL-007",

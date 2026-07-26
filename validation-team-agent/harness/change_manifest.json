@@ -2205,6 +2205,21 @@
       "rollback_rule": "승인 차단이 운영을 과도하게 막으면 promote 의 check_findings 기본값을 False 로 되돌린다(게이트 코드는 보존). 원장 자체 문제 시 모듈 삭제로 롤백 — 기존 recurring_findings 경로는 무변경",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0148",
+      "timestamp": "2026-07-26 00:05:26",
+      "component": "harness/sod_policy.json + middleware/sod_guard.py + tools/validation_finding.py (actor 기록·종결 SoD) + README 정책표",
+      "change_type": "create",
+      "evidence": "R80 매트릭스에서 VAL-006 미구현으로 확인 (permission_guard 는 명령어 권한만 통제). 실측 6개 시나리오: 정상 분리 PASS, 개발자 자가 재검증 차단, 재검증자=승인자 차단, 역할 미보유자 재검증 차단, 수행자 미기록 시 NOT_EVALUATED(통과 아님), 겸직 actor(DUAL-901) FAIL",
+      "root_cause": "시스템 접근권한(RBAC)과 검증 활동의 직무분리는 축이 다른 통제인데 후자가 없었음. Finding 원장도 수행자를 기록하지 않아 분리 여부를 판정할 근거 자체가 없었음",
+      "targeted_fix": "harness/sod_policy.json 신설 — 역할(3선 방어), 활동별 적격 역할, 겸직 금지 쌍(SOD-001 보완↔재검증, SOD-002 재검증↔승인)과 각 rationale. middleware/sod_guard: 역할 적격성과 겸직을 판정하고, 수행자 미기록은 NOT_EVALUATED 로 남겨 통과로 위장하지 않는다(require_sod 는 이 경우도 거부). validation_finding: remediation/reverification/close 이벤트에 actor 를 기록하고 종결 시 SoD 를 강제, 차단 시 상태 불변. actor_id 는 가명 식별자로 실명·개인정보를 담지 않는다(CLAUDE.md §5)",
+      "expected_benefit": "As-is/To-be F '02 Scope·평가셋' 의 독립성 통제가 실행 가능한 게이트로 성립. 개발자가 자기 보완을 스스로 재검증하고 종결하는 경로가 구조적으로 차단됨. 커버리지 55.6% → 61.1%",
+      "expected_regression_risk": "낮음 — actor 인자는 선택값이라 기존 호출부 호환. 수행자 미기록 이력은 차단하지 않고 NOT_EVALUATED 로 기록되므로 R82 이전 데이터도 종결 가능",
+      "validation_method": "tests/test_v2_round83.py 22 cases (정책 형태·역할 정의 무결성·충돌 활동 실재·개발↔검증 분리 존재/역할 조회/정상 분리/SOD-001·SOD-002 차단/역할 부적격/미등록 actor/미정의 활동/미기록 NOT_EVALUATED/업무소유자 보완 허용/require_sod 2종/종결 연동 actor·sod_status 기록/자가재검증·검증자승인 차단/미기록 종결 허용/명시적 우회/차단 시 상태 불변) + 전체 1188 passed",
+      "rollback_rule": "SoD 차단이 운영을 과도하게 막으면 close_finding 의 enforce_sod 기본값을 False 로 되돌린다(판정 기록은 유지). 정책 조정은 sod_policy.json 의 conflicts 편집으로 가능하며 코드 변경 불필요",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
