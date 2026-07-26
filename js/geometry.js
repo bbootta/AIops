@@ -8,13 +8,21 @@
 (function (NS) {
   'use strict';
 
+  /* bend = 끝으로 갈수록 휘는 각도(도). 밑동은 부챗살처럼 벌어져도 끝은 서로
+   * 모이는 게 편안한 손 모양이다. 곧고 나란한 막대 다섯 개는 마네킹처럼 보인다. */
   var FINGERS = [
-    { id: 'thumb',  name: '엄지', bx: 336, by: 664, angle: -52,  len: 162, w0: 36,   w1: 27.5 },
-    { id: 'index',  name: '검지', bx: 402, by: 496, angle: -9,   len: 216, w0: 29,   w1: 21.5 },
-    { id: 'middle', name: '중지', bx: 476, by: 474, angle: -1,   len: 242, w0: 30,   w1: 22 },
-    { id: 'ring',   name: '약지', bx: 548, by: 488, angle: 8,    len: 220, w0: 28.5, w1: 21 },
-    { id: 'pinky',  name: '소지', bx: 612, by: 540, angle: 17.5, len: 172, w0: 24,   w1: 18 }
+    { id: 'thumb',  name: '엄지', bx: 336, by: 664, angle: -52,  len: 162, w0: 36,   w1: 27.5, bend: 9 },
+    { id: 'index',  name: '검지', bx: 402, by: 496, angle: -11,  len: 216, w0: 29,   w1: 21.5, bend: 6 },
+    { id: 'middle', name: '중지', bx: 476, by: 474, angle: -1,   len: 242, w0: 30,   w1: 22,   bend: 1.5 },
+    { id: 'ring',   name: '약지', bx: 548, by: 488, angle: 9,    len: 220, w0: 28.5, w1: 21,   bend: -5 },
+    { id: 'pinky',  name: '소지', bx: 612, by: 540, angle: 19,   len: 172, w0: 24,   w1: 18,   bend: -9 }
   ];
+
+  /* 밑동을 원점으로 deg 만큼 회전 (손가락 좌표계) */
+  function rot(x, y, deg) {
+    var a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    return [x * c - y * s, x * s + y * c];
+  }
 
   /* 손등 실루엣. 너클(봉우리 / 물갈퀴 골) → 새끼손가락 쪽 측면 → 손목·팔목(화면 밖) →
    * 엄지 두덩(thenar) → 엄지·검지 사이 물갈퀴. 손바닥 길이:너클 폭 ≈ 1.05 로 맞췄다. */
@@ -64,33 +72,44 @@
   ];
   var BASE_OVERLAP = 54;   // 손등에 파묻히는 길이
 
-  /* 손가락 실루엣 — 손가락 그룹 좌표계 기준 */
+  /* 손가락 실루엣 — 손가락 그룹 좌표계 기준.
+   * 길이비 t 지점을 bend*t 만큼 밑동 기준으로 돌려 완만한 호를 만든다. */
   function fingerPath(fg) {
     var L = fg.len;
     var w = function (t, k) { return (fg.w0 + (fg.w1 - fg.w0) * t) * k; };
+    var at = function (x, t) { return rot(x, -t * L, bendAt(fg, t)); };
     var left = [], right = [];
     PROFILE.forEach(function (p) {
       var x = w(p[0], p[1]);
-      left.push([-x, -p[0] * L]);
-      right.push([x, -p[0] * L]);
+      left.push(at(-x, p[0]));
+      right.push(at(x, p[0]));
     });
     var we = w(0.88, 0.965);
     var pts = left.concat(
-      [[-we * 0.62, -0.975 * L], [0, -L], [we * 0.62, -0.975 * L]],
+      [at(-we * 0.62, 0.975), at(0, 1), at(we * 0.62, 0.975)],
       right.reverse()
     );
     return smooth(pts, false, 1) +
       ' L ' + f(fg.w0) + ' ' + BASE_OVERLAP + ' L ' + f(-fg.w0) + ' ' + BASE_OVERLAP + ' Z';
   }
 
-  /* 손가락 관절 주름 위치(그룹 좌표계) — 첫째·둘째 관절 */
+  function bendAt(fg, t) { return (fg.bend || 0) * t; }
+
+  /* 네일은 손톱이 얹히는 지점의 휘어진 각도를 그대로 따라간다. */
+  function nailBend(fg, design) {
+    var m = nailMetrics(fg, design);
+    return bendAt(fg, (m.yc + m.T * 0.5) / fg.len);
+  }
+
+  /* 손가락 관절 주름 — 첫째·둘째 관절. 손가락마다 위치를 조금씩 흩어
+   * 다섯 개가 똑같이 찍히지 않게 한다. */
   function knuckleLines(fg) {
     var L = fg.len;
     var w = function (t) { return fg.w0 + (fg.w1 - fg.w0) * t; };
-    return [
-      { y: -L * 0.37, w: w(0.37) * 0.62 },
-      { y: -L * 0.66, w: w(0.66) * 0.58 }
-    ];
+    var j = ((fg.id.charCodeAt(0) * 7) % 9 - 4) / 100;   // -0.04 ~ +0.04
+    return [0.37 + j, 0.66 - j].map(function (t, i) {
+      return { t: t, y: -t * L, w: w(t) * (i ? 0.58 : 0.62), bend: bendAt(fg, t) };
+    });
   }
 
   /* ── 네일 ──────────────────────────────────────────────────────────
@@ -150,6 +169,8 @@
     knuckleLines: knuckleLines,
     nailPath: nailPath,
     nailMetrics: nailMetrics,
+    nailBend: nailBend,
+    bendAt: bendAt,
     smooth: smooth,
     f: f
   };

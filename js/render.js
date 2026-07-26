@@ -7,6 +7,8 @@
   var VIEW_ZOOM = '196 216 456 296';   // 네일만 가까이
   var FRENCH_START = 0.68;             // 프렌치 팁이 시작되는 위치 (네일 길이 비율)
 
+  var HI = '#fff3e2';   // 하이라이트도 순백이 아니라 따뜻한 흰색
+
   function skinOf(id) {
     for (var i = 0; i < D.SKINS.length; i++) if (D.SKINS[i].id === id) return D.SKINS[i];
     return D.SKINS[2];
@@ -20,24 +22,26 @@
   function skinDefs(sk) {
     return [
       // 손가락을 가로지르는 원통 음영. 살색을 덮어쓰지 않고 명암만 얹어야
-      // 전체 조명·피부톤과 자연스럽게 합성된다.
+      // 전체 조명·피부톤과 자연스럽게 합성된다. 그늘은 검정이 아니라 sk.shade —
+      // 검정으로 어둡게 하면 채도가 빠져 밀랍/송장처럼 된다.
       grad('skinCyl', 0, 0, 1, 0, [
-        [0, '#00000063'], [0.05, '#0000004a'], [0.16, '#0000001c'],
-        [0.30, '#ffffff4d'], [0.42, '#ffffff61'], [0.56, '#ffffff2b'],
-        [0.72, '#00000016'], [0.88, '#00000044'], [0.965, '#0000006b'],
-        [1, '#ffffff2e']   // 오른쪽 끝 림 라이트
+        [0, sk.shade + '7a'], [0.05, sk.shade + '5c'], [0.16, sk.shade + '24'],
+        [0.30, HI + '4d'], [0.42, HI + '66'], [0.56, HI + '2e'],
+        [0.72, sk.shade + '1c'], [0.88, sk.shade + '52'], [0.965, sk.shade + '82'],
+        [1, HI + '33']   // 오른쪽 끝 림 라이트
       ]),
-      // 손가락 끝으로 갈수록 도는 붉은 기 (y=0 이 끝)
+      // 손끝 혈색 (y=0 이 끝) — 살짝이 아니라 확실히 붉게
       grad('skinTip', 0, 0, 0, 1, [
-        [0, sk.warm], [0.18, sk.warm + '00'], [1, sk.warm + '00']
+        [0, sk.blood + 'b0'], [0.07, sk.warm + '8c'], [0.2, sk.warm + '3d'],
+        [0.3, sk.warm + '00'], [1, sk.warm + '00']
       ]),
       // 밑동에서 원통 음영을 평평한 살색으로 되돌린다 (손등과 이어지게)
       grad('baseFade', 0, 0, 0, 1, [
         [0, sk.base + '00'], [0.5, sk.base + 'b8'], [1, sk.base + 'ff']
       ]),
-      // 손 전체 조명 방향 (왼쪽 위 → 오른쪽 아래)
+      // 손 전체 조명 방향 (왼쪽 위 → 오른쪽 아래). 그늘 쪽도 따뜻하게.
       grad('globalLight', 0.1, 0, 0.92, 1, [
-        [0, '#ffffff2b'], [0.34, '#ffffff00'], [0.7, '#0000000f'], [1, '#00000026']
+        [0, HI + '2b'], [0.34, HI + '00'], [0.7, sk.shade + '14'], [1, sk.shade + '2e']
       ]),
       blurFilter('soft1', 1.1), blurFilter('soft3', 3), blurFilter('soft6', 6),
       blurFilter('soft14', 14), blurFilter('soft22', 22),
@@ -88,7 +92,8 @@
     }
     // 폴리시 위에 얹는 원통 음영 (좌우 어두움)
     out.push(grad('polShade-' + id, 0, 0, 1, 0, [
-      [0, '#000000'], [0.16, '#00000000'], [0.5, '#ffffff30'], [0.84, '#00000000'], [1, '#000000']
+      [0, '#3a1a0dcc'], [0.16, '#3a1a0d00'], [0.5, '#fff6ec36'],
+      [0.84, '#3a1a0d00'], [1, '#3a1a0dcc']
     ]));
     if (d.finish === 'pearl') {
       out.push(grad('pearl-' + id, 0.1, 1, 0.9, 0, [
@@ -127,6 +132,11 @@
   function fingerGroup(fg, inner) {
     return '<g transform="' + xform(fg) + '">' + inner + '</g>';
   }
+  /* 네일은 손가락이 휜 만큼 같이 돌아야 손끝에 얹힌다. */
+  function nailGroup(fg, d, inner) {
+    return fingerGroup(fg, '<g transform="rotate(' + G.nailBend(fg, d).toFixed(2) + ')">' +
+      inner + '</g>');
+  }
   /* clipPath 안에서는 <g> 가 무시된다 — 변환을 도형에 직접 걸어야 한다. */
   function fingerPathAbs(fg) {
     return '<path transform="' + xform(fg) + '" d="' + G.fingerPath(fg) + '"/>';
@@ -134,24 +144,38 @@
 
   /* 손가락 원통 음영. 밑동에서는 baseFade 로 평평하게 되돌려 손등과 살이 이어져 보이게 한다 —
    * 손등을 별도 실루엣으로 위에 덮으면 벙어리장갑처럼 보인다. */
-  function fingerShading(fg) {
+  function fingerShading(fg, sk) {
     var p = G.fingerPath(fg), L = fg.len, out = [];
     out.push('<g clip-path="url(#fclip-' + fg.id + ')">');
     out.push('<path d="' + p + '" fill="url(#skinCyl)"/>');
-    out.push('<path d="' + p + '" fill="url(#skinTip)" opacity="0.6"/>');
+    out.push('<path d="' + p + '" fill="url(#skinTip)" opacity="0.85"/>');
     // 밑동 음영 지우기. 전체 조명은 이 다음 단계에서 다시 얹으므로 이어짐이 끊기지 않는다.
     out.push('<rect x="' + (-fg.w0 * 1.3) + '" y="' + (-L * 0.26) + '" width="' + (fg.w0 * 2.6) +
       '" height="' + (L * 0.26 + G.BASE_OVERLAP + 6) + '" fill="url(#baseFade)"/>');
-    // 관절 주름 — 짧고 흐리게. 길고 진하면 원통 이음새처럼 보인다.
-    G.knuckleLines(fg).forEach(function (k) {
-      out.push('<path d="M ' + (-k.w) + ' ' + k.y + ' Q 0 ' + (k.y + 6) + ' ' + k.w + ' ' + k.y +
-        '" fill="none" stroke="#00000020" stroke-width="2" filter="url(#soft3)"/>');
+
+    G.knuckleLines(fg).forEach(function (k, i) {
+      out.push('<g transform="rotate(' + k.bend.toFixed(2) + ')">');
+      // 관절에 도는 혈색 — 핏기의 절반은 여기서 나온다
+      out.push('<ellipse cx="0" cy="' + k.y + '" rx="' + (k.w * 1.5) + '" ry="' + (k.w * 1.1) +
+        '" fill="' + sk.blood + '" opacity="' + (i ? 0.16 : 0.2) + '" filter="url(#soft14)"/>');
+      // 주름은 한 줄이 아니라 잔주름 여러 줄. 한 줄이면 원통 이음새처럼 보인다.
+      for (var j = -1; j <= 1; j++) {
+        var y = k.y + j * 4.2;
+        var w = k.w * (1 - Math.abs(j) * 0.22);
+        out.push('<path d="M ' + (-w) + ' ' + y + ' Q ' + (w * 0.1) + ' ' + (y + 5) + ' ' + w + ' ' + y +
+          '" fill="none" stroke="' + sk.shade + '" stroke-opacity="' + (j ? 0.1 : 0.17) +
+          '" stroke-width="1.5" filter="url(#soft1)"/>');
+      }
+      out.push('</g>');
     });
-    // 길이 방향 하이라이트 + 손가락 끝 살 볼륨
-    out.push('<ellipse cx="' + (-fg.w0 * 0.22) + '" cy="' + (-L * 0.52) + '" rx="' + (fg.w0 * 0.3) +
-      '" ry="' + (L * 0.38) + '" fill="#ffffff" opacity="0.15" filter="url(#soft14)"/>');
-    out.push('<ellipse cx="' + (-fg.w1 * 0.15) + '" cy="' + (-L * 0.93) + '" rx="' + (fg.w1 * 0.7) +
-      '" ry="' + (L * 0.05) + '" fill="#ffffff" opacity="0.12" filter="url(#soft6)"/>');
+
+    // 길이 방향 하이라이트 + 손가락 끝 살 볼륨 (휜 축을 따라간다)
+    out.push('<ellipse transform="rotate(' + G.bendAt(fg, 0.52).toFixed(2) + ')" cx="' +
+      (-fg.w0 * 0.22) + '" cy="' + (-L * 0.52) + '" rx="' + (fg.w0 * 0.3) +
+      '" ry="' + (L * 0.38) + '" fill="' + HI + '" opacity="0.17" filter="url(#soft14)"/>');
+    out.push('<ellipse transform="rotate(' + G.bendAt(fg, 0.93).toFixed(2) + ')" cx="' +
+      (-fg.w1 * 0.15) + '" cy="' + (-L * 0.93) + '" rx="' + (fg.w1 * 0.7) +
+      '" ry="' + (L * 0.05) + '" fill="' + HI + '" opacity="0.14" filter="url(#soft6)"/>');
     out.push('</g>');
     return out.join('');
   }
@@ -163,7 +187,7 @@
   }
 
   function handShadow(order) {
-    return '<g transform="translate(18 24)" filter="url(#soft22)" opacity="0.32" fill="#4b2b20">' +
+    return '<g transform="translate(18 24)" filter="url(#soft22)" opacity="0.3" fill="#5a3020">' +
       silhouette(order) + '</g>';
   }
 
@@ -184,7 +208,7 @@
     // 힘줄 — 너클에서 손목 방향으로
     [[402, 512, 448, 742], [476, 494, 484, 748], [548, 506, 530, 744], [612, 552, 574, 736]].forEach(function (t) {
       out.push('<path d="M ' + t[0] + ' ' + t[1] + ' C ' + t[0] + ' ' + (t[1] + 80) + ' ' + t[2] + ' ' + (t[3] - 100) +
-        ' ' + t[2] + ' ' + t[3] + '" fill="none" stroke="#ffffff1e" stroke-width="14" filter="url(#soft14)"/>');
+        ' ' + t[2] + ' ' + t[3] + '" fill="none" stroke="' + HI + '" stroke-opacity="0.13" stroke-width="14" filter="url(#soft14)"/>');
     });
     // 너클 — 넓고 부드럽게. 작고 진하면 얼룩처럼 보인다.
     [[402, 506, 20], [476, 488, 21], [548, 502, 20], [612, 544, 17]].forEach(function (k) {
@@ -196,13 +220,14 @@
     // 엄지 두덩 · 손등 중앙 볼륨 · 새끼손가락 쪽 측면 음영
     out.push('<ellipse cx="332" cy="656" rx="58" ry="64" fill="' + C.lighten(sk.light, 0.2) +
       '" opacity="0.4" filter="url(#soft22)"/>');
-    out.push('<ellipse cx="466" cy="606" rx="98" ry="104" fill="#ffffff" opacity="0.13" filter="url(#soft22)"/>');
+    out.push('<ellipse cx="466" cy="606" rx="98" ry="104" fill="' + HI + '" opacity="0.15" filter="url(#soft22)"/>');
     out.push('<ellipse cx="642" cy="636" rx="30" ry="106" fill="' + C.darken(sk.dark, 0.25) +
       '" opacity="0.42" filter="url(#soft22)"/>');
     out.push('<ellipse cx="292" cy="700" rx="26" ry="52" fill="' + C.darken(sk.dark, 0.2) +
       '" opacity="0.3" filter="url(#soft22)"/>');
     // 손목 주름
-    out.push('<path d="M 424 754 Q 512 776 612 750" fill="none" stroke="#00000022" stroke-width="4" filter="url(#soft6)"/>');
+    out.push('<path d="M 424 754 Q 512 776 612 750" fill="none" stroke="' + sk.shade +
+      '" stroke-opacity="0.16" stroke-width="4" filter="url(#soft6)"/>');
     return out.join('');
   }
 
@@ -216,7 +241,7 @@
     var bright = 1 - C.luma(d.color) * 0.42;   // 밝은 색일수록 하이라이트를 약하게
 
     // 네일 아래로 떨어지는 그림자 (연장 길이가 길면 더 진하게)
-    out.push('<path d="' + G.nailPath(fg, d, -1.5) + '" transform="translate(2.5 3)" fill="#00000055" filter="url(#soft3)"/>');
+    out.push('<path d="' + G.nailPath(fg, d, -1.5) + '" transform="translate(2 2.4)" fill="#4a1f10" opacity="0.3" filter="url(#soft3)"/>');
 
     var g = ['<g clip-path="url(#clip-' + id + ')">'];
     g.push('<path d="' + path + '" fill="url(#bed-' + id + ')"/>');
@@ -262,7 +287,7 @@
 
     // 큐티클 음영 + 자연 네일이 끝나는 선(프리엣지)
     g.push('<ellipse cx="0" cy="' + (-yc) + '" rx="' + hw * 0.95 + '" ry="' + Math.max(2.2, T * 0.07) +
-      '" fill="#000000" opacity="0.3" filter="url(#soft3)"/>');
+      '" fill="#54240f" opacity="0.26" filter="url(#soft3)"/>');
     if (m.ext > 3) {
       g.push('<path d="M ' + (-hw) + ' ' + (-(yc + m.bed)) + ' Q 0 ' + (-(yc + m.bed + hw * 0.3)) + ' ' + hw + ' ' + (-(yc + m.bed)) +
         '" fill="none" stroke="#ffffff" stroke-width="1.6" opacity="0.22" filter="url(#soft1)"/>');
@@ -271,7 +296,8 @@
     out.push(g.join(''));
 
     // 테두리
-    out.push('<path d="' + path + '" fill="none" stroke="' + C.darken(d.color, 0.45) + '" stroke-width="0.9" opacity="0.45"/>');
+    out.push('<path d="' + path + '" fill="none" stroke="' + C.mix(C.darken(d.color, 0.4), '#5a2a18', 0.4) +
+      '" stroke-width="0.8" opacity="0.32"/>');
 
     if (selected) {
       out.push('<path d="' + G.nailPath(fg, d, -4.5) + '" fill="none" stroke="#c2185b" stroke-width="2" ' +
@@ -344,7 +370,7 @@
     // 손가락 원통 음영 → 전체 조명 → 손등 볼륨 순서. 조명을 나중에 얹어야
     // 밑동에서 평평하게 되돌린 부분이 손등과 같은 빛을 받아 이어져 보인다.
     body.push('<g clip-path="url(#handClip)">');
-    order.forEach(function (fg) { body.push(fingerGroup(fg, fingerShading(fg))); });
+    order.forEach(function (fg) { body.push(fingerGroup(fg, fingerShading(fg, sk))); });
     body.push('<rect width="900" height="980" fill="url(#globalLight)"/>');
     body.push(dorsumShading(sk));
     // 왼쪽 손가락이 오른쪽 이웃에 드리우는 그림자
@@ -353,7 +379,7 @@
       var nb = rightOf[fg.id];
       if (!nb) return;
       body.push('<g clip-path="url(#fclip-' + nb + '-abs)" transform="translate(12 7)" ' +
-        'filter="url(#soft6)" opacity="0.3" fill="#40241b">' + fingerPathAbs(fg) + '</g>');
+        'filter="url(#soft6)" opacity="0.3" fill="' + sk.shade + '">' + fingerPathAbs(fg) + '</g>');
     });
     // 피부 질감
     body.push('<rect width="900" height="980" filter="url(#grain)" opacity="0.1" ' +
@@ -363,15 +389,16 @@
     // 7) 네일. 선택 표시는 손톱별로 편집할 때만 (전체 적용 중이면 5개 다 테두리가 생겨 산만하다)
     var mark = opts.selectable !== false && !state.sync;
     order.forEach(function (fg) {
-      body.push(fingerGroup(fg, nail(fg, state.nails[fg.id],
-        mark && state.selected.indexOf(fg.id) >= 0)));
+      var d = state.nails[fg.id];
+      body.push(nailGroup(fg, d, nail(fg, d, mark && state.selected.indexOf(fg.id) >= 0)));
     });
 
     // 클릭 영역 (네일 위)
     if (opts.selectable !== false) {
       fingers.forEach(function (fg) {
-        body.push(fingerGroup(fg, '<path class="nail-hit" data-finger="' + fg.id + '" d="' +
-          G.nailPath(fg, state.nails[fg.id], -6) + '" fill="transparent"/>'));
+        var d = state.nails[fg.id];
+        body.push(nailGroup(fg, d, '<path class="nail-hit" data-finger="' + fg.id + '" d="' +
+          G.nailPath(fg, d, -6) + '" fill="transparent"/>'));
       });
     }
 

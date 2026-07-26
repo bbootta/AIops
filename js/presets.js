@@ -21,14 +21,18 @@
   function darken(c, t) { return mix(c, '#000000', t); }
   function luma(c) { var x = hex2rgb(c); return (0.299 * x.r + 0.587 * x.g + 0.114 * x.b) / 255; }
 
-  /* ── 피부톤 ── */
+  /* ── 피부톤 ──
+   * shade = 그늘색. 살의 그늘은 중성 회색이 아니라 붉은 갈색이다. 검정으로 어둡게
+   *   하면 채도가 빠져 송장처럼 보이므로 음영은 전부 이 색으로 넣는다.
+   * blood = 관절·손끝에 도는 혈색(subsurface). 핏기를 만드는 색.
+   */
   var SKINS = [
-    { id: 's1', name: '라이트',    base: '#f6d9c8', dark: '#d9a487', light: '#fff0e6', warm: '#e8a191' },
-    { id: 's2', name: '아이보리',  base: '#f0cdb2', dark: '#cf9871', light: '#fdeada', warm: '#e09a83' },
-    { id: 's3', name: '내추럴',    base: '#e2b491', dark: '#b87f55', light: '#f6dcc2', warm: '#cf8368' },
-    { id: 's4', name: '탠',        base: '#c9915f', dark: '#95603a', light: '#e6bb90', warm: '#b0674b' },
-    { id: 's5', name: '딥',        base: '#8d5a3b', dark: '#5d3421', light: '#b4805a', warm: '#7a4029' },
-    { id: 's6', name: '에스프레소', base: '#5f3a26', dark: '#3a2013', light: '#87573b', warm: '#502c1c' }
+    { id: 's1', name: '라이트',    base: '#f7d5c0', dark: '#dda284', light: '#fff1e7', warm: '#ef9d87', blood: '#e2705c', shade: '#8d3d24' },
+    { id: 's2', name: '아이보리',  base: '#f2caab', dark: '#d3946b', light: '#fee9d7', warm: '#e89275', blood: '#d8654e', shade: '#83351d' },
+    { id: 's3', name: '내추럴',    base: '#e3b189', dark: '#bb7c4f', light: '#f7dabd', warm: '#d47a58', blood: '#bf5539', shade: '#6d2a13' },
+    { id: 's4', name: '탠',        base: '#c98d57', dark: '#985d33', light: '#e7b98b', warm: '#b55c3c', blood: '#a34526', shade: '#57200c' },
+    { id: 's5', name: '딥',        base: '#8d5734', dark: '#5e3119', light: '#b57e54', warm: '#843c20', blood: '#772f16', shade: '#3d1608' },
+    { id: 's6', name: '에스프레소', base: '#5f3822', dark: '#3b1e0f', light: '#895535', warm: '#5a2913', blood: '#52210f', shade: '#261005' }
   ];
 
   var BACKDROPS = [
@@ -39,7 +43,7 @@
 
   /* ── 컬러 팔레트 ── */
   var PALETTE = [
-    { name: '내추럴 누드',   hex: '#e6bfae' },
+    { name: '내추럴 누드',   hex: '#e9b8a3' },
     { name: '밀키 화이트',   hex: '#f7f1ea' },
     { name: '피치 베이지',   hex: '#e3ac92' },
     { name: '모카',          hex: '#a9765f' },
@@ -81,9 +85,9 @@
 
   /* ── 추천 디자인 (색 + 마감 + 아트 + 모양 + 길이) ── */
   var DESIGNS = [
-    { name: '클래식 프렌치', color: '#e9c4b4', color2: '#fffaf5', finish: 'gloss', art: 'french', shape: 'squoval', length: 1 },
+    { name: '클래식 프렌치', color: '#eec1ac', color2: '#fffaf5', finish: 'gloss', art: 'french', shape: 'squoval', length: 1 },
     { name: '밀키 젤',       color: '#f7f1ea', color2: '#ffffff', finish: 'gloss', art: 'none',   shape: 'round',  length: 0 },
-    { name: '누드 글로시',   color: '#e6bfae', color2: '#fff3ea', finish: 'gloss', art: 'none',   shape: 'oval',   length: 1 },
+    { name: '누드 글로시',   color: '#e9b8a3', color2: '#fff3ea', finish: 'gloss', art: 'none',   shape: 'oval',   length: 1 },
     { name: '체리 레드',     color: '#c9243f', color2: '#7c1020', finish: 'gloss', art: 'none',   shape: 'almond', length: 2 },
     { name: '버건디 매트',   color: '#7c1c33', color2: '#4a0e1e', finish: 'matte', art: 'none',   shape: 'coffin', length: 2 },
     { name: '핑크 옴브레',   color: '#e2467f', color2: '#fdf0f4', finish: 'gloss', art: 'ombre',  shape: 'almond', length: 2 },
