@@ -1,9 +1,9 @@
 {
-  "request_id": "IVR-573F73DBBF35",
+  "request_id": "IVR-0DC4055ED5AF",
   "run_id": "RUN-20260630-42",
   "verdict": "경부적합",
   "validated_by": "적합성검증 팀에이전트",
-  "validated_at": "2026-07-26T06:05:00+00:00",
+  "validated_at": "2026-07-26T07:15:00+00:00",
   "recalc_matches": {
     "rwa_final_total": true,
     "cet1_ratio": true,
@@ -18,60 +18,52 @@
   },
   "findings": [
     {
-      "finding_id": "F-201",
-      "severity": "경부적합",
-      "target": "cet1_ratio",
-      "detail": "시정 문서는 이익잉여금을 '수익성의 함수이지 익스포저의 함수가 아니다' 라고 기술했으나 사실과 다르다. data_gen.py:196 이 revenue = ead × spread 로 수익을 생성하므로 연간이익은 익스포저의 함수다. 실측: 이익/EAD 비율이 seed 5종에서 0.013433~0.014853(변동계수 3.777%)로 좁게 유지되며, 이는 이익이 대체로 EAD에 비례하고 spread 믹스 차이만큼만 벗어난다는 뜻이다. 그 결과 CET1 1.0944조 중 유보분(4×이익)이 54.3%를 차지해 자본의 절반 이상이 여전히 규모 비례분이다. 산출 오류는 아니며 F-101 대비 실질 개선(레버리지 변동계수 0.044%→3.741%, 85배)도 사실이나, 시정 문서의 사실 주장이 코드와 어긋난 점은 F-103 과 같은 종류의 문서-산출 불일치다.",
-      "recomputed": 0.11648890029339716,
-      "reported": 0.11648890029339716
-    },
-    {
-      "finding_id": "F-202",
-      "severity": "경부적합",
-      "target": "leverage_ratio",
-      "detail": "레버리지비율의 잔여 반응성이 고정 발행자본(자본금 5,000억 + AT1 1,400억 = 6,400억)에서만 나오며, 익스포저가 커지면 다시 상수로 수렴하는 구조적 한계가 있다. leverage = (고정 6,400억 + 4×margin×EAD) / (1.01×EAD + ccr_ead) 이므로 EAD → ∞ 에서 4×margin/1.01 로 수렴한다. 현재 seed 42 기준 고정분 기여 0.0607(52%) · 유보분 기여 0.0564(48%) 로 균형이라 136.8bp 가 관측되지만, 자산이 2~3배 성장하면 고정분 비중이 희석되어 반응성이 다시 소멸한다. 독립 측정으로 2선이 보고한 CET1 437.0bp · 레버리지 136.8bp 를 재현했으며 수치는 정확하다. 다만 레버리지 변동계수(3.741%)가 이익/EAD 변동계수(3.777%)와 거의 같다는 점은, 현재의 반응성이 포트폴리오 위험 구성이 아니라 수익률 믹스에서 온다는 것을 보여준다. 자본 원장 주입 경로(capital_ledger)가 실제로 동작함을 확인했으므로(CET1 0.116489→0.212888, 레버리지 0.117126→0.199264), 실 원장 확보 시 해소되는 사안이다.",
-      "recomputed": 0.11712632046549173,
-      "reported": 0.11712632046549173
-    },
-    {
-      "finding_id": "F-203",
-      "severity": "적합",
-      "target": "leverage_ratio",
-      "detail": "F-101 해소 확인. synthesise_capital 이 annual_profit 만 받고 RWA·익스포저를 인자로 받지 않으며, 고정 발행자본 축이 도입되어 두 통제가 함께 작동한다. 독립 반증 실험(seed 42/7/123/999/2024, EAD 9.76~11.18조): CET1 비율 변동폭 437.0bp(변동계수 13.057%), 레버리지비율 변동폭 136.8bp(변동계수 3.741%). 2차 검증 당시 레버리지 1.4bp·0.044% 대비 반응성이 85배 회복됐다. 자본을 파이프라인 입력으로 승격하고 합성기를 fallback 으로 격하한 설계 방향이 옳다.",
-      "recomputed": 0.11712632046549173,
-      "reported": 0.11712632046549173
-    },
-    {
-      "finding_id": "F-204",
-      "severity": "적합",
-      "target": "rwa_final_total",
-      "detail": "F-102 해소 확인. 파급 목록을 손으로 적지 않고 요청서 recalc_targets 를 정본으로 삼아 생성하도록 바꾼 조치가 근본적이다. 시정 문서의 10개 항목이 요청서 값과 일치함을 대조했다. 독립 재계산도 전부 일치: rwa_final_total 9,394,620,060,178.572(차이 0), 합산 sa+irb+ccr+cva+market+op = internal_total(차이 0), 산출하한 7,341,866,120,159×72.5% = 5,322,852,937,115.409(차이 0, 미구속), 레버리지 익스포저 EAD×1.01+CCR EAD(차이 0), 순유출 = 총유출−유입(차이 0).",
-      "recomputed": 9394620060178.572,
-      "reported": 9394620060178.572
-    },
-    {
-      "finding_id": "F-205",
-      "severity": "적합",
-      "target": "reverse_critical_severity",
-      "detail": "F-103 해소 확인. 시정 문서의 수치가 요청서 값과 일치하며(0.9822463989257812), 생성된 표로 바꿔 재발을 막은 조치가 적절하다. 다만 본 지표는 1차 0.9447 → 2차 0.8426 → 3차 0.9822 로 자본 변경에 크게 요동한다(진폭 0.14). 역스트레스 임계 심도는 '어느 정도 충격에서 자본이 규제 최소를 깨는가' 를 보는 지표이므로 자본 수준 변화에 민감한 것 자체는 정상이나, 세 차례 산출이 모두 유효한 자본 가정 하에서 나온 값이라는 점에서 이 지표의 해석 폭이 넓다는 사실을 결재선에 함께 전달할 것을 권고한다.",
-      "recomputed": 0.9822463989257812,
-      "reported": 0.9822463989257812
-    },
-    {
-      "finding_id": "F-207",
+      "finding_id": "F-301",
       "severity": "경부적합",
       "target": "rwa_final_total",
-      "detail": "게이트 코드 자체의 결함 — 문서와 구현이 어긋난다. ValidationResponse.passes 의 docstring 은 '경부적합까지는 조건부 통과, 중부적합은 결재 불가' 라고 명시하나, 구현은 return self.verdict == '적합' and not any(중부적합) 이므로 verdict='경부적합' 이면 중부적합 finding 이 0건이어도 passes=False 가 된다. 반증 확인: ValidationResponse(verdict='경부적합', findings=[]) → passes=False. docstring 이 약속한 '조건부 통과' 경로가 코드에 존재하지 않는다. 본 3차 응답이 정확히 그 상태(중부적합 0 · 경부적합 2)이므로 결과적으로 결재가 막히는데, 이것이 설계 의도인지 구현 누락인지 문서만으로는 판별할 수 없다. 둘 중 하나를 고쳐야 한다 — docstring 을 '적합만 통과' 로 바로잡거나, 경부적합을 조건부 승인 경로(잔여위험·후속조건·기한 기록)와 연결하거나. 대상 키는 스키마상 필수라 rwa_final_total 로 두었으나 실제 대상은 게이트 로직이다.",
+      "detail": "request_id 지문의 stale 방어가 아직 완전하지 않다. 지문은 run_id · headline_digest · KNOWN_ASSUMPTIONS · 자체검증 요약 · FAIL 목록 · WARN 본문 여섯 항목을 손으로 열거하는데, recalc_targets 의 citation 과 korean 은 빠져 있다. 반증 실험: cet1_ratio 의 citation 을 '은행업감독규정 제26조' 에서 '전혀 다른 규정 XYZ-999' 로 바꿔 요청을 재생성했으나 request_id 가 IVR-0DC4055ED5AF 그대로였다(가정 1건 추가 시에는 IVR-8512E92EE1B2 로 정상 변동). 규정 근거가 바뀌면 3선은 같은 수치를 다른 기준으로 검증해야 하므로 재검증 대상인데, 이전 응답이 그대로 승인으로 통한다. 이번에 시정한 결함과 동일한 종류이며 범위만 좁아졌다. 근본 원인은 지문 대상을 필드 단위로 열거한 설계다 — F-102 에서 '파급 목록을 손으로 적지 않는다' 는 원칙을 세웠는데 같은 원칙이 지문 설계에는 적용되지 않았다. ValidationRequest 전체를 (request_id · created_at 제외) 직렬화해 지문화하면 필드가 늘어도 자동으로 덮인다.",
       "recomputed": null,
       "reported": null
     },
     {
-      "finding_id": "F-206",
+      "finding_id": "F-302",
       "severity": "적합",
-      "target": "stress_trough_cet1",
-      "detail": "3선 권고(WARN 본문 전달) 반영 확인. 요청서에 self_validation_warnings 필드가 신설되어 WARN 4건의 내용이 집계 수치가 아니라 본문으로 전달된다. 신설 체크 stress_trough_meets_requirement 가 'adverse 7.94% < 요구 8.00%(2027Q3) · severely_adverse 4.69% < 요구 8.00%(2027Q2)' 를 구체적으로 기술하므로 결재선이 WARN 의 실질을 읽을 수 있다. 나머지 3건(pd_floor_5bp · concentration_hhi country=0.295 · pd_gini_retail_other 0.220)도 함께 노출된다.",
-      "recomputed": 0.046912066660822246,
-      "reported": 0.046912066660822246
+      "target": "rwa_final_total",
+      "detail": "F-207 해소 확인. passes 는 '적합 + 중부적합 0건' 으로 유지하고 conditional 속성을 신설해 경부적합을 '통과도 부적합도 아닌 세 번째 상태' 로 분리했으며, check_gate 가 이를 '조건부' 로 반환한다. docstring 도 구현과 일치하도록 다시 썼다. 게이트를 느슨하게 만들지 않은 점이 중요하다 — 경부적합이 자동 통과가 되지 않고 사람이 잔여위험·후속조건·이행기한을 기록해야 결재되는 경로로 남았다. 3선 지적은 '둘 중 하나를 고치라' 였는데 통제를 약화시키지 않는 쪽을 택했다.",
+      "recomputed": null,
+      "reported": null
+    },
+    {
+      "finding_id": "F-303",
+      "severity": "적합",
+      "target": "rwa_final_total",
+      "detail": "2선이 스스로 발견한 stale 방어 결함의 시정을 확인했다. 이전 지문이 run_id 와 headline 수치만 사용해, 산출값이 하나도 바뀌지 않는 시정(문서·통제·가정 공시)에서 request_id 가 그대로 나오고 3차 응답이 4차 승인으로 통했다. 반증 실험으로 시정 효과를 확인했다 — KNOWN_ASSUMPTIONS 에 1건을 추가하니 request_id 가 IVR-0DC4055ED5AF → IVR-8512E92EE1B2 로 변동했다. 게이트도 실제로 3차 응답(IVR-573F73DBBF35)을 '부적합 — 응답 request_id 불일치' 로 거절함을 실행 확인했다. 3선이 지적하지 않은 결함을 판정 도구 검증이라는 같은 축에서 스스로 찾아 고친 점을 기록한다.",
+      "recomputed": null,
+      "reported": null
+    },
+    {
+      "finding_id": "F-304",
+      "severity": "적합",
+      "target": "cet1_ratio",
+      "detail": "F-201 해소 확인. 신규 자체검증 체크 capital_source 가 '합성 자본 사용 — CET1 1,094,368,959,484 중 규모 비례분(이익잉여금) 54.3%, 고정 발행자본 기여 51.8% · 자산 대비 고정분 6.15%' 를 WARN 으로 상시 노출한다. 3선이 지적한 수치(유보분 54.3%)를 그대로 자체검증 항목으로 편입해, 문서 문구를 고치는 데 그치지 않고 다음 실행부터 자동 감시되도록 만든 조치가 적절하다. 산출값은 3차와 동일함을 재현으로 확인했다(headline 10종 전부 불변).",
+      "recomputed": 0.11648890029339716,
+      "reported": 0.11648890029339716
+    },
+    {
+      "finding_id": "F-305",
+      "severity": "적합",
+      "target": "leverage_ratio",
+      "detail": "F-202 해소 확인. capital_source WARN 의 '희석될수록 레버리지 반응성이 소멸' 문구와 '자산 대비 고정분 6.15%' 지표로, 3선이 지적한 수렴 위험이 관측 가능한 형태로 공시된다. 고정분 비중이 떨어지면 WARN 수치가 먼저 움직이므로 반응성 소멸을 사전에 감지할 수 있다. 아울러 known_assumptions 가 12건 → 15건으로 늘며 F-004(부외 CCF 일률 10%) · F-005(Stage 1 커버리지 8.1%) · F-006(표준방법 RWA 78%)이 명문화됐다.",
+      "recomputed": 0.11712632046549173,
+      "reported": 0.11712632046549173
+    },
+    {
+      "finding_id": "F-306",
+      "severity": "적합",
+      "target": "ecl_total",
+      "detail": "산출 불변 확인. 이번 시정은 문서·통제·공시만 바꾸고 산출 로직을 건드리지 않았다는 주장을 검증했다 — headline 10종을 재현해 3차 값과 전부 일치했고 headline_digest 도 edf5c9899da404df6ae3dc4d6c8e64d9 로 동일하다. 산출을 바꾸지 않는 시정에서 request_id 만 바뀐 것이 정상이며, 이는 F-303 시정이 의도대로 작동한 결과다.",
+      "recomputed": 94531443664.94879,
+      "reported": 94531443664.94879
     }
   ]
 }
