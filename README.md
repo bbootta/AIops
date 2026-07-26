@@ -46,13 +46,15 @@ risk_lib/                        # Python 계산 라이브러리
     rapm.py                      ── RAROC, 경제자본
   stress/
     scenario.py                  ── 시나리오 PD/LGD 충격 → RWA/BIS/ECL
-    trace.py                     ── 심각도별 전 단계 산출과정 추적 (35단계)
+    axes.py                      ── 충격 축 14개 (신용·시장·운영·유동성·수익)
+    multi_axis.py                ── 전 축 동시 충격 엔진 (경로·역스트레스)
+    trace.py                     ── 심각도별 전 단계 산출과정 (13블록 72단계)
   validation/
     consistency.py               ── 정합성 자동 체크 (21종)
     backtest.py                  ── HL test, 등급별 binomial
   datamodel/
     spec.py                      ── 테이블/컬럼 스펙 · 검증 · DDL 생성
-    catalog.py                   ── 정규 카탈로그 (78 테이블 / 570 컬럼)
+    catalog.py                   ── 정규 카탈로그 (79 테이블 / 576 컬럼)
     materialize.py               ── 부문 결과 → 정규 테이블
     materialize_detail.py        ── 세분화 테이블 실체화 (규제 라인 입도)
   prudential/
@@ -79,7 +81,7 @@ risk_lib/                        # Python 계산 라이브러리
   cli.py                         ── CLI 러너
 
 examples/run_end_to_end.py       # 전체 흐름 데모
-tests/                           # pytest (968건)
+tests/                           # pytest (979건)
 ```
 
 ## 빠른 시작

@@ -1609,7 +1609,13 @@ ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
 # ============================================ R12 · 건전성 감독 · 위기상황 추적
 # 감독규정 편제상 업무보고서가 요구하지만 R1~R11에 없던 산출을 담는다.
 
-TRACE_BLOCKS = ("거시", "위험파라미터", "손실", "손익", "RWA", "자본", "비율", "판정")
+# 블록은 stress.trace.BLOCKS와 같아야 한다 — 갈라지면 정상 추적이 도메인
+# 위반으로 잡힌다.
+TRACE_BLOCKS = ("거시", "충격축", "신용파라미터", "신용RWA", "시장",
+                "은행계정금리", "운영", "유동성", "손익", "자본", "RWA합계",
+                "비율", "판정")
+TRACE_UNITS = ("KRW", "ratio", "count", "years", "bp", "notch", "multiple")
+SHOCK_RISK_TYPES = ("신용", "시장", "운영", "유동성", "수익")
 
 STRESS_TRACE = TableSpec(
     name="st_calc_trace", korean="위기상황분석 산출과정", product="PRD-ST",
@@ -1625,8 +1631,7 @@ STRESS_TRACE = TableSpec(
         C("formula", "text", "산식", nullable=False),
         C("inputs", "text", "투입값", nullable=False),
         C("value", "float", "산출값", nullable=False, unit="mixed"),
-        C("unit", "string", "단위", nullable=False,
-          allowed=("KRW", "ratio", "count", "years")),
+        C("unit", "string", "단위", nullable=False, allowed=TRACE_UNITS),
         C("citation", "text", "근거", nullable=False),
     ),
     primary_key=("scenario", "quarter", "seq"),
@@ -1636,7 +1641,27 @@ STRESS_TRACE = TableSpec(
 
 # ST_TABLES에 넣고 DETAIL_TABLES에도 넣으면 ALL_TABLES에 두 번 들어간다.
 # 위기상황 추적표는 ST 부문 소속이므로 여기에만 등록한다.
-ST_TABLES = ST_TABLES + (STRESS_TRACE,)
+SHOCK_AXIS = TableSpec(
+    name="st_shock_axis", korean="위기상황 충격 축", product="PRD-ST",
+    grain="충격 축 1개당 1행",
+    columns=(
+        C("key", "string", "축 식별자", nullable=False),
+        C("korean", "text", "축 이름", nullable=False),
+        C("risk_type", "string", "리스크 유형", nullable=False,
+          allowed=SHOCK_RISK_TYPES),
+        C("unit", "string", "단위", nullable=False,
+          allowed=("ratio", "bp", "notch", "multiple")),
+        C("per_severity", "float", "단위 심도당 충격", nullable=False,
+          unit="mixed"),
+        C("citation", "text", "근거", nullable=False),
+        C("note", "text", "전이 경로", nullable=True),
+    ),
+    primary_key=("key",),
+    note="신용만 충격하면 통합위기상황분석이 아니다 — 모든 축이 같은 심도에서 "
+         "동시에 발동해야 어느 분기가 최악인지 말할 수 있다.",
+)
+
+ST_TABLES = ST_TABLES + (STRESS_TRACE, SHOCK_AXIS)
 
 # ---------------------------------------------------------------- 건전성 (PRU)
 BALANCE_SECTIONS = ("자산", "부채", "자본")

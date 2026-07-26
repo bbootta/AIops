@@ -31,7 +31,10 @@ GOLDEN = {
     "leverage_ratio": 0.11601329439196996,
     "ecl_total": 94_531_443_664.94879,
     "macro_weighted_total": 128_504_402_456.8952,
-    "reverse_critical_severity": 2.3518753051757812,
+    # 전 축 동시 충격(신용·시장·운영·유동성·수익)으로 전환하며 재고정.
+    # 신용만 충격할 때 2.3519 → 전 축에서 0.9447. 같은 자본으로 견딜 수 있는
+    # 심도가 낮아지는 것이 다축 위기상황분석의 요점이다 (SRP20).
+    "reverse_critical_severity": 0.9447097778320312,
 }
 # +1 WARN: pd_floor_5bp now catches more low-PD exposures (5bp vs 3bp threshold).
 GOLDEN_VALIDATION = {"PASS": 49, "WARN": 3}

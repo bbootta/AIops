@@ -240,10 +240,32 @@ def _stress_tab(pg) -> None:
 def test_stress_screen_shows_every_calculation_block(page):
     _stress_tab(page)
     txt = _text(page)
-    for block in ("거시", "위험파라미터", "손실", "손익", "RWA", "자본", "비율", "판정"):
+    for block in ("거시", "충격축", "신용파라미터", "신용RWA", "시장",
+                  "은행계정금리", "운영", "유동성", "손익", "자본",
+                  "RWA합계", "비율", "판정"):
         assert block in txt, block
     # 산식·투입값·근거가 화면에 있어야 "산출 과정"이다.
     assert "logit(PD)" in txt and "IFRS 9 5.5" in txt
+
+
+def test_stress_screen_lists_every_shock_axis(page):
+    """신용만 충격하는 화면은 통합위기상황분석이 아니다."""
+    from risk_lib.stress.axes import AXES
+    _stress_tab(page)
+    txt = _text(page)
+    for a in AXES:
+        assert a.korean in txt, a.korean
+    for risk_type in ("신용", "시장", "운영", "유동성", "수익"):
+        assert f"({risk_type})" in txt, risk_type
+
+
+def test_stress_screen_shows_non_credit_propagation(page):
+    """시장·운영·유동성·수익이 실제로 움직이는 것이 화면에 보여야 한다."""
+    _stress_tab(page)
+    txt = _text(page)
+    for step in ("트레이딩 손익 합계", "ΔEVE", "내부손실승수 (ILM)",
+                 "유동성커버리지비율", "당기순이익", "산출하한 증가분"):
+        assert step in txt, step
 
 
 def test_stress_screen_compares_every_severity(page):
@@ -300,7 +322,7 @@ def test_blocks_collapse_and_expand(page):
     assert "logit(PD)" in _text(page)
     page.eval_on_selector_all(
         "section.on .blockhead",
-        "els => els.find(e => e.textContent.includes('위험파라미터')).click()")
+        "els => els.find(e => e.textContent.includes('신용파라미터')).click()")
     page.wait_for_timeout(300)
     assert "logit(PD)" not in _text(page)
 

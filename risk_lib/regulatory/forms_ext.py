@@ -489,9 +489,22 @@ def br_stress_trace(ctx):
     sub = tr[(tr["scenario"] == "severely_adverse") & (tr["quarter"] == q)] \
         .sort_values("seq")
     M = "risk_lib.stress.trace"
+    axes = ctx.tables["st_shock_axis"]
     L = [FormLine("1000", "대상 시나리오·분기", 0, "text", None,
                   text_value=f"severely_adverse · {q} (CET1 저점)",
-                  citation="ST-F004 CET1 roll-forward")]
+                  citation="ST-F004 CET1 roll-forward"),
+         FormLine("1100", "충격 축 수", 0, "count", float(len(axes)),
+                  formula=" · ".join(
+                      f"{rt} {int(n)}" for rt, n
+                      in axes.groupby("risk_type").size().items()),
+                  citation="SRP20 다축 시나리오 — 모든 축이 같은 심도에서 동시 발동",
+                  source_module="risk_lib.stress.axes", is_subtotal=True)]
+    for i, (_, a) in enumerate(axes.iterrows(), start=1):
+        L.append(FormLine(f"11{i:02d}", f"축 · {a['korean']}", 1, "ratio",
+                          float(a["per_severity"]),
+                          formula=f"심도 1.0당 충격 ({a['unit']})",
+                          citation=str(a["citation"]),
+                          source_module="risk_lib.stress.axes"))
     for _, r in sub.iterrows():
         unit = str(r["unit"])
         L.append(FormLine(
@@ -501,7 +514,8 @@ def br_stress_trace(ctx):
             citation=str(r["citation"]), source_module=M))
     row = ctx.result.stress_path
     hit = row[(row["scenario"] == "severely_adverse") & (row["quarter"] == q)]
-    checks = []
+    checks = [FormCheck("전 리스크 유형에 축이 있다", 5.0,
+                        float(axes["risk_type"].nunique()), 1e-9)]
     if len(hit) and len(sub):
         cet1 = float(sub[sub["step"] == "보통주자본비율"]["value"].iloc[0])
         checks.append(FormCheck("추적표 CET1 = 스트레스 경로 CET1",

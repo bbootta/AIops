@@ -434,20 +434,83 @@ def _stage_icaap(
     )
 
 
+# 미인출 약정 비율 — decompose가 쓰는 규칙(약정 보유 익스포저의 잔액 10~60%)의
+# 기대값을 EAD 대비로 환산한 값. 실제 약정 원장이 있으면 그 값으로 대체된다.
+UNDRAWN_SHARE = 0.18
+
+
+def _stress_books(portfolio, irb_book, sa_book, capital, mkt_positions,
+                  bi_components, op, op_loss_result, alm, total_ead):
+    """전 축 충격 엔진의 기준 상태. 파이프라인이 이미 만든 값만 모은다."""
+    from risk_lib.stress.multi_axis import StressBooks
+    lcr = alm["lcr"]
+    bs = alm["balance_sheet"]
+    return StressBooks(
+        irb=irb_book, sa=sa_book, full=portfolio, capital=capital,
+        market_positions=mkt_positions, bi=bi_components,
+        # OPE25.9 ILM은 10년 평균 손실을 쓴다 — 연간 손실을 그대로 넣으면
+        # 손실승수가 과대해진다.
+        op_losses_10y=total_ead * 0.001,
+        op_loss_annual=float(getattr(op_loss_result, "annual_total", 0.0)),
+        repricing=alm["irrbb"].repricing,
+        hqla=dict(bs.hqla), lcr_outflows=lcr.outflows, lcr_inflows=lcr.inflows,
+        revenue=float(portfolio["revenue"].sum()),
+        operating_cost=float(portfolio["operating_cost"].sum()),
+        credit_securities=float(bs.hqla["level_2a"] + bs.hqla["level_2b"]),
+        undrawn_share=UNDRAWN_SHARE,
+        sa_bucket_by_grade=_SA_CORP_BUCKET_BY_GRADE,
+    )
+
+
 def _stage_stress(
-    irb_book, capital, rwa_other_fixed, bis, quarters, buffers,
+    irb_book, capital, rwa_other_fixed, bis, quarters, buffers, books=None,
 ):
+    """전 축(신용·시장·운영·유동성·수익) 동시 충격 경로.
+
+    `run_stress`(단일 시점 신용 충격)는 부문 비교용으로 남긴다. 경로와 역스트레스는
+    전 축 엔진을 쓴다 — 신용만 충격하면 자본 저점이 낙관적으로 나온다.
+    """
+    from risk_lib.stress.multi_axis import (
+        run_multi_axis_path, solve_critical_severity,
+    )
+    from risk_lib.stress.reverse import ReverseStressResult
+
     stress = run_stress(irb_book, capital, rwa_other_fixed,
                         scenarios=[BASELINE, ADVERSE, SEVERELY_ADVERSE],
                         buffers=buffers)
-    reverse = reverse_stress(
-        irb_book, capital, rwa_other_fixed,
-        metric="cet1", target_ratio=bis.required["cet1"],
-        axis=StressAxis(), buffers=buffers,
-    )
-    stress_path = run_stress_path(irb_book, capital, rwa_other_fixed,
-                                  quarters=quarters, axis=StressAxis(),
-                                  buffers=buffers)
+    if books is None:
+        reverse = reverse_stress(
+            irb_book, capital, rwa_other_fixed,
+            metric="cet1", target_ratio=bis.required["cet1"],
+            axis=StressAxis(), buffers=buffers,
+        )
+        stress_path = run_stress_path(irb_book, capital, rwa_other_fixed,
+                                      quarters=quarters, axis=StressAxis(),
+                                      buffers=buffers)
+    else:
+        target = bis.required["cet1"]
+        sev, resilient = solve_critical_severity(
+            books, metric="cet1", target_ratio=target, buffers=buffers)
+        from risk_lib.stress.multi_axis import evaluate_point
+        base_pt = evaluate_point(books, 0.0, buffers=buffers)
+        pt = evaluate_point(books, sev, base=base_pt.values, buffers=buffers)
+        sc = StressAxis().scenario_at(sev)
+        reverse = ReverseStressResult(
+            metric="cet1", target_ratio=target,
+            base_ratio=float(base_pt.values["cet1_ratio"]),
+            critical_severity=float(sev),
+            resilient=bool(resilient),
+            already_breached=bool(base_pt.values["cet1_ratio"] <= target),
+            converged=not resilient,
+            ratio_at_break=float(pt.values["cet1_ratio"]),
+            rwa_total_at_break=float(pt.values["rwa_total"]),
+            ecl_at_break=float(pt.values["ecl"]),
+            implied_gdp_shock=float(pt.shocks["gdp"]),
+            implied_lgd_addon=float(pt.shocks["lgd_addon"]),
+            scenario=sc,
+        )
+        stress_path, _points = run_multi_axis_path(
+            books, quarters=quarters, buffers=buffers)
     stress_path_trough = path_trough_summary(stress_path)
     return stress, reverse, stress_path, stress_path_trough
 
@@ -577,15 +640,24 @@ def run_pipeline(
     rapm_by_class = _stage_rapm(irb_book, hurdle_rate)
     rapm_deep_result = compute_rapm_deep(irb_book, hurdle_rate=hurdle_rate)
 
-    # 12. Stress + reverse stress + quarterly capital path.  Hold non-IRB RWA
+    # 12a. ALM (IRRBB / LCR / NSFR) — 전 축 위기상황분석이 재설정 사다리와
+    # LCR 구성요소를 입력으로 쓰므로 스트레스보다 먼저 만든다.
+    alm = _stage_alm(portfolio, capital, seed)
+
+    # 12b. 운영손실 — 운영 축이 손실을 충격해 ILM으로 되돌리므로 역시 선행한다.
+    op_loss_result = compute_op_loss(total_ead, seed=seed,
+                                     sma_capital=op.rwa * 0.08)
+
+    # 12c. Stress + reverse stress + quarterly capital path.  Hold non-IRB RWA
     # fixed at (rwa_final - rwa_irb) so baseline stress reconciles with BIS.
     rwa_other_fixed = rwa_final - rwa_irb
+    books = _stress_books(portfolio, irb_book, sa_book, capital, mkt_positions,
+                          bi_components, op, op_loss_result, alm, total_ead)
     stress, reverse, stress_path, stress_path_trough = _stage_stress(
-        irb_book, capital, rwa_other_fixed, bis, quarters, buffers,
+        irb_book, capital, rwa_other_fixed, bis, quarters, buffers, books,
     )
 
-    # 13. ALM (IRRBB / LCR / NSFR) + 내부자본(ICAAP)
-    alm = _stage_alm(portfolio, capital, seed)
+    # 13. 내부자본(ICAAP)
     icaap = _stage_icaap(sa_res, irb_res, mkt, op, alm, conc, capital)
 
     # 12b. CRO-grade stress 부문 (v0.13.0) — ALM 의존 (LCR/NSFR base 입력)
@@ -596,8 +668,6 @@ def run_pipeline(
     # 14. CRO add-ons: RAF + climate + CCR + Op loss + concentration deep + model cards
     bank_book = portfolio[portfolio["asset_class"] == "bank"]
     ccr_result = compute_ccr(bank_book, seed=seed) if not bank_book.empty else None
-    op_loss_result = compute_op_loss(total_ead, seed=seed,
-                                     sma_capital=op.rwa * 0.08)
     climate_result = run_climate(portfolio, base_ecl=float(ecl_df["ecl"].sum()))
     conc_deep = {
         "top_by_ead": top_obligors(portfolio, n=20, by="ead"),
@@ -770,6 +840,8 @@ def run_pipeline(
             "standardised_total": rwa_standardised_total,
             "output_floor": floor, "final_total": rwa_final,
             "market_detail": mkt, "op_detail": op,
+            # 전 축 위기상황분석이 시장 포지션을 다시 충격하므로 결과에 남긴다.
+            "market_positions": mkt_positions,
             # BI 구성요소(ILDC/SC/FC)는 op_detail에 총액으로만 남는다 —
             # 사업부문별 자본배분과 업무보고서 라인은 구성요소가 있어야 한다.
             "bi_detail": bi_components,

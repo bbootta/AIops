@@ -772,8 +772,12 @@ def materialize_detail(result, portfolio, base: dict[str, pd.DataFrame]
 
 def materialize_stress_trace(result, portfolio, base) -> dict[str, pd.DataFrame]:
     """위기상황분석 산출과정 — 시나리오 × 분기 × 단계."""
+    from risk_lib.stress.axes import axis_frame
     from risk_lib.stress.trace import trace_from_result
-    return {"st_calc_trace": trace_from_result(result, portfolio)}
+    axes = axis_frame()[["key", "korean", "risk_type", "unit", "per_severity",
+                         "citation", "note"]]
+    return {"st_calc_trace": trace_from_result(result, portfolio),
+            "st_shock_axis": axes}
 
 
 def materialize_prudential(result, portfolio, base) -> dict[str, pd.DataFrame]:

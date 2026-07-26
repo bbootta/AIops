@@ -755,7 +755,8 @@ function sparkline(values, title){
 
 
 /* ---- E 위기상황: 심각도별 전 단계 산출과정 ---- */
-const TRACE_BLOCKS=['거시','위험파라미터','손실','손익','RWA','자본','비율','판정'];
+const TRACE_BLOCKS=['거시','충격축','신용파라미터','신용RWA','시장','은행계정금리',
+  '운영','유동성','손익','자본','RWA합계','비율','판정'];
 
 function traceRows(){
   const f=D.data['st_calc_trace'];
@@ -768,9 +769,10 @@ function stressDeepDive(root){
   if(!T){root.appendChild(el('div','note','추적표가 없다.'));return}
   const {f,i}=T;
   root.appendChild(el('p','lead',
-    '거시 충격이 위험파라미터 → 손실 → 손익 → RWA → 자본 → 비율 → 판정으로 전이되는 '+
-    '전 과정을 심각도별·분기별로 펼친다. 각 단계는 산식·투입값·규정 근거를 함께 가지며, '+
-    '마지막 단계 값은 스트레스 경로 결과와 정확히 일치한다.'));
+    '14개 충격 축(신용 5 · 시장 4 · 운영 1 · 유동성 2 · 수익 2)이 같은 심도에서 동시에 발동하고, '+
+    '신용파라미터 → 신용RWA → 시장 → 은행계정금리 → 운영 → 유동성 → 손익 → 자본 → RWA합계 → '+
+    '비율 → 판정으로 전이되는 전 과정을 심각도별·분기별로 펼친다. 각 단계는 산식·투입값·규정 '+
+    '근거를 함께 가지며, 마지막 단계 값은 스트레스 경로 결과와 정확히 일치한다.'));
 
   const scenarios=[...new Set(f.rows.map(r=>r[i.scenario]))];
   const quarters=[...new Set(f.rows.map(r=>r[i.quarter]))];
@@ -825,17 +827,19 @@ function stressDeepDive(root){
        섞여 읽히지 않는다. 열 이름에 단위를 박아 오해를 없앤다. */
     const pc=v=>v===null?null:v*100;
     cmp.appendChild(table({
-      columns:['시나리오','충격 심도','ΔGDP %','PD(충격) %','LGD(충격) %',
-               'ECL(충격)','증분 ECL','RWA 합계','CET1 %','총자본비율 %',
-               '요구치 충족'],
+      columns:['시나리오','충격 심도','PD(충격) %','LGD(충격) %','충당금 전입',
+               '트레이딩 손익','운영손실','당기순이익','RWA 합계','LCR %',
+               'CET1 %','총자본비율 %','요구치 충족'],
       rows:scenarios.map(sc=>[sc,
         pick(sc,quarter,'충격 심도 (severity)'),
-        pc(pick(sc,quarter,'GDP 성장률 충격')),
         pc(pick(sc,quarter,'PD (충격 후)')),
         pc(pick(sc,quarter,'LGD (충격 후)')),
-        pick(sc,quarter,'기대신용손실 (충격 후)'),
-        pick(sc,quarter,'증분 ECL'),
+        pick(sc,quarter,'충당금 전입'),
+        pick(sc,quarter,'트레이딩 손익 합계'),
+        pick(sc,quarter,'운영손실 (연간)'),
+        pick(sc,quarter,'당기순이익'),
         pick(sc,quarter,'위험가중자산 합계'),
+        pc(pick(sc,quarter,'유동성커버리지비율')),
         pc(pick(sc,quarter,'보통주자본비율')),
         pc(pick(sc,quarter,'총자본비율')),
         pick(sc,quarter,'요구치 충족')===1?'충족':'침범']),
@@ -879,9 +883,9 @@ function stressDeepDive(root){
     });
 
     const note=el('div','note',
-      '추적표의 마지막 단계 값은 st_capital_path(스트레스 경로 결과)와 정확히 일치한다 — '+
-      '어긋나면 추적이 아니라 두 번째 모형이다. 본 시나리오 축은 신용 파라미터만 충격하며, '+
-      '시장·운영 충격은 별도 축에서 다룬다(해당 단계에 불변으로 표시).');
+      '14개 충격 축(신용 5 · 시장 4 · 운영 1 · 유동성 2 · 수익 2)이 같은 심도에서 동시에 발동한다. '+
+      '자본은 증분 ECL이 아니라 세후이익 변화로 롤포워드되며(충당금이 이익에 이미 들어 있다), '+
+      '산출하한 분모도 함께 충격받는다. 추적표의 값은 스트레스 경로 결과와 정확히 일치한다.');
     pane.appendChild(note);
   }
   draw();
