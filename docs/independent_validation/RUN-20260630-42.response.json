@@ -1,14 +1,14 @@
 {
-  "request_id": "IVR-E6BEA5DA0D5F",
+  "request_id": "IVR-52D8B21C1A1E",
   "run_id": "RUN-20260630-42",
   "verdict": "중부적합",
   "validated_by": "적합성검증 팀에이전트",
-  "validated_at": "2026-07-26T04:20:00+00:00",
+  "validated_at": "2026-07-26T05:10:00+00:00",
   "recalc_matches": {
-    "rwa_final_total": false,
+    "rwa_final_total": true,
     "cet1_ratio": true,
     "total_ratio": true,
-    "leverage_ratio": false,
+    "leverage_ratio": true,
     "ecl_total": true,
     "lcr": true,
     "nsfr": true,
@@ -18,52 +18,52 @@
   },
   "findings": [
     {
-      "finding_id": "F-001",
+      "finding_id": "F-101",
       "severity": "중부적합",
-      "target": "cet1_ratio",
-      "detail": "자본이 RWA에서 역산된 상수다. pipeline._stage_capital 이 CapitalStack(cet1=rwa_final*0.115, additional_t1=rwa_final*0.015, tier2=rwa_final*0.025) 로 자본을 만들므로 cet1_ratio = (rwa*0.115)/rwa 는 RWA·포트폴리오와 무관하게 항상 0.115 다. seed 42/7/123/999 로 RWA를 6.67조~9.97조(50% 변동) 로 바꿔도 cet1_ratio·total_ratio 는 0.115·0.155 에서 미동하지 않음을 실측 확인했다. 따라서 이 값은 산출 결과가 아니라 입력 가정이며, '은행업감독규정 제26조' 인용은 규제 산출물이라는 오해를 준다. 더 중대한 것은 통제 효과다 — 자본비율이 RWA 오류를 전혀 드러내지 못한다(F-002 의 RWA 141.65억 누락에도 비율 변화 0.00bp). 본 항목은 known_assumptions 8건 어디에도 기재되어 있지 않다.",
-      "recomputed": 0.115,
-      "reported": 0.115
-    },
-    {
-      "finding_id": "F-002",
-      "severity": "중부적합",
-      "target": "rwa_final_total",
-      "detail": "거래상대방신용리스크(SA-CCR) RWA 13,704,755,956.43원과 CVA 소요자본 460,299,264.19원, 합계 14,165,055,220.62원이 RWA 합계에서 누락됐다. 파이프라인은 rwa_credit_internal = rwa_sa + rwa_irb 만 합산하고(pipeline.py:613), result.ccr(SACCRResult, EAD 274.1억·RWA 137.0억·CVA 4.6억·거래상대방 50)은 산출만 되고 어디에도 합산되지 않는다. CRE52(SA-CCR)와 MAR50(CVA)은 RWA 포함을 요구한다. 정정 RWA 9,394,620,060,178.57원 대비 0.1508% 과소계상이다. 자본비율 여유(CET1 11.5% vs 최소 8%)가 커 결론은 바뀌지 않으나, 이 누락은 반보수적(과소계상) 방향인데도 known_assumptions 에 없다. 같은 목록에 있는 CRM 미반영은 보수적 방향이라 공시되어 있어, 공시 기준이 방향에 따라 비대칭이다.",
-      "recomputed": 9394620060178.573,
-      "reported": 9380455004957.953
-    },
-    {
-      "finding_id": "F-003",
-      "severity": "중부적합",
-      "target": "stress_trough_cet1",
-      "detail": "심각(severely_adverse) 시나리오 CET1 저점이 4.6052%로 규제 최소 8%를 3.395%p 밑돌고, stress_path_trough 가 first_breach=2026Q4 · breach_ratio=total · passes_all=False 를 이미 기록하고 있다. 그럼에도 요청 패키지의 self_validation 은 PASS 49 · WARN 3 · FAIL 0 이고 self_validation_failures 는 빈 배열이다. 규제 최소자본 미달이 자체검증에서 단 한 건의 FAIL 도 만들지 않는다면, 자체검증 범위가 스트레스 결과의 규제 적합성을 포함하지 않는다는 뜻이다. 수치 자체는 재현되므로 recalc_matches 는 true 로 두되, 이 값이 '통과'로 읽히지 않도록 자본계획·회복계획 연계와 자체검증 체크 추가를 요구한다.",
-      "recomputed": 0.046052468386960414,
-      "reported": 0.046052468386960414
-    },
-    {
-      "finding_id": "F-004",
-      "severity": "경부적합",
       "target": "leverage_ratio",
-      "detail": "레버리지 익스포저 측정치에 파생상품과 SFT가 0으로 들어간다. exposure_measure(on_balance=total_ead, off_balance_notional=total_ead*0.1) 만 호출되어 derivatives=sft=0 이며, 같은 실행이 산출한 SA-CCR EAD 274.1억이 반영되지 않는다(LEV20.1 은 파생 익스포저 포함을 요구). 익스포저 정정 시 10,538,783,721,530.52원, 레버리지비율 11.6013% → 11.5712%(-3.02bp). 최소 3% 대비 여유가 8.57%p 여서 결론은 불변이나 산출 구성은 규정 미충족이다. 아울러 부외 항목에 CCF 하한 10%를 일률 적용해 약정 유형별 CCF(20/40/50/100%) 구분이 없다 — 가장 관대한 계수를 전 항목에 적용한 것이다.",
-      "recomputed": 0.11571216596774842,
-      "reported": 0.11601329439196996
+      "detail": "F-001 시정이 문제를 해소한 것이 아니라 자본비율에서 레버리지비율로 옮겼다. 자본을 총익스포저의 10%로 합성하고(synthesise_capital) 레버리지 분모를 total_ead*1.01 + ccr_ead 로 두면 leverage = (EAD*0.113)/(EAD*1.01 + ccr_ead) 가 되어 EAD 가 약분된다. 반증 실험: seed 42/7/123/999/2024 로 EAD 를 9.76조~11.18조(14.5% 변동)시켰을 때 CET1 비율은 10.76%~14.92%(변동폭 415.8bp, 변동계수 12.048%)로 정상 반응한 반면 레버리지비율은 11.1545%~11.1689%(변동폭 1.4bp, 변동계수 0.044%)에 머물렀다. 잔여 변동 1.4bp 마저 CCR EAD 비중 변화에서만 나온다. 레버리지비율은 위험가중과 무관하게 자본 대비 총익스포저를 제한하려는 지표인데, 자본을 익스포저의 상수배로 정의하면 이 지표가 감지하려는 대상 자체가 소거되어 통제가 소멸한다. 자본 원장을 익스포저·RWA 어느 쪽에서도 파생시키지 않는 독립 입력으로 두어야 두 비율이 함께 작동한다.",
+      "recomputed": 0.111590205,
+      "reported": 0.1115902049428025
     },
     {
-      "finding_id": "F-005",
+      "finding_id": "F-102",
       "severity": "경부적합",
-      "target": "ecl_total",
-      "detail": "ECL 합계 94,531,443,664.9488원은 stage 별 합계(45,714,100,000 + 2,626,363,000 + 46,190,980,000 수준)와 정확히 대사되어 산술 오류는 없다. 다만 Stage 1 커버리지가 8.1119%(EAD 6.55조, ECL 457.1억)로 12개월 기대손실 치고 이례적으로 높다 — Stage 3(53.4588%)과의 격차가 6.6배에 불과하다. 통상 Stage 1 커버리지는 수십 bp 수준이며, 8%대는 사실상 Stage 2 수준의 손실률이다. 합성 데이터의 PD 수준 설정에서 비롯된 것일 수 있으나, 이 상태로 산출된 ECL·대손준비금 소요액을 실무 수치로 제시하면 오해를 부른다. SICR 기준과 Stage 1 PD 스케일의 근거 문서를 요청한다.",
-      "recomputed": 94531443664.94879,
-      "reported": 94531443664.94879
+      "target": "lcr",
+      "detail": "자본 합성 방식 변경이 LCR·NSFR 을 바꿨는데 시정 문서의 '파급 — 골든 재고정' 목록에 두 지표가 빠졌다. alm/balance_sheet.py:75 의 equity = capital_total 경로로 자본이 대차대조표 자기자본에 반영되므로, ASF 는 11,335,667,138,332.75 → 11,323,556,920,985.60(-121.1억), 총유출은 2,480,940,306,579.63 → 2,489,809,850,471.95(+88.7억), 결과적으로 LCR 1.1787547961 → 1.1740874498, NSFR 1.1301680744 → 1.1289606835 로 이동했다. 파급 자체는 인과적으로 타당하며 재계산도 일치한다(차이 0). 문제는 변경 영향 공시의 불완전성이다 — 재고정 목록이 실제 변동 항목의 부분집합이면 다음 검토자가 누락분을 정상 상태로 오인한다.",
+      "recomputed": 1.174087449788168,
+      "reported": 1.174087449788168
     },
     {
-      "finding_id": "F-006",
+      "finding_id": "F-103",
       "severity": "경부적합",
+      "target": "reverse_critical_severity",
+      "detail": "시정 문서 RUN-20260630-42.remediation.md 의 '파급' 절은 reverse_critical_severity 를 0.9447 → 0.8456 으로 적었으나, 실제 산출값과 신규 요청서 값은 모두 0.8426284790039062 다(차이 0.0030). 재계산은 요청서 값과 정확히 일치하므로 산출 자체에는 오류가 없고 문서 기재가 틀렸다. 시정 문서는 결재선이 변경 크기를 판단하는 근거이므로 산출과 어긋나면 안 된다.",
+      "recomputed": 0.8426284790039062,
+      "reported": 0.8426284790039062
+    },
+    {
+      "finding_id": "F-104",
+      "severity": "적합",
       "target": "rwa_final_total",
-      "detail": "출력하한(Output Floor) 계산은 산식상 정확하다(표준방법 7,327,701,064,938.57 × 72.5% = 5,312,583,272,080.46, is_binding=False 로 내부모형 RWA 9.38조가 상회). 다만 하한이 내부 RWA의 56.6% 수준이어서 현 구성에서는 어떤 상황에서도 구속되지 않는다. 표준방법 RWA가 내부모형 대비 78% 수준으로 산출되는 구조가 타당한지(통상 표준방법이 더 보수적) 근거 확인이 필요하다. 재계산 자체는 일치하므로 rwa_final_total 의 불일치 판정 사유는 F-002 이며 본 항목은 별도 확인 요청이다.",
-      "recomputed": 5312583272080.46,
-      "reported": 5312583272080.46
+      "detail": "F-002 해소 확인. rwa_internal_total = rwa_sa + rwa_irb + ccr_total + market + op 로 SA-CCR RWA 13,704,755,956.43 과 CVA 460,299,264.19 가 합산됐고, 독립 검산 결과 9,394,620,060,178.572 로 요청서 값과 차이 0 이다. 산출하한 분모(표준방법 RWA)에도 반영되어 7,341,866,120,159 × 72.5% = 5,322,852,937,115.409 로 재계산이 일치하며 여전히 미구속이다. 교차검증 xd_rwa_components_sum 을 함께 고쳐 재발 시 FAIL 이 나도록 한 조치는 적절하다 — 지적을 값 정정이 아니라 재발 방지 통제로 받은 점을 확인했다.",
+      "recomputed": 9394620060178.572,
+      "reported": 9394620060178.572
+    },
+    {
+      "finding_id": "F-105",
+      "severity": "적합",
+      "target": "cet1_ratio",
+      "detail": "F-001 해소 확인. synthesise_capital 이 RWA 를 인자로 받지 않아 자본비율이 RWA 에 반응한다. 반증 실험에서 RWA 밀도(RWA/EAD)가 0.6702~0.9292 로 변할 때 CET1 비율이 14.92%~10.76% 로 역방향 반응했고(변동폭 415.8bp), 이제 RWA 오류가 자본비율에 나타난다. 다만 자본이 여전히 합성값이라는 한계는 남으며, 이 사실이 known_assumptions 에 공시된 점은 적절하다.",
+      "recomputed": 0.11077937299194433,
+      "reported": 0.11077937299194433
+    },
+    {
+      "finding_id": "F-106",
+      "severity": "적합",
+      "target": "stress_trough_cet1",
+      "detail": "F-003 해소 확인 및 3선 원지적 일부 정정. 자체검증 체크 stress_trough_meets_requirement 가 신설되어 현재 WARN(adverse 7.51% · severely_adverse 4.38% vs 요구 8.00%)으로 표시된다. 2선이 '심각 시나리오를 견디는 것은 규제 요구가 아니므로 FAIL 로 만들면 거짓 경보' 라며 기준 시나리오 침범만 FAIL 로 둔 등급화는 타당하다 — 스트레스 후 자본비율에 현행 최소자본 기준을 그대로 적용해 규제 위반으로 규정한 3선의 원 지적(F-003) 표현은 부정확했으므로 이를 정정한다. 다만 신설 체크가 WARN 인 이상 self_validation_failures 가 계속 비어 있으므로, 결재선이 WARN 4 건의 내용을 실제로 읽도록 요청 패키지에 WARN 목록을 본문으로 실을 것을 권고한다(현재는 집계 수치만 전달된다).",
+      "recomputed": 0.04371066747423117,
+      "reported": 0.04371066747423117
     }
   ]
 }
