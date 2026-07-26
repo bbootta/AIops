@@ -258,6 +258,68 @@ def test_request_id_changes_when_the_disclosed_content_changes(
     assert after.headline_digest == studio.iv_request.headline_digest  # 수치는 그대로
 
 
+def _mutate(value):
+    """어떤 타입이든 '내용이 달라진' 값을 만든다."""
+    if isinstance(value, str):
+        return value + "-변경"
+    if isinstance(value, bool):
+        return not value
+    if isinstance(value, int):
+        return value + 1
+    if isinstance(value, float):
+        return value + 1.0
+    if isinstance(value, list):
+        return value + [{"변경": True}] if all(
+            isinstance(v, dict) for v in value) and value else value + ["변경"]
+    if isinstance(value, dict):
+        return {**value, "변경": 1}
+    raise AssertionError(f"변형 규칙 없는 타입: {type(value)}")
+
+
+def test_any_field_change_moves_the_request_id(request_obj):
+    """**어떤 필드를 바꿔도** 식별자가 변해야 한다 (지적 F-301 · 후속조건 2).
+
+    "특정 필드를 바꾸면 변한다"로 테스트를 쓰면 열거에서 빠진 필드가 그대로
+    남는다 — 실제로 두 번 뚫렸다. headline 수치만 지문화했을 때 가정·WARN이,
+    여섯 항목을 열거했을 때 recalc_targets의 citation이 뚫렸다. 그래서 명제를
+    "전수"로 세운다. 새 필드가 늘어도 이 테스트가 자동으로 덮는다.
+    """
+    from dataclasses import fields, replace
+    from risk_lib.validation.independent import (
+        request_identifier, _ID_EXCLUDED_FIELDS)
+
+    base = request_identifier(request_obj)
+    checked = []
+    for f in fields(request_obj):
+        if f.name in _ID_EXCLUDED_FIELDS:
+            continue
+        mutated = replace(request_obj,
+                          **{f.name: _mutate(getattr(request_obj, f.name))})
+        assert request_identifier(mutated) != base, f"{f.name} 변경이 지문에 안 잡힌다"
+        checked.append(f.name)
+    assert len(checked) == len(fields(request_obj)) - len(_ID_EXCLUDED_FIELDS)
+    assert "recalc_targets" in checked      # F-301이 뚫었던 바로 그 필드
+
+
+def test_the_id_ignores_only_itself_and_the_wall_clock(request_obj):
+    """제외 목록이 넓어지면 그만큼 stale 방어에 구멍이 난다."""
+    from dataclasses import replace
+    from risk_lib.validation.independent import (
+        request_identifier, _ID_EXCLUDED_FIELDS)
+
+    assert _ID_EXCLUDED_FIELDS == {"request_id", "created_at"}
+    same = replace(request_obj, request_id="IVR-엉뚱한값",
+                   created_at="1999-01-01T00:00:00+00:00")
+    assert request_identifier(same) == request_identifier(request_obj)
+
+
+def test_the_id_is_stable_for_identical_content(request_obj):
+    """같은 내용이면 같은 식별자여야 한다 — 아니면 매번 재검증을 요구하게 된다."""
+    from risk_lib.validation.independent import request_identifier
+    assert request_identifier(request_obj) == request_identifier(request_obj)
+    assert request_obj.request_id == request_identifier(request_obj)
+
+
 def test_passes_docstring_matches_the_implementation():
     """F-207의 재발 방지 — docstring이 약속한 경로가 코드에 있어야 한다."""
     resp = ValidationResponse(

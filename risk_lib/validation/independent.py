@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -198,6 +198,31 @@ def _digest(*parts: object) -> str:
     return h.hexdigest()
 
 
+# 요청 식별자의 지문에서 제외하는 필드. `request_id`는 지금 계산 중이고,
+# `created_at`은 벽시계라 내용이 같아도 매번 달라진다.
+_ID_EXCLUDED_FIELDS = frozenset({"request_id", "created_at"})
+
+
+def request_identifier(request: "ValidationRequest") -> str:
+    """요청 **전체**를 지문화한다 — 필드를 손으로 열거하지 않는다.
+
+    지문 대상을 열거하면 열거에서 빠진 것이 조용히 stale 방어를 뚫는다. 지금까지
+    두 번 그랬다: headline 수치만 넣었을 때는 공시 가정·자체검증 WARN이 뚫렸고
+    (3차 시정), 여섯 항목을 열거했을 때는 `recalc_targets`의 `citation`이
+    뚫렸다 — 규정 근거를 바꿔도 식별자가 불변이었다 (지적 F-301). 산출값이 안
+    바뀌는 변경일수록 재검증이 필요한데 그때 정확히 뚫린다.
+
+    그래서 대상은 `asdict(request)` 전부에서 위 두 필드만 뺀 것이다. 필드가
+    늘어도 자동으로 덮인다 — F-102에서 세운 "목록을 손으로 적지 않는다"는 원칙을
+    지문 설계에도 적용한 것이다.
+    """
+    payload = {k: v for k, v in asdict(request).items()
+               if k not in _ID_EXCLUDED_FIELDS}
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True,
+                           separators=(",", ":"), default=str)
+    return "IVR-" + _digest(canonical)[:12].upper()
+
+
 def _headline(result, tables: dict[str, pd.DataFrame] | None) -> dict[str, float]:
     t = tables or {}
     sev = result.stress_path_trough
@@ -298,20 +323,8 @@ def build_request(result, portfolio: pd.DataFrame,
         warnings = [{"check": c.name, "detail": str(c.detail)}
                     for c in result.validation.checks if c.status == "WARN"]
 
-    # 요청 식별자는 **3선에게 넘기는 것 전부**를 지문화한다. headline 수치만
-    # 넣으면 공시 가정이나 자체검증 WARN이 바뀌어도 식별자가 그대로여서, 그
-    # 변경을 본 적 없는 이전 응답이 계속 승인으로 통한다. 산출값이 안 바뀌는
-    # 시정(문서·통제·가정 공시)일수록 재검증이 필요한데 그때 정확히 뚫린다.
-    request_id = "IVR-" + _digest(
-        run_id, digest,
-        tuple(KNOWN_ASSUMPTIONS),
-        tuple(sorted(summary.items())),
-        tuple(sorted(failures)),
-        tuple(sorted((w["check"], w["detail"]) for w in warnings)),
-    )[:12].upper()
-
-    return ValidationRequest(
-        request_id=request_id,
+    request = ValidationRequest(
+        request_id="",                # 아래에서 요청 전체를 지문화해 채운다
         run_id=run_id, asof=asof, seed=seed,
         headline_digest=digest, portfolio_fingerprint=fingerprint,
         requested_by=requested_by, requested_to=VALIDATION_TEAM,
@@ -332,6 +345,7 @@ def build_request(result, portfolio: pd.DataFrame,
         known_assumptions=list(KNOWN_ASSUMPTIONS),
         created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
     )
+    return replace(request, request_id=request_identifier(request))
 
 
 # ---------------------------------------------------------------- 게이트
