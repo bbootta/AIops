@@ -11,11 +11,11 @@
   /* bend = 끝으로 갈수록 휘는 각도(도). 밑동은 부챗살처럼 벌어져도 끝은 서로
    * 모이는 게 편안한 손 모양이다. 곧고 나란한 막대 다섯 개는 마네킹처럼 보인다. */
   var FINGERS = [
-    { id: 'thumb',  name: '엄지', bx: 336, by: 664, angle: -52,  len: 162, w0: 36,   w1: 27.5, bend: 9 },
-    { id: 'index',  name: '검지', bx: 402, by: 496, angle: -11,  len: 216, w0: 29,   w1: 21.5, bend: 6 },
-    { id: 'middle', name: '중지', bx: 476, by: 474, angle: -1,   len: 242, w0: 30,   w1: 22,   bend: 1.5 },
-    { id: 'ring',   name: '약지', bx: 548, by: 488, angle: 9,    len: 220, w0: 28.5, w1: 21,   bend: -5 },
-    { id: 'pinky',  name: '소지', bx: 612, by: 540, angle: 19,   len: 172, w0: 24,   w1: 18,   bend: -9 }
+    { id: 'thumb',  name: '엄지', bx: 336, by: 664, angle: -52,  len: 166, w0: 34,   w1: 25.5, bend: 9 },
+    { id: 'index',  name: '검지', bx: 402, by: 496, angle: -11,  len: 222, w0: 27,   w1: 19.8, bend: 6 },
+    { id: 'middle', name: '중지', bx: 476, by: 474, angle: -1,   len: 250, w0: 28,   w1: 20.4, bend: 1.5 },
+    { id: 'ring',   name: '약지', bx: 548, by: 488, angle: 9,    len: 226, w0: 26.5, w1: 19.4, bend: -5 },
+    { id: 'pinky',  name: '소지', bx: 612, by: 540, angle: 19,   len: 176, w0: 22.5, w1: 16.8, bend: -9 }
   ];
 
   /* 밑동을 원점으로 deg 만큼 회전 (손가락 좌표계) */
@@ -134,9 +134,13 @@
   ];
 
   /* 손가락 + 디자인 → 네일 배치 정보 (그룹 좌표계) */
+  /* 손톱 비율은 손가락마다 다르다. 엄지는 폭에 비해 짧고(가로로 넓은 손톱),
+   * 소지는 전체가 작다. 다섯 개를 같은 비율로 그리면 붙여놓은 것처럼 보인다. */
+  var NAIL_ASPECT = { thumb: 1.62, index: 2.12, middle: 2.18, ring: 2.12, pinky: 1.95 };
+
   function nailMetrics(fg, design) {
-    var hw = fg.w1 * 0.74;             // 네일 반폭. 사진처럼 양옆에 살이 보이게 손끝보다 좁다
-    var bed = hw * 2.12;               // 자연 네일(네일 베드) 길이
+    var hw = fg.w1 * 0.78;             // 네일 반폭. 사진처럼 양옆에 살이 보이게 손끝보다 좁다
+    var bed = hw * (NAIL_ASPECT[fg.id] || 2.12);   // 자연 네일(네일 베드) 길이
     var ext = bed * LENGTHS[design.length].ext / 1.06;  // 연장 길이
     var T = bed + ext;
     var yc = fg.len - fg.w1 * 0.30 - bed;   // 큐티클 위치 (밑에서부터의 거리)
