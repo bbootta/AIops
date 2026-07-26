@@ -127,7 +127,7 @@
   };
 
   var LENGTHS = [
-    { name: '짧게', ext: 0.05 },
+    { name: '짧게', ext: 0.0 },
     { name: '보통', ext: 0.34 },
     { name: '길게', ext: 0.66 },
     { name: '아주 길게', ext: 1.00 }
@@ -151,10 +151,12 @@
     var T = m.T - (inset || 0) * 1.4;
     var yc = m.yc + (inset || 0) * 0.7;
 
-    var half = s.pts.map(function (p) { return [p[0] * hw, -(yc + p[1] * T)]; });
+    // 완전한 좌우 대칭은 인공적이다. 손가락마다 한쪽을 아주 조금 넓힌다.
+    var skew = 1 + (((design.shape || '').length + fg.id.charCodeAt(0)) % 5 - 2) * 0.012;
+    var half = s.pts.map(function (p) { return [p[0] * hw * skew, -(yc + p[1] * T)]; });
     var ring = half.slice();
     ring.push([0, -(yc + T)]);
-    for (var i = half.length - 1; i >= 0; i--) ring.push([-half[i][0], half[i][1]]);
+    for (var i = half.length - 1; i >= 0; i--) ring.push([-half[i][0] / (skew * skew), half[i][1]]);
     ring.push([0, -(yc - hw * 0.09)]);   // 큐티클 중앙이 살짝 아래로 파인다
     return smooth(ring, true, 1);
   }
