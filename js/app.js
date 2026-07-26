@@ -6,11 +6,16 @@
   var STORE = 'nailsim.looks';
   var ALL = G.FINGERS.map(function (f) { return f.id; });
 
+  function designByName(name) {
+    for (var i = 0; i < D.DESIGNS.length; i++) if (D.DESIGNS[i].name === name) return D.DESIGNS[i];
+    return D.DESIGNS[0];
+  }
+
   function defaultDesign() {
-    var d = D.DESIGNS[2];   // 누드 글로시
+    var d = designByName('누드 글로시');   // 인덱스로 잡으면 프리셋을 추가할 때 조용히 어긋난다
     return {
       color: d.color, color2: d.color2, finish: d.finish,
-      art: d.art, shape: d.shape, length: d.length
+      art: d.art, shape: d.shape, length: d.length, sheer: d.sheer || 1
     };
   }
 
@@ -123,7 +128,8 @@
       var b = e.target.closest('[data-val]');
       if (!b) return;
       var d = D.DESIGNS[+b.dataset.val];
-      apply({ color: d.color, color2: d.color2, finish: d.finish, art: d.art, shape: d.shape, length: d.length });
+      apply({ color: d.color, color2: d.color2, finish: d.finish, art: d.art,
+        shape: d.shape, length: d.length, sheer: d.sheer || 1 });
     });
 
     D.PALETTE.forEach(function (c) {

@@ -25,6 +25,9 @@
    * shade = 그늘색. 살의 그늘은 중성 회색이 아니라 붉은 갈색이다. 검정으로 어둡게
    *   하면 채도가 빠져 송장처럼 보이므로 음영은 전부 이 색으로 넣는다.
    * blood = 관절·손끝에 도는 혈색(subsurface). 핏기를 만드는 색.
+   *
+   * 디자인의 sheer(0~1)는 폴리시 불투명도다. 1보다 작으면 아래 네일 베드(루눌라·
+   * 프리엣지)가 비쳐서 자연 네일처럼 보인다. 생략하면 불투명.
    */
   var SKINS = [
     { id: 's1', name: '라이트',    base: '#f8dac4', dark: '#deaa89', light: '#fff4ea', warm: '#eda389', blood: '#dd7360', shade: '#8b4327' },
@@ -85,8 +88,9 @@
 
   /* ── 추천 디자인 (색 + 마감 + 아트 + 모양 + 길이) ── */
   var DESIGNS = [
+    { name: '자연 네일',     color: '#f2d3c6', color2: '#fffaf6', finish: 'gloss', art: 'none',   shape: 'oval',   length: 0, sheer: 0.3 },
     { name: '클래식 프렌치', color: '#eec1ac', color2: '#fffaf5', finish: 'gloss', art: 'french', shape: 'squoval', length: 1 },
-    { name: '밀키 젤',       color: '#f7f1ea', color2: '#ffffff', finish: 'gloss', art: 'none',   shape: 'round',  length: 0 },
+    { name: '밀키 젤',       color: '#f7f1ea', color2: '#ffffff', finish: 'gloss', art: 'none',   shape: 'round',  length: 0, sheer: 0.82 },
     { name: '누드 글로시',   color: '#e9b8a3', color2: '#fff3ea', finish: 'gloss', art: 'none',   shape: 'oval',   length: 1 },
     { name: '체리 레드',     color: '#c9243f', color2: '#7c1020', finish: 'gloss', art: 'none',   shape: 'almond', length: 2 },
     { name: '버건디 매트',   color: '#7c1c33', color2: '#4a0e1e', finish: 'matte', art: 'none',   shape: 'coffin', length: 2 },
