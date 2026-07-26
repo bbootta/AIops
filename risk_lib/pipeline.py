@@ -28,7 +28,9 @@ from risk_lib.models.explain import (
 )
 from risk_lib.capital.rwa_sa import compute_rwa_sa, standardised_rwa_total
 from risk_lib.capital.rwa_irb import compute_rwa_irb
-from risk_lib.capital.bis import CapitalStack, compute_bis_ratios
+from risk_lib.capital.bis import (
+    CapitalStack, compute_bis_ratios, synthesise_capital,
+)
 from risk_lib.capital.op_risk import BusinessIndicator, compute_op_risk_rwa
 from risk_lib.capital.market_risk import compute_market_risk_rwa
 from risk_lib.capital.output_floor import apply_output_floor, FULLY_LOADED_FLOOR
@@ -315,25 +317,38 @@ def _stage_market_op_rwa(total_ead: float):
 
 def _stage_capital(
     portfolio, rwa_sa, rwa_irb, mkt, op, total_ead, *, output_floor, buffers,
+    ccr=None,
 ):
-    rwa_internal_total = rwa_sa + rwa_irb + mkt.rwa + op.rwa
+    """자본·비율·레버리지.
+
+    독립검증 시정 3건이 여기 반영돼 있다:
+      F-001  자본을 RWA에서 역산하지 않는다 — 익스포저 규모에서 합성한다.
+             역산하면 cet1_ratio가 상수가 되어 RWA 오류를 드러내지 못한다.
+      F-002  거래상대방신용리스크(SA-CCR)와 CVA를 신용 RWA에 합산한다.
+             CRE52·MAR50이 RWA 포함을 요구하는데 산출만 하고 빠져 있었다.
+      F-004  레버리지 익스포저에 파생상품(SA-CCR EAD)을 포함한다 (LEV20.1).
+    """
+    ccr_rwa = float(getattr(ccr, "rwa_total", 0.0) or 0.0)
+    # CVA 소요자본은 자본 기준이 아니라 이미 RWA 환산치로 산출된다(ccr 모듈).
+    cva_rwa = float(getattr(ccr, "cva_charge", 0.0) or 0.0)
+    ccr_total = ccr_rwa + cva_rwa
+
+    rwa_internal_total = rwa_sa + rwa_irb + ccr_total + mkt.rwa + op.rwa
     rwa_standardised_total = (
         standardised_rwa_total(portfolio, _SA_CORP_BUCKET_BY_GRADE)
-        + mkt.rwa + op.rwa
+        + ccr_total + mkt.rwa + op.rwa
     )
     floor = apply_output_floor(rwa_internal_total, rwa_standardised_total,
                                output_floor)
     rwa_final = floor.rwa_final
-    capital = CapitalStack(
-        cet1=rwa_final * 0.115,
-        additional_t1=rwa_final * 0.015,
-        tier2=rwa_final * 0.025,
-    )
+    capital = synthesise_capital(total_ead)
     bis = compute_bis_ratios(capital, rwa_final, buffers=buffers)
-    em = exposure_measure(on_balance=total_ead, off_balance_notional=total_ead * 0.1)
+    em = exposure_measure(on_balance=total_ead,
+                          off_balance_notional=total_ead * 0.1,
+                          derivatives=float(getattr(ccr, "ead_total", 0.0) or 0.0))
     leverage = compute_leverage_ratio(capital.tier1, em)
     return (floor, rwa_final, capital, bis, leverage,
-            rwa_internal_total, rwa_standardised_total)
+            rwa_internal_total, rwa_standardised_total, ccr_total)
 
 
 def _stage_provisioning(irb_book: pd.DataFrame, quarters: list[str],
@@ -440,7 +455,8 @@ UNDRAWN_SHARE = 0.18
 
 
 def _stress_books(portfolio, irb_book, sa_book, capital, mkt_positions,
-                  bi_components, op, op_loss_result, alm, total_ead):
+                  bi_components, op, op_loss_result, alm, total_ead,
+                  ccr_rwa: float = 0.0):
     """전 축 충격 엔진의 기준 상태. 파이프라인이 이미 만든 값만 모은다."""
     from risk_lib.stress.multi_axis import StressBooks
     lcr = alm["lcr"]
@@ -457,6 +473,7 @@ def _stress_books(portfolio, irb_book, sa_book, capital, mkt_positions,
         revenue=float(portfolio["revenue"].sum()),
         operating_cost=float(portfolio["operating_cost"].sum()),
         credit_securities=float(bs.hqla["level_2a"] + bs.hqla["level_2b"]),
+        ccr_rwa=float(ccr_rwa),
         undrawn_share=UNDRAWN_SHARE,
         sa_bucket_by_grade=_SA_CORP_BUCKET_BY_GRADE,
     )
@@ -610,17 +627,22 @@ def run_pipeline(
     # 2. SA / IRB split + credit RWA
     sa_book, irb_book = _stage_split_books(portfolio)
     sa_res, irb_res, rwa_sa, rwa_irb = _stage_credit_rwa(sa_book, irb_book)
-    rwa_credit_internal = rwa_sa + rwa_irb
+    rwa_credit_internal = rwa_sa + rwa_irb    # CCR은 _stage_capital에서 합산
 
     # 3. Market & operational risk RWA (illustrative inputs)
     total_ead = float(portfolio["ead"].sum())
     mkt, op, mkt_positions, bi_components = _stage_market_op_rwa(total_ead)
 
+    # 3b. 거래상대방신용리스크 — RWA 합산과 레버리지 익스포저에 모두 쓰이므로
+    # 자본 단계보다 먼저 만든다 (독립검증 F-002 · F-004).
+    bank_book = portfolio[portfolio["asset_class"] == "bank"]
+    ccr_result = compute_ccr(bank_book, seed=seed) if not bank_book.empty else None
+
     # 4-6. Output floor → CapitalStack → BIS → leverage
     (floor, rwa_final, capital, bis, leverage,
-     rwa_internal_total, rwa_standardised_total) = _stage_capital(
+     rwa_internal_total, rwa_standardised_total, rwa_ccr) = _stage_capital(
         portfolio, rwa_sa, rwa_irb, mkt, op, total_ead,
-        output_floor=output_floor, buffers=buffers,
+        output_floor=output_floor, buffers=buffers, ccr=ccr_result,
     )
 
     # 7. IFRS 9 ECL (TTC + forward-looking PIT) on the quarterly axis.
@@ -652,7 +674,8 @@ def run_pipeline(
     # fixed at (rwa_final - rwa_irb) so baseline stress reconciles with BIS.
     rwa_other_fixed = rwa_final - rwa_irb
     books = _stress_books(portfolio, irb_book, sa_book, capital, mkt_positions,
-                          bi_components, op, op_loss_result, alm, total_ead)
+                          bi_components, op, op_loss_result, alm, total_ead,
+                          ccr_rwa=rwa_ccr)
     stress, reverse, stress_path, stress_path_trough = _stage_stress(
         irb_book, capital, rwa_other_fixed, bis, quarters, buffers, books,
     )
@@ -666,8 +689,6 @@ def run_pipeline(
     )
 
     # 14. CRO add-ons: RAF + climate + CCR + Op loss + concentration deep + model cards
-    bank_book = portfolio[portfolio["asset_class"] == "bank"]
-    ccr_result = compute_ccr(bank_book, seed=seed) if not bank_book.empty else None
     climate_result = run_climate(portfolio, base_ecl=float(ecl_df["ecl"].sum()))
     conc_deep = {
         "top_by_ead": top_obligors(portfolio, n=20, by="ead"),
@@ -714,7 +735,8 @@ def run_pipeline(
     # 한도↔집중, RAPM↔EC, 스트레스↔BIS).  재현성 digest는 호출자가
     # 두 차례 실행을 비교하므로 여기서는 생략 (cross-domain test가 검증).
     for _xc in run_cross_domain_checks(
-        rwa={"sa": rwa_sa, "irb": rwa_irb, "market": mkt.rwa, "op": op.rwa,
+        rwa={"sa": rwa_sa, "irb": rwa_irb, "ccr": rwa_ccr,
+             "market": mkt.rwa, "op": op.rwa,
              "final_total": rwa_final, "output_floor": floor},
         bis_result=bis,
         irb_results=irb_res,
@@ -834,7 +856,9 @@ def run_pipeline(
         portfolio_summary=summary,
         pd_metrics=pd_metrics,
         rwa={
-            "sa": rwa_sa, "irb": rwa_irb, "credit_internal": rwa_credit_internal,
+            "sa": rwa_sa, "irb": rwa_irb,
+            "credit_internal": rwa_credit_internal + rwa_ccr,
+            "ccr": rwa_ccr,
             "market": mkt.rwa, "op": op.rwa,
             "internal_total": rwa_internal_total,
             "standardised_total": rwa_standardised_total,

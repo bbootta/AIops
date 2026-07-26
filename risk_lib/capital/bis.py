@@ -104,3 +104,28 @@ def compute_bis_ratios(
         required=required,
         surplus_shortfall=surplus,
     )
+
+# ---------------------------------------------------------------- 자본 합성
+
+# 자본은 **익스포저 규모**에서 나온다 — 위험가중자산에서 역산하면 안 된다.
+# cet1 = rwa × k 로 만들면 cet1_ratio = k 가 되어 비율이 RWA·포트폴리오와
+# 무관한 상수가 되고, RWA 오류를 자본비율이 전혀 드러내지 못한다
+# (독립검증 F-001). 아래 계수는 자기자본/총익스포저 수준과 발행 구성 가정이며
+# 실제 자본 원장으로 교체가 전제다.
+CET1_TO_EXPOSURE = 0.10      # 보통주자본 / 총익스포저
+AT1_TO_CET1 = 0.13           # 기타기본자본 발행 비중
+T2_TO_CET1 = 0.22            # 보완자본 발행 비중
+
+
+def synthesise_capital(total_exposure: float) -> CapitalStack:
+    """총익스포저 규모에서 자본 스택을 만든다 (RWA와 독립).
+
+    RWA가 커지면 비율이 내려가야 통제가 작동한다 — 그것이 이 함수가 RWA를
+    인자로 받지 않는 이유다.
+    """
+    if total_exposure <= 0:
+        raise ValueError("total_exposure must be positive")
+    cet1 = total_exposure * CET1_TO_EXPOSURE
+    return CapitalStack(cet1=cet1,
+                        additional_t1=cet1 * AT1_TO_CET1,
+                        tier2=cet1 * T2_TO_CET1)

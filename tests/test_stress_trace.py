@@ -164,9 +164,19 @@ def _cells(trace):
 
 def test_internal_rwa_is_the_sum_of_its_components(trace):
     for _, v in _cells(trace):
-        parts = (v["내부등급법 RWA"] + v["표준방법 RWA"] + v["시장리스크 RWA"]
+        parts = (v["내부등급법 RWA"] + v["표준방법 RWA"]
+                 + v["거래상대방신용리스크 RWA"] + v["시장리스크 RWA"]
                  + v["운영리스크 RWA"])
         assert v["내부모형 RWA"] == pytest.approx(parts, rel=1e-12)
+
+
+def test_ccr_is_in_the_stress_rwa(trace, result):
+    """CCR을 빼면 심도 0에서 기준 상태가 재현되지 않는다 (독립검증 F-002)."""
+    base = trace[(trace["scenario"] == "baseline")
+                 & (trace["step"] == "거래상대방신용리스크 RWA")]
+    assert float(base["value"].iloc[0]) == pytest.approx(
+        float(result.rwa["ccr"]), rel=1e-12)
+    assert float(result.rwa["ccr"]) > 0
 
 
 def test_total_rwa_applies_the_output_floor(trace):
@@ -245,6 +255,7 @@ def test_severity_moves_every_risk_type_the_right_way(trace):
         assert x["EAD (충격 후)"] <= y["EAD (충격 후)"]
         assert x["내부등급법 RWA"] <= y["내부등급법 RWA"]
         assert x["표준방법 RWA"] <= y["표준방법 RWA"]
+        assert x["거래상대방신용리스크 RWA"] <= y["거래상대방신용리스크 RWA"]
         # 시장 — 손익은 더 나빠진다
         assert x["트레이딩 손익 합계"] >= y["트레이딩 손익 합계"]
         assert x["시장리스크 RWA"] <= y["시장리스크 RWA"]

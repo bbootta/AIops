@@ -106,20 +106,24 @@ def _check_rwa_bis(
     irb = float(rwa.get("irb", 0.0))
     mkt = float(rwa.get("market", 0.0))
     op = float(rwa.get("op", 0.0))
-    expected = sa + irb + mkt + op + add_on
+    # 거래상대방신용리스크(SA-CCR + CVA)도 RWA 구성요소다 — 빼고 대사하면
+    # 합산 누락이 "정합"으로 통과한다 (독립검증 F-002).
+    ccr = float(rwa.get("ccr", 0.0))
+    expected = sa + irb + ccr + mkt + op + add_on
     final = float(rwa.get("final_total", 0.0))
     rel = abs(expected - final) / max(final, 1.0)
     if rel > _TOL_RATIO:
         out.append(ConsistencyCheck(
             "xd_rwa_components_sum", "FAIL",
-            f"sa+irb+mkt+op+floor_add_on={expected:.0f} vs final={final:.0f} "
+            f"sa+irb+ccr+mkt+op+floor_add_on={expected:.0f} vs final={final:.0f} "
             f"(Δ={expected-final:+.0f})",
             metric=rel,
         ))
     else:
         out.append(ConsistencyCheck(
             "xd_rwa_components_sum", "PASS",
-            f"4 부문 RWA + output-floor add-on = 최종 RWA ({final:,.0f})",
+            f"5 부문 RWA(신용SA·IRB·CCR·시장·운영) + output-floor add-on "
+            f"= 최종 RWA ({final:,.0f})",
         ))
 
     rel_bis = abs(final - float(bis_result.rwa)) / max(final, 1.0)

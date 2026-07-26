@@ -89,6 +89,10 @@ def _steps_for(pt: StressPoint) -> list[tuple]:
         ("신용RWA", "내부등급법 RWA", v["rwa_irb"], "KRW",
          "충격 PD·LGD·EAD로 위험가중함수 재산출", "상관계수·만기조정 동일",
          "CRE32.2"),
+        ("신용RWA", "거래상대방신용리스크 RWA", v["rwa_ccr"], "KRW",
+         "기준 CCR RWA × 표준방법 신용 RWA 변화율",
+         f"배수={v['ccr_multiplier']:.4f} · PFE 확대는 미반영",
+         "CRE52 SA-CCR · MAR50 CVA"),
         ("신용RWA", "표준방법 RWA", v["rwa_sa"], "KRW",
          "등급 하향·LTV 상승·EAD 증가 반영 후 재산출",
          f"LTV 배수={1 / max(1e-9, 1 - sh['collateral']):.4f}",
@@ -197,7 +201,7 @@ def _steps_for(pt: StressPoint) -> list[tuple]:
     # ---- RWA 합계
     out += [
         ("RWA합계", "내부모형 RWA", v["rwa_internal"], "KRW",
-         "IRB + SA + 시장 + 운영 (모두 충격 후)", "—", "CRE20.1"),
+         "IRB + SA + CCR + 시장 + 운영 (모두 충격 후)", "—", "CRE20.1"),
         ("RWA합계", "표준방법 RWA (하한 분모)", v["rwa_standardised"], "KRW",
          "전 포트폴리오를 충격 후 표준방법으로 재산출", "등급·LTV·EAD 충격 반영",
          "RBC30.1"),
@@ -253,7 +257,7 @@ def trace_from_result(result, portfolio: pd.DataFrame) -> pd.DataFrame:
         fitted, irb_book, sa_book, result.meta["capital"],
         result.rwa["market_positions"], result.rwa["bi_detail"],
         result.rwa["op_detail"], result.op_loss, result.alm,
-        float(fitted["ead"].sum()))
+        float(fitted["ead"].sum()), ccr_rwa=float(result.rwa.get("ccr", 0.0)))
     _path, points = run_multi_axis_path(
         books, quarters=list(result.meta.get("quarters", [])),
         buffers={"capital_conservation": 0.025, "countercyclical": 0.0,

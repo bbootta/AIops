@@ -1,9 +1,9 @@
 {
-  "request_id": "IVR-E6BEA5DA0D5F",
+  "request_id": "IVR-52D8B21C1A1E",
   "run_id": "RUN-20260630-42",
   "asof": "2026-06-30",
   "seed": 42,
-  "headline_digest": "823aa66c5311e5eaa1c413a47eaa52a6",
+  "headline_digest": "ea7a14ac15b787d588a2ac6c00268441",
   "portfolio_fingerprint": "4f3e5da6b8923b33feb67bf287d00625",
   "requested_by": "리스크관리 팀에이전트",
   "requested_to": "적합성검증 팀에이전트",
@@ -17,25 +17,25 @@
     {
       "key": "rwa_final_total",
       "korean": "위험가중자산 합계",
-      "value": 9380455004957.953,
+      "value": 9394620060178.572,
       "citation": "CRE20.1 · RBC20.11"
     },
     {
       "key": "cet1_ratio",
       "korean": "보통주자본비율",
-      "value": 0.115,
+      "value": 0.11077937299194433,
       "citation": "은행업감독규정 제26조"
     },
     {
       "key": "total_ratio",
       "korean": "총자본비율",
-      "value": 0.15500000000000003,
+      "value": 0.14955215353912488,
       "citation": "은행업감독규정 제26조"
     },
     {
       "key": "leverage_ratio",
       "korean": "레버리지비율",
-      "value": 0.11601329439196996,
+      "value": 0.1115902049428025,
       "citation": "LEV20.1"
     },
     {
@@ -47,25 +47,25 @@
     {
       "key": "lcr",
       "korean": "유동성커버리지비율",
-      "value": 1.1787547961323583,
+      "value": 1.174087449788168,
       "citation": "LCR20.1"
     },
     {
       "key": "nsfr",
       "korean": "순안정자금조달비율",
-      "value": 1.1301680744145886,
+      "value": 1.1289606835435482,
       "citation": "NSF20.1"
     },
     {
       "key": "stress_trough_cet1",
       "korean": "심각 시나리오 CET1 저점",
-      "value": 0.046052468386960414,
+      "value": 0.04371066747423117,
       "citation": "SRP20"
     },
     {
       "key": "reverse_critical_severity",
       "korean": "역스트레스 임계 심도",
-      "value": 0.9447097778320312,
+      "value": 0.8426284790039062,
       "citation": "SRP20"
     },
     {
@@ -77,7 +77,7 @@
   ],
   "self_validation": {
     "PASS": 49,
-    "WARN": 3
+    "WARN": 4
   },
   "self_validation_failures": [],
   "artefacts": [],
@@ -89,7 +89,11 @@
     "위기상황 충격 축 크기는 내부 관리값 — 기관 승인 시나리오로 교체 전제 (risk_lib.stress.axes).",
     "대주주 지정 원장이 없어 대주주 신용공여 사용액을 0으로 두었다 (risk_lib.prudential.ownership).",
     "업무보고서 서식번호는 내부 배정 코드 — 금감원 배포본과 대조 전이다 (risk_lib.regulatory.form_ids).",
-    "합성 대차대조표에 통화 구분이 없어 외화 비중을 자산·부채 동일하게 가정했다."
+    "합성 대차대조표에 통화 구분이 없어 외화 비중을 자산·부채 동일하게 가정했다.",
+    "자본은 총익스포저의 10%(AT1 13%·T2 22% 발행 비중)로 **합성**한다 — 실제 자본 원장이 아니다. RWA에서 역산하지는 않으므로 비율이 RWA에 반응한다 (risk_lib.capital.bis.synthesise_capital · 지적 F-001).",
+    "레버리지 부외항목에 CCF 하한 10%를 일률 적용한다 — 약정 유형별 CCF(20/40/50/100%) 구분이 없어 가장 관대한 계수를 쓴 것이다 (지적 F-004).",
+    "Stage 1 커버리지가 8.1%로 12개월 기대손실치고 높다. 합성 데이터의 PD 스케일에서 비롯된 것이며 실무 수치로 읽으면 오해를 부른다 (지적 F-005).",
+    "표준방법 RWA가 내부모형의 78% 수준이라 산출하한이 현 구성에서 구속되지 않는다. 통상 표준방법이 더 보수적인 점과 배치된다 (지적 F-006)."
   ],
-  "created_at": "2026-07-26T03:14:45+00:00"
+  "created_at": "2026-07-26T04:19:51+00:00"
 }

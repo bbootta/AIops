@@ -23,21 +23,33 @@ GOLDEN = {
     "n_rows": 2980,
     # Re-pinned after PD floor 3bp→5bp (BCBS d424) and segment-aware LGD floors
     # (CRE32.42 — corporate 25% / retail 10% / mortgage 5%).
-    "rwa_final_total": 9_380_455_004_957.953,
+    #
+    # 재고정 2 — 독립검증 IVR-E6BEA5DA0D5F 시정 (3선 지적):
+    #   F-002 거래상대방신용리스크(SA-CCR 137.0억 + CVA 4.6억)를 RWA에 합산.
+    #         CRE52·MAR50이 요구하는데 산출만 하고 빠져 있었다 (+0.151%).
+    #   F-001 자본을 RWA에서 역산하지 않고 총익스포저에서 합성. 역산 구조에서는
+    #         cet1_ratio가 0.115 상수여서 RWA가 8.96조~9.97조로 움직여도 미동하지
+    #         않았다 — 자본비율이 RWA 오류를 드러내지 못했다.
+    #   F-004 레버리지 익스포저에 파생상품(SA-CCR EAD 274.1억) 포함 (LEV20.1).
+    "rwa_final_total": 9_394_620_060_178.572,
     "rwa_sa": 1_028_895_833_988.9441,
     "rwa_irb": 6_544_287_052_378.777,
-    "cet1_ratio": 0.115,
-    "total_ratio": 0.155,
-    "leverage_ratio": 0.11601329439196996,
+    "cet1_ratio": 0.11077937299194433,
+    "total_ratio": 0.14955215353912488,
+    "leverage_ratio": 0.1115902049428025,
     "ecl_total": 94_531_443_664.94879,
     "macro_weighted_total": 128_504_402_456.8952,
     # 전 축 동시 충격(신용·시장·운영·유동성·수익)으로 전환하며 재고정.
     # 신용만 충격할 때 2.3519 → 전 축에서 0.9447. 같은 자본으로 견딜 수 있는
     # 심도가 낮아지는 것이 다축 위기상황분석의 요점이다 (SRP20).
-    "reverse_critical_severity": 0.9447097778320312,
+    # 독립검증 시정 반영 후 0.8426 — 위기상황 엔진에서도 같은 CCR 누락을
+    # 발견해 함께 고쳤고(등급 하향에 연동), 임계 심도가 그만큼 더 내려갔다.
+    "reverse_critical_severity": 0.8426284790039062,
 }
 # +1 WARN: pd_floor_5bp now catches more low-PD exposures (5bp vs 3bp threshold).
-GOLDEN_VALIDATION = {"PASS": 49, "WARN": 3}
+# +1 WARN: stress_trough_meets_requirement — 위기상황 CET1 저점이 요구치를
+# 침범하는 사실이 자체검증에 전혀 남지 않던 공백을 메웠다 (독립검증 F-003).
+GOLDEN_VALIDATION = {"PASS": 49, "WARN": 4}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",

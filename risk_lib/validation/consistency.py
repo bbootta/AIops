@@ -636,6 +636,41 @@ def _check_icaap(icaap, report: ValidationReport) -> None:
             "분산 통합 EC가 단순합을 초과 — 상관행렬 점검 필요"))
 
 
+def _check_stress_trough_requirement(path_df, bis_result,
+                                     report: ValidationReport) -> None:
+    """위기상황 CET1 저점이 규제 요구치를 지키는지 — 침범을 침묵시키지 않는다.
+
+    독립검증 F-003: 심각 시나리오 저점이 요구치를 3.4%p 밑도는데 자체검증에
+    FAIL도 WARN도 없었다. 규제 최소자본 미달이 검증 결과 어디에도 남지 않으면
+    "PASS 49 · FAIL 0"이 안전하다는 뜻으로 읽힌다.
+
+    기준 시나리오 침범은 **FAIL**(현 상태로 이미 미달), 악화·심각 시나리오
+    침범은 **WARN**(자본계획·회복계획 연계 대상)이다. 심각 시나리오에서
+    견디는 것은 요구가 아니므로 FAIL로 만들면 거짓 경보가 된다.
+    """
+    if path_df is None or bis_result is None or "scenario" not in path_df:
+        return
+    required = float(getattr(bis_result, "required", {}).get("cet1", 0.0))
+    breached = []
+    for sc, g in path_df.groupby("scenario", sort=False):
+        trough = g.loc[g["cet1_ratio"].idxmin()]
+        if float(trough["cet1_ratio"]) < required:
+            breached.append(
+                f"{sc}: {float(trough['cet1_ratio']):.2%} < 요구 {required:.2%}"
+                f" ({trough['quarter']}, 제약 {trough.get('binding', '—')})")
+    if not breached:
+        report.add(ConsistencyCheck(
+            "stress_trough_meets_requirement", "PASS",
+            f"전 시나리오 CET1 저점 >= 요구 {required:.2%}"))
+        return
+    base_breach = any(b.startswith("baseline") for b in breached)
+    report.add(ConsistencyCheck(
+        "stress_trough_meets_requirement", "FAIL" if base_breach else "WARN",
+        ("기준 시나리오가 이미 요구치 미달 — " if base_breach
+         else "위기상황 요구치 침범 (자본계획·회복계획 연계 필요) — ")
+        + "; ".join(breached)))
+
+
 def run_consistency_checks(
     *,
     sa_results: pd.DataFrame | None = None,
@@ -661,6 +696,8 @@ def run_consistency_checks(
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
+
+    _check_stress_trough_requirement(stress_path_result, bis_result, rep)
 
     if sa_results is not None:
         _check_ead_positive(sa_results, rep, "sa")

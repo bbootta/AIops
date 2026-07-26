@@ -68,6 +68,7 @@ class StressBooks:
     revenue: float
     operating_cost: float
     credit_securities: float          # 스프레드 민감 보유물 (L2A + L2B)
+    ccr_rwa: float = 0.0              # 거래상대방신용리스크 (SA-CCR + CVA)
     undrawn_share: float = 0.0        # EAD 대비 미인출 비율
     sa_bucket_by_grade: dict = field(default_factory=dict)
 
@@ -185,6 +186,14 @@ def evaluate_point(books: StressBooks, severity: float, *,
         v["rwa_sa"] = 0.0
     v["rating_notches"] = float(np.floor(sh["migration"]))
 
+    # 거래상대방신용리스크 — 등급에 연동되므로 표준방법 신용 RWA 변화율을 대용
+    # 배수로 쓴다. PFE 확대(변동성 상승에 따른 add-on 증가)는 별도 모형이 필요해
+    # 반영하지 않으며, 그 사실을 근거에 남긴다. 심도 0에서는 배수가 정확히 1이라
+    # 기준 상태가 재현된다.
+    sa_base = (base or v).get("rwa_sa", v["rwa_sa"]) or 1.0
+    v["ccr_multiplier"] = v["rwa_sa"] / sa_base if sa_base else 1.0
+    v["rwa_ccr"] = books.ccr_rwa * v["ccr_multiplier"]
+
     # ---------------------------------------------------------- 시장
     pos = books.market_positions.copy()
     mkt_shock = {"interest_rate": sh["ir_parallel"],
@@ -273,15 +282,16 @@ def evaluate_point(books: StressBooks, severity: float, *,
     v["capital_total"] = float(stack.total)
 
     # ---------------------------------------------------------- RWA 합계·하한
-    internal = v["rwa_irb"] + v["rwa_sa"] + v["rwa_market"] + v["rwa_op"]
+    internal = (v["rwa_irb"] + v["rwa_sa"] + v["rwa_ccr"]
+                + v["rwa_market"] + v["rwa_op"])
     if books.sa_bucket_by_grade and len(books.full):
         # 산출하한 분모도 충격을 받아야 한다 — 기준 상태 분모를 그대로 쓰면
         # 스트레스에서 하한이 절대 구속되지 않는 착시가 생긴다.
         std_credit = standardised_rwa_total(_stressed_full(books, sh, sc),
                                             books.sa_bucket_by_grade)
     else:
-        std_credit = internal - v["rwa_market"] - v["rwa_op"]
-    standardised = std_credit + v["rwa_market"] + v["rwa_op"]
+        std_credit = internal - v["rwa_market"] - v["rwa_op"] - v["rwa_ccr"]
+    standardised = std_credit + v["rwa_ccr"] + v["rwa_market"] + v["rwa_op"]
     fl = apply_output_floor(internal, standardised, floor)
     v["rwa_internal"] = internal
     v["rwa_standardised"] = standardised
@@ -336,6 +346,7 @@ def run_multi_axis_path(books: StressBooks, *, quarters: list[str],
                 "lgd_addon": pt.shocks["lgd_addon"],
                 "rwa_total": v["rwa_total"],
                 "rwa_irb": v["rwa_irb"], "rwa_sa": v["rwa_sa"],
+                "rwa_ccr": v["rwa_ccr"],
                 "rwa_market": v["rwa_market"], "rwa_op": v["rwa_op"],
                 "floor_binding": bool(v["floor_binding"]),
                 "ecl": v["ecl"], "provision": v["provision"],
