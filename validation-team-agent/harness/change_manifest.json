@@ -2280,6 +2280,21 @@
       "rollback_rule": "challenge 가 과도한 미확인을 양산해 실무가 마비되면 severity 를 조정하거나 challenge 를 축소한다(정책 파일 편집). 모듈 전체는 삭제로 완전 롤백",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0153",
+      "timestamp": "2026-07-27 07:15:54",
+      "component": "harness/adversarial_protocol.json (ADV-CALC-04 신설)",
+      "change_type": "modify",
+      "evidence": "독립검증 IVR-68128ECE5694 에서 3선 자신의 판정 오류 발견. 1차 F-002 에서 CVA 소요자기자본(K_BA) 460,299,264.19 를 RWA 합계에 직접 합산하도록 요구했고 2차 F-104 에서 '합계 차이 0' 을 근거로 적합 판정했으나, 소요자본과 RWA 는 12.5배(1/0.08) 차원이 다르다. 2선이 자체 검토로 MAR50.2·RBC20.6 환산 누락을 찾아 정정했고 RWA 가 +5,293,441,538.21 증가했다",
+      "root_cause": "independent_recalc 와 프로토콜 산식 범주(ADV-CALC-01~03)가 값의 일치·기여도 대사·경계값만 검사하고 단위·차원 정합성을 검사하지 않았다. 합계 대사는 차원이 다른 값을 더해도 통과한다",
+      "targeted_fix": "ADV-CALC-04 신설 — '합계가 맞더라도 더해진 항목들의 단위·차원이 같은가?' 반증 기준은 '차원이 다른 값이 환산 없이 합산되었거나 코드 주석·문서가 반환값의 단위를 실제와 반대로 기술한다'. severity critical, auto_check 없음(사람 검토). origin 필드에 본 사례를 기록해 왜 이 challenge 가 생겼는지 추적 가능하게 했다",
+      "expected_benefit": "합계 일치만으로 적합 판정하는 구조적 공백 차단. 규제 산출에서 소요자본↔RWA, 금액↔비율, 연율↔월율 같은 차원 오류는 합계 대사로 잡히지 않으므로 별도 challenge 가 필요하다",
+      "expected_regression_risk": "낮음 — challenge 추가만이며 기존 판정 로직 무변경. auto_check 가 없어 미확인 항목이 1건 늘어난다(의도된 보수성)",
+      "validation_method": "tests/test_v2_round87.py 25 cases 통과 (프로토콜 무결성·disconfirming_evidence 필수·ID 유일성·5개 범주 유지 검사 포함) + 전체 1316 passed",
+      "rollback_rule": "미확인 양산으로 실무가 마비되면 severity 를 high 로 낮추거나 challenge 제거 (정책 파일 편집, 코드 무변경)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

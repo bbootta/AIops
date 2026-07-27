@@ -78,6 +78,16 @@
       "severity": "critical"
     },
     {
+      "challenge_id": "ADV-CALC-04",
+      "category": "산식",
+      "question": "합계가 맞더라도 더해진 항목들의 단위·차원이 같은가?",
+      "method": "각 구성요소의 정의 단위를 확인하고 규제상 환산계수 적용 여부를 대조 (예: 소요자기자본 K → RWA 는 1/최저비율 배 환산, BCBS RBC20.6)",
+      "disconfirming_evidence": "차원이 다른 값이 환산 없이 합산되었거나(소요자본을 RWA 에 직접 가산), 코드 주석·문서가 반환값의 단위를 실제와 반대로 기술한다",
+      "auto_check": null,
+      "severity": "critical",
+      "origin": "RUN-20260630-42 IVR-68128ECE5694 (F-503) — 3선이 1차 F-002 에서 CVA 소요자본을 RWA 에 직접 합산하도록 요구하고 2차 F-104 에서 '합계 일치'만 보고 적합 판정했다. 12.5배 차원 오류를 2선이 자체 검토로 찾았다. 합계 대사는 단위 오류를 잡지 못한다."
+    },
+    {
       "challenge_id": "ADV-MODEL-01",
       "category": "모형",
       "question": "성능이 개발표본에만 국한된 것은 아닌가?",
