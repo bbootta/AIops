@@ -425,11 +425,11 @@
       var d = 'M ' + t[0] + ' ' + t[1] + ' C ' + t[0] + ' ' + (t[1] + 80) + ' ' + t[2] + ' ' +
         (t[3] - 100) + ' ' + t[2] + ' ' + t[3];
       out.push('<g transform="translate(-5 0)"><path d="' + d + '" fill="none" stroke="' + sk.shade +
-        '" stroke-opacity="0.08" stroke-width="9" filter="url(#soft14)"/></g>');
+        '" stroke-opacity="0.14" stroke-width="9" filter="url(#soft6)"/></g>');
       out.push('<path d="' + d + '" fill="none" stroke="' + HI +
-        '" stroke-opacity="0.16" stroke-width="12" filter="url(#soft14)"/>');
+        '" stroke-opacity="0.30" stroke-width="13" filter="url(#soft6)"/>');
       out.push('<g transform="translate(7 0)"><path d="' + d + '" fill="none" stroke="' + sk.shade +
-        '" stroke-opacity="0.1" stroke-width="10" filter="url(#soft14)"/></g>');
+        '" stroke-opacity="0.16" stroke-width="10" filter="url(#soft6)"/></g>');
     });
     // 엄지·검지 사이 첫 번째 등쪽 근육(first dorsal interosseous) 볼륨
     out.push('<ellipse cx="392" cy="556" rx="30" ry="44" fill="' + HI +
@@ -442,11 +442,11 @@
     // 너클 — 넓고 부드럽게. 작고 진하면 얼룩처럼 보인다.
     [[402, 506, 20], [476, 488, 21], [548, 502, 20], [612, 544, 17]].forEach(function (k) {
       out.push('<ellipse cx="' + k[0] + '" cy="' + k[1] + '" rx="' + (k[2] * 1.5) + '" ry="' + (k[2] * 1.1) +
-        '" fill="' + HI + '" opacity="0.26" filter="url(#soft14)"/>');
+        '" fill="' + HI + '" opacity="0.38" filter="url(#soft6)"/>');
       out.push('<ellipse cx="' + k[0] + '" cy="' + (k[1] + k[2] * 0.15) + '" rx="' + (k[2] * 0.42) +
-        '" ry="' + (k[2] * 0.3) + '" fill="' + sk.shade + '" opacity="0.1" filter="url(#soft6)"/>');
+        '" ry="' + (k[2] * 0.3) + '" fill="' + sk.shade + '" opacity="0.15" filter="url(#soft3)"/>');
       out.push('<ellipse cx="' + k[0] + '" cy="' + (k[1] + k[2] * 1.9) + '" rx="' + (k[2] * 1.35) +
-        '" ry="' + (k[2] * 0.9) + '" fill="' + sk.shade + '" opacity="0.09" filter="url(#soft14)"/>');
+        '" ry="' + (k[2] * 0.9) + '" fill="' + sk.shade + '" opacity="0.16" filter="url(#soft6)"/>');
     });
     // 손등 정맥 — 흐리고 옅게. 이게 없으면 손등이 밀랍판처럼 남는다.
     var vein = C.mix(sk.shade, '#3f5f74', 0.6);
@@ -459,13 +459,13 @@
       'M 458 596 C 480 606 512 608 540 600'
     ].forEach(function (d, i) {
       out.push('<path d="' + d + '" fill="none" stroke="' + vein + '" stroke-opacity="' +
-        (i > 2 ? 0.1 : 0.15) + '" stroke-width="' + (i > 2 ? 4 : 6.5) +
+        (i > 2 ? 0.14 : 0.21) + '" stroke-width="' + (i > 2 ? 4 : 6.5) +
         '" stroke-linecap="round" filter="url(#soft6)"/>');
     });
     // 너클 사이 중수골 사이 골
     [[440, 540], [514, 542], [582, 556]].forEach(function (v) {
-      out.push('<ellipse cx="' + v[0] + '" cy="' + v[1] + '" rx="9" ry="30" fill="' + sk.shade +
-        '" opacity="0.07" filter="url(#soft14)"/>');
+      out.push('<ellipse cx="' + v[0] + '" cy="' + v[1] + '" rx="11" ry="34" fill="' + sk.shade +
+        '" opacity="0.14" filter="url(#soft6)"/>');
     });
     // 엄지 두덩 · 손등 중앙 볼륨 · 새끼손가락 쪽 측면 음영
     out.push('<ellipse cx="332" cy="656" rx="58" ry="64" fill="' + C.lighten(sk.light, 0.2) +

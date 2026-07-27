@@ -113,19 +113,20 @@
    * 엄지만 방향을 직접 준다 — 다른 손가락과 달리 손바닥 앞쪽으로 나와 있다.
    */
   var FINGERS = [
-    { id: 'thumb',  base: [-3.15, -2.05, -0.50], dir: [-0.66, 0.73, -0.16], len: 6.3, r0: 1.02, r1: 0.76, curl: 16, roll: 58, bed: 1.62, sink: 2.3 },
-    { id: 'index',  base: [-2.30, 4.35, 0.20], splay: 7,   len: 7.4, r0: 0.86, r1: 0.60, curl: 22, roll: -9, bed: 1.38, sink: 2.1 },
-    { id: 'middle', base: [-0.77, 4.75, 0.25], splay: 1,   len: 8.1, r0: 0.89, r1: 0.62, curl: 20, roll: 0,  bed: 1.48, sink: 2.1 },
-    { id: 'ring',   base: [0.76, 4.55, 0.20],  splay: -6,  len: 7.6, r0: 0.84, r1: 0.59, curl: 24, roll: 7,  bed: 1.38, sink: 2.1 },
-    { id: 'pinky',  base: [2.22, 3.85, 0.10],  splay: -13, len: 5.9, r0: 0.73, r1: 0.52, curl: 26, roll: 15, bed: 1.10, sink: 1.9 }
+    { id: 'thumb',  base: [-3.55, -2.30, -0.55], dir: [-0.64, 0.75, -0.15], len: 6.5, r0: 1.12, r1: 0.86, curl: 15, roll: 58, bed: 1.66, sink: 2.4 },
+    { id: 'index',  base: [-2.86, 4.30, 0.18], splay: 7,   len: 7.5, r0: 0.90, r1: 0.68, curl: 20, roll: -9, bed: 1.42, sink: 2.2 },
+    { id: 'middle', base: [-0.96, 4.70, 0.24], splay: 1,   len: 8.0, r0: 0.93, r1: 0.70, curl: 18, roll: 0,  bed: 1.50, sink: 2.2 },
+    { id: 'ring',   base: [0.94, 4.50, 0.18],  splay: -6,  len: 7.5, r0: 0.87, r1: 0.66, curl: 22, roll: 7,  bed: 1.42, sink: 2.2 },
+    { id: 'pinky',  base: [2.80, 3.75, 0.08],  splay: -13, len: 5.8, r0: 0.76, r1: 0.58, curl: 24, roll: 15, bed: 1.14, sink: 2.0 }
   ];
   var IDS = FINGERS.map(function (f) { return f.id; });
 
   /* 관절에서 살짝 굵어진다 — 균일한 원뿔은 마네킹처럼 보인다 */
   function radiusAt(f, t) {
     var r = f.r0 + (f.r1 - f.r0) * t;
-    return r * (1 + 0.035 * Math.exp(-Math.pow((t - 0.34) / 0.13, 2))
-                  + 0.030 * Math.exp(-Math.pow((t - 0.68) / 0.12, 2)));
+    return r * (1 + 0.060 * Math.exp(-Math.pow((t - 0.34) / 0.11, 2))
+                  + 0.050 * Math.exp(-Math.pow((t - 0.68) / 0.10, 2))
+                  - 0.030 * Math.exp(-Math.pow((t - 0.51) / 0.09, 2)));
   }
 
   /* 스파인을 호 길이와 함께 샘플링한다. 손톱을 손끝에서부터 재려면 필요하다. */
@@ -202,7 +203,7 @@
     return (Math.sqrt(qx * qx + qy * qy + qz * qz) - 1) * Math.min(r[0], Math.min(r[1], r[2]));
   }
 
-  var ZFLAT = 2.75;   // 손등이 납작한 정도
+  var ZFLAT = 3.05;   // 손등이 납작한 정도
 
   /* 손가락은 스파인을 캡슐 사슬로 근사한다. 손가락끼리는 붙으면 안 되므로
    * 각 손가락 안에서는 그냥 min 으로 잇고, 손 전체와 합칠 때만 부드럽게 뭉갠다. */
@@ -232,10 +233,10 @@
 
   function field(x, y, z) {
     // 손바닥·손목 덩어리
-    var d = segZ(x, y, z, [0, -7.4, -0.28], [0, -1.2, -0.12], 2.28, 2.80, ZFLAT);
-    d = Math.min(d, segZ(x, y, z, [0, -1.2, -0.12], [0.08, 3.85, 0.18], 2.80, 3.05, ZFLAT));
-    d = smin(d, ell(x, y, z, [-2.15, -1.45, -0.50], [1.18, 2.95, 1.05]), 0.95);   // 엄지 두덩
-    d = smin(d, ell(x, y, z, [2.50, -2.00, -0.42], [0.88, 2.45, 0.90]), 0.95);    // 새끼 두덩
+    var d = segZ(x, y, z, [0, -8.2, -0.30], [0, -4.4, -0.20], 2.55, 2.62, 1.95);  // 손목·팔목
+    d = smin(d, segZ(x, y, z, [0, -4.2, -0.18], [0.08, 3.80, 0.16], 2.95, 3.86, ZFLAT), 0.7);
+    d = smin(d, ell(x, y, z, [-2.60, -1.70, -0.55], [1.45, 3.15, 1.15]), 1.0);    // 엄지 두덩
+    d = smin(d, ell(x, y, z, [3.00, -2.10, -0.45], [1.00, 2.85, 0.98]), 1.0);     // 새끼 두덩
 
     for (var i = 0; i < LIMBS.length; i++) {
       var L = LIMBS[i], b = L.box;
@@ -324,6 +325,9 @@
     for (var v = 0; v < mesh.p.length / 3; v++) {
       var p = mesh.at(v), best = null, bd = 1e9;
       for (var i = 0; i < FINGERS.length; i++) {
+        var bx = LIMBS[i].box;
+        if (p[0] < bx[0] || p[1] < bx[1] || p[2] < bx[2] ||
+            p[0] > bx[3] || p[1] > bx[4] || p[2] > bx[5]) continue;
         var sp = SPINES[FINGERS[i].id];
         for (var j = 0; j < sp.length; j++) {
           var q = sp[j], dx = p[0] - q.p[0], dy = p[1] - q.p[1], dz = p[2] - q.p[2];
@@ -355,7 +359,7 @@
   }
 
   function buildHand() {
-    var m = surfaceNets([-8.5, -8.4, -2.4], [4.6, 14.4, 2.4], 0.125);
+    var m = surfaceNets([-8.9, -8.6, -2.3], [5.3, 14.6, 2.1], 0.13);
     m.gradNormals = fieldNormals(m);
     return assignUV(m);
   }
@@ -673,7 +677,7 @@
   }
 
   function camera(state, asp) {
-    var target = state.zoom ? [0, 9.6, 0] : [0, 3.4, 0];
+    var target = state.zoom ? [0, 9.6, 0] : [0, 4.1, 0];
     var dist = state.zoom ? Math.min(orbit.dist, 16) : orbit.dist;
     var eye = [0, 0, dist];
     eye = rotAxis(eye, [1, 0, 0], -orbit.pitch);

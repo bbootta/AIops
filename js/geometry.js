@@ -11,11 +11,11 @@
   /* bend = 끝으로 갈수록 휘는 각도(도). 밑동은 부챗살처럼 벌어져도 끝은 서로
    * 모이는 게 편안한 손 모양이다. 곧고 나란한 막대 다섯 개는 마네킹처럼 보인다. */
   var FINGERS = [
-    { id: 'thumb',  name: '엄지', bx: 336, by: 664, angle: -52,  len: 166, w0: 34,   w1: 25.5, bend: 9 },
-    { id: 'index',  name: '검지', bx: 402, by: 496, angle: -11,  len: 222, w0: 27,   w1: 19.8, bend: 6 },
-    { id: 'middle', name: '중지', bx: 476, by: 474, angle: -1,   len: 250, w0: 28,   w1: 20.4, bend: 1.5 },
-    { id: 'ring',   name: '약지', bx: 548, by: 488, angle: 9,    len: 226, w0: 26.5, w1: 19.4, bend: -5 },
-    { id: 'pinky',  name: '소지', bx: 612, by: 540, angle: 19,   len: 176, w0: 22.5, w1: 16.8, bend: -9 }
+    { id: 'thumb',  name: '엄지', bx: 330, by: 676, angle: -46,  len: 206, w0: 33,   w1: 26.5, bend: 14 },
+    { id: 'index',  name: '검지', bx: 402, by: 496, angle: -11,  len: 228, w0: 28,   w1: 21.2, bend: 6 },
+    { id: 'middle', name: '중지', bx: 476, by: 474, angle: -1,   len: 252, w0: 29,   w1: 21.9, bend: 1.5 },
+    { id: 'ring',   name: '약지', bx: 548, by: 488, angle: 9,    len: 231, w0: 27.5, w1: 20.7, bend: -5 },
+    { id: 'pinky',  name: '소지', bx: 612, by: 540, angle: 19,   len: 180, w0: 23.5, w1: 18.0, bend: -9 }
   ];
 
   /* 밑동을 원점으로 deg 만큼 회전 (손가락 좌표계) */
