@@ -119,6 +119,13 @@ function runGame(saveJson, label, drive, opts) {
   fire(G.keydown, ev({ code: 'KeyZ' })); step(2);   // 같은 키 재입력 → 해제
   fire(G.keydown, ev({ code: 'KeyN' })); step(2);
   if (!(store['mc_achv'] || '').includes('witherform')) throw new Error('N 핫키 변신 실패');
+  // 💎 다이아 위더 스톰 (J): 변신 → 스컬 연사 → 대광선 → 광역 필살기
+  fire(G.keydown, ev({ code: 'KeyJ' })); step(3);
+  if (!(store['mc_achv'] || '').includes('diamondwither')) throw new Error('J 핫키 💎 다이아 위더 변신 실패');
+  fire(doc._h.mousedown, ev({ button: 0 })); step(8); fire(doc._h.mouseup, ev({ button: 0 }));
+  fire(doc._h.mousedown, ev({ button: 2 })); step(4); fire(doc._h.mouseup, ev({ button: 2 }));
+  fire(G.keydown, ev({ code: 'KeyR' })); step(10); fire(G.keyup, ev({ code: 'KeyR' }));
+  fire(G.keydown, ev({ code: 'KeyF' })); step(6);
   fire(G.keydown, ev({ code: 'KeyX' })); step(2);
   fire(G.keydown, ev({ code: 'Digit0' })); step(2); // 0 → 사람으로
   fire(G.keydown, ev({ code: 'Tab' })); step(2);    // 커서 풀고 아이콘 픽커 열기

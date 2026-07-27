@@ -296,6 +296,7 @@
   <div id="suitChip2" class="suitChip" title="헐크버스터 (X)">🦾<span class="k">X</span></div>
   <div id="suitChip3" class="suitChip" title="닥터 스트레인지 (B)">🔮<span class="k">B</span></div>
   <div id="suitChip4" class="suitChip" title="위더 스톰 (N)">🌪<span class="k">N</span></div>
+  <div id="suitChip5" class="suitChip" title="다이아 위더 스톰 (J)">💎<span class="k">J</span></div>
 </div>
 <div id="craft">
   <h2>제작</h2>
@@ -322,7 +323,7 @@
     좌클릭 꾹 : 캐기 / 공격 &nbsp;|&nbsp; 우클릭 : 설치 · 씨앗 심기 · 상자 열기<br>
     <b>Q : 먹기</b> (가진 음식 자동) &nbsp;|&nbsp; <b>R : 활</b> (누르면 차지, 떼면 발사)<br>
     <b>G : 변신</b> 🤖아이언 → 🦾헐크버스터 → 🔮스트레인지 → 🌪위더 스톰 — 3인칭 자유 비행<br>
-    <b>변신 핫키</b> Z🤖 · X🦾 · B🔮 · N🌪 · 0🧍해제 (같은 키를 다시 누르면 해제) &nbsp;|&nbsp; <b>Tab</b> : 마우스로 아이콘 고르기<br>
+    <b>변신 핫키</b> Z🤖 · X🦾 · B🔮 · N🌪 · <b>J💎다이아 위더</b> · 0🧍해제 (같은 키를 다시 누르면 해제) &nbsp;|&nbsp; <b>Tab</b> : 마우스로 아이콘 고르기<br>
     슈트: 좌클릭 펄서 · 우클릭 미사일 · R 레이저 · <b>F ✨필살기(광역)</b> &nbsp;|&nbsp; 🔮: 마법 미사일 · 순간이동 · R 시간정지<br>
     <b>포탈은 색으로 목적지가 정해져요</b> — 🟢초록 오버월드 · 🔴빨강 네더 · 🟣보라 보이드 · 🟡금색 ⚔공성전 (미니맵에도 같은 색)<br>
     <b>⚔ 공성전</b>: 거대 성채(101×101, 성벽 높이 10·대탑 19)를 지키는 수성전! 10가지 공성 부대가 <b>웨이브마다 100명</b> 몰려옵니다<br>
@@ -334,7 +335,7 @@
     밤엔 좀비·스켈레톤·크리퍼·거미·어둠 마법사, 보스로 좀비 군주와 🌪위더 스톰 출몰<br>
     나무→판자→곡괭이·검·활·상자, 철/다이아로 갑옷, 금→황금사과, 다이아로 포탈<br>
     모바일 : 왼쪽 조이스틱 이동, 화면 드래그 시점, 오른쪽 버튼(먹기🍗·활🏹 포함)<br>
-    화면 왼쪽 위 <b>🧍🤖🦾🔮🌪 아이콘</b>을 누르면 원하는 모습으로 바로 변신합니다<br>
+    화면 왼쪽 위 <b>🧍🤖🦾🔮🌪💎 아이콘</b>을 누르면 원하는 모습으로 바로 변신합니다<br>
     아이와 함께라면 아래 설정에서 <b>🧒 평화 모드</b>를 켜 보세요 (몬스터·배고픔 없음)<br>
     월드는 자동 저장됩니다 &nbsp;|&nbsp; ESC : 일시정지
   </p>
@@ -2540,7 +2541,15 @@ const WITHER_MAT = new THREE.MeshLambertMaterial({ color: 0x1c1c22 });
 const WITHER_DARK = new THREE.MeshLambertMaterial({ color: 0x0d0d12 });
 const WITHER_EYE = new THREE.MeshLambertMaterial({ color: 0xd070ff, emissive: 0xa040e0, emissiveIntensity: 1 });
 const WITHER_GLOW = new THREE.MeshLambertMaterial({ color: 0xf4eaff, emissive: 0xcfa8ff, emissiveIntensity: 1 });
-function makeWitherSkull(parent, hx, hy, hs, withJaw) {
+const WITHER_SKIN = { mat: WITHER_MAT, dark: WITHER_DARK, eye: WITHER_EYE, glow: WITHER_GLOW };
+// 💎 다이아 위더: 얼음 같은 수정 몸체 + 형광 하늘빛
+const DIA_MAT = new THREE.MeshLambertMaterial({ color: 0x59c8d6, emissive: 0x1d7f92, emissiveIntensity: 0.35 });
+const DIA_DARK = new THREE.MeshLambertMaterial({ color: 0x2b8ea8 });
+const DIA_EYE = new THREE.MeshLambertMaterial({ color: 0xe6ffff, emissive: 0x7ff0ff, emissiveIntensity: 1 });
+const DIA_GLOW = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0xcaf8ff, emissiveIntensity: 1 });
+const DIAMOND_SKIN = { mat: DIA_MAT, dark: DIA_DARK, eye: DIA_EYE, glow: DIA_GLOW, gem: true };
+function makeWitherSkull(parent, hx, hy, hs, withJaw, skin) {
+  const WITHER_MAT = skin.mat, WITHER_DARK = skin.dark, WITHER_EYE = skin.eye, WITHER_GLOW = skin.glow;
   const head = new THREE.Group();
   head.position.set(hx, hy, 0);
   const skull = new THREE.Mesh(new THREE.BoxGeometry(hs, hs, hs), WITHER_MAT);
@@ -2570,7 +2579,9 @@ function makeWitherSkull(parent, hx, hy, hs, withJaw) {
   parent.add(head);
   return { head, jaw };
 }
-function makeWitherMesh() {
+function makeWitherMesh(skin) {
+  skin = skin || WITHER_SKIN;
+  const WITHER_MAT = skin.mat, WITHER_DARK = skin.dark, WITHER_EYE = skin.eye, WITHER_GLOW = skin.glow;
   const g = new THREE.Group();
   const U = { tentacles: [], debris: [], bodyMat: WITHER_MAT };
   // 몸통: 비대칭으로 겹친 검은 덩어리들
@@ -2601,7 +2612,7 @@ function makeWitherMesh() {
   heart.position.set(0, 2.3, -1.0);
   g.add(heart);
   // 머리 셋: 중앙 대형(턱 개폐) + 좌우 (목 줄기 포함, 두리번거림)
-  const center = makeWitherSkull(g, 0, 4.35, 1.4, true);
+  const center = makeWitherSkull(g, 0, 4.35, 1.4, true, skin);
   U.jaw = center.jaw;
   U.jawY = -1.4 * 0.62;
   for (const side of [-1, 1]) {
@@ -2609,7 +2620,7 @@ function makeWitherMesh() {
     neck.position.set(side * 1.15, 3.4, 0);
     neck.rotation.z = -side * 0.4;
     g.add(neck);
-    const sk = makeWitherSkull(g, side * 1.6, 3.95, 0.85, false);
+    const sk = makeWitherSkull(g, side * 1.6, 3.95, 0.85, false, skin);
     if (side < 0) U.headL = sk.head; else U.headR = sk.head;
   }
   // 꿈틀대는 촉수 (아래로 늘어진 마디)
@@ -2631,7 +2642,9 @@ function makeWitherMesh() {
     U.tentacles.push(tc);
   }
   // 빨려 들어와 주위를 도는 블록 파편 (상징!)
-  const debrisMats = [MATERIALS[BLOCK.DIRT], MATERIALS[BLOCK.STONE], MATERIALS[BLOCK.NETHERRACK], MATERIALS[BLOCK.WOOD]];
+  const debrisMats = skin.gem
+    ? [MATERIALS[BLOCK.DIAMOND_ORE], MATERIALS[BLOCK.VOID_CRYSTAL], MATERIALS[BLOCK.DIAMOND_ORE], MATERIALS[BLOCK.EMERALD_ORE]] // 다이아 파편이 돎
+    : [MATERIALS[BLOCK.DIRT], MATERIALS[BLOCK.STONE], MATERIALS[BLOCK.NETHERRACK], MATERIALS[BLOCK.WOOD]];
   for (let i = 0; i < 9; i++) {
     const sizeD = 0.3 + Math.random() * 0.35;
     const dm = debrisMats[i % debrisMats.length];
@@ -3369,6 +3382,7 @@ const ACHV_DEFS = [
   ['nether', '네더에 발을 딛다'], ['void', '🌌 보이드 탐험가'],
   ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'], ['witherform', '🌪 위더 스톰으로 변신!'], ['tnt', '💣 첫 대폭발!'], ['meganuke', '💥 10000% 대폭발!!'], ['lightning', '⚡ 번개 소환!'], ['quake', '🌋 대지진!'], ['piglin', '🐷 피글린과 마주쳤다!'], ['village', '🏘 마을을 발견했다!'],
   ['siege', '⚔ 공성전에 참전!'], ['siege3', '⚔ 3웨이브 방어 성공!'], ['siege5', '🏰 5웨이브까지 성을 지켜냈다!'],
+  ['diamondwither', '💎 다이아 위더 스톰으로 변신!'],
 ];
 const KIND_NAMES = {
   zombie: '좀비', skeleton: '스켈레톤', creeper: '크리퍼', spider: '거미', mage: '마법사',
@@ -3403,7 +3417,7 @@ function damage(n) {
   if (optPeace) return; // 평화 모드: 플레이어는 데미지를 입지 않음
   if (n <= 0 || health <= 0) return;
   // 방어구 피해 감소 (아이언·스트레인지 60% / 헐크버스터 75%)
-  const red = suitLevel === 4 ? 0.8 : suitLevel === 2 ? 0.75 : suit ? 0.6 : ([0, 0.3, 0.6][armor] || 0);
+  const red = suitLevel === 5 ? 0.88 : suitLevel === 4 ? 0.8 : suitLevel === 2 ? 0.75 : suit ? 0.6 : ([0, 0.3, 0.6][armor] || 0);
   n = Math.max(1, Math.ceil(n * (1 - red)));
   health = Math.max(0, health - n);
   flashTimer = 0.3;
@@ -3448,7 +3462,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Tab') { e.preventDefault(); if (!isTouch && (playing() || suitPickOpen)) toggleSuitPick(!suitPickOpen); }
   // 변신 종류별 핫키 (같은 키를 다시 누르면 사람으로 돌아옴)
   if (!e.repeat && (playing() || suitPickOpen)) {
-    const lv = { KeyZ: 1, KeyX: 2, KeyB: 3, KeyN: 4, Digit0: 0 }[e.code];
+    const lv = { KeyZ: 1, KeyX: 2, KeyB: 3, KeyN: 4, KeyJ: 5, Digit0: 0 }[e.code];
     if (lv !== undefined) pickSuit(lv);
   }
 });
@@ -3627,11 +3641,11 @@ function updatePlayer(dt) {
     const hs = Math.hypot(player.vel.x, player.vel.z);
     const climb = player.vel.y / st.speed;
     // 빠를수록 엎드린 슈퍼히어로 자세(~77°), 상승 시 몸을 세우고, 급강하 시 더 숙임
-    const tiltTarget = suitLevel === 4 ? 0 : Math.max(-0.25, Math.min(1.35, (hs / st.speed) * 1.35 - climb * 0.5));
+    const tiltTarget = suitLevel >= 4 ? 0 : Math.max(-0.25, Math.min(1.35, (hs / st.speed) * 1.35 - climb * 0.5));
     suitTilt += (tiltTarget - suitTilt) * Math.min(1, dt * 6);
     const cruise = Math.min(1, hs / st.speed + Math.abs(climb) * 0.4); // 0=호버 1=순항
     const hover = !player.onGround && cruise < 0.25;
-    suitMesh.position.set(p.x, p.y + u.pivotY + ((hover || suitLevel === 4) ? Math.sin(suitTime * 3.2) * (suitLevel === 4 ? 0.18 : 0.06) : 0), p.z);
+    suitMesh.position.set(p.x, p.y + u.pivotY + ((hover || suitLevel >= 4) ? Math.sin(suitTime * 3.2) * (suitLevel >= 4 ? 0.18 : 0.06) : 0), p.z);
     suitMesh.rotation.y = player.yaw;
     suitMesh.rotation.x = -suitTilt; // 음수 = 얼굴이 진행 방향(아래)을 향해 엎드림
     // 팔: 엎드리면 팔은 자연히 몸을 따라 뒤로 가므로 살짝만 들고, 사격 중엔 오른팔을 조준 방향으로
@@ -3654,7 +3668,7 @@ function updatePlayer(dt) {
     if (u.cape) { // 🔮 망토: 속도에 따라 뒤로 펄럭임
       u.cape.rotation.x = -(0.12 + cruise * 0.85 + Math.sin(suitTime * 6) * 0.07 * (0.3 + cruise));
     }
-    if (suitLevel === 4 && u.inner) animateWither(u.inner, dt); // 🌪 파편 궤도·촉수·턱
+    if (suitLevel >= 4 && u.inner) animateWither(u.inner, dt); // 🌪 파편 궤도·촉수·턱
     // 부스터/부양 불빛 + 뒤로 흩날리는 트레일 (스트레인지는 주황 마법 반짝임)
     suitBoostLight.visible = boost;
     if (boost) {
@@ -3674,7 +3688,7 @@ function updatePlayer(dt) {
     const fx = -Math.sin(cyaw) * Math.cos(cpitch);
     const fy = Math.sin(cpitch);
     const fz = -Math.cos(cyaw) * Math.cos(cpitch);
-    const ex = p.x, ey = p.y + EYE_HEIGHT + (suitLevel === 2 ? 0.9 : suitLevel === 4 ? 2 : 0), ez = p.z;
+    const ex = p.x, ey = p.y + EYE_HEIGHT + (suitLevel === 2 ? 0.9 : suitLevel >= 4 ? 2 : 0), ez = p.z;
     let cx = ex, cy = ey, cz = ez;
     for (let d = 0.4; d <= dist; d += 0.4) {
       const nx = ex - fx * d, ny = ey - fy * d + d * 0.1, nz = ez - fz * d;
@@ -4143,6 +4157,7 @@ const SUIT_STATS = [
   { name: '🦾 헐크버스터', speed: 10, lift: 6, pulseDmg: 5, pulseRate: 0.3, missileR: 3, missileDmg: 10, laserDmg: 2, dist: 6.4 },
   { name: '🔮 닥터 스트레인지', speed: 12, lift: 7, pulseDmg: 4, pulseRate: 0.18, missileR: 0, missileDmg: 0, laserDmg: 0, dist: 4.4 },
   { name: '🌪 위더 스톰', speed: 11, lift: 6, pulseDmg: 6, pulseRate: 0.4, missileR: 3, missileDmg: 12, laserDmg: 2, dist: 8 },
+  { name: '💎 다이아 위더 스톰', speed: 14, lift: 8, pulseDmg: 10, pulseRate: 0.28, missileR: 4, missileDmg: 20, laserDmg: 5, dist: 8.5 },
 ];
 let timeStop = false; // 🔮 시간 정지 (R 홀드)
 const M_RED = new THREE.MeshLambertMaterial({ color: 0xb3151d });
@@ -4274,19 +4289,27 @@ function makeStrangeMesh() {
   return root;
 }
 // 🌪 위더 스톰 변신체: 보스 메시를 몸통 중심 피벗으로 감싸 재사용
-function makeWitherSuitMesh() {
+function makeWitherSuitMesh(skin, scale) {
   const root = new THREE.Group();
-  const inner = makeWitherMesh();
+  const inner = makeWitherMesh(skin);
   inner.position.y = -2.2;
   root.add(inner);
-  root.scale.setScalar(0.85);
+  if (skin && skin.gem) { // 등에 솟은 다이아 결정 갈기
+    for (let i = 0; i < 5; i++) {
+      const sp = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.9 - i * 0.12, 0.22), DIA_EYE);
+      sp.position.set((i - 2) * 0.42, 0.9 - Math.abs(i - 2) * 0.18, 0.75);
+      sp.rotation.x = -0.35;
+      root.add(sp);
+    }
+  }
+  root.scale.setScalar(scale || 0.85);
   root.rotation.order = 'YXZ';
-  root.userData = { flames: [], armL: new THREE.Group(), armR: new THREE.Group(), legL: new THREE.Group(), legR: new THREE.Group(), pivotY: 2.2 * 0.85, inner };
+  root.userData = { flames: [], armL: new THREE.Group(), armR: new THREE.Group(), legL: new THREE.Group(), legR: new THREE.Group(), pivotY: 2.2 * (scale || 0.85), inner };
   root.visible = false;
   scene.add(root);
   return root;
 }
-const suitMeshes = [null, makeSuitMesh(1, 1), makeSuitMesh(1.75, 1.85), makeStrangeMesh(), makeWitherSuitMesh()];
+const suitMeshes = [null, makeSuitMesh(1, 1), makeSuitMesh(1.75, 1.85), makeStrangeMesh(), makeWitherSuitMesh(), makeWitherSuitMesh(DIAMOND_SKIN, 1.0)];
 let suitMesh = suitMeshes[1]; // 현재 표시 중인 슈트 (레벨 0일 땐 숨김)
 let suitTilt = 0, suitTime = 0, boostFxT = 0; // 비행 자세 기울기 / 애니메이션 시계 / 트레일 타이머
 const suitBoostLight = new THREE.PointLight(0xff9a33, 0, 8, 2); // 부스터 불빛
@@ -4318,7 +4341,7 @@ function cycleCam() {
 bindBtn('btnCam', () => cycleCam());
 bindBtn('btnUlt', () => suitUlt());
 
-function toggleSuit() { setSuit((suitLevel + 1) % 5); } // G: 사람 → 아이언 → 헐크버스터 → 스트레인지 → 위더 스톰 → 사람
+function toggleSuit() { setSuit((suitLevel + 1) % 6); } // G: 사람 → 아이언 → 헐크버스터 → 스트레인지 → 위더 스톰 → 💎다이아 위더 → 사람
 // 핫키·아이콘: 원하는 모습을 바로 선택 (같은 것을 다시 고르면 해제)
 function pickSuit(level) {
   if (level === 0 && suitLevel === 0) return;
@@ -4341,22 +4364,23 @@ function setSuit(level) {
   camSX = null; // 스무딩 즉시 스냅
   suitTilt = 0;
   if (suit) { player.vel.set(0, 0, 0); flying = false; }
-  playSound([200, 520, 320, 760, 70][suitLevel], 0.35, suitLevel === 3 ? 'sine' : 'sawtooth', 0.25);
-  laserMat.color.setHex(suitLevel === 4 ? 0xd070ff : 0x9feaff);   // 위더는 보라 레이저
-  laserMat.emissive.setHex(suitLevel === 4 ? 0xa040e0 : 0x5fd8ff);
+  playSound([200, 520, 320, 760, 70, 1320][suitLevel], 0.35, suitLevel >= 3 && suitLevel !== 4 ? 'sine' : 'sawtooth', 0.25);
+  laserMat.color.setHex(suitLevel === 4 ? 0xd070ff : suitLevel === 5 ? 0xd8ffff : 0x9feaff);   // 위더=보라 / 다이아=하늘빛
+  laserMat.emissive.setHex(suitLevel === 4 ? 0xa040e0 : suitLevel === 5 ? 0x7ff0ff : 0x5fd8ff);
   if (suitLevel === 1) unlock('iron', '아이언 슈트 첫 변신');
   if (suitLevel === 3) unlock('strange', '마법사로 변신!');
   if (suitLevel === 4) unlock('witherform', '🌪 위더 스톰으로 변신!');
+  if (suitLevel === 5) unlock('diamondwither', '💎 다이아 위더 스톰으로 변신!');
   // 모바일 버튼 라벨 전환
   const lbl = (id, t) => { const el = document.querySelector('#' + id + ' .lbl'); if (el) el.textContent = t; };
   if (suitLevel === 3) {
     lbl('btnBreak', '마법');
     lbl('btnPlace', '순간이동');
     lbl('btnBow', '시간정지');
-  } else if (suitLevel === 4) {
+  } else if (suitLevel >= 4) {
     lbl('btnBreak', '스컬');
     lbl('btnPlace', '미사일');
-    lbl('btnBow', '레이저');
+    lbl('btnBow', suitLevel === 5 ? '대광선' : '레이저');
   } else {
     lbl('btnBreak', suit ? '펄서' : '캐기');
     lbl('btnPlace', suit ? '미사일' : '놓기');
@@ -4367,7 +4391,7 @@ function setSuit(level) {
 // 🎛 변신 아이콘 바 — 데스크톱·모바일 모두 작은 아이콘을 눌러 바로 변신
 const suitBarEl = document.getElementById('suitBar');
 function updateSuitBar() {
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     const el = document.getElementById('suitChip' + i);
     if (el) el.className = 'suitChip' + (i === suitLevel ? ' on' : '');
   }
@@ -4384,7 +4408,7 @@ function toggleSuitPick(open) {
     canvas.requestPointerLock();
   }
 }
-for (let i = 0; i < 5; i++) {
+for (let i = 0; i < 6; i++) {
   const el = document.getElementById('suitChip' + i);
   if (!el) continue;
   el.addEventListener('touchstart', (e) => { e.preventDefault(); pickSuit(i); });
@@ -4405,15 +4429,15 @@ function aimFrom() { // 조준 방향(_dir) 갱신 + 가슴 위치 반환
 function firePulse() {
   if (bolts.length > 30) return;
   const st = SUIT_STATS[suitLevel] || SUIT_STATS[1];
-  if (suitLevel === 4) { // 🌪 폭발하는 위더 스컬 연발
+  if (suitLevel >= 4) { // 🌪 폭발하는 위더 스컬 연발 (💎는 다이아 빛)
     const pos = aimFrom();
-    const mesh = new THREE.Mesh(missileGeo, enemyBoltMat(0xa040e0));
+    const mesh = new THREE.Mesh(missileGeo, enemyBoltMat(suitLevel === 5 ? 0x7ff0ff : 0xa040e0));
     mesh.scale.setScalar(1.5);
     mesh.position.copy(pos);
     mesh.lookAt(pos.clone().add(_dir));
     scene.add(mesh);
     bolts.push({ mesh, pos, vel: _dir.clone().multiplyScalar(30), life: 2.5, missile: true, r: 1, dmg: st.pulseDmg });
-    spawnFx(pos.x + _dir.x * 0.6, pos.y + _dir.y * 0.6, pos.z + _dir.z * 0.6, enemyBoltMat(0xa040e0), 4, 2.5, 0.18);
+    spawnFx(pos.x + _dir.x * 0.6, pos.y + _dir.y * 0.6, pos.z + _dir.z * 0.6, enemyBoltMat(suitLevel === 5 ? 0x7ff0ff : 0xa040e0), 4, 2.5, 0.18);
     playSound(85, 0.15, 'sawtooth', 0.2);
     return;
   }
@@ -4435,11 +4459,11 @@ function suitUlt() {
   if (!suit || !playing()) return;
   if (ultCd > 0) { playSound(140, 0.08, 'square', 0.08); return; }
   const p = player.pos;
-  const r = suitLevel >= 2 ? 12 : 10;
-  const dmg = suitLevel === 2 ? 14 : suitLevel === 4 ? 12 : suitLevel === 3 ? 10 : 8;
+  const r = suitLevel === 5 ? 18 : suitLevel >= 2 ? 12 : 10;
+  const dmg = suitLevel === 5 ? 22 : suitLevel === 2 ? 14 : suitLevel === 4 ? 12 : suitLevel === 3 ? 10 : 8;
   ultCd = suitLevel >= 3 ? 8 : 6;
-  const mat = suitLevel === 4 ? enemyBoltMat(0xa040e0) : suitLevel === 3 ? M_MAGIC : PULSE_MAT;
-  if (suitLevel === 4) { // 🌪 사방으로 폭발 스컬 폭풍
+  const mat = suitLevel === 5 ? enemyBoltMat(0x7ff0ff) : suitLevel === 4 ? enemyBoltMat(0xa040e0) : suitLevel === 3 ? M_MAGIC : PULSE_MAT;
+  if (suitLevel >= 4) { // 🌪 사방으로 폭발 스컬 폭풍 (💎는 다이아 파편 폭풍)
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2;
       const mesh = new THREE.Mesh(missileGeo, mat);
@@ -4573,19 +4597,37 @@ function updateLaser(dt) {
   const hitBlock = pickBlock();
   if (m) end = new THREE.Vector3(m.pos.x, m.pos.y + m.hitH * 0.6, m.pos.z);
   else if (hitBlock) end = new THREE.Vector3(hitBlock.block.x + 0.5, hitBlock.block.y + 0.5, hitBlock.block.z + 0.5);
-  // 굵기가 고동치는 빔 (중점에 두고 길이만큼 늘림)
+  // 굵기가 고동치는 빔 (중점에 두고 길이만큼 늘림) — 💎 다이아 위더는 굵은 대광선
+  const wide = suitLevel === 5;
   const len = from.clone().sub(end).length() || 0.001;
-  const w = 0.07 + Math.abs(Math.sin(laserPulse * 14)) * 0.05;
+  const w = wide ? 1.6 + Math.abs(Math.sin(laserPulse * 10)) * 0.5 : 0.07 + Math.abs(Math.sin(laserPulse * 14)) * 0.05;
   laserBeam.position.set((from.x + end.x) / 2, (from.y + end.y) / 2, (from.z + end.z) / 2);
   laserBeam.scale.set(w, w, len);
   laserBeam.lookAt(end.x, end.y, end.z);
   laserBeam.visible = true;
   laserTick -= dt;
   if (laserTick <= 0) {
-    laserTick = 0.18;
-    spawnFx(end.x, end.y, end.z, PULSE_MAT, 3, 3, 0.2); // 타격 스파크
-    if (m) damageMob(m, SUIT_STATS[suitLevel].laserDmg, _dir.x * 0.3, _dir.z * 0.3);
-    playSound(1200, 0.06, 'sine', 0.05);
+    laserTick = wide ? 0.14 : 0.18;
+    const fxMat = wide ? enemyBoltMat(0x7ff0ff) : PULSE_MAT;
+    spawnFx(end.x, end.y, end.z, fxMat, wide ? 6 : 3, 3, 0.2); // 타격 스파크
+    const dmg = SUIT_STATS[suitLevel].laserDmg;
+    if (wide) {
+      // 굵은 광선: 빔이 지나는 길 위(반경 2.4칸)의 모든 적을 함께 태움
+      const ax = end.x - from.x, ay = end.y - from.y, az = end.z - from.z;
+      const l2 = ax * ax + ay * ay + az * az || 1;
+      for (const z of [...zombies]) {
+        const px = z.pos.x - from.x, py = z.pos.y + z.hitH * 0.5 - from.y, pz = z.pos.z - from.z;
+        const t = Math.max(0, Math.min(1, (px * ax + py * ay + pz * az) / l2));
+        if (Math.hypot(px - ax * t, py - ay * t, pz - az * t) > 2.4) continue;
+        damageMob(z, dmg, z.pos.x - player.pos.x, z.pos.z - player.pos.z);
+        spawnFx(z.pos.x, z.pos.y + 1, z.pos.z, fxMat, 2, 3, 0.2);
+      }
+      for (let i = 1; i <= 5; i++) { // 광선을 따라 흩날리는 다이아 빛
+        const t = i / 6;
+        spawnFx(from.x + ax * t, from.y + ay * t, from.z + az * t, fxMat, 1, 2, 0.25);
+      }
+    } else if (m) damageMob(m, dmg, _dir.x * 0.3, _dir.z * 0.3);
+    playSound(wide ? 700 : 1200, wide ? 0.1 : 0.06, 'sine', wide ? 0.09 : 0.05);
   }
 }
 
