@@ -52,7 +52,7 @@ def test_sheet_order_is_unique_and_dense():
 def test_units_are_declared_and_values_match_unit(built):
     for b in built:
         for ln in b.lines:
-            assert ln.unit in ("KRW", "ratio", "count", "text")
+            assert ln.unit in ("KRW", "ratio", "multiple", "count", "text")
             if ln.unit == "text":
                 assert ln.value is None and ln.text_value
             else:
@@ -60,7 +60,11 @@ def test_units_are_declared_and_values_match_unit(built):
 
 
 def test_ratio_lines_are_fractions_not_percents(built):
-    """비율은 0.115로 담는다. 11.5로 담으면 엑셀 서식이 1150%로 표시된다."""
+    """비율은 0.115로 담는다. 11.5로 담으면 엑셀 서식이 1150%로 표시된다.
+
+    회전율처럼 1을 크게 넘는 것이 정상인 값은 `multiple` 단위를 쓴다 — 여기서
+    한계를 느슨하게 풀면 정작 잡아야 할 백분율 오기를 놓친다.
+    """
     for b in built:
         for ln in b.lines:
             if ln.unit == "ratio" and ln.value is not None:

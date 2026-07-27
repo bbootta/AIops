@@ -66,13 +66,23 @@ SECURITY_TYPES = {"sovereign": "국공채", "bank": "금융채"}
 RATING_ORDER = ("AAA-AA", "A", "BBB", "BB", "UNRATED")
 INVESTMENT_GRADE = ("AAA-AA", "A", "BBB")
 
-# 점포명은 소재 도시명에서 만든다. 국가가 늘면 여기 없는 나라는 국가코드를 쓴다.
+# 점포명은 소재 도시명에서 만든다. 여기 없는 나라는 `_fallback_cities`가 국가코드
+# 기반 이름을 만든다 — 도시명이 1개뿐이면 점포 수 추첨(2~4개)이 성립하지 않는다.
 _CITIES = {
     "CN": ("상해", "북경", "심천", "청도", "대련"),
     "JP": ("도쿄", "오사카", "후쿠오카"),
     "US": ("뉴욕", "로스앤젤레스", "시카고"),
     "VN": ("하노이", "호치민", "하이퐁", "다낭"),
 }
+
+
+def _fallback_cities(country: str) -> tuple[str, ...]:
+    """`_CITIES` 미등록 국가의 점포명 후보 — 도시명 대신 국가코드 일련번호를 쓴다.
+
+    후보가 1개면 `integers(2, 2)`가 ValueError로 죽어 서식 19건이 통째로 빌드
+    실패한다. 등록국(CN·JP·US·VN)은 이 경로를 타지 않으므로 기존 파생값은 불변이다.
+    """
+    return tuple(f"{country}{i}" for i in range(1, 5))
 
 
 def rng(key: str) -> np.random.Generator:
@@ -116,7 +126,7 @@ def branch_master(ctx) -> pd.DataFrame:
     """
     rows = []
     for country in overseas_countries(ctx):
-        cities = _CITIES.get(country, (country,))
+        cities = _CITIES.get(country) or _fallback_cities(country)
         g = rng(f"점포:{country}")
         n = int(g.integers(2, min(4, len(cities)) + 1))
         picked = list(g.choice(np.array(cities), size=n, replace=False))
@@ -171,7 +181,10 @@ def overseas_book(ctx) -> pd.DataFrame:
           .sort_values("exposure_id").reset_index(drop=True))
     df["ecl"] = df["ecl"].fillna(0.0)
     df["npl"] = df["classification"].isin(NPL_CLASSES)
-    df["dpd_band"] = [band_of(v, DPD_BANDS) for v in df["dpd"]]
+    # 연체가 없는 익스포저(dpd=0)는 구간 라벨을 붙이지 않는다. band_of는 경계값을
+    # 아래 구간에 넣으므로 0을 그대로 넣으면 정상여신이 "1~30일"로 집계된다.
+    df["dpd_band"] = [band_of(v, DPD_BANDS) if v > 0 else "연체 없음"
+                      for v in df["dpd"]]
     df["maturity_band"] = [band_of(v, MATURITY_BANDS) for v in df["maturity"]]
 
     bm = branch_master(ctx)

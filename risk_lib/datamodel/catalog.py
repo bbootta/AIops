@@ -1249,7 +1249,10 @@ OPR_DETAIL_TABLES = (OP_RECOVERY, OP_KRI, OP_CONTROL)
 # 원장. 서식 라인 하나하나가 어떤 산식·어떤 모듈에서 나왔는지 남지 않으면
 # 제출본을 재현할 수 없다.
 REPORT_FREQUENCY = ("월", "분기", "반기", "연")
-FORM_UNITS = ("KRW", "ratio", "count", "text")
+# "ratio"는 0~1 분수, "multiple"은 1을 크게 넘는 배수(회전율 등)다. 둘을 한
+# 단위로 두면 분수 검사가 배수를 거짓 위반으로 잡거나, 검사를 느슨하게 하느라
+# 11.5를 1150%로 담는 진짜 실수를 놓친다.
+FORM_UNITS = ("KRW", "ratio", "multiple", "count", "text")
 SUBMISSION_STATUS = ("draft", "reviewed", "approved", "submitted")
 
 REG_FORM = TableSpec(

@@ -19,7 +19,12 @@
     1. 부정        "파생이 아니라" · "파생하지 않았다" → 실측
     2. 동음이의    "파생상품" · "파생거래" · "파생 + SFT" → 실측
                    (derivative를 뜻하지 derived를 뜻하지 않는다)
-    3. 긍정        "파생값" · "파생 배수" · "대용" · "미보유" · …
+    3. 혼합        "합계는 실측 · 배분만 파생" → 혼합 (총액은 앵커, 내부 배분만 파생)
+    4. 긍정        "파생값" · "파생 배수" · "대용" · "미보유" · …
+
+**혼합을 실측으로 세지 않는 것이 요점이다.** 합계를 산출값에 앵커한 표는
+명세 대사가 자기충족이 아니라는 점에서 순수 파생보다 낫지만, 개별 배분은
+여전히 실측이 아니다. 둘을 합쳐 "실측 82%"라고 보고하면 과장이 된다.
 
 분류되지 않은 채 파생 관련 어휘를 품은 라인은 `unclassified()`가 되돌려
 준다. 감춰지지 않게 하려는 것이다 — 분류가 조용히 실패하면 파생값이 실측으로
@@ -38,22 +43,33 @@ BASIS_DERIVED = "파생"       # 원장 부재 — 기준일 고정 시드로 �
 BASIS_PROXY = "대용"         # 원장은 있으나 다른 지표로 대신함
 BASIS_NOT_COMPUTED = "미산출"  # 산출 체계를 갖추지 않아 0
 BASIS_NOT_ENGAGED = "미영위"   # 해당 영업을 하지 않아 0
+BASIS_MIXED = "혼합"         # 합계는 산출값에 앵커, 내부 배분만 파생
 BASIS_TEXT = "서술"          # 값이 없는 비고 라인
 
-BASES = (BASIS_MEASURED, BASIS_DERIVED, BASIS_PROXY,
+BASES = (BASIS_MEASURED, BASIS_DERIVED, BASIS_PROXY, BASIS_MIXED,
          BASIS_NOT_COMPUTED, BASIS_NOT_ENGAGED, BASIS_TEXT)
 
 # 1. 부정 — 파생이 **아니라고** 밝힌 문장. 가장 먼저 걸러야 한다.
 _NEGATIONS = ("파생이 아니라", "파생하지 않고", "파생하지 않았다",
-              "파생이 아님", "난수가 끼지 않는다")
+              "파생이 아님", "파생 아님", "난수가 끼지 않는다",
+              "파생을 쓰지 않", "파생 없이")
 
 # 2. 동음이의 — derivative(파생상품)이지 derived(파생값)가 아니다.
 _HOMONYMS = ("파생상품", "파생거래", "파생 + SFT", "파생 대지급금",
-             "파생금융", "파생결합")
+             "파생금융", "파생결합", "파생 EAD", "장외파생", "파생 명목",
+             "파생 익스포저", "파생 포지션", "부외·파생", "파생 환산")
 
-# 3. 긍정 — 실제로 파생임을 밝힌 표현.
+# 3. 혼합 — 합계는 실측이고 내부 배분만 파생인 라인. 실측으로 세면 과장이고
+# 순수 파생으로 세면 앵커가 있다는 사실이 사라진다.
+# "…만 파생"이 혼합의 표지다 — 배분만·구성비만·라벨만·지역만·비중만.
+_MIXED = ("합계는 실측", "합계는 산출", "금액은 실측", "비율은 실측",
+          "(실측)", "만 파생", "배분은 파생", "실측 합",
+          "구성비 파생", "총액은 앵커", "앵커 · ", "· 총액 앵커")
+
+# 4. 긍정 — 실제로 파생임을 밝힌 표현.
 _DERIVED = ("파생값", "파생 배수", "파생 배분", "여부는 파생", "파생하되",
-            "(파생)", "시드 고정", "고정 시드", "결정론적 RNG")
+            "(파생)", "시드 고정", "고정 시드", "결정론적 RNG",
+            "완전 파생", "앵커할 산출값 없음")
 _PROXY = ("대용", "준용", "그럴듯한 배분")
 _NOT_COMPUTED = ("미산출", "산출하지 않", "미보유", "미확보", "원장 없",
                  "원장 부재", "체계를 갖추지")
@@ -86,6 +102,8 @@ def line_basis(line) -> str:
     stripped = blob
     for h in _HOMONYMS:
         stripped = stripped.replace(h, "")
+    if any(m in stripped for m in _MIXED):
+        return BASIS_MIXED
     if any(m in stripped for m in _DERIVED):
         return BASIS_DERIVED
     if any(m in stripped for m in _NOT_ENGAGED):
@@ -130,15 +148,17 @@ def unclassified(built: list) -> pd.DataFrame:
 class Ledger:
     """확보하면 파생 라인이 실측으로 바뀌는 원장 하나.
 
-    귀속은 두 경로다. `patterns`는 라인 텍스트를 보고, `forms`는 서식 전체를
-    이 원장에 건다. 일별 시계열처럼 **라인명이 날짜인** 서식은 텍스트로 닿지
-    않으므로 서식 단위 귀속이 필요하다.
+    귀속은 세 경로다. `patterns`는 라인 텍스트를, `forms`는 서식을, `sections`는
+    편제 전체를 이 원장에 건다. 일별 시계열처럼 **라인명이 날짜인** 서식은
+    텍스트로 닿지 않고, 신용카드·해외점포·휴면금융재산처럼 **편제 전체가 하나의
+    원장을 필요로 하는** 경우는 서식을 일일이 적는 것이 곧 낡는다.
     """
     ledger_id: str
     name: str
     unlocks: str                  # 무엇이 실측으로 바뀌는가
     patterns: tuple[str, ...] = ()   # 라인 텍스트에서 이 원장을 가리키는 표현
     forms: tuple[str, ...] = ()      # 이 원장에 통째로 걸리는 FINES 서식번호
+    sections: tuple[str, ...] = ()   # 이 원장에 통째로 걸리는 편제
 
 
 LEDGERS: tuple[Ledger, ...] = (
@@ -178,13 +198,19 @@ LEDGERS: tuple[Ledger, ...] = (
            ("통화 구분", "중요통화", "통화별")),
     Ledger("LED-10", "인원·점포 원장",
            "인원현황·기구현황·점포 현황·생산성 지표",
-           ("인원", "점포", "기구현황", "직원수")),
+           ("인원", "점포", "기구현황", "직원수"),
+           sections=("제15편 일반현황", "제19편 생산성")),
     Ledger("LED-11", "신용카드 원장",
            "회원·카드·가맹점·이용실적·리볼빙·포인트 전 서식",
-           ("카드 회원", "가맹점", "카드수", "리볼빙", "포인트")),
+           ("카드 회원", "가맹점", "카드수", "리볼빙", "포인트"),
+           sections=("제20편 신용카드",)),
     Ledger("LED-12", "해외점포 원장",
            "해외점포 재무·자산건전성·수익성·자본적정성·현지화평가",
-           ("해외점포", "현지법인", "현지직원", "초국적화")),
+           ("해외점포", "현지법인", "현지직원", "초국적화"),
+           sections=("제22편 해외점포 — 일반현황", "제23편 해외점포 — 재무제표",
+                     "제24편 해외점포 — 유동성", "제25편 해외점포 — 자산건전성",
+                     "제26편 해외점포 — 수익성", "제27편 해외점포 — 자본적정성",
+                     "제28편 해외점포 — 현지화평가")),
     Ledger("LED-13", "유가증권 건전성분류 원장",
            "유가증권의 건전성 분류·충당금",
            ("유가증권 건전성", "유가증권의 건전성"),
@@ -194,14 +220,18 @@ LEDGERS: tuple[Ledger, ...] = (
            ("대출모집", "위탁사", "임직원"),
            forms=('B3114', 'B3119', 'B3220')),
     Ledger("LED-15", "신탁·종금 계정 원장",
-           "신탁계정·종금계정 대차대조표·손익계산서",
-           ("신탁계정", "종금계정", "신탁 상품별")),
+           "신탁계정·종금계정 대차대조표·손익계산서, 계정과목별 재무제표",
+           ("신탁계정", "종금계정", "신탁 상품별"),
+           sections=("제16편 재무제표",)),
     Ledger("LED-16", "집합투자·투자자문 판매 원장",
            "집합투자증권 판매·투자자문 계약·투자조언장치",
-           ("집합투자", "투자자문", "투자조언", "수익자")),
+           ("집합투자", "투자자문", "투자조언", "수익자"),
+           sections=("제29편 집합투자증권 판매", "제32편 투자자문업",
+                     "제33편 전자적 투자조언장치")),
     Ledger("LED-17", "휴면금융재산 원장",
            "휴면예금·미거래 예금·휴면 자기앞수표",
-           ("휴면", "미거래 예금", "자기앞수표")),
+           ("휴면", "미거래 예금", "자기앞수표"),
+           sections=("제30편 휴면금융재산",)),
     Ledger("LED-18", "조달처·금융상품별 원장",
            "자금조달 편중도 (중요 거래상대방·중요 금융상품 기준)",
            ("조달 편중", "거래상대방 기준", "중요 금융상품"),
@@ -218,6 +248,22 @@ LEDGERS: tuple[Ledger, ...] = (
            "국가별 경기대응완충자본 적립률 — 감독당국 고시값",
            ("경기대응완충자본", "국가별 적립률"),
            forms=("B2324",)),
+    Ledger("LED-23", "손익 세부 원장 (수수료·부문별·금리구간)",
+           "손익현황·수수료수입·부문별 손익·금리구간별 잔액·이익잉여금 처분",
+           ("수수료 신설", "부문별 손익", "금리구간"),
+           sections=("제18편 수익성",)),
+    Ledger("LED-24", "조달·운용 평잔 원장",
+           "자금조달·운용 기중평잔, 대출약정·금액대별 여신, D-SIB 평가지표",
+           ("기중평잔", "평잔", "금액대별"),
+           sections=("제17편 주요재무현황",)),
+    Ledger("LED-25", "연결 경영지표·자지점 원장",
+           "연결기준 경영지표·자회사 경영평가·자지점 현황",
+           ("자지점", "경영평가"),
+           sections=("제21편 은행유형별 업무현황",)),
+    Ledger("LED-26", "금리인하요구권 접수·심사 원장",
+           "금리인하요구권 신청·수용·인하폭 현황",
+           ("금리인하요구",),
+           sections=("제31편 금리인하요구권",)),
     Ledger("LED-22", "거액익스포저 면제대상 판정 원장",
            "거액익스포져비율 면제대상 구분 (적격CCP·국가 등)",
            ("면제대상", "적격CCP", "적격 CCP"),
@@ -225,9 +271,10 @@ LEDGERS: tuple[Ledger, ...] = (
 )
 
 
-def _ledgers_for(text: str, form_id: str = "") -> list[str]:
+def _ledgers_for(text: str, form_id: str = "", section: str = "") -> list[str]:
     return [g.ledger_id for g in LEDGERS
-            if form_id in g.forms or any(p in text for p in g.patterns)]
+            if form_id in g.forms or section in g.sections
+            or any(p in text for p in g.patterns)]
 
 
 def unattributed(built: list) -> pd.DataFrame:
@@ -239,7 +286,7 @@ def unattributed(built: list) -> pd.DataFrame:
     """
     prov = provenance_frame(built)
     open_ = prov[prov["basis"].isin(
-        (BASIS_DERIVED, BASIS_PROXY, BASIS_NOT_COMPUTED))]
+        (BASIS_DERIVED, BASIS_MIXED, BASIS_PROXY, BASIS_NOT_COMPUTED))]
     return open_[open_["ledgers"] == ""][
         ["form_id", "form_no", "line_code", "line_name", "basis"]]
 
@@ -261,7 +308,8 @@ def provenance_frame(built: list) -> pd.DataFrame:
                 "line_code": ln.line_code,
                 "line_name": ln.line_name,
                 "basis": basis,
-                "ledgers": (",".join(_ledgers_for(blob, b.spec.form_id))
+                "ledgers": (",".join(_ledgers_for(blob, b.spec.form_id,
+                                                  b.spec.section))
                             if basis != BASIS_MEASURED else ""),
                 "source_module": ln.source_module or "",
                 "citation": ln.citation or "",
