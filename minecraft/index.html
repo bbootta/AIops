@@ -504,6 +504,19 @@ function caveNoise(x, y, z) {
 }
 
 // ---------- 텍스처 (캔버스로 생성) ----------
+// TNT 옆면에 새길 'TNT' 글자 (4×5 픽셀 글리프)
+const TNT_GLYPH = {
+  T: ['1111', '0110', '0110', '0110', '0110'],
+  N: ['1001', '1101', '1011', '1001', '1001'],
+};
+function tntLetter(x, y) {
+  if (y < 5 || y > 9) return false;
+  for (const [ox, ch] of [[1, 'T'], [6, 'N'], [11, 'T']]) {
+    if (x < ox || x > ox + 3) continue;
+    return TNT_GLYPH[ch][y - 5][x - ox] === '1';
+  }
+  return false;
+}
 function makeTexture(base, fn) {
   const c = document.createElement('canvas');
   c.width = c.height = 16;
@@ -577,8 +590,10 @@ const TEX = {
   voidCrystal: makeTexture([70, 40, 110], (x, y) => (Math.abs(x - 8) + Math.abs(y - 8) < 4 ? [200, 130, 255] : [70, 40, 110])),
   flowerR: makeTexture([70, 130, 60], (x, y) => (y < 6 ? [220, 60, 70] : [70, 130, 60])),
   flowerY: makeTexture([70, 130, 60], (x, y) => (y < 6 ? [240, 200, 60] : [70, 130, 60])),
-  tnt: makeTexture([196, 46, 30], (x, y) => (y >= 6 && y <= 9 ? ((x % 5) < 2 && y >= 7 && y <= 8 ? [40, 30, 26] : [235, 228, 214]) : [196, 46, 30])),
-  megaTnt: makeTexture([130, 20, 20], (x, y) => ((y >= 3 && y <= 5) || (y >= 10 && y <= 12) ? ((x % 4) < 2 ? [50, 36, 20] : [255, 200, 60]) : [130, 20, 20])),
+  tnt: makeTexture([196, 46, 30], (x, y) => (y >= 4 && y <= 10 ? (tntLetter(x, y) ? [30, 24, 22] : [235, 228, 214]) : [196, 46, 30])),
+  tntTop: makeTexture([196, 46, 30], (x, y) => (Math.abs(x - 7.5) < 2.5 && Math.abs(y - 7.5) < 2.5 ? [40, 32, 28] : (x === 0 || y === 0 || x === 15 || y === 15 ? [150, 32, 20] : [214, 60, 40]))),
+  megaTnt: makeTexture([130, 20, 20], (x, y) => (y >= 4 && y <= 10 ? (tntLetter(x, y) ? [60, 32, 0] : [255, 200, 60]) : [130, 20, 20])),
+  megaTntTop: makeTexture([130, 20, 20], (x, y) => (Math.abs(x - 7.5) < 2.5 && Math.abs(y - 7.5) < 2.5 ? [60, 40, 10] : (x === 0 || y === 0 || x === 15 || y === 15 ? [255, 200, 60] : [150, 26, 24]))),
   lightTnt: makeTexture([36, 52, 120], (x, y) => (((x + y) % 16) >= 7 && ((x + y) % 16) <= 9 ? [255, 230, 80] : [36, 52, 120])),
   quakeTnt: makeTexture([124, 88, 52], (x, y) => (((x * 3 + y * 5) % 11) < 2 ? [50, 36, 24] : [124, 88, 52])),
   // 네더
@@ -616,8 +631,12 @@ const MATERIALS = {
   [BLOCK.VOID_CRYSTAL]: new THREE.MeshLambertMaterial({ map: TEX.voidCrystal, emissive: 0x7030c0, emissiveIntensity: 0.5 }),
   [BLOCK.FLOWER_R]: mat(TEX.flowerR),
   [BLOCK.FLOWER_Y]: mat(TEX.flowerY),
-  [BLOCK.TNT]: mat(TEX.tnt),
-  [BLOCK.MEGA_TNT]: new THREE.MeshLambertMaterial({ map: TEX.megaTnt, emissive: 0x662200, emissiveIntensity: 0.25 }),
+  [BLOCK.TNT]: [mat(TEX.tnt), mat(TEX.tnt), mat(TEX.tntTop), mat(TEX.tntTop), mat(TEX.tnt), mat(TEX.tnt)],
+  [BLOCK.MEGA_TNT]: (() => {
+    const side = new THREE.MeshLambertMaterial({ map: TEX.megaTnt, emissive: 0x662200, emissiveIntensity: 0.25 });
+    const top = new THREE.MeshLambertMaterial({ map: TEX.megaTntTop, emissive: 0x662200, emissiveIntensity: 0.25 });
+    return [side, side, top, top, side, side];
+  })(),
   [BLOCK.LIGHT_TNT]: new THREE.MeshLambertMaterial({ map: TEX.lightTnt, emissive: 0x223a88, emissiveIntensity: 0.3 }),
   [BLOCK.QUAKE_TNT]: mat(TEX.quakeTnt),
   [BLOCK.TORCH]: new THREE.MeshLambertMaterial({ map: TEX.torch, emissive: 0xff9933, emissiveIntensity: 0.55 }),
@@ -646,6 +665,8 @@ let world = new Map();  // "cx,cz" -> Uint8Array
 let edits = new Map();  // 플레이어가 바꾼 블록 (저장용)
 let torches = new Set(); // 횃불 위치 (조명용)
 let editIdx = new Map();  // 청크키 -> 그 청크 안의 편집 키들 (지연 생성 대비)
+let craters = [];         // 대형 폭발 자국 [x,y,z,R] — 블록 낱개 대신 이걸 저장/복원한다
+const rebuildQ = new Set(); // 큰 폭발의 청크 다시 그리기를 여러 프레임에 나눠 처리
 let dimDone = new Set();  // 이미 생성한 청크 키
 let dimCol = null, dimDeco = null; // 현재 차원의 열/장식 생성기
 let portals = new Set(); // 포탈 위치 (미니맵 표시용)
@@ -1102,6 +1123,7 @@ function saveGame() {
       const d = DIMS[name];
       dims[name] = {
         edits: [...d.edits],
+        craters: d.craters,
         pos: d.pos,
         crops: d.crops.size ? [...d.crops].map(([k, c]) => [k, c.stage]) : (d.cropStages ? [...d.cropStages] : []),
         chests: [...d.chests],
@@ -1236,6 +1258,7 @@ function ensureChunk(cx, cz) {
     dimDeco(cx, cz);
     genBox = null;
   }
+  carveCratersInChunk(cx, cz); // 저장된 대폭발 자국 복원
   // 플레이어가 바꿔 둔 블록(저장본 포함) 되살리기
   const es = editIdx.get(ck);
   if (es) {
@@ -1322,6 +1345,13 @@ function primeChunks(wx, wz, r) {
 }
 // 플레이어를 따라 청크를 만들고(가까운 것부터) 멀어진 청크는 메모리에서 내림
 function updateStreaming() {
+  let budgetQ = 3; // 폭발로 밀린 청크 다시 그리기
+  for (const ck of rebuildQ) {
+    if (budgetQ-- <= 0) break;
+    rebuildQ.delete(ck);
+    const [a, b] = ck.split(',').map(Number);
+    rebuildChunk(a, b);
+  }
   const R = Math.max(3, Math.min(8, Math.ceil(viewDist / CHUNK))); // 안개 너머는 안 그림
   const pcx = Math.floor(player.pos.x / CHUNK), pcz = Math.floor(player.pos.z / CHUNK);
   for (const [ck, c] of chunks) {
@@ -1364,25 +1394,83 @@ function editBlock(x, y, z, t) {
 
 // 구 형태로 블록 파괴 (폭발 공통) — 영향받은 청크를 한 번씩만 다시 그림.
 // 반경 안의 TNT는 지워지지 않고 짧은 도화선으로 연쇄 점화됨!
+// 대형 폭발은 블록마다 편집을 기록하면 저장이 터지므로 "크레이터" 하나로 남긴다
+function addCrater(cx, cy, cz, R) {
+  craters.push([cx, cy, cz, R]);
+  const c0 = Math.floor((cx - R) / CHUNK), c1 = Math.floor((cx + R) / CHUNK);
+  const d0 = Math.floor((cz - R) / CHUNK), d1 = Math.floor((cz + R) / CHUNK);
+  for (let a = c0; a <= c1; a++) {
+    for (let b = d0; b <= d1; b++) {
+      const set = editIdx.get(a + ',' + b);
+      if (!set) continue;
+      for (const k of [...set]) { // 구덩이 안의 낱개 기록은 되살아나면 안 되므로 정리
+        const [x, y, z] = k.split(',').map(Number);
+        const ddx = x - cx, ddy = y - cy, ddz = z - cz;
+        if (ddx * ddx + ddy * ddy + ddz * ddz <= R * R) { edits.delete(k); set.delete(k); }
+      }
+    }
+  }
+}
+// 저장된 크레이터를 새로 만든 청크에 다시 파낸다
+function carveCratersInChunk(cx, cz) {
+  if (!craters.length) return;
+  const x0 = cx * CHUNK, x1 = x0 + CHUNK - 1, z0 = cz * CHUNK, z1 = z0 + CHUNK - 1;
+  for (const [ox, oy, oz, R] of craters) {
+    if (ox + R < x0 || ox - R > x1 || oz + R < z0 || oz - R > z1) continue;
+    for (let x = Math.max(x0, ox - R); x <= Math.min(x1, ox + R); x++) {
+      for (let z = Math.max(z0, oz - R); z <= Math.min(z1, oz + R); z++) {
+        const dx = x - ox, dz = z - oz;
+        const rem = R * R - dx * dx - dz * dz;
+        if (rem < 0) continue;
+        const h = Math.floor(Math.sqrt(rem));
+        for (let y = Math.max(2, oy - h); y <= Math.min(Y_MAX, oy + h); y++) {
+          const t = getBlock(x, y, z);
+          if (!t || isLiquid(t) || PORTAL_BLOCKS.has(t) || t === BLOCK.CHEST || t === BLOCK.CORE) continue;
+          setBlock(x, y, z, 0);
+        }
+      }
+    }
+  }
+}
 function destroyBlocks(cx, cy, cz, R) {
+  const big = R >= 4;  // TNT급 폭발부터는 크레이터로 저장 (세이브 비대화 방지) + 리빌드 분산
   const dirty = new Set();
   const chain = [];
   // 중심 칸의 청크는 항상 리빌드 (호출 전에 중심 블록만 지워진 경우 대비)
   for (const [ddx, ddz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) dirty.add(Math.floor((cx + ddx) / CHUNK) + ',' + Math.floor((cz + ddz) / CHUNK));
-  for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) {
-    if (dx * dx + dy * dy + dz * dz > R * R) continue;
-    const x = cx + dx, y = cy + dy, z = cz + dz;
-    if (y < 2 || y > Y_MAX) continue; // 최하층 2칸은 기반암처럼 보존 (허공 구덩이·리스폰 루프 방지)
-    const t = getBlock(x, y, z);
-    if (!t || isLiquid(t)) continue;
-    if (TNT_BLOCKS.has(t)) { chain.push([x, y, z]); continue; }
-    if (PORTAL_BLOCKS.has(t) || t === BLOCK.CHEST || t === BLOCK.CORE) continue; // 포탈·상자·코어는 폭발 면역
-    if (t === BLOCK.CROP) removeCropMesh(x, y, z);
-    setBlock(x, y, z, 0);
-    noteEdit(x, y, z, 0);
-    for (const [ddx, ddz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) dirty.add(Math.floor((x + ddx) / CHUNK) + ',' + Math.floor((z + ddz) / CHUNK));
+  for (let dx = -R; dx <= R; dx++) {
+    for (let dz = -R; dz <= R; dz++) {
+      const rem = R * R - dx * dx - dz * dz;
+      if (rem < 0) continue;                 // 구 바깥 기둥은 통째로 건너뜀
+      const hh = Math.floor(Math.sqrt(rem));
+      const x = cx + dx, z = cz + dz;
+      for (let y = Math.max(2, cy - hh); y <= Math.min(Y_MAX, cy + hh); y++) { // 최하층 2칸은 기반암처럼 보존
+        const t = getBlock(x, y, z);
+        if (!t || isLiquid(t)) continue;
+        if (TNT_BLOCKS.has(t)) { chain.push([x, y, z]); continue; }
+        if (PORTAL_BLOCKS.has(t) || t === BLOCK.CHEST || t === BLOCK.CORE) continue; // 포탈·상자·코어는 폭발 면역
+        if (t === BLOCK.CROP) removeCropMesh(x, y, z);
+        setBlock(x, y, z, 0);
+        if (!big) noteEdit(x, y, z, 0);      // 큰 폭발은 아래에서 크레이터 하나로 기록
+      }
+      for (const [ddx, ddz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) dirty.add(Math.floor((x + ddx) / CHUNK) + ',' + Math.floor((z + ddz) / CHUNK));
+    }
   }
-  for (const ck of dirty) { const [a, b] = ck.split(',').map(Number); rebuildChunk(a, b); }
+  if (big) addCrater(cx, cy, cz, R);
+  // 가까운 청크는 바로, 먼 청크는 큐에 넣어 다음 프레임들에서 (한 프레임 멈춤 방지)
+  const list = [...dirty];
+  if (big) {
+    const cck = Math.floor(cx / CHUNK), cckz = Math.floor(cz / CHUNK);
+    list.sort((A, B) => {
+      const [ax, az] = A.split(',').map(Number), [bx, bz] = B.split(',').map(Number);
+      return (Math.abs(ax - cck) + Math.abs(az - cckz)) - (Math.abs(bx - cck) + Math.abs(bz - cckz));
+    });
+  }
+  list.forEach((ck, i) => {
+    if (big && i >= 9) { rebuildQ.add(ck); return; }
+    const [a, b] = ck.split(',').map(Number);
+    rebuildChunk(a, b);
+  });
   for (const [x, y, z] of chain) igniteTNT(x, y, z, 0.25 + Math.random() * 0.4);
 }
 
@@ -1535,35 +1623,39 @@ function updateTNT(dt) {
     }
     if (f.kind === BLOCK.LIGHT_TNT) { lightningExplosion(f); continue; } // ⚡
     if (f.kind === BLOCK.QUAKE_TNT) { startQuake(f); continue; }         // 🌋
-    // 대폭발 (일반 r4 / 💥 슈퍼 r20 = 부피 12500%) — 내부 TNT는 연쇄, 중심은 블록 중앙
-    const R = f.mega ? 20 : 4;
+    // 대폭발 (일반 r4 / 💥 슈퍼 r54 = 부피 250000%, 예전 슈퍼의 20배) — 내부 TNT는 연쇄
+    const R = f.mega ? 54 : 4;
     destroyBlocks(f.x, f.y, f.z, R);
     const wx = f.x + 0.5, wy = f.y + 0.5, wz = f.z + 0.5;
-    const mobR = f.mega ? 30 : 9, maxDmg = f.mega ? 200 : 20, fallOff = f.mega ? 6 : 1.6;
+    const mobR = f.mega ? 62 : 9, maxDmg = f.mega ? 4000 : 20, fallOff = f.mega ? 8 : 1.6;
     for (const m of [...animals, ...zombies]) {
       const d = Math.hypot(m.pos.x - wx, m.pos.y - wy, m.pos.z - wz);
       if (d < mobR) damageMob(m, Math.max(6, Math.ceil(maxDmg - d * fallOff)), m.pos.x - wx, m.pos.z - wz);
     }
-    const pr = f.mega ? 18 : 7;
+    const pr = f.mega ? 30 : 7;
     const pd = Math.hypot(player.pos.x - wx, player.pos.y + 0.9 - wy, player.pos.z - wz);
     if (pd < pr) damage(Math.ceil((pr - pd) * 1.5));
-    spawnFx(wx, wy, wz, M_FIRE, f.mega ? 60 : 26, f.mega ? 22 : 12, f.mega ? 0.9 : 0.6); // 화염구
-    spawnFx(wx, wy, wz, M_SMOKE, f.mega ? 40 : 18, f.mega ? 9 : 5, f.mega ? 1.8 : 1.1);  // 버섯 연기
-    if (f.mega) { // 다중 2차 화염구 + 하늘로 솟는 불기둥 + 이중 섬광
-      for (let s2 = 0; s2 < 4; s2++) {
-        spawnFx(wx + (Math.random() - 0.5) * 14, wy + Math.random() * 6, wz + (Math.random() - 0.5) * 14, M_FIRE, 10, 10, 0.8);
+    spawnFx(wx, wy, wz, M_FIRE, f.mega ? 90 : 26, f.mega ? 45 : 12, f.mega ? 1.2 : 0.6); // 화염구
+    spawnFx(wx, wy, wz, M_SMOKE, f.mega ? 60 : 18, f.mega ? 20 : 5, f.mega ? 2.4 : 1.1);  // 버섯 연기
+    if (f.mega) { // 사방 2차 화염구 + 하늘 끝까지 솟는 불기둥 + 충격파 링
+      for (let s2 = 0; s2 < 10; s2++) {
+        spawnFx(wx + (Math.random() - 0.5) * 40, wy + Math.random() * 14, wz + (Math.random() - 0.5) * 40, M_FIRE, 12, 22, 1.0);
       }
-      for (let h2 = 0; h2 < 8; h2++) spawnFx(wx, wy + 2 + h2 * 2.2, wz, M_FIRE, 3, 3, 1.0);
-      flashLight(wx, wy + 3, wz, 0xffffff, 10, 70, 0.35);
-      playSound(22, 1.6, 'sawtooth', 0.6);
-      playSound(55, 1.0, 'sawtooth', 0.4);
+      for (let h2 = 0; h2 < 20; h2++) spawnFx(wx, wy + 2 + h2 * 3.0, wz, M_FIRE, 4, 6, 1.2); // 버섯구름 기둥
+      for (let a2 = 0; a2 < 24; a2++) { // 지면을 훑는 충격파
+        const an = (a2 / 24) * Math.PI * 2;
+        spawnFx(wx + Math.cos(an) * 8, wy + 1, wz + Math.sin(an) * 8, M_SMOKE, 2, 26, 1.6);
+      }
+      flashLight(wx, wy + 3, wz, 0xffffff, 14, 140, 0.5);
+      playSound(18, 2.2, 'sawtooth', 0.65);
+      playSound(40, 1.6, 'sawtooth', 0.5);
     }
-    flashLight(wx, wy + 1, wz, 0xffa030, f.mega ? 14 : 9, f.mega ? 60 : 22, f.mega ? 1.0 : 0.55);
+    flashLight(wx, wy + 1, wz, 0xffa030, f.mega ? 18 : 9, f.mega ? 120 : 22, f.mega ? 1.6 : 0.55);
     playSound(35, 0.8, 'sawtooth', 0.5);
     playSound(120, 0.35, 'square', 0.3);
-    shakeT = Math.max(shakeT, f.mega ? 1.2 : 0.35); // 화면 흔들림
+    shakeT = Math.max(shakeT, f.mega ? 2.4 : 0.35); // 화면 흔들림
     unlock('tnt', '💣 첫 대폭발!');
-    if (f.mega) unlock('meganuke', '💥 10000% 대폭발!!');
+    if (f.mega) { unlock('meganuke', '💥 250000% 초대폭발!!'); toast('💥 250000% 초대폭발!!', 3000); }
   }
 }
 
@@ -3380,7 +3472,7 @@ const ACHV_DEFS = [
   ['emerald', '희귀한 에메랄드!'], ['hunter', '몬스터 10마리 처치'], ['boss', '좀비 군주 처치'],
   ['wither', '🌪 위더 스톰 격파!!'], ['warden', '👂 워든을 쓰러뜨렸다!'],
   ['nether', '네더에 발을 딛다'], ['void', '🌌 보이드 탐험가'],
-  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'], ['witherform', '🌪 위더 스톰으로 변신!'], ['tnt', '💣 첫 대폭발!'], ['meganuke', '💥 10000% 대폭발!!'], ['lightning', '⚡ 번개 소환!'], ['quake', '🌋 대지진!'], ['piglin', '🐷 피글린과 마주쳤다!'], ['village', '🏘 마을을 발견했다!'],
+  ['iron', '아이언 슈트 첫 변신'], ['strange', '마법사로 변신!'], ['witherform', '🌪 위더 스톰으로 변신!'], ['tnt', '💣 첫 대폭발!'], ['meganuke', '💥 250000% 초대폭발!!'], ['lightning', '⚡ 번개 소환!'], ['quake', '🌋 대지진!'], ['piglin', '🐷 피글린과 마주쳤다!'], ['village', '🏘 마을을 발견했다!'],
   ['siege', '⚔ 공성전에 참전!'], ['siege3', '⚔ 3웨이브 방어 성공!'], ['siege5', '🏰 5웨이브까지 성을 지켜냈다!'],
   ['diamondwither', '💎 다이아 위더 스톰으로 변신!'],
 ];
@@ -4996,7 +5088,7 @@ const RECIPES = [
   { name: '⚔ 공성전 포탈', desc: '다이아 2 · 금색 포탈 = 공성전 성채행', cost: { [ITEM.DIAMOND]: 2 }, make: () => { inv[BLOCK.PORTAL_SIEGE] += 1; } },
   { name: '돌벽돌 ×8', desc: '돌 4 · 성벽 보수용', cost: { [BLOCK.STONE]: 4 }, make: () => { inv[BLOCK.STONE_BRICK] += 8; } },
   { name: '💣 TNT ×2', desc: '모래 4 + 횃불 1 · 설치 후 캐면 점화!', cost: { [BLOCK.SAND]: 4, [BLOCK.TORCH]: 1 }, make: () => { inv[BLOCK.TNT] += 2; } },
-  { name: '💥 슈퍼 TNT', desc: 'TNT 4 + 다이아 1 · 12500% 대폭발 — 아주 멀리서!', cost: { [BLOCK.TNT]: 4, [ITEM.DIAMOND]: 1 }, make: () => { inv[BLOCK.MEGA_TNT] += 1; } },
+  { name: '💥 슈퍼 TNT', desc: 'TNT 4 + 다이아 1 · 250000% 초대폭발 — 아주 멀리서!', cost: { [BLOCK.TNT]: 4, [ITEM.DIAMOND]: 1 }, make: () => { inv[BLOCK.MEGA_TNT] += 1; } },
   { name: '⚡ 번개 TNT', desc: 'TNT 2 + 에메랄드 1 · 주변 적 전원에 낙뢰!', cost: { [BLOCK.TNT]: 2, [ITEM.EMERALD]: 1 }, make: () => { inv[BLOCK.LIGHT_TNT] += 1; } },
   { name: '🌋 지진 TNT', desc: 'TNT 2 + 철 2 · 땅을 가르는 충격파 링!', cost: { [BLOCK.TNT]: 2, [ITEM.IRON]: 2 }, make: () => { inv[BLOCK.QUAKE_TNT] += 1; } },
   { name: '황금 사과', desc: '금 5 · 체력 가득 회복', cost: { [ITEM.GOLD]: 5 }, make: () => { inv[ITEM.GOLD_APPLE] += 1; } },
@@ -5159,7 +5251,7 @@ document.getElementById('chestClose').addEventListener('click', closeChest);
 // ---------- 차원 (오버월드 / 네더) ----------
 function makeDim(col, deco) {
   // done: 이미 생성한 청크 키, editIdx: 아직 안 만든 청크의 편집을 되살리기 위한 청크별 색인
-  return { world: new Map(), edits: new Map(), editIdx: new Map(), torches: new Set(), portals: new Set(), crops: new Map(), chests: new Map(), done: new Set(), generated: false, col, deco, pos: null, cropStages: null };
+  return { world: new Map(), edits: new Map(), editIdx: new Map(), craters: [], torches: new Set(), portals: new Set(), crops: new Map(), chests: new Map(), done: new Set(), generated: false, col, deco, pos: null, cropStages: null };
 }
 const DIMS = { overworld: makeDim(owColumn, owDeco), nether: makeDim(netherColumn, netherDeco), void: makeDim(voidColumn, null), siege: makeDim(siegeColumn, siegeDeco) };
 const DIM_ORDER = ['overworld', 'nether', 'void', 'siege']; // 포탈 색으로 골라서 이동
@@ -5237,7 +5329,8 @@ function teleport(target, initial) {
   }
   curDim = target;
   const d = DIMS[target];
-  world = d.world; edits = d.edits; editIdx = d.editIdx; torches = d.torches; portals = d.portals; crops = d.crops; chests = d.chests;
+  world = d.world; edits = d.edits; editIdx = d.editIdx; craters = d.craters; torches = d.torches; portals = d.portals; crops = d.crops; chests = d.chests;
+  rebuildQ.clear();
   dimDone = d.done; dimCol = d.col; dimDeco = d.deco;
   if (!d.generated) genDim(d);
   else for (const [, c] of crops) scene.add(c.mesh);
@@ -5350,6 +5443,9 @@ try {
           if (!eset) d.editIdx.set(eck, eset = new Set());
           eset.add(pair[0]);
         }
+        if (Array.isArray(sd.craters)) {
+          d.craters = sd.craters.filter((c) => Array.isArray(c) && c.length === 4 && c.every((v) => typeof v === 'number' && isFinite(v)));
+        }
         d.pos = sd.pos || null;
         d.cropStages = new Map(sd.crops || []);
         for (const pair of sd.chests || []) {
@@ -5380,7 +5476,7 @@ try {
   // 부분적으로 적용된 상태를 폐기하고 깨끗한 차원으로 다시 시작
   for (const name of DIM_ORDER) {
     const d = DIMS[name];
-    if (d) { d.edits.clear(); d.editIdx.clear(); d.pos = null; d.cropStages = null; d.chests.clear(); }
+    if (d) { d.edits.clear(); d.editIdx.clear(); d.craters.length = 0; d.pos = null; d.cropStages = null; d.chests.clear(); }
   }
   curDim = 'overworld';
   saveResetReason = String(e && e.message || e);

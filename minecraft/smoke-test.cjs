@@ -251,7 +251,18 @@ try {
     if (!bomb(6, 'tnt', 130)) throw new Error('TNT 폭발 미발생 (achv=' + (store['mc_achv'] || '[]') + ')');
     console.log('  [C] TNT 설치→점화→대폭발 확인됨');
     if (!bomb(7, 'meganuke', 210)) throw new Error('슈퍼 TNT 폭발 미발생');
-    console.log('  [C] 💥 슈퍼 TNT 12500% 폭발 확인됨');
+    console.log('  [C] 💥 슈퍼 TNT 250000% 초대폭발 확인됨');
+    // 초대형 구덩이는 블록 낱개가 아니라 크레이터 한 줄로 저장되어야 함 (세이브 폭발 방지)
+    doc.hidden = true;
+    fire(doc._h.visibilitychange);
+    doc.hidden = false;
+    const saved = JSON.parse(store['mc_save_v5_s1'] || '{}');
+    const nd = (saved.dims && saved.dims.nether) || {};
+    if (!Array.isArray(nd.craters) || nd.craters.length < 1) throw new Error('크레이터 미저장: ' + JSON.stringify(nd.craters));
+    const maxR = Math.max(...nd.craters.map((c) => c[3]));
+    if (maxR < 40) throw new Error('초대폭발 반경이 작음: ' + maxR);
+    if ((nd.edits || []).length > 5000) throw new Error('세이브가 블록 낱개로 부풀었음: ' + nd.edits.length + '개');
+    console.log(`  [C] 🕳 크레이터 저장 확인됨 (최대 반경 ${maxR} · 크레이터 ${nd.craters.length}개 · 낱개 편집 ${(nd.edits || []).length}개)`);
     if (!bomb(8, 'lightning', 170)) throw new Error('번개 TNT 폭발 미발생');
     console.log('  [C] ⚡ 번개 TNT 낙뢰 확인됨');
     if (!bomb(9, 'quake', 300)) throw new Error('지진 TNT 폭발 미발생');
