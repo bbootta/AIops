@@ -342,7 +342,8 @@ KNOWN_ASSUMPTIONS: tuple[str, ...] = (
 def build_request(result, portfolio: pd.DataFrame,
                   tables: dict[str, pd.DataFrame] | None = None, *,
                   manifest=None, requested_by: str = "리스크관리 팀에이전트",
-                  artefacts: list[str] | None = None) -> ValidationRequest:
+                  artefacts: list[str] | None = None,
+                  extra_checks: list | None = None) -> ValidationRequest:
     """독립검증 요청 패키지 — 3선이 **다시 계산**할 수 있는 최소 집합."""
     asof = result.meta.get("asof", "1970-01-01")
     seed = int(result.meta.get("seed", 42))
@@ -372,6 +373,16 @@ def build_request(result, portfolio: pd.DataFrame,
                     if c.status == "FAIL"]
         warnings = [{"check": c.name, "detail": str(c.detail)}
                     for c in result.validation.checks if c.status == "WARN"]
+
+    # 조립 시점에만 가능한 체크(문서 생성 구간 대조 등)는 파이프라인 산출에
+    # 들어 있지 않다. 공유 상태를 변형하는 대신 여기서 합산한다 — 3선에 넘기는
+    # 자체검증 집계는 실제로 돌린 전부여야 한다.
+    for c in extra_checks or []:
+        summary[c.status] = summary.get(c.status, 0) + 1
+        if c.status == "FAIL":
+            failures.append(c.name)
+        elif c.status == "WARN":
+            warnings.append({"check": c.name, "detail": str(c.detail)})
 
     # 산출 근거 통계는 **생성**한다 (지적 F-501). 3선은 구조화된 `provenance`를
     # 바로 대조하고, 같은 값에서 만든 문장이 가정 목록 끝에 붙는다 — 문장과

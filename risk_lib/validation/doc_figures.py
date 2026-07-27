@@ -80,9 +80,24 @@ _CODE_RE = re.compile(r"^```.*?^```|`[^`\n]*`", re.DOTALL | re.MULTILINE)
 
 # 대조 대상 문서. 생성 구간을 가진 문서는 전부 여기 등록한다 — 등록하지 않으면
 # 아무도 대조하지 않고, 그게 F-501이 살아남은 방식이다.
+#
+# 문서는 **특정 실행**을 설명한다. 다른 기준일·다른 seed 실행에서까지 대조하면
+# 그 실행에 관한 문서가 아닌 것을 들이대는 셈이라 항상 FAIL이 나고, 그런 검사는
+# 곧 꺼진다. 그래서 문서마다 어느 실행의 것인지 함께 둔다 — 파일명이 이미
+# run_id이므로 거기서 읽는다.
 DOC_TARGETS: tuple[str, ...] = (
     "docs/independent_validation/RUN-20260630-42.remediation.md",
 )
+
+
+def docs_for_run(run_id: str) -> tuple[str, ...]:
+    """이 실행을 설명하는 문서만 고른다.
+
+    대조 대상이 0건이면 조용히 통과하는 것이 맞다 — 이 실행에 관한 문서가
+    없다는 뜻이지 문서가 낡았다는 뜻이 아니다. 반대로 대상이 있는데 구간이
+    없으면 FAIL이다 (check_blocks 소관).
+    """
+    return tuple(d for d in DOC_TARGETS if Path(d).name.startswith(f"{run_id}."))
 
 
 def _mask_code(text: str) -> str:

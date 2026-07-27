@@ -109,17 +109,25 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     # 사실과 어긋나는 결함이 네 번 반복됐고(F-103·F-201·F-401·F-501), 그때마다
     # "다음엔 대조하겠다"로 끝났다. 대조를 사람이 기억해야 하는 한 다섯 번째가
     # 온다 — 6차 조건부 결재 후속조건 2 (이행기한 2026-08-10).
-    from risk_lib.validation.doc_figures import check_doc_figures, DOC_TARGETS
-    for doc in DOC_TARGETS:
-        for c in check_doc_figures(doc, built, asof):
-            result.validation.add(c)
+    #
+    # `result.validation`에 **덧붙이지 않는다**. 덧붙이면 파이프라인 자체검증
+    # 집계가 "스튜디오를 조립했는가"에 따라 달라져 순서 의존이 생긴다 — 같은
+    # 파이프라인 결과가 호출 순서에 따라 다른 요약을 내면 그 요약은 근거가
+    # 못 된다. 별도로 들고 있다가 요청서에 명시적으로 넘긴다.
+    from risk_lib.validation.doc_figures import check_doc_figures, docs_for_run
+    # 문서 파일명의 run_id는 독립검증 규약(RUN-<asof>-<seed>)을 따른다 —
+    # 스튜디오의 run_id(seed 없음)와 다르므로 여기서 따로 만든다.
+    _iv_run = f"RUN-{asof.replace('-', '')}-{int(result.meta.get('seed', 42))}"
+    doc_checks = [c for doc in docs_for_run(_iv_run)
+                  for c in check_doc_figures(doc, built, asof)]
 
     # ---- 상시 독립검증(3선) 위임 — 매 조립마다 요청을 만들고 게이트를 본다.
     # 요청을 "필요할 때만" 만들면 결국 만들지 않게 된다.
     from risk_lib.validation.independent import (
         build_request, check_gate, request_frames,
     )
-    iv_request = build_request(result, portfolio, tables)
+    iv_request = build_request(result, portfolio, tables,
+                               extra_checks=doc_checks)
     iv_gate = check_gate(iv_request)
     tables.update(request_frames(iv_request, iv_gate))
 
