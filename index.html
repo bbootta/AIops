@@ -11,6 +11,7 @@
 <header class="topbar">
   <h1>네일 시뮬레이터</h1>
   <div class="topbar-actions">
+    <button id="btn-3d" class="btn" type="button" aria-pressed="false">3D 보기</button>
     <button id="btn-zoom" class="btn" type="button" aria-pressed="false">확대</button>
     <button id="btn-png" class="btn" type="button">PNG 저장</button>
     <button id="btn-reset" class="btn btn-ghost" type="button">초기화</button>
@@ -19,8 +20,8 @@
 
 <main class="layout">
   <section class="stage-wrap">
-    <div id="stage" class="stage" aria-label="네일 시뮬레이션 미리보기"></div>
-    <p class="stage-hint">손톱을 누르면 그 손톱만 따로 바꿀 수 있어요</p>
+    <div id="stage" class="stage" aria-label="네일 시뮬레이션 미리보기"><div id="stage-2d"></div></div>
+    <p id="stage-hint" class="stage-hint">손톱을 누르면 그 손톱만 따로 바꿀 수 있어요</p>
   </section>
 
   <aside class="panel">
@@ -89,6 +90,7 @@
 <script src="js/geometry.js"></script>
 <script src="js/presets.js"></script>
 <script src="js/render.js"></script>
+<script src="js/hand3d.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

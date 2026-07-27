@@ -22,6 +22,7 @@
   var state = {
     skin: 's2',
     backdrop: 'studio',
+    mode: '2d',
     zoom: false,
     sync: true,
     selected: ALL.slice(),
@@ -32,7 +33,8 @@
   var el = {};
   ['stage', 'fingers', 'designs', 'palette', 'arts', 'finishes', 'shapes', 'skins',
     'backdrops', 'length', 'len-label', 'color1', 'color2', 'looks', 'look-name',
-    'btn-zoom', 'btn-png', 'btn-reset', 'btn-all', 'btn-save', 'chk-sync'
+    'btn-zoom', 'btn-png', 'btn-reset', 'btn-all', 'btn-save', 'chk-sync',
+    'btn-3d', 'stage-hint', 'stage-2d'
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   /* 선택된 손가락 중 첫 번째 디자인을 컨트롤의 현재값으로 쓴다 */
@@ -49,12 +51,34 @@
     draw();
   }
 
-  /* ── 렌더 ── */
+  /* ── 렌더 ──
+   * 2D 는 매번 SVG 문자열을 새로 만들고, 3D 는 캔버스를 그대로 두고 다시 그린다.
+   * WebGL 컨텍스트는 브라우저가 개수를 제한하므로 한 번만 만들고 계속 쓴다 —
+   * 모드를 오갈 때마다 새로 만들면 몇 번 만에 컨텍스트를 잃는다. */
+  var gl3d = null;   // null = 아직 시도 안 함, false = 이 브라우저에서 불가
+
+  function ensure3D() {
+    if (gl3d === null) {
+      gl3d = !!(NS.hand3d && NS.hand3d.init(el.stage, toggleFinger));
+      if (gl3d) NS.hand3d.setRedraw(function () { NS.hand3d.draw(state); });
+    }
+    return gl3d;
+  }
+
   function draw() {
-    el.stage.innerHTML = R.renderSVG(state, { zoom: state.zoom });
-    el.stage.querySelectorAll('.nail-hit').forEach(function (p) {
-      p.addEventListener('click', function () { toggleFinger(p.dataset.finger); });
-    });
+    var use3d = state.mode === '3d' && ensure3D();
+    if (!use3d) state.mode = '2d';
+    el['stage-2d'].style.display = use3d ? 'none' : '';
+    if (gl3d) NS.hand3d.canvas().style.display = use3d ? '' : 'none';
+
+    if (use3d) {
+      NS.hand3d.draw(state);
+    } else {
+      el['stage-2d'].innerHTML = R.renderSVG(state, { zoom: state.zoom });
+      el['stage-2d'].querySelectorAll('.nail-hit').forEach(function (p) {
+        p.addEventListener('click', function () { toggleFinger(p.dataset.finger); });
+      });
+    }
     syncControls();
   }
 
@@ -89,6 +113,10 @@
     el.color1.value = d.color;
     el.color2.value = d.color2;
     el['btn-zoom'].setAttribute('aria-pressed', String(state.zoom));
+    el['btn-3d'].setAttribute('aria-pressed', String(state.mode === '3d'));
+    el['stage-hint'].textContent = state.mode === '3d'
+      ? '드래그하면 돌려볼 수 있고, 휠로 확대합니다. 손톱을 누르면 그 손톱만 바꿔요'
+      : '손톱을 누르면 그 손톱만 따로 바꿀 수 있어요';
     el['chk-sync'].checked = state.sync;
   }
 
@@ -192,19 +220,38 @@
       state.selected = ALL.slice();
       draw();
     });
+    el['btn-3d'].addEventListener('click', function () {
+      state.mode = state.mode === '3d' ? '2d' : '3d';
+      draw();
+      if (state.mode === '2d' && !gl3d) alert('이 브라우저에서는 WebGL을 쓸 수 없어 3D 보기를 열지 못했습니다.');
+    });
     el['btn-zoom'].addEventListener('click', function () { state.zoom = !state.zoom; draw(); });
     el['btn-reset'].addEventListener('click', function () {
       ALL.forEach(function (id) { state.nails[id] = defaultDesign(); });
       state.sync = true;
       state.selected = ALL.slice();
+      if (gl3d) NS.hand3d.reset();
       draw();
     });
     el['btn-png'].addEventListener('click', exportPNG);
     el['btn-save'].addEventListener('click', saveLook);
   }
 
+  function download(blob) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'nail-simulation.png';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   /* ── PNG 내보내기 ── */
   function exportPNG() {
+    if (state.mode === '3d' && gl3d) {
+      NS.hand3d.draw(state);          // 캔버스 내용이 살아 있는 시점에 읽어야 한다
+      NS.hand3d.canvas().toBlob(download);
+      return;
+    }
     var scale = 2;
     var svg = R.renderSVG(state, { zoom: state.zoom, selectable: false, scale: scale });
     var box = (state.zoom ? R.VIEW_ZOOM : R.VIEW_FULL).split(' ').map(Number);
@@ -214,13 +261,7 @@
       canvas.width = box[2] * scale;
       canvas.height = box[3] * scale;
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(function (blob) {
-        var a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'nail-simulation.png';
-        a.click();
-        URL.revokeObjectURL(a.href);
-      });
+      canvas.toBlob(download);
     };
     img.onerror = function () { alert('이미지를 만들 수 없습니다.'); };
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
