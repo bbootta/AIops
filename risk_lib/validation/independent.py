@@ -26,6 +26,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from risk_lib.regulatory.fss_master import BANK_FORMS, risk_scope
+
 # 독립검증 팀에이전트가 사는 곳. 요청 패키지에 박아 두어 수신자가 분명해진다.
 VALIDATION_TEAM_BRANCH = "claude/validation-team-agent-Pw9F5"
 VALIDATION_TEAM = "적합성검증 팀에이전트"
@@ -75,6 +77,7 @@ class ValidationRequest:
     self_validation_warnings: list[dict]   # WARN 본문 (집계만으로는 못 읽는다)
     artefacts: list[str]
     known_assumptions: list[str]      # 3선이 반드시 도전해야 할 가정
+    provenance: dict                  # 산출 근거 통계 — 문장이 아니라 수치로 넘긴다
     created_at: str
 
     def to_json(self, indent: int = 2) -> str:
@@ -247,6 +250,21 @@ def _headline(result, tables: dict[str, pd.DataFrame] | None) -> dict[str, float
 
 # 3선이 반드시 도전해야 하는 가정. 우리가 스스로 알고 있는 약한 고리를 숨기지
 # 않고 넘기는 것이 독립검증의 출발점이다.
+#
+# **여기에 기계로 산출되는 수치를 적지 않는다.** 라인 수·실측 비중을 손으로 적어
+# 두었더니 제출본(asof 2026-06-30)이 아니라 시험 고정일(2026-06-11) 실행의 값이
+# 박혀 있었다 — 지적 F-501, 문서 수치가 코드 사실과 어긋난 네 번째 재발이다.
+# 상수에는 숫자 없는 문장만 두고, 산출되는 값은 `build_request`가 실행 시점에
+# 생성해 뒤에 덧붙인다 (`provenance_sentence`).
+#
+# 레지스트리 건수도 같다 — 마스터에서 센다. 282·117·165를 손으로 적어 두면
+# `fss_master.BANK_FORMS`에 서식이 하나만 늘어도 조용히 낡고, 낡은 값은 바로
+# 옆의 생성 문장("산출한 서식 N건")과 어긋나 3선이 어느 쪽을 믿을지 정하게
+# 된다. 세는 방법이 있는 수치는 세서 쓴다.
+_N_SUBMITTABLE = sum(1 for f in BANK_FORMS if f.applicable)   # 제출대상
+_N_RISK_SCOPE = len(risk_scope())                             # 그중 리스크 소관
+_N_OUT_OF_SCOPE = _N_SUBMITTABLE - _N_RISK_SCOPE              # 나머지
+
 KNOWN_ASSUMPTIONS: tuple[str, ...] = (
     "자산건전성 분류는 연체일수 대용 규칙 — 감독규정 제27조는 채무상환능력 "
     "평가를 함께 요구한다 (risk_lib.datamodel.materialize_detail).",
@@ -292,12 +310,12 @@ KNOWN_ASSUMPTIONS: tuple[str, ...] = (
     "앵커**했으므로 명세 대사는 난수끼리의 자기충족이 아니지만, 개별 배분은 "
     "실측이 아니다 (risk_lib.regulatory.forms_fss_*_data).",
     # ---- 리스크 소관 밖 서식 163건 신설로 추가된 항목.
-    "금감원 제출대상 서식 282건을 전건 산출한다. 이 중 리스크 소관은 117건이고 "
-    "나머지 165건(신용카드·해외점포·재무제표 상세·수익성·일반현황·휴면금융재산 "
-    "등)은 리스크 산출과 멀어 **파생 의존이 높다**. 전체 5,842라인 기준 실측 "
-    "68.2% · 파생 18.3% · 미산출 4.2% · 미영위 2.9% · 혼합 2.9% · 대용 0.2%이며, "
-    "라인별 근거와 원장별 해소 경로는 risk_lib.regulatory.provenance가 산출한다 "
-    "(산출물 Pack 05_regulatory/산출근거_라인별.csv).",
+    f"금감원 제출대상 서식 {_N_SUBMITTABLE}건을 전건 산출한다 "
+    f"(risk_lib.regulatory.fss_master에서 센 값). 이 중 리스크 소관은 "
+    f"{_N_RISK_SCOPE}건이고 나머지 {_N_OUT_OF_SCOPE}건(신용카드·해외점포·"
+    "재무제표 상세·수익성·일반현황·휴면금융재산 등)은 리스크 산출과 멀어 "
+    "**파생 의존이 높다**. 근거별 라인 수·비중은 이 목록 끝에 실행 시점 "
+    "산출값으로 덧붙는다 (요청 패키지 `provenance` 필드).",
     "'혼합'은 합계를 산출값에 앵커하고 내부 배분만 파생한 라인이다 — 명세 대사가 "
     "난수끼리의 자기충족은 아니지만 개별 배분은 실측이 아니다. 실측으로 세면 "
     "과장이므로 별도 구분한다.",
@@ -355,6 +373,20 @@ def build_request(result, portfolio: pd.DataFrame,
         warnings = [{"check": c.name, "detail": str(c.detail)}
                     for c in result.validation.checks if c.status == "WARN"]
 
+    # 산출 근거 통계는 **생성**한다 (지적 F-501). 3선은 구조화된 `provenance`를
+    # 바로 대조하고, 같은 값에서 만든 문장이 가정 목록 끝에 붙는다 — 문장과
+    # 필드가 어긋날 자리가 없다. 표가 없으면 빈 dict로 남겨 "미첨부"가 보이게
+    # 한다. 0으로 채우면 대조를 통과한 것처럼 보인다.
+    from risk_lib.regulatory.provenance import (
+        provenance_sentence, provenance_stats_from_lines,
+    )
+    lines = tables.get("reg_form_line") if tables else None
+    provenance = (provenance_stats_from_lines(lines)
+                  if lines is not None and len(lines) else {})
+    assumptions = list(KNOWN_ASSUMPTIONS)
+    if provenance:
+        assumptions.append(provenance_sentence(provenance))
+
     request = ValidationRequest(
         request_id="",                # 아래에서 요청 전체를 지문화해 채운다
         run_id=run_id, asof=asof, seed=seed,
@@ -374,7 +406,8 @@ def build_request(result, portfolio: pd.DataFrame,
         self_validation_failures=failures,
         self_validation_warnings=warnings,
         artefacts=artefacts or [],
-        known_assumptions=list(KNOWN_ASSUMPTIONS),
+        known_assumptions=assumptions,
+        provenance=provenance,
         created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
     )
     return replace(request, request_id=request_identifier(request))

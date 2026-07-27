@@ -104,6 +104,16 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     tables.update(gov.build_evidence_graph(tables, run_id, digest=digest))
     tables["gov_approval"] = gov.build_approvals(tables, run_id)
 
+    # ---- 문서 생성 구간 대조 (자체검증 2선) — 서식이 여기서야 만들어지므로
+    # 파이프라인이 아니라 조립 시점에 붙인다. 문서에 손으로 적은 수치가 코드
+    # 사실과 어긋나는 결함이 네 번 반복됐고(F-103·F-201·F-401·F-501), 그때마다
+    # "다음엔 대조하겠다"로 끝났다. 대조를 사람이 기억해야 하는 한 다섯 번째가
+    # 온다 — 6차 조건부 결재 후속조건 2 (이행기한 2026-08-10).
+    from risk_lib.validation.doc_figures import check_doc_figures, DOC_TARGETS
+    for doc in DOC_TARGETS:
+        for c in check_doc_figures(doc, built, asof):
+            result.validation.add(c)
+
     # ---- 상시 독립검증(3선) 위임 — 매 조립마다 요청을 만들고 게이트를 본다.
     # 요청을 "필요할 때만" 만들면 결국 만들지 않게 된다.
     from risk_lib.validation.independent import (

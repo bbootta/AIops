@@ -28,6 +28,9 @@ class FormLine:
     citation: str | None = None
     source_module: str | None = None
     is_subtotal: bool = False
+    # 산출 근거를 라인이 스스로 밝힐 때 쓴다. 비워 두면 provenance가 formula·
+    # text_value에서 규칙으로 추론한다 — 추론이 애매한 라인만 명시하면 된다.
+    basis: str | None = None
 
 
 @dataclass(frozen=True)

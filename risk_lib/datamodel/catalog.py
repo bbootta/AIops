@@ -1253,6 +1253,8 @@ REPORT_FREQUENCY = ("월", "분기", "반기", "연")
 # 단위로 두면 분수 검사가 배수를 거짓 위반으로 잡거나, 검사를 느슨하게 하느라
 # 11.5를 1150%로 담는 진짜 실수를 놓친다.
 FORM_UNITS = ("KRW", "ratio", "multiple", "count", "text")
+# 산출 근거 도메인 — provenance가 정본이며 여기서 다시 적지 않는다.
+from risk_lib.regulatory.provenance import BASES as PROVENANCE_BASES  # noqa: E402
 SUBMISSION_STATUS = ("draft", "reviewed", "approved", "submitted")
 
 REG_FORM = TableSpec(
@@ -1295,6 +1297,12 @@ REG_FORM_LINE = TableSpec(
         C("citation", "text", "규정 근거", nullable=True),
         C("source_module", "text", "산출 모듈", nullable=True),
         C("is_subtotal", "bool", "소계 여부", nullable=False),
+        # 산출 근거를 라인이 **명시**한 경우에만 채운다. 규칙 추론과 명시가
+        # 갈라지면 provenance의 두 경로(서식 객체 · 정규 테이블)가 다른 답을
+        # 내므로, 명시값이 테이블에도 실려야 한다.
+        C("basis", "string", "산출 근거 (명시)", nullable=True,
+          allowed=PROVENANCE_BASES,
+          citation="risk_lib.regulatory.provenance — 실측·파생·혼합·대용·미산출·미영위·서술"),
     ),
     primary_key=("form_id", "line_code"),
     foreign_keys=(FK(("form_id",), "reg_form", ("form_id",)),),

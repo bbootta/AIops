@@ -704,6 +704,32 @@ def _check_capital_source(capital_source: str | None, capital: Any,
         "capital_source", "WARN" if share >= 0.5 else "PASS", detail))
 
 
+def _check_doc_figures(built: list | None, asof: str | None,
+                       doc_paths: tuple[str, ...],
+                       report: ValidationReport) -> None:
+    """문서의 생성 구간이 현재 산출과 일치하는지 — 손으로 적은 수치를 막는다.
+
+    독립검증 지적 F-103 → F-201 → F-401 → F-501. 문서 수치가 코드 사실과
+    어긋나는 결함이 **네 번 반복**됐고 매번 "다음엔 대조하겠다"로 끝났다.
+    사람의 주의력에 기대는 한 다섯 번째가 온다. 6차 조건부 결재의 후속조건이
+    이 대조를 기계에 맡기는 것이다 (이행기한 2026-08-10).
+
+    검사 대상은 문서에 `<!-- generated: 이름 -->`으로 **표시한 구간뿐이다**.
+    시정 문서에는 회차별 기록이 누적돼 있고 과거 절의 숫자는 그 시점에는
+    옳았으므로, 전부 대조하면 거짓 경보가 쏟아지고 그러면 다음 사람이 검사를
+    끈다. 꺼진 검사는 없는 검사다.
+    """
+    if not built or not asof or not doc_paths:
+        return
+    from risk_lib.validation.doc_figures import check_doc_figures
+    from pathlib import Path
+    for doc in doc_paths:
+        if not Path(doc).exists():
+            continue
+        for c in check_doc_figures(doc, built, asof):
+            report.add(c)
+
+
 def run_consistency_checks(
     *,
     sa_results: pd.DataFrame | None = None,
@@ -729,12 +755,16 @@ def run_consistency_checks(
     capital_source: str | None = None,
     capital_stack: Any = None,
     total_ead: float | None = None,
+    built_forms: list | None = None,
+    asof: str | None = None,
+    doc_paths: tuple[str, ...] = (),
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
 
     _check_stress_trough_requirement(stress_path_result, bis_result, rep)
     _check_capital_source(capital_source, capital_stack, total_ead, rep)
+    _check_doc_figures(built_forms, asof, doc_paths, rep)
 
     if sa_results is not None:
         _check_ead_positive(sa_results, rep, "sa")

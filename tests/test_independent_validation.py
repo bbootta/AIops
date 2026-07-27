@@ -94,12 +94,102 @@ def test_request_does_not_hide_self_validation_failures(result, portfolio,
 
 
 def test_request_hands_over_the_known_assumptions(request_obj):
-    """우리가 아는 약한 고리를 넘기지 않으면 3선이 도전할 대상을 못 찾는다."""
-    assert request_obj.known_assumptions == list(KNOWN_ASSUMPTIONS)
-    assert len(KNOWN_ASSUMPTIONS) >= 6
+    """우리가 아는 약한 고리를 넘기지 않으면 3선이 도전할 대상을 못 찾는다.
+
+    상수 항목은 **앞에 그대로** 실리고, 실행 시점에 산출되는 항목이 뒤에 붙는다
+    (지적 F-501 — 손으로 적은 통계를 걷어낸 결과).
+    """
+    n = len(KNOWN_ASSUMPTIONS)
+    assert request_obj.known_assumptions[:n] == list(KNOWN_ASSUMPTIONS)
+    assert len(request_obj.known_assumptions) > n
+    assert n >= 6
     joined = " ".join(KNOWN_ASSUMPTIONS)
     for topic in ("자산건전성", "CRM", "서식번호", "충격 축"):
         assert topic in joined, topic
+
+
+# ----- 산출 근거 통계는 적지 않고 생성한다 (지적 F-501 · 후속조건 1) -----------
+#
+# 문서와 가정 공시에 "5,842라인 · 실측 68.2%"라고 손으로 적혀 있었는데 그 값은
+# 시험 고정일(2026-06-11) 실행의 것이고 제출본은 2026-06-30이었다. 문서가
+# 제출물과 다른 실행을 설명하고 있었다 — 같은 유형의 네 번째 재발이다.
+
+def test_the_constant_carries_no_hand_written_line_statistics():
+    """상수에 근거 통계를 다시 적으면 그 순간부터 낡기 시작한다.
+
+    대상은 **상수**뿐이다. 실행 시점에 덧붙는 생성 문장은 바로 이 수치를 담으므로
+    요청 객체를 보면 항상 걸린다 — 정본을 금지하면 검사가 곧 꺼진다.
+
+    금지 형태는 두 가지다. 라인 수만 막으면 F-501의 절반만 막힌다. 원래 문구는
+    "전체 5,842라인 기준 실측 68.2% · 파생 18.3% …"였고, 낡아서 오해를 부른 쪽은
+    **비중**이다. 라인 수를 빼고 "실측 68.2%"만 다시 적으면 같은 결함이 그대로
+    돌아오므로 근거 라벨에 붙은 비중도 막는다.
+
+    반대로 넓히면 오탐이 난다. 상수에는 정당한 백분율이 여럿 있고(변동계수 3.8%
+    · CET1 54% · CCF 10% · 커버리지 8.1% …) 이것들까지 잡으면 다음 사람이 검사를
+    끈다. 그래서 `실측·파생·…` 라벨이 **바로 앞에 붙은** 백분율만 본다.
+    """
+    import re
+    joined = " ".join(KNOWN_ASSUMPTIONS)
+    # 숫자로 끝나는 덩어리만 본다 — "지적 F-501, 라인별 …"처럼 쉼표를 건너뛴
+    # 무관한 번호를 잡으면 오탐이고, 오탐이 나는 검사는 곧 꺼진다.
+    hits = re.findall(r"[\d,]*\d\s*(?:라인|행)\b", joined)
+    assert not hits, f"라인 수를 손으로 적었다: {hits}"
+    assert "라인 기준" not in joined
+    shares = re.findall(
+        r"(?:실측|파생|대용|미산출|미영위|혼합|서술)\s*[\d.,]+\s*%", joined)
+    assert not shares, f"근거별 비중을 손으로 적었다: {shares}"
+
+
+def test_the_registry_counts_are_counted_not_typed():
+    """제출대상·리스크 소관 건수도 마스터에서 세야 한다.
+
+    이 셋(제출대상·소관·나머지)은 바로 뒤에 붙는 생성 문장의 "산출한 서식 N건"과
+    나란히 읽힌다. 손으로 적어 두면 마스터에 서식이 하나 늘 때 조용히 낡고, 3선은
+    같은 목록 안의 두 서식 건수 중 어느 쪽을 믿을지 정해야 한다 — F-501과 같은
+    유형이다.
+    """
+    from risk_lib.regulatory.fss_master import BANK_FORMS, risk_scope
+    import risk_lib.validation.independent as iv
+
+    submittable = sum(1 for f in BANK_FORMS if f.applicable)
+    scoped = len(risk_scope())
+    assert (iv._N_SUBMITTABLE, iv._N_RISK_SCOPE, iv._N_OUT_OF_SCOPE) == (
+        submittable, scoped, submittable - scoped)
+    joined = " ".join(KNOWN_ASSUMPTIONS)
+    assert f"제출대상 서식 {submittable}건" in joined
+    assert f"리스크 소관은 {scoped}건" in joined
+
+
+def test_provenance_is_recomputed_from_the_forms_of_this_run(request_obj,
+                                                             studio):
+    """요청에 실린 통계가 이 실행의 서식에서 다시 나와야 한다.
+
+    `build_request`는 정규 테이블(reg_form_line)에서, 3선은 조립된 서식 객체에서
+    센다. 두 경로가 갈라지면 F-501이 형태만 바꿔 되살아나므로 같은 값임을 못
+    박는다.
+    """
+    from risk_lib.regulatory.provenance import provenance_stats
+    assert request_obj.provenance == provenance_stats(studio.built_forms)
+    assert request_obj.provenance["n_lines"] > 0
+
+
+def test_the_generated_assumption_quotes_the_structured_field(request_obj):
+    """문장과 구조화 필드가 어긋나면 3선이 어느 쪽을 믿을지 정해야 한다."""
+    st = request_obj.provenance
+    last = request_obj.known_assumptions[-1]
+    assert f"{st['n_lines']:,}라인" in last
+    assert f"서식 {st['n_forms']:,}건" in last
+    for basis, d in st["by_basis"].items():
+        assert f"{basis} {d['share']:.1%}" in last, basis
+
+
+def test_provenance_moves_the_request_id(request_obj):
+    """근거 통계가 바뀌면 이전 3선 응답이 승인으로 통하면 안 된다."""
+    from risk_lib.validation.independent import request_identifier
+    moved = replace(request_obj, provenance={**request_obj.provenance,
+                                             "n_lines": 1})
+    assert request_identifier(moved) != request_obj.request_id
 
 
 def test_request_round_trips_through_json(request_obj, tmp_path):

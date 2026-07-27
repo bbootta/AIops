@@ -894,6 +894,10 @@ def form_frames(built: list[BuiltForm], asof: str, *,
         "value": ln.value, "text_value": ln.text_value,
         "formula": ln.formula, "citation": ln.citation,
         "source_module": ln.source_module, "is_subtotal": ln.is_subtotal,
+        # 라인이 근거를 명시했을 때만 싣는다. 명시가 없으면 provenance가
+        # 규칙으로 추론하므로 여기서 추론값을 채우면 두 경로가 같은 값을
+        # 갖는 것처럼 보여 갈라짐을 감춘다.
+        "basis": getattr(ln, "basis", None),
     } for b in built for ln in b.lines])
     checks = pd.DataFrame([{
         "form_id": b.spec.form_id, "check_name": c.check_name,

@@ -33,7 +33,9 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import pandas as pd
 
@@ -345,3 +347,85 @@ def basis_summary(built: list) -> pd.DataFrame:
            .sort_values("n_lines", ascending=False))
     out["share"] = out["n_lines"] / total if total else 0.0
     return out.reset_index(drop=True)
+
+
+# ---------------------------------------------------------------- 생성 문장·표
+#
+# 라인 수·실측 비중은 기계가 만드는 값이다. 그런데 문서와 가정 공시에는 손으로
+# 옮겨 적혀 있었고, 그 값은 제출본(asof 2026-06-30)이 아니라 시험 고정일
+# (2026-06-11) 실행에서 나온 것이었다 — 지적 F-501. 산출값 오류는 아니었지만
+# 문서를 인용하는 검토자·결재선이 제출본과 다른 실행을 근거로 판단하게 된다.
+# 문서 수치가 코드 사실과 어긋난 네 번째 재발이었으므로, 문장도 표도 여기서
+# 만들어 손으로 적을 자리를 없앤다.
+
+
+def _stats(bases: list[str], n_forms: int) -> dict:
+    total = len(bases)
+    return {
+        "n_forms": int(n_forms),
+        "n_lines": total,
+        # 비중은 문장·표가 그대로 쓰므로 여기서 한 번만 반올림한다. 렌더러가
+        # 제각기 반올림하면 같은 실행에서 다른 숫자가 나온다.
+        "by_basis": {b: {"n_lines": n, "share": round(n / total, 6)}
+                     for b, n in Counter(bases).most_common()},
+    }
+
+
+def provenance_stats(built: list) -> dict:
+    """근거별 라인 수·비중 — 문장·표·독립검증 요청이 전부 이 dict에서 나온다."""
+    prov = provenance_frame(built)
+    return _stats(list(prov["basis"]), prov["form_id"].nunique())
+
+
+def provenance_stats_from_lines(lines: pd.DataFrame) -> dict:
+    """정규 테이블 `reg_form_line`만으로 같은 통계를 낸다.
+
+    독립검증 요청을 만드는 `build_request`는 조립된 서식 객체가 아니라 정규
+    테이블을 받는다. 통계를 "가진 쪽에서만 싣는다"로 두면 요청 패키지는 다시
+    손으로 적은 문장을 담게 되므로 여기서도 산출되게 한다.
+
+    판정은 `line_basis` 하나를 그대로 쓰고 결측만 되돌린다 — 표로 실체화되면
+    값 없는 비고 라인의 `value`가 None이 아니라 NaN이라 그 분기를 타지 못하고,
+    `formula`·`text_value`의 NaN은 진리값이 참이라 `_blob`이 깨진다.
+    """
+    rows = [SimpleNamespace(
+        value=None if pd.isna(r.value) else float(r.value),
+        text_value=None if pd.isna(r.text_value) else str(r.text_value),
+        formula=None if pd.isna(r.formula) else str(r.formula))
+        for r in lines.itertuples(index=False)]
+    return _stats([line_basis(r) for r in rows], lines["form_id"].nunique())
+
+
+def provenance_sentence(stats: dict) -> str:
+    """독립검증 요청서에 실을 한 문장.
+
+    서식 수는 **산출한** 서식이지 제출대상 서식이 아니다 — 내부 관리보고가
+    섞여 있어 둘은 다르다. 같은 목록의 다른 가정이 제출대상 건수를 말하므로,
+    라벨이 없으면 3선이 두 수를 같은 것으로 보고 불일치로 읽는다.
+    """
+    parts = " · ".join(f"{b} {d['share']:.1%}"
+                       for b, d in stats["by_basis"].items())
+    return (f"산출 근거 분류(실행 시점 생성): 산출한 서식 {stats['n_forms']:,}건 · 전체 "
+            f"{stats['n_lines']:,}라인 기준 {parts}. 이 수치는 문서에 손으로 적지 "
+            f"않고 provenance_stats가 만든다 — 라인별 근거와 원장별 해소 경로는 "
+            f"risk_lib.regulatory.provenance가 산출한다 "
+            f"(산출물 Pack 05_regulatory/산출근거_라인별.csv · 지적 F-501).")
+
+
+def provenance_report_md(stats: dict, asof: str) -> str:
+    """시정 문서에 붙일 표.
+
+    기준일을 함께 찍는 것이 요점이다 — F-501은 다른 기준일 실행의 값을 제출본
+    설명에 옮겨 적은 것이었고, 표에 기준일이 없으면 그 어긋남이 보이지 않는다.
+    """
+    share_total = sum(d["share"] for d in stats["by_basis"].values())
+    return "\n".join((
+        f"기준일 {asof} · 서식 {stats['n_forms']:,}건 — "
+        f"risk_lib.regulatory.provenance 생성 (손으로 적지 않는다)",
+        "",
+        "| 산출 근거 | 라인 수 | 비중 |",
+        "|---|---:|---:|",
+        *(f"| {b} | {d['n_lines']:,} | {d['share']:.2%} |"
+          for b, d in stats["by_basis"].items()),
+        f"| **합계** | **{stats['n_lines']:,}** | **{share_total:.2%}** |",
+    ))
