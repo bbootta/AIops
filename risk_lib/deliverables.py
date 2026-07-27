@@ -218,6 +218,16 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
                  "reg_submission"):
         tables[name].to_csv(reg_dir / f"{name}.csv", index=False,
                             encoding="utf-8-sig")
+    # 산출 근거 — 어느 라인이 실측이고 어느 라인이 파생인지, 그리고 어떤
+    # 원장을 확보하면 무엇이 실측으로 바뀌는지. 합성 데이터 제출본을 실데이터로
+    # 옮길 때 이행 계획의 근거가 된다.
+    from risk_lib.regulatory.provenance import (
+        basis_summary, ledger_impact_frame, provenance_frame,
+    )
+    for name, frame in (("산출근거_라인별", provenance_frame(studio.built_forms)),
+                        ("산출근거_요약", basis_summary(studio.built_forms)),
+                        ("원장확보_영향", ledger_impact_frame(studio.built_forms))):
+        frame.to_csv(reg_dir / f"{name}.csv", index=False, encoding="utf-8-sig")
 
     # 06 · 에이전틱 UI (자체 완결 HTML — 외부 CDN 없음)
     ui_dir = root / "06_agentic_ui"
