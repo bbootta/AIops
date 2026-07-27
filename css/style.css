@@ -1,0 +1,225 @@
+/* 색은 전부 토큰으로만 쓴다 — 라이트/다크는 이 블록에서만 갈린다. */
+:root {
+  --bg: #faf6f3;
+  --panel: #ffffff;
+  --line: #ebe1da;
+  --ink: #2f2723;
+  --muted: #8b7d75;
+  --accent: #c2185b;
+  --accent-soft: #fdeaf1;
+  --swatch-edge: rgba(0, 0, 0, .12);
+  --radius: 12px;
+  color-scheme: light;
+}
+
+/* 다크: 살짝 붉은 기가 도는 중성색 + 어두운 바탕에서도 버티는 액센트 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171214;
+    --panel: #221c1f;
+    --line: #392f33;
+    --ink: #f2e9ea;
+    --muted: #a89298;
+    --accent: #f06292;
+    --accent-soft: #3a222b;
+    --swatch-edge: rgba(255, 255, 255, .18);
+    color-scheme: dark;
+  }
+}
+
+/* 보는 사람이 테마를 직접 바꾸면 위 미디어 쿼리를 양방향으로 덮어써야 한다. */
+:root[data-theme="dark"] {
+  --bg: #171214;
+  --panel: #221c1f;
+  --line: #392f33;
+  --ink: #f2e9ea;
+  --muted: #a89298;
+  --accent: #f06292;
+  --accent-soft: #3a222b;
+  --swatch-edge: rgba(255, 255, 255, .18);
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #faf6f3;
+  --panel: #ffffff;
+  --line: #ebe1da;
+  --ink: #2f2723;
+  --muted: #8b7d75;
+  --accent: #c2185b;
+  --accent-soft: #fdeaf1;
+  --swatch-edge: rgba(0, 0, 0, .12);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+}
+
+/* ── 상단바 ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.topbar-actions { display: flex; gap: 8px; }
+
+/* ── 레이아웃 ── */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+  padding: 20px;
+  align-items: start;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.stage-wrap { position: sticky; top: 78px; }
+
+.stage {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+}
+.stage svg { display: block; width: 100%; height: 100%; }
+.stage > div { width: 100%; height: 100%; }
+.stage .gl { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.stage .gl:active { cursor: grabbing; }
+.nail-hit { cursor: pointer; }
+
+.stage-hint {
+  margin: 10px 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ── 패널 ── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 16px 16px;
+}
+.group { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.group:last-child { border-bottom: 0; padding-bottom: 0; }
+.group h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.muted { color: var(--muted); font-weight: 400; }
+.row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+
+/* ── 버튼 · 칩 ── */
+.btn {
+  font: inherit;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+.btn-ghost { color: var(--muted); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.check { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.pick { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.pick input[type="color"] {
+  width: 40px; height: 28px; padding: 0;
+  border: 1px solid var(--line); border-radius: 6px; background: none; cursor: pointer;
+}
+
+/* ── 색상 · 피부톤 스와치 ── */
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 6px; }
+.swatch {
+  aspect-ratio: 1;
+  border: 1px solid var(--swatch-edge);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+}
+.swatch[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── 추천 디자인 ── */
+.designs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.design {
+  display: flex; align-items: center; gap: 8px;
+  font: inherit; font-size: 13px; text-align: left;
+  padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel); color: var(--ink); cursor: pointer;
+}
+.design:hover { border-color: var(--muted); }
+.design i {
+  flex: none; width: 18px; height: 18px; border-radius: 50%;
+  border: 1px solid var(--swatch-edge);
+}
+
+/* ── 슬라이더 ── */
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+/* ── 저장한 룩 ── */
+.text {
+  font: inherit; flex: 1 1 120px; min-width: 0;
+  padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); color: var(--ink);
+}
+.looks { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.looks li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.looks button { font: inherit; font-size: 13px; cursor: pointer; }
+.looks .load {
+  flex: 1; text-align: left; padding: 7px 10px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink);
+}
+.looks .del { border: 0; background: none; color: var(--muted); padding: 4px 6px; }
+.looks .empty { color: var(--muted); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .stage-wrap { position: static; }
+}

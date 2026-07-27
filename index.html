@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>네일 시뮬레이터 — 미리 해보는 네일</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>네일 시뮬레이터</h1>
+  <div class="topbar-actions">
+    <button id="btn-3d" class="btn" type="button" aria-pressed="false">3D 보기</button>
+    <button id="btn-zoom" class="btn" type="button" aria-pressed="false">확대</button>
+    <button id="btn-png" class="btn" type="button">PNG 저장</button>
+    <button id="btn-reset" class="btn btn-ghost" type="button">초기화</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="stage-wrap">
+    <div id="stage" class="stage" aria-label="네일 시뮬레이션 미리보기"><div id="stage-2d"></div></div>
+    <p id="stage-hint" class="stage-hint">손톱을 누르면 그 손톱만 따로 바꿀 수 있어요</p>
+  </section>
+
+  <aside class="panel">
+
+    <div class="group">
+      <h2>손가락</h2>
+      <div id="fingers" class="chips"></div>
+      <div class="row">
+        <button id="btn-all" class="btn btn-sm" type="button">전체 선택</button>
+        <label class="check"><input type="checkbox" id="chk-sync" checked> 손톱 전체에 적용</label>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>추천 디자인</h2>
+      <div id="designs" class="designs"></div>
+    </div>
+
+    <div class="group">
+      <h2>컬러</h2>
+      <div id="palette" class="swatches"></div>
+      <div class="row">
+        <label class="pick">메인 <input type="color" id="color1"></label>
+        <label class="pick">포인트 <input type="color" id="color2"></label>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>아트</h2>
+      <div id="arts" class="chips"></div>
+    </div>
+
+    <div class="group">
+      <h2>마감</h2>
+      <div id="finishes" class="chips"></div>
+    </div>
+
+    <div class="group">
+      <h2>모양</h2>
+      <div id="shapes" class="chips"></div>
+    </div>
+
+    <div class="group">
+      <h2>길이 <span id="len-label" class="muted"></span></h2>
+      <input type="range" id="length" min="0" max="3" step="1" value="1">
+    </div>
+
+    <div class="group">
+      <h2>손 · 배경</h2>
+      <div id="skins" class="swatches"></div>
+      <div id="backdrops" class="chips"></div>
+    </div>
+
+    <div class="group">
+      <h2>내 룩</h2>
+      <div class="row">
+        <input type="text" id="look-name" class="text" placeholder="이름 (예: 하객네일)" maxlength="24">
+        <button id="btn-save" class="btn btn-sm" type="button">저장</button>
+      </div>
+      <ul id="looks" class="looks"></ul>
+    </div>
+
+  </aside>
+</main>
+
+<script src="js/geometry.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/render.js"></script>
+<script src="js/hand3d.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

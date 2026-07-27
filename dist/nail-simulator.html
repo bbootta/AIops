@@ -1,0 +1,2561 @@
+<title>네일 시뮬레이터 — 미리 해보는 네일</title>
+<style>
+/* 색은 전부 토큰으로만 쓴다 — 라이트/다크는 이 블록에서만 갈린다. */
+:root {
+  --bg: #faf6f3;
+  --panel: #ffffff;
+  --line: #ebe1da;
+  --ink: #2f2723;
+  --muted: #8b7d75;
+  --accent: #c2185b;
+  --accent-soft: #fdeaf1;
+  --swatch-edge: rgba(0, 0, 0, .12);
+  --radius: 12px;
+  color-scheme: light;
+}
+
+/* 다크: 살짝 붉은 기가 도는 중성색 + 어두운 바탕에서도 버티는 액센트 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171214;
+    --panel: #221c1f;
+    --line: #392f33;
+    --ink: #f2e9ea;
+    --muted: #a89298;
+    --accent: #f06292;
+    --accent-soft: #3a222b;
+    --swatch-edge: rgba(255, 255, 255, .18);
+    color-scheme: dark;
+  }
+}
+
+/* 보는 사람이 테마를 직접 바꾸면 위 미디어 쿼리를 양방향으로 덮어써야 한다. */
+:root[data-theme="dark"] {
+  --bg: #171214;
+  --panel: #221c1f;
+  --line: #392f33;
+  --ink: #f2e9ea;
+  --muted: #a89298;
+  --accent: #f06292;
+  --accent-soft: #3a222b;
+  --swatch-edge: rgba(255, 255, 255, .18);
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #faf6f3;
+  --panel: #ffffff;
+  --line: #ebe1da;
+  --ink: #2f2723;
+  --muted: #8b7d75;
+  --accent: #c2185b;
+  --accent-soft: #fdeaf1;
+  --swatch-edge: rgba(0, 0, 0, .12);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+}
+
+/* ── 상단바 ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.topbar-actions { display: flex; gap: 8px; }
+
+/* ── 레이아웃 ── */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+  padding: 20px;
+  align-items: start;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.stage-wrap { position: sticky; top: 78px; }
+
+.stage {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+}
+.stage svg { display: block; width: 100%; height: 100%; }
+.stage > div { width: 100%; height: 100%; }
+.stage .gl { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.stage .gl:active { cursor: grabbing; }
+.nail-hit { cursor: pointer; }
+
+.stage-hint {
+  margin: 10px 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ── 패널 ── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 16px 16px;
+}
+.group { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.group:last-child { border-bottom: 0; padding-bottom: 0; }
+.group h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.muted { color: var(--muted); font-weight: 400; }
+.row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+
+/* ── 버튼 · 칩 ── */
+.btn {
+  font: inherit;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+.btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+.btn-ghost { color: var(--muted); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.check { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.pick { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.pick input[type="color"] {
+  width: 40px; height: 28px; padding: 0;
+  border: 1px solid var(--line); border-radius: 6px; background: none; cursor: pointer;
+}
+
+/* ── 색상 · 피부톤 스와치 ── */
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 6px; }
+.swatch {
+  aspect-ratio: 1;
+  border: 1px solid var(--swatch-edge);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+}
+.swatch[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── 추천 디자인 ── */
+.designs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.design {
+  display: flex; align-items: center; gap: 8px;
+  font: inherit; font-size: 13px; text-align: left;
+  padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel); color: var(--ink); cursor: pointer;
+}
+.design:hover { border-color: var(--muted); }
+.design i {
+  flex: none; width: 18px; height: 18px; border-radius: 50%;
+  border: 1px solid var(--swatch-edge);
+}
+
+/* ── 슬라이더 ── */
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+/* ── 저장한 룩 ── */
+.text {
+  font: inherit; flex: 1 1 120px; min-width: 0;
+  padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); color: var(--ink);
+}
+.looks { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.looks li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.looks button { font: inherit; font-size: 13px; cursor: pointer; }
+.looks .load {
+  flex: 1; text-align: left; padding: 7px 10px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink);
+}
+.looks .del { border: 0; background: none; color: var(--muted); padding: 4px 6px; }
+.looks .empty { color: var(--muted); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .stage-wrap { position: static; }
+}
+</style>
+<header class="topbar">
+  <h1>네일 시뮬레이터</h1>
+  <div class="topbar-actions">
+    <button id="btn-3d" class="btn" type="button" aria-pressed="false">3D 보기</button>
+    <button id="btn-zoom" class="btn" type="button" aria-pressed="false">확대</button>
+    <button id="btn-png" class="btn" type="button">PNG 저장</button>
+    <button id="btn-reset" class="btn btn-ghost" type="button">초기화</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="stage-wrap">
+    <div id="stage" class="stage" aria-label="네일 시뮬레이션 미리보기"><div id="stage-2d"></div></div>
+    <p id="stage-hint" class="stage-hint">손톱을 누르면 그 손톱만 따로 바꿀 수 있어요</p>
+  </section>
+
+  <aside class="panel">
+
+    <div class="group">
+      <h2>손가락</h2>
+      <div id="fingers" class="chips"></div>
+      <div class="row">
+        <button id="btn-all" class="btn btn-sm" type="button">전체 선택</button>
+        <label class="check"><input type="checkbox" id="chk-sync" checked> 손톱 전체에 적용</label>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>추천 디자인</h2>
+      <div id="designs" class="designs"></div>
+    </div>
+
+    <div class="group">
+      <h2>컬러</h2>
+      <div id="palette" class="swatches"></div>
+      <div class="row">
+        <label class="pick">메인 <input type="color" id="color1"></label>
+        <label class="pick">포인트 <input type="color" id="color2"></label>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>아트</h2>
+      <div id="arts" class="chips"></div>
+    </div>
+
+    <div class="group">
+      <h2>마감</h2>
+      <div id="finishes" class="chips"></div>
+    </div>
+
+    <div class="group">
+      <h2>모양</h2>
+      <div id="shapes" class="chips"></div>
+    </div>
+
+    <div class="group">
+      <h2>길이 <span id="len-label" class="muted"></span></h2>
+      <input type="range" id="length" min="0" max="3" step="1" value="1">
+    </div>
+
+    <div class="group">
+      <h2>손 · 배경</h2>
+      <div id="skins" class="swatches"></div>
+      <div id="backdrops" class="chips"></div>
+    </div>
+
+    <div class="group">
+      <h2>내 룩</h2>
+      <div class="row">
+        <input type="text" id="look-name" class="text" placeholder="이름 (예: 하객네일)" maxlength="24">
+        <button id="btn-save" class="btn btn-sm" type="button">저장</button>
+      </div>
+      <ul id="looks" class="looks"></ul>
+    </div>
+
+  </aside>
+</main>
+<script>
+/* 손 · 네일 기하 정의 (SVG 좌표계, viewBox 0 0 900 980)
+ *
+ * 손등을 정면에서 본 포즈. 각 손가락은 기준점(bx,by)·기울기(angle)·길이(len)·
+ * 반폭(w0=밑, w1=끝)으로 정의하고, 실제 path는 여기서 생성한다.
+ * 손가락 내부 좌표계: translate(bx,by) rotate(angle) 안에서 (x, -y)
+ * → x는 손가락을 가로지르는 축, y는 밑에서 끝으로 향하는 축.
+ */
+(function (NS) {
+  'use strict';
+
+  /* bend = 끝으로 갈수록 휘는 각도(도). 밑동은 부챗살처럼 벌어져도 끝은 서로
+   * 모이는 게 편안한 손 모양이다. 곧고 나란한 막대 다섯 개는 마네킹처럼 보인다. */
+  var FINGERS = [
+    { id: 'thumb',  name: '엄지', bx: 330, by: 676, angle: -46,  len: 206, w0: 33,   w1: 26.5, bend: 14 },
+    { id: 'index',  name: '검지', bx: 402, by: 496, angle: -11,  len: 228, w0: 28,   w1: 21.2, bend: 6 },
+    { id: 'middle', name: '중지', bx: 476, by: 474, angle: -1,   len: 252, w0: 29,   w1: 21.9, bend: 1.5 },
+    { id: 'ring',   name: '약지', bx: 548, by: 488, angle: 9,    len: 231, w0: 27.5, w1: 20.7, bend: -5 },
+    { id: 'pinky',  name: '소지', bx: 612, by: 540, angle: 19,   len: 180, w0: 23.5, w1: 18.0, bend: -9 }
+  ];
+
+  /* 밑동을 원점으로 deg 만큼 회전 (손가락 좌표계) */
+  function rot(x, y, deg) {
+    var a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    return [x * c - y * s, x * s + y * c];
+  }
+
+  /* 손등 실루엣. 너클(봉우리 / 물갈퀴 골) → 새끼손가락 쪽 측면 → 손목·팔목(화면 밖) →
+   * 엄지 두덩(thenar) → 엄지·검지 사이 물갈퀴. 손바닥 길이:너클 폭 ≈ 1.05 로 맞췄다. */
+  var DORSUM = [
+    [636, 552], [648, 602], [646, 656], [634, 706],
+    [616, 748], [604, 812], [598, 900], [594, 1000],
+    [432, 1000], [428, 900], [424, 812], [414, 752],
+    [376, 742], [330, 734], [296, 714], [280, 682], [288, 648], [310, 618],
+    [338, 596], [358, 566], [370, 534], [376, 512],
+    [388, 484], [402, 472], [420, 490], [432, 512], [440, 522], [448, 512],
+    [460, 486], [476, 454], [494, 490], [507, 514], [514, 524], [522, 512],
+    [534, 480], [548, 468], [564, 496], [576, 528], [582, 540], [590, 528],
+    [601, 512], [612, 510], [626, 528]
+  ];
+
+  /* Catmull-Rom → 3차 베지어. 유기적인 실루엣을 점 목록으로 편집할 수 있게 해준다.
+   * 같은 점을 연달아 넣으면 그 지점이 뾰족해진다(스퀘어/코핀/스틸레토 팁에 사용). */
+  function smooth(pts, closed, tension) {
+    var t = (tension == null ? 1 : tension) / 6;
+    var n = pts.length;
+    var at = function (i) {
+      if (closed) return pts[(i + n) % n];
+      return pts[Math.max(0, Math.min(n - 1, i))];
+    };
+    var d = ['M ' + f(pts[0][0]) + ' ' + f(pts[0][1])];
+    var last = closed ? n : n - 1;
+    for (var i = 0; i < last; i++) {
+      var p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+      var c1 = [p1[0] + (p2[0] - p0[0]) * t, p1[1] + (p2[1] - p0[1]) * t];
+      var c2 = [p2[0] - (p3[0] - p1[0]) * t, p2[1] - (p3[1] - p1[1]) * t];
+      d.push('C ' + f(c1[0]) + ' ' + f(c1[1]) + ' ' + f(c2[0]) + ' ' + f(c2[1]) +
+             ' ' + f(p2[0]) + ' ' + f(p2[1]));
+    }
+    if (closed) d.push('Z');
+    return d.join(' ');
+  }
+
+  function f(v) { return Math.round(v * 100) / 100; }
+
+  function dorsumPath() { return smooth(DORSUM, true, 1); }
+
+  /* 손가락 폭 프로파일: [길이비, 보정계수]. 밑에서 끝으로 가늘어지면서
+   * 두 관절에서 살짝 볼륨이 붙는다 — 균일한 원통처럼 보이지 않게. */
+  var PROFILE = [
+    [0, 1.0], [0.15, 1.005], [0.32, 1.02], [0.43, 0.995],
+    [0.58, 1.015], [0.70, 0.99], [0.82, 0.965], [0.9, 0.925]
+  ];
+  var BASE_OVERLAP = 54;   // 손등에 파묻히는 길이
+
+  /* 손가락 실루엣 — 손가락 그룹 좌표계 기준.
+   * 길이비 t 지점을 bend*t 만큼 밑동 기준으로 돌려 완만한 호를 만든다. */
+  function fingerPath(fg) {
+    var L = fg.len;
+    var w = function (t, k) { return (fg.w0 + (fg.w1 - fg.w0) * t) * k; };
+    var at = function (x, t) { return rot(x, -t * L, bendAt(fg, t)); };
+    var left = [], right = [];
+    PROFILE.forEach(function (p) {
+      var x = w(p[0], p[1]);
+      left.push(at(-x, p[0]));
+      right.push(at(x, p[0]));
+    });
+    var we = w(0.9, 0.925);
+    var pts = left.concat(
+      [at(-we * 0.62, 0.975), at(0, 1), at(we * 0.62, 0.975)],
+      right.reverse()
+    );
+    return smooth(pts, false, 1) +
+      ' L ' + f(fg.w0) + ' ' + BASE_OVERLAP + ' L ' + f(-fg.w0) + ' ' + BASE_OVERLAP + ' Z';
+  }
+
+  function bendAt(fg, t) { return (fg.bend || 0) * t; }
+
+  /* 네일은 손톱이 얹히는 지점의 휘어진 각도를 그대로 따라간다. */
+  function nailBend(fg, design) {
+    var m = nailMetrics(fg, design);
+    return bendAt(fg, (m.yc + m.T * 0.5) / fg.len);
+  }
+
+  /* 손가락 관절 주름 — 첫째·둘째 관절. 손가락마다 위치를 조금씩 흩어
+   * 다섯 개가 똑같이 찍히지 않게 한다. */
+  function knuckleLines(fg) {
+    var L = fg.len;
+    var w = function (t) { return fg.w0 + (fg.w1 - fg.w0) * t; };
+    var j = ((fg.id.charCodeAt(0) * 7) % 9 - 4) / 100;   // -0.04 ~ +0.04
+    return [0.37 + j, 0.66 - j].map(function (t, i) {
+      return { t: t, y: -t * L, w: w(t) * (i ? 0.58 : 0.62), bend: bendAt(fg, t) };
+    });
+  }
+
+  /* ── 네일 ──────────────────────────────────────────────────────────
+   * 모양 정의: 왼쪽 절반 점 목록. x는 hw(반폭) 배수, y는 T(전체 길이) 배수.
+   * 큐티클(y=0)에서 시작해 팁(0,1)까지. 오른쪽은 미러링.
+   */
+  var SHAPES = {
+    round:    { name: '라운드', pts: [[-0.86, 0.02], [-0.99, 0.30], [-1.00, 0.62], [-0.88, 0.87], [-0.52, 0.98]] },
+    oval:     { name: '오벌',   pts: [[-0.86, 0.02], [-0.99, 0.32], [-0.97, 0.62], [-0.79, 0.88], [-0.44, 0.99]] },
+    squoval:  { name: '스퀘어라운드', pts: [[-0.86, 0.02], [-0.99, 0.28], [-1.00, 0.64], [-0.99, 0.88], [-0.86, 0.985], [-0.52, 1.0]] },
+    square:   { name: '스퀘어', pts: [[-0.86, 0.02], [-0.99, 0.28], [-1.00, 0.66], [-1.00, 0.94], [-0.97, 1.0], [-0.97, 1.0], [-0.5, 1.0]] },
+    almond:   { name: '아몬드', pts: [[-0.86, 0.02], [-0.99, 0.30], [-0.93, 0.58], [-0.68, 0.80], [-0.36, 0.93], [-0.12, 0.99]] },
+    stiletto: { name: '스틸레토', pts: [[-0.86, 0.02], [-0.99, 0.26], [-0.85, 0.50], [-0.58, 0.72], [-0.30, 0.88], [-0.09, 0.975], [-0.02, 1.0], [-0.02, 1.0]] },
+    coffin:   { name: '코핀',   pts: [[-0.86, 0.02], [-0.99, 0.28], [-0.96, 0.56], [-0.74, 0.80], [-0.55, 0.955], [-0.50, 1.0], [-0.50, 1.0]] }
+  };
+
+  var LENGTHS = [
+    { name: '짧게', ext: 0.0 },
+    { name: '보통', ext: 0.34 },
+    { name: '길게', ext: 0.66 },
+    { name: '아주 길게', ext: 1.00 }
+  ];
+
+  /* 손가락 + 디자인 → 네일 배치 정보 (그룹 좌표계) */
+  /* 손톱 비율은 손가락마다 다르다. 엄지는 폭에 비해 짧고(가로로 넓은 손톱),
+   * 소지는 전체가 작다. 다섯 개를 같은 비율로 그리면 붙여놓은 것처럼 보인다. */
+  var NAIL_ASPECT = { thumb: 1.62, index: 2.12, middle: 2.18, ring: 2.12, pinky: 1.95 };
+
+  function nailMetrics(fg, design) {
+    var hw = fg.w1 * 0.78;             // 네일 반폭. 사진처럼 양옆에 살이 보이게 손끝보다 좁다
+    var bed = hw * (NAIL_ASPECT[fg.id] || 2.12);   // 자연 네일(네일 베드) 길이
+    var ext = bed * LENGTHS[design.length].ext / 1.06;  // 연장 길이
+    var T = bed + ext;
+    var yc = fg.len - fg.w1 * 0.30 - bed;   // 큐티클 위치 (밑에서부터의 거리)
+    return { hw: hw, bed: bed, T: T, yc: yc, ext: ext };
+  }
+
+  /* 네일 외곽 path — 그룹 좌표계. inset>0 이면 안쪽으로 축소(림/그림자용). */
+  function nailPath(fg, design, inset) {
+    var m = nailMetrics(fg, design);
+    var s = SHAPES[design.shape] || SHAPES.round;
+    var hw = m.hw - (inset || 0);
+    var T = m.T - (inset || 0) * 1.4;
+    var yc = m.yc + (inset || 0) * 0.7;
+
+    // 완전한 좌우 대칭은 인공적이다. 손가락마다 한쪽을 아주 조금 넓힌다.
+    var skew = 1 + (((design.shape || '').length + fg.id.charCodeAt(0)) % 5 - 2) * 0.012;
+    var half = s.pts.map(function (p) { return [p[0] * hw * skew, -(yc + p[1] * T)]; });
+    var ring = half.slice();
+    ring.push([0, -(yc + T)]);
+    for (var i = half.length - 1; i >= 0; i--) ring.push([-half[i][0] / (skew * skew), half[i][1]]);
+    ring.push([0, -(yc - hw * 0.09)]);   // 큐티클 중앙이 살짝 아래로 파인다
+    return smooth(ring, true, 1);
+  }
+
+  NS.geom = {
+    FINGERS: FINGERS,
+    SHAPES: SHAPES,
+    LENGTHS: LENGTHS,
+    BASE_OVERLAP: BASE_OVERLAP,
+    dorsumPath: dorsumPath,
+    fingerPath: fingerPath,
+    knuckleLines: knuckleLines,
+    nailPath: nailPath,
+    nailMetrics: nailMetrics,
+    nailBend: nailBend,
+    bendAt: bendAt,
+    smooth: smooth,
+    f: f
+  };
+})(window.NailSim = window.NailSim || {});
+</script>
+<script>
+/* 피부톤 · 컬러 팔레트 · 마감 · 아트 · 추천 디자인 프리셋 + 색상 유틸 */
+(function (NS) {
+  'use strict';
+
+  /* ── 색상 유틸 ── */
+  function hex2rgb(h) {
+    h = String(h).replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    var n = parseInt(h, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+  function rgb2hex(c) {
+    var v = function (x) { return Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0'); };
+    return '#' + v(c.r) + v(c.g) + v(c.b);
+  }
+  function mix(a, b, t) {
+    var x = hex2rgb(a), y = hex2rgb(b);
+    return rgb2hex({ r: x.r + (y.r - x.r) * t, g: x.g + (y.g - x.g) * t, b: x.b + (y.b - x.b) * t });
+  }
+  function lighten(c, t) { return mix(c, '#ffffff', t); }
+  function darken(c, t) { return mix(c, '#000000', t); }
+  function luma(c) { var x = hex2rgb(c); return (0.299 * x.r + 0.587 * x.g + 0.114 * x.b) / 255; }
+
+  /* ── 피부톤 ──
+   * shade = 그늘색. 살의 그늘은 중성 회색이 아니라 붉은 갈색이다. 검정으로 어둡게
+   *   하면 채도가 빠져 송장처럼 보이므로 음영은 전부 이 색으로 넣는다.
+   * blood = 관절·손끝에 도는 혈색(subsurface). 핏기를 만드는 색.
+   *
+   * 디자인의 sheer(0~1)는 폴리시 불투명도다. 1보다 작으면 아래 네일 베드(루눌라·
+   * 프리엣지)가 비쳐서 자연 네일처럼 보인다. 생략하면 불투명.
+   */
+  var SKINS = [
+    { id: 's1', name: '라이트',    base: '#f8dac4', dark: '#deaa89', light: '#fff4ea', warm: '#eda389', blood: '#dd7360', shade: '#8b4327' },
+    { id: 's2', name: '아이보리',  base: '#f4d2b2', dark: '#d69d72', light: '#fff0dc', warm: '#e59a78', blood: '#d46e54', shade: '#7f3c20' },
+    { id: 's3', name: '내추럴',    base: '#e3b189', dark: '#bb7c4f', light: '#f7dabd', warm: '#d47a58', blood: '#bf5539', shade: '#6d2a13' },
+    { id: 's4', name: '탠',        base: '#c98d57', dark: '#985d33', light: '#e7b98b', warm: '#b55c3c', blood: '#a34526', shade: '#57200c' },
+    { id: 's5', name: '딥',        base: '#8d5734', dark: '#5e3119', light: '#b57e54', warm: '#843c20', blood: '#772f16', shade: '#3d1608' },
+    { id: 's6', name: '에스프레소', base: '#5f3822', dark: '#3b1e0f', light: '#895535', warm: '#5a2913', blood: '#52210f', shade: '#261005' }
+  ];
+
+  var BACKDROPS = [
+    { id: 'studio', name: '스튜디오' },
+    { id: 'blush',  name: '블러시' },
+    { id: 'noir',   name: '누아르' }
+  ];
+
+  /* ── 컬러 팔레트 ── */
+  var PALETTE = [
+    { name: '내추럴 누드',   hex: '#e9b8a3' },
+    { name: '밀키 화이트',   hex: '#f7f1ea' },
+    { name: '피치 베이지',   hex: '#e3ac92' },
+    { name: '모카',          hex: '#a9765f' },
+    { name: '코코아',        hex: '#6f4536' },
+    { name: '체리 레드',     hex: '#c9243f' },
+    { name: '버건디',        hex: '#7c1c33' },
+    { name: '코랄',          hex: '#f4735f' },
+    { name: '핫핑크',        hex: '#e2467f' },
+    { name: '베이비 핑크',   hex: '#f3bcc9' },
+    { name: '라벤더',        hex: '#b5a3d8' },
+    { name: '바이올렛',      hex: '#6d4b9e' },
+    { name: '스카이',        hex: '#9cc4e0' },
+    { name: '네이비',        hex: '#26375e' },
+    { name: '민트',          hex: '#9bd4c0' },
+    { name: '올리브',        hex: '#7f8b5c' },
+    { name: '머스터드',      hex: '#dfa63a' },
+    { name: '오렌지',        hex: '#ef7a2b' },
+    { name: '그레이',        hex: '#9a9a9f' },
+    { name: '차콜',          hex: '#3a3a40' },
+    { name: '실버',          hex: '#cfd4da' },
+    { name: '샴페인 골드',   hex: '#dcc08a' }
+  ];
+
+  var FINISHES = [
+    { id: 'gloss', name: '글로시' },
+    { id: 'matte', name: '매트' },
+    { id: 'pearl', name: '펄' },
+    { id: 'chrome', name: '크롬' }
+  ];
+
+  var ARTS = [
+    { id: 'none',   name: '단색' },
+    { id: 'french', name: '프렌치' },
+    { id: 'ombre',  name: '옴브레' },
+    { id: 'glitter', name: '글리터' },
+    { id: 'cateye', name: '마그네틱' },
+    { id: 'tip',    name: '팁 글리터' }
+  ];
+
+  /* ── 추천 디자인 (색 + 마감 + 아트 + 모양 + 길이) ── */
+  var DESIGNS = [
+    { name: '자연 네일',     color: '#f2d3c6', color2: '#fffaf6', finish: 'gloss', art: 'none',   shape: 'oval',   length: 0, sheer: 0.3 },
+    { name: '클래식 프렌치', color: '#eec1ac', color2: '#fffaf5', finish: 'gloss', art: 'french', shape: 'squoval', length: 1 },
+    { name: '밀키 젤',       color: '#f7f1ea', color2: '#ffffff', finish: 'gloss', art: 'none',   shape: 'round',  length: 0, sheer: 0.82 },
+    { name: '누드 글로시',   color: '#e9b8a3', color2: '#fff3ea', finish: 'gloss', art: 'none',   shape: 'oval',   length: 1 },
+    { name: '체리 레드',     color: '#c9243f', color2: '#7c1020', finish: 'gloss', art: 'none',   shape: 'almond', length: 2 },
+    { name: '버건디 매트',   color: '#7c1c33', color2: '#4a0e1e', finish: 'matte', art: 'none',   shape: 'coffin', length: 2 },
+    { name: '핑크 옴브레',   color: '#e2467f', color2: '#fdf0f4', finish: 'gloss', art: 'ombre',  shape: 'almond', length: 2 },
+    { name: '라벤더 크롬',   color: '#b5a3d8', color2: '#efe7ff', finish: 'chrome', art: 'none',  shape: 'almond', length: 2 },
+    { name: '실버 미러',     color: '#cfd4da', color2: '#ffffff', finish: 'chrome', art: 'none',  shape: 'coffin', length: 3 },
+    { name: '글리터 파티',   color: '#8d2f57', color2: '#ffd9a8', finish: 'gloss', art: 'glitter', shape: 'stiletto', length: 3 },
+    { name: '샴페인 팁',     color: '#f0dfd2', color2: '#dcc08a', finish: 'pearl', art: 'tip',    shape: 'squoval', length: 1 },
+    { name: '마그네틱 그레이', color: '#7d818c', color2: '#e2e6ee', finish: 'pearl', art: 'cateye', shape: 'oval', length: 1 },
+    { name: '네이비 젤',     color: '#26375e', color2: '#8fa6cd', finish: 'gloss', art: 'none',   shape: 'square', length: 1 },
+    { name: '민트 매트',     color: '#9bd4c0', color2: '#ffffff', finish: 'matte', art: 'none',   shape: 'squoval', length: 1 },
+    { name: '코코아 아몬드', color: '#6f4536', color2: '#c79b7f', finish: 'gloss', art: 'none',   shape: 'almond', length: 1 }
+  ];
+
+  NS.data = {
+    SKINS: SKINS, BACKDROPS: BACKDROPS, PALETTE: PALETTE,
+    FINISHES: FINISHES, ARTS: ARTS, DESIGNS: DESIGNS
+  };
+  NS.color = { hex2rgb: hex2rgb, rgb2hex: rgb2hex, mix: mix, lighten: lighten, darken: darken, luma: luma };
+})(window.NailSim = window.NailSim || {});
+</script>
+<script>
+/* 상태 → SVG 문자열. 문자열로 만들기 때문에 PNG 내보내기에 그대로 재사용된다. */
+(function (NS) {
+  'use strict';
+
+  var G = NS.geom, C = NS.color, D = NS.data;
+  var VIEW_FULL = '150 196 546 424';   // 손가락 전체 + 손등 윗부분 + 엄지
+  var VIEW_ZOOM = '192 212 468 306';   // 네일만 가까이
+  var FRENCH_START = 0.7;             // 프렌치 팁이 시작되는 위치 (네일 길이 비율)
+
+  /* 살의 하이라이트 색은 피부톤에서 뽑아야 한다. 모든 톤에 고정된 흰색을 쓰면
+   * 어두운 톤에서 재를 뿌린 것처럼 창백한 줄무늬가 생긴다. (네일 광택은 폴리시
+   * 표면의 반사라 흰색이 맞으므로 거기엔 그대로 흰색을 쓴다.) */
+  function hiOf(sk) { return C.lighten(sk.light, 0.3); }
+  /* 가장 깊은 그림자는 순수한 붉은 갈색이 아니라 채도가 살짝 빠진다 */
+  function deepOf(sk) { return C.mix(sk.shade, '#4a3f46', 0.28); }
+
+  function skinOf(id) {
+    for (var i = 0; i < D.SKINS.length; i++) if (D.SKINS[i].id === id) return D.SKINS[i];
+    return D.SKINS[2];
+  }
+
+  function prng(seed) {
+    return function () { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  }
+
+  /* ── defs ── */
+  function skinDefs(sk) {
+    var HI = hiOf(sk);
+    return [
+      // 손가락을 가로지르는 원통 음영. 살색을 덮어쓰지 않고 명암만 얹어야
+      // 전체 조명·피부톤과 자연스럽게 합성된다. 그늘은 검정이 아니라 sk.shade —
+      // 검정으로 어둡게 하면 채도가 빠져 밀랍/송장처럼 된다.
+
+      // 손끝 혈색 (y=0 이 끝) — 살짝이 아니라 확실히 붉게
+      grad('skinTip', 0, 0, 0, 1, [
+        [0, sk.blood + 'b0'], [0.07, sk.warm + '8c'], [0.2, sk.warm + '3d'],
+        [0.3, sk.warm + '00'], [1, sk.warm + '00']
+      ]),
+      // 밑동에서 원통 음영을 평평한 살색으로 되돌린다 (손등과 이어지게)
+      grad('baseFade', 0, 0, 0, 1, [
+        [0, sk.base + '00'], [0.5, sk.base + 'b8'], [1, sk.base + 'ff']
+      ]),
+      // 손 전체 조명 방향 (왼쪽 위 → 오른쪽 아래). 그늘 쪽도 따뜻하게.
+      grad('globalLight', 0.1, 0, 0.92, 1, [
+        [0, HI + '2b'], [0.34, HI + '00'], [0.7, sk.shade + '14'], [1, sk.shade + '2e']
+      ]),
+      blurFilter('soft1', 1.1), blurFilter('soft3', 3), blurFilter('soft6', 6),
+      blurFilter('soft14', 14), blurFilter('soft22', 22),
+      // 저주파 색 얼룩 — 부위마다 붉은 기가 다른 게 살처럼 보이는 핵심.
+      // 회색 노이즈만 얹으면 피부가 아니라 잡음이 된다.
+      noiseFill('mottle', sk.blood, 0.013, 4, 1.5, 0.52, 13),
+      noiseFill('mottleWarm', sk.warm, 0.026, 3, 1.4, 0.52, 29),
+      noiseFill('mottleFine', sk.blood, 0.19, 3, 1.4, 0.55, 61),
+      // 고주파 — 모공/살결
+      noiseFill('pores', sk.shade, 0.95, 2, 1.35, 0.53, 5),
+      noiseFill('poresHi', HI, 1.15, 2, 1.3, 0.52, 41),
+      noiseFill('matteGrain', '#8a8a8a', 1.6, 2, 1.3, 0.5, 77)
+    ].join('');
+  }
+
+  /* 터뷸런스를 알파로만 쓰고 색은 고정해, 지정한 색의 얼룩을 만든다.
+   * fractalNoise 값은 0.5 근처에 몰려 있으므로 aScale/aCut 을 그 분포에 맞춰야 한다 —
+   * 여유를 크게 잡으면 알파가 전부 0으로 잘려 아무것도 안 보인다. */
+  function noiseFill(id, color, freq, octaves, aScale, aCut, seed) {
+    var c = C.hex2rgb(color);
+    return '<filter id="' + id + '" x="0" y="0" width="100%" height="100%" ' +
+      'color-interpolation-filters="sRGB">' +
+      '<feTurbulence type="fractalNoise" baseFrequency="' + freq + '" numOctaves="' + octaves +
+      '" seed="' + seed + '" stitchTiles="stitch"/>' +
+      '<feColorMatrix type="matrix" values="' +
+      '0 0 0 0 ' + (c.r / 255).toFixed(4) + ' ' +
+      '0 0 0 0 ' + (c.g / 255).toFixed(4) + ' ' +
+      '0 0 0 0 ' + (c.b / 255).toFixed(4) + ' ' +
+      aScale + ' 0 0 0 ' + (-aCut) + '"/></filter>';
+  }
+
+  /* 월드 광원은 하나(왼쪽 위)다. 손가락은 저마다 다른 각도로 돌아가 있으므로
+   * 원통 음영을 손가락 로컬 좌표계에 그대로 걸면 엄지가 다른 방향에서 조명받는
+   * 것처럼 보인다. 손가락 축에 수직인 방향과 광원 방향의 내적으로 밝은 쪽을 정한다. */
+  var LIGHT = [-0.55, -0.83];   // 광원 방향 (SVG 좌표: y 는 아래로)
+  var LIGHT_Z = 0.55;           // 보는 쪽으로 향하는 성분
+
+  function hex2(v) {
+    var n = Math.max(0, Math.min(255, Math.round(v * 255)));
+    return (n < 16 ? '0' : '') + n.toString(16);
+  }
+
+  function cylGradient(id, fg, sk) {
+    var HI = hiOf(sk);
+    // 어두운 톤은 같은 알파로도 대비가 약해 형태가 묻힌다
+    var boost = 1 + (1 - C.luma(sk.base)) * 0.55;
+    var a = (fg.angle + (fg.bend || 0) * 0.4) * Math.PI / 180;
+    // 손가락을 가로지르는 방향(로컬 +x)이 월드에서 향하는 쪽
+    var cl = Math.cos(a) * LIGHT[0] + Math.sin(a) * LIGHT[1];
+    var bounceCol = C.mix(sk.warm, HI, 0.4);
+    var us = [-1, -0.94, -0.85, -0.7, -0.5, -0.25, 0, 0.25, 0.5, 0.7, 0.85, 0.94, 1];
+    var stops = us.map(function (u) {
+      var nz = Math.sqrt(Math.max(0, 1 - u * u));
+      var diffuse = Math.max(0, u * cl + nz * LIGHT_Z);
+      var edge = Math.pow(nz, 0.42);                              // 실루엣 쪽 감쇠
+      var bounce = Math.pow(Math.max(0, -(u * cl)), 1.6) * 0.3 * nz;
+      var lit = diffuse * edge + bounce;
+      var off = ((u + 1) / 2).toFixed(3);
+      var mid = 0.44;
+      if (lit > mid) return [off, HI + hex2((lit - mid) * 1.7 * boost)];
+      if (bounce > 0.07) return [off, bounceCol + hex2((mid - lit) * 0.8)];
+      return [off, sk.shade + hex2((mid - lit) * 1.2)];
+    });
+    return grad(id, 0, 0, 1, 0, stops);
+  }
+
+  /* 흐림 필터. 기본 필터 영역(bbox +10%)은 블러 반경보다 좁아서 잘린 자국이 남는다 —
+   * 얇고 긴 도형일수록 심하므로 영역을 넉넉하게 잡는다. */
+  function blurFilter(id, sd) {
+    return '<filter id="' + id + '" x="-100%" y="-100%" width="300%" height="300%" ' +
+      'filterUnits="objectBoundingBox"><feGaussianBlur stdDeviation="' + sd + '"/></filter>';
+  }
+
+  function grad(id, x1, y1, x2, y2, stops) {
+    return '<linearGradient id="' + id + '" x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '">' +
+      stops.map(function (s) { return stop(s[0], s[1]); }).join('') + '</linearGradient>';
+  }
+  function stop(o, c) {
+    var col = c, op = '';
+    if (col.length === 9) { op = ' stop-opacity="' + (parseInt(col.slice(7), 16) / 255).toFixed(2) + '"'; col = col.slice(0, 7); }
+    return '<stop offset="' + o + '" stop-color="' + col + '"' + op + '/>';
+  }
+
+  /* 네일 1개에 필요한 defs (그라디언트 · 클립 · 패턴) */
+  function nailDefs(fg, d, sk) {
+    var id = fg.id, out = [];
+    var m = G.nailMetrics(fg, d);
+    out.push('<clipPath id="clip-' + id + '"><path d="' + G.nailPath(fg, d, 0) + '"/></clipPath>');
+    var mm = G.nailMetrics(fg, d), ww = fg.w0 * 2;
+    var split = -(mm.yc + mm.T * 0.76);
+    out.push('<clipPath id="sideclip-' + id + '"><rect x="' + (-ww) + '" y="' + split +
+      '" width="' + (ww * 2) + '" height="' + (Math.abs(split) + G.BASE_OVERLAP + 40) + '"/></clipPath>');
+    // 테두리용 길이 방향 그라디언트 (y=0 이 팁 쪽)
+    out.push(grad('rim-' + id, 0, 0, 0, 1, [
+      [0, C.lighten(d.color, 0.85)], [0.12, C.lighten(d.color, 0.5)],
+      [0.3, C.darken(d.color, 0.4)], [1, C.darken(d.color, 0.45)]
+    ]));
+    // 네일 플레이트는 반투명해서 아래 혈관 색이 비친다. 프리엣지는 살에서 떨어져
+    // 나온 부분이라 불투명한 흰빛이 된다.
+    // 네일 베드는 피부톤에 따라 달라진다. 고정 분홍을 쓰면 어두운 톤에서 흰 얼룩이 된다.
+    var warmth = 0.22 + (1 - C.luma(sk.base)) * 0.22;
+    var bedMid = C.mix(C.lighten(sk.base, 0.34), sk.blood, warmth);
+    var bedEdge = C.mix(bedMid, sk.warm, 0.42);
+    out.push(grad('bed-' + id, 0, 0, 1, 0, [[0, bedEdge], [0.42, bedMid], [1, C.darken(bedEdge, 0.05)]]));
+    // 프리엣지(살에서 떨어져 나온 구간)만 불투명한 흰빛. 연장이 없으면 거의 없다.
+    var fe = Math.max(0.06, Math.min(0.42, m.ext / Math.max(1, m.T)));
+    var feCol = C.lighten(sk.base, 0.72);   // 프리엣지: 살에서 떨어져 불투명한 흰빛
+    var feA = Math.round(90 + fe * 300).toString(16);
+    // 길이 방향: 가운데 베드가 가장 붉고 큐티클 쪽은 루눌라로 옅어진다
+    out.push(grad('bedBlood-' + id, 0, 0, 0, 1, [
+      [0, sk.blood + '00'], [0.35, sk.blood + '2e'], [0.62, sk.blood + '3d'],
+      [0.88, sk.blood + '14'], [1, sk.blood + '00']
+    ]));
+    out.push(grad('bedLen-' + id, 0, 0, 0, 1, [
+      [0, feCol + (feA.length < 2 ? '0' + feA : feA)],
+      [fe * 0.55, feCol + '80'],
+      [Math.min(0.95, fe + 0.06), '#f2c3b400'],
+      [1, '#f2c3b400']
+    ]));
+
+    var c = d.color, c2 = d.color2;
+    if (d.finish === 'chrome') {
+      // 크롬은 환경이 비친다. 길이 방향으로 수평선(밝은 하늘 / 어두운 땅)을 넣어야
+      // 금속처럼 보인다.
+      out.push(grad('chromeEnv-' + id, 0, 0, 0, 1, [
+        [0, C.lighten(c, 0.8) + 'cc'], [0.34, C.lighten(c, 0.35) + '66'],
+        [0.46, '#00000000'], [0.6, C.darken(c, 0.55) + '73'], [1, C.darken(c, 0.35) + '4d']
+      ]));
+      out.push(grad('pol-' + id, 0, 0, 1, 0.15, [
+        [0, C.darken(c, 0.5)], [0.10, C.lighten(c, 0.62)], [0.28, c],
+        [0.5, C.darken(c, 0.34)], [0.68, C.lighten(c, 0.75)], [0.86, c], [1, C.darken(c, 0.52)]
+      ]));
+    } else if (d.art === 'ombre') {
+      out.push(grad('pol-' + id, 0, 1, 0, 0, [
+        [0, c2], [0.38, C.mix(c2, c, 0.45)], [0.72, c], [1, C.darken(c, 0.08)]
+      ]));
+    } else {
+      out.push(grad('pol-' + id, 0, 1, 0, 0, [
+        [0, C.lighten(c, 0.14)], [0.3, c], [0.82, c], [1, C.darken(c, 0.16)]
+      ]));
+    }
+    // 폴리시 위에 얹는 원통 음영 (좌우 어두움)
+    out.push(grad('polShade-' + id, 0, 0, 1, 0, [
+      [0, '#3a1a0dcc'], [0.16, '#3a1a0d00'], [0.5, '#fff6ec36'],
+      [0.84, '#3a1a0d00'], [1, '#3a1a0dcc']
+    ]));
+    if (d.finish === 'pearl') {
+      out.push(grad('pearl-' + id, 0.12, 1, 0.88, 0, [
+        [0, '#ffd0e8a8'], [0.24, '#d9f0ff9e'], [0.46, '#fff6d0b3'],
+        [0.68, '#e6d4ff9e'], [0.86, '#d4fff08f'], [1, '#ffdcefa8']
+      ]));
+    }
+    if (d.art === 'cateye') {
+      out.push(grad('cat-' + id, 0.08, 0.12, 0.92, 0.88, [
+        [0, C.darken(c, 0.5)], [0.3, C.darken(c, 0.22)], [0.43, C.mix(c, c2, 0.45)],
+        [0.5, C.lighten(c2, 0.18)], [0.57, C.mix(c, c2, 0.45)],
+        [0.7, C.darken(c, 0.22)], [1, C.darken(c, 0.52)]
+      ]));
+    }
+    if (d.art === 'glitter' || d.art === 'tip') {
+      out.push(glitterPattern('glit-' + id, c2, m));
+    }
+    return out.join('');
+  }
+
+  /* 글리터. 같은 크기의 점을 흩으면 물방울 무늬가 된다 — 대부분은 아주 잘고
+   * 소수만 크게, 밝기 편차도 크게 줘야 반짝임으로 읽힌다. */
+  function glitterPattern(id, c2, m) {
+    var r = prng(Math.round(m.hw * 977 + m.T * 31) || 7);
+    var dots = [];
+    var cols = ['#ffffff', C.lighten(c2, 0.4), '#fff0c8', C.lighten(c2, 0.75), '#ffe4f2'];
+    for (var i = 0; i < 90; i++) {
+      var x = r() * 14, y = r() * 14;
+      var big = r() > 0.88;
+      var rad = big ? 0.7 + r() * 0.7 : 0.16 + r() * 0.32;
+      dots.push('<circle cx="' + x.toFixed(2) + '" cy="' + y.toFixed(2) + '" r="' + rad.toFixed(2) +
+        '" fill="' + cols[i % cols.length] + '" opacity="' + ((big ? 0.7 : 0.3) + r() * 0.3).toFixed(2) + '"/>');
+    }
+    // 큰 반짝임 몇 개 — 사방으로 뻗는 십자
+    for (var k = 0; k < 3; k++) {
+      var sx = r() * 14, sy = r() * 14, sl = 1.3 + r() * 1.1;
+      dots.push('<path d="M ' + (sx - sl).toFixed(2) + ' ' + sy.toFixed(2) + ' L ' + (sx + sl).toFixed(2) +
+        ' ' + sy.toFixed(2) + ' M ' + sx.toFixed(2) + ' ' + (sy - sl).toFixed(2) + ' L ' + sx.toFixed(2) +
+        ' ' + (sy + sl).toFixed(2) + '" stroke="#ffffff" stroke-width="0.35" opacity="0.85"/>');
+    }
+    return '<pattern id="' + id + '" width="14" height="14" patternUnits="userSpaceOnUse">' + dots.join('') + '</pattern>';
+  }
+
+  /* ── 손 ── */
+  function xform(fg) {
+    return 'translate(' + fg.bx + ' ' + fg.by + ') rotate(' + fg.angle + ')';
+  }
+  function fingerGroup(fg, inner) {
+    return '<g transform="' + xform(fg) + '">' + inner + '</g>';
+  }
+  /* 네일은 손가락이 휜 만큼 같이 돌아야 손끝에 얹힌다. */
+  /* 손톱은 손가락이 휜 만큼 같이 돌고, 손가락마다 아주 살짝 다르게 기울어 있다
+   * (손가락 롤). 다섯 개가 정확히 정면을 향하면 붙여놓은 것처럼 보인다. */
+  var NAIL_ROLL = { thumb: -5, index: -2, middle: 0, ring: 1.5, pinky: 3 };
+  /* 휨(nailBend)은 밑동 기준으로 돌려야 손톱이 휜 손가락 끝을 따라간다.
+   * 롤은 손톱 자신의 중심에서 돌려야 한다 — 밑동 기준으로 돌리면 150~230px 떨어진
+   * 손톱이 옆으로 밀려서, 기울어지는 대신 손가락 한쪽으로 몰린다. */
+  function nailXform(fg, d) {
+    var m = G.nailMetrics(fg, d), roll = NAIL_ROLL[fg.id] || 0;
+    return 'rotate(' + G.nailBend(fg, d).toFixed(2) + ')' +
+      (roll ? ' rotate(' + roll + ' 0 ' + (-(m.yc + m.T * 0.5)).toFixed(2) + ')' : '');
+  }
+  function nailGroup(fg, d, inner) {
+    return fingerGroup(fg, '<g transform="' + nailXform(fg, d) + '">' + inner + '</g>');
+  }
+  /* clipPath 안에서는 <g> 가 무시된다 — 변환을 도형에 직접 걸어야 한다. */
+  function fingerPathAbs(fg) {
+    return '<path transform="' + xform(fg) + '" d="' + G.fingerPath(fg) + '"/>';
+  }
+
+  /* 손가락 원통 음영. 밑동에서는 baseFade 로 평평하게 되돌려 손등과 살이 이어져 보이게 한다 —
+   * 손등을 별도 실루엣으로 위에 덮으면 벙어리장갑처럼 보인다. */
+  function fingerShading(fg, sk, d) {
+    var p = G.fingerPath(fg), L = fg.len, out = [], HI = hiOf(sk);
+    out.push('<g clip-path="url(#fclip-' + fg.id + ')">');
+    out.push('<path d="' + p + '" fill="url(#skinCyl-' + fg.id + ')"/>');
+    out.push('<path d="' + p + '" fill="url(#skinTip)" opacity="0.85"/>');
+    // 밑동 음영 지우기. 전체 조명은 이 다음 단계에서 다시 얹으므로 이어짐이 끊기지 않는다.
+    out.push('<rect x="' + (-fg.w0 * 1.3) + '" y="' + (-L * 0.26) + '" width="' + (fg.w0 * 2.6) +
+      '" height="' + (L * 0.26 + G.BASE_OVERLAP + 6) + '" fill="url(#baseFade)"/>');
+
+    G.knuckleLines(fg).forEach(function (k, i) {
+      out.push('<g transform="rotate(' + k.bend.toFixed(2) + ')">');
+      // 관절에 도는 혈색 — 핏기의 절반은 여기서 나온다
+      out.push('<ellipse cx="0" cy="' + k.y + '" rx="' + (k.w * 1.5) + '" ry="' + (k.w * 1.1) +
+        '" fill="' + sk.blood + '" opacity="' + (i ? 0.16 : 0.2) + '" filter="url(#soft14)"/>');
+      // 주름은 한 줄이 아니라 잔주름 여러 줄. 한 줄이면 원통 이음새처럼 보인다.
+      out.push(knuckleWrinkles(fg, k, sk, i));
+      out.push('</g>');
+    });
+
+    // 길이 방향 잔주름 — 살결은 관절에만 있는 게 아니다
+    var rr = prng(fg.id.charCodeAt(1) * 17 + 5);
+    for (var q = 0; q < 6; q++) {
+      var qx = (rr() - 0.5) * fg.w0 * 1.5;
+      var qy = -L * (0.2 + rr() * 0.6);
+      var qh = L * (0.06 + rr() * 0.1);
+      out.push('<path d="M ' + qx.toFixed(1) + ' ' + qy.toFixed(1) + ' Q ' +
+        (qx + (rr() - 0.5) * 4).toFixed(1) + ' ' + (qy + qh / 2).toFixed(1) + ' ' +
+        (qx + (rr() - 0.5) * 5).toFixed(1) + ' ' + (qy + qh).toFixed(1) +
+        '" fill="none" stroke="' + sk.shade + '" stroke-opacity="' + (0.05 + rr() * 0.05).toFixed(3) +
+        '" stroke-width="0.8" filter="url(#soft1)"/>');
+    }
+
+    // 길이 방향 하이라이트 + 손가락 끝 살 볼륨 (휜 축을 따라간다)
+    out.push('<ellipse transform="rotate(' + G.bendAt(fg, 0.52).toFixed(2) + ')" cx="' +
+      (-fg.w0 * 0.22) + '" cy="' + (-L * 0.52) + '" rx="' + (fg.w0 * 0.3) +
+      '" ry="' + (L * 0.38) + '" fill="' + HI + '" opacity="0.17" filter="url(#soft14)"/>');
+    out.push('<ellipse transform="rotate(' + G.bendAt(fg, 0.93).toFixed(2) + ')" cx="0" cy="' +
+      (-L * 0.955) + '" rx="' + (fg.w1 * 0.85) + '" ry="' + (L * 0.05) +
+      '" fill="' + sk.blood + '" opacity="0.3" filter="url(#soft6)"/>');
+    out.push('<ellipse transform="rotate(' + G.bendAt(fg, 0.93).toFixed(2) + ')" cx="' +
+      (-fg.w1 * 0.22) + '" cy="' + (-L * 0.93) + '" rx="' + (fg.w1 * 0.5) +
+      '" ry="' + (L * 0.045) + '" fill="' + HI + '" opacity="0.2" filter="url(#soft6)"/>');
+    // 좁고 밝은 광택대 — 피부는 완전 무광이 아니다
+    out.push('<ellipse transform="rotate(' + G.bendAt(fg, 0.58).toFixed(2) + ')" cx="' +
+      (-fg.w0 * 0.34) + '" cy="' + (-L * 0.58) + '" rx="' + (fg.w0 * 0.17) +
+      '" ry="' + (L * 0.3) + '" fill="' + HI + '" opacity="0.19" filter="url(#soft6)"/>');
+    // 손톱을 감싸는 살 능선(큐티클·측면 네일폴드). 손톱이 스티커처럼 얹힌 게 아니라
+    // 살에 파묻혀 보이게 한다. 살이 있는 곳에만 있어야 하므로 손가락으로 클립된
+    // 이 그룹 안에서 그린다 — 손끝 밖으로 나간 연장 부분에는 살 능선이 없다.
+    out.push('<g transform="' + nailXform(fg, d) + '" ' +
+      'clip-path="url(#foldclip-' + fg.id + ')">');
+    out.push('<path d="' + G.nailPath(fg, d, -3.4) + '" fill="none" stroke="' + HI +
+      '" stroke-opacity="0.4" stroke-width="3" filter="url(#soft3)"/>');
+    out.push('<path d="' + G.nailPath(fg, d, -1.1) + '" fill="none" stroke="' +
+      C.mix(sk.shade, sk.blood, 0.5) + '" stroke-opacity="0.13" stroke-width="1.3" filter="url(#soft1)"/>');
+    // 손톱 양옆 살은 조금 더 밝고 붉다 (손톱이 눌러 혈색이 모인다)
+    out.push('<path d="' + G.nailPath(fg, d, -5) + '" fill="none" stroke="' +
+      C.mix(sk.blood, hiOf(sk), 0.45) + '" stroke-opacity="0.22" stroke-width="4" filter="url(#soft3)"/>');
+    // 손톱 옆 그루브 — 손톱과 살 사이의 얕은 골
+    out.push('<path d="' + G.nailPath(fg, d, -2.2) + '" fill="none" stroke="' + sk.shade +
+      '" stroke-opacity="0.1" stroke-width="2.6" filter="url(#soft3)"/>');
+    out.push('</g>');
+
+    out.push('</g>');
+    return out.join('');
+  }
+
+  /* 관절 주름. 실제 손은 가는 가로 주름이 촘촘히 겹치고 세로 주름이 살짝 얽힌다.
+   * 굵고 진하게 그으면 손가락에 해시태그를 새긴 것처럼 보이므로, 아주 옅고 짧게
+   * 여러 줄 깔고 전체를 한 번 흐린다. 사진에서도 이 주름은 "선"이 아니라 질감이다. */
+  function knuckleWrinkles(fg, k, sk, jointIndex) {
+    var r = prng(fg.id.charCodeAt(0) * 31 + fg.id.length * 7 + jointIndex * 101 + 3);
+    var HI = hiOf(sk);
+    var band = k.w * 0.95;          // 주름이 모여 있는 띠의 높이
+    var maxHalf = k.w * 0.72;       // 실루엣 가장자리까지 닿지 않게
+    var out = [];
+    // 관절 부위 자체가 살짝 어둡다 — 주름만으로는 띠로 읽히지 않는다
+    out.push('<ellipse cx="0" cy="' + k.y + '" rx="' + (k.w * 1.25) + '" ry="' + (band * 1.1) +
+      '" fill="' + sk.shade + '" opacity="0.075" filter="url(#soft6)"/>');
+    out.push('<g filter="url(#soft1)">');
+
+    // 주름 띠 위쪽으로 접힌 살의 밝은 능선
+    out.push('<path d="M ' + (-maxHalf) + ' ' + (k.y - band * 0.85) + ' Q 0 ' +
+      (k.y - band * 0.85 + 4) + ' ' + maxHalf + ' ' + (k.y - band * 0.85) +
+      '" fill="none" stroke="' + HI + '" stroke-opacity="0.2" stroke-width="3.5"/>');
+
+    var n = 12;
+    for (var i = 0; i < n; i++) {
+      var f = i / (n - 1) - 0.5;
+      var y = k.y + f * band * 1.7 + (r() - 0.5) * 2;
+      var half = maxHalf * (0.45 + r() * 0.5) * (1 - Math.abs(f) * 0.5);
+      var xo = (r() - 0.5) * k.w * 0.45;
+      var sag = 1.5 + r() * 3;
+      var op = (0.11 + r() * 0.13) * (1 - Math.abs(f) * 0.5);
+      out.push('<path d="M ' + (xo - half).toFixed(1) + ' ' + y.toFixed(1) +
+        ' Q ' + xo.toFixed(1) + ' ' + (y + sag).toFixed(1) + ' ' + (xo + half).toFixed(1) + ' ' + y.toFixed(1) +
+        '" fill="none" stroke="' + sk.shade + '" stroke-opacity="' + op.toFixed(3) +
+        '" stroke-width="' + (0.8 + r() * 0.45).toFixed(2) + '"/>');
+    }
+
+    // 가로 주름 사이를 짧게 잇는 세로 주름 — 길면 격자무늬가 되어버린다
+    for (var j = 0; j < 4; j++) {
+      var cx = (r() - 0.5) * k.w * 1.1;
+      var cy = k.y + (r() - 0.5) * band * 0.9;
+      var h = band * (0.14 + r() * 0.16);
+      out.push('<path d="M ' + cx.toFixed(1) + ' ' + (cy - h).toFixed(1) +
+        ' Q ' + (cx + (r() - 0.5) * 3).toFixed(1) + ' ' + cy.toFixed(1) +
+        ' ' + (cx + (r() - 0.5) * 3).toFixed(1) + ' ' + (cy + h).toFixed(1) +
+        '" fill="none" stroke="' + sk.shade + '" stroke-opacity="' + (0.07 + r() * 0.07).toFixed(3) +
+        '" stroke-width="0.75"/>');
+    }
+    out.push('</g>');
+    return out.join('');
+  }
+
+  /* 손톱을 감싸는 살은 자연 네일이 살에 붙어 있는 구간에만 있다. 프리엣지(손끝 밖으로
+   * 자란 부분) 주위에는 살이 없으므로 그 위로는 능선을 그리지 않는다. */
+  function foldClip(fg) {
+    var d = { shape: 'oval', length: 0 };   // 폴드 범위는 길이와 무관하게 자연 네일 기준
+    var m = G.nailMetrics(fg, d);
+    var w = fg.w0 * 2;
+    var cut = -(m.yc + m.bed * 0.92);
+    return '<clipPath id="foldclip-' + fg.id + '"><rect x="' + (-w) + '" y="' + cut +
+      '" width="' + (w * 2) + '" height="' + (Math.abs(cut) + G.BASE_OVERLAP + 40) + '"/></clipPath>';
+  }
+
+  function silhouette(order) {
+    var parts = ['<path d="' + G.dorsumPath() + '"/>'];
+    order.forEach(function (fg) { parts.push(fingerPathAbs(fg)); });
+    return parts.join('');
+  }
+
+  /* 그림자는 한 겹이면 스티커를 띄운 것처럼 보인다. 접지에 가까운 진한 그림자와
+   * 멀리 퍼지는 옅은 그림자를 겹쳐야 손이 공간 안에 놓인 것으로 읽힌다. */
+  function handShadow(order) {
+    var sil = silhouette(order);
+    return '<g transform="translate(34 46)" filter="url(#soft22)" opacity="0.16" fill="#4a2718">' +
+      sil + '</g>' +
+      '<g transform="translate(13 17)" filter="url(#soft14)" opacity="0.2" fill="#53291a">' +
+      sil + '</g>' +
+      '<g transform="translate(5 6)" filter="url(#soft6)" opacity="0.16" fill="#4a2214">' +
+      sil + '</g>';
+  }
+
+  function handClip(order, sk) {
+    var out = ['<clipPath id="handClip">' + silhouette(order) + '</clipPath>'];
+    order.forEach(function (fg) {
+      var p = '<path d="' + G.fingerPath(fg) + '"/>';
+      // 손가락 좌표계용 / 손 전체 좌표계용
+      out.push('<clipPath id="fclip-' + fg.id + '">' + p + '</clipPath>');
+      out.push(cylGradient('skinCyl-' + fg.id, fg, sk));
+      out.push('<clipPath id="fclip-' + fg.id + '-abs">' + fingerPathAbs(fg) + '</clipPath>');
+      out.push(foldClip(fg));
+    });
+    return out.join('');
+  }
+
+  /* 손등 음영. 테두리가 생기는 채움 대신 흐린 덩어리만 써서 손가락과의 경계선을 만들지 않는다. */
+  function dorsumShading(sk) {
+    var out = [], HI = hiOf(sk);
+    // 힘줄 — 너클에서 손목 방향. 밝은 능선 + 옆의 골을 쌍으로 넣어야 튀어나와 보인다.
+    [[402, 512, 448, 742], [476, 494, 484, 748], [548, 506, 530, 744], [612, 552, 574, 736]].forEach(function (t) {
+      var d = 'M ' + t[0] + ' ' + t[1] + ' C ' + t[0] + ' ' + (t[1] + 80) + ' ' + t[2] + ' ' +
+        (t[3] - 100) + ' ' + t[2] + ' ' + t[3];
+      out.push('<g transform="translate(-5 0)"><path d="' + d + '" fill="none" stroke="' + sk.shade +
+        '" stroke-opacity="0.14" stroke-width="9" filter="url(#soft6)"/></g>');
+      out.push('<path d="' + d + '" fill="none" stroke="' + HI +
+        '" stroke-opacity="0.30" stroke-width="13" filter="url(#soft6)"/>');
+      out.push('<g transform="translate(7 0)"><path d="' + d + '" fill="none" stroke="' + sk.shade +
+        '" stroke-opacity="0.16" stroke-width="10" filter="url(#soft6)"/></g>');
+    });
+    // 엄지·검지 사이 첫 번째 등쪽 근육(first dorsal interosseous) 볼륨
+    out.push('<ellipse cx="392" cy="556" rx="30" ry="44" fill="' + HI +
+      '" opacity="0.14" filter="url(#soft22)" transform="rotate(-18 392 556)"/>');
+    // 너클 피부는 주변보다 약간 거칠고 어둡다
+    [[402, 506, 20], [476, 488, 21], [548, 502, 20], [612, 544, 17]].forEach(function (k) {
+      out.push('<ellipse cx="' + k[0] + '" cy="' + k[1] + '" rx="' + (k[2] * 1.6) + '" ry="' + (k[2] * 1.2) +
+        '" fill="' + sk.shade + '" opacity="0.05" filter="url(#soft6)"/>');
+    });
+    // 너클 — 넓고 부드럽게. 작고 진하면 얼룩처럼 보인다.
+    [[402, 506, 20], [476, 488, 21], [548, 502, 20], [612, 544, 17]].forEach(function (k) {
+      out.push('<ellipse cx="' + k[0] + '" cy="' + k[1] + '" rx="' + (k[2] * 1.5) + '" ry="' + (k[2] * 1.1) +
+        '" fill="' + HI + '" opacity="0.38" filter="url(#soft6)"/>');
+      out.push('<ellipse cx="' + k[0] + '" cy="' + (k[1] + k[2] * 0.15) + '" rx="' + (k[2] * 0.42) +
+        '" ry="' + (k[2] * 0.3) + '" fill="' + sk.shade + '" opacity="0.15" filter="url(#soft3)"/>');
+      out.push('<ellipse cx="' + k[0] + '" cy="' + (k[1] + k[2] * 1.9) + '" rx="' + (k[2] * 1.35) +
+        '" ry="' + (k[2] * 0.9) + '" fill="' + sk.shade + '" opacity="0.16" filter="url(#soft6)"/>');
+    });
+    // 손등 정맥 — 흐리고 옅게. 이게 없으면 손등이 밀랍판처럼 남는다.
+    var vein = C.mix(sk.shade, '#3f5f74', 0.6);
+    [
+      'M 428 484 C 424 522 434 560 442 600 C 446 630 444 664 440 700',
+      'M 498 468 C 496 508 502 552 500 604 C 499 640 502 672 506 704',
+      'M 568 488 C 564 524 553 562 546 602 C 542 634 542 668 544 700',
+      'M 498 516 C 476 526 456 522 440 510',
+      'M 502 556 C 524 566 542 562 556 550',
+      'M 458 596 C 480 606 512 608 540 600'
+    ].forEach(function (d, i) {
+      out.push('<path d="' + d + '" fill="none" stroke="' + vein + '" stroke-opacity="' +
+        (i > 2 ? 0.14 : 0.21) + '" stroke-width="' + (i > 2 ? 4 : 6.5) +
+        '" stroke-linecap="round" filter="url(#soft6)"/>');
+    });
+    // 너클 사이 중수골 사이 골
+    [[440, 540], [514, 542], [582, 556]].forEach(function (v) {
+      out.push('<ellipse cx="' + v[0] + '" cy="' + v[1] + '" rx="11" ry="34" fill="' + sk.shade +
+        '" opacity="0.14" filter="url(#soft6)"/>');
+    });
+    // 엄지 두덩 · 손등 중앙 볼륨 · 새끼손가락 쪽 측면 음영
+    out.push('<ellipse cx="332" cy="656" rx="58" ry="64" fill="' + C.lighten(sk.light, 0.2) +
+      '" opacity="0.4" filter="url(#soft22)"/>');
+    out.push('<ellipse cx="466" cy="606" rx="98" ry="104" fill="' + HI + '" opacity="0.15" filter="url(#soft22)"/>');
+    out.push('<ellipse cx="642" cy="636" rx="30" ry="106" fill="' + C.darken(sk.dark, 0.25) +
+      '" opacity="0.42" filter="url(#soft22)"/>');
+    out.push('<ellipse cx="292" cy="700" rx="26" ry="52" fill="' + C.darken(sk.dark, 0.2) +
+      '" opacity="0.3" filter="url(#soft22)"/>');
+    // 손목 주름
+    out.push('<ellipse cx="500" cy="720" rx="150" ry="90" fill="' + sk.warm +
+      '" opacity="0.14" filter="url(#soft22)"/>');
+    out.push('<path d="M 424 754 Q 512 776 612 750" fill="none" stroke="' + sk.shade +
+      '" stroke-opacity="0.16" stroke-width="4" filter="url(#soft6)"/>');
+
+    // 물갈퀴 골 바닥의 앰비언트 오클루전 — 골 주변 살이 어두워야 골이 깊어 보인다
+    [[440, 524, 15], [514, 526, 15], [582, 542, 13], [378, 516, 13]].forEach(function (w) {
+      out.push('<ellipse cx="' + w[0] + '" cy="' + w[1] + '" rx="' + w[2] + '" ry="' + (w[2] * 1.5) +
+        '" fill="' + deepOf(sk) + '" opacity="0.24" filter="url(#soft6)"/>');
+    });
+    // 손가락이 손등에 드리우는 그림자 (밑동 오른쪽 아래)
+    [[410, 520, 26], [484, 502, 27], [556, 516, 26], [618, 556, 22]].forEach(function (k) {
+      out.push('<ellipse cx="' + (k[0] + k[2] * 0.45) + '" cy="' + (k[1] + k[2] * 1.1) + '" rx="' + (k[2] * 1.6) +
+        '" ry="' + (k[2] * 0.95) + '" fill="' + sk.shade + '" opacity="0.075" filter="url(#soft22)"/>');
+    });
+    return out.join('');
+  }
+
+  /* ── 네일 렌더 ── */
+  function nail(fg, d, sk, selected) {
+    var m = G.nailMetrics(fg, d);
+    var id = fg.id, hw = m.hw, T = m.T, yc = m.yc;
+    var path = G.nailPath(fg, d, 0);
+    var Y = function (r) { return -(yc + T * r); };
+    var out = [];
+    var bright = 1 - C.luma(d.color) * 0.42;   // 밝은 색일수록 하이라이트를 약하게
+
+    // 네일 아래로 떨어지는 그림자
+    out.push('<path d="' + G.nailPath(fg, d, -1.5) + '" transform="translate(1.6 2)" fill="#4a1f10" opacity="0.26" filter="url(#soft3)"/>');
+
+    var g = ['<g clip-path="url(#clip-' + id + ')">'];
+    g.push('<path d="' + path + '" fill="url(#bed-' + id + ')"/>');
+    // 루눌라 — 밑동의 옅은 반달. 엄지가 가장 크고 소지는 거의 없다.
+    var lun = { thumb: 1, index: 0.75, middle: 0.7, ring: 0.55, pinky: 0.25 }[id] || 0.6;
+    if (lun > 0.3) {
+      g.push('<ellipse cx="0" cy="' + (-(yc + T * 0.02)) + '" rx="' + (hw * 0.62 * lun) +
+        '" ry="' + (Math.max(3, m.bed * 0.18) * lun) + '" fill="' + C.lighten(sk.base, 0.78) + '" opacity="' +
+        (0.8 * lun).toFixed(2) + '" filter="url(#soft3)"/>');
+    }
+    g.push('<path d="' + path + '" fill="url(#bedBlood-' + id + ')"/>');
+    // 프리엣지: 손끝 밖으로 나온 구간은 흰빛으로
+    g.push('<path d="' + path + '" fill="url(#bedLen-' + id + ')"/>');
+
+    // 베이스 폴리시. sheer 가 1보다 작으면 아래 베드(루눌라·프리엣지)가 비친다 —
+    // 실제 네일 플레이트가 반투명한 것과 같다.
+    var baseFill = d.art === 'cateye' ? 'url(#cat-' + id + ')' : 'url(#pol-' + id + ')';
+    g.push('<path d="' + path + '" fill="' + baseFill + '"' +
+      (d.sheer && d.sheer < 1 ? ' opacity="' + d.sheer + '"' : '') + '/>');
+
+    // 아트 레이어
+    if (d.art === 'french' || d.art === 'tip') {
+      var tipFill = d.art === 'tip' ? 'url(#glit-' + id + ')' : 'url(#polTip-' + id + ')';
+      if (d.art === 'tip') g.push('<path d="' + smilePath(hw, yc, T, FRENCH_START) + '" fill="' + C.darken(d.color2, 0.05) + '" opacity="0.55"/>');
+      g.push('<path d="' + smilePath(hw, yc, T, FRENCH_START) + '" fill="' + tipFill + '" opacity="0.94"/>');
+      if (d.art === 'french') {
+        g.push('<path d="' + smilePath(hw, yc, T, FRENCH_START) + '" fill="' + C.lighten(d.color2, 0.25) + '" opacity="0.35"/>');
+        g.push('<path d="' + smileLine(hw, yc, T, FRENCH_START) + '" fill="none" stroke="#00000022" stroke-width="1" filter="url(#soft1)"/>');
+      }
+    }
+    if (d.art === 'glitter') {
+      g.push('<path d="' + path + '" fill="url(#glit-' + id + ')" opacity="0.95"/>');
+      g.push('<path d="' + path + '" fill="' + d.color + '" opacity="0.18"/>');
+    }
+
+    // 마감
+    if (d.finish === 'chrome') g.push('<path d="' + path + '" fill="url(#chromeEnv-' + id + ')"/>');
+    if (d.finish === 'pearl') g.push('<path d="' + path + '" fill="url(#pearl-' + id + ')" opacity="0.5" style="mix-blend-mode:screen"/>');
+    g.push('<path d="' + path + '" fill="url(#polShade-' + id + ')" opacity="' +
+      (d.finish === 'matte' ? 0.15 : (d.sheer && d.sheer < 0.6 ? 0.55 : 0.4)) + '"/>');
+
+    if (d.finish === 'matte') {
+      g.push('<path d="' + path + '" fill="#ffffff" opacity="0.03"/>');
+      g.push('<rect x="' + (-hw * 1.5) + '" y="' + Y(1.3) + '" width="' + (hw * 3) +
+        '" height="' + (T * 1.5) + '" filter="url(#matteGrain)" opacity="0.22" ' +
+        'style="mix-blend-mode:overlay"/>');
+      g.push('<ellipse cx="' + (-hw * 0.2) + '" cy="' + Y(0.6) + '" rx="' + hw * 0.75 + '" ry="' + T * 0.34 +
+        '" fill="#ffffff" opacity="' + (0.08 * bright).toFixed(3) + '" filter="url(#soft6)"/>');
+    } else {
+      var s = (d.finish === 'chrome' ? 1.25 : 1) * bright;
+      // 넓게 퍼진 반사 + 그 안의 창문 모양 반사. 젤은 부드러운 덩어리가 아니라
+      // 광원의 형태가 비친다.
+      g.push('<ellipse cx="' + (-hw * 0.33) + '" cy="' + Y(0.55) + '" rx="' + hw * 0.4 + '" ry="' + T * 0.3 +
+        '" fill="#ffffff" opacity="' + (0.22 * s).toFixed(3) + '" filter="url(#soft3)"/>');
+      g.push('<path d="' + windowGloss(hw, yc, T, -0.36, 0.56, 0.2, 0.24) +
+        '" fill="#ffffff" opacity="' + (0.46 * s).toFixed(3) + '" filter="url(#soft1)"/>');
+      g.push('<path d="' + windowGloss(hw, yc, T, 0.42, 0.34, 0.11, 0.14) +
+        '" fill="#ffffff" opacity="' + (0.2 * s).toFixed(3) + '" filter="url(#soft3)"/>');
+      g.push('<ellipse cx="' + (-hw * 0.28) + '" cy="' + Y(0.78) + '" rx="' + hw * 0.12 + '" ry="' + T * 0.06 +
+        '" fill="#ffffff" opacity="' + (0.9 * s).toFixed(3) + '" filter="url(#soft1)"/>');
+      g.push('<ellipse cx="0" cy="' + Y(0.99) + '" rx="' + hw * 0.78 + '" ry="' + T * 0.05 +
+        '" fill="#ffffff" opacity="' + (0.3 * s).toFixed(3) + '" filter="url(#soft3)"/>');
+      g.push('<ellipse cx="' + (hw * 0.62) + '" cy="' + Y(0.38) + '" rx="' + hw * 0.17 + '" ry="' + T * 0.22 +
+        '" fill="#ffffff" opacity="' + (0.16 * s).toFixed(3) + '" filter="url(#soft3)"/>');
+    }
+
+    // 큐티클 음영 + 자연 네일이 끝나는 선(프리엣지)
+    g.push('<ellipse cx="0" cy="' + (-yc) + '" rx="' + hw * 0.95 + '" ry="' + Math.max(2.2, T * 0.07) +
+      '" fill="#54240f" opacity="0.26" filter="url(#soft3)"/>');
+    // 자연 네일이 끝나는 선은 시어일 때만 보인다. 불투명 폴리시는 이 경계를 덮는다 —
+    // 그냥 그리면 모든 손톱에 가로 이음선이 생긴다.
+    if (m.ext > 3 && (d.sheer || 1) < 0.75) {
+      g.push('<path d="M ' + (-hw) + ' ' + (-(yc + m.bed)) + ' Q 0 ' + (-(yc + m.bed + hw * 0.3)) + ' ' + hw + ' ' + (-(yc + m.bed)) +
+        '" fill="none" stroke="' + C.lighten(sk.base, 0.7) + '" stroke-width="1.6" opacity="0.28" filter="url(#soft1)"/>');
+    }
+    g.push('</g>');
+    out.push(g.join(''));
+
+    // 자연 네일의 세로 미세 융선 (폴리시가 두꺼우면 묻힌다)
+    if (!d.sheer || d.sheer < 0.6) {
+      var nr = prng(Math.round(hw * 131 + T));
+      var ridges = [];
+      for (var v = 0; v < 7; v++) {
+        var vx = (nr() - 0.5) * hw * 1.5;
+        ridges.push('<path d="M ' + vx.toFixed(1) + ' ' + (-(yc + T * 0.08)) + ' L ' +
+          (vx + (nr() - 0.5) * 2).toFixed(1) + ' ' + (-(yc + T * 0.92)) +
+          '" stroke="' + (v % 2 ? sk.shade : C.lighten(sk.base, 0.8)) + '" stroke-opacity="' +
+          (0.05 + nr() * 0.05).toFixed(3) + '" stroke-width="' + (0.8 + nr()).toFixed(2) + '" fill="none"/>');
+      }
+      g.push('<g filter="url(#soft1)" clip-path="url(#clip-' + id + ')">' + ridges.join('') + '</g>');
+    }
+
+    // 손톱 측면은 네일 그루브 쪽으로 살짝 파여 있다
+    g.push('<path d="' + path + '" fill="none" stroke="' + C.darken(d.color, 0.35) +
+      '" stroke-opacity="0.3" stroke-width="3" filter="url(#soft3)"/>');
+
+    // 배경이 네일 아래 테두리에 비친다 (젤은 반사가 강하다)
+    if (d.finish !== 'matte') {
+      g.push('<path d="' + G.nailPath(fg, d, 1.6) + '" fill="none" stroke="' + C.lighten(sk.light, 0.4) +
+        '" stroke-opacity="0.3" stroke-width="1.8" clip-path="url(#sideclip-' + id + ')" filter="url(#soft1)"/>');
+    }
+
+    // 큐티클: 살이 손톱 밑동을 살짝 덮는다. 손톱 위에 살색으로 얹어야 "박혀 있는" 느낌이 난다.
+    out.push('<ellipse cx="0" cy="' + (-(yc - hw * 0.05)) + '" rx="' + (hw * 0.9) +
+      '" ry="' + Math.max(2.4, m.bed * 0.1) + '" fill="' + C.mix(sk.base, sk.warm, 0.3) +
+      '" opacity="' + (m.ext > 20 ? 0.6 : 0.75) + '" filter="url(#soft1)"/>');
+    out.push('<ellipse cx="0" cy="' + (-(yc + hw * 0.16)) + '" rx="' + (hw * 0.82) +
+      '" ry="' + Math.max(1.6, m.bed * 0.06) + '" fill="' + sk.shade +
+      '" opacity="0.16" filter="url(#soft1)"/>');
+
+    // 테두리: 밑동·측면은 어둡고 팁 끝은 네일 두께가 빛을 받아 밝다. 두 개를 각각
+    // 클립해 그리면 경계에서 단이 보이므로 길이 방향 그라디언트 하나로 칠한다.
+    out.push('<path d="' + path + '" fill="none" stroke="url(#rim-' + id + ')" stroke-width="1" ' +
+      'opacity="0.6" filter="url(#soft1)"/>');
+
+    if (selected) {
+      out.push('<path d="' + G.nailPath(fg, d, -4.5) + '" fill="none" stroke="#c2185b" stroke-width="2" ' +
+        'stroke-dasharray="5 4" opacity="0.95"/>');
+    }
+    return out.join('');
+  }
+
+  /* 광원(창문)이 젤 표면에 비친 모양. 모서리가 둥근 사각형 — 타원 얼룩보다 젤답다. */
+  function windowGloss(hw, yc, T, cxr, cyr, wr, hr) {
+    var cx = hw * cxr, cy = -(yc + T * cyr);
+    var w = hw * wr, h = T * hr, r = Math.min(w, h) * 0.55;
+    return 'M ' + (cx - w + r) + ' ' + (cy - h) +
+      ' L ' + (cx + w - r) + ' ' + (cy - h) + ' Q ' + (cx + w) + ' ' + (cy - h) + ' ' + (cx + w) + ' ' + (cy - h + r) +
+      ' L ' + (cx + w) + ' ' + (cy + h - r) + ' Q ' + (cx + w) + ' ' + (cy + h) + ' ' + (cx + w - r) + ' ' + (cy + h) +
+      ' L ' + (cx - w + r) + ' ' + (cy + h) + ' Q ' + (cx - w) + ' ' + (cy + h) + ' ' + (cx - w) + ' ' + (cy + h - r) +
+      ' L ' + (cx - w) + ' ' + (cy - h + r) + ' Q ' + (cx - w) + ' ' + (cy - h) + ' ' + (cx - w + r) + ' ' + (cy - h) + ' Z';
+  }
+
+  // 프렌치 스마일 라인 위쪽 영역 (네일 path로 클립되어 팁만 남는다)
+  function smilePath(hw, yc, T, start) {
+    var w = hw * 1.4, y0 = -(yc + T * start), y1 = -(yc + T * (start + 0.28)), top = -(yc + T * 1.4);
+    return 'M ' + (-w) + ' ' + y0 + ' Q 0 ' + y1 + ' ' + w + ' ' + y0 + ' L ' + w + ' ' + top + ' L ' + (-w) + ' ' + top + ' Z';
+  }
+  function smileLine(hw, yc, T, start) {
+    var w = hw * 1.4, y0 = -(yc + T * start), y1 = -(yc + T * (start + 0.28));
+    return 'M ' + (-w) + ' ' + y0 + ' Q 0 ' + y1 + ' ' + w + ' ' + y0;
+  }
+
+  /* 프렌치 팁 색상 그라디언트는 defs에 따로 필요 */
+  function tipDefs(fg, d) {
+    if (d.art !== 'french') return '';
+    return grad('polTip-' + fg.id, 0, 1, 0, 0, [
+      [0, C.darken(d.color2, 0.06)], [0.5, d.color2], [1, C.lighten(d.color2, 0.2)]
+    ]);
+  }
+
+  /* 배경 비네트 — 사진은 테두리가 미세하게 떨어진다 */
+  function vignette(kind) {
+    var c = kind === 'noir' ? '#000000' : '#6b4a38';
+    return '<defs><radialGradient id="vig" cx="0.46" cy="0.4" r="0.78">' +
+      stop(0, c + '00') + stop(0.62, c + '00') + stop(1, c + (kind === 'noir' ? '8c' : '3d')) +
+      // 손톱 히트 영역 위에 깔리므로 클릭을 통과시켜야 한다
+      '</radialGradient></defs><rect width="900" height="980" fill="url(#vig)" pointer-events="none"/>';
+  }
+
+  /* ── 배경 ── */
+  function backdrop(kind) {
+    if (kind === 'noir') {
+      return '<defs><radialGradient id="bg" cx="0.42" cy="0.3" r="0.92">' +
+        stop(0, '#413848') + stop(0.5, '#251f2c') + stop(0.82, '#141118') +
+        stop(1, '#0b0a0f') + '</radialGradient></defs>' +
+        '<rect width="900" height="980" fill="url(#bg)"/>';
+    }
+    if (kind === 'blush') {
+      return '<defs><radialGradient id="bg" cx="0.4" cy="0.28" r="0.98">' +
+        stop(0, '#fef5f6') + stop(0.45, '#f8e3e7') + stop(0.8, '#eecdd4') +
+        stop(1, '#e0bcc6') + '</radialGradient></defs>' +
+        '<rect width="900" height="980" fill="url(#bg)"/>';
+    }
+    return '<defs><radialGradient id="bg" cx="0.4" cy="0.26" r="0.98">' +
+      stop(0, '#fffcf8') + stop(0.42, '#f6e9df') + stop(0.78, '#e8d6c9') +
+      stop(1, '#d6c6bd') + '</radialGradient></defs>' +
+      '<rect width="900" height="980" fill="url(#bg)"/>';
+  }
+
+  /* ── 전체 ── */
+  function renderSVG(state, opts) {
+    opts = opts || {};
+    var sk = skinOf(state.skin);
+    var fingers = G.FINGERS;
+    var byId = {};
+    fingers.forEach(function (f) { byId[f.id] = f; });
+
+    // 오른쪽 → 왼쪽 순서로 그려야 손가락 그림자가 오른쪽 이웃에 얹힌다.
+    var order = ['pinky', 'ring', 'middle', 'index', 'thumb'].map(function (i) { return byId[i]; });
+
+    var defs = ['<defs>', skinDefs(sk), handClip(order, sk)];
+    fingers.forEach(function (fg) {
+      defs.push(nailDefs(fg, state.nails[fg.id], sk), tipDefs(fg, state.nails[fg.id]));
+    });
+    defs.push('</defs>');
+
+    var body = [];
+    body.push(backdrop(state.backdrop));
+    body.push(defs.join(''));
+    body.push(handShadow(order));
+
+    // 0) 물갈퀴 깊은 곳의 그림자. 손 실루엣이 대부분 덮고, 손가락 사이 틈에만 남는다 —
+    // 틈으로 밝은 배경이 보이면 손이 오려낸 종이처럼 읽힌다.
+    // 블러를 크게 주면 틈 밖으로 새어 배경에 검은 구름이 생긴다 — 작고 얕게.
+    body.push('<g fill="' + deepOf(sk) + '" opacity="0.55">');
+    [[440, 508, 7, 20], [514, 510, 7, 20], [582, 526, 6, 17], [376, 504, 6, 17]].forEach(function (w) {
+      body.push('<ellipse cx="' + w[0] + '" cy="' + w[1] + '" rx="' + w[2] + '" ry="' + w[3] +
+        '" filter="url(#soft3)"/>');
+    });
+    body.push('</g>');
+
+    // 1) 손등과 손가락을 같은 평면 살색으로 한 덩어리로 칠한다 — 내부 경계선이 생기지 않게
+    body.push('<g fill="' + sk.base + '">' + silhouette(order) + '</g>');
+
+    // 2~6) 음영은 모두 손 실루엣 안쪽에만.
+    // 손가락 원통 음영 → 전체 조명 → 손등 볼륨 순서. 조명을 나중에 얹어야
+    // 밑동에서 평평하게 되돌린 부분이 손등과 같은 빛을 받아 이어져 보인다.
+    body.push('<g clip-path="url(#handClip)">');
+    order.forEach(function (fg) {
+      body.push(fingerGroup(fg, fingerShading(fg, sk, state.nails[fg.id])));
+    });
+    body.push('<rect width="900" height="980" fill="url(#globalLight)"/>');
+    body.push(dorsumShading(sk));
+    // 왼쪽 손가락이 오른쪽 이웃에 드리우는 그림자
+    var rightOf = { thumb: 'index', index: 'middle', middle: 'ring', ring: 'pinky' };
+    order.forEach(function (fg) {
+      var nb = rightOf[fg.id];
+      if (!nb) return;
+      body.push('<g clip-path="url(#fclip-' + nb + '-abs)" transform="translate(12 7)" ' +
+        'filter="url(#soft6)" opacity="0.3" fill="' + sk.shade + '">' + fingerPathAbs(fg) + '</g>');
+    });
+    // 실루엣 안쪽 테두리를 살짝 어둡게 — 사진의 형태 감쇠. 없으면 스티커처럼 납작하다.
+    body.push('<g clip-path="url(#handClip)">');
+    body.push('<g filter="url(#soft6)" fill="none" stroke="' + sk.shade + '" stroke-opacity="0.16" ' +
+      'stroke-width="6">' + silhouette(order) + '</g>');
+    body.push('<g filter="url(#soft6)" fill="none" stroke="' + sk.shade + '" stroke-opacity="0.26" ' +
+      'stroke-width="7" transform="translate(4 5)">' + silhouette(order) + '</g>');
+    body.push('</g>');
+    // 배경에서 되돌아오는 바운스 라이트 (아래쪽 테두리)
+    body.push('<g clip-path="url(#handClip)"><g filter="url(#soft6)" fill="none" stroke="' +
+      C.lighten(sk.light, 0.5) + '" stroke-opacity="0.14" stroke-width="2.6" ' +
+      'transform="translate(-3 -5)">' + silhouette(order) + '</g></g>');
+
+    // 피부 질감 — 색 얼룩(저주파) 위에 모공(고주파). 순서와 블렌드가 중요하다.
+    body.push('<rect width="900" height="980" filter="url(#mottle)" opacity="0.34" ' +
+      'style="mix-blend-mode:multiply"/>');
+    body.push('<rect width="900" height="980" filter="url(#mottleWarm)" opacity="0.4" ' +
+      'style="mix-blend-mode:soft-light"/>');
+    body.push('<rect width="900" height="980" filter="url(#mottleFine)" opacity="0.1" ' +
+      'style="mix-blend-mode:multiply"/>');
+    body.push('<rect width="900" height="980" filter="url(#pores)" opacity="0.2" ' +
+      'style="mix-blend-mode:multiply"/>');
+    body.push('<rect width="900" height="980" filter="url(#poresHi)" opacity="0.16" ' +
+      'style="mix-blend-mode:screen"/>');
+    body.push('</g>');
+
+    // 7) 네일. 선택 표시는 손톱별로 편집할 때만 (전체 적용 중이면 5개 다 테두리가 생겨 산만하다)
+    var mark = opts.selectable !== false && !state.sync;
+    order.forEach(function (fg) {
+      var d = state.nails[fg.id];
+      body.push(nailGroup(fg, d, nail(fg, d, sk, mark && state.selected.indexOf(fg.id) >= 0)));
+    });
+
+    // 클릭 영역 (네일 위)
+    if (opts.selectable !== false) {
+      fingers.forEach(function (fg) {
+        var d = state.nails[fg.id];
+        body.push(nailGroup(fg, d, '<path class="nail-hit" data-finger="' + fg.id + '" d="' +
+          G.nailPath(fg, d, -6) + '" fill="transparent"/>'));
+      });
+    }
+
+    body.push(vignette(state.backdrop));
+
+    var view = opts.zoom ? VIEW_ZOOM : VIEW_FULL;
+    // <img> 로 래스터화할 때는 고유 크기가 없으면 그려지지 않으므로 scale 이 오면 넣어준다.
+    var size = '';
+    if (opts.scale) {
+      var b = view.split(' ');
+      size = ' width="' + b[2] * opts.scale + '" height="' + b[3] * opts.scale + '"';
+    }
+    return scopeIds('<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + view + '"' + size +
+      ' preserveAspectRatio="xMidYMid meet" class="hand-svg">' + body.join('') + '</svg>');
+  }
+
+  /* 같은 문서에 SVG가 두 개 이상 있어도 id가 겹치지 않게 렌더마다 접두사를 붙인다. */
+  var seq = 0;
+  function scopeIds(svg) {
+    var p = 'r' + (++seq) + '-';
+    return svg.replace(/id="/g, 'id="' + p).replace(/url\(#/g, 'url(#' + p);
+  }
+
+  NS.render = { renderSVG: renderSVG, VIEW_FULL: VIEW_FULL, VIEW_ZOOM: VIEW_ZOOM };
+})(window.NailSim = window.NailSim || {});
+</script>
+<script>
+/* 3D 손 — WebGL2로 직접 그린다.
+ *
+ * 라이브러리를 쓰지 않는다. 이 프로젝트는 빌드 과정도 의존성도 없어야 하는데,
+ * three.js 를 벤더링하면 그 성질이 깨진다. 형태 생성·행렬·셰이딩을 전부 여기서 한다.
+ *
+ * 좌표계: x 오른쪽, y 손끝 방향, z 손등 쪽(화면 밖). 단위는 cm.
+ * 손등을 보고 있으므로 오른손이고 엄지가 왼쪽(-x)에 온다.
+ */
+(function (NS) {
+  'use strict';
+
+  var G = NS.geom, C = NS.color, D = NS.data;
+
+  /* ── 벡터 · 행렬 ────────────────────────────────────────────────── */
+  function add(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+  function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+  function mul(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
+  function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+  function cross(a, b) {
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  }
+  function norm(a) {
+    var l = Math.hypot(a[0], a[1], a[2]) || 1;
+    return [a[0] / l, a[1] / l, a[2] / l];
+  }
+  /* 로드리게스 회전 */
+  function rotAxis(v, axis, deg) {
+    var a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), k = norm(axis);
+    return add(add(mul(v, c), mul(cross(k, v), s)), mul(k, dot(k, v) * (1 - c)));
+  }
+
+  function perspective(fovy, asp, n, f) {
+    var t = 1 / Math.tan(fovy * Math.PI / 360), o = new Float32Array(16);
+    o[0] = t / asp; o[5] = t; o[10] = (f + n) / (n - f); o[11] = -1; o[14] = 2 * f * n / (n - f);
+    return o;
+  }
+  function lookAt(eye, ctr, up) {
+    var z = norm(sub(eye, ctr)), x = norm(cross(up, z)), y = cross(z, x), o = new Float32Array(16);
+    o[0] = x[0]; o[1] = y[0]; o[2] = z[0];
+    o[4] = x[1]; o[5] = y[1]; o[6] = z[1];
+    o[8] = x[2]; o[9] = y[2]; o[10] = z[2];
+    o[12] = -dot(x, eye); o[13] = -dot(y, eye); o[14] = -dot(z, eye); o[15] = 1;
+    return o;
+  }
+  function mmul(a, b) {
+    var o = new Float32Array(16);
+    for (var i = 0; i < 4; i++) for (var j = 0; j < 4; j++) {
+      var s = 0;
+      for (var k = 0; k < 4; k++) s += a[k * 4 + j] * b[i * 4 + k];
+      o[i * 4 + j] = s;
+    }
+    return o;
+  }
+
+  /* ── 메시 ──────────────────────────────────────────────────────────
+   * 면 법선을 누적해 부드러운 법선을 만든다. 감기 방향을 손으로 맞추다 보면
+   * 한 군데씩 뒤집히므로, 닫힌 메시의 부호 있는 부피로 검사해 자동으로 바로잡는다.
+   */
+  function Mesh() { this.p = []; this.uv = []; this.i = []; }
+  Mesh.prototype.add = function (p, u, v) {
+    this.p.push(p[0], p[1], p[2]);
+    this.uv.push(u || 0, v || 0);
+    return this.p.length / 3 - 1;
+  };
+  Mesh.prototype.tri = function (a, b, c) { this.i.push(a, b, c); };
+  Mesh.prototype.quad = function (a, b, c, d) { this.i.push(a, b, c, a, c, d); };
+  Mesh.prototype.at = function (k) { return [this.p[k * 3], this.p[k * 3 + 1], this.p[k * 3 + 2]]; };
+  Mesh.prototype.merge = function (o) {
+    var off = this.p.length / 3, i;
+    for (i = 0; i < o.p.length; i++) this.p.push(o.p[i]);
+    for (i = 0; i < o.uv.length; i++) this.uv.push(o.uv[i]);
+    for (i = 0; i < o.i.length; i++) this.i.push(o.i[i] + off);
+    return this;
+  };
+  /* 부피가 음수면 안팎이 뒤집힌 것이다.
+   * 반드시 닫힌 덩어리 하나씩 따로 검사해야 한다 — 손가락 프레임은 손바닥과
+   * 손잡이(handedness)가 반대라 감기 방향도 반대다. 여러 덩어리를 합친 뒤
+   * 한 번에 검사하면 부피가 상쇄돼 뒤집힌 쪽을 못 잡는다. */
+  Mesh.prototype.orient = function () {
+    var vol = 0;
+    for (var k = 0; k < this.i.length; k += 3) {
+      vol += dot(this.at(this.i[k]), cross(this.at(this.i[k + 1]), this.at(this.i[k + 2])));
+    }
+    if (vol < 0) for (var m = 0; m < this.i.length; m += 3) {
+      var t = this.i[m + 1]; this.i[m + 1] = this.i[m + 2]; this.i[m + 2] = t;
+    }
+    return this;
+  };
+  Mesh.prototype.normals = function () {
+    var n = new Float32Array(this.p.length), k, m;
+    for (k = 0; k < this.i.length; k += 3) {
+      var a = this.i[k] * 3, b = this.i[k + 1] * 3, c = this.i[k + 2] * 3;
+      var f = cross(
+        [this.p[b] - this.p[a], this.p[b + 1] - this.p[a + 1], this.p[b + 2] - this.p[a + 2]],
+        [this.p[c] - this.p[a], this.p[c + 1] - this.p[a + 1], this.p[c + 2] - this.p[a + 2]]
+      );
+      for (m = 0; m < 3; m++) {
+        var o = this.i[k + m] * 3;
+        n[o] += f[0]; n[o + 1] += f[1]; n[o + 2] += f[2];
+      }
+    }
+    for (k = 0; k < n.length; k += 3) {
+      var l = Math.hypot(n[k], n[k + 1], n[k + 2]) || 1;
+      n[k] /= l; n[k + 1] /= l; n[k + 2] /= l;
+    }
+    return n;
+  };
+
+
+  /* ── 손 정의 ──────────────────────────────────────────────────────
+   * splay = 밑동에서 벌어지는 각(+가 엄지 쪽), curl = 손끝으로 갈수록 손바닥
+   * 쪽으로 감기는 총 각도, roll = 손가락 축을 중심으로 한 회전(손톱이 향하는 방향).
+   * 엄지만 방향을 직접 준다 — 다른 손가락과 달리 손바닥 앞쪽으로 나와 있다.
+   */
+  var FINGERS = [
+    { id: 'thumb',  base: [-3.55, -2.30, -0.55], dir: [-0.64, 0.75, -0.15], len: 6.5, r0: 1.12, r1: 0.86, curl: 15, roll: 58, bed: 1.66, sink: 2.4 },
+    { id: 'index',  base: [-2.86, 4.30, 0.18], splay: 7,   len: 7.5, r0: 0.90, r1: 0.68, curl: 20, roll: -9, bed: 1.42, sink: 2.2 },
+    { id: 'middle', base: [-0.96, 4.70, 0.24], splay: 1,   len: 8.0, r0: 0.93, r1: 0.70, curl: 18, roll: 0,  bed: 1.50, sink: 2.2 },
+    { id: 'ring',   base: [0.94, 4.50, 0.18],  splay: -6,  len: 7.5, r0: 0.87, r1: 0.66, curl: 22, roll: 7,  bed: 1.42, sink: 2.2 },
+    { id: 'pinky',  base: [2.80, 3.75, 0.08],  splay: -13, len: 5.8, r0: 0.76, r1: 0.58, curl: 24, roll: 15, bed: 1.14, sink: 2.0 }
+  ];
+  var IDS = FINGERS.map(function (f) { return f.id; });
+
+  /* 관절에서 살짝 굵어진다 — 균일한 원뿔은 마네킹처럼 보인다 */
+  function radiusAt(f, t) {
+    var r = f.r0 + (f.r1 - f.r0) * t;
+    return r * (1 + 0.060 * Math.exp(-Math.pow((t - 0.34) / 0.11, 2))
+                  + 0.050 * Math.exp(-Math.pow((t - 0.68) / 0.10, 2))
+                  - 0.030 * Math.exp(-Math.pow((t - 0.51) / 0.09, 2)));
+  }
+
+  /* 스파인을 호 길이와 함께 샘플링한다. 손톱을 손끝에서부터 재려면 필요하다. */
+  var SPINE_STEPS = 26;
+  function buildSpine(f) {
+    var dir = f.dir ? norm(f.dir) : norm(rotAxis([0, 1, 0], [0, 0, 1], f.splay));
+    var p = f.base.slice(), out = [], s = 0, i;
+    var step = f.len / SPINE_STEPS;
+    for (i = 0; i <= SPINE_STEPS; i++) {
+      var t = i / SPINE_STEPS;
+      // 손가락 축을 가로지르는 축. 손가락은 이 축을 중심으로 손바닥 쪽으로 감긴다.
+      var side = norm(cross([0, 0, 1], dir));
+      var up = norm(cross(dir, side));
+      if (f.roll) { side = norm(rotAxis(side, dir, f.roll * t)); up = norm(cross(dir, side)); }
+      out.push({ p: p.slice(), t: dir.slice(), side: side, up: up, s: s, r: radiusAt(f, t) });
+      if (i === SPINE_STEPS) break;
+      p = add(p, mul(dir, step));
+      s += step;
+      dir = norm(rotAxis(dir, norm(cross([0, 0, 1], dir)), f.curl / SPINE_STEPS));
+      // 밑동은 벌어지되 끝은 서로 모인다
+      if (f.splay) dir = norm(rotAxis(dir, [0, 0, 1], -f.splay * 0.5 / SPINE_STEPS));
+    }
+    return out;
+  }
+  var SPINES = {};
+  FINGERS.forEach(function (f) { SPINES[f.id] = buildSpine(f); });
+
+  /* 호 길이 s 지점의 프레임. 손끝을 넘어가면(연장 손톱) 접선 방향으로 잇는다. */
+  function sample(f, s) {
+    var sp = SPINES[f.id], last = sp[sp.length - 1];
+    if (s >= last.s) {
+      return { p: add(last.p, mul(last.t, s - last.s)), t: last.t, side: last.side, up: last.up, r: last.r };
+    }
+    for (var i = 1; i < sp.length; i++) {
+      if (sp[i].s >= s) {
+        var a = sp[i - 1], b = sp[i], k = (s - a.s) / (b.s - a.s);
+        return {
+          p: add(a.p, mul(sub(b.p, a.p), k)),
+          t: norm(add(a.t, mul(sub(b.t, a.t), k))),
+          side: norm(add(a.side, mul(sub(b.side, a.side), k))),
+          up: norm(add(a.up, mul(sub(b.up, a.up), k))),
+          r: a.r + (b.r - a.r) * k
+        };
+      }
+    }
+    return sp[0];
+  }
+
+  /* ── 형태 = 부호거리장 ─────────────────────────────────────────────
+   * 원기둥·타원체를 그대로 겹쳐 놓으면 교차선이 자국으로 남아 혹을 붙인 것처럼
+   * 보인다. 손은 그런 경계가 없는 한 덩어리다. 그래서 부위마다 거리장을 정의하고
+   * 부드럽게 합친 뒤(smin) 등위면을 뽑아 메시로 만든다.
+   *
+   * 이 장은 정확한 거리함수가 아니어도 된다 — 필요한 건 0 등위면의 위치이고,
+   * 법선은 중심차분 기울기로 얻으므로 어떤 스칼라장이든 등위면에 수직으로 나온다.
+   * 덕분에 z 를 늘려 납작한 단면을 만드는 것 같은 편법을 그냥 써도 된다.
+   */
+  function smin(a, b, k) {
+    var h = Math.max(0, Math.min(1, 0.5 + 0.5 * (b - a) / k));
+    return b + (a - b) * h - k * h * (1 - h);
+  }
+  /* 끝이 굵기가 다른 캡슐. zk 를 주면 z 방향으로 눌린 단면이 된다. */
+  function segZ(x, y, z, a, b, ra, rb, zk) {
+    var k = zk || 1;
+    var bx = b[0] - a[0], by = b[1] - a[1], bz = (b[2] - a[2]) * k;
+    var px = x - a[0], py = y - a[1], pz = (z - a[2]) * k;
+    var dd = bx * bx + by * by + bz * bz;
+    var h = dd > 1e-9 ? Math.max(0, Math.min(1, (px * bx + py * by + pz * bz) / dd)) : 0;
+    var dx = px - bx * h, dy = py - by * h, dz = pz - bz * h;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz) - (ra + (rb - ra) * h);
+  }
+  function ell(x, y, z, c, r) {
+    var qx = (x - c[0]) / r[0], qy = (y - c[1]) / r[1], qz = (z - c[2]) / r[2];
+    return (Math.sqrt(qx * qx + qy * qy + qz * qz) - 1) * Math.min(r[0], Math.min(r[1], r[2]));
+  }
+
+  var ZFLAT = 3.05;   // 손등이 납작한 정도
+
+  /* 손가락은 스파인을 캡슐 사슬로 근사한다. 손가락끼리는 붙으면 안 되므로
+   * 각 손가락 안에서는 그냥 min 으로 잇고, 손 전체와 합칠 때만 부드럽게 뭉갠다. */
+  var LIMBS = FINGERS.map(function (f) {
+    var sp = SPINES[f.id], segs = [], i;
+    var d0 = sp[0];
+    var root = f.id === 'thumb' ? [-1.35, -4.60, -0.55] : add(d0.p, mul(d0.t, -f.sink));
+    segs.push([root, sp[0].p, f.r0 * (f.id === 'thumb' ? 1.12 : 0.99), sp[0].r]);
+    for (i = 0; i + 2 < sp.length; i += 2) segs.push([sp[i].p, sp[i + 2].p, sp[i].r, sp[i + 2].r]);
+    var e = sp[sp.length - 1];
+    segs.push([e.p, add(e.p, mul(e.t, e.r * 0.55)), e.r, e.r * 0.72]);
+    // 중수골 — 너클 봉우리와 손등 능선이 여기서 나온다 (엄지는 두덩이 대신한다)
+    var meta = f.id === 'thumb' ? null
+      : [[f.base[0] * 0.26, -4.6, -0.15], [f.base[0], f.base[1] - 0.2, f.base[2] + 0.10], 0.42, f.r0 * 0.92];
+    var box = [1e9, 1e9, 1e9, -1e9, -1e9, -1e9];
+    segs.concat(meta ? [meta] : []).forEach(function (s) {
+      [s[0], s[1]].forEach(function (p) {
+        var r = Math.max(s[2], s[3]) + 1.1;
+        for (var j = 0; j < 3; j++) {
+          box[j] = Math.min(box[j], p[j] - r);
+          box[j + 3] = Math.max(box[j + 3], p[j] + r);
+        }
+      });
+    });
+    return { segs: segs, meta: meta, box: box };
+  });
+
+  function field(x, y, z) {
+    // 손바닥·손목 덩어리
+    var d = segZ(x, y, z, [0, -8.2, -0.30], [0, -4.4, -0.20], 2.55, 2.62, 1.95);  // 손목·팔목
+    d = smin(d, segZ(x, y, z, [0, -4.2, -0.18], [0.08, 3.80, 0.16], 2.95, 3.86, ZFLAT), 0.7);
+    d = smin(d, ell(x, y, z, [-2.60, -1.70, -0.55], [1.45, 3.15, 1.15]), 1.0);    // 엄지 두덩
+    d = smin(d, ell(x, y, z, [3.00, -2.10, -0.45], [1.00, 2.85, 0.98]), 1.0);     // 새끼 두덩
+
+    for (var i = 0; i < LIMBS.length; i++) {
+      var L = LIMBS[i], b = L.box;
+      if (x < b[0] || y < b[1] || z < b[2] || x > b[3] || y > b[4] || z > b[5]) continue;
+      var df = 1e9, j;
+      for (j = 0; j < L.segs.length; j++) {
+        var s = L.segs[j];
+        df = Math.min(df, segZ(x, y, z, s[0], s[1], s[2], s[3]));
+      }
+      if (L.meta) df = smin(df, segZ(x, y, z, L.meta[0], L.meta[1], L.meta[2], L.meta[3]), 0.62);
+      // 밑동에서만 크게 뭉갠다. 위쪽까지 크게 잡으면 손가락끼리 물갈퀴로 붙는다.
+      var t = Math.max(0, Math.min(1, (6.0 - y) / 3.5));
+      d = smin(d, df, 0.10 + 0.55 * t * t * (3 - 2 * t));
+    }
+    return d;
+  }
+
+  /* ── 등위면 뽑기 (surface nets) ───────────────────────────────────
+   * 마칭 큐브의 256행 테이블 없이, 셀마다 꼭짓점 하나를 교차점 평균에 놓고
+   * 부호가 바뀌는 격자 모서리마다 인접한 네 셀을 사각형으로 잇는다.
+   * 코드가 훨씬 짧고 결과가 매끈해서 살에 어울린다.
+   */
+  var CORNER = [[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]];
+  var CEDGE = [[0,1],[1,2],[3,2],[0,3],[4,5],[5,6],[7,6],[4,7],[0,4],[1,5],[2,6],[3,7]];
+
+  function surfaceNets(lo, hi, cell) {
+    var nx = Math.ceil((hi[0] - lo[0]) / cell), ny = Math.ceil((hi[1] - lo[1]) / cell),
+        nz = Math.ceil((hi[2] - lo[2]) / cell);
+    var sx = nx + 1, sy = ny + 1, sz = nz + 1;
+    var val = new Float32Array(sx * sy * sz), ix, iy, iz;
+    for (iz = 0; iz < sz; iz++) for (iy = 0; iy < sy; iy++) for (ix = 0; ix < sx; ix++) {
+      val[(iz * sy + iy) * sx + ix] = field(lo[0] + ix * cell, lo[1] + iy * cell, lo[2] + iz * cell);
+    }
+    var vid = new Int32Array(nx * ny * nz).fill(-1);
+    var mesh = new Mesh(), c = new Float32Array(8), i;
+
+    for (iz = 0; iz < nz; iz++) for (iy = 0; iy < ny; iy++) for (ix = 0; ix < nx; ix++) {
+      var neg = 0;
+      for (i = 0; i < 8; i++) {
+        var o = CORNER[i];
+        c[i] = val[((iz + o[2]) * sy + iy + o[1]) * sx + ix + o[0]];
+        if (c[i] < 0) neg++;
+      }
+      if (neg === 0 || neg === 8) continue;
+      var px = 0, py = 0, pz = 0, n = 0;
+      for (i = 0; i < 12; i++) {
+        var a = CEDGE[i][0], b = CEDGE[i][1];
+        if ((c[a] < 0) === (c[b] < 0)) continue;
+        var t = c[a] / (c[a] - c[b]);
+        px += CORNER[a][0] + (CORNER[b][0] - CORNER[a][0]) * t;
+        py += CORNER[a][1] + (CORNER[b][1] - CORNER[a][1]) * t;
+        pz += CORNER[a][2] + (CORNER[b][2] - CORNER[a][2]) * t;
+        n++;
+      }
+      vid[(iz * ny + iy) * nx + ix] = mesh.add([
+        lo[0] + (ix + px / n) * cell, lo[1] + (iy + py / n) * cell, lo[2] + (iz + pz / n) * cell
+      ], 0, -1);
+    }
+
+    function cellAt(x, y, z) {
+      if (x < 0 || y < 0 || z < 0 || x >= nx || y >= ny || z >= nz) return -1;
+      return vid[(z * ny + y) * nx + x];
+    }
+    function emit(a, b, c2, d, flip) {
+      if (a < 0 || b < 0 || c2 < 0 || d < 0) return;
+      if (flip) mesh.quad(a, d, c2, b); else mesh.quad(a, b, c2, d);
+    }
+    for (iz = 0; iz < sz; iz++) for (iy = 0; iy < sy; iy++) for (ix = 0; ix < sx; ix++) {
+      var v0 = val[(iz * sy + iy) * sx + ix], s0 = v0 < 0;
+      if (ix + 1 < sx && (val[(iz * sy + iy) * sx + ix + 1] < 0) !== s0) {
+        emit(cellAt(ix, iy - 1, iz - 1), cellAt(ix, iy, iz - 1), cellAt(ix, iy, iz), cellAt(ix, iy - 1, iz), s0);
+      }
+      if (iy + 1 < sy && (val[(iz * sy + iy + 1) * sx + ix] < 0) !== s0) {
+        emit(cellAt(ix - 1, iy, iz - 1), cellAt(ix, iy, iz - 1), cellAt(ix, iy, iz), cellAt(ix - 1, iy, iz), !s0);
+      }
+      if (iz + 1 < sz && (val[((iz + 1) * sy + iy) * sx + ix] < 0) !== s0) {
+        emit(cellAt(ix - 1, iy - 1, iz), cellAt(ix, iy - 1, iz), cellAt(ix, iy, iz), cellAt(ix - 1, iy, iz), s0);
+      }
+    }
+    return mesh.orient();
+  }
+
+  /* 살 셰이더가 쓸 uv: x = 손등 쪽인 정도, y = 손가락 길이비(관절 주름 위치).
+   * 등위면에는 매개변수가 없으므로 가장 가까운 손가락 스파인에서 되찾는다. */
+  function assignUV(mesh) {
+    for (var v = 0; v < mesh.p.length / 3; v++) {
+      var p = mesh.at(v), best = null, bd = 1e9;
+      for (var i = 0; i < FINGERS.length; i++) {
+        var bx = LIMBS[i].box;
+        if (p[0] < bx[0] || p[1] < bx[1] || p[2] < bx[2] ||
+            p[0] > bx[3] || p[1] > bx[4] || p[2] > bx[5]) continue;
+        var sp = SPINES[FINGERS[i].id];
+        for (var j = 0; j < sp.length; j++) {
+          var q = sp[j], dx = p[0] - q.p[0], dy = p[1] - q.p[1], dz = p[2] - q.p[2];
+          var d = dx * dx + dy * dy + dz * dz;
+          if (d < bd) { bd = d; best = { q: q, t: j / (sp.length - 1) }; }
+        }
+      }
+      // 손가락 표면에서 너무 멀면 주름을 넣지 않는다 (손바닥·손목)
+      if (!best || Math.sqrt(bd) > best.q.r * 1.75) { mesh.uv[v * 2] = 0; mesh.uv[v * 2 + 1] = -1; continue; }
+      mesh.uv[v * 2] = dot(norm(sub(p, best.q.p)), best.q.up);
+      mesh.uv[v * 2 + 1] = best.t;
+    }
+    return mesh;
+  }
+
+  /* 법선은 장의 기울기에서 얻는다 — 면 법선을 평균 내는 것보다 훨씬 매끈하다 */
+  function fieldNormals(mesh) {
+    var n = new Float32Array(mesh.p.length), h = 0.02;
+    for (var v = 0; v < mesh.p.length / 3; v++) {
+      var x = mesh.p[v * 3], y = mesh.p[v * 3 + 1], z = mesh.p[v * 3 + 2];
+      var g = norm([
+        field(x + h, y, z) - field(x - h, y, z),
+        field(x, y + h, z) - field(x, y - h, z),
+        field(x, y, z + h) - field(x, y, z - h)
+      ]);
+      n[v * 3] = g[0]; n[v * 3 + 1] = g[1]; n[v * 3 + 2] = g[2];
+    }
+    return n;
+  }
+
+  function buildHand() {
+    var m = surfaceNets([-8.9, -8.6, -2.3], [5.3, 14.6, 2.1], 0.13);
+    m.gradNormals = fieldNormals(m);
+    return assignUV(m);
+  }
+  /* ── 손톱 ──────────────────────────────────────────────────────────
+   * 2D 쪽 SHAPES(모양별 절반 윤곽선)를 그대로 써서 윤곽을 만들고, 손가락 원통을
+   * 감싸는 곡면 위에 얹는다. 그래서 모양·길이를 바꾸면 3D 형태도 실제로 바뀐다.
+   */
+  function outline(shape, samples) {
+    var s = G.SHAPES[shape] || G.SHAPES.round;
+    var ring = [], i;
+    for (i = 0; i < s.pts.length; i++) ring.push([s.pts[i][0], s.pts[i][1]]);
+    ring.push([0, 1]);
+    for (i = s.pts.length - 1; i >= 0; i--) ring.push([-s.pts[i][0], s.pts[i][1]]);
+    // 큐티클은 가운데가 살짝 파인 완만한 호로 닫는다.
+    // 점 하나로 닫으면 손톱 밑동에 쐐기처럼 팬 자국이 남는다.
+    var x0 = -s.pts[0][0], y0 = s.pts[0][1];
+    for (i = 1; i < 8; i++) {
+      var q = i / 8;
+      ring.push([x0 * (1 - 2 * q), y0 - 0.05 * Math.sin(q * Math.PI)]);
+    }
+    // 길이를 따라 균등하게 다시 샘플링 — 뾰족한 팁도 촘촘히 잡힌다
+    var seg = [], total = 0, k;
+    for (k = 0; k < ring.length; k++) {
+      var a = ring[k], b = ring[(k + 1) % ring.length];
+      var d = Math.hypot(b[0] - a[0], (b[1] - a[1]) * 2.1);
+      seg.push(d); total += d;
+    }
+    var out = [], acc = 0, want = 0, idx = 0, step = total / samples;
+    for (k = 0; k < ring.length && out.length < samples; k++) {
+      while (want <= acc + seg[k] && out.length < samples) {
+        var u = seg[k] > 1e-9 ? (want - acc) / seg[k] : 0;
+        var p0 = ring[k], p1 = ring[(k + 1) % ring.length];
+        out.push([p0[0] + (p1[0] - p0[0]) * u, p0[1] + (p1[1] - p0[1]) * u]);
+        want += step;
+      }
+      acc += seg[k];
+      idx++;
+    }
+    while (out.length < samples) out.push(ring[0].slice());
+    return out;
+  }
+
+  var NAIL_RINGS = 5, NAIL_SEG = 46;
+
+  /* (xFrac, yFrac) → 3D. 손톱은 손가락보다 완만한 곡률로 휘어 있고,
+   * 큐티클 쪽은 살 밑으로 살짝 잠긴다. */
+  function nailPoint(f, m, x, y, lift) {
+    var s = m.s0 + Math.max(0, y) * m.T;
+    var fr = sample(f, s);
+    var off = x * m.hw;
+    var rn = fr.r * 1.35;                      // 손톱은 손가락 원통보다 조금 평평하다
+    var h = Math.sqrt(Math.max(0, rn * rn - off * off)) - (rn - fr.r);
+    // 큐티클(y<0.09)은 살 밑으로 잠겨야 스티커처럼 얹혀 보이지 않는다
+    var sink = y < 0.09 ? (0.09 - Math.max(0, y)) / 0.09 : 0;
+    h += lift - sink * 0.20 - 0.05 * y * y;    // 프리엣지는 끝이 살짝 내려온다
+    return add(add(fr.p, mul(fr.side, off)), mul(fr.up, h));
+  }
+
+  function nailMetrics(f, design) {
+    var sp = SPINES[f.id], len = sp[sp.length - 1].s;
+    var bed = f.bed;
+    var ext = bed * G.LENGTHS[design.length].ext / 1.06;
+    return { hw: f.r1 * 0.70, bed: bed, T: bed + ext, s0: len - bed - f.r1 * 0.45 };
+  }
+
+  var THICK = 0.055;
+
+  function nailMesh(f, design) {
+    var m = nailMetrics(f, design);
+    var ring = outline(design.shape, NAIL_SEG);
+    var cx = 0, cy = 0, i, j;
+    for (i = 0; i < ring.length; i++) { cx += ring[i][0]; cy += ring[i][1]; }
+    cx /= ring.length; cy /= ring.length;
+
+    var mesh = new Mesh(), top = [], bot = [];
+    for (i = 0; i <= NAIL_RINGS; i++) {
+      var k = 1 - i / NAIL_RINGS, rowT = [], rowB = [];
+      for (j = 0; j < NAIL_SEG; j++) {
+        var x = cx + (ring[j][0] - cx) * k, y = cy + (ring[j][1] - cy) * k;
+        rowT.push(mesh.add(nailPoint(f, m, x, y, 0.05), x, y));
+        rowB.push(mesh.add(nailPoint(f, m, x, y, 0.05 - THICK), x, y));
+      }
+      top.push(rowT); bot.push(rowB);
+    }
+    for (i = 0; i < NAIL_RINGS; i++) for (j = 0; j < NAIL_SEG; j++) {
+      var n = (j + 1) % NAIL_SEG;
+      mesh.quad(top[i][j], top[i][n], top[i + 1][n], top[i + 1][j]);
+      mesh.quad(bot[i][j], bot[i + 1][j], bot[i + 1][n], bot[i][n]);
+    }
+    // 프리엣지 두께 — 손끝 밖으로 나간 부분은 옆면이 보인다
+    for (j = 0; j < NAIL_SEG; j++) {
+      var q = (j + 1) % NAIL_SEG;
+      mesh.quad(top[0][j], bot[0][j], bot[0][q], top[0][q]);
+    }
+    return mesh.orient();
+  }
+
+  /* ── 셰이더 ── */
+  var VS = [
+    '#version 300 es',
+    'in vec3 aPos; in vec3 aNrm; in vec2 aUV;',
+    'uniform mat4 uMVP;',
+    'out vec3 vPos; out vec3 vNrm; out vec2 vUV;',
+    'void main(){ vPos=aPos; vNrm=aNrm; vUV=aUV; gl_Position=uMVP*vec4(aPos,1.0); }'
+  ].join('\n');
+
+  var COMMON = [
+    'precision highp float;',
+    'uniform vec3 uLight, uEye, uHi;',
+    'in vec3 vPos; in vec3 vNrm; in vec2 vUV;',
+    'out vec4 oCol;',
+    'float hash(vec3 p){ return fract(sin(dot(p,vec3(12.9898,78.233,37.719)))*43758.5453); }'
+  ].join('\n');
+
+  /* 살: 감싸는 확산광 + 터미네이터의 혈색. 램버트만 쓰면 플라스틱이 된다. */
+  var FS_SKIN = ['#version 300 es', COMMON,
+    'uniform vec3 uBase, uShade, uBlood;',
+    'void main(){',
+    '  vec3 N=normalize(vNrm), L=normalize(uLight), V=normalize(uEye-vPos);',
+    '  float nl=dot(N,L);',
+    '  float diff=clamp((nl+0.34)/1.34,0.0,1.0);',
+    '  vec3 col=mix(uShade,uBase,diff*diff*(3.0-2.0*diff));',
+    '  float sss=exp(-abs(nl)*3.2);',            // 빛이 살 밑으로 퍼지는 띠
+    '  col=mix(col,uBlood,sss*0.30);',
+    '  col+=uShade*0.16*(1.0-diff);',            // 그늘 쪽 환경 바운스
+    // 관절 주름. 사진에서 손을 손처럼 보이게 하는 가장 큰 단서다.
+    // 손등 쪽은 가는 잔주름이 촘촘하고, 손바닥 쪽은 굵은 접힘선 하나로 간다.
+    '  float t=vUV.y;',
+    '  if(t>=0.0){',
+    '    float dorsal=smoothstep(0.10,0.80,vUV.x);',
+    '    float band=exp(-pow((t-0.345)/0.032,2.0))+exp(-pow((t-0.680)/0.028,2.0));',
+    '    float fine=0.5+0.5*sin(t*430.0);',
+    '    col*=1.0-band*(0.030+0.075*fine)*dorsal;',
+    '    float fold=exp(-pow((t-0.325)/0.016,2.0))+exp(-pow((t-0.700)/0.014,2.0));',
+    '    col*=1.0-fold*0.17*(1.0-dorsal);',
+    '    col=mix(col,uBlood,smoothstep(0.86,1.0,t)*0.22);',  // 손끝 혈색
+    '  }',
+    '  vec3 H=normalize(L+V);',
+    '  col+=uHi*pow(max(dot(N,H),0.0),24.0)*0.13;',
+    '  col+=uHi*pow(1.0-max(dot(N,V),0.0),3.5)*0.22;',
+    '  col*=0.978+hash(floor(vPos*52.0))*0.044;', // 살결
+    '  oCol=vec4(pow(col,vec3(1.0/2.2)),1.0);',
+    '}'].join('\n');
+
+  var FS_NAIL = ['#version 300 es', COMMON,
+    'uniform vec3 uC1,uC2,uBed; uniform int uArt,uFinish; uniform float uSheer,uSel;',
+    'void main(){',
+    '  vec3 N=normalize(vNrm), L=normalize(uLight), V=normalize(uEye-vPos);',
+    '  float u=vUV.x, v=clamp(vUV.y,0.0,1.0);',
+    '  vec3 base=uC1;',
+    '  if(uArt==1) base=mix(uC1,uC2,smoothstep(0.68,0.75,v));',
+    '  else if(uArt==2) base=mix(uC2,uC1,smoothstep(0.05,0.95,v));',
+    '  else if(uArt==4){ float b=exp(-pow((u*0.8+(v-0.5)*1.1)/0.20,2.0));',
+    '                    base=mix(uC1*0.72,uC2,b); }',
+    '  if(uArt==3||(uArt==5&&v>0.70)){',
+    '    float g=hash(floor(vec3(u*34.0,v*54.0,0.0)));',
+    '    base=mix(base,uC2*1.25,step(0.86,g)*(0.55+0.45*hash(floor(vec3(v*54.0,u*34.0,3.0)))));',
+    '  }',
+    '  base=mix(uBed,base,uSheer);',
+    '  if(uSheer<0.9){',                          // 루눌라 — 밑동의 반달
+    '    base=mix(base,mix(base,vec3(1.0),0.45),smoothstep(0.16,0.03,v)*(1.0-uSheer));',
+    '    base=mix(base,mix(base,vec3(1.0),0.55),smoothstep(0.86,0.98,v)*(1.0-uSheer));',
+    '  }',
+    '  float nl=dot(N,L);',
+    '  vec3 col=base*(0.34+0.66*clamp((nl+0.25)/1.25,0.0,1.0));',
+    '  vec3 H=normalize(L+V);',
+    '  float f=pow(1.0-max(dot(N,V),0.0),3.0);',
+    '  if(uFinish==3){',                          // 크롬 — 환경이 비쳐야 금속이다
+    '    vec3 R=reflect(-V,N);',
+    '    vec3 env=mix(vec3(0.07,0.06,0.08),vec3(0.96,0.97,1.0),smoothstep(-0.30,0.45,R.y));',
+    '    env=mix(env,vec3(1.0,0.95,0.86),pow(max(R.y,0.0),7.0));',
+    '    col=base*0.30+env*base*1.55;',
+    '    col+=vec3(1.0)*pow(max(dot(N,H),0.0),170.0)*0.9;',
+    '  } else if(uFinish==1){',                   // 매트
+    '    col*=0.97+hash(floor(vPos*160.0))*0.06;',
+    '    col+=uHi*pow(max(dot(N,H),0.0),7.0)*0.05;',
+    '  } else {',
+    '    if(uFinish==2){',                        // 펄 — 프레넬로 색이 돈다
+    '      vec3 ir=0.5+0.5*cos(6.2831*(vec3(0.0,0.33,0.67)+f*1.5+v*0.6));',
+    '      col=mix(col,col*0.72+ir*0.42,0.55);',
+    '    }',
+    '    col+=vec3(1.0)*pow(max(dot(N,H),0.0),96.0)*0.75;',
+    '    col+=vec3(1.0)*f*0.10;',
+    '  }',
+    '  col+=vec3(0.85,0.25,0.45)*uSel*f*0.85;',   // 선택된 손톱 표시
+    '  oCol=vec4(pow(col,vec3(1.0/2.2)),1.0);',
+    '}'].join('\n');
+
+  var FS_PICK = ['#version 300 es', 'precision highp float;',
+    'uniform vec3 uC1;', 'in vec3 vPos; in vec3 vNrm; in vec2 vUV; out vec4 oCol;',
+    'void main(){ oCol=vec4(uC1,1.0); }'].join('\n');
+
+  var FS_BG = ['#version 300 es', 'precision highp float;',
+    'uniform vec3 uC1,uC2; uniform vec2 uRes;',
+    'in vec3 vPos; in vec3 vNrm; in vec2 vUV; out vec4 oCol;',
+    'void main(){',
+    '  vec2 q=gl_FragCoord.xy/uRes;',
+    '  vec3 c=mix(uC2,uC1,smoothstep(0.0,1.0,q.y));',
+    '  float d=length((q-vec2(0.46,0.58))*vec2(1.0,0.86));',
+    '  oCol=vec4(c*(1.0-smoothstep(0.30,0.86,d)*0.30),1.0);',
+    '}'].join('\n');
+
+  /* ── GL ── */
+  var gl = null, canvas = null, prog = {}, hand = null, nails = {}, bg = null;
+  var orbit = { yaw: 0, pitch: 0, dist: 36 }, pickFB = null, pickTex = null, pickRB = null;
+  var onPick = null, redraw = null;
+
+  function compile(vs, fs) {
+    function sh(type, src) {
+      var s = gl.createShader(type);
+      gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    }
+    var p = gl.createProgram();
+    gl.attachShader(p, sh(gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+    gl.bindAttribLocation(p, 0, 'aPos');
+    gl.bindAttribLocation(p, 1, 'aNrm');
+    gl.bindAttribLocation(p, 2, 'aUV');
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+
+  function upload(mesh) {
+    var vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    function buf(data, loc, n) {
+      var b = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, b);
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, n, gl.FLOAT, false, 0, 0);
+    }
+    buf(new Float32Array(mesh.p), 0, 3);
+    buf(mesh.gradNormals || mesh.normals(), 1, 3);
+    buf(new Float32Array(mesh.uv), 2, 2);
+    var ib = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(mesh.i), gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+    return { vao: vao, n: mesh.i.length };
+  }
+
+  function u(p, name) { return gl.getUniformLocation(p, name); }
+  function rgb(hex) {
+    var c = C.hex2rgb(hex);
+    // sRGB → 대략적인 선형. 감마를 무시하면 명암이 탁해진다.
+    return [Math.pow(c.r / 255, 2.2), Math.pow(c.g / 255, 2.2), Math.pow(c.b / 255, 2.2)];
+  }
+  function set3(p, name, hex) { gl.uniform3fv(u(p, name), rgb(hex)); }
+
+  var BG = {
+    studio: ['#fbf6f1', '#e4d3c6'],
+    blush: ['#fdeef0', '#f0c9d2'],
+    noir: ['#33292e', '#0d090b']
+  };
+  var ARTI = { none: 0, french: 1, ombre: 2, glitter: 3, cateye: 4, tip: 5 };
+  var FINI = { gloss: 0, matte: 1, pearl: 2, chrome: 3 };
+
+  function init(host, pickCb) {
+    canvas = document.createElement('canvas');
+    canvas.className = 'gl';
+    host.appendChild(canvas);
+    gl = canvas.getContext('webgl2', { antialias: true, preserveDrawingBuffer: true });
+    if (!gl) return false;
+    onPick = pickCb;
+    prog.skin = compile(VS, FS_SKIN);
+    prog.nail = compile(VS, FS_NAIL);
+    prog.pick = compile(VS, FS_PICK);
+    prog.bg = compile(VS, FS_BG);
+    hand = upload(buildHand());
+
+    var quad = new Mesh();
+    quad.add([-1, -1, 0]); quad.add([3, -1, 0]); quad.add([-1, 3, 0]);
+    quad.tri(0, 1, 2);
+    bg = upload(quad);
+
+    pickFB = gl.createFramebuffer();
+    pickTex = gl.createTexture();
+    pickRB = gl.createRenderbuffer();
+
+    bindInput();
+    return true;
+  }
+
+  function bindInput() {
+    var drag = null;
+    canvas.addEventListener('pointerdown', function (e) {
+      drag = { x: e.clientX, y: e.clientY, yaw: orbit.yaw, pitch: orbit.pitch, moved: 0 };
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      drag.moved = Math.max(drag.moved, Math.abs(dx) + Math.abs(dy));
+      orbit.yaw = drag.yaw + dx * 0.32;
+      orbit.pitch = Math.max(-72, Math.min(72, drag.pitch + dy * 0.28));
+      if (redraw) redraw();
+    });
+    canvas.addEventListener('pointerup', function (e) {
+      var wasDrag = drag && drag.moved > 4;
+      drag = null;
+      if (!wasDrag && onPick) {
+        var id = pick(e);
+        if (id) onPick(id);
+      }
+    });
+    canvas.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      orbit.dist = Math.max(12, Math.min(60, orbit.dist * (1 + Math.sign(e.deltaY) * 0.09)));
+      if (redraw) redraw();
+    }, { passive: false });
+  }
+
+  function camera(state, asp) {
+    var target = state.zoom ? [0, 9.6, 0] : [0, 4.1, 0];
+    var dist = state.zoom ? Math.min(orbit.dist, 16) : orbit.dist;
+    var eye = [0, 0, dist];
+    eye = rotAxis(eye, [1, 0, 0], -orbit.pitch);
+    eye = rotAxis(eye, [0, 1, 0], orbit.yaw);
+    eye = add(target, eye);
+    return { eye: eye, mvp: mmul(perspective(30, asp, 1, 200), lookAt(eye, target, [0, 1, 0])) };
+  }
+
+  function meshFor(fg, d) {
+    var key = fg.id + '|' + d.shape + '|' + d.length;
+    if (!nails[key]) nails[key] = upload(nailMesh(fg, d));
+    return nails[key];
+  }
+
+  function resize() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+    if (w && h && (canvas.width !== w || canvas.height !== h)) { canvas.width = w; canvas.height = h; }
+    return [canvas.width, canvas.height];
+  }
+
+  /* 손톱 하나를 그린다. cb 로 프로그램별 유니폼을 넣는다. */
+  function drawNails(state, p, cam, perNail) {
+    gl.useProgram(p);
+    gl.uniformMatrix4fv(u(p, 'uMVP'), false, cam.mvp);
+    gl.uniform3fv(u(p, 'uEye'), new Float32Array(cam.eye));
+    gl.uniform3fv(u(p, 'uLight'), new Float32Array(norm([-0.66, 0.52, 0.44])));
+    set3(p, 'uHi', '#fff6ee');
+    FINGERS.forEach(function (fg, i) {
+      var d = state.nails[fg.id];
+      perNail(p, fg, d, i);
+      var m = meshFor(fg, d);
+      gl.bindVertexArray(m.vao);
+      gl.drawElements(gl.TRIANGLES, m.n, gl.UNSIGNED_INT, 0);
+    });
+  }
+
+  function draw(state) {
+    var size = resize();
+    var sk = null;
+    D.SKINS.forEach(function (s) { if (s.id === state.skin) sk = s; });
+    sk = sk || D.SKINS[2];
+    var cam = camera(state, size[0] / size[1]);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, size[0], size[1]);
+    gl.enable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    // 배경
+    var pal = BG[state.backdrop] || BG.studio;
+    gl.depthMask(false);
+    gl.useProgram(prog.bg);
+    gl.uniformMatrix4fv(u(prog.bg, 'uMVP'), false, new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]));
+    gl.uniform2f(u(prog.bg, 'uRes'), size[0], size[1]);
+    set3(prog.bg, 'uC1', pal[0]);
+    set3(prog.bg, 'uC2', pal[1]);
+    gl.bindVertexArray(bg.vao);
+    gl.drawElements(gl.TRIANGLES, bg.n, gl.UNSIGNED_INT, 0);
+    gl.depthMask(true);
+
+    // 손
+    gl.useProgram(prog.skin);
+    gl.uniformMatrix4fv(u(prog.skin, 'uMVP'), false, cam.mvp);
+    gl.uniform3fv(u(prog.skin, 'uEye'), new Float32Array(cam.eye));
+    gl.uniform3fv(u(prog.skin, 'uLight'), new Float32Array(norm([-0.66, 0.52, 0.44])));
+    set3(prog.skin, 'uBase', sk.base);
+    set3(prog.skin, 'uShade', sk.shade);
+    set3(prog.skin, 'uBlood', sk.blood);
+    set3(prog.skin, 'uHi', C.lighten(sk.light, 0.3));
+    gl.bindVertexArray(hand.vao);
+    gl.drawElements(gl.TRIANGLES, hand.n, gl.UNSIGNED_INT, 0);
+
+    // 손톱
+    var bed = C.mix(C.lighten(sk.base, 0.34), sk.blood, 0.24);
+    drawNails(state, prog.nail, cam, function (p, fg, d) {
+      set3(p, 'uC1', d.color);
+      set3(p, 'uC2', d.color2);
+      set3(p, 'uBed', bed);
+      gl.uniform1i(u(p, 'uArt'), ARTI[d.art] || 0);
+      gl.uniform1i(u(p, 'uFinish'), FINI[d.finish] || 0);
+      gl.uniform1f(u(p, 'uSheer'), d.sheer == null ? 1 : d.sheer);
+      gl.uniform1f(u(p, 'uSel'), (!state.sync && state.selected.indexOf(fg.id) >= 0) ? 1 : 0);
+    });
+    gl.bindVertexArray(null);
+  }
+
+  /* 손톱만 id 색으로 그려 읽는다 — 실루엣 그대로 맞아서 광선 검사보다 정확하다 */
+  function pick(ev) {
+    if (!pickState) return null;
+    var size = [canvas.width, canvas.height];
+    gl.bindTexture(gl.TEXTURE_2D, pickTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, size[0], size[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, pickRB);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, size[0], size[1]);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pickFB);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pickTex, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, pickRB);
+    gl.viewport(0, 0, size[0], size[1]);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+
+    var cam = camera(pickState, size[0] / size[1]);
+    // 손도 같이 그려야 손에 가려진 손톱이 집히지 않는다
+    gl.useProgram(prog.pick);
+    gl.uniformMatrix4fv(u(prog.pick, 'uMVP'), false, cam.mvp);
+    gl.uniform3f(u(prog.pick, 'uC1'), 0, 0, 0);
+    gl.bindVertexArray(hand.vao);
+    gl.drawElements(gl.TRIANGLES, hand.n, gl.UNSIGNED_INT, 0);
+    drawNails(pickState, prog.pick, cam, function (p, fg, d, i) {
+      gl.uniform3f(u(p, 'uC1'), (i + 1) / 255, 0, 0);
+    });
+
+    var r = canvas.getBoundingClientRect();
+    var px = Math.round((ev.clientX - r.left) / r.width * size[0]);
+    var py = Math.round((1 - (ev.clientY - r.top) / r.height) * size[1]);
+    var buf = new Uint8Array(4);
+    gl.readPixels(px, py, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindVertexArray(null);
+    return buf[0] > 0 && buf[0] <= IDS.length ? IDS[buf[0] - 1] : null;
+  }
+
+  var pickState = null;
+
+  NS.hand3d = {
+    init: init,
+    draw: function (state) { pickState = state; draw(state); },
+    setRedraw: function (fn) { redraw = fn; },
+    canvas: function () { return canvas; },
+    reset: function () { orbit.yaw = 0; orbit.pitch = 0; orbit.dist = 36; }
+  };
+})(window.NailSim = window.NailSim || {});
+</script>
+<script>
+/* 상태 · UI 연결 · 저장 · PNG 내보내기 */
+(function (NS) {
+  'use strict';
+
+  var G = NS.geom, D = NS.data, R = NS.render;
+  var STORE = 'nailsim.looks';
+  var ALL = G.FINGERS.map(function (f) { return f.id; });
+
+  function designByName(name) {
+    for (var i = 0; i < D.DESIGNS.length; i++) if (D.DESIGNS[i].name === name) return D.DESIGNS[i];
+    return D.DESIGNS[0];
+  }
+
+  function defaultDesign() {
+    var d = designByName('누드 글로시');   // 인덱스로 잡으면 프리셋을 추가할 때 조용히 어긋난다
+    return {
+      color: d.color, color2: d.color2, finish: d.finish,
+      art: d.art, shape: d.shape, length: d.length, sheer: d.sheer || 1
+    };
+  }
+
+  var state = {
+    skin: 's2',
+    backdrop: 'studio',
+    mode: '2d',
+    zoom: false,
+    sync: true,
+    selected: ALL.slice(),
+    nails: {}
+  };
+  ALL.forEach(function (id) { state.nails[id] = defaultDesign(); });
+
+  var el = {};
+  ['stage', 'fingers', 'designs', 'palette', 'arts', 'finishes', 'shapes', 'skins',
+    'backdrops', 'length', 'len-label', 'color1', 'color2', 'looks', 'look-name',
+    'btn-zoom', 'btn-png', 'btn-reset', 'btn-all', 'btn-save', 'chk-sync',
+    'btn-3d', 'stage-hint', 'stage-2d'
+  ].forEach(function (id) { el[id] = document.getElementById(id); });
+
+  /* 선택된 손가락 중 첫 번째 디자인을 컨트롤의 현재값으로 쓴다 */
+  function current() {
+    return state.nails[state.selected[0] || 'middle'];
+  }
+
+  /* 선택된 손가락(또는 전체)에 변경 적용 */
+  function apply(patch) {
+    var targets = state.sync ? ALL : state.selected;
+    targets.forEach(function (id) {
+      Object.keys(patch).forEach(function (k) { state.nails[id][k] = patch[k]; });
+    });
+    draw();
+  }
+
+  /* ── 렌더 ──
+   * 2D 는 매번 SVG 문자열을 새로 만들고, 3D 는 캔버스를 그대로 두고 다시 그린다.
+   * WebGL 컨텍스트는 브라우저가 개수를 제한하므로 한 번만 만들고 계속 쓴다 —
+   * 모드를 오갈 때마다 새로 만들면 몇 번 만에 컨텍스트를 잃는다. */
+  var gl3d = null;   // null = 아직 시도 안 함, false = 이 브라우저에서 불가
+
+  function ensure3D() {
+    if (gl3d === null) {
+      gl3d = !!(NS.hand3d && NS.hand3d.init(el.stage, toggleFinger));
+      if (gl3d) NS.hand3d.setRedraw(function () { NS.hand3d.draw(state); });
+    }
+    return gl3d;
+  }
+
+  function draw() {
+    var use3d = state.mode === '3d' && ensure3D();
+    if (!use3d) state.mode = '2d';
+    el['stage-2d'].style.display = use3d ? 'none' : '';
+    if (gl3d) NS.hand3d.canvas().style.display = use3d ? '' : 'none';
+
+    if (use3d) {
+      NS.hand3d.draw(state);
+    } else {
+      el['stage-2d'].innerHTML = R.renderSVG(state, { zoom: state.zoom });
+      el['stage-2d'].querySelectorAll('.nail-hit').forEach(function (p) {
+        p.addEventListener('click', function () { toggleFinger(p.dataset.finger); });
+      });
+    }
+    syncControls();
+  }
+
+  /* 전체 적용 중에 손톱을 누르면 "이 손톱만 바꾸겠다"는 뜻으로 본다. */
+  function toggleFinger(id) {
+    if (state.sync) {
+      state.sync = false;
+      state.selected = [id];
+    } else {
+      var i = state.selected.indexOf(id);
+      if (i >= 0) {
+        if (state.selected.length > 1) state.selected.splice(i, 1);
+      } else {
+        state.selected.push(id);
+      }
+    }
+    draw();
+  }
+
+  /* 컨트롤 상태를 현재 디자인에 맞춘다 */
+  function syncControls() {
+    var d = current();
+    press(el.fingers, function (v) { return state.selected.indexOf(v) >= 0; });
+    press(el.arts, function (v) { return v === d.art; });
+    press(el.finishes, function (v) { return v === d.finish; });
+    press(el.shapes, function (v) { return v === d.shape; });
+    press(el.palette, function (v) { return v.toLowerCase() === d.color.toLowerCase(); });
+    press(el.skins, function (v) { return v === state.skin; });
+    press(el.backdrops, function (v) { return v === state.backdrop; });
+    el.length.value = d.length;
+    el['len-label'].textContent = G.LENGTHS[d.length].name;
+    el.color1.value = d.color;
+    el.color2.value = d.color2;
+    el['btn-zoom'].setAttribute('aria-pressed', String(state.zoom));
+    el['btn-3d'].setAttribute('aria-pressed', String(state.mode === '3d'));
+    el['stage-hint'].textContent = state.mode === '3d'
+      ? '드래그하면 돌려볼 수 있고, 휠로 확대합니다. 손톱을 누르면 그 손톱만 바꿔요'
+      : '손톱을 누르면 그 손톱만 따로 바꿀 수 있어요';
+    el['chk-sync'].checked = state.sync;
+  }
+
+  function press(container, isOn) {
+    container.querySelectorAll('[data-val]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(!!isOn(b.dataset.val)));
+    });
+  }
+
+  /* ── UI 구성 ── */
+  function chip(cls, val, label, title) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = cls;
+    b.dataset.val = val;
+    if (label) b.textContent = label;
+    if (title) b.title = title;
+    return b;
+  }
+
+  function buildUI() {
+    G.FINGERS.forEach(function (f) { el.fingers.appendChild(chip('chip', f.id, f.name)); });
+    el.fingers.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-val]');
+      if (b) toggleFinger(b.dataset.val);
+    });
+
+    D.DESIGNS.forEach(function (d, i) {
+      var b = chip('design', String(i), null, d.name);
+      var dot = document.createElement('i');
+      dot.style.background = 'linear-gradient(135deg,' + d.color2 + ' 0%,' + d.color + ' 55%)';
+      b.appendChild(dot);
+      b.appendChild(document.createTextNode(d.name));
+      el.designs.appendChild(b);
+    });
+    el.designs.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-val]');
+      if (!b) return;
+      var d = D.DESIGNS[+b.dataset.val];
+      apply({ color: d.color, color2: d.color2, finish: d.finish, art: d.art,
+        shape: d.shape, length: d.length, sheer: d.sheer || 1 });
+    });
+
+    D.PALETTE.forEach(function (c) {
+      var b = chip('swatch', c.hex, null, c.name);
+      b.style.background = c.hex;
+      el.palette.appendChild(b);
+    });
+    el.palette.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-val]');
+      if (b) apply({ color: b.dataset.val });
+    });
+
+    D.ARTS.forEach(function (a) { el.arts.appendChild(chip('chip', a.id, a.name)); });
+    el.arts.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-val]');
+      if (b) apply({ art: b.dataset.val });
+    });
+
+    D.FINISHES.forEach(function (f) { el.finishes.appendChild(chip('chip', f.id, f.name)); });
+    el.finishes.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-val]');
+      if (b) apply({ finish: b.dataset.val });
+    });
+
+    Object.keys(G.SHAPES).forEach(function (k) {
+      el.shapes.appendChild(chip('chip', k, G.SHAPES[k].name));
+    });
+    el.shapes.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-val]');
+      if (b) apply({ shape: b.dataset.val });
+    });
+
+    D.SKINS.forEach(function (s) {
+      var b = chip('swatch', s.id, null, s.name);
+      b.style.background = s.base;
+      el.skins.appendChild(b);
+    });
+    el.skins.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-val]');
+      if (b) { state.skin = b.dataset.val; draw(); }
+    });
+
+    D.BACKDROPS.forEach(function (b) { el.backdrops.appendChild(chip('chip', b.id, b.name)); });
+    el.backdrops.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-val]');
+      if (b) { state.backdrop = b.dataset.val; draw(); }
+    });
+
+    el.length.addEventListener('input', function () { apply({ length: +el.length.value }); });
+    el.color1.addEventListener('input', function () { apply({ color: el.color1.value }); });
+    el.color2.addEventListener('input', function () { apply({ color2: el.color2.value }); });
+
+    el['chk-sync'].addEventListener('change', function () {
+      state.sync = el['chk-sync'].checked;
+      if (state.sync) state.selected = ALL.slice();
+      draw();
+    });
+    el['btn-all'].addEventListener('click', function () {
+      state.sync = true;
+      state.selected = ALL.slice();
+      draw();
+    });
+    el['btn-3d'].addEventListener('click', function () {
+      state.mode = state.mode === '3d' ? '2d' : '3d';
+      draw();
+      if (state.mode === '2d' && !gl3d) alert('이 브라우저에서는 WebGL을 쓸 수 없어 3D 보기를 열지 못했습니다.');
+    });
+    el['btn-zoom'].addEventListener('click', function () { state.zoom = !state.zoom; draw(); });
+    el['btn-reset'].addEventListener('click', function () {
+      ALL.forEach(function (id) { state.nails[id] = defaultDesign(); });
+      state.sync = true;
+      state.selected = ALL.slice();
+      if (gl3d) NS.hand3d.reset();
+      draw();
+    });
+    el['btn-png'].addEventListener('click', exportPNG);
+    el['btn-save'].addEventListener('click', saveLook);
+  }
+
+  function download(blob) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'nail-simulation.png';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  /* ── PNG 내보내기 ── */
+  function exportPNG() {
+    if (state.mode === '3d' && gl3d) {
+      NS.hand3d.draw(state);          // 캔버스 내용이 살아 있는 시점에 읽어야 한다
+      NS.hand3d.canvas().toBlob(download);
+      return;
+    }
+    var scale = 2;
+    var svg = R.renderSVG(state, { zoom: state.zoom, selectable: false, scale: scale });
+    var box = (state.zoom ? R.VIEW_ZOOM : R.VIEW_FULL).split(' ').map(Number);
+    var img = new Image();
+    img.onload = function () {
+      var canvas = document.createElement('canvas');
+      canvas.width = box[2] * scale;
+      canvas.height = box[3] * scale;
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(download);
+    };
+    img.onerror = function () { alert('이미지를 만들 수 없습니다.'); };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+
+  /* ── 저장한 룩 ── */
+  function readLooks() {
+    try { return JSON.parse(localStorage.getItem(STORE)) || []; } catch (e) { return []; }
+  }
+  function writeLooks(list) {
+    try { localStorage.setItem(STORE, JSON.stringify(list)); } catch (e) { /* 용량 초과 등은 무시 */ }
+  }
+
+  function saveLook() {
+    var name = el['look-name'].value.trim() || '내 룩 ' + (readLooks().length + 1);
+    var list = readLooks();
+    list.push({ name: name, skin: state.skin, backdrop: state.backdrop, nails: state.nails });
+    writeLooks(list);
+    el['look-name'].value = '';
+    renderLooks();
+  }
+
+  function renderLooks() {
+    var list = readLooks();
+    el.looks.innerHTML = '';
+    if (!list.length) {
+      var li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = '저장한 룩이 없습니다.';
+      el.looks.appendChild(li);
+      return;
+    }
+    list.forEach(function (look, i) {
+      var li = document.createElement('li');
+      var load = document.createElement('button');
+      load.type = 'button';
+      load.className = 'load';
+      load.textContent = look.name;
+      load.addEventListener('click', function () {
+        state.skin = look.skin;
+        state.backdrop = look.backdrop;
+        ALL.forEach(function (id) {
+          state.nails[id] = Object.assign(defaultDesign(), look.nails[id]);
+        });
+        draw();
+      });
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'del';
+      del.textContent = '삭제';
+      del.addEventListener('click', function () {
+        var l = readLooks();
+        l.splice(i, 1);
+        writeLooks(l);
+        renderLooks();
+      });
+      li.appendChild(load);
+      li.appendChild(del);
+      el.looks.appendChild(li);
+    });
+  }
+
+  buildUI();
+  renderLooks();
+  draw();
+})(window.NailSim = window.NailSim || {});
+</script>
