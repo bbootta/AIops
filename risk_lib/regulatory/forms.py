@@ -775,6 +775,14 @@ _FSS_BUILDER_MODULES: tuple[str, ...] = (
     "forms_fss_liquidity",    # 유동성
     "forms_fss_indicator",    # 리스크 지표
     "forms_fss_compliance",   # 업무규제 준수
+    # ---- 리스크 소관 밖 편제 (제15편~제33편)
+    "forms_fss_card",         # 신용카드
+    "forms_fss_overseas_a",   # 해외점포 — 일반·재무·유동성·자산건전성
+    "forms_fss_overseas_b",   # 해외점포 — 수익성·자본적정성·현지화평가
+    "forms_fss_financial",    # 재무제표
+    "forms_fss_keyfin",       # 주요재무현황·생산성·은행유형별
+    "forms_fss_profit",       # 수익성
+    "forms_fss_general",      # 일반현황·투자자문·휴면금융재산·집합투자증권 등
 )
 
 

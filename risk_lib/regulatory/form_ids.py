@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from risk_lib.regulatory.fss_master import BY_CODE, risk_scope
+from risk_lib.regulatory.fss_master import BANK_FORMS, BY_CODE, risk_scope
 
 
 @dataclass(frozen=True)
@@ -117,8 +117,8 @@ def _build_form_ids() -> dict[str, FormId]:
     for br, internal in _BR_INTERNAL.items():
         ids[br] = FormId(internal)
     claimed = set(_BR_CLAIMS.values())
-    for f in risk_scope():
-        if f.code in claimed:
+    for f in BANK_FORMS:
+        if not f.applicable or f.code in claimed:
             continue
         ids[f.code] = FormId(f.code, f.code, FSS_SOURCE)
     return ids
@@ -154,6 +154,30 @@ _GROUP_SECTIONS: tuple[tuple[str, str], ...] = (
     ("제14편 업무규제 준수 (금감원 서식)", "업무규제준수"),
 )
 
+# 리스크 소관 밖 편제 — 마스터의 원 분류를 그대로 편으로 쓴다. 분류 문자열이
+# 곧 금감원 편제이므로 여기서 이름을 새로 짓지 않는다.
+_OUT_OF_SCOPE_SECTIONS: tuple[tuple[str, str], ...] = (
+    ("제15편 일반현황", "1. 일반현황 / 세부 분류"),
+    ("제16편 재무제표", "2. 재무현황 / 가. 재무제표"),
+    ("제17편 주요재무현황", "2. 재무현황 / 나. 주요재무현황"),
+    ("제18편 수익성", "2. 재무현황 / 마. 수익성"),
+    ("제19편 생산성", "2. 재무현황 / 사. 생산성"),
+    ("제20편 신용카드", "2. 재무현황 / 아. 신용카드"),
+    ("제21편 은행유형별 업무현황", "5. 은행유형별 업무현황 / 가. 일반은행"),
+    ("제22편 해외점포 — 일반현황", "7. 해외점포 / 가. 일반현황"),
+    ("제23편 해외점포 — 재무제표", "7. 해외점포 / 나. 재무제표"),
+    ("제24편 해외점포 — 유동성", "7. 해외점포 / 다. 유동성"),
+    ("제25편 해외점포 — 자산건전성", "7. 해외점포 / 라. 자산건전성"),
+    ("제26편 해외점포 — 수익성", "7. 해외점포 / 마. 수익성"),
+    ("제27편 해외점포 — 자본적정성", "7. 해외점포 / 바. 자본적정성"),
+    ("제28편 해외점포 — 현지화평가", "7. 해외점포 / 사. 현지화평가"),
+    ("제29편 집합투자증권 판매", "8. 집합투자증권 판매 / 사. 현지화평가"),
+    ("제30편 휴면금융재산", "9. 휴면금융재산 현황 / 사. 현지화평가"),
+    ("제31편 금리인하요구권", "10. 금리인하요구권 운영현황 / 사. 현지화평가"),
+    ("제32편 투자자문업", "11. 투자자문업 현황 / 사. 현지화평가"),
+    ("제33편 전자적 투자조언장치", "12. 전자적 투자조언장치 현황 / 사. 현지화평가"),
+)
+
 
 def _build_sections() -> tuple[tuple[str, tuple[str, ...]], ...]:
     claimed = set(_BR_CLAIMS.values())
@@ -161,6 +185,12 @@ def _build_sections() -> tuple[tuple[str, tuple[str, ...]], ...]:
     for name, group in _GROUP_SECTIONS:
         codes = tuple(f.code for f in risk_scope()
                       if f.group == group and f.code not in claimed)
+        if codes:
+            out.append((name, codes))
+    for name, category in _OUT_OF_SCOPE_SECTIONS:
+        codes = tuple(f.code for f in BANK_FORMS
+                      if f.applicable and f.category == category
+                      and f.code not in claimed)
         if codes:
             out.append((name, codes))
     return tuple(out)
@@ -184,8 +214,7 @@ UNASSIGNED_NOTE = (
 
 # 국내 일반은행이 제출하지 않는 서식과 그 사유 — 누락과 구분하기 위해 남긴다.
 NOT_APPLICABLE: dict[str, str] = {
-    f.code: f.not_applicable for f in risk_scope(applicable_only=False)
-    if not f.applicable
+    f.code: f.not_applicable for f in BANK_FORMS if not f.applicable
 }
 
 
