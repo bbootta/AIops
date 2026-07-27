@@ -242,9 +242,16 @@
   /* 손톱은 손가락이 휜 만큼 같이 돌고, 손가락마다 아주 살짝 다르게 기울어 있다
    * (손가락 롤). 다섯 개가 정확히 정면을 향하면 붙여놓은 것처럼 보인다. */
   var NAIL_ROLL = { thumb: -5, index: -2, middle: 0, ring: 1.5, pinky: 3 };
+  /* 휨(nailBend)은 밑동 기준으로 돌려야 손톱이 휜 손가락 끝을 따라간다.
+   * 롤은 손톱 자신의 중심에서 돌려야 한다 — 밑동 기준으로 돌리면 150~230px 떨어진
+   * 손톱이 옆으로 밀려서, 기울어지는 대신 손가락 한쪽으로 몰린다. */
+  function nailXform(fg, d) {
+    var m = G.nailMetrics(fg, d), roll = NAIL_ROLL[fg.id] || 0;
+    return 'rotate(' + G.nailBend(fg, d).toFixed(2) + ')' +
+      (roll ? ' rotate(' + roll + ' 0 ' + (-(m.yc + m.T * 0.5)).toFixed(2) + ')' : '');
+  }
   function nailGroup(fg, d, inner) {
-    var a = G.nailBend(fg, d) + (NAIL_ROLL[fg.id] || 0);
-    return fingerGroup(fg, '<g transform="rotate(' + a.toFixed(2) + ')">' + inner + '</g>');
+    return fingerGroup(fg, '<g transform="' + nailXform(fg, d) + '">' + inner + '</g>');
   }
   /* clipPath 안에서는 <g> 가 무시된다 — 변환을 도형에 직접 걸어야 한다. */
   function fingerPathAbs(fg) {
@@ -302,7 +309,7 @@
     // 손톱을 감싸는 살 능선(큐티클·측면 네일폴드). 손톱이 스티커처럼 얹힌 게 아니라
     // 살에 파묻혀 보이게 한다. 살이 있는 곳에만 있어야 하므로 손가락으로 클립된
     // 이 그룹 안에서 그린다 — 손끝 밖으로 나간 연장 부분에는 살 능선이 없다.
-    out.push('<g transform="rotate(' + (G.nailBend(fg, d) + (NAIL_ROLL[fg.id] || 0)).toFixed(2) + ')" ' +
+    out.push('<g transform="' + nailXform(fg, d) + '" ' +
       'clip-path="url(#foldclip-' + fg.id + ')">');
     out.push('<path d="' + G.nailPath(fg, d, -3.4) + '" fill="none" stroke="' + HI +
       '" stroke-opacity="0.4" stroke-width="3" filter="url(#soft3)"/>');
@@ -654,7 +661,8 @@
     var c = kind === 'noir' ? '#000000' : '#6b4a38';
     return '<defs><radialGradient id="vig" cx="0.46" cy="0.4" r="0.78">' +
       stop(0, c + '00') + stop(0.62, c + '00') + stop(1, c + (kind === 'noir' ? '8c' : '3d')) +
-      '</radialGradient></defs><rect width="900" height="980" fill="url(#vig)"/>';
+      // 손톱 히트 영역 위에 깔리므로 클릭을 통과시켜야 한다
+      '</radialGradient></defs><rect width="900" height="980" fill="url(#vig)" pointer-events="none"/>';
   }
 
   /* ── 배경 ── */
