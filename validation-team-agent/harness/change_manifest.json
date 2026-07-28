@@ -2340,6 +2340,21 @@
       "rollback_rule": "권고 검증이 회차를 과도하게 지연시키면 severity 를 medium 으로 낮춘다 (정책 파일 편집, 코드 무변경)",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0157",
+      "timestamp": "2026-07-28 13:31:48",
+      "component": "harness/adversarial_protocol.json (ADV-PROC-07 신설)",
+      "change_type": "modify",
+      "evidence": "독립검증 IVR-11C3372DCB57 (10차) 에서 9차 F-801 시정의 부수 피해 확인. formula 문자열을 고치는 편집이 BF202 의 라인 5000(담보평가액)·5010(담보인정액)을 함께 삭제했고, 4020(대손준비금 순차액)의 인용이 은행업감독규정 제29조에서 Basel III CRE22 로 바뀌었다. 실측: 서식 라인 5,896 → 5,894, 실측 근거 4,002 → 4,000. 검증 '담보인정액 ≤ 담보평가액' 은 남아 있어 서식에 없는 라인을 대사한다. 문서 생성 구간 대조는 이 변화를 FAIL 로 잡았으나 값만 새로 갱신됐다 — 9차에는 같은 통제가 4,000 → 4,002 를 잡아 원인(BR-26 라인 추가)까지 규명했다",
+      "root_cause": "ADV-PROC-05 는 시정이 모든 사용처에 전파됐는지(부족)를 묻지만 시정이 대상 밖을 건드렸는지(과잉)는 묻지 않는다. 또한 자동 대조가 수치 변화를 알렸을 때 값을 갱신하기 전에 원인을 규명하도록 요구하는 절차가 없었다 — 특히 줄어든 방향은 삭제를 뜻하므로 증가보다 위험하다",
+      "targeted_fix": "ADV-PROC-07(시정의 부수 피해, critical) 신설 — 시정 diff 전수 판독 + 산출물 인벤토리(라인 수·라인 코드 집합·인용·검증 목록) 전후 대조. 생성 구간 대조가 변화를 알리면 값 갱신 전에 원인, 특히 감소 방향의 원인을 먼저 답하도록 method 에 명시",
+      "expected_benefit": "시정이 새 결함을 만드는 경로 차단. 자동 대조가 '변화 알림' 에서 '원인 규명 요구' 로 격상되어, 통제가 잡은 신호가 값 갱신으로 소비되는 것을 막는다",
+      "expected_regression_risk": "낮음 — challenge 추가만이며 판정 로직 무변경",
+      "validation_method": "tests/test_v2_round87.py 프로토콜 무결성 검사(disconfirming_evidence 필수·ID 유일성·범주 유지) 통과 + 전체 1316 passed, 3 skipped",
+      "rollback_rule": "diff 전수 판독이 회차를 과도하게 지연시키면 대상을 산출물 인벤토리 대조로만 한정한다 (정책 파일 편집, 코드 무변경)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
