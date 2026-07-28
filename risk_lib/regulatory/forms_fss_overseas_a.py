@@ -419,7 +419,14 @@ def _bf202(ctx) -> tuple[list[FormLine], list[FormCheck]]:
                  formula="기대신용손실 모형 적립액", citation="IFRS 9 5.5",
                  source_module=_M_ECL, is_subtotal=True),
         FormLine("4020", "대손준비금 순차액", 0, "KRW", reserve_net_gap(ob),
-                 formula="최저적립액 − 충당금 (부호 있는 순차액 — 음수는 초과적립. 부문 합이 전행과 일치하도록 max(0,·)를 걸지 않는다)",
+                 formula="최저적립액 − 충당금 (부호 있는 순차액 — 음수는 초과적립. "
+                         "부문 합이 전행과 일치하도록 max(0,·)를 걸지 않는다)",
+                 citation=_C29, source_module=_M_RDM),
+        FormLine("5000", "담보평가액", 0, "KRW", float(coll["appraised"].sum()),
+                 formula="담보는 시가, 보증은 보장금액", citation=_CRE22,
+                 source_module=_M_RDM, is_subtotal=True),
+        FormLine("5010", "담보인정액", 1, "KRW", float(coll["recognized"].sum()),
+                 formula="담보 = 시가 × (1 − 감독 haircut) · 보증 = 적격 보장금액",
                  citation=_CRE22, source_module=_M_RDM),
     ]
     t = _tol(max(undrawn, d_total, 1.0))
