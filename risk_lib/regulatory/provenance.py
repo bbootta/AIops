@@ -429,3 +429,44 @@ def provenance_report_md(stats: dict, asof: str) -> str:
           for b, d in stats["by_basis"].items()),
         f"| **합계** | **{stats['n_lines']:,}** | **{share_total:.2%}** |",
     ))
+
+
+# ---------------------------------------------------------------- 검증의 세기
+
+def check_strength(built: list) -> dict:
+    """서식검증이 실제로 통제력을 갖는지 — "실패 0"의 뜻을 좁힌다.
+
+    독립검증 지적 F-602: 쟁점을 지키던 검증이 `min(0, Σmax(0,xᵢ) − max(0,Σxᵢ))`
+    였는데 두 값의 대소가 **정리**로 정해져 있어 어떤 자료에서도 정확히 0이었다.
+    실패 불가능성이 데이터가 아니라 산식 구조에서 나오면 그것은 통제가 아니다.
+
+    여기서 세는 것은 **양변이 모두 0인 검증**이다. 그중에는 정당한 것도 있다 —
+    영위하지 않는 업무(신탁·종금·투자자문)나 보유하지 않은 익스포저(유동화)는
+    0을 단언하는 것이 옳고, 원장이 생기면 살아난다. 그러나 구조적 항진명제도
+    같은 모습이므로 **이 수가 곧 통제 세기는 아니다**. 3선이 판별할 수 있도록
+    수를 넘긴다.
+    """
+    total = zero_both = 0
+    for b in built:
+        for c in b.checks:
+            total += 1
+            if max(abs(float(c.expected)), abs(float(c.actual))) == 0.0:
+                zero_both += 1
+    return {
+        "n_checks": total,
+        "n_zero_both": zero_both,
+        "n_live": total - zero_both,
+        "live_share": (total - zero_both) / total if total else 0.0,
+    }
+
+
+def check_strength_sentence(strength: dict) -> str:
+    """요청서에 실을 한 문장 — 손으로 적지 않는다 (지적 F-501·F-603)."""
+    return (
+        f"서식검증 {strength['n_checks']:,}건 중 {strength['n_zero_both']:,}건은 "
+        f"양변이 모두 0이라 현 자료에서 실패할 수 없다 (실질 대사 "
+        f"{strength['n_live']:,}건 · {strength['live_share']:.1%}). 영위하지 않는 "
+        f"업무·미보유 익스포저의 0 단언이 다수이나 구조적 항진명제도 같은 모습이며, "
+        f"둘의 판별은 미완이다 — '검증 N건 실패 0'을 통제 세기로 읽지 말 것 "
+        f"(지적 F-602)."
+    )

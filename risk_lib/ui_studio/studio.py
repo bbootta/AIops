@@ -127,7 +127,7 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
         build_request, check_gate, request_frames,
     )
     iv_request = build_request(result, portfolio, tables,
-                               extra_checks=doc_checks)
+                               extra_checks=doc_checks, built_forms=built)
     iv_gate = check_gate(iv_request)
     tables.update(request_frames(iv_request, iv_gate))
 

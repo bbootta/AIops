@@ -358,7 +358,8 @@ def build_request(result, portfolio: pd.DataFrame,
                   tables: dict[str, pd.DataFrame] | None = None, *,
                   manifest=None, requested_by: str = "리스크관리 팀에이전트",
                   artefacts: list[str] | None = None,
-                  extra_checks: list | None = None) -> ValidationRequest:
+                  extra_checks: list | None = None,
+                  built_forms: list | None = None) -> ValidationRequest:
     """독립검증 요청 패키지 — 3선이 **다시 계산**할 수 있는 최소 집합."""
     asof = result.meta.get("asof", "1970-01-01")
     seed = int(result.meta.get("seed", 42))
@@ -412,6 +413,14 @@ def build_request(result, portfolio: pd.DataFrame,
     assumptions = list(KNOWN_ASSUMPTIONS)
     if provenance:
         assumptions.append(provenance_sentence(provenance))
+    # 검증의 세기도 생성한다 — 손으로 적은 수치는 이미 두 번 낡았다
+    # (지적 F-501 · F-603).
+    if built_forms:
+        from risk_lib.regulatory.provenance import (
+            check_strength, check_strength_sentence,
+        )
+        strength = check_strength(built_forms)
+        assumptions.append(check_strength_sentence(strength))
 
     request = ValidationRequest(
         request_id="",                # 아래에서 요청 전체를 지문화해 채운다

@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-from risk_lib.regulatory.forms import FormCheck, FormLine
+from risk_lib.regulatory.forms_base import (
+    FormCheck, FormLine, _ratio_check, _sum_check,
+)
 
 _M_PRU = "risk_lib.prudential"
 
@@ -368,8 +370,10 @@ def br_npl(ctx):
         FormLine("2100", "고정이하여신비율", 0, "ratio",
                  npl / total if total else 0.0, formula="고정이하 ÷ 총여신",
                  source_module=M),
+        FormLine("2900", "요주의여신", 0, "KRW", watch,
+                 citation="은행업감독규정 제27조", source_module=M),
         FormLine("3000", "요주의이하여신", 0, "KRW", watch + npl,
-                 source_module=M, is_subtotal=True),
+                 formula="요주의 + 고정이하", source_module=M, is_subtotal=True),
         FormLine("3100", "요주의이하여신비율", 0, "ratio",
                  (watch + npl) / total if total else 0.0, source_module=M),
         FormLine("4000", "부도 익스포저 건수", 0, "count",
@@ -384,8 +388,14 @@ def br_npl(ctx):
         L.append(FormLine(f"50{i:02d}", f"연체 {label}", 1, "KRW",
                           float(sel["balance"].sum()),
                           formula=f"{len(sel):,}건", source_module=M))
-    checks = [FormCheck("요주의이하 ≥ 고정이하", 0.0,
-                        min(0.0, (watch + npl) - npl), 1e-9)]
+    # 이전 검증은 min(0, (watch+npl) − npl) 이었는데 npl 이 소거되어 min(0, watch)
+    # 가 되고 watch ≥ 0 이므로 항상 정확히 0이었다 — 자료가 무엇이든 통과한다
+    # (지적 F-602 유형). 실제로 틀릴 수 있는 대사로 바꾼다.
+    checks = [
+        _sum_check("요주의이하 = 요주의 + 고정이하", L, "3000", ("2900", "2000")),
+        _ratio_check("고정이하여신비율 = 고정이하 ÷ 총여신", L, "2100", "2000", "1000"),
+        _ratio_check("요주의이하여신비율 = 요주의이하 ÷ 총여신", L, "3100", "3000", "1000"),
+    ]
     return L, checks
 
 
