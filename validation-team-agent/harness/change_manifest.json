@@ -2325,6 +2325,21 @@
       "rollback_rule": "미확인 양산 시 severity 조정 또는 challenge 제거 (정책 파일 편집, 코드 무변경)",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0156",
+      "timestamp": "2026-07-28 09:11:57",
+      "component": "harness/adversarial_protocol.json (ADV-PROC-06 신설 · ADV-CALC-06 판별법 확장)",
+      "change_type": "modify",
+      "evidence": "독립검증 IVR-3F62C4510DDE (9차) 에서 3선 자신의 권고가 틀렸음을 확인. 8차 의견서 §8 에서 '부분집합 서식(가계·주담대·여신종별)은 해당 부분집합의 합계 기준으로 다시 계산해야 한다' 고 권고했으나, 2선은 부문에 max(0,·) 를 걸지 않고 부호 있는 순차액(reserve_net_gap)을 택했다. 실측 검산: 차주구분 2분할만으로도 권고안은 50,613,889,990.72 (기업 50,613,889,990.72 + 가계 0) 로 전행 합계기준 33,582,430,343.88 대비 +17,031,459,646.84 과대이며 F-601 을 부문 수준에서 재현한다. 2선의 해법이 옳았고 부문 합 = 전행 순차액이 실측 차이 0 으로 성립한다. 아울러 8차에 약속한 AST 판별을 구현해 FormCheck 계열 호출부 1,209건을 분류했다 — _sum_check 523 · _ratio_check 296 · 양변상이 294 · 단측단언 96, 그중 _sum_check 20건은 부모 표현식이 자식 합과 구문 동일해 항등 확정",
+      "root_cause": "프로토콜이 의뢰자의 주장만 검증 대상으로 삼고 3선 자신의 권고는 검증 대상으로 두지 않았다. 상위 수준에서 정정한 원칙을 하위 분해에 그대로 복제하도록 권고하면 분해 합이 상위 값과 어긋날 수 있는데 이를 사전에 계산하는 절차가 없었다. 또한 ADV-CALC-06 의 판별법이 동적 시행만 규정해 정적 구조 판별을 빠뜨렸다",
+      "targeted_fix": "ADV-PROC-06(권고의 자기정합성, high) 신설 — 권고를 이행한 상태를 수치로 모의해 이미 확정된 다른 지적의 반증 기준에 대입하고, 분해 합이 상위 정정값과 어긋나는지 먼저 계산한다. ADV-CALC-06 의 method 를 정적(표현식 트리 대조)·동적(무작위 대량 시행) 병행으로 확장하고, 정적 판별이 의미적 항등을 놓친다는 한계를 명시",
+      "expected_benefit": "3선 권고가 새 결함을 만드는 경로 차단. 항등식 판별이 값 기반에서 구조 기반으로 전환돼 양변이 0 이 아닌 항등식도 잡힌다",
+      "expected_regression_risk": "낮음 — challenge 추가와 method 문구 확장뿐이며 판정 로직 무변경",
+      "validation_method": "tests/test_v2_round87.py 프로토콜 무결성 검사(disconfirming_evidence 필수·ID 유일성·범주 유지) 통과 + 전체 1316 passed, 3 skipped. 권고 반증은 실측 검산으로 실증",
+      "rollback_rule": "권고 검증이 회차를 과도하게 지연시키면 severity 를 medium 으로 낮춘다 (정책 파일 편집, 코드 무변경)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
