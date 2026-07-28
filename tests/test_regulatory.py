@@ -146,14 +146,55 @@ def test_asset_quality_form_matches_the_canonical_table(built, tables):
     assert _line(built, "BR-10", "1010").value == float(len(aq))
 
 
-def test_reserve_shortfall_is_exposure_level_not_netted(built, tables):
-    """익스포저 단위 max(0, ·) 합계는 총액 기준 차액보다 작을 수 없다.
+def test_reserve_requirement_is_aggregate_not_exposure_level(built, tables):
+    """대손준비금은 **합계 기준**이다 — 은행업감독규정 제29조 제2항.
 
-    총액에서 상계하면 과대충당 익스포저가 과소충당을 가려 대손준비금이 과소산정된다.
+    이 테스트는 원래 정반대를 못박고 있었다. "총액에서 상계하면 과대충당
+    익스포저가 과소충당을 가려 대손준비금이 과소산정된다"는 논리로 익스포저
+    단위 합산을 지켰는데, 규정은 "대손충당금이 제1항에 따른 금액에 미달하는
+    경우 그 차액"으로 합계를 대비하고 금감원 B2402-1도 그렇게 만든다.
+    대손준비금은 개별 여신의 충당금이 아니라 **총 충당금을 규제 최저수준까지
+    끌어올리는 이익잉여금 처분**이므로 본래 합계 개념이다.
+
+    결함이 1차부터 8개 요청 내내 살아남은 이유가 여기 있다 — 3선이 6회 재계산해
+    "일치"로 통과시켰고, 자체검증은 구조상 실패할 수 없는 항등식이 지켰고
+    (지적 F-602), 이 테스트는 틀린 해석을 의도로 고정했다. 세 층이 같은 방향으로
+    틀려 있었다 (지적 F-601).
     """
-    per_exposure = _line(built, "BR-11", "3000").value
-    netted = _line(built, "BR-11", "4000").value
-    assert per_exposure >= netted - 1.0
+    from risk_lib.datamodel.materialize_detail import reserve_requirement
+    rr = reserve_requirement(tables["rdm_asset_quality"])
+
+    required = _line(built, "BR-11", "3000").value
+    per_exposure = _line(built, "BR-11", "4000").value
+    offset = _line(built, "BR-11", "5000").value
+
+    assert required == pytest.approx(rr["required"], rel=1e-12)
+    assert required == pytest.approx(
+        max(0.0, _line(built, "BR-11", "1000").value
+            - _line(built, "BR-11", "2000").value), rel=1e-12)
+    # 건별 합산은 상계 효과만큼 크다. Σmax(0,xᵢ) ≥ max(0,Σxᵢ)는 정리이므로
+    # 이 차이는 항상 0 이상이며, 그래서 옛 산식은 과대 방향으로만 틀렸다.
+    assert per_exposure >= required - 1.0
+    assert per_exposure == pytest.approx(required + offset, rel=1e-12)
+
+
+def test_reserve_requirement_check_can_actually_fail():
+    """BR-11 검증이 자료에 따라 실패할 수 있어야 한다 (지적 F-602).
+
+    이전 검증은 `min(0, 건별합산 − 합계기준)`을 0과 대사했는데, 두 값의 대소가
+    정리로 정해져 있어 어떤 입력에서도 정확히 0이었다. 실패 불가능성이 데이터가
+    아니라 산식 구조에서 나오면 그 검증은 통제가 아니다.
+    """
+    from risk_lib.regulatory.forms_base import FormCheck, FormLine, _sum_check, _val
+    L = [FormLine("1000", "", 0, "KRW", 128e9), FormLine("2000", "", 0, "KRW", 94e9),
+         FormLine("3000", "", 0, "KRW", 80e9),   # 건별 합산을 잘못 실은 상태
+         FormLine("4000", "", 0, "KRW", 80e9), FormLine("5000", "", 0, "KRW", 0.0)]
+    bad = FormCheck("합계 기준", max(0.0, _val(L, "1000") - _val(L, "2000")),
+                    _val(L, "3000"), 1.0)
+    assert bad.status == "FAIL", "F-601 원형을 넣어도 통과하면 통제가 아니다"
+
+    L[4] = FormLine("5000", "", 0, "KRW", 46e9)   # 분해가 어긋난 상태
+    assert _sum_check("분해", L, "4000", ("3000", "5000")).status == "FAIL"
 
 
 # ----- 근거·재현 --------------------------------------------------------------
