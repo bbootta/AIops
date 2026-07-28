@@ -446,17 +446,27 @@ def check_strength(built: list) -> dict:
     같은 모습이므로 **이 수가 곧 통제 세기는 아니다**. 3선이 판별할 수 있도록
     수를 넘긴다.
     """
-    total = zero_both = 0
+    total = zero_both = identical = 0
     for b in built:
         for c in b.checks:
             total += 1
-            if max(abs(float(c.expected)), abs(float(c.actual))) == 0.0:
+            e, a = float(c.expected), float(c.actual)
+            if max(abs(e), abs(a)) == 0.0:
                 zero_both += 1
+            elif e == a:
+                # 참고로만 센다. **판별 기준으로 쓰지 않는다** — 정상적인 소계
+                # 대사도 맞으면 정확히 일치하므로, 이것을 의심으로 세면 실질
+                # 대사가 12%로 나와 반대 방향으로 오도한다. 항등식 여부는 값이
+                # 아니라 표현식 구조의 문제다 (지적 F-703).
+                identical += 1
+    suspect = zero_both
     return {
         "n_checks": total,
         "n_zero_both": zero_both,
-        "n_live": total - zero_both,
-        "live_share": (total - zero_both) / total if total else 0.0,
+        "n_exact_identical": identical,
+        "n_suspect": suspect,
+        "n_live": total - suspect,
+        "live_share": (total - suspect) / total if total else 0.0,
     }
 
 
@@ -464,9 +474,13 @@ def check_strength_sentence(strength: dict) -> str:
     """요청서에 실을 한 문장 — 손으로 적지 않는다 (지적 F-501·F-603)."""
     return (
         f"서식검증 {strength['n_checks']:,}건 중 {strength['n_zero_both']:,}건은 "
-        f"양변이 모두 0이라 현 자료에서 실패할 수 없다 (실질 대사 "
-        f"{strength['n_live']:,}건 · {strength['live_share']:.1%}). 영위하지 않는 "
-        f"업무·미보유 익스포저의 0 단언이 다수이나 구조적 항진명제도 같은 모습이며, "
-        f"둘의 판별은 미완이다 — '검증 N건 실패 0'을 통제 세기로 읽지 말 것 "
-        f"(지적 F-602)."
+        f"양변이 모두 0이라 현 자료에서 실패할 수 없다 (나머지 "
+        f"{strength['n_live']:,}건 · {strength['live_share']:.1%}). **이 지표는 "
+        f"항진명제를 다 잡지 못한다** — 값이 0이 아니어도 양변이 같은 표현식에서 "
+        f"유도되면 자료로는 틀릴 수 없고, F-602 시정으로 신설한 검증들이 바로 그 "
+        f"형태다(3선 지적 F-703). 양변이 정확히 같은 검증이 "
+        f"{strength['n_exact_identical']:,}건이나 정상 소계 대사도 맞으면 일치하므로 "
+        f"의심 지표로 쓸 수 없다. 완전 판별에는 FormCheck 인자 표현식의 AST 대조가 "
+        f"필요하며 미구현이다. '검증 N건 실패 0'을 통제 세기로 읽지 말 것 "
+        f"(지적 F-602 · F-702 · F-703)."
     )

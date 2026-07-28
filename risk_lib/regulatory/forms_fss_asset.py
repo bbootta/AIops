@@ -27,6 +27,7 @@ from __future__ import annotations
 from typing import Callable
 
 from risk_lib.datamodel.materialize_detail import _MIN_PROVISION_RATE
+from risk_lib.datamodel.materialize_detail import reserve_net_gap, reserve_requirement
 from risk_lib.regulatory.forms_base import (
     FormCheck, FormLine, _ratio_check, _sum_check, _val,
 )
@@ -134,7 +135,7 @@ def _b2402(ctx) -> tuple[list[FormLine], list[FormCheck]]:
                           citation="IFRS 9 5.5", source_module=_M_ECL))
     L += [
         FormLine("4000", "대손준비금 소요액", 0, "KRW",
-                 float(aq["reserve_shortfall"].sum()),
+                 reserve_requirement(aq)["required"],
                  formula="Σ max(0, 최저적립액 − 충당금)  ※ 익스포저 단위",
                  citation="은행업감독규정 제29조 제2항", source_module=_M_RDM,
                  is_subtotal=True),
@@ -204,8 +205,8 @@ def _b2403(ctx) -> tuple[list[FormLine], list[FormCheck]]:
         FormLine("1020", "대손충당금 합계 (IFRS 9)", 0, "KRW",
                  float(book["ifrs9_provision"].sum()),
                  citation="IFRS 9 5.5", source_module=_M_ECL, is_subtotal=True),
-        FormLine("1030", "대손준비금 소요액 합계", 0, "KRW",
-                 float(book["reserve_shortfall"].sum()),
+        FormLine("1030", "대손준비금 순차액 합계", 0, "KRW",
+                 reserve_net_gap(book),
                  citation="은행업감독규정 제29조 제2항", source_module=_M_RDM,
                  is_subtotal=True),
         FormLine("1040", "총 충당금 적립률", 0, "ratio",
@@ -226,8 +227,8 @@ def _b2403(ctx) -> tuple[list[FormLine], list[FormCheck]]:
             FormLine(str(base + 20), "대손충당금 (IFRS 9)", 2, "KRW",
                      float(s["ifrs9_provision"].sum()), citation="IFRS 9 5.5",
                      source_module=_M_ECL),
-            FormLine(str(base + 30), "대손준비금 소요액", 2, "KRW",
-                     float(s["reserve_shortfall"].sum()),
+            FormLine(str(base + 30), "대손준비금 순차액", 2, "KRW",
+                     reserve_net_gap(s),
                      citation="은행업감독규정 제29조 제2항", source_module=_M_RDM),
             FormLine(str(base + 40), "충당금 적립률", 2, "ratio",
                      float(s["ifrs9_provision"].sum()) / bal if bal else 0.0,

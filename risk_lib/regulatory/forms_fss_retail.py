@@ -29,6 +29,7 @@ from typing import Callable
 
 import pandas as pd
 
+from risk_lib.datamodel.materialize_detail import reserve_net_gap, reserve_requirement
 from risk_lib.regulatory.forms_base import (
     FormCheck, FormLine, _ratio_check, _sum_check, _val,
 )
@@ -280,8 +281,7 @@ def _b2426(ctx) -> tuple[list[FormLine], list[FormCheck]]:
                  float(h["min_provision"].sum()),
                  formula="Σ 잔액 × 가계여신 분류별 최저적립률", citation=_C29,
                  source_module=_M_RDM),
-        FormLine("4020", "대손준비금 소요액", 0, "KRW",
-                 float(h["reserve_shortfall"].sum()),
+        FormLine("4020", "대손준비금 순차액", 0, "KRW", reserve_net_gap(h),
                  formula="Σ max(0, 최저적립액 − 충당금)  ※ 익스포저 단위",
                  citation="은행업감독규정 제29조 제2항", source_module=_M_RDM),
         FormLine("4030", "충당금 적립률", 0, "ratio", prov / total if total else 0.0,
@@ -593,8 +593,7 @@ def _b2429(ctx) -> tuple[list[FormLine], list[FormCheck]]:
         FormLine("4010", "감독규정 최저적립액", 0, "KRW",
                  float(rm["min_provision"].sum()), citation=_C29,
                  source_module=_M_RDM),
-        FormLine("4020", "대손준비금 소요액", 0, "KRW",
-                 float(rm["reserve_shortfall"].sum()),
+        FormLine("4020", "대손준비금 순차액", 0, "KRW", reserve_net_gap(rm),
                  citation="은행업감독규정 제29조 제2항", source_module=_M_RDM),
         FormLine("4030", "고정이하여신 대비 충당금 커버리지", 0, "ratio",
                  prov / npl if npl else 0.0,

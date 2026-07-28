@@ -709,9 +709,45 @@ def compute_bis_deep(
 # ============================================================================
 
 
+# IRB 초과충당금의 보완자본 산입 한도 — IRB 신용 RWA의 0.6% (CRE40.30).
+IRB_PROVISION_SURPLUS_CAP = 0.006
+
+
+def expected_loss_vs_provisions(irb_el: float, eligible_provisions: float,
+                                irb_credit_rwa: float = 0.0) -> dict[str, float]:
+    """IRB 기대손실과 적격충당금 비교 — CRE35.3 · CRE40.11 · CRE40.30.
+
+    IRB를 쓰면 규제상 기대손실(EL)과 회계상 충당금을 **합계 수준**에서 대비해야
+    한다. EL이 크면 그 차액을 보통주자본에서 **차감**하고(CRE40.11), 충당금이
+    크면 초과분을 IRB 신용 RWA의 0.6% 한도 안에서 보완자본에 **산입**한다
+    (CRE40.30).
+
+    이 비교가 구현되지 않아 `CET1Components.expected_loss_shortfall`이 항상
+    0이었다 — 현 포트폴리오는 충당금이 EL보다 커서 차감 대상이 0이라 산출값이
+    틀리지는 않았으나, 자본 원장이나 포트폴리오가 바뀌면 조용히 틀린다.
+    "지금 0이다"와 "통제가 있다"는 다르다 (독립검증 지적 F-704).
+
+    대손준비금(F-601)과 같은 **합계 기준** 비교다. 익스포저별로 max(0, ·)를
+    걸면 초과충당 익스포저가 상계되지 못해 차감이 과대해진다.
+    """
+    net = float(irb_el) - float(eligible_provisions)
+    shortfall = max(0.0, net)                     # CET1에서 차감
+    surplus = max(0.0, -net)                      # 보완자본 산입 후보
+    cap = float(irb_credit_rwa) * IRB_PROVISION_SURPLUS_CAP
+    return {
+        "irb_el": float(irb_el),
+        "eligible_provisions": float(eligible_provisions),
+        "net": net,
+        "shortfall": shortfall,
+        "surplus": surplus,
+        "surplus_cap": cap,
+        "surplus_recognised": min(surplus, cap),
+    }
+
+
 def synthesise_components_from_stack(
     cet1_total: float, at1_total: float, tier2_total: float,
-    irb_rwa: float = 0.0,
+    irb_rwa: float = 0.0, el_shortfall: float = 0.0,
 ) -> tuple[CET1Components, AT1Components, Tier2Components]:
     """When only aggregate CET1/AT1/T2 are available, split into plausible
     item-level mix for visualisation.  Pure proportional allocation — sums
@@ -733,6 +769,7 @@ def synthesise_components_from_stack(
         intangibles=gross_target * 0.015,
         dta_excess=gross_target * 0.015,
         other_deductions=gross_target * 0.01,
+        expected_loss_shortfall=float(el_shortfall),
     )
     # AT1 mix — perpetual notes dominant
     at1 = AT1Components(

@@ -114,12 +114,17 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     # 집계가 "스튜디오를 조립했는가"에 따라 달라져 순서 의존이 생긴다 — 같은
     # 파이프라인 결과가 호출 순서에 따라 다른 요약을 내면 그 요약은 근거가
     # 못 된다. 별도로 들고 있다가 요청서에 명시적으로 넘긴다.
+    # 서식 간 대사 — 한 서식 안에서만 보는 FormCheck 로는 같은 수치가 서식마다
+    # 다른 상태를 잡을 수 없다. 실제로 그 상태로 "검증 1,735건 실패 0"이
+    # 나왔다 (지적 F-701).
+    from risk_lib.regulatory.cross_form import cross_form_checks
     from risk_lib.validation.doc_figures import check_doc_figures, docs_for_run
     # 문서 파일명의 run_id는 독립검증 규약(RUN-<asof>-<seed>)을 따른다 —
     # 스튜디오의 run_id(seed 없음)와 다르므로 여기서 따로 만든다.
     _iv_run = f"RUN-{asof.replace('-', '')}-{int(result.meta.get('seed', 42))}"
     doc_checks = [c for doc in docs_for_run(_iv_run)
                   for c in check_doc_figures(doc, built, asof)]
+    doc_checks += cross_form_checks(built)
 
     # ---- 상시 독립검증(3선) 위임 — 매 조립마다 요청을 만들고 게이트를 본다.
     # 요청을 "필요할 때만" 만들면 결국 만들지 않게 된다.

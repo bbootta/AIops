@@ -849,12 +849,28 @@ def reserve_requirement(aq: pd.DataFrame) -> dict[str, float]:
     """
     minimum = float(aq["min_provision"].sum())
     provision = float(aq["ifrs9_provision"].sum())
-    required = max(0.0, minimum - provision)
+    net_gap = minimum - provision
+    required = max(0.0, net_gap)
     per_exposure = float(aq["reserve_shortfall"].sum())
     return {
         "min_provision": minimum,
         "ifrs9_provision": provision,
+        "net_gap": net_gap,                       # 부호 있는 순차액 (음수 = 초과적립)
         "required": required,                     # 규정 금액 (합계 기준)
         "per_exposure_sum": per_exposure,         # 건별 합산 (참고)
         "offset_effect": per_exposure - required,  # 상계로 소멸하는 초과적립분
     }
+
+
+def reserve_net_gap(aq: pd.DataFrame) -> float:
+    """부문별 순차액 — 최저적립액 − 충당금, **음수를 그대로 둔다**.
+
+    부문 표에 `max(0, ·)`를 걸면 부문 합이 전행 규정 금액과 어긋난다. 부문마다
+    잘라내면 초과적립 부문이 부족 부문을 상계하지 못해 또 과대해지기 때문이다
+    (전행에서 같은 이유로 2.41배 과대였다 — 지적 F-601·F-701).
+
+    음수는 그 부문이 규정 최저수준을 넘어 적립했다는 뜻이며, 다른 부문의 부족을
+    메운다. 부문 순차액의 합 = 전행 순차액이고, 규정 금액은 그 합에 한 번만
+    `max(0, ·)`를 적용한 값이다.
+    """
+    return float(aq["min_provision"].sum() - aq["ifrs9_provision"].sum())

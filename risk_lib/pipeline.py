@@ -816,11 +816,21 @@ def run_pipeline(
     # CET1/AT1/T2 item-level decomposition, buffer layering (P1→CBR→P2R→P2G),
     # country-weighted CCyB, DSIB bucket, SREP/Pillar 2, MDA component breakdown,
     # forward-looking quarterly CET1 path.
+    # IRB 기대손실 대 적격충당금 (CRE35.3 · CRE40.11) — 부족분은 CET1 차감,
+    # 초과분은 IRB RWA 0.6% 한도로 보완자본 산입. 이 비교가 구현되지 않아
+    # 차감이 항상 0이었다 (독립검증 F-704). 현 자료에서는 충당금이 EL보다 커
+    # 차감 대상이 0이지만, "지금 0"과 "통제가 있다"는 다르다.
+    from risk_lib.capital.bis_deep import expected_loss_vs_provisions
+    _irb_el = float(irb_res["el"].sum()) if "el" in irb_res.columns else 0.0
+    el_vs_prov = expected_loss_vs_provisions(
+        _irb_el, float(ecl_df["ecl"].sum()), rwa_irb)
+
     cet1_c, at1_c, t2_c = synthesise_components_from_stack(
         cet1_total=capital.cet1,
         at1_total=capital.additional_t1,
         tier2_total=capital.tier2,
         irb_rwa=rwa_irb,
+        el_shortfall=el_vs_prov["shortfall"],
     )
     # Jurisdictional exposure split for CCyB weighting (illustrative split
     # of portfolio EAD: KR-heavy domestic bank profile).

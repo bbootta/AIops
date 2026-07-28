@@ -31,6 +31,7 @@ from typing import Callable
 
 import pandas as pd
 
+from risk_lib.datamodel.materialize_detail import reserve_net_gap, reserve_requirement
 from risk_lib.regulatory.forms_base import (
     FormCheck, FormLine, _ratio_check, _sum_check, _val,
 )
@@ -417,8 +418,7 @@ def _bf202(ctx) -> tuple[list[FormLine], list[FormCheck]]:
         FormLine("4010", "IFRS 9 대손충당금", 0, "KRW", ifrs_p,
                  formula="기대신용손실 모형 적립액", citation="IFRS 9 5.5",
                  source_module=_M_ECL, is_subtotal=True),
-        FormLine("4020", "대손준비금 적립부족액", 0, "KRW",
-                 float(ob["reserve_shortfall"].sum()),
+        FormLine("4020", "대손준비금 순차액", 0, "KRW", reserve_net_gap(ob),
                  formula="max(0, 최저적립액 − IFRS 9 충당금)", citation=_C29,
                  source_module=_M_RDM),
         FormLine("5000", "담보평가액", 0, "KRW", float(coll["appraised"].sum()),
@@ -953,8 +953,7 @@ def _bf405(ctx) -> tuple[list[FormLine], list[FormCheck]]:
         FormLine("1020", "IFRS 9 대손충당금", 0, "KRW", ifrs_p,
                  formula="기대신용손실 모형 적립액", citation="IFRS 9 5.5",
                  source_module=_M_ECL, is_subtotal=True),
-        FormLine("1030", "대손준비금 적립부족액", 0, "KRW",
-                 float(ob["reserve_shortfall"].sum()),
+        FormLine("1030", "대손준비금 순차액", 0, "KRW", reserve_net_gap(ob),
                  formula="Σ max(0, 최저적립액 − IFRS 9 충당금) — 익스포저별 산출",
                  citation=_C29, source_module=_M_RDM, is_subtotal=True),
         FormLine("1040", "ECL 산출액 (참고)", 0, "KRW", float(ob["ecl"].sum()),
@@ -981,8 +980,8 @@ def _bf405(ctx) -> tuple[list[FormLine], list[FormCheck]]:
             FormLine(str(base + 20), "IFRS 9 충당금", 2, "KRW",
                      float(s["ifrs9_provision"].sum()), citation="IFRS 9 5.5",
                      source_module=_M_ECL),
-            FormLine(str(base + 30), "적립부족액", 2, "KRW",
-                     float(s["reserve_shortfall"].sum()), citation=_C29,
+            FormLine(str(base + 30), "순차액", 2, "KRW",
+                     reserve_net_gap(s), citation=_C29,
                      source_module=_M_RDM),
             FormLine(str(base + 40), "잔액 대비 적립률", 2, "ratio",
                      float(s["ifrs9_provision"].sum()) / bal if bal else 0.0,
