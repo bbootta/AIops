@@ -2355,6 +2355,21 @@
       "rollback_rule": "diff 전수 판독이 회차를 과도하게 지연시키면 대상을 산출물 인벤토리 대조로만 한정한다 (정책 파일 편집, 코드 무변경)",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0158",
+      "timestamp": "2026-07-28 15:05:18",
+      "component": "harness/adversarial_protocol.json (ADV-PROC-08 신설)",
+      "change_type": "modify",
+      "evidence": "독립검증 IVR-9D5A5DBAE888 (11차) 에서 신설 통제의 적용 범위 결함 확인. F-901 재발 방지로 만든 서식 구조 기준선(tests/form_structure_baseline.json)이 conftest PINNED_ASOF=2026-06-11 실행에서 생성돼 5,844라인인 반면 제출 실행(asof 2026-06-30)은 5,896라인이다. 3선이 두 기준일로 서식을 각각 빌드해 대조한 결과 제출본에만 있는 라인 52건(B2316 일별 트레이딩목적 자산 13건 · B2602-2 일별 LCR 등 라인명에 날짜가 박힌 항목), 기준선에만 있는 라인 0건이다. 이 52건은 삭제돼도 테스트가 통과한다. 나아가 라인명이 날짜를 담으므로 test_added_lines_are_declared 가 어떤 다른 asof 에서도 FAIL 하여 기준선을 제출 실행에 적용하는 것 자체가 불가능하다. 변이시험 5종으로 F-901 원형은 잡힘을 확인했다(BF202 는 날짜 무관)",
+      "root_cause": "프로토콜이 통제의 존재와 작동(변이시험)은 묻지만 통제가 **어떤 실행**을 검사하는지는 묻지 않았다. 재현성 challenge(ADV-PROC-02)는 같은 입력에서 같은 결과가 나오는지를 보므로 통제와 제출물이 다른 입력을 쓰는 상황을 볼 수 없다",
+      "targeted_fix": "ADV-PROC-08(통제의 적용 대상, high) 신설 — 통제가 돌아간 입력 파라미터를 제출 산출물 실행과 대조하고, 다르면 두 실행의 산출물 인벤토리를 실제로 비교해 미검사 범위를 건수로 낸다. 반증 기준에 '통제의 판별 기준이 제출 실행에 적용하면 반드시 실패하도록 설계돼 애초에 적용 불가' 를 포함",
+      "expected_benefit": "통제가 있다는 사실과 통제가 제출물을 덮는다는 사실의 구분. 고정일 fixture 로 도는 회귀 통제가 실제 제출 산출물의 일부만 검사하는 상태를 드러낸다",
+      "expected_regression_risk": "낮음 — challenge 추가만이며 판정 로직 무변경",
+      "validation_method": "tests/test_v2_round87.py 프로토콜 무결성 검사(disconfirming_evidence 필수·ID 유일성·범주 유지) 통과 + 전체 1316 passed, 3 skipped. 미검사 범위는 두 기준일 빌드 실측으로 산출",
+      "rollback_rule": "적용 대상 대조가 회차를 과도하게 지연시키면 대상을 제출 산출물에 직접 걸리는 통제로만 한정한다 (정책 파일 편집, 코드 무변경)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
