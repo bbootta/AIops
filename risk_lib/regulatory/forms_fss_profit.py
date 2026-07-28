@@ -335,7 +335,7 @@ def _b2506(ctx) -> tuple[list[FormLine], list[FormCheck]]:
     L += [
         FormLine("4000", "대손준비금 소요액", 0, "KRW",
                  reserve_requirement(aq)["required"],
-                 formula="Σ max(0, 최저적립액 − 충당금)  ※ 익스포저 단위",
+                 formula="max(0, 최저적립액 합계 − 충당금 합계) — 합계 기준 (은행업감독규정 제29조 제2항)",
                  citation="은행업감독규정 제29조 제2항", source_module=_M_RDM,
                  is_subtotal=True),
         FormLine("5000", "기초 대손충당금", 0, "KRW", opening,

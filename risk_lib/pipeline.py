@@ -317,7 +317,8 @@ def _stage_market_op_rwa(total_ead: float):
 
 def _stage_capital(
     portfolio, rwa_sa, rwa_irb, mkt, op, total_ead, *, output_floor, buffers,
-    ccr=None, capital=None,
+    ccr=None, capital=None, irb_el: float = 0.0,
+    eligible_provisions: float = 0.0,
 ):
     """자본·비율·레버리지.
 
@@ -351,13 +352,30 @@ def _stage_capital(
         annual_profit = float(portfolio["revenue"].sum()
                               - portfolio["operating_cost"].sum())
         capital = synthesise_capital(annual_profit)
+
+    # IRB 기대손실 > 적격충당금이면 그 차액을 보통주자본에서 차감한다
+    # (CRE35.3 · CRE40.11). 초과충당금은 IRB 신용 RWA의 0.6% 한도로 보완자본에
+    # 산입한다 (CRE40.30). **표시용 분해가 아니라 실제 자본에 반영해야** 비율이
+    # 움직인다 — 이전 시정은 분해 계층에만 닿아 비율이 그대로였다 (지적 F-802).
+    from risk_lib.capital.bis_deep import expected_loss_vs_provisions
+    el_vs_prov = expected_loss_vs_provisions(irb_el, eligible_provisions, rwa_irb)
+    # 차감(CRE40.11)만 적용한다. 초과충당금의 보완자본 산입(CRE40.30)은 **임의
+    # 규정**("may")이라 산입하지 않는 편이 보수적이고, 산입하면 총자본비율이
+    # 올라간다 — 결함 시정의 부수효과로 비율을 좋게 만들지 않는다. 산입 여지는
+    # `el_vs_prov["surplus_recognised"]`로 산출·공시만 한다.
+    if el_vs_prov["shortfall"]:
+        capital = CapitalStack(
+            cet1=capital.cet1 - el_vs_prov["shortfall"],
+            additional_t1=capital.additional_t1,
+            tier2=capital.tier2,
+        )
     bis = compute_bis_ratios(capital, rwa_final, buffers=buffers)
     em = exposure_measure(on_balance=total_ead,
                           off_balance_notional=total_ead * 0.1,
                           derivatives=float(getattr(ccr, "ead_total", 0.0) or 0.0))
     leverage = compute_leverage_ratio(capital.tier1, em)
     return (floor, rwa_final, capital, bis, leverage,
-            rwa_internal_total, rwa_standardised_total, ccr_total)
+            rwa_internal_total, rwa_standardised_total, ccr_total, el_vs_prov)
 
 
 def _stage_provisioning(irb_book: pd.DataFrame, quarters: list[str],
@@ -650,15 +668,10 @@ def run_pipeline(
     bank_book = portfolio[portfolio["asset_class"] == "bank"]
     ccr_result = compute_ccr(bank_book, seed=seed) if not bank_book.empty else None
 
-    # 4-6. Output floor → CapitalStack → BIS → leverage
-    (floor, rwa_final, capital, bis, leverage,
-     rwa_internal_total, rwa_standardised_total, rwa_ccr) = _stage_capital(
-        portfolio, rwa_sa, rwa_irb, mkt, op, total_ead,
-        output_floor=output_floor, buffers=buffers, ccr=ccr_result,
-        capital=capital_ledger,
-    )
-
-    # 7. IFRS 9 ECL (TTC + forward-looking PIT) on the quarterly axis.
+    # 4. IFRS 9 ECL — **자본보다 먼저** 만든다. IRB 기대손실 대비 적격충당금
+    # 비교(CRE35.3·CRE40.11)가 보통주자본 차감으로 이어지므로 충당금이 없으면
+    # 그 차감을 산출할 수 없다. 이전에는 자본이 먼저였고, 그래서 F-704 시정이
+    # 표시용 분해에만 닿고 실제 비율에는 닿지 못했다 (지적 F-802).
     # `asof` is overridable so a run can be pinned to a reference date for
     # bit-for-bit reproducibility independent of wall-clock time.
     if asof is None:
@@ -668,6 +681,16 @@ def run_pipeline(
     quarters = forecast_quarter_labels(asof, years_ahead=years_ahead)
     ecl_df, ecl_by_stage, macro, macro_path, ifrs9_deep = _stage_provisioning(
         irb_book, quarters, seed=seed)
+
+    # 5-7. Output floor → CapitalStack → BIS → leverage
+    (floor, rwa_final, capital, bis, leverage,
+     rwa_internal_total, rwa_standardised_total, rwa_ccr, el_vs_prov) = _stage_capital(
+        portfolio, rwa_sa, rwa_irb, mkt, op, total_ead,
+        output_floor=output_floor, buffers=buffers, ccr=ccr_result,
+        capital=capital_ledger,
+        irb_el=float(irb_res["el"].sum()) if "el" in irb_res.columns else 0.0,
+        eligible_provisions=float(ecl_df["ecl"].sum()),
+    )
 
     # 8-11. Monitoring, limits/concentration, RAPM
     monitoring = _stage_monitoring(portfolio, seed)
@@ -816,15 +839,9 @@ def run_pipeline(
     # CET1/AT1/T2 item-level decomposition, buffer layering (P1→CBR→P2R→P2G),
     # country-weighted CCyB, DSIB bucket, SREP/Pillar 2, MDA component breakdown,
     # forward-looking quarterly CET1 path.
-    # IRB 기대손실 대 적격충당금 (CRE35.3 · CRE40.11) — 부족분은 CET1 차감,
-    # 초과분은 IRB RWA 0.6% 한도로 보완자본 산입. 이 비교가 구현되지 않아
-    # 차감이 항상 0이었다 (독립검증 F-704). 현 자료에서는 충당금이 EL보다 커
-    # 차감 대상이 0이지만, "지금 0"과 "통제가 있다"는 다르다.
-    from risk_lib.capital.bis_deep import expected_loss_vs_provisions
-    _irb_el = float(irb_res["el"].sum()) if "el" in irb_res.columns else 0.0
-    el_vs_prov = expected_loss_vs_provisions(
-        _irb_el, float(ecl_df["ecl"].sum()), rwa_irb)
-
+    # `capital`은 이미 EL 차감·초과충당금 산입이 반영된 값이다(_stage_capital).
+    # 분해에 차감액을 함께 넘겨 명세에 그 줄이 보이게 하되, 총계는 입력과
+    # 같아야 한다 — 분해는 표시용이지 자본을 다시 줄이는 자리가 아니다.
     cet1_c, at1_c, t2_c = synthesise_components_from_stack(
         cet1_total=capital.cet1,
         at1_total=capital.additional_t1,

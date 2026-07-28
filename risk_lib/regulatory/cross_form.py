@@ -124,3 +124,45 @@ def cross_form_checks(built: list) -> list[ConsistencyCheck]:
                 f"cross_form_{inv.name}", "PASS",
                 f"{len(vals)}개 서식 일치 ({vals[0]:,.2f})", metric=spread))
     return out
+
+
+def unregistered_shared_values(built: list, min_forms: int = 2) -> list[dict]:
+    """여러 서식에 같은 값으로 실리는데 등록되지 않은 수치.
+
+    등록을 택한 판단(자동 탐지는 동명 부문 라인에서 거짓 경보가 난다)은 그대로
+    두되, **미등록 목록 자체를 산출해 공시**한다. 그래야 "등록이 빠진 상태"가
+    보이지 않는 채로 남지 않는다 (독립검증 지적 F-803 — 미등록 125종).
+
+    지금 값이 일치한다고 안전한 것이 아니다. F-701이 보여준 실패 양식은 "한
+    곳에서 고치고 나머지를 놓친다"이며, 미등록 수치는 그 실패가 다시 나도
+    조용히 통과한다.
+    """
+    registered = {(fid, lc) for inv in INVARIANTS for fid, lc in inv.lines}
+    groups: dict[tuple[str, float], list[str]] = {}
+    for b in built:
+        for ln in b.lines:
+            if ln.level != 0 or ln.value is None or ln.unit == "text":
+                continue
+            if (b.spec.form_id, ln.line_code) in registered:
+                continue
+            groups.setdefault((ln.line_name, round(float(ln.value), 6)),
+                              []).append(f"{b.spec.form_id}/{ln.line_code}")
+    out = [{"line_name": name, "value": val, "n_forms": len(where),
+            "where": ", ".join(sorted(where)[:8])}
+           for (name, val), where in groups.items()
+           if len({w.split("/")[0] for w in where}) >= min_forms]
+    return sorted(out, key=lambda r: -r["n_forms"])
+
+
+def coverage_sentence(built: list) -> str:
+    """등록 범위를 요청서에 생성해 싣는다 — 손으로 적으면 낡는다."""
+    un = unregistered_shared_values(built)
+    top = " · ".join(f"{r['line_name']}({r['n_forms']}곳)" for r in un[:5])
+    return (
+        f"서식 간 대사는 전행 수치 {len(INVARIANTS)}종만 등록했다. 2개 이상 "
+        f"서식에 같은 값으로 실리면서 **등록되지 않은 수치가 {len(un)}종** 있다"
+        + (f" — 상위: {top}" if top else "")
+        + ". 지금은 값이 전부 일치하므로 틀린 것은 없으나, 한 곳만 고치고 "
+        "나머지를 놓치는 실패(지적 F-701)가 다시 나면 조용히 통과한다 "
+        "(지적 F-803)."
+    )

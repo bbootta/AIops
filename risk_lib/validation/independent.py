@@ -421,6 +421,8 @@ def build_request(result, portfolio: pd.DataFrame,
         )
         strength = check_strength(built_forms)
         assumptions.append(check_strength_sentence(strength))
+        from risk_lib.regulatory.cross_form import coverage_sentence
+        assumptions.append(coverage_sentence(built_forms))
 
     request = ValidationRequest(
         request_id="",                # 아래에서 요청 전체를 지문화해 채운다

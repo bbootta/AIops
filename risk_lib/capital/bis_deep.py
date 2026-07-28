@@ -757,8 +757,13 @@ def synthesise_components_from_stack(
     # Gross composition (% of gross): common 7 + premium 20 + retained 65 + AOCI 5 + minority 3 = 100.
     # Deductions (% of gross):        goodwill 3 + intangibles 1.5 + DTA 1.5 + other 1 = 7.
     # ⇒ net = gross × (1 − 0.07).  Pick gross so net == cet1_total.
+    # `el_shortfall`은 **추가 차감 항목**이므로 gross를 그만큼 올려야 net이
+    # 입력과 같다. 올리지 않으면 명세 합계가 자본금액보다 차감액만큼 작아져
+    # BR-02의 "명세 합계 = 자본금액" 대사가 깨진다 (독립검증 지적 F-802).
+    # 자본을 실제로 줄이는 것은 파이프라인의 몫이고, 여기는 표시 계층이다.
     d_ratio = 0.07
-    gross_target = cet1_total / (1.0 - d_ratio) if cet1_total > 0 else 0.0
+    gross_target = ((cet1_total + float(el_shortfall)) / (1.0 - d_ratio)
+                    if cet1_total > 0 else 0.0)
     cet1 = CET1Components(
         common_shares=gross_target * 0.07,
         share_premium=gross_target * 0.20,
