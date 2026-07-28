@@ -473,9 +473,10 @@ def _br10(ctx) -> BuiltForm:
 def _br11(ctx) -> BuiltForm:
     t = ctx.tables["rdm_asset_quality"]
     M = "risk_lib.datamodel.materialize_detail.materialize_rdm_detail"
-    min_p = float(t["min_provision"].sum())
-    ifrs = float(t["ifrs9_provision"].sum())
-    short = float(t["reserve_shortfall"].sum())
+    from risk_lib.datamodel.materialize_detail import reserve_requirement
+    rr = reserve_requirement(t)
+    min_p, ifrs = rr["min_provision"], rr["ifrs9_provision"]
+    required, per_exp = rr["required"], rr["per_exposure_sum"]
     L = [
         FormLine("1000", "감독규정 최저적립액 합계", 0, "KRW", min_p,
                  formula="Σ 잔액 × 분류별 최저적립률",
@@ -484,18 +485,28 @@ def _br11(ctx) -> BuiltForm:
         FormLine("2000", "회계기준 대손충당금 (IFRS 9 ECL)", 0, "KRW", ifrs,
                  citation="IFRS 9 5.5", source_module="risk_lib.provisioning.ecl",
                  is_subtotal=True),
-        FormLine("3000", "대손준비금 소요액", 0, "KRW", short,
-                 formula="Σ max(0, 최저적립액 − 충당금)  ※ 익스포저 단위 적용",
-                 citation="은행업감독규정 제29조 제2항", source_module=M,
-                 is_subtotal=True),
-        FormLine("4000", "총액 기준 차액 (참고)", 0, "KRW", max(0.0, min_p - ifrs),
-                 formula="max(0, 최저적립액 합계 − 충당금 합계)",
-                 citation="익스포저 단위 합계와 다르다 — 상계 여부가 쟁점",
+        FormLine("3000", "대손준비금 소요액", 0, "KRW", required,
+                 formula="max(0, 최저적립액 합계 − 충당금 합계) — 합계 기준",
+                 citation="은행업감독규정 제29조 제2항 · 금감원 B2402-1",
+                 source_module=M, is_subtotal=True),
+        FormLine("4000", "건별 미달액 합산 (참고)", 0, "KRW", per_exp,
+                 formula="Σ max(0, 최저적립액ᵢ − 충당금ᵢ) — 익스포저 단위",
+                 citation="규정 금액이 아니다 — 건별 초과적립분이 상계되지 않는다",
                  source_module=M),
+        FormLine("5000", "상계 효과 (4000 − 3000)", 0, "KRW", rr["offset_effect"],
+                 formula="정상 여신에서 ECL이 최저적립액을 넘는 초과적립분",
+                 citation="은행업감독규정 제29조 제2항", source_module=M),
     ]
     checks = [
-        FormCheck("대손준비금 ≥ 총액 기준 차액", 0.0,
-                  min(0.0, short - max(0.0, min_p - ifrs)), 1.0),
+        # 이전 검증은 `min(0, 건별합산 − 합계기준)`을 0과 대사했는데,
+        # Σmax(0,xᵢ) ≥ max(0,Σxᵢ)가 **정리**라 어떤 자료에서도 정확히 0이었다.
+        # 통제력이 0인 검증이 쟁점을 지키는 자리에 놓여 있었다 (지적 F-602).
+        # 실제로 틀릴 수 있는 대사로 바꾼다.
+        FormCheck("대손준비금 = 최저적립액 − 충당금 (합계 기준)",
+                  max(0.0, _val(L, "1000") - _val(L, "2000")),
+                  _val(L, "3000"), 1.0),
+        _sum_check("건별 합산 = 규정 금액 + 상계 효과", L, "4000",
+                   ("3000", "5000")),
     ]
     return BuiltForm(FORMS_BY_ID["BR-11"], L, checks)
 

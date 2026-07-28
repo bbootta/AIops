@@ -226,6 +226,15 @@ def request_identifier(request: "ValidationRequest") -> str:
     return "IVR-" + _digest(canonical)[:12].upper()
 
 
+def _reserve_required(aq) -> float:
+    """대손준비금 소요액 — **합계 기준**이 규정 금액이다 (지적 F-601).
+
+    건별 미달액을 합산하면 초과적립분이 상계되지 못해 항상 과대해진다.
+    """
+    from risk_lib.datamodel.materialize_detail import reserve_requirement
+    return float(reserve_requirement(aq)["required"])
+
+
 def _headline(result, tables: dict[str, pd.DataFrame] | None) -> dict[str, float]:
     t = tables or {}
     sev = result.stress_path_trough
@@ -243,7 +252,7 @@ def _headline(result, tables: dict[str, pd.DataFrame] | None) -> dict[str, float
                                if len(sev) else float("nan")),
         "reverse_critical_severity": float(
             result.reverse_stress.critical_severity),
-        "reserve_shortfall": (float(aq["reserve_shortfall"].sum())
+        "reserve_shortfall": (_reserve_required(aq)
                               if aq is not None and len(aq) else 0.0),
     }
 
@@ -282,8 +291,10 @@ KNOWN_ASSUMPTIONS: tuple[str, ...] = (
     "합성 대차대조표에 통화 구분이 없어 외화 비중을 자산·부채 동일하게 가정했다.",
     # ---- 독립검증 IVR-E6BEA5DA0D5F 지적으로 추가된 항목.
     # 공시 기준이 방향에 따라 비대칭이면(보수적인 것만 공시) 공시가 아니다.
-    "자본은 실제 원장이 아니라 **합성값**이다 — 고정 발행자본(자본금·AT1·T2)에 "
-    "이익잉여금(연간이익 × 4년)을 더한다. RWA에서는 파생되지 않으므로 자본비율과 "
+    "자본은 실제 원장이 아니라 **합성값**이다 — 고정 발행자본(자본금·AT1·T2 "
+    "발행잔액 합계)에 이익잉여금(연간이익 × 4년)을 더한다. 뒤에 나오는 "
+    "'규모와 무관한 축'은 이 중 기본자본분(자본금 + AT1)만 가리키므로 금액이 "
+    "다르다 — 같은 용어의 두 범위를 구분해 읽어야 한다 (지적 F-603). RWA에서는 파생되지 않으므로 자본비율과 "
     "레버리지비율이 둘 다 반응한다. 실제 원장은 run_pipeline(capital_ledger=...)로 "
     "주입한다 (risk_lib.capital.bis.synthesise_capital · 지적 F-001 · F-101).",
     # ---- 독립검증 IVR-573F73DBBF35(3차) 지적으로 추가·정정된 항목.
@@ -327,9 +338,13 @@ KNOWN_ASSUMPTIONS: tuple[str, ...] = (
     "CVA 소요자기자본을 RWA로 12.5배 환산한다 (MAR50.2 · RBC20.6). 이전에는 "
     "K_BA를 RWA에 그대로 합산해 CVA가 12.5배 과소계상되고 있었다 — 서식 저작 중 "
     "적대적 검토에서 드러났다 (risk_lib.ccr.cva_rwa · 총 RWA +0.056%).",
+    # 회차별 값을 손으로 나열했더니 CVA 12.5배 정정 때 이동한 값에서 계열이
+    # 멈춰 낡았다 (지적 F-603). 값은 요청서 recalc_targets가 정본이고 git
+    # 이력이 계열을 보존하므로, 여기에는 **성질만** 적는다.
     "역스트레스 임계 심도는 자본 수준에 민감해 자본 가정이 바뀌면 크게 움직인다 "
-    "— 1차 0.9447 → 2차 0.8426 → 3차 0.9822 (진폭 0.14). 절대 수준보다 동일 "
-    "자본 가정 하의 비교로 읽어야 한다 (3선 권고).",
+    "— 회차별 실측 진폭이 0.14에 이른다. 절대 수준보다 동일 자본 가정 하의 "
+    "비교로 읽어야 하며, 회차별 값은 요청서 recalc_targets의 git 이력이 정본이다 "
+    "(3선 권고 · 지적 F-603).",
     "레버리지 부외항목에 CCF 하한 10%를 일률 적용한다 — 약정 유형별 "
     "CCF(20/40/50/100%) 구분이 없어 가장 관대한 계수를 쓴 것이다 (지적 F-004).",
     "Stage 1 커버리지가 8.1%로 12개월 기대손실치고 높다. 합성 데이터의 PD "

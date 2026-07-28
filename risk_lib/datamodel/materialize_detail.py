@@ -112,6 +112,10 @@ def materialize_rdm_detail(result, portfolio, base) -> dict[str, pd.DataFrame]:
         if isinstance(er, pd.DataFrame):
             ecl_map = dict(zip(er["exposure_id"], er["ecl"]))
     aq["ifrs9_provision"] = aq["exposure_id"].map(ecl_map).fillna(0.0).astype(float)
+    # 건별 미달액. **이것을 합산한 값은 규정상 대손준비금이 아니다** —
+    # Σmax(0,xᵢ) ≥ max(0,Σxᵢ)이므로 건별 초과적립분이 상계되지 못하고 버려져
+    # 항상 과대 방향으로만 어긋난다. 규정 금액은 `reserve_requirement()`가
+    # 합계 기준으로 낸다 (독립검증 지적 F-601).
     aq["reserve_shortfall"] = (aq["min_provision"] - aq["ifrs9_provision"]).clip(lower=0.0)
     out["rdm_asset_quality"] = aq[[
         "exposure_id", "asof", "classification", "borrower_type", "dpd",
@@ -826,3 +830,31 @@ def materialize_prudential(result, portfolio, base) -> dict[str, pd.DataFrame]:
 
 DETAIL_MATERIALIZERS["stress_trace"] = materialize_stress_trace
 DETAIL_MATERIALIZERS["prudential"] = materialize_prudential
+
+
+def reserve_requirement(aq: pd.DataFrame) -> dict[str, float]:
+    """대손준비금 소요액 — 은행업감독규정 제29조 제2항 (합계 기준).
+
+    규정은 "회계처리기준에 따라 적립한 대손충당금이 제1항에 따른 금액에
+    **미달하는 경우 그 차액**"이라 하며, 금감원 B2402-1(대손준비금 적립현황)도
+    최저적립액 합계와 충당금 합계를 대비한다. 즉 적용 단위는 **합계**다.
+
+    건별 미달액을 합산하면(Σmax(0,xᵢ)) 정상 여신에서 ECL이 최저적립액을 넘는
+    초과적립분이 상계되지 못하고 버려진다. Σmax(0,xᵢ) ≥ max(0,Σxᵢ)는 정리이므로
+    이 오차는 **항상 과대 방향으로만** 발생한다 — 현 포트폴리오에서 2.41배,
+    +472.7억이었다 (독립검증 지적 F-601).
+
+    두 값을 함께 돌려준다. 차이가 곧 상계 효과이며, 서식은 규정 금액을 싣고
+    건별 합산은 참고로만 병기한다.
+    """
+    minimum = float(aq["min_provision"].sum())
+    provision = float(aq["ifrs9_provision"].sum())
+    required = max(0.0, minimum - provision)
+    per_exposure = float(aq["reserve_shortfall"].sum())
+    return {
+        "min_provision": minimum,
+        "ifrs9_provision": provision,
+        "required": required,                     # 규정 금액 (합계 기준)
+        "per_exposure_sum": per_exposure,         # 건별 합산 (참고)
+        "offset_effect": per_exposure - required,  # 상계로 소멸하는 초과적립분
+    }
