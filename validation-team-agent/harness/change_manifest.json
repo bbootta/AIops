@@ -2370,6 +2370,21 @@
       "rollback_rule": "적용 대상 대조가 회차를 과도하게 지연시키면 대상을 제출 산출물에 직접 걸리는 통제로만 한정한다 (정책 파일 편집, 코드 무변경)",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0159",
+      "timestamp": "2026-07-29 08:09:18",
+      "component": "harness/adversarial_protocol.json (ADV-PROC-02 재현성 판별법 확장)",
+      "change_type": "modify",
+      "evidence": "독립검증 IVR-698F96486264 (13차) 에서 12회차 만에 처음으로 요청 식별자 재현이 깨졌다. 커밋된 트리(954191c)에서 generate_portfolio(42) → run_pipeline → build_studio 를 그대로 실행하면 request_id 가 IVR-9FE1167F7A00 으로 나와 요청서의 IVR-698F96486264 와 다르다. 필드 단위 대조 결과 유일한 차이는 가정 [27] 의 문서 대조 커버리지 문장이며, 대조 대상 문서(RUN-20260630-42.remediation.md)의 수치 토큰 수가 1,260(3.7%) → 1,349(3.4%) 로 바뀐 것이 원인이다. 실측: 직전 커밋 9c4f02b 시점 1,260·46(3.7%) = 요청서 값, 요청서가 실린 커밋 954191c 시점 1,349·46(3.4%) = 재현값. 즉 요청서 생성 후 같은 커밋에서 13차 절이 문서에 추가됐다",
+      "root_cause": "ADV-PROC-02 의 판별법이 '동일 입력에서 같은 결과가 나오는가' 만 묻고 재현을 **어느 트리에서** 하는지, 그리고 패키지가 자기 자신이 실린 산출물의 통계를 담는 **순환 의존**이 있는지는 묻지 않았다. 순환 의존은 산출값이 전부 정상이어도 식별자만 갈리게 하므로 값 대조로는 드러나지 않는다",
+      "targeted_fix": "ADV-PROC-02 의 method 에 '재현은 의뢰자가 커밋한 트리 그대로에서 하고 산출물 식별자까지 비트 대조한다' 와 '패키지가 자기 자신이 실린 산출물의 통계를 담으면 먼저 의심한다' 를 추가. disconfirming_evidence 에 '커밋된 트리에서 재실행한 요청 식별자가 커밋된 요청서와 다르다(순환 의존 포함)' 를 추가. origin 에 본 사례 기록. challenge 를 새로 만들지 않고 기존 항목을 좁혔다",
+      "expected_benefit": "재현성 검사가 값에서 식별자·순환 의존까지 확장된다. 산출값이 전부 맞아도 패키지가 자기 커밋에서 재현되지 않는 상태를 잡는다",
+      "expected_regression_risk": "낮음 — 기존 challenge 의 method·반증 기준 문구 확장이며 판정 로직 무변경. challenge 수는 25종 유지",
+      "validation_method": "tests/test_v2_round87.py 프로토콜 무결성 검사(disconfirming_evidence 필수·ID 유일성·범주 유지) 통과 + 전체 1316 passed, 3 skipped. 순환 의존은 두 커밋 시점의 토큰 수 실측으로 실증",
+      "rollback_rule": "재현 대조가 과도한 미확인을 낳으면 식별자 대조를 값 대조와 분리해 보고한다 (정책 파일 편집, 코드 무변경)",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
