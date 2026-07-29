@@ -435,6 +435,13 @@ def build_request(result, portfolio: pd.DataFrame,
         assumptions.append(check_strength_sentence(strength))
         from risk_lib.regulatory.cross_form import coverage_sentence
         assumptions.append(coverage_sentence(built_forms))
+        # 통제의 **한계**도 생성해 싣는다. docstring에 "요청서에 공시한다"고
+        # 적어 놓고 실제로는 싣지 않아, 한계를 아는 사람과 모르는 사람이
+        # 갈렸다 (지적 F-B01). 코드를 읽는 사람만 보는 곳에 적으면 공시가 아니다.
+        from risk_lib.regulatory.structure import (
+            coverage_sentence as _structure_coverage_sentence,
+        )
+        assumptions.append(_structure_coverage_sentence(built_forms))
 
     request = ValidationRequest(
         request_id="",                # 아래에서 요청 전체를 지문화해 채운다

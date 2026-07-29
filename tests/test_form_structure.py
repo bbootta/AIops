@@ -36,40 +36,9 @@ from risk_lib.regulatory.forms import build_forms
 
 BASELINE = Path(__file__).parent / "form_structure_baseline.json"
 
-# 라인명에 박힌 날짜. 일별 서식(B2316 일별 트레이딩·B2602-2 일별 LCR 등)은
-# 라인명이 날짜라 기준일이 바뀌면 이름도 개수도 달라진다.
-_DATE = re.compile(r"\d{4}-\d{2}-\d{2}|\d{1,2}월\s*\d{1,2}일|\d{4}Q[1-4]")
-
-
-def _structure(built: list) -> dict[str, list[str]]:
-    """서식 → 라인 목록. 값은 담지 않고, **기준일에 독립**이어야 한다.
-
-    독립검증 지적 F-A01: 기준선을 시험 고정일(2026-06-11)에서 만들었더니 제출
-    실행(2026-06-30)에는 52라인이 더 있어 통제를 제출물에 돌릴 수 없었다.
-    라인명이 날짜를 담으므로 **어떤 기준일에서도 FAIL**한다 — 통제가 있는 것과
-    통제가 제출물을 덮는 것은 다르다(3선 ADV-PROC-08).
-
-    그래서 날짜를 `<date>`로 바꾸고, 그 결과 같아진 연속 라인은 **하나로 접는다**.
-    월마다 영업일 수가 달라 개수까지 같게 만들 수는 없기 때문이다.
-
-    한계 — 일별 계열 **안에서** 라인 하나가 사라지는 것은 잡지 못한다. 그
-    라인들은 루프로 생성되므로 손으로 쓴 라인이 사라지는 것(F-901의 실제 양상)
-    보다 위험이 낮다고 보고 이 절충을 택했다. 요청서에 공시한다.
-    """
-    out: dict[str, list[str]] = {}
-    for b in built:
-        keys: list[str] = []
-        for ln in b.lines:
-            k = _DATE.sub("<date>", f"{ln.line_code}|{ln.line_name}")
-            # 코드도 날짜 계열이면 연번이 붙으므로 이름만으로 접는다.
-            name = k.split("|", 1)[1] if "|" in k else k
-            if "<date>" in name:
-                k = f"<daily>|{name}"
-            if keys and keys[-1] == k:
-                continue
-            keys.append(k)
-        out[b.spec.form_id] = keys
-    return out
+# 구조 키는 산출 모듈이 정본이다. 테스트가 따로 만들면 두 벌이 갈라지고,
+# 무엇보다 **통제의 한계를 요청서에 실을 수 없다** — 실제로 그래서 F-B01이 났다.
+from risk_lib.regulatory.structure import structure_keys as _structure  # noqa: E402
 
 
 @pytest.fixture(scope="module")
