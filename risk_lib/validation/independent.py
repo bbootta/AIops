@@ -442,6 +442,17 @@ def build_request(result, portfolio: pd.DataFrame,
             coverage_sentence as _structure_coverage_sentence,
         )
         assumptions.append(_structure_coverage_sentence(built_forms))
+        # 통제 6종 중 2종의 한계가 요청서에 없었다 — F-B01과 같은 상태였고
+        # 3선이 지적하기 전에 자체 점검으로 찾았다. 한 건을 고칠 때 같은 유형이
+        # 어디에 더 있는지 묻지 않으면 다음 회차에 또 나온다 (ADV-PROC-05).
+        from risk_lib.regulatory.citations import (
+            coverage_sentence as _citation_coverage_sentence,
+        )
+        from risk_lib.validation.doc_figures import (
+            coverage_sentence as _doc_coverage_sentence,
+        )
+        assumptions.append(_citation_coverage_sentence(built_forms))
+        assumptions.append(_doc_coverage_sentence(built_forms, asof))
 
     request = ValidationRequest(
         request_id="",                # 아래에서 요청 전체를 지문화해 채운다

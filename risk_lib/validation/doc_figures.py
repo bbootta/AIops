@@ -225,3 +225,32 @@ def fill_blocks(text: str, blocks: dict[str, str]) -> str:
         end = m.end()
     out.append(text[end:])
     return "".join(out)
+
+
+def coverage_sentence(built: list, asof: str,
+                      doc_paths: tuple[str, ...] = ()) -> str:
+    """이 통제가 덮는 범위 — 요청서에 생성해 싣는다.
+
+    한계를 docstring에만 적으면 코드를 읽는 사람만 본다. 결재선과 3선은 요청서를
+    본다 (독립검증 지적 F-B01).
+    """
+    from pathlib import Path
+    names = sorted(generated_blocks(built, asof)) if built else []
+    docs = [d for d in (doc_paths or DOC_TARGETS) if Path(d).exists()]
+    covered = tokens = 0
+    for d in docs:
+        text = Path(d).read_text(encoding="utf-8")
+        masked = _mask_code(text)
+        tokens += len(re.findall(r"[\d,]*\d", text))
+        for m in _BLOCK_RE.finditer(masked):
+            covered += len(re.findall(r"[\d,]*\d",
+                                      text[m.start("body"):m.end("body")]))
+    share = covered / tokens if tokens else 0.0
+    return (
+        f"문서 대조 통제는 표시된 생성 구간 {len(names)}종만 본다 "
+        f"({', '.join(names)}). 대조 대상 문서의 수치 토큰 {tokens:,}개 중 "
+        f"구간 안은 {covered:,}개({share:.1%})이며 **나머지는 대조하지 않는다** — "
+        f"과거 회차 기록을 현재 산출과 대조하면 거짓 경보가 되므로 택한 설계이나, "
+        f"새로 쓰는 산문에 수치를 적으면 구간 밖이라 잡히지 않는다 "
+        f"(지적 F-603 · F-B01)."
+    )
