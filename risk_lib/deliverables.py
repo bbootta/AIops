@@ -224,9 +224,14 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
     from risk_lib.regulatory.provenance import (
         basis_summary, ledger_impact_frame, provenance_frame,
     )
+    # 문서 대조 커버리지는 **요청서가 아니라 여기**에 남긴다. 요청서에 실으면
+    # 요청 식별자가 문서에 의존해 재현이 깨진다 (독립검증 지적 F-C01).
+    from risk_lib.validation.doc_figures import coverage_report
     for name, frame in (("산출근거_라인별", provenance_frame(studio.built_forms)),
                         ("산출근거_요약", basis_summary(studio.built_forms)),
-                        ("원장확보_영향", ledger_impact_frame(studio.built_forms))):
+                        ("원장확보_영향", ledger_impact_frame(studio.built_forms)),
+                        ("문서대조_커버리지",
+                         coverage_report(studio.built_forms, studio.asof))):
         frame.to_csv(reg_dir / f"{name}.csv", index=False, encoding="utf-8-sig")
 
     # 06 · 에이전틱 UI (자체 완결 HTML — 외부 CDN 없음)
