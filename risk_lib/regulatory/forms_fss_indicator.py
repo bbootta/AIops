@@ -990,7 +990,7 @@ def _b2916(ctx):
                  citation="NSF20.1", source_module="risk_lib.alm.nsfr",
                  is_subtotal=True),
         FormLine("2300", "NSFR 규제기준", 1, "ratio", 1.00,
-                 citation="은행업감독규정 제26조 · NSF20.1"),
+                 citation="은행업감독규정 제26조 제1항 · NSF20.1"),
     ]
     for i, (_, row) in enumerate(dom.iterrows(), start=1):
         base = 3000 + i * 100

@@ -77,7 +77,7 @@ def _br01(ctx) -> BuiltForm:
                  source_module="risk_lib.capital.output_floor"),
 
         FormLine("3100", "보통주자본비율", 0, "ratio", r.bis.cet1_ratio,
-                 formula="보통주자본 ÷ 위험가중자산", citation="은행업감독규정 제26조",
+                 formula="보통주자본 ÷ 위험가중자산", citation="은행업감독규정 제26조 제1항 제1~3호 자기자본비율",
                  source_module=M),
         FormLine("3200", "기본자본비율", 0, "ratio", r.bis.tier1_ratio,
                  formula="기본자본 ÷ 위험가중자산", source_module=M),
@@ -399,7 +399,7 @@ def _br09(ctx) -> BuiltForm:
         FormLine("3000", "순안정자금조달비율 (NSFR)", 0, "ratio", float(n.nsfr),
                  formula="ASF ÷ RSF", citation="NSF20.1", source_module=M),
         FormLine("4000", "규제 최저비율", 0, "ratio", 1.0,
-                 citation="은행업감독규정 제26조 · NSF20.1"),
+                 citation="은행업감독규정 제26조 제1항 · NSF20.1"),
     ]
     checks = [
         FormCheck("ASF 합계 = 항목 합", float(n.asf_total),
@@ -539,7 +539,7 @@ def _br12(ctx) -> BuiltForm:
                  citation="은행법 제35조 제1항 — 거액신용공여 총액 한도",
                  source_module=M),
         FormLine("3000", "동일차주 한도(자기자본 25%)", 0, "KRW", own * 0.25,
-                 citation="LEX10.5 · 은행법 제35조", source_module=M),
+                 citation="LEX10.5 · 은행법 제35조 제1항", source_module=M),
         FormLine("3100", "동일차주 한도 초과 그룹 수", 0, "count",
                  float(len(breach_grp)), source_module=M, is_subtotal=True),
         FormLine("3200", "최대 동일차주 익스포저", 0, "KRW",

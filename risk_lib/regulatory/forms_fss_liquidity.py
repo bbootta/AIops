@@ -662,7 +662,7 @@ def _b2606(ctx) -> tuple[list[FormLine], list[FormCheck]]:
     L = [
         FormLine("1000", "자기자본", 0, "KRW", equity,
                  formula="보통주자본 + 기타기본자본 + 보완자본",
-                 citation="은행법 제2조 자기자본", source_module=M,
+                 citation="은행법 제2조 제1항 자기자본", source_module=M,
                  is_subtotal=True),
         FormLine("2000", "업무용고정자산", 0, "KRW", used,
                  formula=str(r["basis"]), citation=str(r["citation"]),

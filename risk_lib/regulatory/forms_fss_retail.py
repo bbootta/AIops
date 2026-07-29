@@ -186,7 +186,7 @@ def _b2419(ctx) -> tuple[list[FormLine], list[FormCheck]]:
     large_total = float(large["amount"].sum())
     L = [
         FormLine("1000", "자기자본 (기본자본)", 0, "KRW", tier1,
-                 citation="은행법 제2조 자기자본",
+                 citation="은행법 제2조 제1항 자기자본",
                  source_module=_M_CAP),
         FormLine("1010", "거액 기준금액", 0, "KRW", threshold,
                  formula="기본자본 × 0.5% — 내부 보고기준 (규정상 기준 아님)",
@@ -397,7 +397,7 @@ def _b2427(ctx) -> tuple[list[FormLine], list[FormCheck]]:
     large_total = float(large["balance"].sum())
     L = [
         FormLine("1000", "자기자본 (기본자본)", 0, "KRW", tier1,
-                 citation="은행법 제2조 자기자본",
+                 citation="은행법 제2조 제1항 자기자본",
                  source_module=_M_CAP),
         FormLine("1010", "거액 기준금액", 0, "KRW", threshold,
                  formula="기본자본 × 0.005% — 내부 보고기준 (규정상 기준 아님)",
@@ -783,7 +783,7 @@ def _b2432(ctx) -> tuple[list[FormLine], list[FormCheck]]:
                  total / corp_total if corp_total else 0.0,
                  formula="상업용부동산대출 ÷ 기업여신 총 잔액", source_module=_M_RDM),
         FormLine("1050", "자기자본 (기본자본)", 0, "KRW", tier1,
-                 citation="은행법 제2조 자기자본", source_module=_M_CAP),
+                 citation="은행법 제2조 제1항 자기자본", source_module=_M_CAP),
         FormLine("1060", "자기자본 대비 비중", 0, "ratio",
                  total / tier1 if tier1 else 0.0,
                  formula="상업용부동산대출 ÷ 기본자본", citation=_C53_CF,
@@ -1017,7 +1017,7 @@ def _b2435(ctx) -> tuple[list[FormLine], list[FormCheck]]:
     both = float(rm[big & over]["balance"].sum())
     L = [
         FormLine("1000", "자기자본 (기본자본)", 0, "KRW", tier1,
-                 citation="은행법 제2조 자기자본",
+                 citation="은행법 제2조 제1항 자기자본",
                  source_module=_M_CAP),
         FormLine("1010", "심사위 부의기준금액", 0, "KRW", threshold,
                  formula="기본자본 × 0.05% — 내부 부의기준 (규정상 기준 아님)",
@@ -1104,7 +1104,7 @@ def _b2436(ctx) -> tuple[list[FormLine], list[FormCheck]]:
         FormLine("1010", "건수", 0, "count", float(len(alt)), citation=_C99,
                  source_module=_M_RDM),
         FormLine("1020", "자기자본 (기본자본)", 0, "KRW", tier1,
-                 citation="은행법 제2조 자기자본",
+                 citation="은행법 제2조 제1항 자기자본",
                  source_module=_M_CAP),
         FormLine("1030", "자기자본 대비 비중", 0, "ratio",
                  total / tier1 if tier1 else 0.0,

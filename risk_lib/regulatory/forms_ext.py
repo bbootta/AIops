@@ -406,7 +406,7 @@ def _ownership_form(ctx, items: tuple[str, ...]):
     M = f"{_M_PRU}.ownership"
     L = [FormLine("1000", "자기자본", 0, "KRW",
                   float(ctx.result.meta["capital"].total),
-                  citation="은행법 제2조 자기자본", source_module=M)]
+                  citation="은행법 제2조 제1항 자기자본", source_module=M)]
     checks = []
     for i, item in enumerate(items, start=1):
         hit = t[t["item"] == item]
@@ -611,7 +611,7 @@ def br_concentration(ctx):
     L += [
         FormLine("9000", "동일차주 한도 초과 그룹 수", 0, "count",
                  float(int((lex["severity"] == "BREACH").sum())),
-                 citation="LEX10.5 · 은행법 제35조",
+                 citation="LEX10.5 · 은행법 제35조 제1항",
                  source_module="risk_lib.limits.limits_deep", is_subtotal=True),
         FormLine("9100", "최대 동일차주 한도 소진율", 0, "ratio",
                  float(lex["utilisation_25pct"].max()) if len(lex) else 0.0,

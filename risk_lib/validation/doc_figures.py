@@ -227,30 +227,54 @@ def fill_blocks(text: str, blocks: dict[str, str]) -> str:
     return "".join(out)
 
 
-def coverage_sentence(built: list, asof: str,
-                      doc_paths: tuple[str, ...] = ()) -> str:
-    """이 통제가 덮는 범위 — 요청서에 생성해 싣는다.
+def coverage_sentence(built: list, asof: str) -> str:
+    """이 통제가 덮는 범위 — **코드 쪽에서만** 잰다.
 
-    한계를 docstring에만 적으면 코드를 읽는 사람만 본다. 결재선과 3선은 요청서를
-    본다 (독립검증 지적 F-B01).
+    처음에는 대조 대상 문서의 수치 토큰을 세어 "1,260개 중 46개(3.7%)"라고
+    적었다. 그런데 **요청서가 문서에 의존하게 되어** 요청서를 문서와 같은
+    커밋에 실으면 재현이 깨졌다 — 시정 문서에 회차 절을 덧붙이면 토큰 수가
+    늘어 다음 실행에서 다른 `request_id`가 나온다 (독립검증 지적 F-C01).
+
+    두 시정이 각각 옳았는데 합쳐지자 서로를 낡게 만들었다. 문서에는 요청
+    통계가 생성 구간으로 실리고(F-501 시정), 요청서에는 그 문서의 통계가
+    실렸다(F-B01 시정). **의존은 한 방향이어야 한다** — 요청서는 코드와
+    서식에만 의존하고, 문서가 요청서를 참조한다.
+
+    그래서 문서를 세지 않는다. 대신 통제가 **무엇을 덮는가**를 코드 쪽 사실로
+    적는다. 문서 쪽 커버리지 측정은 산출물 Pack의 보고서로 남기며 요청
+    식별자에 영향을 주지 않는다.
     """
-    from pathlib import Path
     names = sorted(generated_blocks(built, asof)) if built else []
-    docs = [d for d in (doc_paths or DOC_TARGETS) if Path(d).exists()]
-    covered = tokens = 0
-    for d in docs:
-        text = Path(d).read_text(encoding="utf-8")
-        masked = _mask_code(text)
-        tokens += len(re.findall(r"[\d,]*\d", text))
-        for m in _BLOCK_RE.finditer(masked):
-            covered += len(re.findall(r"[\d,]*\d",
-                                      text[m.start("body"):m.end("body")]))
-    share = covered / tokens if tokens else 0.0
     return (
-        f"문서 대조 통제는 표시된 생성 구간 {len(names)}종만 본다 "
-        f"({', '.join(names)}). 대조 대상 문서의 수치 토큰 {tokens:,}개 중 "
-        f"구간 안은 {covered:,}개({share:.1%})이며 **나머지는 대조하지 않는다** — "
-        f"과거 회차 기록을 현재 산출과 대조하면 거짓 경보가 되므로 택한 설계이나, "
-        f"새로 쓰는 산문에 수치를 적으면 구간 밖이라 잡히지 않는다 "
-        f"(지적 F-603 · F-B01)."
+        f"문서 대조 통제는 대조 대상 문서에서 `<!-- generated: 이름 -->`로 표시된 "
+        f"구간 {len(names)}종만 본다 ({', '.join(names) or '없음'}). "
+        f"**표시 밖의 수치는 대조하지 않는다** — 시정 문서에는 회차별 기록이 "
+        f"누적되고 과거 절의 숫자는 그 시점에는 옳았으므로, 전부 대조하면 거짓 "
+        f"경보가 되어 검사가 꺼진다. 그 대가로 새로 쓰는 산문에 수치를 적으면 "
+        f"구간 밖이라 잡히지 않는다. 문서 쪽 커버리지 비율은 요청 식별자가 "
+        f"문서에 의존하지 않도록 여기서 재지 않으며, 산출물 Pack의 "
+        f"`05_regulatory/문서대조_커버리지.csv`에 남긴다 "
+        f"(지적 F-603 · F-B01 · F-C01)."
     )
+
+
+def coverage_report(built: list, asof: str,
+                    doc_paths: tuple[str, ...] = ()) -> "pd.DataFrame":
+    """문서 쪽 커버리지 — 보고서로만 낸다. 요청 식별자에 들어가지 않는다."""
+    import pandas as pd
+    names = sorted(generated_blocks(built, asof)) if built else []
+    rows = []
+    for d in (doc_paths or DOC_TARGETS):
+        path = Path(d)
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        masked = _mask_code(text)
+        tokens = len(re.findall(r"[\d,]*\d", text))
+        covered = sum(
+            len(re.findall(r"[\d,]*\d", text[m.start("body"):m.end("body")]))
+            for m in _BLOCK_RE.finditer(masked))
+        rows.append({"document": path.name, "n_blocks": len(names),
+                     "n_tokens": tokens, "n_covered": covered,
+                     "share": covered / tokens if tokens else 0.0})
+    return pd.DataFrame(rows)

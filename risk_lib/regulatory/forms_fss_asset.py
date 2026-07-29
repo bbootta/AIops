@@ -620,7 +620,7 @@ def _b2417(ctx) -> tuple[list[FormLine], list[FormCheck]]:
     large_total = float(large["balance"].sum())
     L = [
         FormLine("1000", "자기자본 (기본자본)", 0, "KRW", tier1,
-                 citation="은행법 제2조 자기자본",
+                 citation="은행법 제2조 제1항 자기자본",
                  source_module="risk_lib.capital.bis"),
         # 제53조의 거액여신은 자기자본 10% 초과분이다. 여기 기준은 그것이 아니라
         # 요주의이하 명세를 뽑기 위한 내부 보고기준(기본자본 0.1%)이므로, 조문을

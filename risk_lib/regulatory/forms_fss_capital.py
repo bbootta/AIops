@@ -127,7 +127,7 @@ def _b2301(ctx):
 
         FormLine("3100", "보통주자본비율", 0, "ratio", float(cap.cet1) / std,
                  formula="보통주자본 ÷ 표준방법 위험가중자산",
-                 citation="은행업감독규정 제26조", source_module=_M_CAP),
+                 citation="은행업감독규정 제26조 제1항 제1~3호 자기자본비율", source_module=_M_CAP),
         FormLine("3200", "기본자본비율", 0, "ratio", float(cap.tier1) / std,
                  formula="기본자본 ÷ 표준방법 위험가중자산", source_module=_M_CAP),
         FormLine("3300", "총자본비율", 0, "ratio", float(cap.total) / std,
@@ -202,7 +202,7 @@ def _ba2303_2(ctx):
                  formula="기본자본 ÷ 위험가중자산", source_module=_M_CAP),
         FormLine("3300", "총자본비율", 0, "ratio", float(r.bis.total_ratio),
                  formula="자기자본 ÷ 위험가중자산",
-                 citation="은행업감독규정 제26조", source_module=_M_CAP),
+                 citation="은행업감독규정 제26조 제1항 제1~3호 자기자본비율", source_module=_M_CAP),
         FormLine("4300", "요구 총자본비율 (완충자본 포함)", 0, "ratio",
                  float(r.bis.required["total"]),
                  formula="최저 8% + 완충자본 합계",
