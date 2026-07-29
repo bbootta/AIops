@@ -78,6 +78,7 @@ class ValidationRequest:
     artefacts: list[str]
     known_assumptions: list[str]      # 3선이 반드시 도전해야 할 가정
     provenance: dict                  # 산출 근거 통계 — 문장이 아니라 수치로 넘긴다
+    submission_digest: str            # 제출본(서식 전체) 지문 — 서식이 바뀌면 움직인다
     created_at: str
 
     def to_json(self, indent: int = 2) -> str:
@@ -224,6 +225,17 @@ def request_identifier(request: "ValidationRequest") -> str:
     canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True,
                            separators=(",", ":"), default=str)
     return "IVR-" + _digest(canonical)[:12].upper()
+
+
+def _submission_digest(built_forms) -> str:
+    """제출본 지문 — 서식 내용이 바뀌면 요청 식별자가 따라 움직여야 한다.
+
+    요청 페이로드에 서식 내용이 하나도 없어서, 규정 인용 9건을 정정했는데도
+    `request_id`가 불변이었다. 그 정정을 본 적 없는 이전 응답이 계속 승인으로
+    통한다 — F-301과 같은 유형의 세 번째 반복이다.
+    """
+    from risk_lib.regulatory.forms import submission_digest
+    return submission_digest(built_forms)
 
 
 def _reserve_required(aq) -> float:
@@ -444,6 +456,8 @@ def build_request(result, portfolio: pd.DataFrame,
         self_validation_warnings=warnings,
         artefacts=artefacts or [],
         known_assumptions=assumptions,
+        submission_digest=(
+            _submission_digest(built_forms) if built_forms else ""),
         provenance=provenance,
         created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
     )

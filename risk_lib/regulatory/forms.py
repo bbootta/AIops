@@ -875,13 +875,33 @@ def build_forms(result, portfolio, tables: dict[str, pd.DataFrame]
     return [f.builder(ctx) for f in ordered]
 
 
+# 지문에서 제외하는 라인 속성 — 없다. 제출본을 이루는 것은 전부 넣는다.
+# 열거하면 열거에서 빠진 것이 조용히 뚫린다 (지적 F-301에서 세운 원칙).
+_LINE_FIELDS = ("line_code", "line_name", "level", "unit", "value",
+                "text_value", "formula", "citation", "source_module",
+                "is_subtotal", "basis")
+
+
 def submission_digest(built: list[BuiltForm]) -> str:
-    """제출본 지문 — 같은 지문이면 같은 제출본이다."""
+    """제출본 지문 — 같은 지문이면 같은 제출본이다.
+
+    값만 해시하면 **규정 인용·라인명·산식이 바뀌어도 지문이 불변**이다. 실제로
+    그랬다 — 조항 오인용 9건을 고쳤는데 지문이 움직이지 않아, 그 정정을 본 적
+    없는 이전 검증 응답이 계속 유효한 것처럼 통과했다. 산출값이 안 바뀌는
+    변경일수록 재검증이 필요한데 그때 정확히 뚫린다는 F-301의 지적이 서식
+    계층에서 세 번째로 반복된 것이다.
+
+    그래서 라인을 이루는 속성을 **전부** 넣는다. 서식명·주기·규정근거도 제출본의
+    일부이므로 spec에서 함께 넣는다.
+    """
     h = hashlib.sha256()
     for b in built:
-        h.update(b.spec.form_id.encode())
+        sp = b.spec
+        h.update(f"{sp.form_id}|{sp.form_name}|{sp.frequency}|"
+                 f"{sp.citation}|{sp.source_domain}".encode())
         for ln in b.lines:
-            h.update(f"{ln.line_code}|{ln.value}|{ln.text_value}".encode())
+            h.update("|".join(str(getattr(ln, f, None))
+                              for f in _LINE_FIELDS).encode())
     return h.hexdigest()
 
 
