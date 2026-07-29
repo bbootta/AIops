@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -35,11 +36,40 @@ from risk_lib.regulatory.forms import build_forms
 
 BASELINE = Path(__file__).parent / "form_structure_baseline.json"
 
+# 라인명에 박힌 날짜. 일별 서식(B2316 일별 트레이딩·B2602-2 일별 LCR 등)은
+# 라인명이 날짜라 기준일이 바뀌면 이름도 개수도 달라진다.
+_DATE = re.compile(r"\d{4}-\d{2}-\d{2}|\d{1,2}월\s*\d{1,2}일|\d{4}Q[1-4]")
+
 
 def _structure(built: list) -> dict[str, list[str]]:
-    """서식 → 라인코드 목록. 값은 담지 않는다."""
-    return {b.spec.form_id: [f"{ln.line_code}|{ln.line_name}" for ln in b.lines]
-            for b in built}
+    """서식 → 라인 목록. 값은 담지 않고, **기준일에 독립**이어야 한다.
+
+    독립검증 지적 F-A01: 기준선을 시험 고정일(2026-06-11)에서 만들었더니 제출
+    실행(2026-06-30)에는 52라인이 더 있어 통제를 제출물에 돌릴 수 없었다.
+    라인명이 날짜를 담으므로 **어떤 기준일에서도 FAIL**한다 — 통제가 있는 것과
+    통제가 제출물을 덮는 것은 다르다(3선 ADV-PROC-08).
+
+    그래서 날짜를 `<date>`로 바꾸고, 그 결과 같아진 연속 라인은 **하나로 접는다**.
+    월마다 영업일 수가 달라 개수까지 같게 만들 수는 없기 때문이다.
+
+    한계 — 일별 계열 **안에서** 라인 하나가 사라지는 것은 잡지 못한다. 그
+    라인들은 루프로 생성되므로 손으로 쓴 라인이 사라지는 것(F-901의 실제 양상)
+    보다 위험이 낮다고 보고 이 절충을 택했다. 요청서에 공시한다.
+    """
+    out: dict[str, list[str]] = {}
+    for b in built:
+        keys: list[str] = []
+        for ln in b.lines:
+            k = _DATE.sub("<date>", f"{ln.line_code}|{ln.line_name}")
+            # 코드도 날짜 계열이면 연번이 붙으므로 이름만으로 접는다.
+            name = k.split("|", 1)[1] if "|" in k else k
+            if "<date>" in name:
+                k = f"<daily>|{name}"
+            if keys and keys[-1] == k:
+                continue
+            keys.append(k)
+        out[b.spec.form_id] = keys
+    return out
 
 
 @pytest.fixture(scope="module")
@@ -84,18 +114,31 @@ def test_added_lines_are_declared(built):
 
 
 def test_citation_survives_edits(built):
-    """대손준비금 라인에 담보 규정이 붙는 식의 인용 뒤바뀜을 막는다.
+    """라인명과 규정 인용의 짝 — **조항까지** 본다.
 
     F-901에서 편집이 `citation=_C29`를 지우면서 다음 라인의 `citation=_CRE22`가
-    대손준비금 라인에 붙었다. 라인명과 인용의 짝은 규정 근거 그 자체다.
+    대손준비금 라인에 붙었다. 그래서 이 검사를 만들었는데, "제29조" 포함만 보아
+    **항의 차이를 구분하지 못했다** — 해외 서식이 순차액에 제1항(최저적립률)을
+    달고 있는 것을 놓쳤고 3선이 열 회차 만에 찾았다 (지적 F-A02).
+
+    제29조 제1항은 최저적립률을, **제2항이 "미달하는 경우 그 차액"**을 정한다.
+    같은 항목에 다른 항이 붙으면 근거가 틀린 것이다. 통제가 한 단계 성기면
+    그 한 단계만큼 결함이 산다.
     """
+    bad: list[str] = []
     for b in built:
         for ln in b.lines:
-            if "대손준비금" not in ln.line_name or not ln.citation:
-                continue
-            assert "제29조" in ln.citation, (
-                f"{b.spec.form_id}/{ln.line_code} 대손준비금 라인에 "
-                f"엉뚱한 인용: {ln.citation}")
+            c = ln.citation or ""
+            name = ln.line_name
+            if "대손준비금" in name and ("순차액" in name or "소요액" in name):
+                if "제29조 제2항" not in c:
+                    bad.append(f"{b.spec.form_id}/{ln.line_code} {name} → {c}")
+            elif "최저적립" in name and "제29조" in c:
+                if "제29조 제1항" not in c:
+                    bad.append(f"{b.spec.form_id}/{ln.line_code} {name} → {c}")
+    assert not bad, (
+        "대손준비금 라인의 조항이 어긋난다 (제1항=최저적립률 · 제2항=차액):\n  "
+        + "\n  ".join(bad[:20]))
 
 
 def _main() -> None:

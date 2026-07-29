@@ -45,6 +45,10 @@ _M_SELF = "risk_lib.regulatory.forms_fss_asset"
 _M_LGD = "risk_lib.models.lgd_model.lgd_backtest"
 _C27 = "은행업감독규정 제27조 자산건전성 5단계 분류"
 _C29 = "은행업감독규정 제29조 제1항 최저적립률"
+# 제1항은 최저적립률을, **제2항이 "미달하는 경우 그 차액"**을 정한다.
+# 하나의 상수를 공유하면 순차액 라인에 제1항이 붙는다 — 실제로 그랬고
+# 열 회차 동안 아무도 못 봤다 (독립검증 지적 F-A02).
+_C29_2 = "은행업감독규정 제29조 제2항 대손준비금"
 _DERIVED = "원장 부재 — 기준일 고정 시드 파생값"
 
 
@@ -966,7 +970,7 @@ def _b2431(ctx) -> tuple[list[FormLine], list[FormCheck]]:
         FormLine("1030", "최저적립 충족 여부", 0, "count",
                  1.0 if float(book["ifrs9_provision"].sum()) >= min_total else 0.0,
                  formula="1 = 충당금 합계 ≥ 최저적립액 합계 (부족분은 대손준비금)",
-                 citation="은행업감독규정 제29조 제2항", source_module=_M_RDM),
+                 citation="은행업감독규정 제29조 제1항", source_module=_M_RDM),
     ]
     bal_codes, min_codes = [], []
     for i, prod in enumerate(PRODUCTS, start=1):

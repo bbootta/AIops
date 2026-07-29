@@ -55,6 +55,10 @@ _M_MKT = "risk_lib.market_data"
 
 _C27 = "은행업감독규정 제27조 자산건전성 5단계 분류"
 _C29 = "은행업감독규정 제29조 제1항 최저적립률"
+# 제1항은 최저적립률을, **제2항이 "미달하는 경우 그 차액"**을 정한다.
+# 하나의 상수를 공유하면 순차액 라인에 제1항이 붙는다 — 실제로 그랬고
+# 열 회차 동안 아무도 못 봤다 (독립검증 지적 F-A02).
+_C29_2 = "은행업감독규정 제29조 제2항 대손준비금"
 _C53 = "은행업감독규정 제53조 거액여신(자기자본 10% 초과)"
 _C63 = "은행업감독규정 제63조 외화유동성"
 _C99 = "은행업감독규정 제99조 업무보고서"
@@ -421,7 +425,7 @@ def _bf202(ctx) -> tuple[list[FormLine], list[FormCheck]]:
         FormLine("4020", "대손준비금 순차액", 0, "KRW", reserve_net_gap(ob),
                  formula="최저적립액 − 충당금 (부호 있는 순차액 — 음수는 초과적립. "
                          "부문 합이 전행과 일치하도록 max(0,·)를 걸지 않는다)",
-                 citation=_C29, source_module=_M_RDM),
+                 citation=_C29_2, source_module=_M_RDM),
         FormLine("5000", "담보평가액", 0, "KRW", float(coll["appraised"].sum()),
                  formula="담보는 시가, 보증은 보장금액", citation=_CRE22,
                  source_module=_M_RDM, is_subtotal=True),
@@ -956,7 +960,7 @@ def _bf405(ctx) -> tuple[list[FormLine], list[FormCheck]]:
                  source_module=_M_ECL, is_subtotal=True),
         FormLine("1030", "대손준비금 순차액", 0, "KRW", reserve_net_gap(ob),
                  formula="최저적립액 − 충당금 (부호 있는 순차액 — 음수는 초과적립. 부문 합이 전행과 일치하도록 max(0,·)를 걸지 않는다)",
-                 citation=_C29, source_module=_M_RDM, is_subtotal=True),
+                 citation=_C29_2, source_module=_M_RDM, is_subtotal=True),
         FormLine("1040", "ECL 산출액 (참고)", 0, "KRW", float(ob["ecl"].sum()),
                  formula="`ecl_result` 기준 — 은행·국가 익스포저는 ECL 모형 "
                          "대상이 아니어서 IFRS 9 충당금 합계와 모수가 다르다",
@@ -982,7 +986,7 @@ def _bf405(ctx) -> tuple[list[FormLine], list[FormCheck]]:
                      float(s["ifrs9_provision"].sum()), citation="IFRS 9 5.5",
                      source_module=_M_ECL),
             FormLine(str(base + 30), "순차액", 2, "KRW",
-                     reserve_net_gap(s), formula="최저적립액 − 충당금 (부호 있는 순차액 — 음수는 초과적립. 부문 합이 전행과 일치하도록 max(0,·)를 걸지 않는다)", citation=_C29,
+                     reserve_net_gap(s), formula="최저적립액 − 충당금 (부호 있는 순차액 — 음수는 초과적립. 부문 합이 전행과 일치하도록 max(0,·)를 걸지 않는다)", citation=_C29_2,
                      source_module=_M_RDM),
             FormLine(str(base + 40), "잔액 대비 적립률", 2, "ratio",
                      float(s["ifrs9_provision"].sum()) / bal if bal else 0.0,
