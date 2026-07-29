@@ -250,6 +250,29 @@ def _cmd_validation_request(args: argparse.Namespace) -> int:
     return 0 if gate.approved else 1
 
 
+def _cmd_deliverables(args: argparse.Namespace) -> int:
+    """산출물 보관 — 기준일자마다 판을 쌓고 이력을 스캔해 갱신한다."""
+    from risk_lib.archive import ARCHIVE_ROOT, archive, write_ledger
+    from risk_lib.data_gen import generate_portfolio
+
+    root = args.root or ARCHIVE_ROOT
+    portfolio = generate_portfolio(seed=args.seed)
+    result = run_pipeline(portfolio, seed=args.seed, asof=args.asof)
+    info = archive(result, portfolio, asof=args.asof, root=root,
+                   run_date=args.run_date, seed=args.seed)
+    paths = write_ledger(root)
+    print(f"산출물 보관 — {root}/{info.asof}/{info.label}")
+    print(f"  요청 {info.request_id} · 게이트 {info.gate_status}")
+    print(f"  서식 {info.n_forms:,} · 라인 {info.n_form_lines:,} · "
+          f"서식검증 실패 {info.n_form_checks_failed}")
+    print(f"  제출본 지문 {info.submission_digest[:16]}… · "
+          f"코드 {info.git_revision[:12]}")
+    print(f"  이력 {paths['csv']} · {paths['md']}")
+    # 게이트가 열리지 않았으면 종료코드로 알린다 — 결재 파이프라인이 조용히
+    # 지나가지 않게 한다.
+    return 0 if info.gate_status == "적합" else 1
+
+
 def _cmd_printable(args: argparse.Namespace) -> int:
     """Generate a print-optimised single-file HTML. Open in browser and
     'Print -> Save as PDF' for a perfectly-rendered Korean PDF."""
@@ -409,6 +432,17 @@ def main(argv: list[str] | None = None) -> int:
     rg.add_argument("--asof", default=None, help="기준일 (YYYY-MM-DD)")
     rg.add_argument("--institution", default="(기관명)")
     rg.set_defaults(func=_cmd_reg_report)
+
+    dv = sub.add_parser(
+        "deliverables",
+        help="산출물 Pack을 기준일자/수행일자·판 경로에 보관하고 이력을 갱신")
+    dv.add_argument("--asof", required=True, help="기준일자 (YYYY-MM-DD)")
+    dv.add_argument("--seed", type=int, default=42)
+    dv.add_argument("--root", default=None,
+                    help="보관 루트 (기본: 리스크관리 팀에이전트 경로)")
+    dv.add_argument("--run-date", default=None,
+                    help="수행일자 (기본: 오늘). 과거 판을 재구성할 때만 쓴다")
+    dv.set_defaults(func=_cmd_deliverables)
 
     iv = sub.add_parser("validation-request",
                         help="상시 독립검증(3선) 요청 생성 + 게이트 확인")
