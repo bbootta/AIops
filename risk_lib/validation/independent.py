@@ -452,6 +452,20 @@ def build_request(result, portfolio: pd.DataFrame,
             coverage_sentence as _doc_coverage_sentence,
         )
         assumptions.append(_citation_coverage_sentence(built_forms))
+        # 요청 지문이 덮지 **않는** 것도 공시한다. F-D01 시정은 전부 산출물 Pack
+        # 안에서 일어났는데 지문이 움직이지 않아, 그 결함을 지적한 응답이 여전히
+        # 유효한 것처럼 게이트가 통과시킨다. 12차에 3선에 물은 "다음 계층" 질문이
+        # 실현된 것이며, 설계 답을 받기 전에 성급히 고치면 F-C01 같은 상호작용을
+        # 또 만든다 — 그래서 이번 회차는 **공시하고 묻는다**.
+        assumptions.append(
+            f"요청 지문은 산출값·서식·가정·자체검증을 덮지만 **산출물 Pack을 "
+            f"덮지 않는다** — `artefacts` 필드가 비어 있다. Pack 안에서만 일어난 "
+            f"변경(파일 신설·삭제·배선)은 `request_id`를 움직이지 않으므로, 그 "
+            f"변경을 본 적 없는 이전 응답이 승인으로 통한다. 실제로 F-D01 시정이 "
+            f"그랬다. 지문 대상을 넓히면 Pack이 요청서를 담고 요청서가 Pack "
+            f"인벤토리를 담는 순환이 생기므로(F-C01 유형) 설계 판단이 필요하며, "
+            f"3선에 도전 지점으로 올린다 (지적 F-301 · F-C01 · F-D01)."
+        )
         assumptions.append(_doc_coverage_sentence(built_forms, asof))
 
     request = ValidationRequest(
