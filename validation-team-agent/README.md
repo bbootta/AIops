@@ -138,6 +138,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.val_coverage report / verify` | PRD-VAL 업무요건 대비 구현 커버리지 (근거 실재성 강제) |
 | `python -m tools.validation_trigger triggers / evaluate / queue` | 상시 모니터링 트리거 평가 → 검증 사례 생성·검토 큐 |
 | `python -m tools.validation_finding open / remediate / reverify / close / queue / lineage / blockers` | Finding 원장 — 재검증 없는 종결 차단·재발 시 중대도 상향 |
+| `python -m tools.validation_memory rounds / patterns / self-defects / carryover / verify` | 검증 기억 원장 — 회차·결함 계보·자기결함·이월을 생성·상호 대조 (손으로 세지 않는다) |
 | `python -m tools.independent_recalc list / run` | 독립 재계산 + 차이 원인 분해 (데이터/모형/산식/구현 기여도) |
 | `python -m tools.golden_regression run [--change-request <json>]` | Golden Case 회귀검증 — 범위 밖 변경 시 배포 차단 |
 | `python -m tools.validation_scope tiers / score / check` | 모형 중요도 등급 + 검증계획 최소 심도·주기 강제 |

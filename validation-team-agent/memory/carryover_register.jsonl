@@ -1,0 +1,9 @@
+{"item_id": "CO-001", "title": "B2824 가맹점수수료율 혼합기준 — 분자 연간수익·분모 당월매출로 12배 과대", "first_seen_round": 6, "last_seen_round": 15, "status": "open", "blocker": "합성 카드수익이 회전율 가정의 매출 규모를 뒷받침하지 못하는 구조적 한계 — 공시 유지 중"}
+{"item_id": "CO-002", "title": "파생 배분(1,107라인)의 개별 배분이 실측을 대체할 수 있는지", "first_seen_round": 6, "last_seen_round": 15, "status": "open", "blocker": "실 원장 없이는 판정 불가 — 합계는 산출값 앵커로 자기충족 아님만 확인"}
+{"item_id": "CO-003", "title": "교차 서식 대사 미등록 공유 수치 143종 등록 확대", "first_seen_round": 9, "last_seen_round": 15, "status": "open", "blocker": "현재 값 전부 일치 — F-701 형 실패 재발 시에만 발현. 등록 우선순위: 자기자본(13곳)·총여신(9곳)·해외 총여신(9곳)·당기순이익(7곳)"}
+{"item_id": "CO-004", "title": "인용 474종의 규정 원문 정합성", "first_seen_round": 12, "last_seen_round": 15, "status": "open", "blocker": "규정 텍스트가 저장소에 없다 — 기준선 등록으로 무단 증가만 차단, 정확성은 미보증 (2선도 동일 한계 명시)"}
+{"item_id": "CO-005", "title": "서식검증 1,735건 중 항진명제 전수 판별", "first_seen_round": 7, "last_seen_round": 15, "status": "open", "blocker": "정적 AST 로 항진 28건·실질 128건 확정, 판별불가 375건 잔여 — 의미적 항등은 동적 변이 병행 필요 (ADV-CALC-06)"}
+{"item_id": "CO-006", "title": "조·항 혼용 잔여 11건(오탐 판정)의 규정 원문 대조", "first_seen_round": 13, "last_seen_round": 15, "status": "open", "blocker": "서식 성격(B3110 소유=제2항 · B3111 신용공여=제3항) 기반 추론으로 오탐 판정 — 원문 대조는 CO-004 와 같은 이유로 불가"}
+{"item_id": "CO-007", "title": "접힌 일별 계열 42라인 내부의 라인 소실 탐지", "first_seen_round": 12, "last_seen_round": 15, "status": "open", "blocker": "월별 영업일 수가 달라 개수 고정 불가 — 계열별 기대 개수를 영업일에서 계산하는 방안 검토 항목 (11차 §9.3)"}
+{"item_id": "CO-008", "title": "요청 지문의 Pack 경계 — code_digest(risk_lib 정규화 해시) 도입", "first_seen_round": 15, "last_seen_round": 15, "status": "open", "blocker": "3선이 순환 없는 설계(risk_lib 만, docs 제외)를 권고 — 주석·공백 변경에도 재검증이 걸리는 대가가 있어 결재선 판단 대기 (CLAUDE.md §7)"}
+{"item_id": "CO-009", "title": "스트레스 저점·역스트레스 임계 심도 2종의 독립 재산출", "first_seen_round": 7, "last_seen_round": 15, "status": "open", "blocker": "시나리오 엔진을 다시 만들지 않아 읽어 대조만 — 매 회차 의견서 §7 에 '독립 재산출 아님' 명시 중"}

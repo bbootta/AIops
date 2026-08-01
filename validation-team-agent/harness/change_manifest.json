@@ -2400,6 +2400,21 @@
       "rollback_rule": "링크가 환경 제약으로 동작하지 않으면 정본은 검증팀 경로에 두고 우편함에는 생성 스크립트로 복사하되, 두 파일의 해시 일치를 매 실행 검사한다 (사본 허용 시 반드시 기계 대조를 붙인다)",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0161",
+      "timestamp": "2026-08-01 00:17:31",
+      "component": "memory/{validation_rounds.jsonl,finding_patterns.json,self_defects.jsonl,carryover_register.jsonl} + tools/validation_memory.py + harness/system_prompt.md + 카탈로그 동기화",
+      "change_type": "create",
+      "evidence": "15회 독립검증(RUN-20260630-42) 회고: 회차 이력·결함 계보·자기결함·이월사항이 전부 의견서 산문에 손으로 적혀 있었고, 3선 자신이 2선에 지적해 온 결함을 그대로 만들었다 — 반복 횟수를 손으로 세다 두 번 틀림(미등록 125→143종 SD-05 · 오인용 9→8건 F-B02 유형), 회차 번호 오기(F-502 유형). 또 6차 결재 후속조건 3건이 7차에 이행·검증 확인됐는데 원장에는 0/3 미기록으로 남아 기한(2026-08-10) 초과 에스컬레이션 직전이었다",
+      "root_cause": "검증 기억(회차·패턴·자기결함·이월)이 구조화 원장이 아니라 회차마다 다시 쓰는 산문이었다. 셀 수 있는 값을 손으로 세고, 참조(패턴 멤버·프로토콜 origin)의 실재를 아무도 대조하지 않았다 — 2선의 F-501 계열과 동일 구조",
+      "targeted_fix": "기억 계층 신설. memory/validation_rounds.jsonl 은 git 응답 이력에서 백필(15회·지적 87건, 회차 = 등장 순서 파생 — F-502 원칙, 1~3차 게이트 예외는 gate_note 로 사유 명시). finding_patterns.json 결함 계보 4종(P-DOC 8회 · P-RECALC 3회 종결 · P-CTRL 5회 · P-STALE 3회) — 반복 횟수는 len(members) 파생. self_defects.jsonl 자기결함 6건 — 각각 기록 finding 과 시정 challenge 연결. carryover_register.jsonl 이월 9건 — 연속 미해소 구간 생성. tools/validation_memory verify 가 상호 정합을 강제: 회차 연속성·finding 유일성·집계=실계·verdict=최고심각도·게이트 예외 사유 필수·패턴 멤버 실재·시간순·live 는 open_member, closed 는 사유·자기결함은 시정 필수·adversarial_protocol origin 이 가리키는 F-XXX 전부 회차 원장에 실재(프로토콜 출처 역참조)·이월 회차 범위·closed 는 resolution. 시스템 프롬프트에 15회 교환 확립 원칙 6개조 추가. 부수: IVR-68128ECE5694 후속조건 3건 이행을 7차 검증 근거(F-604)와 함께 원장 기록 — 3/3, 기한 내",
+      "expected_benefit": "의견서의 회차 표·계보·연속 미해소 구간이 손글씨에서 생성값으로 바뀐다. 프로토콜 origin 과 회차 원장의 상호 참조가 기계 검증되어 '출처가 끊긴 challenge' 가 생길 수 없다. 자기결함이 1급 기록이 되어 프로토콜 진화의 근거가 남는다",
+      "expected_regression_risk": "낮음 — 신규 원장·도구이며 기존 경로 무변경. 백필 데이터의 theme 필드는 편집 라벨(수치 아님). 위험은 원장 미갱신인데 verify 가 회차 연속성·상호 참조로 낡음을 드러낸다",
+      "validation_method": "tests/test_validation_memory.py 22건 — verify 규칙 15종 각각을 위반 fixture 로 반증(실패할 수 없는 검사는 통제가 아니다, F-E01 교훈) + 실원장 정합 + 렌더 + CLI exit code. 백필은 git 이력에서 스크립트 생성(손으로 옮겨 적지 않음). 전체 스위트 + R34 카탈로그 동기화(cli_index·vta dispatch·README)",
+      "rollback_rule": "원장 유지가 부담이면 verify 를 게이트에서 빼고 조회 전용으로 강등한다. 파일 삭제로 완전 롤백 — 기존 도구 무의존",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
