@@ -270,14 +270,24 @@ def test_render_is_self_contained(studio):
     assert not re.search(r"\bfetch\s*\(|XMLHttpRequest|new WebSocket", h)
     for url in re.findall(r"https?://[^\s\"'`)]+", h):
         assert url.startswith("http://www.w3.org/"), url
-    assert "<script>window.__RYNTA__=" in h
+    assert "<script>window.__RYNTA_RUNS__=" in h
+
+
+def _runs(h: str) -> dict:
+    m = re.search(r"window\.__RYNTA_RUNS__=(\{.*\});\nwindow\.__RYNTA__", h, re.S)
+    assert m, "실행 payload 를 찾지 못했다"
+    return json.loads(m.group(1))
+
+
+def _primary(h: str) -> str:
+    m = re.search(r'window\.__RYNTA__=window\.__RYNTA_RUNS__\[("[-\d]+")\];', h)
+    assert m, "기본 실행 지정을 찾지 못했다"
+    return json.loads(m.group(1))
 
 
 def test_render_embeds_a_parseable_payload(studio):
     h = render(studio)
-    m = re.search(r"window\.__RYNTA__=(\{.*?\});</script>", h, re.S)
-    assert m
-    d = json.loads(m.group(1))
+    d = _runs(h)[_primary(h)]
     assert d["meta"]["n_tables"] == len(cat.ALL_TABLES)
     assert len(d["forms"]) == len(studio.built_forms)
     assert len(d["catalog"]) == len(cat.ALL_TABLES)
@@ -286,9 +296,70 @@ def test_render_embeds_a_parseable_payload(studio):
 
 def test_rendered_kpis_match_the_engine(studio):
     h = render(studio)
-    d = json.loads(re.search(r"window\.__RYNTA__=(\{.*?\});</script>", h, re.S).group(1))
+    d = _runs(h)[_primary(h)]
     cet1 = next(k for k in d["kpis"] if "CET1" in k["label"])
     assert cet1["value"] == f"{studio.result.bis.cet1_ratio:.2%}"
+
+
+def test_every_payload_column_has_a_catalog_label(studio):
+    """화면에 뜨는 모든 표의 모든 컬럼이 카탈로그 표시명을 갖는다.
+
+    표시명의 정본은 카탈로그(ColumnSpec.korean)다 — 화면이 물리명을 그대로
+    내보내면 그 컬럼은 검토된 업무 명칭 없이 노출된 것이다. 새 테이블·새
+    컬럼이 표시명 없이 들어오면 여기서 실패한다 — 개별 화면이 아니라 payload
+    전체를 훑으므로 새 화면을 추가해도 검사를 빠져나갈 수 없다.
+    """
+    h = render(studio)
+    d = _runs(h)[_primary(h)]
+    missing: list[str] = []
+
+    def walk(o, path):
+        if isinstance(o, dict):
+            if isinstance(o.get("columns"), list) and isinstance(o.get("rows"), list):
+                labs = o.get("labels") or [None] * len(o["columns"])
+                missing.extend(
+                    f"{o.get('table') or path}/{c}"
+                    for c, l in zip(o["columns"], labs) if l is None)
+            else:
+                for k, v in o.items():
+                    walk(v, f"{path}.{k}")
+        elif isinstance(o, list):
+            for i, v in enumerate(o):
+                walk(v, f"{path}[{i}]")
+
+    walk(d, "$")
+    assert not missing, (
+        f"카탈로그 표시명 없는 컬럼 {len(missing)}건 — ColumnSpec.korean 을 "
+        f"채워라:\n  " + "\n  ".join(missing[:20]))
+
+
+def test_labels_resolve_per_table_not_globally(studio):
+    """같은 물리명이라도 테이블이 다르면 그 테이블의 업무 명칭을 쓴다.
+
+    물리명 50종이 테이블마다 다른 한글명을 갖는다(ead → EAD/익스포저 등).
+    전역 사전으로 풀면 어느 한쪽 화면이 틀린 이름을 단다.
+    """
+    h = render(studio)
+    d = _runs(h)[_primary(h)]
+    ob = d["data"]["rdm_obligor"]
+    assert ob["labels"][ob["columns"].index("obligor_id")] == "차주 식별자"
+
+
+def test_multi_run_render_carries_every_run(studio):
+    """실행 여러 개를 실으면 전부 payload에 있고, 최신 기준일이 기본이다.
+
+    기준일 전환은 미리 산출한 실행 사이의 전환이다 — 화면은 계산기가 아니다.
+    """
+    import dataclasses
+    older = dataclasses.replace(studio, asof="2026-03-31",
+                                run_id="RUN-20260331")
+    h = render([studio, older])
+    runs = _runs(h)
+    assert set(runs) == {studio.asof, "2026-03-31"}
+    assert _primary(h) == studio.asof          # 최신 기준일이 기본 화면
+    assert 'id="asofsel"' in h                 # 헤더에서 전환할 수 있다
+    for a, d in runs.items():
+        assert d["meta"]["asof"] == a
 
 
 def test_render_carries_the_no_autonomous_write_statement(studio):

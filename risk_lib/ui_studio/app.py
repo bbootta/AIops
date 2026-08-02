@@ -50,10 +50,27 @@ def _cell(v):
     return str(v)
 
 
-def _frame(df: pd.DataFrame, limit: int = PREVIEW_ROWS) -> dict:
+# 컬럼 표시명은 **카탈로그(ColumnSpec.korean)가 정본**이다. 화면에서 따로
+# 지으면 두 벌이 갈라진다. 같은 물리명이 테이블마다 다른 업무 명칭을 갖는
+# 컬럼이 50종 있으므로(예: ead → EAD/익스포저, status → 게이트 상태/매핑 상태)
+# 전역 사전이 아니라 테이블별로 푼다.
+_SPEC_BY_NAME = {sp.name: sp for sp in cat.ALL_TABLES}
+
+
+def _labels(table: str | None, columns: list[str]) -> list[str | None]:
+    sp = _SPEC_BY_NAME.get(table or "")
+    m = {c.name: (c.korean or None) for c in sp.columns} if sp else {}
+    return [m.get(c) for c in columns]
+
+
+def _frame(df: pd.DataFrame, limit: int = PREVIEW_ROWS,
+           table: str | None = None) -> dict:
     head = df.head(limit)
+    cols = [str(c) for c in df.columns]
     return {
-        "columns": [str(c) for c in df.columns],
+        "table": table,
+        "columns": cols,
+        "labels": _labels(table, cols),
         "rows": [[_cell(v) for v in row] for row in head.itertuples(index=False)],
         "total": int(len(df)),
         "shown": int(len(head)),
@@ -120,7 +137,7 @@ def _payload(s: Studio) -> dict:
             "materialised": isinstance(df, pd.DataFrame),
         })
 
-    previews = {name: _frame(df) for name, df in t.items()
+    previews = {name: _frame(df, table=name) for name, df in t.items()
                 if isinstance(df, pd.DataFrame) and name in spec_by_name}
 
     # ---- 브라우저에서 실제로 조회·필터가 돌아가려면 데이터가 화면 안에
@@ -151,17 +168,19 @@ def _payload(s: Studio) -> dict:
             "total_rows": int(len(df)), "embedded_rows": int(min(len(df), budget)),
         }
         if tref not in data:
-            data[tref] = _frame(df, budget)
+            data[tref] = _frame(df, budget, table=tref)
 
     plans = []
     for p in s.plans:
         res = s.plan_results.get(p.plan_id, pd.DataFrame())
+        _vrow = s.view_row(p.view_id)
+        _tref = str(_vrow["table_ref"]) if _vrow is not None else None
         plans.append({
             "plan_id": p.plan_id, "view_id": p.view_id, "intent": p.intent,
             "utterance": p.utterance, "population": p.population,
             "ast": p.condition_ast, "policy": p.policy, "hash": p.query_hash,
             "status": p.status, "block_reason": p.block_reason,
-            "n_rows": p.n_rows, "result": _frame(res, 8),
+            "n_rows": p.n_rows, "result": _frame(res, 8, table=_tref),
             "steps": [
                 ("01 의도", p.intent), ("02 기준일", p.asof),
                 ("03 모집단", p.population),
@@ -185,7 +204,8 @@ def _payload(s: Studio) -> dict:
                             if pd.api.types.is_numeric_dtype(sub[c])), None)
                 if num:
                     sub = sub.sort_values(num, ascending=False)
-                preview = _frame(sub, min(pr.row_limit, 10))
+                preview = _frame(sub, min(pr.row_limit, 10),
+                                 table=str(vrow["table_ref"]))
                 preview["bar_column"] = num
                 # 막대 라벨은 **범주형** 열이어야 한다 — 숫자 열을 라벨로 쓰면
                 # 축과 값이 같은 종류가 되어 차트가 읽히지 않는다.
@@ -236,8 +256,8 @@ def _payload(s: Studio) -> dict:
         "kpis": _kpis(s),
         "catalog": catalog_rows,
         "previews": previews,
-        "views": _frame(t["ui_view"], 10_000),
-        "field_policy": _frame(t["ui_field_policy"], 10_000),
+        "views": _frame(t["ui_view"], 10_000, table="ui_view"),
+        "field_policy": _frame(t["ui_field_policy"], 10_000, table="ui_field_policy"),
         "view_meta": views_meta,
         "data": data,
         "demo_queries": [
@@ -251,20 +271,20 @@ def _payload(s: Studio) -> dict:
         "plans": plans,
         "proposals": proposals,
         "forms": forms,
-        "form_checks": _frame(t["reg_form_check"], 200),
-        "agents": _frame(t["agent_registry"], 100),
-        "activity": _frame(t["agent_activity"], 100),
-        "killswitch": _frame(t["agent_killswitch"], 50),
-        "evidence_nodes": _frame(t["gov_evidence_node"], 50),
-        "evidence_edges": _frame(t["gov_evidence_edge"], 50),
-        "approvals": _frame(t["gov_approval"], 100),
-        "changes": _frame(t["chg_change_request"], 50),
-        "change_impacts": _frame(t["chg_impact_map"], 200),
-        "change_tests": _frame(t["chg_regression_test"], 100),
-        "reconciliation": _frame(t["rdm_reconciliation"], 50),
-        "contracts": _frame(t["rdm_source_contract"], 50),
-        "canonical_map": _frame(t["rdm_canonical_map"], 200),
-        "validation": _frame(t["val_check"], 400),
+        "form_checks": _frame(t["reg_form_check"], 200, table="reg_form_check"),
+        "agents": _frame(t["agent_registry"], 100, table="agent_registry"),
+        "activity": _frame(t["agent_activity"], 100, table="agent_activity"),
+        "killswitch": _frame(t["agent_killswitch"], 50, table="agent_killswitch"),
+        "evidence_nodes": _frame(t["gov_evidence_node"], 50, table="gov_evidence_node"),
+        "evidence_edges": _frame(t["gov_evidence_edge"], 50, table="gov_evidence_edge"),
+        "approvals": _frame(t["gov_approval"], 100, table="gov_approval"),
+        "changes": _frame(t["chg_change_request"], 50, table="chg_change_request"),
+        "change_impacts": _frame(t["chg_impact_map"], 200, table="chg_impact_map"),
+        "change_tests": _frame(t["chg_regression_test"], 100, table="chg_regression_test"),
+        "reconciliation": _frame(t["rdm_reconciliation"], 50, table="rdm_reconciliation"),
+        "contracts": _frame(t["rdm_source_contract"], 50, table="rdm_source_contract"),
+        "canonical_map": _frame(t["rdm_canonical_map"], 200, table="rdm_canonical_map"),
+        "validation": _frame(t["val_check"], 400, table="val_check"),
         "independent": {
             "status": str(t["val_independent_request"]["status"].iloc[0]),
             "reason": str(t["val_independent_request"]["reason"].iloc[0]),
@@ -277,7 +297,7 @@ def _payload(s: Studio) -> dict:
                     (s.iv_request.self_validation if s.iv_request else {}).items())),
             "assumptions": list(s.iv_request.known_assumptions) if s.iv_request else [],
         },
-        "independent_targets": _frame(t["val_independent_target"], 50),
+        "independent_targets": _frame(t["val_independent_target"], 50, table="val_independent_target"),
         "domains": sorted({r["product"] for r in catalog_rows}),
     }
 
@@ -328,6 +348,8 @@ display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .brand span{color:var(--accent)}
 .hchip{background:var(--chip);border:1px solid var(--line);border-radius:999px;
 padding:3px 10px;font-size:11px;color:var(--muted)}
+label.hchip{display:inline-flex;align-items:center;gap:5px}
+.asofsel{padding:1px 5px;font-size:11px;border-radius:5px}
 .kill{margin-left:auto;background:transparent;border:1px solid var(--bad);
 color:var(--bad);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer}
 .killbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
@@ -440,7 +462,8 @@ padding:6px 10px;font-size:11px;font-weight:600;color:var(--muted)}
 """
 
 _JS = r"""
-const D = window.__RYNTA__;
+const RUNS = window.__RYNTA_RUNS__;
+let D = window.__RYNTA__;               /* 활성 실행 — 기준일 전환 시 재지정 */
 const $ = (s,r=document)=>r.querySelector(s);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;
 if(x!=null)e.textContent=x;return e};
@@ -449,10 +472,21 @@ const fmtNum=v=>typeof v==='number'
   ? (Math.abs(v)>=1000?v.toLocaleString('ko-KR',{maximumFractionDigits:0})
      :v.toLocaleString('ko-KR',{maximumFractionDigits:6})) : esc(v);
 
+/* 컬럼 표시명 — 카탈로그 라벨(f.labels)이 기본이고, 설정 화면의 세션 재정의
+   (STATE.labelOverrides)가 그 위에 얹힌다. 물리명은 버리지 않고 th.title로
+   남긴다 — 감사자는 어느 원장 컬럼인지 물리명으로 찾는다. */
+function colLabel(f,i){
+  const phys=f.columns[i];
+  const ovr=f.table&&STATE.labelOverrides[f.table];
+  return (ovr&&ovr[phys])||(f.labels&&f.labels[i])||phys;
+}
+
 function table(f,{numeric=true,rowClass=null}={}){
   const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
   const isNum=f.columns.map((_,i)=>numeric&&f.rows.some(r=>typeof r[i]==='number'));
-  f.columns.forEach((c,i)=>{const h=el('th',isNum[i]?'num':null,c);
+  f.columns.forEach((c,i)=>{const lab=colLabel(f,i);
+    const h=el('th',isNum[i]?'num':null,lab);
+    if(lab!==c)h.title=c;               /* 물리명은 툴팁으로 */
     tr.appendChild(h)});
   th.appendChild(tr);t.appendChild(th);
   const tb=el('tbody');
@@ -509,7 +543,7 @@ function cockpit(root){
 }
 
 /* ---- 정형 조회 스튜디오 (라이브) ---- */
-const STATE = {killed: false, approved: {}, history: {}};
+const STATE = {killed: false, approved: {}, history: {}, labelOverrides: {}};
 
 function viewSelect(onChange, filterFn){
   const sel=el('select','sel');
@@ -610,8 +644,10 @@ function renderLivePlan(pane, plan, res, v){
   if(plan.status==='validated'&&!killed){
     c.appendChild(el('h3',null,
       `고정 컬럼 결과 · 모집단 ${plan.n_rows.toLocaleString()}건`));
-    c.appendChild(table({columns:res.columns,rows:res.rows,
-      total:plan.n_rows,shown:res.rows.length}));
+    const src=D.data[v.table_ref];
+    c.appendChild(table({table:src.table,columns:res.columns,
+      labels:res.columns.map(x=>colLabel(src,src.columns.indexOf(x))),
+      rows:res.rows,total:plan.n_rows,shown:res.rows.length}));
     if(v.embedded_rows<v.total_rows)c.appendChild(el('div','meta',
       `※ 화면에는 원장 ${v.total_rows.toLocaleString()}행 중 ${v.embedded_rows.toLocaleString()}행이 실려 있다 — 위 건수는 그 범위 기준이다.`));
   }
@@ -750,13 +786,15 @@ function renderProposal(pane, pr, v, rerun){
 function renderBlocks(box, pr, v){
   const frame=D.data[v.table_ref];
   const idx={};frame.columns.forEach((c,i)=>{idx[c]=i});
+  const lab=c=>colLabel(frame, idx[c]);          /* 물리명 → 표시명 */
   const cols=pr.columns.filter(c=>c in idx);
   const numCol=cols.find(c=>frame.rows.some(r=>typeof r[idx[c]]==='number'));
   const labCol=cols.find(c=>c!==numCol&&frame.rows.some(r=>typeof r[idx[c]]==='string'));
   let rows=frame.rows.slice();
   if(numCol)rows.sort((a,b)=>(b[idx[numCol]]||0)-(a[idx[numCol]]||0));
   rows=rows.slice(0,pr.row_limit);
-  const sub={columns:cols,rows:rows.map(r=>cols.map(c=>r[idx[c]])),
+  const sub={table:frame.table,columns:cols,labels:cols.map(lab),
+             rows:rows.map(r=>cols.map(c=>r[idx[c]])),
              total:frame.total,shown:rows.length};
 
   /* 블록 순서는 프롬프트에 나온 순서 그대로다 — 사용자가 "위에 차트, 아래에 표"
@@ -768,7 +806,7 @@ function renderBlocks(box, pr, v){
         const j=idx[cName];
         const nums=rows.map(r=>r[j]).filter(x=>typeof x==='number');
         const card=el('div','card kpi');
-        card.appendChild(el('div','lab',cName));
+        card.appendChild(el('div','lab',lab(cName)));
         card.appendChild(el('div','val',nums.length
           ? fmtNum(nums.reduce((a,b)=>a+b,0)) : String(rows.length)+'행'));
         card.appendChild(el('div','sub',nums.length?'합계':'건수'));
@@ -777,7 +815,7 @@ function renderBlocks(box, pr, v){
     } else if(viz==='bar'&&numCol){
       const max=Math.max(...rows.map(r=>Math.abs(r[idx[numCol]]||0)))||1;
       const w=el('div');
-      w.appendChild(el('div','meta',`${title} · ${numCol}`));
+      w.appendChild(el('div','meta',`${title} · ${lab(numCol)}`));
       rows.slice(0,12).forEach((r,i)=>{
         const line=el('div');line.style.margin='6px 0';
         line.appendChild(el('div','meta',
@@ -787,7 +825,7 @@ function renderBlocks(box, pr, v){
         b.appendChild(f);line.appendChild(b);w.appendChild(line)});
       box.appendChild(w);
     } else if(viz==='line'&&numCol){
-      box.appendChild(sparkline(rows.map(r=>r[idx[numCol]]||0), title+' · '+numCol));
+      box.appendChild(sparkline(rows.map(r=>r[idx[numCol]]||0), title+' · '+lab(numCol)));
     } else {
       box.appendChild(table(sub));
     }
@@ -1163,6 +1201,226 @@ function catalogView(root){
   p.appendChild(table(D.views));root.appendChild(p);
 }
 
+/* ---- ⚙ 설정 ----
+   설정 화면의 원칙: **화면은 계산기가 아니다.** 표시명·기준일 전환은 세션
+   안에서 즉시 적용되지만(산출값 무관), 서식번호 매핑·시나리오 파라미터는
+   산출물의 정체를 바꾸므로 화면에서 적용하지 않는다 — 변경 제안서를 만들어
+   주고, 적용은 코드 반영 + 파이프라인 재실행(2선 자체검증 + 3선 재요청)으로만
+   이뤄진다. 화면에서 바꾼 값이 제출 지문과 다른 수치를 그리는 순간 그 화면은
+   산출물이 아니라 조작이 된다. */
+
+function runRegistry(root){
+  const c=el('div','card set-runs');
+  c.appendChild(el('h3',null,'실은 실행 (기준일 전환 대상)'));
+  c.appendChild(el('div','meta',
+    '기준일 전환은 미리 산출해 실은 실행 사이의 전환이다. 새 기준일은 '+
+    'run_pipeline 재실행으로만 생긴다 — 화면이 즉석에서 만들 수 없다.'));
+  c.appendChild(table({columns:['기준일','실행 ID','산출 지문','시드',
+      '3선 요청','게이트','자체검증(2선)'],
+    rows:Object.keys(RUNS).sort().map(a=>{const r=RUNS[a];
+      return [a,r.meta.run_id,r.meta.digest.slice(0,12),r.meta.seed,
+        r.independent.request_id,r.independent.status,
+        r.independent.self_validation]}),
+    total:Object.keys(RUNS).length,shown:Object.keys(RUNS).length},
+    {numeric:false}));
+  root.appendChild(c);
+}
+
+function labelSettings(root){
+  const c=el('div','card set-labels');
+  c.appendChild(el('h3',null,'컬럼 표시명 매핑'));
+  c.appendChild(el('div','meta',
+    '정본은 데이터모델 카탈로그(ColumnSpec.korean)다. 여기서 바꾼 표시명은 이 '+
+    '세션의 화면에만 적용되며, 영구 반영은 카탈로그 수정으로 한다. 물리명은 '+
+    '항상 열 머리글 툴팁으로 남는다.'));
+  const bar=el('div','toolbar');
+  const sel=el('select','sel');
+  Object.keys(D.data).sort().forEach(t=>{const o=el('option');
+    o.value=t;o.textContent=t;sel.appendChild(o)});
+  bar.appendChild(sel);c.appendChild(bar);
+  const pane=el('div');c.appendChild(pane);
+  function draw(){
+    pane.innerHTML='';
+    const f=D.data[sel.value];
+    const ovr=STATE.labelOverrides[sel.value]||{};
+    const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
+    ['물리명','카탈로그 표시명','세션 재정의'].forEach(x=>tr.appendChild(el('th',null,x)));
+    th.appendChild(tr);t.appendChild(th);
+    const tb=el('tbody'), inputs={};
+    f.columns.forEach((cName,i)=>{
+      const x=el('tr');
+      x.appendChild(el('td','mono',cName));
+      x.appendChild(el('td',null,(f.labels&&f.labels[i])||'—'));
+      const td=el('td');
+      const inp=el('input','input');inp.type='text';
+      inp.value=ovr[cName]||'';inp.placeholder='(카탈로그 표시명 사용)';
+      inp.style.minWidth='140px';
+      inputs[cName]=inp;td.appendChild(inp);x.appendChild(td);
+      tb.appendChild(x)});
+    t.appendChild(tb);w.appendChild(t);pane.appendChild(w);
+    const acts=el('div','toolbar');
+    const apply=el('button','btn primary','세션에 적용');
+    const reset=el('button','btn','재정의 지우기');
+    apply.onclick=()=>{
+      const m={};
+      Object.entries(inputs).forEach(([k,inp])=>{
+        const v=inp.value.trim();if(v)m[k]=v});
+      if(Object.keys(m).length)STATE.labelOverrides[sel.value]=m;
+      else delete STATE.labelOverrides[sel.value];
+      repaintAll();};
+    reset.onclick=()=>{delete STATE.labelOverrides[sel.value];repaintAll();};
+    acts.appendChild(apply);acts.appendChild(reset);pane.appendChild(acts);
+  }
+  sel.onchange=draw;draw();
+  root.appendChild(c);
+}
+
+/* FINES 서식번호 형식 — 배포 코드는 B/BA/BF + 숫자(+ -가지번호), 내부 관리
+   서식은 RM-####. 마스터(fss_master)의 실존 형식에서 온 규칙이다. */
+const FORM_NO_RE=/^(?:B[AF]?\d{3,4}(?:-\d+)?|RM-\d{4})$/;
+
+function formMapSettings(root){
+  const c=el('div','card set-formmap');
+  c.appendChild(el('h3',null,'서식번호 매핑 — 내부 코드 ↔ 금감원 배포 서식번호'));
+  c.appendChild(el('div','meta',
+    '서식번호는 제출본의 정체다. 여기서는 매핑 변경을 **제안서로만** 만든다 — '+
+    '적용은 risk_lib/regulatory/form_ids.py 반영 후 파이프라인 재실행으로만 '+
+    '이뤄지며, 화면이 즉석에서 바꾸면 제출 지문과 어긋난 화면이 된다.'));
+  const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
+  ['내부 코드','서식명','현행 서식번호','배포본 확정','변경 제안'].forEach(
+    x=>tr.appendChild(el('th',null,x)));
+  th.appendChild(tr);t.appendChild(th);
+  const tb=el('tbody'), inputs={};
+  D.forms.forEach(f=>{
+    const x=el('tr');
+    x.appendChild(el('td','mono',f.form_id));
+    x.appendChild(el('td',null,f.form_name));
+    x.appendChild(el('td','mono',f.form_no));
+    const td0=el('td');td0.appendChild(pill(f.official?'확정':'내부 배정',
+      f.official?'good':'warn'));x.appendChild(td0);
+    const td=el('td');
+    const inp=el('input','input');inp.type='text';inp.placeholder='(유지)';
+    inp.style.minWidth='110px';inputs[f.form_id]=inp;
+    td.appendChild(inp);x.appendChild(td);
+    tb.appendChild(x)});
+  t.appendChild(tb);w.appendChild(t);c.appendChild(w);
+
+  const acts=el('div','toolbar');
+  const gen=el('button','btn primary','변경 제안 생성');
+  acts.appendChild(gen);c.appendChild(acts);
+  const err=el('div','note bad');err.hidden=true;c.appendChild(err);
+  const out=el('pre','mono');out.style.whiteSpace='pre-wrap';c.appendChild(out);
+  gen.onclick=()=>{
+    err.hidden=true;out.textContent='';
+    if(STATE.killed){err.textContent='비상정지 중 — 변경 제안을 만들지 않는다.';
+      err.hidden=false;return}
+    const changes=[],bad=[];
+    const used={};D.forms.forEach(f=>{used[f.form_no]=f.form_id});
+    Object.entries(inputs).forEach(([fid,inp])=>{
+      const v=inp.value.trim();if(!v)return;
+      if(!FORM_NO_RE.test(v)){bad.push(`${fid}: '${v}' — 형식 위반 (B/BA/BF+숫자(-가지) 또는 RM-####)`);return}
+      if(used[v]&&used[v]!==fid){bad.push(`${fid}: '${v}' — ${used[v]}가 이미 사용`);return}
+      const cur=D.forms.find(f=>f.form_id===fid);
+      changes.push({form_id:fid,from:cur.form_no,to:v})});
+    if(bad.length){err.textContent='검증 실패 '+bad.length+'건 — '+bad.join(' · ');
+      err.hidden=false;return}
+    if(!changes.length){err.textContent='변경된 행이 없다.';err.hidden=false;return}
+    out.textContent=JSON.stringify({
+      proposal:'서식번호 매핑 변경',asof:D.meta.asof,run_id:D.meta.run_id,
+      changes,
+      apply_path:'risk_lib/regulatory/form_ids.py',
+      procedure:['코드 반영','파이프라인 재실행','자체검증(2선) FAIL 0 확인',
+                 '독립검증(3선) 재요청','게이트 통과 후 결재'],
+      note:'화면에는 적용되지 않는다 — 제출 지문이 걸린 값이다.'},null,2);
+  };
+  root.appendChild(c);
+}
+
+function scenarioSettings(root){
+  const T=traceRows();
+  const c=el('div','card set-scenario');
+  c.appendChild(el('h3',null,'위기상황 시나리오 설정 — 충격 축 파라미터'));
+  c.appendChild(el('div','meta',
+    '충격 축 14종의 단위충격 × 심도 구조를 편집해 **변경 제안서**를 만든다. '+
+    '화면은 재계산하지 않는다 — 시나리오 파라미터는 RWA·비율·판정 전체에 '+
+    '전이되므로, 적용은 파이프라인 재실행과 검증 두 층을 다시 거쳐야 한다.'));
+  if(!T){c.appendChild(el('div','note','추적표가 없다.'));root.appendChild(c);return}
+  const {f,i}=T;
+  const scenarios=[...new Set(f.rows.map(r=>r[i.scenario]))];
+  /* 축별 단위충격은 산식 문자열('심도 × 단위충격(0.05 ratio)')에서 읽는다 —
+     추적표가 정본이고, 여기 따로 적으면 두 벌이 갈라진다. */
+  const axes=[];const seen=new Set();
+  f.rows.forEach(r=>{
+    if(r[i.block]!=='충격축'||seen.has(r[i.step]))return;
+    seen.add(r[i.step]);
+    const m=/단위충격\(([-\d.]+)\s*(\S+)\)/.exec(r[i.formula]||'');
+    axes.push({step:r[i.step],unit:m?m[2]:r[i.unit],base:m?parseFloat(m[1]):null})});
+  const sever={};
+  scenarios.forEach(sc=>{
+    const r=f.rows.find(x=>x[i.scenario]===sc&&/심도/.test(x[i.step]));
+    sever[sc]=r?r[i.value]:null});
+
+  const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
+  ['충격 축','단위','현행 단위충격','제안 단위충격'].forEach(
+    x=>tr.appendChild(el('th',null,x)));
+  th.appendChild(tr);t.appendChild(th);
+  const tb=el('tbody'),inputs={};
+  axes.forEach(a=>{
+    const x=el('tr');
+    x.appendChild(el('td',null,a.step));
+    x.appendChild(el('td','mono',a.unit));
+    x.appendChild(el('td','num',a.base===null?'—':String(a.base)));
+    const td=el('td');
+    const inp=el('input','input');inp.type='text';inp.placeholder='(유지)';
+    inp.style.minWidth='90px';inputs[a.step]=inp;
+    td.appendChild(inp);x.appendChild(td);tb.appendChild(x)});
+  t.appendChild(tb);w.appendChild(t);c.appendChild(w);
+  c.appendChild(el('div','meta','시나리오별 심도 — '+scenarios.map(
+    sc=>`${sc} ${sever[sc]===null?'—':sever[sc]}`).join(' · ')));
+
+  const acts=el('div','toolbar');
+  const gen=el('button','btn primary','변경 제안 생성');
+  acts.appendChild(gen);c.appendChild(acts);
+  const err=el('div','note bad');err.hidden=true;c.appendChild(err);
+  const out=el('pre','mono');out.style.whiteSpace='pre-wrap';c.appendChild(out);
+  gen.onclick=()=>{
+    err.hidden=true;out.textContent='';
+    if(STATE.killed){err.textContent='비상정지 중 — 변경 제안을 만들지 않는다.';
+      err.hidden=false;return}
+    const changes=[],bad=[];
+    Object.entries(inputs).forEach(([step,inp])=>{
+      const v=inp.value.trim();if(!v)return;
+      if(!/^-?\d+(?:\.\d+)?$/.test(v)){bad.push(`${step}: '${v}' — 숫자가 아니다`);return}
+      const cur=axes.find(a=>a.step===step);
+      changes.push({axis:step,unit:cur.unit,from:cur.base,to:parseFloat(v)})});
+    if(bad.length){err.textContent='검증 실패 — '+bad.join(' · ');
+      err.hidden=false;return}
+    if(!changes.length){err.textContent='변경된 축이 없다.';err.hidden=false;return}
+    out.textContent=JSON.stringify({
+      proposal:'위기상황 시나리오 충격 축 변경',asof:D.meta.asof,
+      run_id:D.meta.run_id,changes,
+      impact:['신용파라미터→신용RWA→시장→은행계정금리→운영→유동성→손익→자본→비율→판정 전 단계',
+              '업무보고서 위기상황 서식','자본계획·회복계획 연계 경보'],
+      apply_path:'risk_lib/stress.py (충격 축 정의)',
+      procedure:['코드 반영','파이프라인 재실행','자체검증(2선) FAIL 0 확인',
+                 '독립검증(3선) 재요청','게이트 통과 후 결재'],
+      note:'화면은 재계산하지 않는다 — 이 제안은 입력이지 산출이 아니다.'},null,2);
+  };
+  root.appendChild(c);
+}
+
+function settings(root){
+  root.appendChild(el('p','lead',
+    '표시명·기준일 전환은 세션 안에서 즉시 적용된다(산출값 무관). 서식번호 '+
+    '매핑과 시나리오 파라미터는 산출물의 정체를 바꾸므로 화면에서 적용하지 '+
+    '않는다 — 변경 제안서를 만들고, 적용은 코드 반영 + 파이프라인 재실행 + '+
+    '검증 두 층(자체검증·독립검증)을 다시 거친다.'));
+  runRegistry(root);
+  labelSettings(root);
+  formMapSettings(root);
+  scenarioSettings(root);
+}
+
 const TABS=[
   ['콕핏','00 전사 리스크 콕핏',cockpit],
   ['정형 조회','정형 조회 스튜디오 · Governed Query',structured],
@@ -1187,7 +1445,21 @@ const TABS=[
   ['G 에이전트','G · 에이전트 운영 · 권한 · Kill Switch',agents],
   ['Δ 변경','Δ · 리스크 변경 팩토리',changes],
   ['데이터모델','정규 데이터모델 카탈로그',catalogView],
+  ['⚙ 설정','⚙ · 설정 — 기준일 · 표시명 · 코드 매핑 · 시나리오',settings],
 ];
+
+let repaintAll=()=>{};                   /* boot에서 실체가 채워진다 */
+
+function setRun(a){
+  D=RUNS[a];
+  $('#chip-run').textContent=D.meta.run_id;
+  $('#chip-digest').textContent='지문 '+D.meta.digest.slice(0,12);
+  $('#chip-rows').textContent=
+    `테이블 ${D.meta.n_tables}장 · ${D.meta.n_rows.toLocaleString()}행`;
+  const fa=$('#foot-asof');if(fa)fa.textContent=a;
+  document.title='RYNTA 에이전틱 UI 스튜디오 · '+a;
+  repaintAll();
+}
 
 function boot(){
   const nav=$('nav'),main=$('main');
@@ -1213,6 +1485,15 @@ function boot(){
     [...main.children].forEach(x=>{x.dataset.done='';x.innerHTML=''});
     [...nav.children].forEach(b=>{if(b.classList.contains('on'))b.onclick()});
   };
+  repaintAll=repaint;
+
+  /* 기준일 전환 — 실은 실행 사이의 전환이다. 옵션은 실행 목록에서 나온다. */
+  const asel=$('#asofsel');
+  Object.keys(RUNS).sort().forEach(a=>{
+    const o=el('option');o.value=a;o.textContent=a;asel.appendChild(o)});
+  asel.value=D.meta.asof;
+  asel.onchange=()=>setRun(asel.value);
+
   const engage=()=>{
     const reason=(rin.value||'').trim();
     if(!reason){rin.focus();return;}        /* 사유 없는 정지는 없다 */
@@ -1239,21 +1520,32 @@ boot();
 """
 
 
-def render(s: Studio) -> str:
-    d = _payload(s)
-    m = d["meta"]
+def render(studios: Studio | list[Studio]) -> str:
+    """한 개 이상의 실행 스냅샷을 한 화면으로 그린다.
+
+    기준일 전환은 **미리 산출해 실은 실행 사이의 전환**이다. 화면은 계산기가
+    아니므로 새 기준일을 즉석에서 만들 수 없다 — 만들 수 있는 것처럼 보이면
+    검증 안 된 수치가 화면에 생긴다. 실행마다 자기 run_id·지문·검증 상태를
+    갖고, 전환하면 그 실행의 것으로 전부 바뀐다.
+    """
+    ss = [studios] if isinstance(studios, Studio) else sorted(
+        studios, key=lambda x: x.asof)
+    runs = {s.asof: _payload(s) for s in ss}
+    primary = ss[-1].asof                    # 최신 기준일이 기본 화면
+    m = runs[primary]["meta"]
     return f"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RYNTA 에이전틱 UI 스튜디오 · {html.escape(m['asof'])}</title>
+<title>RYNTA 에이전틱 UI 스튜디오 · {html.escape(primary)}</title>
 <style>{_CSS}</style></head><body>
 <header>
   <div class="brand">RYNTA <span>·</span> 에이전틱 UI 스튜디오</div>
-  <span class="hchip">기준일 {html.escape(m['asof'])}</span>
-  <span class="hchip">{html.escape(m['run_id'])}</span>
-  <span class="hchip">지문 {html.escape(m['digest'][:12])}</span>
+  <label class="hchip" for="asofsel">기준일
+    <select id="asofsel" class="sel asofsel"></select></label>
+  <span class="hchip" id="chip-run">{html.escape(m['run_id'])}</span>
+  <span class="hchip" id="chip-digest">지문 {html.escape(m['digest'][:12])}</span>
   <span class="hchip">시드 {m['seed']}</span>
-  <span class="hchip">테이블 {m['n_tables']}장 · {m['n_rows']:,}행</span>
+  <span class="hchip" id="chip-rows">테이블 {m['n_tables']}장 · {m['n_rows']:,}행</span>
   <span class="hchip">Read-only · PII Mask</span>
   <button class="kill">Kill Switch</button>
 </header>
@@ -1270,7 +1562,8 @@ def render(s: Studio) -> str:
 <footer>
   결정론적 엔진 · 제안 전용 에이전트 · 사람의 최종 승인 권한 · 증빙 계보.
   화면의 모든 값은 합성 포트폴리오에서 <code>run_pipeline(seed={m['seed']},
-  asof='{html.escape(m['asof'])}')</code>로 산출한 것이며 실제 기관 수치가 아니다.
+  asof='<span id="foot-asof">{html.escape(primary)}</span>')</code>로 산출한
+  것이며 실제 기관 수치가 아니다.
   에이전트는 신용등급·여신승인, PD·LGD·EAD 등 핵심 위험파라미터, ECL·충당금,
   RWA·BIS 비율, 감독제출·공시, 경영조치를 자동확정하지 않는다.
   <br>약어: RDM(리스크데이터관리) · RWA(위험가중자산) · ECL(기대신용손실) ·
@@ -1278,14 +1571,15 @@ def render(s: Studio) -> str:
   NSFR(순안정자금조달비율) · IPV(독립가격검증) · SICR(신용위험 유의적 증가) ·
   DQ(데이터품질) · AST(구문트리) · PSMOR(운영리스크 건전관리 원칙).
 </footer>
-<script>window.__RYNTA__={json.dumps(d, ensure_ascii=False, default=str,
-                                     separators=(",", ":"))};</script>
+<script>window.__RYNTA_RUNS__={json.dumps(runs, ensure_ascii=False, default=str,
+                                          separators=(",", ":"))};
+window.__RYNTA__=window.__RYNTA_RUNS__[{json.dumps(primary)}];</script>
 <script>{_ENGINE_JS}</script>
 <script>{_JS}</script>
 </body></html>"""
 
 
-def write_app(s: Studio, path: str | Path) -> Path:
+def write_app(s: Studio | list[Studio], path: str | Path) -> Path:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(render(s), encoding="utf-8")

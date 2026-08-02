@@ -216,18 +216,31 @@ def _cmd_reg_report(args: argparse.Namespace) -> int:
 
 
 def _cmd_ui_studio(args: argparse.Namespace) -> int:
-    """에이전틱 UI 스튜디오 — 전 모듈 관리 화면."""
+    """에이전틱 UI 스튜디오 — 전 모듈 관리 화면.
+
+    --asof 는 콤마 목록을 받는다. 여러 기준일을 주면 실행을 전부 산출해 한
+    화면에 싣고, 화면의 기준일 전환은 그 실행들 사이를 오간다 — 화면이
+    즉석에서 새 기준일을 계산하는 것이 아니다.
+    """
     import os
+    from risk_lib.data_gen import generate_portfolio
     from risk_lib.datamodel import catalog as cat
     from risk_lib.ui_studio.app import write_app
+    from risk_lib.ui_studio.studio import build_studio
 
-    studio = _build_studio(args)
-    out = write_app(studio, args.out)
-    n_rows = sum(len(df) for df in studio.tables.values())
+    asofs = [a.strip() for a in (args.asof or "").split(",") if a.strip()] or [None]
+    portfolio = generate_portfolio(seed=args.seed)
+    studios = []
+    for a in asofs:
+        result = run_pipeline(portfolio, seed=args.seed, asof=a)
+        studios.append(build_studio(result, portfolio))
+        print(f"  산출 {studios[-1].run_id} · 지문 {studios[-1].digest[:16]}")
+    out = write_app(studios if len(studios) > 1 else studios[0], args.out)
+    s = studios[-1]
+    n_rows = sum(len(df) for df in s.tables.values())
     print(f"에이전틱 UI 작성 완료 — {out} ({os.path.getsize(out)/1024:.1f} KB)")
-    print(f"  테이블 {len(cat.ALL_TABLES)}장 · 행 {n_rows:,} · "
-          f"조회계획 {len(studio.plans)}건 · 레이아웃 제안 {len(studio.proposals)}건")
-    print(f"  실행 {studio.run_id} · 지문 {studio.digest[:16]}")
+    print(f"  기준일 {len(studios)}종 · 테이블 {len(cat.ALL_TABLES)}장 · "
+          f"행 {n_rows:,} (최신 기준) · 조회계획 {len(s.plans)}건")
     return 0
 
 
@@ -456,7 +469,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="에이전틱 UI 스튜디오 HTML 생성 (전 모듈 관리 화면)")
     ui.add_argument("--out", required=True, help="HTML 출력 경로")
     ui.add_argument("--seed", type=int, default=42)
-    ui.add_argument("--asof", default=None, help="기준일 (YYYY-MM-DD)")
+    ui.add_argument("--asof", default=None,
+                    help="기준일 (YYYY-MM-DD, 콤마로 여러 개 — 전부 산출해 싣는다)")
     ui.set_defaults(func=_cmd_ui_studio)
 
     args = parser.parse_args(argv)

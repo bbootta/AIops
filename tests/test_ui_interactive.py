@@ -23,11 +23,32 @@ pytestmark = pytest.mark.skipif(not _CHROME.exists(), reason="chromium 미설치
 
 
 @pytest.fixture(scope="module")
-def page_path(result, portfolio, tmp_path_factory):
-    from risk_lib.ui_studio.app import write_app
+def studio(result, portfolio):
     from risk_lib.ui_studio.studio import build_studio
+    return build_studio(result, portfolio)
+
+
+@pytest.fixture(scope="module")
+def page_path(studio, tmp_path_factory):
+    from risk_lib.ui_studio.app import write_app
     out = tmp_path_factory.mktemp("ui") / "studio.html"
-    return write_app(build_studio(result, portfolio), out)
+    return write_app(studio, out)
+
+
+@pytest.fixture(scope="module")
+def multi_page_path(studio, tmp_path_factory):
+    """실행 2개를 실은 화면 — 기준일 전환을 실제 DOM에서 검증하기 위한 판.
+
+    두 번째 실행은 같은 스냅샷의 얕은 복제다(파이프라인을 두 번 돌리면 이
+    모듈이 배로 느려진다). 전환 대상 식별·칩 갱신·재렌더는 payload 내용과
+    무관하게 실행 전환 경로 그 자체이므로 이것으로 충분하다.
+    """
+    import dataclasses
+    from risk_lib.ui_studio.app import write_app
+    older = dataclasses.replace(studio, asof="2026-03-31",
+                                run_id="RUN-20260331")
+    out = tmp_path_factory.mktemp("ui2") / "studio2.html"
+    return write_app([studio, older], out)
 
 
 @pytest.fixture(scope="module")
@@ -410,3 +431,131 @@ def test_validation_tab_shows_the_gate_is_pending(page):
     assert "응답대기" in txt
     assert "독립 재계산 대상" in txt
     assert "3선이 도전해야 할 가정" in txt
+
+
+# ----- 컬럼 표시명 — 물리명이 아니라 업무 명칭이 보인다 -------------------------
+
+def test_table_headers_show_catalog_labels_not_physical_names(page):
+    """A RDM 첫 테이블(차주 원장)의 머리글이 한글 업무 명칭이다.
+
+    물리명은 버리지 않는다 — th.title 로 남아, 감사자가 어느 원장 컬럼인지
+    추적할 수 있다. 표시명의 정본은 카탈로그(ColumnSpec.korean)다.
+    """
+    _tab(page, 3)                              # A RDM
+    ths = page.eval_on_selector_all(
+        "section.on .card th",
+        "els => els.map(e => [e.textContent, e.title])")
+    texts = [t for t, _ in ths]
+    assert "차주 식별자" in texts, texts[:10]
+    assert "obligor_id" not in texts           # 물리명이 머리글로 나오면 실패
+    title = dict((t, ti) for t, ti in ths).get("차주 식별자")
+    assert title == "obligor_id"               # 물리명은 툴팁으로 남는다
+
+
+# ----- ⚙ 설정 ------------------------------------------------------------------
+
+SETTINGS_TAB = 16
+
+
+def test_settings_run_registry_lists_the_runs(page):
+    _tab(page, SETTINGS_TAB)
+    txt = page.inner_text("section.on .set-runs")
+    assert "RUN-" in txt and "기준일" in txt
+
+
+def test_settings_label_override_applies_to_the_screen(page):
+    """표시명 재정의 → 세션 적용 → 다른 탭의 머리글이 바뀐다."""
+    _tab(page, SETTINGS_TAB)
+    page.select_option("section.on .set-labels select.sel", "rdm_obligor")
+    page.wait_for_timeout(200)
+    page.fill("section.on .set-labels tbody tr:first-child input", "차주 ID")
+    page.click("section.on .set-labels .btn.primary")
+    page.wait_for_timeout(500)
+    _tab(page, 3)                              # A RDM — 재정의가 보인다
+    ths = page.eval_on_selector_all(
+        "section.on .card th", "els => els.map(e => e.textContent)")
+    assert "차주 ID" in ths
+    assert page.errors == []
+
+
+def test_settings_form_map_rejects_duplicate_and_bad_format(page):
+    """서식번호 매핑 — 형식 위반·중복은 제안이 되기 전에 걸린다."""
+    _tab(page, SETTINGS_TAB)
+    rows = "section.on .set-formmap tbody tr"
+    # 2행에 1행의 현행 번호(B2101)를 넣는다 → 중복
+    page.fill(f"{rows}:nth-child(2) input", "B2101")
+    page.click("section.on .set-formmap .btn.primary")
+    page.wait_for_timeout(300)
+    err = page.inner_text("section.on .set-formmap .note.bad")
+    assert "이미 사용" in err
+    # 형식 위반
+    page.fill(f"{rows}:nth-child(2) input", "X99")
+    page.click("section.on .set-formmap .btn.primary")
+    page.wait_for_timeout(300)
+    assert "형식 위반" in page.inner_text("section.on .set-formmap .note.bad")
+
+
+def test_settings_form_map_produces_a_proposal_not_an_edit(page):
+    """유효한 변경은 제안서 JSON이 된다 — 화면의 서식번호는 바뀌지 않는다.
+
+    서식번호는 제출 지문이 걸린 값이다. 화면이 즉석에서 바꾸면 제출본과 다른
+    화면이 생기고, 그것은 F-501(문서가 다른 실행을 설명) 유형의 화면판이 된다.
+    """
+    _tab(page, SETTINGS_TAB)
+    page.fill("section.on .set-formmap tbody tr:nth-child(2) input", "B9999")
+    page.click("section.on .set-formmap .btn.primary")
+    page.wait_for_timeout(300)
+    out = page.inner_text("section.on .set-formmap pre")
+    assert "form_ids.py" in out and "재실행" in out
+    # 감독보고 탭의 서식번호는 그대로다
+    _tab(page, 11)
+    assert "B9999" not in page.inner_text("section.on .list")
+
+
+def test_settings_scenario_produces_a_proposal_and_never_recomputes(page):
+    _tab(page, SETTINGS_TAB)
+    page.fill("section.on .set-scenario tbody tr:first-child input", "0.05")
+    page.click("section.on .set-scenario .btn.primary")
+    page.wait_for_timeout(300)
+    out = page.inner_text("section.on .set-scenario pre")
+    assert "위기상황 시나리오" in out and "재계산하지 않는다" in out
+    # 숫자가 아니면 거부
+    page.fill("section.on .set-scenario tbody tr:first-child input", "많이")
+    page.click("section.on .set-scenario .btn.primary")
+    page.wait_for_timeout(300)
+    assert "숫자가 아니다" in page.inner_text("section.on .set-scenario .note.bad")
+
+
+def test_settings_proposals_are_blocked_while_killed(page):
+    _tab(page, SETTINGS_TAB)
+    page.click("header .kill")
+    page.fill("#killreason", "통제 점검")
+    page.click(".killbar .killgo")
+    page.wait_for_timeout(400)
+    _tab(page, SETTINGS_TAB)
+    page.fill("section.on .set-scenario tbody tr:first-child input", "0.05")
+    page.click("section.on .set-scenario .btn.primary")
+    page.wait_for_timeout(300)
+    assert "비상정지" in page.inner_text("section.on .set-scenario .note.bad")
+
+
+# ----- 기준일 전환 --------------------------------------------------------------
+
+def test_asof_switch_changes_the_active_run(browser, multi_page_path):
+    """헤더의 기준일 선택이 실행을 통째로 바꾼다 — 칩·화면이 함께 간다."""
+    pg = browser.new_page(viewport={"width": 1400, "height": 1000})
+    errors: list[str] = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.goto(f"file://{multi_page_path}")
+    pg.wait_for_timeout(600)
+    opts = pg.eval_on_selector_all("#asofsel option", "els => els.map(e=>e.value)")
+    assert len(opts) == 2
+    assert pg.input_value("#asofsel") == max(opts)   # 최신 기준일이 기본
+    run_before = pg.inner_text("#chip-run")
+    pg.select_option("#asofsel", min(opts))
+    pg.wait_for_timeout(800)
+    assert pg.inner_text("#chip-run") != run_before
+    assert "RUN-20260331" in pg.inner_text("#chip-run")
+    assert pg.inner_text("section.on h2")            # 활성 탭이 다시 그려졌다
+    assert errors == []
+    pg.close()
