@@ -296,11 +296,11 @@ def test_no_control_depends_on_a_blocked_modal_dialog(page_path):
     assert not hits, f"차단되는 대화상자 호출 {len(hits)}건 — 화면 안 입력으로 옮겨라"
 
 
-# ----- E 위기상황: 심각도별 전 단계 산출과정 ------------------------------------
+# ----- 위기상황: 심각도별 전 단계 산출과정 ------------------------------------
 
 def _stress_tab(pg) -> None:
     labels = pg.eval_on_selector_all("nav button", "els => els.map(e => e.textContent)")
-    _tab(pg, labels.index("E 위기상황"))
+    _tab(pg, labels.index("위기상황"))
     pg.wait_for_timeout(400)
 
 
@@ -394,7 +394,7 @@ def test_blocks_collapse_and_expand(page):
     assert "logit(PD)" not in _text(page)
 
 
-# ----- R 감독보고: 편제 전 영역 -------------------------------------------------
+# ----- 감독보고: 편제 전 영역 -------------------------------------------------
 
 def test_regulatory_tab_covers_every_regulation_section(page):
     """편제마다 최소 한 서식의 번호가 화면에 보여야 한다.
@@ -405,7 +405,7 @@ def test_regulatory_tab_covers_every_regulation_section(page):
     """
     from risk_lib.regulatory.form_ids import SECTIONS, form_id
     labels = page.eval_on_selector_all("nav button", "els => els.map(e => e.textContent)")
-    _tab(page, labels.index("R 감독보고"))
+    _tab(page, labels.index("감독보고"))
     txt = _text(page)
     for section, ids in SECTIONS:
         assert ids, section
@@ -413,12 +413,12 @@ def test_regulatory_tab_covers_every_regulation_section(page):
         assert code in txt, (section, code)
 
 
-# ----- F 검증: 두 층이 화면에서 구분되는가 --------------------------------------
+# ----- 검증: 두 층이 화면에서 구분되는가 --------------------------------------
 
 def test_validation_tab_separates_self_and_independent(page):
     from risk_lib.validation.independent import VALIDATION_TEAM_BRANCH
     labels = page.eval_on_selector_all("nav button", "els => els.map(e => e.textContent)")
-    _tab(page, labels.index("F 검증"))
+    _tab(page, labels.index("검증"))
     txt = _text(page)
     assert "자체검증 (2선)" in txt
     assert "상시 독립검증 (3선)" in txt
@@ -429,7 +429,7 @@ def test_validation_tab_separates_self_and_independent(page):
 def test_validation_tab_shows_the_gate_is_pending(page):
     """2선이 전건 PASS여도 3선 게이트는 열리지 않는다."""
     labels = page.eval_on_selector_all("nav button", "els => els.map(e => e.textContent)")
-    _tab(page, labels.index("F 검증"))
+    _tab(page, labels.index("검증"))
     txt = _text(page)
     assert "응답대기" in txt
     assert "독립 재계산 대상" in txt
