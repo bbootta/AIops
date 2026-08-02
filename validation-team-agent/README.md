@@ -139,6 +139,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.validation_trigger triggers / evaluate / queue` | 상시 모니터링 트리거 평가 → 검증 사례 생성·검토 큐 |
 | `python -m tools.validation_finding open / remediate / reverify / close / queue / lineage / blockers` | Finding 원장 — 재검증 없는 종결 차단·재발 시 중대도 상향 |
 | `python -m tools.validation_memory rounds / patterns / self-defects / carryover / verify` | 검증 기억 원장 — 회차·결함 계보·자기결함·이월을 생성·상호 대조 (손으로 세지 않는다) |
+| `python -m tools.reg_rules list / effective / calendar / verify` | 규제 규칙 카탈로그 — 근거수준·원문주기·유효일자 분리, 경과조치 파생, 검증 캘린더(법정/내부 이중 표시) |
 | `python -m tools.independent_recalc list / run` | 독립 재계산 + 차이 원인 분해 (데이터/모형/산식/구현 기여도) |
 | `python -m tools.golden_regression run [--change-request <json>]` | Golden Case 회귀검증 — 범위 밖 변경 시 배포 차단 |
 | `python -m tools.validation_scope tiers / score / check` | 모형 중요도 등급 + 검증계획 최소 심도·주기 강제 |
@@ -175,6 +176,9 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | 보고서 도메인 사전 | `harness/report_glossary.json` | `harness/report_glossary.schema.json` |
 | 임계 설명가능성 attribution | `harness/explainability_attributions.json` | (tools/explainability 게이트) |
 | PRD-VAL 요건 커버리지 | `harness/val_requirement_coverage.json` | (tools/val_coverage verify 게이트) |
+| `harness/regulatory_rule_catalog.json` | 규제 규칙 카탈로그 — 근거수준(국내구속/Basel/내부권고)·원문주기·유효일자(출력하한 경과조치)·RETIRED 차단·의견 코드 5종 매핑 |
+| `harness/valdoc_coverage.json` | 적합성검증 요건문서(개요서·해설서·BRD v9.6.0 DDOC-VAL) 대비 하니스 커버리지 — v9.6.0 정규 부모 master_ref 연결 |
+| `harness/valdoc_discrepancy_registry.json` | 요건 마스터 자체 불일치 6건(VAL-GAP, PENDING_4_EYES) 참조 사본 — 인지·추적 전용, 해소 권한은 마스터 소유자 |
 | 검증 트리거 원장 | `harness/validation_triggers.json` | (tools/validation_trigger 게이트) |
 | 직무분리(SoD) 정책 | `harness/sod_policy.json` | (middleware/sod_guard 게이트) |
 | Golden Case 집합 | `harness/golden_cases.json` | (tools/golden_regression 게이트) |

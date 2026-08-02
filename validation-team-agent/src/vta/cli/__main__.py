@@ -59,6 +59,7 @@ _DISPATCH = {
     ("audit-retention",): "tools.audit_retention",
     ("runner-result",): "tools.runner_result",
     ("memory",): "tools.validation_memory",
+    ("reg-rules",): "tools.reg_rules",
     ("cli-index",): "tools.cli_index",
     ("credit",): "tools.run_validation",
     ("macro",): "tools.run_macro_validation",

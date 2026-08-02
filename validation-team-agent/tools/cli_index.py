@@ -54,6 +54,7 @@ CLI_MODULES: list[tuple[str, str]] = [
     ("tools.audit_retention", "audit.jsonl retention"),
     ("tools.runner_result", "runner 결과 dict schema 검증"),
     ("tools.validation_memory", "검증 기억 원장 — 회차·패턴·자기결함·이월"),
+    ("tools.reg_rules", "규제 규칙 카탈로그 — 근거수준·원문주기·유효일자"),
     ("tools.cli_index", "본 CLI 인덱스"),
 ]
 

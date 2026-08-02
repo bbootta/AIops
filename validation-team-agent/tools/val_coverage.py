@@ -100,7 +100,7 @@ def summarize(data: dict[str, Any] | None = None) -> dict[str, Any]:
     score = sum(_WEIGHT[r["status"]] for r in reqs)
     by_phase: dict[str, dict[str, int]] = {}
     for r in reqs:
-        slot = by_phase.setdefault(r["phase"], dict.fromkeys(VALID_STATUS, 0))
+        slot = by_phase.setdefault(r.get("phase", "-"), dict.fromkeys(VALID_STATUS, 0))
         slot[r["status"]] += 1
     return {
         "total": len(reqs),
@@ -146,11 +146,16 @@ def main(argv: list[str] | None = None) -> int:
 
     p_rep = sub.add_parser("report", help="커버리지 현황 출력")
     p_rep.add_argument("--json", action="store_true")
+    p_rep.add_argument("--path", default=None,
+                       help="다른 매트릭스 파일 (기본: PRD-VAL)")
 
-    sub.add_parser("verify", help="근거 실재성·규칙 위반 검사 (위반 시 exit 1)")
+    p_ver = sub.add_parser("verify",
+                           help="근거 실재성·규칙 위반 검사 (위반 시 exit 1)")
+    p_ver.add_argument("--path", default=None,
+                       help="다른 매트릭스 파일 (예: harness/valdoc_coverage.json)")
 
     args = parser.parse_args(argv)
-    data = load()
+    data = load(args.path)
 
     if args.cmd == "verify":
         problems = verify(data)
