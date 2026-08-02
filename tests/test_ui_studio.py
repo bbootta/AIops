@@ -427,3 +427,37 @@ def test_code_master_preserves_declared_business_order(studio):
     # 충돌 컬럼은 한정된 셋으로 존재한다
     assert (m["code_set"].str.contains(r"\.").any())
     assert not m.duplicated(["code_set", "code"]).any()
+
+
+def test_code_scope_reads_engine_constants_not_copies(studio):
+    """코드 매핑의 CCF율·LCR 적용률이 엔진·원장과 **같은 객체에서** 온다.
+
+    별사본을 두면 엔진이 바뀔 때 매핑만 낡는다 — CRE20.94 요율이 코드에
+    두 번 적히는 순간부터 그중 하나는 틀릴 준비가 된 것이다.
+    """
+    from risk_lib.capital.crm import CCF_BUCKETS
+    cr = studio.tables["crm_code_scope"]
+    for _, r in cr[cr["ccf_type"] != "—"].iterrows():
+        assert r["ccf_rate"] == CCF_BUCKETS[r["ccf_type"]]
+    al = studio.tables["alm_code_scope"]
+    li = studio.tables["alm_lcr_item"]
+    fac = dict(zip(li["category"], li["factor"]))
+    mapped = al[al["lcr_category"] != "—"]
+    assert len(mapped) >= 8
+    for _, r in mapped.iterrows():
+        if r["lcr_factor"] is not None:
+            assert r["lcr_factor"] == fac[r["lcr_category"]]
+
+
+def test_code_scope_population_matches_exposure_ledger(studio):
+    """계정 매핑의 모집단 실측(EAD 합)이 익스포저 원장 집계와 일치한다."""
+    cr = studio.tables["crm_code_scope"]
+    exp = studio.tables["rdm_exposure"]
+    by_ac = exp.groupby("asset_class")["ead"].sum()
+    for _, r in cr[cr["asset_class"] != "—"].iterrows():
+        assert abs(r["ead_total"] - float(by_ac.get(r["asset_class"], 0.0))) < 1.0
+    # 시장·운영 실측도 원장 합과 맞는다
+    mk = studio.tables["mkt_code_scope"]
+    tr = studio.tables["mkt_trade"].groupby("kind")["trade_id"].count()
+    for _, r in mk[mk["trade_kind"] != "—"].iterrows():
+        assert r["n_trades"] == int(tr.get(r["trade_kind"], 0))

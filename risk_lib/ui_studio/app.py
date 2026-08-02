@@ -2438,9 +2438,14 @@ function codeScope(root){
       const crBy={};cr.rows.forEach(r=>{crBy[r[ci.account_code]]=r});
       const alBy={};al.rows.forEach(r=>{alBy[r[li.account_code]]=r});
       const c=el('div','card');
-      c.appendChild(el('h3',null,'계정코드 × 리스크 대상 매트릭스'));
+      c.appendChild(el('h3',null,'계정코드 × 리스크 대상·엔진 연계 매트릭스'));
+      c.appendChild(el('div','meta',
+        '신용환산율·위험가중 범위는 산출 엔진 상수(capital.crm·rwa_sa)에서, '+
+        '모집단(건수·EAD)은 익스포저 원장에서, LCR 적용률은 산출 원장에서 '+
+        '직접 읽는다 — 별사본이 없으니 매핑이 낡을 수 없다.'));
       const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
-      ['계정','명칭','계정군','신용','금리(IRRBB)','유동성','신용 특성','LCR 분류']
+      ['계정','명칭','신용','자산군·접근법','위험가중',
+       '신용환산(CCF)','모집단 실측','금리','유동성','LCR 분류·적용률']
         .forEach(x=>tr.appendChild(el('th',null,x)));
       th.appendChild(tr);t.appendChild(th);
       const tb=el('tbody');
@@ -2450,11 +2455,19 @@ function codeScope(root){
         const x=el('tr');
         x.appendChild(el('td','mono',code));
         x.appendChild(el('td',null,r[ai.account_name]));
-        x.appendChild(el('td',null,r[ai.account_group]));
-        [[c2&&c2[ci.in_scope]],[l2&&l2[li.irrbb_scope]],[l2&&l2[li.liquidity_scope]]]
+        const td0=el('td');td0.appendChild(yn(!!(c2&&c2[ci.in_scope])));x.appendChild(td0);
+        x.appendChild(el('td','meta',c2&&c2[ci.asset_class]!=='—'
+          ?c2[ci.asset_class]+' · '+c2[ci.approach]:'—'));
+        x.appendChild(el('td','meta',c2?c2[ci.rw_range]:'—'));
+        x.appendChild(el('td','meta',c2&&c2[ci.ccf_type]!=='—'
+          ?c2[ci.ccf_type]+' · '+(c2[ci.ccf_rate]*100).toFixed(0)+'%':'—'));
+        x.appendChild(el('td','meta',c2&&c2[ci.n_exposures]
+          ?c2[ci.n_exposures].toLocaleString()+'건 · '+fmtMoney(c2[ci.ead_total]):'—'));
+        [[l2&&l2[li.irrbb_scope]],[l2&&l2[li.liquidity_scope]]]
           .forEach(([v])=>{const td=el('td');td.appendChild(yn(!!v));x.appendChild(td)});
-        x.appendChild(el('td','meta',c2?c2[ci.ead_basis]+' · '+c2[ci.default_recognition]:'—'));
-        x.appendChild(el('td','meta',l2?l2[li.lcr_category]:'—'));
+        x.appendChild(el('td','meta',l2&&l2[li.lcr_category]!=='—'
+          ?l2[li.lcr_category]+(l2[li.lcr_factor]!=null
+            ?' · '+(l2[li.lcr_factor]*100).toFixed(0)+'%':''):'—'));
         tb.appendChild(x)});
       t.appendChild(tb);w.appendChild(t);c.appendChild(w);
       c.appendChild(srcMeta(am,'대상여부: crm_code_scope · alm_code_scope (규칙 파생)'));
@@ -2468,7 +2481,8 @@ function codeScope(root){
       const c=el('div','card');
       c.appendChild(el('h3',null,'상품코드 × 리스크 대상 매트릭스'));
       const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
-      ['상품','명칭','북','시장','운영','주 위험요소','손실사건 매핑']
+      ['상품','명칭','북','시장','FRTB 위험군','거래 실측','운영',
+       '손실사건 매핑·실측','산출방법']
         .forEach(x=>tr.appendChild(el('th',null,x)));
       th.appendChild(tr);t.appendChild(th);
       const tb=el('tbody');
@@ -2479,10 +2493,14 @@ function codeScope(root){
         x.appendChild(el('td','mono',code));
         x.appendChild(el('td',null,r[pi.product_name]));
         x.appendChild(el('td',null,r[pi.book]));
-        [[m2&&m2[mi.in_scope]],[o2&&o2[oi.in_scope]]]
-          .forEach(([v])=>{const td=el('td');td.appendChild(yn(!!v));x.appendChild(td)});
-        x.appendChild(el('td','meta',m2?m2[mi.risk_factor]:'—'));
-        x.appendChild(el('td','meta',o2?o2[oi.event_mapping]:'—'));
+        const td0=el('td');td0.appendChild(yn(!!(m2&&m2[mi.in_scope])));x.appendChild(td0);
+        x.appendChild(el('td','meta',m2?m2[mi.frtb_class]:'—'));
+        x.appendChild(el('td','meta',m2&&m2[mi.n_trades]
+          ?m2[mi.trade_kind]+' · '+m2[mi.n_trades].toLocaleString()+'건':'—'));
+        const td1=el('td');td1.appendChild(yn(!!(o2&&o2[oi.in_scope])));x.appendChild(td1);
+        x.appendChild(el('td','meta',o2
+          ?o2[oi.event_mapping]+' · '+o2[oi.n_events].toLocaleString()+'건':'—'));
+        x.appendChild(el('td','meta',o2?o2[oi.capital_method]:'—'));
         tb.appendChild(x)});
       t.appendChild(tb);w.appendChild(t);c.appendChild(w);
       c.appendChild(srcMeta(pm,'대상여부: mkt_code_scope · opr_code_scope (규칙 파생)'));

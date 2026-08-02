@@ -92,10 +92,12 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     from risk_lib.datamodel import code_scope as _cs
     tables["rdm_account_master"] = _cs.account_master()
     tables["rdm_product_master"] = _cs.product_master()
-    tables["crm_code_scope"] = _cs.credit_scope()
-    tables["mkt_code_scope"] = _cs.market_scope()
-    tables["alm_code_scope"] = _cs.alm_scope()
-    tables["opr_code_scope"] = _cs.op_scope()
+    # tables 를 넘겨 엔진 상수·산출 원장과 실측 연계한다 — 매핑 속성이
+    # 엔진과 별사본이 되는 순간부터 낡기 시작한다.
+    tables["crm_code_scope"] = _cs.credit_scope(tables)
+    tables["mkt_code_scope"] = _cs.market_scope(tables)
+    tables["alm_code_scope"] = _cs.alm_scope(tables)
+    tables["opr_code_scope"] = _cs.op_scope(tables)
     tables.update(materialize_detail(result, portfolio, tables))
     # DQ 결과는 분해 단계의 산물이다 — 없으면 "그때는 통과했다"를 증명 못 한다.
     tables["rdm_dq_result"] = dq_result_frame(validate_all(tables), asof=asof)
