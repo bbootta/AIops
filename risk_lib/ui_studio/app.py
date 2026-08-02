@@ -15,6 +15,8 @@ from pathlib import Path
 import pandas as pd
 
 from risk_lib.datamodel import catalog as cat
+from risk_lib.ui_studio.req_trace import build_trace as _req_rows
+from risk_lib.ui_studio.req_trace import coverage as _req_coverage
 from risk_lib.ui_studio.studio import DEMO_PROMPTS, DEMO_QUERIES, Studio
 
 PREVIEW_ROWS = 12
@@ -301,6 +303,9 @@ def _payload(s: Studio) -> dict:
             "assumptions": list(s.iv_request.known_assumptions) if s.iv_request else [],
         },
         "independent_targets": _frame(t["val_independent_target"], 50, table="val_independent_target"),
+        # v9.6.0 업무요건 추적 — 증빙 참조는 tests/test_req_trace.py 가 실재를
+        # 검증한다. 여기 실리는 것은 주장 목록이 아니라 검사를 통과한 목록이다.
+        "req_trace": {"coverage": _req_coverage(), "rows": _req_rows()},
         "domains": sorted({r["product"] for r in catalog_rows}),
     }
 
@@ -1742,6 +1747,82 @@ function scenarioSettings(root){
   root.appendChild(c);
 }
 
+/* ---- 요건 추적 — v9.6.0 BRD 131건 대비 구현 재고조사 ---- */
+function reqTrace(root){
+  const R=D.req_trace;
+  root.appendChild(el('p','lead',
+    'RYNTA v9.6.0 업무요건정의서 Level 1 요건 131건을 이 하네스의 실재 증빙'+
+    '(모듈·원장·화면·테스트)에 대조한다. 증빙 참조는 테스트가 실재를 검증하므로 '+
+    '여기 뜨는 상태는 주장이 아니라 검사를 통과한 목록이다. 미반영은 숨기지 '+
+    '않는다 — 커버리지는 자랑이 아니라 재고조사다.'));
+
+  const c0=el('div','card');
+  c0.appendChild(el('h3',null,'커버리지 — '+R.coverage.source));
+  const g=el('div','grid');
+  [['반영',R.coverage['반영'],'good'],['부분',R.coverage['부분'],'warn'],
+   ['미반영',R.coverage['미반영'],'bad'],
+   ['검증된 증빙 참조',R.coverage.n_evidence,'']].forEach(([k,v,t])=>{
+    const c=el('div','card kpi');
+    c.appendChild(el('div','lab',k));
+    c.appendChild(el('div','val '+t,String(v)));
+    if(k!=='검증된 증빙 참조')
+      c.appendChild(el('div','sub',(v/R.coverage.n*100).toFixed(0)+'% / '+R.coverage.n+'건'));
+    g.appendChild(c)});
+  c0.appendChild(g);
+  c0.appendChild(meter('반영(부분 포함 안 함)',R.coverage['반영'],R.coverage.n));
+  c0.appendChild(el('div','meta','원문 SHA-256 '+R.coverage.source_sha256.slice(0,16)+
+    '… — 레지스터는 tools/gen_requirements.py 가 원문에서 생성한다'));
+  root.appendChild(c0);
+
+  const bar=el('div','toolbar');
+  const fSt=el('select','sel');
+  ['전체 상태','반영','부분','미반영'].forEach(x=>{const o=el('option');
+    o.value=x==='전체 상태'?'':x;o.textContent=x;fSt.appendChild(o)});
+  const fPr=el('select','sel');
+  ['전체 영역'].concat([...new Set(R.rows.map(r=>r.id.split('-')[0]))].sort())
+    .forEach(x=>{const o=el('option');o.value=x==='전체 영역'?'':x;
+      o.textContent=x;fPr.appendChild(o)});
+  const q=el('input','input');q.type='text';q.placeholder='ID·제목 검색';
+  bar.appendChild(fSt);bar.appendChild(fPr);bar.appendChild(q);
+  root.appendChild(bar);
+
+  const pane=el('div','card');root.appendChild(pane);
+  function draw(){
+    pane.innerHTML='';
+    const kw=q.value.trim().toLowerCase();
+    const rows=R.rows.filter(r=>
+      (!fSt.value||r.status===fSt.value)&&
+      (!fPr.value||r.id.startsWith(fPr.value+'-'))&&
+      (!kw||(r.id+' '+r.title).toLowerCase().includes(kw)));
+    pane.appendChild(el('h3',null,`요건 ${rows.length}건`));
+    const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
+    ['요건','업권','우선순위','상태','증빙 (검증됨)','비고'].forEach(
+      x=>tr.appendChild(el('th',null,x)));
+    th.appendChild(tr);t.appendChild(th);
+    const tb=el('tbody');
+    rows.forEach(r=>{
+      const x=el('tr');
+      const td0=el('td');td0.appendChild(el('div','mono',r.id));
+      td0.appendChild(el('div',null,r.title));x.appendChild(td0);
+      x.appendChild(el('td',null,r.sector));
+      x.appendChild(el('td',null,r.priority));
+      const td3=el('td');td3.appendChild(pill(r.status,
+        r.status==='반영'?'good':r.status==='부분'?'warn':'bad'));
+      x.appendChild(td3);
+      const td4=el('td');
+      r.evidence.forEach(e=>{
+        const s=el('span','pill');s.style.marginRight='4px';
+        s.textContent=e.kind+' · '+e.ref;s.title=e.kind;td4.appendChild(s)});
+      if(!r.evidence.length)td4.appendChild(el('span','meta','—'));
+      x.appendChild(td4);
+      x.appendChild(el('td','meta',r.note||''));
+      tb.appendChild(x)});
+    t.appendChild(tb);w.appendChild(t);pane.appendChild(w);
+  }
+  fSt.onchange=draw;fPr.onchange=draw;q.addEventListener('input',draw);
+  draw();
+}
+
 function settings(root){
   root.appendChild(el('p','lead',
     '표시명·기준일 전환은 세션 안에서 즉시 적용된다(산출값 무관). 서식번호 '+
@@ -1778,6 +1859,7 @@ const TABS=[
   ['G 에이전트','G · 에이전트 운영 · 권한 · Kill Switch',agents],
   ['Δ 변경','Δ · 리스크 변경 팩토리',changes],
   ['데이터모델','정규 데이터모델 카탈로그',catalogView],
+  ['요건 추적','REQ · v9.6.0 업무요건 추적 — 131건 대비 구현 재고조사',reqTrace],
   ['⚙ 설정','⚙ · 설정 — 기준일 · 표시명 · 코드 매핑 · 시나리오',settings],
 ];
 

@@ -659,3 +659,20 @@ def test_asof_switch_does_not_carry_approvals_across_runs(browser, multi_page_pa
     assert "승인 적용 화면" in pg.inner_text("section.on")
     assert errors == []
     pg.close()
+
+
+# ----- 요건 추적 ----------------------------------------------------------------
+
+def test_req_trace_tab_matches_the_register(page):
+    """화면의 커버리지 숫자가 payload 레지스터와 일치하고 필터가 동작한다."""
+    _tab_named(page, "요건 추적")
+    txt = _text(page)
+    assert "131" in txt and "커버리지" in txt
+    cov = page.evaluate("window.__RYNTA__.req_trace.coverage")
+    assert cov["반영"] + cov["부분"] + cov["미반영"] == 131
+    # 미반영 필터 → 증빙 열이 비어 있다
+    page.select_option("section.on select.sel", "미반영")
+    page.wait_for_timeout(300)
+    body = _text(page)
+    assert f"요건 {cov['미반영']}건" in body
+    assert page.errors == []
