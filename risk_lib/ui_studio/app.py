@@ -722,7 +722,9 @@ function renderProposal(pane, pr, v, rerun){
   const bPrev=el('button','btn','미리보기 생성');
   const bApp=el('button','btn primary','승인 적용');
   const bRb=el('button','btn','Rollback');
-  bApp.disabled=!pr.all_pass;
+  /* 비상정지는 이 탭에도 미친다 — 정형 조회만 막고 여기를 열어 두면
+     "정지"가 화면 절반에만 걸린 통제가 된다. */
+  bApp.disabled=!pr.all_pass||STATE.killed;
   bRb.disabled=!STATE.history[v.view_id]||!STATE.history[v.view_id].length;
   acts.appendChild(bPrev);acts.appendChild(bApp);acts.appendChild(bRb);
   c.appendChild(acts);
@@ -753,6 +755,8 @@ function renderProposal(pane, pr, v, rerun){
 
   function draw(applied){
     previewBox.innerHTML='';
+    if(STATE.killed){previewBox.appendChild(el('div','note',
+      'Kill Switch가 걸려 있어 미리보기·승인을 실행하지 않는다.'));return}
     if(!pr.all_pass){previewBox.appendChild(el('div','note',
       '정책검증 미통과 — 미리보기를 그리지 않는다.'));return}
     previewBox.appendChild(el('h3',null,
@@ -1275,9 +1279,15 @@ function labelSettings(root){
   root.appendChild(c);
 }
 
-/* FINES 서식번호 형식 — 배포 코드는 B/BA/BF + 숫자(+ -가지번호), 내부 관리
-   서식은 RM-####. 마스터(fss_master)의 실존 형식에서 온 규칙이다. */
-const FORM_NO_RE=/^(?:B[AF]?\d{3,4}(?:-\d+)?|RM-\d{4})$/;
+/* FINES 서식번호 형식 — 배포 코드는 B/BA/BF + 숫자 3~5자리(+ -가지번호),
+   내부 관리 서식은 RM-####. 마스터(fss_master)의 실존 형식에서 온 규칙이다 —
+   B10101(금리인하요구권)·B11101~07(투자자문업)처럼 5자리 숫자부가 실재하므로
+   4자리로 자르면 실코드 9종이 형식 위반으로 거부된다. */
+const FORM_NO_RE=/^(?:B[AF]?\d{3,5}(?:-\d+)?|RM-\d{4})$/;
+/* 중복 비교는 표시문자열이 아니라 코드로 한다 — 내부관리 서식의 form_no는
+   "RM-6401 (내부관리)"처럼 접미사가 붙어, 그대로 키로 쓰면 "RM-6401" 입력이
+   중복 검사를 지나간다. */
+const formNoKey=s=>String(s).split(' ')[0];
 
 function formMapSettings(root){
   const c=el('div','card set-formmap');
@@ -1315,11 +1325,11 @@ function formMapSettings(root){
     if(STATE.killed){err.textContent='비상정지 중 — 변경 제안을 만들지 않는다.';
       err.hidden=false;return}
     const changes=[],bad=[];
-    const used={};D.forms.forEach(f=>{used[f.form_no]=f.form_id});
+    const used={};D.forms.forEach(f=>{used[formNoKey(f.form_no)]=f.form_id});
     Object.entries(inputs).forEach(([fid,inp])=>{
       const v=inp.value.trim();if(!v)return;
       if(!FORM_NO_RE.test(v)){bad.push(`${fid}: '${v}' — 형식 위반 (B/BA/BF+숫자(-가지) 또는 RM-####)`);return}
-      if(used[v]&&used[v]!==fid){bad.push(`${fid}: '${v}' — ${used[v]}가 이미 사용`);return}
+      if(used[formNoKey(v)]&&used[formNoKey(v)]!==fid){bad.push(`${fid}: '${v}' — ${used[formNoKey(v)]}가 이미 사용`);return}
       const cur=D.forms.find(f=>f.form_id===fid);
       changes.push({form_id:fid,from:cur.form_no,to:v})});
     if(bad.length){err.textContent='검증 실패 '+bad.length+'건 — '+bad.join(' · ');
@@ -1451,12 +1461,23 @@ const TABS=[
 let repaintAll=()=>{};                   /* boot에서 실체가 채워진다 */
 
 function setRun(a){
+  /* 승인·이력은 **실행에 속한다**. proposal_id는 (view, 프롬프트)의 해시라
+     실행이 바뀌어도 같으므로, 그대로 두면 이전 기준일 데이터로 받은 승인이
+     새 기준일 화면에 "승인 적용"으로 뜬다 — 다른 산출물에 승인 도장이
+     옮겨 찍히는 것이다. 실행별로 보관하고 전환 시 맞바꾼다. */
+  STATE.byRun=STATE.byRun||{};
+  STATE.byRun[D.meta.asof]={approved:STATE.approved,history:STATE.history};
+  const kept=STATE.byRun[a]||{approved:{},history:{}};
+  STATE.approved=kept.approved;STATE.history=kept.history;
+
   D=RUNS[a];
   $('#chip-run').textContent=D.meta.run_id;
   $('#chip-digest').textContent='지문 '+D.meta.digest.slice(0,12);
+  $('#chip-seed').textContent='시드 '+D.meta.seed;
   $('#chip-rows').textContent=
     `테이블 ${D.meta.n_tables}장 · ${D.meta.n_rows.toLocaleString()}행`;
   const fa=$('#foot-asof');if(fa)fa.textContent=a;
+  const fs=$('#foot-seed');if(fs)fs.textContent=String(D.meta.seed);
   document.title='RYNTA 에이전틱 UI 스튜디오 · '+a;
   repaintAll();
 }
@@ -1544,7 +1565,7 @@ def render(studios: Studio | list[Studio]) -> str:
     <select id="asofsel" class="sel asofsel"></select></label>
   <span class="hchip" id="chip-run">{html.escape(m['run_id'])}</span>
   <span class="hchip" id="chip-digest">지문 {html.escape(m['digest'][:12])}</span>
-  <span class="hchip">시드 {m['seed']}</span>
+  <span class="hchip" id="chip-seed">시드 {m['seed']}</span>
   <span class="hchip" id="chip-rows">테이블 {m['n_tables']}장 · {m['n_rows']:,}행</span>
   <span class="hchip">Read-only · PII Mask</span>
   <button class="kill">Kill Switch</button>
@@ -1561,7 +1582,8 @@ def render(studios: Studio | list[Studio]) -> str:
 <main></main>
 <footer>
   결정론적 엔진 · 제안 전용 에이전트 · 사람의 최종 승인 권한 · 증빙 계보.
-  화면의 모든 값은 합성 포트폴리오에서 <code>run_pipeline(seed={m['seed']},
+  화면의 모든 값은 합성 포트폴리오에서 <code>run_pipeline(seed=<span
+  id="foot-seed">{m['seed']}</span>,
   asof='<span id="foot-asof">{html.escape(primary)}</span>')</code>로 산출한
   것이며 실제 기관 수치가 아니다.
   에이전트는 신용등급·여신승인, PD·LGD·EAD 등 핵심 위험파라미터, ECL·충당금,

@@ -559,3 +559,84 @@ def test_asof_switch_changes_the_active_run(browser, multi_page_path):
     assert pg.inner_text("section.on h2")            # 활성 탭이 다시 그려졌다
     assert errors == []
     pg.close()
+
+
+# ----- 검토(3렌즈 워크플로)가 찾은 결함의 고정 --------------------------------
+
+def test_five_digit_official_form_numbers_are_accepted(page):
+    """B10101 등 5자리 숫자부 배포 코드 9종이 실재한다 — 형식 검사가 거부하면
+    실코드를 쓰는 정당한 제안이 만들어지지 않는다."""
+    _tab(page, SETTINGS_TAB)
+    page.fill("section.on .set-formmap tbody tr:nth-child(2) input", "B99901")
+    page.click("section.on .set-formmap .btn.primary")
+    page.wait_for_timeout(300)
+    out = page.inner_text("section.on .set-formmap pre")
+    assert '"to": "B99901"' in out.replace("'", '"')
+
+
+def test_internal_form_number_duplicate_is_caught(page):
+    """내부관리 서식의 form_no는 'RM-#### (내부관리)' 표시문자열이다 — 중복
+    검사가 표시문자열을 키로 쓰면 'RM-####' 입력이 그대로 지나간다."""
+    _tab(page, SETTINGS_TAB)
+    rm = page.evaluate(
+        "window.__RYNTA__.forms.find(f=>f.form_no.startsWith('RM-'))"
+        ".form_no.split(' ')[0]")
+    page.fill("section.on .set-formmap tbody tr:nth-child(2) input", rm)
+    page.click("section.on .set-formmap .btn.primary")
+    page.wait_for_timeout(300)
+    assert "이미 사용" in page.inner_text("section.on .set-formmap .note.bad")
+
+
+def test_kill_switch_blocks_adaptive_preview_and_approval(page):
+    """비상정지는 비정형 UI에도 미친다 — 정형 조회만 막으면 절반짜리 통제다."""
+    page.click("header .kill")
+    page.fill("#killreason", "통제 점검")
+    page.click(".killbar .killgo")
+    page.wait_for_timeout(400)
+    _tab(page, 2)
+    page.select_option("section.on select.sel", "V_RWA_SA_BUCKET")
+    page.wait_for_timeout(200)
+    page.fill("section.on textarea.input", "자산군 기여도를 막대차트로 보여줘")
+    page.wait_for_timeout(300)
+    assert page.eval_on_selector("section.on .btn.primary", "b => b.disabled")
+    assert "Kill Switch가 걸려 있어" in _text(page)
+
+
+def test_asof_switch_does_not_carry_approvals_across_runs(browser, multi_page_path):
+    """승인은 실행에 속한다 — proposal_id 가 (view, 프롬프트) 해시라 실행이
+    바뀌어도 같으므로, 전환 시 승인을 실행별로 갈라 두지 않으면 이전 기준일
+    데이터로 받은 승인이 새 기준일 화면에 '승인 적용'으로 뜬다."""
+    pg = browser.new_page(viewport={"width": 1400, "height": 1000})
+    errors: list[str] = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.goto(f"file://{multi_page_path}")
+    pg.wait_for_timeout(600)
+
+    _tab(pg, 2)                                    # 비정형 UI에서 승인
+    pg.select_option("section.on select.sel", "V_RWA_SA_BUCKET")
+    pg.wait_for_timeout(200)
+    pg.fill("section.on textarea.input", "자산군 기여도를 막대차트로 보여줘")
+    pg.wait_for_timeout(300)
+    pg.click("section.on .btn.primary")
+    pg.wait_for_timeout(300)
+    assert "승인 적용 화면" in pg.inner_text("section.on")
+
+    opts = pg.eval_on_selector_all("#asofsel option", "els => els.map(e=>e.value)")
+    pg.select_option("#asofsel", min(opts))        # 다른 실행으로 전환
+    pg.wait_for_timeout(800)
+    pg.select_option("section.on select.sel", "V_RWA_SA_BUCKET")
+    pg.wait_for_timeout(200)
+    pg.fill("section.on textarea.input", "자산군 기여도를 막대차트로 보여줘")
+    pg.wait_for_timeout(300)
+    txt = pg.inner_text("section.on")
+    assert "승인 적용 화면" not in txt             # 승인이 따라오면 안 된다
+
+    pg.select_option("#asofsel", max(opts))        # 돌아오면 승인이 살아 있다
+    pg.wait_for_timeout(800)
+    pg.select_option("section.on select.sel", "V_RWA_SA_BUCKET")
+    pg.wait_for_timeout(200)
+    pg.fill("section.on textarea.input", "자산군 기여도를 막대차트로 보여줘")
+    pg.wait_for_timeout(300)
+    assert "승인 적용 화면" in pg.inner_text("section.on")
+    assert errors == []
+    pg.close()

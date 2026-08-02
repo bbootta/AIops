@@ -236,7 +236,9 @@ def _cmd_ui_studio(args: argparse.Namespace) -> int:
         studios.append(build_studio(result, portfolio))
         print(f"  산출 {studios[-1].run_id} · 지문 {studios[-1].digest[:16]}")
     out = write_app(studios if len(studios) > 1 else studios[0], args.out)
-    s = studios[-1]
+    # 요약의 "최신 기준"은 화면의 기본 실행과 같아야 한다 — 입력 순서가 아니라
+    # 기준일 정렬의 마지막이다 (render 가 그렇게 고른다).
+    s = sorted(studios, key=lambda x: x.asof)[-1]
     n_rows = sum(len(df) for df in s.tables.values())
     print(f"에이전틱 UI 작성 완료 — {out} ({os.path.getsize(out)/1024:.1f} KB)")
     print(f"  기준일 {len(studios)}종 · 테이블 {len(cat.ALL_TABLES)}장 · "
