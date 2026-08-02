@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { makeCanvas, makeRng, noiseOverlay, texture, heightToNormal, detailNormal,
          grit, streaks, blob } from './tex.js';
+import { buildBody, RIG } from './body.js';
 
 // ============================================================
 // The player: a riot-police officer in a worn leather jacket, built to
@@ -119,56 +120,31 @@ function patchMaterial() {
   });
 }
 
-function jointedLimb(mat, upperLen, lowerLen, r, { boot = null, hand = null } = {}) {
-  const pivot = new THREE.Group();
+/**
+ * A gloved hand at the end of a forearm bone. Rigid, and rightly so — the
+ * skinned body stops at the wrist because a hand curled around a weapon does
+ * not deform, it just goes where the forearm goes.
+ */
+function makeHand(mat, foreLen, side) {
+  const g = new THREE.Group();
+  g.position.y = -foreLen;
+  const r = 0.062;
 
-  // A limb built as two bare capsules reads as a chain of sausages: the
-  // shoulder end floats free of the torso and the elbow shows the seam where
-  // one capsule stops and the next begins. Spheres at both joints close it —
-  // the deltoid is genuinely a ball, and an elbow keeps its width through the
-  // bend, so this is also just the right shape.
-  const shoulderCap = new THREE.Mesh(new THREE.SphereGeometry(r * 1.24, 14, 12), mat);
-  shoulderCap.scale.set(1, 0.92, 1);
-  pivot.add(shoulderCap);
-
-  const upper = new THREE.Mesh(new THREE.CapsuleGeometry(r, upperLen - r * 2, 4, 12), mat);
-  upper.position.y = -upperLen / 2;
-
-  const lower = new THREE.Group();
-  lower.position.y = -upperLen;
-  const elbowCap = new THREE.Mesh(new THREE.SphereGeometry(r * 0.98, 12, 10), mat);
-  lower.add(elbowCap);
-  const seg = new THREE.Mesh(
-    new THREE.CapsuleGeometry(r * 0.86, lowerLen - r * 1.7, 4, 12), mat);
-  seg.position.y = -lowerLen / 2;
-  lower.add(seg);
-  if (boot) {
-    const foot = new THREE.Mesh(new RoundedBoxGeometry(r * 2.1, r * 1.5, lowerLen * 0.66, 3, 0.02), boot);
-    foot.position.set(0, -lowerLen - r * 0.5, lowerLen * 0.2);
-    lower.add(foot);
+  const palm = new THREE.Mesh(new RoundedBoxGeometry(r * 1.7, r * 1.9, r * 1.05, 3, 0.015), mat);
+  palm.position.y = -r * 0.8;
+  g.add(palm);
+  // curled fingers and an opposed thumb, so the grip reads as a hand
+  for (let f = 0; f < 4; f++) {
+    const finger = new THREE.Mesh(new THREE.CapsuleGeometry(r * 0.19, r * 0.62, 3, 8), mat);
+    finger.position.set(r * (0.42 - f * 0.28), -r * 1.62, r * 0.16);
+    finger.rotation.x = 1.25;
+    g.add(finger);
   }
-  if (hand) {
-    const palm = new THREE.Mesh(new RoundedBoxGeometry(r * 1.7, r * 1.9, r * 1.05, 3, 0.015), hand);
-    palm.position.y = -lowerLen - r * 0.8;
-    lower.add(palm);
-    // curled fingers and an opposed thumb, so the grip reads as a hand
-    for (let f = 0; f < 4; f++) {
-      const finger = new THREE.Mesh(
-        new THREE.CapsuleGeometry(r * 0.19, r * 0.62, 3, 8), hand);
-      finger.position.set(r * (0.42 - f * 0.28), -lowerLen - r * 1.62, r * 0.16);
-      finger.rotation.x = 1.25;
-      lower.add(finger);
-    }
-    const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(r * 0.22, r * 0.5, 3, 8), hand);
-    thumb.position.set(r * 0.72, -lowerLen - r * 1.15, -r * 0.2);
-    thumb.rotation.set(0.5, 0, -0.75);
-    lower.add(thumb);
-  }
-  pivot.add(upper, lower);
-  pivot.userData.lower = lower;
-  pivot.userData.upperLen = upperLen;
-  pivot.userData.lowerLen = lowerLen;
-  return pivot;
+  const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(r * 0.22, r * 0.5, 3, 8), mat);
+  thumb.position.set(side * r * 0.72, -r * 1.15, -r * 0.2);
+  thumb.rotation.set(0.5, 0, side * -0.75);
+  g.add(thumb);
+  return g;
 }
 
 export function makeOfficer() {
@@ -186,90 +162,72 @@ export function makeOfficer() {
   leather.normalScale.set(0.55, 0.55);
 
   const trousers = fabricMaterial(0x24262c, 71);
-  const shirt = fabricMaterial(0x2c3340, 73);
   const boots = new THREE.MeshStandardMaterial({ color: 0x14120f, roughness: 0.55, metalness: 0.06 });
-  const skin = new THREE.MeshStandardMaterial({ color: 0x8f6a50, roughness: 0.8 });
   const glove = gloveMaterial();
   const hairMat = new THREE.MeshStandardMaterial({ color: 0x100d0c, roughness: 0.72 });
   const patch = patchMaterial();
 
-  // ---- lower body ----
-  const hips = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.1, 4, 12), trousers);
-  hips.position.y = 0.95;
-  root.add(hips);
+  // ---- skinned body ----
+  // Torso, arms and legs are one continuous SkinnedMesh; see body.js. The
+  // bones it returns take the place of the Groups this rig used to be built
+  // from, under the same names, so poseOfficer and the IK below are unchanged.
+  const body = buildBody(leather, trousers);
+  root.add(body.root);
+  const { spine, armL, armR, legL, legR } = body.bones;
 
-  // duty belt with a holster and a radio, the details that read from behind
-  const belt = new THREE.Mesh(new THREE.TorusGeometry(0.172, 0.028, 8, 22), boots);
-  belt.position.y = 1.0;
+  // Bone chains, described the way the IK and the walk cycle expect.
+  armL.userData = { lower: body.bones.foreL, upperLen: RIG.upperArm, lowerLen: RIG.foreArm };
+  armR.userData = { lower: body.bones.foreR, upperLen: RIG.upperArm, lowerLen: RIG.foreArm };
+  legL.userData = { lower: body.bones.shinL };
+  legR.userData = { lower: body.bones.shinR };
+
+  // Rigid kit, hung off the bones it should follow.
+  const belt = new THREE.Mesh(new THREE.TorusGeometry(0.156, 0.026, 8, 22), boots);
+  belt.position.y = 0.05;
   belt.rotation.x = Math.PI / 2;
   const buckle = new THREE.Mesh(new RoundedBoxGeometry(0.07, 0.05, 0.02, 2, 0.008),
     new THREE.MeshStandardMaterial({ color: 0x9c8a5e, roughness: 0.42, metalness: 0.8 }));
-  buckle.position.set(0, 1.0, -0.185);
+  buckle.position.set(0, 0.05, -0.168);
   const holster = new THREE.Mesh(new RoundedBoxGeometry(0.1, 0.2, 0.07, 3, 0.02), boots);
-  holster.position.set(0.185, 0.9, 0.03);
+  holster.position.set(0.168, -0.05, 0.03);
   holster.rotation.z = -0.12;
   const radio = new THREE.Mesh(new RoundedBoxGeometry(0.07, 0.13, 0.05, 3, 0.015), boots);
-  radio.position.set(-0.175, 0.95, 0.04);
+  radio.position.set(-0.16, 0.0, 0.04);
   const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.005, 0.16, 5), boots);
-  antenna.position.set(-0.175, 1.08, 0.04);
-  root.add(belt, buckle, holster, radio, antenna);
+  antenna.position.set(-0.16, 0.13, 0.04);
+  body.bones.hips.add(belt, buckle, holster, radio, antenna);
 
-  const legL = jointedLimb(trousers, 0.47, 0.45, 0.085, { boot: boots });
-  legL.position.set(-0.105, 0.95, 0);
-  const legR = jointedLimb(trousers, 0.47, 0.45, 0.085, { boot: boots });
-  legR.position.set(0.105, 0.95, 0);
-  root.add(legL, legR);
+  // Boots on the shins, gloves on the forearms — rigid parts of a body that
+  // genuinely is rigid there, so they gain nothing from being skinned.
+  for (const [shin, boot] of [[body.bones.shinL, 0], [body.bones.shinR, 0]]) {
+    void boot;
+    const foot = new THREE.Mesh(
+      new RoundedBoxGeometry(0.115, 0.085, 0.3, 3, 0.02), boots);
+    foot.position.set(0, -RIG.shin - 0.03, 0.06);
+    shin.add(foot);
+  }
+  for (const [fore, side] of [[body.bones.foreL, -1], [body.bones.foreR, 1]]) {
+    fore.add(makeHand(glove, RIG.foreArm, side));
+  }
 
-  // ---- spine: everything above the waist pitches with the aim ----
-  const spine = new THREE.Group();
-  spine.position.y = 1.02;
-  root.add(spine);
-
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.148, 0.22, 4, 14), shirt);
-  torso.position.y = 0.16;
-  spine.add(torso);
-
-  // the jacket: a slightly larger shell over the shirt, open at the hem
-  const jacket = new THREE.Mesh(new THREE.CapsuleGeometry(0.176, 0.28, 4, 16), leather);
-  jacket.position.y = 0.24;
-  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.184, 0.196, 0.17, 16, 1, true), leather);
-  skirt.position.y = 0.05;
-  skirt.material = leather;
-  // A stand collar, tall enough to swallow the scan's neck seam. The torus it
-  // replaces sat like a lifebuoy and left the seam poking out as a pink ring.
+  // The jacket hem and waistband that used to ring the waist are gone: they
+  // existed to hide the seam between the old capsule torso and the hip block,
+  // and the skinned body has no such seam. Stacked on top of the duty belt
+  // they just read as an inner tube.
   const collarMat = leather.clone();
   collarMat.side = THREE.DoubleSide;      // open cylinder, seen into from above
   const collar = new THREE.Mesh(
     new THREE.CylinderGeometry(0.082, 0.104, 0.1, 16, 1, true), collarMat);
   collar.position.y = 0.485;
-  spine.add(jacket, skirt, collar);
+  spine.add(collar);
 
-  // The yoke across the top of the back. Kept narrow and shallow: at 0.4 wide
-  // it overhung the arms as a squared-off pauldron, and the deltoid caps on
-  // the limbs now carry the shoulder line instead.
-  const shoulders = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.115, 0.185, 3, 0.055), leather);
-  shoulders.position.y = 0.4;
-  spine.add(shoulders);
-
-  // cuffs and a yoke seam across the back, which is the side the player sees
-  for (const cx of [-0.185, 0.185]) {
-    const cuffBand = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.014, 6, 14), leather);
-    cuffBand.position.set(cx, 0.4, 0);
-    cuffBand.rotation.x = Math.PI / 2;
-    spine.add(cuffBand);
-  }
-  const yoke = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.014, 0.02), leather);
-  yoke.position.set(0, 0.34, -0.166);
-  spine.add(yoke);
-  const waistband = new THREE.Mesh(new THREE.TorusGeometry(0.174, 0.024, 8, 20), leather);
-  waistband.position.y = 0.04;
-  waistband.rotation.x = Math.PI / 2;
-  spine.add(waistband);
-
+  const neckMat = new THREE.MeshStandardMaterial({ color: 0x6d5140, roughness: 0.85 });
+  const neck = new THREE.Mesh(new THREE.CapsuleGeometry(0.058, 0.07, 3, 10), neckMat);
+  neck.position.y = 0.5;
+  spine.add(neck);
 
   // ---- head ----
-  const neck = new THREE.Mesh(new THREE.CapsuleGeometry(0.058, 0.07, 3, 10), skin);
-  neck.position.y = 0.5;
+  const skin = new THREE.MeshStandardMaterial({ color: 0x8f6a50, roughness: 0.8 });
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.108, 20, 18), skin);
   head.position.set(0, 0.62, 0.006);
   head.scale.set(0.94, 1.12, 1.04);
@@ -282,52 +240,27 @@ export function makeOfficer() {
   const nose = new THREE.Mesh(new THREE.ConeGeometry(0.027, 0.062, 8), skin);
   nose.position.set(0, 0.607, 0.108);
   nose.rotation.x = Math.PI * 0.52;
-  const ears = new THREE.Group();
-  for (const ex of [-0.098, 0.098]) {
-    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.026, 8, 8), skin);
-    ear.scale.set(0.5, 1, 0.8);
-    ear.position.set(ex, 0.618, -0.004);
-    ears.add(ear);
-  }
   // thick, short hair: a skull cap plus a hairline sweep
   const hair = new THREE.Mesh(new THREE.SphereGeometry(0.117, 18, 16,
     0, Math.PI * 2, 0, Math.PI * 0.62), hairMat);
   hair.position.set(0, 0.622, 0.002);
   hair.scale.set(0.98, 1.06, 1.06);
-  const nape = new THREE.Mesh(new THREE.SphereGeometry(0.106, 14, 12,
-    0, Math.PI * 2, Math.PI * 0.4, Math.PI * 0.35), hairMat);
-  nape.position.set(0, 0.622, -0.028);
-  nape.scale.set(1, 1.05, 0.9);
   // The procedural head is a stand-in: it renders immediately, then the
   // scanned head swaps in once its mesh has decoded.
   const headSocket = new THREE.Group();
   headSocket.userData.hairMat = hairMat;
-  headSocket.add(head, jaw, brow, nose, ears, hair, nape);
-  spine.add(neck, headSocket);
-
-  // ---- arms ----
-  // A bladed stance: left shoulder forward, right shoulder back, the way a
-  // right-handed shooter squares up to the weapon. This is not decoration —
-  // with the shoulders level the support hand sat at 97% of the arm's reach,
-  // which leaves the elbow nowhere to go and renders the arm as a straight
-  // rod. Bringing the left shoulder 9cm forward buys the bend back.
-  const armL = jointedLimb(leather, 0.32, 0.3, 0.062, { hand: glove });
-  armL.position.set(-0.16, 0.4, -0.09);
-  const armR = jointedLimb(leather, 0.32, 0.3, 0.062, { hand: glove });
-  armR.position.set(0.2, 0.4, 0.05);
-  spine.add(armL, armR);
+  headSocket.add(head, jaw, brow, nose, hair);
+  spine.add(headSocket);
 
   // shoulder emblem, riding on the upper-left sleeve so it follows the arm
   const emblem = new THREE.Mesh(new THREE.PlaneGeometry(0.085, 0.1), patch);
-  emblem.position.set(-0.066, -0.12, 0);
+  emblem.position.set(-0.076, -0.12, 0);
   emblem.rotation.y = -Math.PI / 2;
   armL.add(emblem);
 
-  // where the rifle rides — parented to the spine so it tracks the aim.
-  // Forward is -Z, so the grip has to sit in front of the chest or the
-  // rifle ends up buried inside the jacket.
+  // where the rifle rides — parented to the spine so it tracks the aim
   const grip = new THREE.Group();
-  grip.position.set(0.13, 0.31, -0.2);
+  grip.position.set(0.18, 0.37, -0.12);
   spine.add(grip);
 
   root.traverse((m) => {

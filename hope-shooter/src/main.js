@@ -22,6 +22,7 @@ const FIRE_INTERVAL = 0.1;
 const $ = (id) => document.getElementById(id);
 const rng = makeRng(99);
 
+
 // ============================================================
 // Renderer
 // ============================================================
@@ -878,6 +879,7 @@ function frame() {
       dt, moving: walking, sprinting: sprint, aiming: S.aiming,
       pitch: S.pitch, recoil: S.recoil,
     });
+
 
     muzzle.material.opacity = Math.max(0, muzzle.material.opacity - dt * 15);
     muzzleLight.intensity = Math.max(0, muzzleLight.intensity - dt * 260);
