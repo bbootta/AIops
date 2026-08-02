@@ -87,6 +87,25 @@ class BuiltForm:
 
 # ---------------------------------------------------------------- 유틸
 
+def month_business_days(asof) -> pd.DatetimeIndex:
+    """보고월 1일부터 기준일까지의 영업일. **절대 비지 않는다.**
+
+    1·2일이 주말인 달의 기준일에서는 경과 영업일이 0개가 되고, 그 목록의
+    마지막 원소를 집는 코드가 IndexError로 터지면서 서식 290장 생성 전체가
+    멈춘다. 2026-08-02(일)에 실제로 그렇게 됐고 CLI 검사 6건이 한꺼번에 죽었다.
+
+    처음에는 이것을 `forms_fss_capital`에서만 막았는데, 같은 코드가
+    `forms_fss_liquidity`에도 있었다 — 자리를 고치는 것은 결함을 고치는 것이
+    아니다(F-701·F-802 유형). 그래서 두 곳이 같은 함수를 쓰게 한다.
+
+    경과 영업일이 없으면 일별 경로는 기준일 한 점이며, 그 값이 곧 월말
+    산출값이다(뒤따르는 `z[-1]=0` 규약과 그대로 맞는다).
+    """
+    asof = pd.Timestamp(asof)
+    days = pd.bdate_range(asof.replace(day=1), asof)
+    return days if len(days) else pd.DatetimeIndex([asof])
+
+
 def _val(lines: list[FormLine], code: str) -> float:
     for ln in lines:
         if ln.line_code == code:

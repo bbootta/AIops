@@ -284,12 +284,39 @@ def _payload(s: Studio) -> dict:
 
 # ---------------------------------------------------------------- HTML
 
-_CSS = """
-:root{--bg:#0d1117;--panel:#151b23;--panel2:#1c232c;--line:#262d38;
---text:#e6edf3;--muted:#8b95a5;--accent:#4a9eff;--good:#3fb950;--warn:#d29922;
---bad:#f85149;--chip:#21262d}
-@media (prefers-color-scheme:light){:root{--bg:#f6f8fa;--panel:#fff;
---panel2:#f0f3f6;--line:#d8dee4;--text:#1f2328;--muted:#636c76;--chip:#eaeef2}}
+# 팔레트는 두 벌뿐이고, 세 자리(기본·OS 선호·명시 토글)에 같은 값을 쓴다.
+# 손으로 세 번 적으면 한 자리만 고치는 날이 온다 — 값은 여기 한 번만 둔다.
+_DARK = {
+    "--bg": "#0d1117", "--panel": "#151b23", "--panel2": "#1c232c",
+    "--line": "#262d38", "--text": "#e6edf3", "--muted": "#8b95a5",
+    "--accent": "#4a9eff", "--good": "#3fb950", "--warn": "#d29922",
+    "--bad": "#f85149", "--chip": "#21262d",
+}
+# 밝은 바탕에서는 의미색도 함께 내려야 읽힌다. 어두운 판의 #3fb950·#f85149은
+# 흰 바탕에서 대비가 모자라 "좋음/나쁨"이 형태로만 남고 색으로는 안 읽힌다.
+_LIGHT = {
+    **_DARK,
+    "--bg": "#f6f8fa", "--panel": "#fff", "--panel2": "#f0f3f6",
+    "--line": "#d8dee4", "--text": "#1f2328", "--muted": "#636c76",
+    "--chip": "#eaeef2", "--accent": "#0969da", "--good": "#1a7f37",
+    "--warn": "#9a6700", "--bad": "#cf222e",
+}
+
+
+def _tokens(d: dict[str, str]) -> str:
+    return "".join(f"{k}:{v};" for k, v in d.items())
+
+
+# 뷰어가 테마를 직접 고르는 환경(아티팩트 등)에서는 루트에 data-theme이 찍히고,
+# 그 지정이 OS 선호보다 뒤에 와야 두 방향 모두 이긴다.
+_PALETTE = f"""
+:root{{{_tokens(_DARK)}}}
+@media (prefers-color-scheme:light){{:root{{{_tokens(_LIGHT)}}}}}
+:root[data-theme="light"]{{{_tokens(_LIGHT)}}}
+:root[data-theme="dark"]{{{_tokens(_DARK)}}}
+"""
+
+_CSS = _PALETTE + """
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);
 font:13px/1.55 "Malgun Gothic","맑은 고딕",-apple-system,"Segoe UI",sans-serif}
@@ -303,6 +330,19 @@ display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 padding:3px 10px;font-size:11px;color:var(--muted)}
 .kill{margin-left:auto;background:transparent;border:1px solid var(--bad);
 color:var(--bad);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer}
+.killbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--bad);
+box-shadow:inset 3px 0 0 var(--bad);font-size:11px}
+.killbar[hidden]{display:none}
+.killbar label{color:var(--bad);font-weight:700}
+.killbar input{flex:1 1 320px;min-width:0;background:var(--bg);
+color:var(--text);border:1px solid var(--line);border-radius:6px;
+padding:6px 10px;font:inherit}
+.killbar button{border-radius:6px;padding:6px 12px;font:inherit;cursor:pointer;
+border:1px solid var(--line);background:var(--chip);color:var(--text)}
+.killbar .killgo{border-color:var(--bad);background:var(--bad);color:#fff}
+.killnote{color:var(--muted);flex:1 1 100%}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 nav{display:flex;gap:2px;flex-wrap:wrap;padding:8px 18px;background:var(--panel2);
 border-bottom:1px solid var(--line);position:sticky;top:47px;z-index:19}
 nav button{background:transparent;border:1px solid transparent;color:var(--muted);
@@ -364,6 +404,8 @@ padding:8px 11px;min-width:120px}
 .note{border-left:3px solid var(--accent);background:var(--panel2);
 padding:9px 12px;border-radius:0 8px 8px 0;font-size:11.5px;color:var(--muted);
 margin:12px 0}
+.note.bad{border-left-color:var(--bad);color:var(--bad)}
+.note[hidden]{display:none}
 footer{padding:20px 18px;color:var(--muted);font-size:11px;
 border-top:1px solid var(--line);margin-top:24px}
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin:10px 0}
@@ -664,6 +706,11 @@ function renderProposal(pane, pr, v, rerun){
   else if(!pr.schema_pass)c.appendChild(el('div','note',
     '승인된 열을 하나도 짚지 못했다 — 위 "사용 가능한 열"의 이름을 문장에 포함할 것'));
 
+  /* 거부 사유는 화면에 적는다. alert()은 샌드박스 iframe에서 차단되므로
+     승인이 거부돼도 아무 말 없이 끝난다 — 거부를 못 본 승인이 제일 위험하다. */
+  const errBox=el('div','note bad');errBox.hidden=true;
+  c.appendChild(errBox);
+
   const previewBox=el('div');
   c.appendChild(previewBox);
   pane.appendChild(c);
@@ -676,15 +723,19 @@ function renderProposal(pane, pr, v, rerun){
       applied?'승인 적용 화면':'미리보기 (운영 반영 전)'));
     renderBlocks(previewBox, pr, v);
   }
-  bPrev.onclick=()=>draw(false);
+  bPrev.onclick=()=>{errBox.hidden=true;draw(false);};
   bApp.onclick=()=>{
     try{
       const a=RY.approve(pr,'리스크관리부장');
       (STATE.history[v.view_id]=STATE.history[v.view_id]||[])
         .push(STATE.approved[v.view_id]||null);
       STATE.approved[v.view_id]=a;
+      errBox.hidden=true;
       rerun();
-    }catch(e){alert(e.message)}
+    }catch(e){
+      errBox.textContent='승인 거부 — '+e.message;
+      errBox.hidden=false;
+    }
   };
   bRb.onclick=()=>{
     const h=STATE.history[v.view_id]||[];
@@ -1154,20 +1205,34 @@ function boot(){
     nav.appendChild(b);main.appendChild(s);
     if(i===0)b.onclick();
   });
-  const kb=$('.kill');
-  kb.onclick=()=>{
-    if(!STATE.killed){
-      const reason=prompt('비상정지 사유를 입력하세요 (필수). 중요 범위는 운영에서 '+
-        '독립된 2차 확인이 추가로 필요합니다.','시장데이터 지연 확인 중 신규 재계산 보류');
-      if(!reason)return;                    /* 사유 없는 정지는 없다 */
-      STATE.killed=true;STATE.killReason=reason;
-      kb.textContent='Kill Switch 해제';kb.classList.add('on');
-    } else {
-      STATE.killed=false;kb.textContent='Kill Switch';kb.classList.remove('on');
-    }
-    /* 정지 상태는 화면 전체에 즉시 반영된다 — 정형 조회 탭을 다시 그린다. */
+  /* 사유 입력은 **화면 안**에서 받는다. prompt()는 샌드박스 iframe(임베드·
+     아티팩트)에서 차단되어 null을 돌려주고, 그러면 통제가 아무 반응 없이
+     죽는다 — 있는 것처럼 보이면서 작동하지 않는 통제가 제일 나쁘다. */
+  const kb=$('.kill'), bar=$('.killbar'), rin=$('#killreason');
+  const repaint=()=>{
     [...main.children].forEach(x=>{x.dataset.done='';x.innerHTML=''});
-    [...nav.children].forEach((b,i)=>{if(b.classList.contains('on'))b.onclick()});
+    [...nav.children].forEach(b=>{if(b.classList.contains('on'))b.onclick()});
+  };
+  const engage=()=>{
+    const reason=(rin.value||'').trim();
+    if(!reason){rin.focus();return;}        /* 사유 없는 정지는 없다 */
+    STATE.killed=true;STATE.killReason=reason;
+    kb.textContent='Kill Switch 해제';kb.classList.add('on');
+    bar.hidden=true;repaint();
+  };
+  kb.onclick=()=>{
+    if(STATE.killed){
+      STATE.killed=false;kb.textContent='Kill Switch';kb.classList.remove('on');
+      bar.hidden=true;repaint();return;
+    }
+    bar.hidden=!bar.hidden;
+    if(!bar.hidden){rin.focus();rin.select();}
+  };
+  $('.killgo').onclick=engage;
+  $('.killno').onclick=()=>{bar.hidden=true;kb.focus();};
+  rin.onkeydown=e=>{
+    if(e.key==='Enter')engage();
+    if(e.key==='Escape'){bar.hidden=true;kb.focus();}
   };
 }
 boot();
@@ -1192,6 +1257,14 @@ def render(s: Studio) -> str:
   <span class="hchip">Read-only · PII Mask</span>
   <button class="kill">Kill Switch</button>
 </header>
+<div class="killbar" hidden>
+  <label for="killreason">비상정지 사유 (필수)</label>
+  <input id="killreason" type="text"
+         value="시장데이터 지연 확인 중 신규 재계산 보류">
+  <button class="killgo">정지</button>
+  <button class="killno">취소</button>
+  <span class="killnote">중요 범위는 운영에서 독립된 2차 확인이 추가로 필요하다.</span>
+</div>
 <nav></nav>
 <main></main>
 <footer>

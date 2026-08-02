@@ -271,3 +271,32 @@ def test_workbook_cover_carries_the_digest(built, tmp_path):
     assert submission_digest(built) in text
     # 서식번호 전제를 표지에 남기지 않으면 배포본 매핑 시 잘못 대응된다.
     assert "서식번호" in text
+
+
+def test_forms_build_when_the_month_has_no_elapsed_business_day():
+    """기준일이 그 달 첫 영업일보다 앞서도 서식이 만들어진다.
+
+    B2316(일별 트레이딩 자산)은 보고월의 경과 영업일에 잔액을 깐다. 1·2일이
+    주말인 달의 기준일에서는 그 목록이 비고, 마지막 원소를 집는 코드가
+    IndexError로 터지면서 **서식 290장 생성 전체가** 멈췄다. 2026-08-02(일)에
+    실제로 그렇게 됐고, `report-set`·`compare`·`reproduce` CLI 검사 6건이
+    한꺼번에 실패했다.
+
+    날짜에 기대는 결함은 달력이 그 모양이 되는 날에만 나타나므로, 고정 기준일만
+    쓰는 검사로는 절대 만나지 않는다. 그 날짜를 직접 박아 고정한다.
+    """
+    from risk_lib.data_gen import generate_portfolio
+    from risk_lib.pipeline import run_pipeline
+    from risk_lib.ui_studio.studio import build_studio
+
+    p = generate_portfolio(seed=42)
+    r = run_pipeline(p, asof="2026-08-02", seed=42)      # 일요일 · 월초
+    s = build_studio(r, p)
+    built = build_forms(r, p, s.tables)
+    assert len(built) > 200
+
+    b2316 = [b for b in built if b.spec.form_no.internal_code == "B2316"]
+    assert b2316, "B2316이 생성되지 않았다"
+    from risk_lib.regulatory.forms_base import _val
+    days = _val(b2316[0].lines, "1000")
+    assert days >= 1, "경과 영업일이 0이면 일별 잔액을 한 점도 못 깐다"

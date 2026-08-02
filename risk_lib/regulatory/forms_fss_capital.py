@@ -48,7 +48,7 @@ import numpy as np
 import pandas as pd
 
 from risk_lib.regulatory.forms_base import (
-    FormCheck, FormLine, _ratio_check, _sum_check, _val,
+    FormCheck, FormLine, _ratio_check, _sum_check, _val, month_business_days,
 )
 from risk_lib.ccr import cva_rwa as _cva_rwa
 
@@ -554,7 +554,7 @@ def _b2316_daily(ctx) -> tuple[pd.DatetimeIndex, np.ndarray, float]:
     """
     _, assets, _ = _trading_book(ctx)
     asof = pd.Timestamp(str(ctx.result.meta["asof"]))
-    days = pd.bdate_range(asof.replace(day=1), asof)
+    days = month_business_days(asof)
 
     bt = ctx.tables["mkt_backtest_exception"].copy()
     bt["obs"] = pd.to_datetime(bt["obs_date"])

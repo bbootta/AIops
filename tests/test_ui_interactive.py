@@ -208,25 +208,68 @@ def test_approve_then_rollback_round_trip(page):
 
 
 # ----- Kill Switch ------------------------------------------------------------
+#
+# 이 두 검사는 원래 `page.on("dialog", …)`로 prompt()에 답해 주고 통과했다.
+# **테스트가 통제에 없는 도움을 주고 있었다** — 샌드박스 iframe(임베드·아티팩트)은
+# prompt()를 차단하고 null을 돌려주므로, 실제 배포 화면에서는 비상정지 버튼을
+# 눌러도 아무 일도 일어나지 않는다. 통과하는 검사가 죽은 통제를 덮은 것이다.
+#
+# 그래서 사유 입력을 화면 안으로 옮기고, 검사에서 dialog 핸들러를 **뺐다**.
+# 이제 이 검사가 통과한다는 것은 대화상자 없이도 통제가 산다는 뜻이다.
 
-def test_kill_switch_stops_new_queries(page):
-    page.on("dialog", lambda d: d.accept("통제 점검"))
-    page.click(".kill")
+def test_kill_switch_stops_new_queries_without_any_dialog(page):
+    page.click(".kill")                          # 사유 입력줄이 화면 안에 열린다
+    page.wait_for_timeout(200)
+    assert not page.eval_on_selector(".killbar", "e => e.hidden")
+    page.fill("#killreason", "통제 점검")
+    page.click(".killbar .killgo")
     page.wait_for_timeout(400)
+    assert "Kill Switch 해제" in page.inner_text(".kill")
     _tab(page, 1)
     # select 옵션 목록에도 "비상정지"라는 테이블명이 있으므로 카드 안만 본다.
     card = page.inner_text("section.on .card")
     assert "비상정지 — 실행 차단" in card
     assert "고정 컬럼 결과" not in card
+    assert page.errors == []
 
 
 def test_kill_switch_requires_a_reason(page):
-    page.on("dialog", lambda d: d.dismiss())     # 사유 입력 취소
     page.click(".kill")
+    page.wait_for_timeout(200)
+    page.fill("#killreason", "   ")               # 공백만 — 사유가 아니다
+    page.click(".killbar .killgo")
     page.wait_for_timeout(300)
     assert "Kill Switch 해제" not in page.inner_text(".kill")
     _tab(page, 1)
     assert "비상정지 — 실행 차단" not in page.inner_text("section.on .card")
+
+
+def test_kill_switch_can_be_cancelled(page):
+    page.click(".kill")
+    page.wait_for_timeout(200)
+    page.click(".killbar .killno")
+    page.wait_for_timeout(200)
+    assert page.eval_on_selector(".killbar", "e => e.hidden")
+    assert "Kill Switch 해제" not in page.inner_text(".kill")
+
+
+def test_no_control_depends_on_a_blocked_modal_dialog(page_path):
+    """화면이 prompt()·alert()·confirm()에 기대지 않는다.
+
+    이 셋은 샌드박스 iframe에서 차단된다. 차단되면 예외가 아니라 **조용한
+    무반응**이 되므로, 그 위에 올린 통제(비상정지 사유, 승인 거부 사유)는 있는
+    것처럼 보이면서 작동하지 않는다. 배포 화면에서 제일 나쁜 실패 방식이다.
+    """
+    import re
+    html = Path(page_path).read_text(encoding="utf-8")
+    # 주석에서 이 셋을 **언급**하는 것은 정상이다 — 실제로 이 파일의 주석이
+    # 왜 쓰지 않는지를 설명한다. 코드만 본다. 주석까지 잡으면 다음 사람이
+    # 설명을 지우거나 검사를 끄게 되고, 그러면 통제가 아니라 방해가 된다.
+    code = re.sub(r"/\*.*?\*/", " ", html, flags=re.S)
+    code = re.sub(r"(?m)//.*$", " ", code)
+    hits = re.findall(
+        r"(?<![\w.])(?:window\.)?(?:prompt|alert|confirm)\s*\(", code)
+    assert not hits, f"차단되는 대화상자 호출 {len(hits)}건 — 화면 안 입력으로 옮겨라"
 
 
 # ----- E 위기상황: 심각도별 전 단계 산출과정 ------------------------------------

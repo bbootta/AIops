@@ -60,7 +60,7 @@ from risk_lib.limits.concentration import hhi
 from risk_lib.prudential.liquidity import FX_SHARE
 from risk_lib.references import LCR_HAIRCUT_L2A, LCR_HAIRCUT_L2B, LCR_INFLOW_CAP
 from risk_lib.regulatory.forms_base import (
-    FormCheck, FormLine, _ratio_check, _sum_check, _val,
+    FormCheck, FormLine, _ratio_check, _sum_check, _val, month_business_days,
 )
 
 _M_BS = "risk_lib.alm.balance_sheet"
@@ -149,7 +149,7 @@ def _lcr_path(ctx) -> tuple[pd.DatetimeIndex, np.ndarray, float]:
     """
     lcr = ctx.result.alm["lcr"]
     asof = pd.Timestamp(str(ctx.result.meta["asof"]))
-    days = pd.bdate_range(asof.replace(day=1), asof)
+    days = month_business_days(asof)
     sigma = (float(lcr.net_outflow) / 30.0 / float(lcr.hqla_total)
              if lcr.hqla_total else 0.0)
     z = np.random.default_rng(int(ctx.result.meta["seed"]) + 2602) \
