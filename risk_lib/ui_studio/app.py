@@ -422,17 +422,21 @@ align-items:start}
 nav{position:sticky;top:96px;max-height:calc(100vh - 96px);overflow-y:auto;
 display:flex;flex-direction:column;gap:1px;padding:12px 10px 24px;
 background:var(--bg);border-right:1px solid var(--line)}
-.navgroup{color:var(--muted);font-size:9.5px;font-weight:800;
-letter-spacing:.09em;padding:12px 10px 4px;cursor:pointer;user-select:none}
-.navgroup:first-child{padding-top:2px}
-.navgroup::before{content:'▾ '}
-.navgroup.closed::before{content:'▸ '}
-nav button{background:transparent;border:1px solid transparent;color:var(--muted);
-padding:6px 11px;border-radius:8px;cursor:pointer;font-size:12px;text-align:left;
-font-weight:650;font-family:inherit}
-nav button:hover{color:var(--text);background:var(--chip)}
+.navgroup{color:var(--text);font-size:10.5px;font-weight:800;
+letter-spacing:.08em;padding:7px 8px;margin-top:10px;cursor:pointer;
+user-select:none;background:var(--panel2);border:1px solid var(--line);
+border-radius:8px}
+.navgroup:first-child{margin-top:0}
+.navgroup::before{content:'▾ ';color:var(--accent)}
+.navgroup.closed::before{content:'▸ ';color:var(--muted)}
+nav button{background:transparent;border:none;color:var(--muted);
+margin-left:9px;padding:6px 10px 6px 13px;cursor:pointer;font-size:12px;
+text-align:left;font-weight:650;font-family:inherit;
+border-left:2px solid var(--line);border-radius:0 8px 8px 0}
+nav button:hover{color:var(--text);background:var(--chip);
+border-left-color:var(--muted)}
 nav button.on{background:var(--accent);color:var(--on-accent);
-border-color:var(--accent);font-weight:750}
+border-left-color:var(--accent);font-weight:750}
 nav button[hidden]{display:none}
 main{padding:20px;min-width:0}
 @media(max-width:900px){
@@ -457,7 +461,8 @@ font-variant-numeric:tabular-nums}
 .kpi .sub{font-size:11px;color:var(--muted)}
 .kpi .ln{font-size:10px;color:var(--lineage);font-weight:650;margin-top:7px}
 .good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}
-.tw{overflow-x:auto;border:1px solid var(--line);border-radius:11px;margin:10px 0}
+.tw{overflow:auto;border:1px solid var(--line);border-radius:11px;margin:10px 0;
+max-height:912px}   /* ≈ 30행 + 머리글 — 넘치면 그리드 안에서 스크롤 */
 table{border-collapse:collapse;width:100%;font-size:11.5px;min-width:520px}
 th{background:var(--panel2);color:var(--muted);text-align:left;padding:7px 9px;
 font-weight:750;letter-spacing:.02em;border-bottom:1px solid var(--line);
@@ -537,9 +542,10 @@ cursor:pointer;font-family:inherit}
 color:var(--on-accent);font-weight:750}
 .spark{width:100%;height:120px;display:block}
 .blocks{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr));
-margin:10px 0}
-.blocks .blk{min-width:0}
-.blocks .blk.table,.blocks .blk.kpi{grid-column:1/-1}
+margin:10px 0;align-items:start}
+.blocks .blk{min-width:0;background:var(--chip);border:1px solid var(--line);
+border-radius:12px;padding:12px;overflow:hidden}
+.blocks .blk.viz-table,.blocks .blk.viz-kpi{grid-column:1/-1}
 @media(max-width:1100px){.blocks{grid-template-columns:1fr}}
 .blkhead{display:flex;gap:8px;align-items:center;font-size:12px;
 font-weight:750;margin:2px 0 8px}
@@ -603,7 +609,8 @@ function fmtMoney(v){
   const a=Math.abs(v);
   if(a>=1e12)return (v/1e12).toFixed(1)+'조';
   if(a>=1e8)return (v/1e8).toFixed(0)+'억';
-  return fmtNum(Math.round(v));
+  /* 반올림하지 않는다 — 위험가중치 0.2를 0으로 보이면 표시가 거짓이 된다 */
+  return fmtNum(v);
 }
 function frameIdx(f){const i={};f.columns.forEach((c,k)=>{i[c]=k});return i}
 function srcMeta(f,extra){
@@ -1220,8 +1227,23 @@ function renderBlocks(box, pr, v){
   const idx={};frame.columns.forEach((c,i)=>{idx[c]=i});
   const lab=c=>colLabel(frame, idx[c]);          /* 물리명 → 표시명 */
   const cols=pr.columns.filter(c=>c in idx);
-  const numCol=cols.find(c=>frame.rows.some(r=>typeof r[idx[c]]==='number'));
-  const labCol=cols.find(c=>c!==numCol&&frame.rows.some(r=>typeof r[idx[c]]==='string'));
+  let numCol=cols.find(c=>frame.rows.some(r=>typeof r[idx[c]]==='number'));
+  /* "기여도를 막대로"처럼 값 열이 문장에 없으면 요청한 레이아웃 자체가
+     사라진다. 이 View의 승인·비마스킹 숫자 열 중 첫 번째로 그리되,
+     기본 열을 썼다는 사실을 블록에 공시한다 — 조용한 대체는 없다. */
+  let numFallback=false;
+  if(!numCol){
+    const ok=new Set(v.fields.filter(f=>f.permitted&&f.masking==='none')
+      .map(f=>f.field_name));
+    numCol=frame.columns.find(c=>ok.has(c)&&
+      frame.rows.some(r=>typeof r[idx[c]]==='number'));
+    if(numCol)numFallback=true;
+  }
+  const isLabelish=c=>c!==numCol&&
+    frame.rows.some(r=>typeof r[idx[c]]==='string')&&
+    new Set(frame.rows.slice(0,50).map(r=>r[idx[c]])).size>1; /* 고유값 1개는 라벨이 아니다 */
+  let labCol=cols.find(isLabelish)||frame.columns.find(isLabelish)||
+    cols.find(c=>c!==numCol&&frame.rows.some(r=>typeof r[idx[c]]==='string'));
   let rows=frame.rows.slice();
   if(numCol)rows.sort((a,b)=>(b[idx[numCol]]||0)-(a[idx[numCol]]||0));
   rows=rows.slice(0,pr.row_limit);
@@ -1244,7 +1266,7 @@ function renderBlocks(box, pr, v){
     return h;
   };
   pr.blocks.forEach(([viz,title])=>{
-    const blk=el('div','blk '+viz);
+    const blk=el('div','blk viz-'+viz);  /* 'bar' 원클래스는 막대 트랙(.bar)과 충돌한다 */
     if(viz==='kpi'){
       const g=el('div','grid');
       cols.slice(0,4).forEach(cName=>{
@@ -1268,6 +1290,8 @@ function renderBlocks(box, pr, v){
       blk.appendChild(g);
     } else if(viz==='bar'&&numCol){
       blk.appendChild(blkHead('막대',`${title} · ${lab(numCol)}`,numCol));
+      if(numFallback)blk.appendChild(el('div','meta',
+        `값 열이 문장에 없어 이 View의 기본 값 열(${lab(numCol)})로 그렸다 — 다른 열은 문장에 이름을 적으면 된다`));
       const top=rows.slice(0,10).map((r,i)=>({
         label:labCol?esc(r[idx[labCol]]):'#'+(i+1),
         value:r[idx[numCol]]||0,
@@ -1280,6 +1304,8 @@ function renderBlocks(box, pr, v){
       blk.appendChild(barList(top));
     } else if(viz==='line'&&numCol){
       blk.appendChild(blkHead('추이',`${title} · ${lab(numCol)}`,numCol));
+      if(numFallback)blk.appendChild(el('div','meta',
+        `값 열이 문장에 없어 이 View의 기본 값 열(${lab(numCol)})로 그렸다`));
       blk.appendChild(areaLine(rows.map(r=>r[idx[numCol]]||0).slice(0,60),
         {label:lab(numCol)}));
     } else if((viz==='bar'||viz==='line')&&!numCol){
@@ -1290,11 +1316,11 @@ function renderBlocks(box, pr, v){
         (viz==='bar'?'막대차트':'추이')+'는 숫자 열이 필요하다 — 문장에 값 열'+
         '(예: '+v.fields.filter(f=>f.permitted&&f.masking==='none')
           .slice(0,3).map(f=>f.korean).join(' · ')+')을 함께 적으면 그린다.'));
-      blk.classList.add('table');
+      blk.classList.add('viz-table');
     } else {
       blk.appendChild(blkHead('표',title||'검토 표'));
       blk.appendChild(table(sub));
-      blk.classList.add('table');
+      blk.classList.add('viz-table');
     }
     grid.appendChild(blk);
   });

@@ -735,8 +735,10 @@ def test_adaptive_blocks_render_rich_layout(page):
     assert page.errors == []
 
 
-def test_chart_without_numeric_column_explains_instead_of_vanishing(page):
-    """값 열이 안 잡힌 차트 블록은 조용히 사라지지 않고 고치는 법을 알려준다."""
+def test_chart_without_numeric_column_draws_default_and_discloses(page):
+    """값 열이 문장에 없어도 요청한 레이아웃(막대)은 드러난다 — 이 View의
+    기본 값 열로 그리되, 기본 열을 썼다는 사실을 블록에 공시한다.
+    조용한 대체도, 조용한 소멸도 없다."""
     _tab(page, 2)
     page.select_option("section.on select.sel", "V_RWA_SA_BUCKET")
     page.wait_for_timeout(200)
@@ -744,5 +746,6 @@ def test_chart_without_numeric_column_explains_instead_of_vanishing(page):
               "자산군 기여도를 막대차트로 보여주고 아래에 검토 표를 배치해줘")
     page.wait_for_timeout(400)
     txt = _text(page)
-    assert "숫자 열이 필요하다" in txt and "함께 적으면 그린다" in txt
+    assert "기본 값 열" in txt                      # 공시
+    assert page.query_selector("section.on .blk.viz-bar .bar i")  # 막대가 실제로 그려졌다
     assert page.errors == []
