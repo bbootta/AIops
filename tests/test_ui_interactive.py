@@ -45,8 +45,11 @@ def multi_page_path(studio, tmp_path_factory):
     """
     import dataclasses
     from risk_lib.ui_studio.app import write_app
+    # digest 를 바꿔 둔다 — asof·run_id 만 바꾸면 화면 어디에도 두 실행을
+    # 구별할 신호가 없어, 전환이 실제로 일어났는지 단언할 수 없다 (검토 지적:
+    # repaintAll 을 지워도 통과하는 테스트였다).
     older = dataclasses.replace(studio, asof="2026-03-31",
-                                run_id="RUN-20260331")
+                                run_id="RUN-20260331", digest="f" * 64)
     out = tmp_path_factory.mktemp("ui2") / "studio2.html"
     return write_app([studio, older], out)
 
@@ -454,18 +457,24 @@ def test_table_headers_show_catalog_labels_not_physical_names(page):
 
 # ----- ⚙ 설정 ------------------------------------------------------------------
 
-SETTINGS_TAB = 16
+def _tab_named(pg, label: str) -> None:
+    """탭을 라벨로 찾는다 — 인덱스 하드코딩은 탭 순서가 바뀌는 순간 다른 탭을
+    누르고, 특히 `~ not in` 류 부정 단언을 조용히 항상-참으로 만든다."""
+    pg.eval_on_selector_all(
+        "nav button",
+        "(els, t) => els.find(e => e.textContent.includes(t)).click()", label)
+    pg.wait_for_timeout(300)
 
 
 def test_settings_run_registry_lists_the_runs(page):
-    _tab(page, SETTINGS_TAB)
+    _tab_named(page, '설정')
     txt = page.inner_text("section.on .set-runs")
     assert "RUN-" in txt and "기준일" in txt
 
 
 def test_settings_label_override_applies_to_the_screen(page):
     """표시명 재정의 → 세션 적용 → 다른 탭의 머리글이 바뀐다."""
-    _tab(page, SETTINGS_TAB)
+    _tab_named(page, '설정')
     page.select_option("section.on .set-labels select.sel", "rdm_obligor")
     page.wait_for_timeout(200)
     page.fill("section.on .set-labels tbody tr:first-child input", "차주 ID")
@@ -480,7 +489,7 @@ def test_settings_label_override_applies_to_the_screen(page):
 
 def test_settings_form_map_rejects_duplicate_and_bad_format(page):
     """서식번호 매핑 — 형식 위반·중복은 제안이 되기 전에 걸린다."""
-    _tab(page, SETTINGS_TAB)
+    _tab_named(page, '설정')
     rows = "section.on .set-formmap tbody tr"
     # 2행에 1행의 현행 번호(B2101)를 넣는다 → 중복
     page.fill(f"{rows}:nth-child(2) input", "B2101")
@@ -501,19 +510,19 @@ def test_settings_form_map_produces_a_proposal_not_an_edit(page):
     서식번호는 제출 지문이 걸린 값이다. 화면이 즉석에서 바꾸면 제출본과 다른
     화면이 생기고, 그것은 F-501(문서가 다른 실행을 설명) 유형의 화면판이 된다.
     """
-    _tab(page, SETTINGS_TAB)
+    _tab_named(page, '설정')
     page.fill("section.on .set-formmap tbody tr:nth-child(2) input", "B9999")
     page.click("section.on .set-formmap .btn.primary")
     page.wait_for_timeout(300)
     out = page.inner_text("section.on .set-formmap pre")
     assert "form_ids.py" in out and "재실행" in out
     # 감독보고 탭의 서식번호는 그대로다
-    _tab(page, 11)
+    _tab_named(page, '감독보고')
     assert "B9999" not in page.inner_text("section.on .list")
 
 
 def test_settings_scenario_produces_a_proposal_and_never_recomputes(page):
-    _tab(page, SETTINGS_TAB)
+    _tab_named(page, '설정')
     page.fill("section.on .set-scenario tbody tr:first-child input", "0.05")
     page.click("section.on .set-scenario .btn.primary")
     page.wait_for_timeout(300)
@@ -527,12 +536,12 @@ def test_settings_scenario_produces_a_proposal_and_never_recomputes(page):
 
 
 def test_settings_proposals_are_blocked_while_killed(page):
-    _tab(page, SETTINGS_TAB)
+    _tab_named(page, '설정')
     page.click("header .kill")
     page.fill("#killreason", "통제 점검")
     page.click(".killbar .killgo")
     page.wait_for_timeout(400)
-    _tab(page, SETTINGS_TAB)
+    _tab_named(page, '설정')
     page.fill("section.on .set-scenario tbody tr:first-child input", "0.05")
     page.click("section.on .set-scenario .btn.primary")
     page.wait_for_timeout(300)
@@ -552,11 +561,21 @@ def test_asof_switch_changes_the_active_run(browser, multi_page_path):
     assert len(opts) == 2
     assert pg.input_value("#asofsel") == max(opts)   # 최신 기준일이 기본
     run_before = pg.inner_text("#chip-run")
+
+    # 재렌더 증명 — 활성 섹션 안에 탐침을 심는다. repaintAll 이 실제로 돌면
+    # innerHTML 이 비워지며 탐침이 사라진다. `h2 가 있다` 같은 단언은 전환
+    # 전 DOM에도 참이라 repaintAll 을 지워도 통과했다 (검토 실측 지적).
+    pg.evaluate("const s=document.querySelector('section.on');"
+                "const d=document.createElement('div');d.id='repaint-probe';"
+                "s.appendChild(d)")
+    assert pg.query_selector("#repaint-probe")
+
     pg.select_option("#asofsel", min(opts))
     pg.wait_for_timeout(800)
     assert pg.inner_text("#chip-run") != run_before
     assert "RUN-20260331" in pg.inner_text("#chip-run")
-    assert pg.inner_text("section.on h2")            # 활성 탭이 다시 그려졌다
+    assert "ffffffffffff" in pg.inner_text("#chip-digest")  # 그 실행의 지문
+    assert pg.query_selector("#repaint-probe") is None      # 본문이 재렌더됐다
     assert errors == []
     pg.close()
 
@@ -566,7 +585,7 @@ def test_asof_switch_changes_the_active_run(browser, multi_page_path):
 def test_five_digit_official_form_numbers_are_accepted(page):
     """B10101 등 5자리 숫자부 배포 코드 9종이 실재한다 — 형식 검사가 거부하면
     실코드를 쓰는 정당한 제안이 만들어지지 않는다."""
-    _tab(page, SETTINGS_TAB)
+    _tab_named(page, '설정')
     page.fill("section.on .set-formmap tbody tr:nth-child(2) input", "B99901")
     page.click("section.on .set-formmap .btn.primary")
     page.wait_for_timeout(300)
@@ -577,7 +596,7 @@ def test_five_digit_official_form_numbers_are_accepted(page):
 def test_internal_form_number_duplicate_is_caught(page):
     """내부관리 서식의 form_no는 'RM-#### (내부관리)' 표시문자열이다 — 중복
     검사가 표시문자열을 키로 쓰면 'RM-####' 입력이 그대로 지나간다."""
-    _tab(page, SETTINGS_TAB)
+    _tab_named(page, '설정')
     rm = page.evaluate(
         "window.__RYNTA__.forms.find(f=>f.form_no.startsWith('RM-'))"
         ".form_no.split(' ')[0]")

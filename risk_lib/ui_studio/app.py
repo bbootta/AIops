@@ -810,7 +810,8 @@ function renderBlocks(box, pr, v){
         const j=idx[cName];
         const nums=rows.map(r=>r[j]).filter(x=>typeof x==='number');
         const card=el('div','card kpi');
-        card.appendChild(el('div','lab',lab(cName)));
+        const kl=el('div','lab',lab(cName));kl.title=cName;
+        card.appendChild(kl);
         card.appendChild(el('div','val',nums.length
           ? fmtNum(nums.reduce((a,b)=>a+b,0)) : String(rows.length)+'행'));
         card.appendChild(el('div','sub',nums.length?'합계':'건수'));
@@ -819,7 +820,8 @@ function renderBlocks(box, pr, v){
     } else if(viz==='bar'&&numCol){
       const max=Math.max(...rows.map(r=>Math.abs(r[idx[numCol]]||0)))||1;
       const w=el('div');
-      w.appendChild(el('div','meta',`${title} · ${lab(numCol)}`));
+      const bm=el('div','meta',`${title} · ${lab(numCol)}`);bm.title=numCol;
+      w.appendChild(bm);
       rows.slice(0,12).forEach((r,i)=>{
         const line=el('div');line.style.margin='6px 0';
         line.appendChild(el('div','meta',
@@ -829,14 +831,14 @@ function renderBlocks(box, pr, v){
         b.appendChild(f);line.appendChild(b);w.appendChild(line)});
       box.appendChild(w);
     } else if(viz==='line'&&numCol){
-      box.appendChild(sparkline(rows.map(r=>r[idx[numCol]]||0), title+' · '+lab(numCol)));
+      box.appendChild(sparkline(rows.map(r=>r[idx[numCol]]||0), title+' · '+lab(numCol), numCol));
     } else {
       box.appendChild(table(sub));
     }
   });
 }
 
-function sparkline(values, title){
+function sparkline(values, title, phys){
   const w=680,h=120,pad=6;
   const max=Math.max(...values,0),min=Math.min(...values,0);
   const span=(max-min)||1;
@@ -845,7 +847,8 @@ function sparkline(values, title){
     const y=h-pad-((v-min)/span)*(h-2*pad);
     return `${x.toFixed(1)},${y.toFixed(1)}`}).join(' ');
   const box=el('div');
-  box.appendChild(el('div','meta',title));
+  const mt=el('div','meta',title);if(phys)mt.title=phys;
+  box.appendChild(mt);
   const ns='http://www.w3.org/2000/svg';
   const svg=document.createElementNS(ns,'svg');
   svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
@@ -1144,6 +1147,10 @@ function validation(root){
     c.appendChild(el('div','val '+(t||''),String(v)));
     kg.appendChild(c)});
   g.appendChild(kg);
+  g.appendChild(el('div','note',
+    '이 판정은 화면을 산출한 실행 시점의 스냅샷이다. 이후 도착한 3선 응답이나 '+
+    '판정 변경은 이 화면에 반영되지 않는다 — 현재 상태의 정본은 저장소 게이트'+
+    '(check_gate)다.'));
   g.appendChild(el('div','note',iv.reason+
     ' — 게이트는 fail-closed다. 응답이 없으면 통과가 아니라 대기이며 결재 상신이 막힌다. '+
     '판정이 경부적합이면 상태는 조건부이며, 결재 책임자가 잔여위험·후속조건·이행기한·'+
@@ -1218,7 +1225,9 @@ function runRegistry(root){
   c.appendChild(el('h3',null,'실은 실행 (기준일 전환 대상)'));
   c.appendChild(el('div','meta',
     '기준일 전환은 미리 산출해 실은 실행 사이의 전환이다. 새 기준일은 '+
-    'run_pipeline 재실행으로만 생긴다 — 화면이 즉석에서 만들 수 없다.'));
+    'run_pipeline 재실행으로만 생긴다 — 화면이 즉석에서 만들 수 없다. '+
+    '게이트 열은 각 실행을 산출한 시점의 스냅샷이며, 이후 3선 응답은 '+
+    '반영되지 않는다.'));
   c.appendChild(table({columns:['기준일','실행 ID','산출 지문','시드',
       '3선 요청','게이트','자체검증(2선)'],
     rows:Object.keys(RUNS).sort().map(a=>{const r=RUNS[a];
@@ -1331,6 +1340,7 @@ function formMapSettings(root){
       if(!FORM_NO_RE.test(v)){bad.push(`${fid}: '${v}' — 형식 위반 (B/BA/BF+숫자(-가지) 또는 RM-####)`);return}
       if(used[formNoKey(v)]&&used[formNoKey(v)]!==fid){bad.push(`${fid}: '${v}' — ${used[formNoKey(v)]}가 이미 사용`);return}
       const cur=D.forms.find(f=>f.form_id===fid);
+      used[formNoKey(v)]=fid;       /* 제안값끼리의 충돌도 잡는다 */
       changes.push({form_id:fid,from:cur.form_no,to:v})});
     if(bad.length){err.textContent='검증 실패 '+bad.length+'건 — '+bad.join(' · ');
       err.hidden=false;return}
@@ -1365,10 +1375,16 @@ function scenarioSettings(root){
     seen.add(r[i.step]);
     const m=/단위충격\(([-\d.]+)\s*(\S+)\)/.exec(r[i.formula]||'');
     axes.push({step:r[i.step],unit:m?m[2]:r[i.unit],base:m?parseFloat(m[1]):null})});
+  /* 심도는 분기마다 다르고 정점까지 선형 상승한다 — 첫 행(1분기)을 집으면
+     시나리오 정의 심도를 최대 4~5배 과소 표기한다. 검토자가 단위충격 × 심도로
+     정점 충격을 어림하는 화면이므로 **정점(최대) 심도**를 뽑는다. */
   const sever={};
   scenarios.forEach(sc=>{
-    const r=f.rows.find(x=>x[i.scenario]===sc&&/심도/.test(x[i.step]));
-    sever[sc]=r?r[i.value]:null});
+    let mx=null;
+    f.rows.forEach(x=>{
+      if(x[i.scenario]===sc&&/심도/.test(x[i.step])&&typeof x[i.value]==='number')
+        mx=mx===null?x[i.value]:Math.max(mx,x[i.value])});
+    sever[sc]=mx});
 
   const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
   ['충격 축','단위','현행 단위충격','제안 단위충격'].forEach(
@@ -1385,8 +1401,9 @@ function scenarioSettings(root){
     inp.style.minWidth='90px';inputs[a.step]=inp;
     td.appendChild(inp);x.appendChild(td);tb.appendChild(x)});
   t.appendChild(tb);w.appendChild(t);c.appendChild(w);
-  c.appendChild(el('div','meta','시나리오별 심도 — '+scenarios.map(
-    sc=>`${sc} ${sever[sc]===null?'—':sever[sc]}`).join(' · ')));
+  c.appendChild(el('div','meta','시나리오별 정점 심도 — '+scenarios.map(
+    sc=>`${sc} ${sever[sc]===null?'—':sever[sc]}`).join(' · ')+
+    ' (분기별 심도는 정점까지 선형 상승)'));
 
   const acts=el('div','toolbar');
   const gen=el('button','btn primary','변경 제안 생성');
@@ -1411,7 +1428,7 @@ function scenarioSettings(root){
       run_id:D.meta.run_id,changes,
       impact:['신용파라미터→신용RWA→시장→은행계정금리→운영→유동성→손익→자본→비율→판정 전 단계',
               '업무보고서 위기상황 서식','자본계획·회복계획 연계 경보'],
-      apply_path:'risk_lib/stress.py (충격 축 정의)',
+      apply_path:'risk_lib/stress/axes.py (충격 축 · 심도 정의)',
       procedure:['코드 반영','파이프라인 재실행','자체검증(2선) FAIL 0 확인',
                  '독립검증(3선) 재요청','게이트 통과 후 결재'],
       note:'화면은 재계산하지 않는다 — 이 제안은 입력이지 산출이 아니다.'},null,2);

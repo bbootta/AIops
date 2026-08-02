@@ -312,10 +312,12 @@ def test_every_payload_column_has_a_catalog_label(studio):
     h = render(studio)
     d = _runs(h)[_primary(h)]
     missing: list[str] = []
+    checked = [0]
 
     def walk(o, path):
         if isinstance(o, dict):
             if isinstance(o.get("columns"), list) and isinstance(o.get("rows"), list):
+                checked[0] += 1
                 labs = o.get("labels") or [None] * len(o["columns"])
                 missing.extend(
                     f"{o.get('table') or path}/{c}"
@@ -331,18 +333,30 @@ def test_every_payload_column_has_a_catalog_label(studio):
     assert not missing, (
         f"카탈로그 표시명 없는 컬럼 {len(missing)}건 — ColumnSpec.korean 을 "
         f"채워라:\n  " + "\n  ".join(missing[:20]))
+    # 공허 통과 방어 — 프레임 탐지가 깨져 0건을 검사하고 통과하면 이 검사는
+    # 있는 것처럼 보이는 죽은 통제가 된다 (검토 지적). 검사한 프레임 수를 센다.
+    assert checked[0] >= 80, f"검사한 프레임이 {checked[0]}개뿐 — 탐지가 깨졌다"
 
 
 def test_labels_resolve_per_table_not_globally(studio):
-    """같은 물리명이라도 테이블이 다르면 그 테이블의 업무 명칭을 쓴다.
+    """같은 물리명이 payload 안에서 **서로 다른** 라벨로 풀린 실례를 단언한다.
 
     물리명 50종이 테이블마다 다른 한글명을 갖는다(ead → EAD/익스포저 등).
-    전역 사전으로 풀면 어느 한쪽 화면이 틀린 이름을 단다.
+    처음에는 obligor_id 하나만 봤는데, 그 컬럼은 어느 테이블에서나 같은
+    라벨이라 전역 사전으로 회귀해도 통과했다 — 이름만 '테이블별'인 검사였다
+    (검토 지적). 충돌 컬럼이 실제로 다르게 풀린 두 자리를 찾아 고정한다.
     """
     h = render(studio)
     d = _runs(h)[_primary(h)]
-    ob = d["data"]["rdm_obligor"]
-    assert ob["labels"][ob["columns"].index("obligor_id")] == "차주 식별자"
+    by_col: dict[str, set[str]] = {}
+    for f in d["previews"].values():
+        for c, l in zip(f["columns"], f["labels"]):
+            by_col.setdefault(c, set()).add(l)
+    diverging = {c: ls for c, ls in by_col.items() if len(ls) > 1}
+    # 카탈로그에 충돌 컬럼이 50종 있으므로 미리보기에도 여럿 나와야 정상이다.
+    assert len(diverging) >= 5, (
+        f"충돌 컬럼이 {len(diverging)}종뿐 — 전역 사전으로 회귀했는지 확인하라: "
+        f"{sorted(diverging)[:5]}")
 
 
 def test_multi_run_render_carries_every_run(studio):

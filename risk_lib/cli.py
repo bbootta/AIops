@@ -228,7 +228,10 @@ def _cmd_ui_studio(args: argparse.Namespace) -> int:
     from risk_lib.ui_studio.app import write_app
     from risk_lib.ui_studio.studio import build_studio
 
-    asofs = [a.strip() for a in (args.asof or "").split(",") if a.strip()] or [None]
+    # 중복 기준일은 조용히 붕괴시키지 않고 미리 접는다 — 같은 실행을 두 번
+    # 돌리고 한 번만 실으면 "산출 2회" 출력과 화면이 어긋난다.
+    asofs = list(dict.fromkeys(
+        a.strip() for a in (args.asof or "").split(",") if a.strip())) or [None]
     portfolio = generate_portfolio(seed=args.seed)
     studios = []
     for a in asofs:
