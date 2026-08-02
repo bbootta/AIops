@@ -60,6 +60,32 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. 3D Games: Pick the Target by Graphics Ambition
+
+**Decide browser vs. installed app up front. Say which and why before writing code.**
+
+The graphics ceiling drives the delivery target, not the other way round:
+
+- **Browser (single page, WebGL)** — prototypes, stylised or low-poly looks, anything
+  meant to be opened from a link. Cheapest to iterate and share. Accept the ceiling:
+  no native GPU features, load time paid on every visit, asset budget bounded by what
+  a page can reasonably inline.
+- **Installed app (Electron/Tauri, or a real engine)** — anything reaching for
+  photoreal: heavy PBR material sets, HDRI lighting, cascaded shadows, layered
+  post-processing, large scan-based assets. Ship an installer per OS.
+
+Guidance:
+- State the choice and its ceiling before building. If the ask is "make it photoreal"
+  on a browser target, say plainly that the target is the limiting factor.
+- Prefer starting in the browser while the look is still being found — the iteration
+  loop is much faster — then wrap the same renderer in a desktop shell once the
+  graphics ambition outgrows it. Don't rewrite to switch.
+- Cross-OS installers must be built on their own OS (or CI). Building a Windows or
+  macOS installer from Linux does not work; hand over the build config and say so
+  rather than claiming a build that was never produced.
+- Verify the packaged app actually launches and renders. A successful package step is
+  not evidence the game runs.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

@@ -1,0 +1,89 @@
+{
+  "name": "hope-shooter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "icon": "node scripts/make-icon.mjs",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dev": "http-server dist -p 8080 -s -c-1"
+  },
+  "devDependencies": {
+    "@pmndrs/assets": "^1.7.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.25.0",
+    "three": "^0.185.1"
+  },
+  "main": "electron/main.js",
+  "description": "영화 '호프'의 시가전 장면을 옮긴 3D 슈팅",
+  "build": {
+    "appId": "com.hopelaststreet.game",
+    "productName": "Hope Last Street",
+    "copyright": "Hope: Last Street",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/index.html",
+      "electron/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Game",
+      "icon": "build/icon.png",
+      "synopsis": "영화 '호프' 시가전 장면 기반 3D 슈팅"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "HopeLastStreet-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.action-games",
+      "icon": "build/icon.png"
+    }
+  },
+  "homepage": "https://github.com/bbootta/AIops/tree/main/hope-shooter",
+  "author": {
+    "name": "bbootta",
+    "email": "bbootta@gmail.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bbootta/AIops.git"
+  },
+  "desktopName": "hope-last-street.desktop"
+}
