@@ -167,9 +167,44 @@ CODE_MASTER = TableSpec(
     note="정렬·표시의 정본. 손으로 적지 않고 카탈로그 스펙에서 생성한다.",
 )
 
+ACCOUNT_MASTER = TableSpec(
+    name="rdm_account_master", korean="계정코드 마스터", product="PRD-RDM",
+    grain="계정코드 1개당 1행",
+    columns=(
+        C("account_code", "string", "계정코드", nullable=False),
+        C("account_name", "text", "계정명", nullable=False),
+        C("account_group", "string", "계정군", nullable=False),
+        C("statement", "string", "재무제표 구분", nullable=False,
+          allowed=("자산", "부채", "자본", "자산차감", "부외")),
+        C("on_balance", "string", "부내/부외", nullable=False,
+          allowed=("부내", "부외")),
+        C("rate_bearing", "bool", "금리부 여부", nullable=False),
+    ),
+    primary_key=("account_code",),
+    note="공통 특성만 담는다 — 리스크별 대상·특성은 각 리스크 스키마의 "
+         "code_scope 테이블 소관이다.",
+)
+
+PRODUCT_MASTER = TableSpec(
+    name="rdm_product_master", korean="상품코드 마스터", product="PRD-RDM",
+    grain="상품코드 1개당 1행",
+    columns=(
+        C("product_code", "string", "상품코드", nullable=False),
+        C("product_name", "text", "상품명", nullable=False),
+        C("product_group", "string", "상품군", nullable=False),
+        C("book", "string", "트레이딩/뱅킹 북", nullable=False,
+          allowed=("트레이딩", "뱅킹"),
+          citation="Basel III MAR — 트레이딩 북 경계"),
+        C("currency_type", "string", "통화성", nullable=False,
+          allowed=("원화", "외화")),
+        C("collateralised", "bool", "담보성", nullable=False),
+    ),
+    primary_key=("product_code",),
+)
+
 RDM_TABLES: tuple[TableSpec, ...] = (
     OBLIGOR, EXPOSURE, COLLATERAL, DELINQUENCY, SNAPSHOT, DQ_RESULT,
-    CODE_MASTER)
+    CODE_MASTER, ACCOUNT_MASTER, PRODUCT_MASTER)
 
 # 라운드가 진행되며 부문 테이블이 추가된다.
 ALL_TABLES: tuple[TableSpec, ...] = RDM_TABLES
@@ -1665,9 +1700,65 @@ ALERT_POLICY = TableSpec(
     primary_key=("policy_id",),
 )
 
+CRM_CODE_SCOPE = TableSpec(
+    name="crm_code_scope", korean="신용리스크 계정 대상·특성", product="PRD-CRM",
+    grain="계정코드 1개당 1행",
+    columns=(
+        C("account_code", "string", "계정코드", nullable=False),
+        C("in_scope", "bool", "신용리스크 대상", nullable=False,
+          note="규칙 파생 — 여신·채권·거래상대방 익스포저·부외 약정"),
+        C("reason", "text", "판정 사유", nullable=False),
+        C("ead_basis", "string", "익스포저 산정 기준", nullable=False),
+        C("default_recognition", "string", "부도 인식", nullable=False),
+    ),
+    primary_key=("account_code",),
+)
+
+MKT_CODE_SCOPE = TableSpec(
+    name="mkt_code_scope", korean="시장리스크 상품 대상·특성", product="PRD-MKT",
+    grain="상품코드 1개당 1행",
+    columns=(
+        C("product_code", "string", "상품코드", nullable=False),
+        C("in_scope", "bool", "시장리스크 대상", nullable=False,
+          citation="Basel III MAR — 트레이딩 북 경계"),
+        C("reason", "text", "판정 사유", nullable=False),
+        C("risk_factor", "string", "주 위험요소", nullable=False),
+        C("fx_exposed", "bool", "환리스크 노출", nullable=False),
+    ),
+    primary_key=("product_code",),
+)
+
+ALM_CODE_SCOPE = TableSpec(
+    name="alm_code_scope", korean="ALM 계정 대상·특성", product="PRD-ALM",
+    grain="계정코드 1개당 1행",
+    columns=(
+        C("account_code", "string", "계정코드", nullable=False),
+        C("irrbb_scope", "bool", "금리리스크 대상", nullable=False),
+        C("liquidity_scope", "bool", "유동성 대상", nullable=False),
+        C("repricing_bucket", "string", "리프라이싱 구간", nullable=False),
+        C("lcr_category", "string", "LCR 분류", nullable=False),
+    ),
+    primary_key=("account_code",),
+)
+
+OPR_CODE_SCOPE = TableSpec(
+    name="opr_code_scope", korean="운영리스크 상품 대상·특성", product="PRD-OPR",
+    grain="상품코드 1개당 1행",
+    columns=(
+        C("product_code", "string", "상품코드", nullable=False),
+        C("in_scope", "bool", "운영리스크 대상", nullable=False,
+          note="운영리스크에 제외는 없다 — 전 상품이 손실사건 매핑 대상"),
+        C("event_mapping", "string", "손실사건 유형 매핑", nullable=False),
+        C("bia_line", "string", "영업부문 구분", nullable=False),
+    ),
+    primary_key=("product_code",),
+)
+
 GOV_DETAIL_TABLES = (CHANGE_REQUEST, CHANGE_IMPACT, CHANGE_REGRESSION,
                      EVIDENCE_NODE, EVIDENCE_EDGE, APPROVAL,
-                     EXCEPTION_ACTION, ALERT_POLICY)
+                     EXCEPTION_ACTION, ALERT_POLICY,
+                     CRM_CODE_SCOPE, MKT_CODE_SCOPE, ALM_CODE_SCOPE,
+                     OPR_CODE_SCOPE)
 
 # ------------------------------------------------------------- 최종 누적 등록
 DETAIL_TABLES = (RDM_DETAIL_TABLES + CRM_DETAIL_TABLES + RWA_DETAIL_TABLES

@@ -97,7 +97,7 @@ def test_page_loads_every_tab_without_script_errors(page):
 # ----- 정형 조회: 입력에 따라 계획과 결과가 바뀐다 ------------------------------
 
 def test_typing_recompiles_the_plan_and_changes_results(page):
-    _tab(page, 1)
+    _tab_named(page, "정형 조회")
     page.select_option("section.on select.sel", "V_RDM_ASSET_QUALITY")
     page.wait_for_timeout(200)
 
@@ -122,7 +122,7 @@ def test_typing_recompiles_the_plan_and_changes_results(page):
 
 
 def test_query_hash_changes_with_the_sentence(page):
-    _tab(page, 1)
+    _tab_named(page, "정형 조회")
     page.fill("section.on input.input", "연체일수 10 이상")
     page.wait_for_timeout(250)
     h1 = page.inner_text("section.on .card .meta")
@@ -133,7 +133,7 @@ def test_query_hash_changes_with_the_sentence(page):
 
 
 def test_masked_field_condition_is_blocked_on_screen(page):
-    _tab(page, 1)
+    _tab_named(page, "정형 조회")
     page.select_option("section.on select.sel", "V_CRM_EWS_SIGNAL")
     page.wait_for_timeout(200)
     page.fill("section.on input.input", "차주 식별자 OBL_CORP_00001")
@@ -145,7 +145,7 @@ def test_masked_field_condition_is_blocked_on_screen(page):
 
 def test_a_blocking_demo_chip_is_offered(page):
     """차단이 실제로 걸리는 걸 클릭 한 번으로 보여줄 수 있어야 시연이 된다."""
-    _tab(page, 1)
+    _tab_named(page, "정형 조회")
     chips = page.eval_on_selector_all("section.on .chip",
                                       "els => els.map(e => e.textContent)")
     assert any("차단 시연" in c for c in chips)
@@ -161,7 +161,7 @@ def _blocks(pg) -> str:
 
 
 def test_prompt_changes_the_layout_blocks(page):
-    _tab(page, 2)
+    _tab_named(page, "비정형 UI")
     page.select_option("section.on select.sel", "V_RWA_SA_BUCKET")
     page.wait_for_timeout(200)
 
@@ -180,7 +180,7 @@ def test_prompt_changes_the_layout_blocks(page):
 
 
 def test_prompt_changes_the_selected_columns(page):
-    _tab(page, 2)
+    _tab_named(page, "비정형 UI")
     page.select_option("section.on select.sel", "V_RWA_SA_BUCKET")
     page.wait_for_timeout(200)
     page.fill("section.on textarea.input", "위험가중자산을 표로")
@@ -194,7 +194,7 @@ def test_prompt_changes_the_selected_columns(page):
 
 
 def test_top_n_in_the_prompt_caps_the_preview(page):
-    _tab(page, 2)
+    _tab_named(page, "비정형 UI")
     page.select_option("section.on select.sel", "V_RDM_ASSET_QUALITY")
     page.wait_for_timeout(200)
     page.fill("section.on textarea.input", "잔액 상위 3건을 표로")
@@ -203,7 +203,7 @@ def test_top_n_in_the_prompt_caps_the_preview(page):
 
 
 def test_rejected_prompt_shows_the_reason_and_blocks_approval(page):
-    _tab(page, 2)
+    _tab_named(page, "비정형 UI")
     page.select_option("section.on select.sel", "V_CRM_EWS_SIGNAL")
     page.wait_for_timeout(200)
     page.fill("section.on textarea.input", "차주 식별자와 신호 강도를 행 단위 표로")
@@ -214,7 +214,7 @@ def test_rejected_prompt_shows_the_reason_and_blocks_approval(page):
 
 
 def test_approve_then_rollback_round_trip(page):
-    _tab(page, 2)
+    _tab_named(page, "비정형 UI")
     page.select_option("section.on select.sel", "V_RWA_SA_BUCKET")
     page.wait_for_timeout(200)
     page.fill("section.on textarea.input", "자산군 기여도를 막대차트로 보여줘")
@@ -249,7 +249,7 @@ def test_kill_switch_stops_new_queries_without_any_dialog(page):
     page.click(".killbar .killgo")
     page.wait_for_timeout(400)
     assert "Kill Switch 해제" in page.inner_text(".kill")
-    _tab(page, 1)
+    _tab_named(page, "정형 조회")
     # select 옵션 목록에도 "비상정지"라는 테이블명이 있으므로 카드 안만 본다.
     card = page.inner_text("section.on .card")
     assert "비상정지 — 실행 차단" in card
@@ -264,7 +264,7 @@ def test_kill_switch_requires_a_reason(page):
     page.click(".killbar .killgo")
     page.wait_for_timeout(300)
     assert "Kill Switch 해제" not in page.inner_text(".kill")
-    _tab(page, 1)
+    _tab_named(page, "정형 조회")
     assert "비상정지 — 실행 차단" not in page.inner_text("section.on .card")
 
 
@@ -444,7 +444,7 @@ def test_table_headers_show_catalog_labels_not_physical_names(page):
     물리명은 버리지 않는다 — th.title 로 남아, 감사자가 어느 원장 컬럼인지
     추적할 수 있다. 표시명의 정본은 카탈로그(ColumnSpec.korean)다.
     """
-    _tab(page, 3)                              # A RDM
+    _tab_named(page, "RDM")                              # A RDM
     ths = page.eval_on_selector_all(
         "section.on .card th",
         "els => els.map(e => [e.textContent, e.title])")
@@ -462,25 +462,26 @@ def _tab_named(pg, label: str) -> None:
     누르고, 특히 `~ not in` 류 부정 단언을 조용히 항상-참으로 만든다."""
     pg.eval_on_selector_all(
         "nav button",
-        "(els, t) => els.find(e => e.textContent.includes(t)).click()", label)
+        "(els, t) => (els.find(e => e.textContent === t) ||"
+        " els.find(e => e.textContent.includes(t))).click()", label)
     pg.wait_for_timeout(300)
 
 
 def test_settings_run_registry_lists_the_runs(page):
-    _tab_named(page, '설정')
+    _tab_named(page, '⚙ 설정')
     txt = page.inner_text("section.on .set-runs")
     assert "RUN-" in txt and "기준일" in txt
 
 
 def test_settings_label_override_applies_to_the_screen(page):
     """표시명 재정의 → 세션 적용 → 다른 탭의 머리글이 바뀐다."""
-    _tab_named(page, '설정')
+    _tab_named(page, '⚙ 설정')
     page.select_option("section.on .set-labels select.sel", "rdm_obligor")
     page.wait_for_timeout(200)
     page.fill("section.on .set-labels tbody tr:first-child input", "차주 ID")
     page.click("section.on .set-labels .btn.primary")
     page.wait_for_timeout(500)
-    _tab(page, 3)                              # A RDM — 재정의가 보인다
+    _tab_named(page, "RDM")                              # A RDM — 재정의가 보인다
     ths = page.eval_on_selector_all(
         "section.on .card th", "els => els.map(e => e.textContent)")
     assert "차주 ID" in ths
@@ -489,7 +490,7 @@ def test_settings_label_override_applies_to_the_screen(page):
 
 def test_settings_form_map_rejects_duplicate_and_bad_format(page):
     """서식번호 매핑 — 형식 위반·중복은 제안이 되기 전에 걸린다."""
-    _tab_named(page, '설정')
+    _tab_named(page, '⚙ 설정')
     rows = "section.on .set-formmap tbody tr"
     # 2행에 1행의 현행 번호(B2101)를 넣는다 → 중복
     page.fill(f"{rows}:nth-child(2) input", "B2101")
@@ -510,7 +511,7 @@ def test_settings_form_map_produces_a_proposal_not_an_edit(page):
     서식번호는 제출 지문이 걸린 값이다. 화면이 즉석에서 바꾸면 제출본과 다른
     화면이 생기고, 그것은 F-501(문서가 다른 실행을 설명) 유형의 화면판이 된다.
     """
-    _tab_named(page, '설정')
+    _tab_named(page, '⚙ 설정')
     page.fill("section.on .set-formmap tbody tr:nth-child(2) input", "B9999")
     page.click("section.on .set-formmap .btn.primary")
     page.wait_for_timeout(300)
@@ -522,7 +523,7 @@ def test_settings_form_map_produces_a_proposal_not_an_edit(page):
 
 
 def test_settings_scenario_produces_a_proposal_and_never_recomputes(page):
-    _tab_named(page, '설정')
+    _tab_named(page, "시나리오 설정")
     page.fill("section.on .set-scenario tbody tr:first-child input", "0.05")
     page.click("section.on .set-scenario .btn.primary")
     page.wait_for_timeout(300)
@@ -536,12 +537,12 @@ def test_settings_scenario_produces_a_proposal_and_never_recomputes(page):
 
 
 def test_settings_proposals_are_blocked_while_killed(page):
-    _tab_named(page, '설정')
+    _tab_named(page, "시나리오 설정")
     page.click("header .kill")
     page.fill("#killreason", "통제 점검")
     page.click(".killbar .killgo")
     page.wait_for_timeout(400)
-    _tab_named(page, '설정')
+    _tab_named(page, "시나리오 설정")
     page.fill("section.on .set-scenario tbody tr:first-child input", "0.05")
     page.click("section.on .set-scenario .btn.primary")
     page.wait_for_timeout(300)
@@ -585,7 +586,7 @@ def test_asof_switch_changes_the_active_run(browser, multi_page_path):
 def test_five_digit_official_form_numbers_are_accepted(page):
     """B10101 등 5자리 숫자부 배포 코드 9종이 실재한다 — 형식 검사가 거부하면
     실코드를 쓰는 정당한 제안이 만들어지지 않는다."""
-    _tab_named(page, '설정')
+    _tab_named(page, '⚙ 설정')
     page.fill("section.on .set-formmap tbody tr:nth-child(2) input", "B99901")
     page.click("section.on .set-formmap .btn.primary")
     page.wait_for_timeout(300)
@@ -596,7 +597,7 @@ def test_five_digit_official_form_numbers_are_accepted(page):
 def test_internal_form_number_duplicate_is_caught(page):
     """내부관리 서식의 form_no는 'RM-#### (내부관리)' 표시문자열이다 — 중복
     검사가 표시문자열을 키로 쓰면 'RM-####' 입력이 그대로 지나간다."""
-    _tab_named(page, '설정')
+    _tab_named(page, '⚙ 설정')
     rm = page.evaluate(
         "window.__RYNTA__.forms.find(f=>f.form_no.startsWith('RM-'))"
         ".form_no.split(' ')[0]")
@@ -612,7 +613,7 @@ def test_kill_switch_blocks_adaptive_preview_and_approval(page):
     page.fill("#killreason", "통제 점검")
     page.click(".killbar .killgo")
     page.wait_for_timeout(400)
-    _tab(page, 2)
+    _tab_named(page, "비정형 UI")
     page.select_option("section.on select.sel", "V_RWA_SA_BUCKET")
     page.wait_for_timeout(200)
     page.fill("section.on textarea.input", "자산군 기여도를 막대차트로 보여줘")
@@ -631,7 +632,7 @@ def test_asof_switch_does_not_carry_approvals_across_runs(browser, multi_page_pa
     pg.goto(f"file://{multi_page_path}")
     pg.wait_for_timeout(600)
 
-    _tab(pg, 2)                                    # 비정형 UI에서 승인
+    _tab_named(pg, "비정형 UI")                                    # 비정형 UI에서 승인
     pg.select_option("section.on select.sel", "V_RWA_SA_BUCKET")
     pg.wait_for_timeout(200)
     pg.fill("section.on textarea.input", "자산군 기여도를 막대차트로 보여줘")
@@ -693,7 +694,7 @@ def test_scoped_kill_only_stops_its_domain(page):
     page.click(".killbar .killgo")
     page.wait_for_timeout(400)
     # 신용 뷰 조회는 차단
-    _tab(page, 1)
+    _tab_named(page, "정형 조회")
     page.select_option("section.on select.sel", "V_CRM_EWS_SIGNAL")
     page.wait_for_timeout(300)
     assert "비상정지 — 실행 차단" in page.inner_text("section.on .card")
@@ -722,7 +723,7 @@ def test_detail_screens_render_from_ledgers(page):
 
 def test_adaptive_blocks_render_rich_layout(page):
     """비정형 블록이 그리드로 배치되고, 막대는 상위 밖을 합쳐 보인다."""
-    _tab(page, 2)
+    _tab_named(page, "비정형 UI")
     page.select_option("section.on select.sel", "V_RDM_ASSET_QUALITY")
     page.wait_for_timeout(200)
     page.fill("section.on textarea.input",
@@ -739,7 +740,7 @@ def test_chart_without_numeric_column_draws_default_and_discloses(page):
     """값 열이 문장에 없어도 요청한 레이아웃(막대)은 드러난다 — 이 View의
     기본 값 열로 그리되, 기본 열을 썼다는 사실을 블록에 공시한다.
     조용한 대체도, 조용한 소멸도 없다."""
-    _tab(page, 2)
+    _tab_named(page, "비정형 UI")
     page.select_option("section.on select.sel", "V_RWA_SA_BUCKET")
     page.wait_for_timeout(200)
     page.fill("section.on textarea.input",
@@ -765,7 +766,7 @@ def test_market_and_op_rwa_screens_render(page):
 def test_adaptive_fallback_chips_yield_real_charts(page):
     """재검수된 예시 문장 — 첫 칩을 누르면 값 열이 문장에 있으므로 기본 값 열
     공시 없이 막대가 그려지고, 라벨은 범주 열이다."""
-    _tab(page, 2)
+    _tab_named(page, "비정형 UI")
     page.select_option("section.on select.sel", "V_RDM_ASSET_QUALITY")
     page.wait_for_timeout(300)
     chips = page.eval_on_selector_all(
@@ -808,3 +809,59 @@ def test_migration_pivot_orders_grades_by_code_master(page):
     after = page.inner_text("section.on .card:has-text('전이행렬') tbody")
     assert before != after                     # 세그먼트가 값을 바꾼다
     assert page.errors == []
+
+
+# ----- 신규 화면·요약 스트립 -----------------------------------------------------
+
+def test_new_screens_render_with_summaries(page):
+    """시뮬레이션·한도·오버레이·역스트레스·코드 매핑 — 렌더 + 규칙 요약 표시."""
+    for name, need in [("시뮬레이션", "승인·제출값 아님"),
+                       ("한도", "소진율 상위"),
+                       ("오버레이", "수동조정 원장"),
+                       ("역스트레스", "임계 심도"),
+                       ("코드 마스터", "코드셋"),
+                       ("코드 매핑", "리스크 대상 매트릭스")]:
+        _tab_named(page, name)
+        txt = _text(page)
+        assert need in txt, f"{name}: '{need}' 없음"
+    assert page.errors == []
+
+
+def test_summary_strip_is_deterministic_rule_output(page):
+    """요약 스트립 — 한도 화면의 문장이 원장 수치와 일치한다."""
+    _tab_named(page, "한도")
+    strip = page.inner_text("section.on .aisum")
+    total = page.evaluate("window.__RYNTA__.limits.total")
+    assert f"한도 {total}건" in strip
+    # 결정론 명시가 title 로 남아 있다 — LLM 호출로 오인되지 않게
+    t = page.eval_on_selector("section.on .aisum", "e => e.title")
+    assert "결정론" in t and "LLM" in t
+
+
+def test_simulation_recomputes_identity_not_pipeline(page):
+    """시뮬레이션 — RWA +10% 입력 시 비율이 항등식대로 내려간다."""
+    _tab_named(page, "시뮬레이션")
+    base = page.inner_text("section.on .kpi .val")
+    page.fill("section.on input[type=number]", "10")
+    page.wait_for_timeout(300)
+    after = page.inner_text("section.on .kpi .val")
+    assert base != after
+    b = float(base.replace("%", "")); a = float(after.replace("%", ""))
+    assert abs(a - b / 1.1) < 0.02          # 비율 = 자본/(RWA×1.1)
+    assert "승인·제출값 아님" in _text(page)
+
+
+def test_cockpit_carries_insights_and_stress_path(page):
+    _tab_named(page, "콕핏")
+    txt = _text(page)
+    assert "인사이트" in txt and "역스트레스" in txt and "예외 스트림" in txt
+    assert page.query_selector("section.on svg")       # 위기 경로 차트
+    assert page.errors == []
+
+
+def test_overlay_requires_reason_and_evidence(page):
+    _tab_named(page, "오버레이")
+    page.fill("section.on .set-overlay input[placeholder='수정값']", "12.0%")
+    page.click("section.on .set-overlay .btn.primary")
+    page.wait_for_timeout(300)
+    assert "사유와 증빙 참조는 필수다" in page.inner_text("section.on .set-overlay .note.bad")

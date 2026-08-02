@@ -87,6 +87,15 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     tables = materialize_all(result, portfolio)
     # 코드 마스터 — 정렬·표시의 정본. 카탈로그 스펙에서 생성한다.
     tables["rdm_code_master"] = build_code_master()
+    # 계정·상품 코드 마스터와 리스크별 대상·특성 — 공통은 RDM, 그 외는 각
+    # 리스크 스키마. 대상여부는 규칙 파생이다 (code_scope 모듈).
+    from risk_lib.datamodel import code_scope as _cs
+    tables["rdm_account_master"] = _cs.account_master()
+    tables["rdm_product_master"] = _cs.product_master()
+    tables["crm_code_scope"] = _cs.credit_scope()
+    tables["mkt_code_scope"] = _cs.market_scope()
+    tables["alm_code_scope"] = _cs.alm_scope()
+    tables["opr_code_scope"] = _cs.op_scope()
     tables.update(materialize_detail(result, portfolio, tables))
     # DQ 결과는 분해 단계의 산물이다 — 없으면 "그때는 통과했다"를 증명 못 한다.
     tables["rdm_dq_result"] = dq_result_frame(validate_all(tables), asof=asof)

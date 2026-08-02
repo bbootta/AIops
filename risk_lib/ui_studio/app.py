@@ -88,6 +88,32 @@ def _frame(df: pd.DataFrame, limit: int = PREVIEW_ROWS,
     }
 
 
+def _adj_frame(s: Studio) -> pd.DataFrame:
+    from risk_lib.adjustments import demo_ledger
+    led = demo_ledger(s.result, asof=s.asof)
+    return pd.DataFrame([{
+        "adjustment_id": a.adjustment_id, "figure_id": a.figure_id,
+        "label": a.label, "base_value": a.base_value,
+        "adjusted_value": a.adjusted_value, "delta": a.delta,
+        "reason": a.reason, "evidence_ref": a.evidence_ref,
+        "requester": a.requester, "approver": a.approver,
+        "expires_on": a.expires_on, "status": a.status,
+    } for a in led.adjustments])
+
+
+def _reverse_dict(s: Studio) -> dict:
+    r = s.result.reverse_stress
+    return {
+        "metric": r.metric, "target_ratio": r.target_ratio,
+        "base_ratio": r.base_ratio, "critical_severity": r.critical_severity,
+        "resilient": bool(r.resilient), "converged": bool(r.converged),
+        "ratio_at_break": r.ratio_at_break,
+        "rwa_at_break": r.rwa_total_at_break, "ecl_at_break": r.ecl_at_break,
+        "implied_gdp_shock": r.implied_gdp_shock,
+        "implied_lgd_addon": r.implied_lgd_addon,
+    }
+
+
 def _kpis(s: Studio) -> list[dict]:
     r = s.result
     t = s.tables
@@ -312,6 +338,23 @@ def _payload(s: Studio) -> dict:
         # v9.6.0 업무요건 추적 — 증빙 참조는 tests/test_req_trace.py 가 실재를
         # 검증한다. 여기 실리는 것은 주장 목록이 아니라 검사를 통과한 목록이다.
         "req_trace": {"coverage": _req_coverage(), "rows": _req_rows()},
+        # 오버레이(수동조정) 원장 — DAT-006. 엔진 산출값을 사람이 덮어쓴
+        # 기록이다. 기록 없는 조정은 재현 불가의 시작이므로 전 건이 사유·증빙·
+        # 승인·만료를 갖는다.
+        "adjustments": _frame(_adj_frame(s), 100, labels={
+            "adjustment_id": "조정 식별자", "figure_id": "대상 수치",
+            "label": "항목", "base_value": "엔진 산출값",
+            "adjusted_value": "조정 후 값", "delta": "조정폭",
+            "reason": "사유", "evidence_ref": "증빙 참조",
+            "requester": "요청자", "approver": "승인자",
+            "expires_on": "만료일", "status": "상태"}),
+        # 한도·소진 — 다차원 한도 엔진 산출.
+        "limits": _frame(s.result.limits, 200, labels={
+            "limit": "한도명", "dimension": "차원", "bucket": "구간",
+            "exposure": "익스포저", "threshold": "한도액",
+            "utilisation": "소진율", "severity": "심각도"}),
+        # 역스트레스 — 자본 임계를 뚫는 심도를 푼다 (BNK-ST-006).
+        "reverse_stress": _reverse_dict(s),
         # 사업성(COM) — 규제 산출물이 아니다. 제출 지문·독립검증 대상에 넣지
         # 않으며, 전 수치가 가정 원장에서 계산으로만 나온다.
         "commercial": {
@@ -557,6 +600,14 @@ border-radius:12px;padding:12px;overflow:hidden}
 @media(max-width:1100px){.blocks{grid-template-columns:1fr}}
 .blkhead{display:flex;gap:8px;align-items:center;font-size:12px;
 font-weight:750;margin:2px 0 8px}
+.aisum{display:flex;gap:9px;align-items:baseline;margin:2px 0 12px;
+padding:9px 13px;border-radius:10px;font-size:12.5px;
+background:var(--chip);border:1px solid var(--line)}
+.aisum.good{border-left:3px solid var(--good)}
+.aisum.warn{border-left:3px solid var(--warn)}
+.aisum.bad{border-left:3px solid var(--bad)}
+.aisum-tag{flex:none;font-size:9.5px;font-weight:800;letter-spacing:.08em;
+color:var(--lineage)}
 .blockhead{display:flex;align-items:center;gap:10px;width:100%;
 background:transparent;border:none;color:var(--text);cursor:pointer;
 font-family:inherit;font-size:13px;font-weight:750;padding:2px 0;text-align:left}
@@ -898,6 +949,70 @@ function cockpit(root){
     c.appendChild(el('div','ln','↗ 계보 · '+k.lineage));
     g.appendChild(c)});
   root.appendChild(g);
+
+  /* --- 인사이트 리본 — 전 부문 원장에서 규칙으로 뽑은 문장들 --- */
+  const ins=cockpitInsights();
+  if(ins.length){
+    const rib=el('div','card');
+    rib.appendChild(el('h3',null,'인사이트 — 지금 봐야 할 것'));
+    rib.appendChild(dotlist(ins.map(x=>({label:x.t,
+      tone:x.tone==='bad'?'bad':x.tone==='warn'?'warn':'good'}))));
+    rib.appendChild(el('div','meta',
+      '규칙 기반 자동 분석 — 결정론(같은 데이터면 같은 문장) · 외부 LLM 호출 없음'));
+    root.appendChild(rib);
+  }
+
+  /* --- 위기 경로 + 역스트레스 — 전사 자본의 앞날 --- */
+  const two0=el('div');two0.style.cssText=
+    'display:grid;gap:12px;grid-template-columns:1.5fr 1fr';
+  if(window.matchMedia('(max-width:900px)').matches)
+    two0.style.gridTemplateColumns='1fr';
+  const cp=D.data['st_capital_path'];
+  if(cp){const i=frameIdx(cp);
+    const scenarios=[...new Set(cp.rows.map(r=>r[i.scenario]))];
+    const quarters=[...new Set(cp.rows.map(r=>r[i.quarter]))];
+    const series=scenarios.map(sc=>({name:sc,
+      values:quarters.map(q=>{const r=cp.rows.find(x=>x[i.scenario]===sc&&
+        x[i.quarter]===q);return r?r[i.cet1_ratio]:null})}));
+    const c=el('div','card');
+    c.appendChild(el('h3',null,'위기상황 보통주자본비율 경로 — 3시나리오'));
+    c.appendChild(multiLine(series,quarters,0.08));
+    c.appendChild(srcMeta(cp));
+    two0.appendChild(c)}
+  const rv=D.reverse_stress;
+  if(rv){const c=el('div','card');
+    c.appendChild(el('h3',null,'역스트레스 — 임계까지의 거리'));
+    c.appendChild(meter('임계 심도 (심각=1.0 기준)',
+      Math.min(rv.critical_severity,1),1,
+      rv.critical_severity<1?'bad':undefined));
+    c.appendChild(el('div','meta',
+      `심도 ${rv.critical_severity.toFixed(3)}에서 ${rv.metric.toUpperCase()} `+
+      `${(rv.target_ratio*100).toFixed(0)}% 붕괴 · 함의 GDP `+
+      `${(rv.implied_gdp_shock*100).toFixed(2)}% · LGD +`+
+      `${(rv.implied_lgd_addon*100).toFixed(2)}%p`));
+    const lm=D.limits,li2=frameIdx(lm);
+    c.appendChild(el('h3',null,'한도 소진 상위'));
+    c.appendChild(barList(lm.rows.slice()
+      .sort((a,b)=>b[li2.utilisation]-a[li2.utilisation]).slice(0,4)
+      .map(r=>({label:`${r[li2.limit]} · ${r[li2.bucket]}`,
+        value:r[li2.utilisation]*100,
+        tone:r[li2.severity]==='breach'?'bad':
+             r[li2.severity]==='warning'?'warn':undefined})),{money:false}));
+    two0.appendChild(c)}
+  root.appendChild(two0);
+
+  /* --- 예외 스트림 — 조치가 붙은 미해소 예외 상위 --- */
+  const exq=D.data['gov_exception_action'];
+  if(exq){const xi=frameIdx(exq);
+    const c=el('div','card');
+    c.appendChild(el('h3',null,'예외 스트림 — 자동상계 금지'));
+    c.appendChild(dotlist(exq.rows.slice(0,6).map(r=>({
+      label:`${r[xi.exception_id]} · ${r[xi.finding]}`,
+      right:`${r[xi.status]} · 기한 ${r[xi.due_days]}일`,
+      tone:r[xi.severity]==='중대'?'bad':'warn'}))));
+    if(exq.shown<exq.total)c.appendChild(el('div','meta',
+      `표시 6건 / 전체 ${exq.total.toLocaleString()}건 — 예외·조치 화면에서 전량`));
+    root.appendChild(c)}
 
   /* --- 구성 브리지 + 통제 진행 — 캡처(v9.5.0)의 콕핏 모듈 --- */
   const two=el('div');two.style.cssText=
@@ -2032,6 +2147,515 @@ function reqTrace(root){
   draw();
 }
 
+/* ---- 오버레이 (인간 수정) — 기록 없는 조정은 재현 불가의 시작이다 ---- */
+function overlay(root){
+  root.appendChild(el('p','lead',
+    '엔진 산출값을 사람이 덮어쓴 기록(수동조정 원장)과 새 오버레이 제안. 전 건이 '+
+    '사유·증빙·승인자·만료일을 갖는다. 이 화면은 값을 바꾸지 않는다 — 제안서를 '+
+    '만들고, 적용은 원장 등재 + 파이프라인 재실행 + 검증 두 층을 거친다.'));
+  const f=D.adjustments;
+  const c0=el('div','card');
+  c0.appendChild(el('h3',null,'수동조정 원장'));
+  c0.appendChild(table(f));c0.appendChild(srcMeta(f));
+  root.appendChild(c0);
+
+  const c=el('div','card set-overlay');
+  c.appendChild(el('h3',null,'새 오버레이 제안'));
+  const bar=el('div','toolbar');
+  const sel=el('select','sel');
+  D.kpis.forEach(k=>{const o=el('option');o.value=k.label;
+    o.textContent=k.label+' — 현재 '+k.value;sel.appendChild(o)});
+  const val=el('input','input');val.type='text';val.placeholder='수정값';
+  val.style.maxWidth='160px';
+  const why=el('input','input');why.type='text';
+  why.placeholder='사유 (필수) — 데이터 지연·일회성 사건·모형 한계 등';
+  const ev=el('input','input');ev.type='text';
+  ev.placeholder='증빙 참조 (필수) — 문서번호·티켓';ev.style.maxWidth='220px';
+  bar.appendChild(sel);bar.appendChild(val);bar.appendChild(why);bar.appendChild(ev);
+  c.appendChild(bar);
+  const gen=el('button','btn primary','오버레이 제안 생성');
+  c.appendChild(gen);
+  const err=el('div','note bad');err.hidden=true;c.appendChild(err);
+  const out=el('pre','mono');out.style.whiteSpace='pre-wrap';c.appendChild(out);
+  gen.onclick=()=>{
+    err.hidden=true;out.textContent='';
+    if(STATE.killed&&STATE.killScope==='전사'){
+      err.textContent='비상정지 중 — 제안을 만들지 않는다.';err.hidden=false;return}
+    if(!why.value.trim()||!ev.value.trim()){
+      err.textContent='사유와 증빙 참조는 필수다 — 기록 없는 조정은 없다.';
+      err.hidden=false;return}
+    if(!val.value.trim()){err.textContent='수정값을 입력하라.';err.hidden=false;return}
+    const k=D.kpis.find(x=>x.label===sel.value);
+    out.textContent=JSON.stringify({
+      proposal:'수동조정(오버레이)',asof:D.meta.asof,run_id:D.meta.run_id,
+      target:k.label,engine_value:k.value,proposed_value:val.value.trim(),
+      reason:why.value.trim(),evidence_ref:ev.value.trim(),
+      apply_path:'risk_lib/adjustments.py (ManualAdjustment 등재)',
+      procedure:['원장 등재(승인자·만료일 포함)','4-Eyes 승인',
+                 '파이프라인 재실행','자체검증(2선)','독립검증(3선) 재요청'],
+      note:'화면 값은 바뀌지 않는다 — 조정은 원장을 거쳐야 산출물이 된다.'},null,2);
+  };
+  root.appendChild(c);
+}
+
+/* ---- 코드 마스터 관리 — 세션 정렬 재정의 + 정본 변경 제안 ---- */
+function codeMasterAdmin(root){
+  root.appendChild(el('p','lead',
+    '정렬·표시의 정본(rdm_code_master)을 코드셋 단위로 본다. 순서 재정의는 이 '+
+    '세션의 화면 정렬에 즉시 적용되고, 정본 변경은 카탈로그 수정 제안으로만 한다.'));
+  const f=D.data['rdm_code_master'];
+  const i=frameIdx(f);
+  const sets=[...new Set(f.rows.map(r=>r[i.code_set]))].sort();
+  const c=el('div','card set-codemaster');
+  const bar=el('div','toolbar');
+  const sel=el('select','sel');
+  sets.forEach(cs=>{const o=el('option');o.value=cs;o.textContent=cs;
+    sel.appendChild(o)});
+  bar.appendChild(sel);c.appendChild(bar);
+  const pane=el('div');c.appendChild(pane);
+  STATE.codeOverride=STATE.codeOverride||{};
+  function currentCodes(){
+    const ovr=STATE.codeOverride[sel.value];
+    if(ovr)return [...ovr];
+    return f.rows.filter(r=>r[i.code_set]===sel.value)
+      .sort((a,b)=>a[i.sort_order]-b[i.sort_order]).map(r=>r[i.code]);
+  }
+  function draw(){
+    pane.innerHTML='';
+    const codes=currentCodes();
+    const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
+    ['순서','코드','이동'].forEach(x=>tr.appendChild(el('th',null,x)));
+    th.appendChild(tr);t.appendChild(th);
+    const tb=el('tbody');
+    codes.forEach((code,k)=>{
+      const x=el('tr');
+      x.appendChild(el('td','num',String(k)));
+      x.appendChild(el('td','mono',code));
+      const td=el('td');
+      const up=el('button','btn','↑');up.disabled=k===0;
+      const dn=el('button','btn','↓');dn.disabled=k===codes.length-1;
+      up.onclick=()=>{const c2=[...codes];[c2[k-1],c2[k]]=[c2[k],c2[k-1]];
+        STATE.codeOverride[sel.value]=c2;draw()};
+      dn.onclick=()=>{const c2=[...codes];[c2[k+1],c2[k]]=[c2[k],c2[k+1]];
+        STATE.codeOverride[sel.value]=c2;draw()};
+      td.appendChild(up);td.appendChild(dn);x.appendChild(td);
+      tb.appendChild(x)});
+    t.appendChild(tb);w.appendChild(t);pane.appendChild(w);
+    const acts=el('div','toolbar');
+    const apply=el('button','btn primary','세션에 적용');
+    const reset=el('button','btn','재정의 지우기');
+    const gen=el('button','btn','정본 변경 제안');
+    apply.onclick=()=>{
+      /* 세션 정렬 캐시를 재정의로 다시 깐다 — 화면 전체에 반영된다 */
+      _CODE_ORDER=null;
+      const ovr=STATE.codeOverride[sel.value];
+      if(ovr){codeRank('','');_CODE_ORDER[sel.value]=
+        Object.fromEntries(ovr.map((c2,k)=>[c2,k]))}
+      repaintAll();};
+    reset.onclick=()=>{delete STATE.codeOverride[sel.value];
+      _CODE_ORDER=null;repaintAll();};
+    gen.onclick=()=>{
+      const ovr=STATE.codeOverride[sel.value];
+      outBox.textContent=JSON.stringify({
+        proposal:'코드 마스터 순서 변경',code_set:sel.value,
+        from:f.rows.filter(r=>r[i.code_set]===sel.value)
+          .sort((a,b)=>a[i.sort_order]-b[i.sort_order]).map(r=>r[i.code]),
+        to:ovr||'(변경 없음)',
+        apply_path:'risk_lib/datamodel/catalog.py (allowed 선언 순서)',
+        note:'정본은 카탈로그다 — 세션 재정의는 이 화면을 닫으면 사라진다.'},null,2);
+    };
+    acts.appendChild(apply);acts.appendChild(reset);acts.appendChild(gen);
+    pane.appendChild(acts);
+    const outBox=el('pre','mono');outBox.style.whiteSpace='pre-wrap';
+    pane.appendChild(outBox);
+  }
+  sel.onchange=draw;draw();
+  root.appendChild(c);
+  const meta=el('div','meta');
+  meta.textContent=`코드셋 ${sets.length}종 · ${f.total.toLocaleString()}행 — 생성원: tools 카탈로그 allowed 선언`;
+  root.appendChild(meta);
+}
+
+/* ---- 시뮬레이션 — 설명용 산술. 승인·제출값이 아니다 ---- */
+function simulation(root){
+  root.appendChild(el('p','lead',
+    '자본비율 항등식(비율 = 자본 ÷ 위험가중자산)의 설명용 산술이다. 입력을 '+
+    '움직이면 비율이 어떻게 반응하는지 즉시 본다 — 파이프라인 재계산이 아니며 '+
+    '승인·제출값이 아니다. 실제 영향도는 시나리오 설정 제안 → 재실행 → 검증 '+
+    '두 층으로만 확정된다.'));
+  const cs=D.data['cap_stack'];
+  const i=frameIdx(cs);
+  /* cap_stack 은 구성 스택(CET1·AT1·T2 금액)이다 — Tier1·총자본은 누계다 */
+  const amt=t=>{const r=cs.rows.find(x=>x[i.tier]===t);return r?r[i.amount]:0};
+  const cet1r=cs.rows.find(x=>x[i.tier]==='CET1');
+  if(!cet1r){root.appendChild(el('div','note','자본 스택 원장이 없다'));return}
+  const capCET1=amt('CET1'),capT1=capCET1+amt('AT1'),
+        capTOT=capT1+amt('T2');
+  const rwa=capCET1/cet1r[i.ratio];            /* 항등식으로 도출한 RWA 총액 */
+  /* RWA 구성비 — 표준방법 구간 합(신용) 대비 잔여를 시장·운영으로 본다는
+     가정은 쓰지 않는다. 구성 비중은 입력이다 — 지어내지 않는다. */
+  const bar=el('div','toolbar');
+  function num(ph,v){const x=el('input','input');x.type='number';x.step='0.1';
+    x.value=v;x.style.maxWidth='130px';x.title=ph;
+    const wrap=el('label','meta',ph+' ');wrap.appendChild(x);return [wrap,x]}
+  const [w1,dRwa]=num('Δ위험가중자산 %',0);
+  const [w2,dCap]=num('Δ자본 (억원)',0);
+  bar.appendChild(w1);bar.appendChild(w2);
+  root.appendChild(bar);
+  const pane=el('div');root.appendChild(pane);
+  function draw(){
+    pane.innerHTML='';
+    const dR=(parseFloat(dRwa.value)||0)/100;
+    const dC=(parseFloat(dCap.value)||0)*1e8;
+    const rwa2=rwa*(1+dR);
+    const g=el('div','grid');
+    /* 요구비율은 CET1 만 원장(required)에 있다 — Tier1·총자본 요구는 지어내지
+       않고 표시하지 않는다. */
+    [['보통주자본(CET1)',capCET1,cet1r[i.required]],
+     ['기본자본(Tier1)',capT1,null],['총자본',capTOT,null]].forEach(([nm,cap,req])=>{
+      const before=cap/rwa,after=(cap+dC)/rwa2;
+      const c=el('div','card kpi');
+      c.appendChild(el('div','lab',nm+' 비율'));
+      c.appendChild(el('div','val '+(req==null?'':(after>=req?'good':'bad')),
+        (after*100).toFixed(2)+'%'));
+      c.appendChild(el('div','sub',
+        `현행 ${(before*100).toFixed(2)}%`+
+        (req!=null?` · 요구 ${(req*100).toFixed(2)}% · 여유 ${((after-req)*100).toFixed(2)}%p`
+                  :' · 요구비율은 원장에 없어 표시하지 않는다')));
+      c.appendChild(el('div','ln','↗ 원장 · cap_stack (항등식 재계산)'));
+      g.appendChild(c)});
+    pane.appendChild(g);
+    /* 민감도 표 — RWA ±1%, 자본 ±100억 */
+    const rowsv=[];
+    [[-0.01,0],[0.01,0],[0,-1e10],[0,1e10]].forEach(([a,b])=>{
+      const r2=rwa*(1+a);
+      rowsv.push([a?`RWA ${a>0?'+':''}${(a*100).toFixed(0)}%`:`자본 ${b>0?'+':''}${fmtMoney(b)}`,
+        ((capCET1+b)/r2*100).toFixed(3)+'%',
+        (((capCET1+b)/r2-cet1r[i.ratio])*10000).toFixed(1)+'bp'])});
+    const c2=el('div','card');
+    c2.appendChild(el('h3',null,'민감도 — 보통주자본비율'));
+    c2.appendChild(table({columns:['충격','비율','변화'],rows:rowsv,
+      total:rowsv.length,shown:rowsv.length},{numeric:false}));
+    c2.appendChild(el('div','note',
+      '설명용 산술이다 — RWA 변화가 위기 경로·유동성·손익에 미치는 2차 효과는 '+
+      '여기 없다. 그 영향은 시나리오 설정 제안 → 파이프라인 재실행으로만 본다.'));
+    pane.appendChild(c2);
+  }
+  dRwa.oninput=draw;dCap.oninput=draw;draw();
+}
+
+/* ---- 한도·소진 ---- */
+function limitsScreen(root){
+  root.appendChild(el('p','lead',
+    '동일차주·업종·국가 등 다차원 한도와 소진율. 위반은 심각도와 함께 표시된다.'));
+  const f=D.limits;
+  const i=frameIdx(f);
+  root.appendChild(hbars(f.rows.slice()
+    .sort((a,b)=>b[i.utilisation]-a[i.utilisation]).slice(0,12)
+    .map(r=>({label:`${r[i.limit]} · ${r[i.bucket]}`,
+      value:r[i.utilisation]*100,sub:`한도 ${fmtMoney(r[i.threshold])}`,
+      tone:r[i.severity]==='breach'?'bad':r[i.severity]==='warning'?'warn':undefined})),
+    {title:'소진율 상위 (%)',money:false,src:srcMeta(f)}));
+  const c=el('div','card');c.appendChild(el('h3',null,'한도 원장'));
+  c.appendChild(table(f));c.appendChild(srcMeta(f));root.appendChild(c);
+}
+
+/* ---- 역스트레스 ---- */
+function reverseStress(root){
+  root.appendChild(el('p','lead',
+    '순방향 위기상황이 "이 시나리오면 자본이 어떻게 되나"를 묻는다면, 역방향은 '+
+    '"어느 심도가 자본 임계를 뚫는가"를 푼다. 여기 값은 파이프라인이 푼 해다 — '+
+    '화면 계산이 아니다.'));
+  const r=D.reverse_stress;
+  const g=el('div','grid');
+  [['대상 지표',r.metric.toUpperCase()+' 비율',''],
+   ['임계 비율',(r.target_ratio*100).toFixed(2)+'%',''],
+   ['현행 비율',(r.base_ratio*100).toFixed(2)+'%','good'],
+   ['임계 심도',r.critical_severity.toFixed(3),r.resilient?'good':'warn'],
+   ['파열점 비율',(r.ratio_at_break*100).toFixed(3)+'%','warn'],
+   ['함의 GDP 충격',(r.implied_gdp_shock*100).toFixed(2)+'%','bad'],
+  ].forEach(([k,v,t])=>{
+    const c=el('div','card kpi');
+    c.appendChild(el('div','lab',k));
+    c.appendChild(el('div','val '+t,String(v)));
+    g.appendChild(c)});
+  root.appendChild(g);
+  const c=el('div','card');
+  c.appendChild(el('h3',null,'파열점의 산출 상태'));
+  c.appendChild(table({columns:['항목','값'],rows:[
+    ['수렴 여부',r.converged?'수렴':'미수렴'],
+    ['현행이 이미 임계 이하인가',r.resilient===false&&r.base_ratio>r.target_ratio?'아니오':'검토'],
+    ['파열점 위험가중자산',fmtMoney(r.rwa_at_break)],
+    ['파열점 기대신용손실',fmtMoney(r.ecl_at_break)],
+    ['함의 LGD 가산',(r.implied_lgd_addon*100).toFixed(2)+'%p'],
+  ],total:5,shown:5},{numeric:false}));
+  c.appendChild(el('div','note',
+    '심도 1.0 미만에서 임계가 뚫리면(임계 심도 < 1) 심각 시나리오보다 약한 '+
+    '충격에도 요구비율을 지키지 못한다는 뜻이다 — 자본계획·회복계획 연계 대상.'));
+  root.appendChild(c);
+}
+
+/* ---- 금리리스크 · 유동성리스크 (ALM 분리) ---- */
+const rateRisk=screenOf({
+  lead:'은행계정 금리리스크(IRRBB) — 6대 금리충격의 EVE·NII 영향과 리프라이싱 갭.',
+  charts:root=>{const f=D.data['alm_irrbb_shock'];
+    if(!f)return;const i=frameIdx(f);
+    root.appendChild(hbars(f.rows.map(r=>({label:r[i.scenario],
+      value:Math.abs(r[i.delta_eve]),
+      sub:`Tier1 대비 ${(r[i.pct_tier1]*100).toFixed(2)}%`,
+      tone:r[i.pct_tier1]>=0.15?'bad':r[i.pct_tier1]>=0.1?'warn':undefined}))
+      .sort((a,b)=>b.value-a.value),
+      {title:'금리충격 시나리오별 ΔEVE (절대값) — 이상치 기준 Tier1 15%',
+       src:srcMeta(f)}))},
+  tables:[['금리충격(IRRBB)','alm_irrbb_shock'],
+          ['리프라이싱 갭','alm_repricing_gap'],['ALM 종합','alm_result']]});
+const liquidityRisk=screenOf({
+  lead:'유동성리스크 — LCR·NSFR 구성과 가중 후 금액. 규제 최저 100%.',
+  charts:root=>{if(DOMAIN_CHARTS['PRD-ALM'])DOMAIN_CHARTS['PRD-ALM'](root)},
+  tables:[['유동성커버리지(LCR) 구성','alm_lcr_item'],
+          ['순안정자금조달(NSFR) 구성','alm_nsfr_item']]});
+
+/* ---- 코드 매핑 — 계정·상품 × 리스크 대상·특성 (공통=RDM, 그 외=각 스키마) */
+function codeScope(root){
+  root.appendChild(el('p','lead',
+    '계정·상품 코드가 어느 리스크의 모집단에 들어가는지의 매핑이다. 매핑이 '+
+    '없으면 코드 하나가 조용히 모든 산출에서 빠진다 — 대사는 들어온 것끼리만 '+
+    '비교한다. 대상여부는 특성에서 규칙으로 파생되고(code_scope), 예외는 '+
+    '여기서 제안으로만 만든다.'));
+  const bar=el('div','toolbar');
+  const mode=el('select','sel');
+  [['account','계정코드'],['product','상품코드']].forEach(([v,t])=>{
+    const o=el('option');o.value=v;o.textContent=t;mode.appendChild(o)});
+  bar.appendChild(mode);root.appendChild(bar);
+  const pane=el('div');root.appendChild(pane);
+  const yn=v=>pill(v?'대상':'제외', v?'good':undefined);
+  function draw(){
+    pane.innerHTML='';
+    if(mode.value==='account'){
+      const am=D.data['rdm_account_master'],ai=frameIdx(am);
+      const cr=D.data['crm_code_scope'],ci=frameIdx(cr);
+      const al=D.data['alm_code_scope'],li=frameIdx(al);
+      const crBy={};cr.rows.forEach(r=>{crBy[r[ci.account_code]]=r});
+      const alBy={};al.rows.forEach(r=>{alBy[r[li.account_code]]=r});
+      const c=el('div','card');
+      c.appendChild(el('h3',null,'계정코드 × 리스크 대상 매트릭스'));
+      const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
+      ['계정','명칭','계정군','신용','금리(IRRBB)','유동성','신용 특성','LCR 분류']
+        .forEach(x=>tr.appendChild(el('th',null,x)));
+      th.appendChild(tr);t.appendChild(th);
+      const tb=el('tbody');
+      am.rows.forEach(r=>{
+        const code=r[ai.account_code];
+        const c2=crBy[code],l2=alBy[code];
+        const x=el('tr');
+        x.appendChild(el('td','mono',code));
+        x.appendChild(el('td',null,r[ai.account_name]));
+        x.appendChild(el('td',null,r[ai.account_group]));
+        [[c2&&c2[ci.in_scope]],[l2&&l2[li.irrbb_scope]],[l2&&l2[li.liquidity_scope]]]
+          .forEach(([v])=>{const td=el('td');td.appendChild(yn(!!v));x.appendChild(td)});
+        x.appendChild(el('td','meta',c2?c2[ci.ead_basis]+' · '+c2[ci.default_recognition]:'—'));
+        x.appendChild(el('td','meta',l2?l2[li.lcr_category]:'—'));
+        tb.appendChild(x)});
+      t.appendChild(tb);w.appendChild(t);c.appendChild(w);
+      c.appendChild(srcMeta(am,'대상여부: crm_code_scope · alm_code_scope (규칙 파생)'));
+      pane.appendChild(c);
+    } else {
+      const pm=D.data['rdm_product_master'],pi=frameIdx(pm);
+      const mk=D.data['mkt_code_scope'],mi=frameIdx(mk);
+      const op=D.data['opr_code_scope'],oi=frameIdx(op);
+      const mkBy={};mk.rows.forEach(r=>{mkBy[r[mi.product_code]]=r});
+      const opBy={};op.rows.forEach(r=>{opBy[r[oi.product_code]]=r});
+      const c=el('div','card');
+      c.appendChild(el('h3',null,'상품코드 × 리스크 대상 매트릭스'));
+      const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
+      ['상품','명칭','북','시장','운영','주 위험요소','손실사건 매핑']
+        .forEach(x=>tr.appendChild(el('th',null,x)));
+      th.appendChild(tr);t.appendChild(th);
+      const tb=el('tbody');
+      pm.rows.forEach(r=>{
+        const code=r[pi.product_code];
+        const m2=mkBy[code],o2=opBy[code];
+        const x=el('tr');
+        x.appendChild(el('td','mono',code));
+        x.appendChild(el('td',null,r[pi.product_name]));
+        x.appendChild(el('td',null,r[pi.book]));
+        [[m2&&m2[mi.in_scope]],[o2&&o2[oi.in_scope]]]
+          .forEach(([v])=>{const td=el('td');td.appendChild(yn(!!v));x.appendChild(td)});
+        x.appendChild(el('td','meta',m2?m2[mi.risk_factor]:'—'));
+        x.appendChild(el('td','meta',o2?o2[oi.event_mapping]:'—'));
+        tb.appendChild(x)});
+      t.appendChild(tb);w.appendChild(t);c.appendChild(w);
+      c.appendChild(srcMeta(pm,'대상여부: mkt_code_scope · opr_code_scope (규칙 파생)'));
+      pane.appendChild(c);
+    }
+    /* 예외 제안 */
+    const c3=el('div','card set-codescope');
+    c3.appendChild(el('h3',null,'대상여부 예외 제안'));
+    const b2=el('div','toolbar');
+    const code=el('input','input');code.type='text';code.placeholder='코드 (예: 1340 / P-CRD)';
+    code.style.maxWidth='170px';
+    const risk=el('select','sel');
+    ['신용','시장','운영','금리(IRRBB)','유동성'].forEach(x=>{
+      const o=el('option');o.value=x;o.textContent=x;risk.appendChild(o)});
+    const to=el('select','sel');
+    [['true','대상 포함'],['false','대상 제외']].forEach(([v,t2])=>{
+      const o=el('option');o.value=v;o.textContent=t2;to.appendChild(o)});
+    const why=el('input','input');why.type='text';why.placeholder='사유 (필수)';
+    b2.appendChild(code);b2.appendChild(risk);b2.appendChild(to);b2.appendChild(why);
+    c3.appendChild(b2);
+    const gen=el('button','btn primary','예외 제안 생성');c3.appendChild(gen);
+    const err=el('div','note bad');err.hidden=true;c3.appendChild(err);
+    const out=el('pre','mono');out.style.whiteSpace='pre-wrap';c3.appendChild(out);
+    gen.onclick=()=>{
+      err.hidden=true;out.textContent='';
+      if(!code.value.trim()||!why.value.trim()){
+        err.textContent='코드와 사유는 필수다.';err.hidden=false;return}
+      out.textContent=JSON.stringify({
+        proposal:'코드 대상여부 예외',code:code.value.trim(),
+        risk:risk.value,to_in_scope:to.value==='true',reason:why.value.trim(),
+        apply_path:'risk_lib/datamodel/code_scope.py (규칙 또는 예외 등재)',
+        procedure:['규칙·예외 반영','파이프라인 재실행','자체검증(2선)',
+                   '독립검증(3선) 재요청'],
+        note:'화면 매트릭스는 규칙 파생이다 — 예외도 코드가 돼야 산출에 반영된다.'},null,2);
+    };
+    pane.appendChild(c3);
+  }
+  mode.onchange=draw;draw();
+}
+
+/* ---- 화면 요약 — 조회 순간의 데이터에서 규칙으로 뽑는 한 줄 ----
+   외부 LLM 호출은 하지 않는다(폐쇄망·CSP 차단·재현성). 같은 데이터면 같은
+   문장이 나온다 — 요약도 산출물이므로 결정론이어야 한다. */
+function cockpitInsights(){
+  const out=[];
+  try{
+    const sev=D.kpis.find(k=>k.label.includes('위기상황'));
+    if(sev&&sev.tone==='warn')out.push({t:`위기 ${sev.label.replace(' CET1 저점','')} 저점 ${sev.value} — 요구비율 침범, 자본계획·회복계획 연계 대상`,tone:'bad'});
+    const rv=D.reverse_stress;
+    if(rv&&rv.critical_severity<1)out.push({t:`역스트레스 임계 심도 ${rv.critical_severity.toFixed(2)} — 심각(1.0)보다 약한 충격에 임계 붕괴`,tone:'bad'});
+    const lm=D.limits,li=frameIdx(lm);
+    const br=lm.rows.filter(r=>r[li.severity]==='breach');
+    if(br.length)out.push({t:`한도 위반 ${br.length}건 — 최고 소진 ${(Math.max(...lm.rows.map(r=>r[li.utilisation]))*100).toFixed(0)}% (${br[0][li.limit]})`,tone:'bad'});
+    const ex=D.data['gov_exception_action'];
+    if(ex){const xi=frameIdx(ex);
+      const grave=ex.rows.filter(r=>r[xi.severity]==='중대').length;
+      if(grave)out.push({t:`미해소 예외 ${ex.total}건 중 중대 ${grave}건 — 예외·조치 화면에서 기한 추적`,tone:'warn'})}
+    const ipv=D.data['mkt_ipv'];
+    if(ipv){const ii=frameIdx(ipv);
+      const old=ipv.rows.filter(r=>r[ii.is_break]&&r[ii.days_open]>=5).length;
+      if(old)out.push({t:`가격검증 미해소 5일 초과 ${old}건 — 상위보고 대상`,tone:'warn'})}
+    const v=D.validation,vi=frameIdx(v);
+    if(!v.rows.some(r=>r[vi.status]==='FAIL'))
+      out.push({t:`자체검증 ${v.rows.length}건 FAIL 0 · 서식 대사 ${D.form_checks.total.toLocaleString()}건 실패 0 — 3선 게이트 ${D.independent.status}`,tone:'good'});
+  }catch(e){}
+  return out;
+}
+const SUMMARIES={
+  '콕핏':()=>cockpitInsights()[0],
+  '한도':()=>{const f=D.limits,i=frameIdx(f);
+    const br=f.rows.filter(r=>r[i.severity]==='breach').length;
+    const wr=f.rows.filter(r=>r[i.severity]==='warning').length;
+    return br?{t:`한도 ${f.total}건 중 위반 ${br} · 경보 ${wr} — 위반 구간부터 검토하라`,tone:'bad'}
+      :{t:`한도 ${f.total}건 — 위반 없음 · 경보 ${wr}건`,tone:wr?'warn':'good'}},
+  '역스트레스':()=>{const r=D.reverse_stress;
+    return {t:`임계 심도 ${r.critical_severity.toFixed(2)}에서 ${r.metric.toUpperCase()} ${(r.target_ratio*100).toFixed(0)}% 붕괴 — 함의 GDP ${(r.implied_gdp_shock*100).toFixed(1)}%`,
+      tone:r.critical_severity<1?'bad':'good'}},
+  '오버레이':()=>{const f=D.adjustments,i=frameIdx(f);
+    const pend=f.rows.filter(r=>r[i.status]!=='approved').length;
+    return {t:`수동조정 ${f.total}건 — 미승인 ${pend}건 · 전 건 사유·증빙·만료 보유`,
+      tone:pend?'warn':'good'}},
+  '예외·조치':()=>{const f=D.data['gov_exception_action'],i=frameIdx(f);
+    const g=f.rows.filter(r=>r[i.severity]==='중대').length;
+    return {t:`예외 ${f.total}건 (중대 ${g}) — 자동상계 금지, 종결은 사람 승인 후`,
+      tone:g?'warn':'good'}},
+  '백테스팅':()=>{const f=D.data['mkt_backtest_exception'],i=frameIdx(f);
+    const n=f.rows.filter(r=>r[i.exception]).length;
+    return {t:`관측 ${f.rows.length}일 중 예외 ${n}건 — ${n<=4?'녹색':'주의'} 구간`,
+      tone:n<=4?'good':'warn'}},
+  '유동성리스크':()=>{const f=D.data['alm_result'],i=frameIdx(f);
+    const bad=f.rows.filter(r=>r[i.passes]===false).length;
+    return {t:bad?`유동성 지표 ${bad}건 최저치 미달`:'LCR·NSFR 전 지표 최저치 상회',
+      tone:bad?'bad':'good'}},
+  '금리리스크':()=>{const f=D.data['alm_irrbb_shock'],i=frameIdx(f);
+    const mx=f.rows.reduce((a,r)=>r[i.pct_tier1]>a[i.pct_tier1]?r:a,f.rows[0]);
+    return {t:`최대 충격 ${mx[i.scenario]} — ΔEVE가 Tier1의 ${(mx[i.pct_tier1]*100).toFixed(1)}% (이상치 기준 15%)`,
+      tone:mx[i.pct_tier1]>=0.15?'bad':'good'}},
+  '코드 매핑':()=>{const cr=D.data['crm_code_scope'],i=frameIdx(cr);
+    const n=cr.rows.filter(r=>r[i.in_scope]).length;
+    return {t:`계정 ${cr.total}종 중 신용 대상 ${n} — 대상여부는 규칙 파생, 예외는 제안으로만`,tone:'good'}},
+  '시뮬레이션':()=>({t:'설명용 산술 — 승인·제출값 아님. 실제 영향은 재실행·검증으로만 확정된다',tone:'warn'}),
+  '상업성':()=>{const q=D.commercial.quotes,i=frameIdx(q);
+    const best=q.rows.reduce((a,r)=>r[i.payback_years]<a[i.payback_years]?r:a,q.rows[0]);
+    return {t:`회수기간 최단 ${best[i.name]} ${best[i.payback_years]}년 — 전 수치 가정 원장 파생·이중계상 검증 통과`,tone:'good'}},
+  '요건 추적':()=>{const c=D.req_trace.coverage;
+    return {t:`131건 중 반영 ${c['반영']} · 부분 ${c['부분']} · 미반영 ${c['미반영']} — 증빙 ${c.n_evidence}건 전부 기계 검증`,tone:'good'}},
+  '감독보고':()=>({t:`서식 ${D.forms.length}장 · 검증 ${D.form_checks.total.toLocaleString()}건 실패 ${D.forms.reduce((a,f)=>a+f.n_failed,0)} — 편제·라인·인용 기준선 고정`,tone:'good'}),
+  '검증':()=>({t:`2선 ${D.independent.self_validation} · 3선 게이트 ${D.independent.status} — 게이트는 fail-closed`,
+    tone:D.independent.status==='적합'?'good':'warn'}),
+};
+function insertSummary(label,section){
+  const f=SUMMARIES[label];
+  if(!f)return;
+  let sm=null;try{sm=f()}catch(e){return}
+  if(!sm)return;
+  const d=el('div','aisum '+(sm.tone||''));
+  d.appendChild(el('span','aisum-tag','요약'));
+  d.appendChild(el('span',null,sm.t));
+  d.title='규칙 기반 자동 분석 — 결정론(같은 데이터면 같은 문장) · 외부 LLM 호출 없음(폐쇄망)';
+  const h2=section.querySelector('h2');
+  h2?h2.after(d):section.prepend(d);
+}
+
+function scenarioScreen(root){
+  root.appendChild(el('p','lead',
+    '위기상황 시나리오의 정의를 한 화면에서 본다 — 충격 축 14종의 단위충격, '+
+    '시나리오별 분기 심도 경로, 신규 시나리오 제안. 화면은 재계산하지 않는다 — '+
+    '적용은 코드 반영 + 파이프라인 재실행 + 검증 두 층이다.'));
+  /* 분기 심도 경로 — 추적표에서 그대로 */
+  const T=traceRows();
+  if(T){
+    const {f,i}=T;
+    const scenarios=[...new Set(f.rows.map(r=>r[i.scenario]))];
+    const quarters=[...new Set(f.rows.map(r=>r[i.quarter]))];
+    const series=scenarios.map(sc=>({name:sc,
+      values:quarters.map(q=>{const r=f.rows.find(x=>x[i.scenario]===sc&&
+        x[i.quarter]===q&&/심도/.test(x[i.step]));return r?r[i.value]:null})}));
+    const c=el('div','card');
+    c.appendChild(el('h3',null,'시나리오별 분기 심도 경로 — 정점까지 선형 상승'));
+    c.appendChild(multiLine(series,quarters,null));
+    c.appendChild(srcMeta(f));
+    root.appendChild(c);
+  }
+  scenarioSettings(root);
+  /* 신규 시나리오 제안 */
+  const c2=el('div','card set-newscen');
+  c2.appendChild(el('h3',null,'신규 시나리오 제안'));
+  const bar=el('div','toolbar');
+  const nm=el('input','input');nm.type='text';nm.placeholder='시나리오 이름 (예: 부동산 급락)';
+  const sv=el('input','input');sv.type='text';sv.placeholder='정점 심도 (예: 1.5)';
+  sv.style.maxWidth='140px';
+  bar.appendChild(nm);bar.appendChild(sv);c2.appendChild(bar);
+  const gen=el('button','btn primary','시나리오 제안 생성');c2.appendChild(gen);
+  const err=el('div','note bad');err.hidden=true;c2.appendChild(err);
+  const out=el('pre','mono');out.style.whiteSpace='pre-wrap';c2.appendChild(out);
+  gen.onclick=()=>{
+    err.hidden=true;out.textContent='';
+    if(STATE.killed&&STATE.killScope==='전사'){
+      err.textContent='비상정지 중 — 제안을 만들지 않는다.';err.hidden=false;return}
+    if(!nm.value.trim()){err.textContent='이름을 입력하라.';err.hidden=false;return}
+    if(!/^\d+(\.\d+)?$/.test(sv.value.trim())){
+      err.textContent='정점 심도는 숫자다.';err.hidden=false;return}
+    out.textContent=JSON.stringify({
+      proposal:'신규 위기상황 시나리오',name:nm.value.trim(),
+      peak_severity:parseFloat(sv.value),
+      apply_path:'risk_lib/stress/scenario.py · axes.py',
+      procedure:['시나리오 정의 코드 반영','파이프라인 재실행',
+                 '자체검증(2선)','독립검증(3선) 재요청','게이트 통과 후 결재'],
+      note:'심도 경로·충격 축 배수는 기존 체계를 따른다 — 화면은 재계산하지 않는다.'},null,2);
+  };
+  root.appendChild(c2);
+}
+
 function settings(root){
   root.appendChild(el('p','lead',
     '표시명·기준일 전환은 세션 안에서 즉시 적용된다(산출값 무관). 서식번호 '+
@@ -2041,7 +2665,7 @@ function settings(root){
   runRegistry(root);
   labelSettings(root);
   formMapSettings(root);
-  scenarioSettings(root);
+  /* 시나리오 설정은 별도 화면(위기상황 > 시나리오 설정)으로 옮겼다 */
 }
 
 /* ---- 범위형 비상정지 (PLT-016) — 부문 단위로 조회를 세운다 ---- */
@@ -2124,10 +2748,24 @@ function migrationPivot(root){
   root.appendChild(c);
 }
 
+function autoCharts(root,specs){
+  (specs||[]).forEach(([title,tab,labCols,valCol,opt])=>{
+    const f=D.data[tab];if(!f)return;
+    const i=frameIdx(f);
+    const g=new Map();
+    f.rows.forEach(r=>{
+      const k=labCols.map(c=>r[i[c]]).join(' · ');
+      g.set(k,(g.get(k)||0)+(valCol?(r[i[valCol]]||0):1))});
+    const items=[...g.entries()].map(([k,v])=>({label:k,value:v}))
+      .sort((a,b)=>b.value-a.value).slice(0,10);
+    root.appendChild(hbars(items,{title,money:opt?.money!==false,
+      src:srcMeta(f)}))});
+}
 function screenOf(defs){
   return root=>{
     root.appendChild(el('p','lead',defs.lead));
     if(defs.charts)defs.charts(root);
+    autoCharts(root,defs.autochart);
     (defs.forms||[]).forEach(fid=>{
       const f=D.forms.find(x=>x.form_id===fid);
       if(f){const pane=el('div');renderForm(pane,f);root.appendChild(pane)}
@@ -2176,11 +2814,15 @@ function commercial(root){
 const DETAIL_SCREENS=[
   ['원천·계약','A · 원천 인터페이스 — 계약·스냅샷·표준 매핑',screenOf({
     lead:'원천 시스템과의 인터페이스 계약, 수신 스냅샷, 표준코드 매핑을 원장으로 통제한다. 계약 위반은 적재 전에 차단된다.',
+    autochart:[['원천 시스템별 수신 행수','rdm_source_contract',
+                ['source_system'],'actual_rows',{money:false}]],
     tables:[['원천 인터페이스 계약','rdm_source_contract'],
             ['수신 스냅샷 원장','rdm_snapshot'],
             ['표준코드 매핑','rdm_canonical_map']]})],
   ['DQ·대사','A · 데이터품질 — 규칙·판정·대사',screenOf({
     lead:'DQ 규칙과 판정, 원천–산출 대사를 한 화면에서 본다. 실패는 예외·조치 큐로 넘어간다.',
+    autochart:[['판정 심각도별 건수','rdm_dq_result',['severity'],null,{money:false}],
+               ['DQ 규칙 유형 분포','rdm_dq_rule',['rule_type'],null,{money:false}]],
     tables:[['DQ 규칙 원장','rdm_dq_rule'],['DQ 판정 결과','rdm_dq_result'],
             ['집계·대사','rdm_reconciliation']]})],
   ['예외·조치','A · 예외·조치 워크플로 — 접수→조치→종결',screenOf({
@@ -2190,6 +2832,8 @@ const DETAIL_SCREENS=[
             ['경보·조치 정책 바인딩','gov_alert_policy']]})],
   ['담보·보증','A · 담보·보증·재무 원장',screenOf({
     lead:'담보·보증·차주 재무 원장 — 신용위험경감과 LGD의 원천이다.',
+    autochart:[['담보유형별 평가액','rdm_collateral',['collateral_type'],'market_value'],
+               ['보증유형별 보증액','rdm_guarantee',['protection_type'],'guaranteed_amount']],
     tables:[['담보 원장','rdm_collateral'],['보증 원장','rdm_guarantee'],
             ['차주 재무','rdm_obligor_financial']]})],
   ['모형·등급','B · 신용평가모형 — 카드·보정·성능·이동',screenOf({
@@ -2204,6 +2848,15 @@ const DETAIL_SCREENS=[
     tables:[['조기경보 신호','crm_ews_signal']]})],
   ['가격검증·IPV','C · 독립가격검증 — 거래·위험요소·IPV',screenOf({
     lead:'거래 원장, 위험요소 매핑, 독립가격검증 결과. 미해소 5일 초과는 상위보고 대상이다.',
+    charts:root=>{if(DOMAIN_CHARTS['PRD-MKT'])
+      {const ipv=D.data['mkt_ipv'];if(ipv){const i=frameIdx(ipv);
+        const open=ipv.rows.filter(r=>r[i.is_break]);
+        root.appendChild(hbars(open.sort((a,b)=>b[i.days_open]-a[i.days_open])
+          .slice(0,8).map(r=>({label:`${r[i.trade_id]} · ${r[i.source]}`,
+            value:r[i.days_open],sub:`차이 ${fmtMoney(r[i.diff])}`,
+            tone:r[i.days_open]>=5?'bad':'warn'})),
+          {title:'미해소 경과일 상위',money:false,
+           src:srcMeta(ipv,`미해소 ${open.length}건`)}))}}},
     tables:[['거래 원장','mkt_trade'],['위험요소','mkt_risk_factor'],
             ['독립가격검증','mkt_ipv']]})],
   ['백테스팅','C · VaR 백테스팅 — 예외 달력·손익 대 경계',screenOf({
@@ -2213,6 +2866,7 @@ const DETAIL_SCREENS=[
     tables:[['백테스팅 관측 원장','mkt_backtest_exception']]})],
   ['VaR·ES','C · VaR·기대손실(ES) 원장',screenOf({
     lead:'과거시뮬레이션 VaR·ES 산출 원장 — 백테스팅·소요자기자본의 원천이다.',
+    autochart:[['측정치별 금액','mkt_var_es',['measure','confidence'],'value']],
     tables:[['VaR·ES','mkt_var_es']]})],
   ['손실·회수','D · 운영손실 — 사건·회수·자본',screenOf({
     lead:'내·외부 손실사건, 회수, 운영리스크 소요자본. 총손실 → 적격회수 → 순손실 순서로 읽는다.',
@@ -2221,14 +2875,12 @@ const DETAIL_SCREENS=[
             ['운영리스크 자본','opr_capital']]})],
   ['KRI·통제','D · KRI·통제 — 지표·통제·경보정책',screenOf({
     lead:'핵심리스크지표와 통제 원장, 그리고 경보가 떴을 때 무엇을 해야 하는지의 정책 바인딩.',
+    autochart:[['통제 증빙 상태','opr_control',['evidence_status'],null,{money:false}]],
     tables:[['핵심리스크지표','opr_kri'],['통제 원장','opr_control'],
             ['경보·조치 정책','gov_alert_policy']]})],
-  ['IRRBB·갭','E · 은행계정 금리리스크 — 충격·리프라이싱 갭',screenOf({
-    lead:'IRRBB 6대 금리충격과 리프라이싱 갭, ALM 종합 결과.',
-    tables:[['금리충격(IRRBB)','alm_irrbb_shock'],
-            ['리프라이싱 갭','alm_repricing_gap'],['ALM 결과','alm_result']]})],
   ['NCR·건전성','S · 증권 건전성 — NCR·재무·적기시정조치',screenOf({
     lead:'순자본비율(NCR) 구성과 증권 건전성 원장 — 은행 BIS와 분모·분자·규정 체계가 완전히 다르다.',
+    autochart:[['NCR 구성요소별 금액','ncr_component',['category','component'],'amount']],
     tables:[['NCR 구성','ncr_component'],['재무상태','pru_balance_sheet'],
             ['유동성 비율','pru_liquidity_ratio'],['경영실태평가(CAMEL)','pru_camel'],
             ['적기시정조치','pru_prompt_action']]})],
@@ -2247,6 +2899,15 @@ const DETAIL_SCREENS=[
     forms:['BR-06'],
     tables:[['운영리스크 자본 원장','opr_capital']]})],
   ['상업성','$ · 사업성 — 견적·ROI·Funnel (규제 산출물 아님)',commercial],
+  ['시뮬레이션','SIM · 자본비율 영향도 — 설명용 산술 (승인·제출값 아님)',simulation],
+  ['한도','LIM · 다차원 한도·소진율',limitsScreen],
+  ['오버레이','OVR · 수동조정(오버레이) — 인간 수정의 통제된 기록',overlay],
+  ['역스트레스','RST · 역방향 위기상황 — 자본 임계를 뚫는 심도',reverseStress],
+  ['시나리오 설정','SET · 위기상황 시나리오 설정 — 축·심도·신규 제안',scenarioScreen],
+  ['코드 마스터','SET · 코드 마스터 관리 — 정렬 정본',codeMasterAdmin],
+  ['코드 매핑','SET · 계정·상품 코드 × 리스크 대상·특성 매핑',codeScope],
+  ['금리리스크','E · 은행계정 금리리스크(IRRBB) — 충격·갭',rateRisk],
+  ['유동성리스크','E · 유동성리스크 — LCR·NSFR',liquidityRisk],
 ];
 
 /* 메뉴 트리 — 그룹은 시각적 계층일 뿐, 리프 순서가 화면의 정체다.
@@ -2255,7 +2916,7 @@ const DETAIL_SCREENS=[
 /* 부문 마커(A/B/C…·Δ)는 메뉴에서 뺀다 — 트리 들여쓰기가 이미 부문을
    말한다. 부문 개요는 2레벨 리프-부모, 마커 없던 세부화면은 3레벨이다. */
 const NAVGROUPS=[
-  ['통제센터',['콕핏']],
+  ['통제센터',['콕핏','시뮬레이션','한도']],
   ['조회·컴포저',['정형 조회','비정형 UI']],
   ['리스크데이터',[
     ['RDM',['원천·계약','DQ·대사','예외·조치','담보·보증']],
@@ -2266,17 +2927,20 @@ const NAVGROUPS=[
     ['운영',['손실·회수','KRI·통제','운영 RWA']],
   ]],
   ['ALM·위기상황',[
-    ['ALM',['IRRBB·갭']],
-    '위기상황',
+    ['ALM',['금리리스크','유동성리스크']],
+    ['위기상황',['시나리오 설정','역스트레스']],
   ]],
   ['증권 건전성',['NCR·건전성']],
   ['보고',['감독보고']],
   ['검증·거버넌스',[
     ['검증',['요건 추적']],
-    '에이전트','변경',
+    '에이전트','변경','오버레이',
   ]],
   ['사업성',['상업성']],
-  ['데이터·설정',['데이터모델','⚙ 설정']],
+  ['데이터·설정',[
+    '데이터모델',
+    ['⚙ 설정',['코드 마스터','코드 매핑']],
+  ]],
 ];
 
 const TABS=[
@@ -2347,6 +3011,7 @@ function boot(){
       [...main.children].forEach(x=>x.classList.remove('on'));
       b.classList.add('on');s.classList.add('on');
       if(!s.dataset.done){const h=el('h2',null,title);s.appendChild(h);fn(s);
+        insertSummary(label,s);
         s.dataset.done='1'}
       window.scrollTo({top:0});
     };
