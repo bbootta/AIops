@@ -749,3 +749,62 @@ def test_chart_without_numeric_column_draws_default_and_discloses(page):
     assert "기본 값 열" in txt                      # 공시
     assert page.query_selector("section.on .blk.viz-bar .bar i")  # 막대가 실제로 그려졌다
     assert page.errors == []
+
+
+def test_market_and_op_rwa_screens_render(page):
+    """RWA 트리의 시장·운영 RWA 화면 — 소요자기자본 서식과 원장이 함께 뜬다."""
+    _tab_named(page, "시장 RWA")
+    txt = _text(page)
+    assert "B2326" in txt and "VaR·ES 원장" in txt
+    _tab_named(page, "운영 RWA")
+    txt = _text(page)
+    assert "BA2325" in txt and "산출방법별 위험가중자산" in txt
+    assert page.errors == []
+
+
+def test_adaptive_fallback_chips_yield_real_charts(page):
+    """재검수된 예시 문장 — 첫 칩을 누르면 값 열이 문장에 있으므로 기본 값 열
+    공시 없이 막대가 그려지고, 라벨은 범주 열이다."""
+    _tab(page, 2)
+    page.select_option("section.on select.sel", "V_RDM_ASSET_QUALITY")
+    page.wait_for_timeout(300)
+    chips = page.eval_on_selector_all(
+        "section.on .chip", "els => els.map(e => e.textContent)")
+    target = next(c for c in chips if "기여도를 막대차트" in c)
+    page.eval_on_selector_all(
+        "section.on .chip",
+        "(els, t) => els.find(e => e.textContent === t).click()", target)
+    page.wait_for_timeout(500)
+    txt = _text(page)
+    assert page.query_selector("section.on .blk.viz-bar .bar i")
+    assert "기본 값 열" not in txt              # 문장이 값 열을 직접 짚었다
+    assert page.errors == []
+
+
+def test_migration_pivot_orders_grades_by_code_master(page):
+    """전이행렬 피봇 — 세그먼트 선택이 동작하고, 열 순서가 등급 사다리다."""
+    _tab_named(page, "모형·등급")
+    heads = page.eval_on_selector_all(
+        "section.on .card:has-text('전이행렬') thead th",
+        "els => els.map(e => e.textContent)")
+    grades = heads[1:]
+    assert len(grades) >= 5
+    # 특정 등급의 존재를 가정하지 않는다 — 이 스냅샷엔 AAA 차주가 없다.
+    # 표시된 등급들이 코드 마스터 순서의 부분수열이면 사다리가 맞다.
+    order = page.evaluate(
+        "() => { const f = window.__RYNTA__.data['rdm_code_master'];"
+        " const i = Object.fromEntries(f.columns.map((c,k)=>[c,k]));"
+        " return f.rows.filter(r=>r[i.code_set]==='from_grade')"
+        "  .sort((a,b)=>a[i.sort_order]-b[i.sort_order]).map(r=>r[i.code]); }")
+    pos = [order.index(g) for g in grades]
+    assert pos == sorted(pos), f"등급 사다리가 아니다: {grades}"
+    before = page.inner_text("section.on .card:has-text('전이행렬') tbody")
+    opts = page.eval_on_selector_all(
+        "section.on .card:has-text('전이행렬') select option",
+        "els => els.map(e => e.value)")
+    assert len(opts) >= 2
+    page.select_option("section.on .card:has-text('전이행렬') select", opts[1])
+    page.wait_for_timeout(300)
+    after = page.inner_text("section.on .card:has-text('전이행렬') tbody")
+    assert before != after                     # 세그먼트가 값을 바꾼다
+    assert page.errors == []

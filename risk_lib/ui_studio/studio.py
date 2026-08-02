@@ -82,8 +82,11 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     asof = result.meta.get("asof", "1970-01-01")
     run_id = f"RUN-{asof.replace('-', '')}"
 
+    from risk_lib.datamodel.code_master import build_code_master
     from risk_lib.datamodel.decompose import dq_result_frame, validate_all
     tables = materialize_all(result, portfolio)
+    # 코드 마스터 — 정렬·표시의 정본. 카탈로그 스펙에서 생성한다.
+    tables["rdm_code_master"] = build_code_master()
     tables.update(materialize_detail(result, portfolio, tables))
     # DQ 결과는 분해 단계의 산물이다 — 없으면 "그때는 통과했다"를 증명 못 한다.
     tables["rdm_dq_result"] = dq_result_frame(validate_all(tables), asof=asof)

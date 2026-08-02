@@ -36,6 +36,9 @@ DEMO_TABLES = (
     # 백테스트 예외 달력은 250 영업일 전체가 있어야 그림이 된다 — 200행에서
     # 자르면 달력의 마지막 두 달이 비는데, 그 공백은 "예외 없음"으로 읽힌다.
     "mkt_backtest_exception",
+    # 코드 마스터는 정렬의 정본이다 — 잘리면 잘린 코드셋만 사다리가 무너져,
+    # 어떤 화면은 맞고 어떤 화면은 틀리는 최악의 상태가 된다.
+    "rdm_code_master",
 )
 
 _ENGINE_JS = (Path(__file__).with_name("engine.js")).read_text(encoding="utf-8")
@@ -438,6 +441,11 @@ border-left-color:var(--muted)}
 nav button.on{background:var(--accent);color:var(--on-accent);
 border-left-color:var(--accent);font-weight:750}
 nav button[hidden]{display:none}
+.navgroup.sub{margin-left:11px;margin-top:4px;font-size:10px;
+background:transparent;border:none;border-left:2px solid var(--line);
+border-radius:0;color:var(--muted);padding:5px 8px}
+nav button.lvl2{margin-left:22px}
+nav button.lvl3{margin-left:34px}
 main{padding:20px;min-width:0}
 @media(max-width:900px){
   .layout{grid-template-columns:1fr}
@@ -1115,12 +1123,28 @@ function adaptive(root){
     const v=D.view_meta[viewId];
     presetBox.innerHTML='';
     const mine=D.demo_prompts.filter(q=>q.view_id===viewId).map(q=>q.prompt);
-    const cols=v.fields.filter(f=>f.permitted&&f.masking==='none')
-      .slice(0,4).map(f=>f.korean);
-    const fallback=[
-      `${cols.slice(0,2).join('과 ')} 기여도를 막대차트로 보여주고 아래에 검토 표를 배치해줘. 상위 10건.`,
-      `${cols.slice(0,3).join(', ')} 추이를 보여줘`,
-      `${cols.slice(0,2).join('와 ')}를 카드로 보여줘`];
+    /* 예시 문장은 열 타입을 보고 만든다 — 앞에서 4개를 자르면 기준일·식별자
+       같은 열이 문장에 들어가 막대에 값 열이 없거나 라벨이 전부 같은,
+       요청 의도가 드러나지 않는 레이아웃이 된다 (검수 지적). */
+    const frame=D.data[v.table_ref];
+    const fi={};frame.columns.forEach((c,k)=>{fi[c]=k});
+    const usable=v.fields.filter(f=>f.permitted&&f.masking==='none'
+      &&f.field_name in fi);
+    const distinct=f=>new Set(frame.rows.slice(0,50)
+      .map(r=>r[fi[f.field_name]])).size>1;
+    const nums=usable.filter(f=>frame.rows.some(
+      r=>typeof r[fi[f.field_name]]==='number')&&distinct(f));
+    const cats=usable.filter(f=>frame.rows.some(
+      r=>typeof r[fi[f.field_name]]==='string')&&distinct(f));
+    const fallback=[];
+    if(cats[0]&&nums[0])fallback.push(
+      `${cats[0].korean}별 ${nums[0].korean} 기여도를 막대차트로 보여주고 아래에 `+
+      `${nums.slice(0,3).map(f=>f.korean).join('·')} 검토 표를 배치해줘. 상위 10건.`);
+    if(nums[0])fallback.push(`${nums[0].korean} 추이를 보여줘`);
+    if(nums.length>=2)fallback.push(
+      `${nums.slice(0,3).map(f=>f.korean).join('와 ')}를 카드로 보여줘`);
+    else if(cats[0]&&nums[0])fallback.push(
+      `${cats[0].korean}와 ${nums[0].korean}를 카드로 보여줘`);
     presetBox.appendChild(chips(mine.concat(fallback),t=>{ta.value=t;run()}));
     fieldHint.textContent='사용 가능한 열 — '+v.fields
       .filter(f=>f.permitted&&f.masking==='none').map(f=>f.korean).join(' · ');
@@ -2026,10 +2050,88 @@ function killedFor(domain){
 }
 
 /* ---- 도메인 세부화면 — 원장 나열 + 부문 차트. 전 값이 payload 원장이다 ---- */
+/* ---- 코드 마스터 정렬 — rdm_code_master 가 정본이다 ----
+   등급·건전성 분류는 선언 순서가 업무 순서다. 가나다순은 틀린 정렬이다. */
+let _CODE_ORDER=null;
+function codeRank(tableName,col){
+  if(!_CODE_ORDER){
+    _CODE_ORDER={};
+    const f=D.data['rdm_code_master'];
+    if(f){const i=frameIdx(f);
+      f.rows.forEach(r=>{
+        (_CODE_ORDER[r[i.code_set]]=_CODE_ORDER[r[i.code_set]]||{})
+          [r[i.code]]=r[i.sort_order]})}
+  }
+  return _CODE_ORDER[tableName+'.'+col]||_CODE_ORDER[col]||null;
+}
+function sortByCode(values,tableName,col){
+  const rank=codeRank(tableName,col);
+  const out=[...values];
+  if(rank)out.sort((a,b)=>(rank[a]??1e9)-(rank[b]??1e9));
+  return out;
+}
+
+/* 전이행렬 피봇 — 세그먼트 선택, 행·열은 코드 마스터 순서, 대각선 강조 */
+function migrationPivot(root){
+  const f=D.data['crm_rating_migration'];
+  if(!f)return;
+  const i=frameIdx(f);
+  const c=el('div','card');
+  c.appendChild(el('h3',null,'등급 전이행렬 — 피봇'));
+  const bar=el('div','toolbar');
+  const sel=el('select','sel');
+  sortByCode([...new Set(f.rows.map(r=>r[i.segment]))],
+             'crm_rating_migration','segment')
+    .forEach(sg=>{const o=el('option');o.value=sg;
+      o.textContent='세그먼트 · '+sg;sel.appendChild(o)});
+  bar.appendChild(sel);c.appendChild(bar);
+  const pane=el('div');c.appendChild(pane);
+  function draw(){
+    pane.innerHTML='';
+    const rows=f.rows.filter(r=>r[i.segment]===sel.value);
+    const grades=sortByCode(
+      [...new Set(rows.flatMap(r=>[r[i.from_grade],r[i.to_grade]]))],
+      'crm_rating_migration','from_grade');
+    const cell={};let mx=0;
+    rows.forEach(r=>{
+      const k=r[i.from_grade]+'>'+r[i.to_grade];
+      cell[k]=(cell[k]||0)+r[i.share];mx=Math.max(mx,cell[k])});
+    const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
+    tr.appendChild(el('th',null,'시작 \\ 도착'));
+    grades.forEach(g=>tr.appendChild(el('th','num',g)));
+    th.appendChild(tr);t.appendChild(th);
+    const tb=el('tbody');
+    grades.forEach(fr=>{
+      const x=el('tr');
+      const h=el('td',null,fr);h.style.fontWeight='700';x.appendChild(h);
+      grades.forEach(to=>{
+        const v=cell[fr+'>'+to];
+        const td=el('td','num',v==null?'—':(v*100).toFixed(1)+'%');
+        if(v!=null){
+          td.style.background=`rgba(66,169,255,${(0.06+0.5*v/mx).toFixed(3)})`;
+          td.title=`${fr} → ${to} · ${(v*100).toFixed(2)}%`;
+        }
+        if(fr===to)td.style.boxShadow='inset 0 0 0 1px var(--lineage)';
+        x.appendChild(td)});
+      tb.appendChild(x)});
+    t.appendChild(tb);w.appendChild(t);pane.appendChild(w);
+    pane.appendChild(el('div','meta',
+      `세그먼트 ${sel.value} · 전이 ${rows.length}건 — 행·열은 코드 마스터 `+
+      `순서(등급 사다리), 대각선 테두리는 등급 유지`));
+    pane.appendChild(srcMeta(f));
+  }
+  sel.onchange=draw;draw();
+  root.appendChild(c);
+}
+
 function screenOf(defs){
   return root=>{
     root.appendChild(el('p','lead',defs.lead));
     if(defs.charts)defs.charts(root);
+    (defs.forms||[]).forEach(fid=>{
+      const f=D.forms.find(x=>x.form_id===fid);
+      if(f){const pane=el('div');renderForm(pane,f);root.appendChild(pane)}
+    });
     defs.tables.forEach(([title,key])=>{
       const f=D.data[key];
       const c=el('div','card');c.appendChild(el('h3',null,title));
@@ -2091,7 +2193,8 @@ const DETAIL_SCREENS=[
     tables:[['담보 원장','rdm_collateral'],['보증 원장','rdm_guarantee'],
             ['차주 재무','rdm_obligor_financial']]})],
   ['모형·등급','B · 신용평가모형 — 카드·보정·성능·이동',screenOf({
-    lead:'모형 카드, PD 보정, 변별력·안정성 성능, 등급 이동행렬 — 모형 거버넌스의 원장들이다.',
+    lead:'모형 카드, PD 보정, 변별력·안정성 성능, 등급 이동행렬 — 모형 거버넌스의 원장들이다. 전이행렬 피봇의 행·열은 코드 마스터(등급 사다리) 순서다.',
+    charts:migrationPivot,
     tables:[['모형 카드','crm_model'],['PD 보정','crm_pd_calibration'],
             ['모형 성능','crm_performance'],['등급 이동행렬','crm_rating_migration'],
             ['LGD 구성요소','crm_lgd_component']]})],
@@ -2129,18 +2232,36 @@ const DETAIL_SCREENS=[
     tables:[['NCR 구성','ncr_component'],['재무상태','pru_balance_sheet'],
             ['유동성 비율','pru_liquidity_ratio'],['경영실태평가(CAMEL)','pru_camel'],
             ['적기시정조치','pru_prompt_action']]})],
+  ['시장 RWA','C · 시장리스크 위험가중자산 — 소요자기자본 서식·VaR/ES 원장',screenOf({
+    lead:'시장리스크 소요자기자본 서식(B2326)과 그 원천인 VaR·ES 원장. 서식 라인마다 산식·규정 근거가 붙어 있다.',
+    forms:['BR-05'],
+    tables:[['VaR·ES 원장','mkt_var_es']]})],
+  ['운영 RWA','D · 운영리스크 위험가중자산 — 소요자기자본 서식·산출방법',screenOf({
+    lead:'운영리스크 소요자기자본 서식(BA2325-1)과 산출방법별 자본·위험가중자산 원장.',
+    charts:root=>{const f=D.data['opr_capital'];
+      if(!f)return;const i=frameIdx(f);
+      root.appendChild(hbars(f.rows.map(r=>({
+        label:'산출방법 '+r[i.method],value:r[i.rwa],
+        sub:'소요자본 '+fmtMoney(r[i.capital])})),
+        {title:'산출방법별 위험가중자산',src:srcMeta(f)}))},
+    forms:['BR-06'],
+    tables:[['운영리스크 자본 원장','opr_capital']]})],
   ['상업성','$ · 사업성 — 견적·ROI·Funnel (규제 산출물 아님)',commercial],
 ];
 
 /* 메뉴 트리 — 그룹은 시각적 계층일 뿐, 리프 순서가 화면의 정체다.
    앞 4개 리프(콕핏·정형·비정형·A RDM) 순서는 바꾸지 않는다. */
+/* 항목은 리프 라벨(문자열) 또는 [하위그룹, [...]] — 트리는 재귀로 그린다. */
 const NAVGROUPS=[
   ['통제센터',['콕핏']],
   ['조회·컴포저',['정형 조회','비정형 UI']],
   ['A 리스크데이터',['A RDM','원천·계약','DQ·대사','예외·조치','담보·보증']],
-  ['B 신용리스크',['B 신용','모형·등급','조기경보','B RWA','B ECL']],
-  ['C 시장리스크',['C 시장','가격검증·IPV','백테스팅','VaR·ES']],
-  ['D 운영리스크',['D 운영','손실·회수','KRI·통제']],
+  /* 부문 구분은 리프의 B/C/D 접두가 이미 한다 — 하위그룹을 겹치면
+     '신용리스크 > B 신용'처럼 같은 말이 두 번 나온다. */
+  ['위험가중자산(RWA)',[
+    'B 신용','모형·등급','조기경보','신용 RWA','B ECL',
+    'C 시장','가격검증·IPV','백테스팅','VaR·ES','시장 RWA',
+    'D 운영','손실·회수','KRI·통제','운영 RWA']],
   ['E ALM·위기상황',['E ALM','IRRBB·갭','E 위기상황']],
   ['S 증권 건전성',['NCR·건전성']],
   ['R 보고',['R 감독보고']],
@@ -2157,7 +2278,7 @@ const TABS=[
    r=>domain(r,'PRD-RDM',null,'원천계약부터 표준 매핑, 버전형 가공, 다차원 집계, DQ·대사, 승인 스냅샷까지 통제한다.')],
   ['B 신용','B · 신용리스크 — 모형·파라미터·회수·경보',
    r=>domain(r,'PRD-CRM',null,'등급·PD/LGD/EAD·부도/회수 품질·담보배분·조기경보를 연결한다.')],
-  ['B RWA','B · 위험가중자산',
+  ['신용 RWA','B · 신용리스크 위험가중자산',
    r=>domain(r,'PRD-RWA',null,'표준방법 구간별·내부등급법 PD 구간별로 분해해 업무보고서 라인과 같은 입도로 둔다.')],
   ['B ECL','B · 기대신용손실',
    r=>domain(r,'PRD-ECL',null,'Stage 전이·SICR 트리거·충당금 증감 브리지를 분해한다.')],
@@ -2206,30 +2327,41 @@ function boot(){
   const nav=$('nav'),main=$('main');
   const byLabel={};TABS.forEach(t=>{byLabel[t[0]]=t});
   let first=null,idx=0;
-  NAVGROUPS.forEach(([gname,leaves])=>{
-    const gh=el('div','navgroup',gname);
-    const btns=[];
+  function addLeaf(label,depth,collect){
+    const t=byLabel[label];
+    if(!t)return;
+    const [,title,fn]=t;
+    const b=el('button','lvl'+depth,label);
+    const s=el('section');s.id='tab'+(idx++);
+    b.onclick=()=>{
+      [...nav.querySelectorAll('button')].forEach(x=>x.classList.remove('on'));
+      [...main.children].forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');s.classList.add('on');
+      if(!s.dataset.done){const h=el('h2',null,title);s.appendChild(h);fn(s);
+        s.dataset.done='1'}
+      window.scrollTo({top:0});
+    };
+    collect.push(b);nav.appendChild(b);main.appendChild(s);
+    if(!first)first=b;
+  }
+  function addGroup(gname,items,depth){
+    const gh=el('div','navgroup'+(depth?' sub lvl'+depth:''),gname);
+    const under=[];                      /* 이 그룹 아래 전부 — 접기 대상 */
     gh.onclick=()=>{gh.classList.toggle('closed');
-      btns.forEach(x=>{x.hidden=gh.classList.contains('closed')})};
+      const closed=gh.classList.contains('closed');
+      under.forEach(x=>{x.hidden=closed;
+        if(x.classList&&x.classList.contains('navgroup'))
+          x.classList.toggle('closed',closed)})};
     nav.appendChild(gh);
-    leaves.forEach(label=>{
-      const t=byLabel[label];
-      if(!t)return;
-      const [,title,fn]=t;
-      const b=el('button',null,label);
-      const s=el('section');s.id='tab'+(idx++);
-      b.onclick=()=>{
-        [...nav.querySelectorAll('button')].forEach(x=>x.classList.remove('on'));
-        [...main.children].forEach(x=>x.classList.remove('on'));
-        b.classList.add('on');s.classList.add('on');
-        if(!s.dataset.done){const h=el('h2',null,title);s.appendChild(h);fn(s);
-          s.dataset.done='1'}
-        window.scrollTo({top:0});
-      };
-      btns.push(b);nav.appendChild(b);main.appendChild(s);
-      if(!first)first=b;
+    items.forEach(item=>{
+      if(typeof item==='string'){addLeaf(item,depth+1,under)}
+      else{const [sub,subItems]=item;
+        const before=nav.children.length;
+        addGroup(sub,subItems,depth+1);
+        for(let k=before;k<nav.children.length;k++)under.push(nav.children[k]);}
     });
-  });
+  }
+  NAVGROUPS.forEach(([gname,items])=>addGroup(gname,items,0));
   if(first)first.onclick();
   /* 사유 입력은 **화면 안**에서 받는다. prompt()는 샌드박스 iframe(임베드·
      아티팩트)에서 차단되어 null을 돌려주고, 그러면 통제가 아무 반응 없이

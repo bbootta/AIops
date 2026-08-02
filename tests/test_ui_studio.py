@@ -411,3 +411,19 @@ def test_alert_policy_binds_action_to_every_alert_type(studio):
     # 자체검증 실패는 제출을 차단한다 — fail-closed 의 정책판
     val = pol[pol["alert_type"] == "자체검증 실패"]
     assert bool(val["blocks_submission"].iloc[0])
+
+
+def test_code_master_preserves_declared_business_order(studio):
+    """코드 마스터 — 카탈로그 선언 순서가 그대로 정렬 순서다.
+
+    등급을 가나다순으로 정렬하면 AAA 다음에 B가 온다 — 등급 사다리가
+    아니다. 선언 순서(AAA → AA+ → … → D)가 정본이고, 충돌하는 컬럼명
+    (status 등)은 table.column 으로 한정돼 섞이지 않는다.
+    """
+    m = studio.tables["rdm_code_master"]
+    fg = m[m["code_set"] == "from_grade"].sort_values("sort_order")
+    assert list(fg["code"])[:4] == ["AAA", "AA+", "AA", "AA-"]
+    assert list(fg["code"])[-1] == "D"
+    # 충돌 컬럼은 한정된 셋으로 존재한다
+    assert (m["code_set"].str.contains(r"\.").any())
+    assert not m.duplicated(["code_set", "code"]).any()

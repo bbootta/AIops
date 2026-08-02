@@ -150,8 +150,26 @@ DQ_RESULT = TableSpec(
     note="DQ 결과를 저장하지 않으면 '그때는 통과했다'를 증명할 수 없다 (RDM-004).",
 )
 
+CODE_MASTER = TableSpec(
+    name="rdm_code_master", korean="코드 마스터", product="PRD-RDM",
+    grain="코드셋 × 코드 1개당 1행",
+    columns=(
+        C("code_set", "string", "코드셋", nullable=False,
+          note="컬럼명 그대로 — 같은 이름이 테이블마다 다른 코드셋이면 "
+               "table.column 으로 한정한다"),
+        C("code", "string", "코드", nullable=False),
+        C("sort_order", "int", "정렬 순서", nullable=False, min_value=0,
+          note="카탈로그 allowed 선언 순서가 곧 업무 순서다 — 등급·건전성 "
+               "분류를 가나다순으로 정렬하면 화면이 틀린다"),
+        C("source_table", "string", "출처 테이블", nullable=False),
+    ),
+    primary_key=("code_set", "code"),
+    note="정렬·표시의 정본. 손으로 적지 않고 카탈로그 스펙에서 생성한다.",
+)
+
 RDM_TABLES: tuple[TableSpec, ...] = (
-    OBLIGOR, EXPOSURE, COLLATERAL, DELINQUENCY, SNAPSHOT, DQ_RESULT)
+    OBLIGOR, EXPOSURE, COLLATERAL, DELINQUENCY, SNAPSHOT, DQ_RESULT,
+    CODE_MASTER)
 
 # 라운드가 진행되며 부문 테이블이 추가된다.
 ALL_TABLES: tuple[TableSpec, ...] = RDM_TABLES
