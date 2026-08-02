@@ -19,6 +19,7 @@ Reference: Slack Incoming Webhooks, OpenAPI 3.1, GraphQL SDL.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import urllib.error
 import urllib.request
@@ -240,3 +241,74 @@ def write_api_specs(out_dir, *, manifest=None) -> dict[str, str]:
     p2.write_text(graphql, encoding="utf-8")
     return {"openapi.json": str(p1.resolve()),
             "schema.graphql": str(p2.resolve())}
+
+
+# ---------------------------------------------------------------- INT-008
+# 재시도·멱등성·오류격리 — 연계는 실패를 전제로 설계한다.
+
+@dataclass(frozen=True)
+class RetryPolicy:
+    """지수 백오프 재시도 정책 — 계산이 결정론이어야 테스트가 고정된다.
+
+    딜레이를 난수로 흔들지 않는다(지터 없음) — 이 하네스의 모든 산출은
+    재현 가능해야 하고, 재시도 계획도 산출물이다.
+    """
+    max_attempts: int = 4
+    base_delay_s: float = 2.0
+    factor: float = 2.0
+    max_delay_s: float = 60.0
+
+    def delays(self) -> list[float]:
+        """시도 간 대기 목록 — 길이는 max_attempts-1 이다."""
+        out = []
+        d = self.base_delay_s
+        for _ in range(max(0, self.max_attempts - 1)):
+            out.append(min(d, self.max_delay_s))
+            d *= self.factor
+        return out
+
+
+def idempotency_key(kind: str, run_id: str, payload_digest: str) -> str:
+    """멱등키 — 같은 실행의 같은 페이로드는 같은 키다.
+
+    수신측이 이 키로 중복 전송을 버리면, 재시도가 이중 반영이 되지 않는다.
+    시각·난수를 섞지 않는다 — 섞는 순간 재전송이 신규 전송이 된다.
+    """
+    raw = f"{kind}|{run_id}|{payload_digest}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+
+@dataclass
+class DeadLetter:
+    """오류격리 큐 항목 — 실패한 전송은 버리지 않고 격리한다."""
+    key: str
+    kind: str
+    attempts: int
+    last_error: str
+
+
+class IsolatingDispatcher(WebhookDispatcher):
+    """재시도 소진 후 실패를 dead-letter 로 격리하는 발송기.
+
+    실패를 조용히 삼키면 "알림이 갔다"가 검증 불가능한 주장이 된다 —
+    격리 큐가 비어 있음을 확인하는 것이 전송 완료의 증빙이다.
+    """
+
+    def __init__(self, *args, policy: RetryPolicy | None = None, **kw):
+        super().__init__(*args, **kw)
+        self.policy = policy or RetryPolicy()
+        self.dead_letters: list[DeadLetter] = []
+
+    def send_with_isolation(self, req: WebhookRequest, run_id: str) -> WebhookResult:
+        key = idempotency_key(req.kind, run_id,
+                              hashlib.sha256(req.body).hexdigest())
+        last = None
+        for attempt in range(1, self.policy.max_attempts + 1):
+            res = self.send(req)
+            if res.ok:
+                return res
+            last = res
+        self.dead_letters.append(DeadLetter(
+            key=key, kind=req.kind, attempts=self.policy.max_attempts,
+            last_error=str(getattr(last, "error", "unknown"))))
+        return last

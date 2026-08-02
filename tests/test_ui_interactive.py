@@ -676,3 +676,60 @@ def test_req_trace_tab_matches_the_register(page):
     body = _text(page)
     assert f"요건 {cov['미반영']}건" in body
     assert page.errors == []
+
+
+# ----- 범위형 비상정지 · 세부화면 -----------------------------------------------
+
+def test_scoped_kill_only_stops_its_domain(page):
+    """PLT-016 — 부문 정지는 그 부문만 세운다. 전 화면이 서면 그것은 범위형이
+    아니라 전역 정지에 라벨만 붙인 것이다."""
+    # 신용리스크 도메인만 정지
+    page.click("header .kill")
+    domains = page.eval_on_selector_all(
+        "#killscope option", "els => els.map(e=>e.value)")
+    credit = next(d for d in domains if "신용" in d)
+    page.select_option("#killscope", credit)
+    page.fill("#killreason", "신용 데이터 점검")
+    page.click(".killbar .killgo")
+    page.wait_for_timeout(400)
+    # 신용 뷰 조회는 차단
+    _tab(page, 1)
+    page.select_option("section.on select.sel", "V_CRM_EWS_SIGNAL")
+    page.wait_for_timeout(300)
+    assert "비상정지 — 실행 차단" in page.inner_text("section.on .card")
+    # 다른 부문(RDM) 조회는 산다
+    page.select_option("section.on select.sel", "V_RDM_ASSET_QUALITY")
+    page.wait_for_timeout(300)
+    card = page.inner_text("section.on .card")
+    assert "고정 컬럼 결과" in card
+    assert "비상정지 — 실행 차단" not in card
+    assert page.errors == []
+
+
+def test_detail_screens_render_from_ledgers(page):
+    """세부화면이 실제 원장을 그린다 — 예외·조치 큐와 모형·등급."""
+    _tab_named(page, "예외·조치")
+    txt = _text(page)
+    assert "예외·조치 큐" in txt and "경보·조치 정책" in txt
+    assert "gov_exception_action" in txt          # 원장 계보 표기
+    _tab_named(page, "모형·등급")
+    assert "모형 카드" in _text(page)
+    _tab_named(page, "상업성")
+    t2 = _text(page)
+    assert "이중계상 검증 통과" in t2 and "규제 산출물이 아니다" in t2
+    assert page.errors == []
+
+
+def test_adaptive_blocks_render_rich_layout(page):
+    """비정형 블록이 그리드로 배치되고, 막대는 상위 밖을 합쳐 보인다."""
+    _tab(page, 2)
+    page.select_option("section.on select.sel", "V_RDM_ASSET_QUALITY")
+    page.wait_for_timeout(200)
+    page.fill("section.on textarea.input",
+              "잔액 기여도를 막대차트로 보여주고 아래에 검토 표를 배치해줘")
+    page.wait_for_timeout(400)
+    txt = _text(page)
+    assert "그 외" in txt                          # 조용한 절단 금지
+    assert page.query_selector("section.on .blocks")
+    assert page.query_selector("section.on .blkhead")
+    assert page.errors == []

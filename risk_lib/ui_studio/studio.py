@@ -103,6 +103,10 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     tables.update(gov.build_change_factory(tables))
     tables.update(gov.build_evidence_graph(tables, run_id, digest=digest))
     tables["gov_approval"] = gov.build_approvals(tables, run_id)
+    # 예외·조치 워크플로(RDM-007)와 경보·조치 정책(PLT-015) — 예외는 세
+    # 원장에서 파생되고, 정책은 정적 바인딩이다.
+    tables["gov_alert_policy"] = gov.build_alert_policy()
+    tables["gov_exception_action"] = gov.build_exception_actions(tables)
 
     # ---- 문서 생성 구간 대조 (자체검증 2선) — 서식이 여기서야 만들어지므로
     # 파이프라인이 아니라 조립 시점에 붙인다. 문서에 손으로 적은 수치가 코드

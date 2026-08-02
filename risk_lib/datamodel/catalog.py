@@ -1452,6 +1452,9 @@ AGENT_REGISTRY = TableSpec(
         C("agent_id", "string", "에이전트 식별자", nullable=False),
         C("agent_name", "text", "에이전트명", nullable=False),
         C("mode", "string", "권한 모드", nullable=False, allowed=AGENT_MODES),
+        C("risk_tier", "string", "위험등급", nullable=False,
+          allowed=("상", "중", "하"),
+          note="AIG-001 — 규제 산출물 생성=상 · 검증·한도=중 · 조회·안내=하"),
         C("tools", "text", "허용 도구", nullable=False),
         C("scope", "text", "데이터 범위", nullable=False),
         C("write_allowed", "bool", "운영 반영 권한", nullable=False,
@@ -1603,8 +1606,50 @@ APPROVAL = TableSpec(
     primary_key=("approval_id",),
 )
 
+EXCEPTION_ACTION = TableSpec(
+    name="gov_exception_action", korean="예외·조치 워크플로", product="PRD-VAL",
+    grain="미해소 예외 1건당 1행 (대사·DQ·IPV 예외를 한 큐로)",
+    columns=(
+        C("exception_id", "string", "예외 식별자", nullable=False),
+        C("source_ledger", "string", "출처 원장", nullable=False,
+          allowed=("rdm_reconciliation", "rdm_dq_result", "mkt_ipv"),
+          note="예외는 세 원장에서만 온다 — 손으로 추가하는 예외는 없다"),
+        C("source_key", "string", "출처 키", nullable=False),
+        C("severity", "string", "심각도", nullable=False,
+          allowed=("경미", "중대"), citation="BCBS 239 원칙 — 예외의 등급화"),
+        C("finding", "text", "발견 내용", nullable=False),
+        C("action", "text", "표준 조치", nullable=False,
+          note="경보정책(gov_alert_policy)의 조치를 그대로 참조"),
+        C("owner_role", "string", "담당 역할", nullable=False),
+        C("status", "string", "상태", nullable=False,
+          allowed=("접수", "조치중", "완료차단", "종결"),
+          note="자동상계 금지 — 종결은 사람 승인 후에만"),
+        C("due_days", "int", "처리 기한(일)", nullable=False, min_value=1),
+    ),
+    primary_key=("exception_id",),
+    note="RDM-007 — 예외를 보여주는 것과 조치가 추적되는 것은 다르다.",
+)
+
+ALERT_POLICY = TableSpec(
+    name="gov_alert_policy", korean="경보·조치 정책 바인딩", product="PRD-VAL",
+    grain="경보 유형 1종당 1행",
+    columns=(
+        C("policy_id", "string", "정책 식별자", nullable=False),
+        C("alert_type", "string", "경보 유형", nullable=False),
+        C("trigger_rule", "text", "발동 규칙", nullable=False),
+        C("bound_action", "text", "표준 조치", nullable=False,
+          note="경보가 뜨는 것과 무엇을 해야 하는지가 묶여 있어야 한다 — PLT-015"),
+        C("sla_days", "int", "SLA(일)", nullable=False, min_value=1),
+        C("owner_role", "string", "담당 역할", nullable=False),
+        C("blocks_submission", "bool", "제출 차단 여부", nullable=False,
+          note="참이면 이 경보 미해소 시 결재 상신이 막힌다"),
+    ),
+    primary_key=("policy_id",),
+)
+
 GOV_DETAIL_TABLES = (CHANGE_REQUEST, CHANGE_IMPACT, CHANGE_REGRESSION,
-                     EVIDENCE_NODE, EVIDENCE_EDGE, APPROVAL)
+                     EVIDENCE_NODE, EVIDENCE_EDGE, APPROVAL,
+                     EXCEPTION_ACTION, ALERT_POLICY)
 
 # ------------------------------------------------------------- 최종 누적 등록
 DETAIL_TABLES = (RDM_DETAIL_TABLES + CRM_DETAIL_TABLES + RWA_DETAIL_TABLES

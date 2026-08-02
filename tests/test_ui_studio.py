@@ -380,3 +380,34 @@ def test_render_carries_the_no_autonomous_write_statement(studio):
     h = render(studio)
     assert "자동확정하지 않는다" in h
     assert "합성 포트폴리오" in h      # 실제 기관 수치가 아님을 화면에 남긴다
+
+
+def test_agent_registry_has_risk_tiers(studio):
+    """AIG-001 — 에이전트마다 위험등급이 있고, 규제 산출 에이전트는 상이다."""
+    reg = studio.tables["agent_registry"]
+    assert set(reg["risk_tier"]) <= {"상", "중", "하"}
+    assert (reg["risk_tier"] == "상").any()          # 규제 산출 에이전트 존재
+    rwa = reg[reg["agent_name"].str.contains("rwa")]
+    assert (rwa["risk_tier"] == "상").all()
+
+
+def test_exception_queue_derives_only_from_the_three_ledgers(studio):
+    """RDM-007 — 예외는 대사·DQ·IPV 세 원장에서만 온다. 손으로 넣는 예외가
+    생기는 순간 큐와 원장이 갈라진다."""
+    q = studio.tables["gov_exception_action"]
+    assert set(q["source_ledger"]) <= {
+        "rdm_reconciliation", "rdm_dq_result", "mkt_ipv"}
+    # IPV 미해소 건수와 큐의 IPV 예외 건수가 일치한다
+    ipv = studio.tables["mkt_ipv"]
+    assert (q["source_ledger"] == "mkt_ipv").sum() == int(ipv["is_break"].sum())
+
+
+def test_alert_policy_binds_action_to_every_alert_type(studio):
+    """PLT-015 — 경보 유형마다 표준 조치·SLA·담당·차단 여부가 붙어 있다."""
+    pol = studio.tables["gov_alert_policy"]
+    assert len(pol) >= 5
+    assert pol["bound_action"].str.len().gt(0).all()
+    assert (pol["sla_days"] >= 1).all()
+    # 자체검증 실패는 제출을 차단한다 — fail-closed 의 정책판
+    val = pol[pol["alert_type"] == "자체검증 실패"]
+    assert bool(val["blocks_submission"].iloc[0])

@@ -15,6 +15,7 @@ from pathlib import Path
 import pandas as pd
 
 from risk_lib.datamodel import catalog as cat
+from risk_lib import commercial as _com
 from risk_lib.ui_studio.req_trace import build_trace as _req_rows
 from risk_lib.ui_studio.req_trace import coverage as _req_coverage
 from risk_lib.ui_studio.studio import DEMO_PROMPTS, DEMO_QUERIES, Studio
@@ -69,13 +70,15 @@ def _labels(table: str | None, columns: list[str]) -> list[str | None]:
 
 
 def _frame(df: pd.DataFrame, limit: int = PREVIEW_ROWS,
-           table: str | None = None) -> dict:
+           table: str | None = None,
+           labels: dict[str, str] | None = None) -> dict:
     head = df.head(limit)
     cols = [str(c) for c in df.columns]
     return {
         "table": table,
         "columns": cols,
-        "labels": _labels(table, cols),
+        "labels": ([labels.get(c) for c in cols] if labels
+                   else _labels(table, cols)),
         "rows": [[_cell(v) for v in row] for row in head.itertuples(index=False)],
         "total": int(len(df)),
         "shown": int(len(head)),
@@ -306,6 +309,24 @@ def _payload(s: Studio) -> dict:
         # v9.6.0 업무요건 추적 — 증빙 참조는 tests/test_req_trace.py 가 실재를
         # 검증한다. 여기 실리는 것은 주장 목록이 아니라 검사를 통과한 목록이다.
         "req_trace": {"coverage": _req_coverage(), "rows": _req_rows()},
+        # 사업성(COM) — 규제 산출물이 아니다. 제출 지문·독립검증 대상에 넣지
+        # 않으며, 전 수치가 가정 원장에서 계산으로만 나온다.
+        "commercial": {
+            "assumptions": _frame(_com.assumption_frame(), 50, labels={
+                "assumption_id": "가정 ID", "description": "설명",
+                "value": "값", "unit": "단위"}),
+            "quotes": _frame(_com.quote_frame(), 10, labels={
+                "package": "패키지", "name": "이름", "scope": "포함 범위",
+                "build_cost": "순구축대가", "lifecycle_annual": "Lifecycle(연)",
+                "arr": "ARR", "year1_total": "1년차 합계", "tco_3y": "3년 TCO",
+                "payback_years": "회수기간(년)"}),
+            "roi": _frame(_com.roi_frame(), 10, labels={
+                "benefit_id": "편익 ID", "description": "설명",
+                "assumption_ref": "출처 가정", "annual_value": "연 편익"}),
+            "funnel": _frame(_com.funnel_frame(), 10, labels={
+                "stage_id": "단계 ID", "stage": "단계", "exit_criteria": "전환 기준"}),
+            "double_counting": _com.check_no_double_counting(),
+        },
         "domains": sorted({r["product"] for r in catalog_rows}),
     }
 
@@ -396,15 +417,30 @@ border:1px solid var(--line);background:var(--chip);color:var(--text)}
 .killbar .killgo{border-color:var(--bad);background:var(--bad);color:#fff}
 .killnote{color:var(--muted);flex:1 1 100%}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-nav{display:flex;gap:3px;flex-wrap:wrap;padding:8px 20px;background:var(--bg);
-border-bottom:1px solid var(--line)}
+.layout{display:grid;grid-template-columns:224px minmax(0,1fr);
+align-items:start}
+nav{position:sticky;top:96px;max-height:calc(100vh - 96px);overflow-y:auto;
+display:flex;flex-direction:column;gap:1px;padding:12px 10px 24px;
+background:var(--bg);border-right:1px solid var(--line)}
+.navgroup{color:var(--muted);font-size:9.5px;font-weight:800;
+letter-spacing:.09em;padding:12px 10px 4px;cursor:pointer;user-select:none}
+.navgroup:first-child{padding-top:2px}
+.navgroup::before{content:'▾ '}
+.navgroup.closed::before{content:'▸ '}
 nav button{background:transparent;border:1px solid transparent;color:var(--muted);
-padding:6px 11px;border-radius:8px;cursor:pointer;font-size:12px;
+padding:6px 11px;border-radius:8px;cursor:pointer;font-size:12px;text-align:left;
 font-weight:650;font-family:inherit}
 nav button:hover{color:var(--text);background:var(--chip)}
 nav button.on{background:var(--accent);color:var(--on-accent);
 border-color:var(--accent);font-weight:750}
-main{padding:20px;max-width:1500px;margin:0 auto}
+nav button[hidden]{display:none}
+main{padding:20px;min-width:0}
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
+  nav{position:static;max-height:none;flex-direction:row;flex-wrap:wrap;
+  border-right:none;border-bottom:1px solid var(--line)}
+  .navgroup{flex:1 1 100%}
+}
 section{display:none}section.on{display:block}
 h2{font-size:24px;line-height:1.15;letter-spacing:-.03em;margin:2px 0 6px}
 .lead{color:var(--muted);font-size:12px;margin:0 0 16px;max-width:96ch}
@@ -500,6 +536,13 @@ cursor:pointer;font-family:inherit}
 .btn.primary{background:var(--accent);border-color:var(--accent);
 color:var(--on-accent);font-weight:750}
 .spark{width:100%;height:120px;display:block}
+.blocks{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr));
+margin:10px 0}
+.blocks .blk{min-width:0}
+.blocks .blk.table,.blocks .blk.kpi{grid-column:1/-1}
+@media(max-width:1100px){.blocks{grid-template-columns:1fr}}
+.blkhead{display:flex;gap:8px;align-items:center;font-size:12px;
+font-weight:750;margin:2px 0 8px}
 .blockhead{display:flex;align-items:center;gap:10px;width:100%;
 background:transparent;border:none;color:var(--text);cursor:pointer;
 font-family:inherit;font-size:13px;font-weight:750;padding:2px 0;text-align:left}
@@ -572,15 +615,15 @@ function srcMeta(f,extra){
 }
 
 /* 수평 그라디언트 막대 — 구성·기여도 */
-function hbars(items,{title,src,money=true}={}){
-  const c=el('div','card');
-  if(title)c.appendChild(el('h3',null,title));
+function barList(items,{money=true}={}){
+  const w=el('div');
   const max=Math.max(...items.map(x=>Math.abs(x.value)))||1;
   items.forEach(x=>{
     const line=el('div');line.style.margin='7px 0';
     const head=el('div','meta');
     head.style.display='flex';head.style.justifyContent='space-between';
-    head.appendChild(el('span',null,x.label));
+    const lab=el('span',null,x.label);if(x.phys)lab.title=x.phys;
+    head.appendChild(lab);
     const v=el('span','mono '+(x.tone||''),
       (money?fmtMoney(x.value):fmtNum(x.value))+(x.sub?' · '+x.sub:''));
     head.appendChild(v);line.appendChild(head);
@@ -588,9 +631,62 @@ function hbars(items,{title,src,money=true}={}){
     f.style.width=(Math.abs(x.value)/max*100).toFixed(1)+'%';
     if(x.tone==='bad')f.style.background='var(--bad)';
     else if(x.tone==='warn')f.style.background='var(--warn)';
-    b.appendChild(f);line.appendChild(b);c.appendChild(line)});
+    b.appendChild(f);line.appendChild(b);w.appendChild(line)});
+  return w;
+}
+function hbars(items,{title,src,money=true}={}){
+  const c=el('div','card');
+  if(title)c.appendChild(el('h3',null,title));
+  c.appendChild(barList(items,{money}));
   if(src)c.appendChild(src);
   return c;
+}
+
+/* 영역 곡선 — 비정형 '추이' 블록용. 스파크보다 큰 캔버스, 기준선·격자·
+   마지막 값 강조. 값은 전부 원장에서 온다. */
+function areaLine(values,{height=190,label=null}={}){
+  const w=920,h=height,padL=14,padR=64,padT=14,padB=18;
+  const max=Math.max(...values,0),min=Math.min(...values,0);
+  const span=(max-min)||1;
+  const x=k=>padL+k*(w-padL-padR)/Math.max(values.length-1,1);
+  const y=v=>h-padB-((v-min)/span)*(h-padT-padB);
+  const ns='http://www.w3.org/2000/svg';
+  const svg=document.createElementNS(ns,'svg');
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.setAttribute('class','spark');
+  svg.style.height=height+'px';
+  /* 격자 3줄 */
+  [0.25,0.5,0.75].forEach(t=>{
+    const gy=padT+(h-padT-padB)*t;
+    const l=document.createElementNS(ns,'line');
+    l.setAttribute('x1',padL);l.setAttribute('x2',w-padR);
+    l.setAttribute('y1',gy);l.setAttribute('y2',gy);
+    l.setAttribute('stroke','currentColor');l.setAttribute('opacity','.08');
+    svg.appendChild(l)});
+  const pts=values.map((v,k)=>`${x(k).toFixed(1)},${y(v).toFixed(1)}`);
+  /* 면 채움 */
+  const area=document.createElementNS(ns,'polygon');
+  area.setAttribute('points',
+    `${x(0).toFixed(1)},${y(min).toFixed(1)} `+pts.join(' ')+
+    ` ${x(values.length-1).toFixed(1)},${y(min).toFixed(1)}`);
+  area.setAttribute('fill','var(--accent)');area.setAttribute('opacity','.10');
+  svg.appendChild(area);
+  const pl=document.createElementNS(ns,'polyline');
+  pl.setAttribute('points',pts.join(' '));
+  pl.setAttribute('fill','none');pl.setAttribute('stroke','var(--accent)');
+  pl.setAttribute('stroke-width','2');svg.appendChild(pl);
+  /* 마지막 값 강조 */
+  const last=values[values.length-1];
+  const dot=document.createElementNS(ns,'circle');
+  dot.setAttribute('cx',x(values.length-1));dot.setAttribute('cy',y(last));
+  dot.setAttribute('r','4');dot.setAttribute('fill','var(--accent)');
+  svg.appendChild(dot);
+  const t=document.createElementNS(ns,'text');
+  t.setAttribute('x',x(values.length-1)+8);t.setAttribute('y',y(last)+4);
+  t.setAttribute('fill','currentColor');t.setAttribute('font-size','11');
+  t.setAttribute('font-weight','700');
+  t.textContent=(label?label+' ':'')+fmtMoney(last);
+  svg.appendChild(t);
+  const box=el('div');box.appendChild(svg);return box;
 }
 
 /* 진행 미터 — 증빙·검증 진행률 */
@@ -824,18 +920,41 @@ function cockpit(root){
   two.appendChild(ctl);
   root.appendChild(two);
 
-  const c1=el('div','card');c1.appendChild(el('h3',null,'증빙 계보 · 7단계'));
+  const c1=el('div','card');c1.appendChild(el('h3',null,'증빙 계보 · 7단계 — 단계를 누르면 상세'));
   const flow=el('div','flow');
+  const drill=el('div');                     /* 드릴다운 패널 (PLT-018) */
   D.evidence_nodes.rows.forEach((r,i)=>{
     const [ , nid, stage, label, ref, status]=r;
-    const n=el('div','node');n.appendChild(el('b',null,`0${i+1} ${stage}`));
+    const n=el('div','node');n.style.cursor='pointer';
+    n.appendChild(el('b',null,`0${i+1} ${stage}`));
     n.appendChild(el('div',null,label));
     const s=el('div');s.appendChild(pill(status,
       status==='완결'?'good':status==='검토'?'warn':'bad'));
     n.appendChild(s);flow.appendChild(n);
+    n.onclick=()=>{
+      drill.innerHTML='';
+      const d=el('div','note');
+      d.textContent=`단계 ${stage} · ${label} — 참조 ${ref||'—'} · 상태 ${status} · 노드 ${nid}`;
+      drill.appendChild(d);
+      /* 실행 간 대조 — 실은 실행 전부의 지문·규모를 나란히 (버전 diff) */
+      const runs=Object.keys(RUNS).sort();
+      drill.appendChild(table({columns:
+        ['기준일','실행 ID','산출 지문','제출 서식','원장 행수','3선 게이트'],
+        rows:runs.map(a=>{const m=RUNS[a].meta,iv=RUNS[a].independent;
+          return [a,m.run_id,m.digest.slice(0,16),
+                  RUNS[a].forms.length,m.n_rows,iv.status]}),
+        total:runs.length,shown:runs.length},{numeric:false}));
+      if(runs.length>1){
+        const uniq=new Set(runs.map(a=>RUNS[a].meta.digest));
+        drill.appendChild(el('div','meta',uniq.size===1
+          ?'실행 간 지문 동일 — 같은 산출물이다'
+          :`실행 간 지문 상이 ${uniq.size}종 — 기준일이 다르면 산출물도 다른 판이다`));
+      }
+    };
     if(i<D.evidence_nodes.rows.length-1)flow.appendChild(el('span','arrow','→'));
   });
   c1.appendChild(flow);
+  c1.appendChild(drill);
   c1.appendChild(table(D.evidence_edges));
   root.appendChild(c1);
 
@@ -851,7 +970,8 @@ function cockpit(root){
 }
 
 /* ---- 정형 조회 스튜디오 (라이브) ---- */
-const STATE = {killed: false, approved: {}, history: {}, labelOverrides: {}};
+const STATE = {killed: false, killScope: '전사', approved: {}, history: {},
+  labelOverrides: {}};
 
 function viewSelect(onChange, filterFn){
   const sel=el('select','sel');
@@ -929,7 +1049,7 @@ function structured(root){
 function renderLivePlan(pane, plan, res, v){
   pane.innerHTML='';
   const c=el('div','card');
-  const killed=STATE.killed;
+  const killed=killedFor(v.domain);       /* 범위형 — 부문 밖 조회는 산다 */
   const st=el('div','steps');
   const cond=plan.conditions.map(RY.describe).join(' ∧ ')||'—';
   [['01 의도',plan.utterance.slice(0,40)||'조회'],['02 기준일',plan.asof],
@@ -1032,7 +1152,7 @@ function renderProposal(pane, pr, v, rerun){
   const bRb=el('button','btn','Rollback');
   /* 비상정지는 이 탭에도 미친다 — 정형 조회만 막고 여기를 열어 두면
      "정지"가 화면 절반에만 걸린 통제가 된다. */
-  bApp.disabled=!pr.all_pass||STATE.killed;
+  bApp.disabled=!pr.all_pass||killedFor(v.domain);
   bRb.disabled=!STATE.history[v.view_id]||!STATE.history[v.view_id].length;
   acts.appendChild(bPrev);acts.appendChild(bApp);acts.appendChild(bRb);
   c.appendChild(acts);
@@ -1063,7 +1183,7 @@ function renderProposal(pane, pr, v, rerun){
 
   function draw(applied){
     previewBox.innerHTML='';
-    if(STATE.killed){previewBox.appendChild(el('div','note',
+    if(killedFor(v.domain)){previewBox.appendChild(el('div','note',
       'Kill Switch가 걸려 있어 미리보기·승인을 실행하지 않는다.'));return}
     if(!pr.all_pass){previewBox.appendChild(el('div','note',
       '정책검증 미통과 — 미리보기를 그리지 않는다.'));return}
@@ -1110,8 +1230,21 @@ function renderBlocks(box, pr, v){
              total:frame.total,shown:rows.length};
 
   /* 블록 순서는 프롬프트에 나온 순서 그대로다 — 사용자가 "위에 차트, 아래에 표"
-     라고 쓰면 그 순서로 배치돼야 레이아웃이 바뀐 것으로 읽힌다. */
+     라고 쓰면 그 순서로 배치돼야 레이아웃이 바뀐 것으로 읽힌다.
+     배치는 2열 그리드다: 차트(막대·추이)는 반 폭으로 나란히 서고, 카드 줄과
+     표는 전체 폭을 쓴다 — 실무 요청("차트 옆에 차트, 아래 검토 표")의 기본
+     구도다. 좁은 화면은 1열로 내려간다. */
+  const grid=el('div','blocks');
+  const blkHead=(kind,text,phys)=>{
+    const h=el('div','blkhead');
+    const b=el('span','pill',kind);
+    h.appendChild(b);
+    const t=el('span',null,text);if(phys)t.title=phys;
+    h.appendChild(t);
+    return h;
+  };
   pr.blocks.forEach(([viz,title])=>{
+    const blk=el('div','blk '+viz);
     if(viz==='kpi'){
       const g=el('div','grid');
       cols.slice(0,4).forEach(cName=>{
@@ -1120,30 +1253,47 @@ function renderBlocks(box, pr, v){
         const card=el('div','card kpi');
         const kl=el('div','lab',lab(cName));kl.title=cName;
         card.appendChild(kl);
-        card.appendChild(el('div','val',nums.length
-          ? fmtNum(nums.reduce((a,b)=>a+b,0)) : String(rows.length)+'행'));
-        card.appendChild(el('div','sub',nums.length?'합계':'건수'));
+        if(nums.length){
+          const sum=nums.reduce((a,b)=>a+b,0);
+          card.appendChild(el('div','val',fmtMoney(sum)));
+          card.appendChild(el('div','sub',
+            `평균 ${fmtMoney(sum/nums.length)} · 최대 ${fmtMoney(Math.max(...nums))} · ${nums.length}건`));
+        } else {
+          card.appendChild(el('div','val',String(rows.length)+'행'));
+          card.appendChild(el('div','sub','건수'));
+        }
+        card.appendChild(el('div','ln','↗ 원장 · '+v.table_ref+'.'+cName));
         g.appendChild(card)});
-      box.appendChild(g);
+      blk.appendChild(blkHead('카드',title||'핵심 지표'));
+      blk.appendChild(g);
     } else if(viz==='bar'&&numCol){
-      const max=Math.max(...rows.map(r=>Math.abs(r[idx[numCol]]||0)))||1;
-      const w=el('div');
-      const bm=el('div','meta',`${title} · ${lab(numCol)}`);bm.title=numCol;
-      w.appendChild(bm);
-      rows.slice(0,12).forEach((r,i)=>{
-        const line=el('div');line.style.margin='6px 0';
-        line.appendChild(el('div','meta',
-          (labCol?esc(r[idx[labCol]]):'#'+(i+1))+' · '+fmtNum(r[idx[numCol]])));
-        const b=el('div','bar'),f=el('i');
-        f.style.width=(Math.abs(r[idx[numCol]]||0)/max*100).toFixed(1)+'%';
-        b.appendChild(f);line.appendChild(b);w.appendChild(line)});
-      box.appendChild(w);
+      blk.appendChild(blkHead('막대',`${title} · ${lab(numCol)}`,numCol));
+      const top=rows.slice(0,10).map((r,i)=>({
+        label:labCol?esc(r[idx[labCol]]):'#'+(i+1),
+        value:r[idx[numCol]]||0,
+        phys:labCol}));
+      /* 상위 밖은 버리지 않고 합쳐 보인다 — 조용한 절단 금지 */
+      if(rows.length>10){
+        const rest=rows.slice(10).reduce((a,r)=>a+(r[idx[numCol]]||0),0);
+        top.push({label:`그 외 ${rows.length-10}건`,value:rest,tone:'warn'});
+      }
+      blk.appendChild(barList(top));
     } else if(viz==='line'&&numCol){
-      box.appendChild(sparkline(rows.map(r=>r[idx[numCol]]||0), title+' · '+lab(numCol), numCol));
+      blk.appendChild(blkHead('추이',`${title} · ${lab(numCol)}`,numCol));
+      blk.appendChild(areaLine(rows.map(r=>r[idx[numCol]]||0).slice(0,60),
+        {label:lab(numCol)}));
     } else {
-      box.appendChild(table(sub));
+      blk.appendChild(blkHead('표',title||'검토 표'));
+      blk.appendChild(table(sub));
+      blk.classList.add('table');
     }
+    grid.appendChild(blk);
   });
+  box.appendChild(grid);
+  box.appendChild(el('div','meta',
+    `원장 ${v.table_ref} · 화면 내 ${frame.shown.toLocaleString()}행`+
+    (frame.shown<frame.total?` (모집단 ${frame.total.toLocaleString()}행 중)`:' 전량')+
+    ` · 정렬 ${numCol?lab(numCol)+' 내림차순':'원장 순'}`));
 }
 
 function sparkline(values, title, phys){
@@ -1835,6 +1985,135 @@ function settings(root){
   scenarioSettings(root);
 }
 
+/* ---- 범위형 비상정지 (PLT-016) — 부문 단위로 조회를 세운다 ---- */
+function killedFor(domain){
+  return STATE.killed&&(STATE.killScope==='전사'||domain===STATE.killScope);
+}
+
+/* ---- 도메인 세부화면 — 원장 나열 + 부문 차트. 전 값이 payload 원장이다 ---- */
+function screenOf(defs){
+  return root=>{
+    root.appendChild(el('p','lead',defs.lead));
+    if(defs.charts)defs.charts(root);
+    defs.tables.forEach(([title,key])=>{
+      const f=D.data[key];
+      const c=el('div','card');c.appendChild(el('h3',null,title));
+      if(f){c.appendChild(table(f));c.appendChild(srcMeta(f))}
+      else c.appendChild(el('div','note','원장 '+key+' 이 payload에 없다'));
+      root.appendChild(c)});
+  };
+}
+
+function exceptionQueue(root){
+  const f=D.data['gov_exception_action'];
+  if(!f)return;
+  const i=frameIdx(f);
+  const g=groupSum(f,'status','due_days');
+  root.appendChild(hbars(g.map(x=>({label:'상태 '+x.key,value:x.n,
+    sub:null,tone:x.key==='접수'?'warn':x.key==='조치중'?'bad':undefined})),
+    {title:'예외 상태 분포 — 자동상계 금지, 종결은 사람 승인 후',
+     money:false,src:srcMeta(f)}));
+}
+
+function commercial(root){
+  const C=D.commercial;
+  root.appendChild(el('p','lead',
+    '사업성 산출 — 규제 산출물이 아니다. 제출 지문·독립검증 대상에 넣지 않으며, '+
+    '모든 금액은 가정 원장에서 계산으로만 나온다. 가정 없이 등장하는 금액이 '+
+    '하나라도 있으면 그 표는 견적이 아니라 소설이다. 전부 합성 가정이며 실제 '+
+    '견적은 계약 가정으로 교체된다.'));
+  const dc=C.double_counting;
+  const note=el('div','note'+(dc.length?' bad':''));
+  note.textContent=dc.length
+    ? 'ROI 이중계상 '+dc.length+'건 — '+dc.join(' · ')
+    : 'ROI 이중계상 검증 통과 — 편익 항목마다 출처 가정이 하나씩이다 (COM-007)';
+  root.appendChild(note);
+  [['패키지 견적 (COM-002·003·004·005)','quotes'],
+   ['ROI 편익 — 항목별 1회 계상 (COM-007)','roi'],
+   ['가정 원장 (COM-001·006)','assumptions'],
+   ['GTM Funnel 단계 정의 (COM-008)','funnel']].forEach(([t,k])=>{
+    const c=el('div','card');c.appendChild(el('h3',null,t));
+    c.appendChild(table(C[k]));root.appendChild(c)});
+}
+
+const DETAIL_SCREENS=[
+  ['원천·계약','A · 원천 인터페이스 — 계약·스냅샷·표준 매핑',screenOf({
+    lead:'원천 시스템과의 인터페이스 계약, 수신 스냅샷, 표준코드 매핑을 원장으로 통제한다. 계약 위반은 적재 전에 차단된다.',
+    tables:[['원천 인터페이스 계약','rdm_source_contract'],
+            ['수신 스냅샷 원장','rdm_snapshot'],
+            ['표준코드 매핑','rdm_canonical_map']]})],
+  ['DQ·대사','A · 데이터품질 — 규칙·판정·대사',screenOf({
+    lead:'DQ 규칙과 판정, 원천–산출 대사를 한 화면에서 본다. 실패는 예외·조치 큐로 넘어간다.',
+    tables:[['DQ 규칙 원장','rdm_dq_rule'],['DQ 판정 결과','rdm_dq_result'],
+            ['집계·대사','rdm_reconciliation']]})],
+  ['예외·조치','A · 예외·조치 워크플로 — 접수→조치→종결',screenOf({
+    lead:'대사·DQ·IPV 세 원장의 미해소 예외가 표준 조치·담당·기한이 붙은 하나의 큐로 모인다. 예외를 보여주는 것과 조치가 추적되는 것은 다르다 — 종결은 사람 승인 후에만 한다.',
+    charts:exceptionQueue,
+    tables:[['예외·조치 큐','gov_exception_action'],
+            ['경보·조치 정책 바인딩','gov_alert_policy']]})],
+  ['담보·보증','A · 담보·보증·재무 원장',screenOf({
+    lead:'담보·보증·차주 재무 원장 — 신용위험경감과 LGD의 원천이다.',
+    tables:[['담보 원장','rdm_collateral'],['보증 원장','rdm_guarantee'],
+            ['차주 재무','rdm_obligor_financial']]})],
+  ['모형·등급','B · 신용평가모형 — 카드·보정·성능·이동',screenOf({
+    lead:'모형 카드, PD 보정, 변별력·안정성 성능, 등급 이동행렬 — 모형 거버넌스의 원장들이다.',
+    tables:[['모형 카드','crm_model'],['PD 보정','crm_pd_calibration'],
+            ['모형 성능','crm_performance'],['등급 이동행렬','crm_rating_migration'],
+            ['LGD 구성요소','crm_lgd_component']]})],
+  ['조기경보','B · 조기경보(EWS) — 신호·단계·조치',screenOf({
+    lead:'차주 단위 조기경보 신호와 단계, 권고 조치. 에이전트가 순위를 제안하고 사람이 결정한다.',
+    charts:root=>{if(DOMAIN_CHARTS['PRD-CRM'])DOMAIN_CHARTS['PRD-CRM'](root)},
+    tables:[['조기경보 신호','crm_ews_signal']]})],
+  ['가격검증·IPV','C · 독립가격검증 — 거래·위험요소·IPV',screenOf({
+    lead:'거래 원장, 위험요소 매핑, 독립가격검증 결과. 미해소 5일 초과는 상위보고 대상이다.',
+    tables:[['거래 원장','mkt_trade'],['위험요소','mkt_risk_factor'],
+            ['독립가격검증','mkt_ipv']]})],
+  ['백테스팅','C · VaR 백테스팅 — 예외 달력·손익 대 경계',screenOf({
+    lead:'일별 손익과 VaR 경계의 실측 대조. 예외는 신호등 구간 판정으로 이어진다.',
+    charts:root=>{const bt=D.data['mkt_backtest_exception'];
+      if(bt){root.appendChild(pnlChart(bt));root.appendChild(calheat(bt))}},
+    tables:[['백테스팅 관측 원장','mkt_backtest_exception']]})],
+  ['VaR·ES','C · VaR·기대손실(ES) 원장',screenOf({
+    lead:'과거시뮬레이션 VaR·ES 산출 원장 — 백테스팅·소요자기자본의 원천이다.',
+    tables:[['VaR·ES','mkt_var_es']]})],
+  ['손실·회수','D · 운영손실 — 사건·회수·자본',screenOf({
+    lead:'내·외부 손실사건, 회수, 운영리스크 소요자본. 총손실 → 적격회수 → 순손실 순서로 읽는다.',
+    charts:root=>{if(DOMAIN_CHARTS['PRD-OPR'])DOMAIN_CHARTS['PRD-OPR'](root)},
+    tables:[['손실사건 원장','opr_loss_event'],['회수 원장','opr_recovery'],
+            ['운영리스크 자본','opr_capital']]})],
+  ['KRI·통제','D · KRI·통제 — 지표·통제·경보정책',screenOf({
+    lead:'핵심리스크지표와 통제 원장, 그리고 경보가 떴을 때 무엇을 해야 하는지의 정책 바인딩.',
+    tables:[['핵심리스크지표','opr_kri'],['통제 원장','opr_control'],
+            ['경보·조치 정책','gov_alert_policy']]})],
+  ['IRRBB·갭','E · 은행계정 금리리스크 — 충격·리프라이싱 갭',screenOf({
+    lead:'IRRBB 6대 금리충격과 리프라이싱 갭, ALM 종합 결과.',
+    tables:[['금리충격(IRRBB)','alm_irrbb_shock'],
+            ['리프라이싱 갭','alm_repricing_gap'],['ALM 결과','alm_result']]})],
+  ['NCR·건전성','S · 증권 건전성 — NCR·재무·적기시정조치',screenOf({
+    lead:'순자본비율(NCR) 구성과 증권 건전성 원장 — 은행 BIS와 분모·분자·규정 체계가 완전히 다르다.',
+    tables:[['NCR 구성','ncr_component'],['재무상태','pru_balance_sheet'],
+            ['유동성 비율','pru_liquidity_ratio'],['경영실태평가(CAMEL)','pru_camel'],
+            ['적기시정조치','pru_prompt_action']]})],
+  ['상업성','$ · 사업성 — 견적·ROI·Funnel (규제 산출물 아님)',commercial],
+];
+
+/* 메뉴 트리 — 그룹은 시각적 계층일 뿐, 리프 순서가 화면의 정체다.
+   앞 4개 리프(콕핏·정형·비정형·A RDM) 순서는 바꾸지 않는다. */
+const NAVGROUPS=[
+  ['통제센터',['콕핏']],
+  ['조회·컴포저',['정형 조회','비정형 UI']],
+  ['A 리스크데이터',['A RDM','원천·계약','DQ·대사','예외·조치','담보·보증']],
+  ['B 신용리스크',['B 신용','모형·등급','조기경보','B RWA','B ECL']],
+  ['C 시장리스크',['C 시장','가격검증·IPV','백테스팅','VaR·ES']],
+  ['D 운영리스크',['D 운영','손실·회수','KRI·통제']],
+  ['E ALM·위기상황',['E ALM','IRRBB·갭','E 위기상황']],
+  ['S 증권 건전성',['NCR·건전성']],
+  ['R 보고',['R 감독보고']],
+  ['F 검증·거버넌스',['F 검증','G 에이전트','Δ 변경','요건 추적']],
+  ['사업성',['상업성']],
+  ['데이터·설정',['데이터모델','⚙ 설정']],
+];
+
 const TABS=[
   ['콕핏','00 전사 리스크 콕핏',cockpit],
   ['정형 조회','정형 조회 스튜디오 · Governed Query',structured],
@@ -1860,6 +2139,7 @@ const TABS=[
   ['Δ 변경','Δ · 리스크 변경 팩토리',changes],
   ['데이터모델','정규 데이터모델 카탈로그',catalogView],
   ['요건 추적','REQ · v9.6.0 업무요건 추적 — 131건 대비 구현 재고조사',reqTrace],
+  ...DETAIL_SCREENS.map(([lab,title,fn])=>[lab,title,fn]),
   ['⚙ 설정','⚙ · 설정 — 기준일 · 표시명 · 코드 매핑 · 시나리오',settings],
 ];
 
@@ -1889,27 +2169,45 @@ function setRun(a){
 
 function boot(){
   const nav=$('nav'),main=$('main');
-  TABS.forEach(([label,title,fn],i)=>{
-    const b=el('button',null,label);
-    const s=el('section');s.id='tab'+i;
-    b.onclick=()=>{
-      [...nav.children].forEach(x=>x.classList.remove('on'));
-      [...main.children].forEach(x=>x.classList.remove('on'));
-      b.classList.add('on');s.classList.add('on');
-      if(!s.dataset.done){const h=el('h2',null,title);s.appendChild(h);fn(s);
-        s.dataset.done='1'}
-      window.scrollTo({top:0});
-    };
-    nav.appendChild(b);main.appendChild(s);
-    if(i===0)b.onclick();
+  const byLabel={};TABS.forEach(t=>{byLabel[t[0]]=t});
+  let first=null,idx=0;
+  NAVGROUPS.forEach(([gname,leaves])=>{
+    const gh=el('div','navgroup',gname);
+    const btns=[];
+    gh.onclick=()=>{gh.classList.toggle('closed');
+      btns.forEach(x=>{x.hidden=gh.classList.contains('closed')})};
+    nav.appendChild(gh);
+    leaves.forEach(label=>{
+      const t=byLabel[label];
+      if(!t)return;
+      const [,title,fn]=t;
+      const b=el('button',null,label);
+      const s=el('section');s.id='tab'+(idx++);
+      b.onclick=()=>{
+        [...nav.querySelectorAll('button')].forEach(x=>x.classList.remove('on'));
+        [...main.children].forEach(x=>x.classList.remove('on'));
+        b.classList.add('on');s.classList.add('on');
+        if(!s.dataset.done){const h=el('h2',null,title);s.appendChild(h);fn(s);
+          s.dataset.done='1'}
+        window.scrollTo({top:0});
+      };
+      btns.push(b);nav.appendChild(b);main.appendChild(s);
+      if(!first)first=b;
+    });
   });
+  if(first)first.onclick();
   /* 사유 입력은 **화면 안**에서 받는다. prompt()는 샌드박스 iframe(임베드·
      아티팩트)에서 차단되어 null을 돌려주고, 그러면 통제가 아무 반응 없이
      죽는다 — 있는 것처럼 보이면서 작동하지 않는 통제가 제일 나쁘다. */
   const kb=$('.kill'), bar=$('.killbar'), rin=$('#killreason');
+  const ksc=$('#killscope');
+  ['전사'].concat([...new Set(Object.values(D.view_meta).map(v=>v.domain))].sort())
+    .forEach(d=>{const o=el('option');o.value=d;o.textContent=d;
+      ksc.appendChild(o)});
   const repaint=()=>{
     [...main.children].forEach(x=>{x.dataset.done='';x.innerHTML=''});
-    [...nav.children].forEach(b=>{if(b.classList.contains('on'))b.onclick()});
+    [...nav.querySelectorAll('button')].forEach(b=>{
+      if(b.classList.contains('on'))b.onclick()});
   };
   repaintAll=repaint;
 
@@ -1924,7 +2222,10 @@ function boot(){
     const reason=(rin.value||'').trim();
     if(!reason){rin.focus();return;}        /* 사유 없는 정지는 없다 */
     STATE.killed=true;STATE.killReason=reason;
-    kb.textContent='Kill Switch 해제';kb.classList.add('on');
+    STATE.killScope=ksc.value||'전사';       /* 범위형 정지 (PLT-016) */
+    kb.textContent='Kill Switch 해제'+(STATE.killScope==='전사'?''
+      :' · '+STATE.killScope);
+    kb.classList.add('on');
     bar.hidden=true;repaint();
   };
   kb.onclick=()=>{
@@ -1977,6 +2278,8 @@ def render(studios: Studio | list[Studio]) -> str:
   <button class="kill">Kill Switch</button>
 </header>
 <div class="killbar" hidden>
+  <label for="killscope">범위</label>
+  <select id="killscope" class="sel"></select>
   <label for="killreason">비상정지 사유 (필수)</label>
   <input id="killreason" type="text"
          value="시장데이터 지연 확인 중 신규 재계산 보류">
@@ -1984,9 +2287,11 @@ def render(studios: Studio | list[Studio]) -> str:
   <button class="killno">취소</button>
   <span class="killnote">중요 범위는 운영에서 독립된 2차 확인이 추가로 필요하다.</span>
 </div>
-<nav></nav>
 </div>
+<div class="layout">
+<nav aria-label="메뉴"></nav>
 <main></main>
+</div>
 <footer>
   결정론적 엔진 · 제안 전용 에이전트 · 사람의 최종 승인 권한 · 증빙 계보.
   화면의 모든 값은 합성 포트폴리오에서 <code>run_pipeline(seed=<span

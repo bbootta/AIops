@@ -130,15 +130,23 @@ def build_agent_registry() -> pd.DataFrame:
         mode = _MODE_BY_NAME.get(name,
                                  "제안전용" if ("Write" in tools or "Edit" in tools)
                                  else "조회전용")
+        # 위험등급(AIG-001) — 판단이 아니라 규칙이다: 규제 산출물을 만드는
+        # 에이전트는 상, 검증만 하는 에이전트는 중, 조회·안내는 하.
+        tier = ("상" if any(k in name for k in
+                            ("rwa", "bis", "ecl", "rating", "stress",
+                             "market", "prudential", "orchestrator"))
+                else "중" if any(k in name for k in ("valid", "audit", "limit"))
+                else "하")
         rows.append({
             "agent_id": f"AG-{name[:24]}", "agent_name": name, "mode": mode,
+            "risk_tier": tier,
             "tools": tools, "scope": desc, "write_allowed": False,
             "owner": "리스크관리부",
             "domain": _agent_domain(name),
         })
     return pd.DataFrame(rows, columns=[
-        "agent_id", "agent_name", "mode", "tools", "scope", "write_allowed",
-        "owner", "domain"])
+        "agent_id", "agent_name", "mode", "risk_tier", "tools", "scope",
+        "write_allowed", "owner", "domain"])
 
 
 def _agent_domain(name: str) -> str:
@@ -341,3 +349,70 @@ def build_approvals(tables: dict[str, pd.DataFrame], run_id: str) -> pd.DataFram
     return pd.DataFrame(rows, columns=[
         "approval_id", "subject_type", "subject_id", "reviewer", "approver",
         "segregation_ok", "decision", "evidence_ref"])
+
+
+# ---------------------------------------------------------------- 예외·조치
+
+# 경보 유형 → 표준 조치 바인딩 (PLT-015). 경보가 뜨는 것과 무엇을 해야
+# 하는지가 분리돼 있으면, 경보는 소음이 되고 조치는 재량이 된다.
+_ALERT_POLICIES = (
+    ("AP-RECON", "대사 차이", "대사 gap_ratio > 허용오차",
+     "원천·산출 재대사 후 원인 원장에 기록 — 자동상계 금지", 3,
+     "리스크데이터관리자", True),
+    ("AP-DQ", "데이터품질 위반", "DQ 규칙 FAIL",
+     "위반 행 격리 후 원천 시스템에 정정 요청", 5, "리스크데이터관리자", True),
+    ("AP-IPV", "가격검증 미해소", "IPV is_break = true",
+     "독립가격 재산출·트레이딩 소명 요청, 5일 초과 시 상위보고", 5,
+     "시장리스크관리자", False),
+    ("AP-KRI", "핵심리스크지표 경보", "KRI ≥ 경보 임계",
+     "지표 소유 부서 원인 분석·경영진 보고", 10, "운영리스크관리자", False),
+    ("AP-VAL", "자체검증 실패", "val_check FAIL",
+     "산출 중단·원인 시정 후 재실행 — FAIL 상태로 결재 상신 불가", 1,
+     "리스크관리부장", True),
+)
+
+
+def build_alert_policy() -> pd.DataFrame:
+    return pd.DataFrame([{
+        "policy_id": p[0], "alert_type": p[1], "trigger_rule": p[2],
+        "bound_action": p[3], "sla_days": p[4], "owner_role": p[5],
+        "blocks_submission": p[6],
+    } for p in _ALERT_POLICIES])
+
+
+def build_exception_actions(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """대사·DQ·IPV 세 원장의 미해소 예외를 하나의 조치 큐로 모은다 (RDM-007).
+
+    예외를 **보여주는 것**과 조치가 **추적되는 것**은 다르다 — 표준 조치·담당·
+    기한·상태가 붙어야 워크플로다. 원천은 세 원장뿐이고 손으로 추가하는
+    예외는 없다 — 큐가 원장과 갈라지면 이 함수가 정본이다.
+    """
+    pol = {p[1]: p for p in _ALERT_POLICIES}
+    rows = []
+    rc = tables["rdm_reconciliation"]
+    for _, r in rc[rc["status"] != "PASS"].iterrows():
+        p = pol["대사 차이"]
+        rows.append(("EX-" + str(r["recon_id"]), "rdm_reconciliation",
+                     str(r["recon_id"]), "중대",
+                     f"{r['axis']} 대사 차이 {r['gap']:,.0f} (비율 {r['gap_ratio']:.4%})",
+                     p[3], p[5], "접수", p[4]))
+    dq = tables["rdm_dq_result"]
+    # DQ 결과는 판정 열이 severity(error/warning)다 — error만 예외 큐로 온다.
+    for i, r in dq[dq["severity"] == "error"].iterrows():
+        p = pol["데이터품질 위반"]
+        rows.append((f"EX-DQ-{i:03d}", "rdm_dq_result",
+                     f"{r['table_name']}.{r['column_name']}", "중대",
+                     f"DQ 위반 {r['rule']} — {r['table_name']}.{r['column_name']} {r['n_rows']}행",
+                     p[3], p[5], "접수", p[4]))
+    ipv = tables["mkt_ipv"]
+    brk = ipv[ipv["is_break"] == True]  # noqa: E712
+    for _, r in brk.iterrows():
+        p = pol["가격검증 미해소"]
+        rows.append((f"EX-IPV-{r['trade_id']}", "mkt_ipv", str(r["trade_id"]),
+                     "중대" if int(r["days_open"]) >= 5 else "경미",
+                     f"IPV 미해소 {r['days_open']}일 — 차이 {r['diff']:,.0f}",
+                     p[3], p[5], "조치중" if int(r["days_open"]) >= 5 else "접수",
+                     p[4]))
+    return pd.DataFrame(rows, columns=[
+        "exception_id", "source_ledger", "source_key", "severity", "finding",
+        "action", "owner_role", "status", "due_days"])
