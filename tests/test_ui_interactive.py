@@ -733,3 +733,16 @@ def test_adaptive_blocks_render_rich_layout(page):
     assert page.query_selector("section.on .blocks")
     assert page.query_selector("section.on .blkhead")
     assert page.errors == []
+
+
+def test_chart_without_numeric_column_explains_instead_of_vanishing(page):
+    """값 열이 안 잡힌 차트 블록은 조용히 사라지지 않고 고치는 법을 알려준다."""
+    _tab(page, 2)
+    page.select_option("section.on select.sel", "V_RWA_SA_BUCKET")
+    page.wait_for_timeout(200)
+    page.fill("section.on textarea.input",
+              "자산군 기여도를 막대차트로 보여주고 아래에 검토 표를 배치해줘")
+    page.wait_for_timeout(400)
+    txt = _text(page)
+    assert "숫자 열이 필요하다" in txt and "함께 적으면 그린다" in txt
+    assert page.errors == []

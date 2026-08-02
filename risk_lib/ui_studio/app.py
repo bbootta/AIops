@@ -1282,6 +1282,15 @@ function renderBlocks(box, pr, v){
       blk.appendChild(blkHead('추이',`${title} · ${lab(numCol)}`,numCol));
       blk.appendChild(areaLine(rows.map(r=>r[idx[numCol]]||0).slice(0,60),
         {label:lab(numCol)}));
+    } else if((viz==='bar'||viz==='line')&&!numCol){
+      /* 숫자 열이 안 잡혔는데 차트를 조용히 표로 바꾸면 사용자는 요청이
+         무시된 줄 모른다 — 무엇이 빠졌고 어떻게 고치는지 그 자리에 적는다. */
+      blk.appendChild(blkHead(viz==='bar'?'막대':'추이',title||''));
+      blk.appendChild(el('div','note',
+        (viz==='bar'?'막대차트':'추이')+'는 숫자 열이 필요하다 — 문장에 값 열'+
+        '(예: '+v.fields.filter(f=>f.permitted&&f.masking==='none')
+          .slice(0,3).map(f=>f.korean).join(' · ')+')을 함께 적으면 그린다.'));
+      blk.classList.add('table');
     } else {
       blk.appendChild(blkHead('표',title||'검토 표'));
       blk.appendChild(table(sub));
