@@ -2256,12 +2256,13 @@ const NAVGROUPS=[
   ['통제센터',['콕핏']],
   ['조회·컴포저',['정형 조회','비정형 UI']],
   ['A 리스크데이터',['A RDM','원천·계약','DQ·대사','예외·조치','담보·보증']],
-  /* 부문 구분은 리프의 B/C/D 접두가 이미 한다 — 하위그룹을 겹치면
-     '신용리스크 > B 신용'처럼 같은 말이 두 번 나온다. */
+  /* B/C/D 부문 개요가 2레벨 리프이자 부모다 — 별도 하위그룹 라벨을 두면
+     '신용리스크 > B 신용'처럼 같은 말이 두 번 나온다 (사용자 지정 구조). */
   ['위험가중자산(RWA)',[
-    'B 신용','모형·등급','조기경보','신용 RWA','B ECL',
-    'C 시장','가격검증·IPV','백테스팅','VaR·ES','시장 RWA',
-    'D 운영','손실·회수','KRI·통제','운영 RWA']],
+    ['B 신용',['모형·등급','조기경보','신용 RWA','ECL']],
+    ['C 시장',['가격검증·IPV','백테스팅','VaR·ES','시장 RWA']],
+    ['D 운영',['손실·회수','KRI·통제','운영 RWA']],
+  ]],
   ['E ALM·위기상황',['E ALM','IRRBB·갭','E 위기상황']],
   ['S 증권 건전성',['NCR·건전성']],
   ['R 보고',['R 감독보고']],
@@ -2280,7 +2281,7 @@ const TABS=[
    r=>domain(r,'PRD-CRM',null,'등급·PD/LGD/EAD·부도/회수 품질·담보배분·조기경보를 연결한다.')],
   ['신용 RWA','B · 신용리스크 위험가중자산',
    r=>domain(r,'PRD-RWA',null,'표준방법 구간별·내부등급법 PD 구간별로 분해해 업무보고서 라인과 같은 입도로 둔다.')],
-  ['B ECL','B · 기대신용손실',
+  ['ECL','B · 기대신용손실',
    r=>domain(r,'PRD-ECL',null,'Stage 전이·SICR 트리거·충당금 증감 브리지를 분해한다.')],
   ['C 시장','C · 시장리스크 — 가격평가·위험요소·ES·백테스팅',
    r=>domain(r,'PRD-MKT',null,'벤치마크 가격·시장데이터 계보·위험요소·ES·백테스팅을 연결한다.')],
@@ -2356,9 +2357,15 @@ function boot(){
     items.forEach(item=>{
       if(typeof item==='string'){addLeaf(item,depth+1,under)}
       else{const [sub,subItems]=item;
-        const before=nav.children.length;
-        addGroup(sub,subItems,depth+1);
-        for(let k=before;k<nav.children.length;k++)under.push(nav.children[k]);}
+        if(byLabel[sub]){
+          /* 리프-부모 — 화면을 여는 항목이면서 자식(3레벨)을 거느린다 */
+          addLeaf(sub,depth+1,under);
+          subItems.forEach(ch=>addLeaf(ch,depth+2,under));
+        } else {
+          const before=nav.children.length;
+          addGroup(sub,subItems,depth+1);
+          for(let k=before;k<nav.children.length;k++)under.push(nav.children[k]);
+        }}
     });
   }
   NAVGROUPS.forEach(([gname,items])=>addGroup(gname,items,0));
