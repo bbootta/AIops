@@ -30,7 +30,7 @@ const SKY_SHADER = {
       float h = clamp(d.y, 0.0, 1.0);
       vec3 col = mix(uHorizon, uZenith, pow(h, 0.85));
       float s = max(dot(d, uSun), 0.0);
-      col += uGlow * pow(s, 5.0) * 0.55;           // broad glow, no hard disc
+      col += uGlow * pow(s, 5.0) * 0.42;           // broad glow, no hard disc
       col += uHorizon * 0.2 * pow(1.0 - h, 9.0);   // haze piling up at the horizon
       gl_FragColor = vec4(col, 1.0);
     }`,
@@ -112,7 +112,9 @@ export function buildMaterials() {
     interior: new THREE.MeshStandardMaterial({ color: 0x0a0b0c, roughness: 1 }),
     insulator: new THREE.MeshStandardMaterial({ color: 0xd6cdb6, roughness: 0.35 }),
     paper: new THREE.MeshStandardMaterial({
-      color: 0xb9ac90, roughness: 0.95, side: THREE.DoubleSide,
+      // dirty newsprint, not fresh copier paper — the bright sheets read as
+      // glowing white parallelograms scattered down the road
+      color: 0x877c66, roughness: 0.97, side: THREE.DoubleSide,
     }),
   };
 }
@@ -362,9 +364,12 @@ export function buildStreet(scene, lib) {
   // three's SSRPass renders the scene into its own target the same way the
   // ambient-occlusion pass does, so the two cannot share a chain — SSR would
   // have cost the contact shadows across the whole street.
+  // Darker than feels right in isolation: through the puddle cut-outs a
+  // brighter mirror bounced the red facades back as saturated ember-like
+  // patches on the road.
   const mirror = new Reflector(
     new THREE.PlaneGeometry(STREET_WIDTH, STREET_LENGTH + 60),
-    { textureWidth: 1024, textureHeight: 1024, color: 0x303134 });
+    { textureWidth: 1024, textureHeight: 1024, color: 0x101114 });
   mirror.rotation.x = -Math.PI / 2;
   mirror.position.set(0, 0.004, -STREET_LENGTH / 2 + 12);
   root.add(mirror);
@@ -378,7 +383,7 @@ export function buildStreet(scene, lib) {
   root.add(road);
 
   const line = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.22, STREET_LENGTH + 60), lib.roadLine);
+    new THREE.PlaneGeometry(0.17, STREET_LENGTH + 60), lib.roadLine);
   line.rotation.x = -Math.PI / 2;
   line.position.set(0, 0.016, -STREET_LENGTH / 2 + 12);
   root.add(line);
@@ -439,13 +444,18 @@ export function buildStreet(scene, lib) {
 
 function collapsedLot(parent, side, z, width, rng, lib) {
   const x = side * (STREET_WIDTH / 2 + 9.5);
-  const mound = new THREE.Mesh(new THREE.SphereGeometry(width * 0.45, 14, 10), lib.stucco[1]);
+  // rubble is plaster choked with dust, far darker than the walls it fell from
+  if (!lib.rubble) {
+    lib.rubble = lib.stucco[2].clone();
+    lib.rubble.color.setRGB(0.5, 0.47, 0.44);
+  }
+  const mound = new THREE.Mesh(new THREE.SphereGeometry(width * 0.45, 14, 10), lib.rubble);
   mound.scale.set(1, 0.3, 1);
   mound.position.set(x, 0.1, z - width / 2);
   parent.add(mound);
   for (let i = 0; i < 12; i++) {
     const slab = new THREE.Mesh(
-      new RoundedBoxGeometry(1.6 + rng() * 3, 0.26, 1.2 + rng() * 2, 2, 0.04), lib.stucco[2]);
+      new RoundedBoxGeometry(1.6 + rng() * 3, 0.26, 1.2 + rng() * 2, 2, 0.04), lib.rubble);
     slab.position.set(x + (rng() - 0.5) * width, 0.3 + rng() * width * 0.16,
                       z - width / 2 + (rng() - 0.5) * width);
     slab.rotation.set((rng() - 0.5) * 1.1, rng() * Math.PI, (rng() - 0.5) * 1.1);
@@ -563,6 +573,7 @@ function debris(root, rng, lib) {
   const chunks = new THREE.InstancedMesh(
     new RoundedBoxGeometry(1, 0.6, 0.8, 2, 0.06), lib.stucco[3], N);
   chunks.castShadow = true; chunks.receiveShadow = true;
+  const tint = new THREE.Color();
   for (let i = 0; i < N; i++) {
     const scale = 0.12 + rng() * 0.55;
     s.set(scale * (0.6 + rng()), scale, scale * (0.6 + rng()));
@@ -571,20 +582,25 @@ function debris(root, rng, lib) {
     e.set(rng() * 0.4, rng() * Math.PI * 2, rng() * 0.4);
     m.compose(p, q.setFromEuler(e), s);
     chunks.setMatrixAt(i, m);
+    // per-chunk darkening: uniformly pale plaster read as styrofoam blocks
+    const v = 0.32 + rng() * 0.3;
+    chunks.setColorAt(i, tint.setRGB(v, v * (0.94 + rng() * 0.08), v * 0.9));
   }
   root.add(chunks);
 
-  const P = 140;
+  const P = 90;
   const papers = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.3, 0.4), lib.paper, P);
   papers.receiveShadow = true;
   for (let i = 0; i < P; i++) {
-    const scale = 0.6 + rng() * 1.4;
+    const scale = 0.45 + rng() * 0.85;
     s.set(scale, scale, 1);
     const lane = rng() < 0.5 ? -1 : 1;
     p.set(lane * (1 + rng() * (STREET_WIDTH / 2 + 5)), 0.035, 4 - rng() * STREET_LENGTH);
     e.set(-Math.PI / 2 + (rng() - 0.5) * 0.35, 0, rng() * Math.PI);
     m.compose(p, q.setFromEuler(e), s);
     papers.setMatrixAt(i, m);
+    const v = 0.55 + rng() * 0.45;
+    papers.setColorAt(i, tint.setRGB(v, v, v));
   }
   root.add(papers);
 }

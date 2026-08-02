@@ -172,7 +172,10 @@ const bodyRifle = makeRifle({ hands: false });
 // slide the weapon back inside the grip so its butt lands at the shoulder
 // instead of poking out through the officer's back
 bodyRifle.scale.setScalar(0.85);
-bodyRifle.position.set(0, 0, -0.18);
+// Slid forward inside the grip so the stock's butt clears the chest and lands
+// at the shoulder. Doing this here rather than by moving the grip keeps the
+// hands where the arms can actually reach them.
+bodyRifle.position.set(0, 0, -0.36);
 officer.userData.grip.add(bodyRifle);
 scene.add(officer);
 
@@ -677,7 +680,9 @@ const gradeShader = {
   uniforms: {
     tDiffuse: { value: null },
     uTime: { value: 0 },
-    uAberration: { value: 0.0008 },
+    // gentle: at 0.0008 the aberration painted thin dark wires against the
+    // bright sky as green streaks
+    uAberration: { value: 0.00045 },
     uTexel: { value: new THREE.Vector2(1 / 1920, 1 / 1080) },
   },
   vertexShader: `
@@ -705,7 +710,7 @@ const gradeShader = {
         texture2D(tDiffuse, vUv + vec2(-uTexel.x, 0.0)).rgb +
         texture2D(tDiffuse, vUv + vec2(0.0,  uTexel.y)).rgb +
         texture2D(tDiffuse, vUv + vec2(0.0, -uTexel.y)).rgb) * 0.25;
-      c += (c - blur) * 0.26;
+      c += (c - blur) * 0.15;
       // dusty warm grade, slight desaturation, gentle S-curve
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
       c = mix(vec3(l), c, 0.92);

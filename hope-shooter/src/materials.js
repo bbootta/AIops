@@ -111,8 +111,8 @@ export function sidewalk() {
     size: 512,
     albedo: (ctx, w, h) => {
       const r = makeRng(23);
-      ctx.fillStyle = '#7c7466'; ctx.fillRect(0, 0, w, h);
-      noiseOverlay(ctx, w, h, { seed: 5, grid: 3, octaves: 5, color: [150, 142, 126], alpha: 0.5 });
+      ctx.fillStyle = '#6a6357'; ctx.fillRect(0, 0, w, h);
+      noiseOverlay(ctx, w, h, { seed: 5, grid: 3, octaves: 5, color: [126, 119, 105], alpha: 0.5 });
       noiseOverlay(ctx, w, h, { seed: 17, grid: 11, octaves: 4, color: [40, 36, 30], alpha: 0.4 });
       grit(ctx, w, h, 14000, r);
       slab(ctx, w, h, 'rgba(38,34,28,0.75)');
@@ -390,12 +390,12 @@ export function roadLine() {
       const r = makeRng(131);
       // the canvas stays transparent between dashes so alphaTest cuts them out
       for (let y = 0; y < h; y += 256) {
-        ctx.fillStyle = `rgb(198,180,126)`;
+        ctx.fillStyle = `rgb(122,110,82)`;
         ctx.fillRect(10, y + 8, w - 20, 150);
       }
       // tyres have scrubbed chips out of the paint
       ctx.globalCompositeOperation = 'destination-out';
-      for (let k = 0; k < 220; k++) {
+      for (let k = 0; k < 340; k++) {
         ctx.fillStyle = `rgba(0,0,0,${0.5 + r() * 0.5})`;
         ctx.fillRect(4 + r() * (w - 8), r() * h, 3 + r() * 11, 3 + r() * 10);
       }

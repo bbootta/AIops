@@ -126,16 +126,24 @@ export function makeShadowCreature(rng) {
 export function makeRifle({ hands = true } = {}) {
   const g = new THREE.Group();
 
-  // Parkerised steel is a dark matte grey; keep metalness moderate or the
-  // bright sky reflection turns the whole rifle silver.
+  // Parkerised steel: dark, and it has to STAY dark against a blown-out sky.
+  //
+  // Metalness has to be high, not low. A metal's specular reflection is
+  // tinted by its own albedo, so a near-black metal reflects the sky darkly.
+  // Drop metalness and that reflection is replaced by the 4% WHITE dielectric
+  // specular every non-metal has — which, against a sky this bright, easily
+  // outweighs a 3% albedo and washes the rifle to pale grey. The silvering
+  // this was meant to cure comes from low roughness, so that is what moves.
   const gunmetal = new THREE.MeshStandardMaterial({
-    color: 0x181a1d, roughness: 0.52, metalness: 0.7,
+    color: 0x15171a, roughness: 0.72, metalness: 0.92, envMapIntensity: 0.65,
   });
   const parkerized = new THREE.MeshStandardMaterial({
-    color: 0x121417, roughness: 0.64, metalness: 0.6,
+    color: 0x101214, roughness: 0.8, metalness: 0.9, envMapIntensity: 0.65,
   });
+  // The furniture genuinely is a dielectric, but its albedo is dark enough
+  // that the same white sheen shows; keep it rough and dim the environment.
   const polymer = new THREE.MeshStandardMaterial({
-    color: 0x0e1013, roughness: 0.78, metalness: 0.0,
+    color: 0x0e1013, roughness: 0.86, metalness: 0.0, envMapIntensity: 0.5,
   });
 
   // worn leather glove for the hands
