@@ -870,3 +870,24 @@ def test_overlay_requires_reason_and_evidence(page):
     page.click("section.on .set-overlay .btn.primary")
     page.wait_for_timeout(300)
     assert "사유와 증빙 참조는 필수다" in page.inner_text("section.on .set-overlay .note.bad")
+
+def test_methodology_screen_switches_without_recomputing(page):
+    """산출 방법론 — 방법을 바꾸면 원장의 대안 값으로 즉시 갱신된다.
+
+    원장에 LTA·MBA·fallback 이 다 들어 있으므로 재계산이 필요 없다. 화면이
+    산출을 바꾸지 않는다는 사실은 '제안서로만 적용' 문구로 남는다.
+    """
+    _tab_named(page, "산출 방법론")
+    vals = page.eval_on_selector_all(
+        "section.on .set-method-fund .kpi .val", "els => els.map(e=>e.textContent)")
+    assert len(vals) == 3 and vals[0] == vals[1]        # 초기엔 채택값 = 선택값
+    page.select_option("section.on .set-method-fund select", "fallback")
+    page.wait_for_timeout(400)
+    after = page.eval_on_selector_all(
+        "section.on .set-method-fund .kpi .val", "els => els.map(e=>e.textContent)")
+    assert after[1] != vals[1], "fallback(1250%) 은 채택값보다 훨씬 커야 한다"
+    assert after[2] != "0"                              # 차이가 표시된다
+    # 유동화 쪽도 같은 구조
+    assert page.query_selector("section.on .set-method-sec select")
+    assert "제안" in _text(page)
+    assert page.errors == []
