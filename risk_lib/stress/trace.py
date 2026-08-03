@@ -251,13 +251,21 @@ def trace_from_result(result, portfolio: pd.DataFrame) -> pd.DataFrame:
     from risk_lib.datamodel.materialize import fitted_portfolio
     from risk_lib.pipeline import _stage_split_books, _stress_books
 
-    fitted = fitted_portfolio(portfolio)
+    fitted = fitted_portfolio(portfolio)          # SA 파라미터 충전본
     sa_book, irb_book = _stage_split_books(fitted)
+    # 파이프라인과 동일하게 SA EAD 에서 손상(Stage 3) 개별충당금을 뺀다.
+    from risk_lib.provisioning.ecl import compute_ecl
+    _e = compute_ecl(fitted)
+    _s3 = _e[_e["stage"] == 3].set_index("exposure_id")["ecl"]
+    sa_book["ead"] = (sa_book["ead"]
+                      - sa_book["exposure_id"].map(_s3).fillna(0.0)).clip(lower=0.0)
     books = _stress_books(
         fitted, irb_book, sa_book, result.meta["capital"],
         result.rwa["market_positions"], result.rwa["bi_detail"],
         result.rwa["op_detail"], result.op_loss, result.alm,
-        float(fitted["ead"].sum()), ccr_rwa=float(result.rwa.get("ccr", 0.0)))
+        # 운영 기준은 운영 도메인의 독립 명목이다 — 신용 EAD 합이 아니다.
+        float(result.rwa["op_notional"]),
+        ccr_rwa=float(result.rwa.get("ccr", 0.0)))
     _path, points = run_multi_axis_path(
         books, quarters=list(result.meta.get("quarters", [])),
         buffers={"capital_conservation": 0.025, "countercyclical": 0.0,

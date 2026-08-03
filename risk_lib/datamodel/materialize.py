@@ -31,9 +31,12 @@ def fitted_portfolio(portfolio: pd.DataFrame) -> pd.DataFrame:
 
     `_fit_segment_pd`는 결정론적이므로 같은 입력에서 같은 결과를 낸다.
     """
-    from risk_lib.pipeline import _fit_segment_pd
+    from risk_lib.pipeline import _fill_sa_parameters, _fit_segment_pd
     fitted, *_ = _fit_segment_pd(portfolio.copy())
-    return fitted
+    # SA북 파라미터 충전까지가 '실제로 쓴' 포트폴리오다 — ECL이 전 포트폴리오
+    # 대상이 되면서(재구조), 충전 전 본으로 재계산하면 SA북 충당금 30.2억이
+    # 다시 사라진다.
+    return _fill_sa_parameters(fitted)
 
 
 # ---------------------------------------------------------------- R2 · CRM
@@ -192,13 +195,11 @@ def materialize_ecl(result, portfolio, base: dict[str, pd.DataFrame]
     asof = _asof(result)
     from risk_lib.provisioning.ecl import compute_ecl
 
-    # 파이프라인과 동일한 IRB 북 (자산군 기준만) — 필터를 하나 더 걸면
-    # 충당금 합계가 공표값과 어긋난다.
-    fp = fitted_portfolio(portfolio)
-    irb = fp[fp["asset_class"].isin(
-        ["corporate", "retail_other", "residential_mortgage"])].copy()
-    e = compute_ecl(irb)
-    dpd = irb["dpd"].to_numpy(dtype=int)
+    # ECL 원장은 **전 포트폴리오**다 (재구조 — ECL이 신용 EAD보다 먼저,
+    # SA북 포함). IRB만 재계산하면 파이프라인 공표 총액과 원장이 갈라진다.
+    book = fitted_portfolio(portfolio)
+    e = compute_ecl(book)
+    dpd = book["dpd"].to_numpy(dtype=int)
     stage = e["stage"].to_numpy(dtype=int)
     trigger = np.where(stage == 3, "abs_pd",
                        np.where(dpd >= 30, "dpd30",
@@ -208,8 +209,8 @@ def materialize_ecl(result, portfolio, base: dict[str, pd.DataFrame]
     ecl_df = pd.DataFrame({
         "exposure_id": e["exposure_id"], "asof": asof,
         "stage": stage, "sicr_trigger": trigger,
-        "pd_pit": np.nan_to_num(np.clip(irb["pd"].to_numpy(dtype=float), 0.0, 1.0)),
-        "lgd": np.nan_to_num(np.clip(irb["lgd"].to_numpy(dtype=float), 0.0, 1.0)),
+        "pd_pit": np.nan_to_num(np.clip(book["pd"].to_numpy(dtype=float), 0.0, 1.0)),
+        "lgd": np.nan_to_num(np.clip(book["lgd"].to_numpy(dtype=float), 0.0, 1.0)),
         "ead": ead, "ecl": np.clip(ecl, 0.0, None),
         "coverage_ratio": np.clip(np.divide(ecl, ead, out=np.zeros_like(ecl),
                                             where=ead > 0), 0.0, 1.0),

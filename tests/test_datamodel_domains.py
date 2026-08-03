@@ -74,9 +74,14 @@ def test_fitted_portfolio_is_what_the_pipeline_actually_used(portfolio, result):
     raw = portfolio[portfolio["asset_class"].isin(classes)]
     raw_ecl = float(compute_ecl(raw)["ecl"].sum())
     fit = fitted_portfolio(portfolio)
-    fit_ecl = float(compute_ecl(fit[fit["asset_class"].isin(classes)])["ecl"].sum())
+    # 재구조 후 공표 ECL은 **전 포트폴리오**다(SA북 파라미터 충전 포함).
+    fit_ecl = float(compute_ecl(fit)["ecl"].sum())
+    irb_only = float(compute_ecl(fit[fit["asset_class"].isin(classes)])["ecl"].sum())
 
     assert fit_ecl == pytest.approx(result.ecl["total"], rel=1e-12)
+    # IRB만 자르면 SA북 충당금만큼 공표보다 작아야 한다 — 같아지면 SA북
+    # 충당금이 다시 사라진 것이다(과거의 조용한 NaN 누락 상태로 회귀).
+    assert irb_only < fit_ecl
     assert raw_ecl != pytest.approx(result.ecl["total"], rel=1e-6), (
         "입력 포트폴리오로도 값이 같다면 재적합 전제가 바뀐 것 — 문서 갱신 필요")
 

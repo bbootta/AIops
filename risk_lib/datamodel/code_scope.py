@@ -197,7 +197,7 @@ def alm_scope(tables: dict | None = None) -> pd.DataFrame:
                                  else "1년 이내" if rate else "—"),
             "lcr_category": cat_lcr,
             "lcr_factor": (float(fac[cat_lcr]) if fac and cat_lcr in fac
-                           else None),
+                           else float("nan")),
         })
     return pd.DataFrame(rows)
 

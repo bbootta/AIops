@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from risk_lib.data_gen import (
@@ -288,6 +289,28 @@ def _standardised_rwa_all(portfolio: pd.DataFrame) -> float:
     return standardised_rwa_total(portfolio, _SA_CORP_BUCKET_BY_GRADE)
 
 
+# 외부등급 → 장기 부도율(합성, S&P 장기 코호트 수준) — SA북 IFRS 9 충당금용.
+# 내부 PD 모형은 IRB 세그먼트만 적합하므로 SA북은 외부등급 기반이 정본이다.
+_SA_RATING_PD = {"AAA-AA": 0.0003, "A": 0.0008, "BBB": 0.0026,
+                 "BB": 0.0110, "B": 0.0450, "CCC": 0.1800, "UNRATED": 0.0110}
+_SA_SUPERVISORY_LGD = 0.45          # CRE32 — 선순위 무담보 감독 LGD
+
+
+def _fill_sa_parameters(portfolio: pd.DataFrame) -> pd.DataFrame:
+    """SA북(sovereign·bank)의 PD·LGD 를 세운다 — ECL 전 필수 선행.
+
+    이전에는 SA북 PD·LGD 가 NaN 인 채로 남았고, 전 포트폴리오 ECL 합이
+    NaN 을 조용히 무시했다 — SA북 충당금이 0도 아니고 '없음'이었다.
+    조용한 NaN 은 조용한 절단과 같은 결함이다.
+    """
+    out = portfolio.copy()
+    mask = out["pd"].isna()
+    out.loc[mask, "pd"] = out.loc[mask, "rating"].map(_SA_RATING_PD)
+    out.loc[out["lgd"].isna(), "lgd"] = _SA_SUPERVISORY_LGD
+    assert not out["pd"].isna().any(), "PD가 비어 있는 익스포저가 남았다"
+    return out
+
+
 def _stage_split_books(portfolio: pd.DataFrame):
     sa_book = portfolio[portfolio["asset_class"].isin(["sovereign", "bank"])].copy()
     irb_book = portfolio[portfolio["asset_class"].isin(
@@ -303,16 +326,26 @@ def _stage_credit_rwa(sa_book: pd.DataFrame, irb_book: pd.DataFrame):
     return sa_res, irb_res, rwa_sa, rwa_irb
 
 
-def _stage_market_op_rwa(total_ead: float):
+def _stage_market_op_rwa(seed: int):
+    """시장·운영 RWA — 신용 포트폴리오와 **독립**이다(전용 시드 스트림).
+
+    이전에는 트레이딩 명목과 영업지표(BI)를 신용 EAD 합에 비례시켰다.
+    그러면 신용 익스포저가 움직일 때마다 시장·운영 RWA가 따라 움직인다 —
+    실제 원천은 서로 다르다(트레이딩 북·손익 지표). 도메인 병렬 산출의
+    전제가 이 독립성이므로, 규모감만 같은 합성 명목을 독립 시드로 만든다.
+    """
+    rng = np.random.default_rng(seed + 7100)
+    # 총자산 규모감(합성) — 신용 EAD가 아니라 독립 기준이다.
+    notional = 1.0e13 * float(rng.uniform(0.95, 1.05))
     mkt_positions = pd.DataFrame({
         "risk_class": ["fx", "equity", "interest_rate"],
-        "net_position": [total_ead * 0.02, total_ead * 0.01, total_ead * 0.05],
+        "net_position": [notional * 0.02, notional * 0.01, notional * 0.05],
     })
     mkt = compute_market_risk_rwa(mkt_positions)
-    bi = BusinessIndicator(ildc=total_ead * 0.02, sc=total_ead * 0.01,
-                           fc=total_ead * 0.005)
-    op = compute_op_risk_rwa(bi, avg_annual_losses_10y=total_ead * 0.001)
-    return mkt, op, mkt_positions, bi
+    bi = BusinessIndicator(ildc=notional * 0.02, sc=notional * 0.01,
+                           fc=notional * 0.005)
+    op = compute_op_risk_rwa(bi, avg_annual_losses_10y=notional * 0.001)
+    return mkt, op, mkt_positions, bi, notional
 
 
 def _stage_capital(
@@ -378,16 +411,22 @@ def _stage_capital(
             rwa_internal_total, rwa_standardised_total, ccr_total, el_vs_prov)
 
 
-def _stage_provisioning(irb_book: pd.DataFrame, quarters: list[str],
+def _stage_provisioning(book: pd.DataFrame, quarters: list[str],
                          *, seed: int = 42):
-    ecl_df = compute_ecl(irb_book)
+    """IFRS 9 ECL — **전 포트폴리오** 대상이다.
+
+    이전에는 IRB북만 계산했다. 그러면 SA북의 손상 익스포저에 충당금이 없어
+    SA 규제 익스포저(개별충당금 차감 후 — CRE20)를 세울 수 없다. 충당금은
+    회계(IFRS 9) 산출이라 접근법(SA/IRB) 구분 없이 전 여신에 선다.
+    """
+    ecl_df = compute_ecl(book)
     ecl_by_stage = ecl_df.groupby("stage").agg(
         n=("exposure_id", "size"), ead=("ead", "sum"),
         ecl=("ecl", "sum"), coverage=("coverage_ratio", "mean"),
     )
-    macro = macro_ecl(irb_book, DEFAULT_MACRO_SCENARIOS)
-    macro_path = macro_ecl_path(irb_book, quarters, DEFAULT_MACRO_SCENARIOS)
-    deep = compute_ifrs9_deep(irb_book, seed=seed)
+    macro = macro_ecl(book, DEFAULT_MACRO_SCENARIOS)
+    macro_path = macro_ecl_path(book, quarters, DEFAULT_MACRO_SCENARIOS)
+    deep = compute_ifrs9_deep(book, seed=seed)
     return ecl_df, ecl_by_stage, macro, macro_path, deep
 
 
@@ -482,7 +521,7 @@ UNDRAWN_SHARE = 0.18
 
 
 def _stress_books(portfolio, irb_book, sa_book, capital, mkt_positions,
-                  bi_components, op, op_loss_result, alm, total_ead,
+                  bi_components, op, op_loss_result, alm, op_notional,
                   ccr_rwa: float = 0.0):
     """전 축 충격 엔진의 기준 상태. 파이프라인이 이미 만든 값만 모은다."""
     from risk_lib.stress.multi_axis import StressBooks
@@ -492,8 +531,10 @@ def _stress_books(portfolio, irb_book, sa_book, capital, mkt_positions,
         irb=irb_book, sa=sa_book, full=portfolio, capital=capital,
         market_positions=mkt_positions, bi=bi_components,
         # OPE25.9 ILM은 10년 평균 손실을 쓴다 — 연간 손실을 그대로 넣으면
-        # 손실승수가 과대해진다.
-        op_losses_10y=total_ead * 0.001,
+        # 손실승수가 과대해진다. 기준은 운영 도메인의 독립 명목이다 — 신용
+        # EAD 비례가 여기 한 곳 남아 있으면 base 재현이 1.2bp 어긋난다
+        # (도메인 독립화 때 실제로 이 자리가 누락됐고 검사가 잡았다).
+        op_losses_10y=op_notional * 0.001,
         op_loss_annual=float(getattr(op_loss_result, "annual_total", 0.0)),
         repricing=alm["irrbb"].repricing,
         hqla=dict(bs.hqla), lcr_outflows=lcr.outflows, lcr_inflows=lcr.inflows,
@@ -654,33 +695,56 @@ def run_pipeline(
     (portfolio, pd_metrics, challenger_metrics, lgd_metrics, explain,
      calibration, grade_migration) = _fit_segment_pd(portfolio)
 
-    # 2. SA / IRB split + credit RWA
-    sa_book, irb_book = _stage_split_books(portfolio)
-    sa_res, irb_res, rwa_sa, rwa_irb = _stage_credit_rwa(sa_book, irb_book)
-    rwa_credit_internal = rwa_sa + rwa_irb    # CCR은 _stage_capital에서 합산
-
-    # 3. Market & operational risk RWA (illustrative inputs)
-    total_ead = float(portfolio["ead"].sum())
-    mkt, op, mkt_positions, bi_components = _stage_market_op_rwa(total_ead)
-
-    # 3b. 거래상대방신용리스크 — RWA 합산과 레버리지 익스포저에 모두 쓰이므로
-    # 자본 단계보다 먼저 만든다 (독립검증 F-002 · F-004).
-    bank_book = portfolio[portfolio["asset_class"] == "bank"]
-    ccr_result = compute_ccr(bank_book, seed=seed) if not bank_book.empty else None
-
-    # 4. IFRS 9 ECL — **자본보다 먼저** 만든다. IRB 기대손실 대비 적격충당금
-    # 비교(CRE35.3·CRE40.11)가 보통주자본 차감으로 이어지므로 충당금이 없으면
-    # 그 차감을 산출할 수 없다. 이전에는 자본이 먼저였고, 그래서 F-704 시정이
-    # 표시용 분해에만 닿고 실제 비율에는 닿지 못했다 (지적 F-802).
-    # `asof` is overridable so a run can be pinned to a reference date for
-    # bit-for-bit reproducibility independent of wall-clock time.
     if asof is None:
         asof = date.today()
     elif isinstance(asof, str):
         asof = date.fromisoformat(asof)
     quarters = forecast_quarter_labels(asof, years_ahead=years_ahead)
-    ecl_df, ecl_by_stage, macro, macro_path, ifrs9_deep = _stage_provisioning(
-        irb_book, quarters, seed=seed)
+    total_ead = float(portfolio["ead"].sum())
+
+    # 2~3. 도메인 병렬 산출 — 신용(ECL→EAD→RWA) · 시장·운영 · CCR 세 갈래는
+    # 서로의 산출물을 쓰지 않는다(공유하는 것은 원천 원장뿐). 그래서 갈래
+    # 간 순서가 없고, 나란히 돈다. 갈래 **안**의 순서는 규정이 정한다:
+    #
+    #   ECL이 신용 EAD보다 먼저다 — SA 규제 익스포저는 개별충당금(손상)
+    #   차감 후이므로(CRE20), 충당금 없이 신용 EAD가 서지 않는다. IRB는
+    #   EAD를 차감하지 않는다 — EL-적격충당금 비교(CRE35.3·40.11)가 자본
+    #   에서 처리하므로 EAD 차감까지 하면 이중계상이다.
+    #   (이전에는 신용 RWA가 ECL보다 먼저였다 — 충당금 차감 전 EAD였다.)
+    def _branch_credit():
+        book = _fill_sa_parameters(portfolio)
+        ecl_df, ecl_by_stage, macro, macro_path, ifrs9_deep = \
+            _stage_provisioning(book, quarters, seed=seed)
+        sa_book, irb_book = _stage_split_books(book)
+        # SA 익스포저 = 장부가 − 개별충당금(손상 Stage 3). CRE20.
+        stage3 = ecl_df[ecl_df["stage"] == 3].set_index("exposure_id")["ecl"]
+        sa_book["ead"] = (sa_book["ead"]
+                          - sa_book["exposure_id"].map(stage3).fillna(0.0)
+                          ).clip(lower=0.0)
+        sa_res, irb_res, rwa_sa, rwa_irb = _stage_credit_rwa(sa_book, irb_book)
+        return (book, ecl_df, ecl_by_stage, macro, macro_path, ifrs9_deep,
+                sa_book, irb_book, sa_res, irb_res, rwa_sa, rwa_irb)
+
+    def _branch_market_op():
+        return _stage_market_op_rwa(seed)
+
+    def _branch_ccr():
+        bank_book = portfolio[portfolio["asset_class"] == "bank"]
+        return compute_ccr(bank_book, seed=seed) if not bank_book.empty else None
+
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=3) as _ex:
+        _f_credit = _ex.submit(_branch_credit)
+        _f_mkt = _ex.submit(_branch_market_op)
+        _f_ccr = _ex.submit(_branch_ccr)
+        (portfolio, ecl_df, ecl_by_stage, macro, macro_path, ifrs9_deep,
+         sa_book, irb_book, sa_res, irb_res, rwa_sa, rwa_irb) = _f_credit.result()
+        # 이후 전 단계(모니터링·집중도·원장 실체화)는 파이프라인이 **실제로
+        # 쓴** 포트폴리오(SA 파라미터 충전본)를 본다 — 원본을 남기면 원장이
+        # 실사용과 다른 실행을 설명하게 된다 (F-501 유형).
+        mkt, op, mkt_positions, bi_components, op_notional = _f_mkt.result()
+        ccr_result = _f_ccr.result()
+    rwa_credit_internal = rwa_sa + rwa_irb    # CCR은 _stage_capital에서 합산
 
     # 5-7. Output floor → CapitalStack → BIS → leverage
     (floor, rwa_final, capital, bis, leverage,
@@ -703,14 +767,15 @@ def run_pipeline(
     alm = _stage_alm(portfolio, capital, seed)
 
     # 12b. 운영손실 — 운영 축이 손실을 충격해 ILM으로 되돌리므로 역시 선행한다.
-    op_loss_result = compute_op_loss(total_ead, seed=seed,
+    # 운영손실은 운영 도메인의 기준(독립 명목)을 쓴다 — 신용 EAD가 아니다.
+    op_loss_result = compute_op_loss(op_notional, seed=seed,
                                      sma_capital=op.rwa * 0.08)
 
     # 12c. Stress + reverse stress + quarterly capital path.  Hold non-IRB RWA
     # fixed at (rwa_final - rwa_irb) so baseline stress reconciles with BIS.
     rwa_other_fixed = rwa_final - rwa_irb
     books = _stress_books(portfolio, irb_book, sa_book, capital, mkt_positions,
-                          bi_components, op, op_loss_result, alm, total_ead,
+                          bi_components, op, op_loss_result, alm, op_notional,
                           ccr_rwa=rwa_ccr)
     stress, reverse, stress_path, stress_path_trough = _stage_stress(
         irb_book, capital, rwa_other_fixed, bis, quarters, buffers, books,
@@ -909,6 +974,7 @@ def run_pipeline(
             "market_detail": mkt, "op_detail": op,
             # 전 축 위기상황분석이 시장 포지션을 다시 충격하므로 결과에 남긴다.
             "market_positions": mkt_positions,
+        "op_notional": op_notional,
             # BI 구성요소(ILDC/SC/FC)는 op_detail에 총액으로만 남는다 —
             # 사업부문별 자본배분과 업무보고서 라인은 구성요소가 있어야 한다.
             "bi_detail": bi_components,
