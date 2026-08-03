@@ -963,6 +963,14 @@ def _bf602(ctx) -> tuple[list[FormLine], list[FormCheck]]:
                  _r(total_rwa, float(pnl_book(ctx)["ead"].sum())),
                  formula="해외 RWA ÷ 해외 EAD", citation=_CRE20,
                  source_module=_M_RWA),
+        FormLine("9000", "배분 범위 비고", 0, "text", None,
+                 text_value=(
+                     f"본점 구조화 위험가중자산 "
+                     f"{float(ctx.result.rwa.get('structured_total', 0.0)):,.0f}"
+                     f"원(집합투자증권·유동화)은 해외에 배분하지 않았다. "
+                     f"두 원장에 소재국 축이 없어 배분 근거가 없기 때문이며, "
+                     f"0은 '해외 몫이 없다'가 아니라 '배분 근거가 없다'는 뜻이다."),
+                 citation="CRE60 · CRE40", source_module=_M_RWA),
     ]
     t = _tol(total_rwa)
     return L, [

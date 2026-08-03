@@ -49,7 +49,12 @@ def materialize_crm(result, portfolio, base: dict[str, pd.DataFrame]
     from risk_lib.model_inventory import build_standard_inventory
 
     # 모형 인벤토리 — 세그먼트는 모형명에서 유도한다(원본에 세그먼트 필드 없음).
-    def _segment(name: str) -> str:
+    # 자산군 세그먼트는 **신용 모형에만** 있는 축이다. 시장 VaR·IRRBB·LCR·
+    # 기후·RAF 에 "corporate"를 붙이면 그 모형이 기업 자산군에 적용된다고
+    # 주장하는 것이 되는데, 사실이 아니라 기본값일 뿐이다. 없는 축은 비운다.
+    def _segment(name: str, domain: str) -> str | None:
+        if domain != "신용":
+            return None
         if "주담대" in name:
             return "residential_mortgage"
         if "가계" in name:
@@ -71,7 +76,7 @@ def materialize_crm(result, portfolio, base: dict[str, pd.DataFrame]
         "model_id": e.model_id,
         "model_name": e.name,
         "domain": _domain(e.model_id),
-        "segment": _segment(e.name),
+        "segment": _segment(e.name, _domain(e.model_id)),
         "purpose": e.purpose,
         "tier": int(e.tier),
         "status": e.status,

@@ -196,6 +196,27 @@ def _check_bis_plausible(bis_result, report: ValidationReport) -> None:
                 f"{name}={ratio:.4f}", metric=ratio,
             ))
 
+    # 완충자본 포함 요구치 대비 — Pillar 1 최저(4.5/6/8)만 보면 완충자본
+    # 미달이 조용히 통과한다. 완충자본을 밑돌면 이익배당·자사주·성과급이
+    # 제한되므로(자본보전완충자본 · 은행업감독규정 제26조), 산출이 맞더라도
+    # **결과로서** 보고돼야 한다. 계산 결함이 아니므로 WARN이다 — Pillar 1
+    # 미달은 위에서 이미 FAIL로 잡는다.
+    short = {k: v for k, v in
+             (getattr(bis_result, "surplus_shortfall", None) or {}).items()
+             if v < 0}
+    req = getattr(bis_result, "required", {}) or {}
+    if short:
+        report.add(ConsistencyCheck(
+            "bis_buffer_requirement", "WARN",
+            "완충자본 포함 요구치 미달 — " + " · ".join(
+                f"{k} {v:+.2%} (요구 {req.get(k, 0.0):.2%})"
+                for k, v in short.items())
+            + " · 이익배당·성과급 제한 대상"))
+    elif req:
+        report.add(ConsistencyCheck(
+            "bis_buffer_requirement", "PASS",
+            "전 계층 완충자본 포함 요구치 충족"))
+
     # Ordering: Total >= Tier1 >= CET1 by construction
     if not (bis_result.total_ratio + 1e-9 >= bis_result.tier1_ratio
             >= bis_result.cet1_ratio - 1e-9):

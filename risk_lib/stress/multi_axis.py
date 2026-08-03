@@ -69,6 +69,12 @@ class StressBooks:
     operating_cost: float
     credit_securities: float          # 스프레드 민감 보유물 (L2A + L2B)
     ccr_rwa: float = 0.0              # 거래상대방신용리스크 (SA-CCR + CVA)
+    # 구조화(집합투자증권 CRE60 · 유동화 CRE40) — 분모에 들어간 값 그대로.
+    # 충격은 받지 않지만(등급 하락에 따른 ERBA 위험가중치 상승 미모형화)
+    # **합계에는 반드시 들어가야** 한다. 빼면 심도 0의 기준 상태가 실제
+    # 기준 상태를 재현하지 못해 충격 크기 자체를 믿을 수 없게 된다.
+    structured_rwa: float = 0.0
+    structured_rwa_standardised: float = 0.0
     undrawn_share: float = 0.0        # EAD 대비 미인출 비율
     sa_bucket_by_grade: dict = field(default_factory=dict)
 
@@ -282,16 +288,19 @@ def evaluate_point(books: StressBooks, severity: float, *,
     v["capital_total"] = float(stack.total)
 
     # ---------------------------------------------------------- RWA 합계·하한
+    v["rwa_structured"] = float(books.structured_rwa)
     internal = (v["rwa_irb"] + v["rwa_sa"] + v["rwa_ccr"]
-                + v["rwa_market"] + v["rwa_op"])
+                + v["rwa_market"] + v["rwa_op"] + v["rwa_structured"])
     if books.sa_bucket_by_grade and len(books.full):
         # 산출하한 분모도 충격을 받아야 한다 — 기준 상태 분모를 그대로 쓰면
         # 스트레스에서 하한이 절대 구속되지 않는 착시가 생긴다.
         std_credit = standardised_rwa_total(_stressed_full(books, sh, sc),
                                             books.sa_bucket_by_grade)
     else:
-        std_credit = internal - v["rwa_market"] - v["rwa_op"] - v["rwa_ccr"]
-    standardised = std_credit + v["rwa_ccr"] + v["rwa_market"] + v["rwa_op"]
+        std_credit = (internal - v["rwa_market"] - v["rwa_op"] - v["rwa_ccr"]
+                      - v["rwa_structured"])
+    standardised = (std_credit + v["rwa_ccr"] + v["rwa_market"] + v["rwa_op"]
+                    + float(books.structured_rwa_standardised))
     fl = apply_output_floor(internal, standardised, floor)
     v["rwa_internal"] = internal
     v["rwa_standardised"] = standardised

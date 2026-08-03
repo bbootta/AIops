@@ -103,6 +103,7 @@ def _core(ctx) -> dict[str, float]:
         "rwa_ccr": float(r.rwa["ccr"]),
         "rwa_market": float(r.rwa["market"]),
         "rwa_op": float(r.rwa["op"]),
+        "rwa_structured": float(r.rwa.get("structured_total", 0.0)),
         "rwa_floor_addon": float(r.rwa["output_floor"].add_on),
         "rwa_total": float(r.rwa["final_total"]),
         "conc_addon": float(ic.concentration_addon),
@@ -716,6 +717,9 @@ def _risk_amounts(ctx, c: dict[str, float]) -> dict[str, float]:
     """B2913·B2915가 공유하는 리스크량 구성. 두 서식이 갈라지면 안 된다."""
     return {
         "신용": _amount(c["rwa_credit"]),
+        # 구조화(집합투자증권·유동화)를 빼면 Pillar 1 소요자본과 총 리스크량이
+        # 갈라진다 — 분모에는 들어간 위험가중자산이 리스크량에는 없기 때문이다.
+        "구조화": _amount(c["rwa_structured"]),
         "시장": _amount(c["rwa_market"]),
         "운영": _amount(c["rwa_op"]),
         "산출하한 조정": _amount(c["rwa_floor_addon"]),
@@ -767,6 +771,11 @@ def _b2913(ctx):
         FormLine("2500", "신용리스크량비율 (B2904)", 0, "ratio",
                  ra["신용"] / c["capital"], formula=f"신용 {_RA_DEF} ÷ 자기자본",
                  citation=_C26, source_module=_M_RWA),
+        FormLine("2550", "구조화리스크량비율 (집합투자증권·유동화)", 0, "ratio",
+                 ra["구조화"] / c["capital"],
+                 formula=f"구조화 {_RA_DEF} ÷ 자기자본",
+                 citation="CRE60 · CRE40",
+                 source_module="risk_lib.datamodel.securitisation"),
         FormLine("2600", "시장리스크량비율 (B2906-2)", 0, "ratio",
                  ra["시장"] / c["capital"], formula=f"시장 {_RA_DEF} ÷ 자기자본",
                  citation="MAR40", source_module=_M_MKT),
@@ -819,7 +828,8 @@ def _b2913(ctx):
         _ratio_check("총자본비율 = 자기자본 ÷ 위험가중자산", L, "1200",
                      "1000", "1100"),
         FormCheck("총 리스크량비율 = 구성 지표 합",
-                  sum(_val(L, cd) for cd in ("2500", "2600", "2700", "2800"))
+                  sum(_val(L, cd)
+                      for cd in ("2500", "2550", "2600", "2700", "2800"))
                   + _amount(c["rwa_floor_addon"]) / c["capital"],
                   _val(L, "2900"), 1e-12),
         FormCheck("고정이하여신비율 = 경영실태평가 자산건전성 지표",
@@ -864,6 +874,11 @@ def _b2914(ctx):
         FormLine("1200", "표준방법 소요자본", 1, "KRW", _amount(c["rwa_sa"]),
                  formula="표준방법 위험가중자산 × 8%", citation="CRE20",
                  source_module="risk_lib.capital.rwa_sa"),
+        FormLine("1250", "구조화 소요자본 (집합투자증권·유동화)", 1, "KRW",
+                 _amount(c["rwa_structured"]),
+                 formula="구조화 위험가중자산 × 8%",
+                 citation="CRE60 · CRE40",
+                 source_module="risk_lib.datamodel.securitisation"),
         FormLine("1300", "신용편중 가산", 1, "KRW", c["conc_addon"],
                  formula="granularity adjustment (B2912와 같은 값)",
                  citation="SRP30", source_module=_M_ICA),
@@ -889,8 +904,8 @@ def _b2914(ctx):
                  citation="SRP20 · CRE52"),
     ]
     checks = [
-        _sum_check("Credit VaR = IRB UL + 표준방법 자본 + 편중 가산", L, "1000",
-                   ("1100", "1200", "1300")),
+        _sum_check("Credit VaR = IRB UL + 표준방법 자본 + 구조화 + 편중 가산",
+                   L, "1000", ("1100", "1200", "1250", "1300")),
         _ratio_check("소진율 = Credit VaR ÷ 가용 자본", L, "4000",
                      "1000", "3000"),
         FormCheck("가용 자본 = 자기자본", c["capital"], _val(L, "3000"), 1.0),
@@ -911,7 +926,7 @@ def _b2915(ctx):
                  citation="은행업감독규정 제26조", source_module=_M_CAP,
                  is_subtotal=True),
         FormLine("2000", "총 리스크량", 0, "KRW", total_ra,
-                 formula="신용 + 시장 + 운영 + 산출하한 조정 + 신용편중",
+                 formula="신용 + 구조화 + 시장 + 운영 + 산출하한 조정 + 신용편중",
                  citation=_C26, source_module=_M_CAP, is_subtotal=True),
     ]
     codes = []
@@ -940,7 +955,7 @@ def _b2915(ctx):
                  formula="자기자본 − 총 리스크량", source_module=_M_CAP),
     ]
     checks = [
-        _sum_check("총 리스크량 = 5개 리스크량 합", L, "2000", tuple(codes)),
+        _sum_check("총 리스크량 = 6개 리스크량 합", L, "2000", tuple(codes)),
         _ratio_check("총 리스크량비율 = 리스크량 ÷ 자기자본", L, "3000",
                      "2000", "1000"),
         FormCheck("Pillar 1 소요자본 = 위험가중자산 × 8%",

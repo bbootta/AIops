@@ -3310,9 +3310,9 @@ const DETAIL_SCREENS=[
     tables:[['담보 원장','rdm_collateral'],['보증 원장','rdm_guarantee'],
             ['차주 재무','rdm_obligor_financial']]})],
   ['등급 전이','MDL · 등급 전이행렬 — 세그먼트별 피봇',screenOf({
-    lead:'모형 카드, PD 보정, 변별력·안정성 성능, 등급 이동행렬 — 모형 거버넌스의 원장들이다. 전이행렬 피봇의 행·열은 코드 마스터(등급 사다리) 순서다.',
+    lead:'등급 이동행렬과 그 재료가 되는 원장들이다. 전이행렬 피봇의 행·열은 코드 마스터(등급 사다리) 순서다. 모형 인벤토리 원장은 이 화면에서 뺐다 — 같은 원장을 두 화면이 각자 그리면 어느 쪽이 최신인지 물어야 한다.',
     charts:migrationPivot,
-    tables:[['모형 카드','crm_model'],['PD 보정','crm_pd_calibration'],
+    tables:[['PD 보정','crm_pd_calibration'],
             ['모형 성능','crm_performance'],['등급 이동행렬','crm_rating_migration'],
             ['LGD 구성요소','crm_lgd_component']]})],
   ['조기경보','B · 조기경보(EWS) — 신호·단계·조치',screenOf({

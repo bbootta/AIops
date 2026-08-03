@@ -91,6 +91,9 @@ def _sec_rwa(lines: list[str], result: PipelineResult) -> None:
     rows = [
         ["신용 RWA (SA)", _won(rwa["sa"])],
         ["신용 RWA (IRB)", _won(rwa["irb"])],
+        ["거래상대방신용리스크 RWA (CCR·CVA)", _won(rwa.get("ccr", 0.0))],
+        ["집합투자증권 RWA (CIS)", _won(rwa.get("fund", 0.0))],
+        ["유동화 RWA", _won(rwa.get("securitisation", 0.0))],
         ["시장리스크 RWA", _won(rwa["market"])],
         ["운영리스크 RWA", _won(rwa["op"])],
         ["내부모형 합계", _won(rwa["internal_total"])],

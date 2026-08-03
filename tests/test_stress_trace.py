@@ -166,7 +166,8 @@ def test_internal_rwa_is_the_sum_of_its_components(trace):
     for _, v in _cells(trace):
         parts = (v["내부등급법 RWA"] + v["표준방법 RWA"]
                  + v["거래상대방신용리스크 RWA"] + v["시장리스크 RWA"]
-                 + v["운영리스크 RWA"])
+                 + v["운영리스크 RWA"]
+                 + v["구조화 RWA (집합투자증권·유동화)"])
         assert v["내부모형 RWA"] == pytest.approx(parts, rel=1e-12)
 
 

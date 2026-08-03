@@ -244,8 +244,11 @@ MODEL_INVENTORY = TableSpec(
           allowed=("신용", "시장", "ALM", "위기상황", "기후", "전사", "기타"),
           note="모형은 신용에만 있지 않다 — 원장이 신용 스키마(crm_)에 산다는 "
                "것과 모형이 신용 모형이라는 것은 다른 말이다"),
-        C("segment", "string", "적용 세그먼트", nullable=False,
-          allowed=ASSET_CLASSES),
+        C("segment", "string", "적용 세그먼트", nullable=True,
+          allowed=ASSET_CLASSES,
+          note="자산군 세그먼트는 신용 모형에만 있는 축이다. 비신용 모형(시장·"
+               "ALM·위기상황·기후·전사)은 비운다 — 기본값 corporate를 채우면 "
+               "그 모형이 기업 자산군에 적용된다고 주장하게 된다"),
         C("purpose", "text", "모형 목적", nullable=False),
         C("tier", "int", "모형 등급", nullable=False, min_value=1, max_value=3,
           citation="SR 11-7 모형 중요도 등급"),

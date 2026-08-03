@@ -154,6 +154,11 @@ def build_standard_inventory(*, today: date | None = None) -> list[ModelInventor
             next_due=_yyyymmdd(today + timedelta(days=400)),
             citation="감독세칙 스트레스테스트 가이드라인 + Fed CCAR methodology",
             purpose="baseline/adverse/severe + 역스트레스",
+            known_limitations=[
+                "구조화 위험가중자산(집합투자증권·유동화) 충격 미적용 — "
+                "분모에는 들어가나 시나리오에서 고정된다. 등급 하락 시 "
+                "SEC-ERBA 위험가중치 상승분이 자본 충격에 반영되지 않는다",
+            ],
         ),
         ModelInventoryEntry(
             model_id="XVA", name="XVA suite (CVA·DVA·FVA·ColVA·MVA)",

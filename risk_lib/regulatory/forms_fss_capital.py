@@ -108,15 +108,22 @@ def _b2301(ctx):
     ccr = float(rwa["ccr"])
     mkt = float(rwa["market"])
     op = float(rwa["op"])
-    credit_std = std - ccr - mkt - op
+    # 구조화도 표준 총계에 들어 있으므로 함께 빼야 한다. 잔차로 신용을
+    # 구하는 구조에서는 빼먹은 항목이 전부 신용리스크로 흡수돼, 4.11조가
+    # "신용리스크(표준방법)"라는 틀린 이름을 달고 조용히 통과한다.
+    # 표준 총계 쪽 구조화는 SEC-IRBA를 제외한 계층이다.
+    structured_std = (float(rwa.get("fund", 0.0))
+                      + float(rwa.get("securitisation_standardised", 0.0)))
+    credit_std = std - ccr - mkt - op - structured_std
     cap = r.meta["capital"]
     L = _capital_lines(cap) + [
         FormLine("2000", "위험가중자산 합계 (표준방법 전량 기준)", 0, "KRW", std,
-                 formula="신용(표준) + CCR·CVA + 시장 + 운영 — 내부등급법·산출하한 미적용",
+                 formula="신용(표준) + CCR·CVA + 시장 + 운영 + 구조화 — "
+                         "내부등급법·산출하한 미적용",
                  citation="구 바젤 기준 · CRE20", source_module=_M_CAP,
                  is_subtotal=True),
         FormLine("2100", "신용리스크 (표준방법)", 1, "KRW", credit_std,
-                 formula="표준방법 전량 산출 − CCR·CVA − 시장 − 운영",
+                 formula="표준방법 전량 산출 − CCR·CVA − 시장 − 운영 − 구조화",
                  citation="CRE20", source_module="risk_lib.capital.rwa_sa"),
         FormLine("2200", "거래상대방신용리스크 (SA-CCR + CVA)", 1, "KRW", ccr,
                  citation="CRE52 · MAR50", source_module=_M_CCR),
@@ -124,6 +131,11 @@ def _b2301(ctx):
                  source_module=_M_MKT),
         FormLine("2400", "운영리스크", 1, "KRW", op, citation="OPE25",
                  source_module="risk_lib.capital.op_risk"),
+        FormLine("2500", "구조화 익스포저 (집합투자증권·유동화)", 1, "KRW",
+                 structured_std,
+                 formula="집합투자증권(LTA·MBA) + 유동화(SEC-ERBA→SEC-SA) — "
+                         "SEC-IRBA는 내부모형이므로 표준 기준에서 제외",
+                 citation="CRE60 · CRE40", source_module=_M_CAP),
 
         FormLine("3100", "보통주자본비율", 0, "ratio", float(cap.cet1) / std,
                  formula="보통주자본 ÷ 표준방법 위험가중자산",
@@ -146,8 +158,8 @@ def _b2301(ctx):
                  citation="RBC20.11"),
     ]
     checks = _capital_checks(L) + [
-        _sum_check("표준방법 RWA = 신용+CCR+시장+운영", L, "2000",
-                   ("2100", "2200", "2300", "2400")),
+        _sum_check("표준방법 RWA = 신용+CCR+시장+운영+구조화", L, "2000",
+                   ("2100", "2200", "2300", "2400", "2500")),
         _ratio_check("총자본비율 = 자기자본/표준방법RWA", L, "3300", "1000", "2000"),
         _ratio_check("보통주자본비율 = CET1/표준방법RWA", L, "3100", "1100", "2000"),
         FormCheck("잉여 = 실측 − 최저", _val(L, "3300") - _val(L, "4300"),
@@ -171,7 +183,8 @@ def _ba2303_2(ctx):
     L = _capital_lines(cap) + [
         FormLine("2000", "위험가중자산 합계 (산출하한 적용 후)", 0, "KRW",
                  float(rwa["final_total"]),
-                 formula="내부등급법 + 표준방법 + CCR·CVA + 시장 + 운영 + 하한조정",
+                 formula="내부등급법 + 표준방법 + CCR·CVA + 시장 + 운영 + "
+                         "구조화 + 하한조정",
                  citation="CRE20.1 · RBC20.11", source_module=_M_CAP,
                  is_subtotal=True),
         FormLine("2100", "신용리스크 — 내부등급법 (IRB)", 1, "KRW",
@@ -183,6 +196,14 @@ def _ba2303_2(ctx):
                  citation="CRE20", source_module="risk_lib.capital.rwa_sa"),
         FormLine("2120", "거래상대방신용리스크 (SA-CCR + CVA)", 1, "KRW",
                  float(rwa["ccr"]), citation="CRE52 · MAR50", source_module=_M_CCR),
+        FormLine("2130", "집합투자증권", 1, "KRW", float(rwa.get("fund", 0.0)),
+                 formula="LTA · MBA · 1250% 대체",
+                 citation="CRE60", source_module="risk_lib.datamodel.funds"),
+        FormLine("2140", "유동화 익스포저", 1, "KRW",
+                 float(rwa.get("securitisation", 0.0)),
+                 formula="SEC-IRBA → SEC-ERBA → SEC-SA",
+                 citation="CRE40 · CRE44",
+                 source_module="risk_lib.datamodel.securitisation"),
         FormLine("2200", "시장리스크", 1, "KRW", float(rwa["market"]),
                  citation="MAR40", source_module=_M_MKT),
         FormLine("2300", "운영리스크", 1, "KRW", float(rwa["op"]),
@@ -211,8 +232,9 @@ def _ba2303_2(ctx):
                  float(r.bis.surplus_shortfall["total"]), source_module=_M_CAP),
     ]
     checks = _capital_checks(L) + [
-        _sum_check("총RWA = IRB+SA+CCR+시장+운영+하한", L, "2000",
-                   ("2100", "2110", "2120", "2200", "2300", "2400")),
+        _sum_check("총RWA = IRB+SA+CCR+구조화+시장+운영+하한", L, "2000",
+                   ("2100", "2110", "2120", "2130", "2140",
+                    "2200", "2300", "2400")),
         _ratio_check("총자본비율 = 자기자본/RWA", L, "3300", "1000", "2000"),
         _ratio_check("보통주자본비율 = CET1/RWA", L, "3100", "1100", "2000"),
         FormCheck("잉여 = 실측 − 요구", _val(L, "3300") - _val(L, "4300"),
@@ -433,8 +455,10 @@ def _b2312(ctx):
                  source_module=_M_RWA, is_subtotal=True),
         FormLine("3000", "계정과목 비귀속 위험가중자산 소계", 0, "KRW",
                  float(rwa["ccr"]) + float(rwa["market"]) + float(rwa["op"])
+                 + float(rwa.get("structured_total", 0.0))
                  + float(rwa["output_floor"].add_on),
-                 formula="거래상대방·시장·운영·산출하한은 계정과목에 귀속되지 않는다",
+                 formula="거래상대방·시장·운영·구조화·산출하한은 계정과목에 "
+                         "귀속되지 않는다",
                  source_module=_M_CAP, is_subtotal=True),
         FormLine("3100", "거래상대방신용리스크 (SA-CCR + CVA)", 1, "KRW",
                  float(rwa["ccr"]), citation="CRE52 · MAR50", source_module=_M_CCR),
@@ -442,6 +466,14 @@ def _b2312(ctx):
                  citation="MAR40", source_module=_M_MKT),
         FormLine("3300", "운영리스크", 1, "KRW", float(rwa["op"]),
                  citation="OPE25", source_module="risk_lib.capital.op_risk"),
+        # 구조화 원장은 익스포저 원장과 모집단이 달라 계정과목 매핑이 없다 —
+        # 대출채권 행에 섞어 넣으면 귀속되지 않은 것을 귀속된 것처럼 만든다.
+        FormLine("3500", "집합투자증권", 1, "KRW", float(rwa.get("fund", 0.0)),
+                 citation="CRE60", source_module="risk_lib.datamodel.funds"),
+        FormLine("3600", "유동화 익스포저", 1, "KRW",
+                 float(rwa.get("securitisation", 0.0)),
+                 citation="CRE40 · CRE44",
+                 source_module="risk_lib.datamodel.securitisation"),
         FormLine("3400", "산출하한 조정분", 1, "KRW",
                  float(rwa["output_floor"].add_on), citation="RBC20.11",
                  source_module="risk_lib.capital.output_floor"),
@@ -462,8 +494,8 @@ def _b2312(ctx):
                   sum(_val(L, c) for c in acc_bal), 1.0),
         FormCheck("계정과목 RWA 합 = 귀속 소계", _val(L, "2000"),
                   sum(_val(L, c) for c in acc_rwa), 1.0),
-        _sum_check("비귀속 소계 = CCR+시장+운영+하한", L, "3000",
-                   ("3100", "3200", "3300", "3400")),
+        _sum_check("비귀속 소계 = CCR+시장+운영+구조화+하한", L, "3000",
+                   ("3100", "3200", "3300", "3400", "3500", "3600")),
         _sum_check("총 RWA = 귀속 + 비귀속", L, "4000", ("2000", "3000")),
     ]
     return L, checks

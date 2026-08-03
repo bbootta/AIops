@@ -97,6 +97,12 @@ def _steps_for(pt: StressPoint) -> list[tuple]:
          "등급 하향·LTV 상승·EAD 증가 반영 후 재산출",
          f"LTV 배수={1 / max(1e-9, 1 - sh['collateral']):.4f}",
          "CRE20.4 · CRE20.82"),
+        ("신용RWA", "구조화 RWA (집합투자증권·유동화)", v["rwa_structured"],
+         "KRW", "기준 상태 고정 — 충격 미적용",
+         "등급 하향에 따른 SEC-ERBA 위험가중치 상승과 기초자산 손실의 "
+         "트렌치 귀속이 모형에 없다. 고정은 보수적인 쪽이 아니라 "
+         "**미측정**이며, 심각 시나리오에서 이 항목은 과소계상이다",
+         "CRE60 · CRE40"),
     ]
     # ---- 시장
     out += [
@@ -265,7 +271,11 @@ def trace_from_result(result, portfolio: pd.DataFrame) -> pd.DataFrame:
         result.rwa["op_detail"], result.op_loss, result.alm,
         # 운영 기준은 운영 도메인의 독립 명목이다 — 신용 EAD 합이 아니다.
         float(result.rwa["op_notional"]),
-        ccr_rwa=float(result.rwa.get("ccr", 0.0)))
+        ccr_rwa=float(result.rwa.get("ccr", 0.0)),
+        # 구조화 RWA를 넘기지 않으면 추적표의 심도 0 이 실제 기준 상태를
+        # 재현하지 못한다 — 추적표는 "이 숫자가 어디서 나왔는가"의 답이므로
+        # 파이프라인과 같은 입력으로 세워야 한다.
+        structured=getattr(result, "structured", None))
     _path, points = run_multi_axis_path(
         books, quarters=list(result.meta.get("quarters", [])),
         buffers={"capital_conservation": 0.025, "countercyclical": 0.0,

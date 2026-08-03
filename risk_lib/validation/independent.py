@@ -43,6 +43,11 @@ STATUSES = ("요청됨", "응답대기", "적합", "부적합")
 # 않으므로, 새 headline을 만들면 여기에도 넣어야 한다.
 RECALC_SCOPE: tuple[tuple[str, str, str], ...] = (
     ("rwa_final_total", "위험가중자산 합계", "CRE20.1 · RBC20.11"),
+    # 구조화 두 항목은 분모의 30.6%다. 합계만 재계산 대상에 두면 3선이 "총액은
+    # 맞다"까지만 말할 수 있고, 어느 방법(LTA/MBA · IRBA/ERBA/SA)을 어떻게
+    # 채택했는지는 검증되지 않은 채로 남는다.
+    ("rwa_fund", "집합투자증권 위험가중자산", "CRE60"),
+    ("rwa_securitisation", "유동화 위험가중자산", "CRE40 · CRE41 · CRE44"),
     ("cet1_ratio", "보통주자본비율", "은행업감독규정 제26조"),
     ("total_ratio", "총자본비율", "은행업감독규정 제26조"),
     ("leverage_ratio", "레버리지비율", "LEV20.1"),
@@ -254,6 +259,8 @@ def _headline(result, tables: dict[str, pd.DataFrame] | None) -> dict[str, float
     aq = t.get("rdm_asset_quality")
     return {
         "rwa_final_total": float(result.rwa["final_total"]),
+        "rwa_fund": float(result.rwa.get("fund", 0.0)),
+        "rwa_securitisation": float(result.rwa.get("securitisation", 0.0)),
         "cet1_ratio": float(result.bis.cet1_ratio),
         "total_ratio": float(result.bis.total_ratio),
         "leverage_ratio": float(result.leverage.leverage_ratio),
@@ -423,6 +430,24 @@ def build_request(result, portfolio: pd.DataFrame,
     provenance = (provenance_stats_from_lines(lines)
                   if lines is not None and len(lines) else {})
     assumptions = list(KNOWN_ASSUMPTIONS)
+    # 구조화 익스포저의 분모 통합 — 이번 회차의 가장 큰 변경이다. 총액만
+    # 바뀐 것이 아니라 **모집단이 넓어졌다**. 겹치지 않는다는 주장이 이 회차의
+    # 핵심 가정이므로 3선이 먼저 도전할 수 있도록 정면에 적는다.
+    _str_total = float(result.rwa.get("structured_total", 0.0))
+    if _str_total:
+        assumptions.append(
+            f"구조화 익스포저(집합투자증권 CRE60 · 유동화 CRE40) "
+            f"{_str_total:,.0f}원을 위험가중자산 분모에 **신규 통합**했다 — "
+            f"직전 회차까지는 원장에서 산출만 하고 분모에 넣지 않았다. "
+            f"이중계상이 아니라는 근거는 두 원장이 은행계정 익스포저와 "
+            f"모집단이 겹치지 않는다는 것이며(자산군 5종에 펀드·트렌치 없음), "
+            f"이 주장 자체가 3선의 1차 도전 대상이다. output floor 표준 총계는 "
+            f"SEC-IRBA를 제외한 계층(ERBA→SA)으로 세웠고, 레버리지 익스포저에도 "
+            f"장부 익스포저를 함께 넣었다(LEV20.1). 결과로 총자본비율이 완충자본 "
+            f"포함 요구치를 밑돈다 — 산출 결함이 아니라 산출 결과이며 "
+            f"`bis_buffer_requirement` WARN 으로 남아 있다. 위기상황분석은 "
+            f"구조화 RWA를 고정한다(등급 하락 시 ERBA 위험가중치 상승 미반영) — "
+            f"`STRESS_MACRO` 모형의 알려진 한계로 등록했다.")
     if provenance:
         assumptions.append(provenance_sentence(provenance))
     # 검증의 세기도 생성한다 — 손으로 적은 수치는 이미 두 번 낡았다

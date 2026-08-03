@@ -714,7 +714,11 @@ def test_detail_screens_render_from_ledgers(page):
     assert "예외·조치 큐" in txt and "경보·조치 정책" in txt
     assert "gov_exception_action" in txt          # 원장 계보 표기
     _tab_named(page, "등급 전이")
-    assert "모형 카드" in _text(page)
+    txt = _text(page)
+    assert "등급 이동행렬" in txt and "LGD 구성요소" in txt
+    # 모형 카드 원장은 모형 인벤토리 화면 소관이다 — 두 화면이 같은 원장을
+    # 각자 그리면 어느 쪽이 최신인지 물어야 한다.
+    assert "모형 카드" not in txt
     _tab_named(page, "상업성")
     t2 = _text(page)
     assert "이중계상 검증 통과" in t2 and "규제 산출물이 아니다" in t2

@@ -49,12 +49,22 @@ GOLDEN = {
     #   ② 시장·운영 명목이 신용 EAD 비례에서 전용 시드 독립 기준으로 —
     #      신용·시장운영·CCR 세 갈래가 병렬이 됐다. 운영 손실 10년 평균의
     #      신용 EAD 비례가 한 곳 남았다가 base 재현 1.2bp 차이로 잡혔다.
-    "rwa_final_total": 9_350_294_100_975.012,
+    # 재고정 5 — 구조화 익스포저를 자본비율 분모에 통합 (사용자 승인):
+    #   집합투자증권(CRE60 LTA/MBA/fallback) 3.331조 + 유동화(CRE40~45
+    #   SEC-IRBA/ERBA/SA) 0.797조 = 4.128조가 원장에는 있는데 분모에 없었다.
+    #   산출해 놓고 넣지 않은 것이므로 이중계상이 아니라 누락의 시정이다 —
+    #   포트폴리오 자산군 다섯(sovereign·bank·corporate·retail_other·
+    #   residential_mortgage)에 펀드 수익증권도 유동화 트렌치도 없다.
+    #   RWA 9.350조 → 13.479조 (+44.2%), CET1 11.70% → 8.12%.
+    #   레버리지 익스포저에도 장부 익스포저 2.190조를 함께 넣는다 —
+    #   RWA만 넣으면 두 비율이 서로 다른 은행을 설명하게 된다 (LEV20.1).
+    #   output floor 표준 총계는 SEC-IRBA를 제외한 계층(ERBA→SA)으로 세운다.
+    "rwa_final_total": 13_478_626_877_092.645,
     "rwa_sa": 1_028_895_833_988.9441,
     "rwa_irb": 6_544_287_052_378.777,
-    "cet1_ratio": 0.11704112701336036,
-    "total_ratio": 0.157681559912725,
-    "leverage_ratio": 0.11712632046549173,
+    "cet1_ratio": 0.08119291152308737,
+    "total_ratio": 0.10938569432396912,
+    "leverage_ratio": 0.09697351438263638,
     "ecl_total": 97_546_776_363.82495,
     "macro_weighted_total": 135_045_061_371.37775,
     # 전 축 동시 충격(신용·시장·운영·유동성·수익)으로 전환하며 재고정.
@@ -62,7 +72,15 @@ GOLDEN = {
     # 심도가 낮아지는 것이 다축 위기상황분석의 요점이다 (SRP20).
     # 2차 시정(F-101 자본 원장 독립화) 후 0.9822 — 자본이 커져 견디는 심도가
     # 올라갔다. 1차 시정 시점 값은 0.8426이었다.
-    "reverse_critical_severity": 0.9988021850585938,
+    #
+    # 재고정 5 — 구조화 RWA 분모 통합 후 0.9988 → 0.0492. **20배 하락이며
+    # 이것이 이 회차에서 가장 크게 움직인 수치다.** 역스트레스는 CET1이 요구
+    # 8.00%에 닿는 심도를 푸는데, 기준 상태 CET1이 11.70%(여유 370bp)에서
+    # 8.12%(여유 11.9bp)로 내려왔다. 여유가 거의 없으니 임계 심도도 거의 0이다
+    # — 함의 GDP 충격 −0.15%, 즉 경기가 조금만 나빠져도 요구치를 깬다.
+    # 수치가 작아진 것이 모형이 예민해진 탓이 아니라 **자본 여유가 실제로
+    # 그만큼 얇았는데 분모에서 4.13조가 빠져 있어 보이지 않았던 것**이다.
+    "reverse_critical_severity": 0.04917144775390625,
 }
 # 재고정 4 — 서식 저작 중 적대적 검토에서 드러난 CVA 기준 오류:
 #   risk_lib.ccr.cva_capital_charge는 반환값을 K_BA(소요자기자본)로 문서화하는데
@@ -75,7 +93,11 @@ GOLDEN = {
 # +1 WARN: capital_source — 합성 자본의 규모 비례분이 CET1의 54.3%라는 사실을
 # 매 실행 드러낸다. 자산이 커지면 고정분이 희석돼 레버리지 반응성이 소멸하는데
 # 그 진행이 조용하다 (독립검증 F-201·F-202).
-GOLDEN_VALIDATION = {"PASS": 49, "WARN": 5}
+# +1 WARN: bis_buffer_requirement — 구조화 RWA 통합으로 Tier1(−0.34%p)·
+# 총자본(−0.56%p)이 완충자본 포함 요구치를 밑돈다. 기존 검사는 Pillar 1
+# 최저(4.5/6/8)만 봤으므로 완충자본 미달이 조용히 통과하고 있었다. 산출
+# 결함이 아니라 산출 **결과**이므로 WARN이며, 배당·성과급 제한 대상이다.
+GOLDEN_VALIDATION = {"PASS": 49, "WARN": 6}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",
@@ -204,3 +226,54 @@ def test_cli_main_writes_report(tmp_path: Path, capsys):
     content = out.read_text(encoding="utf-8")
     assert "## 0. 종합 판정" in content
     assert "## 15. 출처 및 준거" in content
+
+
+# ---- 구조화 익스포저 통합 (집합투자증권 CRE60 · 유동화 CRE40) --------------
+
+def test_structured_rwa_is_in_the_denominator(result):
+    """원장에 있는 RWA가 분모에 실제로 들어갔는지 — 산출만 하고 빼면 자본비율이
+    실제보다 좋게 나온다. 6개 구성요소 합 = 최종 RWA 여야 한다."""
+    w = result.rwa
+    assert w["structured_total"] == pytest.approx(
+        w["fund"] + w["securitisation"])
+    components = (w["sa"] + w["irb"] + w["ccr"] + w["market"] + w["op"]
+                  + w["structured_total"] + w["output_floor"].add_on)
+    assert components == pytest.approx(w["final_total"], rel=1e-12)
+    assert result.bis.rwa == pytest.approx(w["final_total"], rel=1e-12)
+
+
+def test_structured_population_does_not_overlap_the_banking_book(portfolio, result):
+    """합산이 이중계상이 아니라는 주장의 근거 — 모집단이 겹치지 않는다.
+
+    은행계정 익스포저의 자산군에 펀드도 유동화 트렌치도 없다. 나중에 자산군이
+    늘어 겹치기 시작하면 이 검사가 먼저 깨져야 한다. 겹친 채로 합산하면
+    분모가 부풀고, 그건 누락과 반대 방향의 같은 오류다.
+    """
+    assert not {"fund", "securitisation", "cis"} & set(portfolio["asset_class"])
+    s = result.structured
+    assert len(s.tables["rdm_fund_master"]) > 0
+    assert len(s.tables["rdm_sec_tranche"]) > 0
+
+
+def test_output_floor_standardised_total_excludes_sec_irba(result):
+    """표준방법 총계에 SEC-IRBA를 쓰면 floor가 자기 자신과 비교된다.
+
+    IRBA는 내부모형 기반이므로 floor의 비교 기준이 될 수 없다 (CRE40 ·
+    RBC20.11). 채택 계층이 IRBA인 트렌치가 실제로 있어야 이 검사가 의미를
+    가지므로 그것부터 확인한다.
+    """
+    sec = result.structured.tables["rwa_sec_result"]
+    assert (sec["adopted_method"] == "SEC-IRBA").any(), "IRBA 채택 트렌치가 없다"
+    w = result.rwa
+    assert w["securitisation_standardised"] != w["securitisation"]
+    assert w["standardised_total"] < w["internal_total"]
+
+
+def test_leverage_exposure_includes_structured_book(result):
+    """RWA는 넣고 익스포저는 안 넣으면 두 비율이 다른 은행을 설명한다 (LEV20.1)."""
+    s = result.structured
+    assert s.exposure > 0
+    # 레버리지 분모 = 은행계정 EAD + 부외 10% + 파생 + 구조화 장부액
+    em = result.leverage.exposure_measure if hasattr(
+        result.leverage, "exposure_measure") else result.leverage.exposure
+    assert em > s.exposure

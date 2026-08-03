@@ -170,6 +170,9 @@ class PipelineResult:
     concentration_hier: dict[str, Any] = field(default_factory=dict)  # v0.11.0
     rapm_deep: Any = None      # v0.12.0 CRO-grade RAPM deep-dive (Du Pont/EVA/pricing/scenarios)
     stress_deep: dict[str, Any] = field(default_factory=dict)  # v0.13.0 CRO-grade stress 부문
+    # 구조화 원장(집합투자증권·유동화) — 자본비율 분모에 들어간 바로 그 원장이다.
+    # 화면이 따로 만들면 분모와 화면이 다른 실행을 설명하게 된다.
+    structured: Any = None
     meta: dict[str, Any] = field(default_factory=dict)
 
 
@@ -348,10 +351,70 @@ def _stage_market_op_rwa(seed: int):
     return mkt, op, mkt_positions, bi, notional
 
 
+@dataclass
+class StructuredRWA:
+    """집합투자증권(CRE60)·유동화(CRE40) 위험가중자산 — 신용 RWA의 일부다.
+
+    두 원장은 은행계정 익스포저(`rdm_exposure`)와 **모집단이 겹치지 않는다**.
+    포트폴리오의 자산군은 sovereign·bank·corporate·retail_other·
+    residential_mortgage 다섯이며 펀드 수익증권도 유동화 트렌치도 여기 없다.
+    그러므로 합산은 이중계상이 아니라 **누락의 시정**이다.
+
+    산출만 하고 분모에 넣지 않으면 자본비율이 실제보다 좋게 나온다 — 4.13조가
+    빠진 분모는 CET1을 약 3.5%p 부풀린다. 원장에 값이 있는데 비율에 반영되지
+    않는 것은 "보수적"이 아니라 틀린 것이다.
+
+    표준방법 총계(output floor 비교용)에는 SEC-IRBA를 쓰지 않는다 — 내부모형
+    기반 접근법이므로 floor의 비교 대상이 될 수 없다 (CRE40 · RBC20.11).
+    집합투자증권은 LTA·MBA 모두 기초자산에 **표준방법 위험가중치**를 적용하므로
+    (CRE60.5·60.7) 내부·표준 총계가 같다.
+    """
+    fund_rwa: float                 # 채택 방법 (LTA/MBA/fallback) — 내부·표준 동일
+    sec_rwa_internal: float         # 채택 계층 (IRBA→ERBA→SA)
+    sec_rwa_standardised: float     # IRBA 제외 계층 (ERBA→SA)
+    exposure: float                 # 레버리지 익스포저용 장부 익스포저
+    tables: dict[str, pd.DataFrame]
+
+    @property
+    def rwa_internal(self) -> float:
+        return self.fund_rwa + self.sec_rwa_internal
+
+    @property
+    def rwa_standardised(self) -> float:
+        return self.fund_rwa + self.sec_rwa_standardised
+
+
+def _stage_structured(asof: "date", seed: int) -> StructuredRWA:
+    """집합투자증권·유동화 원장을 세우고 RWA를 뽑는다.
+
+    신용·시장운영·CCR 어느 갈래의 산출물도 쓰지 않으므로 네 번째 병렬 갈래다.
+    원장 생성은 (asof, seed) 로 결정론적이다.
+    """
+    from risk_lib.datamodel.funds import build_funds
+    from risk_lib.datamodel.securitisation import build_securitisation
+
+    asof_s = asof.isoformat()
+    tables = build_funds(asof=asof_s, seed=seed)
+    tables.update(build_securitisation(asof=asof_s, seed=seed))
+
+    fund = tables["rwa_fund_result"]
+    sec = tables["rwa_sec_result"]
+    # ERBA 가 없는 트렌치는 SEC-SA 로 내려간다. `erba_available` 를 보지 않고
+    # rwa_erba 를 그냥 더하면 미산출분(0)이 조용히 섞여 표준 총계가 작아진다.
+    sec_std = sec["rwa_erba"].where(sec["erba_available"], sec["rwa_sa"])
+    return StructuredRWA(
+        fund_rwa=float(fund["adopted_rwa"].sum()),
+        sec_rwa_internal=float(sec["adopted_rwa"].sum()),
+        sec_rwa_standardised=float(sec_std.sum()),
+        exposure=float(fund["investment"].sum() + sec["holding_amount"].sum()),
+        tables=tables,
+    )
+
+
 def _stage_capital(
     portfolio, rwa_sa, rwa_irb, mkt, op, total_ead, *, output_floor, buffers,
     ccr=None, capital=None, irb_el: float = 0.0,
-    eligible_provisions: float = 0.0,
+    eligible_provisions: float = 0.0, structured: "StructuredRWA | None" = None,
 ):
     """자본·비율·레버리지.
 
@@ -363,6 +426,11 @@ def _stage_capital(
       F-002  거래상대방신용리스크(SA-CCR)와 CVA를 신용 RWA에 합산한다.
              CRE52·MAR50이 RWA 포함을 요구하는데 산출만 하고 빠져 있었다.
       F-004  레버리지 익스포저에 파생상품(SA-CCR EAD)을 포함한다 (LEV20.1).
+
+    구조화 익스포저(집합투자증권 CRE60 · 유동화 CRE40)도 여기서 합산한다.
+    원장은 있는데 분모에 들어가지 않아 자본비율이 부풀려져 있었다 —
+    RWA 는 BIS 분모에, 장부 익스포저는 레버리지 익스포저에 함께 넣는다.
+    한쪽만 넣으면 두 비율이 서로 다른 은행을 설명하게 된다.
     """
     ccr_rwa = float(getattr(ccr, "rwa_total", 0.0) or 0.0)
     # CVA는 **소요자기자본(K_BA)** 으로 산출되므로 RWA에 합산하려면 12.5배
@@ -373,10 +441,13 @@ def _stage_capital(
     cva_rwa_amount = _cva_rwa(float(getattr(ccr, "cva_charge", 0.0) or 0.0))
     ccr_total = ccr_rwa + cva_rwa_amount
 
-    rwa_internal_total = rwa_sa + rwa_irb + ccr_total + mkt.rwa + op.rwa
+    str_internal = structured.rwa_internal if structured else 0.0
+    str_standardised = structured.rwa_standardised if structured else 0.0
+    rwa_internal_total = (rwa_sa + rwa_irb + ccr_total + mkt.rwa + op.rwa
+                          + str_internal)
     rwa_standardised_total = (
         standardised_rwa_total(portfolio, _SA_CORP_BUCKET_BY_GRADE)
-        + ccr_total + mkt.rwa + op.rwa
+        + ccr_total + mkt.rwa + op.rwa + str_standardised
     )
     floor = apply_output_floor(rwa_internal_total, rwa_standardised_total,
                                output_floor)
@@ -403,9 +474,10 @@ def _stage_capital(
             tier2=capital.tier2,
         )
     bis = compute_bis_ratios(capital, rwa_final, buffers=buffers)
-    em = exposure_measure(on_balance=total_ead,
-                          off_balance_notional=total_ead * 0.1,
-                          derivatives=float(getattr(ccr, "ead_total", 0.0) or 0.0))
+    em = exposure_measure(
+        on_balance=total_ead + (structured.exposure if structured else 0.0),
+        off_balance_notional=total_ead * 0.1,
+        derivatives=float(getattr(ccr, "ead_total", 0.0) or 0.0))
     leverage = compute_leverage_ratio(capital.tier1, em)
     return (floor, rwa_final, capital, bis, leverage,
             rwa_internal_total, rwa_standardised_total, ccr_total, el_vs_prov)
@@ -499,10 +571,17 @@ def _stage_alm(portfolio: pd.DataFrame, capital, seed: int) -> dict[str, Any]:
 def _stage_icaap(
     sa_res: pd.DataFrame, irb_res: pd.DataFrame,
     mkt, op, alm: dict[str, Any], conc: pd.DataFrame, capital,
+    structured: "StructuredRWA | None" = None,
 ):
-    """내부자본(ICAAP): 위험유형별 경제자본과 가용자본 대비 적정성."""
+    """내부자본(ICAAP): 위험유형별 경제자본과 가용자본 대비 적정성.
+
+    구조화(집합투자증권·유동화)도 신용 경제자본에 넣는다. 1선 자본(Pillar 1)이
+    자본을 요구하는 익스포저를 내부자본이 덮지 않으면, ICAAP가 규제 최저보다
+    **적은** 자본을 적정하다고 말하게 된다. 시장·운영과 같은 RWA×8% 환산이다.
+    """
     credit_ec = float((irb_res["k"] * irb_res["ead"]).sum()
-                      + sa_res["rwa"].sum() * 0.08)
+                      + sa_res["rwa"].sum() * 0.08
+                      + (structured.rwa_internal * 0.08 if structured else 0.0))
     hhi = conc.set_index("dimension")["hhi"]
     return compute_icaap(
         credit_ec=credit_ec,
@@ -522,7 +601,7 @@ UNDRAWN_SHARE = 0.18
 
 def _stress_books(portfolio, irb_book, sa_book, capital, mkt_positions,
                   bi_components, op, op_loss_result, alm, op_notional,
-                  ccr_rwa: float = 0.0):
+                  ccr_rwa: float = 0.0, structured=None):
     """전 축 충격 엔진의 기준 상태. 파이프라인이 이미 만든 값만 모은다."""
     from risk_lib.stress.multi_axis import StressBooks
     lcr = alm["lcr"]
@@ -542,6 +621,9 @@ def _stress_books(portfolio, irb_book, sa_book, capital, mkt_positions,
         operating_cost=float(portfolio["operating_cost"].sum()),
         credit_securities=float(bs.hqla["level_2a"] + bs.hqla["level_2b"]),
         ccr_rwa=float(ccr_rwa),
+        structured_rwa=float(structured.rwa_internal) if structured else 0.0,
+        structured_rwa_standardised=(float(structured.rwa_standardised)
+                                     if structured else 0.0),
         undrawn_share=UNDRAWN_SHARE,
         sa_bucket_by_grade=_SA_CORP_BUCKET_BY_GRADE,
     )
@@ -732,11 +814,17 @@ def run_pipeline(
         bank_book = portfolio[portfolio["asset_class"] == "bank"]
         return compute_ccr(bank_book, seed=seed) if not bank_book.empty else None
 
+    # 구조화(집합투자증권·유동화) — 은행계정 익스포저와 모집단이 겹치지 않고
+    # 어느 갈래의 산출물도 쓰지 않으므로 네 번째 독립 갈래다.
+    def _branch_structured():
+        return _stage_structured(asof, seed)
+
     from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=3) as _ex:
+    with ThreadPoolExecutor(max_workers=4) as _ex:
         _f_credit = _ex.submit(_branch_credit)
         _f_mkt = _ex.submit(_branch_market_op)
         _f_ccr = _ex.submit(_branch_ccr)
+        _f_structured = _ex.submit(_branch_structured)
         (portfolio, ecl_df, ecl_by_stage, macro, macro_path, ifrs9_deep,
          sa_book, irb_book, sa_res, irb_res, rwa_sa, rwa_irb) = _f_credit.result()
         # 이후 전 단계(모니터링·집중도·원장 실체화)는 파이프라인이 **실제로
@@ -744,7 +832,8 @@ def run_pipeline(
         # 실사용과 다른 실행을 설명하게 된다 (F-501 유형).
         mkt, op, mkt_positions, bi_components, op_notional = _f_mkt.result()
         ccr_result = _f_ccr.result()
-    rwa_credit_internal = rwa_sa + rwa_irb    # CCR은 _stage_capital에서 합산
+        structured = _f_structured.result()
+    rwa_credit_internal = rwa_sa + rwa_irb    # CCR·구조화는 _stage_capital에서 합산
 
     # 5-7. Output floor → CapitalStack → BIS → leverage
     (floor, rwa_final, capital, bis, leverage,
@@ -754,6 +843,7 @@ def run_pipeline(
         capital=capital_ledger,
         irb_el=float(irb_res["el"].sum()) if "el" in irb_res.columns else 0.0,
         eligible_provisions=float(ecl_df["ecl"].sum()),
+        structured=structured,
     )
 
     # 8-11. Monitoring, limits/concentration, RAPM
@@ -776,13 +866,14 @@ def run_pipeline(
     rwa_other_fixed = rwa_final - rwa_irb
     books = _stress_books(portfolio, irb_book, sa_book, capital, mkt_positions,
                           bi_components, op, op_loss_result, alm, op_notional,
-                          ccr_rwa=rwa_ccr)
+                          ccr_rwa=rwa_ccr, structured=structured)
     stress, reverse, stress_path, stress_path_trough = _stage_stress(
         irb_book, capital, rwa_other_fixed, bis, quarters, buffers, books,
     )
 
     # 13. 내부자본(ICAAP)
-    icaap = _stage_icaap(sa_res, irb_res, mkt, op, alm, conc, capital)
+    icaap = _stage_icaap(sa_res, irb_res, mkt, op, alm, conc, capital,
+                         structured)
 
     # 12b. CRO-grade stress 부문 (v0.13.0) — ALM 의존 (LCR/NSFR base 입력)
     stress_deep = _stage_stress_deep(
@@ -841,6 +932,7 @@ def run_pipeline(
     for _xc in run_cross_domain_checks(
         rwa={"sa": rwa_sa, "irb": rwa_irb, "ccr": rwa_ccr,
              "market": mkt.rwa, "op": op.rwa,
+             "structured_total": structured.rwa_internal,
              "final_total": rwa_final, "output_floor": floor},
         bis_result=bis,
         irb_results=irb_res,
@@ -968,6 +1060,12 @@ def run_pipeline(
             "credit_internal": rwa_credit_internal + rwa_ccr,
             "ccr": rwa_ccr,
             "market": mkt.rwa, "op": op.rwa,
+            # 구조화 — 집합투자증권(CRE60)·유동화(CRE40). 신용 RWA의 일부이며
+            # 분모에 들어간다. 표준 총계는 SEC-IRBA를 뺀 계층이다.
+            "fund": structured.fund_rwa,
+            "securitisation": structured.sec_rwa_internal,
+            "securitisation_standardised": structured.sec_rwa_standardised,
+            "structured_total": structured.rwa_internal,
             "internal_total": rwa_internal_total,
             "standardised_total": rwa_standardised_total,
             "output_floor": floor, "final_total": rwa_final,
@@ -1012,6 +1110,7 @@ def run_pipeline(
         concentration_hier=concentration_hier,
         rapm_deep=rapm_deep_result,
         stress_deep=stress_deep,
+        structured=structured,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
               "asof": asof.isoformat(), "quarters": quarters},
     )

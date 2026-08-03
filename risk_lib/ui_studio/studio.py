@@ -103,12 +103,20 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     # 신용 익스포저 한 줄로 뭉뚱그리면 LTA/MBA·SA-CCR·SEC 계층을 산출할 수
     # 없다. 각 프레임워크의 입력이 원장 수준에서 다르기 때문이다.
     from risk_lib.datamodel.derivatives import build_derivatives
-    from risk_lib.datamodel.funds import build_funds
-    from risk_lib.datamodel.securitisation import build_securitisation
     _seed = int(result.meta.get("seed", 42))
-    tables.update(build_funds(asof=asof, seed=_seed))
+    # 집합투자증권·유동화는 **파이프라인이 이미 세운 원장**을 그대로 받는다.
+    # 이 원장의 RWA 가 자본비율 분모에 들어가 있으므로, 화면이 같은 인자로
+    # 다시 만들면 두 번째 실행이 되고, 분모와 화면이 각각 다른 산출을 설명할
+    # 여지가 생긴다. 같은 값이 나올 것이라는 기대는 통제가 아니다.
+    _structured = getattr(result, "structured", None)
+    if _structured is None:                       # 구형 result 로 부를 때만
+        from risk_lib.datamodel.funds import build_funds
+        from risk_lib.datamodel.securitisation import build_securitisation
+        tables.update(build_funds(asof=asof, seed=_seed))
+        tables.update(build_securitisation(asof=asof, seed=_seed))
+    else:
+        tables.update(_structured.tables)
     tables.update(build_derivatives(asof=asof, seed=_seed))
-    tables.update(build_securitisation(asof=asof, seed=_seed))
 
     # 도메인별 집계 원장 — 반드시 선행 원장·detail 이후다(mkt_trade·
     # opr_loss_event·st_capital_path 를 읽는다).
