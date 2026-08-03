@@ -301,6 +301,31 @@ def test_rendered_kpis_match_the_engine(studio):
     assert cet1["value"] == f"{studio.result.bis.cet1_ratio:.2%}"
 
 
+def test_capital_kpi_follows_the_binding_tier_not_just_cet1(studio):
+    """어느 계층이든 완충자본을 밑돌면 자본 KPI는 초록일 수 없다.
+
+    CET1만 보고 판정하면 CET1이 요구를 넘는 동안 기본자본·총자본이 완충자본을
+    밑돌아도 콕핏이 "양호"로 남는다 — 배당·성과급이 제한되는 상태를 안전하다고
+    읽게 된다. 구조화 위험가중자산을 분모에 넣기 전에는 전 계층이 여유를 가져
+    CET1만 봐도 결론이 같았고, 그래서 이 결함이 드러나지 않았다.
+    """
+    d = _runs(render(studio))[_primary(render(studio))]
+    cap = d["kpis"][0]
+    short = {k: v for k, v in studio.result.bis.surplus_shortfall.items()
+             if v < 0}
+    assert "CET1" in cap["label"], "자본 KPI가 첫 자리에 있어야 콕핏 요약이 읽는다"
+    if short:
+        assert cap["tone"] == "bad", cap
+        # 어느 계층이 제약인지 화면에 남는다 — 부족분을 숨기고 색만 바꾸면
+        # 보는 사람이 무엇을 봐야 할지 모른다.
+        worst = min(studio.result.bis.surplus_shortfall,
+                    key=studio.result.bis.surplus_shortfall.get)
+        assert f"{studio.result.bis.surplus_shortfall[worst]*100:+.2f}%p" in cap["sub"]
+        assert "배당" in cap["sub"]
+    else:
+        assert cap["tone"] == "good" and "전 계층 요구 충족" in cap["sub"]
+
+
 def test_every_payload_column_has_a_catalog_label(studio):
     """화면에 뜨는 모든 표의 모든 컬럼이 카탈로그 표시명을 갖는다.
 

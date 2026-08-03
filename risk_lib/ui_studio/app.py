@@ -127,11 +127,21 @@ def _kpis(s: Studio) -> list[dict]:
     reg_checks = t["reg_form_check"]
     trough = r.stress_path_trough
     sev = trough[trough["scenario"] == "severely_adverse"]
+    # 콕핏의 자본 신호는 **제약이 되는 계층**을 따른다. CET1만 보고 판정하면
+    # CET1이 요구를 넘는 동안 기본자본·총자본이 완충자본을 밑돌아도 화면이
+    # 초록으로 남는다 — 배당·성과급이 제한되는 상태를 "양호"라고 읽게 된다.
+    _KO_TIER = {"cet1": "보통주자본", "tier1": "기본자본", "total": "총자본"}
+    _short = {k: v for k, v in r.bis.surplus_shortfall.items() if v < 0}
+    _bind = min(r.bis.surplus_shortfall, key=r.bis.surplus_shortfall.get)
     return [
         {"label": "보통주자본비율 (CET1)", "value": f"{r.bis.cet1_ratio:.2%}",
-         "sub": f"요구 {r.bis.required['cet1']:.2%} · 여유 "
-                f"{r.bis.surplus_shortfall['cet1']*100:+.2f}%p",
-         "tone": "good" if r.bis.surplus_shortfall["cet1"] >= 0 else "bad",
+         "sub": (f"요구 {r.bis.required['cet1']:.2%} · 여유 "
+                 f"{r.bis.surplus_shortfall['cet1']*100:+.2f}%p"
+                 + (f" · 제약 {_KO_TIER[_bind]} "
+                    f"{r.bis.surplus_shortfall[_bind]*100:+.2f}%p "
+                    f"(완충자본 미달 {len(_short)}종 — 배당·성과급 제한)"
+                    if _short else " · 전 계층 요구 충족")),
+         "tone": "bad" if _short else "good",
          "lineage": "BR-01 / 3100"},
         {"label": "위기상황 CET1 저점",
          "value": f"{float(sev['trough_cet1'].iloc[0]):.2%}" if len(sev) else "—",
@@ -2585,6 +2595,11 @@ function codeScope(root){
 function cockpitInsights(){
   const out=[];
   try{
+    /* 완충자본 미달은 콕핏에서 제일 먼저 읽혀야 한다 — 배당·성과급이 제한되는
+       상태다. 판정은 KPI 원장에서 그대로 가져온다(별계산 금지). */
+    const cap=D.kpis[0];
+    if(cap&&cap.tone==='bad')
+      out.push({t:`${cap.label} ${cap.value} — ${cap.sub}`,tone:'bad'});
     const sev=D.kpis.find(k=>k.label.includes('위기상황'));
     if(sev&&sev.tone==='warn')out.push({t:`위기 ${sev.label.replace(' CET1 저점','')} 저점 ${sev.value} — 요구비율 침범, 자본계획·회복계획 연계 대상`,tone:'bad'});
     const rv=D.reverse_stress;
