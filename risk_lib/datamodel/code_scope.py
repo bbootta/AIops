@@ -60,7 +60,19 @@ PRODUCTS = (
     ("P-CMT", "한도약정", "약정", "뱅킹", "원화", False),
     ("P-REPO", "환매조건부매매", "자금", "트레이딩", "원화", False),
     ("P-CALL", "콜론·콜머니", "자금", "뱅킹", "원화", False),
+    ("P-SEC", "유가증권투자(은행계정)", "운용", "뱅킹", "원화", False),
 )
+
+# 익스포저 1건이 앉는 (계정, 상품). **원장에 코드를 세우는 정본**이다.
+# 이 매핑이 없으면 계정 단위 모집단을 셀 수 없고, 자산군으로 대신 세면
+# 한 익스포저가 여러 계정에 중복 계상된다(실측 2.28배 — 사용자 지적).
+EXPOSURE_CODES = {
+    "sovereign":            ("1210", "P-SEC"),   # 국공채 보유 (은행계정)
+    "bank":                 ("1100", "P-CALL"),  # 예치금·콜론
+    "corporate":            ("1310", "P-LNC"),   # 기업대출
+    "retail_other":         ("1320", "P-LNR"),   # 가계대출
+    "residential_mortgage": ("1330", "P-MTG"),   # 주택담보대출
+}
 
 
 def account_master() -> pd.DataFrame:
@@ -103,11 +115,16 @@ def credit_scope(tables: dict | None = None) -> pd.DataFrame:
     from risk_lib.capital.crm import CCF_BUCKETS
     from risk_lib.capital.rwa_sa import SA_RISK_WEIGHTS
 
+    # 모집단은 **계정코드로 직접** 조인한다. 자산군으로 조인하면 corporate에
+    # 매핑된 계정 3개(1220·1240·1310)가 같은 익스포저를 각각 전부 세어
+    # 합계가 실제 EAD의 2.28배가 된다 — 화면에 "실측"이라 적혀 있었으므로
+    # 읽는 사람은 계정별 잔액으로 읽는다 (사용자 지적, F-701 유형).
     pop = None
     if tables is not None and "rdm_exposure" in tables:
         exp = tables["rdm_exposure"]
-        pop = exp.groupby("asset_class").agg(
-            n=("exposure_id", "count"), ead=("ead", "sum"))
+        if "account_code" in exp.columns:
+            pop = exp.groupby("account_code").agg(
+                n=("exposure_id", "count"), ead=("ead", "sum"))
 
     rows = []
     for c, name, grp, st, onb, _ in ACCOUNTS:
@@ -120,8 +137,8 @@ def credit_scope(tables: dict | None = None) -> pd.DataFrame:
                     "LTV 구간별" if ac == "residential_mortgage" else
                     "75%" if ac == "retail_other" else "—")
         n_exp, ead = 0, 0.0
-        if pop is not None and ac in pop.index:
-            n_exp, ead = int(pop.loc[ac, "n"]), float(pop.loc[ac, "ead"])
+        if pop is not None and c in pop.index:
+            n_exp, ead = int(pop.loc[c, "n"]), float(pop.loc[c, "ead"])
         rows.append({
             "account_code": c, "in_scope": in_scope,
             "asset_class": ac or "—",
@@ -151,6 +168,13 @@ def market_scope(tables: dict | None = None) -> pd.DataFrame:
     kinds = None
     if tables is not None and "mkt_trade" in tables:
         kinds = tables["mkt_trade"].groupby("kind")["trade_id"].count()
+    # 뱅킹북 상품은 익스포저 원장에서 상품코드로 직접 센다.
+    pop = None
+    if tables is not None and "rdm_exposure" in tables:
+        exp = tables["rdm_exposure"]
+        if "product_code" in exp.columns:
+            pop = exp.groupby("product_code").agg(
+                n=("exposure_id", "count"), ead=("ead", "sum"))
     rows = []
     for c, name, grp, book, cur, _ in PRODUCTS:
         in_scope = book == "트레이딩"
@@ -161,6 +185,10 @@ def market_scope(tables: dict | None = None) -> pd.DataFrame:
             "frtb_class": _PROD_FRTB.get(c, "—") if in_scope else "—",
             "trade_kind": tk or "—",
             "n_trades": n_tr,
+            "n_exposures": (int(pop.loc[c, "n"]) if pop is not None
+                            and c in pop.index else 0),
+            "ead_total": (float(pop.loc[c, "ead"]) if pop is not None
+                          and c in pop.index else 0.0),
             "reason": ("트레이딩 북" if in_scope else "뱅킹 북 — IRRBB 소관"),
             "risk_factor": ("금리" if grp in ("파생", "자금") or c == "P-BND"
                             else "주가" if c == "P-EQT"

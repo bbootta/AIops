@@ -2198,30 +2198,73 @@ function overlay(root){
   root.appendChild(c);
 }
 
-/* ---- 코드 마스터 관리 — 세션 정렬 재정의 + 정본 변경 제안 ---- */
+/* ---- 코드 마스터 관리 — 코드그룹 / 코드 2단 구성 ----
+   왼쪽은 코드그룹(코드셋) 목록과 그 속성, 오른쪽은 선택한 그룹의 코드 목록.
+   그룹을 고르지 않고 코드만 나열하면 91개 코드셋 428행이 한 표에 섞여
+   "어느 그룹의 코드인가"를 사람이 눈으로 세게 된다. */
 function codeMasterAdmin(root){
   root.appendChild(el('p','lead',
-    '정렬·표시의 정본(rdm_code_master)을 코드셋 단위로 본다. 순서 재정의는 이 '+
+    '정렬·표시의 정본(rdm_code_master)을 코드그룹 단위로 관리한다. 왼쪽에서 '+
+    '그룹을 고르면 오른쪽에 그 그룹의 코드가 순서대로 뜬다. 순서 재정의는 이 '+
     '세션의 화면 정렬에 즉시 적용되고, 정본 변경은 카탈로그 수정 제안으로만 한다.'));
   const f=D.data['rdm_code_master'];
   const i=frameIdx(f);
-  const sets=[...new Set(f.rows.map(r=>r[i.code_set]))].sort();
-  const c=el('div','card set-codemaster');
-  const bar=el('div','toolbar');
-  const sel=el('select','sel');
-  sets.forEach(cs=>{const o=el('option');o.value=cs;o.textContent=cs;
-    sel.appendChild(o)});
-  bar.appendChild(sel);c.appendChild(bar);
-  const pane=el('div');c.appendChild(pane);
   STATE.codeOverride=STATE.codeOverride||{};
+
+  /* 그룹 요약 — 코드 수·출처 테이블·재정의 여부 */
+  const groups={};
+  f.rows.forEach(r=>{
+    const g=r[i.code_set];
+    (groups[g]=groups[g]||{n:0,src:new Set()});
+    groups[g].n++;groups[g].src.add(r[i.source_table]);
+  });
+  const names=Object.keys(groups).sort();
+  let sel=names[0];
+
+  const wrap=el('div','split');
+  const left=el('div','card set-codegroup');
+  const right=el('div','card set-codemaster');
+  wrap.appendChild(left);wrap.appendChild(right);
+  root.appendChild(wrap);
+
+  function drawGroups(){
+    left.innerHTML='';
+    left.appendChild(el('h3',null,`코드그룹 ${names.length}종`));
+    const q=el('input','input');q.type='search';
+    q.placeholder='그룹명 검색 (예: grade · status)';
+    left.appendChild(q);
+    const list=el('div','list');list.style.marginTop='8px';
+    function fill(){
+      list.innerHTML='';
+      const kw=q.value.trim().toLowerCase();
+      names.filter(g=>!kw||g.toLowerCase().includes(kw)).forEach(g=>{
+        const b=el('button');
+        b.appendChild(document.createTextNode(g));
+        const ovr=STATE.codeOverride[g]?' · 재정의됨':'';
+        b.appendChild(el('small',null,
+          `코드 ${groups[g].n}개 · 출처 ${[...groups[g].src][0]}${ovr}`));
+        if(g===sel)b.classList.add('on');
+        b.onclick=()=>{sel=g;fill();drawCodes()};
+        list.appendChild(b)});
+    }
+    q.addEventListener('input',fill);fill();
+    left.appendChild(list);
+    left.appendChild(el('div','meta',
+      `총 코드 ${f.total.toLocaleString()}행 — 카탈로그 allowed 선언에서 생성`));
+  }
+
   function currentCodes(){
-    const ovr=STATE.codeOverride[sel.value];
+    const ovr=STATE.codeOverride[sel];
     if(ovr)return [...ovr];
-    return f.rows.filter(r=>r[i.code_set]===sel.value)
+    return f.rows.filter(r=>r[i.code_set]===sel)
       .sort((a,b)=>a[i.sort_order]-b[i.sort_order]).map(r=>r[i.code]);
   }
-  function draw(){
-    pane.innerHTML='';
+
+  function drawCodes(){
+    right.innerHTML='';
+    right.appendChild(el('h3',null,`코드 — ${sel}`));
+    right.appendChild(el('div','meta',
+      `출처 ${[...groups[sel].src].join(' · ')} · 선언 순서가 곧 업무 순서다`));
     const codes=currentCodes();
     const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
     ['순서','코드','이동'].forEach(x=>tr.appendChild(el('th',null,x)));
@@ -2235,45 +2278,40 @@ function codeMasterAdmin(root){
       const up=el('button','btn','↑');up.disabled=k===0;
       const dn=el('button','btn','↓');dn.disabled=k===codes.length-1;
       up.onclick=()=>{const c2=[...codes];[c2[k-1],c2[k]]=[c2[k],c2[k-1]];
-        STATE.codeOverride[sel.value]=c2;draw()};
+        STATE.codeOverride[sel]=c2;drawCodes()};
       dn.onclick=()=>{const c2=[...codes];[c2[k+1],c2[k]]=[c2[k],c2[k+1]];
-        STATE.codeOverride[sel.value]=c2;draw()};
+        STATE.codeOverride[sel]=c2;drawCodes()};
       td.appendChild(up);td.appendChild(dn);x.appendChild(td);
       tb.appendChild(x)});
-    t.appendChild(tb);w.appendChild(t);pane.appendChild(w);
+    t.appendChild(tb);w.appendChild(t);right.appendChild(w);
+
     const acts=el('div','toolbar');
     const apply=el('button','btn primary','세션에 적용');
     const reset=el('button','btn','재정의 지우기');
     const gen=el('button','btn','정본 변경 제안');
+    const outBox=el('pre','mono');outBox.style.whiteSpace='pre-wrap';
     apply.onclick=()=>{
-      /* 세션 정렬 캐시를 재정의로 다시 깐다 — 화면 전체에 반영된다 */
       _CODE_ORDER=null;
-      const ovr=STATE.codeOverride[sel.value];
-      if(ovr){codeRank('','');_CODE_ORDER[sel.value]=
+      const ovr=STATE.codeOverride[sel];
+      if(ovr){codeRank('','');_CODE_ORDER[sel]=
         Object.fromEntries(ovr.map((c2,k)=>[c2,k]))}
       repaintAll();};
-    reset.onclick=()=>{delete STATE.codeOverride[sel.value];
+    reset.onclick=()=>{delete STATE.codeOverride[sel];
       _CODE_ORDER=null;repaintAll();};
     gen.onclick=()=>{
-      const ovr=STATE.codeOverride[sel.value];
+      const ovr=STATE.codeOverride[sel];
       outBox.textContent=JSON.stringify({
-        proposal:'코드 마스터 순서 변경',code_set:sel.value,
-        from:f.rows.filter(r=>r[i.code_set]===sel.value)
+        proposal:'코드 마스터 순서 변경',code_set:sel,
+        from:f.rows.filter(r=>r[i.code_set]===sel)
           .sort((a,b)=>a[i.sort_order]-b[i.sort_order]).map(r=>r[i.code]),
         to:ovr||'(변경 없음)',
         apply_path:'risk_lib/datamodel/catalog.py (allowed 선언 순서)',
         note:'정본은 카탈로그다 — 세션 재정의는 이 화면을 닫으면 사라진다.'},null,2);
     };
     acts.appendChild(apply);acts.appendChild(reset);acts.appendChild(gen);
-    pane.appendChild(acts);
-    const outBox=el('pre','mono');outBox.style.whiteSpace='pre-wrap';
-    pane.appendChild(outBox);
+    right.appendChild(acts);right.appendChild(outBox);
   }
-  sel.onchange=draw;draw();
-  root.appendChild(c);
-  const meta=el('div','meta');
-  meta.textContent=`코드셋 ${sets.length}종 · ${f.total.toLocaleString()}행 — 생성원: tools 카탈로그 allowed 선언`;
-  root.appendChild(meta);
+  drawGroups();drawCodes();
 }
 
 /* ---- 시뮬레이션 — 설명용 산술. 승인·제출값이 아니다 ---- */

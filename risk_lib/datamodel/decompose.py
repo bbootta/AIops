@@ -74,6 +74,17 @@ def decompose(portfolio: pd.DataFrame, *, asof: str,
         "ltv": p["ltv"].to_numpy(dtype=float) if "ltv" in p else np.nan,
         "rating": p["rating"] if "rating" in p else None,
     })
+    # 계정·상품 코드 — 익스포저는 원장 계정에 앉고 상품 인스턴스다. 코드가
+    # 없으면 "이 익스포저가 어느 계정인가"에 답할 수 없고, 계정 단위 집계는
+    # 자산군으로 대신 세다가 중복 계상된다 (사용자 지적).
+    from risk_lib.datamodel.code_scope import EXPOSURE_CODES
+    _codes = exposure["asset_class"].map(EXPOSURE_CODES)
+    exposure["account_code"] = [c[0] if isinstance(c, tuple) else None
+                                for c in _codes]
+    exposure["product_code"] = [c[1] if isinstance(c, tuple) else None
+                                for c in _codes]
+    assert exposure["account_code"].notna().all(), (
+        "코드 미매핑 익스포저 — 매핑 없는 자산군은 모든 계정 집계에서 조용히 빠진다")
 
     # ---- 담보 원장 (담보부 익스포저만) ----
     secured = p[p["asset_class"].isin(

@@ -450,14 +450,49 @@ def test_code_scope_reads_engine_constants_not_copies(studio):
 
 
 def test_code_scope_population_matches_exposure_ledger(studio):
-    """계정 매핑의 모집단 실측(EAD 합)이 익스포저 원장 집계와 일치한다."""
+    """계정 매핑의 모집단 실측(EAD 합)이 익스포저 원장 집계와 일치한다.
+
+    조인 키는 **계정코드**다. 이전엔 자산군으로 조인했고 이 검사도 자산군을
+    기대했다 — 검사가 틀린 계약을 고정하고 있었으므로 2.28배 중복을 잡지
+    못했다. 검사가 코드와 같은 오해를 공유하면 통제가 아니다.
+    """
     cr = studio.tables["crm_code_scope"]
     exp = studio.tables["rdm_exposure"]
-    by_ac = exp.groupby("asset_class")["ead"].sum()
-    for _, r in cr[cr["asset_class"] != "—"].iterrows():
-        assert abs(r["ead_total"] - float(by_ac.get(r["asset_class"], 0.0))) < 1.0
+    by_acct = exp.groupby("account_code")["ead"].sum()
+    for _, r in cr[cr["n_exposures"] > 0].iterrows():
+        assert abs(r["ead_total"] - float(by_acct.get(r["account_code"], 0.0))) < 1.0
     # 시장·운영 실측도 원장 합과 맞는다
     mk = studio.tables["mkt_code_scope"]
     tr = studio.tables["mkt_trade"].groupby("kind")["trade_id"].count()
     for _, r in mk[mk["trade_kind"] != "—"].iterrows():
         assert r["n_trades"] == int(tr.get(r["trade_kind"], 0))
+
+
+def test_account_population_sums_to_total_ead_no_duplication(studio):
+    """계정별 모집단 합 = 총 EAD. 자산군으로 조인하면 깨진다.
+
+    코드 스코프의 "모집단 실측"을 자산군으로 조인하던 시기에는 corporate에
+    매핑된 계정 3개(1220·1240·1310)가 같은 익스포저를 각각 전부 세어
+    합계가 실제의 2.28배였다 — 화면에 "실측"이라 적혀 있으므로 읽는 사람은
+    계정별 잔액으로 읽는다. 조인 키가 틀린 채 "실측"이라 표기한 F-701 유형.
+    """
+    exp = studio.tables["rdm_exposure"]
+    assert {"account_code", "product_code"} <= set(exp.columns)
+    assert exp["account_code"].notna().all()
+
+    cr = studio.tables["crm_code_scope"]
+    assert abs(cr["ead_total"].sum() - float(exp["ead"].sum())) < 1.0
+    assert cr["n_exposures"].sum() == len(exp)
+
+    # 상품 쪽도 같은 항등식
+    mk = studio.tables["mkt_code_scope"]
+    assert abs(mk["ead_total"].sum() - float(exp["ead"].sum())) < 1.0
+
+
+def test_exposure_codes_reference_the_masters(studio):
+    """익스포저의 코드는 마스터에 실재하는 코드다 — 유령 코드 금지."""
+    exp = studio.tables["rdm_exposure"]
+    am = set(studio.tables["rdm_account_master"]["account_code"])
+    pm = set(studio.tables["rdm_product_master"]["product_code"])
+    assert set(exp["account_code"]) <= am
+    assert set(exp["product_code"]) <= pm
