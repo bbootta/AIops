@@ -56,15 +56,35 @@ def materialize_crm(result, portfolio, base: dict[str, pd.DataFrame]
             return "retail_other"
         return "corporate"
 
+    # 모형 원장은 **전 도메인**이다 — PD/LGD 만이 아니라 VaR·IRRBB·LCR·
+    # 스트레스·XVA·기후·RAF 까지. 인벤토리에 이미 있던 목적·의존성·한계·
+    # 경과일을 원장에서 잘라내면 모형 거버넌스 화면이 그것을 다시 만들게 된다.
+    def _domain(mid: str) -> str:
+        head = mid.split("_")[0]
+        return {"PD": "신용", "LGD": "신용", "ECL": "신용", "VINTAGE": "신용",
+                "VAR": "시장", "XVA": "시장", "IRRBB": "ALM", "LCR": "ALM",
+                "STRESS": "위기상황", "CLIMATE": "기후", "RAF": "전사",
+                }.get(head, "기타")
+
     inv = build_standard_inventory()
     model = pd.DataFrame([{
         "model_id": e.model_id,
         "model_name": e.name,
+        "domain": _domain(e.model_id),
         "segment": _segment(e.name),
+        "purpose": e.purpose,
         "tier": int(e.tier),
         "status": e.status,
         "last_validation": e.last_validation,
         "next_due": e.next_due,
+        # days_overdue·is_overdue 는 기준일을 받는 **메서드**다. 인자 없이
+        # 참조하면 bound method 가 그대로 담겨 int() 에서 터진다 — 여기서
+        # 터지는 편이 낫다. 조용히 문자열로 담겼으면 화면에 함수 주소가 뜬다.
+        "days_overdue": int(e.days_overdue(asof)),
+        "is_overdue": bool(e.is_overdue(asof)),
+        "dependencies": " · ".join(e.dependencies) if e.dependencies else "—",
+        "known_limitations": (" · ".join(e.known_limitations)
+                              if e.known_limitations else "—"),
         "owner": e.owner,
     } for e in inv])
     model = model[model["status"].isin(cat.MODEL_STATUS)].reset_index(drop=True)

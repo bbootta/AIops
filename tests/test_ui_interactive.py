@@ -708,12 +708,12 @@ def test_scoped_kill_only_stops_its_domain(page):
 
 
 def test_detail_screens_render_from_ledgers(page):
-    """세부화면이 실제 원장을 그린다 — 예외·조치 큐와 모형·등급."""
+    """세부화면이 실제 원장을 그린다 — 예외·조치 큐와 등급 전이."""
     _tab_named(page, "예외·조치")
     txt = _text(page)
     assert "예외·조치 큐" in txt and "경보·조치 정책" in txt
     assert "gov_exception_action" in txt          # 원장 계보 표기
-    _tab_named(page, "모형·등급")
+    _tab_named(page, "등급 전이")
     assert "모형 카드" in _text(page)
     _tab_named(page, "상업성")
     t2 = _text(page)
@@ -784,7 +784,7 @@ def test_adaptive_fallback_chips_yield_real_charts(page):
 
 def test_migration_pivot_orders_grades_by_code_master(page):
     """전이행렬 피봇 — 세그먼트 선택이 동작하고, 열 순서가 등급 사다리다."""
-    _tab_named(page, "모형·등급")
+    _tab_named(page, "등급 전이")
     heads = page.eval_on_selector_all(
         "section.on .card:has-text('전이행렬') thead th",
         "els => els.map(e => e.textContent)")
@@ -890,4 +890,53 @@ def test_methodology_screen_switches_without_recomputing(page):
     # 유동화 쪽도 같은 구조
     assert page.query_selector("section.on .set-method-sec select")
     assert "제안" in _text(page)
+    assert page.errors == []
+
+
+def test_model_group_sits_above_risk_data_with_three_levels(page):
+    """'모형' 그룹 — 리스크데이터 **위**에 있고, 2레벨과 3레벨이 섞여 있다.
+
+    모형은 신용 전용이 아니다. 신용리스크 아래에 두면 시장·ALM·기후 모형이
+    신용 산출물처럼 읽힌다 — 메뉴 위치가 곧 소속 주장이기 때문이다.
+    """
+    tree = page.evaluate(
+        "() => [...document.querySelector('nav').children].map(e =>"
+        " e.className + '|' + (e.childNodes[0] ? e.childNodes[0].textContent.trim() : ''))")
+    groups = [t.split("|")[1] for t in tree if t.startswith("navgroup|")]
+    assert groups.index("모형") < groups.index("리스크데이터")
+
+    lvl = {t.split("|")[1]: t.split("|")[0] for t in tree}
+    # 리프-부모(자기 화면을 열면서 3레벨을 거느린다)와 순수 그룹이 같은 2레벨
+    assert lvl["모형 인벤토리"] == "lvl1"
+    assert lvl["신용모형"] == "navgroup sub lvl1"
+    for leaf in ["검증 일정", "모형리스크", "변별력·안정성", "등급 보정", "등급 전이"]:
+        assert lvl[leaf] == "lvl2", (leaf, lvl[leaf])
+
+
+def test_model_screens_render_all_domains_not_just_credit(page):
+    """모형 원장은 crm_ 스키마에 살지만, 그 안의 모형이 전부 신용 모형은 아니다."""
+    _tab_named(page, "모형 인벤토리")
+    txt = _text(page)
+    for dom in ["신용", "시장", "ALM", "위기상황", "기후", "전사"]:
+        assert dom in txt, dom
+    # 도메인 필터가 실제로 표를 줄인다
+    full = len(page.query_selector_all("section.on tbody tr"))
+    page.select_option("section.on select.sel", "시장")
+    page.wait_for_timeout(300)
+    assert 0 < len(page.query_selector_all("section.on tbody tr")) < full
+
+    _tab_named(page, "검증 일정")
+    txt = _text(page)
+    assert "차기 검증까지 남은 일수" in txt and "알려진 한계" in txt
+    assert page.errors == []
+
+
+def test_every_model_screen_carries_a_summary_line(page):
+    """조회 순간의 한 줄 요약은 모든 모형 화면에 붙는다 — 빈 문자열은 실패다."""
+    for label in ["모형 인벤토리", "검증 일정", "모형리스크",
+                  "변별력·안정성", "등급 보정", "등급 전이"]:
+        _tab_named(page, label)
+        sm = page.query_selector("section.on .aisum")
+        assert sm is not None, label
+        assert len(sm.inner_text().replace("요약", "").strip()) > 10, label
     assert page.errors == []

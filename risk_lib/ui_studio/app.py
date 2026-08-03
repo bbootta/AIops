@@ -2636,6 +2636,39 @@ const SUMMARIES={
     const mx=f.rows.reduce((a,r)=>r[i.pct_tier1]>a[i.pct_tier1]?r:a,f.rows[0]);
     return {t:`최대 충격 ${mx[i.scenario]} — ΔEVE가 Tier1의 ${(mx[i.pct_tier1]*100).toFixed(1)}% (이상치 기준 15%)`,
       tone:mx[i.pct_tier1]>=0.15?'bad':'good'}},
+  '모형 인벤토리':()=>{const f=D.data['crm_model'];if(!f)return null;
+    const i=frameIdx(f);
+    const dom=new Set(f.rows.map(r=>r[i.domain])).size;
+    const over=f.rows.filter(r=>r[i.is_overdue]).length;
+    return {t:`모형 ${f.total}건 · 도메인 ${dom}종 — 검증 기한 초과 ${over}건`,
+      tone:over?'bad':'good'}},
+  '검증 일정':()=>{const f=D.data['crm_model'];if(!f)return null;
+    const i=frameIdx(f);
+    const nxt=f.rows.slice().sort((a,b)=>String(a[i.next_due]).localeCompare(String(b[i.next_due])))[0];
+    return {t:`가장 이른 차기 기한 ${nxt[i.next_due]} (${nxt[i.model_id]}) — 기한 경과는 산출 사용 불가를 뜻한다`,tone:'warn'}},
+  '변별력·안정성':()=>{const f=D.data['crm_performance'];if(!f)return null;
+    const i=frameIdx(f);
+    const low=f.rows.filter(r=>(r[i.gini]||0)<0.4).length;
+    return {t:`성능 ${f.total}건 — Gini 양호기준(40%) 미달 ${low}건`,
+      tone:low?'warn':'good'}},
+  '등급 보정':()=>{const f=D.data['crm_pd_calibration'];if(!f)return null;
+    const i=frameIdx(f);
+    const bad=f.rows.filter(r=>!r[i.within_tolerance]).length;
+    return {t:`등급 ${f.total}건 중 허용범위 밖 ${bad}건 — O/E 괴리가 기준을 넘은 등급은 재보정 대상`,
+      tone:bad?'warn':'good'}},
+  '모형리스크':()=>({t:'Tier 1 은 연 1회 독립검증·챌린저 유지 — 모형은 만들어 두는 것이 아니라 주기적으로 다시 증명하는 자산이다',tone:'good'}),
+  /* 이 원장은 "등급 유지" 와 "부도(D) 전이" 만 만든다 — 등급 간 상·하향은
+     관측 구조상 존재할 수 없다. 상향 0건을 발견처럼 적으면 재등급을 측정해
+     보니 없더라는 뜻이 되어 읽는 사람을 속인다. 있는 것만 말한다. */
+  '등급 전이':()=>{const f=D.data['crm_rating_migration'];if(!f)return null;
+    const i=frameIdx(f);
+    const seg=new Set(f.rows.map(r=>r[i.segment])).size;
+    const dflt=f.rows.filter(r=>r[i.to_grade]==='D');
+    const mx=dflt.reduce((a,r)=>(r[i.share]||0)>(a?a[i.share]||0:0)?r:a,null);
+    return {t:mx
+      ? `세그먼트 ${seg}종 · 전이 ${f.total}쌍 (등급 유지 대 부도) — 최대 부도전이 ${mx[i.segment]} ${mx[i.from_grade]}→D ${((mx[i.share]||0)*100).toFixed(1)}%`
+      : `세그먼트 ${seg}종 · 전이 ${f.total}쌍 — 관측 부도전이 없음`,
+      tone:mx&&(mx[i.share]||0)>=0.1?'warn':'good'}},
   '집합투자증권':()=>{const f=D.data['rwa_fund_result'];if(!f)return null;
     const i=frameIdx(f);const m={};
     f.rows.forEach(r=>{m[r[i.adopted_method]]=(m[r[i.adopted_method]]||0)+1});
@@ -2734,6 +2767,230 @@ function scenarioScreen(root){
    코드 반영 + 파이프라인 재실행 + 검증 두 층이다. 다만 각 방법의 결과가
    이미 원장에 다 들어 있으므로(LTA/MBA/fallback · SA/ERBA/IRBA), 방법을
    바꿨을 때 값이 얼마나 달라지는지는 **재계산 없이 즉시** 보여줄 수 있다. */
+/* ---- 모형 거버넌스 화면군 ----
+   모형은 신용에만 있지 않다 — 원장이 crm_ 스키마에 산다는 것과 그 모형이
+   신용 모형이라는 것은 다른 말이다(사용자 지적). 도메인 축으로 다시 세운다. */
+
+function modelInventory(root){
+  root.appendChild(el('p','lead',
+    '전 도메인 모형 인벤토리다 — 신용(PD·LGD·ECL·빈티지)뿐 아니라 시장(VaR·XVA)· '+
+    'ALM(IRRBB·LCR/NSFR)·위기상황·기후·전사(RAF)까지. 등급(Tier)은 모형 중요도이며 '+
+    '검증 주기를 정한다. 기한이 지난 모형의 산출값은 사용 전 재검증 대상이다.'));
+  const f=D.data['crm_model'];
+  if(!f){root.appendChild(el('div','note','모형 원장이 없다'));return}
+  const i=frameIdx(f);
+  const g=el('div','grid');
+  const byDom={},byTier={};
+  f.rows.forEach(r=>{byDom[r[i.domain]]=(byDom[r[i.domain]]||0)+1;
+    byTier['Tier '+r[i.tier]]=(byTier['Tier '+r[i.tier]]||0)+1});
+  const over=f.rows.filter(r=>r[i.is_overdue]).length;
+  const uat=f.rows.filter(r=>r[i.status]!=='PROD').length;
+  [['등록 모형',f.total,''],['도메인',Object.keys(byDom).length,''],
+   ['검증 기한 초과',over,over?'bad':'good'],
+   ['운영 전(UAT 등)',uat,uat?'warn':'good']].forEach(([k,v,t])=>{
+    const c=el('div','card kpi');
+    c.appendChild(el('div','lab',k));c.appendChild(el('div','val '+t,String(v)));
+    g.appendChild(c)});
+  root.appendChild(g);
+
+  const two=el('div');two.style.cssText=
+    'display:grid;gap:12px;grid-template-columns:1fr 1fr';
+  two.appendChild(hbars(Object.entries(byDom).map(([k,v])=>({label:k,value:v}))
+    .sort((a,b)=>b.value-a.value),{title:'도메인별 모형 수',money:false}));
+  two.appendChild(hbars(Object.entries(byTier).map(([k,v])=>({label:k,value:v}))
+    .sort((a,b)=>a.label.localeCompare(b.label)),
+    {title:'등급(Tier)별 모형 수 — 1이 가장 중요',money:false}));
+  root.appendChild(two);
+
+  const bar=el('div','toolbar');
+  const dsel=el('select','sel');
+  ['전체 도메인'].concat(Object.keys(byDom).sort()).forEach(d=>{
+    const o=el('option');o.value=d==='전체 도메인'?'':d;o.textContent=d;
+    dsel.appendChild(o)});
+  bar.appendChild(dsel);root.appendChild(bar);
+  const pane=el('div','card');root.appendChild(pane);
+  function draw(){
+    pane.innerHTML='';
+    const rows=f.rows.filter(r=>!dsel.value||r[i.domain]===dsel.value);
+    pane.appendChild(el('h3',null,`모형 ${rows.length}건`));
+    pane.appendChild(table({table:'crm_model',
+      columns:['model_id','model_name','domain','tier','status','owner','purpose'],
+      labels:['모형','모형명','도메인','등급','상태','소유부서','목적'],
+      rows:rows.map(r=>[r[i.model_id],r[i.model_name],r[i.domain],r[i.tier],
+        r[i.status],r[i.owner],r[i.purpose]]),
+      total:rows.length,shown:rows.length},{numeric:false}));
+    pane.appendChild(srcMeta(f));
+  }
+  dsel.onchange=draw;draw();
+}
+
+function modelValidationSchedule(root){
+  root.appendChild(el('p','lead',
+    '검증 주기는 등급이 정한다 — Tier 1 은 연 1회, Tier 2 는 2년, Tier 3 은 3년이 '+
+    '통상이다. 기한 경과는 "아직 안 했다"가 아니라 **그 모형의 산출을 쓸 수 없다**는 '+
+    '뜻이므로 경과일을 원장에 두고 화면이 읽는다.'));
+  const f=D.data['crm_model'];
+  if(!f)return;
+  const i=frameIdx(f);
+  const rows=f.rows.slice().sort((a,b)=>
+    String(a[i.next_due]).localeCompare(String(b[i.next_due])));
+
+  /* 기한까지 남은 일수 — 경과분은 원장의 days_overdue 를 그대로 쓴다.
+     화면이 날짜를 다시 빼면 원장과 어긋날 수 있다. */
+  const base=Date.parse(D.meta.asof+'T00:00:00Z');
+  const rem=r=>r[i.is_overdue]?-(r[i.days_overdue]||0)
+    :Math.round((Date.parse(r[i.next_due]+'T00:00:00Z')-base)/86400000);
+  const two=el('div');two.style.cssText=
+    'display:grid;gap:12px;grid-template-columns:1fr 1fr';
+  two.appendChild(hbars(rows.map(r=>({label:r[i.model_id],
+    value:Math.max(rem(r),0),
+    sub:r[i.is_overdue]?`기한 초과 ${r[i.days_overdue]}일`
+      :`${r[i.next_due]} · Tier ${r[i.tier]}`,
+    tone:r[i.is_overdue]?'bad':rem(r)<=90?'warn':undefined})),
+    {title:'차기 검증까지 남은 일수 — 90일 이내는 착수 대상',money:false,
+     src:srcMeta(f)}));
+  const byDom={};rows.forEach(r=>{const d=r[i.domain];
+    if(byDom[d]==null||rem(r)<byDom[d])byDom[d]=rem(r)});
+  two.appendChild(hbars(Object.entries(byDom)
+    .sort((a,b)=>a[1]-b[1])
+    .map(([k,v])=>({label:k,value:Math.max(v,0),
+      sub:v<0?`경과 ${-v}일`:`${v}일 남음`,
+      tone:v<0?'bad':v<=90?'warn':undefined})),
+    {title:'도메인별 가장 임박한 기한',money:false}));
+  root.appendChild(two);
+
+  const c=el('div','card');
+  c.appendChild(el('h3',null,'검증 일정 — 차기 기한 순'));
+  const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
+  ['모형','도메인','등급','최근 검증','차기 기한','상태','소유부서']
+    .forEach(x=>tr.appendChild(el('th',null,x)));
+  th.appendChild(tr);t.appendChild(th);
+  const tb=el('tbody');
+  rows.forEach(r=>{
+    const x=el('tr');
+    x.appendChild(el('td','mono',r[i.model_id]));
+    x.appendChild(el('td',null,r[i.domain]));
+    x.appendChild(el('td','num',String(r[i.tier])));
+    x.appendChild(el('td',null,String(r[i.last_validation]||'—')));
+    x.appendChild(el('td',null,String(r[i.next_due]||'—')));
+    const td=el('td');
+    td.appendChild(r[i.is_overdue]
+      ? pill(`기한 초과 ${r[i.days_overdue]}일`,'bad')
+      : pill('기한 내','good'));
+    x.appendChild(td);
+    x.appendChild(el('td','meta',r[i.owner]));
+    tb.appendChild(x)});
+  t.appendChild(tb);w.appendChild(t);c.appendChild(w);
+  c.appendChild(srcMeta(f));
+  root.appendChild(c);
+
+  const c2=el('div','card');
+  c2.appendChild(el('h3',null,'의존 관계와 알려진 한계'));
+  c2.appendChild(el('div','meta',
+    '상류 모형이 바뀌면 하류도 재검증 대상이다. 한계를 원장에 적지 않으면 '+
+    '사용자가 모른 채 쓴다.'));
+  c2.appendChild(table({table:'crm_model',
+    columns:['model_id','dependencies','known_limitations'],
+    labels:['모형','의존 모형·데이터','알려진 한계'],
+    rows:f.rows.map(r=>[r[i.model_id],r[i.dependencies],r[i.known_limitations]]),
+    total:f.total,shown:f.rows.length},{numeric:false}));
+  root.appendChild(c2);
+}
+
+function modelPerformance(root){
+  root.appendChild(el('p','lead',
+    '신용 모형의 변별력(Gini·KS)과 안정성(PSI). Gini 는 높을수록, PSI 는 낮을수록 '+
+    '좋다 — PSI 0.25 를 넘으면 모집단이 개발 시점과 달라졌다는 신호다.'));
+  const f=D.data['crm_performance'];
+  if(!f){root.appendChild(el('div','note','성능 원장이 없다'));return}
+  const i=frameIdx(f);
+  root.appendChild(hbars(f.rows.map(r=>({
+    label:`${r[i.model_id]} · ${r[i.segment]}`, value:(r[i.gini]||0)*100,
+    sub:`KS ${((r[i.ks]||0)*100).toFixed(1)} · PSI ${(r[i.psi]||0).toFixed(3)}`,
+    tone:(r[i.gini]||0)<0.4?'warn':undefined})),
+    {title:'변별력 Gini (%) — 양호 기준 40%',money:false,src:srcMeta(f)}));
+  const c=el('div','card');
+  c.appendChild(el('h3',null,'성능 지표 원장'));
+  c.appendChild(table(f));root.appendChild(c);
+}
+
+function modelCalibration(root){
+  root.appendChild(el('p','lead',
+    '등급별 예측 PD 와 실측 부도율의 대조다. O/E 비율이 1 에서 멀수록 보정이 '+
+    '어긋난 것이며, 허용범위 밖 등급은 재보정 대상이다.'));
+  const f=D.data['crm_pd_calibration'];
+  if(!f){root.appendChild(el('div','note','보정 원장이 없다'));return}
+  const i=frameIdx(f);
+  const bad=f.rows.filter(r=>!r[i.within_tolerance]).length;
+  const c0=el('div','card');
+  c0.appendChild(el('h3',null,'보정 상태'));
+  c0.appendChild(meter('허용범위 내 등급',f.rows.length-bad,f.rows.length,
+    bad?'warn':undefined));
+  c0.appendChild(el('div','meta',
+    `허용범위 밖 ${bad}건 — 예측 PD 와 실측 부도율의 괴리가 기준을 넘은 등급`));
+  root.appendChild(c0);
+  root.appendChild(hbars(f.rows.slice(0,12).map(r=>({
+    label:`${r[i.segment]} · ${r[i.grade]}`, value:r[i.oe_ratio]||0,
+    sub:`예측 ${((r[i.pd_predicted]||0)*100).toFixed(2)}% · 실측 ${((r[i.dr_observed]||0)*100).toFixed(2)}%`,
+    tone:r[i.within_tolerance]?undefined:'bad'})),
+    {title:'등급별 O/E 비율 — 1.0 이 완전 일치',money:false,src:srcMeta(f)}));
+  const c=el('div','card');
+  c.appendChild(el('h3',null,'보정 원장'));
+  c.appendChild(table(f));root.appendChild(c);
+}
+
+function modelRiskGovernance(root){
+  root.appendChild(el('p','lead',
+    '모형리스크 관리 — 등급별 거버넌스 요구, 운영 상태, 검증 기한. 모형은 '+
+    '만들어 놓고 두는 것이 아니라 주기적으로 다시 증명해야 하는 자산이다.'));
+  const f=D.data['crm_model'];
+  if(!f)return;
+  const i=frameIdx(f);
+  const TIER_REQ={1:['연 1회 독립검증','상시 성능 모니터링','이사회 보고 대상',
+                     '챌린저 모형 유지'],
+                  2:['2년 주기 독립검증','반기 성능 모니터링','경영진 보고'],
+                  3:['3년 주기 독립검증','연 1회 성능 점검']};
+  const CYCLE={1:12,2:24,3:36};
+  const two=el('div');two.style.cssText=
+    'display:grid;gap:12px;grid-template-columns:1fr 1fr';
+  two.appendChild(hbars([1,2,3].map(t=>({label:`Tier ${t}`,
+    value:f.rows.filter(r=>r[i.tier]===t).length,
+    sub:`검증 주기 ${CYCLE[t]}개월`,
+    tone:t===1?'warn':undefined})),
+    {title:'등급별 모형 수와 검증 주기 — 등급이 주기를 정한다',money:false,
+     src:srcMeta(f)}));
+  const own={};f.rows.forEach(r=>{own[r[i.owner]]=(own[r[i.owner]]||0)+1});
+  two.appendChild(hbars(Object.entries(own)
+    .sort((a,b)=>b[1]-a[1]).map(([k,v])=>({label:k,value:v})),
+    {title:'소유부서별 모형 수 — 책임 소재가 분산되면 재검증이 밀린다',
+     money:false}));
+  root.appendChild(two);
+
+  const c=el('div','card');
+  c.appendChild(el('h3',null,'등급별 거버넌스 요구 (SR 11-7 계열)'));
+  const rows=[];
+  [1,2,3].forEach(t=>{
+    const ms=f.rows.filter(r=>r[i.tier]===t);
+    rows.push([`Tier ${t}`, ms.length,
+      ms.map(r=>r[i.model_id]).join(' · ')||'—',
+      TIER_REQ[t].join(' · ')]);
+  });
+  c.appendChild(table({columns:['등급','모형 수','해당 모형','거버넌스 요구'],
+    rows, total:3, shown:3},{numeric:false}));
+  root.appendChild(c);
+
+  const c2=el('div','card');
+  c2.appendChild(el('h3',null,'운영 상태 분포'));
+  const st={};f.rows.forEach(r=>{st[r[i.status]]=(st[r[i.status]]||0)+1});
+  c2.appendChild(dotlist(Object.entries(st).map(([k,v])=>({
+    label:`${k} — ${v}건`, right:k==='PROD'?'운영 중':'운영 전',
+    tone:k==='PROD'?'good':'warn'}))));
+  c2.appendChild(el('div','note',
+    '운영 전(UAT·개발) 모형의 산출은 공표·제출에 쓰지 않는다. 상태가 원장에 '+
+    '있으므로 어느 화면이든 같은 판정을 본다.'));
+  root.appendChild(c2);
+}
+
 function methodology(root){
   root.appendChild(el('p','lead',
     '집합투자증권(CRE60)·유동화(CRE40) 는 여러 산출 방법이 규정에 함께 있고, '+
@@ -3052,7 +3309,7 @@ const DETAIL_SCREENS=[
                ['보증유형별 보증액','rdm_guarantee',['protection_type'],'guaranteed_amount']],
     tables:[['담보 원장','rdm_collateral'],['보증 원장','rdm_guarantee'],
             ['차주 재무','rdm_obligor_financial']]})],
-  ['모형·등급','B · 신용평가모형 — 카드·보정·성능·이동',screenOf({
+  ['등급 전이','MDL · 등급 전이행렬 — 세그먼트별 피봇',screenOf({
     lead:'모형 카드, PD 보정, 변별력·안정성 성능, 등급 이동행렬 — 모형 거버넌스의 원장들이다. 전이행렬 피봇의 행·열은 코드 마스터(등급 사다리) 순서다.',
     charts:migrationPivot,
     tables:[['모형 카드','crm_model'],['PD 보정','crm_pd_calibration'],
@@ -3148,6 +3405,11 @@ const DETAIL_SCREENS=[
   ['시나리오 설정','SET · 위기상황 시나리오 설정 — 축·심도·신규 제안',scenarioScreen],
   ['코드 마스터','SET · 코드 마스터 관리 — 정렬 정본',codeMasterAdmin],
   ['코드 매핑','SET · 계정·상품 코드 × 리스크 대상·특성 매핑',codeScope],
+  ['모형 인벤토리','MDL · 모형 인벤토리 — 전 도메인 (신용·시장·ALM·위기·기후·전사)',modelInventory],
+  ['검증 일정','MDL · 모형 검증 일정 — 주기·경과·의존·한계',modelValidationSchedule],
+  ['모형리스크','MDL · 모형리스크 관리 — 등급별 거버넌스·운영 상태',modelRiskGovernance],
+  ['변별력·안정성','MDL · 신용모형 성능 — Gini·KS·PSI',modelPerformance],
+  ['등급 보정','MDL · 등급 보정 — 예측 PD 대 실측 부도율 (O/E)',modelCalibration],
   ['산출 방법론','SET · 산출 방법론 — LTA/MBA · SEC 계층 선택',methodology],
   ['금리리스크','E · 은행계정 금리리스크(IRRBB) — 충격·갭',rateRisk],
   ['유동성리스크','E · 유동성리스크 — LCR·NSFR',liquidityRisk],
@@ -3161,12 +3423,18 @@ const DETAIL_SCREENS=[
 const NAVGROUPS=[
   ['통제센터',['콕핏','시뮬레이션','한도']],
   ['조회·컴포저',['정형 조회','비정형 UI']],
+  /* 모형은 신용에만 있지 않다 — 도메인 축으로 따로 세운다(사용자 지적).
+     원장이 crm_ 스키마에 산다는 것과 신용 모형이라는 것은 다른 말이다. */
+  ['모형',[
+    ['모형 인벤토리',['검증 일정','모형리스크']],
+    ['신용모형',['변별력·안정성','등급 보정','등급 전이']],
+  ]],
   ['리스크데이터',[
     ['RDM',['원천·계약','DQ·대사','예외·조치','담보·보증','집계 원장']],
     ['선행 원장',['집합투자증권','파생상품','유동화']],
   ]],
   ['위험가중자산(RWA)',[
-    ['신용',['모형·등급','조기경보','신용 RWA','ECL']],
+    ['신용',['조기경보','신용 RWA','ECL']],
     ['시장',['가격검증·IPV','백테스팅','VaR·ES','시장 RWA']],
     ['운영',['손실·회수','KRI·통제','운영 RWA']],
   ]],
