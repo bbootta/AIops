@@ -99,6 +99,22 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     tables["mkt_code_scope"] = _cs.market_scope(tables)
     tables["alm_code_scope"] = _cs.alm_scope(tables)
     tables["opr_code_scope"] = _cs.op_scope(tables)
+    # 선행 원장 — 집합투자증권(CRE60)·파생(CRE52)·유동화(CRE40~45).
+    # 신용 익스포저 한 줄로 뭉뚱그리면 LTA/MBA·SA-CCR·SEC 계층을 산출할 수
+    # 없다. 각 프레임워크의 입력이 원장 수준에서 다르기 때문이다.
+    from risk_lib.datamodel.derivatives import build_derivatives
+    from risk_lib.datamodel.funds import build_funds
+    from risk_lib.datamodel.securitisation import build_securitisation
+    _seed = int(result.meta.get("seed", 42))
+    tables.update(build_funds(asof=asof, seed=_seed))
+    tables.update(build_derivatives(asof=asof, seed=_seed))
+    tables.update(build_securitisation(asof=asof, seed=_seed))
+
+    # 도메인별 집계 원장 — 반드시 선행 원장·detail 이후다(mkt_trade·
+    # opr_loss_event·st_capital_path 를 읽는다).
+    from risk_lib.datamodel.exposure_agg import build_exposure_aggregates
+    tables.update(build_exposure_aggregates(tables, asof=asof))
+
     # DQ 결과는 분해 단계의 산물이다 — 없으면 "그때는 통과했다"를 증명 못 한다.
     tables["rdm_dq_result"] = dq_result_frame(validate_all(tables), asof=asof)
 

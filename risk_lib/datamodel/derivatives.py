@@ -96,7 +96,9 @@ _UNDERLYINGS: tuple[tuple[str, str, str, str, float], ...] = (
     ("ir", "IRS_EUR_ESTR6M", "EUR", "IR_EUR", 0.0270),
     ("ir", "IRS_JPY_TONA6M", "JPY", "IR_JPY", 0.0090),
     ("ir", "IRS_CNY_FR007", "CNY", "IR_CNY", 0.0210),
-    ("fx", "FX_USDKRW", "USD", "FX_KRW_USD", 1330.0),
+    # 헤징집합 키는 FX_<외화>_KRW 로 통일한다. 한 쌍만 순서를 뒤집어 적으면
+    # CRE52.34의 통화쌍 상계에서 같은 쌍이 두 집합으로 갈라진다.
+    ("fx", "FX_USDKRW", "USD", "FX_USD_KRW", 1330.0),
     ("fx", "FX_EURKRW", "EUR", "FX_EUR_KRW", 1440.0),
     ("fx", "FX_JPYKRW", "JPY", "FX_JPY_KRW", 9.10),
     ("fx", "FX_CNYKRW", "CNY", "FX_CNY_KRW", 185.0),
@@ -149,6 +151,20 @@ def _adjusted_notional(asset_class: str, notional: float,
     if asset_class in ("ir", "credit_ig"):
         return notional * _supervisory_duration(start_years, end_years)
     return notional
+
+
+def _option_expiry_years(product_type: str, start_years: float,
+                         end_years: float) -> float:
+    """옵션 행사시점까지의 기간 T (CRE52.21의 S/E 정의).
+
+    스왑션은 옵션 만기(S)에 행사되고 그 뒤에 스왑이 시작하므로 T = S 이며,
+    나머지 옵션은 계약 만기가 곧 행사시점이라 T = E 다. **감독델타·베가·커버처가
+    모두 같은 T를 써야 한다** — 델타만 S로 두고 베가·커버처를 E로 두면 같은
+    스왑션이 서로 다른 두 만기를 갖게 되고, 커버처는 Γ=(∂V/∂σ)/(P²στ) 의 τ가
+    베가의 T와 어긋나 관계식 자체가 깨진다.
+    """
+    t = start_years if product_type == "swaption" else end_years
+    return max(float(t), _MATURITY_FLOOR_YEARS)
 
 
 def _supervisory_delta(*, sign: int, is_option: bool, ref_level: float,
@@ -374,10 +390,12 @@ def _synthesise(*, asof: str, seed: int
             leg_notional = float(t.notional) * float(share)
             vol = _SUPERVISORY_VOL[ac] if is_option else 0.0
             strike = (ref_level * float(rng_leg.uniform(0.85, 1.15))) if is_option else 0.0
+            # 행사시점까지의 기간은 한 번만 정하고 델타·베가·커버처가 함께 쓴다.
+            expiry_years = _option_expiry_years(t.product_type, start_years, end_years)
             delta = _supervisory_delta(
                 sign=sign, is_option=is_option, ref_level=ref_level,
                 strike=strike if is_option else ref_level, vol=vol,
-                expiry_years=(start_years if t.product_type == "swaption" else end_years))
+                expiry_years=expiry_years)
             adj_notional = _adjusted_notional(ac, leg_notional, start_years, end_years)
 
             # 민감도. 해당 없는 위험군은 0.0 — NaN을 두면 집계에서 조용히 사라진다.
@@ -398,7 +416,9 @@ def _synthesise(*, asof: str, seed: int
             elif ac == "commodity":
                 delta_comm = leg_notional * abs(delta) * 0.01 * sign
             # 베가는 옵션성 다리에만 존재한다 (1 vol point = 0.01 변동 기준).
-            vega = (leg_notional * 0.004 * math.sqrt(max(end_years, 0.1)) * sign
+            # √T 의 T 는 스왑 종료일이 아니라 **행사시점**이다 — 스왑션에 E를 쓰면
+            # 델타(S 기준)와 베가(E 기준)가 다른 만기를 가리킨다.
+            vega = (leg_notional * 0.004 * math.sqrt(expiry_years) * sign
                     if is_option else 0.0)
 
             legs.append({
@@ -423,6 +443,9 @@ def _synthesise(*, asof: str, seed: int
                 "end_years": end_years,
                 "volatility": float(vol),
                 "strike": float(strike),
+                # 행사시점까지의 기간. 소비자(민감도·커버처)가 스왑션 규칙을 다시
+                # 유도하지 않도록 원장에 남긴다 — 규칙을 두 곳에 적으면 갈라진다.
+                "option_expiry_years": float(expiry_years),
                 "frtb_risk_class": FRTB_RISK_CLASS[ac],
                 "dv01": float(dv01),
                 "cs01": float(cs01),
@@ -451,10 +474,19 @@ def saccr_input(master: pd.DataFrame, underlying: pd.DataFrame) -> pd.DataFrame:
     saccr_ead가 거래상대방별로 합산하므로 배분 후 합계가 원본과 같아야 하며,
     아래에서 그것을 검증한다.
 
-    한계(의도적): saccr_ead의 만기계수는 √min(M,1)로 **무증거금 기준**이다
-    (CRE52.48). 증거금 거래의 1.5·√(MPOR) 계수는 적용되지 않으므로 증거금
-    거래 EAD는 보수적으로 나온다. MPOR은 마스터에 보존되어 있어 완전한
-    CRE52 엔진이 붙으면 그대로 쓸 수 있다.
+    한계(의도적). 조용히 넘기지 않도록 셋 다 적는다 — 재료는 모두 원장에 있고,
+    빠진 것은 `ccr.saccr_ead` 쪽 계산이다:
+      1. 만기계수가 √min(M,1)로 **무증거금 기준**이다 (CRE52.48). 증거금 거래의
+         1.5·√(MPOR) 계수(일일증거금 10영업일 기준 0.30)가 적용되지 않아 증거금
+         거래의 PFE는 3배 이상 크게 나온다. MPOR은 마스터에 보존되어 있다.
+      2. RC가 max(V−C,0)뿐이다. 증거금 넷팅집합의 RC는
+         max(V−C, TH+MTA−NICA, 0) 이므로(CRE52.10) 담보가 두터운 집합에서 RC가
+         과소계상된다. TH·MTA·NICA(=IM)는 rdm_netting_set에 있다.
+      3. saccr_ead는 **counterparty 단위로 합산**한다. 상대방이 넷팅집합을 둘
+         이상 가지면 상계 불가한 집합끼리 V·C가 섞인다(CRE52.1은 넷팅집합 단위).
+         넷팅집합 단위가 필요하면 counterparty 자리에 netting_set_id를 넣어
+         호출한다 — 그래서 이 표가 netting_set_id를 함께 낸다.
+    1이 2·3을 압도하므로 합계 EAD는 보수적이지만, 항목별로는 그렇지 않다.
     """
     m = master[["trade_id", "counterparty", "netting_set_id", "mtm", "collateral"]]
     u = underlying[["underlying_id", "trade_id", "leg_id", "asset_class",
@@ -499,7 +531,8 @@ def market_sensitivities(master: pd.DataFrame,
         ×100×σ 한다.
       * 커버처 입력 = 옵션성 다리의 1% 기초자산 변동에 대한 2차 항.
         Black-Scholes 관계 Γ = (∂V/∂σ)/(P²στ) 에서 ½Γ(0.01P)² = vega·5e-3/(στ)
-        로 역산한다. MAR21.5(b)의 CVR은 감독 위험가중 충격 하 **재평가**를
+        로 역산한다. τ는 원장의 option_expiry_years(행사시점까지의 기간)이며
+        베가의 √T와 같은 값이어야 관계식이 성립한다. MAR21.5(b)의 CVR은 감독 위험가중 충격 하 **재평가**를
         요구하므로, 재평가기가 붙기 전까지는 1% 단위로 제공해 소비자가 위험가중
         충격 배수를 곱해 쓰게 한다.
 
@@ -532,7 +565,9 @@ def market_sensitivities(master: pd.DataFrame,
     df["vega_krw"] = df["vega"] * 100.0 * df["volatility"]
 
     # 커버처: 옵션성 다리에만 존재한다 (MAR21.5(b)). σ·τ가 0인 선형 다리는 0.
-    tau = np.maximum(df["end_years"].to_numpy(dtype=float), _MATURITY_FLOOR_YEARS)
+    # τ는 스왑 종료일이 아니라 **행사시점까지의 기간**이다 — 원장의
+    # option_expiry_years를 그대로 쓴다(스왑션 규칙을 여기서 다시 유도하지 않는다).
+    tau = df["option_expiry_years"].to_numpy(dtype=float)
     sigma = df["volatility"].to_numpy(dtype=float)
     is_opt = df["product_type"].isin(["option", "swaption"]).to_numpy() & (sigma > 0)
     df["curvature_krw"] = np.where(

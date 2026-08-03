@@ -496,3 +496,70 @@ def test_exposure_codes_reference_the_masters(studio):
     pm = set(studio.tables["rdm_product_master"]["product_code"])
     assert set(exp["account_code"]) <= am
     assert set(exp["product_code"]) <= pm
+
+
+# ----- 선행 원장 (CIU · 파생 · 유동화) -----------------------------------------
+
+def test_fund_result_carries_all_three_methods(studio):
+    """CRE60 — LTA·MBA·fallback 이 모두 산출되고 채택 사유가 남는다.
+
+    세 방법이 다 있어야 "왜 이 방법인가"에 답할 수 있다. 하나만 계산하고
+    나머지를 비워 두면 채택은 선택이 아니라 유일한 값이 된다.
+    """
+    r = studio.tables["rwa_fund_result"]
+    assert {"rwa_lta", "rwa_mba", "rwa_fallback", "adopted_method",
+            "adopted_rwa", "adopted_reason"} <= set(r.columns)
+    assert r["adopted_method"].nunique() >= 2, "한 방법만 쓰이면 계층이 죽은 것"
+    # fallback 은 1250% (CRE60.9)
+    assert r["rw_fallback"].round(4).eq(12.5).all()
+    assert r["adopted_reason"].str.len().gt(0).all()
+
+
+def test_derivative_underlying_speaks_the_saccr_vocabulary(studio):
+    """파생 기초자산의 자산군이 SA-CCR 엔진의 감독계수 키와 같은 어휘다.
+
+    어휘가 갈리면 add-on 이 KeyError 로 터지거나 — 더 나쁘게 — 조용히 빠진다.
+    """
+    from risk_lib.ccr import SF
+    u = studio.tables["rdm_derivative_underlying"]
+    assert set(u["asset_class"]) <= set(SF), (
+        f"ccr.SF 에 없는 자산군: {set(u['asset_class']) - set(SF)}")
+
+
+def test_derivatives_feed_the_existing_saccr_engine(studio):
+    """원장 → 기존 엔진 경로가 실제로 돈다 — EAD 는 양수, 상대방별 1행."""
+    from risk_lib.ccr import saccr_ead
+    from risk_lib.datamodel.derivatives import saccr_input
+    si = saccr_input(studio.tables["rdm_derivative_master"],
+                     studio.tables["rdm_derivative_underlying"])
+    ead = saccr_ead(si)
+    assert len(ead) == si["counterparty"].nunique()
+    assert (ead["ead"] >= 0).all() and ead["ead"].sum() > 0
+
+
+def test_securitisation_covers_three_approaches_with_floor(studio):
+    """CRE40.41 계층과 위험가중 하한(15% · STC 선순위 10%)이 실제로 작동한다."""
+    r = studio.tables["rwa_sec_result"]
+    m = studio.tables["rdm_sec_master"].set_index("deal_id")
+    assert set(r["adopted_method"]) <= {"SEC-IRBA", "SEC-ERBA", "SEC-SA"}
+    assert r["adopted_method"].nunique() == 3, "세 방법이 다 쓰여야 계층이 산다"
+    # 하한이 걸린 건은 STC 선순위 10%, 그 외 15%
+    for _, row in r[r["floor_applied"]].iterrows():
+        stc = bool(m.loc[row["deal_id"], "simple_transparent_comparable"])
+        want = 0.10 if (stc and row["senior"]) else 0.15
+        assert abs(row["adopted_rw"] - want) < 1e-9, (
+            f"{row['tranche_id']}: 하한 {row['adopted_rw']:.2%} (기대 {want:.0%})")
+    # 등급 없는 트렌치의 ERBA 를 0으로 채우지 않는다 — 채우면 자본이 사라진다
+    no_rating = r[~r["erba_available"]]
+    assert no_rating["rw_erba"].isna().all()
+
+
+def test_domain_aggregates_reconcile_to_the_exposure_ledger(studio):
+    """도메인 집계의 EAD 합 = 익스포저 원장 합. 축을 잘못 잡으면 깨진다."""
+    total = float(studio.tables["rdm_exposure"]["ead"].sum())
+    for name in ("agg_credit_exposure", "agg_alm_exposure"):
+        agg = studio.tables[name]
+        assert abs(float(agg["ead"].sum()) - total) < 1.0, name
+    # 원장이 없는 도메인은 빈 프레임이 아니라 사유 행을 남긴다
+    mkt = studio.tables["agg_market_exposure"]
+    assert len(mkt) >= 1

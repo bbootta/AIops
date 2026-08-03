@@ -1793,6 +1793,427 @@ GOV_DETAIL_TABLES = (CHANGE_REQUEST, CHANGE_IMPACT, CHANGE_REGRESSION,
                      OPR_CODE_SCOPE)
 
 # ------------------------------------------------------------- 최종 누적 등록
+
+
+# ======================================== R13 · 선행 원장 (CIU · 파생 · 유동화)
+# 익스포저 원장에 선행하는 원장들이다. 신용 익스포저 한 줄로 뭉뚱그리면
+# 집합투자증권의 LTA/MBA, 파생의 SA-CCR, 유동화의 SEC 계층을 산출할 수 없다 —
+# 각 프레임워크가 요구하는 입력이 원장 수준에서 다르기 때문이다.
+#
+# 스펙은 tools 로 **실제 프레임에서 생성**했다. 손으로 적으면 컬럼 하나가
+# 어긋나고, 그 어긋남은 스펙 검증이 잡지만 그때는 이미 화면이 만들어진 뒤다.
+
+RDM_FUND_MASTER = TableSpec(
+    name="rdm_fund_master", korean="집합투자증권 마스터", product="PRD-RDM",
+    grain="펀드 1건당 1행",
+    columns=(
+        C("fund_id", "string", "펀드 식별자", nullable=False),
+        C("asof", "string", "기준일", nullable=False),
+        C("fund_name", "string", "fund name", nullable=False),
+        C("fund_type", "string", "fund type", nullable=False),
+        C("manager", "string", "manager", nullable=False),
+        C("is_trust", "bool", "is trust", nullable=False),
+        C("carrying_amount", "float", "carrying amount", nullable=False, unit="KRW"),
+        C("fair_value", "float", "fair value", nullable=False, unit="KRW"),
+        C("fund_nav", "float", "fund nav", nullable=False, unit="KRW"),
+        C("fund_total_assets", "float", "fund total assets", nullable=False, unit="KRW"),
+        C("bank_share", "float", "bank share", nullable=False, unit="ratio"),
+        C("leverage", "float", "leverage", nullable=False, unit="ratio"),
+        C("info_frequency", "string", "info frequency", nullable=False),
+        C("third_party_audited", "bool", "third party audited", nullable=False),
+        C("mandate_available", "bool", "mandate available", nullable=False),
+        C("lta_eligible", "bool", "lta eligible", nullable=False),
+        C("lta_reason", "string", "lta reason", nullable=False),
+        C("approach", "string", "approach", nullable=False),
+    ),
+    primary_key=('fund_id',),
+)
+
+RDM_FUND_HOLDING = TableSpec(
+    name="rdm_fund_holding", korean="펀드 편입자산 (LTA)", product="PRD-RDM",
+    grain="펀드 × 편입자산 1건당 1행",
+    columns=(
+        C("holding_id", "string", "편입자산 식별자", nullable=False),
+        C("fund_id", "string", "펀드 식별자", nullable=False),
+        C("asof", "string", "기준일", nullable=False),
+        C("issuer", "string", "issuer", nullable=False),
+        C("asset_class", "string", "자산군", nullable=False),
+        C("rating", "string", "rating", nullable=False),
+        C("market_value", "float", "market value", nullable=False, unit="KRW"),
+        C("weight", "float", "weight", nullable=False, unit="ratio"),
+        C("maturity_years", "float", "maturity years", nullable=False, unit="years"),
+        C("risk_weight", "float", "risk weight", nullable=False, unit="ratio"),
+        C("is_derivative", "bool", "is derivative", nullable=False),
+        C("ccr_counterparty", "string", "ccr counterparty", nullable=False),
+        C("ccr_asset_class", "string", "ccr asset class", nullable=False),
+        C("notional", "float", "명목금액", nullable=False, unit="KRW"),
+        C("collateral", "float", "담보", nullable=False, unit="count"),
+    ),
+    primary_key=('holding_id',),
+)
+
+RDM_FUND_MANDATE = TableSpec(
+    name="rdm_fund_mandate", korean="펀드 운용지침 한도 (MBA)", product="PRD-RDM",
+    grain="펀드 × 지침한도 1건당 1행",
+    columns=(
+        C("mandate_id", "string", "지침 식별자", nullable=False),
+        C("fund_id", "string", "펀드 식별자", nullable=False),
+        C("asof", "string", "기준일", nullable=False),
+        C("asset_class", "string", "자산군", nullable=False),
+        C("rating_assumed", "string", "rating assumed", nullable=False),
+        C("max_weight", "float", "max weight", nullable=False, unit="ratio"),
+        C("max_leverage", "float", "max leverage", nullable=False, unit="ratio"),
+        C("risk_weight", "float", "risk weight", nullable=False, unit="ratio"),
+    ),
+    primary_key=('mandate_id',),
+)
+
+RWA_FUND_RESULT = TableSpec(
+    name="rwa_fund_result", korean="집합투자증권 위험가중자산", product="PRD-RWA",
+    grain="펀드 1건당 1행",
+    columns=(
+        C("fund_id", "string", "펀드 식별자", nullable=False),
+        C("asof", "string", "기준일", nullable=False),
+        C("fund_name", "string", "fund name", nullable=False),
+        C("fund_type", "string", "fund type", nullable=False),
+        C("approach", "string", "approach", nullable=False),
+        C("investment", "float", "investment", nullable=False, unit="KRW"),
+        C("rwa_lta", "float", "rwa lta", nullable=True, unit="KRW"),
+        C("rw_lta", "float", "rw lta", nullable=True, unit="ratio"),
+        C("rwa_mba", "float", "rwa mba", nullable=True, unit="KRW"),
+        C("rw_mba", "float", "rw mba", nullable=True, unit="ratio"),
+        C("rwa_fallback", "float", "rwa fallback", nullable=False, unit="KRW"),
+        C("rw_fallback", "float", "rw fallback", nullable=False, unit="ratio"),
+        C("adopted_method", "string", "adopted method", nullable=False),
+        C("adopted_rw", "float", "adopted rw", nullable=False, unit="ratio"),
+        C("adopted_rwa", "float", "adopted rwa", nullable=False, unit="KRW"),
+        C("adopted_capital_8pct", "float", "adopted capital 8pct", nullable=False, unit="KRW"),
+        C("adopted_reason", "string", "adopted reason", nullable=False),
+    ),
+    primary_key=('fund_id',),
+)
+
+RDM_DERIVATIVE_MASTER = TableSpec(
+    name="rdm_derivative_master", korean="파생상품 마스터", product="PRD-RDM",
+    grain="파생 거래 1건당 1행",
+    columns=(
+        C("trade_id", "string", "거래 식별자", nullable=False),
+        C("asof", "string", "기준일", nullable=False),
+        C("counterparty", "string", "거래상대방", nullable=False),
+        C("netting_set_id", "string", "넷팅집합 식별자", nullable=False),
+        C("product_type", "string", "product type", nullable=False),
+        C("direction", "string", "direction", nullable=False),
+        C("notional", "float", "명목금액", nullable=False, unit="KRW"),
+        C("currency", "string", "currency", nullable=False),
+        C("settlement_currency", "string", "settlement currency", nullable=False),
+        C("trade_date", "string", "trade date", nullable=False),
+        C("maturity_date", "string", "maturity date", nullable=False),
+        C("residual_maturity_years", "float", "residual maturity years", nullable=False, unit="years"),
+        C("mtm", "float", "시가평가", nullable=False, unit="KRW"),
+        C("collateral", "float", "담보", nullable=False, unit="KRW"),
+        C("margined", "bool", "margined", nullable=False),
+        C("mpor_days", "int", "mpor days", nullable=False),
+        C("book", "string", "book", nullable=False),
+        C("cleared", "bool", "cleared", nullable=False),
+    ),
+    primary_key=('trade_id',),
+)
+
+RDM_DERIVATIVE_UNDERLYING = TableSpec(
+    name="rdm_derivative_underlying", korean="파생 기초자산", product="PRD-RDM",
+    grain="거래 × 기초자산(다리) 1건당 1행",
+    columns=(
+        C("underlying_id", "string", "기초자산 식별자", nullable=False),
+        C("trade_id", "string", "거래 식별자", nullable=False),
+        C("leg_id", "int", "leg id", nullable=False),
+        C("asof", "string", "기준일", nullable=False),
+        C("asset_class", "string", "자산군", nullable=False),
+        C("underlying_code", "string", "underlying code", nullable=False),
+        C("hedging_set", "string", "hedging set", nullable=False),
+        C("currency", "string", "currency", nullable=False),
+        C("notional_share", "float", "notional share", nullable=False, unit="KRW"),
+        C("leg_notional", "float", "leg notional", nullable=False, unit="KRW"),
+        C("adjusted_notional", "float", "adjusted notional", nullable=False, unit="KRW"),
+        C("supervisory_delta", "float", "supervisory delta", nullable=False, unit="ratio"),
+        C("start_date", "string", "start date", nullable=False),
+        C("end_date", "string", "end date", nullable=False),
+        C("start_years", "float", "start years", nullable=False, unit="years"),
+        C("option_expiry_years", "float", "옵션 행사시점", nullable=True,
+          unit="years",
+          citation="CRE52.21 — 감독 델타는 행사시점(S) 기준",
+          note="스왑션은 스왑 만기가 아니라 옵션 행사시점을 쓴다 — 적대적 "
+               "검증이 vega 와 델타의 시점 불일치를 잡아 신설된 컬럼"),
+        C("end_years", "float", "end years", nullable=False, unit="years"),
+        C("volatility", "float", "volatility", nullable=False, unit="ratio"),
+        C("strike", "float", "strike", nullable=False, unit="count"),
+        C("frtb_risk_class", "string", "frtb risk class", nullable=False),
+        C("dv01", "float", "dv01", nullable=False, unit="count"),
+        C("cs01", "float", "cs01", nullable=False, unit="count"),
+        C("vega", "float", "vega", nullable=False, unit="count"),
+        C("delta_eq", "float", "delta eq", nullable=False, unit="ratio"),
+        C("delta_fx", "float", "delta fx", nullable=False, unit="ratio"),
+        C("delta_comm", "float", "delta comm", nullable=False, unit="ratio"),
+    ),
+    primary_key=('underlying_id',),
+)
+
+RDM_NETTING_SET = TableSpec(
+    name="rdm_netting_set", korean="넷팅집합", product="PRD-RDM",
+    grain="넷팅집합 1건당 1행",
+    columns=(
+        C("netting_set_id", "string", "넷팅집합 식별자", nullable=False),
+        C("asof", "string", "기준일", nullable=False),
+        C("counterparty", "string", "거래상대방", nullable=False),
+        C("csa", "bool", "csa", nullable=False),
+        C("threshold", "float", "threshold", nullable=False, unit="KRW"),
+        C("mta", "float", "mta", nullable=False, unit="KRW"),
+        C("im", "float", "im", nullable=False, unit="KRW"),
+        C("vm", "float", "vm", nullable=False, unit="KRW"),
+        C("net_mtm", "float", "net mtm", nullable=False, unit="KRW"),
+        C("gross_notional", "float", "gross notional", nullable=False, unit="KRW"),
+        C("n_trades", "int", "n trades", nullable=False),
+    ),
+    primary_key=('netting_set_id',),
+)
+
+MKT_DERIVATIVE_SENSITIVITY = TableSpec(
+    name="mkt_derivative_sensitivity", korean="파생 민감도 집계", product="PRD-MKT",
+    grain="위험군 × 통화 1건당 1행",
+    columns=(
+        C("sensitivity_id", "string", "민감도 식별자", nullable=False),
+        C("asof", "string", "기준일", nullable=False),
+        C("frtb_risk_class", "string", "frtb risk class", nullable=False),
+        C("book", "string", "book", nullable=False),
+        C("currency", "string", "currency", nullable=False),
+        C("mar_in_scope", "bool", "mar in scope", nullable=False),
+        C("n_trades", "int", "n trades", nullable=False),
+        C("n_legs", "int", "n legs", nullable=False),
+        C("notional", "float", "명목금액", nullable=False, unit="KRW"),
+        C("delta_krw", "float", "delta krw", nullable=False, unit="ratio"),
+        C("delta_abs_krw", "float", "delta abs krw", nullable=False, unit="ratio"),
+        C("vega_krw", "float", "vega krw", nullable=False, unit="count"),
+        C("curvature_krw", "float", "curvature krw", nullable=False, unit="count"),
+    ),
+    primary_key=('sensitivity_id',),
+)
+
+RDM_SEC_MASTER = TableSpec(
+    name="rdm_sec_master", korean="유동화 딜 마스터", product="PRD-RDM",
+    grain="유동화 거래 1건당 1행",
+    columns=(
+        C("deal_id", "string", "딜 식별자", nullable=False),
+        C("asof", "string", "기준일", nullable=False),
+        C("deal_name", "string", "deal name", nullable=False),
+        C("securitisation_type", "string", "securitisation type", nullable=False),
+        C("pool_asset_class", "string", "pool asset class", nullable=False),
+        C("resecuritisation", "bool", "resecuritisation", nullable=False),
+        C("simple_transparent_comparable", "bool", "simple transparent comparable", nullable=False),
+        C("originator", "string", "originator", nullable=False),
+        C("originated_by_bank", "bool", "originated by bank", nullable=False),
+        C("pool_balance", "float", "pool balance", nullable=False, unit="KRW"),
+        C("issue_amount", "float", "issue amount", nullable=False, unit="KRW"),
+        C("pool_n_exposures", "int", "pool n exposures", nullable=False),
+        C("pool_effective_n", "float", "pool effective n", nullable=False, unit="count"),
+        C("deal_maturity_years", "float", "deal maturity years", nullable=False, unit="years"),
+        C("irb_data_available", "bool", "irb data available", nullable=False),
+        C("external_rating_available", "bool", "external rating available", nullable=False),
+        C("applicable_approach", "string", "applicable approach", nullable=False),
+        C("approach_reason", "string", "approach reason", nullable=False),
+    ),
+    primary_key=('deal_id',),
+)
+
+RDM_SEC_TRANCHE = TableSpec(
+    name="rdm_sec_tranche", korean="유동화 트렌치", product="PRD-RDM",
+    grain="딜 × 트렌치 1건당 1행",
+    columns=(
+        C("tranche_id", "string", "트렌치 식별자", nullable=False),
+        C("deal_id", "string", "딜 식별자", nullable=False),
+        C("asof", "string", "기준일", nullable=False),
+        C("tranche_name", "string", "tranche name", nullable=False),
+        C("tranche_type", "string", "tranche type", nullable=False),
+        C("seniority", "int", "seniority", nullable=False),
+        C("senior", "bool", "senior", nullable=False),
+        C("attachment_point", "float", "attachment point", nullable=False, unit="ratio"),
+        C("detachment_point", "float", "detachment point", nullable=False, unit="ratio"),
+        C("thickness", "float", "thickness", nullable=False, unit="ratio"),
+        C("tranche_notional", "float", "tranche notional", nullable=False, unit="KRW"),
+        C("holding_amount", "float", "holding amount", nullable=False, unit="KRW"),
+        C("external_rating", "string", "external rating", nullable=False),
+        C("residual_maturity_years", "float", "residual maturity years", nullable=False, unit="years"),
+        C("retained", "bool", "retained", nullable=False),
+    ),
+    primary_key=('tranche_id',),
+)
+
+RDM_SEC_POOL = TableSpec(
+    name="rdm_sec_pool", korean="유동화 기초자산 풀", product="PRD-RDM",
+    grain="딜 × 풀 세그먼트 1건당 1행",
+    columns=(
+        C("segment_id", "string", "세그먼트 식별자", nullable=False),
+        C("deal_id", "string", "딜 식별자", nullable=False),
+        C("asof", "string", "기준일", nullable=False),
+        C("segment_name", "string", "segment name", nullable=False),
+        C("irb_asset_class", "string", "irb asset class", nullable=False),
+        C("balance", "float", "balance", nullable=False, unit="KRW"),
+        C("n_exposures", "int", "n exposures", nullable=False),
+        C("wa_pd", "float", "wa pd", nullable=True, unit="ratio"),
+        C("wa_lgd", "float", "wa lgd", nullable=True, unit="ratio"),
+        C("delinquency_rate", "float", "delinquency rate", nullable=False, unit="ratio"),
+        C("k_irb", "float", "k irb", nullable=True, unit="ratio"),
+        C("k_irb_basis", "string", "k irb basis", nullable=False),
+        C("sa_risk_weight", "float", "sa risk weight", nullable=False, unit="ratio"),
+        C("sa_rw_basis", "string", "sa rw basis", nullable=False),
+    ),
+    primary_key=('segment_id',),
+)
+
+RWA_SEC_RESULT = TableSpec(
+    name="rwa_sec_result", korean="유동화 위험가중자산", product="PRD-RWA",
+    grain="트렌치 1건당 1행",
+    columns=(
+        C("tranche_id", "string", "트렌치 식별자", nullable=False),
+        C("deal_id", "string", "딜 식별자", nullable=False),
+        C("asof", "string", "기준일", nullable=False),
+        C("deal_name", "string", "deal name", nullable=False),
+        C("tranche_name", "string", "tranche name", nullable=False),
+        C("tranche_type", "string", "tranche type", nullable=False),
+        C("seniority", "int", "seniority", nullable=False),
+        C("senior", "bool", "senior", nullable=False),
+        C("retained", "bool", "retained", nullable=False),
+        C("pool_asset_class", "string", "pool asset class", nullable=False),
+        C("securitisation_type", "string", "securitisation type", nullable=False),
+        C("resecuritisation", "bool", "resecuritisation", nullable=False),
+        C("simple_transparent_comparable", "bool", "simple transparent comparable", nullable=False),
+        C("attachment_point", "float", "attachment point", nullable=False, unit="ratio"),
+        C("detachment_point", "float", "detachment point", nullable=False, unit="ratio"),
+        C("thickness", "float", "thickness", nullable=False, unit="ratio"),
+        C("external_rating", "string", "external rating", nullable=False),
+        C("residual_maturity_years", "float", "residual maturity years", nullable=False, unit="years"),
+        C("holding_amount", "float", "holding amount", nullable=False, unit="KRW"),
+        C("k_sa", "float", "k sa", nullable=False, unit="ratio"),
+        C("k_a", "float", "k a", nullable=False, unit="ratio"),
+        C("p_sa", "float", "p sa", nullable=False, unit="ratio"),
+        C("rw_sa", "float", "rw sa", nullable=False, unit="ratio"),
+        C("rwa_sa", "float", "rwa sa", nullable=False, unit="KRW"),
+        C("rw_erba", "float", "rw erba", nullable=True, unit="ratio"),
+        C("rwa_erba", "float", "rwa erba", nullable=True, unit="KRW"),
+        C("erba_available", "bool", "erba available", nullable=False),
+        C("k_irb", "float", "k irb", nullable=True, unit="ratio"),
+        C("p_irba", "float", "p irba", nullable=True, unit="ratio"),
+        C("rw_irba", "float", "rw irba", nullable=True, unit="ratio"),
+        C("rwa_irba", "float", "rwa irba", nullable=True, unit="KRW"),
+        C("irba_available", "bool", "irba available", nullable=False),
+        C("adopted_method", "string", "adopted method", nullable=False),
+        C("adopted_rw", "float", "adopted rw", nullable=False, unit="ratio"),
+        C("adopted_rwa", "float", "adopted rwa", nullable=False, unit="KRW"),
+        C("adopted_rw_floor", "float", "adopted rw floor", nullable=False, unit="ratio"),
+        C("floor_applied", "bool", "floor applied", nullable=False),
+        C("adopted_capital_8pct", "float", "adopted capital 8pct", nullable=False, unit="KRW"),
+        C("adopted_reason", "string", "adopted reason", nullable=False),
+    ),
+    primary_key=('tranche_id',),
+)
+
+R13_TABLES = (RDM_FUND_MASTER, RDM_FUND_HOLDING, RDM_FUND_MANDATE, RWA_FUND_RESULT, RDM_DERIVATIVE_MASTER, RDM_DERIVATIVE_UNDERLYING, RDM_NETTING_SET, MKT_DERIVATIVE_SENSITIVITY, RDM_SEC_MASTER, RDM_SEC_TRANCHE, RDM_SEC_POOL, RWA_SEC_RESULT)
+
+
+
+
+# ======================================== R14 · 도메인별 익스포저 집계 원장
+# 도메인마다 집계 축과 필요 컬럼이 다르다. 하나의 원장을 각자 집계하면 같은
+# "익스포저 합"이 도메인마다 달라지고 어느 쪽이 맞는지 사후에 알 수 없다.
+
+AGG_CREDIT_EXPOSURE = TableSpec(
+    name="agg_credit_exposure", korean="신용 익스포저 집계", product="PRD-CRM",
+    grain="자산군 × 등급 × 계정 1행",
+    columns=(
+        C("asof", "string", "기준일", nullable=False),
+        C("asset_class", "string", "자산군", nullable=False),
+        C("rating", "string", "외부등급", nullable=False),
+        C("account_code", "string", "계정코드", nullable=False),
+        C("n_exposures", "int", "익스포저 건수", nullable=False),
+        C("ead", "float", "익스포저(EAD)", nullable=False, unit="KRW"),
+        C("drawn", "float", "인출액", nullable=False, unit="KRW"),
+        C("undrawn", "float", "미인출 약정", nullable=False, unit="KRW"),
+        C("ecl", "float", "기대신용손실", nullable=False, unit="KRW"),
+        C("avg_maturity", "float", "평균 잔존만기", nullable=False, unit="years"),
+        C("avg_ltv", "float", "평균 담보인정비율", nullable=True, unit="ratio"),
+        C("n_stage3", "int", "손상(Stage3) 건수", nullable=False),
+        C("coverage_ratio", "float", "커버리지 비율", nullable=False, unit="ratio"),
+    ),
+    primary_key=('asof', 'asset_class', 'rating', 'account_code'),
+)
+
+AGG_MARKET_EXPOSURE = TableSpec(
+    name="agg_market_exposure", korean="시장 익스포저 집계", product="PRD-MKT",
+    grain="상품유형 × 만기구간 1행",
+    columns=(
+        C("asof", "string", "기준일", nullable=False),
+        C("kind", "string", "상품 유형", nullable=False),
+        C("tenor_bucket", "string", "만기 구간", nullable=False),
+        C("n_trades", "int", "거래 건수", nullable=False),
+        C("notional", "float", "명목금액", nullable=False, unit="KRW"),
+        C("fo_value", "float", "FO 평가액", nullable=False, unit="KRW"),
+        C("dv01", "float", "dV01", nullable=False, unit="ratio"),
+        C("cs01", "float", "CS01", nullable=False, unit="ratio"),
+        C("vega", "float", "Vega", nullable=False, unit="ratio"),
+        C("delta", "float", "Δ", nullable=False, unit="ratio"),
+        C("note", "string", "비고", nullable=False),
+    ),
+    primary_key=('asof', 'kind', 'tenor_bucket'),
+)
+
+AGG_OPERATIONAL_LOSS = TableSpec(
+    name="agg_operational_loss", korean="운영손실 집계", product="PRD-OPR",
+    grain="사건유형 × 연도 1행",
+    columns=(
+        C("asof", "string", "기준일", nullable=False),
+        C("event_type", "string", "사건 유형", nullable=False),
+        C("event_year", "string", "발생 연도", nullable=False),
+        C("n_events", "int", "사건 건수", nullable=False),
+        C("gross_loss", "float", "총손실", nullable=False, unit="KRW"),
+        C("recovery", "float", "회수", nullable=False, unit="KRW"),
+        C("net_loss", "float", "순손실", nullable=False, unit="KRW"),
+        C("max_single_loss", "float", "최대 단일손실", nullable=False, unit="KRW"),
+        C("note", "string", "비고", nullable=False),
+    ),
+    primary_key=('asof', 'event_type', 'event_year'),
+)
+
+AGG_ALM_EXPOSURE = TableSpec(
+    name="agg_alm_exposure", korean="ALM 익스포저 집계", product="PRD-ALM",
+    grain="리프라이싱구간 × LCR분류 1행",
+    columns=(
+        C("asof", "string", "기준일", nullable=False),
+        C("repricing_bucket", "string", "리프라이싱 구간", nullable=False),
+        C("lcr_category", "string", "LCR 분류", nullable=False),
+        C("n_exposures", "int", "익스포저 건수", nullable=False),
+        C("ead", "float", "익스포저(EAD)", nullable=False, unit="KRW"),
+        C("irrbb_ead", "float", "금리리스크 대상 EAD", nullable=False, unit="KRW"),
+    ),
+    primary_key=('asof', 'repricing_bucket', 'lcr_category'),
+)
+
+AGG_STRESS_EXPOSURE = TableSpec(
+    name="agg_stress_exposure", korean="위기상황 익스포저 집계", product="PRD-ST",
+    grain="시나리오 × 자산군 1행",
+    columns=(
+        C("asof", "string", "기준일", nullable=False),
+        C("scenario", "string", "시나리오", nullable=False),
+        C("asset_class", "string", "자산군", nullable=False),
+        C("severity", "float", "충격 심도", nullable=False, unit="ratio"),
+        C("n_exposures", "int", "익스포저 건수", nullable=False),
+        C("ead_base", "float", "충격 전 EAD", nullable=False, unit="KRW"),
+        C("ead_stressed", "float", "충격 후 EAD", nullable=False, unit="KRW"),
+        C("note", "string", "비고", nullable=False),
+    ),
+    primary_key=('asof', 'scenario', 'asset_class'),
+)
+
+AGG_TABLES = (AGG_CREDIT_EXPOSURE, AGG_MARKET_EXPOSURE, AGG_OPERATIONAL_LOSS, AGG_ALM_EXPOSURE, AGG_STRESS_EXPOSURE)
+
+
 DETAIL_TABLES = (RDM_DETAIL_TABLES + CRM_DETAIL_TABLES + RWA_DETAIL_TABLES
                  + ECL_DETAIL_TABLES + ALM_DETAIL_TABLES + MKT_DETAIL_TABLES
                  + OPR_DETAIL_TABLES + REG_TABLES + UIX_TABLES
@@ -2038,4 +2459,4 @@ IV_TABLES = (INDEPENDENT_REQUEST, INDEPENDENT_TARGET)
 DETAIL_TABLES = DETAIL_TABLES + IV_TABLES
 ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
               + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES
-              + DETAIL_TABLES)
+              + DETAIL_TABLES + R13_TABLES + AGG_TABLES)

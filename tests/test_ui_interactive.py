@@ -824,7 +824,7 @@ def test_new_screens_render_with_summaries(page):
                        ("한도", "소진율 상위"),
                        ("오버레이", "수동조정 원장"),
                        ("역스트레스", "임계 심도"),
-                       ("코드 마스터", "코드셋"),
+                       ("코드 마스터", "코드그룹"),
                        ("코드 매핑", "엔진 연계 매트릭스")]:
         _tab_named(page, name)
         txt = _text(page)

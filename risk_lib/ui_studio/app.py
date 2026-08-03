@@ -2636,6 +2636,23 @@ const SUMMARIES={
     const mx=f.rows.reduce((a,r)=>r[i.pct_tier1]>a[i.pct_tier1]?r:a,f.rows[0]);
     return {t:`최대 충격 ${mx[i.scenario]} — ΔEVE가 Tier1의 ${(mx[i.pct_tier1]*100).toFixed(1)}% (이상치 기준 15%)`,
       tone:mx[i.pct_tier1]>=0.15?'bad':'good'}},
+  '집합투자증권':()=>{const f=D.data['rwa_fund_result'];if(!f)return null;
+    const i=frameIdx(f);const m={};
+    f.rows.forEach(r=>{m[r[i.adopted_method]]=(m[r[i.adopted_method]]||0)+1});
+    return {t:`펀드 ${f.total}건 — 채택 ${Object.entries(m).map(([k,v])=>k+' '+v).join(' · ')} · 정보 부족은 1250% fallback`,tone:'good'}},
+  '유동화':()=>{const f=D.data['rwa_sec_result'];if(!f)return null;
+    const i=frameIdx(f);
+    const fl=f.rows.filter(r=>r[i.floor_applied]).length;
+    return {t:`트렌치 ${f.total}건 — 하한 적용 ${fl}건 (15% · STC 선순위 10%) · 계층 IRBA→ERBA→SA`,tone:'good'}},
+  '파생상품':()=>{const f=D.data['rdm_derivative_master'];if(!f)return null;
+    const i=frameIdx(f);
+    const n=f.rows.reduce((a,r)=>a+(r[i.notional]||0),0);
+    return {t:`거래 ${f.total}건 · 명목 ${fmtMoney(n)} — SA-CCR 은 기존 엔진(α=1.4) 재사용`,tone:'good'}},
+  '집계 원장':()=>{const f=D.data['agg_credit_exposure'];if(!f)return null;
+    const i=frameIdx(f);
+    const e=f.rows.reduce((a,r)=>a+(r[i.ead]||0),0);
+    return {t:`신용 축 집계 ${f.total}행 · EAD ${fmtMoney(e)} — 도메인마다 축이 다르다`,tone:'good'}},
+  '산출 방법론':()=>({t:'원장에 세 방법 결과가 다 있다 — 방법 변경 영향을 재계산 없이 본다. 적용은 재실행·검증 두 층',tone:'warn'}),
   '코드 매핑':()=>{const cr=D.data['crm_code_scope'],i=frameIdx(cr);
     const n=cr.rows.filter(r=>r[i.in_scope]).length;
     return {t:`계정 ${cr.total}종 중 신용 대상 ${n} — 대상여부는 규칙 파생, 예외는 제안으로만`,tone:'good'}},
@@ -2710,6 +2727,149 @@ function scenarioScreen(root){
       note:'심도 경로·충격 축 배수는 기존 체계를 따른다 — 화면은 재계산하지 않는다.'},null,2);
   };
   root.appendChild(c2);
+}
+
+/* ---- 산출 방법론 설정 — 어느 방법으로 산출할지의 정책 ----
+   방법 선택은 산출값을 바꾼다. 그래서 화면은 **제안서만** 만들고, 적용은
+   코드 반영 + 파이프라인 재실행 + 검증 두 층이다. 다만 각 방법의 결과가
+   이미 원장에 다 들어 있으므로(LTA/MBA/fallback · SA/ERBA/IRBA), 방법을
+   바꿨을 때 값이 얼마나 달라지는지는 **재계산 없이 즉시** 보여줄 수 있다. */
+function methodology(root){
+  root.appendChild(el('p','lead',
+    '집합투자증권(CRE60)·유동화(CRE40) 는 여러 산출 방법이 규정에 함께 있고, '+
+    '어느 것을 쓸지는 정보 가용성과 정책이 정한다. 원장에 세 방법 결과가 모두 '+
+    '들어 있으므로 방법을 바꿨을 때의 차이를 재계산 없이 본다 — 화면은 값을 '+
+    '바꾸지 않고, 적용은 코드 반영 + 재실행 + 2선·3선 검증을 거친다.'));
+
+  /* --- 집합투자증권 --- */
+  const fr=D.data['rwa_fund_result'];
+  if(fr){
+    const i=frameIdx(fr);
+    const c=el('div','card set-method-fund');
+    c.appendChild(el('h3',null,'집합투자증권 — LTA · MBA · Fallback (CRE60)'));
+    const bar=el('div','toolbar');
+    const sel=el('select','sel');
+    [['as_is','원장 채택값 (정보 가용성 기준)'],
+     ['look_through','전건 LTA 강제 (CRE60.5)'],
+     ['mandate','전건 MBA 강제 (CRE60.7)'],
+     ['fallback','전건 Fallback 1250% (CRE60.9)']].forEach(([v,t])=>{
+      const o=el('option');o.value=v;o.textContent=t;sel.appendChild(o)});
+    bar.appendChild(sel);c.appendChild(bar);
+    const pane=el('div');c.appendChild(pane);
+    const COL={look_through:'rwa_lta',mandate:'rwa_mba',fallback:'rwa_fallback'};
+    function draw(){
+      pane.innerHTML='';
+      const base=fr.rows.reduce((a,r)=>a+(r[i.adopted_rwa]||0),0);
+      const pick=sel.value;
+      const alt=fr.rows.reduce((a,r)=>a+(pick==='as_is'
+        ? (r[i.adopted_rwa]||0) : (r[i[COL[pick]]]||0)),0);
+      const g=el('div','grid');
+      [['원장 채택 RWA',base,''],
+       ['선택 방법 RWA',alt,alt>base?'bad':alt<base?'good':''],
+       ['차이',alt-base,Math.abs(alt-base)<1?'':'warn']].forEach(([k,v,t])=>{
+        const cc=el('div','card kpi');
+        cc.appendChild(el('div','lab',k));
+        cc.appendChild(el('div','val '+t,fmtMoney(v)));
+        cc.appendChild(el('div','sub',base?((v/base-1)*100).toFixed(1)+'% (채택 대비)':''));
+        g.appendChild(cc)});
+      pane.appendChild(g);
+      pane.appendChild(table({table:'rwa_fund_result',
+        columns:['fund_id','fund_name','adopted_method','rw_lta','rw_mba','rw_fallback','adopted_rwa'],
+        labels:['펀드','펀드명','채택 방법','LTA RW','MBA RW','Fallback RW','채택 RWA'],
+        rows:fr.rows.map(r=>[r[i.fund_id],r[i.fund_name],r[i.adopted_method],
+          r[i.rw_lta],r[i.rw_mba],r[i.rw_fallback],r[i.adopted_rwa]]),
+        total:fr.total,shown:fr.rows.length}));
+      pane.appendChild(el('div','meta',
+        'LTA 는 편입자산을 직접 보유한 것처럼, MBA 는 운용지침 한도까지 투자했다고 '+
+        '가정한다. 정보가 부족하면 Fallback 1250%.'));
+    }
+    sel.onchange=draw;draw();
+    root.appendChild(c);
+  }
+
+  /* --- 유동화 --- */
+  const sr=D.data['rwa_sec_result'];
+  if(sr){
+    const i=frameIdx(sr);
+    const c=el('div','card set-method-sec');
+    c.appendChild(el('h3',null,'유동화 — SEC-IRBA · ERBA · SA (CRE40.41 계층)'));
+    const bar=el('div','toolbar');
+    const sel=el('select','sel');
+    [['as_is','원장 채택값 (CRE40.41 계층)'],
+     ['irba','전건 SEC-IRBA (가능한 건만)'],
+     ['erba','전건 SEC-ERBA (등급 있는 건만)'],
+     ['sa','전건 SEC-SA']].forEach(([v,t])=>{
+      const o=el('option');o.value=v;o.textContent=t;sel.appendChild(o)});
+    bar.appendChild(sel);c.appendChild(bar);
+    const pane=el('div');c.appendChild(pane);
+    const COL={irba:'rwa_irba',erba:'rwa_erba',sa:'rwa_sa'};
+    function draw2(){
+      pane.innerHTML='';
+      const base=sr.rows.reduce((a,r)=>a+(r[i.adopted_rwa]||0),0);
+      let alt=0,skipped=0;
+      sr.rows.forEach(r=>{
+        if(sel.value==='as_is'){alt+=r[i.adopted_rwa]||0;return}
+        const v=r[i[COL[sel.value]]];
+        /* 산출 불가(등급 없음 등)를 0으로 채우지 않는다 — 채우면 자본이
+           사라지고 그 사실이 화면 어디에도 안 남는다. */
+        if(v==null||Number.isNaN(v)){skipped++;alt+=r[i.adopted_rwa]||0}
+        else alt+=v;
+      });
+      const g=el('div','grid');
+      [['원장 채택 RWA',base,''],['선택 방법 RWA',alt,alt>base?'bad':alt<base?'good':''],
+       ['차이',alt-base,Math.abs(alt-base)<1?'':'warn']].forEach(([k,v,t])=>{
+        const cc=el('div','card kpi');
+        cc.appendChild(el('div','lab',k));
+        cc.appendChild(el('div','val '+t,fmtMoney(v)));
+        g.appendChild(cc)});
+      pane.appendChild(g);
+      if(skipped)pane.appendChild(el('div','note',
+        `산출 불가 ${skipped}건은 채택값을 유지했다 — 0으로 채우면 자본이 `+
+        `사라지고 그 사실이 화면에 남지 않는다.`));
+      pane.appendChild(table({table:'rwa_sec_result',
+        columns:['tranche_id','tranche_name','adopted_method','rw_sa','rw_erba','rw_irba','adopted_rw','floor_applied'],
+        labels:['트렌치','트렌치명','채택','SA RW','ERBA RW','IRBA RW','채택 RW','하한 적용'],
+        rows:sr.rows.map(r=>[r[i.tranche_id],r[i.tranche_name],r[i.adopted_method],
+          r[i.rw_sa],r[i.rw_erba],r[i.rw_irba],r[i.adopted_rw],r[i.floor_applied]]),
+        total:sr.total,shown:sr.rows.length}));
+      pane.appendChild(el('div','meta',
+        '계층은 IRBA → ERBA → SA 순이다(CRE40.41). 위험가중 하한은 15%, '+
+        'STC 선순위는 10%(CRE44.5).'));
+    }
+    sel.onchange=draw2;draw2();
+    root.appendChild(c);
+  }
+
+  /* --- 제안 --- */
+  const c3=el('div','card set-method-proposal');
+  c3.appendChild(el('h3',null,'방법론 변경 제안'));
+  const bar=el('div','toolbar');
+  const dom=el('select','sel');
+  ['집합투자증권','유동화','파생(SA-CCR)'].forEach(x=>{
+    const o=el('option');o.value=x;o.textContent=x;dom.appendChild(o)});
+  const why=el('input','input');why.type='text';
+  why.placeholder='변경 사유 (필수) — 정보 가용성 변화·감독 지적·정책 결정 등';
+  bar.appendChild(dom);bar.appendChild(why);c3.appendChild(bar);
+  const gen=el('button','btn primary','제안 생성');c3.appendChild(gen);
+  const err=el('div','note bad');err.hidden=true;c3.appendChild(err);
+  const out=el('pre','mono');out.style.whiteSpace='pre-wrap';c3.appendChild(out);
+  gen.onclick=()=>{
+    err.hidden=true;out.textContent='';
+    if(STATE.killed&&STATE.killScope==='전사'){
+      err.textContent='비상정지 중 — 제안을 만들지 않는다.';err.hidden=false;return}
+    if(!why.value.trim()){err.textContent='사유는 필수다.';err.hidden=false;return}
+    const path={'집합투자증권':'risk_lib/datamodel/funds.py (approach 결정 규칙)',
+      '유동화':'risk_lib/datamodel/securitisation.py (CRE40.41 계층)',
+      '파생(SA-CCR)':'risk_lib/ccr.py (SF·α·담보 인식)'}[dom.value];
+    out.textContent=JSON.stringify({
+      proposal:'산출 방법론 변경',domain:dom.value,reason:why.value.trim(),
+      asof:D.meta.asof,run_id:D.meta.run_id,apply_path:path,
+      procedure:['방법론 코드 반영','파이프라인 재실행','자체검증(2선) FAIL 0',
+                 '독립검증(3선) 재요청 — 방법론 변경은 지문을 바꾼다',
+                 '게이트 통과 후 결재'],
+      note:'화면은 원장에 이미 있는 대안 값을 보여줄 뿐 산출을 바꾸지 않는다.'},null,2);
+  };
+  root.appendChild(c3);
 }
 
 function settings(root){
@@ -2954,6 +3114,32 @@ const DETAIL_SCREENS=[
         {title:'산출방법별 위험가중자산',src:srcMeta(f)}))},
     forms:['BR-06'],
     tables:[['운영리스크 자본 원장','opr_capital']]})],
+  ['집합투자증권','CIU · 집합투자증권 — 모펀드·편입자산·운용지침 (CRE60)',screenOf({
+    lead:'모펀드 마스터와 편입자산·운용지침을 분리해 LTA·MBA 를 둘 다 산출한다. LTA 는 편입자산을 직접 보유한 것처럼, MBA 는 운용지침 한도까지 투자했다고 가정하며, 정보가 부족하면 1250% fallback 이다.',
+    autochart:[['펀드별 채택 위험가중자산','rwa_fund_result',['fund_name'],'adopted_rwa'],
+               ['자산군별 편입 시가','rdm_fund_holding',['asset_class'],'market_value']],
+    tables:[['펀드 마스터','rdm_fund_master'],['편입자산 (LTA 입력)','rdm_fund_holding'],
+            ['운용지침 한도 (MBA 입력)','rdm_fund_mandate'],
+            ['위험가중자산 — 세 방법·채택값','rwa_fund_result']]})],
+  ['파생상품','DRV · 파생 마스터·기초자산·넷팅집합 (CRE52 SA-CCR)',screenOf({
+    lead:'거래 마스터와 기초자산(다리)을 분리해 SA-CCR EAD 와 시장리스크 민감도를 둘 다 낸다. SA-CCR 엔진은 기존 risk_lib/ccr.py 를 그대로 쓴다 — 기초자산의 자산군 어휘가 그 엔진의 감독계수 키와 같다.',
+    autochart:[['거래상대방별 명목','rdm_derivative_master',['counterparty'],'notional'],
+               ['자산군별 명목','rdm_derivative_underlying',['asset_class'],'notional']],
+    tables:[['파생 마스터','rdm_derivative_master'],['기초자산 (다리)','rdm_derivative_underlying'],
+            ['넷팅집합','rdm_netting_set'],['FRTB 위험군별 민감도','mkt_derivative_sensitivity']]})],
+  ['유동화','SEC · 유동화 딜·트렌치·풀 (CRE40~45 SA·ERBA·IRBA)',screenOf({
+    lead:'딜 마스터와 트렌치·기초자산 풀을 분리해 SEC-SA·ERBA·IRBA 를 모두 산출하고 CRE40.41 계층(IRBA→ERBA→SA)으로 채택한다. 위험가중 하한은 15%, STC 선순위는 10%다.',
+    autochart:[['딜별 보유 위험가중자산','rwa_sec_result',['deal_name'],'adopted_rwa'],
+               ['트렌치별 보유액','rdm_sec_tranche',['tranche_name'],'holding_amount']],
+    tables:[['유동화 딜 마스터','rdm_sec_master'],['트렌치','rdm_sec_tranche'],
+            ['기초자산 풀','rdm_sec_pool'],['위험가중자산 — 세 방법·채택값','rwa_sec_result']]})],
+  ['집계 원장','AGG · 도메인별 익스포저 집계 — 축이 도메인마다 다르다',screenOf({
+    lead:'도메인마다 집계 축과 필요 컬럼이 다르다. 하나의 원장을 각자 집계하면 같은 "익스포저 합"이 도메인마다 달라지고 어느 쪽이 맞는지 사후에 알 수 없다 — 그래서 집계를 원장으로 고정했다. 신용·ALM 집계의 EAD 합은 익스포저 원장 총계와 일치한다.',
+    autochart:[['자산군별 익스포저(신용 축)','agg_credit_exposure',['asset_class'],'ead'],
+               ['리프라이싱 구간별 익스포저(ALM 축)','agg_alm_exposure',['repricing_bucket'],'ead']],
+    tables:[['신용 집계','agg_credit_exposure'],['시장 집계','agg_market_exposure'],
+            ['운영손실 집계','agg_operational_loss'],['ALM 집계','agg_alm_exposure'],
+            ['위기상황 집계','agg_stress_exposure']]})],
   ['상업성','$ · 사업성 — 견적·ROI·Funnel (규제 산출물 아님)',commercial],
   ['시뮬레이션','SIM · 자본비율 영향도 — 설명용 산술 (승인·제출값 아님)',simulation],
   ['한도','LIM · 다차원 한도·소진율',limitsScreen],
@@ -2962,6 +3148,7 @@ const DETAIL_SCREENS=[
   ['시나리오 설정','SET · 위기상황 시나리오 설정 — 축·심도·신규 제안',scenarioScreen],
   ['코드 마스터','SET · 코드 마스터 관리 — 정렬 정본',codeMasterAdmin],
   ['코드 매핑','SET · 계정·상품 코드 × 리스크 대상·특성 매핑',codeScope],
+  ['산출 방법론','SET · 산출 방법론 — LTA/MBA · SEC 계층 선택',methodology],
   ['금리리스크','E · 은행계정 금리리스크(IRRBB) — 충격·갭',rateRisk],
   ['유동성리스크','E · 유동성리스크 — LCR·NSFR',liquidityRisk],
 ];
@@ -2975,7 +3162,8 @@ const NAVGROUPS=[
   ['통제센터',['콕핏','시뮬레이션','한도']],
   ['조회·컴포저',['정형 조회','비정형 UI']],
   ['리스크데이터',[
-    ['RDM',['원천·계약','DQ·대사','예외·조치','담보·보증']],
+    ['RDM',['원천·계약','DQ·대사','예외·조치','담보·보증','집계 원장']],
+    ['선행 원장',['집합투자증권','파생상품','유동화']],
   ]],
   ['위험가중자산(RWA)',[
     ['신용',['모형·등급','조기경보','신용 RWA','ECL']],
@@ -2995,7 +3183,7 @@ const NAVGROUPS=[
   ['사업성',['상업성']],
   ['데이터·설정',[
     '데이터모델',
-    ['⚙ 설정',['코드 마스터','코드 매핑']],
+    ['⚙ 설정',['코드 마스터','코드 매핑','산출 방법론']],
   ]],
 ];
 
