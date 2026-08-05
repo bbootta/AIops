@@ -91,3 +91,25 @@ def test_ledger_impact_covers_every_open_line(built):
     open_n = int((prov["basis"] != BASIS_MEASURED).sum()
                  - (prov["basis"] == "서술").sum())
     assert impact["n_lines"].sum() >= open_n
+
+
+def test_table_path_reports_the_same_basis_as_the_form_objects(built):
+    """정규 테이블로 센 근거 통계가 서식 객체로 센 것과 같아야 한다.
+
+    독립검증 요청은 서식 객체가 아니라 `reg_form_line` 표를 받아 통계를 만든다.
+    그 경로가 라인이 **명시한** `basis` 열을 읽지 않아, 서식 객체로 세면
+    혼합인 배분 라인이 요청 패키지에서는 실측으로 실렸다 — 3선에 배분값이
+    실측이라고 넘어가는 것이며 F-501과 같은 유형이다.
+
+    표에 열이 있는데 읽지 않은 것이 원인이었으므로, 두 경로가 갈라지는 순간
+    깨지게 고정한다. 명시 근거를 쓰는 라인이 없으면 이 검사는 조용히
+    통과하므로, 적어도 한 라인은 명시하고 있는지도 함께 본다.
+    """
+    from risk_lib.regulatory.forms import form_frames
+    from risk_lib.regulatory.provenance import (
+        provenance_stats, provenance_stats_from_lines,
+    )
+    lines = form_frames(built, asof="2026-06-11")["reg_form_line"]
+    assert lines["basis"].notna().any(), (
+        "명시 근거를 쓰는 라인이 하나도 없다 — 이 검사가 아무것도 지키지 않는다")
+    assert provenance_stats_from_lines(lines) == provenance_stats(built)

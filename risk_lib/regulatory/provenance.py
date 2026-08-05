@@ -387,11 +387,17 @@ def provenance_stats_from_lines(lines: pd.DataFrame) -> dict:
     판정은 `line_basis` 하나를 그대로 쓰고 결측만 되돌린다 — 표로 실체화되면
     값 없는 비고 라인의 `value`가 None이 아니라 NaN이라 그 분기를 타지 못하고,
     `formula`·`text_value`의 NaN은 진리값이 참이라 `_blob`이 깨진다.
+
+    `basis`를 함께 되돌리지 않으면 라인이 **명시한** 근거가 이 경로에서만
+    사라지고 문구 추론으로 대체된다. 서식 객체로 세면 혼합인 라인이 요청
+    패키지에서는 실측으로 실렸다 — 배분값이 실측으로 3선에 넘어가는 것이며
+    F-501과 같은 유형이다. 표에 열이 있는데 읽지 않은 것이 원인이었다.
     """
     rows = [SimpleNamespace(
         value=None if pd.isna(r.value) else float(r.value),
         text_value=None if pd.isna(r.text_value) else str(r.text_value),
-        formula=None if pd.isna(r.formula) else str(r.formula))
+        formula=None if pd.isna(r.formula) else str(r.formula),
+        basis=None if pd.isna(r.basis) else str(r.basis))
         for r in lines.itertuples(index=False)]
     return _stats([line_basis(r) for r in rows], lines["form_id"].nunique())
 

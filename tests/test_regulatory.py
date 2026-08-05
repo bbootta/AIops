@@ -300,3 +300,55 @@ def test_forms_build_when_the_month_has_no_elapsed_business_day():
     from risk_lib.regulatory.forms_base import _val
     days = _val(b2316[0].lines, "1000")
     assert days >= 1, "경과 영업일이 0이면 일별 잔액을 한 점도 못 깐다"
+
+
+def test_overseas_rwa_denominator_carries_every_hq_component(built, result,
+                                                             portfolio,
+                                                             tables):
+    """해외영업점 RWA 분모가 본점 RWA 구성요소를 하나도 빠뜨리지 않는다.
+
+    빠뜨리면 **분모에서만** 사라진다 — 분자인 배분자본은 `overseas_share`로
+    전액 배분되므로 해외 자본비율이 본점보다 구조적으로 높아진다. 구조화
+    (집합투자증권 CRE60 · 유동화 CRE40) 4.13조가 그랬다. BF602 총자본비율이
+    15.88%로 본점 10.94%를 4.94%p 웃돌았고 그 차이는 전부 누락이었다.
+
+    라인 이름을 세지 않고 **본점 구성요소 목록**을 기준으로 본다. 파이프라인에
+    갈래가 늘면(HANDOFF §7) 배분을 잊는 순간 이 검사가 먼저 깨진다.
+    """
+    from risk_lib.regulatory.forms_base import _val
+    from risk_lib.regulatory.forms_fss_overseas_data import overseas_share
+    from risk_lib.regulatory.forms import _Ctx
+
+    rwa = result.rwa
+    hq = {
+        "신용리스크": float(rwa["sa"]) + float(rwa["irb"]),
+        "거래상대방신용리스크": float(rwa["ccr"]),
+        "시장리스크": float(rwa["market"]),
+        "운영리스크": float(rwa["op"]),
+        "산출하한": float(rwa["output_floor"].add_on),
+        "구조화": float(rwa.get("structured_total", 0.0)),
+    }
+    bf602 = next(b for b in built if b.spec.form_id == "BF602")
+    # 라인이 아예 없는 경우와 라인은 있는데 0인 경우를 같이 잡는다 — 후자가
+    # 조용한 누락의 흔한 모양이다.
+    def _allocated(name: str) -> float:
+        return sum(float(ln.value or 0.0) for ln in bf602.lines
+                   if name in ln.line_name and ln.unit == "KRW")
+
+    missing = [name for name, hq_value in hq.items()
+               if hq_value > 0.0 and _allocated(name) <= 0.0]
+    assert not missing, (
+        f"본점에 있는데 해외 분모에 없는 구성요소: {missing} — 분자만 배분되어 "
+        f"해외 자본비율이 부풀려진다")
+
+    # 구조화는 두 원장에 소재국 축이 없어 자기자본과 **같은 비중**으로 배분한다.
+    # 다른 비중을 쓰면 분자·분모가 서로 다른 은행을 설명하게 된다.
+    ctx = _Ctx(result, portfolio, tables)
+    w = overseas_share(ctx)
+    line = next(ln for ln in bf602.lines if "구조화" in ln.line_name
+                and ln.unit == "KRW")
+    assert line.value == pytest.approx(hq["구조화"] * w, rel=1e-12)
+
+    # 해외 RWA 합계는 서식 자체대사(_sum_check)가 이미 보지만, 구조화를 넣고도
+    # 합계에 반영하지 않는 경로가 남지 않도록 여기서도 확인한다.
+    assert _val(bf602.lines, "2000") >= line.value

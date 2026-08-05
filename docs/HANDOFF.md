@@ -1,7 +1,7 @@
 # 핸드오프 — 리스크관리 팀에이전트
 
 **작성 시점** 2026-08-05 · **브랜치** `claude/risk-management-agent-harness-B9Kxm` (origin과 동기)
-**최종 커밋** `d47f866` · 작업 트리 clean
+**최종 커밋** 해외영업점 RWA 분모 구조화 배분 · 작업 트리 clean
 
 다음 세션은 이 문서부터 읽고 시작하면 된다. 대화 기록 없이도 이어갈 수 있게 썼다.
 
@@ -10,15 +10,17 @@
 ## 1. 지금 서 있는 자리
 
 `risk_lib` — 한국 은행 리스크관리 산출 하네스. 원장 107장, 감독 서식 290장,
-에이전틱 UI 화면 72개, 테스트 1,129건.
+에이전틱 UI 화면 72개, 테스트 1,078건 (`python -m pytest tests/ -q` 수집 기준 —
+직전 판이 적은 1,129건은 재현되지 않았다. 세는 방법이 달랐던 듯하나 근거가
+남아 있지 않아 측정값으로 대체했다).
 
 **최근 3개 커밋이 한 일**
 
 | 커밋 | 내용 |
 |---|---|
-| `d0cb1f4` | '모형' 메뉴그룹 1레벨 신설 — 전 도메인 모형 거버넌스 5화면 |
 | `89917da` | 구조화 익스포저(CRE60·CRE40)를 자본비율 분모에 통합 |
 | `d47f866` | 콕핏 자본 KPI가 제약 계층을 따르게 |
+| (직전) | 해외영업점 RWA 분모에 구조화 배분 — 본점 통합이 한 층 아래 남긴 누락 |
 
 **아티팩트** https://claude.ai/code/artifact/2613d0db-3fc5-4849-b35a-1041442c1b38
 (재배포: 빌드 후 같은 URL을 `url` 인자로 넘긴다 — 안 넘기면 새 URL이 발급된다)
@@ -40,8 +42,18 @@ CET1          8.1193%   요구 8.00%    여유 +0.119%p
 
 자체검증 (2선)      PASS 49 · WARN 6 · FAIL 0   (파이프라인 단독)
                     PASS 60 · WARN 6 · FAIL 0   (스튜디오 — 서식 검사 포함)
-상시 독립검증 (3선)  응답대기 (IVR-AC0EDF9E5A37, 17차)
+상시 독립검증 (3선)  응답대기 (IVR-CEB70642E24B, 18차)
 게이트               부적합 — fail-closed, 결재 불가
+```
+
+해외영업점 서식(asof 동일)은 18차에서 분모가 바뀌었다. **본점 헤드라인은
+무변**이고 해외 서식만 움직인다.
+
+```
+BF602   총자본비율    15.878% → 10.991%   (본점 10.939%와 거의 같아진다)
+        기본자본비율   13.294% →  9.202%
+BF602-1 보통주자본비율 11.786% →  8.159%
+BF706   자본적정성 점수  20 → 12 · 총점 88 → 80 (2등급 유지)
 ```
 
 **골든은 `tests/test_pipeline_e2e.py`의 `GOLDEN`에 고정돼 있다.** 헤드라인을
@@ -70,11 +82,17 @@ CET1          8.1193%   요구 8.00%    여유 +0.119%p
 
 ## 4. 다음에 할 일
 
-### 4.1 막고 있는 것 — 3선 17차 응답
+### 4.1 막고 있는 것 — 3선 18차 응답
 
-`IVR-AC0EDF9E5A37` 응답 대기. 게이트가 fail-closed라 결재 불가.
+`IVR-CEB70642E24B` 응답 대기. 게이트가 fail-closed라 결재 불가.
 요청서는 `docs/independent_validation/RUN-20260630-42.request.json`.
 검증 팀에이전트 브랜치는 `claude/validation-team-agent-Pw9F5`.
+
+3선의 정본 응답은 아직 15차(`IVR-8CDB13393503` · 경부적합)에 머물러 있다 —
+16·17차는 응답을 받기 전에 지문이 바뀌어 무효가 됐고, 18차도 같은 경로다.
+**요청을 쌓는 것과 응답을 받는 것은 다르다.** 회차가 계속 무효화되면 결재까지
+가는 경로 자체가 열리지 않으므로, 다음 세션은 새 산출 변경을 얹기 전에
+3선 응답을 받는 쪽을 먼저 볼 것.
 
 **이번 회차에 3선에 올린 1차 도전 지점** — 구조화 익스포저를 분모에 넣은 근거는
 "두 원장이 은행계정 익스포저와 **모집단이 겹치지 않는다**"이다(자산군 5종에
@@ -91,8 +109,14 @@ CET1          8.1193%   요구 8.00%    여유 +0.119%p
 - **위기상황분석이 구조화 RWA를 고정한다.** 등급 하락 시 SEC-ERBA 위험가중치
   상승분이 자본 충격에 반영되지 않는다. `STRESS_MACRO` 모형의
   `known_limitations`에 등록 (`risk_lib/model_inventory.py`).
-- **해외영업점 서식에 구조화를 배분하지 않았다.** 두 원장에 소재국 축이 없다.
-  서식 9000 라인에 "0은 해외 몫이 없다가 아니라 배분 근거가 없다는 뜻"으로 명시.
+- ~~해외영업점 서식에 구조화를 배분하지 않았다.~~ **18차에서 해소.** 시장리스크·
+  산출하한과 같은 근거(해외 EAD 비중)로 배분했다. 소재국 축이 여전히 없으므로
+  실측이 아니라 배분이며, 라인 근거를 `혼합`으로 명시했다.
+- **`BF602` 2020~2050(CCR·시장·운영·산출하한)이 실측으로 분류된다.** 전부
+  배분값인데 문구에 파생 표지가 없어 `line_basis` 추론이 실측으로 떨어진다.
+  18차 변경 범위 밖이라 손대지 않았고 3선 도전 지점 4로 올렸다. 고칠 때는
+  `_DERIVED` 어휘를 넓히지 말 것 — 290장 전체가 재분류된다. 라인에 `basis`를
+  명시하는 쪽이 범위가 좁다.
 - **자본이 합성이다.** `capital_source` WARN이 매 실행 그 사실과 규모 비례분
   비율을 드러낸다. 실제 자본 원장이 생기면 `run_pipeline(capital_ledger=...)`로
   넘긴다 — 합성기는 그때 자동으로 비켜난다.
@@ -116,6 +140,26 @@ python -m pytest tests/test_pipeline_e2e.py -q
 #            playwright install 을 절대 실행하지 않는다)
 python -m pytest tests/test_ui_interactive.py tests/test_ui_studio.py -q
 
+# 3선 요청 재생성 + 게이트 확인 (산출·서식을 바꿨으면 매번)
+python -m risk_lib.cli validation-request --asof 2026-06-30 --seed 42
+
+# 시정 문서의 generated 구간 재생성 — CLI가 없다. 서식이 바뀌면 자체검증에
+# doc_figures_provenance FAIL 2건이 뜨고, 이걸 돌린 **뒤에** 요청을 다시 만든다
+# (FAIL 을 안은 요청은 그 자체로 다른 요청이라 지문이 또 움직인다)
+python -c "
+from pathlib import Path
+from risk_lib.data_gen import generate_portfolio
+from risk_lib.pipeline import run_pipeline
+from risk_lib.ui_studio.studio import build_studio
+from risk_lib.regulatory import build_forms
+from risk_lib.validation.doc_figures import REMEDIATION_DOC, fill_blocks, generated_blocks
+p = generate_portfolio(seed=42); r = run_pipeline(p, seed=42, asof='2026-06-30')
+built = build_forms(r, p, build_studio(r, p).tables)
+d = Path(REMEDIATION_DOC)
+d.write_text(fill_blocks(d.read_text(encoding='utf-8'),
+                         generated_blocks(built, '2026-06-30')), encoding='utf-8')
+"
+
 # 배포용 UI 빌드 (약 12분 · 기준일 2종)
 python -c "
 from risk_lib.cli import main
@@ -138,6 +182,12 @@ raise SystemExit(main(['ui-studio','--asof','2026-03-31,2026-06-30',
 - 잔차로 항목 구하기 — `credit = total − a − b − c` 구조에서는 빠뜨린 항목이
   전부 `credit`이라는 틀린 이름을 달고 통과한다 (구 바젤 서식이 그랬다)
 - 기본값을 사실처럼 표시하기 (비신용 모형의 `segment`가 전부 `corporate`였다)
+- 표로 실체화하면서 열을 빠뜨려 **명시한 값이 추론으로 대체되기** —
+  `provenance_stats_from_lines`가 `reg_form_line`의 `basis` 열을 읽지 않아,
+  서식 객체로 세면 혼합인 배분 라인이 3선 요청서에서는 실측으로 실렸다.
+  열은 있었고 읽지 않았을 뿐이다
+- 배분 항목을 분모에서만 빼기 — 분자는 배분된 채 남아 비율이 부풀려진다
+  (해외 자본비율이 본점보다 4.89%p 높았다)
 
 **통제가 통제가 아니었던 경우**
 - 테스트가 실제 환경엔 없는 도움을 주기 — Kill Switch 테스트가

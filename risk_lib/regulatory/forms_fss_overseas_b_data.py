@@ -272,11 +272,17 @@ def overseas_rwa(ctx) -> dict[str, float]:
         "market": float(r.rwa["market"]) * w,
         "op": float(r.rwa["op"]) * rev_share,
         "floor": float(r.rwa["output_floor"].add_on) * floor_share,
+        # 구조화(집합투자증권·유동화)는 두 원장에 소재국 축이 없다. 배분하지 않고
+        # 두면 분모에서만 빠지는데 분자인 배분자본은 `w`로 전액 배분되므로,
+        # 해외 자본비율이 본점보다 구조적으로 높게 나온다 — 트레이딩계정과 같은
+        # 상황이므로 같은 근거(EAD 비중 `w`)로 배분한다. 배분값이지 실측이 아니다.
+        "structured": float(r.rwa.get("structured_total", 0.0)) * w,
         "ccr_share": ccr_share, "market_share": w, "op_share": rev_share,
+        "structured_share": w,
         "group_total": float(r.rwa["final_total"]),
     }
     out["total"] = out["credit"] + out["ccr"] + out["market"] + out["op"] \
-        + out["floor"]
+        + out["floor"] + out["structured"]
     return out
 
 
