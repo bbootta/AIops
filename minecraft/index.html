@@ -787,6 +787,30 @@ function isLiquid(t) { return t === BLOCK.WATER || t === BLOCK.LAVA; }
 function isSolid(t) { return t && !isLiquid(t); }                            // 조준/설치 대상 여부
 // 충돌·면 가림 여부 (액체·횃불·작물·포탈은 통과)
 function occludes(t) { return t && !isLiquid(t) && t !== BLOCK.TORCH && t !== BLOCK.CROP && !PORTAL_BLOCKS.has(t) && t !== BLOCK.FLOWER_R && t !== BLOCK.FLOWER_Y; }
+// 두 지점 사이를 가리는 블록이 있는지 (복셀 DDA) — 벽 뒤 대상은 못 맞히게 하는 시야 판정
+function hasLineOfSight(ax, ay, az, bx, by, bz) {
+  const dx = bx - ax, dy = by - ay, dz = bz - az;
+  const len = Math.hypot(dx, dy, dz);
+  if (len < 1e-6) return true;
+  const ux = dx / len, uy = dy / len, uz = dz / len;
+  let x = Math.floor(ax), y = Math.floor(ay), z = Math.floor(az);
+  const stepX = ux > 0 ? 1 : -1, stepY = uy > 0 ? 1 : -1, stepZ = uz > 0 ? 1 : -1;
+  const tdX = ux !== 0 ? Math.abs(1 / ux) : Infinity;
+  const tdY = uy !== 0 ? Math.abs(1 / uy) : Infinity;
+  const tdZ = uz !== 0 ? Math.abs(1 / uz) : Infinity;
+  let tmX = ux !== 0 ? (stepX > 0 ? x + 1 - ax : ax - x) * tdX : Infinity;
+  let tmY = uy !== 0 ? (stepY > 0 ? y + 1 - ay : ay - y) * tdY : Infinity;
+  let tmZ = uz !== 0 ? (stepZ > 0 ? z + 1 - az : az - z) * tdZ : Infinity;
+  for (let i = 0; i < 128; i++) {
+    let t;
+    if (tmX < tmY && tmX < tmZ) { x += stepX; t = tmX; tmX += tdX; }
+    else if (tmY < tmZ) { y += stepY; t = tmY; tmY += tdY; }
+    else { z += stepZ; t = tmZ; tmZ += tdZ; }
+    if (t > len) return true; // 목표 지점까지 가림 없음
+    if (occludes(getBlock(x, y, z))) return false;
+  }
+  return true;
+}
 // 편집 기록: 저장용 Map + 아직 생성 안 된 청크를 위해 청크별 색인도 갱신
 function noteEdit(x, y, z, t) {
   const k = key(x, y, z);
@@ -1989,40 +2013,64 @@ const ANIMAL_TYPES = [
 ];
 const EYE_WHITE = new THREE.MeshLambertMaterial({ color: 0xf6f6f6 });
 const EYE_BLACK = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+// 동물도 좀비처럼 스폰/소멸을 반복하므로 지오메트리·머티리얼을 공유 (누수 방지)
+const AG_BODY = new THREE.BoxGeometry(0.6, 0.5, 0.9);
+const AG_HEAD = new THREE.BoxGeometry(0.4, 0.4, 0.35);
+const AG_SNOUT = new THREE.BoxGeometry(0.22, 0.16, 0.1);
+const AG_EYE_W = new THREE.BoxGeometry(0.09, 0.09, 0.03);
+const AG_EYE_B = new THREE.BoxGeometry(0.05, 0.05, 0.03);
+const AG_EAR = new THREE.BoxGeometry(0.1, 0.12, 0.05);
+const AG_TAIL = new THREE.BoxGeometry(0.07, 0.2, 0.07);
+const AG_LEG = new THREE.BoxGeometry(0.14, 0.4, 0.14);
+const ANIMAL_LEG_MAT = new THREE.MeshLambertMaterial({ color: 0x6b5546 });
+// 개체마다 살짝 다른 색(R8)은 종별로 미리 만든 변주 재질을 돌려써서 낸다 (개체당 새 재질 X)
+const ANIMAL_VARIANTS = 6;
+const animalMats = new Map();
+function animalMatsOf(type) {
+  let v = animalMats.get(type);
+  if (!v) {
+    const jitter = (c) => new THREE.Color(c).offsetHSL(0, (Math.random() - 0.5) * 0.05, (Math.random() - 0.5) * 0.06);
+    v = [];
+    for (let i = 0; i < ANIMAL_VARIANTS; i++) {
+      v.push({
+        body: new THREE.MeshLambertMaterial({ color: jitter(type.body) }),
+        head: new THREE.MeshLambertMaterial({ color: jitter(type.head) }),
+      });
+    }
+    animalMats.set(type, v);
+  }
+  return v[Math.floor(Math.random() * v.length)];
+}
 function makeAnimalMesh(type) {
   const g = new THREE.Group();
-  // 같은 종이라도 개체마다 아주 살짝 다른 색 (R8)
-  const jitter = (c) => new THREE.Color(c).offsetHSL(0, (Math.random() - 0.5) * 0.05, (Math.random() - 0.5) * 0.06);
-  const bodyMat = new THREE.MeshLambertMaterial({ color: jitter(type.body) });
-  const headMat = new THREE.MeshLambertMaterial({ color: jitter(type.head) });
-  const legMat = new THREE.MeshLambertMaterial({ color: 0x6b5546 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.9), bodyMat);
+  const { body: bodyMat, head: headMat } = animalMatsOf(type);
+  const body = new THREE.Mesh(AG_BODY, bodyMat);
   body.position.y = 0.65;
   g.add(body);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.35), headMat);
+  const head = new THREE.Mesh(AG_HEAD, headMat);
   head.position.set(0, 0.85, -0.55);
   g.add(head);
-  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 0.1), headMat); // 주둥이
+  const snout = new THREE.Mesh(AG_SNOUT, headMat); // 주둥이
   snout.position.set(0, 0.8, -0.76);
   g.add(snout);
   for (const ex of [-0.11, 0.11]) { // 눈 (흰자 + 눈동자)
-    const w = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.03), EYE_WHITE);
+    const w = new THREE.Mesh(AG_EYE_W, EYE_WHITE);
     w.position.set(ex, 0.93, -0.73);
     g.add(w);
-    const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.03), EYE_BLACK);
+    const b2 = new THREE.Mesh(AG_EYE_B, EYE_BLACK);
     b2.position.set(ex, 0.93, -0.75);
     g.add(b2);
   }
   for (const ex of [-0.15, 0.15]) { // 귀
-    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.05), headMat);
+    const ear = new THREE.Mesh(AG_EAR, headMat);
     ear.position.set(ex, 1.08, -0.5);
     g.add(ear);
   }
-  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.2, 0.07), headMat); // 꼬리
+  const tail = new THREE.Mesh(AG_TAIL, headMat); // 꼬리
   tail.position.set(0, 0.78, 0.48);
   g.add(tail);
   for (const [lx, lz] of [[-0.18, -0.3], [0.18, -0.3], [-0.18, 0.3], [0.18, 0.3]]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.4, 0.14), legMat);
+    const leg = new THREE.Mesh(AG_LEG, ANIMAL_LEG_MAT);
     leg.position.set(lx, 0.2, lz);
     g.add(leg);
   }
@@ -2032,12 +2080,14 @@ function makeAnimalMesh(type) {
 // 용암 달팽이(네더): 낮고 느린 주황 생물, 잡으면 금 드롭
 const SNAIL_MAT = new THREE.MeshLambertMaterial({ color: 0xe07830 });
 const SNAIL_SHELL = new THREE.MeshLambertMaterial({ color: 0x6e3a1a });
+const SG_BODY = new THREE.BoxGeometry(0.5, 0.25, 0.8);
+const SG_SHELL = new THREE.BoxGeometry(0.45, 0.4, 0.45);
 function makeSnailMesh() {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, 0.8), SNAIL_MAT);
+  const body = new THREE.Mesh(SG_BODY, SNAIL_MAT);
   body.position.y = 0.13;
   g.add(body);
-  const shell = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.4, 0.45), SNAIL_SHELL);
+  const shell = new THREE.Mesh(SG_SHELL, SNAIL_SHELL);
   shell.position.set(0, 0.42, 0.1);
   g.add(shell);
   g.userData.bodyMat = SNAIL_MAT;
@@ -2045,9 +2095,10 @@ function makeSnailMesh() {
 }
 // 떠돌이 정령(보이드): 공중을 떠다니는 빛 구슬, 잡으면 에메랄드 드롭
 const WISP_MAT = new THREE.MeshLambertMaterial({ color: 0xbfe8ff, emissive: 0x70c8ff, emissiveIntensity: 1, transparent: true, opacity: 0.9 });
+const WG_CORE = new THREE.BoxGeometry(0.35, 0.35, 0.35);
 function makeWispMesh() {
   const g = new THREE.Group();
-  const core = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), WISP_MAT);
+  const core = new THREE.Mesh(WG_CORE, WISP_MAT);
   core.position.y = 0.5;
   g.add(core);
   g.userData.bodyMat = WISP_MAT;
@@ -2220,6 +2271,10 @@ function updateAnimals(dt) {
 const VILL_ROBE = new THREE.MeshLambertMaterial({ color: 0x7a5230 });
 const VILL_APRON = new THREE.MeshLambertMaterial({ color: 0x9c6b3c });
 const VILL_SKIN = new THREE.MeshLambertMaterial({ color: 0xd8a882 });
+const VG_APRON = new THREE.BoxGeometry(0.4, 0.4, 0.31);
+const VG_NOSE = new THREE.BoxGeometry(0.12, 0.22, 0.14);
+const VG_BROW = new THREE.BoxGeometry(0.36, 0.06, 0.02);
+const VG_ARM = new THREE.BoxGeometry(0.16, 0.5, 0.16);
 function makeVillagerMesh() {
   const g = new THREE.Group();
   for (const lx of [-0.12, 0.12]) {
@@ -2230,20 +2285,20 @@ function makeVillagerMesh() {
   const body = new THREE.Mesh(ZG_BODY, VILL_ROBE);
   body.position.y = 1.05;
   g.add(body);
-  const apron = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.31), VILL_APRON); // 앞치마
+  const apron = new THREE.Mesh(VG_APRON, VILL_APRON); // 앞치마
   apron.position.set(0, 1.0, 0);
   g.add(apron);
   const head = new THREE.Mesh(ZG_HEAD, VILL_SKIN);
   head.position.y = 1.65;
   g.add(head);
-  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.14), VILL_SKIN); // 큼직한 코
+  const nose = new THREE.Mesh(VG_NOSE, VILL_SKIN); // 큼직한 코
   nose.position.set(0, 1.62, -0.28);
   g.add(nose);
-  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.06, 0.02), VILL_ROBE);
+  const brow = new THREE.Mesh(VG_BROW, VILL_ROBE);
   brow.position.set(0, 1.78, -0.23);
   g.add(brow);
   for (const ax of [-0.33, 0.33]) { // 배 앞에 모은 팔
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), VILL_ROBE);
+    const arm = new THREE.Mesh(VG_ARM, VILL_ROBE);
     arm.position.set(ax, 1.15, -0.05);
     g.add(arm);
   }
@@ -3286,12 +3341,12 @@ function updateZombies(dt) {
           if (z.fuse >= 1.4) { explodeCreeper(z); continue; }
         } else { z.fuse = Math.max(0, z.fuse - dt); z.mesh.scale.setScalar(1); }
       } else if (z.warden) {
-        // 워든: 느리게 다가오며 벽을 뚫는 음파 사격
+        // 워든: 느리게 다가오며 음파 사격 (벽에 가리면 빗나감 — 셸터로 피할 수 있게)
         speed = z.chaseSpeed;
         z.sonicT -= dt;
-        if (z.sonicT <= 0 && d < 18) {
+        if (z.sonicT <= 0 && d < 18 && hasLineOfSight(z.pos.x, z.pos.y + 2, z.pos.z, player.pos.x, player.pos.y + 1, player.pos.z)) {
           z.sonicT = 3.5;
-          for (let i = 1; i <= 8; i++) { // 푸른 음파 궤적 (블록 무시)
+          for (let i = 1; i <= 8; i++) { // 푸른 음파 궤적
             const t = i / 8;
             spawnFx(z.pos.x + dx * t, z.pos.y + 2 + (player.pos.y + 1 - z.pos.y - 2) * t, z.pos.z + dz * t, WARDEN_SOUL, 1, 1.2, 0.35);
           }

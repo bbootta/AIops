@@ -101,7 +101,9 @@ function runGame(saveJson, label, drive, opts) {
   const perf = { now: () => (t += 16.7) };
   // setTimeout은 동기 실행(부팅 지연·토스트 타이머가 테스트 안에서 즉시 돌도록)
   const syncTimeout = (fn) => { fn(); return 0; };
-  const runner = new Function('THREE', 'document', 'window', 'navigator', 'localStorage', 'performance', 'requestAnimationFrame', 'setInterval', 'setTimeout', 'clearTimeout', 'addEventListener', 'console', src);
+  // 게임 코드를 건드리지 않고 내부 함수를 직접 단언하기 위한 테스트 훅
+  const hooked = src + '\n;window.__mc = { hasLineOfSight, getBlock, setBlock, player };';
+  const runner = new Function('THREE', 'document', 'window', 'navigator', 'localStorage', 'performance', 'requestAnimationFrame', 'setInterval', 'setTimeout', 'clearTimeout', 'addEventListener', 'console', hooked);
   runner(THREE, doc, win, navi, localStorage, perf, (fn) => { captured.loop = fn; }, () => 0, syncTimeout, () => {}, gAdd, console);
   const step = (n) => { for (let i = 0; i < n; i++) captured.loop(perf.now()); };
   step(2);
@@ -365,6 +367,23 @@ try {
     console.log('  [F] 💜 대형 광선 발사 확인됨 (굵기 8칸)');
   }, { noMove: true });
 } catch (e) { fails++; console.log('  [F] FAIL:', (e && e.stack) || e); }
+
+// G: 시야 판정 — 워든 음파가 벽을 관통하지 않는지 (밀폐 셸터가 유효해야 함)
+try {
+  runGame(null, 'G: 음파 시야 판정(벽 관통 방지)', ({ step }) => {
+    step(20);
+    const { hasLineOfSight, setBlock, player } = win.__mc;
+    const y = Math.floor(player.pos.y) + 20; // 지형 위 허공에서 순수하게 판정
+    const x = Math.floor(player.pos.x), z = Math.floor(player.pos.z);
+    if (!hasLineOfSight(x + 0.5, y + 0.5, z + 0.5, x + 8.5, y + 0.5, z + 0.5)) throw new Error('뚫린 공간인데 시야가 막힘');
+    setBlock(x + 4, y, z, 3); // 사이에 돌(BLOCK.STONE) 한 칸
+    if (hasLineOfSight(x + 0.5, y + 0.5, z + 0.5, x + 8.5, y + 0.5, z + 0.5)) throw new Error('벽을 세웠는데 시야가 뚫림');
+    if (!hasLineOfSight(x + 0.5, y + 0.5, z + 0.5, x + 0.5, y + 3.5, z + 0.5)) throw new Error('벽과 무관한 방향이 막힘');
+    setBlock(x + 4, y, z, 0);
+    if (!hasLineOfSight(x + 0.5, y + 0.5, z + 0.5, x + 8.5, y + 0.5, z + 0.5)) throw new Error('벽을 치웠는데 시야가 막힘');
+    console.log('  [G] 👂 벽 유/무에 따른 음파 시야 판정 확인됨');
+  }, { noMove: true });
+} catch (e) { fails++; console.log('  [G] FAIL:', (e && e.stack) || e); }
 
 console.log(fails ? `\nSMOKE FAILED (${fails})` : '\nSMOKE PASSED');
 process.exit(fails ? 1 : 0);
