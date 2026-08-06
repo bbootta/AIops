@@ -391,6 +391,35 @@ def _check_macro_ecl(macro, report: ValidationReport) -> None:
                    "ECL not monotone in GDP severity"))
 
 
+def _check_ecl_ttc_pit_gap(macro, ecl_total: float | None,
+                           report: ValidationReport) -> None:
+    """TTC(서식·충당금 기준)와 PIT(확률가중 KPI)의 관계를 드러낸다.
+
+    두 값은 정의가 달라 다른 것이 정상이다. 문제는 그 차이가 **보고되지 않고**
+    지나가는 것이다 — 어느 쪽이 결재 근거인지 묻지 않게 되면, 같은 이름의 ECL이
+    화면마다 다른 값을 갖는 상태로 굳는다.
+
+    forward-looking uplift가 음수면 거시연계가 완화 방향으로 작동한 것이라
+    IFRS 9 취지와 어긋날 수 있으므로 WARN으로 올린다.
+    """
+    if macro is None or ecl_total is None:
+        return
+    ttc = float(ecl_total)
+    pit = float(macro.weighted_total)
+    if ttc <= 0:
+        return
+    uplift = pit - ttc
+    detail = (f"TTC {ttc:,.0f} · PIT {pit:,.0f} · forward-looking uplift "
+              f"{uplift:+,.0f} ({uplift / ttc:+.1%})")
+    if uplift < 0:
+        report.add(ConsistencyCheck("ecl_ttc_pit_gap", "WARN",
+                   detail + " — 거시연계가 충당금을 낮추는 방향이다",
+                   metric=uplift / ttc))
+    else:
+        report.add(ConsistencyCheck("ecl_ttc_pit_gap", "PASS", detail,
+                   metric=uplift / ttc))
+
+
 def _check_reverse_stress(rev, report: ValidationReport) -> None:
     if rev is None:
         return
@@ -812,6 +841,11 @@ def run_consistency_checks(
     _check_concentration(concentration, rep)
     _check_stress_monotone(stress_results, rep)
     _check_macro_ecl(macro_ecl_result, rep)
+    _check_ecl_ttc_pit_gap(
+        macro_ecl_result,
+        None if ecl_results is None or "ecl" not in getattr(ecl_results, "columns", [])
+        else float(ecl_results["ecl"].sum()),
+        rep)
     _check_reverse_stress(reverse_stress_result, rep)
     _check_stress_path(stress_path_result, rep)
     _check_macro_ecl_path(macro_ecl_path_result, rep)

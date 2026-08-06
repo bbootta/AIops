@@ -227,9 +227,18 @@ def band_of(value: float, bands=RATE_BANDS) -> str:
 
 
 def _grade_map(ctx) -> dict[str, str]:
-    """차주별 SA 신용등급 — 신용모형 등급이 우선이고 은행·국가는 원장 등급이다."""
+    """차주별 SA 신용등급 — 신용모형 등급이 우선이고 은행·국가는 원장 등급이다.
+
+    `crm_rating.grade`는 카탈로그 선언대로 등급 **문자열**이다. 한때 이 열에
+    RatingGrade 객체가 들어가 있었고 여기서 `.sa_bucket`을 직접 꺼내 썼는데,
+    그건 원장 스펙을 어긴 상태에 기대는 것이었다. 등급 → SA 버킷 환산은
+    master scale 한 곳에서만 한다.
+    """
+    from risk_lib.models.rating import DEFAULT_MASTER_SCALE
+    sa_of = {g.grade: g.sa_bucket for g in DEFAULT_MASTER_SCALE}
     cr = ctx.tables["crm_rating"]
-    out = {str(o): str(g.sa_bucket) for o, g in zip(cr["obligor_id"], cr["grade"])}
+    out = {str(o): sa_of.get(str(g), str(g))
+           for o, g in zip(cr["obligor_id"], cr["grade"])}
     p = ctx.portfolio
     for o, rt in zip(p["obligor_id"], p["rating"]):
         if str(o) not in out and str(rt) in GRADE_ORDER:

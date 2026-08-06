@@ -106,7 +106,10 @@ def materialize_crm(result, portfolio, base: dict[str, pd.DataFrame]
     from risk_lib.models.rating import pd_to_rating
     # pd_to_rating은 스칼라 API — 벡터를 넘기면 조용히 틀리는 게 아니라
     # 예외가 나므로 명시적으로 매핑한다.
-    g["grade"] = [pd_to_rating(float(x)) for x in g["pd"]]
+    # `.grade`를 꺼내지 않으면 RatingGrade 데이터클래스가 그대로 열에 들어간다.
+    # 카탈로그는 이 열을 string·allowed=GRADES로 선언하는데 그 상태로 통과했다.
+    # 저장소의 다른 호출부 8곳은 전부 `.grade`를 꺼낸다 — 여기만 빠져 있었다.
+    g["grade"] = [pd_to_rating(float(x)).grade for x in g["pd"]]
     rating = pd.DataFrame({
         "obligor_id": g["obligor_id"],
         "asof": asof,

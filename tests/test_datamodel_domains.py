@@ -108,7 +108,12 @@ def test_crm_rating_grades_come_from_master_scale(tables):
     assert (r["pd"].between(0, 1)).all()
     sample = r.head(50)
     for _, row in sample.iterrows():
-        assert row["grade"] == pd_to_rating(float(row["pd"]))
+        # `.grade`를 꺼내 비교한다. 예전에는 열에 RatingGrade 객체가 그대로
+        # 들어가 있었고 이 검사가 그 상태를 계약으로 고정하고 있었다 — 검사가
+        # 코드와 같은 오해를 공유하면 결함을 통과시킨다. 카탈로그는 이 열을
+        # string으로 선언한다.
+        assert row["grade"] == pd_to_rating(float(row["pd"])).grade
+        assert isinstance(row["grade"], str)
 
 
 def test_crm_rating_is_one_row_per_obligor(tables):

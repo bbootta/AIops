@@ -879,6 +879,10 @@ def _b2914(ctx):
                  formula="구조화 위험가중자산 × 8%",
                  citation="CRE60 · CRE40",
                  source_module="risk_lib.datamodel.securitisation"),
+        FormLine("1275", "거래상대방신용리스크 소요자본 (SA-CCR + CVA)", 1, "KRW",
+                 _amount(c["rwa_ccr"]),
+                 formula="거래상대방신용리스크 위험가중자산 × 8%",
+                 citation="CRE52 · MAR50", source_module="risk_lib.ccr"),
         FormLine("1300", "신용편중 가산", 1, "KRW", c["conc_addon"],
                  formula="granularity adjustment (B2912와 같은 값)",
                  citation="SRP30", source_module=_M_ICA),
@@ -897,15 +901,17 @@ def _b2914(ctx):
                  formula="1년 보유기간 · ASRF 모형",
                  citation="CRE31.4 · SRP20"),
         FormLine("9000", "규제자본과의 차이", 0, "text", None,
-                 text_value="Credit VaR는 내부등급법 UL과 표준방법 소요자본에 편중 "
-                            "가산을 더한 값이다. B2904 신용리스크량은 여기에 "
-                            "거래상대방신용리스크 위험가중자산 × 8%가 더 들어가므로 "
-                            "두 값은 같지 않다.",
+                 text_value="Credit VaR는 내부등급법 UL·표준방법 소요자본·구조화·"
+                            "거래상대방신용리스크에 편중 가산을 더한 값이다. "
+                            "거래상대방신용리스크는 위험가중자산 분모에 들어가면서 "
+                            "내부자본에서는 빠져 있었고 2026-08-06 시정으로 "
+                            "포함됐다 — 분모에 든 위험이 내부자본에서 빠지면 "
+                            "ICAAP가 규제 최저보다 적은 자본을 적정하다고 말한다.",
                  citation="SRP20 · CRE52"),
     ]
     checks = [
-        _sum_check("Credit VaR = IRB UL + 표준방법 자본 + 구조화 + 편중 가산",
-                   L, "1000", ("1100", "1200", "1250", "1300")),
+        _sum_check("Credit VaR = IRB UL + 표준방법 자본 + 구조화 + CCR + 편중 가산",
+                   L, "1000", ("1100", "1200", "1250", "1275", "1300")),
         _ratio_check("소진율 = Credit VaR ÷ 가용 자본", L, "4000",
                      "1000", "3000"),
         FormCheck("가용 자본 = 자기자본", c["capital"], _val(L, "3000"), 1.0),

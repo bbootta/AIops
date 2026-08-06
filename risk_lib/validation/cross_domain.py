@@ -323,10 +323,60 @@ def _check_reproducibility(
     return out
 
 
+# 신용형 RWA 갈래 — 내부자본(신용 EC)이 반드시 덮어야 하는 것들. 시장·운영은
+# 별도 위험유형으로 EC에 서므로 여기 넣지 않는다. 파이프라인에 신용형 갈래를
+# 새로 붙이면 여기에 넣는다 — 넣지 않으면 이 검사가 그 갈래를 보지 못한다.
+_CREDIT_RWA_KEYS = ("sa", "irb", "ccr", "structured_total")
+
+
+def _check_ec_covers_rwa(
+    rwa: dict[str, Any] | None,
+    icaap_result: Any,
+) -> list[ConsistencyCheck]:
+    """분모(RWA)에 들어간 신용 위험이 내부자본(EC)에서 빠지지 않았는지 본다.
+
+    구조화 4.13조가 RWA에는 들어가고 EC에는 빠져 있었고, 시정 후에도 CCR이
+    같은 상태로 남아 있었다. 둘 다 "산출해놓고 합계에 넣지 않기"의 같은 형태다.
+
+    **금액이 아니라 구성요소 이름으로 본다.** 금액 비교는 작은 갈래의 누락을
+    묻는다 — CCR 15.6억은 Pillar 1 소요자본 1,078조의 0.001%라 총량 비교로는
+    절대 걸리지 않는다. 통제가 있어 보이는데 동작하지 않는 상태가 되므로,
+    신용형 RWA 갈래 이름 집합이 신용 EC 구성요소에 포함되는지를 직접 본다.
+
+    새 갈래를 파이프라인에 붙이면 `_CREDIT_RWA_KEYS`에 넣어야 하고, 넣은 뒤
+    EC 배선을 잊으면 여기서 FAIL이 난다. 그게 이 검사의 목적이다.
+    """
+    if rwa is None or icaap_result is None:
+        return []
+    present = {k for k in _CREDIT_RWA_KEYS if float(rwa.get(k, 0.0) or 0.0) > 0}
+    if not present:
+        return []
+    covered = set(getattr(icaap_result, "credit_ec_components", ()) or ())
+    if not covered:
+        return [ConsistencyCheck(
+            "xd_ec_covers_rwa_components", "WARN",
+            "ICAAP 결과에 신용 EC 구성요소 기록이 없다 — 대조할 수 없다",
+        )]
+    missing = sorted(present - covered)
+    if missing:
+        return [ConsistencyCheck(
+            "xd_ec_covers_rwa_components", "FAIL",
+            f"RWA 분모에 있는데 신용 경제자본에서 빠진 갈래: {missing} "
+            f"(EC 구성 {sorted(covered)}) — ICAAP가 규제 최저보다 적은 자본을 "
+            f"적정하다고 말하게 된다",
+            metric=float(len(missing)),
+        )]
+    return [ConsistencyCheck(
+        "xd_ec_covers_rwa_components", "PASS",
+        f"신용형 RWA 갈래 {sorted(present)}가 모두 신용 경제자본에 반영됐다",
+    )]
+
+
 def run_cross_domain_checks(
     *,
     rwa: dict[str, Any] | None = None,
     bis_result: Any = None,
+    icaap_result: Any = None,
     irb_results: pd.DataFrame | None = None,
     pd_metrics: dict | None = None,
     ecl_results: pd.DataFrame | None = None,
@@ -345,6 +395,7 @@ def run_cross_domain_checks(
     checks: list[ConsistencyCheck] = []
     checks.extend(_check_pd_rwa(irb_results, pd_metrics))
     checks.extend(_check_rwa_bis(rwa, bis_result))
+    checks.extend(_check_ec_covers_rwa(rwa, icaap_result))
     checks.extend(_check_ecl_rwa(irb_results, ecl_results))
     checks.extend(_check_limits_concentration(limit_report, large_exposure))
     checks.extend(_check_rapm_ec(rapm_by_class, irb_results))

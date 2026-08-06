@@ -51,7 +51,12 @@ RECALC_SCOPE: tuple[tuple[str, str, str], ...] = (
     ("cet1_ratio", "보통주자본비율", "은행업감독규정 제26조"),
     ("total_ratio", "총자본비율", "은행업감독규정 제26조"),
     ("leverage_ratio", "레버리지비율", "LEV20.1"),
-    ("ecl_total", "기대신용손실 합계", "IFRS 9 5.5"),
+    # ECL은 두 값이 다르고 둘 다 공표된다 — TTC(시점추정)는 서식·충당금 기준이고
+    # PIT(확률가중, forward-looking)는 이사회 팩·경영진 보고서의 KPI다. 하나만
+    # 재계산 대상에 두면 3선이 본 적 없는 값이 결재로 넘어간다. IFRS 9 5.5.17이
+    # 요구하는 확률가중 금액은 PIT 쪽이므로 특히 그렇다.
+    ("ecl_total", "기대신용손실 합계 (TTC · 시점추정)", "IFRS 9 5.5"),
+    ("ecl_weighted_total", "기대신용손실 합계 (PIT · 확률가중)", "IFRS 9 5.5.17"),
     ("lcr", "유동성커버리지비율", "LCR20.1"),
     ("nsfr", "순안정자금조달비율", "NSF20.1"),
     ("stress_trough_cet1", "심각 시나리오 CET1 저점", "SRP20"),
@@ -265,6 +270,8 @@ def _headline(result, tables: dict[str, pd.DataFrame] | None) -> dict[str, float
         "total_ratio": float(result.bis.total_ratio),
         "leverage_ratio": float(result.leverage.leverage_ratio),
         "ecl_total": float(result.ecl["total"]),
+        "ecl_weighted_total": float(
+            getattr(getattr(result, "macro_ecl", None), "weighted_total", 0.0)),
         "lcr": float(result.alm["lcr"].lcr),
         "nsfr": float(result.alm["nsfr"].nsfr),
         "stress_trough_cet1": (float(sev["trough_cet1"].iloc[0])

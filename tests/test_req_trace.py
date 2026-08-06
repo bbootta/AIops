@@ -18,6 +18,8 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
+import pytest
+
 from risk_lib.datamodel import catalog as cat
 from risk_lib.ui_studio.req_trace import (
     STATUSES, TRACE, build_trace, coverage,
@@ -83,3 +85,67 @@ def test_coverage_sums_to_register_size():
     assert c["반영"] + c["부분"] + c["미반영"] == c["n"] == 131
     # 미반영이 0이면 의심하라 — 131건 전부를 이 하네스가 구현했을 리 없다.
     assert c["미반영"] > 0, "미반영 0건 — 커버리지가 재고조사가 아니라 자랑이 됐다"
+
+
+def test_every_requirement_is_either_traced_or_declared_unassessed():
+    """131건 중 어느 것도 조용히 '미반영'으로 떨어지지 않는다.
+
+    예전에는 `TRACE.get(rid, ("미반영", (), ""))`가 매핑에 없는 요건을 전부
+    미반영으로 만들었다. 그러면 **판정해서 미반영**과 **아무도 안 봐서 미반영**이
+    같은 칸에 들어간다. 실제로 구현이 멀쩡히 있는 9건이 그렇게 묻혀 있었고
+    (DAT-006·PLT-015·SEC-PRC-001·SEC-PRC-004·BNK-ST-006·BNK-CRM-001 등),
+    그중 DAT-006은 같은 저장소의 `rynta.py`가 이미 covered로 적고 있었다.
+
+    커버리지는 재고조사다. 재고를 세지 않은 칸이 '없음'으로 보고되면 재고조사가
+    아니다.
+    """
+    from risk_lib.regulatory.requirements_v960 import REQUIREMENTS
+    from risk_lib.ui_studio.req_trace import UNASSESSED
+
+    ids = {r[0] for r in REQUIREMENTS}
+    judged = set(TRACE) | set(UNASSESSED)
+    assert not (ids - judged), (
+        f"판정도 사유도 없는 요건 {sorted(ids - judged)} — TRACE에 넣거나 "
+        f"UNASSESSED에 사유를 적어라")
+    assert not (judged - ids), f"레지스터에 없는 id: {sorted(judged - ids)}"
+    assert not (set(TRACE) & set(UNASSESSED)), (
+        f"TRACE와 UNASSESSED에 동시에 있는 id: "
+        f"{sorted(set(TRACE) & set(UNASSESSED))}")
+
+
+def test_unassessed_reasons_are_specific():
+    """사유가 비어 있거나 서로 복사된 문구면 목록이 다시 무의미해진다."""
+    from risk_lib.ui_studio.req_trace import UNASSESSED
+    import collections
+
+    blank = [k for k, v in UNASSESSED.items() if len(v.strip()) < 10]
+    assert not blank, f"사유가 너무 짧다: {blank}"
+    dup = [r for r, n in collections.Counter(UNASSESSED.values()).items() if n > 1]
+    assert not dup, f"여러 요건이 같은 사유를 복사해 쓴다: {dup}"
+
+
+def test_trace_does_not_contradict_the_rynta_coverage_table():
+    """같은 저장소의 추적표 둘이 정반대를 말하지 않는다.
+
+    `req_trace.TRACE`와 `risk_lib.rynta`의 커버리지 표가 각각 독립으로 관리되고
+    있었고, DAT-006에서 한쪽은 '미반영' 다른 쪽은 'covered'였다. 어느 쪽이 결재
+    근거인지 물어야 하는 상태였다 — 두 화면이 같은 원장을 각자 그리는 것과 같은
+    결함이다.
+    """
+    from risk_lib import rynta
+    from risk_lib.ui_studio.req_trace import UNASSESSED
+
+    cov = getattr(rynta, "COVERAGE", None)
+    if cov is None:
+        pytest.skip("rynta에 커버리지 표가 없다")
+
+    bad = []
+    for rid, entry in cov.items():
+        state = getattr(entry, "status", None)
+        if state != "covered":
+            continue
+        if rid in UNASSESSED:
+            bad.append(f"{rid}: rynta=covered vs req_trace=판정보류")
+        elif rid in TRACE and TRACE[rid][0] == "미반영":
+            bad.append(f"{rid}: rynta=covered vs req_trace=미반영")
+    assert not bad, "두 추적표가 어긋난다:\n  " + "\n  ".join(bad)

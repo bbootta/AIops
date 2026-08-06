@@ -37,6 +37,10 @@ class ICAAPResult:
     utilisation: float            # ec_diversified / AFR
     buffer: float                 # AFR - ec_diversified
     grade: str                    # GREEN | AMBER | RED
+    # 신용 EC를 구성한 RWA 갈래 이름. 금액 비교로는 작은 갈래의 누락이 묻히므로
+    # (CCR 15.6억은 총량 1,078조 대비 0.001%다) **무엇을 넣었는지**를 싣는다.
+    # `xd_ec_covers_rwa_components`가 이 목록과 RWA 구성요소를 대조한다.
+    credit_ec_components: tuple[str, ...] = ()
 
     def passes(self) -> bool:
         return self.grade != "RED"
@@ -60,6 +64,7 @@ def compute_icaap(
     hhi_sector: float,
     hhi_country: float,
     available_capital: float,
+    credit_ec_components: tuple[str, ...] = (),
 ) -> ICAAPResult:
     addon = credit_ec * concentration_addon_rate(hhi_sector, hhi_country)
     ec = {
@@ -92,4 +97,5 @@ def compute_icaap(
         utilisation=util,
         buffer=available_capital - ec_div,
         grade=grade,
+        credit_ec_components=tuple(credit_ec_components),
     )

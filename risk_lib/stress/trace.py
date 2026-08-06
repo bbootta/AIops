@@ -276,8 +276,15 @@ def trace_from_result(result, portfolio: pd.DataFrame) -> pd.DataFrame:
         # 재현하지 못한다 — 추적표는 "이 숫자가 어디서 나왔는가"의 답이므로
         # 파이프라인과 같은 입력으로 세워야 한다.
         structured=getattr(result, "structured", None))
+    # 완충자본도 파이프라인이 실제로 쓴 값을 그대로 받는다. 여기 상수를 박아두면
+    # 호출자가 다른 완충자본을 넘겼을 때 추적표만 옛 요구비율을 보고, 같은 은행에
+    # 대해 화면과 보고서가 다른 판정을 낸다. meta에 없으면 지어내지 않고 멈춘다.
+    buffers = result.meta.get("buffers")
+    if buffers is None:
+        raise ValueError(
+            "result.meta['buffers']가 없다 — 추적표를 파이프라인과 같은 입력으로 "
+            "세울 수 없다. run_pipeline이 meta에 완충자본을 싣도록 되어 있다.")
     _path, points = run_multi_axis_path(
         books, quarters=list(result.meta.get("quarters", [])),
-        buffers={"capital_conservation": 0.025, "countercyclical": 0.0,
-                 "dsib": 0.01})
+        buffers=dict(buffers))
     return build_trace(points)

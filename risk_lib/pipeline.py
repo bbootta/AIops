@@ -572,19 +572,29 @@ def _stage_icaap(
     sa_res: pd.DataFrame, irb_res: pd.DataFrame,
     mkt, op, alm: dict[str, Any], conc: pd.DataFrame, capital,
     structured: "StructuredRWA | None" = None,
+    ccr_rwa: float = 0.0,
 ):
     """내부자본(ICAAP): 위험유형별 경제자본과 가용자본 대비 적정성.
 
-    구조화(집합투자증권·유동화)도 신용 경제자본에 넣는다. 1선 자본(Pillar 1)이
-    자본을 요구하는 익스포저를 내부자본이 덮지 않으면, ICAAP가 규제 최저보다
-    **적은** 자본을 적정하다고 말하게 된다. 시장·운영과 같은 RWA×8% 환산이다.
+    구조화(집합투자증권·유동화)와 거래상대방신용리스크(SA-CCR + CVA)도 신용
+    경제자본에 넣는다. 1선 자본(Pillar 1)이 자본을 요구하는 익스포저를 내부자본이
+    덮지 않으면, ICAAP가 규제 최저보다 **적은** 자본을 적정하다고 말하게 된다.
+    시장·운영과 같은 RWA×8% 환산이다.
+
+    CCR은 `rwa_internal_total`에 이미 들어가 있으면서 경제자본에서만 빠져 있었다 —
+    구조화 4.13조와 같은 유형이 한 단계 아래에 남아 있던 것이다. 분모에 넣은
+    항목이 내부자본에서 빠지지 않게 `xd_ec_covers_rwa_components`가 고정한다.
     """
-    credit_ec = float((irb_res["k"] * irb_res["ead"]).sum()
-                      + sa_res["rwa"].sum() * 0.08
-                      + (structured.rwa_internal * 0.08 if structured else 0.0))
+    parts = {"irb": float((irb_res["k"] * irb_res["ead"]).sum()),
+             "sa": float(sa_res["rwa"].sum()) * 0.08,
+             "ccr": float(ccr_rwa) * 0.08}
+    if structured is not None:
+        parts["structured_total"] = float(structured.rwa_internal) * 0.08
+    credit_ec = float(sum(parts.values()))
     hhi = conc.set_index("dimension")["hhi"]
     return compute_icaap(
         credit_ec=credit_ec,
+        credit_ec_components=tuple(sorted(parts)),
         market_ec=mkt.rwa * 0.08,
         op_ec=op.rwa * 0.08,
         irrbb_ec=alm["irrbb"].worst_eve_decline,
@@ -873,7 +883,7 @@ def run_pipeline(
 
     # 13. 내부자본(ICAAP)
     icaap = _stage_icaap(sa_res, irb_res, mkt, op, alm, conc, capital,
-                         structured)
+                         structured, ccr_rwa=rwa_ccr)
 
     # 12b. CRO-grade stress 부문 (v0.13.0) — ALM 의존 (LCR/NSFR base 입력)
     stress_deep = _stage_stress_deep(
@@ -935,6 +945,7 @@ def run_pipeline(
              "structured_total": structured.rwa_internal,
              "final_total": rwa_final, "output_floor": floor},
         bis_result=bis,
+        icaap_result=icaap,
         irb_results=irb_res,
         pd_metrics=pd_metrics,
         ecl_results=ecl_df,
@@ -1112,5 +1123,10 @@ def run_pipeline(
         stress_deep=stress_deep,
         structured=structured,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
-              "asof": asof.isoformat(), "quarters": quarters},
+              "asof": asof.isoformat(), "quarters": quarters,
+              # 추적표가 같은 입력으로 다시 세워질 수 있게 실제 쓴 완충자본을
+              # 남긴다. 없으면 `trace_from_result`가 값을 지어내야 하고, 실제로
+              # 지어내고 있었다 — 화면과 보고서가 같은 은행에 다른 요구비율을
+              # 보였다.
+              "buffers": dict(buffers)},
     )

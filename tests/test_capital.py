@@ -142,3 +142,36 @@ def test_bis_rejects_zero_rwa():
     cap = CapitalStack(cet1=100, additional_t1=0, tier2=0)
     with pytest.raises(ValueError):
         compute_bis_ratios(cap, 0.0)
+
+
+def test_ec_covers_every_credit_rwa_component(result):
+    """분모(RWA)에 든 신용형 갈래가 내부자본(EC)에서 빠지지 않는다.
+
+    구조화 4.13조가 RWA에는 들어가고 EC에는 빠져 있었고, 그 시정 뒤에도 CCR이
+    같은 상태로 남아 있었다 — 둘 다 "산출해놓고 합계에 넣지 않기"다.
+
+    금액이 아니라 **구성요소 이름**으로 본다. CCR 경제자본 기여는 15.6억으로
+    Pillar 1 소요자본 1,078조의 0.001%라, 총량 비교로는 빠져도 절대 걸리지
+    않는다 — 통제가 있어 보이는데 동작하지 않는 상태가 된다.
+    """
+    from risk_lib.validation.cross_domain import (
+        _CREDIT_RWA_KEYS, _check_ec_covers_rwa,
+    )
+
+    present = {k for k in _CREDIT_RWA_KEYS
+               if float(result.rwa.get(k, 0.0) or 0.0) > 0}
+    assert present, "신용형 RWA 갈래가 하나도 없다 — 검사가 아무것도 지키지 않는다"
+    assert present <= set(result.icaap.credit_ec_components), (
+        f"RWA에 있는데 EC에 없는 갈래: "
+        f"{sorted(present - set(result.icaap.credit_ec_components))}")
+
+    check = [c for c in result.validation.checks
+             if c.name == "xd_ec_covers_rwa_components"]
+    assert check and check[0].status == "PASS", check
+
+    # 결함을 되돌리면 잡히는가 — 잡지 못하는 검사는 통제가 아니다.
+    import dataclasses
+    broken = dataclasses.replace(result.icaap, credit_ec_components=tuple(
+        k for k in result.icaap.credit_ec_components if k != "ccr"))
+    out = _check_ec_covers_rwa(dict(result.rwa), broken)
+    assert out and out[0].status == "FAIL", "CCR을 빼도 검사가 통과한다"
