@@ -22,8 +22,15 @@
 | `d47f866` | 콕핏 자본 KPI가 제약 계층을 따르게 |
 | (직전) | 해외영업점 RWA 분모에 구조화 배분 — 본점 통합이 한 층 아래 남긴 누락 |
 
-**아티팩트** https://claude.ai/code/artifact/2613d0db-3fc5-4849-b35a-1041442c1b38
-(재배포: 빌드 후 같은 URL을 `url` 인자로 넘긴다 — 안 넘기면 새 URL이 발급된다)
+**아티팩트** https://claude.ai/code/artifact/dfcd55df-8b06-43c6-b437-533974d7c3ee
+(favicon 🏦 — 재배포 때 바꾸지 않는다. 사용자는 탭 아이콘으로 찾는다)
+
+재배포: 빌드 후 같은 URL을 `url` 인자로 넘긴다 — 안 넘기면 새 URL이 발급된다.
+
+이전 URL `2613d0db-3fc5-4849-b35a-1041442c1b38`은 **이 저장소 세션에서 더 이상
+갱신할 수 없다.** 세션이 그 아티팩트를 공개(비멤버) 리더로 접근하게 되어 있고
+그 읽기 경로가 열려 있지 않아, `url` 지정 재배포도 `force`도 "대상이 리뷰
+페이지가 아님을 확인할 수 없다"로 거부된다 (3회 재시도 동일). 위 URL이 정본이다.
 
 ---
 
@@ -166,7 +173,22 @@ from risk_lib.cli import main
 raise SystemExit(main(['ui-studio','--asof','2026-03-31,2026-06-30',
                        '--seed','42','--out','/tmp/studio_pub.html']))
 "
-# 그 다음 to_artifact.py 로 CSP 대응 변환 후 Artifact 툴에 URL 을 넘겨 재배포
+# 아티팩트용 변환 — Artifact 툴이 <!doctype><head></head><body> 를 직접 붙이므로
+# 문서 골격 태그를 걷어낸다. <title>·<style>·<script> 는 그대로 둔다.
+# (직전 판이 적어 둔 to_artifact.py 는 저장소에 없다 — 세션 스크래치패드에만
+#  있었고 컨테이너와 함께 사라졌다. 변환은 이 여섯 줄이 전부다.)
+python -c "
+import re
+s = open('/tmp/studio_pub.html', encoding='utf-8').read()
+i = s.index('</head>')
+head = re.sub(r'^<!doctype html>\s*<html[^>]*><head>', '', s[:i], flags=re.I)
+head = re.sub(r'<meta charset=[^>]*>\s*', '', head, count=1, flags=re.I)
+body = re.sub(r'^\s*<body[^>]*>', '', s[i+7:], flags=re.I)
+body = re.sub(r'</body>\s*</html>\s*\$', '', body, flags=re.I)
+open('/tmp/studio_artifact.html','w',encoding='utf-8').write(head.strip()+chr(10)+body.strip())
+"
+# 확인: 골격 태그 0건 · 외부 호스트 0건(SVG 네임스페이스 URI는 요청이 아니다) ·
+#       크기 16MB 미만 (현재 11.7MB) · prompt()/alert() 실제 호출 0건
 ```
 
 ---
