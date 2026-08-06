@@ -10,6 +10,7 @@
 - **핵심 메시지**: "AI for RISK, RISK for AI" — 리스크 업무를 더 빠르게 실행하면서, 실행 과정과 AI 사용 자체는 더 엄격하게 통제
 - **구성 도메인**: RDM(선행 기반) + 신용 · 시장 · 운영 · ALM · 통합위기상황분석 · 상시/독립 적합성검증 → 하나의 Agentic RiskOps 운영체계
 - **통제 원칙**: 결정론적 계산, 독립 재계산, 책임자 승인(4-Eyes), Evidence Vault, Human-in-the-loop, 자동확정 금지
+- **핵심 구성요소 명칭** (위탁테스트 신청서 v2 기준): **QV Engine**(Quantitative Validation Engine — 결정론 정량검증 계산엔진, FastAPI REST API) · **AVI**(Artificial Validation Agent — 모형검증 에이전트, Hub/Child 구조) · **ARI**(Artificial Risk Intelligence — 리스크 인텔리전스, AML·STR 확장 검토) · **Evidence Ledger**(증빙 원장). 특허 3건(RYNTA·AVI·ARI) 출원 진행(2026-07 착수)
 - **규제 준거**: EU AI Act(2026-08-02 일반 적용), ISO/IEC 42001, PSMOR(BCBS), BCBS 239, IFRS 9
 - **로드맵**: Vol.2 진단·ALM·IRRBB·유동성 / Vol.3 ECL·자본·RAPM·기후 / Vol.4+ NCR·CCR/XVA·기타리스크
 - **사업 모델** (navigation.xlsx 기준, v9.3.4 검수로 수치 전수 대사 완료):
@@ -71,8 +72,15 @@
 | **PO 로컬 Downloads** (`RYNTA_RiskOps_Vol1_v9.6.1_한국어_정리본/`) | 최신 작업본 (압축해제) | ❌ 클라우드 세션에서 직접 접근 불가 → 반입 절차(§6) 필요 |
 | Slack #ir (C0BK4SCJUBV) | v9.2 / v9.3.7 / v9.6.1 zip, 설계 논의 스레드, 데모 링크 | 🔶 메시지·10MB 미만 파일만 읽기 가능 (zip 3종 모두 10MB 초과 → 도구 반입 불가) |
 | Google Drive | v9.3.4 검수보고서, Capvera v8.1/v8.3 팩 (개별 파일) | ✅ 읽기 가능 |
-| 본 리포 `products/rynta/` | 관리 원장(본 문서) + 반입된 패키지 사본 | ✅ 관리 대상 |
+| 본 리포 `products/rynta/` | 관리 원장(본 문서) + 위탁테스트 워크스트림(`consignment-test/`) + 반입된 패키지 사본 | ✅ 관리 대상 |
 | 데모 | https://rynta-agentic-ui-demo.bbootta.chatgpt.site (에이전틱 UI 데모 영상 샘플) | 외부 링크 |
+| 아티팩트 (claude.ai, PO 소유) | 「RYNTA 에이전틱 UI 스튜디오 · 2026-06-30」 — 단일 HTML 11.7MB, 2026-08-06 갱신. RUN-20260630 · 지문 124a115b1da0 · 시드 42 · 테이블 107장/930열/52,441행, 기준일 2026-03-31/2026-06-30 멀티런, Kill Switch·4-Eyes·계보 칩 포함 | ✅ 읽기 가능 (WebFetch) |
+| 아티팩트 (공유받음) | 「적합성검증 팀에이전트 — 아키텍처」 | ❌ 타인 소유 — 이 세션에서 열람 불가. PO가 브라우저에서 열람 후 내용 공유 필요 |
+
+## 5.5 진행 중 워크스트림 — 위탁테스트 신청 (2026-08-06 착수)
+
+한국핀테크지원센터 제12회 Meet-Up 위탁테스트 신청. **마감 2026-08-12(수) 15:00.**
+클로드 코워크(데스크톱) 세션에서 신청서 초안 v2·체크리스트·IR 피칭 1페이지가 작성됐고(Drive), 스냅샷을 [`consignment-test/`](consignment-test/)에 포섭함. 상세 현황·미결 사항은 해당 폴더 README 참조. 선정 시 9월 민간협의체 IR 피칭 → 금융회사 매칭 → 6개월 병행 운영 테스트로 이어짐 — RYNTA 최초의 실데이터 실증 경로.
 
 ## 6. 관리 런북 (Runbook)
 
