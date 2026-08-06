@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>apps</title>
+<style>
+  :root { --bg:#0e0f14; --panel:#191b23; --line:#2b303d; --text:#e6e9f0; --muted:#8b93a7; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 64px 20px;
+    background: var(--bg); color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  h1 { font-size: 28px; margin: 0 0 6px; }
+  p.sub { color: var(--muted); margin: 0 0 32px; }
+  .grid { display: grid; gap: 14px; width: 100%; max-width: 560px; }
+  a.app {
+    display: block; padding: 20px 22px; border-radius: 12px;
+    background: var(--panel); border: 1px solid var(--line);
+    color: var(--text); text-decoration: none;
+  }
+  a.app:hover { border-color: #4a5164; }
+  a.app b { font-size: 18px; display: block; }
+  a.app span { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+  <h1>작은 앱 세 개</h1>
+  <p class="sub">빌드 없이 그냥 열면 됩니다.</p>
+  <div class="grid">
+    <a class="app" href="focus/index.html">
+      <b>🍅 Focus</b>
+      <span>뽀모도로 타이머와 할 일 목록. 집중 세션이 작업에 쌓입니다.</span>
+    </a>
+    <a class="app" href="kaleido/index.html">
+      <b>🌀 Kaleido</b>
+      <span>대칭 만화경 드로잉 패드. PNG로 저장할 수 있습니다.</span>
+    </a>
+    <a class="app" href="snake/index.html">
+      <b>🐍 Snake</b>
+      <span>먹을수록 빨라지는 스네이크. 최고 점수가 저장됩니다.</span>
+    </a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaleido — 만화경 드로잉</title>
+<style>
+  :root {
+    --bg: #0e0f14;
+    --panel: #191b23;
+    --line: #2b303d;
+    --text: #e6e9f0;
+    --muted: #8b93a7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 48px;
+    background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
+  }
+  a.back { color: var(--muted); text-decoration: none; font-size: 14px; align-self: flex-start; }
+  a.back:hover { color: var(--text); }
+  canvas {
+    background: #000; border-radius: 12px; border: 1px solid var(--line);
+    touch-action: none; cursor: crosshair; max-width: 100%;
+  }
+  .panel {
+    display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: center;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px 18px; max-width: 640px;
+  }
+  label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+  input[type=range] { width: 110px; accent-color: #7aa2ff; }
+  output { color: var(--text); font-variant-numeric: tabular-nums; min-width: 2ch; }
+  button {
+    padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: transparent; color: var(--text); cursor: pointer; font-size: 14px;
+  }
+  button:hover { background: var(--line); }
+  #mirrorBtn[aria-pressed="true"] { background: var(--line); }
+  p.hint { color: var(--muted); font-size: 13px; margin: 0; text-align: center; }
+</style>
+</head>
+<body>
+<a class="back" href="../index.html">← apps</a>
+
+<canvas id="pad" width="640" height="640"></canvas>
+
+<div class="panel">
+  <label>대칭 <input id="segments" type="range" min="2" max="16" value="8"><output id="segOut">8</output></label>
+  <label>굵기 <input id="width" type="range" min="1" max="24" value="3"><output id="widthOut">3</output></label>
+  <label>색 변화 <input id="drift" type="range" min="0" max="10" value="3"><output id="driftOut">3</output></label>
+  <button id="mirrorBtn" aria-pressed="true">거울</button>
+  <button id="clearBtn">지우기</button>
+  <button id="saveBtn">PNG 저장</button>
+</div>
+<p class="hint">캔버스 위를 드래그해서 그리세요. 대칭 수만큼 무늬가 복제됩니다.</p>
+
+<script>
+const canvas = document.getElementById('pad');
+const ctx = canvas.getContext('2d');
+const segEl = document.getElementById('segments');
+const widthEl = document.getElementById('width');
+const driftEl = document.getElementById('drift');
+const mirrorBtn = document.getElementById('mirrorBtn');
+
+let hue = Math.floor(Math.random() * 360);
+let mirror = true;
+let last = null;
+
+// 슬라이더 값을 옆의 output에 반영
+for (const [input, out] of [[segEl, 'segOut'], [widthEl, 'widthOut'], [driftEl, 'driftOut']]) {
+  const output = document.getElementById(out);
+  input.addEventListener('input', () => { output.textContent = input.value; });
+}
+
+function pointFromEvent(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scale = canvas.width / rect.width;   // CSS 크기와 실제 픽셀 크기 보정
+  return {
+    x: (e.clientX - rect.left) * scale - canvas.width / 2,
+    y: (e.clientY - rect.top) * scale - canvas.height / 2,
+  };
+}
+
+function drawStroke(from, to) {
+  const segments = Number(segEl.value);
+  const step = (Math.PI * 2) / segments;
+
+  ctx.save();
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.lineWidth = Number(widthEl.value);
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = `hsl(${hue} 85% 62%)`;
+  ctx.globalCompositeOperation = 'lighter';
+
+  for (let i = 0; i < segments; i++) {
+    ctx.rotate(step);
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+
+    if (mirror) {
+      ctx.beginPath();
+      ctx.moveTo(from.x, -from.y);
+      ctx.lineTo(to.x, -to.y);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  hue = (hue + Number(driftEl.value)) % 360;
+}
+
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  last = pointFromEvent(e);
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (!last) return;
+  const next = pointFromEvent(e);
+  drawStroke(last, next);
+  last = next;
+});
+
+for (const type of ['pointerup', 'pointercancel', 'pointerleave']) {
+  canvas.addEventListener(type, () => { last = null; });
+}
+
+mirrorBtn.addEventListener('click', () => {
+  mirror = !mirror;
+  mirrorBtn.setAttribute('aria-pressed', String(mirror));
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+});
+
+document.getElementById('saveBtn').addEventListener('click', () => {
+  // 투명 배경 대신 검은 배경을 깔아 내보낸다
+  const out = document.createElement('canvas');
+  out.width = canvas.width;
+  out.height = canvas.height;
+  const octx = out.getContext('2d');
+  octx.fillStyle = '#000';
+  octx.fillRect(0, 0, out.width, out.height);
+  octx.drawImage(canvas, 0, 0);
+
+  const link = document.createElement('a');
+  link.download = 'kaleido.png';
+  link.href = out.toDataURL('image/png');
+  link.click();
+});
+</script>
+</body>
+</html>
