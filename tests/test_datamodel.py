@@ -260,3 +260,33 @@ def test_dq_result_frame_matches_its_own_spec(tables):
     df2 = dm.dq_result_frame(dm.validate_all(bad), asof=ASOF)
     assert len(df2) > 0
     assert validate(df2, cat.DQ_RESULT, strict_columns=False) == []
+
+
+def test_every_table_declares_a_primary_key():
+    """PK 없는 테이블이 없다 — 없으면 유일성 검증 자체를 안 받는다.
+
+    `rdm_dq_result`가 107장 중 유일하게 PK가 없었고, 선언 그레인
+    ("검증 규칙 × 테이블 × 기준일")도 실제 행 구분과 달랐다 — 컬럼 단위 규칙이
+    있어 같은 조합에 여러 행이 선다. 스펙이 그레인을 1급으로 강제하는 저장소에서
+    한 장만 그 밖에 있으면, 그 한 장이 다음 결함의 자리가 된다.
+    """
+    from risk_lib.datamodel import catalog as cat
+
+    missing = [t.name for t in cat.ALL_TABLES if not t.primary_key]
+    assert not missing, f"PK 미선언 테이블: {missing}"
+
+
+def test_primary_key_columns_are_non_nullable():
+    """PK 컬럼은 NULL일 수 없다 — NULL은 행을 구분하지 못한다."""
+    from risk_lib.datamodel import catalog as cat
+
+    bad = []
+    for t in cat.ALL_TABLES:
+        cols = {c.name: c for c in t.columns}
+        for k in t.primary_key:
+            c = cols.get(k)
+            if c is None:
+                bad.append(f"{t.name}.{k} (컬럼 없음)")
+            elif c.nullable:
+                bad.append(f"{t.name}.{k} (nullable)")
+    assert not bad, "PK 컬럼 결함:\n  " + "\n  ".join(bad)

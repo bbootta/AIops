@@ -51,3 +51,31 @@ def test_nav_matches_registry_order():
     # ALM sub pages are in the registry but not the main nav
     nav_files = {f for f, _ in NAV}
     assert {"11a_irrbb.html", "11b_lcr.html", "11c_nsfr.html"}.isdisjoint(nav_files)
+
+
+def test_architecture_doc_table_and_column_counts_match_the_catalog():
+    """ARCHITECTURE.md의 테이블·컬럼 수가 카탈로그와 일치한다.
+
+    문서는 81테이블/594컬럼이라 적고 있었고 실제는 107/930이었다 — 26장·336컬럼이
+    늘도록 아무도 눈치채지 못했다. `ALL_TABLES`가 5회 append로 재구성되는 구조라
+    한 곳만 보고 세면 틀린다.
+
+    이 저장소는 "문서의 주장이 코드와 갈라짐"으로 다섯 번 데였다(F-103·F-201·
+    F-401·F-501·F-B02). 숫자를 손으로 고치면 다음 판에 또 낡으므로 검사로 고정한다.
+    """
+    from pathlib import Path
+    import re
+
+    from risk_lib.datamodel import catalog as cat
+
+    n_tables = len(cat.ALL_TABLES)
+    n_cols = sum(len(t.columns) for t in cat.ALL_TABLES)
+    doc = (Path(__file__).parent.parent / "ARCHITECTURE.md").read_text(encoding="utf-8")
+
+    claims = re.findall(r"(\d+)\s*테이블\s*/\s*(\d+)\s*컬럼", doc)
+    claims += re.findall(r"테이블\s*(\d+)장\s*/\s*컬럼\s*(\d+)개", doc)
+    assert claims, "ARCHITECTURE.md에 테이블·컬럼 수 주장이 없다 — 검사가 무의미하다"
+    for t, c in claims:
+        assert (int(t), int(c)) == (n_tables, n_cols), (
+            f"문서가 {t}테이블/{c}컬럼이라 적었으나 카탈로그는 "
+            f"{n_tables}테이블/{n_cols}컬럼이다")

@@ -141,17 +141,24 @@ SNAPSHOT = TableSpec(
 
 DQ_RESULT = TableSpec(
     name="rdm_dq_result", korean="데이터품질 검증 결과", product="PRD-RDM",
-    grain="검증 규칙 × 테이블 × 기준일 1행",
+    # 선언 그레인이 실제 행 구분과 달랐다 — 컬럼 단위 규칙이 있으므로 같은
+    # (규칙·테이블·기준일)에 여러 행이 선다. 107장 중 유일하게 PK가 없어
+    # 유일성 검증도 받지 않고 있었다.
+    grain="기준일 × 대상 테이블 × 대상 컬럼 × 규칙 1행",
     columns=(
         C("asof", "date", "기준일", nullable=False),
         C("table_name", "string", "대상 테이블", nullable=False),
-        C("column_name", "string", "대상 컬럼", nullable=True),
+        # 테이블 단위 규칙은 컬럼이 없다. PK에 들어가므로 빈 문자열로 채운다 —
+        # NULL은 PK가 될 수 없고, "컬럼 없음"과 "컬럼 미상"을 구분할 이유도 없다.
+        C("column_name", "string", "대상 컬럼 (테이블 단위 규칙은 빈 문자열)",
+          nullable=False),
         C("rule", "string", "규칙", nullable=False),
         C("severity", "string", "심각도", nullable=False,
           allowed=("FAIL", "WARN")),
         C("n_rows", "int", "위반 행 수", nullable=False, min_value=0),
         C("detail", "text", "상세", nullable=True),
     ),
+    primary_key=("asof", "table_name", "column_name", "rule"),
     note="DQ 결과를 저장하지 않으면 '그때는 통과했다'를 증명할 수 없다 (RDM-004).",
 )
 

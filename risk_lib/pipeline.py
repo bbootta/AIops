@@ -314,10 +314,22 @@ def _fill_sa_parameters(portfolio: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+# 접근법별 자산군 — 이 목록에 없는 자산군은 어느 북에도 들어가지 않는다.
+# 합성 데이터에서는 생길 수 없지만 실데이터에서는 생기며, 그때 그 익스포저는
+# RWA에서 **소리 없이 사라진다**. 목록을 한 곳에 두고 완전성 대사가 이것을 본다.
+SA_ASSET_CLASSES = ("sovereign", "bank")
+IRB_ASSET_CLASSES = ("corporate", "retail_other", "residential_mortgage")
+
+
+def unbooked_exposures(portfolio: pd.DataFrame) -> pd.DataFrame:
+    """SA·IRB 어느 북에도 들어가지 않는 익스포저 — 조용한 유실의 실물."""
+    known = set(SA_ASSET_CLASSES) | set(IRB_ASSET_CLASSES)
+    return portfolio[~portfolio["asset_class"].isin(known)]
+
+
 def _stage_split_books(portfolio: pd.DataFrame):
-    sa_book = portfolio[portfolio["asset_class"].isin(["sovereign", "bank"])].copy()
-    irb_book = portfolio[portfolio["asset_class"].isin(
-        ["corporate", "retail_other", "residential_mortgage"])].copy()
+    sa_book = portfolio[portfolio["asset_class"].isin(SA_ASSET_CLASSES)].copy()
+    irb_book = portfolio[portfolio["asset_class"].isin(IRB_ASSET_CLASSES)].copy()
     return sa_book, irb_book
 
 
@@ -787,8 +799,14 @@ def run_pipeline(
     (portfolio, pd_metrics, challenger_metrics, lgd_metrics, explain,
      calibration, grade_migration) = _fit_segment_pd(portfolio)
 
+    # `asof`를 안 주면 벽시계를 쓴다. 그러면 같은 seed·같은 데이터라도 실행 날짜가
+    # 다르면 헤드라인 지문이 달라진다 — ARCHITECTURE의 "seed+asof 같으면 산출 같다"가
+    # 진입점에서 깨진다. 기본값을 없애면 기존 호출부가 전부 깨지므로, **출처를
+    # 기록**하고 자체검증이 그것을 드러내게 한다. 조용한 것이 문제였다.
+    asof_source = "explicit"
     if asof is None:
         asof = date.today()
+        asof_source = "wall_clock"
     elif isinstance(asof, str):
         asof = date.fromisoformat(asof)
     quarters = forecast_quarter_labels(asof, years_ahead=years_ahead)
@@ -919,6 +937,8 @@ def run_pipeline(
     backtest = pd_backtest_report(corp, grade_col="grade",
                                   pd_col="pd", default_col="default_12m")
     validation = run_consistency_checks(
+        portfolio=portfolio,
+        meta={"asof": asof.isoformat(), "asof_source": asof_source},
         sa_results=sa_res, irb_results=irb_res,
         bis_result=bis, rwa_total_for_bis=rwa_final,
         leverage_result=leverage, output_floor_result=floor,
@@ -1123,7 +1143,8 @@ def run_pipeline(
         stress_deep=stress_deep,
         structured=structured,
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
-              "asof": asof.isoformat(), "quarters": quarters,
+              "asof": asof.isoformat(), "asof_source": asof_source,
+              "quarters": quarters,
               # 추적표가 같은 입력으로 다시 세워질 수 있게 실제 쓴 완충자본을
               # 남긴다. 없으면 `trace_from_result`가 값을 지어내야 하고, 실제로
               # 지어내고 있었다 — 화면과 보고서가 같은 은행에 다른 요구비율을

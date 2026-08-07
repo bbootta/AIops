@@ -17,6 +17,7 @@ risk_lib의 baseline + adverse + severe + reverse stress 파이프라인으로
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -275,7 +276,12 @@ def synthesise_bank_portfolio(
     scale=1.0이면 1만건 규모로 합성. 실제 잔액과 일치하도록 EAD 정규화.
     NPL/연체율은 default_12m/dpd 분포로 재현.
     """
-    rng = np.random.default_rng(seed + hash(profile.short) % 1000)
+    # 파이썬 `hash()`는 문자열에 프로세스별 salt가 걸려 실행마다 값이 다르다
+    # (PYTHONHASHSEED). seed를 그것으로 유도하면 같은 seed·같은 프로필이 실행마다
+    # 다른 포트폴리오를 낸다 — 재현성 규칙이 여기서 샜다. 저장소의 다른 곳
+    # (`forms_fss_asset_data.py`)이 이미 쓰는 sha256으로 바꾼다.
+    _salt = int(hashlib.sha256(profile.short.encode("utf-8")).hexdigest()[:8], 16)
+    rng = np.random.default_rng(seed + _salt % 1000)
     n_total = int(10_000 * scale)
     n_corp = max(50, int(n_total * profile.mix_corporate * 0.50))     # 기업 차주 수 (최소 50)
     n_retail = int(n_total * profile.mix_retail_unsecured * 0.60)     # 신용대출

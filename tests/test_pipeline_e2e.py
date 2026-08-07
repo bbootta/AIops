@@ -107,7 +107,13 @@ GOLDEN = {
 # +1 PASS: ecl_ttc_pit_gap — TTC(서식·충당금 기준)와 PIT(확률가중 KPI)의 차이를
 # 매 실행 드러낸다. 둘은 정의가 달라 다른 것이 정상이지만, 차이가 보고되지
 # 않으면 같은 이름의 ECL이 화면마다 다른 값을 갖는 상태로 굳는다.
-GOLDEN_VALIDATION = {"PASS": 51, "WARN": 6}
+# 재고정 7 (2026-08-07, 데이터 엔지니어링 팀 검토 F-1·F-2 반영) — +3 PASS.
+# +1 intake_every_exposure_is_booked: 자산군 목록 밖 익스포저가 SA·IRB 양쪽에서
+#    탈락해 RWA에서 소리 없이 사라지던 경로를 FAIL로 막는다.
+# +1 intake_exposure_id_unique: 중복 행이 RWA를 경보 없이 이중계상하던 경로.
+# +1 asof_is_explicit: `asof` 미지정 시 벽시계가 들어가는 사실을 드러낸다
+#    (WARN). 기본값 자체는 호출부가 많아 남겼고, 조용한 것만 없앴다.
+GOLDEN_VALIDATION = {"PASS": 54, "WARN": 6}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",
@@ -287,3 +293,81 @@ def test_leverage_exposure_includes_structured_book(result):
     em = result.leverage.exposure_measure if hasattr(
         result.leverage, "exposure_measure") else result.leverage.exposure
     assert em > s.exposure
+
+
+def test_intake_catches_exposures_that_fall_out_of_both_books():
+    """SA·IRB 어느 북에도 안 들어가는 익스포저를 FAIL로 잡는다.
+
+    `_stage_split_books`는 자산군 5종으로 필터링한다. 목록 밖 자산군은 양쪽에서
+    탈락하고 RWA에서 **소리 없이 사라진다** — 합성 데이터에서는 안 생기지만
+    실데이터에서는 생기고, 그것을 보는 검사가 없었다. 전 항목 advisory였던
+    `data_quality.reconcile`은 파이프라인 밖에서만 호출된다.
+    """
+    from risk_lib.data_gen import generate_portfolio
+    from risk_lib.validation.consistency import (
+        ValidationReport, _check_portfolio_intake,
+    )
+
+    p = generate_portfolio(seed=42)
+    rep = ValidationReport()
+    _check_portfolio_intake(p, rep)
+    booked = [c for c in rep.checks if c.name == "intake_every_exposure_is_booked"]
+    assert booked and booked[0].status == "PASS"
+
+    lost = p.copy()
+    lost.loc[lost.index[:3], "asset_class"] = "equity"
+    rep2 = ValidationReport()
+    _check_portfolio_intake(lost, rep2)
+    c = next(x for x in rep2.checks if x.name == "intake_every_exposure_is_booked")
+    assert c.status == "FAIL" and "equity" in c.detail
+
+
+def test_intake_catches_duplicate_exposure_ids():
+    """중복 exposure_id는 RWA를 경보 없이 이중계상시킨다 — FAIL로 잡는다."""
+    import pandas as pd
+
+    from risk_lib.data_gen import generate_portfolio
+    from risk_lib.validation.consistency import (
+        ValidationReport, _check_portfolio_intake,
+    )
+
+    p = generate_portfolio(seed=42)
+    dup = pd.concat([p, p.head(2)], ignore_index=True)
+    rep = ValidationReport()
+    _check_portfolio_intake(dup, rep)
+    c = next(x for x in rep.checks if x.name == "intake_exposure_id_unique")
+    assert c.status == "FAIL" and "2" in c.detail
+
+
+def test_wall_clock_asof_is_disclosed_not_silent():
+    """`asof`를 안 주면 벽시계가 들어간다는 사실이 자체검증에 드러난다.
+
+    같은 seed·같은 데이터라도 실행 날짜가 다르면 헤드라인 지문이 달라진다 —
+    ARCHITECTURE의 "seed+asof 같으면 산출 같다"가 진입점에서 깨진다. 기본값을
+    없애면 호출부가 전부 깨지므로 **출처를 기록**하고 드러내는 쪽을 택했다.
+    """
+    from risk_lib.validation.consistency import (
+        ValidationReport, _check_asof_provenance,
+    )
+
+    for src, expect in (("wall_clock", "WARN"), ("explicit", "PASS")):
+        rep = ValidationReport()
+        _check_asof_provenance({"asof": "2026-06-30", "asof_source": src}, rep)
+        c = next(x for x in rep.checks if x.name == "asof_is_explicit")
+        assert c.status == expect, (src, c.status)
+
+
+def test_case_study_seed_derivation_is_reproducible_across_processes():
+    """프로필 seed 유도에 파이썬 `hash()`를 쓰지 않는다.
+
+    문자열 `hash()`는 프로세스별 salt가 걸려(PYTHONHASHSEED) 실행마다 다르다.
+    그것으로 seed를 유도하면 같은 seed·같은 프로필이 실행마다 다른 포트폴리오를
+    낸다 — 재현성 규칙이 조용히 새는 자리였다.
+    """
+    from pathlib import Path
+
+    src = (Path(__file__).parent.parent
+           / "risk_lib/case_studies/__init__.py").read_text(encoding="utf-8")
+    assert "hash(profile.short)" not in src, (
+        "salted hash()로 seed를 유도하고 있다 — hashlib을 쓴다")
+    assert "hashlib.sha256" in src

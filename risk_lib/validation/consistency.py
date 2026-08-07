@@ -148,6 +148,73 @@ def _check_el_le_ead(df: pd.DataFrame, report: ValidationReport) -> None:
             report.add(ConsistencyCheck("el_le_ead", "PASS", "EL <= EAD on every row"))
 
 
+def _check_portfolio_intake(
+    portfolio: pd.DataFrame | None, report: ValidationReport,
+) -> None:
+    """인제스트 완전성 — 들어온 것이 전부 산출에 들어갔는가.
+
+    `_stage_split_books`는 자산군 5종으로 필터링한다. 목록에 없는 자산군의
+    익스포저는 SA·IRB **양쪽에서 탈락**하고 RWA에서 소리 없이 사라진다.
+    합성 데이터에서는 생기지 않지만 실데이터에서는 생기며, 지금까지 그것을 보는
+    검사가 없었다. `exposure_id` 중복도 마찬가지다 — 중복 행이 있으면 RWA가
+    경보 없이 이중계상된다.
+
+    둘 다 advisory가 아니라 FAIL이다. 조용한 유실과 조용한 이중계상은 산출을
+    무효로 만들지 결재자가 판단할 여지를 남기는 종류가 아니다.
+    """
+    if portfolio is None or not len(portfolio):
+        return
+    from risk_lib.pipeline import unbooked_exposures
+
+    if "asset_class" in portfolio.columns:
+        lost = unbooked_exposures(portfolio)
+        if len(lost):
+            kinds = sorted(set(lost["asset_class"].astype(str)))
+            ead = float(lost["ead"].sum()) if "ead" in lost.columns else 0.0
+            report.add(ConsistencyCheck(
+                "intake_every_exposure_is_booked", "FAIL",
+                f"{len(lost)}건 · EAD {ead:,.0f}이 SA·IRB 어느 북에도 없다 "
+                f"— 자산군 {kinds}",
+                metric=float(len(lost))))
+        else:
+            report.add(ConsistencyCheck(
+                "intake_every_exposure_is_booked", "PASS",
+                f"익스포저 {len(portfolio):,}건 전부 SA 또는 IRB 북에 들어갔다"))
+
+    if "exposure_id" in portfolio.columns:
+        dup = int(portfolio["exposure_id"].duplicated().sum())
+        if dup:
+            report.add(ConsistencyCheck(
+                "intake_exposure_id_unique", "FAIL",
+                f"exposure_id 중복 {dup}건 — RWA가 경보 없이 이중계상된다",
+                metric=float(dup)))
+        else:
+            report.add(ConsistencyCheck(
+                "intake_exposure_id_unique", "PASS",
+                f"exposure_id {len(portfolio):,}건 유일"))
+
+
+def _check_asof_provenance(meta: dict | None, report: ValidationReport) -> None:
+    """기준일이 벽시계에서 왔는지 드러낸다.
+
+    `run_pipeline(asof=None)`이면 `date.today()`가 들어가고, 같은 seed·같은
+    데이터라도 실행 날짜가 다르면 헤드라인 지문이 달라진다. 기본값 자체를 막지는
+    않되(호출부가 많다) 조용히 지나가지는 않게 한다.
+    """
+    if not meta:
+        return
+    src = meta.get("asof_source")
+    if src == "wall_clock":
+        report.add(ConsistencyCheck(
+            "asof_is_explicit", "WARN",
+            f"기준일 {meta.get('asof')}이 벽시계에서 왔다 (--asof 미지정) — "
+            f"같은 seed라도 다른 날 실행하면 지문이 달라진다"))
+    elif src == "explicit":
+        report.add(ConsistencyCheck(
+            "asof_is_explicit", "PASS",
+            f"기준일 {meta.get('asof')}은 명시적으로 주어졌다"))
+
+
 def _check_sa_irb_no_overlap(
     sa_df: pd.DataFrame, irb_df: pd.DataFrame, report: ValidationReport,
 ) -> None:
@@ -808,9 +875,16 @@ def run_consistency_checks(
     built_forms: list | None = None,
     asof: str | None = None,
     doc_paths: tuple[str, ...] = (),
+    portfolio: pd.DataFrame | None = None,
+    meta: dict | None = None,
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
+
+    # 인제스트 완전성이 먼저다 — 들어온 것이 다 산출에 들어갔는지 모르면
+    # 그 뒤의 정합성 검사는 부분집합에 대한 정합성일 뿐이다.
+    _check_portfolio_intake(portfolio, rep)
+    _check_asof_provenance(meta, rep)
 
     _check_stress_trough_requirement(stress_path_result, bis_result, rep)
     _check_capital_source(capital_source, capital_stack, total_ead, rep)

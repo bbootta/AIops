@@ -119,14 +119,24 @@ def reconcile(result, portfolio: pd.DataFrame) -> list[ReconCheck]:
         passes=abs((ead_sa_book + ead_irb_book) - ead_total) < 1e-6 * ead_total,
     ))
 
-    rwa_sum = (result.rwa["sa"] + result.rwa["irb"] + result.rwa["market"]
-               + result.rwa["op"])
-    floor_addon = result.rwa["final_total"] - rwa_sum
+    # floor 가산분을 `final − sum`으로 만든 뒤 `sum + addon == final`을 검사하면
+    # 항상 참이다 — 게다가 `passes=True`가 박혀 있었고 ccr·구조화가 부문 합에서
+    # 빠져 파이프라인 실제 구성과도 달랐다. 잔차로 항목을 만드는 것은 이 저장소가
+    # 이미 데인 유형이다(구 바젤 서식). 가산분을 **엔진에서 받아** 대사한다.
+    floor = result.rwa.get("output_floor")
+    floor_addon = float(getattr(floor, "add_on", 0.0) or 0.0)
+    rwa_sum = float(result.rwa["sa"] + result.rwa["irb"]
+                    + result.rwa.get("ccr", 0.0)
+                    + result.rwa.get("structured_total", 0.0)
+                    + result.rwa["market"] + result.rwa["op"])
+    final = float(result.rwa["final_total"])
+    tol = max(1.0, 1e-9 * max(final, 1.0))
     out.append(ReconCheck(
-        "최종 RWA = 4부문 합 + floor 가산",
-        "rwa.sa + rwa.irb + rwa.market + rwa.op + (final - sum)",
-        rwa_sum + floor_addon, result.rwa["final_total"],
-        diff=0.0, tolerance=1.0, passes=True,
+        "최종 RWA = 6부문 합 + floor 가산",
+        "sa + irb + ccr + structured + market + op + output_floor.add_on",
+        rwa_sum + floor_addon, final,
+        diff=(rwa_sum + floor_addon) - final, tolerance=tol,
+        passes=abs((rwa_sum + floor_addon) - final) <= tol,
     ))
 
     # CET1 ratio reconciliation

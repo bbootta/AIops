@@ -1,5 +1,5 @@
 {
-  "request_id": "IVR-397316300BCF",
+  "request_id": "IVR-8F60B82AE085",
   "run_id": "RUN-20260630-42",
   "asof": "2026-06-30",
   "seed": 42,
@@ -94,7 +94,7 @@
     }
   ],
   "self_validation": {
-    "PASS": 62,
+    "PASS": 65,
     "WARN": 6
   },
   "self_validation_failures": [],
@@ -191,6 +191,6 @@
       }
     }
   },
-  "submission_digest": "de37f4814855e734667d822afe81347e7cf37e0ad3fe9e4ba93d132a70f08d8b",
-  "created_at": "2026-08-06T23:06:28+00:00"
+  "submission_digest": "2798cc87c730b36ba10dda7a94d3fdd4cd162da177d84995af423063b6dcc3d6",
+  "created_at": "2026-08-07T14:39:09+00:00"
 }
