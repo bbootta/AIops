@@ -2,7 +2,7 @@
 
 > RYNTA RiskOps Vol.1 패키지의 버전 계보, 소스 위치, 검수 상태를 추적하는 단일 관리 원장.
 > 관리 주체: AIops PM 하네스 (Product Owner: 이재준 님 지원).
-> 최종 갱신: 2026-08-06
+> 최종 갱신: 2026-08-07 (Slack 조사 기반 현행화 — 8/5 IR 자문회의, 8/6 투트랙 전략, 위탁테스트 진행분 반영)
 
 ## 1. 제품 개요
 
@@ -11,6 +11,8 @@
 - **구성 도메인**: RDM(선행 기반) + 신용 · 시장 · 운영 · ALM · 통합위기상황분석 · 상시/독립 적합성검증 → 하나의 Agentic RiskOps 운영체계
 - **통제 원칙**: 결정론적 계산, 독립 재계산, 책임자 승인(4-Eyes), Evidence Vault, Human-in-the-loop, 자동확정 금지
 - **핵심 구성요소 명칭** (위탁테스트 신청서 v2 기준): **QV Engine**(Quantitative Validation Engine — 결정론 정량검증 계산엔진, FastAPI REST API) · **AVI**(Artificial Validation Agent — 모형검증 에이전트, Hub/Child 구조) · **ARI**(Artificial Risk Intelligence — 리스크 인텔리전스, AML·STR 확장 검토) · **Evidence Ledger**(증빙 원장). 특허 3건(RYNTA·AVI·ARI) 출원 진행(2026-07 착수)
+  - ⚠️ **명칭 드리프트**: 투트랙 전략 문서(2026-08-06)는 **AVI = Artificial Validation Intelligence**, **ARI = Artificial Risk-management Intelligence**로 표기 — 신청서 v2 풀네임(Agent / Risk Intelligence)과 불일치. 신청서 제출(8/12) 전 어느 쪽으로 통일할지 PO 결정 필요
+- **전략 포지셔닝** (투트랙 전략 마스터플랜, 2026-08-06, Slack #ir F0BN94Y9J2H): RYNTA = ARI + AVI 두 지능. 바젤 기준 우선 개발 → ARI는 불확실성 분석·관리로, AVI는 검증·통제로 일반화 → 중기 AFI(Artificial Finance Intelligence)의 서브에이전트 → AI Native 금융기관 설립(특화 트랙 우선 목표). 회사 포지션: "AI 통제·검증 기술 기반의 금융 AX 제품기업" (사업은 금융 집중, 기술 정체성은 AI 통제·검증)
 - **규제 준거**: EU AI Act(2026-08-02 일반 적용), ISO/IEC 42001, PSMOR(BCBS), BCBS 239, IFRS 9
 - **로드맵**: Vol.2 진단·ALM·IRRBB·유동성 / Vol.3 ECL·자본·RAPM·기후 / Vol.4+ NCR·CCR/XVA·기타리스크
 - **사업 모델** (navigation.xlsx 기준, v9.3.4 검수로 수치 전수 대사 완료):
@@ -18,6 +20,7 @@
   - Target ARR: 130 / 448.5 / 1,105억원 (고객수×ACV, 3개 시점)
   - 계획 인식매출: 148.2 / 562.6 / 1,381.1억원
   - 인도역량 배수: 3.13x / 4.25x / 4.51x
+  - 가격 가설 (2026-08-05 IR 자문회의 언급, navigation.xlsx Tier 가격과 별도 검증 중): 적용 범위별 약 3 / 13 / 45억원 수준. 3년 목표: 대형 10곳·중견 50곳, 매출 약 1,000억원. RYNTA는 구독형 전환 계획
 
 ## 2. 버전 계보 (Version Lineage)
 
@@ -70,7 +73,7 @@
 | 소스 | 내용 | 접근성 (이 하네스 기준) |
 |---|---|---|
 | **PO 로컬 Downloads** (`RYNTA_RiskOps_Vol1_v9.6.1_한국어_정리본/`) | 최신 작업본 (압축해제) | ❌ 클라우드 세션에서 직접 접근 불가 → 반입 절차(§6) 필요 |
-| Slack #ir (C0BK4SCJUBV) | v9.2 / v9.3.7 / v9.6.1 zip, 설계 논의 스레드, 데모 링크 | 🔶 메시지·10MB 미만 파일만 읽기 가능 (zip 3종 모두 10MB 초과 → 도구 반입 불가) |
+| Slack #ir (C0BK4SCJUBV) | v9.2 / v9.3.7 / v9.6.1 zip, 설계 논의 스레드, 데모 링크. 신규(8/5~8/7): IR 자문회의 회의록(F0BN153N40K) · 투트랙 전략(F0BN94Y9J2H) · 위탁테스트 신청서 초안 HWP(F0BNP4AQVDL) · 공고 원본 위탁테스트2025.zip(F0BP639LJ72, 117.8MB) · (참고)위탁테스트.zip(F0BNAEK7UGM) | 🔶 메시지·10MB 미만 파일만 읽기 가능 (zip 3종 모두 10MB 초과 → 도구 반입 불가) |
 | Google Drive | v9.3.4 검수보고서, Capvera v8.1/v8.3 팩 (개별 파일) | ✅ 읽기 가능 |
 | 본 리포 `products/rynta/` | 관리 원장(본 문서) + 위탁테스트 워크스트림(`consignment-test/`) + 반입된 패키지 사본 | ✅ 관리 대상 |
 | 데모 | https://rynta-agentic-ui-demo.bbootta.chatgpt.site (에이전틱 UI 데모 영상 샘플) | 외부 링크 |
@@ -81,6 +84,16 @@
 
 한국핀테크지원센터 제12회 Meet-Up 위탁테스트 신청. **마감 2026-08-12(수) 15:00.**
 클로드 코워크(데스크톱) 세션에서 신청서 초안 v2·체크리스트·IR 피칭 1페이지가 작성됐고(Drive), 스냅샷을 [`consignment-test/`](consignment-test/)에 포섭함. 상세 현황·미결 사항은 해당 폴더 README 참조. 선정 시 9월 민간협의체 IR 피칭 → 금융회사 매칭 → 6개월 병행 운영 테스트로 이어짐 — RYNTA 최초의 실데이터 실증 경로.
+
+**진행 현황 (8/7 기준)**: 8/6 미입력 항목 정보 요청 4묶음(법인·재무·임원·견적) #ir 공유 → 회신 대기. 8/7 20:02 **신청서 초안 HWP**(원라인에이아이_20260807) #ir 공유 — 추가 작성 영역 보라색 표기, 기존 내용 사실 확인 요청 중. 상세 로그는 consignment-test README.
+
+## 5.6 연관 워크스트림 — IR·사업전략 (2026-08-05~)
+
+제품 포지셔닝·가격·명칭에 직접 영향을 주는 트랙. 소스는 Slack #ir.
+
+- **8/5 마크앤컴퍼니 IR·사업전략 자문회의** (회의록 F0BN153N40K): 약 30억원 투자유치 검토(사용처: RYNTA 엔지니어 확충, 미국·싱가포르 진출, 현지 세일즈 조직), 기업가치 150~200억원 수준 논의. 잠정 합의: IR 스토리를 AI 통제·검증 중심으로 재구성. 미결(경영진): 금융 확대 vs AI 통제·검증 중심 선택, Physical AI 편입/분리, 자원 배분
+- **8/6 투트랙 전략 마스터플랜** (jj 작성, F0BN94Y9J2H): 특화(금융 에이전틱화 수익사업) + 범용(LLM 벤치마크·검증 기초연구) 역할 분담으로 자문회의 미결에 답함. §1 전략 포지셔닝·명칭 드리프트 항목 참조
+- **다가오는 마일스톤**: IR 자료 수정본 + 1 Page IR Teaser 제출 8/18(화) 16:00 (양식 수신 완료) · 혁신의숲 투자자 대상 IR 프로모션 메일 8/27 · 브로셔 작업 및 글로벌 금융기관 메일 발송(진행 중 — §4 F-1~F-3 브로셔 발견사항과 연동 주의)
 
 ## 6. 관리 런북 (Runbook)
 
