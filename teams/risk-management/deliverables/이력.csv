@@ -1,3 +1,4 @@
 ﻿기준일자,판,수행일자,요청식별자,게이트,서식,라인,서식검증실패,테이블,자체검증,산출지문,제출본지문,코드리비전,경로
 2026-06-30,v01,2026-07-29,IVR-8CDB13393503,부적합,290,5896,0,81,PASS 60 · WARN 5 · FAIL 0,3b4b6b311cc10fd3,bd27dd1128373d5a,b4a9ba2f4e74,teams/risk-management/deliverables/2026-06-30/20260729_v01
 2026-06-30,v02,2026-08-06,IVR-CEB70642E24B,부적합,290,5910,0,107,PASS 60 · WARN 6 · FAIL 0,b43739fad3d3aa3a,124a115b1da0248a,e5cca2225818,teams/risk-management/deliverables/2026-06-30/20260806_v02
+2026-06-30,v03,2026-08-07,IVR-397316300BCF,부적합,290,5911,0,107,PASS 62 · WARN 6 · FAIL 0,375f6ff4cc7c36c3,de37f4814855e734,50d2524650c8,teams/risk-management/deliverables/2026-06-30/20260807_v03
