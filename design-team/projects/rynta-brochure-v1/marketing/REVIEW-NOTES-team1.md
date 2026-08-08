@@ -37,3 +37,32 @@
 ## 다음 단계
 
 design-reviewer의 4축 검수(규제 표기·대비·브랜드 일관성·규격) 요청. 특히 시안 01의 red 대형 텍스트 경계치 대비와 시안 08의 계층 컬러 미적용 결정에 대한 판단 요망.
+
+## EN versions
+
+작성: 팀1 marketing-designer | 2026-08-08 | 대상: `en/01-editorial-assurance.html`, `en/08-swiss-grid.html`
+카피 출처: `research/copy-deck-en.md` 단일 출처 — 덱 외 문장 창작 없음(어순·강조의 디자인 조정만), "Parallel-Run Evaluation" 사용, 요청·부탁형 어투 없음. 레이아웃·컬러·그리드·인쇄 CSS는 한국어 승인본과 동일.
+
+### 자가검증
+
+| 항목 | EN 01 | EN 08 |
+|---|---|---|
+| 필수 고지 — 덱 영문 원문 그대로 + 시안 번호 | PASS — 뒷면 하단, 7pt, ink on paper, "— Pre-clearance draft · 01 · 2026-08-08" | PASS — 동일 위치·크기, "· 08 ·" |
+| 목표 수치 전건 target 병기 | PASS — KPI 표 4개 셀 [TARGET] 태그 + 각주 "Targets, not commitments", 내부3 소요기간 "(target)" 인라인 + 캡션 "evaluation target, not a result" | PASS — KPI [TARGET] 태그 4건 + 내부3 [TARGET] 칩 + 동일 캡션 |
+| 금지 표현 (guaranteed / revolutionary / best-in-class / zero-risk) | PASS — 0건 (grep 확인) | PASS — 0건 |
+| 국내 전용 문구 대체 | PASS — 태그라인 "Financial-grade AI, built by validators.", "신규 규제 특례 불요" → "Fits existing frameworks"(덱 보안 블록 문안) | PASS — 동일 |
+| 화면 전용 라벨 영어화 | PASS — "Outside — [Flap (folds in) \| Back \| Cover]" / "Inside — [01 Diagnosis \| 02 Architecture \| 03 Transition]" + 헤더·aria-label EN | PASS — 동일 |
+| 오버플로 확인 | PASS — 헤드리스 Chromium(Playwright) 렌더: 시트 1123×794px@96dpi 정확, 전 패널 오버플로 0건 (조정 전 내부3 21px 초과 → 해소) | PASS — 동일 방법, 0건 (조정 전 내부3 49px 초과 → 해소) |
+| AI 산출물 표시 | PASS — 내부2 "AI labeling" 박스(덱 AI notice 원문) | PASS — 동일 |
+| 더미 데이터만 사용 | PASS — 대표 주소/웹/info@ 만 | PASS — 동일 |
+
+### 라틴 조판 조정 내역 (레이아웃 불변, 폰트·행간만)
+
+- 공통: `word-break:keep-all` 전부 제거(normal). 헤드라인 letter-spacing -.01~-.02em. 서체 스택 유지(Pretendard 선두).
+- EN 01: 세리프 스택 Georgia 선두 추가(Georgia, "Noto Serif KR", serif). 표지 h1 23.5→20pt(라틴 장체 폭 보정). KPI 표 9→8.5pt·goal nowrap 해제(3열 전환), As-is 표 8.6→8pt, duration 수치 19→15.5pt.
+- EN 08: 표지 h1 letter-spacing -.01em 추가. KPI td.num 11→9.5pt·nowrap 해제(3열 전환), As-is 표 8.6→8pt, 내부3 bignum 26→20pt(단위 8.5pt), security 9.5→9pt / 8.4→8pt·행간 1.5→1.45.
+
+### 리뷰어 판단 요청 (EN)
+
+1. KPI 표를 카피 덱 확정안대로 **3열(Metric/Target/Measured by)** 로 확장 — 한국어판(2열) 대비 유일한 구조 변화. 덱 원문 사용을 우선했다. 2열 유지가 낫다고 판단되면 "Measured by" 열 삭제 + measure 박스 이동으로 롤백 가능.
+2. 내부3 소요기간 행이 영문 길이로 인해 2행으로 개행됨(01: "(target)" 별행 / 08: "5–10 business days" 별행) — 렌더 확인 결과 판독성 문제 없음, 심미 판단 요망.
