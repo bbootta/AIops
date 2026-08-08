@@ -144,10 +144,18 @@ def observations(asof: date | str, *, seed: int = 42,
     return pd.DataFrame(rows)
 
 
+def latest_observations(obs: pd.DataFrame) -> pd.DataFrame:
+    """지표별 최근 관측 1행.
+
+    시나리오 연결과 모니터링 화면이 같은 "최근값"을 봐야 한다 — 두 곳에서
+    각자 뽑으면 어느 쪽이 그 지표의 현재값인지 사후에 물어야 한다.
+    """
+    return obs.sort_values("period").groupby("indicator_id").tail(1)
+
+
 def scenario_links(obs: pd.DataFrame) -> pd.DataFrame:
     """시나리오 가정이 어느 지표의 어떤 값에서 나왔는지 남긴다."""
-    latest = (obs.sort_values("period").groupby("indicator_id").tail(1)
-              .set_index("indicator_id"))
+    latest = latest_observations(obs).set_index("indicator_id")
     by_id = {s.indicator_id: s for s in INDICATORS}
     rows = []
     for scen, shocks in SCENARIO_SHOCK.items():
