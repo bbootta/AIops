@@ -4,7 +4,10 @@
 
 ## 항상 유지
 
-- 제품명, 브랜드명, 서비스명 (예: AIops)
+- 자사 제품·서비스명: OLA, Finola, Dovi, OLAF, DART-X, RYNTA, Ko-R1, won-instruct, NovaMath, KMS, OLA-Bot, GitNexus, Claw, Hermes Agent
+- Finola 기능·플랜명: Boss/Baby/Graph/Table Agent, Trial, Savvy, Brainy
+- 리포지토리·시스템 식별자: `ola-b2b-ibks-*`, `ola-data`, `ola-proxy-server`, `knowledge-context`, `external_dw`, `ola_gold`, `fct_*`/`dim_*` 테이블명, silver/gold/public 계층명, `encData`, `_strKey`, `ionebank`, Jira 키 `OLA-###`
+- 기술 제품명: LangGraph, Qdrant, Airflow, Metabase, MongoDB Atlas, vLLM, BGE-M3, L40S 등
 - 코드, 명령어, 함수·변수명, 파일 경로, 설정 키
 - URL, 이메일 주소, 도메인
 - 법인 등기 영문 명칭 (재번역 금지 — 등록 표기 사용)
