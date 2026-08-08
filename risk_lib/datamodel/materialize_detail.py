@@ -780,8 +780,15 @@ def materialize_stress_trace(result, portfolio, base) -> dict[str, pd.DataFrame]
     from risk_lib.stress.trace import trace_from_result
     axes = axis_frame()[["key", "korean", "risk_type", "unit", "per_severity",
                          "citation", "note"]]
+    # 거시·금융지표 — 시나리오 심도의 근거가 되는 관측치와 그 연결.
+    # 값은 파생이나 출처 코드는 실제 ECOS·KOSIS 계열을 가리킨다.
+    from risk_lib.macro_monitor import observations, scenario_links
+    obs = observations(result.meta.get("asof", "2026-06-30"),
+                       seed=int(result.meta.get("seed", 42)))
     return {"st_calc_trace": trace_from_result(result, portfolio),
-            "st_shock_axis": axes}
+            "st_shock_axis": axes,
+            "macro_indicator": obs,
+            "macro_scenario_link": scenario_links(obs)}
 
 
 def materialize_prudential(result, portfolio, base) -> dict[str, pd.DataFrame]:

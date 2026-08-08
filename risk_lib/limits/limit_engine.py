@@ -63,11 +63,16 @@ class LimitEngine:
             return lim.threshold * self.tier1_capital
         raise ValueError(f"unknown basis: {lim.basis}")
 
-    def evaluate(self, portfolio: pd.DataFrame, *, exposure_col: str = "ead") -> list[LimitBreach]:
-        """Return all breaches including warnings (utilisation >= 0.90).
+    def evaluate(self, portfolio: pd.DataFrame, *, exposure_col: str = "ead",
+                 min_utilisation: float = 0.90) -> list[LimitBreach]:
+        """Return breaches at or above `min_utilisation` (기본 0.90 = 경보 이상).
 
         For limits with value=None, the limit is applied to *each* bucket of
         the dimension (e.g. per obligor, per sector).
+
+        `min_utilisation=0.0`을 주면 위반이 아닌 버킷까지 전부 돌려준다 —
+        한도관리 화면은 소진율 **분포**를 보여야 하므로 그 경로가 필요하다.
+        위반 보고서(`report()` 기본값)의 계약은 바뀌지 않는다.
         """
         breaches: list[LimitBreach] = []
         for lim in self.limits:
@@ -79,19 +84,21 @@ class LimitEngine:
                 df = portfolio[portfolio[lim.dimension] == lim.value]
                 exp = float(df[exposure_col].sum())
                 util = exp / threshold_amt if threshold_amt > 0 else float("inf")
-                if util >= 0.90:
+                if util >= min_utilisation:
                     breaches.append(LimitBreach(lim, lim.value, exp, threshold_amt, util))
             else:
                 grp = portfolio.groupby(lim.dimension)[exposure_col].sum()
                 for bucket, exp in grp.items():
                     util = exp / threshold_amt if threshold_amt > 0 else float("inf")
-                    if util >= 0.90:
+                    if util >= min_utilisation:
                         breaches.append(LimitBreach(lim, bucket, float(exp), threshold_amt, util))
         return breaches
 
-    def report(self, portfolio: pd.DataFrame, *, exposure_col: str = "ead") -> pd.DataFrame:
+    def report(self, portfolio: pd.DataFrame, *, exposure_col: str = "ead",
+               min_utilisation: float = 0.90) -> pd.DataFrame:
         rows = []
-        for b in self.evaluate(portfolio, exposure_col=exposure_col):
+        for b in self.evaluate(portfolio, exposure_col=exposure_col,
+                               min_utilisation=min_utilisation):
             rows.append({
                 "limit": b.limit.name,
                 "dimension": b.limit.dimension,

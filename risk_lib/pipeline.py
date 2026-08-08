@@ -148,6 +148,8 @@ class PipelineResult:
     validation: Any
     alm: dict[str, Any] = field(default_factory=dict)    # balance_sheet/irrbb/lcr/nsfr
     icaap: Any = None
+    # 한도 소진율 전량(위반 아닌 버킷 포함) — 화면용. 위반 보고서와 별개다.
+    limits_full: pd.DataFrame | None = None
     raf: Any = None
     climate: Any = None
     ccr: Any = None
@@ -539,17 +541,33 @@ def _stage_limits_concentration(portfolio: pd.DataFrame, tier1: float):
     Backward-compatible signature; the CRO deep-dive uses
     :func:`compute_limits_deep` which is wired in via the limits_deep field.
     """
+    # 한도 체계는 차원 하나로 서지 않는다 — 동일차주·섹터·국가만 두면 화면이
+    # "한도관리"가 아니라 "국가 한도 한 줄"이 된다. 감독규정·내규가 실제로 두는
+    # 축(차주·그룹·업종·국가·자산군·등급·상품)을 덮는다.
     limits = [
         LimitDefinition("동일차주_Tier1_25pct", "obligor_id", None,
                         0.25, basis="pct_tier1"),
-        LimitDefinition("섹터_총노출_3조", "sector", None,
-                        3.0e12, basis="absolute"),
+        LimitDefinition("섹터_총노출_2조", "sector", None,
+                        2.0e12, basis="absolute"),
         LimitDefinition("국가_총노출_5조", "country", None,
                         5.0e12, basis="absolute"),
+        LimitDefinition("자산군_총노출_7조", "asset_class", None,
+                        7.0e12, basis="absolute"),
+        LimitDefinition("등급_총노출_6조", "rating", None,
+                        6.0e12, basis="absolute"),
     ]
-    limit_report = LimitEngine(limits, tier1_capital=tier1).report(portfolio)
+    engine = LimitEngine(limits, tier1_capital=tier1)
+    limit_report = engine.report(portfolio)
+    # 화면은 소진율 분포를 봐야 하므로 위반이 아닌 버킷까지 함께 낸다. 검증·서식이
+    # 쓰는 위반 보고서(limit_report)와는 별개 프레임이다 — 둘을 섞으면 "위반 N건"이
+    # 갑자기 전 버킷 수가 된다.
+    limit_full = engine.report(portfolio, min_utilisation=0.0)
+    # 차주 단위는 버킷이 2,980개라 화면에서 분포를 가린다 — 위반분은 위반
+    # 보고서에 이미 있으므로 전량 프레임에서는 뺀다.
+    limit_full = limit_full[limit_full["dimension"] != "obligor_id"].copy()
+    limit_full = limit_full.sort_values("utilisation", ascending=False)
     conc = concentration_report(portfolio, ["obligor_id", "sector", "country"])
-    return limit_report, conc
+    return limit_report, limit_full, conc
 
 
 def _stage_rapm(irb_book: pd.DataFrame, hurdle_rate: float):
@@ -876,7 +894,8 @@ def run_pipeline(
 
     # 8-11. Monitoring, limits/concentration, RAPM
     monitoring = _stage_monitoring(portfolio, seed)
-    limit_report, conc = _stage_limits_concentration(portfolio, capital.tier1)
+    limit_report, limit_full, conc = _stage_limits_concentration(
+        portfolio, capital.tier1)
     rapm_by_class = _stage_rapm(irb_book, hurdle_rate)
     rapm_deep_result = compute_rapm_deep(irb_book, hurdle_rate=hurdle_rate)
 
@@ -1111,7 +1130,7 @@ def run_pipeline(
         bis=bis, leverage=leverage,
         ecl={"total": float(ecl_df["ecl"].sum()), "by_stage": ecl_by_stage},
         monitoring=monitoring,
-        limits=limit_report, concentration=conc,
+        limits=limit_report, limits_full=limit_full, concentration=conc,
         rapm=rapm_by_class, stress=stress,
         macro_ecl=macro, reverse_stress=reverse,
         macro_ecl_path=macro_path,

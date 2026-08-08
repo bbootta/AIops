@@ -2301,7 +2301,68 @@ SHOCK_AXIS = TableSpec(
          "동시에 발동해야 어느 분기가 최악인지 말할 수 있다.",
 )
 
-ST_TABLES = ST_TABLES + (STRESS_TRACE, SHOCK_AXIS)
+
+# ---- 거시·금융지표 모니터링 (통합위기상황분석 시나리오의 입력) ----------------
+# 시나리오 경로(gdp_path 등)는 지금까지 코드 상수였다. 그 숫자가 어느 통계에서
+# 왔는지 원장이 없으면 "시나리오를 왜 그렇게 잡았나"에 답할 수 없다.
+#
+# 값은 아직 **합성**이다. 외부 통계 API를 붙이지 않았으므로 실측이라고 말하지
+# 않는다. 대신 출처 기관·통계표 코드를 원장 컬럼으로 박아, 실 피드가 생기면
+# 어느 계열을 어디에 꽂아야 하는지가 원장에 이미 적혀 있게 한다.
+MACRO_SOURCES = ("한국은행", "통계청", "금융감독원", "KOFIA", "BIS", "IMF")
+MACRO_CATEGORIES = ("성장", "물가", "금리", "환율", "고용", "가계부채",
+                    "부동산", "금융시장", "대외")
+MACRO_FREQ = ("월", "분기", "연")
+
+MACRO_INDICATOR = TableSpec(
+    name="macro_indicator", korean="거시·금융지표 관측치", product="PRD-ST",
+    grain="지표 × 관측시점 1행",
+    columns=(
+        C("indicator_id", "string", "지표 식별자", nullable=False),
+        C("name", "string", "지표명", nullable=False),
+        C("category", "string", "부문", nullable=False, allowed=MACRO_CATEGORIES),
+        C("source", "string", "출처 기관", nullable=False, allowed=MACRO_SOURCES),
+        C("source_code", "string", "출처 통계표·계열 코드", nullable=False,
+          note="한국은행 ECOS 통계표코드 / 통계청 KOSIS 표ID. 실 피드 연결 지점."),
+        C("period", "string", "관측시점 (YYYY-MM 또는 YYYY-Qn)", nullable=False),
+        C("freq", "string", "주기", nullable=False, allowed=MACRO_FREQ),
+        # 단위가 지표마다 다르다(%, 원, 지수, bp). 스키마에 하나로 박으면
+        # 거짓이 되므로 같은 행의 `unit` 컬럼이 정본이다.
+        C("value", "float", "관측값", nullable=False, unit="가변",
+          note="단위는 같은 행의 unit 컬럼을 본다"),
+        C("unit", "string", "단위", nullable=False),
+        C("yoy", "float", "전년동기대비", nullable=True, unit="ratio"),
+        C("basis", "string", "산출 근거", nullable=False,
+          allowed=("실측", "파생"),
+          note="외부 피드가 붙기 전에는 전건 파생이다. 실측이라 말하지 않는다."),
+    ),
+    primary_key=("indicator_id", "period"),
+    note="시나리오 심도의 근거가 되는 관측치. 값은 합성이나 출처 코드는 실제 "
+         "계열을 가리키므로, 피드가 생기면 이 원장만 갈아끼우면 된다.",
+)
+
+MACRO_SCENARIO_LINK = TableSpec(
+    name="macro_scenario_link", korean="시나리오–지표 연결", product="PRD-ST",
+    grain="시나리오 × 지표 1행",
+    columns=(
+        C("scenario", "string", "시나리오", nullable=False, allowed=SCENARIOS),
+        C("indicator_id", "string", "지표 식별자", nullable=False),
+        C("name", "string", "지표명", nullable=False),
+        C("latest", "float", "최근 관측값", nullable=False, unit="가변",
+          note="단위는 macro_indicator.unit 을 본다"),
+        C("scenario_value", "float", "시나리오 가정값", nullable=False, unit="가변",
+          note="단위는 macro_indicator.unit 을 본다"),
+        C("shock", "float", "충격폭 (시나리오 − 관측)", nullable=False, unit="가변",
+          note="관측값과 같은 단위"),
+        C("drives", "string", "이 지표가 움직이는 축", nullable=False),
+    ),
+    primary_key=("scenario", "indicator_id"),
+    note="시나리오 가정이 어느 지표의 어떤 값에서 나왔는지 남긴다. 이 연결이 "
+         "없으면 시나리오는 근거 없는 숫자 묶음이 된다.",
+)
+
+ST_TABLES = ST_TABLES + (STRESS_TRACE, SHOCK_AXIS,
+                         MACRO_INDICATOR, MACRO_SCENARIO_LINK)
 
 # ---------------------------------------------------------------- 건전성 (PRU)
 BALANCE_SECTIONS = ("자산", "부채", "자본")
