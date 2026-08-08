@@ -1143,9 +1143,11 @@ ECL_DETAIL_TABLES = (ECL_STAGE_TRANSITION, ECL_SICR_STAT, ECL_PROVISION_BRIDGE)
 
 # ---------------------------------------------------------------- R11-E · ALM
 LCR_SECTIONS = ("HQLA", "OUTFLOW", "INFLOW")
-NSFR_SECTIONS = ("ASF", "RSF")
-# 버킷 라벨은 alm.irrbb가 실제로 만드는 값이다 — 추정으로 적으면 정상 산출이
-# 도메인 위반으로 잡힌다.
+# NSFR 구분 어휘는 `risk_lib.alm.nsfr.NSFR_SECTIONS` 한 곳이다 — 여기 사본을
+# 두면 두 어휘가 갈라져도 아무 데서도 걸리지 않는다.
+# 버킷 라벨은 alm.balance_sheet가 실제로 만드는 값이다 — 추정으로 적으면 정상
+# 산출이 도메인 위반으로 잡힌다. 정본은 `alm_time_bucket` 원장이며 그쪽이
+# 경계·중점·근거상태를 담는다.
 REPRICING_BUCKETS = ("0-1m", "1-3m", "3-6m", "6-12m", "1-2y", "2-3y", "3-5y",
                      "5-10y", "10y+")
 
@@ -1169,22 +1171,10 @@ LCR_ITEM = TableSpec(
     note="LCR을 비율 한 줄로만 두면 업무보고서 라인도, 원인분석도 불가능하다.",
 )
 
-NSFR_ITEM = TableSpec(
-    name="alm_nsfr_item", korean="NSFR 항목별 내역", product="PRD-ALM",
-    grain="기준일 × 구분 × 항목 1행",
-    columns=(
-        C("asof", "date", "기준일", nullable=False),
-        C("section", "string", "구분", nullable=False, allowed=NSFR_SECTIONS,
-          citation="NSF20(ASF) · NSF30(RSF)"),
-        C("category", "string", "항목", nullable=False),
-        C("amount", "float", "잔액", nullable=False, unit="KRW", min_value=0.0),
-        C("factor", "float", "인정률", nullable=False, unit="ratio",
-          min_value=0.0, max_value=1.0),
-        C("weighted", "float", "가중 후 금액", nullable=False, unit="KRW",
-          min_value=0.0),
-    ),
-    primary_key=("asof", "section", "category"),
-)
+# `alm_nsfr_item`의 정본은 `risk_lib.alm.nsfr.NSFR_ITEM`이다 — 계수 원장
+# (`alm_nsfr_factor`)을 FK로 물고 만기구간·근거상태를 함께 담는다. 여기 스펙을
+# 남겨 두면 같은 테이블에 정의가 둘이 되고, 검증이 어느 쪽을 쓰는지가 import
+# 순서에 달린다. 아래 ALM 원장 등재 구간에서 엔진 스펙을 가져온다.
 
 REPRICING_GAP = TableSpec(
     name="alm_repricing_gap", korean="금리 재설정 갭", product="PRD-ALM",
@@ -1192,7 +1182,11 @@ REPRICING_GAP = TableSpec(
     columns=(
         C("asof", "date", "기준일", nullable=False),
         C("bucket", "string", "만기 버킷", nullable=False,
-          allowed=REPRICING_BUCKETS, citation="SRP31.94 표준 만기 구간"),
+          allowed=REPRICING_BUCKETS,
+          # 표준체계 시간버킷은 19개다. 9개 자체집계 사다리에 "표준 만기 구간"
+          # 이라 적어 두면 감사에서 그대로 읽힌다 — 값 오류보다 나쁘다.
+          citation="자체 집계 사다리 9구간 (alm_time_bucket framework_version="
+                   "'house_9') — 표준 19버킷 미적재"),
         C("seq", "int", "순서", nullable=False, min_value=1),
         C("asset", "float", "자산", nullable=False, unit="KRW", min_value=0.0),
         C("liability", "float", "부채", nullable=False, unit="KRW",
@@ -1203,7 +1197,7 @@ REPRICING_GAP = TableSpec(
     primary_key=("asof", "bucket"),
 )
 
-ALM_DETAIL_TABLES = (LCR_ITEM, NSFR_ITEM, REPRICING_GAP)
+ALM_DETAIL_TABLES = (LCR_ITEM, REPRICING_GAP)
 
 # ---------------------------------------------------------------- R11-F · MKT
 BACKTEST_ZONES = ("green", "amber", "red")
@@ -2540,6 +2534,28 @@ INDEPENDENT_TARGET = TableSpec(
 
 IV_TABLES = (INDEPENDENT_REQUEST, INDEPENDENT_TARGET)
 DETAIL_TABLES = DETAIL_TABLES + IV_TABLES
+
+
+# ==================================== R14 · ALM 원장 (계수·계약·현금흐름·산출)
+# 스펙을 여기 옮겨 적지 않고 엔진 모듈에서 가져온다. 스펙과 그 스펙을 채우는
+# 코드가 같은 파일에 있어야 컬럼을 늘릴 때 한쪽만 고치는 일이 생기지 않는다.
+# 규제표·승인값을 적재하는 자리는 각 모듈의 build_* 한 군데뿐이며, 카탈로그는
+# 그 산출물의 계약만 모은다.
+from risk_lib.alm.cashflow import CASHFLOW_TABLES as _CASHFLOW_TABLES  # noqa: E402
+from risk_lib.alm.contracts import CONTRACT as _CONTRACT               # noqa: E402
+from risk_lib.alm.curves import CURVE_TABLES as _CURVE_TABLES          # noqa: E402
+from risk_lib.alm.irrbb import IRRBB_TABLES as _IRRBB_TABLES           # noqa: E402
+from risk_lib.alm.lcr import LCR_TABLES as _LCR_TABLES                 # noqa: E402
+from risk_lib.alm.liquidity import LIQUIDITY_TABLES as _LIQ_TABLES     # noqa: E402
+from risk_lib.alm.nii import NII_RESULT as _NII_RESULT                 # noqa: E402
+from risk_lib.alm.nsfr import NSFR_TABLES as _NSFR_TABLES              # noqa: E402
+from risk_lib.alm.params import PARAM_TABLES as _PARAM_TABLES          # noqa: E402
+
+ALM_LEDGER_TABLES: tuple[TableSpec, ...] = (
+    _PARAM_TABLES + (_CONTRACT,) + _CASHFLOW_TABLES + _CURVE_TABLES
+    + _IRRBB_TABLES + (_NII_RESULT,) + _LCR_TABLES + _NSFR_TABLES
+    + _LIQ_TABLES)
+
 ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
               + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES
-              + DETAIL_TABLES + R13_TABLES + AGG_TABLES)
+              + DETAIL_TABLES + R13_TABLES + AGG_TABLES + ALM_LEDGER_TABLES)

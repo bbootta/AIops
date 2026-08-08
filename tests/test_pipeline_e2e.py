@@ -113,7 +113,37 @@ GOLDEN = {
 # +1 intake_exposure_id_unique: 중복 행이 RWA를 경보 없이 이중계상하던 경로.
 # +1 asof_is_explicit: `asof` 미지정 시 벽시계가 들어가는 사실을 드러낸다
 #    (WARN). 기본값 자체는 호출부가 많아 남겼고, 조용한 것만 없앴다.
-GOLDEN_VALIDATION = {"PASS": 54, "WARN": 6}
+# 재고정 8 (2026-08-08, ALM 현금흐름 엔진 배선) — +3 PASS · +2 WARN.
+# 헤드라인 10건은 움직이지 않는다: `_stage_capital`이 `_stage_alm`보다 먼저
+# 실행되므로 RWA·자본비율·레버리지·ECL 경로에 ALM이 들어가지 않고,
+# `reverse_critical_severity`는 `cet1_ratio`로 푸는데 ΔEVE·ΔNII·LCR은
+# `multi_axis.py:279`의 `earnings_delta`에 들어가지 않는다.
+# +1 PASS: alm_cf_ties_to_notional — 계약현금흐름 원금 합 = 계약원장 명목.
+#    상환스케줄이 원금을 다 갚아내지 못하면(잔액 전개 오류·버킷 절단) 그 차액이
+#    지금까지 어디에도 남지 않았다.
+# +1 PASS: alm_bucket_pv_ties_to_delta_eve — 화면이 그리는 버킷별 PV 효과와
+#    이사회 팩 헤드라인이 같은 산출에서 나왔는지. 버킷별 효과는 원장에 아예
+#    없었고 화면은 파이프라인 메모리 객체에서 직접 읽고 있었다.
+# +1 PASS: alm_ladder_ties_to_cashflow — 사다리 순갭 합 = 현금흐름 합. 사다리가
+#    현금흐름 원장이 아니라 별도 가정에서 나오면 여기서 갈라진다.
+# +1 WARN: alm_unconfirmed_param_in_use — KRW 금리충격 모수가 비어 USD 계정을
+#    프록시로 쓰고 있고(설계 §0), 시장전반 스트레스 유출률이 없어 그 생존기간
+#    시나리오는 산출되지 않는다. 산출이 나왔다는 사실만 보면 이 공백이 보이지
+#    않는다 — 그래서 매 실행 드러낸다.
+# +1 WARN: alm_behaviour_param_warnings — 행동·곡선 모수 경고 46건(TDRR 기준율
+#    미확정, CPR steepener/flattener 승수 미확인, NMD 안정예금 비율 미추정 등).
+#    ParamWarning은 "그 조정을 건너뛰었다"는 기록이므로 산출물에 실려야 한다.
+# 재고정 사유 (중대 지적 시정):
+#   PASS +1  `alm_delta_eve_independent_recalc` 신설. 기존
+#            `alm_bucket_pv_ties_to_delta_eve`는 결과 원장의 delta_eve가 버킷
+#            원장 delta_pv의 합으로 **정의**되므로 항등식이었고 충격곡선을
+#            무력화해도 통과했다. 그 검사는 짝 검증
+#            (`alm_bucket_pv_pairs_with_irrbb_result`)으로 이름을 바꿔 남기고,
+#            값 검증은 모수 원장에서 할인계수를 다시 만드는 새 검사가 맡는다.
+#   WARN +1  `alm_irrbb_engine_single_source` 신설. 스트레스 경로가 아직 갭
+#            근사로 ΔEVE를 산출한다 — `StressBooks.irrbb` 배선이 끝나면 PASS로
+#            바뀐다.
+GOLDEN_VALIDATION = {"PASS": 58, "WARN": 9}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",

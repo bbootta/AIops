@@ -21,7 +21,7 @@ Reports (표현 계층)      html_report(빌드 오케스트레이터), report_c
                         page_registry
   ↓
 Canonical data model    datamodel/ (spec·catalog·decompose·materialize·
-                        materialize_detail) — 109 테이블 / 948 컬럼
+                        materialize_detail) — 131 테이블 / 1206 컬럼
   ↓
 Orchestration           pipeline.run_pipeline → PipelineResult
   ↓
@@ -86,7 +86,7 @@ out/
 
 ## 정규 데이터모델 (datamodel/)
 
-`catalog.ALL_TABLES`가 단일 소스다 — 테이블 109장 / 컬럼 948개. 각 컬럼은 타입·
+`catalog.ALL_TABLES`가 단일 소스다 — 테이블 131장 / 컬럼 1206개. 각 컬럼은 타입·
 단위·허용값·범위·규정 근거를 스펙으로 선언하고, DDL·검증·DQ 규칙이 모두 여기서
 파생된다.
 
@@ -96,14 +96,29 @@ out/
   `alm_lcr_item`(항목별 잔액·적용률·가중액), `rdm_asset_quality`(건전성 5단계).
 - **PRD-REG** 업무보고서 원장 (`regulatory.forms.form_frames`)
 - **PRD-UIX** UI 통제 원장 (`ui_studio.governance`)
+- **R14 ALM 원장 23장** (`catalog.ALM_LEDGER_TABLES`) — 계수 10장
+  (`alm_time_bucket`·`alm_product_terms`·행동모형 3장·`alm_nmd_param`·
+  `alm_lcr_factor`·`alm_nsfr_factor`·`alm_liquidity_stress_param`·
+  `alm_post_shock_floor`) + 시나리오 2장(`alm_rate_shock_param`·
+  `alm_scenario_def`) → 계약(`alm_contract`) → 현금흐름
+  (`alm_cashflow_contract`·`_behavioural`·`_bucket`) → 산출 7장
+  (`alm_irrbb_bucket_pv`·`alm_irrbb_result`·`alm_nii_result`·`alm_lcr_flow`·
+  `alm_nsfr_item`·`alm_maturity_ladder`·`alm_survival_path`).
+  규제표·승인값을 적재하는 자리는 각 엔진 모듈의 `build_*` 한 군데뿐이고
+  엔진 함수는 원장을 인자로 받는다. 스펙도 그 모듈이 정의하고 카탈로그가
+  가져온다 — 스펙과 그것을 채우는 코드가 갈라지지 않게 한다.
+  파이프라인 `_stage_alm`이 채워 `PipelineResult.alm_tables`로 내보내고
+  `materialize_alm`이 그대로 받는다. `alm_repricing_gap`(잔액 사다리)과
+  `alm_maturity_ladder`(현금흐름 사다리)는 **다른 축**이며 섞지 않는다.
 
 전 테이블을 채우는 진입점은 `ui_studio.studio.build_studio(result, portfolio)`다.
 부문 엔진만 돌리면 카탈로그에 선언만 되고 산출은 없는 테이블이 생긴다.
 
 **도메인 값은 반드시 실제 데이터에서 가져온다.** 추정으로 적으면 정상 산출이
 위반으로 잡히거나(거짓 경보) 신규 값이 조용히 통과한다. `GRADES`는
-`models.rating.DEFAULT_MASTER_SCALE`에서, `REPRICING_BUCKETS`는 `alm.irrbb`가
-실제로 만드는 라벨에서 파생한다.
+`models.rating.DEFAULT_MASTER_SCALE`에서, `REPRICING_BUCKETS`는
+`alm.balance_sheet`가 실제로 만드는 라벨에서 파생한다(정본 원장은
+`alm_time_bucket` — 9구간은 자체 집계이며 표준 19버킷이 아니다).
 
 ## 감독보고 (regulatory/)
 

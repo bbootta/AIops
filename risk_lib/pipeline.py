@@ -82,7 +82,6 @@ from risk_lib.validation.consistency import run_consistency_checks
 from risk_lib.validation.backtest import pd_backtest_report
 from risk_lib.validation.cross_domain import run_cross_domain_checks
 from risk_lib.alm.balance_sheet import generate_balance_sheet
-from risk_lib.alm.irrbb import compute_irrbb
 from risk_lib.alm.lcr import compute_lcr
 from risk_lib.alm.nsfr import compute_nsfr
 from risk_lib.icaap.economic_capital import compute_icaap
@@ -147,6 +146,9 @@ class PipelineResult:
     backtest: dict[str, Any]
     validation: Any
     alm: dict[str, Any] = field(default_factory=dict)    # balance_sheet/irrbb/lcr/nsfr
+    # ALM 원장(계수·계약·현금흐름·곡선·IRRBB·유동성) — 실체화가 이 프레임을
+    # 그대로 받는다. 화면이 산출 객체에서 다시 만들면 원장과 화면이 갈라진다.
+    alm_tables: dict[str, pd.DataFrame] = field(default_factory=dict)
     icaap: Any = None
     # 한도 소진율 전량(위반 아닌 버킷 포함) — 화면용. 위반 보고서와 별개다.
     limits_full: pd.DataFrame | None = None
@@ -587,14 +589,165 @@ def _stage_rapm(irb_book: pd.DataFrame, hurdle_rate: float):
     return by_class
 
 
-def _stage_alm(portfolio: pd.DataFrame, capital, seed: int) -> dict[str, Any]:
-    """ALM 부문: 합성 재무상태표 → IRRBB / LCR / NSFR."""
-    bs = generate_balance_sheet(portfolio, capital.total, seed=seed)
+# ---------------------------------------------------------------- ALM 배선
+#
+# 산출 선택지를 파이프라인 상수로 올려 둔다. 엔진 함수 기본값에 숨기면 어떤
+# 계정·어떤 기준·어떤 시계로 산출했는지가 산출물 어디에도 남지 않는다 —
+# 현행 `compute_irrbb(base_rate=0.03)`이 정확히 그 상태였고, 파이프라인이
+# 인자를 넘기지 않아 평면 3% 곡선이 조용히 쓰였다.
+
+# IRRBB 계정. KRW 행은 비어 있어(1차자료 미열람) USD 계정을 프록시로 빌린다.
+# 빌렸다는 사실은 `alm_rate_shock_param.proxy_for_ccy`와 결과 원장의
+# `shock_source`에 남는다 — 충격 bp 값 자체는 이번에 바꾸지 않는다.
+ALM_FRAMEWORK_VERSION = "d368_2016"
+ALM_CCY = "KRW"
+
+# 헤드라인 산출기준. 표준체계의 비만기예금 슬로팅(BCBS d368 Annex 2)이
+# 행동가정이고 서식 각주도 "행태만기로 슬로팅"이라 적고 있으므로 행동조정을
+# 헤드라인으로 둔다. 계약기준은 같은 원장에 나란히 남아 감독당국이 요구하는
+# 두 기준 비교가 성립한다.
+ALM_HEADLINE_BASIS = "행동조정"
+
+# ΔNII 시계 12개월(BCBS d368 §132). 국내 세칙의 시계·재투자 가정은 미대조다.
+ALM_NII_HORIZON_YEARS = 1.0
+
+# 생존기간 산출 시계. **규정값이 아니다** — BCBS d144 Principle 10은 "LCR
+# 30일보다 긴 시계"만 요구하고 목표 생존기간은 이사회 승인 대상이다
+# (Principle 11). 승인 원장이 아직 없으므로 여기 적고 원장의 horizon_days
+# 컬럼으로 내보낸다. 숨기면 이 수치가 승인 없이 산출에 들어간 사실이 안 보인다.
+ALM_SURVIVAL_HORIZON_DAYS = 90
+
+
+def _alm_risk_factor(asof: str, seed: int) -> pd.DataFrame:
+    """`mkt_risk_factor`의 금리커브 행. 실체화 엔진과 **같은 스냅샷**에서 만든다.
+
+    ALM이 커브를 따로 정의하면 시장리스크와 ALM이 서로 다른 곡선으로 할인하게
+    된다. `demo_market_data(asof, seed)`는 결정론적이므로 여기서 만든 호가와
+    `materialize_detail`이 원장에 적재하는 호가가 같은 값이다.
+    """
+    from risk_lib.market_data import demo_market_data
+    snaps, _curve, _vol = demo_market_data(asof=asof, seed=seed)
+    snap = next(s for s in snaps if s.data_type == "ir_curve")
+    return pd.DataFrame([{
+        "asof": asof, "risk_class": "interest_rate", "curve": snap.name,
+        "tenor": float(r["tenor"]), "value": float(r["quote"]),
+    } for _, r in snap.quotes.iterrows()])
+
+
+def _stage_alm(portfolio: pd.DataFrame, capital, seed: int, *,
+               asof: str) -> dict[str, Any]:
+    """ALM 부문: 계수원장 → 계약원장 → 현금흐름 → 곡선/충격 → IRRBB · 유동성.
+
+    반환 dict의 `tables`가 실체화 대상 원장 23장이다. 지표 객체
+    (`irrbb`·`lcr`·`nsfr`)는 기존 소비처가 읽는 이름 그대로 유지한다.
+    """
+    from risk_lib.alm import curves as alm_curves
+    from risk_lib.alm import irrbb as alm_irrbb
+    from risk_lib.alm import liquidity as alm_liq
+    from risk_lib.alm import nii as alm_nii
+    from risk_lib.alm.cashflow import build_cashflows
+    from risk_lib.alm.contracts import build_contract_ledger
+    from risk_lib.alm.lcr import build_lcr_factor, lcr_balances_from_balance_sheet
+    from risk_lib.alm.nsfr import build_nsfr_factor
+    from risk_lib.alm.params import build_param_ledgers
+
+    bs = generate_balance_sheet(portfolio, capital.total, seed=seed, asof=asof)
+    params = build_param_ledgers(asof)
+    curve_led = alm_curves.build_curve_ledgers()
+
+    # 기저곡선이 계약 금리의 기준이다. 평면 3%를 여기 적으면 시장커브를
+    # 연결한 의미가 없어지므로 1년 제로금리를 그대로 쓴다.
+    base = alm_curves.base_curve(_alm_risk_factor(asof, seed), asof=asof)
+    curves = {ALM_CCY: base}
+    base_rate = float(base.rate(1.0))
+
+    contracts = build_contract_ledger(
+        portfolio, asof=asof, funding=bs.funding, hqla=bs.hqla,
+        equity=bs.equity, base_rate=base_rate, seed=seed)
+    cf = build_cashflows(
+        contracts, asof=asof, product_terms=params["alm_product_terms"],
+        buckets=params["alm_time_bucket"],
+        behaviour_param=params["alm_behaviour_param"],
+        scenario_mult=params["alm_behaviour_scenario_mult"],
+        nmd_param=params["alm_nmd_param"],
+        scurve_param=params["alm_prepay_scurve_param"])
+
+    # ΔEVE와 ΔNII가 같은 충격곡선을 쓰게 한 자리에서 만든다.
+    shocked, curve_warns = alm_irrbb.build_shocked_curves(
+        curves, scenarios=alm_irrbb.SCENARIOS,
+        shock_param=curve_led["alm_rate_shock_param"],
+        scenario_def=curve_led["alm_scenario_def"],
+        floor=curve_led["alm_post_shock_floor"],
+        framework_version=ALM_FRAMEWORK_VERSION, allow_proxy=True)
+    nii = alm_nii.compute_delta_nii(
+        contracts, params["alm_product_terms"], asof=asof,
+        horizon_years=ALM_NII_HORIZON_YEARS, curves=curves, shocked=shocked,
+        scenario_def=curve_led["alm_scenario_def"],
+        nmd_param=params["alm_nmd_param"])
+    irrbb = alm_irrbb.compute_irrbb_from_cashflows(
+        cf.bucket, asof=asof, tier1=capital.tier1, curves=curves,
+        shock_param=curve_led["alm_rate_shock_param"],
+        scenario_def=curve_led["alm_scenario_def"],
+        floor=curve_led["alm_post_shock_floor"],
+        framework_version=ALM_FRAMEWORK_VERSION,
+        headline_basis=ALM_HEADLINE_BASIS, allow_proxy=True,
+        delta_nii=nii.delta_nii)
+    # 계승 소비처(업무보고서 B2510~B2512 금리 재구성, ALM 화면)가 읽는 기준금리.
+    # 계승 경로에서는 평면 곡선 수준이었고, 여기서는 계약원장을 세운 1년 제로
+    # 금리다 — 어느 쪽이든 "그 산출이 출발점으로 삼은 금리"라는 뜻은 같다.
+    irrbb.base_rate = base_rate
+
+    lcr_factor = build_lcr_factor()
+    nsfr_factor = build_nsfr_factor()
+    lcr = compute_lcr(bs, factor=lcr_factor, asof=asof)
+    nsfr = compute_nsfr(bs, factor=nsfr_factor, asof=asof)
+
+    # 반대매매가능자산 = 헤어컷·상한 후 HQLA. LCR 분자와 같은 값을 쓴다 —
+    # 유동성 화면 두 곳이 다른 HQLA를 그리면 어느 쪽이 정본인지 알 수 없다.
+    cbc = float(lcr.hqla_total)
+    ladder = alm_liq.build_maturity_ladder(cf.bucket,
+                                           counterbalancing_capacity=cbc)
+    stress_param = alm_liq.build_liquidity_stress_param(
+        lcr_factor, horizon_days=ALM_SURVIVAL_HORIZON_DAYS)
+    outflow_balance = (lcr_balances_from_balance_sheet(bs, seed_inflow_frac=0.04)
+                       .query("section == '유출'")[["category", "balance"]])
+    survival = alm_liq.build_survival_path(
+        outflow_balance, stress_param, asof=asof,
+        counterbalancing_capacity=cbc)
+
+    warnings = (list(bs.ladder_warnings) + list(cf.warnings)
+                + list(curve_warns) + list(nii.warnings)
+                + list(irrbb.warnings) + list(survival.warnings))
+
+    tables: dict[str, pd.DataFrame] = dict(params)
+    tables.update(curve_led)
+    tables.update({
+        "alm_contract": contracts,
+        "alm_cashflow_contract": cf.contract,
+        "alm_cashflow_behavioural": cf.behavioural,
+        "alm_cashflow_bucket": cf.bucket,
+        "alm_irrbb_bucket_pv": irrbb.bucket_pv,
+        "alm_irrbb_result": irrbb.result,
+        "alm_nii_result": nii.result,
+        "alm_lcr_factor": lcr_factor,
+        "alm_lcr_flow": lcr.flow,
+        "alm_nsfr_factor": nsfr_factor,
+        "alm_nsfr_item": nsfr.item,
+        "alm_maturity_ladder": ladder,
+        "alm_liquidity_stress_param": stress_param,
+        "alm_survival_path": survival.path,
+    })
     return {
         "balance_sheet": bs,
-        "irrbb": compute_irrbb(bs.repricing, capital.tier1),
-        "lcr": compute_lcr(bs),
-        "nsfr": compute_nsfr(bs),
+        "irrbb": irrbb,
+        "lcr": lcr,
+        "nsfr": nsfr,
+        "cashflow": cf,
+        "nii": nii,
+        "survival": survival,
+        "base_curve": base,
+        "warnings": warnings,
+        "tables": tables,
     }
 
 
@@ -655,7 +808,10 @@ def _stress_books(portfolio, irb_book, sa_book, capital, mkt_positions,
         # (도메인 독립화 때 실제로 이 자리가 누락됐고 검사가 잡았다).
         op_losses_10y=op_notional * 0.001,
         op_loss_annual=float(getattr(op_loss_result, "annual_total", 0.0)),
-        repricing=alm["irrbb"].repricing,
+        # 잔액 기준 재설정 갭 사다리. `irrbb.repricing`은 현금흐름을 접은 PV
+        # 뷰라 축이 다르다 — 갭 근사(gap × t_mid × Δr)에 넣으면 원금과 이자를
+        # 함께 듀레이션 가중하게 된다.
+        repricing=bs.repricing,
         hqla=dict(bs.hqla), lcr_outflows=lcr.outflows, lcr_inflows=lcr.inflows,
         revenue=float(portfolio["revenue"].sum()),
         operating_cost=float(portfolio["operating_cost"].sum()),
@@ -901,7 +1057,7 @@ def run_pipeline(
 
     # 12a. ALM (IRRBB / LCR / NSFR) — 전 축 위기상황분석이 재설정 사다리와
     # LCR 구성요소를 입력으로 쓰므로 스트레스보다 먼저 만든다.
-    alm = _stage_alm(portfolio, capital, seed)
+    alm = _stage_alm(portfolio, capital, seed, asof=asof.isoformat())
 
     # 12b. 운영손실 — 운영 축이 손실을 충격해 ILM으로 되돌리므로 역시 선행한다.
     # 운영손실은 운영 도메인의 기준(독립 명목)을 쓴다 — 신용 EAD가 아니다.
@@ -1136,7 +1292,7 @@ def run_pipeline(
         macro_ecl_path=macro_path,
         stress_path=stress_path, stress_path_trough=stress_path_trough,
         backtest=backtest, validation=validation,
-        alm=alm, icaap=icaap,
+        alm=alm, alm_tables=alm["tables"], icaap=icaap,
         raf=raf, climate=climate_result, ccr=ccr_result,
         op_loss=op_loss_result, concentration_deep=conc_deep,
         model_cards=model_cards_real, sensitivity=sens, attribution=attr,

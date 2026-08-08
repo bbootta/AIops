@@ -5,10 +5,13 @@ NSF20~30 · SRP50(유동성 모니터링 지표)이다. 서식명·작성주기�
 FINES 마스터가 정본이고 forms.py가 붙인다.
 
 **만기 구간은 새로 만들지 않는다.** 모든 만기 사다리는 `alm_repricing_gap`
-(= `alm.balance_sheet.REPRICING_BUCKETS`)을 그대로 쓴다. 서식이 자기 사다리를
-들고 있으면 IRRBB 화면과 유동성 화면이 서로 다른 만기 분포를 보고하게 된다.
-재설정 사다리는 계약상 만기의 **대용**이며(비만기성 예금은 행태만기로 슬로팅되어
-있다), 그 사실은 해당 서식의 text 라인에 남긴다. 사다리는 **금리민감** 자산·부채만
+(= `alm_time_bucket` 원장)을 그대로 쓴다. 서식이 자기 사다리를 들고 있으면
+IRRBB 화면과 유동성 화면이 서로 다른 만기 분포를 보고하게 된다. **근거 문자열도
+원장에서 읽는다**(`ladder_citation()`) — 서식이 직접 들고 있으면 원장 정정이
+전파되지 않고, 실제로 9개 자체집계 구간에 표준체계 조항(SRP31.94)이 달려 있었다.
+재설정 사다리의 시간축은 잔존만기가 아니라 **리프라이싱**이며(변동금리는 차기
+재설정일, 비만기성 예금은 행태 코어만기), 그 사실은 해당 서식의 text 라인에
+남긴다. 사다리는 **금리민감** 자산·부채만
 담으므로 대차대조표 총액과 차이가 난다 — B2601·B2609는 그 차를 "만기구간 미배분"
 라인으로 드러내고 FormCheck로 대사한다. 드러내지 않으면 총자산의 9%·총부채의 7%가
 잔액기준 서식에서 조용히 사라진다.
@@ -75,13 +78,39 @@ _C26 = "은행업감독규정 제26조 제1항"
 _C63 = "은행업감독규정 제63조 — 외화유동성"
 _C99 = "은행업감독규정 제99조 업무보고서"
 _SRP50 = "Basel SRP50 유동성 모니터링 지표"
-_LADDER = "만기 구간은 alm.balance_sheet.REPRICING_BUCKETS (SRP31.94)"
+
+
+def ladder_citation() -> str:
+    """만기 구간의 근거를 `alm_time_bucket` 원장에서 읽어 온다.
+
+    서식이 근거 문자열을 직접 들고 있으면 원장을 정정해도 서식에 전파되지
+    않는다. 실제로 그렇게 갈라져 있었다 — 원장은 이 9개 구간을 "자체 집계
+    사다리 · 근거상태 미확인"으로 적재하는데 서식은 같은 구간에 "Basel
+    SRP31.94 표준 만기 구간"을 달았다. 표준체계 구간은 19개이며 그 경계·중점은
+    확인하지 못했다. 감독당국 제출 서식의 각주는 감사에서 그대로 읽히는
+    자리이므로, 근거는 원장이 말하는 것만 적는다.
+    """
+    from risk_lib.alm.params import build_time_buckets
+    b = build_time_buckets()
+    return (f"만기 구간은 alm_time_bucket "
+            f"({b['framework_version'].iloc[0]} · {len(b)}구간) — "
+            f"{b['citation'].iloc[0]} · 근거상태 {b['evidence_status'].iloc[0]}")
+
+
+_LADDER = ladder_citation()
+# 만기 불일치 서식(B2601·B2609)의 라인 근거. "계약상 만기"를 표방하면
+# 안 된다 — 소스가 리프라이싱 축 사다리다.
+_SRP50_LADDER = (f"{_SRP50} — 만기 불일치. 소스는 리프라이싱 축 "
+                 "사다리이며 계약상 만기 축이 아니다")
 
 # 재설정 사다리를 잔존만기로 읽을 때의 한계 — 서식마다 되풀이하지 않도록 한 곳에.
 _LADDER_NOTE = ("만기 구간은 IRRBB 재설정 사다리(alm_repricing_gap)를 쓴다. "
-                "비만기성 예금이 행태만기로 슬로팅되어 있어 계약상 만기와 완전히 "
-                "같지 않다 — 서식별 사다리를 새로 만들면 IRRBB 화면과 유동성 화면이 "
-                "서로 다른 만기 분포를 보고하게 되므로 카탈로그 사다리를 그대로 쓴다.")
+                "**시간축이 잔존만기가 아니라 리프라이싱이다** — 변동금리 계약은 "
+                "명목 전액이 차기 재설정일에, 비만기성 예금은 행태 코어만기에 "
+                "슬로팅되어 있다. 잔존만기 축 사다리는 계약원장에서 따로 접으며 "
+                "(alm.liquidity.build_contractual_balance_ladder) 유동성비율이 "
+                "그것을 쓴다. 서식별 사다리를 새로 만들지 않는 이유는 IRRBB "
+                "화면과 이 서식이 같은 원장을 봐야 하기 때문이다.")
 
 _FX_NOTE = (f"외화 비중 {FX_SHARE:.0%}는 자산·부채에 **동일하게** 적용한다"
             f"(risk_lib.prudential.liquidity.FX_SHARE). 통화 구분 원장이 없는데 "
@@ -762,7 +791,11 @@ def _b2608(ctx) -> tuple[list[FormLine], list[FormCheck]]:
 # ---------------------------------------------------------------- B2609
 
 def _b2609(ctx) -> tuple[list[FormLine], list[FormCheck]]:
-    """계약상 만기불일치 — 구간별 유입·유출과 누적 불일치 비율."""
+    """만기불일치 — 구간별 유입·유출과 누적 불일치 비율.
+
+    시간축은 리프라이싱이다. 계약상 만기 축이 아니므로 라인 근거에
+    "계약상 만기"를 적지 않는다.
+    """
     rep = _rep(ctx)
     assets = float(rep["asset"].sum())
     liabs = float(rep["liability"].sum())
@@ -789,7 +822,7 @@ def _b2609(ctx) -> tuple[list[FormLine], list[FormCheck]]:
                  citation=_LADDER, source_module=_M_BS, is_subtotal=True),
         FormLine("4000", "순 만기불일치 합계", 0, "KRW",
                  float(rep["gap"].sum()), formula="유입 합계 − 유출 합계",
-                 citation=f"{_SRP50} — 계약상 만기 불일치", source_module=_M_IRRBB,
+                 citation=_SRP50_LADDER, source_module=_M_IRRBB,
                  is_subtotal=True),
     ]
     in_codes, out_codes, net_codes = [], [], []
@@ -807,17 +840,17 @@ def _b2609(ctx) -> tuple[list[FormLine], list[FormCheck]]:
                      source_module=_M_BS),
             FormLine(net_codes[-1], f"순 불일치 · {b}", 1, "KRW",
                      float(row["gap"]), formula="유입 − 유출",
-                     citation=f"{_SRP50} — 계약상 만기 불일치",
+                     citation=_SRP50_LADDER,
                      source_module=_M_IRRBB),
             FormLine(f"{5000 + i * 10}", f"누적 불일치 · {b}", 2, "KRW",
                      float(row["cumulative_gap"]), formula="당 구간까지 누계",
-                     citation=f"{_SRP50} — 계약상 만기 불일치",
+                     citation=_SRP50_LADDER,
                      source_module=_M_IRRBB),
             FormLine(f"{6000 + i * 10}", f"누적 불일치 비율 · {b}", 2, "ratio",
                      float(row["cumulative_gap"]) / total_assets
                      if total_assets else 0.0,
                      formula="누적 불일치 ÷ 총자산",
-                     citation=f"{_SRP50} — 계약상 만기 불일치",
+                     citation=_SRP50_LADDER,
                      source_module=_M_SELF),
         ]
     L.append(FormLine("9000", "만기 사다리의 성격", 0, "text", None,
@@ -1147,7 +1180,8 @@ def _b2612(ctx) -> tuple[list[FormLine], list[FormCheck]]:
 # ---------------------------------------------------------------- 등록
 
 BUILDERS: dict[str, tuple[str, str, Callable]] = {
-    "B2601": ("은행업감독규정 제26조 · Basel SRP31.94 표준 만기 구간", "PRD-ALM",
+    "B2601": ("은행업감독규정 제26조 · 자체 집계 만기 구간(alm_time_bucket)",
+              "PRD-ALM",
               _b2601),
     "B2602-1": ("은행업감독규정 제26조·제63조 · Basel LCR20~40 · SRP50 중요통화",
                 "PRD-ALM", _b2602_1),
@@ -1158,7 +1192,8 @@ BUILDERS: dict[str, tuple[str, str, Callable]] = {
     "B2605": ("은행업감독규정 제26조 제1항 유동성 관리", "PRD-ALM", _b2605),
     "B2606": ("은행법 제38조 제3호 — 자기자본 60% 이내", "PRD-CAP", _b2606),
     "B2608": ("은행업감독규정 제63조 · Basel NSF20~30", "PRD-ALM", _b2608),
-    "B2609": ("Basel SRP50 계약상 만기 불일치 · 은행업감독규정 제26조", "PRD-ALM",
+    "B2609": ("Basel SRP50 만기 불일치(리프라이싱 축) · 은행업감독규정 제26조",
+              "PRD-ALM",
               _b2609),
     "B2610": ("Basel SRP50 자금조달 편중도 · SRP30 집중리스크", "PRD-RDM", _b2610),
     "B2611": ("Basel SRP50 자금조달 편중도(통화별) · 은행업감독규정 제63조",

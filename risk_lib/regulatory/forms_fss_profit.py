@@ -56,6 +56,7 @@ from risk_lib.regulatory.forms_fss_asset_data import (
 )
 from risk_lib.regulatory.forms_fss_compliance_data import subsidiary_book
 from risk_lib.regulatory.forms_fss_financial import _TRUST_REASON
+from risk_lib.regulatory.forms_fss_liquidity import ladder_citation
 from risk_lib.regulatory.forms_fss_profit_data import (
     EARNING_ASSET_ITEMS, FEE_ACTIONS, FEE_ITEMS, GRADE_ORDER,
     INTEREST_LIAB_ITEMS, LEGAL_RESERVE_RATE, NONINT_ITEMS, RATE_BAND_LABELS,
@@ -91,8 +92,12 @@ _C_IFRS9 = "K-IFRS 제1109호 5.5 기대신용손실"
 # 은행업감독규정 제30조는 **대손상각**이다(forms_fss_asset·forms_fss_retail이
 # 그 뜻으로 쓴다). 금리리스크 근거는 제30조의2이며 BR-13(B2909 금리리스크지표)과
 # 같은 조문을 쓴다 — 같은 사다리를 쓰면서 다른 조문을 달면 안 된다.
-_C_SRP31 = ("Basel III SRP31.94 표준 재설정 구간 · "
-            "은행업감독규정 제30조의2 금리리스크")
+# 근거 문자열을 서식이 직접 들고 있으면 원장 정정이 전파되지 않는다. 실제로
+# 9개 자체집계 구간에 표준체계 조항(SRP31.94)이 달려 있었고 원장은 같은
+# 구간을 "자체 집계 · 근거상태 미확인"으로 적재한다 — 감독당국 제출문서의
+# 허위 표기다. 구간 근거는 alm_time_bucket에서 읽는다.
+_C_SRP31 = (ladder_citation()
+            + " · 은행업감독규정 제30조의2 금리리스크")
 _C_B37 = "은행법 제37조 제2항 — 자회사 출자 자기자본 20% 이내"
 _C_B38 = "은행법 제38조 제1호 — 유가증권 투자 자기자본 100% 이내"
 _C_B458 = "상법 제458조 이익준비금"
@@ -692,11 +697,12 @@ def _b2511(ctx) -> tuple[list[FormLine], list[FormCheck]]:
                       float(r["cumulative_gap"]), tol(asset)),
         ]
     L.append(_remark(
-        "만기 구간은 alm.balance_sheet.REPRICING_BUCKETS(SRP31.94)를 그대로 쓴다 — "
-        "BR-13(B2909 IRRBB)과 같은 사다리여야 두 화면이 같은 만기 분포를 보고한다. "
-        "사다리는 금리민감 자산·부채만 담으므로 대차대조표 총액과 차이가 나며, 그 차를 "
-        "'만기구간 미배분' 라인으로 드러낸다. 비만기성 예금은 행태만기로 슬로팅되어 "
-        "있어 계약상 만기와 완전히 같지 않다.", _C_SRP31))
+        "만기 구간은 alm_time_bucket 원장을 그대로 쓴다 — BR-13(B2909 IRRBB)과 "
+        "같은 사다리여야 두 화면이 같은 만기 분포를 보고한다. 사다리는 금리민감 "
+        "자산·부채만 담으므로 대차대조표 총액과 차이가 나며, 그 차를 '만기구간 "
+        "미배분' 라인으로 드러낸다. **시간축은 리프라이싱이다** — 변동금리는 차기 "
+        "재설정일에, 비만기성 예금은 행태 코어만기에 슬로팅되어 있어 계약상 만기 "
+        "축과 다르다.", _C_SRP31))
     checks += [
         _sum_check("금리감응자산 = 구간별 합", L, "100", tuple(a_codes), tol(asset)),
         _sum_check("금리감응부채 = 구간별 합", L, "110", tuple(l_codes), tol(liab)),
@@ -1583,11 +1589,13 @@ BUILDERS: dict[str, tuple[str, str, Callable]] = {
     "B2508": ("Basel III CAP50 신중한 평가(독립가격검증) · 은행업감독규정 제99조", "PRD-MKT",
               _b2508),
     "B2510": ("은행업감독규정 제31조 경영실태평가 계량지표", "PRD-ALM", _b2510),
-    "B2511": ("Basel III SRP31.94 재설정 구간 · 은행업감독규정 제30조의2 금리리스크", "PRD-ALM",
+    "B2511": ("자체 집계 재설정 구간(alm_time_bucket) · 은행업감독규정 "
+              "제30조의2 금리리스크", "PRD-ALM",
               _b2511),
     "B2511-1": ("은행업감독규정 제99조 업무보고서 · 제30조의2 금리리스크", "PRD-ALM",
                 _b2511_1),
-    "B2512": ("Basel III SRP31.94 재설정 구간 · 은행업감독규정 제30조의2 금리리스크", "PRD-ALM",
+    "B2512": ("자체 집계 재설정 구간(alm_time_bucket) · 은행업감독규정 "
+              "제30조의2 금리리스크", "PRD-ALM",
               _b2512),
     "B2512-1": ("은행업감독규정 제99조 업무보고서 · 제31조 경영실태평가", "PRD-ALM",
                 _b2512_1),

@@ -532,8 +532,7 @@ def materialize_ecl_detail(result, portfolio, base) -> dict[str, pd.DataFrame]:
 def materialize_alm_detail(result, portfolio, base) -> dict[str, pd.DataFrame]:
     asof = _asof(result)
     out: dict[str, pd.DataFrame] = {}
-    lcr, nsfr = result.alm.get("lcr"), result.alm.get("nsfr")
-    irrbb = result.alm.get("irrbb")
+    lcr = result.alm.get("lcr")
 
     # ---- LCR 항목별
     rows = []
@@ -563,21 +562,16 @@ def materialize_alm_detail(result, portfolio, base) -> dict[str, pd.DataFrame]:
         "asof", "section", "category", "amount", "factor", "weighted",
         "citation"])
 
-    # ---- NSFR 항목별
-    nrows = []
-    if nsfr is not None:
-        for section, tbl in (("ASF", nsfr.asf), ("RSF", nsfr.rsf)):
-            for _, r in tbl.iterrows():
-                nrows.append({"asof": asof, "section": section,
-                              "category": str(r["category"]),
-                              "amount": float(r["amount"]),
-                              "factor": float(r["factor"]),
-                              "weighted": float(r["weighted"])})
-    out["alm_nsfr_item"] = pd.DataFrame(nrows, columns=[
-        "asof", "section", "category", "amount", "factor", "weighted"])
+    # NSFR 항목별(`alm_nsfr_item`)은 엔진 원장을 그대로 쓰므로
+    # `materialize_alm`이 적재한다. 여기서 asf/rsf 뷰를 다시 접으면 계수
+    # 근거(citation·evidence_status)와 만기구간이 떨어져 나가고, 계수가 비어
+    # 실리지 않은 항목이 있었다는 사실도 사라진다.
 
-    # ---- 금리 재설정 갭
-    rep = getattr(irrbb, "repricing", None)
+    # ---- 금리 재설정 갭 — **잔액 기준**이다. 서식 B2601이 "자산·부채
+    # 만기구조현황(잔액기준)"이므로 재무상태표의 사다리를 쓴다.
+    # `irrbb.repricing`은 현금흐름(원금+이자)을 접은 PV 뷰라 잔액과 합이 다르고,
+    # 현금흐름 사다리는 `alm_maturity_ladder`가 따로 담는다.
+    rep = getattr(result.alm.get("balance_sheet"), "repricing", None)
     if isinstance(rep, pd.DataFrame) and not rep.empty:
         r = rep.copy().reset_index(drop=True)
         r["asof"] = asof

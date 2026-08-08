@@ -41,6 +41,20 @@ DEMO_TABLES = (
     "rdm_code_master",
 )
 
+# ALM 화면이 **집계해서 그리는** 원장. 사다리·워터폴·소진경로는 버킷/일자
+# 전체가 있어야 성립한다 — 표본으로 그리면 빠진 구간이 "잔액 없음"으로 읽히고,
+# 시나리오 축이 잘리면 최악 시나리오가 아예 화면에서 사라진다.
+# (tests/test_ui_alm.py 가 이 목록이 전량 실렸는지 고정한다)
+ALM_FULL_TABLES = (
+    "alm_time_bucket", "alm_product_terms", "alm_behaviour_param",
+    "alm_prepay_scurve_param", "alm_behaviour_scenario_mult", "alm_nmd_param",
+    "alm_cashflow_bucket", "alm_rate_shock_param", "alm_scenario_def",
+    "alm_post_shock_floor", "alm_irrbb_result", "alm_irrbb_bucket_pv",
+    "alm_nii_result", "alm_lcr_factor", "alm_lcr_flow", "alm_nsfr_factor",
+    "alm_nsfr_item", "alm_maturity_ladder", "alm_liquidity_stress_param",
+    "alm_survival_path", "alm_result",
+)
+
 _ENGINE_JS = (Path(__file__).with_name("engine.js")).read_text(encoding="utf-8")
 
 
@@ -186,6 +200,35 @@ def _macro_dict(s: Studio) -> dict:
     }
 
 
+def _alm_dict(s: Studio) -> dict:
+    """ALM 화면 보조 집계 — 화면에 전량을 실을 수 없는 원장 하나뿐이다.
+
+    행동조정 현금흐름은 계약 단위라 1만 행을 넘는다. 화면에 표본 200행만 싣고
+    거기서 행동모형별 기여도를 집계하면 기여도가 표본 크기의 함수가 되는데,
+    그 사실은 화면에 드러나지 않는다. 그래서 여기서 **원장 전량**을 시나리오 ×
+    모형 축으로 합치고 모집단 행수·계약수를 함께 남긴다. 새 수치를 만드는
+    것이 아니라 `adjustment_cf`(= 행동 − 계약)를 그대로 더한다.
+    """
+    b = s.tables.get("alm_cashflow_behavioural")
+    if not isinstance(b, pd.DataFrame) or b.empty:
+        return {}
+    g = (b.groupby(["scenario", "behaviour_model"], as_index=False)
+         .agg(adjustment_cf=("adjustment_cf", "sum"),
+              principal_cf=("principal_cf", "sum"),
+              n_contracts=("contract_id", "nunique"),
+              n_rows=("contract_id", "size")))
+    return {
+        "behaviour_contrib": _frame(g, 10_000, labels={
+            "scenario": "시나리오", "behaviour_model": "행동모형",
+            "adjustment_cf": "행동조정액 (행동 − 계약)",
+            "principal_cf": "행동조정 후 원금흐름",
+            "n_contracts": "대상 계약수", "n_rows": "원장 행수"}),
+        "behaviour_source": "alm_cashflow_behavioural",
+        "behaviour_rows": int(len(b)),
+        "behaviour_contracts": int(b["contract_id"].nunique()),
+    }
+
+
 def _kpis(s: Studio) -> list[dict]:
     r = s.result
     t = s.tables
@@ -277,7 +320,8 @@ def _payload(s: Studio) -> dict:
         if not isinstance(tref, str) or tref not in t:
             continue
         df = t[tref]
-        budget = (INTERACTIVE_ROWS_DEMO if tref in DEMO_TABLES
+        budget = (INTERACTIVE_ROWS_DEMO
+                  if tref in DEMO_TABLES or tref in ALM_FULL_TABLES
                   else INTERACTIVE_ROWS)
         views_meta[vid] = {
             "view_id": vid, "view_name": str(v["view_name"]),
@@ -448,6 +492,8 @@ def _payload(s: Studio) -> dict:
         "reverse_stress": _reverse_dict(s),
         # 거시·금융지표 — 시나리오 심도의 입력 원장.
         "macro": _macro_dict(s),
+        # ALM — 화면에 전량을 실을 수 없는 행동조정 현금흐름의 축소 집계.
+        "alm": _alm_dict(s),
         # 사업성(COM) — 규제 산출물이 아니다. 제출 지문·독립검증 대상에 넣지
         # 않으며, 전 수치가 가정 원장에서 계산으로만 나온다.
         "commercial": {
@@ -3344,26 +3390,6 @@ function reverseStress(root){
   root.appendChild(c);
 }
 
-/* ---- 금리리스크 · 유동성리스크 (ALM 분리) ---- */
-const rateRisk=screenOf({
-  lead:'은행계정 금리리스크(IRRBB) — 6대 금리충격의 EVE·NII 영향과 리프라이싱 갭.',
-  charts:root=>{const f=D.data['alm_irrbb_shock'];
-    if(!f)return;const i=frameIdx(f);
-    root.appendChild(hbars(f.rows.map(r=>({label:r[i.scenario],
-      value:Math.abs(r[i.delta_eve]),
-      sub:`Tier1 대비 ${(r[i.pct_tier1]*100).toFixed(2)}%`,
-      tone:r[i.pct_tier1]>=0.15?'bad':r[i.pct_tier1]>=0.1?'warn':undefined}))
-      .sort((a,b)=>b.value-a.value),
-      {title:'금리충격 시나리오별 ΔEVE (절대값) — 이상치 기준 Tier1 15%',
-       src:srcMeta(f)}))},
-  tables:[['금리충격(IRRBB)','alm_irrbb_shock'],
-          ['리프라이싱 갭','alm_repricing_gap'],['ALM 종합','alm_result']]});
-const liquidityRisk=screenOf({
-  lead:'유동성리스크 — LCR·NSFR 구성과 가중 후 금액. 규제 최저 100%.',
-  charts:root=>{if(DOMAIN_CHARTS['PRD-ALM'])DOMAIN_CHARTS['PRD-ALM'](root)},
-  tables:[['유동성커버리지(LCR) 구성','alm_lcr_item'],
-          ['순안정자금조달(NSFR) 구성','alm_nsfr_item']]});
-
 /* ---- 코드 매핑 — 계정·상품 × 리스크 대상·특성 (공통=RDM, 그 외=각 스키마) */
 function codeScope(root){
   root.appendChild(el('p','lead',
@@ -3551,14 +3577,8 @@ const SUMMARIES={
     const n=f.rows.filter(r=>r[i.exception]).length;
     return {t:`관측 ${f.rows.length}일 중 예외 ${n}건 — ${n<=4?'녹색':'주의'} 구간`,
       tone:n<=4?'good':'warn'}},
-  '유동성리스크':()=>{const f=D.data['alm_result'],i=frameIdx(f);
-    const bad=f.rows.filter(r=>r[i.passes]===false).length;
-    return {t:bad?`유동성 지표 ${bad}건 최저치 미달`:'LCR·NSFR 전 지표 최저치 상회',
-      tone:bad?'bad':'good'}},
-  '금리리스크':()=>{const f=D.data['alm_irrbb_shock'],i=frameIdx(f);
-    const mx=f.rows.reduce((a,r)=>r[i.pct_tier1]>a[i.pct_tier1]?r:a,f.rows[0]);
-    return {t:`최대 충격 ${mx[i.scenario]} — ΔEVE가 Tier1의 ${(mx[i.pct_tier1]*100).toFixed(1)}% (이상치 기준 15%)`,
-      tone:mx[i.pct_tier1]>=0.15?'bad':'good'}},
+  /* ALM 여섯 화면의 요약은 ALM 구간에서 붙인다(ALM_SUMMARIES) — 요약도 원장
+     컬럼에서만 나와야 하므로 화면 코드와 같은 자리에 둔다. */
   '모형 인벤토리':()=>{const f=D.data['crm_model'];if(!f)return null;
     const i=frameIdx(f);
     const dom=new Set(f.rows.map(r=>r[i.domain])).size;
@@ -3640,6 +3660,696 @@ function insertSummary(label,section){
   const h2=section.querySelector('h2');
   h2?h2.after(d):section.prepend(d);
 }
+
+/* ══════════════ ALM 화면 (시작) ═══════════════════════════════════════════
+   금리리스크(IRRBB) · 현금흐름 원장 · 유동성 사다리 · LCR/NSFR 상세 ·
+   생존기간 · 계수 원장 — 여섯 화면.
+
+   이 구간에는 수치 리터럴을 두지 않는다. 충격폭·계수·상한·버킷 경계·유출률은
+   전부 원장 컬럼에서 읽는다. 화면에 적어 두면 원장이 바뀌어도 화면은 옛 값을
+   말하고, 그 어긋남은 감사에서 가장 늦게 발견된다.
+
+   근거가 미확인인 값은 숨기지 않는다. 특히 금리충격폭은 원화 계정이 비어
+   있어 USD 계정을 대용하고 있으므로, 그 사실을 화면 위쪽에 적는다 — 감독당국이
+   화면만 보고 원화 계정 산출로 읽는 것이 이 화면이 낼 수 있는 최악의 결과다.
+   (tests/test_ui_alm.py 가 이 구간을 스캔해 고정한다) */
+
+function almF(n){return D.data[n]||null}
+
+/* 연결 원장 — 화면이 읽는 원장과 실린 행수를 화면 안에 적는다. 표본으로
+   그린 그림은 모집단으로 읽히므로 잘림 여부를 같이 남긴다. */
+function almSources(names,note){
+  const c=el('div','card');
+  c.appendChild(el('h3',null,'연결 원장 — 이 화면의 모든 수치가 나오는 곳'));
+  const cols=['원장','명칭','입도','모집단','화면 탑재'];
+  const POP=cols.indexOf('모집단');
+  const rows=names.map(n=>{
+    const f=almF(n),m=D.catalog.find(x=>x.name===n);
+    return [n,m?m.korean:'—',m?m.grain:'—',
+            f?f.total.toLocaleString()+'행':'미탑재',
+            f?(f.shown>=f.total?'전량':'표본 '+f.shown.toLocaleString()+'행'):'—']});
+  c.appendChild(table({columns:cols,rows:rows,
+    total:rows.length,shown:rows.length},
+    {numeric:false,rowClass:r=>r[POP]==='미탑재'?'bad':null}));
+  if(note)c.appendChild(el('div','note',note));
+  return c;
+}
+/* 원장이 없으면 빈 화면을 그리지 않는다 — 빈 화면은 "해당 없음"으로 읽힌다. */
+function almHas(root,names){
+  const miss=names.filter(n=>!almF(n));
+  if(miss.length){const n=el('div','note bad');
+    n.textContent='원장 미탑재 — '+miss.join(' · ')+'. 그림을 그리지 않는다.';
+    root.appendChild(n)}
+  return miss.length===0;
+}
+/* 근거 판정 분포 — evidence_status 컬럼을 가진 원장을 그대로 센다. */
+function almEvidence(names){
+  const rows=[];
+  names.forEach(n=>{const f=almF(n);if(!f)return;const i=frameIdx(f);
+    if(i.evidence_status===undefined)return;
+    const m=new Map();
+    f.rows.forEach(r=>{
+      const k=r[i.evidence_status]==null?'—':String(r[i.evidence_status]);
+      m.set(k,(m.get(k)||0)+1)});
+    [...m.entries()].sort(([,x],[,y])=>y-x)
+      .forEach(([k,v])=>rows.push([n,k,v]))});
+  const c=el('div','card');
+  c.appendChild(el('h3',null,'근거 상태 — 원장 evidence_status 그대로'));
+  const cols=['원장','근거 판정','행수'],EV=cols.indexOf('근거 판정');
+  c.appendChild(table({columns:cols,rows:rows,
+    total:rows.length,shown:rows.length},
+    {rowClass:r=>r[EV]==='미확인'?'bad':null}));
+  c.appendChild(el('div','meta',
+    '미확인은 1차자료를 확인하지 못한 값이다. 엔진은 그 조정을 건너뛰고 원장은 '+
+    '칸을 비워 둔다 — 화면도 채우지 않는다.'));
+  return c;
+}
+/* 시나리오 순서는 정의 원장이 정한다 — 화면에서 다시 적으면 원장에 시나리오가
+   늘어도 화면만 옛 순서로 남는다. */
+function almScenOrder(){
+  const d=almF('alm_scenario_def');
+  return d?d.rows.map(r=>r[frameIdx(d).scenario]):[]}
+/* 정의 원장에 없는 시나리오는 충격을 주지 않은 기준선(base)이다 — 뒤로
+   밀면 화면의 기본 선택이 충격 시나리오가 되어, 사다리·현금흐름을 처음 열 때
+   충격 후 그림을 무충격으로 읽게 된다. 앞에 둔다. */
+function almSortScen(list){
+  const ord=almScenOrder();
+  const rank=v=>{const k=ord.indexOf(v);return k<0?-1:k};
+  return list.slice().sort((a,b)=>rank(a)-rank(b))}
+/* 버킷 순서는 seq 컬럼이다 — 라벨을 문자열로 정렬하면 10y+ 가 1-2y 앞에 온다. */
+function almBuckets(i,rows){
+  const m=new Map();
+  rows.forEach(r=>m.set(r[i.bucket],r[i.seq]));
+  return [...m.entries()].sort(([,x],[,y])=>x-y).map(([k])=>k)}
+function almSelect(bar,label,values,initial){
+  const w=el('label','meta');
+  w.style.cssText='display:flex;gap:6px;align-items:center';
+  w.appendChild(el('span',null,label));
+  const s=el('select','sel');
+  values.forEach(v=>{const o=el('option');o.value=v;o.textContent=v;
+    s.appendChild(o)});
+  if(initial!=null&&values.indexOf(initial)>=0)s.value=initial;
+  w.appendChild(s);bar.appendChild(w);return s}
+function almCard(title,child,src){
+  const c=el('div','card');
+  if(title)c.appendChild(el('h3',null,title));
+  if(child)c.appendChild(child);
+  if(src)c.appendChild(src);
+  return c}
+
+/* ---- ① 금리리스크(IRRBB) ------------------------------------------------ */
+
+/* 헤드라인 기준(계약/행동조정)은 종합 원장의 IRRBB_EVE 분자와 맞는 쪽이다.
+   화면이 따로 고르면 콕핏·종합보고서와 다른 기준을 그린다. */
+function almHeadlineBasis(f,i){
+  const cand=f.rows.filter(r=>r[i.is_worst]);
+  if(!cand.length)return f.rows[0][i.basis];
+  const a=almF('alm_result');
+  if(a){const ai=frameIdx(a);
+    const row=a.rows.find(r=>String(r[ai.metric]).indexOf('IRRBB_EVE')>=0);
+    if(row&&row[ai.numerator]!=null){
+      const num=Math.abs(row[ai.numerator]);
+      const gap=r=>Math.abs(Math.abs(r[i.delta_eve])-num);
+      return cand.reduce((x,r)=>gap(r)<gap(x)?r:x,cand[0])[i.basis]}}
+  return cand[0][i.basis];
+}
+/* 충격폭 고지 — 프록시 사용과 공란을 화면 위쪽에 적는다. */
+function almShockDisclosure(root){
+  const p=almF('alm_rate_shock_param');if(!p)return;
+  const i=frameIdx(p);
+  const c=el('div','card');
+  c.appendChild(el('h3',null,'충격폭의 근거 — 이 산출은 프록시를 쓰고 있다'));
+  const res=almF('alm_irrbb_result');
+  if(res){const ri=frameIdx(res),r0=res.rows[0];
+    c.appendChild(el('div','meta','적용 계정 '+r0[ri.framework_version]+
+      ' · 충격 출처 '+r0[ri.shock_source]+' · 근거 판정 '+r0[ri.evidence_status]))}
+  const proxy=p.rows.filter(r=>r[i.proxy_for_ccy]!=null);
+  if(proxy.length){const n=el('div','note bad');
+    n.textContent='프록시 — '+proxy.map(r=>r[i.ccy]+' '+r[i.shock_type]+' '+
+      fmtNum(r[i.shock_bp])+'bp 를 '+r[i.proxy_for_ccy]+' 산출에 대용한다')
+      .join(' · ')+'. 화면의 ΔEVE는 원화 계정 충격폭으로 낸 값이 아니다.';
+    c.appendChild(n)}
+  const empty=p.rows.filter(r=>r[i.shock_bp]==null);
+  if(empty.length){const n=el('div','note bad');
+    n.textContent='공란 — '+empty.map(r=>r[i.framework_version]+' '+r[i.ccy]+' '+
+      r[i.shock_type]).join(' · ')+' 의 충격폭이 원장에서 비어 있다. 1차자료를 '+
+      '확인하지 못했으므로 값을 지어 채우지 않는다.';
+    c.appendChild(n)}
+  c.appendChild(table(p));c.appendChild(srcMeta(p));
+  root.appendChild(c);
+}
+function almIrrbbCharts(root){
+  root.appendChild(almSources(['alm_irrbb_result','alm_irrbb_bucket_pv',
+    'alm_nii_result','alm_rate_shock_param','alm_scenario_def',
+    'alm_post_shock_floor','alm_result']));
+  if(!almHas(root,['alm_irrbb_result']))return;
+  almShockDisclosure(root);
+  const f=almF('alm_irrbb_result'),i=frameIdx(f);
+  const bases=[...new Set(f.rows.map(r=>r[i.basis]))];
+  const scen=almSortScen([...new Set(f.rows.map(r=>r[i.scenario]))]);
+
+  /* 기준 대비는 토글과 무관하게 늘 둘 다 보인다. 비만기예금이 계약상 익일물
+     이라 두 기준의 ΔEVE가 자릿수로 갈리고, 감독당국이 비교하는 것이 그 차이다. */
+  const mat=bases.map(b=>scen.map(sc=>{
+    const r=f.rows.find(x=>x[i.basis]===b&&x[i.scenario]===sc);
+    return r?r[i.delta_eve_to_tier1]:null}));
+  const hc=almCard('계약기준 대 행동조정 — 기본자본 대비 ΔEVE',
+    heat(mat,bases,scen,{fmt:v=>(v*100).toFixed(2)+'%'}),srcMeta(f));
+  hc.appendChild(el('div','meta',
+    '부호는 원장 그대로다 — 음수가 경제적가치 감소다. 계약기준은 비만기예금 '+
+    '전액이 최단 버킷에 있고, 행동조정은 코어를 상한 안에서 장기로 슬로팅한 '+
+    '결과다.'));
+  root.appendChild(hc);
+
+  const bar=el('div','toolbar');root.appendChild(bar);
+  const sel=almSelect(bar,'산출기준',bases,almHeadlineBasis(f,i));
+  const pane=el('div');root.appendChild(pane);
+  function draw(){
+    pane.innerHTML='';
+    const b=sel.value;
+    const rows=scen.map(sc=>f.rows.find(x=>x[i.basis]===b&&x[i.scenario]===sc))
+                   .filter(Boolean);
+    if(!rows.length)return;
+    const worst=rows.find(r=>r[i.is_worst])||rows[0];
+    const tier1=worst[i.tier1];
+    const decline=Math.max(-worst[i.delta_eve],0);
+    const pass=worst[i.outlier_test_pass];
+    const g=el('div','grid');
+    [['최악 시나리오',worst[i.scenario],b+' 기준 · is_worst','warn'],
+     ['ΔEVE',fmtMoney(worst[i.delta_eve]),worst[i.margin_treatment],
+      worst[i.delta_eve]<0?'bad':'good'],
+     ['기본자본 대비',(worst[i.delta_eve_to_tier1]*100).toFixed(2)+'%',
+      '기본자본 '+fmtMoney(tier1),worst[i.delta_eve_to_tier1]<0?'bad':'good'],
+     ['아웃라이어 판정',pass==null?'미판정':(pass?'통과':'미통과'),
+      pass==null?'판정 기준값이 원장에 없다':'원장 outlier_test_pass',
+      pass==null?'warn':(pass?'good':'bad')],
+    ].forEach(([lab,val,sub,tone])=>{const c=el('div','card kpi');
+      c.appendChild(el('div','lab',lab));
+      c.appendChild(el('div','val '+tone,String(val)));
+      c.appendChild(el('div','sub',String(sub)));g.appendChild(c)});
+    pane.appendChild(g);
+
+    pane.appendChild(almCard(null,gauge(decline,tier1,
+      {title:'ΔEVE 감소 대 기본자본(Tier1)',fmt:fmtMoney,
+       tone:decline?'bad':'good',
+       note:'감소액 '+fmtMoney(decline)+' / 기본자본 '+fmtMoney(tier1)+' = '+
+         (tier1?(decline/tier1*100).toFixed(2):'—')+'%. 감소가 아닌 시나리오는 '+
+         '0으로 둔다. 아웃라이어 판정 기준값은 원장에 없다.'}),srcMeta(f)));
+
+    pane.appendChild(almCard(null,bars(rows.map(r=>({label:r[i.scenario],
+      value:r[i.delta_eve],tone:r[i.delta_eve]<0?'bad':'good'})),
+      {title:'시나리오별 ΔEVE — '+b+' 기준',fmt:fmtMoney,
+       note:'막대 높이는 절대값이고 색이 부호다 — 붉은색이 경제적가치 감소.'}),
+      srcMeta(f)));
+
+    const pv=almF('alm_irrbb_bucket_pv');
+    if(pv){const pi=frameIdx(pv);
+      const sub=pv.rows.filter(r=>r[pi.basis]===b&&
+        r[pi.scenario]===worst[i.scenario]);
+      if(sub.length){
+        const bks=almBuckets(pi,sub);
+        const base=sub.reduce((a,r)=>a+(r[pi.pv_base]||0),0);
+        const steps=bks.map(k=>({label:k,
+          delta:sub.filter(r=>r[pi.bucket]===k)
+                   .reduce((a,r)=>a+(r[pi.delta_pv]||0),0)}));
+        pane.appendChild(almCard(null,waterfall(steps,base,
+          {title:'버킷별 현재가치 효과 — '+worst[i.scenario]+' · '+b+' 기준',
+           fmt:fmtMoney,
+           note:'시작은 충격 전 순현재가치, 각 막대는 그 버킷의 충격 전후 차이다. '+
+             '자산과 부채를 합한 순액이며 마진 처리는 '+
+             sub[0][pi.margin_treatment]+'다.'}),srcMeta(pv)))}}
+
+    const ni=almF('alm_nii_result');
+    if(ni){const xi=frameIdx(ni);
+      const c=almCard(null,bars(ni.rows.map(r=>({label:r[xi.scenario],
+        value:r[xi.delta_nii],tone:r[xi.delta_nii]<0?'bad':'good'})),
+        {title:'ΔNII — 평행충격',fmt:fmtMoney}),srcMeta(ni));
+      const d=almF('alm_scenario_def');
+      const n=d?d.rows.filter(r=>r[frameIdx(d).applies_to_nii]).length:null;
+      c.appendChild(el('div','meta','시계 '+fmtNum(ni.rows[0][xi.horizon_years])+
+        '년 · '+ni.rows[0][xi.balance_sheet_assumption]+' · 상업마진 '+
+        ni.rows[0][xi.margin_treatment]+
+        (n==null?'':' · 정의 원장이 ΔNII 대상으로 표시한 시나리오 '+n+'개')));
+      c.appendChild(el('div','meta','ΔNII에는 산출기준(계약/행동조정) 축이 '+
+        '없다 — 재가격 시뮬레이션이라 EVE 현금흐름을 재활용하지 않는다.'));
+      c.appendChild(el('div','meta',String(ni.rows[0][xi.citation])));
+      pane.appendChild(c)}
+  }
+  sel.onchange=draw;draw();
+}
+
+/* ---- ② 현금흐름 원장 ---------------------------------------------------- */
+function almCashflowCharts(root){
+  root.appendChild(almSources(['alm_cashflow_bucket','alm_cashflow_contract',
+    'alm_cashflow_behavioural','alm_contract','alm_time_bucket'],
+    '계약·행동조정 현금흐름은 계약 단위라 화면에는 표본만 실린다. 그림은 버킷 '+
+    '집계 원장과, 파이프라인이 행동조정 원장 전량을 집계한 기여도로 그린다.'));
+  if(!almHas(root,['alm_cashflow_bucket']))return;
+  const f=almF('alm_cashflow_bucket'),i=frameIdx(f);
+  const scens=almSortScen([...new Set(f.rows.map(r=>r[i.scenario]))]);
+  const bases=[...new Set(f.rows.map(r=>r[i.basis]))];
+  const sides=[...new Set(f.rows.map(r=>r[i.side]))];
+  const bar=el('div','toolbar');root.appendChild(bar);
+  const ss=almSelect(bar,'시나리오',scens,scens[0]);
+  const sd=almSelect(bar,'측',sides,sides[0]);
+  const sb=almSelect(bar,'산출기준',bases,bases[bases.length-1]);
+  const pane=el('div');root.appendChild(pane);
+  function draw(){
+    pane.innerHTML='';
+    const sub=f.rows.filter(r=>r[i.scenario]===ss.value&&r[i.side]===sd.value);
+    if(!sub.length)return;
+    const bks=almBuckets(i,sub);
+    const val=(b,k,col)=>{
+      const r=sub.find(x=>x[i.basis]===b&&x[i.bucket]===k);
+      return r?(r[col]||0):0};
+    const c1=almCard('계약 현금흐름 대 행동조정 현금흐름',
+      multiLine(bases.map(b=>({name:b,values:bks.map(k=>val(b,k,i.total_cf))})),
+        bks,null),srcMeta(f));
+    c1.appendChild(el('div','meta',
+      '두 선이 겹치는 버킷은 행동가정이 걸리지 않은 곳이다. 비만기예금은 계약 '+
+      '기준에서 전액이 최단 버킷에 있고, 행동 기준에서 코어가 장기로 퍼진다.'));
+    pane.appendChild(c1);
+    pane.appendChild(almCard(null,stackBars([
+      {name:'원금',values:bks.map(k=>val(sb.value,k,i.principal_cf))},
+      {name:'이자(상업마진 제외)',
+       values:bks.map(k=>val(sb.value,k,i.interest_cf_ex_margin))},
+      {name:'상업마진',values:bks.map(k=>val(sb.value,k,i.margin_cf))}],bks,
+      {title:'현금흐름 구성 — '+sb.value+' 기준 · '+sd.value,
+       note:'ΔEVE는 상업마진을 제외하고 ΔNII는 포함한다. 그래서 마진을 별도 '+
+         '컬럼으로 담는다.'}),srcMeta(f)));
+    const A=D.alm&&D.alm.behaviour_contrib;
+    if(A){const ai=frameIdx(A);
+      const rows=A.rows.filter(r=>r[ai.scenario]===ss.value);
+      if(rows.length){
+        const c3=almCard(null,bars(rows.map(r=>({label:r[ai.behaviour_model],
+          value:r[ai.adjustment_cf],
+          tone:r[ai.adjustment_cf]<0?'bad':'good'})),
+          {title:'행동모형별 조정액 — '+ss.value+' (행동 − 계약)',fmt:fmtMoney}));
+        c3.appendChild(table({columns:A.columns,labels:A.labels,rows:rows,
+          total:rows.length,shown:rows.length}));
+        c3.appendChild(el('div','meta','원장 '+D.alm.behaviour_source+' 전량 집계 — '+
+          D.alm.behaviour_rows.toLocaleString()+'행 · 계약 '+
+          D.alm.behaviour_contracts.toLocaleString()+'건. 조정액은 원장 '+
+          'adjustment_cf 를 그대로 더한 값이다.'));
+        pane.appendChild(c3)}}
+  }
+  ss.onchange=draw;sd.onchange=draw;sb.onchange=draw;draw();
+}
+
+/* ---- ③ 유동성 사다리 ---------------------------------------------------- */
+function almLadderCharts(root){
+  root.appendChild(almSources(['alm_maturity_ladder','alm_time_bucket'],
+    '만기 사다리는 잔존만기 축이다. 리프라이싱 축과 다른 축이며 — 10년 변동금리 '+
+    '대출은 최단 버킷에서 금리가 재설정되지만 그 기간에 현금화되지 않는다 — '+
+    '두 축을 한 원장으로 합치면 유동성비율 분자가 구조적으로 부풀려진다.'));
+  if(!almHas(root,['alm_maturity_ladder']))return;
+  const f=almF('alm_maturity_ladder'),i=frameIdx(f);
+  const scens=almSortScen([...new Set(f.rows.map(r=>r[i.scenario]))]);
+  const bases=[...new Set(f.rows.map(r=>r[i.basis]))];
+  const bar=el('div','toolbar');root.appendChild(bar);
+  const ss=almSelect(bar,'시나리오',scens,scens[0]);
+  const sb=almSelect(bar,'산출기준',bases,bases[0]);
+  const pane=el('div');root.appendChild(pane);
+  function draw(){
+    pane.innerHTML='';
+    const all=f.rows.filter(r=>r[i.scenario]===ss.value);
+    const sub=all.filter(r=>r[i.basis]===sb.value);
+    if(!sub.length)return;
+    const bks=almBuckets(i,sub);
+    const at=(b,k)=>all.find(r=>r[i.basis]===b&&r[i.bucket]===k);
+    const c1=almCard(null,heat(
+      [bks.map(k=>{const r=at(sb.value,k);return r?r[i.inflow]:null}),
+       bks.map(k=>{const r=at(sb.value,k);return r?r[i.outflow]:null})],
+      ['유입','유출'],bks,
+      {title:'버킷별 유입·유출 — '+sb.value+' 기준 · '+ss.value,fmt:fmtMoney}));
+    c1.appendChild(bars(bks.map(k=>{const r=at(sb.value,k);
+      return {label:k,value:r?r[i.net_gap]:0,
+              tone:(r&&r[i.net_gap]<0)?'bad':'good'}}),
+      {title:'버킷별 순갭 (유입 − 유출)',fmt:fmtMoney}));
+    c1.appendChild(srcMeta(f));pane.appendChild(c1);
+    const c2=almCard('누적갭 — 계약기준 대 행동조정',
+      multiLine(bases.map(b=>({name:b,values:bks.map(k=>{
+        const r=at(b,k);return r?r[i.cumulative_gap]:null})})),bks,null),
+      srcMeta(f));
+    c2.appendChild(el('div','meta',
+      '계약기준은 비만기예금 전액이 최단 버킷에서 빠져나간다고 본다 — 계약상 '+
+      '만기가 없으므로 최조기 유출 가정이 정의다. 행동조정은 코어를 남긴다.'));
+    pane.appendChild(c2);
+    const cbc=sub.reduce((a,r)=>a+(r[i.counterbalancing_capacity]||0),0);
+    const worst=sub.reduce((a,r)=>Math.min(a,r[i.cumulative_gap]),0);
+    const g=el('div','grid');
+    [['반대매매가능자산',fmtMoney(cbc),'전 버킷 합계 · counterbalancing_capacity',''],
+     ['최대 누적부족',fmtMoney(worst),'누적갭 최저점',worst<0?'bad':'good'],
+     ['차감 후 잔량',fmtMoney(cbc+Math.min(worst,0)),
+      '두 원장 컬럼의 합 — 소진 경로는 생존기간 화면이 낸다',
+      cbc+Math.min(worst,0)<0?'bad':'good'],
+    ].forEach(([lab,val,sub,tone])=>{const c=el('div','card kpi');
+      c.appendChild(el('div','lab',lab));
+      c.appendChild(el('div','val '+tone,String(val)));
+      c.appendChild(el('div','sub',String(sub)));g.appendChild(c)});
+    pane.appendChild(g);
+    pane.appendChild(almCard('사다리 원장 — '+ss.value+' · '+sb.value+' 기준',
+      table({columns:f.columns,labels:f.labels,rows:sub,
+        total:sub.length,shown:sub.length}),srcMeta(f)));
+  }
+  ss.onchange=draw;sb.onchange=draw;draw();
+}
+
+/* ---- ④ LCR·NSFR 상세 ---------------------------------------------------- */
+function almLcrDetail(root){
+  const f=almF('alm_lcr_flow'),i=frameIdx(f);
+  const k=almF('alm_lcr_factor'),ki=frameIdx(k);
+  const kby=new Map();
+  k.rows.forEach(r=>kby.set(r[ki.section]+'|'+r[ki.category],r));
+  const rows=f.rows.map(r=>{
+    const kr=kby.get(r[i.section]+'|'+r[i.category]);
+    return [r[i.section],r[i.category],r[i.balance],r[i.factor],r[i.weighted],
+            r[i.factor_source],r[i.evidence_status],
+            kr?kr[ki.citation_bcbs]:'—',kr?kr[ki.citation_kr]:'—']});
+  const cols=['구분','항목','잔액','적용계수','가중액','계수 출처','근거 판정',
+    'BCBS 근거','국내 근거'];
+  const EV=cols.indexOf('근거 판정');
+  const c=almCard('유동성커버리지비율 — 항목별 잔액 × 계수 = 가중액',
+    table({columns:cols,rows:rows,total:rows.length,shown:rows.length},
+      {rowClass:r=>r[EV]==='미확인'?'bad':null}),srcMeta(f));
+  const secs=[...new Set(f.rows.map(r=>r[i.section]))];
+  const wsum=rs=>rs.reduce((a,r)=>a+(r[i.weighted]||0),0);
+  const rec=secs.map(s=>['구분 소계 · '+s,
+    fmtMoney(wsum(f.rows.filter(r=>r[i.section]===s))),'alm_lcr_flow']);
+  const a=almF('alm_result');
+  if(a){const ai=frameIdx(a);
+    const row=a.rows.find(r=>r[ai.metric]==='LCR');
+    if(row){
+      rec.push(['비율 분자 (고유동성자산)',fmtMoney(row[ai.numerator]),'alm_result']);
+      rec.push(['비율 분모 (순현금유출)',fmtMoney(row[ai.denominator]),'alm_result']);
+      rec.push(['LCR',(row[ai.value]*100).toFixed(1)+'%',
+        '최저 '+(row[ai.minimum]*100).toFixed(0)+'%'])}}
+  c.appendChild(table({columns:['항목','금액','출처'],rows:rec,
+    total:rec.length,shown:rec.length},{numeric:false}));
+  c.appendChild(el('div','meta',
+    '구분 소계와 비율 분자·분모가 어긋나면 그 차이가 상한 조정액이다.'));
+  root.appendChild(c);
+}
+/* 상한이 문 자리 — 계수는 상한 원장에서 읽는다. 상한 적용은 엔진이 하고
+   화면은 어느 상한이 물었는지만 대조한다. */
+function almLcrCaps(root){
+  const f=almF('alm_lcr_flow'),i=frameIdx(f);
+  const k=almF('alm_lcr_factor'),ki=frameIdx(k);
+  const flowSecs=new Set(f.rows.map(r=>r[i.section]));
+  const caps=k.rows.filter(r=>!flowSecs.has(r[ki.section]));
+  if(!caps.length)return;
+  const wsum=rs=>rs.reduce((a,r)=>a+(r[i.weighted]||0),0);
+  const hq=f.rows.filter(r=>/^level_/.test(String(r[i.category])));
+  const SPEC={
+    cap_l2b:{what:'Level 2B 대 고유동성자산',base:()=>wsum(hq),
+             act:()=>wsum(hq.filter(r=>/2b/.test(String(r[i.category]))))},
+    cap_l2:{what:'Level 2 대 고유동성자산',base:()=>wsum(hq),
+            act:()=>wsum(hq.filter(r=>/2a|2b/.test(String(r[i.category]))))},
+    cap_inflow:{what:'인정 유입 대 총유출',
+                base:()=>wsum(f.rows.filter(r=>/유출/.test(String(r[i.section])))),
+                act:()=>wsum(f.rows.filter(r=>/유입/.test(String(r[i.section]))))}};
+  const rows=[],unknown=[];
+  caps.forEach(r=>{const s=SPEC[r[ki.category]];
+    if(!s){unknown.push(String(r[ki.category]));return}
+    const lim=(r[ki.factor]||0)*s.base(),act=s.act();
+    rows.push([r[ki.category],s.what,(r[ki.factor]*100).toFixed(0)+'%',
+      fmtMoney(lim),fmtMoney(act),act>lim?'구속':'미구속',r[ki.citation_bcbs]])});
+  const cols=['상한','대상','계수','상한액','산출액','판정','근거'];
+  const JD=cols.indexOf('판정');
+  const c=almCard('상한 — 어느 상한이 물었는가',
+    table({columns:cols,rows:rows,total:rows.length,shown:rows.length},
+      {numeric:false,rowClass:r=>r[JD]==='구속'?'bad':null}),srcMeta(k));
+  if(unknown.length)c.appendChild(el('div','note',
+    '대조 규칙이 없는 상한 — '+unknown.join(' · ')+'. 원장에는 있으나 화면이 '+
+    '대상 집계를 정하지 못한다.'));
+  c.appendChild(el('div','meta',
+    '상한액은 상한 원장의 계수를 대상 집계에 곱한 값이다. 실제 적용은 엔진 '+
+    '(risk_lib/alm/lcr.py)이 하고 화면은 구속 여부만 표시한다.'));
+  root.appendChild(c);
+}
+/* 등재됐지만 산출에 들어가지 않은 항목 — 부재가 보여야 한다. 분모에 아예
+   없는 유출 항목은 화면에서도 없던 일이 된다. */
+function almNotComputed(root){
+  const f=almF('alm_lcr_flow'),i=frameIdx(f);
+  const k=almF('alm_lcr_factor'),ki=frameIdx(k);
+  const flowSecs=new Set(f.rows.map(r=>r[i.section]));
+  const used=new Set(f.rows.map(r=>r[i.section]+'|'+r[i.category]));
+  const miss=k.rows.filter(r=>flowSecs.has(r[ki.section])&&
+    !used.has(r[ki.section]+'|'+r[ki.category]));
+  if(!miss.length)return;
+  const rows=miss.map(r=>[r[ki.section],r[ki.category],r[ki.factor],
+    r[ki.source],r[ki.evidence_status],r[ki.citation_bcbs]]);
+  const cols=['구분','항목','계수','산출 상태','근거 판정','BCBS 근거'];
+  const EV=cols.indexOf('근거 판정');
+  const c=almCard('계수 원장에 등재됐으나 산출에 들어가지 않은 항목',
+    table({columns:cols,rows:rows,total:rows.length,shown:rows.length},
+      {rowClass:r=>r[EV]==='미확인'?'bad':null}),srcMeta(k));
+  c.appendChild(el('div','meta',
+    '담보부조달·파생 유출·등급하락 트리거처럼 원천 원장이 없어 산출하지 못한 '+
+    '항목이다. 등재해 두지 않으면 분모에 없다는 사실 자체가 보이지 않는다.'));
+  root.appendChild(c);
+}
+function almNsfrDetail(root){
+  const f=almF('alm_nsfr_item'),i=frameIdx(f);
+  const k=almF('alm_nsfr_factor'),ki=frameIdx(k);
+  const secs=[...new Set(f.rows.map(r=>r[i.section]))];
+  const wsum=rs=>rs.reduce((a,r)=>a+(r[i.weighted]||0),0);
+  const c=almCard('순안정자금조달비율 — 항목별 금액 × 계수 = 가중액',
+    bars(secs.map(s=>({label:s,
+      value:wsum(f.rows.filter(r=>r[i.section]===s))})),
+      {title:'구분별 가중 후 금액',fmt:fmtMoney}),srcMeta(f));
+  const cols=['구분','항목','금액','적용계수','가중액','만기구간','근거 판정','근거'];
+  const EV=cols.indexOf('근거 판정');
+  c.appendChild(table({columns:cols,
+    rows:f.rows.map(r=>[r[i.section],r[i.category],r[i.amount],r[i.factor],
+      r[i.weighted],r[i.maturity_band],r[i.evidence_status],r[i.citation]]),
+    total:f.rows.length,shown:f.rows.length},
+    {rowClass:r=>r[EV]==='미확인'?'bad':null}));
+  const a=almF('alm_result');
+  if(a){const ai=frameIdx(a);
+    const row=a.rows.find(r=>r[ai.metric]==='NSFR');
+    if(row)c.appendChild(el('div','meta','NSFR '+(row[ai.value]*100).toFixed(1)+
+      '% — 분자 '+fmtMoney(row[ai.numerator])+' / 분모 '+
+      fmtMoney(row[ai.denominator])+' · 최저 '+
+      (row[ai.minimum]*100).toFixed(0)+'% (원장 alm_result)'))}
+  const nul=k.rows.filter(r=>r[ki.factor]==null);
+  if(nul.length){const n=el('div','note bad');
+    n.textContent='계수 공란 — '+nul.map(r=>r[ki.section]+' '+r[ki.category])
+      .join(' · ')+'. 국내 채택값을 확인하지 못해 비워 두었고, 그 항목은 산출에 '+
+      '들어가지 않는다.';
+    c.appendChild(n)}
+  root.appendChild(c);
+}
+function almLiquidityCharts(root){
+  root.appendChild(almSources(['alm_lcr_flow','alm_lcr_factor','alm_nsfr_item',
+    'alm_nsfr_factor','alm_result']));
+  if(!almHas(root,['alm_lcr_flow','alm_lcr_factor','alm_nsfr_item',
+    'alm_nsfr_factor']))return;
+  almLcrDetail(root);almLcrCaps(root);almNotComputed(root);almNsfrDetail(root);
+  root.appendChild(almEvidence(['alm_lcr_factor','alm_lcr_flow',
+    'alm_nsfr_factor','alm_nsfr_item']));
+}
+
+/* ---- ⑤ 생존기간 --------------------------------------------------------- */
+function almSurvivalCharts(root){
+  root.appendChild(almSources(['alm_survival_path','alm_liquidity_stress_param']));
+  if(!almHas(root,['alm_survival_path']))return;
+  const f=almF('alm_survival_path'),i=frameIdx(f);
+  const scens=[...new Set(f.rows.map(r=>r[i.scenario]))];
+  const days=[...new Set(f.rows.map(r=>r[i.day]))].sort((a,b)=>a-b);
+  const at=(s,d)=>f.rows.find(x=>x[i.scenario]===s&&x[i.day]===d);
+  const c=almCard('스트레스별 반대매매가능자산 잔량 경로',
+    multiLine(scens.map(s=>({name:s,
+      values:days.map(d=>{const r=at(s,d);return r?r[i.cbc_remaining]:null})})),
+      days.map(d=>d%10?'':String(d)),null),srcMeta(f));
+  c.appendChild(el('div','meta',
+    '가로축은 일자다. 선이 0을 뚫는 날이 소진일이고, 그 이전까지가 생존기간이다.'));
+  root.appendChild(c);
+  const p=almF('alm_liquidity_stress_param');
+  const pi=p?frameIdx(p):null;
+  const horizon=s=>{if(!p)return null;
+    const r=p.rows.find(x=>x[pi.stress_scenario]===s);
+    return r?r[pi.horizon_days]:null};
+  const rows=scens.map(s=>{
+    const path=f.rows.filter(x=>x[i.scenario]===s)
+                     .slice().sort((a,b)=>a[i.day]-b[i.day]);
+    const brk=path.find(x=>x[i.survived]===false);
+    const last=path[path.length-1];
+    return [s,brk?fmtNum(brk[i.day])+'일차 소진':'관측 구간 내 미소진',
+            fmtNum(last[i.day])+'일',fmtMoney(last[i.cbc_remaining]),
+            fmtMoney(last[i.net_outflow_cum]),
+            horizon(s)==null?'—':fmtNum(horizon(s))+'일']});
+  const cols=['스트레스','소진','관측 마지막','최종 잔량','누적 순유출','원장 시계'];
+  const BK=cols.indexOf('소진');
+  const c2=almCard('시나리오별 소진일',
+    table({columns:cols,rows:rows,total:rows.length,shown:rows.length},
+      {numeric:false,rowClass:r=>/소진$/.test(r[BK])?'bad':null}),srcMeta(f));
+  c2.appendChild(el('div','meta',
+    '생존기간 목표에는 규정값이 없다 — 이사회가 정하고 승인한다. 그래서 이 '+
+    '화면은 경로와 소진일만 내고 합격·불합격을 판정하지 않는다.'));
+  root.appendChild(c2);
+  if(p){
+    const defined=[...new Set(p.rows.map(r=>r[pi.stress_scenario]))];
+    const gone=defined.filter(s=>scens.indexOf(s)<0);
+    const c3=almCard('스트레스 유출률 — 시나리오 × 항목',
+      table(p,{rowClass:r=>r[frameIdx(p).cum_runoff_rate]==null?'bad':null}),
+      srcMeta(p));
+    if(gone.length){const n=el('div','note bad');
+      n.textContent='경로가 없는 스트레스 — '+gone.join(' · ')+
+        '. 유출률이 원장에서 비어 있어(근거 미확인) 엔진이 산출을 건너뛰었다. '+
+        '0으로 채우지 않는다.';
+      c3.appendChild(n)}
+    root.appendChild(c3)}
+}
+
+/* ---- ⑥ ALM 계수 원장 ---------------------------------------------------- */
+const ALM_PARAM_TABLES=['alm_time_bucket','alm_product_terms',
+  'alm_behaviour_param','alm_prepay_scurve_param','alm_behaviour_scenario_mult',
+  'alm_nmd_param','alm_rate_shock_param','alm_scenario_def',
+  'alm_post_shock_floor','alm_liquidity_stress_param'];
+/* 승인 이력 — 수기입력 원장은 입력자·승인자·승인일이 채워져야 결재 대상이다.
+   비어 있으면 비어 있다고 적는다. */
+function almApproval(names){
+  const KEY=['input_source','entered_by','approved_by','approved_on'];
+  const rows=[];
+  names.forEach(n=>{const f=almF(n);if(!f)return;const i=frameIdx(f);
+    if(!KEY.some(c=>i[c]!==undefined))return;
+    rows.push([n,f.rows.length].concat(KEY.map(c=>i[c]===undefined?'—':
+      (f.rows.filter(r=>r[i[c]]!=null).length+' / '+f.rows.length))))});
+  const c=almCard('수기입력 원장의 승인 상태 — 기입된 행 / 전체 행',
+    table({columns:['원장','행수','입력 출처','입력자','승인자','승인일'],
+      rows:rows,total:rows.length,shown:rows.length},{numeric:false}));
+  c.appendChild(el('div','meta',
+    '조기상환율·중도해지율 기준값은 규제가 주지 않는다 — 은행 자체추정과 감독 '+
+    '승인이 근거다. 그래서 이 원장들은 구조상 수기입력이고, 승인란이 비어 있는 '+
+    '동안에는 그 값으로 결재를 올릴 수 없다.'));
+  return c;
+}
+/* 빈칸 — 미확인은 화면에서도 비어 보여야 한다. */
+function almBlanks(names){
+  const rows=[];
+  names.forEach(n=>{const f=almF(n);if(!f)return;
+    f.columns.forEach((col,k)=>{
+      const nul=f.rows.filter(r=>r[k]==null).length;
+      if(nul)rows.push([n,col,colLabel(f,k),nul+' / '+f.rows.length])})});
+  const c=almCard('빈칸 재고 — 어느 원장의 어느 칸이 비어 있는가',
+    table({columns:['원장','컬럼','표시명','빈칸 / 행수'],rows:rows,
+      total:rows.length,shown:rows.length},{numeric:false}));
+  c.appendChild(el('div','meta',
+    '값을 확인하지 못한 칸은 기본값으로 채우지 않는다. 엔진은 그 조정을 '+
+    '건너뛰고 경고를 남기며, 화면은 이 목록으로 그 사실을 드러낸다.'));
+  return c;
+}
+function almParamCharts(root){
+  root.appendChild(almSources(ALM_PARAM_TABLES));
+  root.appendChild(almApproval(ALM_PARAM_TABLES));
+  root.appendChild(almBlanks(ALM_PARAM_TABLES));
+  root.appendChild(almEvidence(ALM_PARAM_TABLES));
+}
+
+/* ---- 화면 정의 ---------------------------------------------------------- */
+const almIrrbbScreen=screenOf({
+  lead:'은행계정 금리리스크(IRRBB) — 6개 금리충격의 ΔEVE와 평행충격 ΔNII를 '+
+    '계약기준·행동조정 두 벌로 낸다. 충격폭의 근거 상태를 화면 위에 함께 적는다.',
+  charts:almIrrbbCharts,
+  tables:[['IRRBB 시나리오별 결과','alm_irrbb_result'],
+          ['버킷별 현재가치 효과','alm_irrbb_bucket_pv'],
+          ['ΔNII 12개월 전방','alm_nii_result'],
+          ['금리 시나리오 정의','alm_scenario_def'],
+          ['충격후 금리하한','alm_post_shock_floor'],
+          /* 리프라이싱 갭은 금리 재설정 축이다 — 잔존만기 축(만기 사다리)은
+             유동성 사다리 화면에 있다. 두 축을 한 화면에 나란히 두면 같은
+             사다리의 두 판본으로 읽힌다. */
+          ['리프라이싱 갭','alm_repricing_gap'],
+          ['ALM 종합','alm_result']]});
+const almCashflowScreen=screenOf({
+  lead:'ALM 현금흐름 원장 — 계약 현금흐름과 행동조정 현금흐름을 나란히 둔다. '+
+    '조정액(adjustment_cf)이 컬럼으로 있으므로 어느 모형이 얼마를 움직였는지 '+
+    '원장에서 조인된다.',
+  charts:almCashflowCharts,
+  tables:[['버킷 집계 현금흐름','alm_cashflow_bucket'],
+          ['계약 현금흐름','alm_cashflow_contract'],
+          ['행동조정 현금흐름','alm_cashflow_behavioural'],
+          ['ALM 계약 원장','alm_contract']]});
+const almLadderScreen=screenOf({
+  lead:'만기 사다리 — 버킷별 유입·유출과 누적갭, 반대매매가능자산. 계약기준과 '+
+    '행동조정을 토글로 바꾼다.',
+  charts:almLadderCharts,
+  tables:[['만기 사다리','alm_maturity_ladder'],['시간버킷 정의','alm_time_bucket']]});
+const almLiquidityScreen=screenOf({
+  lead:'유동성비율 상세 — 항목별 잔액 × 계수 = 가중액, 상한이 문 자리, 계수의 '+
+    '출처와 근거 판정까지 한 화면에 둔다.',
+  charts:almLiquidityCharts,
+  tables:[['LCR 유출입','alm_lcr_flow'],['LCR 계수 원장','alm_lcr_factor'],
+          ['NSFR 항목','alm_nsfr_item'],['NSFR 계수 원장','alm_nsfr_factor']]});
+const almSurvivalScreen=screenOf({
+  lead:'생존기간 — 스트레스별 반대매매가능자산 소진 경로. LCR 30일은 최소 시계이며 '+
+    '내부 스트레스는 더 긴 구간을 본다.',
+  charts:almSurvivalCharts,
+  tables:[['생존기간 경로','alm_survival_path'],
+          ['유동성 스트레스 유출률','alm_liquidity_stress_param']]});
+const almParamScreen=screenOf({
+  lead:'ALM 계수·수기입력 모수 — 입력자·승인자·승인일과 근거 판정을 함께 본다. '+
+    '확인하지 못한 값은 비어 있고, 비어 있다는 사실이 화면에 남는다.',
+  charts:almParamCharts,
+  tables:[['시간버킷 정의','alm_time_bucket'],['상품 상환·이자 관행','alm_product_terms'],
+          ['행동모형 기준 파라미터','alm_behaviour_param'],
+          ['조기상환 S-curve 계수','alm_prepay_scurve_param'],
+          ['행동모형 시나리오 승수','alm_behaviour_scenario_mult'],
+          ['비만기예금 코어 분해','alm_nmd_param'],
+          ['금리충격 모수','alm_rate_shock_param']]});
+
+/* ALM 요약 — 요약도 원장 컬럼에서만 나와야 하므로 화면과 같은 자리에 둔다. */
+Object.assign(SUMMARIES,{
+  '금리리스크':()=>{const f=almF('alm_irrbb_result');if(!f)return null;
+    const i=frameIdx(f),b=almHeadlineBasis(f,i);
+    const w=f.rows.find(r=>r[i.basis]===b&&r[i.is_worst]);
+    if(!w)return null;
+    const p=almF('alm_rate_shock_param');
+    const un=p?p.rows.filter(r=>r[frameIdx(p).shock_bp]==null).length:null;
+    return {t:'최악 '+w[i.scenario]+' ('+b+' 기준) — ΔEVE '+fmtMoney(w[i.delta_eve])+
+      ' · 기본자본 대비 '+(w[i.delta_eve_to_tier1]*100).toFixed(2)+'% · 충격 출처 '+
+      w[i.shock_source]+(un==null?'':' · 충격폭 공란 '+un+'행'),
+      tone:'warn'}},
+  '현금흐름 원장':()=>{const A=D.alm&&D.alm.behaviour_contrib;if(!A)return null;
+    const i=frameIdx(A);
+    const m=[...new Set(A.rows.map(r=>r[i.behaviour_model]))];
+    return {t:'행동조정 원장 '+D.alm.behaviour_rows.toLocaleString()+'행 · 계약 '+
+      D.alm.behaviour_contracts.toLocaleString()+'건 — 적용 모형 '+m.join(' · ')+
+      '. 계약 현금흐름은 시나리오와 무관한 한 벌이다.',tone:'good'}},
+  '유동성 사다리':()=>{const f=almF('alm_maturity_ladder');if(!f)return null;
+    const i=frameIdx(f);
+    const w=f.rows.reduce((a,r)=>r[i.cumulative_gap]<a[i.cumulative_gap]?r:a,
+      f.rows[0]);
+    return {t:'누적갭 최저 '+fmtMoney(w[i.cumulative_gap])+' — '+w[i.bucket]+
+      ' 버킷 ('+w[i.basis]+' 기준 · '+w[i.scenario]+'). 잔존만기 축이며 '+
+      '리프라이싱 축과 다르다',tone:w[i.cumulative_gap]<0?'warn':'good'}},
+  '유동성리스크':()=>{const f=almF('alm_result');if(!f)return null;
+    const i=frameIdx(f);
+    const bad=f.rows.filter(r=>r[i.passes]===false).length;
+    const k=almF('alm_lcr_factor');
+    const un=k?k.rows.filter(r=>r[frameIdx(k).factor]==null).length:null;
+    return {t:(bad?'유동성 지표 '+bad+'건 최저치 미달':'LCR·NSFR 최저치 상회')+
+      (un==null?'':' · LCR 계수 공란 '+un+'행(관할재량 미확인)'),
+      tone:bad?'bad':'warn'}},
+  '생존기간':()=>{const f=almF('alm_survival_path');if(!f)return null;
+    const i=frameIdx(f);
+    const brk=f.rows.filter(r=>r[i.survived]===false);
+    const n=new Set(f.rows.map(r=>r[i.scenario])).size;
+    return {t:brk.length?'소진 관측 '+brk.length+'행 — 최초 '+
+        fmtNum(brk[0][i.day])+'일차 ('+brk[0][i.scenario]+')'
+      :'스트레스 '+n+'종 모두 관측 구간 내 미소진 — 판정 기준은 이사회 승인 사항',
+      tone:brk.length?'bad':'warn'}},
+  'ALM 계수 원장':()=>{
+    let tot=0,un=0;
+    ALM_PARAM_TABLES.forEach(n=>{const f=almF(n);if(!f)return;
+      const i=frameIdx(f);if(i.evidence_status===undefined)return;
+      tot+=f.rows.length;
+      un+=f.rows.filter(r=>r[i.evidence_status]==='미확인').length});
+    return {t:'계수 원장 '+tot+'행 중 근거 미확인 '+un+'행 — 미확인 값은 '+
+      '채우지 않는다',tone:un?'warn':'good'}},
+});
+/* ══════════════ ALM 화면 (끝) ═══════════════════════════════════════════ */
 
 function scenarioScreen(root){
   root.appendChild(el('p','lead',
@@ -4335,8 +5045,15 @@ const DETAIL_SCREENS=[
   ['변별력·안정성','MDL · 신용모형 성능 — Gini·KS·PSI',modelPerformance],
   ['등급 보정','MDL · 등급 보정 — 예측 PD 대 실측 부도율 (O/E)',modelCalibration],
   ['산출 방법론','SET · 산출 방법론 — LTA/MBA · SEC 계층 선택',methodology],
-  ['금리리스크','E · 은행계정 금리리스크(IRRBB) — 충격·갭',rateRisk],
-  ['유동성리스크','E · 유동성리스크 — LCR·NSFR',liquidityRisk],
+  ['금리리스크','E · 은행계정 금리리스크(IRRBB) — 충격 ΔEVE·ΔNII·버킷 현재가치',
+   almIrrbbScreen],
+  ['현금흐름 원장','E · ALM 현금흐름 — 계약 대 행동조정',almCashflowScreen],
+  ['유동성 사다리','E · 만기 사다리 — 유입·유출·누적갭·반대매매가능자산',
+   almLadderScreen],
+  ['유동성리스크','E · 유동성비율 상세 — LCR·NSFR 항목별 잔액×계수=가중액',
+   almLiquidityScreen],
+  ['생존기간','E · 생존기간 — 스트레스별 소진 경로',almSurvivalScreen],
+  ['ALM 계수 원장','E · ALM 계수·수기입력 모수 — 승인·근거 상태',almParamScreen],
 ];
 
 /* 메뉴 트리 — 그룹은 시각적 계층일 뿐, 리프 순서가 화면의 정체다.
@@ -4366,7 +5083,8 @@ const NAVGROUPS=[
     ['운영',['손실·회수','KRI·통제','운영 RWA']],
   ]],
   ['ALM·위기상황',[
-    ['ALM',['금리리스크','유동성리스크']],
+    ['ALM',['금리리스크','현금흐름 원장','유동성 사다리','유동성리스크',
+            '생존기간','ALM 계수 원장']],
     ['위기상황',['거시지표 모니터링','시나리오 설정','역스트레스']],
   ]],
   ['증권 건전성',['NCR·건전성']],

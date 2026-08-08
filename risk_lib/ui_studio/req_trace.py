@@ -69,7 +69,7 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
                 "권한·마스킹·집계최소단위를 통과해야 조건이 된다"),
     # ---- DAT ---------------------------------------------------------------
     "DAT-001": ("반영", (("module", "risk_lib.datamodel.catalog"), ("screen", "데이터모델")),
-                "정규 테이블 81장 · 컬럼 596개 · 입도 서술"),
+                "정규 테이블 131장 · 컬럼 1,203개 · 입도 서술"),
     "DAT-002": ("반영", (("module", "risk_lib.archive"), ("screen", "기준일")),
                 "기준일자/수행일자·판 체계 + 화면 기준일 전환"),
     "DAT-003": ("부분", (("table", "gov_evidence_node"), ("table", "gov_evidence_edge")),
@@ -85,7 +85,7 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
                 "seed·asof 고정 + manifest 재현"),
     "GOV-002": ("반영", (("table", "rdm_dq_result"), ("table", "gov_evidence_edge")), ""),
     "GOV-003": ("반영", (("module", "risk_lib.pipeline"), ("module", "risk_lib.validation.consistency")),
-                "결정론 엔진 + 자체검증 54건 + 서식검증 1,735건"),
+                "결정론 엔진 + 자체검증 57건 + 서식검증 1,735건"),
     "GOV-004": ("부분", (("module", "risk_lib.models.rating"), ("table", "crm_model")),
                 "PD/LGD 모형·백테스트는 있으나 승인 라이프사이클은 없다"),
     "GOV-005": ("반영", (("table", "st_calc_trace"), ("screen", "위기상황")),
@@ -135,8 +135,20 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
                     "손실·KRI·PSMOR 원칙 매핑"),
     "BNK-OTH-002": ("반영", (("module", "risk_lib.ccr"), ("module", "risk_lib.frtb")),
                     "SA-CCR·CVA·FRTB·XVA·Greeks"),
-    "BNK-OTH-003": ("반영", (("module", "risk_lib.alm"), ("table", "alm_lcr_item")),
-                    "IRRBB·LCR·NSFR"),
+    # 산출 구조는 갭 근사에서 계약 현금흐름으로 바뀌었으나(계약원장 →
+    # 현금흐름 → 버킷 → ΔEVE, 계약/행동조정 두 기준), **KRW 금리충격 모수가
+    # 비어 있다.** USD 계정을 프록시로 빌려 쓰고 그 사실을 원장에 남길 뿐이므로
+    # ΔEVE 절대수준은 결재 대상이 아니다. 자동금리옵션 add-on도 미구현이다.
+    # 구조가 갖춰졌다고 '반영'으로 올리면 값이 근거 없이 승인된 것으로 읽힌다.
+    "BNK-OTH-003": ("부분", (("module", "risk_lib.alm.cashflow"),
+                            ("table", "alm_cashflow_bucket"),
+                            ("table", "alm_irrbb_result"),
+                            ("table", "alm_rate_shock_param"),
+                            ("test", "test_alm_ledgers_are_all_materialised")),
+                    "IRRBB(ΔEVE 6시나리오 × 계약/행동조정 2기준)·ΔNII·LCR·NSFR을 "
+                    "계약 현금흐름에서 산출한다. KRW 충격 bp는 1차자료 미열람으로 "
+                    "NULL이며 USD 계정 프록시로 산출한다 — 절대수준 미결재. "
+                    "자동금리옵션 add-on 미구현"),
     "BNK-ST-002": ("반영", (("table", "st_capital_path"),), "기준·악화·심각 3경로"),
     "BNK-ST-003": ("반영", (("table", "st_calc_trace"),), "신용→시장→운영→유동성→손익→자본 전이"),
     "BNK-ST-004": ("반영", (("table", "st_capital_path"), ("screen", "위기상황")), ""),
@@ -199,7 +211,7 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
     # '반영'으로 올리면 감사에서 드러난 과대표시를 되풀이하는 것이다.
     "PLT-002": ("부분", (("module", "risk_lib.datamodel.catalog"),
                         ("table", "rdm_obligor")),
-                "정규 원장 107장·스펙 검증은 있으나 Data Mart 적재·수명주기는 없다"),
+                "정규 원장 131장·스펙 검증은 있으나 Data Mart 적재·수명주기는 없다"),
     "PLT-004": ("부분", (("module", "risk_lib.pipeline"),
                         ("module", "risk_lib.validation.backtest")),
                 "결정론 계산엔진 5종 + 검증 Lab은 있으나 사용자 정의 계산은 없다"),
@@ -216,9 +228,14 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
     "BNK-CRM-008": ("반영", (("module", "risk_lib.models.rating"),
                             ("test", "test_crm_rating_grades_come_from_master_scale")),
                     "17등급 master scale + PD 구간 매핑 — 등급열은 문자열로 실체화된다"),
-    "SEC-LIQ-002": ("부분", (("module", "risk_lib.stress.liquidity"),
+    "SEC-LIQ-002": ("부분", (("module", "risk_lib.alm.liquidity"),
+                            ("table", "alm_survival_path"),
+                            ("table", "alm_liquidity_stress_param"),
                             ("test", "test_liquidity_stress_scenarios")),
-                    "유동성 스트레스 시나리오는 있으나 CFP(비상조달계획)는 없다"),
+                    "만기 사다리·생존기간 경로를 현금흐름 원장에서 산출한다. "
+                    "시장전반 시나리오는 유출률 미공표로 **미산출**이고, "
+                    "목표 생존기간·CFP 트리거는 이사회 승인 원장이 없어 "
+                    "산출만 하고 판정하지 않는다"),
     "SEC-OAI-002": ("부분", (("module", "risk_lib.model_inventory"),
                             ("module", "risk_lib.model_risk"),
                             ("test", "test_crm_model_inventory_matches_source")),

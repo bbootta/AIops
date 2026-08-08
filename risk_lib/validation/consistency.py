@@ -721,6 +721,285 @@ def _check_alm(alm: dict | None, report: ValidationReport) -> None:
                 "bs_balances", "FAIL",
                 "재무상태표 차변/대변 불일치"))
 
+    _check_alm_ledgers(alm, report)
+
+
+# ---------------------------------------------------------------- ALM 원장 대사
+#
+# ALM 산출은 원장 여러 장을 거쳐 접힌다(계약 → 현금흐름 → 버킷 → ΔEVE·사다리).
+# 접는 단계마다 합이 보존되는지 보지 않으면, 중간에서 흘린 금액이 헤드라인
+# 한 줄에 흡수되어 보이지 않는다. 아래 세 검사가 그 세 단계의 항등식이다.
+# 상대허용오차는 부동소수 누적오차만 흡수할 크기로 둔다 — 느슨하게 잡으면
+# 실제 누락을 통과시킨다.
+_ALM_TIE_RTOL = 1e-9
+
+
+def _rel_gap(a: float, b: float) -> float:
+    scale = max(abs(a), abs(b), 1.0)
+    return abs(a - b) / scale
+
+
+def _check_delta_eve_recalc(alm: dict, bp: pd.DataFrame, res: pd.DataFrame,
+                            report: ValidationReport) -> None:
+    """ΔEVE를 모수 원장에서 다시 만든 할인계수로 재계산해 결과 원장과 대사한다.
+
+    결과 원장의 `delta_eve`는 버킷 원장의 `delta_pv` 합으로 **정의**되므로,
+    같은 프레임 안에서 접어 비교하면 무엇을 망가뜨려도 통과한다. 여기서는
+    `alm_rate_shock_param`·`alm_scenario_def`·`alm_post_shock_floor`와 기저곡선
+    으로 충격곡선을 다시 만들어 `DF(t)`를 새로 계산한다. 현금흐름은 버킷
+    원장의 것을 쓰되(그 합은 (1) 검사가 명목과 대사한다) **할인은 독립 경로**다.
+    """
+    from risk_lib.alm.curves import discount_factors
+    from risk_lib.alm.irrbb import build_shocked_curves
+
+    name = "alm_delta_eve_independent_recalc"
+    curve = alm.get("base_curve")
+    tables = alm.get("tables") or {}
+    need = ("alm_rate_shock_param", "alm_scenario_def", "alm_post_shock_floor")
+    missing = [t for t in need if t not in tables]
+    ccys = sorted({str(c) for c in bp["ccy"]})
+    if curve is None or missing or len(ccys) != 1:
+        report.add(ConsistencyCheck(
+            name, "WARN",
+            "ΔEVE 독립 재계산을 하지 못했다 — "
+            + ("기저곡선 없음" if curve is None else "")
+            + (f"모수 원장 누락 {missing}" if missing else "")
+            + (f"통화 {len(ccys)}종에 기저곡선 1벌" if len(ccys) != 1 else "")))
+        return
+
+    shocked, _w = build_shocked_curves(
+        {ccys[0]: curve},
+        scenarios=tuple(dict.fromkeys(str(s) for s in bp["scenario"])),
+        shock_param=tables[need[0]], scenario_def=tables[need[1]],
+        floor=tables[need[2]],
+        framework_version=str(res["framework_version"].iloc[0]),
+        allow_proxy=True)
+
+    recalc: dict[tuple[str, str], float] = {}
+    for (basis, sc), g in bp.groupby(["basis", "scenario"]):
+        shk = shocked.get((ccys[0], str(sc)))
+        if shk is None:
+            continue
+        t = g["t_mid"].to_numpy(dtype=float)
+        recalc[(str(basis), str(sc))] = float(
+            (g["cf"].to_numpy(dtype=float) * discount_factors(shk.curve, t)
+             - g["cf_base"].to_numpy(dtype=float) * discount_factors(curve, t)
+             ).sum())
+
+    want = res.set_index(["basis", "scenario"])["delta_eve"]
+    skipped = [k for k in want.index if (str(k[0]), str(k[1])) not in recalc]
+    worst, worst_key = 0.0, None
+    for k, v in want.items():
+        got = recalc.get((str(k[0]), str(k[1])))
+        if got is None:
+            continue
+        gap = _rel_gap(float(v), got)
+        if gap > worst:
+            worst, worst_key = gap, k
+    if worst > _ALM_TIE_RTOL:
+        report.add(ConsistencyCheck(
+            name, "FAIL",
+            f"ΔEVE 재계산이 결과 원장과 어긋난다 — {worst_key} 상대오차 "
+            f"{worst:.2e}. 충격곡선이 결과 원장에 반영되지 않았을 수 있다",
+            metric=worst))
+    elif skipped:
+        report.add(ConsistencyCheck(
+            name, "WARN",
+            f"충격 모수가 없어 재계산하지 못한 조합 {len(skipped)}개 "
+            f"({skipped[:3]})", metric=float(len(skipped))))
+    else:
+        report.add(ConsistencyCheck(
+            name, "PASS",
+            f"모수 원장에서 다시 만든 할인계수로 ΔEVE 재계산 일치 "
+            f"({len(recalc)}개 산출기준×시나리오, 최대 상대오차 {worst:.2e})",
+            metric=worst))
+
+
+def _check_irrbb_single_source(alm: dict, stress_path, report: ValidationReport,
+                               ) -> None:
+    """이사회 팩에 실리는 ΔEVE가 ALM 엔진 한 곳에서 나오는지.
+
+    `stress/multi_axis`는 할인 없는 갭 근사 `-(gap·t_mid·Δr)`로 ΔEVE를 자체
+    산출해 왔고, 그 값이 `alm_irrbb_result`와 **부호까지** 갈린 채 같은 팩에
+    실렸다. 모형이 두 벌인 것은 상수 별사본보다 상위의 결함이므로 검사로
+    고정한다.
+    """
+    name = "alm_irrbb_engine_single_source"
+    if stress_path is None or not len(stress_path):
+        return
+    if "irrbb_source" not in stress_path.columns:
+        report.add(ConsistencyCheck(
+            name, "FAIL",
+            "stress_path에 ΔEVE 산출 출처 컬럼이 없다 — 엔진 값과 갭 근사가 "
+            "같은 이름으로 섞인다"))
+        return
+    src = sorted({str(s) for s in stress_path["irrbb_source"]})
+    if src == ["engine"]:
+        report.add(ConsistencyCheck(
+            name, "PASS",
+            "스트레스 경로의 ΔEVE·ΔNII가 ALM 엔진 산출에서 나온다"))
+    else:
+        report.add(ConsistencyCheck(
+            name, "WARN",
+            f"스트레스 경로가 ALM 엔진이 아닌 갭 근사로 ΔEVE를 산출한다"
+            f"({', '.join(src)}) — `alm_irrbb_result`와 다른 모형이며 두 값이 "
+            "같은 이사회 팩에 실린다. StressBooks.irrbb 배선이 남았다"))
+
+
+def _check_alm_ledgers(alm: dict, report: ValidationReport) -> None:
+    """원장 대사 3건 + 미확인 모수 사용 · 행동모형 경고 승격 2건."""
+    tables = alm.get("tables") or {}
+
+    # (1) 계약현금흐름의 원금 합 = 계약원장 명목. 상환스케줄이 원금을 다
+    # 갚아내지 못하면(잔액 전개 오류·버킷 절단) 여기서 갈라진다.
+    con, cfc = tables.get("alm_contract"), tables.get("alm_cashflow_contract")
+    if con is not None and cfc is not None and len(con) and len(cfc):
+        by_c = cfc.groupby("contract_id")["principal_cf"].sum()
+        notional = con.set_index("contract_id")["notional"]
+        missing = set(notional.index) - set(by_c.index)
+        gap = float((by_c - notional.reindex(by_c.index)).abs().max())
+        scale = float(notional.abs().max())
+        if missing or gap > _ALM_TIE_RTOL * scale:
+            report.add(ConsistencyCheck(
+                "alm_cf_ties_to_notional", "FAIL",
+                f"계약현금흐름 원금 합이 명목과 어긋난다 — 최대 {gap:,.0f}원, "
+                f"현금흐름 없는 계약 {len(missing)}건", metric=gap))
+        else:
+            report.add(ConsistencyCheck(
+                "alm_cf_ties_to_notional", "PASS",
+                f"계약 {len(notional):,}건의 원금 현금흐름 합 = 명목 "
+                f"(최대 오차 {gap:,.2f}원)", metric=gap))
+
+    # (2) ΔEVE 독립 재계산. **원장 안에서 접기만 하면 항등식이라 실패할 수
+    # 없다** — `build_irrbb_result`가 delta_eve를 bucket_pv의 delta_pv 합으로
+    # *정의*하므로, 같은 프레임에 같은 groupby를 다시 걸어 비교하면 충격곡선을
+    # 통째로 무력화해도 통과한다. 그래서 할인계수를 결과 원장에서 읽지 않고
+    # 모수 원장(alm_rate_shock_param·alm_scenario_def·alm_post_shock_floor)과
+    # 기저곡선에서 **다시 만들어** 재계산한다. 검사가 잡겠다고 선언한 것은
+    # "화면 막대와 이사회 팩 헤드라인이 같은 산출에서 나왔는가"이고, 그 답은
+    # 재계산으로만 나온다.
+    bp, res = tables.get("alm_irrbb_bucket_pv"), tables.get("alm_irrbb_result")
+    if bp is not None and res is not None and len(bp) and len(res):
+        _check_delta_eve_recalc(alm, bp, res, report)
+
+    # (2b) 접기 자체의 항등식. 정의상 참이지만 짝 없는 (basis, scenario) 조합은
+    # 이쪽에서만 잡히므로 남긴다 — 값 검증이 아니라 짝 검증이다.
+    if bp is not None and res is not None and len(bp) and len(res):
+        got = bp.groupby(["basis", "scenario"])["delta_pv"].sum()
+        want = res.set_index(["basis", "scenario"])["delta_eve"]
+        joined = want.to_frame("eve").join(got.to_frame("pv"), how="outer")
+        worst = float(max(
+            (_rel_gap(float(r["eve"]), float(r["pv"]))
+             for _, r in joined.dropna().iterrows()), default=0.0))
+        if joined.isna().any().any() or worst > _ALM_TIE_RTOL:
+            report.add(ConsistencyCheck(
+                "alm_bucket_pv_pairs_with_irrbb_result", "FAIL",
+                f"버킷 PV와 결과 원장의 짝이 맞지 않는다 — 최대 상대오차 "
+                f"{worst:.2e}, 짝 없는 조합 "
+                f"{int(joined.isna().any(axis=1).sum())}개", metric=worst))
+        else:
+            report.add(ConsistencyCheck(
+                "alm_bucket_pv_pairs_with_irrbb_result", "PASS",
+                f"버킷 PV와 결과 원장의 (산출기준, 시나리오) 짝 {len(joined)}개 "
+                "일치", metric=worst))
+
+    # (3) 사다리 = 현금흐름 원장의 **버킷별** 접기. 총합으로 대사하면 사다리가
+    # 존재하는 유일한 이유(버킷 배분)를 검증하지 못한다 — 버킷 순서를 통째로
+    # 뒤집어도 총합은 같으므로 통과한다. (asof, scenario, basis, ccy, bucket)
+    # 으로 조인해 행별로 보고, 누적갭은 버킷 순서의 함수이므로 따로 대사한다.
+    lad, bkt = tables.get("alm_maturity_ladder"), tables.get("alm_cashflow_bucket")
+    if lad is not None and bkt is not None and len(lad) and len(bkt):
+        key = ["asof", "scenario", "basis", "ccy", "bucket"]
+        is_asset = bkt["side"] == "asset"
+        want = (bkt.assign(_in=bkt["total_cf"].where(is_asset, 0.0),
+                           _out=bkt["total_cf"].where(~is_asset, 0.0))
+                   .groupby(key)[["_in", "_out"]].sum())
+        want["_net"] = want["_in"] - want["_out"]
+        joined = want.join(lad.set_index(key)[["inflow", "outflow", "net_gap"]],
+                           how="outer")
+        pairs = (("_in", "inflow"), ("_out", "outflow"), ("_net", "net_gap"))
+        worst = float(max(
+            (_rel_gap(float(r[a]), float(r[b]))
+             for _, r in joined.dropna().iterrows() for a, b in pairs),
+            default=0.0))
+        unpaired = int(joined.isna().any(axis=1).sum())
+        cum_key = ["asof", "scenario", "basis", "ccy"]
+        srt = lad.sort_values(cum_key + ["seq"])
+        cum_gap = float((srt.groupby(cum_key)["net_gap"].cumsum()
+                         - srt["cumulative_gap"]).abs().max())
+        cum_scale = max(float(srt["cumulative_gap"].abs().max()), 1.0)
+        if unpaired or worst > _ALM_TIE_RTOL or \
+                cum_gap > _ALM_TIE_RTOL * cum_scale:
+            report.add(ConsistencyCheck(
+                "alm_ladder_ties_to_cashflow", "FAIL",
+                f"버킷별 사다리와 현금흐름이 어긋난다 — 최대 상대오차 "
+                f"{worst:.2e}, 짝 없는 버킷 {unpaired}개, 누적갭 오차 "
+                f"{cum_gap:,.0f}원", metric=worst))
+        else:
+            report.add(ConsistencyCheck(
+                "alm_ladder_ties_to_cashflow", "PASS",
+                f"버킷별 유입·유출·순갭·누적갭 일치 ({len(joined)}개 버킷행)",
+                metric=worst))
+
+    # (4) 근거를 확인하지 못한 모수가 산출에 실제로 쓰였는지. 원장에 남은
+    # 흔적(프록시 통화·미가중 계수·미산출 시나리오)을 모아 한 줄로 낸다.
+    # 산출이 나왔다는 사실만 보면 이 공백이 보이지 않는다.
+    used: list[str] = []
+    if res is not None and "shock_source" in getattr(res, "columns", []):
+        proxied = sorted({str(s) for s in res["shock_source"]
+                          if str(s) != "직접"})
+        if proxied:
+            used.append(f"금리충격 모수 {', '.join(proxied)} "
+                        "(alm_rate_shock_param의 KRW 행은 비어 있다)")
+    flow = tables.get("alm_lcr_flow")
+    if flow is not None and len(flow):
+        unweighted = sorted(flow.loc[flow["weighted"].isna(), "category"]
+                            .astype(str).unique())
+        if unweighted:
+            used.append(f"LCR 계수 미확인·미가중 {len(unweighted)}항목 "
+                        f"({', '.join(unweighted[:3])})")
+    survival = alm.get("survival")
+    if survival is not None:
+        skipped = [w.scope for w in survival.warnings]
+        if skipped:
+            used.append(f"생존기간 미산출 시나리오 {', '.join(sorted(set(skipped)))}")
+    nsfr_skipped = getattr(alm.get("nsfr"), "skipped", None)
+    if nsfr_skipped:
+        used.append(f"NSFR 계수 미확인 {len(nsfr_skipped)}항목")
+    # ΔNII는 다리가 결손이어도 값이 나온다 — 남은 다리 쪽으로 편향된 값이므로
+    # 제외 비율이 여기 보이지 않으면 "산출됐다"는 사실만 읽힌다.
+    nii = tables.get("alm_nii_result")
+    if nii is not None and len(nii) and "excluded_notional_ratio" in nii:
+        ex = float(nii["excluded_notional_ratio"].max())
+        if ex > 0.0:
+            used.append(f"ΔNII 전가율 결손 — 명목 {ex:.1%} 제외한 부분 산출")
+    if used:
+        report.add(ConsistencyCheck(
+            "alm_unconfirmed_param_in_use", "WARN",
+            "근거 미확인 모수가 산출에 관여했다 — " + " · ".join(used)
+            + ". 절대수준은 결재 대상이 아니다",
+            metric=float(len(used))))
+    else:
+        report.add(ConsistencyCheck(
+            "alm_unconfirmed_param_in_use", "PASS",
+            "산출에 쓰인 ALM 모수가 전부 근거 확인 상태다"))
+
+    # (5) 행동모형 경고 승격. `ParamWarning`은 "그 조정을 건너뛰었다"는 기록
+    # 이므로 산출물에 실려야 한다 — 로그로만 두면 없는 것과 같다.
+    warns = alm.get("warnings") or []
+    if warns:
+        by_param = sorted({f"{w.model}/{w.param}" for w in warns})
+        report.add(ConsistencyCheck(
+            "alm_behaviour_param_warnings", "WARN",
+            f"행동·곡선 모수 경고 {len(warns)}건 — "
+            + ", ".join(by_param[:5])
+            + (" 외" if len(by_param) > 5 else ""),
+            metric=float(len(warns))))
+    else:
+        report.add(ConsistencyCheck(
+            "alm_behaviour_param_warnings", "PASS",
+            "행동·곡선 모수 경고 없음"))
+
 
 def _check_icaap(icaap, report: ValidationReport) -> None:
     """내부자본: EC 통합 ≤ 가용자본, 분산효과 비음수."""
@@ -928,6 +1207,8 @@ def run_consistency_checks(
     _check_backtest_traffic_light(backtest, rep)
     _check_large_exposure(limit_report, rep)
     _check_alm(alm_results, rep)
+    if alm_results:
+        _check_irrbb_single_source(alm_results, stress_path_result, rep)
     _check_icaap(icaap_result, rep)
 
     return rep

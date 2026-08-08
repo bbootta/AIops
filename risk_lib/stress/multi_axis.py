@@ -50,6 +50,29 @@ TAX_RATE = 0.242                 # prudential.financials와 같은 실효세율
 INTEREST_SHARE_OF_REVENUE = 0.80  # 영업수익 중 이자수익 비중 (나머지 수수료)
 
 
+IRRBB_SOURCE_ENGINE = "engine"
+IRRBB_SOURCE_GAP = "gap-approx"
+
+
+@dataclass(frozen=True)
+class IRRBBSensitivity:
+    """ALM 엔진이 산출한 평행충격 ΔEVE·ΔNII를 단위 충격당으로 환산한 것.
+
+    **모형 별사본을 없애기 위한 통로다.** 이 모듈은 `-(gap·t_mid·Δr)` 갭 근사로
+    ΔEVE를 자체 산출해 왔는데, 같은 이사회 팩에 실리는 `alm_irrbb_result`의
+    ΔEVE와 부호까지 갈렸다(할인 유무·행태 슬로팅 유무·현금흐름 재평가 유무가
+    전부 다르다). 여기에 엔진 값을 넣으면 스트레스 경로가 같은 산출을 크기만
+    바꿔 쓴다.
+
+    스트레스 경로의 금리 충격은 분기·시나리오마다 다른데 엔진은 규제 표준
+    충격 하나만 산출하므로 **선형 확장**한다. 컨벡시티는 재현되지 않으며 그
+    사실이 `stress_path.irrbb_source`로 남는다.
+    """
+    delta_eve_per_unit: float     # 평행 100% 상승당 ΔEVE (KRW)
+    delta_nii_per_unit: float
+    shock_decimal: float          # 엔진이 쓴 평행충격 크기 (0.02 = 200bp)
+
+
 @dataclass(frozen=True)
 class StressBooks:
     """전 축 충격에 필요한 기준 상태. 파이프라인이 한 번 만들어 넘긴다."""
@@ -77,6 +100,10 @@ class StressBooks:
     structured_rwa_standardised: float = 0.0
     undrawn_share: float = 0.0        # EAD 대비 미인출 비율
     sa_bucket_by_grade: dict = field(default_factory=dict)
+    # ALM 엔진의 IRRBB 민감도. None이면 이 모듈이 갭 근사로 자체 산출하며,
+    # 그때는 `stress_path.irrbb_source`가 'gap-approx'로 남아 이사회 팩의
+    # ΔEVE가 `alm_irrbb_result`와 다른 모형에서 나왔다는 사실이 보인다.
+    irrbb: IRRBBSensitivity | None = None
 
 
 @dataclass(frozen=True)
@@ -227,13 +254,19 @@ def evaluate_point(books: StressBooks, severity: float, *,
     v["trading_pnl"] = (v["pnl_ir"] + v["pnl_cs"] + v["pnl_equity"]
                         + v["pnl_fx"])
 
-    # 은행계정 금리리스크 — 재설정 갭 사다리에 평행충격을 적용
-    rep = books.repricing
-    gap = rep["gap"].to_numpy(dtype=float)
-    tmid = rep["t_mid"].to_numpy(dtype=float)
-    v["delta_eve"] = float(-(gap * tmid * dy).sum())
-    within_1y = tmid <= 1.0
-    v["delta_nii"] = float((gap[within_1y] * dy).sum())
+    # 은행계정 금리리스크 — ALM 엔진 산출을 충격 크기로 선형 확장한다.
+    # 엔진 값이 없을 때만 재설정 갭 사다리 근사로 떨어지며, 그 사실은
+    # `irrbb_source` 컬럼으로 남는다(같은 이름의 두 모형이 섞이지 않게).
+    if books.irrbb is not None:
+        v["delta_eve"] = books.irrbb.delta_eve_per_unit * dy
+        v["delta_nii"] = books.irrbb.delta_nii_per_unit * dy
+    else:
+        rep = books.repricing
+        gap = rep["gap"].to_numpy(dtype=float)
+        tmid = rep["t_mid"].to_numpy(dtype=float)
+        v["delta_eve"] = float(-(gap * tmid * dy).sum())
+        within_1y = tmid <= 1.0
+        v["delta_nii"] = float((gap[within_1y] * dy).sum())
 
     # ---------------------------------------------------------- 운영
     op = compute_op_risk_rwa(books.bi,
@@ -341,6 +374,8 @@ def run_multi_axis_path(books: StressBooks, *, quarters: list[str],
                           floor=floor).values
     rows, points = [], []
     n = len(quarters)
+    irrbb_source = (IRRBB_SOURCE_ENGINE if books.irrbb is not None
+                    else IRRBB_SOURCE_GAP)
     for path in paths:
         for i, (q, s) in enumerate(zip(quarters, path.severities(n))):
             pt = evaluate_point(books, s, scenario=path.name, quarter=q,
@@ -362,6 +397,7 @@ def run_multi_axis_path(books: StressBooks, *, quarters: list[str],
                 "trading_pnl": v["trading_pnl"],
                 "op_loss": v["op_loss_annual"],
                 "delta_eve": v["delta_eve"], "delta_nii": v["delta_nii"],
+                "irrbb_source": irrbb_source,
                 "net_income": v["net_income"],
                 "lcr": v["lcr"],
                 "cet1_ratio": v["cet1_ratio"],

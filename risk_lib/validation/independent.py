@@ -59,6 +59,17 @@ RECALC_SCOPE: tuple[tuple[str, str, str], ...] = (
     ("ecl_weighted_total", "기대신용손실 합계 (PIT · 확률가중)", "IFRS 9 5.5.17"),
     ("lcr", "유동성커버리지비율", "LCR20.1"),
     ("nsfr", "순안정자금조달비율", "NSF20.1"),
+    # IRRBB·생존기간은 이사회 팩 KPI·KRI·제출서식(BR-13·B2909-1)으로 나가면서도
+    # 3선 재계산 대상에 없었다. 여기 없으면 다시 계산되지 않는다.
+    # ΔEVE는 헤드라인 산출기준(행동조정)의 최악 시나리오이며, 계약기준 값은
+    # `alm_irrbb_result`에 나란히 있어 3선이 두 기준을 대조할 수 있다.
+    ("irrbb_worst_pct_tier1", "IRRBB 최대 ΔEVE 감소 / 기본자본",
+     "SRP31.92 · 은행업감독규정 — 분모는 총자기자본이 아니라 Tier 1"),
+    ("irrbb_delta_nii_parallel", "ΔNII 평행충격 (12개월, 마진 포함)",
+     "BCBS d368 §132 · EBA GL 2022-14"),
+    ("survival_days", "생존기간 (기관고유 스트레스, 시계 우측절단)",
+     "BCBS d144 Principle 10 — 시계 안에서 소진되지 않으면 시계 길이로 절단된 "
+     "값이다. 목표 생존기간에는 규정값이 없고 이사회 승인 대상이다(Principle 11)"),
     ("stress_trough_cet1", "심각 시나리오 CET1 저점", "SRP20"),
     ("reverse_critical_severity", "역스트레스 임계 심도", "SRP20"),
     ("reserve_shortfall", "대손준비금 소요액", "은행업감독규정 제29조 제2항"),
@@ -257,7 +268,41 @@ def _reserve_required(aq) -> float:
     return float(reserve_requirement(aq)["required"])
 
 
-def _headline(result, tables: dict[str, pd.DataFrame] | None) -> dict[str, float]:
+def _irrbb_delta_nii(result) -> float | None:
+    """평행충격 ΔNII 중 최악(최소). 원장이 비면 지어내지 않고 None."""
+    nii = result.alm.get("nii") if isinstance(result.alm, dict) else None
+    frame = getattr(nii, "result", None)
+    if frame is None or not len(frame):
+        return None
+    return float(frame["delta_nii"].min())
+
+
+def _survival_days(result) -> float | None:
+    """기관고유 스트레스 생존일수 — **시계에서 우측절단**된 값.
+
+    시계 안에서 반대매매가능자산이 소진되지 않으면 소진일이 없다. 그때 값을
+    비우면 "산출하지 않았다"와 구분되지 않으므로 시계 길이를 적고, 그것이
+    절단값이라는 사실을 `RECALC_SCOPE`의 근거란에 적는다. 시계는 원장
+    (`alm_survival_path.day`)에서 읽는다 — 여기 숫자를 적으면 파이프라인이
+    시계를 바꿔도 이 값이 따라오지 않는다.
+
+    시나리오 자체가 산출되지 않았으면 None이다. 그 경우는 헤드라인이 비었다는
+    뜻이고, 조용히 넘어가서는 안 된다.
+    """
+    sv = result.alm.get("survival") if isinstance(result.alm, dict) else None
+    days = getattr(sv, "survival_days", None)
+    if not days or "기관고유" not in days:
+        return None
+    breach = days["기관고유"]
+    if breach is not None:
+        return float(breach)
+    path = sv.path
+    hit = path[path["scenario"] == "기관고유"]
+    return float(hit["day"].max()) if len(hit) else None
+
+
+def _headline(result, tables: dict[str, pd.DataFrame] | None
+              ) -> dict[str, float | None]:
     t = tables or {}
     sev = result.stress_path_trough
     sev = sev[sev["scenario"] == "severely_adverse"]
@@ -274,6 +319,9 @@ def _headline(result, tables: dict[str, pd.DataFrame] | None) -> dict[str, float
             getattr(getattr(result, "macro_ecl", None), "weighted_total", 0.0)),
         "lcr": float(result.alm["lcr"].lcr),
         "nsfr": float(result.alm["nsfr"].nsfr),
+        "irrbb_worst_pct_tier1": float(result.alm["irrbb"].worst_pct_tier1),
+        "irrbb_delta_nii_parallel": _irrbb_delta_nii(result),
+        "survival_days": _survival_days(result),
         "stress_trough_cet1": (float(sev["trough_cet1"].iloc[0])
                                if len(sev) else float("nan")),
         "reverse_critical_severity": float(

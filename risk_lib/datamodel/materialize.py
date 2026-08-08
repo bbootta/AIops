@@ -303,10 +303,16 @@ def materialize_stress_capital(result, portfolio, base) -> dict[str, pd.DataFram
 # ---------------------------------------------------------------- R6 · ALM
 
 def materialize_alm(result, portfolio, base) -> dict[str, pd.DataFrame]:
-    """LCR·NSFR·IRRBB 지표와 충격 시나리오."""
+    """LCR·NSFR·IRRBB 지표와 충격 시나리오 + ALM 원장 23장.
+
+    원장은 파이프라인이 이미 세운 것(`result.alm_tables`)을 그대로 받는다.
+    여기서 다시 만들면 자본비율·서식이 쓴 산출과 화면이 두 벌이 된다 —
+    구조화 원장이 같은 이유로 이미 이 규약을 쓰고 있다.
+    """
     asof = _asof(result)
     from risk_lib.references import LCR_MIN, NSFR_MIN
     lcr, nsfr, irrbb = result.alm["lcr"], result.alm["nsfr"], result.alm["irrbb"]
+    nii = result.alm.get("nii")
 
     rows = [
         {"asof": asof, "metric": "LCR", "value": float(lcr.lcr),
@@ -317,33 +323,33 @@ def materialize_alm(result, portfolio, base) -> dict[str, pd.DataFrame]:
          "denominator": float(nsfr.rsf_total), "passes": bool(nsfr.passes())},
         {"asof": asof, "metric": "IRRBB_EVE",
          "value": float(irrbb.worst_pct_tier1), "minimum": None,
-         "numerator": float(abs(irrbb.worst_eve)) if hasattr(irrbb, "worst_eve")
-                      else float(abs(irrbb.worst_pct_tier1)),
-         "denominator": 1.0, "passes": bool(not irrbb.outlier())},
+         "numerator": float(irrbb.worst_eve_decline),
+         "denominator": float(irrbb.tier1), "passes": bool(not irrbb.outlier())},
     ]
+    if nii is not None and not nii.result.empty:
+        # `ALM_METRICS`가 선언만 하고 어디에서도 만들지 않던 행이다.
+        # 판정 기준(ΔNII 한도)은 1차자료를 확인하지 못했으므로 passes는 NULL —
+        # 기준 없이 True/False를 적으면 없는 판정을 한 것이 된다.
+        w = nii.result.loc[nii.result["delta_nii"].idxmin()]
+        rows.append({
+            "asof": asof, "metric": "IRRBB_NII",
+            "value": float(w["delta_nii"] / w["nii_base"]), "minimum": None,
+            "numerator": float(w["delta_nii"]),
+            "denominator": float(w["nii_base"]), "passes": None})
     alm = pd.DataFrame(rows, columns=cat.ALM_RESULT.column_names)
 
-    # IRRBB 6개 표준 충격
-    shocks = getattr(irrbb, "by_scenario", None)
-    srows = []
-    if shocks is not None and hasattr(shocks, "iterrows"):
-        for _, r_ in shocks.iterrows():
-            name = str(r_.get("scenario", "")).lower().replace(" ", "_")
-            if name in cat.IRRBB_SCENARIOS:
-                srows.append({
-                    "asof": asof, "scenario": name,
-                    "delta_eve": float(r_.get("delta_eve", 0.0)),
-                    "pct_tier1": float(r_.get("pct_tier1", 0.0)),
-                })
-    if not srows:  # 원본 구조가 다르면 최악 시나리오만 기록 — 없는 값을 지어내지 않는다
-        worst = str(getattr(irrbb, "worst_eve_scenario", "parallel_up")).lower()
-        worst = worst if worst in cat.IRRBB_SCENARIOS else "parallel_up"
-        srows = [{"asof": asof, "scenario": worst,
-                  "delta_eve": float(getattr(irrbb, "worst_eve", 0.0)),
-                  "pct_tier1": float(irrbb.worst_pct_tier1)}]
-    return {"alm_result": alm,
-            "alm_irrbb_shock": pd.DataFrame(srows,
-                                            columns=cat.IRRBB_SHOCK.column_names)}
+    # IRRBB 6개 표준 충격 — 헤드라인 산출기준의 시나리오별 뷰.
+    shocks = irrbb.by_scenario
+    srows = [{"asof": asof, "scenario": str(r_["scenario"]),
+              "delta_eve": float(r_["delta_eve"]),
+              "pct_tier1": float(r_["pct_tier1"])}
+             for _, r_ in shocks.iterrows()]
+
+    out = {"alm_result": alm,
+           "alm_irrbb_shock": pd.DataFrame(srows,
+                                           columns=cat.IRRBB_SHOCK.column_names)}
+    out.update(getattr(result, "alm_tables", {}) or {})
+    return out
 
 
 # ---------------------------------------------------------------- R7 · MKT/NCR
