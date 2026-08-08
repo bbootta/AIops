@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>RYNTA 브로셔 시안 01 — 인스티튜셔널 에디토리얼 (심의 전 시안)</title>
+<!--
+  ============================================================
+  RYNTA RiskOps 3단 접지 브로셔 · 시안 01 · 팀1 · 2026-08-08
+  인스티튜셔널 에디토리얼: paper #f5f3ee + ink #101217 + blue #0057ff + red #ff3b30
+  ------------------------------------------------------------
+  [재단·인쇄 주석 — 필독]
+  · 본 파일은 재단선 기준 297×210mm(A4 가로) 2면. 실제 인쇄 데이터 제작 시
+    사방 3mm bleed를 추가해 303×216mm로 확장할 것 (배경색 paper를 bleed까지 연장).
+  · 접는 선 안쪽 5mm 세이프존 준수 — 본 시안의 패널 좌우 패딩 9mm로 확보됨.
+  · 날개 패널(바깥면 맨 왼쪽)은 실제 인쇄 시 폭을 2~3mm 축소(96~97mm)해야
+    안으로 접힐 때 간섭이 없다. 본 시안은 비교용으로 3패널 균등 99mm.
+  · 인쇄 출력은 CMYK 변환 + 300dpi 기준. blue #0057ff / red #ff3b30은
+    CMYK 전환 시 채도 저하 확인 필요.
+  · 접는 선 점선(.fold-guide)은 화면 확인용 — 인쇄 시 자동 숨김.
+  ============================================================
+-->
+<style>
+  :root{
+    --paper:#f5f3ee;
+    --ink:#101217;
+    --blue:#0057ff;
+    --red:#ff3b30;
+    --muted:#4b4f57;
+    --hair:#b9b3a4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#cfcabd}
+  body{
+    font-family:Pretendard,"Noto Sans KR","Malgun Gothic",sans-serif;
+    color:var(--ink);
+    display:flex;flex-direction:column;align-items:center;
+    gap:8px;padding:28px 16px 60px;
+  }
+  .serif{font-family:"Noto Serif KR",serif}
+
+  /* ---------- 화면 전용 요소 ---------- */
+  .screen-only{max-width:297mm;width:100%}
+  header.screen-only{
+    padding:14px 18px;background:var(--ink);color:var(--paper);
+    display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  }
+  header.screen-only b{font-size:15px;letter-spacing:.02em}
+  header.screen-only span{font-size:12px;color:#c9c4b8}
+  .sheet-label{
+    font-size:12px;font-weight:700;color:#3a3d44;
+    padding:10px 2px 2px;letter-spacing:.04em;
+  }
+
+  /* ---------- 시트 공통 ---------- */
+  .sheet{
+    width:297mm;height:210mm;background:var(--paper);
+    display:grid;grid-template-columns:99mm 99mm 99mm;
+    position:relative;overflow:hidden;
+    box-shadow:0 10px 34px rgba(16,18,23,.28);
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
+  }
+  .fold-guide{
+    position:absolute;top:0;bottom:0;width:0;z-index:9;
+    border-left:1.2px dashed rgba(16,18,23,.42);
+  }
+  .panel{position:relative;padding:11mm 9mm;overflow:hidden;font-size:9.5pt;line-height:1.55}
+
+  /* 에디토리얼 공통 장치 */
+  .rule{border:0;border-top:.6pt solid var(--ink)}
+  .rule.thick{border-top-width:2.2pt}
+  .rule.hairline{border-top-color:var(--hair)}
+  .kicker{
+    font-size:7.5pt;font-weight:800;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blue);
+  }
+  .issue-strip{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:7pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink);padding:2mm 0;
+  }
+  .byline{font-size:8pt;color:var(--muted);letter-spacing:.06em}
+
+  /* ---------- 표지 ---------- */
+  .cover{display:flex;flex-direction:column;border-left:.6pt solid var(--hair)}
+  .cover .masthead{display:flex;align-items:center;gap:4mm;margin:5mm 0 2.5mm}
+  .cover .masthead .wordmark{font-weight:900;font-size:17pt;letter-spacing:.05em}
+  .cover .masthead .wordmark small{
+    display:block;font-size:8pt;font-weight:700;letter-spacing:.28em;
+    color:var(--muted);margin-top:.6mm;
+  }
+  .cover h1{
+    font-size:23.5pt;line-height:1.34;font-weight:900;
+    margin:8mm 0 5mm;word-break:keep-all;
+  }
+  .cover h1 .em{border-bottom:2.6pt solid var(--red);padding-bottom:.4mm}
+  .cover .deck{
+    font-size:10pt;color:var(--muted);line-height:1.6;word-break:keep-all;
+    padding-left:4mm;border-left:2.2pt solid var(--blue);
+  }
+  .cover .spacer{flex:1}
+  .cover .vol{
+    display:flex;justify-content:space-between;align-items:flex-end;margin-top:4mm;
+  }
+  .cover .vol .volnum{font-weight:900;font-size:15pt;letter-spacing:.03em}
+  .cover .vol .volnum small{display:block;font-size:7pt;font-weight:700;letter-spacing:.2em;color:var(--muted)}
+
+  /* ---------- 날개 ---------- */
+  .flap h2,.back h2,.inner-panel h2{
+    font-size:14.5pt;font-weight:900;line-height:1.3;margin:2.5mm 0 3mm;word-break:keep-all;
+  }
+  .flap .lead,.inner-panel .lead{
+    font-size:9.5pt;color:var(--muted);line-height:1.6;word-break:keep-all;margin-bottom:4mm;
+  }
+  table.kpi{width:100%;border-collapse:collapse;font-size:9pt}
+  table.kpi caption{
+    caption-side:top;text-align:left;font-size:7.5pt;font-weight:800;
+    letter-spacing:.14em;color:var(--blue);padding-bottom:1.6mm;text-transform:uppercase;
+  }
+  table.kpi th,table.kpi td{
+    text-align:left;padding:2.4mm 1mm;border-bottom:.6pt solid var(--hair);
+    vertical-align:top;word-break:keep-all;
+  }
+  table.kpi thead th{
+    border-top:1.6pt solid var(--ink);border-bottom:.9pt solid var(--ink);
+    font-size:7.5pt;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  }
+  table.kpi td.goal{font-weight:800;white-space:nowrap}
+  table.kpi td.goal .tag{
+    display:inline-block;font-size:6.8pt;font-weight:800;color:var(--paper);
+    background:var(--red);border-radius:1mm;padding:.4mm 1.4mm;margin-left:1.2mm;
+    vertical-align:middle;letter-spacing:.06em;
+  }
+  .footnote{font-size:7.5pt;color:var(--muted);line-height:1.55;margin-top:2.6mm;word-break:keep-all}
+  .flap .measure{
+    margin-top:4mm;padding:3mm 3.5mm;border:.6pt solid var(--ink);
+    font-size:8.5pt;line-height:1.55;word-break:keep-all;
+  }
+  .flap .measure b{color:var(--blue)}
+
+  /* ---------- 뒷면 ---------- */
+  .back{display:flex;flex-direction:column;border-left:.6pt solid var(--hair)}
+  .back .about{font-size:9pt;line-height:1.65;word-break:keep-all;margin:3mm 0 4mm}
+  .back .tagline{
+    font-size:10.5pt;font-weight:700;font-style:italic;
+    margin:1mm 0 5mm;word-break:keep-all;
+  }
+  .back .contact{font-size:8.5pt;line-height:1.8;color:var(--ink)}
+  .back .contact b{
+    display:inline-block;min-width:16mm;margin-right:2.5mm;font-size:7pt;letter-spacing:.12em;
+    color:var(--muted);text-transform:uppercase;
+  }
+  .back .spacer{flex:1}
+  .disclosure{
+    font-size:7pt;line-height:1.6;color:var(--ink);
+    border-top:.9pt solid var(--ink);padding-top:2.2mm;margin-top:3mm;word-break:keep-all;
+  }
+  .disclosure b{letter-spacing:.04em}
+
+  /* ---------- 안쪽면 ---------- */
+  .inner-panel{border-left:.6pt solid var(--hair)}
+  .inner-panel:first-child{border-left:0}
+  .inner-panel .no{
+    font-family:"Noto Serif KR",serif;font-size:21pt;font-weight:900;
+    color:var(--blue);line-height:1;
+  }
+  .prob{margin:3.4mm 0 0;padding-left:4mm;border-left:1.6pt solid var(--red)}
+  .prob h3{font-size:10pt;font-weight:800;margin-bottom:1mm;word-break:keep-all}
+  .prob p{font-size:9pt;color:var(--muted);line-height:1.55;word-break:keep-all}
+
+  .layer{display:flex;gap:3mm;margin-top:3.2mm;align-items:stretch}
+  .layer .bar{flex:0 0 2.4mm;border-radius:.6mm}
+  .layer .txt h3{font-size:10pt;font-weight:800;word-break:keep-all}
+  .layer .txt h3 small{font-size:7.5pt;font-weight:700;color:var(--muted);letter-spacing:.08em;margin-left:1mm}
+  .layer .txt p{font-size:8.8pt;color:var(--muted);line-height:1.5;word-break:keep-all;margin-top:.6mm}
+  .ai-note{
+    margin-top:4mm;padding:2.6mm 3.2mm;background:rgba(0,87,255,.07);
+    border-left:2.2pt solid var(--blue);font-size:8pt;line-height:1.55;word-break:keep-all;
+  }
+  .ai-note b{color:var(--blue)}
+
+  table.ab{width:100%;border-collapse:collapse;font-size:8.6pt;margin-top:1mm}
+  table.ab th,table.ab td{
+    text-align:left;padding:2.1mm 1mm;border-bottom:.6pt solid var(--hair);
+    vertical-align:top;word-break:keep-all;
+  }
+  table.ab thead th{
+    border-top:1.6pt solid var(--ink);border-bottom:.9pt solid var(--ink);
+    font-size:7.5pt;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  }
+  table.ab td.tobe{font-weight:700}
+  .duration{
+    margin-top:4mm;padding:3mm 0 3.4mm;border-top:1.6pt solid var(--ink);
+    border-bottom:.6pt solid var(--ink);
+  }
+  .duration .row{display:flex;align-items:baseline;gap:2.6mm;flex-wrap:wrap}
+  .duration .big{font-family:"Noto Serif KR",serif;font-size:19pt;font-weight:900;line-height:1.1}
+  .duration .big.red{color:var(--red)}
+  .duration .arrow{font-size:13pt;font-weight:900;color:var(--ink)}
+  .duration .cap{font-size:7.5pt;color:var(--muted);margin-top:1.4mm;word-break:keep-all}
+  .security{margin-top:4mm}
+  .security li{
+    list-style:none;font-size:9pt;line-height:1.5;margin-top:2mm;
+    padding-left:5.4mm;position:relative;word-break:keep-all;
+  }
+  .security li svg{position:absolute;left:0;top:.6mm}
+  .security li b{display:block}
+  .security li span{color:var(--muted);font-size:8.4pt}
+
+  /* ---------- 인쇄 ---------- */
+  @page{size:A4 landscape;margin:0}
+  @media print{
+    body{padding:0;gap:0;background:#fff}
+    .screen-only,.fold-guide{display:none !important}
+    .sheet{box-shadow:none;page-break-after:always}
+    .sheet:last-of-type{page-break-after:auto}
+  }
+</style>
+</head>
+<body>
+
+<header class="screen-only">
+  <b>시안 01 — 인스티튜셔널 에디토리얼 · RYNTA RiskOps 3단 접지 브로셔</b>
+  <span>A4 가로 297×210mm ×2면 · 패널 99mm ×3 · 점선=접는 선(인쇄 시 숨김) · 심의 전 시안 · 팀1 · 2026-08-08</span>
+</header>
+
+<div class="sheet-label screen-only">바깥면 — 왼쪽부터 [날개(안으로 접힘)] [뒷면] [표지(앞면)]</div>
+
+<!-- ================= 바깥면 ================= -->
+<section class="sheet" aria-label="바깥면">
+
+  <!-- 날개 패널 -->
+  <article class="panel flap">
+    <div class="issue-strip"><span>Proposal</span><span>Pilot Program</span></div>
+    <hr class="rule thick">
+    <p class="kicker" style="margin-top:4mm">위탁테스트 제안</p>
+    <h2 class="serif">3~6개월 병행 운영,<br>성공 기준은 귀사가 판단합니다.</h2>
+    <p class="lead">기존 검증 프로세스를 그대로 유지한 채 RYNTA를 나란히 운영하고, 사전에 합의한 지표로 결과를 비교합니다.</p>
+
+    <table class="kpi">
+      <caption>성공 기준 4지표 — 목표 기준</caption>
+      <thead>
+        <tr><th>지표</th><th>목표</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>산출 오차</td><td class="goal">0건<span class="tag">목표</span></td></tr>
+        <tr><td>검증 소요일</td><td class="goal">50% 이상 단축<span class="tag">목표</span></td></tr>
+        <tr><td>감사추적 완결률</td><td class="goal">100%<span class="tag">목표</span></td></tr>
+        <tr><td>4-Eyes 미준수</td><td class="goal">0건<span class="tag">목표</span></td></tr>
+      </tbody>
+    </table>
+    <p class="footnote">※ 위 4지표는 위탁테스트의 <b>목표 기준</b>이며 실적이 아닙니다. 결과는 기관별 환경에 따라 다를 수 있습니다.</p>
+
+    <div class="measure">
+      <b>측정 주체 = 귀사.</b> 지표 산식과 측정 방법은 착수 시 귀사 기준으로 합의하며, 성공 기준 충족 여부의 판단 권한은 귀사에 있습니다.
+    </div>
+  </article>
+
+  <!-- 뒷면 패널 -->
+  <article class="panel back">
+    <div class="issue-strip"><span>Publisher</span><span>ONELINE AI</span></div>
+    <hr class="rule thick">
+
+    <!-- ONELINE-EMBLEM-LIGHT (assets/brand-snippets.html) -->
+    <svg viewBox="0 0 340 96" width="170" role="img" aria-label="원라인에이아이 로고" xmlns="http://www.w3.org/2000/svg" style="margin-top:6mm">
+      <circle cx="34" cy="62" r="26" fill="#F8B739"/>
+      <circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".9"/>
+      <line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+      <text x="100" y="70" font-family="Pretendard,'Noto Sans KR',Arial,sans-serif" font-weight="900" font-size="44" letter-spacing="1">
+        <tspan fill="#101828">ONE</tspan><tspan fill="#F8B739">LINE</tspan><tspan fill="#8A93A6" font-size="20" font-weight="700" dx="6">AI</tspan>
+      </text>
+    </svg>
+
+    <p class="tagline serif" style="margin-top:4mm">“대한민국 금융 선진화를 완성하는 기업”</p>
+    <p class="about">
+      원라인에이아이는 은행 리스크감리팀 실무 출신 인력(IRRBB ΔEVE·ΔNII, ICAAP, PD·LGD·EAD 검증 등 약 10년)이 만드는 금융 AI 기업입니다.
+      RYNTA RiskOps는 금융회사의 리스크모형 검증·감리 업무를 자동화하되, 최종 판단 권한과 책임은 사람에게 남기는 AI 에이전트 플랫폼입니다.
+    </p>
+
+    <hr class="rule hairline">
+    <div class="contact" style="margin-top:3mm">
+      <div><b>Address</b>서울 마포구 마포대로 122 프론트원 14F</div>
+      <div><b>Web</b>www.onelineai.com</div>
+      <div><b>Mail</b>info@onelineai.com</div>
+    </div>
+
+    <div class="spacer"></div>
+    <p class="disclosure">
+      본 자료의 성과 지표는 위탁테스트 목표 기준이며 실제 결과는 기관별 환경에 따라 다를 수 있습니다.
+      AI 산출물은 승인 권한자의 검토·승인 전 확정되지 않습니다.
+      <b>— 심의 전 시안 · 01 · 2026-08-08</b>
+    </p>
+  </article>
+
+  <!-- 표지 패널 -->
+  <article class="panel cover">
+    <div class="issue-strip"><span>Risk Validation Dossier</span><span>Seoul · 2026</span></div>
+    <hr class="rule thick">
+
+    <div class="masthead">
+      <!-- RYNTA-BRANDMARK (assets/brand-snippets.html) -->
+      <svg viewBox="0 0 64 64" width="46" role="img" aria-label="RYNTA 브랜드마크" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="rg-cover" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#42a9ff"/><stop offset="1" stop-color="#a78bfa"/>
+        </linearGradient></defs>
+        <rect width="64" height="64" rx="18" fill="url(#rg-cover)"/>
+        <rect x="20" y="20" width="24" height="24" fill="none" stroke="#fff" stroke-width="2.5" rx="4" transform="rotate(45 32 32)"/>
+      </svg>
+      <div class="wordmark">RYNTA<small>RISKOPS</small></div>
+    </div>
+    <hr class="rule">
+
+    <h1 class="serif">숫자는 <span class="em">엔진</span>이,<br>문장은 <span class="em">에이전트</span>가,<br>판단은 <span class="em">사람</span>이.</h1>
+
+    <p class="deck">금융 리스크모형 검증·감리를 위한 AI 에이전트 플랫폼.<br>자동화는 기계가, 최종 판단 권한과 책임은 사람에게.</p>
+
+    <div class="spacer"></div>
+    <hr class="rule hairline">
+    <div class="vol">
+      <div class="volnum serif"><small>ISSUE</small>Vol.1</div>
+      <!-- ONELINE-SYMBOL 소형 + 워드마크 (assets/brand-snippets.html) -->
+      <svg viewBox="0 0 340 96" width="88" role="img" aria-label="원라인에이아이" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="34" cy="62" r="26" fill="#F8B739"/>
+        <circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".9"/>
+        <line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+        <text x="100" y="70" font-family="Pretendard,'Noto Sans KR',Arial,sans-serif" font-weight="900" font-size="44" letter-spacing="1">
+          <tspan fill="#101828">ONE</tspan><tspan fill="#F8B739">LINE</tspan><tspan fill="#8A93A6" font-size="20" font-weight="700" dx="6">AI</tspan>
+        </text>
+      </svg>
+    </div>
+  </article>
+
+  <div class="fold-guide" style="left:99mm" aria-hidden="true"></div>
+  <div class="fold-guide" style="left:198mm" aria-hidden="true"></div>
+</section>
+
+<div class="sheet-label screen-only">안쪽면 — 왼쪽부터 [내부1 왜 지금인가] [내부2 4계층 구조] [내부3 As-is→To-be·보안]</div>
+
+<!-- ================= 안쪽면 ================= -->
+<section class="sheet" aria-label="안쪽면">
+
+  <!-- 내부1: 왜 지금인가 -->
+  <article class="panel inner-panel">
+    <div class="issue-strip"><span>Chapter 01</span><span>Diagnosis</span></div>
+    <hr class="rule thick">
+    <p class="no serif" style="margin-top:4mm">01</p>
+    <h2 class="serif">왜 지금인가 —<br>검증 업무의 세 가지 병목</h2>
+    <p class="lead">모형 1개 검증에 2~4주. 시간이 걸리는 이유는 계산이 아니라, 계산을 둘러싼 반복 작업입니다.</p>
+
+    <div class="prob">
+      <h3>반복 재계산</h3>
+      <p>담당자별 스크립트로 같은 숫자를 다시 계산합니다. 산출 로직이 사람마다 달라 결과 대사에 또 시간이 듭니다.</p>
+    </div>
+    <div class="prob">
+      <h3>전량 수기 문서</h3>
+      <p>검증 보고서는 전량 수작업으로 작성되고, 근거 자료는 검증이 끝난 뒤 사후에 취합됩니다.</p>
+    </div>
+    <div class="prob">
+      <h3>개인 의존</h3>
+      <p>절차와 근거가 개인에게 쌓여, 요청이 올 때마다 자료를 재수집합니다. 담당자가 바뀌면 재현이 어렵습니다.</p>
+    </div>
+  </article>
+
+  <!-- 내부2: 4계층 구조 -->
+  <article class="panel inner-panel">
+    <div class="issue-strip"><span>Chapter 02</span><span>Architecture</span></div>
+    <hr class="rule thick">
+    <p class="no serif" style="margin-top:4mm">02</p>
+    <h2 class="serif">우리의 답 —<br>역할을 나눈 4계층 구조</h2>
+    <p class="lead">계산·정리·판단·기록의 권한을 계층으로 분리했습니다. 각 계층은 자기 일만 합니다.</p>
+
+    <div class="layer">
+      <div class="bar" style="background:#42a9ff"></div>
+      <div class="txt">
+        <h3>계산 — 결정론 엔진<small>ENGINE</small></h3>
+        <p>숫자는 LLM을 쓰지 않는 결정론 엔진이 계산합니다. 같은 입력이면 같은 결과.</p>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="bar" style="background:#a78bfa"></div>
+      <div class="txt">
+        <h3>정리·초안 — AI 에이전트<small>AVI · ARI</small></h3>
+        <p>에이전트는 근거 링크가 달린 보고서 초안을 작성합니다. 숫자를 만들지 않습니다.</p>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="bar" style="background:#f6bb56"></div>
+      <div class="txt">
+        <h3>판단 — 사람 + 4-Eyes 승인<small>HUMAN</small></h3>
+        <p>확정은 사람의 몫입니다. 작성자와 승인자를 분리한 4-Eyes 승인을 거칩니다.</p>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="bar" style="background:#2dd4bf"></div>
+      <div class="txt">
+        <h3>기록 — Evidence Ledger<small>LEDGER</small></h3>
+        <p>수행과 동시에 모든 근거가 불변 기록으로 축적됩니다.</p>
+      </div>
+    </div>
+
+    <div class="ai-note">
+      <b>AI 산출물 표시</b> — 에이전트가 만든 문장은 ‘AI 초안’으로 표시되며, 승인 권한자의 검토·승인 전에는 확정되지 않습니다.
+    </div>
+  </article>
+
+  <!-- 내부3: As-is→To-be + 보안 -->
+  <article class="panel inner-panel">
+    <div class="issue-strip"><span>Chapter 03</span><span>Transition</span></div>
+    <hr class="rule thick">
+    <p class="no serif" style="margin-top:4mm">03</p>
+    <h2 class="serif">무엇이 달라지나</h2>
+
+    <table class="ab">
+      <thead><tr><th>As-is</th><th>To-be</th></tr></thead>
+      <tbody>
+        <tr><td>담당자별 스크립트</td><td class="tobe">표준 엔진 API</td></tr>
+        <tr><td>전량 수기 문서</td><td class="tobe">근거 링크 포함 초안 자동 생성</td></tr>
+        <tr><td>사후 취합</td><td class="tobe">수행과 동시 축적</td></tr>
+        <tr><td>자료 재수집</td><td class="tobe">재현 패키지 즉시 제출</td></tr>
+      </tbody>
+    </table>
+
+    <div class="duration">
+      <p class="kicker" style="margin-bottom:1.6mm">모형 1개당 검증 소요기간</p>
+      <div class="row">
+        <span class="big serif">2~4주</span>
+        <span class="arrow" aria-hidden="true">→</span>
+        <span class="big serif red">5~10영업일</span>
+      </div>
+      <p class="cap">※ 5~10영업일은 위탁테스트 <b>목표</b> 수치이며, 실제 결과는 기관별 환경에 따라 다를 수 있습니다.</p>
+    </div>
+
+    <ul class="security">
+      <li>
+        <svg width="11" height="13" viewBox="0 0 12 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 6V4a4 4 0 1 1 8 0v2h1v7H1V6h1Zm2 0h4V4a2 2 0 1 0-4 0v2Z" fill="#0057ff"/></svg>
+        <b>내부망 온프레미스</b><span>데이터는 귀사 밖으로 나가지 않습니다.</span>
+      </li>
+      <li>
+        <svg width="11" height="13" viewBox="0 0 12 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 1 1 3v4c0 3.5 2.2 5.6 5 6.5 2.8-.9 5-3 5-6.5V3L6 1Z" fill="none" stroke="#0057ff" stroke-width="1.5"/></svg>
+        <b>원본 데이터 비보유</b><span>원라인에이아이는 귀사의 원본 데이터를 보유하지 않습니다.</span>
+      </li>
+      <li>
+        <svg width="11" height="13" viewBox="0 0 12 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M1 7l3.2 3.5L11 3" fill="none" stroke="#0057ff" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <b>신규 규제 특례 불요</b><span>현행 체계 안에서 도입 가능한 구조입니다.</span>
+      </li>
+    </ul>
+  </article>
+
+  <div class="fold-guide" style="left:99mm" aria-hidden="true"></div>
+  <div class="fold-guide" style="left:198mm" aria-hidden="true"></div>
+</section>
+
+</body>
+</html>
