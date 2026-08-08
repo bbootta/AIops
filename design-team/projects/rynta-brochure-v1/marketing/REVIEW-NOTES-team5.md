@@ -45,3 +45,20 @@
 
 1. 브라우저 열람으로 패널별 세로 오버플로 확인 (특히 09 날개 서명 블록, 10 내부2 Ledger 표)
 2. 인쇄 진행 시: CMYK 변환, 정식 CI 벡터 원본 교체(`brand-snippets.html` 주석 참조), 날개 폭 축소 반영
+
+## EN versions
+
+작성: 팀5 | 2026-08-08 | 대상: `en/09-regulator-trust.html`, `en/10-tech-dossier.html` (글로벌 금융기관 배포용 영어판)
+
+- 카피 출처: `research/copy-deck-en.md` 전면 적용 — 사실·수치 변경 없음. "consignment test" 미사용, **Parallel-Run Evaluation** 사용. 요청·부탁형 어투 없음(확신형 선언문)
+- 국내 맥락 제거: 태그라인 "대한민국 금융 선진화" → *Financial-grade AI, built by validators.* / 09 내부3·10 SEC-03 "신규 규제 특례 불요" → 덱의 MRM 문구("fits existing model risk management frameworks") — 특정 규정(SR 11-7 등) 준수 주장 없음
+- 디자인 동결: 레이아웃·그리드(99mm×3)·컬러 토큰·인쇄 CSS(@page, bleed·날개 축소 주석) 한국어 최종본과 동일. 변경은 카피와 라틴 조판 최적화뿐
+- 라틴 조판: 원본에 `word-break:keep-all` 부재 확인(제거 대상 없음 — normal 동작). 헤드라인 letter-spacing -.02em → **-.01em** 완화(`panel-title`, `.oneliner`). 서체 스택 기존 유지(시스템 폴백이 라틴 커버)
+- [x] 필수 고지: 덱 영문 고지 **원문 그대로** + "Pre-clearance draft · 09 · 2026-08-08" / "· 10 ·" — 기존과 동일 위치(뒷면 하단 notice 블록)·크기(7pt)·대비(틴트 배경 동일). 10 표지 DRAFT 스탬프는 "PRE-CLEARANCE"로 이중 표기, 화면 헤더에도 Pre-clearance draft 표기
+- [x] 목표 수치 전건 "(target)" 병기: 09 KPI 4행 + 10 T-01~T-04 전행, 소요기간(5–10 bus. days)은 "Target · Parallel-Run Evaluation" 라벨 + "evaluation target" 각주 — grep으로 파일당 "(target)" 5회 확인
+- [x] 금지 표현 0건: guaranteed / revolutionary / best-in-class / zero-risk grep 검사 통과. "Targets, not commitments" 각주 유지
+- [x] 09 4-Eyes 흐름도 영어 라벨: Agent **Draft** → Reviewer **1st Eye** → Approver **2nd Eye** → **Recorded** to Ledger. 확정 박스 흰색 텍스트 `fill="#ffffff"` 2건 유지 확인
+- [x] 화면 전용 라벨 영어화: "Outside — [Flap | Back | Cover]" / 09 "Inside — [01 Diagnosis | 02 Architecture | 03 Transition]" / 10은 § 변형 "[§01 Diagnosis | §02 Architecture | §03 Transition]". 내부 step-no·sec-tag도 동일 문법(01 / DIAGNOSIS, RYNTA-§01 등)
+- [x] 10 모노스페이스 문서 장치 강화: DOC NO. **RYNTA-BRO-2026-10-EN**, panel-foot 전부 -EN 승계(§01~§03·ANNEX A). Ledger 표 EVENT/ACTOR 영문 정리(done/created/REVIEW·1st Eye/APPROVE·2nd Eye), 더미 데이터 각주 유지
+- 오버플로 확인: 이 환경에 headless 브라우저 부재로 렌더링 검증 미수행(한국어판과 동일 한계) — 문자수 기반 추정으로 대응: 긴 영어 카피 지점은 (a) 09/10 내부1 제목 2행화(패널 여백 내 흡수, margin-top:auto 콜아웃이 완충), (b) 소요기간 위젯 값 "2–4 wks"·"5–10 bus. days"로 축약해 nowrap 폭 확보, (c) 09 KPI·10 TARGET 열 "0 discrepancies"→"0"으로 축약(의미 동일, 지표명에 variance 명시). 폰트 크기 추가 축소는 불필요 판단 — design-reviewer 브라우저 열람 시 09 날개(sub 4행+서명 블록), 10 날개(명세 표 지표명 2행 랩), 양 시안 뒷면 about(영문 약 8행) 세로 여백 우선 확인 요망
+- 도장 모티프(09): 하단 텍스트 "판단은 사람이" → "Judgment by people" (SVG font-size 9.5→8, 원 내부 폭 수용 목적 — 장식 요소이며 동일 문구가 헤드라인에 판독 크기로 존재, 기존 주의 노트 2와 동일 논리)

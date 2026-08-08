@@ -1,0 +1,387 @@
+<!doctype html>
+<!--
+  RYNTA tri-fold brochure — Concept 10 "Tech Dossier" · ENGLISH EDITION (Team 5)
+  Format: A4 landscape 297×210mm × 2 sheets (outside / inside), 3 panels × 99mm
+  ● Print note: 3mm bleed required. The flap panel (left column of the outside sheet)
+    must be narrowed 2–3mm (96–97mm) in final artwork to avoid fold interference.
+  ● Fold guides (.fold-guide) are screen-only — hidden in @media print.
+  ● Zero external dependencies: no font loads/CDN/images; all graphics are inline SVG.
+    Monospace uses system fallbacks only ("SF Mono",Consolas,monospace).
+  ● Copy source: research/copy-deck-en.md (locked EN deck). No invented facts or figures.
+    All performance figures carry "(target)". Evidence Ledger hash/values are dummy data.
+    Design/layout/colors/grid inherited 1:1 from the approved Korean master
+    (marketing/10-tech-dossier.html). DOC NO. suffixed -EN for this edition.
+  ● Latin typesetting: no word-break:keep-all existed in the master (verified — nothing
+    to remove); headline letter-spacing relaxed -.02em → -.01em for Latin copy.
+    Font stack unchanged (system fallbacks cover Latin).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Concept 10 — Tech Dossier · RYNTA Tri-fold Brochure (EN)</title>
+<style>
+  @page{size:A4 landscape;margin:0}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  :root{
+    --paper:#faf8f4;     /* off-white */
+    --navy:#14283c;      /* deep navy primary (~12:1 on paper) */
+    --ink:#1b2a38;
+    --muted:#4a5a6b;     /* secondary (~6.7:1 on paper) */
+    --line:#cfd3d8;
+    --line-strong:#14283c;
+    --tint:#eef0f2;      /* navy tint surface */
+    --stamp:#8b1e2d;     /* stamp red (~8.6:1 on paper) */
+    --mono:"SF Mono",Consolas,monospace;
+  }
+  body{font-family:Pretendard,"Noto Sans KR","Malgun Gothic",sans-serif;background:#d9dcdf;color:var(--ink);line-height:1.5}
+
+  /* ── screen-only frame ── */
+  @media screen{
+    body{padding:28px 16px 60px}
+    .sheet{box-shadow:0 10px 34px rgba(20,40,60,.25);margin:0 auto 14px}
+  }
+  .screen-only{max-width:297mm;margin:0 auto 10px;color:#33414f}
+  .screen-only h1{font-size:15px;font-weight:800;letter-spacing:-.01em}
+  .screen-only h1 span{color:var(--navy)}
+  .sheet-label{max-width:297mm;margin:18px auto 6px;font-size:12px;font-weight:700;color:#54626f;letter-spacing:.04em}
+  @media print{.screen-only,.sheet-label,.fold-guide{display:none!important}
+    body{background:#fff;padding:0}
+    .sheet{box-shadow:none;margin:0;page-break-after:always}}
+
+  /* ── sheet / panel grid ── */
+  .sheet{width:297mm;height:210mm;background:var(--paper);position:relative;overflow:hidden;
+    display:grid;grid-template-columns:99mm 99mm 99mm}
+  .fold-guide{position:absolute;top:0;bottom:0;width:0;border-left:1.2px dashed rgba(20,40,60,.5);z-index:9}
+  .fg-1{left:99mm}.fg-2{left:198mm}
+  .panel{padding:10mm 8.5mm 8mm;display:flex;flex-direction:column;position:relative;min-width:0}
+
+  /* ── dossier shared devices ── */
+  .mono{font-family:var(--mono)}
+  .doc-rule{border:none;border-top:.55mm solid var(--line-strong);margin:2.2mm 0 0}
+  .sec-tag{font-family:var(--mono);font-size:8pt;font-weight:700;color:var(--navy);letter-spacing:.08em}
+  .sec-tag .idx{background:var(--navy);color:#faf8f4;padding:.6mm 1.8mm;border-radius:.8mm;margin-right:2mm}
+  h2.panel-title{font-size:15.5pt;font-weight:800;letter-spacing:-.01em;line-height:1.25;margin-top:2.6mm}
+  p.body{font-size:9.5pt;line-height:1.62}
+  p.sub{font-size:9pt;color:var(--muted);line-height:1.6}
+  .small-note{font-size:7.5pt;color:var(--muted);line-height:1.55}
+  .panel-foot{margin-top:auto;border-top:.25mm solid var(--line);padding-top:2mm;display:flex;justify-content:space-between;
+    font-family:var(--mono);font-size:7pt;color:var(--muted);letter-spacing:.04em}
+
+  /* spec tables */
+  table.spec{width:100%;border-collapse:collapse;font-size:8.7pt}
+  table.spec th{font-family:var(--mono);font-size:7.6pt;font-weight:700;color:var(--navy);text-align:left;
+    letter-spacing:.06em;border-top:.55mm solid var(--line-strong);border-bottom:.22mm solid var(--line);padding:1.8mm 1.2mm}
+  table.spec td{border-bottom:.22mm solid var(--line);padding:2.1mm 1.2mm;vertical-align:top;line-height:1.45}
+  table.spec tr:last-child td{border-bottom:.4mm solid var(--line-strong)}
+
+  /* ══════════ OUTSIDE ══════════ */
+
+  /* Flap: Annex A Parallel-Run Evaluation spec */
+  .flap{background:#ffffff;border-right:.35mm solid var(--line)}
+  td.goal{font-weight:800;color:var(--navy);white-space:nowrap;text-align:right}
+  td.goal .u{font-weight:700;color:var(--muted)}
+  .param{display:flex;justify-content:space-between;font-size:8.7pt;border-bottom:.22mm solid var(--line);padding:1.8mm .4mm}
+  .param .k{font-family:var(--mono);font-size:7.8pt;color:var(--muted)}
+  .param .v{font-weight:800;color:var(--navy)}
+
+  /* back panel */
+  .backp{background:var(--paper)}
+  .tagline{font-size:10.5pt;font-weight:800;color:var(--navy);margin-top:4mm;letter-spacing:-.01em}
+  .about{font-size:9.5pt;line-height:1.7;margin-top:3.2mm}
+  .contact{margin-top:4.5mm;border-top:.25mm solid var(--line);padding-top:3.2mm;font-size:8.8pt;line-height:1.8}
+  .contact .mono{font-size:8.2pt;color:var(--muted)}
+  .notice{margin-top:auto;background:var(--tint);border:.25mm solid var(--line);border-left:1mm solid var(--navy);
+    padding:3mm 3.4mm;font-size:7pt;line-height:1.6;color:#24313e}
+  .notice b{font-weight:800;color:var(--navy)}
+
+  /* cover: spec-sheet cover */
+  .cover{background:#ffffff;border-left:.35mm solid var(--line)}
+  .doc-head{font-family:var(--mono);font-size:7.6pt;color:var(--muted);letter-spacing:.04em;
+    border:.3mm solid var(--line-strong);display:grid;grid-template-columns:1fr 1fr}
+  .doc-head div{padding:1.8mm 2.4mm;border-bottom:.22mm solid var(--line)}
+  .doc-head div:nth-child(odd){border-right:.22mm solid var(--line)}
+  .doc-head div:nth-last-child(-n+2){border-bottom:none}
+  .doc-head b{display:block;color:var(--navy);font-size:8pt;margin-top:.5mm;font-weight:700}
+  .cover .brand-row{display:flex;align-items:center;gap:3.6mm;margin-top:9mm}
+  .cover .wordmark{font-size:24pt;font-weight:900;letter-spacing:.04em;color:var(--navy);line-height:1}
+  .cover .wordmark span{display:block;font-family:var(--mono);font-size:8.5pt;font-weight:700;color:var(--muted);letter-spacing:.3em;margin-top:1.8mm}
+  .cover .oneliner{margin-top:8mm;font-size:16pt;font-weight:800;line-height:1.42;letter-spacing:-.01em}
+  .cover .oneliner em{font-style:normal;color:var(--navy);border-bottom:.8mm solid #f6bb56}
+  .cover .define{margin-top:3mm;font-size:9pt;color:var(--muted)}
+  .toc{margin-top:6mm;border-top:.55mm solid var(--line-strong);padding-top:2.6mm;font-size:8.6pt}
+  .toc .row{display:flex;gap:2.4mm;align-items:baseline;padding:1.1mm 0}
+  .toc .row .no{font-family:var(--mono);font-size:7.8pt;color:var(--navy);font-weight:700;flex:0 0 17mm}
+  .toc .row .dots{flex:1;border-bottom:.25mm dotted var(--line)}
+  .draft-stamp{position:absolute;right:8mm;top:47mm;transform:rotate(-7deg);
+    border:.75mm solid var(--stamp);color:var(--stamp);border-radius:1.2mm;padding:1.6mm 3mm;text-align:center;opacity:.95}
+  .draft-stamp .b1{font-family:var(--mono);font-size:10.5pt;font-weight:700;letter-spacing:.22em}
+  .draft-stamp .b2{font-size:7pt;font-weight:800;letter-spacing:.08em;margin-top:.6mm}
+  .cover-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;
+    border-top:.25mm solid var(--line);padding-top:3mm}
+  .cover-foot .vol{font-family:var(--mono);font-size:7.6pt;font-weight:700;color:var(--muted);letter-spacing:.14em}
+
+  /* ══════════ INSIDE ══════════ */
+  .inner{background:var(--paper)}
+  .inner + .inner{border-left:.3mm solid var(--line)}
+
+  /* §01 problem statement */
+  .issue{border:.28mm solid var(--line);background:#fff;margin-top:2.8mm;padding:2.8mm 3.2mm;position:relative}
+  .issue .id{font-family:var(--mono);font-size:7.4pt;color:var(--stamp);font-weight:700;letter-spacing:.06em}
+  .issue .nm{font-size:9.8pt;font-weight:800;margin-top:.8mm}
+  .issue .ds{font-size:8.5pt;color:var(--muted);margin-top:.7mm;line-height:1.5}
+  .dur-box{margin-top:auto;background:var(--navy);color:#faf8f4;padding:3.6mm 4mm;border-radius:1mm}
+  .dur-box .n{font-size:16.5pt;font-weight:900;letter-spacing:-.02em}
+  .dur-box .d{font-size:8.3pt;color:#c3ccd6;margin-top:.8mm;line-height:1.5}
+
+  /* §02 layer spec + Ledger */
+  table.arch td.lc{width:5mm;padding:0;border-bottom:.22mm solid var(--line)}
+  table.arch td.lc span{display:block;width:2.4mm;height:100%;min-height:9mm}
+  table.arch .lname{font-weight:800}
+  table.arch .lrole{font-family:var(--mono);font-size:7.2pt;color:var(--muted);letter-spacing:.04em}
+  .ledger{margin-top:auto}
+  .ledger h4{font-size:9pt;font-weight:800;color:var(--navy)}
+  .ledger h4 .mono{font-size:7.4pt;color:var(--muted);font-weight:700}
+  table.ledger-t{width:100%;border-collapse:collapse;margin-top:1.8mm;font-family:var(--mono);font-size:7pt}
+  table.ledger-t th{text-align:left;font-size:7pt;color:#faf8f4;background:var(--navy);padding:1.4mm 1.4mm;font-weight:700;letter-spacing:.05em}
+  table.ledger-t td{border-bottom:.22mm solid var(--line);padding:1.5mm 1.4mm;color:var(--ink);white-space:nowrap}
+  table.ledger-t td.h{color:var(--muted)}
+
+  /* §03 As-is→To-be */
+  table.spec td.asis{color:var(--muted)}
+  table.spec td.tobe{font-weight:700}
+  .duration{display:flex;align-items:center;gap:3mm;margin-top:3.6mm;background:var(--tint);border:.25mm solid var(--line);padding:3mm 3.4mm}
+  .duration .v{font-size:13pt;font-weight:900;letter-spacing:-.02em}
+  .duration .k{font-family:var(--mono);font-size:7pt;color:var(--muted);margin-top:.7mm;letter-spacing:.04em}
+  .sec-spec{margin-top:auto}
+  .sec-spec h4{font-size:9.5pt;font-weight:800;margin-bottom:1.6mm}
+</style>
+</head>
+<body>
+
+<div class="screen-only">
+  <h1>Concept 10 — <span>Tech Dossier</span> · RYNTA A4 tri-fold brochure · English edition (Team 5) · Pre-clearance draft · 2026-08-08</h1>
+</div>
+
+<!-- ═══════════════ SHEET 1 : Outside [Flap | Back | Cover] ═══════════════ -->
+<div class="sheet-label screen-only">Outside — [Flap | Back | Cover] · Fold guides (dashed) are screen-only</div>
+<section class="sheet" aria-label="Outside sheet">
+  <div class="fold-guide fg-1"></div><div class="fold-guide fg-2"></div>
+
+  <!-- Flap: Annex A Parallel-Run Evaluation spec (narrow 2–3mm in final artwork — see header note) -->
+  <div class="panel flap">
+    <div class="sec-tag"><span class="idx">RYNTA-§A1</span>ANNEX · PARALLEL-RUN SPEC</div>
+    <hr class="doc-rule">
+    <h2 class="panel-title">Parallel-Run Evaluation<br>Specification</h2>
+    <p class="sub" style="margin-top:2.6mm">RYNTA runs alongside your current process on one or two models. <b style="color:var(--navy)">Your institution measures</b> the results — success is defined by your standards, not by us.</p>
+
+    <div style="margin-top:3.6mm">
+      <div class="param"><span class="k">MODE</span><span class="v">Parallel with current process</span></div>
+      <div class="param"><span class="k">PERIOD</span><span class="v">3–6 months</span></div>
+      <div class="param"><span class="k">MEASURED&nbsp;BY</span><span class="v">Your institution (criteria agreed jointly)</span></div>
+    </div>
+
+    <table class="spec" style="margin-top:4.5mm">
+      <thead><tr><th scope="col" style="width:9mm">NO</th><th scope="col">SUCCESS CRITERIA</th><th scope="col" style="text-align:right">TARGET</th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="font-size:7.6pt;color:var(--muted)">T-01</td><td>Output variance vs. current results</td><td class="goal">0 <span class="u">(target)</span></td></tr>
+        <tr><td class="mono" style="font-size:7.6pt;color:var(--muted)">T-02</td><td>Validation cycle per model</td><td class="goal">&ge;50% shorter <span class="u">(target)</span></td></tr>
+        <tr><td class="mono" style="font-size:7.6pt;color:var(--muted)">T-03</td><td>Audit-trail completeness</td><td class="goal">100% <span class="u">(target)</span></td></tr>
+        <tr><td class="mono" style="font-size:7.6pt;color:var(--muted)">T-04</td><td>4-Eyes policy exceptions</td><td class="goal">0 <span class="u">(target)</span></td></tr>
+      </tbody>
+    </table>
+    <p class="small-note" style="margin-top:2.4mm">TARGET values are <b>evaluation targets, not commitments</b> — outcomes vary by institution and environment. Success is judged by your institution.</p>
+
+    <div class="panel-foot"><span>RYNTA-BRO-2026-10-EN · ANNEX A</span><span>REV 1.0</span></div>
+  </div>
+
+  <!-- Back: company + contact + required disclosure -->
+  <div class="panel backp">
+    <div class="sec-tag"><span class="idx">RYNTA-§A2</span>PUBLISHER</div>
+    <hr class="doc-rule">
+    <div style="margin-top:4.5mm">
+      <!-- ONELINE-EMBLEM-LIGHT (brand-snippets original) -->
+      <svg viewBox="0 0 340 96" width="176" role="img" aria-label="OneLine AI logo" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="34" cy="62" r="26" fill="#F8B739"/>
+        <circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".9"/>
+        <line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+        <text x="100" y="70" font-family="Pretendard,'Noto Sans KR',Arial,sans-serif" font-weight="900" font-size="44" letter-spacing="1">
+          <tspan fill="#101828">ONE</tspan><tspan fill="#F8B739">LINE</tspan><tspan fill="#8A93A6" font-size="20" font-weight="700" dx="6">AI</tspan>
+        </text>
+      </svg>
+    </div>
+    <div class="tagline">Financial-grade AI, built by validators.</div>
+    <p class="about"><b>OneLine AI</b> is a Seoul-based financial AI company. RYNTA RiskOps was designed by practitioners who sat on the validating side of the desk — bank risk-audit experience across IRRBB (ΔEVE·ΔNII), ICAAP, stress testing, and PD·LGD·EAD validation, with about ten years in financial data and risk models. We automate the work; authority and accountability stay with your people.</p>
+
+    <div class="contact">
+      <b>ONELINE AI</b><br>
+      Front One 14F, 122 Mapo-daero, Mapo-gu, Seoul, Korea<br>
+      <span class="mono">www.onelineai.com · info@onelineai.com</span>
+    </div>
+
+    <div class="notice" role="note">
+      <b>Required disclosure</b> — Performance indicators in this material are evaluation targets, not achieved results; actual outcomes vary by institution and environment. AI-generated outputs are not final until reviewed and approved by authorized personnel. — <b>Pre-clearance draft · 10 · 2026-08-08</b>
+    </div>
+  </div>
+
+  <!-- Cover: spec-sheet cover -->
+  <div class="panel cover">
+    <div class="doc-head" role="group" aria-label="Document information block">
+      <div>DOC NO.<b>RYNTA-BRO-2026-10-EN</b></div>
+      <div>REV / DATE<b>1.0 · 2026-08-08</b></div>
+      <div>TYPE<b>PRODUCT DOSSIER</b></div>
+      <div>ISSUER<b>ONELINE AI</b></div>
+    </div>
+
+    <div class="brand-row">
+      <!-- RYNTA-BRANDMARK (brand-snippets original) -->
+      <svg viewBox="0 0 64 64" width="46" role="img" aria-label="RYNTA brandmark" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="rg-c10" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#42a9ff"/><stop offset="1" stop-color="#a78bfa"/>
+        </linearGradient></defs>
+        <rect width="64" height="64" rx="18" fill="url(#rg-c10)"/>
+        <rect x="20" y="20" width="24" height="24" fill="none" stroke="#fff" stroke-width="2.5" rx="4" transform="rotate(45 32 32)"/>
+      </svg>
+      <div class="wordmark">RYNTA<span>RISKOPS</span></div>
+    </div>
+
+    <div class="draft-stamp" role="img" aria-label="Draft stamp — pre-clearance draft">
+      <div class="b1">DRAFT</div>
+      <div class="b2">PRE-CLEARANCE</div>
+    </div>
+
+    <div class="oneliner">Numbers by the engine.<br>Language by agents.<br><em>Judgment by people.</em></div>
+    <p class="define">The AI agent platform for model validation and model risk management.</p>
+
+    <div class="toc" role="group" aria-label="Table of contents">
+      <div class="row"><span class="no">RYNTA-§01</span><span>Problem statement — why now</span><span class="dots"></span></div>
+      <div class="row"><span class="no">RYNTA-§02</span><span>Four-layer architecture · Evidence Ledger</span><span class="dots"></span></div>
+      <div class="row"><span class="no">RYNTA-§03</span><span>As-is → To-be · Security</span><span class="dots"></span></div>
+      <div class="row"><span class="no">RYNTA-§A1</span><span>Parallel-Run Evaluation spec (Annex)</span><span class="dots"></span></div>
+    </div>
+
+    <div class="cover-foot">
+      <span class="vol">VOL.1 · 2026</span>
+      <!-- ONELINE-SYMBOL small (subordinate placement) -->
+      <svg viewBox="0 0 96 96" width="26" role="img" aria-label="OneLine AI symbol" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="34" cy="62" r="26" fill="#F8B739"/>
+        <circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".9"/>
+        <line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SHEET 2 : Inside [§01 Diagnosis | §02 Architecture | §03 Transition] ═══════════════ -->
+<div class="sheet-label screen-only">Inside — [§01 Diagnosis | §02 Architecture | §03 Transition]</div>
+<section class="sheet" aria-label="Inside sheet">
+  <div class="fold-guide fg-1"></div><div class="fold-guide fg-2"></div>
+
+  <!-- Inside 1 · RYNTA-§01 problem statement -->
+  <div class="panel inner">
+    <div class="sec-tag"><span class="idx">RYNTA-§01</span>PROBLEM STATEMENT</div>
+    <hr class="doc-rule">
+    <h2 class="panel-title">Validation shouldn't depend on whoever runs it.</h2>
+    <p class="sub" style="margin-top:2.4mm">Model validation today is built on three fragile habits.</p>
+
+    <div class="issue">
+      <div class="id">ISSUE-01</div>
+      <div class="nm">Recurring recalculation</div>
+      <div class="ds">Per-analyst scripts recompute the same numbers — results are hard to reproduce.</div>
+    </div>
+    <div class="issue">
+      <div class="id">ISSUE-02</div>
+      <div class="nm">Manual reporting</div>
+      <div class="ds">Validation reports are written from scratch — evidence is collected after the fact.</div>
+    </div>
+    <div class="issue">
+      <div class="id">ISSUE-03</div>
+      <div class="nm">Individual know-how</div>
+      <div class="ds">Procedures live with people, not systems. When staff move, process disappears.</div>
+    </div>
+
+    <div class="dur-box">
+      <div class="n">2–4 wks <span class="mono" style="font-size:7.2pt;font-weight:700;color:#c3ccd6">/ MODEL</span></div>
+      <div class="d">Current validation cycle per model — a bottleneck for audit schedules. (As-is, internal estimate)</div>
+    </div>
+    <div class="panel-foot" style="margin-top:2.4mm"><span>RYNTA-BRO-2026-10-EN · §01</span><span>P.1/3</span></div>
+  </div>
+
+  <!-- Inside 2 · RYNTA-§02 four-layer architecture + Evidence Ledger -->
+  <div class="panel inner">
+    <div class="sec-tag"><span class="idx">RYNTA-§02</span>ARCHITECTURE</div>
+    <hr class="doc-rule">
+    <h2 class="panel-title">Divide the work. Keep the judgment.</h2>
+
+    <table class="spec arch" style="margin-top:3mm">
+      <thead><tr><th scope="col" style="width:5mm"></th><th scope="col" style="width:22mm">LAYER</th><th scope="col">SPEC</th></tr></thead>
+      <tbody>
+        <tr><td class="lc"><span style="background:#42a9ff"></span></td>
+            <td><div class="lname">Calculation</div><div class="lrole">ENGINE</div></td>
+            <td>Deterministic engine — <b>no LLM in the numbers</b>. Same input, same output.</td></tr>
+        <tr><td class="lc"><span style="background:#a78bfa"></span></td>
+            <td><div class="lname">Drafting</div><div class="lrole">AGENT</div></td>
+            <td>AI agents AVI·ARI — evidence-linked drafts. Language, never numbers.</td></tr>
+        <tr><td class="lc"><span style="background:#f6bb56"></span></td>
+            <td><div class="lname">Judgment</div><div class="lrole">HUMAN</div></td>
+            <td>People + <b>4-Eyes approval</b> — nothing is final before sign-off.</td></tr>
+        <tr><td class="lc"><span style="background:#2dd4bf"></span></td>
+            <td><div class="lname">Record</div><div class="lrole">LEDGER</div></td>
+            <td>Evidence Ledger — logged immutably as work happens.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="ledger">
+      <h4>Evidence Ledger <span class="mono">— record structure (illustrative · dummy data)</span></h4>
+      <table class="ledger-t" aria-label="Evidence Ledger example table — dummy data">
+        <thead><tr><th scope="col">SEQ</th><th scope="col">EVENT</th><th scope="col">ACTOR</th><th scope="col">HASH</th></tr></thead>
+        <tbody>
+          <tr><td>0001</td><td>ENGINE.CALC done</td><td>engine</td><td class="h">9f3a…c1</td></tr>
+          <tr><td>0002</td><td>AGENT.DRAFT created</td><td>AVI</td><td class="h">4b87…e2</td></tr>
+          <tr><td>0003</td><td>REVIEW · 1st Eye</td><td>human·reviewer</td><td class="h">d05c…7a</td></tr>
+          <tr><td>0004</td><td>APPROVE · 2nd Eye</td><td>human·approver</td><td class="h">21ff…b9</td></tr>
+        </tbody>
+      </table>
+      <p class="small-note" style="margin-top:1.6mm">The table above illustrates the record structure with dummy data — not actual records. AI output (AGENT.DRAFT) is not final until human review and approval (SEQ 0003–0004).</p>
+    </div>
+    <div class="panel-foot" style="margin-top:2.4mm"><span>RYNTA-BRO-2026-10-EN · §02</span><span>P.2/3</span></div>
+  </div>
+
+  <!-- Inside 3 · RYNTA-§03 As-is → To-be + security -->
+  <div class="panel inner">
+    <div class="sec-tag"><span class="idx">RYNTA-§03</span>DELTA &amp; SECURITY</div>
+    <hr class="doc-rule">
+    <h2 class="panel-title">As-is → To-be</h2>
+
+    <table class="spec" style="margin-top:3mm">
+      <thead><tr><th scope="col" style="width:44%">AS-IS</th><th scope="col">TO-BE (RYNTA)</th></tr></thead>
+      <tbody>
+        <tr><td class="asis">Per-analyst scripts</td><td class="tobe">Standard engine API</td></tr>
+        <tr><td class="asis">Fully manual reports</td><td class="tobe">Auto-drafted with evidence links</td></tr>
+        <tr><td class="asis">Evidence gathered after the fact</td><td class="tobe">Accumulated at execution</td></tr>
+        <tr><td class="asis">Re-collection on request</td><td class="tobe">Reproducibility package, on demand</td></tr>
+      </tbody>
+    </table>
+
+    <div class="duration" role="group" aria-label="Validation cycle change">
+      <div><div class="v" style="color:var(--muted)">2–4 wks</div><div class="k">AS-IS / MODEL</div></div>
+      <svg width="24" height="15" viewBox="0 0 26 16" role="img" aria-label="to" style="flex:0 0 auto"><path d="M2 8 h18 m-6 -6 l6 6 l-6 6" fill="none" stroke="#14283c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><div class="v" style="color:var(--navy)">5–10 bus. days</div><div class="k">TARGET / PARALLEL-RUN</div></div>
+    </div>
+    <p class="small-note" style="margin-top:1.8mm">Cycle time is an evaluation target — actual outcomes vary by institution, environment, and model complexity.</p>
+
+    <div class="sec-spec">
+      <h4>Security spec — your data stays inside.</h4>
+      <table class="spec">
+        <tbody>
+          <tr><td class="mono" style="font-size:7.4pt;color:var(--muted);width:14mm">SEC-01</td><td class="tobe">On-premises, inside your network and jurisdiction</td></tr>
+          <tr><td class="mono" style="font-size:7.4pt;color:var(--muted)">SEC-02</td><td class="tobe">No source data retained by OneLine AI</td></tr>
+          <tr><td class="mono" style="font-size:7.4pt;color:var(--muted)">SEC-03</td><td class="tobe">Internal support tool for your independent validation function — fits existing model risk management frameworks</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel-foot" style="margin-top:2.4mm"><span>RYNTA-BRO-2026-10-EN · §03</span><span>P.3/3</span></div>
+  </div>
+</section>
+
+</body>
+</html>
