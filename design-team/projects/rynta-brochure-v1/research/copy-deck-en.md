@@ -9,7 +9,7 @@
 ## Cover (front panel)
 - Product: **RYNTA RiskOps**
 - Thesis: **"Numbers by the engine. Language by agents. Judgment by people."**
-- Sub: The AI agent platform for model validation and model risk management.
+- Sub: The AI agent platform for risk management and validation.
 - Vol.1 · OneLine AI emblem (secondary)
 
 ## Flap panel — Parallel-Run Evaluation (구 위탁테스트)
