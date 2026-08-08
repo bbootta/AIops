@@ -1,0 +1,426 @@
+<!doctype html>
+<!--
+  RYNTA tri-fold brochure — Draft 03 EN "Evidence Blueprint" (Team 2)
+  Format: A4 landscape (297x210mm) x 2 sheets (.sheet), 3 panels x 99mm each
+  Outside: [Flap | Back | Cover] / Inside: [B-01 Diagnosis | B-02 Architecture | B-03 Transition]
+  English edition of the approved KO draft 03 — layout, color, grid and print CSS unchanged;
+  copy per research/copy-deck-en.md. Drawing labels (SHEET, FIG., DWG NO.) were already
+  English and are kept to reinforce the blueprint grammar. Latin typesetting: no
+  word-break:keep-all (none in the KO original either), headline letter-spacing tightened.
+
+  [Print notes — full-bleed dark (blueprint) background]
+  - Background (#062d49) + white grid cover the full page. For production, extend
+    background and grid 3mm beyond trim on all sides (bleed) to avoid white edges
+    (this HTML is trim-size 297x210mm).
+  - High ink coverage: watch show-through/drying; matte lamination recommended.
+    Verify blueprint navy spot color / rich black at CMYK conversion.
+  - Grid lines (18px pitch, low-contrast white): confirm 0.1–0.15mm stroke at final artwork
+    so they do not clog at print resolution.
+  - Flap panel (outer-left 99mm) must be narrowed 2–3mm in production.
+  - Browser printing requires "background graphics" enabled (print-color-adjust:exact included).
+  - Fold guides (.fold-guide, dashed) are screen-only — hidden automatically in print.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RYNTA Brochure Draft 03 EN — Evidence Blueprint</title>
+<style>
+:root{
+  --bg:#062d49; --ink:#eef7ff; --sub:#cfe2f2; --dim:#b8d2e6;
+  --teal:#2dd4bf; --engine:#42a9ff; --agent:#a78bfa; --human:#f6bb56;
+  --frame:rgba(238,247,255,.42); --hair:rgba(238,247,255,.18);
+  --panelbg:rgba(4,30,50,.55);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#22303b;
+  font-family:Pretendard,"Noto Sans KR","Malgun Gothic",sans-serif;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;
+  display:flex;flex-direction:column;align-items:center;gap:10mm;padding:10mm 0 16mm;
+}
+.screen-label{
+  color:#d8e6f2;font-size:11px;letter-spacing:.08em;font-weight:700;
+  width:297mm;display:flex;justify-content:space-between;align-items:baseline;
+}
+.screen-label b{color:#2dd4bf;font-size:13px}
+.sheet{
+  width:297mm;height:210mm;position:relative;overflow:hidden;color:var(--ink);
+  background-color:var(--bg);
+  background-image:
+    linear-gradient(rgba(255,255,255,.065) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.065) 1px, transparent 1px);
+  background-size:18px 18px;                 /* blueprint grid: thin lines, 18px pitch */
+  display:grid;grid-template-columns:99mm 99mm 99mm;
+  box-shadow:0 4px 24px rgba(0,0,0,.5);
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;
+}
+.fold-guide{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed rgba(238,247,255,.45);z-index:60}
+.fold-guide.f1{left:99mm}.fold-guide.f2{left:198mm}
+
+.panel{padding:9mm 8mm;display:flex;flex-direction:column;position:relative;min-width:0}
+
+/* ── drawing shared parts ────────────────────── */
+.dwg-head{
+  display:flex;align-items:baseline;gap:2mm;
+  font-size:7pt;font-weight:800;letter-spacing:.2em;color:var(--dim);
+  border-bottom:1px solid var(--frame);padding-bottom:2mm;margin-bottom:4mm;
+}
+.dwg-head .no{color:var(--teal)}
+h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:1.25;margin-bottom:2mm}
+.lead{font-size:9pt;line-height:1.62;color:var(--sub)}
+.small{font-size:7.5pt;line-height:1.55;color:var(--dim)}
+.frame{border:1px solid var(--frame);background:var(--panelbg);padding:3.4mm 3.8mm}
+.num{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  width:5.4mm;height:5.4mm;border:1px solid var(--teal);border-radius:50%;
+  color:var(--teal);font-size:7.5pt;font-weight:900;
+}
+.tag{
+  display:inline-block;font-size:6.5pt;font-weight:800;letter-spacing:.08em;
+  border:1px solid var(--human);color:var(--human);padding:.4mm 1.6mm;
+}
+.tag.teal{border-color:var(--teal);color:var(--teal)}
+.tag.ai{border-color:var(--agent);color:var(--agent)}
+
+/* title block (drawing) */
+.tblock{border:1px solid var(--frame);font-size:6.8pt;color:var(--dim)}
+.tblock .r{display:grid;grid-template-columns:17mm 1fr;border-top:1px solid var(--hair)}
+.tblock .r:first-child{border-top:0}
+.tblock .k{padding:1.4mm 2mm;font-weight:800;letter-spacing:.14em;border-right:1px solid var(--hair)}
+.tblock .v{padding:1.4mm 2mm;color:var(--sub);letter-spacing:.02em}
+
+/* ── cover ───────────────────────────────────── */
+.cover{justify-content:space-between}
+.cover .markwrap{margin-top:5mm}
+.cover .nm{font-size:23pt;font-weight:900;letter-spacing:.05em;line-height:1;margin-top:4mm}
+.cover .nm small{font-size:10pt;font-weight:700;color:var(--dim)}
+.cover h1{font-size:18.5pt;font-weight:900;line-height:1.45;letter-spacing:-.02em;margin-top:6mm}
+.cover h1 .t{color:var(--teal)}
+.cover .def{font-size:9.5pt;color:var(--sub);line-height:1.6;margin-top:2.5mm}
+.cover .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:4mm;margin-top:6mm}
+
+/* ── flap ────────────────────────────────────── */
+.wing table{width:100%;border-collapse:collapse;margin-top:4mm;font-size:8pt;background:var(--panelbg)}
+.wing th{
+  font-size:6.8pt;font-weight:800;letter-spacing:.14em;color:var(--teal);text-align:left;
+  padding:1.8mm 2.2mm;border:1px solid var(--frame);
+}
+.wing td{padding:2.2mm;border:1px solid var(--hair);color:var(--sub);line-height:1.45;vertical-align:middle}
+.wing td.v{color:var(--ink);font-weight:900;white-space:nowrap;font-size:9.5pt}
+.wing tr.head th{border:1px solid var(--frame)}
+
+/* ── back ────────────────────────────────────── */
+.back{justify-content:space-between}
+.back .tagline{font-size:10.5pt;font-weight:800;line-height:1.5;margin-top:5mm}
+.back .intro{font-size:8.5pt;line-height:1.7;color:var(--sub);margin-top:3mm}
+.notice{
+  margin-top:4.5mm;border-top:1px solid var(--frame);padding-top:2.8mm;
+  font-size:7pt;line-height:1.6;color:#dcebf7;   /* disclosure: contrast secured on blueprint bg */
+}
+.notice b{color:var(--ink)}
+
+/* ── inside ──────────────────────────────────── */
+.sheet.inner .panel{padding-top:11mm}
+.edge-note{
+  position:absolute;top:3mm;left:8mm;right:8mm;z-index:5;
+  display:flex;justify-content:space-between;
+  font-size:6.5pt;font-weight:800;letter-spacing:.22em;color:var(--dim);
+}
+
+/* inside 1: diagnosis */
+.diag{display:flex;flex-direction:column;gap:2.6mm;margin-top:4mm}
+.diag .item{display:flex;gap:2.8mm;align-items:flex-start;border:1px dashed var(--hair);background:var(--panelbg);padding:2.8mm 3mm}
+.diag .item h3{font-size:9.5pt;font-weight:900;margin-bottom:.8mm}
+.diag .item p{font-size:8pt;line-height:1.58;color:var(--sub)}
+
+/* inside 2: 7-step flow */
+.flow{margin-top:3mm}
+.legend{display:flex;flex-wrap:wrap;gap:1.6mm 3mm;font-size:6.8pt;font-weight:800;color:var(--dim);margin-top:2.5mm}
+.legend span{display:flex;align-items:center;gap:1.2mm}
+.legend i{width:2.6mm;height:2.6mm;border-radius:.6mm;display:inline-block;flex:none}
+
+/* inside 3 */
+.ab{display:flex;flex-direction:column;gap:2mm;margin-top:4mm}
+.ab .row{display:grid;grid-template-columns:1fr 6mm 1.15fr;gap:1.6mm;align-items:center}
+.ab .cell{padding:2.2mm 2.6mm;font-size:7.6pt;line-height:1.45}
+.ab .as{border:1px dashed var(--hair);color:var(--dim);background:rgba(4,30,50,.35)}
+.ab .to{border:1px solid var(--teal);color:var(--ink);background:var(--panelbg);font-weight:700}
+.ab .arr{color:var(--teal);text-align:center;font-weight:900;font-size:9pt}
+.sec-box{
+  margin-top:4mm;border:1px solid var(--teal);background:
+    repeating-linear-gradient(45deg, rgba(45,212,191,.07) 0 4px, transparent 4px 9px), var(--panelbg);
+  padding:3.2mm 3.6mm;
+}
+.sec-box h3{font-size:9pt;font-weight:900;color:var(--teal);display:flex;align-items:center;gap:2mm;margin-bottom:1.6mm}
+.sec-box ul{list-style:none;font-size:7.8pt;color:var(--sub);line-height:1.7}
+.sec-box li::before{content:"— ";color:var(--teal);font-weight:900}
+
+@media print{
+  @page{size:A4 landscape;margin:0}
+  body{padding:0;gap:0;background:#fff;display:block}
+  .screen-label,.fold-guide{display:none!important}
+  .sheet{box-shadow:none;page-break-after:always}
+}
+</style>
+</head>
+<body>
+
+<div class="screen-label"><b>Draft 03 EN — Evidence Blueprint</b><span>Outside — SHEET A · [Flap | Back | Cover] · dashed line = fold (screen only)</span></div>
+
+<!-- ═══════════════ Outside: Flap | Back | Cover ═══════════════ -->
+<section class="sheet outer" aria-label="Outside">
+  <div class="fold-guide f1"></div><div class="fold-guide f2"></div>
+
+  <!-- Flap -->
+  <div class="panel wing">
+    <div class="dwg-head"><span class="no">SHEET&nbsp;A-01</span><span>· PARALLEL-RUN EVALUATION — ACCEPTANCE TABLE</span></div>
+    <h2 class="panel-title">Three to six months,<br>four acceptance criteria</h2>
+    <p class="lead">RYNTA runs in parallel with your existing validation workflow on one or two models. Your validators measure the results against your baseline — <b style="color:var(--ink)">success is defined by your institution, not by us.</b></p>
+
+    <table aria-label="Parallel-Run Evaluation — four acceptance criteria">
+      <tr class="head"><th style="width:6mm">NO</th><th>ACCEPTANCE CRITERION</th><th style="width:24mm">TARGET</th></tr>
+      <tr><td style="text-align:center"><span class="num">1</span></td><td>Output variance vs. current results (discrepancies)</td><td class="v">0 <span class="tag">TARGET</span></td></tr>
+      <tr><td style="text-align:center"><span class="num">2</span></td><td>Validation cycle per model — reduction</td><td class="v">≥50% <span class="tag">TARGET</span></td></tr>
+      <tr><td style="text-align:center"><span class="num">3</span></td><td>Audit-trail completeness (figure→evidence links)</td><td class="v">100% <span class="tag">TARGET</span></td></tr>
+      <tr><td style="text-align:center"><span class="num">4</span></td><td>4-Eyes policy exceptions (unapproved finals)</td><td class="v">0 <span class="tag">TARGET</span></td></tr>
+    </table>
+
+    <div class="tblock" style="margin-top:4mm">
+      <div class="r"><span class="k">PROGRAM</span><span class="v">Runs alongside your current process · three to six months</span></div>
+      <div class="r"><span class="k">VERDICT</span><span class="v">By your institution — your validators, audit function &amp; system logs</span></div>
+    </div>
+
+    <p class="small" style="margin-top:3.5mm">※ All four criteria are <b style="color:var(--ink)">targets, not commitments</b> — not achieved results. Outcomes vary by institution and environment.</p>
+    <p class="small" style="margin-top:auto;padding-top:3mm;border-top:1px solid var(--hair)">Inquiries — <b style="color:var(--teal)">info@onelineai.com</b></p>
+  </div>
+
+  <!-- Back -->
+  <div class="panel back">
+    <div>
+      <div class="dwg-head"><span class="no">SHEET&nbsp;A-02</span><span>· COMPANY</span></div>
+      <!-- ONELINE-EMBLEM-DARK -->
+      <svg viewBox="0 0 340 96" width="188" role="img" aria-label="OneLine AI logo" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="34" cy="62" r="26" fill="#F8B739"/>
+        <circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".92"/>
+        <line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+        <text x="100" y="70" font-family="Pretendard,'Noto Sans KR',Arial,sans-serif" font-weight="900" font-size="44" letter-spacing="1">
+          <tspan fill="#4455A3">ONE</tspan><tspan fill="#F8B739">LINE</tspan><tspan fill="#8A93A6" font-size="20" font-weight="700" dx="6">AI</tspan>
+        </text>
+      </svg>
+      <p class="tagline">Financial-grade AI,<br>built by validators.</p>
+      <p class="intro">OneLine AI is a Seoul-based financial AI company. RYNTA RiskOps was designed by practitioners who sat on the validating side of the desk — bank risk-audit experience across IRRBB (ΔEVE·ΔNII), ICAAP, stress testing, and PD·LGD·EAD validation, with about ten years in financial data and risk models. We automate the work; authority and accountability stay with your people.</p>
+      <div class="tblock" style="margin-top:4.5mm">
+        <div class="r"><span class="k">ADDRESS</span><span class="v">Front One 14F, 122 Mapo-daero, Mapo-gu, Seoul, Korea</span></div>
+        <div class="r"><span class="k">WEB</span><span class="v">www.onelineai.com</span></div>
+        <div class="r"><span class="k">MAIL</span><span class="v">info@onelineai.com</span></div>
+      </div>
+    </div>
+    <p class="notice">Performance indicators in this material are evaluation targets, not achieved results; actual outcomes vary by institution and environment. AI-generated outputs are not final until reviewed and approved by authorized personnel. <b>— Pre-clearance draft · 03 · 2026-08-08</b></p>
+  </div>
+
+  <!-- Cover -->
+  <div class="panel cover">
+    <div>
+      <div class="dwg-head"><span class="no">RYNTA&nbsp;RISKOPS</span><span>· EVIDENCE&nbsp;BLUEPRINT</span></div>
+      <!-- brandmark + dimension lines (drawing motif) -->
+      <div class="markwrap">
+        <svg viewBox="0 0 150 108" width="46mm" role="img" aria-label="RYNTA brandmark drawing" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="rgc" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#42a9ff"/><stop offset="1" stop-color="#a78bfa"/>
+            </linearGradient>
+            <marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L8 4 L0 8 z" fill="#2dd4bf"/>
+            </marker>
+          </defs>
+          <!-- mark body -->
+          <rect x="30" y="18" width="72" height="72" rx="20" fill="url(#rgc)"/>
+          <rect x="52.5" y="40.5" width="27" height="27" rx="4.5" fill="none" stroke="#fff" stroke-width="2.8" transform="rotate(45 66 54)"/>
+          <!-- dimension line (top width) -->
+          <line x1="30" y1="8" x2="102" y2="8" stroke="#2dd4bf" stroke-width="1" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <line x1="30" y1="4" x2="30" y2="16" stroke="rgba(45,212,191,.6)" stroke-width=".8"/>
+          <line x1="102" y1="4" x2="102" y2="16" stroke="rgba(45,212,191,.6)" stroke-width=".8"/>
+          <!-- dimension line (right height) -->
+          <line x1="112" y1="18" x2="112" y2="90" stroke="#2dd4bf" stroke-width="1" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <!-- leader: diamond = 4-Eyes core -->
+          <line x1="80" y1="54" x2="140" y2="34" stroke="rgba(238,247,255,.6)" stroke-width=".8" stroke-dasharray="3 3"/>
+          <circle cx="140" cy="34" r="7" fill="none" stroke="#2dd4bf" stroke-width="1"/>
+          <text x="140" y="37" text-anchor="middle" font-size="8" font-weight="900" fill="#2dd4bf">V</text>
+          <text x="66" y="103" text-anchor="middle" font-size="7.5" letter-spacing="2" fill="#b8d2e6" font-weight="700">FIG.1 — BRANDMARK</text>
+        </svg>
+      </div>
+      <div class="nm">RYNTA <small>RiskOps</small></div>
+      <h1>Numbers by the engine.<br>Language by agents.<br><span class="t">Judgment by people.</span></h1>
+      <p class="def">The AI agent platform for model validation and model risk management —<br>every figure traceable to its source: the <b style="color:var(--teal)">Evidence blueprint</b>.</p>
+    </div>
+    <div class="foot">
+      <div class="tblock" style="flex:1">
+        <div class="r"><span class="k">PROJECT</span><span class="v">RYNTA RiskOps introduction brochure</span></div>
+        <div class="r"><span class="k">DWG&nbsp;NO.</span><span class="v">VOL.1 / DRAFT-03-EN</span></div>
+        <div class="r"><span class="k">DATE</span><span class="v">2026-08-08 · Pre-clearance draft</span></div>
+      </div>
+      <!-- ONELINE-SYMBOL (small) -->
+      <svg viewBox="0 0 96 96" width="26" role="img" aria-label="OneLine AI symbol" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="34" cy="62" r="26" fill="#F8B739"/>
+        <circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".92"/>
+        <line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<div class="screen-label"><b>Draft 03 EN — Evidence Blueprint</b><span>Inside — SHEET B · [B-01 Diagnosis | B-02 Architecture | B-03 Transition] · dashed line = fold (screen only)</span></div>
+
+<!-- ═══════════════ Inside: B-01 | B-02 | B-03 ═══════════════ -->
+<section class="sheet inner" aria-label="Inside">
+  <div class="fold-guide f1"></div><div class="fold-guide f2"></div>
+  <div class="edge-note" aria-hidden="true"><span>RYNTA&nbsp;RISKOPS&nbsp;—&nbsp;EVIDENCE&nbsp;BLUEPRINT</span><span>SHEET&nbsp;B&nbsp;·&nbsp;INTERIOR</span></div>
+
+  <!-- Inside 1: diagnosis — why now -->
+  <div class="panel">
+    <div class="dwg-head"><span class="no">B-01</span><span>· DIAGNOSIS — WHY NOW</span></div>
+    <h2 class="panel-title">Validation, built<br>without a blueprint</h2>
+    <p class="lead"><b style="color:var(--ink)">Validation shouldn't depend on whoever runs it.</b> Today the results survive — the drawing of the process does not.</p>
+    <div class="diag">
+      <div class="item"><span class="num">1</span>
+        <div><h3>Recurring recalculation</h3><p>Per-analyst scripts recompute the same numbers; results are hard to reproduce.</p></div>
+      </div>
+      <div class="item"><span class="num">2</span>
+        <div><h3>Manual reporting</h3><p>Validation reports are written from scratch; evidence is collected after the fact.</p></div>
+      </div>
+      <div class="item"><span class="num">3</span>
+        <div><h3>Individual know-how</h3><p>Procedures live with people, not systems. When staff move, process disappears.</p></div>
+      </div>
+    </div>
+    <div class="frame" style="margin-top:4.5mm;display:flex;align-items:center;gap:3.5mm">
+      <b style="font-size:15pt;font-weight:900;white-space:nowrap">2–4 weeks</b>
+      <span class="small">per model, today — current validation cycle (as-is, internal estimate)</span>
+    </div>
+  </div>
+
+  <!-- Inside 2: four layers = 7-step Evidence flow drawing -->
+  <div class="panel">
+    <div class="dwg-head"><span class="no">B-02</span><span>· THE ANSWER — 4 LAYERS × 7-STEP EVIDENCE FLOW</span></div>
+    <h2 class="panel-title">Divide the work.<br>Keep the judgment.</h2>
+
+    <div class="flow">
+      <svg viewBox="0 0 280 342" width="100%" role="img" aria-label="Seven-step Evidence flow drawing: intake, engine calculation, evidence links, agent drafting, 4-Eyes review, approval, Evidence Ledger entry" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="fa" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+            <path d="M0 0 L8 4 L0 8 z" fill="#2dd4bf"/>
+          </marker>
+        </defs>
+        <!-- vertical dashed connector -->
+        <line x1="16" y1="22" x2="16" y2="322" stroke="#2dd4bf" stroke-width="1" stroke-dasharray="4 4"/>
+        <!-- layer brackets (dimension lines): right side -->
+        <g stroke="rgba(238,247,255,.55)" stroke-width=".8" fill="none">
+          <path d="M262 6 h6 v122 h-6"/><path d="M262 136 h6 v40 h-6"/><path d="M262 184 h6 v86 h-6"/><path d="M262 278 h6 v58 h-6"/>
+        </g>
+        <g font-size="8" font-weight="800" letter-spacing="1.5">
+          <text x="272" y="70" fill="#42a9ff" transform="rotate(90 272 70)" text-anchor="middle">CALCULATION</text>
+          <text x="272" y="156" fill="#a78bfa" transform="rotate(90 272 156)" text-anchor="middle">DRAFT</text>
+          <text x="272" y="227" fill="#f6bb56" transform="rotate(90 272 227)" text-anchor="middle">JUDGMENT</text>
+          <text x="272" y="307" fill="#2dd4bf" transform="rotate(90 272 307)" text-anchor="middle">RECORD</text>
+        </g>
+        <!-- 7 steps -->
+        <g font-family="inherit">
+          <!-- 1 -->
+          <circle cx="16" cy="22" r="9" fill="#062d49" stroke="#42a9ff" stroke-width="1.2"/><text x="16" y="25.5" text-anchor="middle" font-size="9" font-weight="900" fill="#42a9ff">1</text>
+          <rect x="34" y="8" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="rgba(66,169,255,.55)" stroke-width="1"/>
+          <text x="42" y="20" font-size="9.5" font-weight="800" fill="#eef7ff">Intake — data &amp; model inputs</text>
+          <text x="42" y="31" font-size="7.5" fill="#b8d2e6">Via the standard engine API — no per-analyst scripts</text>
+          <!-- 2 -->
+          <circle cx="16" cy="66" r="9" fill="#062d49" stroke="#42a9ff" stroke-width="1.2"/><text x="16" y="69.5" text-anchor="middle" font-size="9" font-weight="900" fill="#42a9ff">2</text>
+          <rect x="34" y="52" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="rgba(66,169,255,.55)" stroke-width="1"/>
+          <text x="42" y="64" font-size="9.5" font-weight="800" fill="#eef7ff">Deterministic engine calculation — no LLM</text>
+          <text x="42" y="75" font-size="7.5" fill="#b8d2e6">Same input, same output — reproducible, verifiable</text>
+          <!-- 3 -->
+          <circle cx="16" cy="110" r="9" fill="#062d49" stroke="#42a9ff" stroke-width="1.2"/><text x="16" y="113.5" text-anchor="middle" font-size="9" font-weight="900" fill="#42a9ff">3</text>
+          <rect x="34" y="96" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="rgba(66,169,255,.55)" stroke-width="1"/>
+          <text x="42" y="108" font-size="9.5" font-weight="800" fill="#eef7ff">Evidence links generated</text>
+          <text x="42" y="119" font-size="7.5" fill="#b8d2e6">Every figure linked to its evidence</text>
+          <!-- 4 -->
+          <circle cx="16" cy="154" r="9" fill="#062d49" stroke="#a78bfa" stroke-width="1.2"/><text x="16" y="157.5" text-anchor="middle" font-size="9" font-weight="900" fill="#a78bfa">4</text>
+          <rect x="34" y="140" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="rgba(167,139,250,.6)" stroke-width="1"/>
+          <text x="42" y="152" font-size="9.5" font-weight="800" fill="#eef7ff">Agent drafting — AVI·ARI</text>
+          <text x="42" y="163" font-size="7.5" fill="#b8d2e6">Evidence-linked draft, labeled [AI-generated draft]</text>
+          <!-- 5 -->
+          <circle cx="16" cy="198" r="9" fill="#062d49" stroke="#f6bb56" stroke-width="1.2"/><text x="16" y="201.5" text-anchor="middle" font-size="9" font-weight="900" fill="#f6bb56">5</text>
+          <rect x="34" y="184" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="rgba(246,187,86,.6)" stroke-width="1"/>
+          <text x="42" y="196" font-size="9.5" font-weight="800" fill="#eef7ff">Human review — 4-Eyes</text>
+          <text x="42" y="207" font-size="7.5" fill="#b8d2e6">Cross-checked by multiple reviewers</text>
+          <!-- 6 -->
+          <circle cx="16" cy="242" r="9" fill="#062d49" stroke="#f6bb56" stroke-width="1.2"/><text x="16" y="245.5" text-anchor="middle" font-size="9" font-weight="900" fill="#f6bb56">6</text>
+          <rect x="34" y="228" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="rgba(246,187,86,.6)" stroke-width="1"/>
+          <text x="42" y="240" font-size="9.5" font-weight="800" fill="#eef7ff">Approval — authorized sign-off</text>
+          <text x="42" y="251" font-size="7.5" fill="#b8d2e6">Nothing is final before approval</text>
+          <!-- 7 -->
+          <circle cx="16" cy="292" r="9" fill="#062d49" stroke="#2dd4bf" stroke-width="1.2"/><text x="16" y="295.5" text-anchor="middle" font-size="9" font-weight="900" fill="#2dd4bf">7</text>
+          <rect x="34" y="278" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="#2dd4bf" stroke-width="1.2"/>
+          <text x="42" y="290" font-size="9.5" font-weight="800" fill="#eef7ff">Evidence Ledger entry — immutable</text>
+          <text x="42" y="301" font-size="7.5" fill="#b8d2e6">Accumulated at execution → reproducibility package</text>
+          <!-- 7 → reproducibility arrow -->
+          <line x1="144" y1="306" x2="144" y2="326" stroke="#2dd4bf" stroke-width="1" marker-end="url(#fa)"/>
+          <text x="152" y="322" font-size="8" font-weight="800" fill="#2dd4bf">On demand</text>
+        </g>
+      </svg>
+      <div class="legend" aria-label="Four-layer legend">
+        <span><i style="background:#42a9ff"></i>Calculation — deterministic engine</span>
+        <span><i style="background:#a78bfa"></i>Drafting — AI agents AVI·ARI</span>
+        <span><i style="background:#f6bb56"></i>Judgment — people · 4-Eyes</span>
+        <span><i style="background:#2dd4bf"></i>Record — Evidence Ledger</span>
+      </div>
+      <p class="small" style="margin-top:2mm">FIG.2 — Conceptual flow based on the four-layer product architecture. Agent-drafted content is labeled as AI-generated and remains non-final until approved.</p>
+    </div>
+  </div>
+
+  <!-- Inside 3: As-is → To-be + security -->
+  <div class="panel">
+    <div class="dwg-head"><span class="no">B-03</span><span>· REVISION TABLE — AS-IS → TO-BE</span></div>
+    <h2 class="panel-title">Same mandate.<br>Different operating model.</h2>
+    <div class="ab">
+      <div class="row"><div class="cell as">Per-analyst scripts</div><div class="arr">→</div><div class="cell to">Standard engine API</div></div>
+      <div class="row"><div class="cell as">Fully manual reports</div><div class="arr">→</div><div class="cell to">Auto-drafted with evidence links</div></div>
+      <div class="row"><div class="cell as">Evidence gathered after the fact</div><div class="arr">→</div><div class="cell to">Accumulated at execution</div></div>
+      <div class="row"><div class="cell as">Re-collection on request</div><div class="arr">→</div><div class="cell to">Reproducibility package, on demand</div></div>
+    </div>
+
+    <!-- cycle dimension-line comparison (business-day axis, 5-day-week conversion) -->
+    <div class="frame" style="margin-top:4mm">
+      <span style="font-size:6.8pt;font-weight:800;letter-spacing:.14em;color:var(--dim)">VALIDATION CYCLE — PER MODEL <span class="tag">TARGET</span></span>
+      <svg viewBox="0 0 300 74" width="100%" role="img" aria-label="Dimension-line comparison: 2 to 4 weeks today versus a target of 5 to 10 business days" style="margin-top:2mm" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="dm" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0 0 L8 4 L0 8 z" fill="#b8d2e6"/>
+          </marker>
+          <marker id="dmt" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0 0 L8 4 L0 8 z" fill="#2dd4bf"/>
+          </marker>
+        </defs>
+        <!-- extension lines -->
+        <line x1="20" y1="10" x2="20" y2="64" stroke="rgba(238,247,255,.5)" stroke-width=".8"/>
+        <line x1="290" y1="10" x2="290" y2="30" stroke="rgba(238,247,255,.5)" stroke-width=".8"/>
+        <line x1="155" y1="40" x2="155" y2="64" stroke="rgba(45,212,191,.7)" stroke-width=".8"/>
+        <!-- As-is dimension: 0→20 business days -->
+        <line x1="20" y1="20" x2="290" y2="20" stroke="#b8d2e6" stroke-width="1" marker-start="url(#dm)" marker-end="url(#dm)"/>
+        <text x="155" y="14" text-anchor="middle" font-size="8.5" font-weight="700" fill="#cfe2f2">As-is 2–4 weeks (10–20 business days)</text>
+        <!-- To-be dimension: 0→10 business days -->
+        <line x1="20" y1="52" x2="155" y2="52" stroke="#2dd4bf" stroke-width="1.2" marker-start="url(#dmt)" marker-end="url(#dmt)"/>
+        <text x="87" y="46" text-anchor="middle" font-size="8.5" font-weight="900" fill="#2dd4bf">To-be 5–10 business days (target)</text>
+        <text x="155" y="71" font-size="7.5" fill="#b8d2e6" text-anchor="middle">Scale: business days (5-day week) · target — not actual results</text>
+      </svg>
+    </div>
+
+    <div class="sec-box">
+      <h3><svg viewBox="0 0 24 24" width="12" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="#2dd4bf" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#2dd4bf" stroke-width="2"/></svg>Secured zone — your data stays inside</h3>
+      <ul>
+        <li>On-premises, inside your network and jurisdiction</li>
+        <li>No source data retained by OneLine AI</li>
+        <li>An internal support tool for your independent validation function — designed to fit existing model risk management frameworks</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

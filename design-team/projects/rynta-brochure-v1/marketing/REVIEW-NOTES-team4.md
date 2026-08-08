@@ -45,3 +45,17 @@ design-reviewer의 4축 검수(규제 표기·대비·브랜드 일관성·규�
 1. 두 시안 모두 브랜드 스니펫 SVG는 재구성본 — 최종 인쇄 전 정식 CI 원본 교체 필요(스니펫 파일 주석과 동일).
 2. 인쇄는 CMYK 변환 + 300dpi 래스터 내보내기 전제. 특히 07의 4계층 컬러(밝은 스크린 컬러)는 CMYK 변환 시 채도 저하 확인 필요.
 3. 시안 06 표지: 지시대로 원라인 엠블럼 비중 확대(표지 상단 주 배치 + 태그라인) — brief의 "표지는 RYNTA 주(主)" 원칙과의 균형은 RYNTA 블록을 시선 중심(중하단 대형 정의문)에 두는 방식으로 처리. 위계 판단은 리뷰어 확인 요청.
+
+## EN versions — 2026-08-08
+
+산출물: `en/06-oneline-corporate.html`, `en/07-layer-system.html` (글로벌 금융기관 배포용, 카피는 `research/copy-deck-en.md` 확정 덱, 레이아웃·컬러·그리드·인쇄 CSS는 한국어 승인본과 동일).
+
+- [x] **필수 고지**: 카피 덱 영문 고지 원문 그대로("Performance indicators … approved by authorized personnel.") + "Pre-clearance draft · 06/07 · 2026-08-08". 위치·크기·대비 한국어판과 동일(뒷면 하단 박스, 7pt, 대비 ≥9.9:1)
+- [x] **target 표기**: 성공 기준 4지표 전 행 "TARGET" 칩 + 주석 "evaluation targets, not commitments — not achieved results / Measured on your side"(측정 주체: 카피 덱 Measured-by 4항목을 주석에 통합, 2열 표 레이아웃 유지 목적). 소요기간 "5–10 business days (target) · per model · evaluation target". 금지 표현(guaranteed/revolutionary/best-in-class/zero-risk) 자동 검사 0건, "consignment test" 미사용 — "Parallel-Run Evaluation" 사용, 요청·부탁형 어투 없음
+- [x] **태그라인**: 06 국문 태그라인("대한민국 금융 선진화…")을 글로벌판 지침대로 "Financial-grade AI, built by validators."로 대체(표지·뒷면). 표지 원라인 엠블럼 전면 배치 컨셉 유지
+- [x] **화면 라벨 영어화**: Outside — [Flap | Back | Cover] / Inside — [01 Diagnosis | 02 Architecture | 03 Transition]
+- [x] **라틴 조판**: word-break:keep-all은 원본에 없었음(제거 대상 없음, 주석 명기). 헤드라인 letter-spacing -.01em→-.02em(.sec-head h2 / h2.sec), 표지 정의문 -.01em 추가
+- [x] **오버플로 확인**: 영어 장문 대비 각 패널 세로 여유 확인. 유일한 폭 이슈 2건 조정 — (1) `.dur .to` 14pt→12.5pt(0.5pt 단위, "5–10 business days (target)" 폭), (2) 07 내부2 스택 다이어그램 SVG 범례를 고정 지오메트리에 맞게 축약("3 People / 2 Agents / 1 Engine / 4 Ledger" — 전체 계층명은 바로 아래 카드에 유지). 그 외 변경 없음. 태그 밸런스 검사 통과(mismatch/unclosed 0)
+- [x] AI 표시·더미 데이터·대비: 한국어판과 동일 구조(색·크기 변경 없음)
+
+design-reviewer 검수 요청: 영문 카피의 사실·수치 일치(덱 대비), 고지 가독성, 라틴 조판 조정 2건의 타당성.

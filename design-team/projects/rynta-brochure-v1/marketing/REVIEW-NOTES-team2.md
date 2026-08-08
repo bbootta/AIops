@@ -42,3 +42,24 @@
 4. 다크 전면 배경 2종 모두 인쇄소 협의 필요: bleed 연장, 무광 코팅, 리치블랙 값.
 
 → design-reviewer 검수 요청: 규제 표기·대비·브랜드 일관성·규격 준수 4축 (`marketing/review-report.md`).
+
+## EN versions
+
+작성: marketing-designer 팀2 | 2026-08-08 | 대상: `en/02-control-tower.html`, `en/03-evidence-blueprint.html` (글로벌 금융기관 배포용)
+
+- **카피 출처**: 전 문안 `research/copy-deck-en.md` 사용. 사실·수치 변경 없음(디자인별 어순·강조 조정만). "consignment test" 미사용 — **Parallel-Run Evaluation** 통일. 요청·부탁형 어투 없음(확신형 선언문). 국내 맥락(태그라인 직역·"신규 규제 특례 불요") 제거 → 덱의 EN 태그라인 "Financial-grade AI, built by validators." 및 "designed to fit existing model risk management frameworks" 문안으로 교체.
+- **필수 고지**: 덱 §Back의 영문 고지 원문 그대로 + "— Pre-clearance draft · 02/03 · 2026-08-08". 위치·크기·대비 KO판과 동일(뒷면 하단 `.notice` 7pt, 02: #cfe0ee/#06111d, 03: #dcebf7/#062d49). 03은 표지 표제란 DATE 행에도 "Pre-clearance draft" 중복 표기(KO판과 동일 구조).
+- **(target) 병기**: 목표 수치 전건에 TARGET 배지/태그 인접 병기(0 discrepancies, ≥50%, 100%, 0 exceptions, 5–10 business days) + 본문·캡션에 "(target)", "target, not actual results", "targets, not commitments" 명기. 금지 표현(guaranteed/revolutionary/best-in-class/zero-risk) 미사용 — grep 검증 완료.
+- **라틴 조판**: 원본 두 파일 모두 `word-break:keep-all` 미사용 확인(제거 대상 없음 — 기본 normal). 헤드라인 letter-spacing 타이트 조정: `h2.panel-title` 및 커버 h1 -.01em→-.02em(03 h1은 미지정→-.02em). 서체 스택 기존 유지.
+- **오버플로 대응(디자인 불변 범위 내)**:
+  - 02 커버 h1 19.5pt→18.5pt (3행 영문 헤드라인 99mm 패널 폭 대응).
+  - 02 커버 KPI 큰 숫자를 "5–10"으로 하고 단위 "business days"는 캡션으로 이동(타일 폭 33mm 내 유지).
+  - 02 날개 KPI 라벨 축약(VARIANCE/CYCLE TIME/AUDIT TRAIL/4-EYES) + 상세는 하단 설명행으로, `.ktile .k`에 `flex-wrap:wrap` 안전장치 추가.
+  - 02 내부2 모토는 커버와 동일한 3행 배열로 변경(1행당 83mm 초과 방지).
+  - 03 날개 표 TARGET 열(24mm)은 값 축약(0/≥50%/100%/0) + 단위·조건을 지표 셀에 병기. tblock 키는 17mm 폭 내 단어 사용(PROGRAM/VERDICT).
+  - 03 내부2 SVG 회전 라벨은 브래킷 길이 내 단어(CALCULATION/DRAFT/JUDGMENT/RECORD), 타임라인 축 라벨은 숫자만 + 축 단위는 캡션("Axis/Scale: business days, 5-day week")으로 이동.
+  - 잔여 한글 0건(Python 정규식 검증), 화면 라벨·주석까지 영문화.
+- **화면 전용 라벨**: Outside — [Flap | Back | Cover] / Inside — [01 Diagnosis | 02 Architecture | 03 Transition] (03은 SHEET A/B · B-01~B-03 도면 문법으로 변형).
+- **알려진 한계**: KO판과 동일(헤드리스 브라우저 부재로 픽셀 렌더링 미검증 — 특히 02 내부1의 3행 헤드라인, 03 날개 lead 추가로 인한 표 하단 여백을 design-reviewer가 브라우저에서 확인 요망). 인쇄 유의사항(3mm bleed·리치블랙·날개 폭 축소)은 파일 상단 주석에 영문으로 유지.
+
+→ design-reviewer 검수 요청: EN 카피 정합(copy-deck-en.md 대조) + 오버플로 육안 확인 추가.
