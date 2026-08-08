@@ -42,31 +42,32 @@ section{background:#fff;border-radius:14px;padding:28px}section.dark{background:
 </section>
 
 <section>
-<h2>4. RYNTA 브랜드마크 (라운드 사각 + 엔진→에이전트 그라데이션 + 45° 다이아)</h2>
-<!-- RYNTA-BRANDMARK -->
+<h2>4. RYNTA 브랜드마크 — 공식 로고 재현본 (더블 웨이브, 블루 그라데이션). 정사각 캔버스용 lockup</h2>
+<!-- RYNTA-BRANDMARK (정식 CI 이미지 기반 벡터 재현 — 최종 인쇄 전 원본 AI 파일로 교체) -->
 <svg viewBox="0 0 64 64" width="58" role="img" aria-label="RYNTA 브랜드마크" xmlns="http://www.w3.org/2000/svg">
-  <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#42a9ff"/><stop offset="1" stop-color="#a78bfa"/>
-  </linearGradient></defs>
-  <rect width="64" height="64" rx="18" fill="url(#rg)"/>
-  <rect x="20" y="20" width="24" height="24" fill="none" stroke="#fff" stroke-width="2.5" rx="4"
-        transform="rotate(45 32 32)"/>
+  <defs><linearGradient id="rwa" x1="0" y1="0" x2="1" y2=".6">
+    <stop offset="0" stop-color="#A6DFF5"/><stop offset=".45" stop-color="#54A7DC"/><stop offset="1" stop-color="#1F63AD"/></linearGradient>
+  <linearGradient id="rwb" x1="0" y1="0" x2="1" y2=".6">
+    <stop offset="0" stop-color="#5FB2E2"/><stop offset=".5" stop-color="#2E7BBE"/><stop offset="1" stop-color="#14477F"/></linearGradient></defs>
+  <g transform="translate(0,16.27) scale(0.2667)">
+    <path fill="url(#rwa)" d="M66 62 C 104 30, 158 12, 204 12 C 184 26, 170 44, 165 60 C 132 52, 96 54, 66 62 Z"/>
+    <path fill="url(#rwb)" d="M36 106 C 80 68, 140 48, 190 50 C 168 66, 154 84, 148 102 C 110 92, 70 96, 36 106 Z"/>
+  </g>
 </svg>
-<!-- 다크 배경에서는 글로우 추가 가능: filter: drop-shadow(0 0 14px rgba(66,169,255,.35)) -->
 </section>
 
 <section class="dark">
-<h2>5. RYNTA 워드마크 조합 예시 (다크)</h2>
-<div style="display:flex;align-items:center;gap:14px">
-  <svg viewBox="0 0 64 64" width="44" xmlns="http://www.w3.org/2000/svg">
-    <defs><linearGradient id="rg2" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#42a9ff"/><stop offset="1" stop-color="#a78bfa"/>
-    </linearGradient></defs>
-    <rect width="64" height="64" rx="18" fill="url(#rg2)"/>
-    <rect x="20" y="20" width="24" height="24" fill="none" stroke="#fff" stroke-width="2.5" rx="4" transform="rotate(45 32 32)"/>
-  </svg>
-  <div style="color:#eef7ff;font-weight:900;font-size:26px;letter-spacing:.06em">RYNTA <span style="color:#8ea4b8;font-size:14px;font-weight:700">RiskOps</span></div>
-</div>
+<h2>5. RYNTA 세로 lockup (심볼 + 워드마크) — 다크/라이트 공용 심볼, 워드마크 색만 배경 대응</h2>
+<!-- RYNTA-LOCKUP: 라이트 배경 워드마크 fill #101526, 다크 배경 #ffffff -->
+<svg viewBox="0 0 240 190" width="150" role="img" aria-label="RYNTA 로고" xmlns="http://www.w3.org/2000/svg">
+  <defs><linearGradient id="rwc" x1="0" y1="0" x2="1" y2=".6">
+    <stop offset="0" stop-color="#A6DFF5"/><stop offset=".45" stop-color="#54A7DC"/><stop offset="1" stop-color="#1F63AD"/></linearGradient>
+  <linearGradient id="rwd" x1="0" y1="0" x2="1" y2=".6">
+    <stop offset="0" stop-color="#5FB2E2"/><stop offset=".5" stop-color="#2E7BBE"/><stop offset="1" stop-color="#14477F"/></linearGradient></defs>
+  <path fill="url(#rwc)" d="M66 62 C 104 30, 158 12, 204 12 C 184 26, 170 44, 165 60 C 132 52, 96 54, 66 62 Z"/>
+  <path fill="url(#rwd)" d="M36 106 C 80 68, 140 48, 190 50 C 168 66, 154 84, 148 102 C 110 92, 70 96, 36 106 Z"/>
+  <text x="120" y="170" text-anchor="middle" font-family="Pretendard,Arial,sans-serif" font-weight="900" font-size="44" letter-spacing="7" fill="#ffffff">RYNTA</text>
+</svg>
 </section>
 
 <section>
