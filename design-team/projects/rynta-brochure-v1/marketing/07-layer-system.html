@@ -6,7 +6,7 @@
         접힘 간섭 방지를 위해 폭 2~3mm 축소(96~97mm) 권장.
         본 파일은 화면 검토용 트림 사이즈(297×210mm) 기준.
   접는 선: 화면에서만 점선(.fold-guide) 표시, 인쇄 시 숨김. 접는 선 안쪽 5mm 세이프존 준수.
-  컬러 원칙: 4계층 컬러(#2456B8/#33788F/#A9761F/#2E6B52)는 배지·라인·아이콘·다이어그램에만.
+  컬러 원칙: 4계층 컬러(#42a9ff/#a78bfa/#f6bb56/#2dd4bf)는 배지·라인·아이콘·다이어그램에만.
              본문 텍스트는 잉크 단색(#0f172a / 뮤티드 #475569), 밝은 배경 위 밝은 컬러 텍스트 금지.
   외부 의존성 0, 모든 그래픽 인라인 SVG. 콘텐츠는 brief.md / research/brand-research.md 원문 기준.
 -->
@@ -51,12 +51,12 @@ h2.sec{font-size:14pt;font-weight:900;letter-spacing:-.01em;line-height:1.25;col
 /* 계층 배지: 밝은 컬러 배경 + 잉크 텍스트 (밝은 컬러 텍스트 금지) */
 .chip{display:inline-flex;align-items:center;gap:1.6mm;font-size:7.2pt;font-weight:900;
   letter-spacing:.06em;color:#0f172a;border-radius:1.8mm;padding:1mm 2.4mm}
-.chip.engine{background:#2456B8}.chip.agent{background:#33788F}
-.chip.human{background:#A9761F}.chip.ledger{background:#2E6B52}
+.chip.engine{background:#42a9ff}.chip.agent{background:#a78bfa}
+.chip.human{background:#f6bb56}.chip.ledger{background:#2dd4bf}
 .dotline{display:flex;gap:1.6mm;margin:4mm 0 5mm}
 .dotline i{height:1.4mm;border-radius:1mm;flex:1}
-.dotline i:nth-child(1){background:#2456B8}.dotline i:nth-child(2){background:#33788F}
-.dotline i:nth-child(3){background:#A9761F}.dotline i:nth-child(4){background:#2E6B52}
+.dotline i:nth-child(1){background:#42a9ff}.dotline i:nth-child(2){background:#a78bfa}
+.dotline i:nth-child(3){background:#f6bb56}.dotline i:nth-child(4){background:#2dd4bf}
 /* ============ 표지 ============ */
 .cover{display:flex;flex-direction:column}
 .cover .lockup{display:flex;align-items:center;gap:3.5mm}
@@ -65,24 +65,24 @@ h2.sec{font-size:14pt;font-weight:900;letter-spacing:-.01em;line-height:1.25;col
 .cover .stack-visual{margin:7mm auto 5mm;display:block}
 .cover .define{font-size:14pt;font-weight:800;line-height:1.75;color:#0f172a;text-align:center}
 .cover .define .u{border-bottom:1mm solid;padding-bottom:.4mm}
-.cover .define .u.e{border-color:#2456B8}.cover .define .u.a{border-color:#33788F}
-.cover .define .u.h{border-color:#A9761F}
+.cover .define .u.e{border-color:#42a9ff}.cover .define .u.a{border-color:#a78bfa}
+.cover .define .u.h{border-color:#f6bb56}
 .cover .sub{text-align:center;font-size:9pt;color:#475569;font-weight:600;margin-top:3mm}
 .cover .foot{margin-top:auto;display:flex;justify-content:space-between;align-items:center;
   border-top:.4mm solid #e2e8f0;padding-top:4mm}
 .badge-vol{font-size:8pt;font-weight:900;color:#f8fafc;background:#0f172a;border-radius:2mm;padding:1.2mm 3mm;letter-spacing:.08em}
 /* ============ 날개 (휴먼앰버 코딩) ============ */
-.wing .head{border-left:1.6mm solid #A9761F;padding-left:4mm;margin-bottom:5mm}
+.wing .head{border-left:1.6mm solid #f6bb56;padding-left:4mm;margin-bottom:5mm}
 table.kpi{width:100%;border-collapse:collapse;background:#fff;border-radius:2.5mm;overflow:hidden;
   box-shadow:0 1px 0 rgba(15,23,42,.07)}
 table.kpi th{background:#0f172a;color:#fff;font-weight:800;font-size:8.5pt;text-align:left;padding:2.6mm 3mm;letter-spacing:.02em}
 table.kpi td{padding:2.7mm 3mm;border-top:.35mm solid #eef2f7;vertical-align:middle}
 table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
-.goal-chip{display:inline-block;background:#A9761F;color:#0f172a;font-size:7.5pt;font-weight:900;
+.goal-chip{display:inline-block;background:#f6bb56;color:#0f172a;font-size:7.5pt;font-weight:900;
   border-radius:1.6mm;padding:.7mm 2mm;margin-right:1.5mm;letter-spacing:.04em}
 .wing .note{margin-top:4mm;font-size:8pt;color:#475569;line-height:1.55}
 .wing .who{margin-top:5mm;background:#fff;border-radius:2.5mm;padding:3.5mm 4mm;
-  border-top:1.2mm solid #A9761F;box-shadow:0 1px 0 rgba(15,23,42,.07)}
+  border-top:1.2mm solid #f6bb56;box-shadow:0 1px 0 rgba(15,23,42,.07)}
 /* ============ 뒷면 ============ */
 .back{display:flex;flex-direction:column;text-align:center;align-items:center}
 .back .tagline{font-size:9.5pt;font-weight:800;color:#0f172a;margin:3mm 0 5mm}
@@ -99,10 +99,10 @@ table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
 .inner-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5mm}
 .card{background:#fff;border-radius:2.5mm;padding:3.6mm 4mm;margin-bottom:3.2mm;
   box-shadow:0 1px 0 rgba(15,23,42,.07)}
-.card.b-e{border-left:1.6mm solid #2456B8}
-.card.b-a{border-left:1.6mm solid #33788F}
-.card.b-h{border-left:1.6mm solid #A9761F}
-.card.b-l{border-left:1.6mm solid #2E6B52}
+.card.b-e{border-left:1.6mm solid #42a9ff}
+.card.b-a{border-left:1.6mm solid #a78bfa}
+.card.b-h{border-left:1.6mm solid #f6bb56}
+.card.b-l{border-left:1.6mm solid #2dd4bf}
 .card h3{font-size:10.5pt;font-weight:900;color:#0f172a;margin-bottom:1.2mm}
 .card p{font-size:8.8pt;color:#334155}
 .card .solve{margin-top:2mm;font-size:7.6pt;font-weight:800;color:#475569}
@@ -130,14 +130,14 @@ table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
 .ab td.arrow{width:6mm;text-align:center;padding:2.2mm 0}
 .ab td.to{font-weight:700;color:#0f172a}
 .dur{display:flex;align-items:center;gap:3mm;background:#fff;border-radius:2.5mm;padding:3.5mm 4mm;
-  margin-bottom:4mm;border-left:1.6mm solid #2E6B52;box-shadow:0 1px 0 rgba(15,23,42,.07)}
+  margin-bottom:4mm;border-left:1.6mm solid #2dd4bf;box-shadow:0 1px 0 rgba(15,23,42,.07)}
 .dur .from{font-size:11pt;font-weight:800;color:#64748b;text-decoration:line-through;text-decoration-thickness:.5mm;text-decoration-color:#94a3b8}
 .dur .to{font-size:14pt;font-weight:900;color:#0f172a}
 .sec-box{background:#0f172a;color:#e2e8f0;border-radius:2.5mm;padding:4mm 4.5mm}
 .sec-box h3{font-size:10.5pt;font-weight:900;color:#fff;display:flex;align-items:center;gap:2.5mm;margin-bottom:2.4mm}
 .sec-box ul{list-style:none}
 .sec-box li{position:relative;padding-left:5.5mm;font-size:8.7pt;color:#cbd5e1;margin-bottom:1.6mm}
-.sec-box li>i{position:absolute;left:0;top:1.6mm;width:3mm;height:3mm;border-radius:.8mm;background:#2E6B52}
+.sec-box li>i{position:absolute;left:0;top:1.6mm;width:3mm;height:3mm;border-radius:.8mm;background:#2dd4bf}
 </style>
 </head>
 <body>
@@ -205,14 +205,14 @@ table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
       <!-- 중심 비주얼: 4계층 스택 (아래→위: 기록·계산·정리·판단) -->
       <svg class="stack-visual" viewBox="0 0 240 208" width="230" role="img" aria-label="RYNTA 4계층 구조 다이어그램" xmlns="http://www.w3.org/2000/svg">
         <!-- 4 기록 Evidence Ledger (기반) -->
-        <path d="M120 118 L204 160 L120 202 L36 160 Z" fill="#2E6B52"/>
+        <path d="M120 118 L204 160 L120 202 L36 160 Z" fill="#2dd4bf"/>
         <path d="M120 118 L204 160 L120 202 L36 160 Z" fill="#0f172a" opacity=".08"/>
         <!-- 3 계산 엔진 -->
-        <path d="M120 80 L204 122 L120 164 L36 122 Z" fill="#2456B8"/>
+        <path d="M120 80 L204 122 L120 164 L36 122 Z" fill="#42a9ff"/>
         <!-- 2 정리·초안 에이전트 -->
-        <path d="M120 42 L204 84 L120 126 L36 84 Z" fill="#33788F"/>
+        <path d="M120 42 L204 84 L120 126 L36 84 Z" fill="#a78bfa"/>
         <!-- 1 판단 사람 (최상단) -->
-        <path d="M120 4 L204 46 L120 88 L36 46 Z" fill="#A9761F"/>
+        <path d="M120 4 L204 46 L120 88 L36 46 Z" fill="#f6bb56"/>
         <path d="M120 4 L204 46 L120 88 L36 46 Z" fill="none" stroke="#0f172a" stroke-opacity=".22" stroke-width="1.6"/>
       </svg>
 
@@ -285,37 +285,37 @@ table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
 
       <!-- 중심 다이어그램: 층이 쌓이는 순서 (기록 위에 계산, 그 위에 정리, 최상단에 판단) -->
       <svg viewBox="0 0 250 146" width="100%" role="img" aria-label="4계층 스택: 기록 위에 계산, 정리, 최상단 판단" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:3.5mm">
-        <path d="M96 76 L162 109 L96 142 L30 109 Z" fill="#2E6B52"/>
-        <path d="M96 52 L162 85 L96 118 L30 85 Z" fill="#2456B8"/>
-        <path d="M96 28 L162 61 L96 94 L30 61 Z" fill="#33788F"/>
-        <path d="M96 4 L162 37 L96 70 L30 37 Z" fill="#A9761F"/>
+        <path d="M96 76 L162 109 L96 142 L30 109 Z" fill="#2dd4bf"/>
+        <path d="M96 52 L162 85 L96 118 L30 85 Z" fill="#42a9ff"/>
+        <path d="M96 28 L162 61 L96 94 L30 61 Z" fill="#a78bfa"/>
+        <path d="M96 4 L162 37 L96 70 L30 37 Z" fill="#f6bb56"/>
         <path d="M96 4 L162 37 L96 70 L30 37 Z" fill="none" stroke="#0f172a" stroke-opacity=".22" stroke-width="1.4"/>
         <g font-family="Pretendard,'Noto Sans KR',sans-serif" font-size="10.5" font-weight="800" fill="#0f172a">
-          <line x1="164" y1="30" x2="184" y2="30" stroke="#A9761F" stroke-width="2.4"/><text x="188" y="34">3 판단 · 사람</text>
-          <line x1="164" y1="58" x2="184" y2="58" stroke="#33788F" stroke-width="2.4"/><text x="188" y="62">2 정리 · 에이전트</text>
-          <line x1="164" y1="86" x2="184" y2="86" stroke="#2456B8" stroke-width="2.4"/><text x="188" y="90">1 계산 · 엔진</text>
-          <line x1="164" y1="112" x2="184" y2="112" stroke="#2E6B52" stroke-width="2.4"/><text x="188" y="116">4 기록 · 원장</text>
+          <line x1="164" y1="30" x2="184" y2="30" stroke="#f6bb56" stroke-width="2.4"/><text x="188" y="34">3 판단 · 사람</text>
+          <line x1="164" y1="58" x2="184" y2="58" stroke="#a78bfa" stroke-width="2.4"/><text x="188" y="62">2 정리 · 에이전트</text>
+          <line x1="164" y1="86" x2="184" y2="86" stroke="#42a9ff" stroke-width="2.4"/><text x="188" y="90">1 계산 · 엔진</text>
+          <line x1="164" y1="112" x2="184" y2="112" stroke="#2dd4bf" stroke-width="2.4"/><text x="188" y="116">4 기록 · 원장</text>
         </g>
       </svg>
 
       <div class="layer-cards">
         <div class="lcard">
-          <span class="no" style="background:#2456B8">1</span>
+          <span class="no" style="background:#42a9ff">1</span>
           <div><h3>계산, 결정론 엔진 <small>LLM 미사용</small></h3>
           <p>숫자는 결정론 엔진만 계산합니다. 동일 입력이면 동일 결과.</p></div>
         </div>
         <div class="lcard">
-          <span class="no" style="background:#33788F">2</span>
+          <span class="no" style="background:#a78bfa">2</span>
           <div><h3>실행·검증, AI 에이전트 <small>ARI · AVI</small></h3>
           <p>ARI가 리스크 실행·보고서 초안을, AVI가 상시 모니터링·재계산 검증을 수행합니다.</p></div>
         </div>
         <div class="lcard">
-          <span class="no" style="background:#A9761F">3</span>
+          <span class="no" style="background:#f6bb56">3</span>
           <div><h3>판단, 사람 <small>4-EYES 승인</small></h3>
           <p>최종 판단·승인 권한은 사람에게. 두 사람의 눈을 거쳐 확정됩니다.</p></div>
         </div>
         <div class="lcard">
-          <span class="no" style="background:#2E6B52">4</span>
+          <span class="no" style="background:#2dd4bf">4</span>
           <div><h3>기록, Evidence Ledger <small>불변 기록</small></h3>
           <p>모든 수행 내역이 수행과 동시에 불변 기록으로 축적됩니다.</p></div>
         </div>
@@ -351,7 +351,7 @@ table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
       </div>
 
       <div class="sec-box">
-        <h3><svg viewBox="0 0 24 24" width="15" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="#2E6B52" stroke-width="2.2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#2E6B52" stroke-width="2.2"/></svg>데이터는 나가지 않습니다</h3>
+        <h3><svg viewBox="0 0 24 24" width="15" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="#2dd4bf" stroke-width="2.2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#2dd4bf" stroke-width="2.2"/></svg>데이터는 나가지 않습니다</h3>
         <ul>
           <li><i></i>내부망 온프레미스 설치, 외부 전송 없음</li>
           <li><i></i>원본 데이터 비보유</li>
