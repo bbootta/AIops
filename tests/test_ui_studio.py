@@ -588,3 +588,45 @@ def test_domain_aggregates_reconcile_to_the_exposure_ledger(studio):
     # 원장이 없는 도메인은 빈 프레임이 아니라 사유 행을 남긴다
     mkt = studio.tables["agg_market_exposure"]
     assert len(mkt) >= 1
+
+
+def test_report_group_sits_above_the_control_centre(studio):
+    """보고서 그룹이 메뉴에서 통제센터보다 위에 있다.
+
+    경영진이 먼저 보는 산출물이 실무 운영 화면 아래에 있으면 메뉴가 조직의
+    보고선을 거꾸로 말한다. 순서를 눈으로 확인하는 대신 고정한다.
+    """
+    src = render(studio)
+    nav = src[src.index("const NAVGROUPS=["):]
+    i_rep, i_ctl = nav.index("'보고서'"), nav.index("'통제센터'")
+    assert i_rep < i_ctl, "보고서 그룹이 통제센터 아래에 있다"
+    assert "'Executive Report'" in nav[i_rep:i_ctl], (
+        "보고서 그룹에 Executive Report 항목이 없다")
+
+
+def test_executive_screen_is_registered_and_has_a_builder(studio):
+    """메뉴에 뜨는데 그리는 함수가 없으면 클릭했을 때 빈 화면이 된다."""
+    src = render(studio)
+    tabs = src[src.index("const TABS=["):]
+    assert "['Executive Report'," in tabs
+    assert "function executiveReport(root)" in src
+
+
+def test_executive_screen_uses_the_same_engine_as_the_html_report(studio):
+    """화면과 02_reports/executive.html 이 같은 수치를 말한다.
+
+    같은 원장을 두 화면이 각자 그리면 어느 쪽이 최신인지 물어야 한다 — 이
+    저장소가 이미 데인 유형이다. 화면 데이터는 `html_exec`의 생성기를 그대로
+    호출하므로 갈라질 자리가 없어야 하고, 그 사실을 여기서 고정한다.
+    """
+    from risk_lib.html_exec import briefing_facts
+    from risk_lib.ui_studio.app import _executive_dict
+
+    payload = _executive_dict(studio)
+    assert payload["facts"] == briefing_facts(studio.result), (
+        "화면이 리포트와 다른 값을 그린다 — 두 산출물이 갈라졌다")
+    assert payload["kris"] and payload["briefing"]
+
+    # 화면에 실제로 실렸는가 — payload를 만들어도 렌더에 안 들어가면 소용없다.
+    src = render(studio)
+    assert '"executive"' in src or "'executive'" in src

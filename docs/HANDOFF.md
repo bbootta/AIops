@@ -1,7 +1,7 @@
 # 핸드오프 — 리스크관리 팀에이전트
 
 **작성 시점** 2026-08-07 · **브랜치** `claude/risk-management-agent-harness-B9Kxm` (origin과 동기)
-**최종 커밋** 데이터 엔지니어링 팀 검토 반영 6건 · 작업 트리 clean
+**최종 커밋** 보고서 그룹 + Executive Report 화면 · 작업 트리 clean
 
 다음 세션은 이 문서부터 읽고 시작하면 된다. 대화 기록 없이도 이어갈 수 있게 썼다.
 
@@ -10,14 +10,18 @@
 ## 1. 지금 서 있는 자리
 
 `risk_lib` — 한국 은행 리스크관리 산출 하네스. 원장 107장, 감독 서식 290장,
-에이전틱 UI 화면 72개, 테스트 **1,089 passed · 1 skipped** (14분 37초).
+에이전틱 UI 화면 73개, 테스트 **1,146 passed** (12분 30초).
 
-직전 판이 적은 1,129건은 이 컨테이너에서 재현되지 않는다. 원인을 찾았다 —
-`tests/test_ui_interactive.py`(54건)가 `pytest.importorskip("playwright.sync_api")`
-에서 멈춰 **0건 수집**된다. playwright 파이썬 패키지가 없기 때문이지 테스트가
-죽은 것이 아니다. 있는 환경에서는 돈다. 다만 `test_req_trace.py`의 test 증빙
-검사는 `tests/` 소스에 `def <이름>(`가 있는지만 보므로, **수집조차 안 되는
-테스트도 증빙으로 통과한다** — 증빙이 곧 실행은 아니다.
+**컨테이너에서 먼저 `pip install playwright`를 한다.** 안 하면
+`tests/test_ui_interactive.py`(54건)가 `importorskip`에서 멈춰 **0건 수집**되고
+스위트가 1,092건으로 보인다. 브라우저는 이미 있으므로(`/opt/pw-browsers`)
+파이썬 패키지만 넣으면 되고, `playwright install`은 절대 실행하지 않는다.
+크로미움 실행 경로는 `/opt/pw-browsers/chromium`이다(그 아래 `chrome-linux/chrome`
+가 아니다 — 직접 지정하면 틀린다).
+
+여기에 통제 구멍이 하나 붙어 있다. `test_req_trace.py`의 test 증빙 검사는
+`tests/` 소스에 `def <이름>(`가 있는지만 본다. 통과하는지도, **수집되는지도**
+보지 않는다 — 한 번도 실행되지 않는 테스트가 요건 증빙으로 통과한다.
 
 **최근 3개 커밋이 한 일**
 
@@ -28,7 +32,8 @@
 | `a9d9bb7` | RYNTA v9.6.0 요건 감사 시정 5건 — 추적표·ICAAP·완충자본·등급열·ECL 범위 |
 | `50d2524` | 19차 독립검증 요청 (IVR-397316300BCF) — 재계산 13종 |
 | `00733cd` | 산출물 Pack v03 보관 |
-| (직전) | 데이터 엔지니어링 팀 검토 반영 6건 — 재현성·인제스트·동어반복·PK·문서 |
+| `e4dfef0` | 데이터 엔지니어링 팀 검토 반영 6건 — 재현성·인제스트·동어반복·PK·문서 |
+| (직전) | 보고서 그룹 신설(통제센터 위) + Executive Report 화면 |
 
 **아티팩트 (정본)** https://claude.ai/code/artifact/67ada379-c1f9-46d2-a3c0-4e9c5a21db50
 (favicon 🏦 — 재배포 때 바꾸지 않는다. 사용자는 탭 아이콘으로 찾는다)
@@ -77,6 +82,13 @@ BF602   총자본비율    15.878% → 10.991%   (본점 10.939%와 거의 같�
 BF602-1 보통주자본비율 11.786% →  8.159%
 BF706   자본적정성 점수  20 → 12 · 총점 88 → 80 (2등급 유지)
 ```
+
+**에이전틱 UI 메뉴 최상단은 `보고서` 그룹이다.** 그 아래 `Executive Report`가
+`02_reports/executive.html`과 **같은 생성기**(`risk_lib.html_exec`의
+`briefing_facts`·`_cro_briefing`·`_kri_card_data`·`_top_actions`)를 호출한다.
+화면이 따로 계산하지 않으므로 두 산출물이 갈라질 자리가 없고,
+`test_executive_screen_uses_the_same_engine_as_the_html_report`가 그것을 고정한다.
+UI 화면은 제출본 지문에 들어가지 않으므로 화면을 늘려도 3선 회차는 안 늘어난다.
 
 **골든은 `tests/test_pipeline_e2e.py`의 `GOLDEN`에 고정돼 있다.** 헤드라인을
 움직이는 변경을 하면 거기 재고정하고 **왜 움직였는지 주석으로 남긴다** — 그

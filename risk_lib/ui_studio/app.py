@@ -114,6 +114,32 @@ def _reverse_dict(s: Studio) -> dict:
     }
 
 
+def _executive_dict(s: Studio) -> dict:
+    """경영진 요약 화면의 데이터 — `02_reports/executive.html`과 **같은 엔진**.
+
+    `html_exec`의 사실·브리핑·KRI·액션 생성기를 그대로 호출한다. 화면이 자기
+    나름대로 다시 계산하면 같은 원장을 두 화면이 각자 그리는 상태가 되고,
+    어느 쪽이 맞는지 물어야 한다 — 이 저장소가 이미 데인 유형이다.
+
+    HTML 리포트는 이 dict에 서식을 입힌 것이고, 이 화면은 같은 dict를 브라우저에서
+    그린다. 두 산출물의 수치가 갈라질 자리가 없다.
+    """
+    from risk_lib.html_exec import (
+        _cro_briefing, _kri_card_data, _top_actions, briefing_facts,
+    )
+
+    r = s.result
+    seed = int(r.meta.get("seed", 42))
+    facts = briefing_facts(r)
+    return {
+        "facts": facts,
+        "briefing": list(_cro_briefing(r)),
+        "kris": _kri_card_data(r.raf, seed=seed),
+        "actions": list(_top_actions(r, max_actions=5)),
+        "source": "risk_lib.html_exec — 02_reports/executive.html 과 동일 산출",
+    }
+
+
 def _kpis(s: Studio) -> list[dict]:
     r = s.result
     t = s.tables
@@ -301,6 +327,8 @@ def _payload(s: Studio) -> dict:
                               if isinstance(df, pd.DataFrame))),
         },
         "kpis": _kpis(s),
+        # 경영진 요약 — html_exec와 같은 생성기에서 나온다 (02_reports/executive.html).
+        "executive": _executive_dict(s),
         "catalog": catalog_rows,
         "previews": previews,
         "views": _frame(t["ui_view"], 10_000, table="ui_view"),
@@ -2082,6 +2110,107 @@ function scenarioSettings(root){
 }
 
 /* ---- 요건 추적 — v9.6.0 BRD 131건 대비 구현 재고조사 ---- */
+/* 경영진 요약 — 02_reports/executive.html 과 **같은 생성기**(risk_lib.html_exec)
+   에서 나온 값을 그린다. 화면이 따로 계산하지 않으므로 두 산출물의 수치가
+   갈라질 자리가 없다. 서식만 다르고 사실은 하나다. */
+function executiveReport(root){
+  const E=D.executive;
+  if(!E){root.appendChild(el('p','lead','경영진 요약 데이터가 없다.'));return}
+  const F=E.facts;
+  const pct=v=>(v*100).toFixed(2)+'%';
+  const pp=v=>(v>=0?'+':'')+v.toFixed(3)+'%p';
+
+  root.appendChild(el('p','lead',
+    '보고서 산출물 02_reports/executive.html 과 같은 엔진에서 나온 값이다. '+
+    '서식만 다르고 수치는 하나다 — 화면이 따로 계산하지 않는다.'));
+
+  /* --- 자본·유동성 한눈에 --- */
+  const g=el('div','grid');
+  [['보통주자본비율(CET1)',pct(F.cet1),
+    '최저 대비 '+pp(F.cet1_surplus_pp),F.cet1_surplus_pp<0?'bad':'good'],
+   ['최대 RWA 구성',F.top_rwa_component,
+    '비중 '+pct(F.top_rwa_share),''],
+   /* 바로 아래 CRO 브리핑이 십억원으로 말한다 — 같은 화면에서 같은 수치가
+      두 표기로 나오면 읽는 사람이 둘을 다른 값으로 본다. */
+   ['ECL — PIT(확률가중)',(F.pit/1e9).toFixed(1)+'십억원',
+    'TTC '+(F.ttc/1e9).toFixed(1)+'십억원 대비 '
+    +(F.gap_pct>=0?'+':'')+F.gap_pct.toFixed(1)+'%',''],
+   ['유동성커버리지(LCR)',pct(F.lcr),
+    'NSFR '+pct(F.nsfr),F.lcr<1?'bad':'good'],
+   ['집중도 최대 축',F.conc_dim,
+    'HHI '+F.conc_hhi.toFixed(4)+' · 최대 '+pct(F.conc_top1),''],
+   ['역스트레스 임계 심도',F.rev_severity.toFixed(4),
+    '함의 GDP 충격 '+(F.rev_gdp*100).toFixed(2)+'%',
+    F.rev_severity<1?'bad':'good']
+  ].forEach(([lab,val,sub,tone])=>{
+    const c=el('div','card kpi');
+    c.appendChild(el('div','lab',lab));
+    c.appendChild(el('div','val '+(tone||''),val));
+    c.appendChild(el('div','sub',sub));
+    g.appendChild(c)});
+  root.appendChild(g);
+
+  /* --- CRO 브리핑 --- */
+  if(E.briefing&&E.briefing.length){
+    const c=el('div','card');
+    c.appendChild(el('h3',null,'CRO 브리핑 — 이번 산출이 말하는 것'));
+    const ul=el('ul');ul.style.cssText='margin:6px 0 0 18px;font-size:12px';
+    E.briefing.forEach(t=>{const li=el('li');li.innerHTML=t;ul.appendChild(li)});
+    c.appendChild(ul);
+    c.appendChild(el('div','meta',
+      '규칙 기반 자동 생성 — 결정론(같은 데이터면 같은 문장) · 외부 LLM 호출 없음'));
+    root.appendChild(c);
+  }
+
+  /* --- KRI 스코어카드 --- */
+  if(E.kris&&E.kris.length){
+    const c=el('div','card');
+    c.appendChild(el('h3',null,'KRI 스코어카드 (Risk Appetite Framework)'));
+    const rows=E.kris.map(k=>[k.category,k.name,k.actual_text,
+                              k.threshold_text,k.grade,
+                              k.trend==null?null:k.trend]);
+    c.appendChild(table({columns:['부문','지표','현재값','임계(이사회·경영)','판정','추세'],
+      labels:['부문','지표','현재값','임계(이사회·경영)','판정','추세'],
+      rows:rows,total:rows.length,shown:rows.length},
+      {numeric:false,rowClass:r=>r[4]==='RED'?'bad':r[4]==='AMBER'?'warn':null}));
+    const red=E.kris.filter(k=>k.grade==='RED').length;
+    const amb=E.kris.filter(k=>k.grade==='AMBER').length;
+    c.appendChild(el('div','meta',
+      `RED ${red} · AMBER ${amb} · 전체 ${E.kris.length} — 임계는 RAF 원장에서 온다`));
+    root.appendChild(c);
+  }
+
+  /* --- CRO 액션 --- */
+  if(E.actions&&E.actions.length){
+    const c=el('div','card');
+    c.appendChild(el('h3',null,'CRO 액션 — 즉시·단기 조치'));
+    const ul=el('ul');ul.style.cssText='margin:6px 0 0 18px;font-size:12px';
+    E.actions.forEach(t=>{const li=el('li');li.innerHTML=t;ul.appendChild(li)});
+    c.appendChild(ul);
+    c.appendChild(el('div','meta',
+      'RAF 임계 위반 + 자체검증 WARN/FAIL 에서 규칙으로 유도된다 — 사람이 적은 목록이 아니다'));
+    root.appendChild(c);
+  }
+
+  /* --- 위기 시나리오 --- */
+  if(F.sev){
+    const c=el('div','card');
+    c.appendChild(el('h3',null,'심각 시나리오 — 자본 저점'));
+    c.appendChild(dotlist([
+      {label:'CET1 저점 '+pct(F.sev.trough)+' ('+F.sev.trough_q+')',
+       tone:F.sev.first_breach?'bad':'good'},
+      {label:'종료 시점 CET1 '+pct(F.sev.end),tone:'muted'},
+      {label:F.sev.first_breach
+        ? '최초 침범 '+F.sev.first_breach+' — 침범 비율 '+(F.sev.breach_ratio||'—')
+        : '요구 비율 침범 없음',
+       tone:F.sev.first_breach?'bad':'good'},
+    ]));
+    root.appendChild(c);
+  }
+
+  root.appendChild(el('div','meta','출처 — '+E.source));
+}
+
 function reqTrace(root){
   const R=D.req_trace;
   root.appendChild(el('p','lead',
@@ -3436,6 +3565,9 @@ const DETAIL_SCREENS=[
 /* 부문 마커(A/B/C…·Δ)는 메뉴에서 뺀다 — 트리 들여쓰기가 이미 부문을
    말한다. 부문 개요는 2레벨 리프-부모, 마커 없던 세부화면은 3레벨이다. */
 const NAVGROUPS=[
+  /* 보고서가 통제센터 위다 — 경영진이 먼저 보는 것이 위에 있어야 한다.
+     콕핏은 실무 운영 화면이고 이쪽은 결재선·이사회로 나가는 산출물이다. */
+  ['보고서',['Executive Report']],
   ['통제센터',['콕핏','시뮬레이션','한도']],
   ['조회·컴포저',['정형 조회','비정형 UI']],
   /* 모형은 신용에만 있지 않다 — 도메인 축으로 따로 세운다(사용자 지적).
@@ -3471,6 +3603,7 @@ const NAVGROUPS=[
 ];
 
 const TABS=[
+  ['Executive Report','경영진 요약 — 자본·유동성·KRI·CRO 액션',executiveReport],
   ['콕핏','00 전사 리스크 콕핏',cockpit],
   ['정형 조회','정형 조회 스튜디오 · Governed Query',structured],
   ['비정형 UI','비정형 Adaptive UI Composer',adaptive],
