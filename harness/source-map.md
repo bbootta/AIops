@@ -41,6 +41,7 @@
 | Python (PSF) | https://mail.python.org/archives/list/security-announce@python.org/ |
 | Docker | https://docs.docker.com/security/security-announcements/ |
 | AWS | https://aws.amazon.com/security/security-bulletins/ |
+| Slack / Salesforce | https://slack.com/security · https://status.slack.com |
 
 ## 공개 인증서 투명성 로그
 
