@@ -62,6 +62,11 @@
   - 중재: 중재조항은 연방중재법(FAA)에 따라 강하게 집행되며 주법으로 제한하기 어렵다. 한국 기업은 미국 배심재판·디스커버리 부담을 피하기 위해 국제중재(ICC, AAA/ICDR, KCAB International 등) 조항을 우선 검토하는 것이 보통이다. 중재지(seat), 기관, 언어, 중재인 수, 디스커버리 범위(IBA Rules 준용 등)까지 특정해야 분쟁 시 다툼이 없다. 미국 중재판정·외국 중재판정은 뉴욕협약으로 상호 집행 가능.
   - 소송 선택 시: 배심재판 포기(jury trial waiver) 조항이 일반적 실무다(일부 주는 사전 포기 무효 ⚠️ — 조지아·캘리포니아 등 주별 확인 요).
 - **면책(indemnification)·진술보장(representations & warranties)**: 미국식 계약의 핵심 리스크 배분 장치. indemnification의 범위(제3자 청구 한정 여부), cap·basket, 존속기간(survival)을 반드시 협상한다. M&A에서는 R&W 보험 활용이 보편화되어 있다.
+- **표준 조항(boilerplate)에서 자주 터지는 함정**:
+  - assignment 조항: "합병·지배권 변동 시 양도 간주" 문구가 있으면 M&A에서 계약이 통째로 동의 대상이 된다.
+  - notice 조항: 통지 방법·기한을 지키지 않은 해지·클레임은 무효가 될 수 있다 — 클레임 기한(contractual limitation) 단축 조항도 유효한 주가 많다 ⚠️.
+  - force majeure: 커먼로상 이행곤란 법리(impossibility/impracticability, UCC §2-615)는 좁으므로 관세·수출통제·전염병 등 구체 열거가 필요하다.
+  - most favored customer·audit 조항: 미국 대기업 구매 표준계약에 흔하며 이행 부담이 크므로 수용 전 운영 가능성 검토.
 
 ### 3.2 회사법: 델라웨어 중심
 - **이사의 신인의무(fiduciary duty)**: 주의의무(duty of care)와 충실의무(duty of loyalty). 성실의무(good faith)는 충실의무의 하위 요소로 정리되어 있다. 정관으로 이사의 주의의무 위반 금전책임을 면제할 수 있고(DGCL §102(b)(7)), 2022년 개정으로 임원(officer)도 일정 범위에서 면책 대상에 포함됐다 ⚠️. 충실의무 위반과 악의(bad faith)는 면책 불가.
