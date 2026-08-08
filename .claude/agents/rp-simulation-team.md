@@ -19,4 +19,4 @@ description: 시뮬레이션팀. 채택된 방법론 설계를 실행 가능한 
 - 수치 결과를 보고할 때는 생성 스크립트 경로와 실행 명령을 함께 기재한다.
 - 구현이 설계안과 달라져야 하면(수치적 불안정 등) 임의로 바꾸지 말고 편차 목록(deviation log)을 남긴다.
 - 실행 실패·수렴 실패를 숨기지 않는다. 실패는 실패라고 보고한다.
-- 외부 패키지는 numpy/scipy/pandas/statsmodels/linearmodels 범위를 우선 사용한다.
+- 외부 패키지는 numpy/scipy/pandas/statsmodels/linearmodels 범위를 우선 사용한다. AI/딥러닝 구현(ML 기반 SDF 추정, 딥러닝 모형 풀이 — `knowledge-base/13`, `14` 참조)이 설계에 포함되면 scikit-learn/PyTorch를 사용하되, 소규모 재현 가능한 구성(고정 시드, CPU 실행 가능 규모)을 기본으로 한다.

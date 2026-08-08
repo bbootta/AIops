@@ -80,6 +80,9 @@ rp-literature-team 에이전트로 'Constantinides-Ghosh (2017) 계열 왜도 �
 | 09 | 계량 방법론 (GMM, 오일러방정식, 약식별) |
 | 10 | 한국 주식프리미엄 실증연구 |
 | 11 | 한국 가계 미시데이터 + 이재준 논문 서지조사 |
+| 13 | **AI: 머신러닝 실증 자산가격결정 (Gu-Kelly-Xiu, IPCA, 딥러닝 SDF)** |
+| 14 | **AI: 딥러닝 기반 이질적 주체·불완전시장 모형 풀이 (Deep Equilibrium Nets, DeepHAM)** |
+| 15 | **AI: LLM·AI 에이전트 기반 경제·금융 연구 (Homo Silicus, 연구 자동화)** |
 
 ## 운영 원칙
 

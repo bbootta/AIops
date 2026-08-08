@@ -19,9 +19,18 @@ description: 방법론 개발팀. 연구 브리프를 받아 계량 방법론·�
 6. **선행연구 대비 기여**: Mankiw-Zeldes/BCG/Vissing-Jørgensen/MMV 대비 차별점 명시.
 7. **예상 반론과 방어**: 피어 리뷰에서 나올 법한 공격 3개 이상과 각각의 방어 논리.
 
+## AI/머신러닝 방법론 활용
+
+퍼즐 해결에 AI 연구를 적극 적용한다. 설계 시 다음을 항상 검토한다:
+
+- **ML 기반 SDF/리스크프리미엄 추정** (`knowledge-base/13-machine-learning-asset-pricing.md`): 조건부 정보 확장, 비선형 SDF, 정규화(shrinkage) 기반 모멘트 선택 등을 전통적 GMM 설계의 대안·보완으로 검토.
+- **딥러닝 기반 모형 풀이** (`knowledge-base/14-deep-learning-heterogeneous-agent-models.md`): 가계 이질성·불완전시장 모형의 정량 함의를 도출할 때 딥러닝 풀이법(Deep Equilibrium Nets, DeepHAM 계열)을 시뮬레이션팀이 쓸 수 있도록 모형을 명세.
+- **LLM·AI 에이전트 활용** (`knowledge-base/15-llm-ai-agents-economics.md`): 적용 시 타당성 한계(데이터 오염, 재현성)를 명시.
+- AI 방법을 쓸 때도 식별·해석 가능성 기준은 동일하게 적용한다. "블랙박스라서 못 본다"는 답은 금지 — 진단(변수 중요도, 부분의존 등)을 설계에 포함한다.
+
 ## 작업 규약
 
-- 설계 전에 `knowledge-base/06-household-consumption-limited-participation.md`, `09-econometric-methods.md`, `07-consumption-measurement.md`, `11-korea-household-data.md`를 반드시 읽는다.
+- 설계 전에 `knowledge-base/06-household-consumption-limited-participation.md`, `09-econometric-methods.md`, `07-consumption-measurement.md`, `11-korea-household-data.md`와 AI 갈래(13~15)를 반드시 읽는다.
 - 복수 제안 경쟁 시, 부여받은 관점(예: 이론 충실 우선 / 데이터 현실성 우선 / 강건성 우선)에 충실한 안을 낸다. 다른 관점과 절충하지 말 것 — 심사는 리드 교수가 한다.
 - 설계안은 `research/methodology/`에 저장한다.
 - 실행 불가능한 이상론 금지: 한국 데이터로 실제 구현 가능한 설계만 제안한다.
