@@ -14,7 +14,7 @@
           narrowed 2–3mm (96–97mm) to avoid fold interference. This file is screen-review
           trim size (297×210mm). Fold guides (.fold-guide) are screen-only dashed lines,
           hidden in print. 5mm safe zone inside fold lines respected.
-  Color rule: the four layer colors (#42a9ff/#a78bfa/#f6bb56/#2dd4bf) appear only in
+  Color rule: the four layer colors (#2456B8/#33788F/#A9761F/#2E6B52) appear only in
           badges, rules, icons and diagrams. Body text is ink (#0f172a / muted #475569).
   Zero external dependencies, all graphics inline SVG.
 -->
@@ -59,12 +59,12 @@ h2.sec{font-size:14pt;font-weight:900;letter-spacing:-.02em;line-height:1.25;col
 /* layer badges: light color background + ink text (no light color text) */
 .chip{display:inline-flex;align-items:center;gap:1.6mm;font-size:7.2pt;font-weight:900;
   letter-spacing:.06em;color:#0f172a;border-radius:1.8mm;padding:1mm 2.4mm}
-.chip.engine{background:#42a9ff}.chip.agent{background:#a78bfa}
-.chip.human{background:#f6bb56}.chip.ledger{background:#2dd4bf}
+.chip.engine{background:#2456B8}.chip.agent{background:#33788F}
+.chip.human{background:#A9761F}.chip.ledger{background:#2E6B52}
 .dotline{display:flex;gap:1.6mm;margin:4mm 0 5mm}
 .dotline i{height:1.4mm;border-radius:1mm;flex:1}
-.dotline i:nth-child(1){background:#42a9ff}.dotline i:nth-child(2){background:#a78bfa}
-.dotline i:nth-child(3){background:#f6bb56}.dotline i:nth-child(4){background:#2dd4bf}
+.dotline i:nth-child(1){background:#2456B8}.dotline i:nth-child(2){background:#33788F}
+.dotline i:nth-child(3){background:#A9761F}.dotline i:nth-child(4){background:#2E6B52}
 /* ============ cover ============ */
 .cover{display:flex;flex-direction:column}
 .cover .lockup{display:flex;align-items:center;gap:3.5mm}
@@ -73,24 +73,24 @@ h2.sec{font-size:14pt;font-weight:900;letter-spacing:-.02em;line-height:1.25;col
 .cover .stack-visual{margin:7mm auto 5mm;display:block}
 .cover .define{font-size:14pt;font-weight:800;line-height:1.75;color:#0f172a;text-align:center;letter-spacing:-.01em}
 .cover .define .u{border-bottom:1mm solid;padding-bottom:.4mm}
-.cover .define .u.e{border-color:#42a9ff}.cover .define .u.a{border-color:#a78bfa}
-.cover .define .u.h{border-color:#f6bb56}
+.cover .define .u.e{border-color:#2456B8}.cover .define .u.a{border-color:#33788F}
+.cover .define .u.h{border-color:#A9761F}
 .cover .sub{text-align:center;font-size:9pt;color:#475569;font-weight:600;margin-top:3mm}
 .cover .foot{margin-top:auto;display:flex;justify-content:space-between;align-items:center;
   border-top:.4mm solid #e2e8f0;padding-top:4mm}
 .badge-vol{font-size:8pt;font-weight:900;color:#f8fafc;background:#0f172a;border-radius:2mm;padding:1.2mm 3mm;letter-spacing:.08em}
 /* ============ flap (human-amber coding) ============ */
-.wing .head{border-left:1.6mm solid #f6bb56;padding-left:4mm;margin-bottom:5mm}
+.wing .head{border-left:1.6mm solid #A9761F;padding-left:4mm;margin-bottom:5mm}
 table.kpi{width:100%;border-collapse:collapse;background:#fff;border-radius:2.5mm;overflow:hidden;
   box-shadow:0 1px 0 rgba(15,23,42,.07)}
 table.kpi th{background:#0f172a;color:#fff;font-weight:800;font-size:8.5pt;text-align:left;padding:2.6mm 3mm;letter-spacing:.02em}
 table.kpi td{padding:2.7mm 3mm;border-top:.35mm solid #eef2f7;vertical-align:middle}
 table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
-.goal-chip{display:inline-block;background:#f6bb56;color:#0f172a;font-size:7.5pt;font-weight:900;
+.goal-chip{display:inline-block;background:#A9761F;color:#0f172a;font-size:7.5pt;font-weight:900;
   border-radius:1.6mm;padding:.7mm 2mm;margin-right:1.5mm;letter-spacing:.04em}
 .wing .note{margin-top:4mm;font-size:8pt;color:#475569;line-height:1.55}
 .wing .who{margin-top:5mm;background:#fff;border-radius:2.5mm;padding:3.5mm 4mm;
-  border-top:1.2mm solid #f6bb56;box-shadow:0 1px 0 rgba(15,23,42,.07)}
+  border-top:1.2mm solid #A9761F;box-shadow:0 1px 0 rgba(15,23,42,.07)}
 /* ============ back ============ */
 .back{display:flex;flex-direction:column;text-align:center;align-items:center}
 .back .tagline{font-size:9.5pt;font-weight:800;color:#0f172a;margin:3mm 0 5mm}
@@ -107,10 +107,10 @@ table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
 .inner-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5mm}
 .card{background:#fff;border-radius:2.5mm;padding:3.6mm 4mm;margin-bottom:3.2mm;
   box-shadow:0 1px 0 rgba(15,23,42,.07)}
-.card.b-e{border-left:1.6mm solid #42a9ff}
-.card.b-a{border-left:1.6mm solid #a78bfa}
-.card.b-h{border-left:1.6mm solid #f6bb56}
-.card.b-l{border-left:1.6mm solid #2dd4bf}
+.card.b-e{border-left:1.6mm solid #2456B8}
+.card.b-a{border-left:1.6mm solid #33788F}
+.card.b-h{border-left:1.6mm solid #A9761F}
+.card.b-l{border-left:1.6mm solid #2E6B52}
 .card h3{font-size:10.5pt;font-weight:900;color:#0f172a;margin-bottom:1.2mm}
 .card p{font-size:8.8pt;color:#334155}
 .card .solve{margin-top:2mm;font-size:7.6pt;font-weight:800;color:#475569}
@@ -138,14 +138,14 @@ table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
 .ab td.arrow{width:6mm;text-align:center;padding:2.2mm 0}
 .ab td.to{font-weight:700;color:#0f172a}
 .dur{display:flex;align-items:center;gap:3mm;background:#fff;border-radius:2.5mm;padding:3.5mm 4mm;
-  margin-bottom:4mm;border-left:1.6mm solid #2dd4bf;box-shadow:0 1px 0 rgba(15,23,42,.07)}
+  margin-bottom:4mm;border-left:1.6mm solid #2E6B52;box-shadow:0 1px 0 rgba(15,23,42,.07)}
 .dur .from{font-size:11pt;font-weight:800;color:#64748b;text-decoration:line-through;text-decoration-thickness:.5mm;text-decoration-color:#94a3b8}
 .dur .to{font-size:12.5pt;font-weight:900;color:#0f172a}
 .sec-box{background:#0f172a;color:#e2e8f0;border-radius:2.5mm;padding:4mm 4.5mm}
 .sec-box h3{font-size:10.5pt;font-weight:900;color:#fff;display:flex;align-items:center;gap:2.5mm;margin-bottom:2.4mm}
 .sec-box ul{list-style:none}
 .sec-box li{position:relative;padding-left:5.5mm;font-size:8.7pt;color:#cbd5e1;margin-bottom:1.6mm}
-.sec-box li>i{position:absolute;left:0;top:1.6mm;width:3mm;height:3mm;border-radius:.8mm;background:#2dd4bf}
+.sec-box li>i{position:absolute;left:0;top:1.6mm;width:3mm;height:3mm;border-radius:.8mm;background:#2E6B52}
 </style>
 </head>
 <body>
@@ -213,14 +213,14 @@ table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
       <!-- central visual: four-layer stack (bottom→top: record · calculation · drafting · judgment) -->
       <svg class="stack-visual" viewBox="0 0 240 208" width="230" role="img" aria-label="RYNTA four-layer architecture diagram" xmlns="http://www.w3.org/2000/svg">
         <!-- 4 Record, Evidence Ledger (foundation) -->
-        <path d="M120 118 L204 160 L120 202 L36 160 Z" fill="#2dd4bf"/>
+        <path d="M120 118 L204 160 L120 202 L36 160 Z" fill="#2E6B52"/>
         <path d="M120 118 L204 160 L120 202 L36 160 Z" fill="#0f172a" opacity=".08"/>
         <!-- 1 Calculation, engine -->
-        <path d="M120 80 L204 122 L120 164 L36 122 Z" fill="#42a9ff"/>
+        <path d="M120 80 L204 122 L120 164 L36 122 Z" fill="#2456B8"/>
         <!-- 2 Drafting, agents -->
-        <path d="M120 42 L204 84 L120 126 L36 84 Z" fill="#a78bfa"/>
+        <path d="M120 42 L204 84 L120 126 L36 84 Z" fill="#33788F"/>
         <!-- 3 Judgment, people (top) -->
-        <path d="M120 4 L204 46 L120 88 L36 46 Z" fill="#f6bb56"/>
+        <path d="M120 4 L204 46 L120 88 L36 46 Z" fill="#A9761F"/>
         <path d="M120 4 L204 46 L120 88 L36 46 Z" fill="none" stroke="#0f172a" stroke-opacity=".22" stroke-width="1.6"/>
       </svg>
 
@@ -293,37 +293,37 @@ table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
 
       <!-- central diagram: stacking order (record at base, then calculation, drafting, judgment on top) -->
       <svg viewBox="0 0 250 146" width="100%" role="img" aria-label="Four-layer stack: record at the base, then calculation and drafting, judgment on top" xmlns="http://www.w3.org/2000/svg" style="margin-bottom:3.5mm">
-        <path d="M96 76 L162 109 L96 142 L30 109 Z" fill="#2dd4bf"/>
-        <path d="M96 52 L162 85 L96 118 L30 85 Z" fill="#42a9ff"/>
-        <path d="M96 28 L162 61 L96 94 L30 61 Z" fill="#a78bfa"/>
-        <path d="M96 4 L162 37 L96 70 L30 37 Z" fill="#f6bb56"/>
+        <path d="M96 76 L162 109 L96 142 L30 109 Z" fill="#2E6B52"/>
+        <path d="M96 52 L162 85 L96 118 L30 85 Z" fill="#2456B8"/>
+        <path d="M96 28 L162 61 L96 94 L30 61 Z" fill="#33788F"/>
+        <path d="M96 4 L162 37 L96 70 L30 37 Z" fill="#A9761F"/>
         <path d="M96 4 L162 37 L96 70 L30 37 Z" fill="none" stroke="#0f172a" stroke-opacity=".22" stroke-width="1.4"/>
         <g font-family="Pretendard,'Noto Sans KR',sans-serif" font-size="10.5" font-weight="800" fill="#0f172a">
-          <line x1="164" y1="30" x2="184" y2="30" stroke="#f6bb56" stroke-width="2.4"/><text x="188" y="34">3 People</text>
-          <line x1="164" y1="58" x2="184" y2="58" stroke="#a78bfa" stroke-width="2.4"/><text x="188" y="62">2 Agents</text>
-          <line x1="164" y1="86" x2="184" y2="86" stroke="#42a9ff" stroke-width="2.4"/><text x="188" y="90">1 Engine</text>
-          <line x1="164" y1="112" x2="184" y2="112" stroke="#2dd4bf" stroke-width="2.4"/><text x="188" y="116">4 Ledger</text>
+          <line x1="164" y1="30" x2="184" y2="30" stroke="#A9761F" stroke-width="2.4"/><text x="188" y="34">3 People</text>
+          <line x1="164" y1="58" x2="184" y2="58" stroke="#33788F" stroke-width="2.4"/><text x="188" y="62">2 Agents</text>
+          <line x1="164" y1="86" x2="184" y2="86" stroke="#2456B8" stroke-width="2.4"/><text x="188" y="90">1 Engine</text>
+          <line x1="164" y1="112" x2="184" y2="112" stroke="#2E6B52" stroke-width="2.4"/><text x="188" y="116">4 Ledger</text>
         </g>
       </svg>
 
       <div class="layer-cards">
         <div class="lcard">
-          <span class="no" style="background:#42a9ff">1</span>
+          <span class="no" style="background:#2456B8">1</span>
           <div><h3>Calculation, Deterministic engine <small>NO LLM</small></h3>
           <p>No LLM in the numbers. Same input, same output.</p></div>
         </div>
         <div class="lcard">
-          <span class="no" style="background:#a78bfa">2</span>
+          <span class="no" style="background:#33788F">2</span>
           <div><h3>Run &amp; verify, AI agents <small>ARI · AVI</small></h3>
           <p>ARI runs risk work and drafts reports; AVI monitors and recalculates independently. Language, never numbers.</p></div>
         </div>
         <div class="lcard">
-          <span class="no" style="background:#f6bb56">3</span>
+          <span class="no" style="background:#A9761F">3</span>
           <div><h3>Judgment, People <small>4-EYES APPROVAL</small></h3>
           <p>Nothing is final without sign-off by authorized reviewers.</p></div>
         </div>
         <div class="lcard">
-          <span class="no" style="background:#2dd4bf">4</span>
+          <span class="no" style="background:#2E6B52">4</span>
           <div><h3>Record, Evidence Ledger <small>IMMUTABLE LOG</small></h3>
           <p>Inputs, versions, verdicts, and approvals, logged immutably as work happens.</p></div>
         </div>
@@ -359,7 +359,7 @@ table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
       </div>
 
       <div class="sec-box">
-        <h3><svg viewBox="0 0 24 24" width="15" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="#2dd4bf" stroke-width="2.2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#2dd4bf" stroke-width="2.2"/></svg>Your data stays inside.</h3>
+        <h3><svg viewBox="0 0 24 24" width="15" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="#2E6B52" stroke-width="2.2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#2E6B52" stroke-width="2.2"/></svg>Your data stays inside.</h3>
         <ul>
           <li><i></i>On-premises, inside your network and jurisdiction</li>
           <li><i></i>No source data retained by OneLine AI</li>

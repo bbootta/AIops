@@ -21,9 +21,9 @@
 :root{
   --bg:#06111d; --sf1:#0a1928; --sf2:#0d2134; --sf3:#102941;
   --ink:#eef7ff; --sub:#c3d5e5; --dim:#a9bfd2;         /* 소형 텍스트는 밝게 조정한 값 사용 */
-  --engine:#42a9ff; --agent:#a78bfa; --human:#f6bb56; --evidence:#2dd4bf;
-  --ok:#44d19d; --watch:#f6bb56; --danger:#fb6472;
-  --line:rgba(66,169,255,.22); --hair:rgba(238,247,255,.14);
+  --engine:#5A9BE8; --agent:#6BC2DC; --human:#D9A04C; --evidence:#57A583;
+  --ok:#44d19d; --watch:#D9A04C; --danger:#fb6472;
+  --line:rgba(90,155,232,.22); --hair:rgba(238,247,255,.14);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{
@@ -36,7 +36,7 @@ body{
   color:#cfe0ee;font-size:11px;letter-spacing:.08em;font-weight:700;
   width:297mm;display:flex;justify-content:space-between;align-items:baseline;
 }
-.screen-label b{color:#42a9ff;font-size:13px}
+.screen-label b{color:#5A9BE8;font-size:13px}
 .sheet{
   width:297mm;height:210mm;position:relative;overflow:hidden;
   background:var(--bg);color:var(--ink);
@@ -192,7 +192,7 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.01em;line-height:
         <b>50%+ 단축</b>
         <svg viewBox="0 0 60 32" width="100%" height="26" role="img" aria-label="소요일 50 퍼센트 이상 단축 목표 게이지">
           <path d="M8 28 A22 22 0 0 1 52 28" stroke="#102941" stroke-width="5.5" fill="none"/>
-          <path d="M8 28 A22 22 0 0 1 30 6" stroke="#42a9ff" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+          <path d="M8 28 A22 22 0 0 1 30 6" stroke="#5A9BE8" stroke-width="5.5" fill="none" stroke-linecap="round"/>
           <text x="30" y="27" text-anchor="middle" font-size="8.5" font-weight="800" fill="#eef7ff">50%</text>
         </svg>
         <div class="gauge-cap">목표 게이지, 실적 아님</div>
@@ -254,7 +254,7 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.01em;line-height:
       </div>
       <div class="brand">
         <!-- RYNTA-BRANDMARK -->
-        <svg viewBox="10 30 214 104" width="110" role="img" aria-label="RYNTA 브랜드마크" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 0 14px rgba(66,169,255,.35))"><defs><linearGradient id="rw2a" x1="-42.3" y1="42.3" x2="66.6" y2="-66.6" gradientUnits="userSpaceOnUse"><stop offset="0.05" stop-color="#396EAA"/><stop offset="0.15" stop-color="#4486BD"/><stop offset="0.25" stop-color="#509FD0"/><stop offset="0.35" stop-color="#5AB3DD"/><stop offset="0.45" stop-color="#5EBBE1"/><stop offset="0.55" stop-color="#6ECCE7"/><stop offset="0.65" stop-color="#91DFEC"/><stop offset="0.75" stop-color="#80DAEA"/><stop offset="0.85" stop-color="#69CAE6"/><stop offset="0.95" stop-color="#61C0E2"/></linearGradient><linearGradient id="rw2b" x1="-36.4" y1="36.4" x2="75.1" y2="-75.1" gradientUnits="userSpaceOnUse"><stop offset="0.05" stop-color="#3156C1"/><stop offset="0.15" stop-color="#335CCB"/><stop offset="0.25" stop-color="#3765D6"/><stop offset="0.35" stop-color="#3E73E3"/><stop offset="0.45" stop-color="#4580EC"/><stop offset="0.55" stop-color="#4B89F1"/><stop offset="0.65" stop-color="#65A1F1"/><stop offset="0.75" stop-color="#5293F3"/><stop offset="0.85" stop-color="#4580F1"/><stop offset="0.95" stop-color="#3D70E2"/></linearGradient></defs><path fill="url(#rw2b)" d="M213.64 64.17C205.97 63.32,164.32 63.75,153.88 63.77C143.43 63.8,150.89 63.81,148.88 64.33C146.86 64.86,143.78 65.85,141.38 67.04C138.97 68.23,136.06 70.17,133.97 71.71C131.87 73.26,133.91 70.9,128.38 76.63C122.85 82.36,106.76 100.05,99.68 107.24C92.6 114.42,88.98 117.73,84.5 121.19C80.02 124.65,75.92 127.02,71.88 128.69C67.83 130.35,60.52 130.95,59.42 131.5C58.31 132.06,55.11 132.06,65 132.12C74.89 132.18,110.15 132.24,120.75 131.86C131.35 131.49,128.07 130.69,130.75 129.78C133.43 128.87,135.26 127.59,137.37 126.22C139.49 124.86,138.65 126.35,143.87 121.29C149.09 116.24,162.82 101.63,169.75 94.89C176.68 88.14,181.74 83.63,186.85 79.47C191.96 75.3,197.13 71.51,201.45 69.05C205.78 66.58,221.32 65.02,213.64 64.17Z"/><path fill="url(#rw2a)" d="M165.77 33.3C166.27 32.85,171.61 32.5,162.38 32.41C153.14 32.31,118.84 32.24,108.5 32.72C98.15 33.19,100.95 34.31,98.25 35.34C95.55 36.37,94.19 37.36,91.77 39.1C89.35 40.85,89.26 39.98,83.26 46.15C77.26 52.32,61.65 70.07,54.6 77.37C47.55 84.67,43.91 87.97,39.58 91.41C35.25 94.85,31.3 97.08,27.75 98.71C24.2 100.34,18.59 100.97,17.59 101.52C16.58 102.07,12.02 102.05,21.5 102.12C30.98 102.2,66.05 102.37,76.38 101.99C86.7 101.61,82.98 100.69,85.5 99.75C88.01 98.81,89.84 97.66,91.97 96.14C94.09 94.63,93.28 96.1,98.68 90.38C104.09 84.67,119.34 67.24,125.5 60.72C131.66 54.2,132.42 53.58,136.88 49.96C141.33 46.34,149.54 40.65,153.15 38.27C156.76 35.89,157.21 36.02,159.25 35.22C161.29 34.42,165.26 33.75,165.77 33.3Z"/></svg>
+        <svg viewBox="10 30 214 104" width="110" role="img" aria-label="RYNTA 브랜드마크" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 0 14px rgba(90,155,232,.35))"><defs><linearGradient id="rw2a" x1="-42.3" y1="42.3" x2="66.6" y2="-66.6" gradientUnits="userSpaceOnUse"><stop offset="0.05" stop-color="#396EAA"/><stop offset="0.15" stop-color="#4486BD"/><stop offset="0.25" stop-color="#509FD0"/><stop offset="0.35" stop-color="#5AB3DD"/><stop offset="0.45" stop-color="#5EBBE1"/><stop offset="0.55" stop-color="#6ECCE7"/><stop offset="0.65" stop-color="#91DFEC"/><stop offset="0.75" stop-color="#80DAEA"/><stop offset="0.85" stop-color="#69CAE6"/><stop offset="0.95" stop-color="#61C0E2"/></linearGradient><linearGradient id="rw2b" x1="-36.4" y1="36.4" x2="75.1" y2="-75.1" gradientUnits="userSpaceOnUse"><stop offset="0.05" stop-color="#3156C1"/><stop offset="0.15" stop-color="#335CCB"/><stop offset="0.25" stop-color="#3765D6"/><stop offset="0.35" stop-color="#3E73E3"/><stop offset="0.45" stop-color="#4580EC"/><stop offset="0.55" stop-color="#4B89F1"/><stop offset="0.65" stop-color="#65A1F1"/><stop offset="0.75" stop-color="#5293F3"/><stop offset="0.85" stop-color="#4580F1"/><stop offset="0.95" stop-color="#3D70E2"/></linearGradient></defs><path fill="url(#rw2b)" d="M213.64 64.17C205.97 63.32,164.32 63.75,153.88 63.77C143.43 63.8,150.89 63.81,148.88 64.33C146.86 64.86,143.78 65.85,141.38 67.04C138.97 68.23,136.06 70.17,133.97 71.71C131.87 73.26,133.91 70.9,128.38 76.63C122.85 82.36,106.76 100.05,99.68 107.24C92.6 114.42,88.98 117.73,84.5 121.19C80.02 124.65,75.92 127.02,71.88 128.69C67.83 130.35,60.52 130.95,59.42 131.5C58.31 132.06,55.11 132.06,65 132.12C74.89 132.18,110.15 132.24,120.75 131.86C131.35 131.49,128.07 130.69,130.75 129.78C133.43 128.87,135.26 127.59,137.37 126.22C139.49 124.86,138.65 126.35,143.87 121.29C149.09 116.24,162.82 101.63,169.75 94.89C176.68 88.14,181.74 83.63,186.85 79.47C191.96 75.3,197.13 71.51,201.45 69.05C205.78 66.58,221.32 65.02,213.64 64.17Z"/><path fill="url(#rw2a)" d="M165.77 33.3C166.27 32.85,171.61 32.5,162.38 32.41C153.14 32.31,118.84 32.24,108.5 32.72C98.15 33.19,100.95 34.31,98.25 35.34C95.55 36.37,94.19 37.36,91.77 39.1C89.35 40.85,89.26 39.98,83.26 46.15C77.26 52.32,61.65 70.07,54.6 77.37C47.55 84.67,43.91 87.97,39.58 91.41C35.25 94.85,31.3 97.08,27.75 98.71C24.2 100.34,18.59 100.97,17.59 101.52C16.58 102.07,12.02 102.05,21.5 102.12C30.98 102.2,66.05 102.37,76.38 101.99C86.7 101.61,82.98 100.69,85.5 99.75C88.01 98.81,89.84 97.66,91.97 96.14C94.09 94.63,93.28 96.1,98.68 90.38C104.09 84.67,119.34 67.24,125.5 60.72C131.66 54.2,132.42 53.58,136.88 49.96C141.33 46.34,149.54 40.65,153.15 38.27C156.76 35.89,157.21 36.02,159.25 35.22C161.29 34.42,165.26 33.75,165.77 33.3Z"/></svg>
         <div class="nm">RYNTA<br><small>RiskOps</small></div>
       </div>
       <h1>숫자는 <span class="e">엔진</span>이,<br>문장은 <span class="a">에이전트</span>가,<br>판단은 <span class="h">사람</span>이.</h1>
@@ -310,7 +310,7 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.01em;line-height:
         <p>담당자별 스크립트로 같은 계산을 사람마다, 요청마다 반복합니다.</p></div>
       </div>
       <div class="tile">
-        <div class="ic"><svg viewBox="0 0 24 24" width="16" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="#f6bb56" stroke-width="2"/><path d="M9 8h6M9 12h6M9 16h4" stroke="#f6bb56" stroke-width="2" stroke-linecap="round"/></svg></div>
+        <div class="ic"><svg viewBox="0 0 24 24" width="16" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="#D9A04C" stroke-width="2"/><path d="M9 8h6M9 12h6M9 16h4" stroke="#D9A04C" stroke-width="2" stroke-linecap="round"/></svg></div>
         <div><h3>전량 수기 문서 <span class="lamp" style="background:var(--watch)"></span></h3>
         <p>리스크·검증 보고서와 근거 문서를 매번 처음부터 수기로 작성합니다.</p></div>
       </div>
@@ -376,15 +376,15 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.01em;line-height:
         <rect x="155" y="12" width="135" height="10" rx="3" fill="#3b5a75" opacity=".45"/>
         <text x="24" y="9" font-size="8.5" fill="#c3d5e5" font-weight="700">As-is 2~4주 (10~20영업일 환산)</text>
         <!-- To-be 목표: 5~10영업일 -->
-        <rect x="20" y="36" width="67.5" height="10" rx="3" fill="#42a9ff"/>
-        <rect x="87.5" y="36" width="67.5" height="10" rx="3" fill="#42a9ff" opacity=".4"/>
+        <rect x="20" y="36" width="67.5" height="10" rx="3" fill="#5A9BE8"/>
+        <rect x="87.5" y="36" width="67.5" height="10" rx="3" fill="#5A9BE8" opacity=".4"/>
         <text x="24" y="33" font-size="8.5" fill="#eef7ff" font-weight="800">To-be 목표 5~10영업일</text>
       </svg>
       <div class="gauge-cap">옅은 구간=범위(최소~최대) · 주 5영업일 환산</div>
     </div>
 
     <div class="sec-box">
-      <h3><svg viewBox="0 0 24 24" width="12" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="#2dd4bf" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#2dd4bf" stroke-width="2"/></svg>보안, 데이터는 나가지 않습니다</h3>
+      <h3><svg viewBox="0 0 24 24" width="12" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="#57A583" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#57A583" stroke-width="2"/></svg>보안, 데이터는 나가지 않습니다</h3>
       <ul>
         <li>내부망 온프레미스 설치 운영</li>
         <li>원본 데이터 비보유 (데이터 비반출)</li>
