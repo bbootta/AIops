@@ -4873,6 +4873,20 @@ const diaCannonBeam = new THREE.Mesh(beamGeo, diaCannonMat);
 diaCannonBeam.visible = false;
 scene.add(diaCannonBeam);
 let diaCannonT = 0, diaCannonTick = 0;
+// 조준점 — 시선이 처음 닿는 곳(적 > 지형 > 사거리 끝). 입이 33블록 위에 있어서
+// 카메라 방향 그대로 쏘면 겨눈 것 위로 한참 지나간다. 조준점으로 광선을 모아야 맞는다.
+const _cannonAim = new THREE.Vector3();
+function cannonAimPoint() {
+  const m = pickMob(DIA_CANNON_RANGE); // _dir 갱신도 겸함
+  if (m) return _cannonAim.set(m.pos.x, m.pos.y + m.hitH * 0.5, m.pos.z);
+  const o = camera.position;
+  for (let t = 4; t < DIA_CANNON_RANGE; t += 1.5) {
+    const px = o.x + _dir.x * t, py = o.y + _dir.y * t, pz = o.z + _dir.z * t;
+    if (py < 0 || py > Y_MAX) continue;
+    if (occludes(getBlock(Math.floor(px), Math.floor(py), Math.floor(pz)))) return _cannonAim.set(px, py, pz);
+  }
+  return _cannonAim.set(o.x + _dir.x * DIA_CANNON_RANGE, o.y + _dir.y * DIA_CANNON_RANGE, o.z + _dir.z * DIA_CANNON_RANGE);
+}
 function fireDiaCannon() {
   if (diaCannonT > 0) return;
   diaCannonT = DIA_CANNON_CHARGE + DIA_CANNON_FIRE;
@@ -4888,14 +4902,16 @@ function updateDiaCannon(dt) {
   diaCannonT -= dt;
   if (diaCannonT <= 0) { stopDiaCannon(); return; }
   const charging = diaCannonT > DIA_CANNON_FIRE;
-  // 광선은 거대 몸체의 가운데 머리 입(높이 약 33블록)에서 보는 방향으로 곧게 뻗는다.
+  // 광선은 거대 몸체의 가운데 머리 입(높이 약 33블록)에서 나가 조준점을 관통해 뻗는다.
   // 굵기가 24칸이라 대충 겨눠도 맞고, 발사 중에도 시선을 돌려 훑을 수 있다
-  camera.getWorldDirection(_dir);
   const p = player.pos;
+  const aim = cannonAimPoint();
   const ox = p.x, oy = p.y + 4.1 * DIA_SUIT_SCALE, oz = p.z;
-  const tx = ox + _dir.x * DIA_CANNON_RANGE;
-  const ty = oy + _dir.y * DIA_CANNON_RANGE;
-  const tz = oz + _dir.z * DIA_CANNON_RANGE;
+  const ux = aim.x - ox, uy = aim.y - oy, uz = aim.z - oz;
+  const ul = Math.hypot(ux, uy, uz) || 1;
+  const tx = ox + (ux / ul) * DIA_CANNON_RANGE;
+  const ty = oy + (uy / ul) * DIA_CANNON_RANGE;
+  const tz = oz + (uz / ul) * DIA_CANNON_RANGE;
   const ax = tx - ox, ay = ty - oy, az = tz - oz;
   const len = Math.hypot(ax, ay, az) || 1;
   const w = charging ? DIA_CANNON_W * 0.12 : DIA_CANNON_W * (0.92 + Math.sin(suitTime * 22) * 0.08);
