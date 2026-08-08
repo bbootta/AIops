@@ -145,6 +145,47 @@ def _executive_dict(s: Studio) -> dict:
     }
 
 
+# 이탈 경보 임계 — 계열 자기 표준편차의 배수. 산출과 화면 문구가 같은 값을
+# 봐야 하므로 여기서 정하고 엔진에 넘긴다.
+MACRO_Z = 1.5
+
+
+def _macro_dict(s: Studio) -> dict:
+    """거시·금융지표 모니터링 화면 데이터 — 전량 `risk_lib.macro_monitor` 산출.
+
+    최근값·경보·충격 배수를 화면에서 다시 구하지 않도록 여기서 엔진 함수로
+    풀어 싣는다. 같은 원장을 화면이 따로 집계하면 어느 쪽이 그 지표의 현재값인지
+    사후에 물어야 한다.
+    """
+    from risk_lib import macro_monitor as mm
+
+    obs, link = s.tables["macro_indicator"], s.tables["macro_scenario_link"]
+    spec = {sp.indicator_id: sp for sp in mm.INDICATORS}
+    lat = mm.latest_observations(obs).set_index("indicator_id")
+    keys = ("name", "category", "source", "source_code", "period", "freq",
+            "value", "unit", "yoy", "basis")
+    return {
+        "observations": _frame(obs, 10_000, table="macro_indicator"),
+        # 지표 순서는 스펙 순서다 — 부문이 이어져 나오도록 정의해 둔 순서다.
+        "latest": [
+            {"indicator_id": sp.indicator_id, "drives": sp.drives,
+             **{k: _cell(lat.loc[sp.indicator_id, k]) for k in keys}}
+            for sp in mm.INDICATORS if sp.indicator_id in lat.index],
+        "alerts": mm.alerts(obs, z_threshold=MACRO_Z),
+        "z_threshold": MACRO_Z,
+        # 충격폭은 지표마다 단위가 다르다. 비교하려면 엔진이 쓴 표준편차 배수가
+        # 있어야 하므로 SCENARIO_SHOCK 값을 그대로 붙인다.
+        "links": [
+            {**{k: _cell(v) for k, v in r.items()},
+             "unit": spec[r["indicator_id"]].unit if r["indicator_id"] in spec else "",
+             "sigma": float(mm.SCENARIO_SHOCK.get(str(r["scenario"]), {})
+                            .get(str(r["indicator_id"]), 0.0))}
+            for _, r in link.iterrows()],
+        "basis_mix": {str(k): int(v)
+                      for k, v in obs["basis"].value_counts().items()},
+    }
+
+
 def _kpis(s: Studio) -> list[dict]:
     r = s.result
     t = s.tables
@@ -405,6 +446,8 @@ def _payload(s: Studio) -> dict:
                 "utilisation": "소진율", "severity": "심각도"}),
         # 역스트레스 — 자본 임계를 뚫는 심도를 푼다 (BNK-ST-006).
         "reverse_stress": _reverse_dict(s),
+        # 거시·금융지표 — 시나리오 심도의 입력 원장.
+        "macro": _macro_dict(s),
         # 사업성(COM) — 규제 산출물이 아니다. 제출 지문·독립검증 대상에 넣지
         # 않으며, 전 수치가 가정 원장에서 계산으로만 나온다.
         "commercial": {
@@ -726,12 +769,20 @@ function table(f,{numeric=true,rowClass=null}={}){
   t.appendChild(tb);w.appendChild(t);
   const box=el('div');box.appendChild(w);
   if(f.total>f.shown){const m=el('div','meta',
-    `미리보기 ${f.shown.toLocaleString()}행 / 전체 ${f.total.toLocaleString()}행 — 잘린 부분이 있다`);
+    `미리보기 ${f.shown.toLocaleString()}행 / 전체 ${f.total.toLocaleString()}행`);
     box.appendChild(m)}
   return box;
 }
 function pill(txt,tone){const p=el('span','pill'+(tone?' '+tone:''),txt);return p}
 function ok(b){return pill(b?'통과':'미통과', b?'good':'bad')}
+
+/* 한도 심각도 어휘는 LimitBreach.severity(risk_lib/limits/limit_engine.py)가
+   정본이다 — CRITICAL(≥1.20) · BREACH(≥1.00) · WARN(≥0.90) · OK. 화면마다
+   문자열을 다시 적으면 대소문자 하나로 판정이 조용히 빗나간다(실제로 콕핏
+   인사이트와 한도관리 요약이 위반 2건을 "위반 없음"으로 적고 있었다). */
+function limitBreached(sev){return sev==='BREACH'||sev==='CRITICAL'}
+function limitTone(sev){
+  return limitBreached(sev)?'bad':sev==='WARN'?'warn':'good'}
 
 /* ---- 시각화 헬퍼 — 모든 값은 payload 원장에서 그대로 온다 ----
    프레임이 잘려 실렸으면(shown<total) 집계가 모집단과 다르므로, 그 사실을
@@ -746,9 +797,12 @@ function fmtMoney(v){
 function frameIdx(f){const i={};f.columns.forEach((c,k)=>{i[c]=k});return i}
 function srcMeta(f,extra){
   const cut=f.shown<f.total;
+  /* 한도·오버레이처럼 엔진 산출을 바로 실은 프레임은 카탈로그 원장명이 없다.
+     이름 자리에 null 을 찍으면 없는 원장을 가리키는 것처럼 읽히므로 뺀다. */
+  const src=f.table?`원장 ${f.table} · `:'';
   const m=el('div','meta'+(cut?' warn':''),
-    `원장 ${f.table} · ${cut?`표본 ${f.shown.toLocaleString()}/${f.total.toLocaleString()}행 기준`
-                          :`${f.total.toLocaleString()}행 전량`}${extra?' · '+extra:''}`);
+    `${src}${cut?`표본 ${f.shown.toLocaleString()}/${f.total.toLocaleString()}행 기준`
+                :`${f.total.toLocaleString()}행 전량`}${extra?' · '+extra:''}`);
   return m;
 }
 
@@ -1252,7 +1306,7 @@ function cockpit(root){
   const ins=cockpitInsights();
   if(ins.length){
     const rib=el('div','card');
-    rib.appendChild(el('h3',null,'인사이트 — 지금 봐야 할 것'));
+    rib.appendChild(el('h3',null,'인사이트 — 한계 위반·미해소 예외·검증 상태'));
     rib.appendChild(dotlist(ins.map(x=>({label:x.t,
       tone:x.tone==='bad'?'bad':x.tone==='warn'?'warn':'good'}))));
     rib.appendChild(el('div','meta',
@@ -1294,8 +1348,7 @@ function cockpit(root){
       .sort((a,b)=>b[li2.utilisation]-a[li2.utilisation]).slice(0,4)
       .map(r=>({label:`${r[li2.limit]} · ${r[li2.bucket]}`,
         value:r[li2.utilisation]*100,
-        tone:r[li2.severity]==='breach'?'bad':
-             r[li2.severity]==='warning'?'warn':undefined})),{money:false}));
+        tone:limitTone(r[li2.severity])})),{money:false}));
     two0.appendChild(c)}
   root.appendChild(two0);
 
@@ -1375,8 +1428,8 @@ function cockpit(root){
       if(runs.length>1){
         const uniq=new Set(runs.map(a=>RUNS[a].meta.digest));
         drill.appendChild(el('div','meta',uniq.size===1
-          ?'실행 간 지문 동일 — 같은 산출물이다'
-          :`실행 간 지문 상이 ${uniq.size}종 — 기준일이 다르면 산출물도 다른 판이다`));
+          ?'실행 간 산출 지문 동일'
+          :`실행 간 산출 지문 ${uniq.size}종 (실행 ${runs.length}건)`));
       }
     };
     if(i<D.evidence_nodes.rows.length-1)flow.appendChild(el('span','arrow','→'));
@@ -1420,7 +1473,7 @@ function chips(items, onPick){
 function structured(root){
   root.appendChild(el('p','lead',
     '문장을 고치면 조회계획이 즉시 다시 만들어진다. 자연어는 승인된 스키마·필드·연산자·권한으로만 번역되며, '+
-    '인식하지 못한 필드는 조용히 무시하지 않고 차단 사유로 남는다. 화면 열과 레이아웃은 고정이다.'));
+    '인식하지 못한 필드는 차단 사유로 남는다. 화면 열과 레이아웃은 고정이다.'));
 
   const bar=el('div','toolbar');
   let viewId=(D.demo_queries[0]||{}).view_id||Object.keys(D.view_meta)[0];
@@ -1922,7 +1975,6 @@ function stressDeepDive(root){
     });
 
     const note=el('div','note',
-      '14개 충격 축(신용 5 · 시장 4 · 운영 1 · 유동성 2 · 수익 2)이 같은 심도에서 동시에 발동한다. '+
       '자본은 증분 ECL이 아니라 세후이익 변화로 롤포워드되며(충당금이 이익에 이미 들어 있다), '+
       '산출하한 분모도 함께 충격받는다. 추적표의 값은 스트레스 경로 결과와 정확히 일치한다.');
     pane.appendChild(note);
@@ -2289,7 +2341,7 @@ function validation(root){
 function agents(root){
   root.appendChild(el('p','lead',
     '계획·등록도구·데이터범위·승인·로그를 확인한다. 사람의 승인을 받기 전 에이전트는 조회 전용 또는 제안 전용이며, '+
-    '운영 반영 권한(write_allowed)은 전 에이전트가 거짓이다 — NO AUTONOMOUS WRITE.'));
+    '운영 반영 권한(write_allowed)은 전 에이전트가 거짓이다.'));
   const a=el('div','card');a.appendChild(el('h3',null,'에이전트 레지스트리 · 최소 권한'));
   a.appendChild(table(D.agents));root.appendChild(a);
   const b=el('div','card');b.appendChild(el('h3',null,'활동 원장 — 주체·도구·출력·게이트'));
@@ -2420,9 +2472,8 @@ function formMapSettings(root){
   const c=el('div','card set-formmap');
   c.appendChild(el('h3',null,'서식번호 매핑 — 내부 코드 ↔ 금감원 배포 서식번호'));
   c.appendChild(el('div','meta',
-    '서식번호는 제출본의 정체다. 여기서는 매핑 변경을 **제안서로만** 만든다 — '+
-    '적용은 risk_lib/regulatory/form_ids.py 반영 후 파이프라인 재실행으로만 '+
-    '이뤄지며, 화면이 즉석에서 바꾸면 제출 지문과 어긋난 화면이 된다.'));
+    '서식번호는 제출본을 식별한다. 이 화면은 매핑 변경 제안서만 만들고, 적용은 '+
+    'risk_lib/regulatory/form_ids.py 반영 후 파이프라인 재실행으로 한다.'));
   const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
   ['내부 코드','서식명','현행 서식번호','배포본 확정','변경 제안'].forEach(
     x=>tr.appendChild(el('th',null,x)));
@@ -2469,7 +2520,7 @@ function formMapSettings(root){
       apply_path:'risk_lib/regulatory/form_ids.py',
       procedure:['코드 반영','파이프라인 재실행','자체검증(2선) FAIL 0 확인',
                  '독립검증(3선) 재요청','게이트 통과 후 결재'],
-      note:'화면에는 적용되지 않는다 — 제출 지문이 걸린 값이다.'},null,2);
+      note:'화면에는 적용되지 않는다. 서식번호는 제출 지문에 포함된다.'},null,2);
   };
   root.appendChild(c);
 }
@@ -2479,7 +2530,7 @@ function scenarioSettings(root){
   const c=el('div','card set-scenario');
   c.appendChild(el('h3',null,'위기상황 시나리오 설정 — 충격 축 파라미터'));
   c.appendChild(el('div','meta',
-    '충격 축 14종의 단위충격 × 심도 구조를 편집해 **변경 제안서**를 만든다. '+
+    '충격 축 14종의 단위충격 × 심도 구조를 편집해 변경 제안서를 만든다. '+
     '화면은 재계산하지 않는다 — 시나리오 파라미터는 RWA·비율·판정 전체에 '+
     '전이되므로, 적용은 파이프라인 재실행과 검증 두 층을 다시 거쳐야 한다.'));
   if(!T){c.appendChild(el('div','note','추적표가 없다.'));root.appendChild(c);return}
@@ -2549,7 +2600,7 @@ function scenarioSettings(root){
       apply_path:'risk_lib/stress/axes.py (충격 축 · 심도 정의)',
       procedure:['코드 반영','파이프라인 재실행','자체검증(2선) FAIL 0 확인',
                  '독립검증(3선) 재요청','게이트 통과 후 결재'],
-      note:'화면은 재계산하지 않는다 — 이 제안은 입력이지 산출이 아니다.'},null,2);
+      note:'화면은 재계산하지 않는다.'},null,2);
   };
   root.appendChild(c);
 }
@@ -2667,7 +2718,7 @@ function executiveReport(root){
   const at=E.attribution;
   if(at&&at.length){
     const c=el('div','card');c.id='sec-rwa-attr';
-    c.appendChild(el('h3',null,'위험가중자산 귀속 — 무엇이 분모를 만드는가'));
+    c.appendChild(el('h3',null,'위험가중자산 귀속 — 구성요소별 비중'));
     c.appendChild(donut(at.map(x=>({label:x.component,value:x.rwa})),
       {note:'구성요소별 위험가중자산 · 합계는 공표 RWA와 같다'}));
     root.appendChild(c);
@@ -2727,9 +2778,8 @@ function reqTrace(root){
   const R=D.req_trace;
   root.appendChild(el('p','lead',
     'RYNTA v9.6.0 업무요건정의서 Level 1 요건 131건을 이 하네스의 실재 증빙'+
-    '(모듈·원장·화면·테스트)에 대조한다. 증빙 참조는 테스트가 실재를 검증하므로 '+
-    '여기 뜨는 상태는 주장이 아니라 검사를 통과한 목록이다. 미반영은 숨기지 '+
-    '않는다 — 커버리지는 자랑이 아니라 재고조사다.'));
+    '(모듈·원장·화면·테스트)에 대조한다. 증빙 참조는 tests/test_req_trace.py 가 '+
+    '실재를 검증한 것만 싣는다. 미반영 요건도 그대로 표시한다.'));
 
   const c0=el('div','card');
   c0.appendChild(el('h3',null,'커버리지 — '+R.coverage.source));
@@ -2833,9 +2883,9 @@ function overlay(root){
     if(STATE.killed&&STATE.killScope==='전사'){
       err.textContent='비상정지 중 — 제안을 만들지 않는다.';err.hidden=false;return}
     if(!why.value.trim()||!ev.value.trim()){
-      err.textContent='사유와 증빙 참조는 필수다 — 기록 없는 조정은 없다.';
+      err.textContent='사유와 증빙 참조는 필수다.';
       err.hidden=false;return}
-    if(!val.value.trim()){err.textContent='수정값을 입력하라.';err.hidden=false;return}
+    if(!val.value.trim()){err.textContent='수정값이 비어 있다.';err.hidden=false;return}
     const k=D.kpis.find(x=>x.label===sel.value);
     out.textContent=JSON.stringify({
       proposal:'수동조정(오버레이)',asof:D.meta.asof,run_id:D.meta.run_id,
@@ -2844,7 +2894,7 @@ function overlay(root){
       apply_path:'risk_lib/adjustments.py (ManualAdjustment 등재)',
       procedure:['원장 등재(승인자·만료일 포함)','4-Eyes 승인',
                  '파이프라인 재실행','자체검증(2선)','독립검증(3선) 재요청'],
-      note:'화면 값은 바뀌지 않는다 — 조정은 원장을 거쳐야 산출물이 된다.'},null,2);
+      note:'화면 값은 바뀌지 않는다.'},null,2);
   };
   root.appendChild(c);
 }
@@ -2915,7 +2965,7 @@ function codeMasterAdmin(root){
     right.innerHTML='';
     right.appendChild(el('h3',null,`코드 — ${sel}`));
     right.appendChild(el('div','meta',
-      `출처 ${[...groups[sel].src].join(' · ')} · 선언 순서가 곧 업무 순서다`));
+      `출처 ${[...groups[sel].src].join(' · ')} · 정렬은 카탈로그 선언 순서를 따른다`));
     const codes=currentCodes();
     const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
     ['순서','코드','이동'].forEach(x=>tr.appendChild(el('th',null,x)));
@@ -3026,8 +3076,8 @@ function simulation(root){
     c2.appendChild(table({columns:['충격','비율','변화'],rows:rowsv,
       total:rowsv.length,shown:rowsv.length},{numeric:false}));
     c2.appendChild(el('div','note',
-      '설명용 산술이다 — RWA 변화가 위기 경로·유동성·손익에 미치는 2차 효과는 '+
-      '여기 없다. 그 영향은 시나리오 설정 제안 → 파이프라인 재실행으로만 본다.'));
+      'RWA 변화가 위기 경로·유동성·손익에 미치는 2차 효과는 여기 없다. '+
+      '그 영향은 시나리오 설정 제안 → 파이프라인 재실행으로만 본다.'));
     pane.appendChild(c2);
   }
   dRwa.oninput=draw;dCap.oninput=draw;draw();
@@ -3042,7 +3092,6 @@ function limitsScreen(root){
      "위반 N건"이 갑자기 전 버킷 수가 된다. */
   const f=D.limits_full||D.limits;
   const i=frameIdx(f);
-  const tone=s=>s==='BREACH'||s==='CRITICAL'?'bad':s==='WARN'?'warn':'good';
 
   const bySev={};f.rows.forEach(r=>{const k=r[i.severity];bySev[k]=(bySev[k]||0)+1});
   const g=el('div','grid');
@@ -3058,7 +3107,7 @@ function limitsScreen(root){
     .sort((a,b)=>b[i.utilisation]-a[i.utilisation]).slice(0,14)
     .map(r=>({label:`${r[i.limit]} · ${r[i.bucket]}`,
       value:r[i.utilisation]*100,sub:`익스포저 ${fmtMoney(r[i.exposure])} / 한도 ${fmtMoney(r[i.threshold])}`,
-      tone:tone(r[i.severity])})),
+      tone:limitTone(r[i.severity])})),
     {title:'소진율 상위 (%)',money:false,src:srcMeta(f)}));
 
   /* 차원별 최대 소진율 — 어느 축이 가장 조인지 한눈에 */
@@ -3074,17 +3123,198 @@ function limitsScreen(root){
   root.appendChild(c0);
 
   const c=el('div','card');c.appendChild(el('h3',null,'한도 소진 원장'));
-  c.appendChild(table(f,{rowClass:r=>{const t=tone(r[i.severity]);
-    return t==='bad'?'bad':t==='warn'?'warn':null}}));
+  c.appendChild(table(f,{rowClass:r=>{const t=limitTone(r[i.severity]);
+    return t==='good'?null:t}}));
   c.appendChild(srcMeta(f));root.appendChild(c);
+}
+
+/* ---- 거시·금융지표 모니터링 ----
+   최근값·경보·충격 배수는 payload(D.macro)가 들고 있는 엔진 산출을 그대로
+   쓴다. 화면은 고르고 그릴 뿐 다시 집계하지 않는다. */
+function macroFmt(v,u){
+  if(v===null||v===undefined)return '—';
+  if(u==='원')return fmtNum(Math.round(v))+'원';
+  if(u==='지수')return v.toFixed(1);
+  if(u==='bp')return v.toFixed(1)+'bp';
+  return v.toFixed(2)+u;                 /* % · %p */
+}
+function macroMonitor(root){
+  const M=D.macro;
+  if(!M){root.appendChild(el('div','note','거시지표 원장이 payload에 없다'));return}
+  root.appendChild(el('p','lead',
+    '통합위기상황분석 시나리오의 입력이 되는 거시·금융지표 12종이다. 부문별 '+
+    '최근값과 이탈 경보, 계열 추이, 그리고 시나리오 가정값이 어느 지표의 어떤 '+
+    '값에서 나왔는지를 같은 원장에서 읽는다.'));
+  root.appendChild(el('div','note',
+    '값의 근거는 '+Object.entries(M.basis_mix)
+      .map(([k,v])=>k+' '+v.toLocaleString()+'행').join(' · ')+
+    '이다. 이 환경은 외부 통계 API 로 나가는 통신이 막혀 있어 실측 피드가 없다. '+
+    '출처 코드(한국은행 ECOS 통계표코드 · 통계청 KOSIS 표ID)는 실제 계열을 '+
+    '가리키므로, 피드가 열리면 macro_monitor 의 관측치만 교체하면 된다.'));
+
+  const g=el('div','grid');
+  [['모니터링 지표',M.latest.length+'종',''],
+   ['관측',M.observations.total.toLocaleString()+'행',''],
+   ['이탈 경보 (|z| ≥ '+M.z_threshold+')',String(M.alerts.length),
+    M.alerts.length?'warn':'good'],
+   ['시나리오 연결',
+    new Set(M.links.map(x=>x.scenario)).size+'종 · '+M.links.length+'행','']]
+  .forEach(([k,v,t])=>{
+    const c=el('div','card kpi');c.appendChild(el('div','lab',k));
+    c.appendChild(el('div','val '+t,v));g.appendChild(c)});
+  root.appendChild(g);
+
+  /* --- 1. 경보 --- */
+  const ac=el('div','card');
+  ac.appendChild(el('h3',null,'이탈 경보 — 최근 관측이 자기 계열의 평소 범위를 벗어난 지표'));
+  if(!M.alerts.length){
+    ac.appendChild(el('div','meta','이탈 지표 없음'));
+  }else{
+    const w=el('div','tw'),t=el('table'),th=el('thead'),htr=el('tr');
+    ['지표','부문','관측시점','값','z','움직이는 축'].forEach((x,k)=>
+      htr.appendChild(el('th',k===4?'num':null,x)));
+    th.appendChild(htr);t.appendChild(th);
+    const tb=el('tbody');
+    M.alerts.forEach(a=>{
+      const r=el('tr');
+      r.appendChild(el('td',null,a.name));
+      r.appendChild(el('td',null,a.category));
+      r.appendChild(el('td','mono',a.period));
+      r.appendChild(el('td','mono',macroFmt(a.value,a.unit)));
+      const zd=el('td','num');
+      zd.appendChild(pill((a.z>0?'+':'')+a.z.toFixed(2),
+        Math.abs(a.z)>=2?'bad':'warn'));
+      r.appendChild(zd);
+      r.appendChild(el('td','meta',a.drives));
+      tb.appendChild(r)});
+    t.appendChild(tb);w.appendChild(t);ac.appendChild(w);
+  }
+  ac.appendChild(el('div','meta',
+    '임계는 계열 자신의 표준편차다 — 수준·단위가 지표마다 달라 절대값 임계를 '+
+    '두면 환율만 계속 걸린다.'));
+  root.appendChild(ac);
+
+  /* --- 3. 시계열 (표에서 지표를 눌러도 여기로 온다) --- */
+  const sc=el('div','card');
+  sc.appendChild(el('h3',null,'계열 추이'));
+  const bar=el('div','toolbar');
+  const sel=el('select','sel');
+  M.latest.forEach(x=>{const o=el('option');o.value=x.indicator_id;
+    o.textContent=x.category+' · '+x.name;sel.appendChild(o)});
+  bar.appendChild(sel);sc.appendChild(bar);
+  const spane=el('div');sc.appendChild(spane);
+  const oi=frameIdx(M.observations);
+  function drawSeries(){
+    spane.innerHTML='';
+    const id=sel.value;
+    const m=M.latest.find(x=>x.indicator_id===id);
+    const rows=M.observations.rows.filter(r=>r[oi.indicator_id]===id);
+    if(!m||!rows.length){spane.appendChild(el('div','meta','계열이 없다'));return}
+    const labels=rows.map(r=>r[oi.period]);
+    spane.appendChild(multiLine(
+      [{name:m.name+' ('+m.unit+')',values:rows.map(r=>r[oi.value])}],labels,null));
+    spane.appendChild(el('div','meta',
+      labels[0]+'~'+labels[labels.length-1]+' '+rows.length+'기 · 주기 '+m.freq+
+      ' · 최근값 '+macroFmt(m.value,m.unit)+
+      ' · 전년동기대비 '+(m.yoy==null?'—':(m.yoy>=0?'+':'')+(m.yoy*100).toFixed(1)+'%')+
+      ' · 출처 '+m.source+' '+m.source_code+' · 근거 '+m.basis+
+      ' · 움직이는 축 '+m.drives));
+    const al=M.alerts.find(a=>a.indicator_id===id);
+    if(al)spane.appendChild(el('div','note',
+      '이탈 경보 — 최근값이 직전 구간 평균에서 표준편차의 '+al.z.toFixed(2)+
+      '배만큼 떨어져 있다.'));
+  }
+  sel.onchange=drawSeries;
+
+  /* --- 2. 부문별 지표 표 --- */
+  const tc=el('div','card');
+  tc.appendChild(el('h3',null,'부문별 지표 — 최근값'));
+  const byCat=new Map();
+  M.latest.forEach(x=>{if(!byCat.has(x.category))byCat.set(x.category,[]);
+    byCat.get(x.category).push(x)});
+  const tw=el('div','tw'),tt=el('table'),tth=el('thead'),thr=el('tr');
+  ['지표','최근값','전년동기대비','관측시점','주기','출처','출처코드','움직이는 축']
+    .forEach((x,k)=>thr.appendChild(el('th',(k===1||k===2)?'num':null,x)));
+  tth.appendChild(thr);tt.appendChild(tth);
+  const ttb=el('tbody');
+  byCat.forEach((list,cat)=>{
+    const hr=el('tr'),hd=el('td','listsec',cat+' · '+list.length+'종');
+    hd.colSpan=8;hr.appendChild(hd);ttb.appendChild(hr);
+    list.forEach(x=>{
+      const r=el('tr'),nd=el('td');
+      /* 표에서 바로 계열을 고른다 — select 하나만 두면 표에서 눈에 띈 지표를
+         목록에서 다시 찾아야 한다 */
+      const b=el('button','chip',x.name);
+      b.onclick=()=>{sel.value=x.indicator_id;drawSeries();
+        sc.scrollIntoView({block:'nearest'})};
+      nd.appendChild(b);r.appendChild(nd);
+      r.appendChild(el('td','num mono',macroFmt(x.value,x.unit)));
+      r.appendChild(el('td','num mono',
+        x.yoy==null?'—':(x.yoy>=0?'+':'')+(x.yoy*100).toFixed(1)+'%'));
+      r.appendChild(el('td','mono',x.period));
+      r.appendChild(el('td',null,x.freq));
+      r.appendChild(el('td',null,x.source));
+      r.appendChild(el('td','mono',x.source_code));
+      r.appendChild(el('td','meta',x.drives));
+      ttb.appendChild(r)})});
+  tt.appendChild(ttb);tw.appendChild(tt);tc.appendChild(tw);
+  /* 수준이 %인 지표(금리·실업률)는 전년동기대비를 %p 차이로 읽기 쉬워, 원장
+     yoy 의 정의를 표 밑에 적는다. */
+  tc.appendChild(el('div','meta',
+    '전년동기대비는 1년 전 값 대비 비율 변화다 — 수준이 %인 지표도 같은 기준으로 '+
+    '계산한다. 지표명을 누르면 아래 추이가 그 계열로 바뀐다.'));
+  tc.appendChild(srcMeta(M.observations,'지표 '+M.latest.length+'종의 최근 1행'));
+  root.appendChild(tc);
+  root.appendChild(sc);
+  drawSeries();
+
+  /* --- 4. 시나리오 연결 --- */
+  const lc=el('div','card');
+  lc.appendChild(el('h3',null,'시나리오 연결 — 가정값이 어느 지표에서 나왔나'));
+  lc.appendChild(el('div','meta',
+    '시나리오 가정값 = 최근 관측값 + 배수 × 그 지표의 분기 변동성. 배수를 '+
+    '표준편차 단위로 두는 이유는, 수준이 다른 지표를 같은 %로 때리면 환율과 '+
+    '실업률이 같은 충격을 받은 셈이 되기 때문이다.'));
+  const chips=el('div','chips');
+  const scens=[...new Set(M.links.map(x=>x.scenario))];
+  let scen=scens[scens.length-1];
+  scens.forEach(s0=>{const b=el('button','chip',s0);
+    b.onclick=()=>{scen=s0;drawLinks()};chips.appendChild(b)});
+  lc.appendChild(chips);
+  const lpane=el('div');lc.appendChild(lpane);
+  function drawLinks(){
+    [...chips.children].forEach(b=>b.classList.toggle('on',b.textContent===scen));
+    lpane.innerHTML='';
+    const rows=M.links.filter(x=>x.scenario===scen);
+    const moved=rows.filter(x=>x.sigma!==0)
+      .sort((a,b)=>Math.abs(b.sigma)-Math.abs(a.sigma));
+    if(moved.length){
+      lpane.appendChild(hbars(moved.map(x=>({label:x.name,value:x.sigma,
+        sub:macroFmt(x.latest,x.unit)+' → '+macroFmt(x.scenario_value,x.unit)})),
+        {title:'충격 배수 (표준편차 단위) — 음수는 하락, 양수는 상승',money:false}));
+    }else{
+      lpane.appendChild(el('div','meta',
+        '충격 없음 — 관측값을 그대로 가정값으로 쓴다.'));
+    }
+    lpane.appendChild(table({
+      columns:['지표','최근 관측','시나리오 가정','충격폭','배수(σ)','움직이는 축'],
+      rows:rows.map(x=>[x.name,macroFmt(x.latest,x.unit),
+        macroFmt(x.scenario_value,x.unit),
+        (x.shock>0?'+':'')+macroFmt(x.shock,x.unit),
+        x.sigma?(x.sigma>0?'+':'')+x.sigma.toFixed(1):'—',x.drives]),
+      total:rows.length,shown:rows.length},{numeric:false}));
+    lpane.appendChild(el('div','meta',
+      '원장 macro_scenario_link · '+M.links.length+'행 중 '+scen+' '+rows.length+'행'));
+  }
+  drawLinks();
+  root.appendChild(lc);
 }
 
 /* ---- 역스트레스 ---- */
 function reverseStress(root){
   root.appendChild(el('p','lead',
-    '순방향 위기상황이 "이 시나리오면 자본이 어떻게 되나"를 묻는다면, 역방향은 '+
-    '"어느 심도가 자본 임계를 뚫는가"를 푼다. 여기 값은 파이프라인이 푼 해다 — '+
-    '화면 계산이 아니다.'));
+    '자본 임계를 뚫는 충격 심도를 역산한다. 값은 파이프라인 산출이며 화면에서 '+
+    '계산하지 않는다.'));
   const r=D.reverse_stress;
   const g=el('div','grid');
   [['대상 지표',r.metric.toUpperCase()+' 비율',''],
@@ -3138,8 +3368,8 @@ const liquidityRisk=screenOf({
 function codeScope(root){
   root.appendChild(el('p','lead',
     '계정·상품 코드가 어느 리스크의 모집단에 들어가는지의 매핑이다. 매핑이 '+
-    '없으면 코드 하나가 조용히 모든 산출에서 빠진다 — 대사는 들어온 것끼리만 '+
-    '비교한다. 대상여부는 특성에서 규칙으로 파생되고(code_scope), 예외는 '+
+    '없으면 그 코드는 모든 산출에서 빠지고, 대사에도 걸리지 않는다. '+
+    '대상여부는 특성에서 규칙으로 파생되고(code_scope), 예외는 '+
     '여기서 제안으로만 만든다.'));
   const bar=el('div','toolbar');
   const mode=el('select','sel');
@@ -3159,9 +3389,8 @@ function codeScope(root){
       const c=el('div','card');
       c.appendChild(el('h3',null,'계정코드 × 리스크 대상·엔진 연계 매트릭스'));
       c.appendChild(el('div','meta',
-        '신용환산율·위험가중 범위는 산출 엔진 상수(capital.crm·rwa_sa)에서, '+
-        '모집단(건수·EAD)은 익스포저 원장에서, LCR 적용률은 산출 원장에서 '+
-        '직접 읽는다 — 별사본이 없으니 매핑이 낡을 수 없다.'));
+        '신용환산율·위험가중 범위는 산출 엔진 상수(capital.crm·rwa_sa), '+
+        '모집단(건수·EAD)은 익스포저 원장, LCR 적용률은 산출 원장에서 읽는다.'));
       const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
       ['계정','명칭','신용','자산군·접근법','위험가중',
        '신용환산(CCF)','모집단 실측','금리','유동성','LCR 분류·적용률']
@@ -3276,8 +3505,14 @@ function cockpitInsights(){
     const rv=D.reverse_stress;
     if(rv&&rv.critical_severity<1)out.push({t:`역스트레스 임계 심도 ${rv.critical_severity.toFixed(2)} — 심각(1.0)보다 약한 충격에 임계 붕괴`,tone:'bad'});
     const lm=D.limits,li=frameIdx(lm);
-    const br=lm.rows.filter(r=>r[li.severity]==='breach');
-    if(br.length)out.push({t:`한도 위반 ${br.length}건 — 최고 소진 ${(Math.max(...lm.rows.map(r=>r[li.utilisation]))*100).toFixed(0)}% (${br[0][li.limit]})`,tone:'bad'});
+    const br=lm.rows.filter(r=>limitBreached(r[li.severity]));
+    if(br.length){
+      /* 최고 소진율과 한도명은 **같은 행**에서 뽑는다. 원장은 소진율 순이
+         아니라서 br[0] 이름에 전체 최대값을 붙이면 엉뚱한 한도가 115%
+         소진된 것으로 읽힌다. */
+      const top=lm.rows.reduce((a,b)=>b[li.utilisation]>a[li.utilisation]?b:a);
+      out.push({t:`한도 위반 ${br.length}건 — 최고 소진 ${(top[li.utilisation]*100).toFixed(0)}% (${top[li.limit]} · ${top[li.bucket]})`,tone:'bad'});
+    }
     const ex=D.data['gov_exception_action'];
     if(ex){const xi=frameIdx(ex);
       const grave=ex.rows.filter(r=>r[xi.severity]==='중대').length;
@@ -3294,10 +3529,12 @@ function cockpitInsights(){
 }
 const SUMMARIES={
   '콕핏':()=>cockpitInsights()[0],
-  '한도관리':()=>{const f=D.limits,i=frameIdx(f);
-    const br=f.rows.filter(r=>r[i.severity]==='breach').length;
-    const wr=f.rows.filter(r=>r[i.severity]==='warning').length;
-    return br?{t:`한도 ${f.total}건 중 위반 ${br} · 경보 ${wr} — 위반 구간부터 검토하라`,tone:'bad'}
+  /* 요약은 화면 본문과 같은 프레임(전량)을 세야 한다 — D.limits 는 90% 이상만
+     담은 위반 보고서라, 그걸 세면 "한도 4건" 이 25행 원장 위에 붙는다. */
+  '한도관리':()=>{const f=D.limits_full||D.limits,i=frameIdx(f);
+    const br=f.rows.filter(r=>limitBreached(r[i.severity])).length;
+    const wr=f.rows.filter(r=>r[i.severity]==='WARN').length;
+    return br?{t:`한도 ${f.total}건 중 위반 ${br} · 경보 ${wr}`,tone:'bad'}
       :{t:`한도 ${f.total}건 — 위반 없음 · 경보 ${wr}건`,tone:wr?'warn':'good'}},
   '역스트레스':()=>{const r=D.reverse_stress;
     return {t:`임계 심도 ${r.critical_severity.toFixed(2)}에서 ${r.metric.toUpperCase()} ${(r.target_ratio*100).toFixed(0)}% 붕괴 — 함의 GDP ${(r.implied_gdp_shock*100).toFixed(1)}%`,
@@ -3331,7 +3568,7 @@ const SUMMARIES={
   '검증 일정':()=>{const f=D.data['crm_model'];if(!f)return null;
     const i=frameIdx(f);
     const nxt=f.rows.slice().sort((a,b)=>String(a[i.next_due]).localeCompare(String(b[i.next_due])))[0];
-    return {t:`가장 이른 차기 기한 ${nxt[i.next_due]} (${nxt[i.model_id]}) — 기한 경과는 산출 사용 불가를 뜻한다`,tone:'warn'}},
+    return {t:`가장 이른 차기 기한 ${nxt[i.next_due]} (${nxt[i.model_id]})`,tone:'warn'}},
   '변별력·안정성':()=>{const f=D.data['crm_performance'];if(!f)return null;
     const i=frameIdx(f);
     const low=f.rows.filter(r=>(r[i.gini]||0)<0.4).length;
@@ -3342,7 +3579,7 @@ const SUMMARIES={
     const bad=f.rows.filter(r=>!r[i.within_tolerance]).length;
     return {t:`등급 ${f.total}건 중 허용범위 밖 ${bad}건 — O/E 괴리가 기준을 넘은 등급은 재보정 대상`,
       tone:bad?'warn':'good'}},
-  '모형리스크':()=>({t:'Tier 1 은 연 1회 독립검증·챌린저 유지 — 모형은 만들어 두는 것이 아니라 주기적으로 다시 증명하는 자산이다',tone:'good'}),
+  '모형리스크':()=>({t:'Tier 1 은 연 1회 독립검증·챌린저 모형 유지 — 검증 주기는 등급이 정한다',tone:'good'}),
   /* 이 원장은 "등급 유지" 와 "부도(D) 전이" 만 만든다 — 등급 간 상·하향은
      관측 구조상 존재할 수 없다. 상향 0건을 발견처럼 적으면 재등급을 측정해
      보니 없더라는 뜻이 되어 읽는 사람을 속인다. 있는 것만 말한다. */
@@ -3371,6 +3608,12 @@ const SUMMARIES={
     const i=frameIdx(f);
     const e=f.rows.reduce((a,r)=>a+(r[i.ead]||0),0);
     return {t:`신용 축 집계 ${f.total}행 · EAD ${fmtMoney(e)} — 도메인마다 축이 다르다`,tone:'good'}},
+  '거시지표 모니터링':()=>{const M=D.macro;if(!M)return null;
+    const n=M.alerts.length;
+    return {t:`지표 ${M.latest.length}종 · 관측 ${M.observations.total}행 — 이탈 ${n}건`+
+      (n?` (최대 ${M.alerts[0].name} z ${M.alerts[0].z.toFixed(2)})`:'')+
+      ` · 근거 `+Object.entries(M.basis_mix).map(([k,v])=>k+' '+v+'행').join(' · '),
+      tone:n?'warn':'good'}},
   '산출 방법론':()=>({t:'원장에 세 방법 결과가 다 있다 — 방법 변경 영향을 재계산 없이 본다. 적용은 재실행·검증 두 층',tone:'warn'}),
   '코드 매핑':()=>{const cr=D.data['crm_code_scope'],i=frameIdx(cr);
     const n=cr.rows.filter(r=>r[i.in_scope]).length;
@@ -3400,9 +3643,8 @@ function insertSummary(label,section){
 
 function scenarioScreen(root){
   root.appendChild(el('p','lead',
-    '위기상황 시나리오의 정의를 한 화면에서 본다 — 충격 축 14종의 단위충격, '+
-    '시나리오별 분기 심도 경로, 신규 시나리오 제안. 화면은 재계산하지 않는다 — '+
-    '적용은 코드 반영 + 파이프라인 재실행 + 검증 두 층이다.'));
+    '위기상황 시나리오 정의 — 충격 축 14종의 단위충격, 시나리오별 분기 심도 '+
+    '경로, 신규 시나리오 제안.'));
   /* 분기 심도 경로 — 추적표에서 그대로 */
   const T=traceRows();
   if(T){
@@ -3434,7 +3676,7 @@ function scenarioScreen(root){
     err.hidden=true;out.textContent='';
     if(STATE.killed&&STATE.killScope==='전사'){
       err.textContent='비상정지 중 — 제안을 만들지 않는다.';err.hidden=false;return}
-    if(!nm.value.trim()){err.textContent='이름을 입력하라.';err.hidden=false;return}
+    if(!nm.value.trim()){err.textContent='시나리오 이름이 비어 있다.';err.hidden=false;return}
     if(!/^\d+(\.\d+)?$/.test(sv.value.trim())){
       err.textContent='정점 심도는 숫자다.';err.hidden=false;return}
     out.textContent=JSON.stringify({
@@ -3443,7 +3685,7 @@ function scenarioScreen(root){
       apply_path:'risk_lib/stress/scenario.py · axes.py',
       procedure:['시나리오 정의 코드 반영','파이프라인 재실행',
                  '자체검증(2선)','독립검증(3선) 재요청','게이트 통과 후 결재'],
-      note:'심도 경로·충격 축 배수는 기존 체계를 따른다 — 화면은 재계산하지 않는다.'},null,2);
+      note:'심도 경로·충격 축 배수는 기존 체계를 따른다.'},null,2);
   };
   root.appendChild(c2);
 }
@@ -3512,9 +3754,8 @@ function modelInventory(root){
 
 function modelValidationSchedule(root){
   root.appendChild(el('p','lead',
-    '검증 주기는 등급이 정한다 — Tier 1 은 연 1회, Tier 2 는 2년, Tier 3 은 3년이 '+
-    '통상이다. 기한 경과는 "아직 안 했다"가 아니라 **그 모형의 산출을 쓸 수 없다**는 '+
-    '뜻이므로 경과일을 원장에 두고 화면이 읽는다.'));
+    '검증 주기는 등급이 정한다 — Tier 1 연 1회, Tier 2 2년, Tier 3 3년. '+
+    '기한이 지난 모형의 산출은 재검증 전까지 쓸 수 없다.'));
   const f=D.data['crm_model'];
   if(!f)return;
   const i=frameIdx(f);
@@ -3573,8 +3814,8 @@ function modelValidationSchedule(root){
   const c2=el('div','card');
   c2.appendChild(el('h3',null,'의존 관계와 알려진 한계'));
   c2.appendChild(el('div','meta',
-    '상류 모형이 바뀌면 하류도 재검증 대상이다. 한계를 원장에 적지 않으면 '+
-    '사용자가 모른 채 쓴다.'));
+    '상류 모형이 바뀌면 하류도 재검증 대상이다. 알려진 한계는 모형 원장에 '+
+    '기재된 값이다.'));
   c2.appendChild(table({table:'crm_model',
     columns:['model_id','dependencies','known_limitations'],
     labels:['모형','의존 모형·데이터','알려진 한계'],
@@ -3627,8 +3868,7 @@ function modelCalibration(root){
 
 function modelRiskGovernance(root){
   root.appendChild(el('p','lead',
-    '모형리스크 관리 — 등급별 거버넌스 요구, 운영 상태, 검증 기한. 모형은 '+
-    '만들어 놓고 두는 것이 아니라 주기적으로 다시 증명해야 하는 자산이다.'));
+    '모형리스크 관리 — 등급별 거버넌스 요구, 운영 상태, 검증 기한.'));
   const f=D.data['crm_model'];
   if(!f)return;
   const i=frameIdx(f);
@@ -3643,13 +3883,12 @@ function modelRiskGovernance(root){
     value:f.rows.filter(r=>r[i.tier]===t).length,
     sub:`검증 주기 ${CYCLE[t]}개월`,
     tone:t===1?'warn':undefined})),
-    {title:'등급별 모형 수와 검증 주기 — 등급이 주기를 정한다',money:false,
+    {title:'등급별 모형 수와 검증 주기',money:false,
      src:srcMeta(f)}));
   const own={};f.rows.forEach(r=>{own[r[i.owner]]=(own[r[i.owner]]||0)+1});
   two.appendChild(hbars(Object.entries(own)
     .sort((a,b)=>b[1]-a[1]).map(([k,v])=>({label:k,value:v})),
-    {title:'소유부서별 모형 수 — 책임 소재가 분산되면 재검증이 밀린다',
-     money:false}));
+    {title:'소유부서별 모형 수',money:false}));
   root.appendChild(two);
 
   const c=el('div','card');
@@ -3672,8 +3911,8 @@ function modelRiskGovernance(root){
     label:`${k} — ${v}건`, right:k==='PROD'?'운영 중':'운영 전',
     tone:k==='PROD'?'good':'warn'}))));
   c2.appendChild(el('div','note',
-    '운영 전(UAT·개발) 모형의 산출은 공표·제출에 쓰지 않는다. 상태가 원장에 '+
-    '있으므로 어느 화면이든 같은 판정을 본다.'));
+    '운영 전(UAT·개발) 모형의 산출은 공표·제출에 쓰지 않는다. 상태는 모형 '+
+    '원장 값이다.'));
   root.appendChild(c2);
 }
 
@@ -3767,8 +4006,7 @@ function methodology(root){
         g.appendChild(cc)});
       pane.appendChild(g);
       if(skipped)pane.appendChild(el('div','note',
-        `산출 불가 ${skipped}건은 채택값을 유지했다 — 0으로 채우면 자본이 `+
-        `사라지고 그 사실이 화면에 남지 않는다.`));
+        `산출 불가 ${skipped}건은 채택값을 유지했다.`));
       pane.appendChild(table({table:'rwa_sec_result',
         columns:['tranche_id','tranche_name','adopted_method','rw_sa','rw_erba','rw_irba','adopted_rw','floor_applied'],
         labels:['트렌치','트렌치명','채택','SA RW','ERBA RW','IRBA RW','채택 RW','하한 적용'],
@@ -3953,8 +4191,7 @@ function commercial(root){
   const C=D.commercial;
   root.appendChild(el('p','lead',
     '사업성 산출 — 규제 산출물이 아니다. 제출 지문·독립검증 대상에 넣지 않으며, '+
-    '모든 금액은 가정 원장에서 계산으로만 나온다. 가정 없이 등장하는 금액이 '+
-    '하나라도 있으면 그 표는 견적이 아니라 소설이다. 전부 합성 가정이며 실제 '+
+    '모든 금액은 가정 원장에서 계산으로만 나온다. 전부 합성 가정이며 실제 '+
     '견적은 계약 가정으로 교체된다.'));
   const dc=C.double_counting;
   const note=el('div','note'+(dc.length?' bad':''));
@@ -3985,7 +4222,7 @@ const DETAIL_SCREENS=[
     tables:[['DQ 규칙 원장','rdm_dq_rule'],['DQ 판정 결과','rdm_dq_result'],
             ['집계·대사','rdm_reconciliation']]})],
   ['예외·조치','A · 예외·조치 워크플로 — 접수→조치→종결',screenOf({
-    lead:'대사·DQ·IPV 세 원장의 미해소 예외가 표준 조치·담당·기한이 붙은 하나의 큐로 모인다. 예외를 보여주는 것과 조치가 추적되는 것은 다르다 — 종결은 사람 승인 후에만 한다.',
+    lead:'대사·DQ·IPV 세 원장의 미해소 예외가 표준 조치·담당·기한이 붙은 하나의 큐로 모인다. 종결은 사람 승인 후에만 한다.',
     charts:exceptionQueue,
     tables:[['예외·조치 큐','gov_exception_action'],
             ['경보·조치 정책 바인딩','gov_alert_policy']]})],
@@ -3996,7 +4233,7 @@ const DETAIL_SCREENS=[
     tables:[['담보 원장','rdm_collateral'],['보증 원장','rdm_guarantee'],
             ['차주 재무','rdm_obligor_financial']]})],
   ['등급 전이','MDL · 등급 전이행렬 — 세그먼트별 피봇',screenOf({
-    lead:'등급 이동행렬과 그 재료가 되는 원장들이다. 전이행렬 피봇의 행·열은 코드 마스터(등급 사다리) 순서다. 모형 인벤토리 원장은 이 화면에서 뺐다 — 같은 원장을 두 화면이 각자 그리면 어느 쪽이 최신인지 물어야 한다.',
+    lead:'등급 이동행렬과 그 재료가 되는 원장들이다. 전이행렬 피봇의 행·열은 코드 마스터(등급 사다리) 순서다. 모형 인벤토리는 모형 > 모형 인벤토리 화면에 있다.',
     charts:migrationPivot,
     tables:[['PD 보정','crm_pd_calibration'],
             ['모형 성능','crm_performance'],['등급 이동행렬','crm_rating_migration'],
@@ -4065,7 +4302,7 @@ const DETAIL_SCREENS=[
             ['운용지침 한도 (MBA 입력)','rdm_fund_mandate'],
             ['위험가중자산 — 세 방법·채택값','rwa_fund_result']]})],
   ['파생상품','DRV · 파생 마스터·기초자산·넷팅집합 (CRE52 SA-CCR)',screenOf({
-    lead:'거래 마스터와 기초자산(다리)을 분리해 SA-CCR EAD 와 시장리스크 민감도를 둘 다 낸다. SA-CCR 엔진은 기존 risk_lib/ccr.py 를 그대로 쓴다 — 기초자산의 자산군 어휘가 그 엔진의 감독계수 키와 같다.',
+    lead:'거래 마스터와 기초자산(다리)을 분리해 SA-CCR EAD 와 시장리스크 민감도를 둘 다 낸다. EAD 는 risk_lib/ccr.py 산출이며 기초자산 자산군이 감독계수 키가 된다.',
     autochart:[['거래상대방별 명목','rdm_derivative_master',['counterparty'],'notional'],
                ['자산군별 명목','rdm_derivative_underlying',['asset_class'],'notional']],
     tables:[['파생 마스터','rdm_derivative_master'],['기초자산 (다리)','rdm_derivative_underlying'],
@@ -4076,8 +4313,8 @@ const DETAIL_SCREENS=[
                ['트렌치별 보유액','rdm_sec_tranche',['tranche_name'],'holding_amount']],
     tables:[['유동화 딜 마스터','rdm_sec_master'],['트렌치','rdm_sec_tranche'],
             ['기초자산 풀','rdm_sec_pool'],['위험가중자산 — 세 방법·채택값','rwa_sec_result']]})],
-  ['집계 원장','AGG · 도메인별 익스포저 집계 — 축이 도메인마다 다르다',screenOf({
-    lead:'도메인마다 집계 축과 필요 컬럼이 다르다. 하나의 원장을 각자 집계하면 같은 "익스포저 합"이 도메인마다 달라지고 어느 쪽이 맞는지 사후에 알 수 없다 — 그래서 집계를 원장으로 고정했다. 신용·ALM 집계의 EAD 합은 익스포저 원장 총계와 일치한다.',
+  ['집계 원장','AGG · 도메인별 익스포저 집계',screenOf({
+    lead:'도메인마다 집계 축과 필요 컬럼이 다르므로 집계 결과를 원장으로 고정했다. 신용·ALM 집계의 EAD 합은 익스포저 원장 총계와 일치한다.',
     autochart:[['자산군별 익스포저(신용 축)','agg_credit_exposure',['asset_class'],'ead'],
                ['리프라이싱 구간별 익스포저(ALM 축)','agg_alm_exposure',['repricing_bucket'],'ead']],
     tables:[['신용 집계','agg_credit_exposure'],['시장 집계','agg_market_exposure'],
@@ -4086,7 +4323,8 @@ const DETAIL_SCREENS=[
   ['상업성','$ · 사업성 — 견적·ROI·Funnel (규제 산출물 아님)',commercial],
   ['시뮬레이션','SIM · 자본비율 영향도 — 설명용 산술 (승인·제출값 아님)',simulation],
   ['한도관리','LIM · 다차원 한도·소진율',limitsScreen],
-  ['오버레이','OVR · 수동조정(오버레이) — 인간 수정의 통제된 기록',overlay],
+  ['오버레이','OVR · 수동조정(오버레이) — 사유·증빙·승인·만료',overlay],
+  ['거시지표 모니터링','E · 거시·금융지표 모니터링 — 시나리오 심도의 근거',macroMonitor],
   ['역스트레스','RST · 역방향 위기상황 — 자본 임계를 뚫는 심도',reverseStress],
   ['시나리오 설정','SET · 위기상황 시나리오 설정 — 축·심도·신규 제안',scenarioScreen],
   ['코드 마스터','SET · 코드 마스터 관리 — 정렬 정본',codeMasterAdmin],
@@ -4344,7 +4582,7 @@ def render(studios: Studio | list[Studio]) -> str:
 <main></main>
 </div>
 <footer>
-  결정론적 엔진 · 제안 전용 에이전트 · 사람의 최종 승인 권한 · 증빙 계보.
+  엔진 산출은 결정론적이며, 에이전트는 제안만 하고 승인은 사람이 한다.
   화면의 모든 값은 합성 포트폴리오에서 <code>run_pipeline(seed=<span
   id="foot-seed">{m['seed']}</span>,
   asof='<span id="foot-asof">{html.escape(primary)}</span>')</code>로 산출한

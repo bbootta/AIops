@@ -840,8 +840,17 @@ def test_summary_strip_is_deterministic_rule_output(page):
     """요약 스트립 — 한도 화면의 문장이 원장 수치와 일치한다."""
     _tab_named(page, "한도")
     strip = page.inner_text("section.on .aisum")
-    total = page.evaluate("window.__RYNTA__.limits.total")
-    assert f"한도 {total}건" in strip
+    # 화면 본문이 그리는 프레임과 같은 것을 세야 한다. limits 는 소진율 90%
+    # 이상만 담은 위반 보고서라, 그걸 세면 요약이 아래 원장과 다른 건수를 말한다.
+    f = page.evaluate("window.__RYNTA__.limits_full || window.__RYNTA__.limits")
+    assert f"한도 {f['total']}건" in strip
+    # 심각도 어휘는 엔진(limit_engine.LimitBreach.severity)이 정본이다 —
+    # 대소문자가 어긋나면 위반이 있는데도 "위반 없음"으로 세어 통과해 버린다.
+    sev = [r[f["columns"].index("severity")] for r in f["rows"]]
+    br = sum(s in ("BREACH", "CRITICAL") for s in sev)
+    wr = sev.count("WARN")
+    assert (f"위반 {br}" in strip) if br else ("위반 없음" in strip)
+    assert f"경보 {wr}" in strip
     # 결정론 명시가 title 로 남아 있다 — LLM 호출로 오인되지 않게
     t = page.eval_on_selector("section.on .aisum", "e => e.title")
     assert "결정론" in t and "LLM" in t
