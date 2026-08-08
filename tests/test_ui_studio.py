@@ -600,15 +600,15 @@ def test_report_group_sits_above_the_control_centre(studio):
     nav = src[src.index("const NAVGROUPS=["):]
     i_rep, i_ctl = nav.index("'보고서'"), nav.index("'통제센터'")
     assert i_rep < i_ctl, "보고서 그룹이 통제센터 아래에 있다"
-    assert "'Executive Report'" in nav[i_rep:i_ctl], (
-        "보고서 그룹에 Executive Report 항목이 없다")
+    assert "'종합보고서'" in nav[i_rep:i_ctl], (
+        "보고서 그룹에 종합보고서 항목이 없다")
 
 
 def test_executive_screen_is_registered_and_has_a_builder(studio):
     """메뉴에 뜨는데 그리는 함수가 없으면 클릭했을 때 빈 화면이 된다."""
     src = render(studio)
     tabs = src[src.index("const TABS=["):]
-    assert "['Executive Report'," in tabs
+    assert "['종합보고서'," in tabs
     assert "function executiveReport(root)" in src
 
 
@@ -630,3 +630,42 @@ def test_executive_screen_uses_the_same_engine_as_the_html_report(studio):
     # 화면에 실제로 실렸는가 — payload를 만들어도 렌더에 안 들어가면 소용없다.
     src = render(studio)
     assert '"executive"' in src or "'executive'" in src
+
+
+def test_chart_primitives_cover_what_the_ops_reports_draw(studio):
+    """화면이 보고서와 같은 종류의 시각화를 갖는다.
+
+    실무진 보고서(ops/*.html)에는 bar 81 · hbar 27 · line 25 · stacked 13 ·
+    heatmap 8 · donut 7 · waterfall 6 · gauge 3 이 있는데, 화면에는
+    hbars·meter·sparkline·multiLine 넷뿐이었다 — 같은 사실을 보고서는 그림으로,
+    화면은 표로만 말하고 있었다.
+
+    전부 인라인 SVG여야 한다. 외부 차트 라이브러리를 쓰면 아티팩트 CSP에서
+    차단돼 배포본에서만 조용히 사라진다.
+    """
+    src = render(studio)
+    for fn in ("function bars(", "function stackBars(", "function donut(",
+               "function heat(", "function waterfall(", "function gauge(",
+               "function kriCards(", "function hbars(", "function multiLine("):
+        assert fn in src, f"차트 원시함수 없음: {fn}"
+    assert "cdn." not in src and "<script src=" not in src, (
+        "외부 스크립트 참조 — 아티팩트 CSP에서 차단된다")
+
+
+def test_ledger_screens_draw_the_ledger_not_just_tabulate_it(studio):
+    """원장 화면이 표만 내놓지 않는다 — 다수 원장이 자동 시각화를 갖는다.
+
+    화면 73개에 손으로 차트를 붙이는 대신 `autoChart`가 스펙에서 축을 고른다.
+    새 원장이 늘어도 자동으로 그려지므로, 이 검사는 그 경로가 살아 있는지를 본다.
+
+    **미리보기(12행)로는 그리지 않는다.** 2,980행 익스포저 원장의 12행짜리
+    막대는 표본이지 분포가 아니다 — 전량이 실린 프레임만 쓴다. "축이 없어서"
+    안 그리는 것과 "표본이라 못 그리는" 것은 다르고, 후자를 그럴듯하게 그리는
+    쪽이 더 나쁘다.
+    """
+    src = render(studio)
+    assert "function autoChart(" in src
+    assert "원장 전량" in src, "차트가 어느 모집단을 그렸는지 밝히지 않는다"
+    # 수치축은 우선순위로 고른다 — 컬럼 순서로 첫 매치를 잡으면 RWA 원장이
+    # `n_exposures`를 그린다(실제로 그랬다).
+    assert "const PREF=[" in src
