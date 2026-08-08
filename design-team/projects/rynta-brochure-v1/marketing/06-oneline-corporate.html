@@ -1,0 +1,363 @@
+<!doctype html>
+<!--
+  RYNTA 3단 접지 브로셔 시안 06 — 원라인 코퍼레이트 (팀4)
+  규격: A4 가로(297×210mm) × 2면(.sheet), 패널 3×99mm, CSS Grid
+  재단: 실제 인쇄 시 사방 3mm bleed 추가 필요. 날개 패널(바깥면 좌측)은
+        접힘 간섭 방지를 위해 폭 2~3mm 축소(96~97mm) 권장.
+        본 파일은 화면 검토용 트림 사이즈(297×210mm) 기준.
+  접는 선: 화면에서만 점선(.fold-guide) 표시, 인쇄 시 숨김. 접는 선 안쪽 5mm 세이프존 준수.
+  외부 의존성 0 — 모든 그래픽 인라인 SVG. 콘텐츠는 brief.md / research/brand-research.md 원문 기준.
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>시안 06 — 원라인 코퍼레이트 · RYNTA 3단 브로셔</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{
+  font-family:Pretendard,"Noto Sans KR","Malgun Gothic",sans-serif;
+  background:#e9ebf1;color:#101828;
+}
+/* ===== 화면 전용 프레임 ===== */
+.screen-wrap{display:grid;gap:26px;justify-items:center;padding:28px 16px 60px}
+.screen-label{
+  width:297mm;max-width:100%;font-size:12px;font-weight:800;color:#4455A3;
+  letter-spacing:.04em;display:flex;justify-content:space-between;align-items:baseline;
+}
+.screen-label small{font-weight:600;color:#6b7280;letter-spacing:0}
+.sheet{
+  width:297mm;height:210mm;background:#fff;position:relative;overflow:hidden;
+  display:grid;grid-template-columns:99mm 99mm 99mm;
+  box-shadow:0 6px 30px rgba(16,24,40,.16);
+}
+.fold-guide{position:absolute;top:0;bottom:0;border-left:1px dashed rgba(68,85,163,.45);z-index:60;pointer-events:none}
+.fold-guide.f1{left:99mm}.fold-guide.f2{left:198mm}
+@page{size:A4 landscape;margin:0}
+@media print{
+  body{background:#fff}
+  .screen-wrap{padding:0;gap:0;display:block}
+  .screen-label,.fold-guide{display:none}
+  .sheet{box-shadow:none;page-break-after:always}
+}
+/* ===== 공통 패널 ===== */
+.panel{position:relative;overflow:hidden;padding:11mm 9mm 10mm}
+.eyebrow{font-size:7.5pt;font-weight:800;letter-spacing:.16em;color:#4455A3}
+p,li,td,th{font-size:9pt;line-height:1.62}
+.muted{color:#525b6e}
+/* 체인링크 섹션 마커 */
+.sec-head{display:flex;align-items:center;gap:3mm;margin-bottom:5mm}
+.sec-head .num{font-size:8pt;font-weight:900;color:#fff;background:#4455A3;border-radius:50%;
+  width:6.2mm;height:6.2mm;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.sec-head h2{font-size:14pt;font-weight:900;letter-spacing:-.01em;color:#101828;line-height:1.25}
+.chain-rule{height:1.1mm;border-radius:1mm;margin:4mm 0 5mm;
+  background:linear-gradient(90deg,#4455A3 0 55%,#F8B739 55% 100%)}
+/* 체인 불릿 리스트 */
+ul.chain{list-style:none}
+ul.chain li{position:relative;padding-left:6.5mm;margin-bottom:2.6mm}
+ul.chain li>svg{position:absolute;left:0;top:1.1mm}
+/* ============ 표지 ============ */
+.cover{background:#fff;display:flex;flex-direction:column}
+.cover .pattern-band{position:absolute;left:0;right:0;top:0;height:16mm;opacity:.9}
+.cover .emblem-block{margin-top:15mm;text-align:left}
+.cover .tagline{margin-top:2.5mm;font-size:8.5pt;font-weight:800;color:#4455A3;letter-spacing:.02em}
+.cover .rynta-block{margin-top:auto;margin-bottom:9mm}
+.cover .rynta-lockup{display:flex;align-items:center;gap:4mm;margin-bottom:5mm}
+.cover .rynta-lockup .name{font-size:20pt;font-weight:900;letter-spacing:.05em;color:#101828;line-height:1}
+.cover .rynta-lockup .name small{font-size:10pt;font-weight:700;color:#525b6e;letter-spacing:.02em}
+.cover .define{font-size:14.5pt;font-weight:800;line-height:1.42;color:#101828;
+  border-left:1.6mm solid #F8B739;padding-left:4mm;margin-bottom:5mm}
+.cover .define b{color:#4455A3}
+.cover .sub{font-size:9.5pt;color:#525b6e;font-weight:600}
+.cover .foot{display:flex;justify-content:space-between;align-items:center;border-top:.4mm solid #e4e7ef;padding-top:4mm}
+.badge-vol{font-size:8pt;font-weight:900;color:#101828;background:#F8B739;border-radius:2mm;padding:1.2mm 3mm;letter-spacing:.08em}
+/* ============ 날개 ============ */
+.wing{background:#f3f4fa}
+.wing .lead{margin:0 0 5mm}
+table.kpi{width:100%;border-collapse:collapse;background:#fff;border-radius:2.5mm;overflow:hidden;
+  box-shadow:0 1px 0 rgba(16,24,40,.06)}
+table.kpi th{background:#4455A3;color:#fff;font-weight:800;font-size:8.5pt;text-align:left;padding:2.6mm 3mm;letter-spacing:.02em}
+table.kpi td{padding:2.7mm 3mm;border-top:.35mm solid #e8eaf3;vertical-align:middle}
+table.kpi td.g{white-space:nowrap;text-align:right;font-weight:900}
+.goal-chip{display:inline-block;background:#F8B739;color:#101828;font-size:7.5pt;font-weight:900;
+  border-radius:1.6mm;padding:.7mm 2mm;margin-right:1.5mm;letter-spacing:.04em}
+.wing .note{margin-top:4mm;font-size:8pt;color:#525b6e;line-height:1.55}
+.wing .who{margin-top:5mm;background:#fff;border:.45mm solid #d9ddef;border-radius:2.5mm;padding:3.5mm 4mm}
+.wing .who b{color:#4455A3}
+/* ============ 뒷면 ============ */
+.back{display:flex;flex-direction:column;text-align:center;align-items:center}
+.back .tagline{font-size:9.5pt;font-weight:800;color:#4455A3;margin:3mm 0 5mm}
+.back .intro{text-align:left;font-size:9pt;color:#374151;margin-bottom:6mm}
+.back .contact{width:100%;text-align:left;background:#f3f4fa;border-radius:2.5mm;padding:4mm 4.5mm;margin-bottom:auto}
+.back .contact p{font-size:9pt;line-height:1.7;margin:0}
+.back .contact b{color:#4455A3}
+.disclaimer{
+  width:100%;border:.45mm solid #cdd2e4;border-radius:2mm;background:#fff;
+  padding:3mm 3.5mm;text-align:left;font-size:7pt;line-height:1.6;color:#384151;
+}
+.disclaimer b{color:#101828}
+/* ============ 내부 공통 ============ */
+.inner{background:#fff}
+.inner .topline{position:absolute;left:0;right:0;top:0;height:2.4mm;
+  background:linear-gradient(90deg,#4455A3 0 70%,#F8B739 70% 100%)}
+.card{background:#f7f8fc;border-radius:2.5mm;padding:3.6mm 4mm;margin-bottom:3.2mm}
+.card h3{font-size:10.5pt;font-weight:900;color:#101828;margin-bottom:1.2mm;display:flex;align-items:center;gap:2.2mm}
+.card p{font-size:9pt;color:#374151}
+.stat{background:#4455A3;color:#fff;border-radius:2.5mm;padding:4mm 4.5mm;margin-top:4.5mm}
+.stat .k{font-size:7.5pt;font-weight:800;letter-spacing:.12em;color:#cfd6f2;margin-bottom:1mm}
+.stat .v{font-size:16pt;font-weight:900;line-height:1.2}
+.stat .v small{font-size:8.5pt;font-weight:700;color:#e6e9f8}
+/* 내부2: 4계층 */
+.layer-row{display:flex;gap:3mm;align-items:stretch;background:#f7f8fc;border-radius:2.5mm;
+  padding:3mm 3.4mm;margin-bottom:2.8mm}
+.layer-chip{flex:0 0 9mm;border-radius:2mm;display:flex;align-items:center;justify-content:center}
+.layer-body h3{font-size:10pt;font-weight:900;color:#101828}
+.layer-body h3 small{font-size:7.5pt;font-weight:800;color:#525b6e;letter-spacing:.06em;margin-left:1.5mm}
+.layer-body p{font-size:8.7pt;line-height:1.5;color:#374151;margin-top:.8mm}
+.four-eyes{margin-top:3.6mm;border:.45mm solid #d9ddef;border-radius:2mm;padding:2.8mm 3.4mm;
+  font-size:8pt;line-height:1.55;color:#384151}
+.four-eyes b{color:#4455A3}
+/* 내부3 */
+.ab{width:100%;border-collapse:collapse;margin-bottom:4mm}
+.ab th{font-size:8pt;font-weight:900;letter-spacing:.08em;padding:0 0 2mm;text-align:left}
+.ab th.as{color:#8a2b35}.ab th.to{color:#4455A3}
+.ab td{font-size:8.7pt;line-height:1.45;padding:2.2mm 2mm 2.2mm 0;border-top:.35mm solid #e8eaf3;vertical-align:top}
+.ab td.arrow{width:6mm;color:#F8B739;font-weight:900;text-align:center;padding-right:2mm}
+.ab td.to{font-weight:700;color:#101828}
+.dur{display:flex;align-items:center;gap:3mm;background:#f3f4fa;border-radius:2.5mm;padding:3.5mm 4mm;margin-bottom:4.5mm}
+.dur .from{font-size:11pt;font-weight:800;color:#525b6e;text-decoration:line-through;text-decoration-thickness:.5mm;text-decoration-color:#c0392b}
+.dur .to{font-size:14pt;font-weight:900;color:#4455A3}
+.sec-box{background:#101828;color:#eef1f8;border-radius:2.5mm;padding:4mm 4.5mm}
+.sec-box h3{font-size:10.5pt;font-weight:900;color:#fff;display:flex;align-items:center;gap:2.5mm;margin-bottom:2.4mm}
+.sec-box li{font-size:8.7pt;color:#d6dbe8;margin-bottom:1.6mm}
+.sec-box ul{list-style:none}
+.sec-box li{position:relative;padding-left:5.5mm}
+.sec-box li>svg{position:absolute;left:0;top:1mm}
+</style>
+</head>
+<body>
+<div class="screen-wrap">
+
+  <div class="screen-label">시안 06 — 원라인 코퍼레이트 <small>바깥면 · [날개 | 뒷면 | 표지] · A4 가로 297×210mm · 패널 99mm</small></div>
+
+  <!-- ================= 바깥면 ================= -->
+  <div class="sheet">
+    <div class="fold-guide f1"></div><div class="fold-guide f2"></div>
+
+    <!-- 날개 패널 -->
+    <section class="panel wing">
+      <div class="sec-head">
+        <svg viewBox="0 0 96 96" width="26" aria-hidden="true"><circle cx="34" cy="62" r="26" fill="#F8B739"/><circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".9"/><line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/></svg>
+        <h2>위탁테스트 제안</h2>
+      </div>
+      <p class="lead">기존 검증 프로세스를 그대로 유지한 채, RYNTA를 <b>3~6개월 병행 운영</b>합니다. 성공 기준 충족 여부는 귀사가 직접 측정하고 판단합니다.</p>
+      <div class="chain-rule"></div>
+      <table class="kpi">
+        <tr><th>성공 기준 지표</th><th style="text-align:right">기준</th></tr>
+        <tr><td>산출 오차</td><td class="g"><span class="goal-chip">목표</span>0건</td></tr>
+        <tr><td>검증 소요일 단축</td><td class="g"><span class="goal-chip">목표</span>50% 이상</td></tr>
+        <tr><td>감사추적 완결률</td><td class="g"><span class="goal-chip">목표</span>100%</td></tr>
+        <tr><td>4-Eyes 미준수</td><td class="g"><span class="goal-chip">목표</span>0건</td></tr>
+      </table>
+      <p class="note">※ 위 수치는 모두 위탁테스트의 <b>목표 기준</b>이며 실적이 아닙니다. 달성 여부의 <b>측정 주체는 귀사</b>입니다.</p>
+      <div class="who">
+        <p><b>성공 기준은 귀사가 판단합니다.</b><br>병행 운영 기간 동안 기존 결과와 RYNTA 결과를 나란히 비교해 주십시오.</p>
+      </div>
+    </section>
+
+    <!-- 뒷면 패널 -->
+    <section class="panel back">
+      <!-- ONELINE-EMBLEM-LIGHT (주 로고) -->
+      <svg viewBox="0 0 340 96" width="200" role="img" aria-label="원라인에이아이 로고" xmlns="http://www.w3.org/2000/svg" style="margin-top:6mm">
+        <circle cx="34" cy="62" r="26" fill="#F8B739"/>
+        <circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".9"/>
+        <line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+        <text x="100" y="70" font-family="Pretendard,'Noto Sans KR',Arial,sans-serif" font-weight="900" font-size="44" letter-spacing="1">
+          <tspan fill="#101828">ONE</tspan><tspan fill="#F8B739">LINE</tspan><tspan fill="#8A93A6" font-size="20" font-weight="700" dx="6">AI</tspan>
+        </text>
+      </svg>
+      <p class="tagline">대한민국 금융 선진화를 완성하는 기업</p>
+      <p class="intro">원라인에이아이는 금융회사의 리스크모형 검증·감리 업무를 위한 AI 에이전트 플랫폼 <b>RYNTA RiskOps</b>를 만듭니다. 은행 리스크감리팀 실무 출신 팀이 IRRBB(ΔEVE·ΔNII), ICAAP, PD·LGD·EAD 검증 등 약 10년의 현장 경험을 바탕으로, 업무는 자동화하되 최종 판단 권한과 책임은 사람에게 남기는 구조를 설계했습니다.</p>
+      <div class="contact">
+        <p><b>주소</b>&nbsp; 서울 마포구 마포대로 122 프론트원 14F<br>
+           <b>웹</b>&nbsp;&nbsp;&nbsp; www.onelineai.com<br>
+           <b>메일</b>&nbsp; info@onelineai.com</p>
+      </div>
+      <div class="disclaimer">
+        <b>필수 고지</b> — 본 자료의 성과 지표는 위탁테스트 목표 기준이며 실제 결과는 기관별 환경에 따라 다를 수 있습니다. AI 산출물은 승인 권한자의 검토·승인 전 확정되지 않습니다. — 심의 전 시안 · 06 · 2026-08-08
+      </div>
+    </section>
+
+    <!-- 표지 패널 -->
+    <section class="panel cover">
+      <!-- 체인링크 패턴 밴드 (장식) -->
+      <svg class="pattern-band" viewBox="0 0 396 64" preserveAspectRatio="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="chainpat06" width="66" height="64" patternUnits="userSpaceOnUse">
+            <circle cx="22" cy="40" r="15" fill="none" stroke="#4455A3" stroke-opacity=".16" stroke-width="5"/>
+            <circle cx="42" cy="22" r="15" fill="none" stroke="#F8B739" stroke-opacity=".28" stroke-width="5"/>
+          </pattern>
+        </defs>
+        <rect width="396" height="64" fill="url(#chainpat06)"/>
+      </svg>
+
+      <div class="emblem-block">
+        <!-- ONELINE-EMBLEM-LIGHT (표지: 비중 확대) -->
+        <svg viewBox="0 0 340 96" width="230" role="img" aria-label="원라인에이아이 로고" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="34" cy="62" r="26" fill="#F8B739"/>
+          <circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".9"/>
+          <line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+          <text x="100" y="70" font-family="Pretendard,'Noto Sans KR',Arial,sans-serif" font-weight="900" font-size="44" letter-spacing="1">
+            <tspan fill="#101828">ONE</tspan><tspan fill="#F8B739">LINE</tspan><tspan fill="#8A93A6" font-size="20" font-weight="700" dx="6">AI</tspan>
+          </text>
+        </svg>
+        <p class="tagline">대한민국 금융 선진화를 완성하는 기업</p>
+      </div>
+
+      <div class="rynta-block">
+        <div class="rynta-lockup">
+          <!-- RYNTA-BRANDMARK -->
+          <svg viewBox="0 0 64 64" width="52" role="img" aria-label="RYNTA 브랜드마크" xmlns="http://www.w3.org/2000/svg">
+            <defs><linearGradient id="rg-cover06" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#42a9ff"/><stop offset="1" stop-color="#a78bfa"/>
+            </linearGradient></defs>
+            <rect width="64" height="64" rx="18" fill="url(#rg-cover06)"/>
+            <rect x="20" y="20" width="24" height="24" fill="none" stroke="#fff" stroke-width="2.5" rx="4" transform="rotate(45 32 32)"/>
+          </svg>
+          <div class="name">RYNTA<br><small>RiskOps</small></div>
+        </div>
+        <p class="define">숫자는 <b>엔진</b>이,<br>문장은 <b>에이전트</b>가,<br>판단은 <b>사람</b>이.</p>
+        <p class="sub">금융 리스크모형 검증·감리를 위한 AI 에이전트 플랫폼</p>
+      </div>
+
+      <div class="foot">
+        <span class="badge-vol">VOL.1</span>
+        <span style="font-size:8pt;color:#525b6e;font-weight:700">ONELINE AI · 2026</span>
+      </div>
+    </section>
+  </div>
+
+  <div class="screen-label">시안 06 — 원라인 코퍼레이트 <small>안쪽면 · [내부1 | 내부2 | 내부3] · 펼침 시 하나의 흐름</small></div>
+
+  <!-- ================= 안쪽면 ================= -->
+  <div class="sheet">
+    <div class="fold-guide f1"></div><div class="fold-guide f2"></div>
+
+    <!-- 내부1: 왜 지금인가 -->
+    <section class="panel inner">
+      <div class="topline"></div>
+      <div class="sec-head" style="margin-top:3mm">
+        <span class="num">1</span>
+        <h2>왜 지금인가</h2>
+      </div>
+      <p class="muted" style="margin-bottom:4.5mm">리스크모형 검증은 반복 재계산, 수기 문서, 개인 의존에 묶여 있습니다.</p>
+
+      <div class="card">
+        <h3><svg viewBox="0 0 96 96" width="13" aria-hidden="true"><circle cx="34" cy="62" r="26" fill="#F8B739"/><circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".9"/><line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/></svg>반복 재계산</h3>
+        <p>기준이 바뀔 때마다 담당자별 스크립트로 처음부터 다시 계산합니다. 같은 검증이 계속 반복됩니다.</p>
+      </div>
+      <div class="card">
+        <h3><svg viewBox="0 0 96 96" width="13" aria-hidden="true"><circle cx="34" cy="62" r="26" fill="#F8B739"/><circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".9"/><line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/></svg>수기 문서</h3>
+        <p>검증 보고서를 전량 수기로 작성합니다. 수치와 근거의 연결이 사람의 기억에 의존합니다.</p>
+      </div>
+      <div class="card">
+        <h3><svg viewBox="0 0 96 96" width="13" aria-hidden="true"><circle cx="34" cy="62" r="26" fill="#F8B739"/><circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".9"/><line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/></svg>개인 의존</h3>
+        <p>근거 자료는 사후에 취합되고, 요청이 오면 다시 수집합니다. 검증 이력이 조직이 아닌 개인에게 남습니다.</p>
+      </div>
+
+      <div class="stat">
+        <div class="k">현재의 비용</div>
+        <div class="v">모형 1개당 2~4주 <small>— 검증에 걸리는 시간</small></div>
+      </div>
+    </section>
+
+    <!-- 내부2: 우리의 답 — 4계층 -->
+    <section class="panel inner">
+      <div class="topline"></div>
+      <div class="sec-head" style="margin-top:3mm">
+        <span class="num">2</span>
+        <h2>우리의 답 — 역할을 나눈 4계층</h2>
+      </div>
+      <p class="muted" style="margin-bottom:4.5mm">계산·정리·판단·기록의 권한을 구조로 분리했습니다.</p>
+
+      <div class="layer-row">
+        <div class="layer-chip" style="background:#42a9ff">
+          <svg viewBox="0 0 24 24" width="16" aria-hidden="true"><path d="M4 17l5-5 4 4 7-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="layer-body">
+          <h3>계산 — 결정론 엔진 <small>LLM 미사용</small></h3>
+          <p>숫자는 결정론 엔진만 계산합니다. 동일 입력이면 동일 결과를 냅니다.</p>
+        </div>
+      </div>
+      <div class="layer-row">
+        <div class="layer-chip" style="background:#a78bfa">
+          <svg viewBox="0 0 24 24" width="16" aria-hidden="true"><path d="M5 5h14M5 10h14M5 15h9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>
+        </div>
+        <div class="layer-body">
+          <h3>정리·초안 — AI 에이전트 <small>AVI · ARI</small></h3>
+          <p>근거 링크가 포함된 보고서 초안을 자동 생성합니다. 문장은 에이전트가 씁니다.</p>
+        </div>
+      </div>
+      <div class="layer-row">
+        <div class="layer-chip" style="background:#f6bb56">
+          <svg viewBox="0 0 24 24" width="16" aria-hidden="true"><circle cx="8" cy="9" r="3.2" fill="none" stroke="#3a2c07" stroke-width="2.2"/><circle cx="16" cy="9" r="3.2" fill="none" stroke="#3a2c07" stroke-width="2.2"/><path d="M5 18c1-2.4 5-2.4 6 0M13 18c1-2.4 5-2.4 6 0" fill="none" stroke="#3a2c07" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </div>
+        <div class="layer-body">
+          <h3>판단 — 사람 <small>4-EYES 승인</small></h3>
+          <p>최종 판단과 승인 권한은 사람에게 있습니다. 두 사람의 눈을 거쳐 확정됩니다.</p>
+        </div>
+      </div>
+      <div class="layer-row">
+        <div class="layer-chip" style="background:#2dd4bf">
+          <svg viewBox="0 0 24 24" width="16" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2" fill="none" stroke="#073531" stroke-width="2.2"/><path d="M9 9h6M9 13h6M9 17h4" stroke="#073531" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <div class="layer-body">
+          <h3>기록 — Evidence Ledger <small>불변 기록</small></h3>
+          <p>모든 수행 내역이 수행과 동시에 불변 기록으로 축적됩니다.</p>
+        </div>
+      </div>
+
+      <div class="four-eyes">
+        <b>AI 표시</b> — 에이전트(AVI·ARI)가 생성한 초안에는 AI 생성 표시가 붙으며, 승인 권한자의 검토·승인 전에는 확정되지 않습니다.
+      </div>
+    </section>
+
+    <!-- 내부3: As-is → To-be + 보안 -->
+    <section class="panel inner">
+      <div class="topline"></div>
+      <div class="sec-head" style="margin-top:3mm">
+        <span class="num">3</span>
+        <h2>무엇이 달라지는가</h2>
+      </div>
+
+      <table class="ab">
+        <tr><th class="as">AS-IS</th><th></th><th class="to">TO-BE</th></tr>
+        <tr><td class="muted">담당자별 스크립트</td><td class="arrow">→</td><td class="to">표준 엔진 API</td></tr>
+        <tr><td class="muted">전량 수기 작성</td><td class="arrow">→</td><td class="to">근거 링크 포함 초안 자동 생성</td></tr>
+        <tr><td class="muted">근거 사후 취합</td><td class="arrow">→</td><td class="to">수행과 동시 축적</td></tr>
+        <tr><td class="muted">요청 시 재수집</td><td class="arrow">→</td><td class="to">재현 패키지 즉시 제출</td></tr>
+      </table>
+
+      <div class="dur">
+        <span class="from">2~4주</span>
+        <svg viewBox="0 0 24 24" width="18" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" fill="none" stroke="#F8B739" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="to">목표 5~10영업일</span>
+        <span style="font-size:7.5pt;color:#525b6e;font-weight:700">모형 1개당 · 위탁테스트 목표 기준</span>
+      </div>
+
+      <div class="sec-box">
+        <h3><svg viewBox="0 0 24 24" width="15" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="#F8B739" stroke-width="2.2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#F8B739" stroke-width="2.2"/></svg>데이터는 나가지 않습니다</h3>
+        <ul>
+          <li><svg viewBox="0 0 96 96" width="11" aria-hidden="true"><circle cx="34" cy="62" r="26" fill="#F8B739"/><circle cx="62" cy="34" r="26" fill="#4455A3"/><line x1="22" y1="74" x2="74" y2="22" stroke="#101828" stroke-width="11" stroke-linecap="round"/></svg>내부망 온프레미스 설치 — 외부 전송 없음</li>
+          <li><svg viewBox="0 0 96 96" width="11" aria-hidden="true"><circle cx="34" cy="62" r="26" fill="#F8B739"/><circle cx="62" cy="34" r="26" fill="#4455A3"/><line x1="22" y1="74" x2="74" y2="22" stroke="#101828" stroke-width="11" stroke-linecap="round"/></svg>원본 데이터 비보유</li>
+          <li><svg viewBox="0 0 96 96" width="11" aria-hidden="true"><circle cx="34" cy="62" r="26" fill="#F8B739"/><circle cx="62" cy="34" r="26" fill="#4455A3"/><line x1="22" y1="74" x2="74" y2="22" stroke="#101828" stroke-width="11" stroke-linecap="round"/></svg>신규 규제 특례 불요</li>
+        </ul>
+      </div>
+
+      <p style="margin-top:4.5mm;font-size:8pt;color:#525b6e">다음 단계 — 날개 패널의 <b style="color:#4455A3">위탁테스트 제안</b>을 확인하시고 info@onelineai.com 으로 연락 주십시오.</p>
+    </section>
+  </div>
+
+</div>
+</body>
+</html>
