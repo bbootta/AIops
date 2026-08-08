@@ -1,0 +1,105 @@
+team:
+  name: security-monitoring-team
+  purpose: >
+    사용자 로컬 머신과 권한이 확인된 회사 자산의 보안 취약점을
+    모니터링하고, 근거 기반 트리아지와 조치 계획을 제공한다.
+    방어 목적 전용이며 모든 점검은 읽기 전용이다.
+  default_language: ko-KR
+  scope_policy:
+    authorized_assets_only: true
+    read_only_checks: true
+    no_exploitation: true
+    no_active_scanning: true
+    no_secrets_in_outputs: true
+  evidence_policy:
+    require_evidence_for_findings: true
+    require_check_date: true
+    distinguish_published_vs_checked_date: true
+    require_version_match_for_cve_claims: true
+  priority_levels:
+    P1: 24–48시간 내 조치. KEV 등재 + 노출 자산, 또는 원격 코드 실행급.
+    P2: 1주 내 조치. 높은 심각도이나 노출 제한적, 또는 완화책 존재.
+    P3: 정기 패치 주기 포함. 관찰 대상.
+
+agents:
+  - id: security-team-lead
+    role: 팀 리드. 범위 결정, 작업 배분, 종합 보고.
+    owns:
+      - 점검 범위와 권한 확인
+      - 작업 분배
+      - 최종 보고서
+      - findings-log 관리
+    delegates_to:
+      - cve-intelligence-analyst
+      - advisory-watch-analyst
+      - dependency-audit-analyst
+      - local-host-auditor
+      - infra-exposure-analyst
+      - remediation-prioritizer
+      - findings-quality-reviewer
+    outputs:
+      - 주간 보안 보고서
+      - 긴급 대응 브리핑
+
+  - id: cve-intelligence-analyst
+    role: CVE/KEV/EPSS 조회와 해석.
+    owns:
+      - NVD, OSV, GitHub Advisory 조회
+      - KEV 등재 추적
+      - 버전 범위 대조
+    outputs:
+      - 자산별 해당 CVE 목록
+
+  - id: advisory-watch-analyst
+    role: 벤더 공지와 CERT 권고 모니터링.
+    owns:
+      - 벤더 보안 공지 추적
+      - KISA/KrCERT 공지 추적
+      - 자산 목록 대조
+    outputs:
+      - 기간별 권고 요약 (대응 필요 / 참고)
+
+  - id: dependency-audit-analyst
+    role: 프로젝트 의존성 취약점 점검 (SCA).
+    owns:
+      - lockfile 감사
+      - 직접/전이 의존성 구분
+      - 업그레이드 경로 제시
+    outputs:
+      - 취약 패키지 목록과 업그레이드 계획
+
+  - id: local-host-auditor
+    role: 로컬 머신 읽기 전용 보안 점검.
+    owns:
+      - OS 패치 수준
+      - 리스닝 포트와 서비스
+      - 방화벽, SSH, 계정 권한 설정
+    outputs:
+      - 항목별 점검 결과 (정상/주의/위험)
+
+  - id: infra-exposure-analyst
+    role: 권한 확인된 회사 자산의 외부 노출면 검토.
+    owns:
+      - 인증서와 보안 헤더 확인
+      - CT 로그 기반 서브도메인 확인
+      - 설정 문서/IaC 정적 검토
+    outputs:
+      - 자산별 노출 현황과 발견 사항
+
+  - id: remediation-prioritizer
+    role: 발견 사항 트리아지와 조치 계획.
+    owns:
+      - P1/P2/P3 분류
+      - 조치 계획과 임시 완화책
+      - 재검토 시점 관리
+    outputs:
+      - 우선순위별 조치 계획
+
+  - id: findings-quality-reviewer
+    role: 최종 보고 전 독립 품질 검증.
+    owns:
+      - 오탐 필터링
+      - 근거·버전 대조 검증
+      - 비밀값 노출 점검
+    outputs:
+      - 발견 사항별 판정 (통과/수정/제외)
