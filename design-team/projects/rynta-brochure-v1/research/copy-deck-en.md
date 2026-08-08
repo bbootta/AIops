@@ -30,19 +30,19 @@
 - Web/Mail: www.onelineai.com · info@onelineai.com
 - **Required disclosure (verbatim, legible size/contrast):** "Performance indicators in this material are evaluation targets, not achieved results; actual outcomes vary by institution and environment. AI-generated outputs are not final until reviewed and approved by authorized personnel. — Pre-clearance draft · <NN> · 2026-08-08"
 
-## Inside 1 — Why now
-- Headline: **Validation shouldn't depend on whoever runs it.**
-- Body: Model validation today is built on three fragile habits:
-  - **Recurring recalculation** — per-analyst scripts recompute the same numbers; results are hard to reproduce.
-  - **Manual reporting** — validation reports are written from scratch; evidence is collected after the fact.
-  - **Individual know-how** — procedures live with people, not systems. When staff move, process disappears.
-- Stat: **2–4 weeks** per model, today. (As-is, internal estimate)
+## Inside 1 — Why now (검증 편중 금지 — 리스크 산출·보고·검증 전체를 다룬다)
+- Headline: **Risk operations shouldn't depend on whoever runs them.**
+- Body: From risk calculation to reporting to independent validation, today's risk operations rest on three fragile habits:
+  - **Recurring recalculation**: per-analyst scripts recompute the same figures (stress tests, limits, RAPM, provisions); results are hard to reproduce.
+  - **Manual reporting**: risk reports and validation reports are written from scratch; evidence is collected after the fact.
+  - **Individual know-how**: procedures live with people, not systems. When staff move, process disappears.
+- Stat: **2–4 weeks** per validation cycle today. (As-is, internal estimate)
 
-## Inside 2 — The answer: four layers
+## Inside 2 — The answer: four layers (ARI=실행, AVI=검증 역할 분리를 명시)
 - Headline: **Divide the work. Keep the judgment.**
 - Layers (fixed order & colors):
   1. **Calculation — Deterministic engine** (Engine Blue). No LLM in the numbers. Same input, same output — reproducible and verifiable.
-  2. **Drafting — AI agents AVI·ARI** (Agent Purple). Evidence-linked drafts, gap lists, source collection. Agents write language, never numbers.
+  2. **Agents — ARI runs, AVI verifies** (Agent Purple). ARI drives day-to-day risk work: calculations, stress tests, limits, provisions, report drafts. AVI independently monitors, recalculates, and gates review. Agents write language, never numbers.
   3. **Judgment — People + 4-Eyes approval** (Human Amber). Nothing is final without sign-off by authorized reviewers.
   4. **Record — Evidence Ledger** (Evidence Teal). Inputs, versions, verdicts, and approvals — logged immutably as work happens.
 - AI notice: Agent-drafted content is labeled as AI-generated and remains non-final until approved.
