@@ -44,3 +44,19 @@
 - 엠블럼·브랜드마크는 `assets/brand-snippets.html`의 다크 배경용 버전을 그대로 인라인 복사 (재구성본 — 최종 인쇄 전 정식 CI 원본 교체 권장, 스니펫 원주석 참조).
 - 잔여 리스크: ① 그라데이션(04)·골드(05)의 CMYK 재현은 인쇄 교정 필요(파일 내 주석 명기) ② SVG `<text>` 라벨은 브라우저 렌더 기준 — 래스터 내보내기 시 폰트 임베드 확인 필요.
 - design-reviewer 검수(규제 표기·대비·브랜드 일관성·규격 4축, `marketing/review-report.md`)를 요청함. 치명 이슈 발견 시 팀3이 재작업.
+
+## EN versions
+
+대상: `en/04-kinetic-frontier.html`, `en/05-boardroom-lux.html` · 2026-08-08 · 카피 소스: `research/copy-deck-en.md` (사실·수치 변경 없음, "Parallel-Run Evaluation" 사용, 요청·부탁형 어투 없음)
+
+| 체크 항목 | 결과 | 근거 |
+|---|---|---|
+| 필수 고지 (영문 원문 verbatim) | PASS | 카피 덱 §Back panel 고지 원문 그대로 + "Pre-clearance draft · 04(/05) · 2026-08-08". 위치·크기·대비 KO와 동일 (04: 7pt 전용 박스, 05: 7pt Notice 블록) |
+| 금지 표현 없음 | PASS | grep 검증: guaranteed / revolutionary / best-in-class / zero-risk / consignment 0건 |
+| 목표 수치 target 병기 | PASS | 검증 사이클 "5–10 business days (target)" + 캡션 "evaluation target, not a commitment". 날개 KPI 4지표는 KO의 "목표" 칩과 동일 위치에 "Target" 칩으로 전 행 병기 + 각주 "Targets, not commitments — outcomes vary by institution and environment" (덱 원문). As-is "2–4 weeks"는 내부 추정치로 "(as-is, internal estimate)" 병기 |
+| @page·인쇄 CSS 유지 | PASS | `@page A4 landscape margin:0`, `@media print`, `.sheet` 297×210mm Grid 99mm×3, 패널 순서·컬러·데코 SVG 전부 KO 원본과 동일 (diff는 텍스트·아래 조판 항목뿐) |
+| 라틴 조판 최적화 | PASS | KO 원본에 `word-break:keep-all` 없음(기본값 normal — 제거 대상 없음 확인). 04: 표지 h1 21→16.5pt(ls -.02em), h2.big 16.5→14.5pt(ls -.015em) — 영문 헤드라인 행 길이 대응. 05: 세리프 스택 전건 Georgia,"Noto Serif KR",serif로 교체, 표지 sub ls .12→.06em, 로만 넘버링 i.~v. 유지. 산세리프 스택은 기존 유지 |
+| 화면 라벨 영어화 | PASS | screen-head 영문, 시트 라벨 "Outside — [Flap \| Back \| Cover]" / "Inside — [01 Diagnosis \| 02 Architecture \| 03 Transition]" |
+| 패널 오버플로 확인 | PASS(주의) | 헤드리스 브라우저 부재로 렌더 캡처 불가 — 글자폭 추정(pt→mm 환산) 기반으로 전 패널 검토. 가장 긴 요소(04 표지 h1 1행 "Numbers by the engine." ≈64mm < 67mm 가용폭, 날개 본문 4행, 뒷면 About 8행)는 KO 대비 여유 슬랙(margin-top:auto 흡수 구간) 내. 04·05의 기간 박스("5–10 business days (target)")는 flex-wrap으로 자연 줄바꿈 허용. **최종 인쇄 전 브라우저 A4 가로 인쇄 미리보기에서 시트당 1페이지·패널 넘침 육안 확인 필수** |
+
+특기: 날개 KPI에 카피 덱의 "Measured by" 3열은 추가하지 않음(디자인 변경 금지 — KO 2열 구조 유지). 해당 정보는 각주로 압축: "Measurement rests with your validators and audit function; judgment rests with your institution" (덱 사실관계 보존). KO의 "신규 규제 특례 불요" 항목은 덱 지침대로 글로벌 MRM 어휘("Fits your framework — designed to fit existing model risk management frameworks")로 교체(덱 §Inside 3 원문). 태그라인은 덱 EN "Financial-grade AI, built by validators." 사용(국내 태그라인 직역 미사용). design-reviewer 검수 요청: EN 2종에 대해 규제 표기·대비·오버플로(렌더 확인 포함) 재검 바람.
