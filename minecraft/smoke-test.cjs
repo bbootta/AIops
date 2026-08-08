@@ -42,12 +42,14 @@ class Vec3 {
 class Vec2 { constructor(x = 0, y = 0) { this.x = x; this.y = y; } set(x, y) { this.x = x; this.y = y; return this; } }
 // 카메라는 진짜 조준 방향을 돌려주는 최소 구현 — pickBlock/DDA가 실제로 지형을 맞혀
 // 설치·채굴·발사 경로가 하니스에서 진짜로 실행되게 한다 (앞-아래 45도쯤 조준)
+const AIM = { x: 0.45, y: -0.85, z: 0.15 };
+const setAim = (x, y, z) => { AIM.x = x; AIM.y = y; AIM.z = z; };
 class Cam {
   constructor() { this.position = new Vec3(); this.rotation = { set() {}, order: '' }; this.quaternion = {}; this.fov = 75; this.aspect = 1; this.far = 300; }
   updateProjectionMatrix() {}
   lookAt() {}
   getWorldDirection(t) {
-    t.x = 0.45; t.y = -0.85; t.z = 0.15;
+    t.x = AIM.x; t.y = AIM.y; t.z = AIM.z;
     const l = Math.hypot(t.x, t.y, t.z);
     t.x /= l; t.y /= l; t.z /= l;
     return t;
@@ -102,7 +104,7 @@ function runGame(saveJson, label, drive, opts) {
   // setTimeout은 동기 실행(부팅 지연·토스트 타이머가 테스트 안에서 즉시 돌도록)
   const syncTimeout = (fn) => { fn(); return 0; };
   // 게임 코드를 건드리지 않고 내부 함수를 직접 단언하기 위한 테스트 훅
-  const hooked = src + '\n;window.__mc = { hasLineOfSight, getBlock, setBlock, player };';
+  const hooked = src + '\n;window.__mc = { hasLineOfSight, getBlock, setBlock, player, zombies, DIA_SUIT_SCALE };';
   const runner = new Function('THREE', 'document', 'window', 'navigator', 'localStorage', 'performance', 'requestAnimationFrame', 'setInterval', 'setTimeout', 'clearTimeout', 'addEventListener', 'console', hooked);
   runner(THREE, doc, win, navi, localStorage, perf, (fn) => { captured.loop = fn; }, () => 0, syncTimeout, () => {}, gAdd, console);
   const step = (n) => { for (let i = 0; i < n; i++) captured.loop(perf.now()); };
@@ -367,6 +369,32 @@ try {
     console.log('  [F] 💜 대형 광선 발사 확인됨 (굵기 8칸)');
   }, { noMove: true });
 } catch (e) { fails++; console.log('  [F] FAIL:', (e && e.stack) || e); }
+
+// H: 💎 대형 광선포 — 필살기 한 번으로 거대 위더 스톰(HP 600)을 없앨 수 있는지
+try {
+  runGame(saveF, 'H: 💎 대형 광선포로 거대 위더 스톰 격파', ({ step }) => {
+    const realRandom = Math.random;
+    Math.random = () => 0.02; // 보스 등장 분기 강제 (시나리오 F와 같은 조건)
+    step(400);
+    Math.random = realRandom;
+    const { zombies, player, DIA_SUIT_SCALE } = win.__mc;
+    const boss = zombies.find((z) => z.wither);
+    if (!boss) throw new Error('거대 위더 스톰 미등장');
+    fire(G.keydown, ev({ code: 'KeyJ' })); step(3); // 💎 다이아 위더로 변신
+    if (!(store['mc_achv'] || '').includes('diamondwither')) throw new Error('💎 변신 실패');
+    // 광선은 입(높이 4.1×20)에서 보는 방향으로 뻗으므로, 입에서 보스를 향하도록 겨눈다
+    setAim(boss.pos.x - player.pos.x,
+      boss.pos.y + boss.hitH * 0.5 - (player.pos.y + 4.1 * DIA_SUIT_SCALE),
+      boss.pos.z - player.pos.z);
+    const hp0 = boss.hp;
+    fire(G.keydown, ev({ code: 'KeyF' })); // ✨ 필살기 = 대형 광선포
+    for (let i = 0; i < 400 && boss.hp > 0; i++) step(1);
+    setAim(0.45, -0.85, 0.15);
+    if (boss.hp > 0) throw new Error(`광선포로 못 잡음 (${Math.ceil(boss.hp)}/${hp0} 남음)`);
+    if (!(store['mc_achv'] || '').includes('wither')) throw new Error('위더 격파 처리 누락');
+    console.log(`  [H] 💎 광선포 한 번으로 거대 위더 스톰(HP ${hp0}) 격파 확인됨`);
+  }, { noMove: true });
+} catch (e) { fails++; console.log('  [H] FAIL:', (e && e.stack) || e); }
 
 // G: 시야 판정 — 워든 음파가 벽을 관통하지 않는지 (밀폐 셸터가 유효해야 함)
 try {

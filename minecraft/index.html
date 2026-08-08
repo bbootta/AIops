@@ -343,6 +343,7 @@
     <b>G : 변신</b> 🤖아이언 → 🦾헐크버스터 → 🔮스트레인지 → 🌪위더 스톰 — 3인칭 자유 비행<br>
     <b>변신 핫키</b> Z🤖 · X🦾 · B🔮 · N🌪 · <b>J💎다이아 위더</b> · 0🧍해제 (같은 키를 다시 누르면 해제) &nbsp;|&nbsp; <b>Tab</b> : 마우스로 아이콘 고르기<br>
     슈트: 좌클릭 펄서 · 우클릭 미사일 · R 레이저 · <b>F ✨필살기(광역)</b> &nbsp;|&nbsp; 🔮: 마법 미사일 · 순간이동 · R 시간정지<br>
+    💎<b>다이아 위더 스톰(J)</b>은 몸이 20배(약 90블록)로 커지고, <b>F가 대형 광선포</b>가 됩니다 — 거대 위더 스톰도 한 방에 지워요<br>
     <b>포탈은 색으로 목적지가 정해져요</b> — 🟢초록 오버월드 · 🔴빨강 네더 · 🟣보라 보이드 · 🟡금색 ⚔공성전 (미니맵에도 같은 색)<br>
     <b>⚔ 공성전</b>: 거대 성채(101×101, 성벽 높이 10·대탑 19)를 지키는 수성전! 10가지 공성 부대가 <b>웨이브마다 100명</b> 몰려옵니다<br>
     성 안 보급 상자(화살·TNT·돌벽돌)를 쓰고, 성벽 계단으로 올라가 활·TNT·변신 필살기로 막아 보세요<br>
@@ -1288,7 +1289,8 @@ scene.fog = new THREE.Fog(skyColor.getHex(), 50, 110);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 300);
 camera.far = viewDist + 60; camera.updateProjectionMatrix();
-function applyView() { camera.far = viewDist + 60; camera.updateProjectionMatrix(); }
+// 💎 다이아 위더로 변신하면 카메라가 170블록 뒤로 물러나므로 far 평면도 함께 늘린다
+function applyView() { camera.far = viewDist + 60 + (suitLevel === 5 ? 260 : 0); camera.updateProjectionMatrix(); }
 
 const ambient = new THREE.AmbientLight(0xffffff, 0.42);
 scene.add(ambient);
@@ -2865,10 +2867,11 @@ const WITHER_EYE = new THREE.MeshLambertMaterial({ color: 0xd070ff, emissive: 0x
 const WITHER_GLOW = new THREE.MeshLambertMaterial({ color: 0xf4eaff, emissive: 0xcfa8ff, emissiveIntensity: 1 });
 const WITHER_SKIN = { mat: WITHER_MAT, dark: WITHER_DARK, eye: WITHER_EYE, glow: WITHER_GLOW };
 // 💎 다이아 위더: 얼음 같은 수정 몸체 + 형광 하늘빛
-const DIA_MAT = new THREE.MeshLambertMaterial({ color: 0x59c8d6, emissive: 0x1d7f92, emissiveIntensity: 0.35 });
-const DIA_DARK = new THREE.MeshLambertMaterial({ color: 0x2b8ea8 });
-const DIA_EYE = new THREE.MeshLambertMaterial({ color: 0xe6ffff, emissive: 0x7ff0ff, emissiveIntensity: 1 });
-const DIA_GLOW = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0xcaf8ff, emissiveIntensity: 1 });
+// 변신체가 20배(약 90블록)라 카메라가 멀리 물러난다 → 안개에 지워지지 않게 fog: false
+const DIA_MAT = new THREE.MeshLambertMaterial({ color: 0x59c8d6, emissive: 0x1d7f92, emissiveIntensity: 0.35, fog: false });
+const DIA_DARK = new THREE.MeshLambertMaterial({ color: 0x2b8ea8, fog: false });
+const DIA_EYE = new THREE.MeshLambertMaterial({ color: 0xe6ffff, emissive: 0x7ff0ff, emissiveIntensity: 1, fog: false });
+const DIA_GLOW = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0xcaf8ff, emissiveIntensity: 1, fog: false });
 const DIAMOND_SKIN = { mat: DIA_MAT, dark: DIA_DARK, eye: DIA_EYE, glow: DIA_GLOW, gem: true };
 function makeWitherSkull(parent, hx, hy, hs, withJaw, skin) {
   const WITHER_MAT = skin.mat, WITHER_DARK = skin.dark, WITHER_EYE = skin.eye, WITHER_GLOW = skin.glow;
@@ -3719,6 +3722,7 @@ const stats = { kills: 0, mined: 0, placed: 0, deaths: 0, playTime: 0, byKind: {
 function respawn() {
   toast('💀 쓰러졌다... 스폰 지점에서 부활!', 3000);
   stats.deaths++;
+  stopDiaCannon(); // 발사 중 쓰러지면 광선도 끊긴다
   // 현재 차원의 안전한 중앙 지점 (공성 맵은 코어 위가 아니라 성 안 마당)
   const rx = curDim === 'siege' ? 0 : 0, rz = curDim === 'siege' ? 8 : 0;
   player.pos.set(rx + 0.5, safeSpawn(rx, rz), rz + 0.5);
@@ -3968,7 +3972,10 @@ function updatePlayer(dt) {
     suitTilt += (tiltTarget - suitTilt) * Math.min(1, dt * 6);
     const cruise = Math.min(1, hs / st.speed + Math.abs(climb) * 0.4); // 0=호버 1=순항
     const hover = !player.onGround && cruise < 0.25;
-    suitMesh.position.set(p.x, p.y + u.pivotY + ((hover || suitLevel >= 4) ? Math.sin(suitTime * 3.2) * (suitLevel >= 4 ? 0.18 : 0.06) : 0), p.z);
+    // 둥실 부유: 💎는 몸이 20배라 진폭도 키우고(2.5칸) 대신 느리게 흔들려야 거대해 보인다
+    const bobA = suitLevel === 5 ? 2.5 : suitLevel === 4 ? 0.18 : 0.06;
+    const bobF = suitLevel === 5 ? 0.9 : 3.2;
+    suitMesh.position.set(p.x, p.y + u.pivotY + ((hover || suitLevel >= 4) ? Math.sin(suitTime * bobF) * bobA : 0), p.z);
     suitMesh.rotation.y = player.yaw;
     suitMesh.rotation.x = -suitTilt; // 음수 = 얼굴이 진행 방향(아래)을 향해 엎드림
     // 팔: 엎드리면 팔은 자연히 몸을 따라 뒤로 가므로 살짝만 들고, 사격 중엔 오른팔을 조준 방향으로
@@ -4011,7 +4018,8 @@ function updatePlayer(dt) {
     const fx = -Math.sin(cyaw) * Math.cos(cpitch);
     const fy = Math.sin(cpitch);
     const fz = -Math.cos(cyaw) * Math.cos(cpitch);
-    const ex = p.x, ey = p.y + EYE_HEIGHT + (suitLevel === 2 ? 0.9 : suitLevel >= 4 ? 2 : 0), ez = p.z;
+    // 💎는 몸이 90블록이라 발밑이 아니라 몸통 한가운데를 봐야 화면에 담긴다
+    const ex = p.x, ey = p.y + EYE_HEIGHT + (suitLevel === 5 ? 2.2 * DIA_SUIT_SCALE : suitLevel === 2 ? 0.9 : suitLevel >= 4 ? 2 : 0), ez = p.z;
     let cx = ex, cy = ey, cz = ez;
     for (let d = 0.4; d <= dist; d += 0.4) {
       const nx = ex - fx * d, ny = ey - fy * d + d * 0.1, nz = ez - fz * d;
@@ -4487,13 +4495,15 @@ tutEl.addEventListener('touchstart', (e) => { e.preventDefault(); tutDone(); });
 let suitLevel = 0; // 0 없음 / 1 아이언 슈트 / 2 헐크버스터
 let suit = false;
 let pulseHeld = false, pulseT = 0, laserOn = false, laserTick = 0;
+// 💎 다이아 위더 변신체는 다른 변신과 달리 초대형 — 몸 높이 약 90블록(빌드 한계 48의 두 배)
+const DIA_SUIT_SCALE = 20;
 const SUIT_STATS = [
   null,
   { name: '🤖 아이언 슈트', speed: 14, lift: 7, pulseDmg: 3, pulseRate: 0.22, missileR: 2, missileDmg: 6, laserDmg: 1, dist: 4.4 },
   { name: '🦾 헐크버스터', speed: 10, lift: 6, pulseDmg: 5, pulseRate: 0.3, missileR: 3, missileDmg: 10, laserDmg: 2, dist: 6.4 },
   { name: '🔮 닥터 스트레인지', speed: 12, lift: 7, pulseDmg: 4, pulseRate: 0.18, missileR: 0, missileDmg: 0, laserDmg: 0, dist: 4.4 },
   { name: '🌪 위더 스톰', speed: 11, lift: 6, pulseDmg: 6, pulseRate: 0.4, missileR: 3, missileDmg: 12, laserDmg: 2, dist: 8 },
-  { name: '💎 다이아 위더 스톰', speed: 14, lift: 8, pulseDmg: 10, pulseRate: 0.28, missileR: 4, missileDmg: 20, laserDmg: 5, dist: 8.5 },
+  { name: '💎 다이아 위더 스톰', speed: 14, lift: 8, pulseDmg: 10, pulseRate: 0.28, missileR: 4, missileDmg: 20, laserDmg: 5, dist: 8.5 * DIA_SUIT_SCALE },
 ];
 let timeStop = false; // 🔮 시간 정지 (R 홀드)
 const M_RED = new THREE.MeshLambertMaterial({ color: 0xb3151d });
@@ -4646,7 +4656,7 @@ function makeWitherSuitMesh(skin, scale) {
   scene.add(root);
   return root;
 }
-const suitMeshes = [null, makeSuitMesh(1, 1), makeSuitMesh(1.75, 1.85), makeStrangeMesh(), makeWitherSuitMesh(), makeWitherSuitMesh(DIAMOND_SKIN, 1.0)];
+const suitMeshes = [null, makeSuitMesh(1, 1), makeSuitMesh(1.75, 1.85), makeStrangeMesh(), makeWitherSuitMesh(), makeWitherSuitMesh(DIAMOND_SKIN, DIA_SUIT_SCALE)];
 let suitMesh = suitMeshes[1]; // 현재 표시 중인 슈트 (레벨 0일 땐 숨김)
 let suitTilt = 0, suitTime = 0, boostFxT = 0; // 비행 자세 기울기 / 애니메이션 시계 / 트레일 타이머
 const suitBoostLight = new THREE.PointLight(0xff9a33, 0, 8, 2); // 부스터 불빛
@@ -4696,6 +4706,8 @@ function setSuit(level) {
   laserOn = false;
   pulseHeld = false;
   timeStop = false;
+  stopDiaCannon();
+  applyView(); // 💎는 far 평면이 달라짐
   camPreset = 0;
   applyCamPreset(0);
   camSX = null; // 스무딩 즉시 스냅
@@ -4723,6 +4735,7 @@ function setSuit(level) {
     lbl('btnPlace', suit ? '미사일' : '놓기');
     lbl('btnBow', suit ? '레이저' : '활');
   }
+  lbl('btnUlt', suitLevel === 5 ? '광선포' : '필살기');
   updateSuitBar();
 }
 // 🎛 변신 아이콘 바 — 데스크톱·모바일 모두 작은 아이콘을 눌러 바로 변신
@@ -4795,12 +4808,13 @@ let ultCd = 0;
 function suitUlt() {
   if (!suit || !playing()) return;
   if (ultCd > 0) { playSound(140, 0.08, 'square', 0.08); return; }
+  if (suitLevel === 5) { fireDiaCannon(); return; } // 💎 필살기는 광역 폭발 대신 대형 광선포
   const p = player.pos;
-  const r = suitLevel === 5 ? 18 : suitLevel >= 2 ? 12 : 10;
-  const dmg = suitLevel === 5 ? 22 : suitLevel === 2 ? 14 : suitLevel === 4 ? 12 : suitLevel === 3 ? 10 : 8;
+  const r = suitLevel >= 2 ? 12 : 10;
+  const dmg = suitLevel === 2 ? 14 : suitLevel === 4 ? 12 : suitLevel === 3 ? 10 : 8;
   ultCd = suitLevel >= 3 ? 8 : 6;
-  const mat = suitLevel === 5 ? enemyBoltMat(0x7ff0ff) : suitLevel === 4 ? enemyBoltMat(0xa040e0) : suitLevel === 3 ? M_MAGIC : PULSE_MAT;
-  if (suitLevel >= 4) { // 🌪 사방으로 폭발 스컬 폭풍 (💎는 다이아 파편 폭풍)
+  const mat = suitLevel === 4 ? enemyBoltMat(0xa040e0) : suitLevel === 3 ? M_MAGIC : PULSE_MAT;
+  if (suitLevel === 4) { // 🌪 사방으로 폭발 스컬 폭풍
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2;
       const mesh = new THREE.Mesh(missileGeo, mat);
@@ -4831,6 +4845,80 @@ function suitUlt() {
   }
   playSound(suitLevel === 3 ? 900 : 60, 0.7, suitLevel === 3 ? 'sine' : 'sawtooth', 0.4);
   playSound(200, 0.5, 'square', 0.25);
+}
+
+// ---------- 💎 대형 광선포 (다이아 위더 필살기) ----------
+// 거대 위더 스톰(체력 600)을 한 번에 지워버릴 수 있는 위력. 0.8초 충전 후 2초간
+// 조준 방향으로 굵기 24칸의 광선을 쏜다. 지나는 길의 적은 전부 태우고 지형도 갈린다.
+const DIA_CANNON_CHARGE = 0.8;   // 충전
+const DIA_CANNON_FIRE = 2;       // 발사 지속
+const DIA_CANNON_W = 24;         // 광선 굵기(블록)
+const DIA_CANNON_RANGE = 180;    // 사거리
+const DIA_CANNON_DMG = 90;       // 0.12초마다 — 2초 다 맞으면 약 1500
+const diaCannonMat = new THREE.MeshLambertMaterial({ color: 0xe8ffff, emissive: 0x7ff0ff, emissiveIntensity: 1, transparent: true, opacity: 0.8, fog: false });
+const diaCannonBeam = new THREE.Mesh(beamGeo, diaCannonMat);
+diaCannonBeam.visible = false;
+scene.add(diaCannonBeam);
+let diaCannonT = 0, diaCannonTick = 0;
+function fireDiaCannon() {
+  if (diaCannonT > 0) return;
+  diaCannonT = DIA_CANNON_CHARGE + DIA_CANNON_FIRE;
+  diaCannonTick = 0;
+  ultCd = 14;
+  toast('💎 대형 광선포 충전...', 1200);
+  playSound(70, DIA_CANNON_CHARGE, 'sine', 0.3);
+}
+function stopDiaCannon() { diaCannonT = 0; diaCannonBeam.visible = false; }
+function updateDiaCannon(dt) {
+  if (diaCannonT <= 0) return;
+  if (suitLevel !== 5 || !playing()) { stopDiaCannon(); return; }
+  diaCannonT -= dt;
+  if (diaCannonT <= 0) { stopDiaCannon(); return; }
+  const charging = diaCannonT > DIA_CANNON_FIRE;
+  // 광선은 거대 몸체의 가운데 머리 입(높이 82블록)에서 보는 방향으로 곧게 뻗는다.
+  // 굵기가 24칸이라 대충 겨눠도 맞고, 발사 중에도 시선을 돌려 훑을 수 있다
+  camera.getWorldDirection(_dir);
+  const p = player.pos;
+  const ox = p.x, oy = p.y + 4.1 * DIA_SUIT_SCALE, oz = p.z;
+  const tx = ox + _dir.x * DIA_CANNON_RANGE;
+  const ty = oy + _dir.y * DIA_CANNON_RANGE;
+  const tz = oz + _dir.z * DIA_CANNON_RANGE;
+  const ax = tx - ox, ay = ty - oy, az = tz - oz;
+  const len = Math.hypot(ax, ay, az) || 1;
+  const w = charging ? DIA_CANNON_W * 0.12 : DIA_CANNON_W * (0.92 + Math.sin(suitTime * 22) * 0.08);
+  diaCannonBeam.visible = true;
+  diaCannonBeam.scale.set(w, w, len);
+  diaCannonBeam.position.set(ox + ax / 2, oy + ay / 2, oz + az / 2);
+  diaCannonBeam.lookAt(tx, ty, tz);
+  if (charging) return;
+  diaCannonTick -= dt;
+  if (diaCannonTick > 0) return;
+  diaCannonTick = 0.12;
+  const l2 = ax * ax + ay * ay + az * az || 1;
+  const rad = DIA_CANNON_W / 2;
+  for (const z of [...zombies]) { // 광선 축에서 반경 12칸 안의 적을 전부 태움
+    const qx = z.pos.x - ox, qy = z.pos.y + z.hitH * 0.5 - oy, qz = z.pos.z - oz;
+    const t = Math.max(0, Math.min(1, (qx * ax + qy * ay + qz * az) / l2));
+    if (Math.hypot(qx - ax * t, qy - ay * t, qz - az * t) > rad) continue;
+    damageMob(z, DIA_CANNON_DMG, z.pos.x - p.x, z.pos.z - p.z);
+    spawnFx(z.pos.x, z.pos.y + z.hitH * 0.5, z.pos.z, diaCannonMat, 3, 4, 0.3);
+  }
+  for (let i = 1; i <= 8; i++) { // 광선을 따라 흐르는 다이아 빛
+    const t = i / 9;
+    spawnFx(ox + ax * t, oy + ay * t, oz + az * t, diaCannonMat, 2, 5, 0.4);
+  }
+  // 착탄 지점 지형을 갈아냄 (지면과 만나는 지점만 — 매 틱 한 번)
+  for (let d = 20; d < len; d += 4) {
+    const bx = Math.floor(ox + (ax / len) * d), by = Math.floor(oy + (ay / len) * d), bz = Math.floor(oz + (az / len) * d);
+    if (by > Y_MAX || by < 0) continue;
+    if (!occludes(getBlock(bx, by, bz))) continue;
+    destroyBlocks(bx, by, bz, 6);
+    flashLight(bx, by + 2, bz, 0x9ff4ff, 6, 30, 0.4);
+    break;
+  }
+  shakeT = Math.max(shakeT, 0.5);
+  playSound(520, 0.12, 'sine', 0.12);
+  playSound(90, 0.12, 'sawtooth', 0.1);
 }
 
 // 🔮 순간이동: 조준 방향으로 최대 12칸, 막히기 직전까지 이동
@@ -5864,6 +5952,7 @@ function loop(now) {
     updateSiege(dt);
   }
   updateLaser(dt);
+  updateDiaCannon(dt);
   updateFxLights(dt);
   updateMining(dt);
   updateTorchLights(dt);
