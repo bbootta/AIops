@@ -1,14 +1,14 @@
 <!doctype html>
 <!--
-  RYNTA tri-fold brochure — Draft 03 EN "Evidence Blueprint" (Team 2)
+  RYNTA tri-fold brochure, Draft 03 EN "Evidence Blueprint" (Team 2)
   Format: A4 landscape (297x210mm) x 2 sheets (.sheet), 3 panels x 99mm each
   Outside: [Flap | Back | Cover] / Inside: [B-01 Diagnosis | B-02 Architecture | B-03 Transition]
-  English edition of the approved KO draft 03 — layout, color, grid and print CSS unchanged;
+  English edition of the approved KO draft 03, layout, color, grid and print CSS unchanged;
   copy per research/copy-deck-en.md. Drawing labels (SHEET, FIG., DWG NO.) were already
   English and are kept to reinforce the blueprint grammar. Latin typesetting: no
   word-break:keep-all (none in the KO original either), headline letter-spacing tightened.
 
-  [Print notes — full-bleed dark (blueprint) background]
+  [Print notes, full-bleed dark (blueprint) background]
   - Background (#062d49) + white grid cover the full page. For production, extend
     background and grid 3mm beyond trim on all sides (bleed) to avoid white edges
     (this HTML is trim-size 297x210mm).
@@ -18,12 +18,12 @@
     so they do not clog at print resolution.
   - Flap panel (outer-left 99mm) must be narrowed 2–3mm in production.
   - Browser printing requires "background graphics" enabled (print-color-adjust:exact included).
-  - Fold guides (.fold-guide, dashed) are screen-only — hidden automatically in print.
+  - Fold guides (.fold-guide, dashed) are screen-only, hidden automatically in print.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>RYNTA Brochure Draft 03 EN — Evidence Blueprint</title>
+<title>RYNTA Brochure Draft 03 EN, Evidence Blueprint</title>
 <style>
 :root{
   --bg:#062d49; --ink:#eef7ff; --sub:#cfe2f2; --dim:#b8d2e6;
@@ -153,7 +153,7 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:
 }
 .sec-box h3{font-size:9pt;font-weight:900;color:var(--teal);display:flex;align-items:center;gap:2mm;margin-bottom:1.6mm}
 .sec-box ul{list-style:none;font-size:7.8pt;color:var(--sub);line-height:1.7}
-.sec-box li::before{content:"— ";color:var(--teal);font-weight:900}
+.sec-box li::before{content:"";color:var(--teal);font-weight:900}
 
 @media print{
   @page{size:A4 landscape;margin:0}
@@ -165,7 +165,7 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:
 </head>
 <body>
 
-<div class="screen-label"><b>Draft 03 EN — Evidence Blueprint</b><span>Outside — SHEET A · [Flap | Back | Cover] · dashed line = fold (screen only)</span></div>
+<div class="screen-label"><b>Draft 03 EN, Evidence Blueprint</b><span>Outside, SHEET A · [Flap | Back | Cover] · dashed line = fold (screen only)</span></div>
 
 <!-- ═══════════════ Outside: Flap | Back | Cover ═══════════════ -->
 <section class="sheet outer" aria-label="Outside">
@@ -173,25 +173,25 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:
 
   <!-- Flap -->
   <div class="panel wing">
-    <div class="dwg-head"><span class="no">SHEET&nbsp;A-01</span><span>· PARALLEL-RUN EVALUATION — ACCEPTANCE TABLE</span></div>
+    <div class="dwg-head"><span class="no">SHEET&nbsp;A-01</span><span>· PARALLEL-RUN EVALUATION, ACCEPTANCE TABLE</span></div>
     <h2 class="panel-title">Three to six months,<br>four acceptance criteria</h2>
-    <p class="lead">RYNTA runs in parallel with your existing validation workflow on one or two models. Your validators measure the results against your baseline — <b style="color:var(--ink)">success is defined by your institution, not by us.</b></p>
+    <p class="lead">RYNTA runs in parallel with your existing validation workflow on one or two models. Your validators measure the results against your baseline, <b style="color:var(--ink)">success is defined by your institution, not by us.</b></p>
 
-    <table aria-label="Parallel-Run Evaluation — four acceptance criteria">
+    <table aria-label="Parallel-Run Evaluation, four acceptance criteria">
       <tr class="head"><th style="width:6mm">NO</th><th>ACCEPTANCE CRITERION</th><th style="width:24mm">TARGET</th></tr>
       <tr><td style="text-align:center"><span class="num">1</span></td><td>Output variance vs. current results (discrepancies)</td><td class="v">0</td></tr>
-      <tr><td style="text-align:center"><span class="num">2</span></td><td>Validation cycle per model — reduction</td><td class="v">≥50%</td></tr>
+      <tr><td style="text-align:center"><span class="num">2</span></td><td>Validation cycle per model, reduction</td><td class="v">≥50%</td></tr>
       <tr><td style="text-align:center"><span class="num">3</span></td><td>Audit-trail completeness (figure→evidence links)</td><td class="v">100%</td></tr>
       <tr><td style="text-align:center"><span class="num">4</span></td><td>4-Eyes policy exceptions (unapproved finals)</td><td class="v">0</td></tr>
     </table>
 
     <div class="tblock" style="margin-top:4mm">
       <div class="r"><span class="k">PROGRAM</span><span class="v">Runs alongside your current process · three to six months</span></div>
-      <div class="r"><span class="k">VERDICT</span><span class="v">By your institution — your validators, audit function &amp; system logs</span></div>
+      <div class="r"><span class="k">VERDICT</span><span class="v">By your institution, your validators, audit function &amp; system logs</span></div>
     </div>
 
-    <p class="small" style="margin-top:3.5mm">※ All four criteria are <b style="color:var(--ink)">targets, not commitments</b> — not achieved results. Outcomes vary by institution and environment.</p>
-    <p class="small" style="margin-top:auto;padding-top:3mm;border-top:1px solid var(--hair)">Inquiries — <b style="color:var(--teal)">info@onelineai.com</b></p>
+    <p class="small" style="margin-top:3.5mm">※ All four criteria are <b style="color:var(--ink)">targets, not commitments</b>, not achieved results. Outcomes vary by institution and environment.</p>
+    <p class="small" style="margin-top:auto;padding-top:3mm;border-top:1px solid var(--hair)">Inquiries, <b style="color:var(--teal)">info@onelineai.com</b></p>
   </div>
 
   <!-- Back -->
@@ -208,14 +208,14 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:
         </text>
       </svg>
       <p class="tagline">Financial-grade AI,<br>built by validators.</p>
-      <p class="intro">OneLine AI is a Seoul-based financial AI company. RYNTA RiskOps was designed by practitioners who sat on the validating side of the desk — bank risk-audit experience across IRRBB (ΔEVE·ΔNII), ICAAP, stress testing, and PD·LGD·EAD validation, with about ten years in financial data and risk models. We automate the work; authority and accountability stay with your people.</p>
+      <p class="intro">OneLine AI is a Seoul-based financial AI company. RYNTA RiskOps was designed by practitioners who sat on the validating side of the desk, bank risk-audit experience across IRRBB (ΔEVE·ΔNII), ICAAP, stress testing, and PD·LGD·EAD validation, with about ten years in financial data and risk models. We automate the work; authority and accountability stay with your people.</p>
       <div class="tblock" style="margin-top:4.5mm">
         <div class="r"><span class="k">ADDRESS</span><span class="v">Front One 14F, 122 Mapo-daero, Mapo-gu, Seoul, Korea</span></div>
         <div class="r"><span class="k">WEB</span><span class="v">www.onelineai.com</span></div>
         <div class="r"><span class="k">MAIL</span><span class="v">info@onelineai.com</span></div>
       </div>
     </div>
-    <p class="notice">Performance indicators in this material are evaluation targets, not achieved results; actual outcomes vary by institution and environment. AI-generated outputs are not final until reviewed and approved by authorized personnel. <b>— Pre-clearance draft · 03 · 2026-08-08</b></p>
+    <p class="notice">Performance indicators in this material are evaluation targets, not achieved results; actual outcomes vary by institution and environment. AI-generated outputs are not final until reviewed and approved by authorized personnel. <b>· Pre-clearance draft · 03 · 2026-08-08</b></p>
   </div>
 
   <!-- Cover -->
@@ -224,11 +224,11 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:
       <div class="dwg-head"><span class="no">RYNTA&nbsp;RISKOPS</span><span>· EVIDENCE&nbsp;BLUEPRINT</span></div>
       <!-- brandmark + dimension lines (drawing motif) -->
       <div class="markwrap">
-        <svg viewBox="0 0 150 108" width="46mm" role="img" aria-label="RYNTA brandmark drawing" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="rw13a" x1="-42.3" y1="42.3" x2="66.6" y2="-66.6" gradientUnits="userSpaceOnUse"><stop offset="0.05" stop-color="#396EAA"/><stop offset="0.15" stop-color="#4486BD"/><stop offset="0.25" stop-color="#509FD0"/><stop offset="0.35" stop-color="#5AB3DD"/><stop offset="0.45" stop-color="#5EBBE1"/><stop offset="0.55" stop-color="#6ECCE7"/><stop offset="0.65" stop-color="#91DFEC"/><stop offset="0.75" stop-color="#80DAEA"/><stop offset="0.85" stop-color="#69CAE6"/><stop offset="0.95" stop-color="#61C0E2"/></linearGradient><linearGradient id="rw13b" x1="-36.4" y1="36.4" x2="75.1" y2="-75.1" gradientUnits="userSpaceOnUse"><stop offset="0.05" stop-color="#3156C1"/><stop offset="0.15" stop-color="#335CCB"/><stop offset="0.25" stop-color="#3765D6"/><stop offset="0.35" stop-color="#3E73E3"/><stop offset="0.45" stop-color="#4580EC"/><stop offset="0.55" stop-color="#4B89F1"/><stop offset="0.65" stop-color="#65A1F1"/><stop offset="0.75" stop-color="#5293F3"/><stop offset="0.85" stop-color="#4580F1"/><stop offset="0.95" stop-color="#3D70E2"/></linearGradient></defs><g transform="translate(0.00,17.55) scale(0.7009) translate(-10.0,-30.0)"><path fill="url(#rw13b)" d="M213.64 64.17C205.97 63.32,164.32 63.75,153.88 63.77C143.43 63.8,150.89 63.81,148.88 64.33C146.86 64.86,143.78 65.85,141.38 67.04C138.97 68.23,136.06 70.17,133.97 71.71C131.87 73.26,133.91 70.9,128.38 76.63C122.85 82.36,106.76 100.05,99.68 107.24C92.6 114.42,88.98 117.73,84.5 121.19C80.02 124.65,75.92 127.02,71.88 128.69C67.83 130.35,60.52 130.95,59.42 131.5C58.31 132.06,55.11 132.06,65 132.12C74.89 132.18,110.15 132.24,120.75 131.86C131.35 131.49,128.07 130.69,130.75 129.78C133.43 128.87,135.26 127.59,137.37 126.22C139.49 124.86,138.65 126.35,143.87 121.29C149.09 116.24,162.82 101.63,169.75 94.89C176.68 88.14,181.74 83.63,186.85 79.47C191.96 75.3,197.13 71.51,201.45 69.05C205.78 66.58,221.32 65.02,213.64 64.17Z"/><path fill="url(#rw13a)" d="M165.77 33.3C166.27 32.85,171.61 32.5,162.38 32.41C153.14 32.31,118.84 32.24,108.5 32.72C98.15 33.19,100.95 34.31,98.25 35.34C95.55 36.37,94.19 37.36,91.77 39.1C89.35 40.85,89.26 39.98,83.26 46.15C77.26 52.32,61.65 70.07,54.6 77.37C47.55 84.67,43.91 87.97,39.58 91.41C35.25 94.85,31.3 97.08,27.75 98.71C24.2 100.34,18.59 100.97,17.59 101.52C16.58 102.07,12.02 102.05,21.5 102.12C30.98 102.2,66.05 102.37,76.38 101.99C86.7 101.61,82.98 100.69,85.5 99.75C88.01 98.81,89.84 97.66,91.97 96.14C94.09 94.63,93.28 96.1,98.68 90.38C104.09 84.67,119.34 67.24,125.5 60.72C131.66 54.2,132.42 53.58,136.88 49.96C141.33 46.34,149.54 40.65,153.15 38.27C156.76 35.89,157.21 36.02,159.25 35.22C161.29 34.42,165.26 33.75,165.77 33.3Z"/></g></svg>
+        <svg viewBox="10 30 214 104" width="87mm" role="img" aria-label="RYNTA brandmark drawing" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="rw13a" x1="-42.3" y1="42.3" x2="66.6" y2="-66.6" gradientUnits="userSpaceOnUse"><stop offset="0.05" stop-color="#396EAA"/><stop offset="0.15" stop-color="#4486BD"/><stop offset="0.25" stop-color="#509FD0"/><stop offset="0.35" stop-color="#5AB3DD"/><stop offset="0.45" stop-color="#5EBBE1"/><stop offset="0.55" stop-color="#6ECCE7"/><stop offset="0.65" stop-color="#91DFEC"/><stop offset="0.75" stop-color="#80DAEA"/><stop offset="0.85" stop-color="#69CAE6"/><stop offset="0.95" stop-color="#61C0E2"/></linearGradient><linearGradient id="rw13b" x1="-36.4" y1="36.4" x2="75.1" y2="-75.1" gradientUnits="userSpaceOnUse"><stop offset="0.05" stop-color="#3156C1"/><stop offset="0.15" stop-color="#335CCB"/><stop offset="0.25" stop-color="#3765D6"/><stop offset="0.35" stop-color="#3E73E3"/><stop offset="0.45" stop-color="#4580EC"/><stop offset="0.55" stop-color="#4B89F1"/><stop offset="0.65" stop-color="#65A1F1"/><stop offset="0.75" stop-color="#5293F3"/><stop offset="0.85" stop-color="#4580F1"/><stop offset="0.95" stop-color="#3D70E2"/></linearGradient></defs><path fill="url(#rw13b)" d="M213.64 64.17C205.97 63.32,164.32 63.75,153.88 63.77C143.43 63.8,150.89 63.81,148.88 64.33C146.86 64.86,143.78 65.85,141.38 67.04C138.97 68.23,136.06 70.17,133.97 71.71C131.87 73.26,133.91 70.9,128.38 76.63C122.85 82.36,106.76 100.05,99.68 107.24C92.6 114.42,88.98 117.73,84.5 121.19C80.02 124.65,75.92 127.02,71.88 128.69C67.83 130.35,60.52 130.95,59.42 131.5C58.31 132.06,55.11 132.06,65 132.12C74.89 132.18,110.15 132.24,120.75 131.86C131.35 131.49,128.07 130.69,130.75 129.78C133.43 128.87,135.26 127.59,137.37 126.22C139.49 124.86,138.65 126.35,143.87 121.29C149.09 116.24,162.82 101.63,169.75 94.89C176.68 88.14,181.74 83.63,186.85 79.47C191.96 75.3,197.13 71.51,201.45 69.05C205.78 66.58,221.32 65.02,213.64 64.17Z"/><path fill="url(#rw13a)" d="M165.77 33.3C166.27 32.85,171.61 32.5,162.38 32.41C153.14 32.31,118.84 32.24,108.5 32.72C98.15 33.19,100.95 34.31,98.25 35.34C95.55 36.37,94.19 37.36,91.77 39.1C89.35 40.85,89.26 39.98,83.26 46.15C77.26 52.32,61.65 70.07,54.6 77.37C47.55 84.67,43.91 87.97,39.58 91.41C35.25 94.85,31.3 97.08,27.75 98.71C24.2 100.34,18.59 100.97,17.59 101.52C16.58 102.07,12.02 102.05,21.5 102.12C30.98 102.2,66.05 102.37,76.38 101.99C86.7 101.61,82.98 100.69,85.5 99.75C88.01 98.81,89.84 97.66,91.97 96.14C94.09 94.63,93.28 96.1,98.68 90.38C104.09 84.67,119.34 67.24,125.5 60.72C131.66 54.2,132.42 53.58,136.88 49.96C141.33 46.34,149.54 40.65,153.15 38.27C156.76 35.89,157.21 36.02,159.25 35.22C161.29 34.42,165.26 33.75,165.77 33.3Z"/></svg>
       </div>
       <div class="nm">RYNTA <small>RiskOps</small></div>
       <h1>Numbers by the engine.<br>Language by agents.<br><span class="t">Judgment by people.</span></h1>
-      <p class="def">The AI agent platform for risk management and validation —<br>every figure traceable to its source: the <b style="color:var(--teal)">Evidence blueprint</b>.</p>
+      <p class="def">The AI agent platform for risk management and validation<br>every figure traceable to its source: the <b style="color:var(--teal)">Evidence blueprint</b>.</p>
     </div>
     <div class="foot">
       <div class="tblock" style="flex:1">
@@ -246,18 +246,18 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:
   </div>
 </section>
 
-<div class="screen-label"><b>Draft 03 EN — Evidence Blueprint</b><span>Inside — SHEET B · [B-01 Diagnosis | B-02 Architecture | B-03 Transition] · dashed line = fold (screen only)</span></div>
+<div class="screen-label"><b>Draft 03 EN, Evidence Blueprint</b><span>Inside, SHEET B · [B-01 Diagnosis | B-02 Architecture | B-03 Transition] · dashed line = fold (screen only)</span></div>
 
 <!-- ═══════════════ Inside: B-01 | B-02 | B-03 ═══════════════ -->
 <section class="sheet inner" aria-label="Inside">
   <div class="fold-guide f1"></div><div class="fold-guide f2"></div>
-  <div class="edge-note" aria-hidden="true"><span>RYNTA&nbsp;RISKOPS&nbsp;—&nbsp;EVIDENCE&nbsp;BLUEPRINT</span><span>SHEET&nbsp;B&nbsp;·&nbsp;INTERIOR</span></div>
+  <div class="edge-note" aria-hidden="true"><span>RYNTA&nbsp;RISKOPS&nbsp;, &nbsp;EVIDENCE&nbsp;BLUEPRINT</span><span>SHEET&nbsp;B&nbsp;·&nbsp;INTERIOR</span></div>
 
-  <!-- Inside 1: diagnosis — why now -->
+  <!-- Inside 1: diagnosis, why now -->
   <div class="panel">
-    <div class="dwg-head"><span class="no">B-01</span><span>· DIAGNOSIS — WHY NOW</span></div>
+    <div class="dwg-head"><span class="no">B-01</span><span>· DIAGNOSIS, WHY NOW</span></div>
     <h2 class="panel-title">Validation, built<br>without a blueprint</h2>
-    <p class="lead"><b style="color:var(--ink)">Validation shouldn't depend on whoever runs it.</b> Today the results survive — the drawing of the process does not.</p>
+    <p class="lead"><b style="color:var(--ink)">Validation shouldn't depend on whoever runs it.</b> Today the results survive, the drawing of the process does not.</p>
     <div class="diag">
       <div class="item"><span class="num">1</span>
         <div><h3>Recurring recalculation</h3><p>Per-analyst scripts recompute the same numbers; results are hard to reproduce.</p></div>
@@ -271,13 +271,13 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:
     </div>
     <div class="frame" style="margin-top:4.5mm;display:flex;align-items:center;gap:3.5mm">
       <b style="font-size:15pt;font-weight:900;white-space:nowrap">2–4 weeks</b>
-      <span class="small">per model, today — current validation cycle (as-is, internal estimate)</span>
+      <span class="small">per model, today, current validation cycle (as-is, internal estimate)</span>
     </div>
   </div>
 
   <!-- Inside 2: four layers = 7-step Evidence flow drawing -->
   <div class="panel">
-    <div class="dwg-head"><span class="no">B-02</span><span>· THE ANSWER — 4 LAYERS × 7-STEP EVIDENCE FLOW</span></div>
+    <div class="dwg-head"><span class="no">B-02</span><span>· THE ANSWER, 4 LAYERS × 7-STEP EVIDENCE FLOW</span></div>
     <h2 class="panel-title">Divide the work.<br>Keep the judgment.</h2>
 
     <div class="flow">
@@ -304,13 +304,13 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:
           <!-- 1 -->
           <circle cx="16" cy="22" r="9" fill="#062d49" stroke="#42a9ff" stroke-width="1.2"/><text x="16" y="25.5" text-anchor="middle" font-size="9" font-weight="900" fill="#42a9ff">1</text>
           <rect x="34" y="8" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="rgba(66,169,255,.55)" stroke-width="1"/>
-          <text x="42" y="20" font-size="9.5" font-weight="800" fill="#eef7ff">Intake — data &amp; model inputs</text>
-          <text x="42" y="31" font-size="7.5" fill="#b8d2e6">Via the standard engine API — no per-analyst scripts</text>
+          <text x="42" y="20" font-size="9.5" font-weight="800" fill="#eef7ff">Intake, data &amp; model inputs</text>
+          <text x="42" y="31" font-size="7.5" fill="#b8d2e6">Via the standard engine API, no per-analyst scripts</text>
           <!-- 2 -->
           <circle cx="16" cy="66" r="9" fill="#062d49" stroke="#42a9ff" stroke-width="1.2"/><text x="16" y="69.5" text-anchor="middle" font-size="9" font-weight="900" fill="#42a9ff">2</text>
           <rect x="34" y="52" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="rgba(66,169,255,.55)" stroke-width="1"/>
-          <text x="42" y="64" font-size="9.5" font-weight="800" fill="#eef7ff">Deterministic engine calculation — no LLM</text>
-          <text x="42" y="75" font-size="7.5" fill="#b8d2e6">Same input, same output — reproducible, verifiable</text>
+          <text x="42" y="64" font-size="9.5" font-weight="800" fill="#eef7ff">Deterministic engine calculation, no LLM</text>
+          <text x="42" y="75" font-size="7.5" fill="#b8d2e6">Same input, same output, reproducible, verifiable</text>
           <!-- 3 -->
           <circle cx="16" cy="110" r="9" fill="#062d49" stroke="#42a9ff" stroke-width="1.2"/><text x="16" y="113.5" text-anchor="middle" font-size="9" font-weight="900" fill="#42a9ff">3</text>
           <rect x="34" y="96" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="rgba(66,169,255,.55)" stroke-width="1"/>
@@ -319,22 +319,22 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:
           <!-- 4 -->
           <circle cx="16" cy="154" r="9" fill="#062d49" stroke="#a78bfa" stroke-width="1.2"/><text x="16" y="157.5" text-anchor="middle" font-size="9" font-weight="900" fill="#a78bfa">4</text>
           <rect x="34" y="140" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="rgba(167,139,250,.6)" stroke-width="1"/>
-          <text x="42" y="152" font-size="9.5" font-weight="800" fill="#eef7ff">Agent drafting — AVI·ARI</text>
+          <text x="42" y="152" font-size="9.5" font-weight="800" fill="#eef7ff">Agent drafting, AVI·ARI</text>
           <text x="42" y="163" font-size="7.5" fill="#b8d2e6">Evidence-linked draft, labeled [AI-generated draft]</text>
           <!-- 5 -->
           <circle cx="16" cy="198" r="9" fill="#062d49" stroke="#f6bb56" stroke-width="1.2"/><text x="16" y="201.5" text-anchor="middle" font-size="9" font-weight="900" fill="#f6bb56">5</text>
           <rect x="34" y="184" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="rgba(246,187,86,.6)" stroke-width="1"/>
-          <text x="42" y="196" font-size="9.5" font-weight="800" fill="#eef7ff">Human review — 4-Eyes</text>
+          <text x="42" y="196" font-size="9.5" font-weight="800" fill="#eef7ff">Human review, 4-Eyes</text>
           <text x="42" y="207" font-size="7.5" fill="#b8d2e6">Cross-checked by multiple reviewers</text>
           <!-- 6 -->
           <circle cx="16" cy="242" r="9" fill="#062d49" stroke="#f6bb56" stroke-width="1.2"/><text x="16" y="245.5" text-anchor="middle" font-size="9" font-weight="900" fill="#f6bb56">6</text>
           <rect x="34" y="228" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="rgba(246,187,86,.6)" stroke-width="1"/>
-          <text x="42" y="240" font-size="9.5" font-weight="800" fill="#eef7ff">Approval — authorized sign-off</text>
+          <text x="42" y="240" font-size="9.5" font-weight="800" fill="#eef7ff">Approval, authorized sign-off</text>
           <text x="42" y="251" font-size="7.5" fill="#b8d2e6">Nothing is final before approval</text>
           <!-- 7 -->
           <circle cx="16" cy="292" r="9" fill="#062d49" stroke="#2dd4bf" stroke-width="1.2"/><text x="16" y="295.5" text-anchor="middle" font-size="9" font-weight="900" fill="#2dd4bf">7</text>
           <rect x="34" y="278" width="220" height="28" fill="rgba(4,30,50,.55)" stroke="#2dd4bf" stroke-width="1.2"/>
-          <text x="42" y="290" font-size="9.5" font-weight="800" fill="#eef7ff">Evidence Ledger entry — immutable</text>
+          <text x="42" y="290" font-size="9.5" font-weight="800" fill="#eef7ff">Evidence Ledger entry, immutable</text>
           <text x="42" y="301" font-size="7.5" fill="#b8d2e6">Accumulated at execution → reproducibility package</text>
           <!-- 7 → reproducibility arrow -->
           <line x1="144" y1="306" x2="144" y2="326" stroke="#2dd4bf" stroke-width="1" marker-end="url(#fa)"/>
@@ -342,18 +342,18 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:
         </g>
       </svg>
       <div class="legend" aria-label="Four-layer legend">
-        <span><i style="background:#42a9ff"></i>Calculation — deterministic engine</span>
-        <span><i style="background:#a78bfa"></i>Drafting — AI agents AVI·ARI</span>
-        <span><i style="background:#f6bb56"></i>Judgment — people · 4-Eyes</span>
-        <span><i style="background:#2dd4bf"></i>Record — Evidence Ledger</span>
+        <span><i style="background:#42a9ff"></i>Calculation, deterministic engine</span>
+        <span><i style="background:#a78bfa"></i>Drafting, AI agents AVI·ARI</span>
+        <span><i style="background:#f6bb56"></i>Judgment, people · 4-Eyes</span>
+        <span><i style="background:#2dd4bf"></i>Record, Evidence Ledger</span>
       </div>
-      <p class="small" style="margin-top:2mm">FIG.2 — Conceptual flow based on the four-layer product architecture. Agent-drafted content is labeled as AI-generated and remains non-final until approved.</p>
+      <p class="small" style="margin-top:2mm">FIG.2, Conceptual flow based on the four-layer product architecture. Agent-drafted content is labeled as AI-generated and remains non-final until approved.</p>
     </div>
   </div>
 
   <!-- Inside 3: As-is → To-be + security -->
   <div class="panel">
-    <div class="dwg-head"><span class="no">B-03</span><span>· REVISION TABLE — AS-IS → TO-BE</span></div>
+    <div class="dwg-head"><span class="no">B-03</span><span>· REVISION TABLE, AS-IS → TO-BE</span></div>
     <h2 class="panel-title">Same mandate.<br>Different operating model.</h2>
     <div class="ab">
       <div class="row"><div class="cell as">Per-analyst scripts</div><div class="arr">→</div><div class="cell to">Standard engine API</div></div>
@@ -364,7 +364,7 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:
 
     <!-- cycle dimension-line comparison (business-day axis, 5-day-week conversion) -->
     <div class="frame" style="margin-top:4mm">
-      <span style="font-size:6.8pt;font-weight:800;letter-spacing:.14em;color:var(--dim)">VALIDATION CYCLE — PER MODEL <span class="tag">TARGET</span></span>
+      <span style="font-size:6.8pt;font-weight:800;letter-spacing:.14em;color:var(--dim)">VALIDATION CYCLE, PER MODEL</span>
       <svg viewBox="0 0 300 74" width="100%" role="img" aria-label="Dimension-line comparison: 2 to 4 weeks today versus a target of 5 to 10 business days" style="margin-top:2mm" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <marker id="dm" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -383,17 +383,17 @@ h2.panel-title{font-size:16pt;font-weight:900;letter-spacing:-.02em;line-height:
         <text x="155" y="14" text-anchor="middle" font-size="8.5" font-weight="700" fill="#cfe2f2">As-is 2–4 weeks (10–20 business days)</text>
         <!-- To-be dimension: 0→10 business days -->
         <line x1="20" y1="52" x2="155" y2="52" stroke="#2dd4bf" stroke-width="1.2" marker-start="url(#dmt)" marker-end="url(#dmt)"/>
-        <text x="87" y="46" text-anchor="middle" font-size="8.5" font-weight="900" fill="#2dd4bf">To-be 5–10 business days (target)</text>
-        <text x="155" y="71" font-size="7.5" fill="#b8d2e6" text-anchor="middle">Scale: business days (5-day week) · target — not actual results</text>
+        <text x="87" y="46" text-anchor="middle" font-size="8.5" font-weight="900" fill="#2dd4bf">To-be 5–10 business days</text>
+        <text x="155" y="71" font-size="7.5" fill="#b8d2e6" text-anchor="middle">Scale: business days (5-day week)</text>
       </svg>
     </div>
 
     <div class="sec-box">
-      <h3><svg viewBox="0 0 24 24" width="12" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="#2dd4bf" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#2dd4bf" stroke-width="2"/></svg>Secured zone — your data stays inside</h3>
+      <h3><svg viewBox="0 0 24 24" width="12" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="#2dd4bf" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#2dd4bf" stroke-width="2"/></svg>Secured zone, your data stays inside</h3>
       <ul>
         <li>On-premises, inside your network and jurisdiction</li>
         <li>No source data retained by OneLine AI</li>
-        <li>An internal support tool for your independent validation function — designed to fit existing model risk management frameworks</li>
+        <li>An internal support tool for your independent validation function, designed to fit existing model risk management frameworks</li>
       </ul>
     </div>
   </div>
