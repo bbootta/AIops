@@ -135,6 +135,11 @@ def _executive_dict(s: Studio) -> dict:
         "facts": facts,
         "briefing": list(_cro_briefing(r)),
         "kris": _kri_card_data(r.raf, seed=seed),
+        # RWA 귀속 — 리포트 ops/23 이 그리는 것과 같은 산출이다.
+        "attribution": [
+            {"component": str(x["component"]), "rwa": float(x["rwa"]),
+             "share": float(x["share"])}
+            for _, x in r.attribution["rwa_components"].iterrows()],
         "actions": list(_top_actions(r, max_actions=5)),
         "source": "risk_lib.html_exec — 02_reports/executive.html 과 동일 산출",
     }
@@ -391,6 +396,13 @@ def _payload(s: Studio) -> dict:
             "limit": "한도명", "dimension": "차원", "bucket": "구간",
             "exposure": "익스포저", "threshold": "한도액",
             "utilisation": "소진율", "severity": "심각도"}),
+        # 한도 소진율 전량 — 위반 아닌 버킷까지. 화면이 분포를 보여야 한다.
+        "limits_full": _frame(
+            s.result.limits_full if s.result.limits_full is not None
+            else s.result.limits, 60, labels={
+                "limit": "한도명", "dimension": "차원", "bucket": "구간",
+                "exposure": "익스포저", "threshold": "한도액",
+                "utilisation": "소진율", "severity": "심각도"}),
         # 역스트레스 — 자본 임계를 뚫는 심도를 푼다 (BNK-ST-006).
         "reverse_stress": _reverse_dict(s),
         # 사업성(COM) — 규제 산출물이 아니다. 제출 지문·독립검증 대상에 넣지
@@ -653,6 +665,28 @@ font-family:inherit;font-size:13px;font-weight:750;padding:2px 0;text-align:left
 .bnum{background:var(--accent);color:var(--on-accent);border-radius:6px;
 padding:2px 7px;font-size:11px;font-weight:750;
 font-variant-numeric:tabular-nums}
+/* 3선 도전 가정 — 항목이 2~6줄 문단이라 그대로 나열하면 글자 벽이 된다.
+   접힌 줄은 한 줄로 잘라 고정하고(nowrap+말줄임) 전문은 펼쳤을 때만 흐른다. */
+.asmp-sec{margin:14px 0 0}
+.asmp-sec[hidden],.asmp-row[hidden]{display:none}
+.asmp-hd{display:flex;gap:8px;align-items:center;padding:0 0 5px;
+border-bottom:1px solid var(--line);font-size:10.5px;font-weight:800;
+letter-spacing:.06em;color:var(--muted)}
+.asmp-row{border-bottom:1px solid var(--line)}
+.asmp-row>summary{display:flex;gap:7px;align-items:center;cursor:pointer;
+padding:7px 4px;font-size:12px;list-style:none}
+.asmp-row>summary::-webkit-details-marker{display:none}
+.asmp-row>summary::before{content:'▸';flex:none;color:var(--muted);font-size:10px}
+.asmp-row[open]>summary::before{content:'▾';color:var(--accent)}
+.asmp-row>summary:hover{background:var(--chip)}
+.asmp-row[open]>summary{font-weight:700}
+.asmp-sum{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+white-space:nowrap}
+.asmp-fid{flex:none;font-size:9.5px;font-weight:750;letter-spacing:.03em;
+color:var(--lineage);border:1px solid var(--line);background:var(--chip);
+border-radius:6px;padding:1px 6px;font-variant-numeric:tabular-nums}
+.asmp-body{padding:0 6px 13px 21px;font-size:12px;line-height:1.7;
+color:var(--muted);max-width:92ch}
 """
 
 _JS = r"""
@@ -2089,6 +2123,126 @@ function renderForm(pane,f){
 }
 
 /* ---- 검증 · 에이전트 · 변경 · 카탈로그 ---- */
+
+/* 3선 도전 가정 목록.
+
+   원문(D.independent.assumptions)은 요청 패키지의 known_assumptions 그대로다 —
+   같은 문자열이 3선에 요청 지문으로 넘어가므로 화면에서 문장을 고치지 않는다.
+   여기서 만드는 것은 접힌 줄에 쓸 요약과 부문 분류뿐이고, 펼치면 원문이 나온다.
+
+   부문은 원문에 없다. 지적번호(F-xxx)와 키워드로 화면이 붙이는 것이라 정확한
+   소관 구분이 아니며, 어느 부문에도 안 걸린 항목은 '기타'로 남기고 숨기지
+   않는다 — 걸러 버리면 분류 규칙이 놓친 가정이 아무에게도 안 읽힌다. */
+const ASMP_CATS=[
+  ['자본',['자본금','CET1','보통주자본','자기자본','레버리지비율','레버리지',
+           'AT1','이익잉여금','자본비율','발행자본','완충자본','자본 가정',
+           '자본 수준','자본 원장','기본자본','합성 자본']],
+  ['RWA',['RWA','위험가중','위험계수','산출하한','output floor','CRM','CVA',
+          '신용위험경감','표준방법','내부모형','시장리스크','집합투자','유동화',
+          '익스포저']],
+  ['ECL',['ECL','기대신용손실','기대손실','Stage','충당금','대손','커버리지',
+          '자산건전성','연체일수','PD 스케일']],
+  ['서식',['서식','FINES','업무보고서','제출대상','서식번호','가맹점수수료']],
+  ['검증통제',['검증','통제','기준선','회귀','항진명제','지문','request_id',
+              '대조','대사','등록','게이트','인용']],
+  ['데이터',['원장','파생','실측','합성','시드','provenance','난수','통화 구분',
+            '대용']],
+];
+
+/* 걸린 키워드가 가장 많은 부문. 동점이면 위에 선언된 부문이 이긴다 —
+   선언 순서가 곧 우선순위이고, 화면 표시 순서도 같다. */
+function asmpCat(text){
+  const low=text.toLowerCase();
+  let best='기타',n=0;
+  ASMP_CATS.forEach(([name,kws])=>{
+    const hit=kws.reduce((a,k)=>a+(low.includes(k.toLowerCase())?1:0),0);
+    if(hit>n){n=hit;best=name}});
+  return best;
+}
+
+/* 요약 한 줄 — 첫 문장을 쓰되 80자를 넘으면 자른다. 문장 끝 마침표는 뒤가
+   공백이거나 끝인 것만 인정한다. 소수점(8.1%)·모듈 경로(risk_lib.stress.axes)의
+   마침표는 뒤에 글자가 붙어 있어 여기서 걸리지 않는다.
+   강조 표시(**)는 접힌 줄에서 잡음이라 요약에서만 뗀다 — 전문은 원문 그대로다. */
+function asmpSummary(text){
+  const t=text.replace(/\*\*/g,'').replace(/\s+/g,' ').trim();
+  const m=t.match(/^.*?\.(?=\s|$)/);
+  let head=m?m[0]:t;
+  if(head.length>80)head=head.slice(0,80).trim()+'…';
+  return head;
+}
+
+function assumptionList(list){
+  const wrap=el('div');
+  const rows=list.map(text=>({
+    text:text, low:text.toLowerCase(), cat:asmpCat(text),
+    ids:[...new Set(text.match(/\bF-[0-9A-Z]{3}\b/g)||[])]}));
+  const nId=rows.filter(r=>r.ids.length).length;
+  wrap.appendChild(el('div','meta',
+    `총 ${rows.length}건 · 지적번호가 붙은 항목 ${nId}건. 접힌 줄은 요약이고 `+
+    `펼치면 요청서 원문이 나온다. 부문은 지적번호와 키워드로 나눈 화면 분류이며, `+
+    `3선에 넘어가는 문장은 원문 그대로다.`));
+
+  const bar=el('div','toolbar');
+  const q=el('input','input');q.type='search';
+  q.placeholder='가정 검색 (예: 합성 · 레버리지 · F-603)';
+  const bOpen=el('button','btn','전체 펼치기');
+  const bShut=el('button','btn','전체 접기');
+  bar.appendChild(q);bar.appendChild(bOpen);bar.appendChild(bShut);
+  wrap.appendChild(bar);
+  const hit=el('div','meta');hit.hidden=true;
+  wrap.appendChild(hit);
+
+  const secs=[];
+  [...ASMP_CATS.map(c=>c[0]),'기타'].forEach(name=>{
+    const mine=rows.filter(r=>r.cat===name);
+    if(!mine.length)return;
+    const sec=el('div','asmp-sec');
+    const hd=el('div','asmp-hd');
+    hd.appendChild(el('span',null,name));
+    const badge=el('span','pill',mine.length+'건');
+    hd.appendChild(badge);
+    sec.appendChild(hd);
+    const items=mine.map(r=>{
+      const d=el('details','asmp-row');
+      const sm=el('summary');
+      r.ids.forEach(f=>sm.appendChild(el('span','asmp-fid',f)));
+      sm.appendChild(el('span','asmp-sum',asmpSummary(r.text)));
+      d.appendChild(sm);
+      d.appendChild(el('div','asmp-body',r.text));
+      sec.appendChild(d);
+      return {node:d,row:r}});
+    secs.push({node:sec,badge:badge,items:items,total:mine.length});
+    wrap.appendChild(sec)});
+
+  let hadKw=false;
+  function apply(){
+    const kw=q.value.trim().toLowerCase();
+    let vis=0;
+    secs.forEach(s=>{
+      let n=0;
+      s.items.forEach(it=>{
+        const on=!kw||it.row.low.includes(kw);
+        it.node.hidden=!on;
+        /* 검색어가 접힌 전문에만 있으면 요약 줄만 보고는 왜 걸렸는지 알 수
+           없다 — 걸린 항목은 펴서 보여주고, 검색어를 지우면 도로 접는다. */
+        if(kw)it.node.open=on; else if(hadKw)it.node.open=false;
+        if(on)n++});
+      s.node.hidden=n===0;
+      s.badge.textContent=(kw&&n<s.total)?`${n}/${s.total}건`:`${s.total}건`;
+      vis+=n});
+    hit.textContent=`검색어 '${q.value.trim()}' — ${rows.length}건 중 ${vis}건`;
+    hit.hidden=!kw;
+    hadKw=!!kw;
+  }
+  q.addEventListener('input',apply);
+  bOpen.onclick=()=>secs.forEach(s=>s.items.forEach(
+    it=>{if(!it.node.hidden)it.node.open=true}));
+  bShut.onclick=()=>secs.forEach(s=>s.items.forEach(it=>{it.node.open=false}));
+  apply();
+  return wrap;
+}
+
 function validation(root){
   root.appendChild(el('p','lead',
     '검증은 두 층이다. 자체검증(2선)은 같은 코드·같은 가정으로 점검하고, 상시 독립검증(3선)은 '+
@@ -2119,10 +2273,12 @@ function validation(root){
     '배포 범위를 기록해야만 통과한다 — 조건부는 적합이 아니다.'));
   g.appendChild(el('h3',null,'독립 재계산 대상'));
   g.appendChild(table(D.independent_targets));
-  g.appendChild(el('h3',null,'3선이 도전해야 할 가정'));
-  const ul=el('div');
-  iv.assumptions.forEach((a,i)=>{const d=el('div','meta','· '+a);ul.appendChild(d)});
-  g.appendChild(ul);
+  g.appendChild(el('h3',null,
+    `3선이 도전해야 할 가정 — ${iv.assumptions.length}건`));
+  g.appendChild(iv.assumptions.length
+    ? assumptionList(iv.assumptions)
+    : el('div','note bad',
+        '가정 목록이 비어 있다 — 독립검증 요청 패키지가 만들어지지 않았다.'));
   root.appendChild(g);
 
   const c=el('div','card');
@@ -2402,6 +2558,44 @@ function scenarioSettings(root){
 /* 경영진 요약 — 02_reports/executive.html 과 **같은 생성기**(risk_lib.html_exec)
    에서 나온 값을 그린다. 화면이 따로 계산하지 않으므로 두 산출물의 수치가
    갈라질 자리가 없다. 서식만 다르고 사실은 하나다. */
+/* 브리핑·액션 문장에 박힌 딥링크는 리포트 페이지(ops/*.html)를 가리킨다. 화면에는
+   그 파일이 없으므로 스튜디오 화면으로 바꿔 건다. 대응 화면이 없는 셋(자본 스택·
+   귀속분석·RAF)은 이 화면 안에 절로 두고 그리로 스크롤한다. */
+const EXEC_LINKS={
+  'ops/32_capital_stack.html':          {sec:'sec-capital-stack'},
+  'ops/23_attribution.html':            {sec:'sec-rwa-attr'},
+  'ops/19_raf.html':                    {sec:'sec-raf'},
+  'ops/37_macro_scenario.html':         {tab:'ECL'},
+  'ops/38_provisioning_attribution.html':{tab:'ECL'},
+  'ops/18_concentration_deep.html':     {tab:'한도관리'},
+  'ops/49_ccar_path.html':              {tab:'위기상황'},
+  'ops/48_reverse_stress_multi.html':   {tab:'역스트레스'},
+  'ops/11b_lcr.html':                   {tab:'유동성리스크'},
+  'ops/61_intraday.html':               {tab:'유동성리스크'},
+  'ops/17_model_risk.html':             {tab:'모형리스크'},
+};
+function wireExecLinks(scope){
+  scope.querySelectorAll('a[href]').forEach(a=>{
+    const raw=a.getAttribute('href')||'';
+    const key=Object.keys(EXEC_LINKS).find(k=>raw.indexOf(k)>=0);
+    if(!key){                       /* 매핑이 없으면 링크를 없앤다 — 죽은 링크를
+                                       남기면 눌러 보고 나서야 없다는 걸 안다 */
+      const t=el('span','meta',a.textContent);a.replaceWith(t);return}
+    const to=EXEC_LINKS[key];
+    a.removeAttribute('href');a.style.cursor='pointer';
+    a.title=to.tab?`${to.tab} 화면으로 이동`:'아래 절로 이동';
+    a.onclick=e=>{e.preventDefault();
+      /* nav 버튼 순서는 NAVGROUPS 트리 순서라 TABS 인덱스와 다르다 —
+         인덱스로 집으면 엉뚱한 화면이 열린다(실제로 LCR이 코드 매핑으로 갔다).
+         라벨로 찾는다. */
+      if(to.tab){const btn=[...document.querySelectorAll('nav button')]
+          .find(b=>b.textContent.trim()===to.tab);
+        if(btn)btn.click()}
+      else{const s=document.getElementById(to.sec);
+        if(s)s.scrollIntoView({behavior:'smooth',block:'start'})}};
+  });
+}
+
 function executiveReport(root){
   const E=D.executive;
   if(!E){root.appendChild(el('p','lead','경영진 요약 데이터가 없다.'));return}
@@ -2410,8 +2604,8 @@ function executiveReport(root){
   const pp=v=>(v>=0?'+':'')+v.toFixed(3)+'%p';
 
   root.appendChild(el('p','lead',
-    '보고서 산출물 02_reports/executive.html 과 같은 엔진에서 나온 값이다. '+
-    '서식만 다르고 수치는 하나다 — 화면이 따로 계산하지 않는다.'));
+    '02_reports/executive.html 과 같은 산출값이다. 문장 안의 링크는 해당 화면으로 '+
+    '이동하고, 자본 스택·RWA 귀속·RAF는 아래 절에 있다.'));
 
   /* --- 자본·유동성 한눈에 --- */
   const g=el('div','grid');
@@ -2442,18 +2636,48 @@ function executiveReport(root){
   /* --- CRO 브리핑 --- */
   if(E.briefing&&E.briefing.length){
     const c=el('div','card');
-    c.appendChild(el('h3',null,'CRO 브리핑 — 이번 산출이 말하는 것'));
+    c.appendChild(el('h3',null,'CRO 브리핑'));
     const ul=el('ul');ul.style.cssText='margin:6px 0 0 18px;font-size:12px';
     E.briefing.forEach(t=>{const li=el('li');li.innerHTML=t;ul.appendChild(li)});
     c.appendChild(ul);
-    c.appendChild(el('div','meta',
-      '규칙 기반 자동 생성 — 결정론(같은 데이터면 같은 문장) · 외부 LLM 호출 없음'));
+    wireExecLinks(ul);
+    c.appendChild(el('div','meta','원장에서 규칙으로 생성 · 외부 LLM 호출 없음'));
     root.appendChild(c);
   }
 
+  /* --- 자본 스택 (리포트 ops/32) --- */
+  const cs=D.data&&D.data['cap_stack'];
+  if(cs&&cs.rows.length){
+    const c=el('div','card');c.id='sec-capital-stack';
+    c.appendChild(el('h3',null,'자본 스택 — 계층별 요구 대비 여유'));
+    const i=frameIdx(cs);
+    c.appendChild(hbars(cs.rows.map(r=>({
+      label:r[i.tier],value:r[i.amount],
+      sub:`비율 ${(r[i.ratio]*100).toFixed(2)}% · 요구 ${(r[i.required]*100).toFixed(2)}%`+
+          ` · ${r[i.surplus]>=0?'여유':'부족'} ${(Math.abs(r[i.surplus])*100).toFixed(3)}%p`,
+      tone:r[i.surplus]<0?'bad':'good'})),
+      {title:'계층별 자본과 규제 요구',src:srcMeta(cs)}));
+    const short=cs.rows.filter(r=>r[i.surplus]<0).map(r=>r[i.tier]);
+    if(short.length)c.appendChild(el('div','meta bad',
+      `요구 미달 계층 — ${short.join(' · ')}. 배당·성과급 제한 대상.`));
+    root.appendChild(c);
+  }
+
+  /* --- RWA 귀속 (리포트 ops/23) --- */
+  const at=E.attribution;
+  if(at&&at.length){
+    const c=el('div','card');c.id='sec-rwa-attr';
+    c.appendChild(el('h3',null,'위험가중자산 귀속 — 무엇이 분모를 만드는가'));
+    c.appendChild(donut(at.map(x=>({label:x.component,value:x.rwa})),
+      {note:'구성요소별 위험가중자산 · 합계는 공표 RWA와 같다'}));
+    root.appendChild(c);
+  }
+
+  /* --- 심각 시나리오 (리포트 ops/49) --- */
+
   /* --- KRI 스코어카드 — 리포트(viz_advanced.kri_scorecard)와 같은 카드 격자 --- */
   if(E.kris&&E.kris.length){
-    const c=el('div','card');
+    const c=el('div','card');c.id='sec-raf';
     c.appendChild(el('h3',null,'KRI 스코어카드 (Risk Appetite Framework)'));
     c.appendChild(el('p','meta',
       '12개 핵심 지표를 board/management/operational 3단 한계로 채점. RED는 board '+
@@ -2474,8 +2698,8 @@ function executiveReport(root){
     const ul=el('ul');ul.style.cssText='margin:6px 0 0 18px;font-size:12px';
     E.actions.forEach(t=>{const li=el('li');li.innerHTML=t;ul.appendChild(li)});
     c.appendChild(ul);
-    c.appendChild(el('div','meta',
-      'RAF 임계 위반 + 자체검증 WARN/FAIL 에서 규칙으로 유도된다 — 사람이 적은 목록이 아니다'));
+    wireExecLinks(ul);
+    c.appendChild(el('div','meta','RAF 임계 위반과 자체검증 WARN·FAIL에서 자동 추출'));
     root.appendChild(c);
   }
 
@@ -2496,6 +2720,7 @@ function executiveReport(root){
   }
 
   root.appendChild(el('div','meta','출처 — '+E.source));
+  wireExecLinks(root);
 }
 
 function reqTrace(root){
@@ -2811,17 +3036,47 @@ function simulation(root){
 /* ---- 한도·소진 ---- */
 function limitsScreen(root){
   root.appendChild(el('p','lead',
-    '동일차주·업종·국가 등 다차원 한도와 소진율. 위반은 심각도와 함께 표시된다.'));
-  const f=D.limits;
+    '차주·업종·국가·자산군·등급 다차원 한도와 소진율. 위반 보고서는 소진율 90% '+
+    '이상만 담고, 아래 분포는 위반이 아닌 구간까지 함께 본다.'));
+  /* 위반 보고서(D.limits)와 전량(D.limits_full)은 다른 프레임이다 — 섞으면
+     "위반 N건"이 갑자기 전 버킷 수가 된다. */
+  const f=D.limits_full||D.limits;
   const i=frameIdx(f);
+  const tone=s=>s==='BREACH'||s==='CRITICAL'?'bad':s==='WARN'?'warn':'good';
+
+  const bySev={};f.rows.forEach(r=>{const k=r[i.severity];bySev[k]=(bySev[k]||0)+1});
+  const g=el('div','grid');
+  [['위반(BREACH 이상)',(bySev.BREACH||0)+(bySev.CRITICAL||0),'bad'],
+   ['경보(WARN)',bySev.WARN||0,'warn'],
+   ['한도 내(OK)',bySev.OK||0,'good'],
+   ['차원',new Set(f.rows.map(r=>r[i.dimension])).size,'']].forEach(([l,v,t])=>{
+    const c=el('div','card kpi');c.appendChild(el('div','lab',l));
+    c.appendChild(el('div','val '+t,String(v)));g.appendChild(c)});
+  root.appendChild(g);
+
   root.appendChild(hbars(f.rows.slice()
-    .sort((a,b)=>b[i.utilisation]-a[i.utilisation]).slice(0,12)
+    .sort((a,b)=>b[i.utilisation]-a[i.utilisation]).slice(0,14)
     .map(r=>({label:`${r[i.limit]} · ${r[i.bucket]}`,
-      value:r[i.utilisation]*100,sub:`한도 ${fmtMoney(r[i.threshold])}`,
-      tone:r[i.severity]==='breach'?'bad':r[i.severity]==='warning'?'warn':undefined})),
+      value:r[i.utilisation]*100,sub:`익스포저 ${fmtMoney(r[i.exposure])} / 한도 ${fmtMoney(r[i.threshold])}`,
+      tone:tone(r[i.severity])})),
     {title:'소진율 상위 (%)',money:false,src:srcMeta(f)}));
-  const c=el('div','card');c.appendChild(el('h3',null,'한도 원장'));
-  c.appendChild(table(f));c.appendChild(srcMeta(f));root.appendChild(c);
+
+  /* 차원별 최대 소진율 — 어느 축이 가장 조인지 한눈에 */
+  const byDim={};f.rows.forEach(r=>{const d=r[i.dimension];
+    if(!byDim[d]||r[i.utilisation]>byDim[d])byDim[d]=r[i.utilisation]});
+  const c0=el('div','card');
+  c0.appendChild(el('h3',null,'차원별 최대 소진율'));
+  c0.appendChild(bars(Object.entries(byDim)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([d,v])=>({label:d,value:+(v*100).toFixed(1),
+                    tone:v>=1?'bad':v>=0.9?'warn':'good'})),
+    {note:'한도 대비 %. 100 초과가 위반이다.',fmt:v=>v.toFixed(0)+'%'}));
+  root.appendChild(c0);
+
+  const c=el('div','card');c.appendChild(el('h3',null,'한도 소진 원장'));
+  c.appendChild(table(f,{rowClass:r=>{const t=tone(r[i.severity]);
+    return t==='bad'?'bad':t==='warn'?'warn':null}}));
+  c.appendChild(srcMeta(f));root.appendChild(c);
 }
 
 /* ---- 역스트레스 ---- */
@@ -3039,7 +3294,7 @@ function cockpitInsights(){
 }
 const SUMMARIES={
   '콕핏':()=>cockpitInsights()[0],
-  '한도':()=>{const f=D.limits,i=frameIdx(f);
+  '한도관리':()=>{const f=D.limits,i=frameIdx(f);
     const br=f.rows.filter(r=>r[i.severity]==='breach').length;
     const wr=f.rows.filter(r=>r[i.severity]==='warning').length;
     return br?{t:`한도 ${f.total}건 중 위반 ${br} · 경보 ${wr} — 위반 구간부터 검토하라`,tone:'bad'}
@@ -3830,7 +4085,7 @@ const DETAIL_SCREENS=[
             ['위기상황 집계','agg_stress_exposure']]})],
   ['상업성','$ · 사업성 — 견적·ROI·Funnel (규제 산출물 아님)',commercial],
   ['시뮬레이션','SIM · 자본비율 영향도 — 설명용 산술 (승인·제출값 아님)',simulation],
-  ['한도','LIM · 다차원 한도·소진율',limitsScreen],
+  ['한도관리','LIM · 다차원 한도·소진율',limitsScreen],
   ['오버레이','OVR · 수동조정(오버레이) — 인간 수정의 통제된 기록',overlay],
   ['역스트레스','RST · 역방향 위기상황 — 자본 임계를 뚫는 심도',reverseStress],
   ['시나리오 설정','SET · 위기상황 시나리오 설정 — 축·심도·신규 제안',scenarioScreen],
@@ -3855,7 +4110,7 @@ const NAVGROUPS=[
   /* 보고서가 통제센터 위다 — 경영진이 먼저 보는 것이 위에 있어야 한다.
      콕핏은 실무 운영 화면이고 이쪽은 결재선·이사회로 나가는 산출물이다. */
   ['보고서',['종합보고서']],
-  ['통제센터',['콕핏','시뮬레이션','한도']],
+  ['통제센터',['콕핏','시뮬레이션','한도관리']],
   ['조회·컴포저',['정형 조회','비정형 UI']],
   /* 모형은 신용에만 있지 않다 — 도메인 축으로 따로 세운다(사용자 지적).
      원장이 crm_ 스키마에 산다는 것과 신용 모형이라는 것은 다른 말이다. */
@@ -3874,7 +4129,7 @@ const NAVGROUPS=[
   ]],
   ['ALM·위기상황',[
     ['ALM',['금리리스크','유동성리스크']],
-    ['위기상황',['시나리오 설정','역스트레스']],
+    ['위기상황',['거시지표 모니터링','시나리오 설정','역스트레스']],
   ]],
   ['증권 건전성',['NCR·건전성']],
   ['보고',['감독보고']],
@@ -3882,11 +4137,13 @@ const NAVGROUPS=[
     ['검증',['요건 추적']],
     '에이전트','변경','오버레이',
   ]],
-  ['사업성',['상업성']],
   ['데이터·설정',[
     '데이터모델',
     ['⚙ 설정',['코드 마스터','코드 매핑','산출 방법론']],
   ]],
+  /* 사업성은 규제 산출물이 아니다. 제출 지문·독립검증 대상이 아니므로
+     메뉴에서도 맨 끝에 두고 이름으로 성격을 밝힌다. */
+  ['(참고)',['상업성']],
 ];
 
 const TABS=[
