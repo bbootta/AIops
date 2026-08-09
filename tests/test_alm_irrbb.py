@@ -13,6 +13,14 @@
   · `test_bucket_delta_pv_sums_to_delta_eve`
     화면이 그리는 버킷별 효과와 헤드라인이 같은 산출에서 나왔는지 대사한다.
     현행은 버킷별 효과가 원장에 아예 없었다.
+
+현행 원문([별표 9-1] 개정 2026.1.29) 반영으로 이 파일에서 바뀐 것:
+
+  · 계정이 `d368_2016`에서 헤드라인(`별표9의1_2026`)으로 바뀌었다. KRW 충격폭이
+    300/400/200에서 225/350/225가 되고 충격후 하한 0(제12항 다)이 적용된다.
+  · 통화 간 합산 검사가 늘었다. 제13항 다는 각 통화별 EVE 리스크가 손실일
+    경우만 합산하라고 정하므로, 버킷 대사도 통화별로 접은 뒤 손실만 더한 값과
+    맞춘다. 직전 회차의 단순 합산은 이익 통화가 손실 통화를 상계했다.
 """
 
 from __future__ import annotations
@@ -26,7 +34,9 @@ from risk_lib.alm import params as P
 from risk_lib.alm.balance_sheet import generate_balance_sheet
 from risk_lib.alm.cashflow import build_cashflows
 from risk_lib.alm.contracts import build_contract_ledger
-from risk_lib.alm.curves import base_curve, build_curve_ledgers
+from risk_lib.alm.curves import (
+    HEADLINE_FRAMEWORK_VERSION, base_curve, build_curve_ledgers,
+)
 from risk_lib.alm.irrbb import (
     IRRBB_TABLES, SCENARIOS, build_bucket_pv, build_irrbb_result,
     build_shocked_curves, by_scenario, compute_irrbb,
@@ -47,7 +57,10 @@ SHOCK_LONG_BP = irrbb_shock_bp("long")
 
 ASOF = "2026-08-08"
 SEED = 42
-FW = "d368_2016"
+# 헤드라인 계정. 직전 회차는 여기 'd368_2016'을 적어 두어, 폐지값(KRW
+# 300/400/200)과 하한 미적용 상태로 엔진을 검사하고 있었다. 이름을 문자열로
+# 다시 적지 않으므로 계정 전환이 원장과 검사에서 함께 일어난다.
+FW = HEADLINE_FRAMEWORK_VERSION
 TIER1 = 1.0e11
 
 
@@ -161,13 +174,54 @@ def test_engine_is_deterministic():
 # ---------------------------------------------------------------- ΔEVE 대사
 
 def test_bucket_delta_pv_sums_to_delta_eve(irrbb):
-    """버킷별 효과와 헤드라인이 같은 산출에서 나와야 화면과 원장이 갈라지지 않는다."""
-    got = (irrbb.bucket_pv.groupby(["basis", "scenario"])["delta_pv"].sum()
-           .rename("delta_pv").reset_index())
-    want = irrbb.result[["basis", "scenario", "delta_eve"]]
-    m = want.merge(got, on=["basis", "scenario"])
-    assert len(m) == len(want)
-    assert (m["delta_eve"] - m["delta_pv"]).abs().max() < 1e-3
+    """버킷별 효과와 헤드라인이 같은 산출에서 나와야 화면과 원장이 갈라지지 않는다.
+
+    대사는 제13항 다의 합산 규칙을 거친다. 통화별로 먼저 접고 손실 통화만 더한
+    값이 `delta_eve`이고, 부호 그대로 더한 값이 `delta_eve_gross`다. 버킷 합계를
+    `delta_eve`에 곧바로 맞추면 이익 통화를 버리는 규칙이 검사에서 사라진다.
+    """
+    per_ccy = (irrbb.bucket_pv.groupby(["basis", "scenario", "ccy"],
+                                       as_index=False)["delta_pv"].sum())
+    want = (per_ccy.assign(loss_only=per_ccy["delta_pv"].clip(upper=0.0))
+            .groupby(["basis", "scenario"], as_index=False)
+            .agg(want_eve=("loss_only", "sum"),
+                 want_gross=("delta_pv", "sum")))
+    m = irrbb.result[["basis", "scenario", "delta_eve", "delta_eve_gross"]] \
+        .merge(want, on=["basis", "scenario"])
+    assert len(m) == 2 * len(SCENARIOS)
+    assert (m["delta_eve"] - m["want_eve"]).abs().max() < 1e-3
+    assert (m["delta_eve_gross"] - m["want_gross"]).abs().max() < 1e-3
+    # 합산 결과에 이익이 남지 않는다. 손실만 더하므로 상한이 0이다.
+    assert m["delta_eve"].max() <= 0.0
+
+
+def test_currency_gains_are_discarded_not_netted():
+    """[별표 9-1] 제13항 다. 각 통화별 EVE 리스크가 손실일 경우만 합산한다.
+
+    직전 회차는 `groupby(['basis','scenario'])` 단순 합산이라 이익 통화가 손실
+    통화를 상계해 총 금리리스크를 과소산출했고, 그만큼 아웃라이어 판정이
+    느슨해졌다. 손실 −100과 이익 +40이면 규정 산출값은 −100이며, 상계값 −60은
+    대조용(`delta_eve_gross`)으로만 남아야 한다.
+    """
+    bp = pd.DataFrame([
+        {"basis": "계약", "scenario": "parallel_up",
+         "ccy": "KRW", "delta_pv": -100.0},
+        {"basis": "계약", "scenario": "parallel_up",
+         "ccy": "USD", "delta_pv": +40.0},
+        {"basis": "계약", "scenario": "parallel_down",
+         "ccy": "KRW", "delta_pv": +10.0},
+        {"basis": "계약", "scenario": "parallel_down",
+         "ccy": "USD", "delta_pv": +5.0},
+    ])
+    r = build_irrbb_result(
+        bp, asof=ASOF, tier1=TIER1, framework_version=FW,
+        shock_source={sc: "직접" for sc in SCENARIOS}).set_index("scenario")
+
+    assert float(r.loc["parallel_up", "delta_eve"]) == pytest.approx(-100.0)
+    assert float(r.loc["parallel_up", "delta_eve_gross"]) == pytest.approx(-60.0)
+    # 전 통화가 이익인 시나리오는 0이다. 이익을 총리스크로 계상하지 않는다.
+    assert float(r.loc["parallel_down", "delta_eve"]) == 0.0
+    assert float(r.loc["parallel_down", "delta_eve_gross"]) == pytest.approx(15.0)
 
 
 def test_bucket_pv_reproduces_from_cashflow_and_discount_factor(irrbb):
@@ -308,10 +362,12 @@ def test_delta_nii_joins_into_the_result_ledger(bundle, nii):
 # ---------------------------------------------------------------- 근거·모수
 
 def test_outlier_verdict_is_made_against_the_tier1_threshold(irrbb):
-    """BCBS d368 §88 원문확인 — 최대 ΔEVE 대 기본자본의 15%(1차자료 §A-5).
+    """[별표 9-1] 제21항 나 원문확인. ΔEVE 총 금리리스크 대 기본자본의 15%
+    (1차자료 §B-10).
 
     앞선 회차는 기준의 1차자료를 못 봐서 판정을 보류(NULL)했다. 원문을 확보한
-    지금은 판정한다. 분모는 기본자본이며 총자기자본이 아니다.
+    지금은 판정한다. 분모는 기본자본이며 총자기자본이 아니다. 2014년판의
+    "금리 VaR이 자기자본의 20% 초과"는 폐지됐다.
     """
     assert irrbb.result["outlier_test_pass"].notna().all()
     assert (irrbb.result["evidence_status"] == "원문확인").all()
@@ -324,10 +380,16 @@ def test_contract_basis_actually_fails_the_outlier_test(irrbb):
     """판정이 나는 것이 정상이다 — 계약기준 ΔEVE는 기본자본의 15%를 넘는다.
 
     이 검사가 실패하면 둘 중 하나다. 산출이 바뀌었거나, 판정을 숨기고 있거나.
+    초과한 행에는 제21항 나·다의 조치의무(헤지·포지션 조정 또는 추가 자기자본,
+    그리고 감독원장 보고)가 함께 실려야 한다.
     """
     worst = worst_row(irrbb.result, basis="계약")
     assert -float(worst["delta_eve_to_tier1"]) > IRRBB_OUTLIER_EVE_PCT_TIER1
     assert bool(worst["outlier_test_pass"]) is False
+    assert "감독원장" in str(worst["outlier_duty"])
+    # 통과한 행에는 의무를 붙이지 않는다. 붙이면 무엇이 보고 대상인지 흐려진다.
+    ok = irrbb.result[irrbb.result["outlier_test_pass"].astype(bool)]
+    assert ok["outlier_duty"].isna().all()
 
 
 def test_outlier_verdict_is_withheld_when_the_caller_says_so(irrbb):
@@ -387,9 +449,12 @@ def legacy():
 
 
 def test_legacy_shock_curve_reads_the_ledger_calibration():
-    """Δr은 원장 값에서 나온다. 1차자료 반영으로 KRW가 200/300/150(USD 프록시)
-    에서 300/400/200(d368 Annex 2 Table 1)으로 올라갔고, 이 검사는 상수를
-    다시 적지 않고 원장을 읽으므로 원장이 정본이라는 사실이 유지된다."""
+    """Δr은 원장 값에서 나온다.
+
+    현행 원문 반영으로 KRW가 225/350/225([별표 9-1] <표5> 개정 2026.1.29)가
+    됐다. 이 검사는 상수를 다시 적지 않고 원장을 읽으므로 원장이 정본이라는
+    사실이 유지된다.
+    """
     t = np.array([0.05, 0.5, 1.0, 3.0, 5.0, 10.0, 20.0])
     assert np.allclose(shock_curve("parallel_up", t),
                        SHOCK_PARALLEL_BP / 1e4)
@@ -410,16 +475,34 @@ def test_legacy_shock_curve_reads_the_ledger_calibration():
 
 
 def test_legacy_gap_path_reproduces_the_current_numbers(legacy):
-    """계승 경로는 산출값이 아니라 산출물의 **모양**만 바꾼다."""
+    """계승 경로는 산출값이 아니라 산출물의 **모양**만 바꾼다.
+
+    현행 원문 반영으로 계승 경로에도 규정 두 개가 걸린다.
+
+      · 제12항 다. 충격후 금리의 하한은 0이다. 평면 3% 커브에 단기하락 350bp를
+        걸면 최단 버킷이 음수로 가므로 하한이 실제로 문다. `shock_curve`가
+        돌려주는 것은 하한 적용 전 Δr이라 검사도 같은 자리에서 하한을 건다.
+      · 제13항 다. 손실 통화만 합산한다. 계승 사다리는 KRW 한 통화이므로
+        이익이 난 시나리오의 `delta_eve`가 0으로 접히고, 상계 허용값은
+        `delta_eve_gross`에 남는다.
+    """
     bs, r = legacy
     t = bs.repricing["t_mid"].to_numpy(dtype=float)
     gap = bs.repricing["gap"].to_numpy(dtype=float)
     pv_base = float(np.sum(gap * np.exp(-0.03 * t)))
-    want = {sc: float(np.sum(gap * np.exp(-(0.03 + shock_curve(sc, t)) * t)))
-            - pv_base for sc in SCENARIOS}
     got = r.delta_eve.set_index("scenario")["delta_eve"]
+    gross = (r.result.set_index(["basis", "scenario"])["delta_eve_gross"]
+             .xs(r.headline_basis))
+    bound = False
     for sc in SCENARIOS:
-        assert got[sc] == pytest.approx(want[sc], rel=1e-12)
+        unfloored = 0.03 + shock_curve(sc, t)
+        bound = bound or bool((unfloored < 0.0).any())
+        raw = float(np.sum(gap * np.exp(-np.maximum(unfloored, 0.0) * t))) \
+            - pv_base
+        assert gross[sc] == pytest.approx(raw, rel=1e-12)
+        assert got[sc] == pytest.approx(min(raw, 0.0), rel=1e-12)
+    # 하한이 실제로 물지 않으면 위 두 줄은 하한 없는 산출과 구별되지 않는다.
+    assert bound
 
 
 def test_legacy_result_exposes_the_attributes_materialisation_looks_for(legacy):

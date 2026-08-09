@@ -535,8 +535,8 @@ def _needed_shock_types(row: pd.Series) -> tuple[str, ...]:
 def _clip_bp(value: int, floor_bp, cap_bp) -> int:
     """감독당국이 모수 하·상한을 둔 경우에만 자른다.
 
-    d368 Annex 2 Table 1은 통화별 충격폭을 직접 주고 그 위에 하·상한을 두지
-    않는다. 두 칸이 비었는데 임의의 경계로 자르면 원문값이 조용히 바뀐다.
+    <표5>·Table 2는 통화별 충격폭을 직접 주고 그 위에 하·상한을 두지 않는다.
+    두 칸이 비었는데 임의의 경계로 자르면 원문값이 조용히 바뀐다.
     """
     if pd.isna(floor_bp) and pd.isna(cap_bp):
         return int(value)
@@ -554,7 +554,7 @@ def _resolve_shock_bp(shock_param: pd.DataFrame, *, ccy: str,
                       ) -> tuple[dict[str, int] | None, str, list[ParamWarning]]:
     """충격 모수 해석 — 해당 통화 행만 본다. 비어 있으면 채우지 않고 건너뛴다.
 
-    프록시(다른 통화 행 빌려쓰기)는 제거했다. d368 Annex 2 Table 1을 21개 통화
+    프록시(다른 통화 행 빌려쓰기)는 제거했다. [별표 9-1] <표5>를 21개 통화
     전건 적재했으므로 표에 있는 통화는 자기 값을 쓰고, 표에 없는 통화는 값이
     없다는 사실이 산출물에 남아야 한다 — 다른 통화 값을 대신 넣으면 그 통화의
     절대수준이 근거 없이 만들어진다.
@@ -683,8 +683,8 @@ def shocked_curve(base: Curve, scenario: str, *, ccy: str,
         warns.append(ParamWarning(
             "RATE_SHOCK", framework_version, "allow_proxy",
             "allow_proxy=True로 호출됐으나 프록시 경로는 제거됐다 — "
-            "BCBS d368 Annex 2 Table 1 원문으로 통화별 충격폭이 확정돼 다른 "
-            "통화를 빌릴 이유가 없다. 이 인자는 무시된다"))
+            "[별표 9-1] <표5>(개정 2026.1.29) 원문으로 21개 통화 충격폭이 "
+            "확정돼 다른 통화를 빌릴 이유가 없다. 이 인자는 무시된다"))
     if bps is None:
         return None, warns
 

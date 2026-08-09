@@ -403,7 +403,8 @@ def build_time_bucket_ledger() -> pd.DataFrame:
             "lower_years": lower, "upper_years": float(upper),
             "t_mid_years": float(t_mid),
             "is_headline": _HOUSE == HEADLINE_BUCKET_FRAMEWORK,
-            "citation": "자체 집계 사다리 — BCBS 표준 19버킷(bcbs_19)이 아니다",
+            "citation": "자체 집계 사다리. [별표 9-1] <표2>의 19구간(표2_19)이 "
+                        "아니며 규정 근거가 없다. 이력으로만 둔다",
             "evidence_status": "미확인",
         })
         lower = float(upper)
@@ -656,10 +657,10 @@ def build_param_ledgers(asof: str, *, param_set_id: str = "BASE",
     """계수 원장 6장을 한 번에. 키는 테이블명 — 검증·실체화가 그대로 받는다.
 
     `bucket_framework`가 사다리 계정을 고른다. None이면 원장의 `is_headline`
-    행을 쓴다. 슬로팅 엔진은 사다리 한 벌을 전제로 seq를 읽으므로 여기서
-    반드시 한 계정만 내보낸다 — 두 계정을 섞어 넘기면 경계 배열이 단조가
-    아니게 되어 배정이 조용히 틀린다. 표준 19버킷(`bcbs_19`)으로 갈아끼우는
-    것은 이 인자 하나로 끝나며, 그 결정은 파이프라인이 한다.
+    행(현행 `표2_19`)을 쓴다. 슬로팅 엔진은 사다리 한 벌을 전제로 seq를 읽으므로
+    여기서 반드시 한 계정만 내보낸다 — 두 계정을 섞어 넘기면 경계 배열이 단조가
+    아니게 되어 배정이 조용히 틀린다. 이력 계정(`house_9`)으로 대조 산출을
+    내는 것은 이 인자 하나로 끝나며, 그 결정은 파이프라인이 한다.
     """
     return {
         "alm_time_bucket": build_time_buckets(bucket_framework),

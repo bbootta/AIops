@@ -183,10 +183,10 @@ def test_the_repealed_2014_account_carries_no_shock_table():
 
 
 def test_shock_bounds_are_not_invented():
-    """모수 하·상한은 d368 Annex 2에 없다 — 비어 있어야 한다.
+    """모수 하·상한은 <표5>·Table 2에 없다. 비어 있어야 한다.
 
-    앞선 회차의 long 상한 300은 IDR의 원문값 350을 잘랐다. 경계를 지어내면
-    원문확인 값이 조용히 바뀐다.
+    앞선 회차의 long 상한 300은 d368 계정 IDR의 원문값 350을 잘랐다. 경계를
+    지어내면 원문확인 값이 조용히 바뀐다.
     """
     sp = build_rate_shock_param()
     assert sp["floor_bp"].isna().all() and sp["cap_bp"].isna().all()
@@ -280,33 +280,64 @@ def test_rate_and_df_are_the_same_convention():
 
 # ---------------------------------------------------------------- 하한
 
-def test_d368_floor_row_carries_no_numbers_and_is_not_applied():
-    """d368은 하한을 각국 재량으로 넘기고 수치를 주지 않는다(1차자료 §A-4).
+def test_domestic_post_shock_floor_is_zero_and_binds():
+    """[별표 9-1] 제12항 다. "충격후 금리의 하한은 0으로 한다."
 
-    앞선 회차가 넣었던 −100bp + 5bp/년은 원문에 없는 값이라 뺐다. 행을 지우지
-    않는 이유는 "규정이 값을 정하지 않는다"와 "규정을 못 읽었다"가 다른
-    사건이기 때문이고, 그 구분이 evidence_status에 남는다.
+    직전 회차는 "국내도 하한을 규정하지 않는다"고 보고 하한을 아예 적용하지
+    않았다. 그것은 2014년 폐지본을 읽은 결과다. d578 [SRP98.63]이 각국 재량으로
+    넘긴 하한을 국내가 0으로 행사했으므로, 국내 계정은 세 칸이 0이고 엔진이
+    실제로 적용한다.
+    """
+    kr = build_post_shock_floor()
+    kr = kr[kr["framework_version"] == FW]
+    assert len(kr) == 1
+    r = kr.iloc[0]
+    assert (int(r["floor_on_bp"]), int(r["slope_bp_per_year"]),
+            float(r["terminal_tenor_years"])) == (0, 0, 0.0)
+    assert r["evidence_status"] == "원문확인"
+    assert "제12항 다" in r["citation"]
+
+    # 0.5% 평평커브에 parallel_down 225bp. 하한이 없으면 −1.75%로 간다.
+    sc, _w = _shock(_flat_curve(0.005), "parallel_down")
+    assert sc.floor_applied
+    assert np.all(sc.base_rates + sc.shift < 0.0)     # 하한 전에는 전 노드 음수
+    assert np.all(sc.curve.zero_rates == 0.0)         # 하한 후에는 전 노드 0
+    assert sc.floor_binding.all()
+
+
+def test_international_floor_rows_carry_no_numbers_and_are_not_applied():
+    """d368·d578은 하한을 각국 재량으로 넘기고 수치를 주지 않는다(1차자료 §A-2).
+
+    행을 지우지 않는 이유는 "규정이 값을 정하지 않는다"와 "규정을 못 읽었다"가
+    다른 사건이기 때문이고, 그 구분이 evidence_status에 남는다.
     """
     fl = build_post_shock_floor()
-    assert len(fl) == 1
-    assert fl.iloc[0]["evidence_status"] == "재량·미규정"
-    assert fl[["floor_on_bp", "slope_bp_per_year",
-               "terminal_tenor_years"]].isna().all().all()
+    intl = fl[fl["framework_version"].isin(["d578_2024", FW_D368])]
+    assert len(intl) == 2
+    assert set(intl["evidence_status"]) == {"재량·미규정"}
+    assert intl[["floor_on_bp", "slope_bp_per_year",
+                 "terminal_tenor_years"]].isna().all().all()
 
-    sc, warns = _shock(_flat_curve(0.005), "parallel_down")
+    sp, sd, fl = _ledgers()
+    sc, warns = shocked_curve(
+        _flat_curve(0.005), "parallel_down", ccy="KRW",
+        framework_version="d578_2024", shock_param=sp, scenario_def=sd,
+        floor=fl)
     assert not sc.floor_applied
     assert any(w.model == "POST_SHOCK_FLOOR" for w in warns)
-    # 하한 미적용의 귀결이 보인다 — 0.5% 커브에 300bp 하락이면 음수로 간다.
+    # 하한 미적용의 귀결이 보인다. 0.5% 커브에 225bp 하락이면 음수로 간다.
     assert (sc.curve.zero_rates < 0.0).any()
 
 
 def test_post_shock_floor_binds_in_the_short_end():
-    """감독당국이 하한을 고시하면 산식이 그대로 물어야 한다.
+    """하한이 기울기를 가지면 산식이 그대로 물어야 한다.
 
-    평평한 0.5% 커브에 parallel_down 300bp — 하한이 없으면 −2.5%가 된다.
+    배포 원장의 국내 하한은 전 만기 0이라 `min(0, ·)`·`terminal` 가지가
+    실행되지 않는다. 산식이 살아 있는지는 기울기가 있는 값으로만 확인된다.
+    평평한 0.5% 커브에 parallel_down 225bp를 걸면, 하한이 없으면 −1.75%가 된다.
     """
     base = _flat_curve(0.005)
-    sc, _w = _shock(base, "parallel_down", floor=_supervisory_floor())
+    sc, _w = _shock(base, "parallel_down", floor=_sloped_floor())
     assert sc.floor_applied
     t = sc.curve.tenors
     expected_floor = np.minimum(0.0, (-100.0 + 5.0 * t) / 10_000.0)
@@ -329,9 +360,9 @@ def test_floor_is_skipped_with_a_warning_when_the_framework_row_is_missing():
 
 
 def test_high_curve_is_untouched_by_the_floor():
-    """데모 커브(2.8%)에서는 고시 하한이 물지 않는다 — 결과를 왜곡하지 않는다."""
+    """데모 커브에서는 하한이 물지 않는다. 결과를 왜곡하지 않는다."""
     base = base_curve(_risk_factor(), asof=ASOF)
-    sc, _w = _shock(base, "parallel_down", floor=_supervisory_floor())
+    sc, _w = _shock(base, "parallel_down", floor=_sloped_floor())
     assert not sc.floor_binding.any()
 
 
@@ -357,10 +388,11 @@ def test_scenario_shift_matches_the_ledger_formula():
     sc, _w = _shock(base, "steepener")
     t, x = base.tenors, 4.0
     s_short = np.exp(-t / x)
-    # KRW 원문값: R_short=400bp, R_long=200bp (Annex 2 Table 1).
-    want = (-0.65 * 0.04 * s_short) + (0.90 * 0.02 * (1.0 - s_short))
+    # KRW 현행 원문값: R_short=350bp, R_long=225bp ([별표 9-1] <표5>).
+    # 직전 회차가 고정하던 400/200은 d368 값이며 d578이 대체했다.
+    want = (-0.65 * 0.035 * s_short) + (0.90 * 0.0225 * (1.0 - s_short))
     assert sc.shift == pytest.approx(want)
-    assert sc.shock_bp == {"short": 400, "long": 200}
+    assert sc.shock_bp == {"short": 350, "long": 225}
     assert sc.shock_source == "직접"
 
 
@@ -368,8 +400,9 @@ def test_parallel_shock_needs_only_the_parallel_parameter():
     """계수가 0인 축의 모수는 요구하지 않는다 — 없는 모수를 요구하면 과잉차단이다."""
     sp = build_rate_shock_param()
     sp = sp[~((sp["ccy"] == "KRW") & (sp["shock_type"].isin(["short", "long"])))]
+    # KRW 평행 225bp. 직전 회차가 고정하던 300bp는 폐지된 d368 값이다.
     sc, _w = _shock(_flat_curve(0.03), "parallel_up", shock_param=sp)
-    assert sc is not None and sc.shift == pytest.approx(0.03)
+    assert sc is not None and sc.shift == pytest.approx(0.0225)
 
 
 # ---------------------------------------------------------------- 모수 clip
@@ -377,13 +410,20 @@ def test_parallel_shock_needs_only_the_parallel_parameter():
 def test_shock_bp_is_used_verbatim_when_no_bounds_are_set():
     """하·상한이 비어 있으면 자르지 않는다 — 자르면 원문값이 조용히 바뀐다.
 
-    IDR long 350이 그 증거다. 앞선 회차의 상한 300은 이 값을 300으로 잘랐다.
+    앞선 회차가 넣었던 열별 경계(장기 100~300 등)는 표의 열별 최소·최대였을
+    뿐 규정이 아니다. 그 경계는 d368 계정의 IDR 장기 350을 300으로 잘랐다.
+    현행 계정과 직전 계정에서 각각 확인한다.
     """
-    sp = build_rate_shock_param()
+    sp, sd, fl = _ledgers()
     sc, _w = _shock(_flat_curve(0.05), "short_up", ccy="IDR", shock_param=sp)
-    assert sc.shock_bp["short"] == 500
+    assert sc.shock_bp["short"] == 500          # 현행 <표5> IDR 단기
     sc, _w = _shock(_flat_curve(0.05), "steepener", ccy="IDR", shock_param=sp)
-    assert sc.shock_bp["long"] == 350
+    assert sc.shock_bp["long"] == 300           # 현행 <표5> IDR 장기
+
+    old, _w = shocked_curve(_flat_curve(0.05), "steepener", ccy="IDR",
+                            framework_version=FW_D368, shock_param=sp,
+                            scenario_def=sd, floor=fl)
+    assert old.shock_bp["long"] == 350          # d368 원문값, 잘리지 않는다
 
 
 @pytest.mark.parametrize("raw, want", [
@@ -438,15 +478,50 @@ def test_currency_absent_from_the_ledger_is_skipped_not_borrowed():
     assert any("해당 통화 행이 원장에 없다" in w.reason for w in warns)
 
 
-def test_d578_account_produces_nothing():
-    """신 계정은 시행일만 있고 값이 없다."""
+def test_d578_account_reproduces_the_domestic_shift():
+    """국내가 d578을 수치 조정 없이 채택했으므로 Δr이 같다.
+
+    갈리는 것은 충격후 하한뿐이다. 국내만 0을 규정하고(제12항 다) 국제기준은
+    재량으로 넘긴다. 직전 회차는 이 계정을 "값이 없는 신 계정"으로 두었다.
+    """
+    sp, sd, fl = _ledgers()
+    base = _flat_curve(0.03)
+    kr, _w = _shock(base, "parallel_up")
+    bcbs, warns = shocked_curve(
+        base, "parallel_up", ccy="KRW", framework_version="d578_2024",
+        shock_param=sp, scenario_def=sd, floor=fl)
+    assert bcbs is not None
+    assert bcbs.shock_bp == kr.shock_bp == {"parallel": 225}
+    assert bcbs.shift == pytest.approx(kr.shift)
+    assert kr.floor_applied and not bcbs.floor_applied
+    assert any(w.model == "POST_SHOCK_FLOOR" for w in warns)
+
+
+def test_the_repealed_account_reports_its_repeal_instead_of_a_curve():
+    """폐지 계정을 고르면 산출이 침묵하지 않고 폐지 사실을 낸다.
+
+    통화 행이 없으므로 곡선은 만들어지지 않는다. 그때 나가는 경고가 "통화 행이
+    없다"뿐이면 사용자가 계정을 잘못 골랐다는 사실에 닿지 못한다.
+    """
     sp, sd, fl = _ledgers()
     sc, warns = shocked_curve(
         _flat_curve(0.03), "parallel_up", ccy="KRW",
-        framework_version="d578_2024", shock_param=sp, scenario_def=sd,
+        framework_version=FW_REPEALED, shock_param=sp, scenario_def=sd,
         floor=fl)
     assert sc is None
-    assert any("shock_bp가 비어 있다" in w.reason for w in warns)
+    assert any(w.param == "status" and "폐지된 계정" in w.reason for w in warns)
+    assert any(FW in w.reason for w in warns)      # 현행 계정을 함께 알려준다
+
+
+def test_the_previous_account_says_it_is_not_current():
+    """d368 계정으로 산출하면 직전값이라는 사실이 경고에 남는다."""
+    sp, sd, fl = _ledgers()
+    sc, warns = shocked_curve(
+        _flat_curve(0.03), "parallel_up", ccy="KRW",
+        framework_version=FW_D368, shock_param=sp, scenario_def=sd, floor=fl)
+    assert sc is not None and sc.framework_status == "직전"
+    assert sc.shock_bp == {"parallel": 300}        # 폐지된 KRW 평행 충격폭
+    assert any(w.param == "status" and "직전 계정" in w.reason for w in warns)
 
 
 def test_allow_proxy_is_ignored_and_says_so():

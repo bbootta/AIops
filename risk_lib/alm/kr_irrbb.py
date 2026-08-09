@@ -316,8 +316,8 @@ KR_BEHAVIOURAL_SCOPE = TableSpec(
     foreign_keys=(FK(("framework_version", "rule_code"), "kr_retail_criteria",
                      ("framework_version", "rule_code")),),
     note="제9·10항의 적용 범위를 계약 단위로 남긴다. 범위 밖으로 나간 계약이 "
-         "적합포지션인지 자동금리옵션인지가 treatment로 갈린다 — 도매고객 "
-         "행동옵션은 사라지는 것이 아니라 제11항으로 넘어간다.",
+         "적합포지션인지 자동금리옵션인지가 treatment로 갈린다. 도매고객 "
+         "행동옵션은 제7항 나(2) 단서에 따라 제11항으로 넘어간다.",
 )
 
 KR_AUTO_OPTION_PARAM = TableSpec(
