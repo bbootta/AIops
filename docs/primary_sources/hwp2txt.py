@@ -28,3 +28,16 @@ def extract(path):
     return '\n'.join(out)
 if __name__ == '__main__':
     print(extract(sys.argv[1]))
+
+
+# PDF 추출 참고
+#   pypdf가 cryptography rust 바인딩 패닉으로 임포트에 실패한다. pypdf는
+#   ImportError만 잡으므로 미리 sys.modules에서 막아 다음 제공자로 넘긴다.
+#
+#   import sys
+#   for m in ['cryptography', 'cryptography.hazmat',
+#             'cryptography.hazmat.primitives',
+#             'cryptography.hazmat.primitives.ciphers',
+#             'cryptography.hazmat.primitives.ciphers.algorithms']:
+#       sys.modules[m] = None
+#   from pypdf import PdfReader

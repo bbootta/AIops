@@ -1,0 +1,423 @@
+===== PAGE 1 =====
+     
+ Basel Committee 
+on Banking Supervision 
+  
+ 
+ 
+ 
+Recalibration of shocks 
+in the interest rate risk in 
+the banking book 
+standard 
+ 
+ 
+ 
+July 2024 
+   
+  
+ 
+ 
+
+===== PAGE 2 =====
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+This publication is available on the BIS website (www.bis.org). 
+ 
+ 
+© Bank for International Settlements 2024. All rights reserved. Brief excerpts may be reproduced or 
+translated provided the source is stated. 
+ 
+ 
+ISBN 978-92-9259-775-7 (online) 
+ 
+===== PAGE 3 =====
+ 
+Recalibration of shocks in the interest rate risk in the banking book standard iii 
+ 
+ 
+Contents 
+Introduction ................................ ................................ ................................ ................................ ................................ .................  1 
+Annex: Revisions to the Basel Framework ................................ ................................ ................................ ..........................  3 
+SRP31 ................................ ................................ ................................ ................................ ................................ ....................  3 
+SRP98 ................................ ................................ ................................ ................................ ................................ ....................  5 
+ 
+===== PAGE 4 =====
+
+===== PAGE 5 =====
+ 
+Recalibration of shocks in the interest rate risk in the banking book standard 1 
+ 
+ 
+Introduction 
+In December 2023, the Basel Committee on Banking Supervision issued a public consultation on proposed 
+adjustments to its standard on interest rate risk in the banking book (IRRBB).1 
+The Committee proposed to make a set of adjustments to the specified interest rate shocks in 
+the IRRBB standard, consistent with commitments in the standard to periodically update their calibration. 
+It also proposed to make targeted adjustments to the current methodology used to calculate the shocks. 
+These changes are needed to address problems with how the current methodology captures interest rate 
+changes during periods when rates are close to zero. 
+The main differences between the current methodology and the proposed new methodology set 
+out in the consultative document are: 
+• Expansion of the time series used in the calibration from December 2015 (used in the  current 
+IRRBB standard) to December 2022. The start date of January 2000 remains the same. 
+• Replacement of the glo bal shock factors with local shock factors calculated directly for each 
+currency using the averages of absolute changes in interest rates calculated over a rolling 
+six-month period. 
+• A move from a 99th percentile value in determining the shock factor to a 99.9th percentile value, 
+to maintain sufficient conservatism in the proposed recalibration.  
+The other main elements  included in the proposal, such as the shock scenarios, time buckets, 
+caps and floors, and the approach to rounding , remained unchanged from the approach used in the 
+current IRRBB standard. 
+After considering the feedback on the consultation from stakeholders, the Committee has now 
+finalised the new methodology and updated the interest rate shocks. This document sets out the fina l 
+revised standard . The Committee wishes to thank respondents for their feedback on the consultative 
+document. The revised standard should be implemented by 1 January 2026. This means that banks whose 
+financial year ends on 31 December would have to provid e the relevant disclosure in 2026, based on 
+information as of 31 December 2025. 
+Considering the feedback received, the Committee agreed to amend the revised standard relative 
+to the proposal set out in the consultation. These changes include:  
+• Extending the calibration data to end -2023. The consultative document proposed to extend 
+the time series for the calibration from December 2015 to December 2022. The final standard 
+expands the time series further to December 2023 to better reflect the latest movemen ts in 
+interest rates. 
+• Reducing the rounding of interest rate shocks to a multiple of 25 basis point s. The 
+consultative document retained the rounding of the interest rate shocks to a multiple of 50 basis 
+points, as under the current IRRBB standard. The fin al standard reduces the rounding of the 
+interest rate shocks to a multiple of 25 basis points. This would reduce cliff effects and potential 
+distortions across jurisdictions, and would provide closer alignment with the incremental steps of 
+changes in central banks’ policy rates. 
+ 
+1  See BCBS, “Recalibration of shocks for interest rate risk,” Consultative Document , December 2023,  
+www.bis.org/bcbs/publ/d561.pdf. 
+===== PAGE 6 =====
+ 
+2 Recalibration of shocks in the interest rate risk in the banking book standard 
+ 
+The final revised sections of the standard are included below. The revised text will also be  
+incorporated into the consolidated Basel Framework (chapters SRP31 and SRP98). 
+ 
+===== PAGE 7 =====
+ 
+Recalibration of shocks in the interest rate risk in the banking book standard 3 
+ 
+ 
+Annex: Revisions to the Basel Framework 
+Set out below are the final revisions to chapters SRP31 and SRB98 of the Basel Framework. 
+SRP31 
+The standardised interest rate shock scenarios 
+31.90 Banks should apply  six prescribed interest rate shock scenarios to capture parallel and non-
+parallel gap risks for EVE and two prescribed interest rate shock scenarios for NII. The derivation 
+of these shocks is ex plained in [SRP98.56] to [SRP98.63]. These scenarios are applied to IRRBB 
+exposures in each currency for which the bank has material positio ns. In order to accommodate 
+heterogeneous economic environments  across jurisdictions , the six shock scenarios reflect 
+currency-specific absolute shocks as specified in Table 2 below. For the purposes of capturing 
+the local rate environment, a historical time series ranging from January 2000 to 2015December 
+2023 for various maturities [7] was used to derive each scenario for a given currency. Under this 
+approach, IRRBB is measured by means of the following six scenarios: 
+(1) parallel shock up; 
+(2) parallel shock down; 
+(3) steepener shock (short rates down and long rates up); 
+(4) flattener shock (short rates up and long rates down); 
+(5) short rates shock up; and 
+(6) short rates shock down. 
+Specified size of interest rate shocks, 
+,shocktype cR ,shocktype cS  Table 2 
+ ARS AUD BRL CAD CHF CNY EUR GBP HKD IDR INR 
+Parallel 400 300350 400 200 100175 250225 200225 250275 200225 400 400325 
+Short 500 450425 500 300275 150250 300 250350 300425 250375 500 500475 
+Long 300 200300 300 150175 100200 150 100200 150250 100200 300 300225 
+ 
+ JPY KRW MXN RUB SAR SEK SGD TRY USD ZAR 
+Parallel 100 300225 400 400 200275 200275 150175 400 200 400325 
+Short 100 400350 500 500 300375 300425 200250 500 300 500 
+Long 100 200225 300200 300 150250 150200 100225 300 150225 300 
+ 
+Footnotes 
+[7]  Jurisdictions m ay, under national discretion, recalculate the shocks in Table 2 for their domestic 
+ currencies using data that  deviate from the  initial 16-24-year period if they better reflect s their 
+ idiosyncratic circumstances. 
+31.91 Given Table 2, the instantaneous shocks to the risk-free rate for parallel, short and long, for each 
+currency, the following parameterisations of the six interest rate shock scenarios should be 
+applied: 
+===== PAGE 8 =====
+ 
+ 
+4 Recalibration of shocks in the interest rate risk in the banking book standard 
+ 
+ 
+(1) Parallel shock for currency c: a constant parallel shock up or down across all time 
+buckets. 
+( ) =  ,,parallel c k parallel cR t R
+ 
+( ) =  ,,parallel c k parallel cS t S
+ 
+(2) Short rate shock for currency c: shock up or down that is greatest at the shortest tenor 
+midpoint. That shock, through the shaping scalar  
+( )
+−
+=
+kt
+x
+short ks t e
+( )
+−
+=
+kt
+x
+short kte , 
+where x = 4, diminishes towards zero at the tenor of the longest point in the term 
+structure.[8] 
+( ) ( )
+−
+ =  = , , ,
+kt
+x
+short c k short c short k short cR t R S t R e
+ 
+( ) ( )
+−
+ =  = , , ,
+kt
+x
+short c k short c short k short cS t S t S e
+ 
+(3) Long rate shock for currency c (note: this is used only in the rotational shocks): Here the 
+shock is greatest at the longest tenor midpoint and is related to the short scaling factor 
+as: 
+( ) ( )=−1long k short kS t S t
+( ) ( ) =−1long k short ktt . 
+( ) ( )
+−
+ =   =   − 
+, , , 1
+kt
+x
+long c k long c long k long cR t R S t R e
+ 
+( ) ( )
+−
+ =   =   − 
+, , , 1
+kt
+x
+long c k long c long k long cS t S t S e
+ 
+(4) Rotation shocks for currency c: involving rotations to the term stru cture (ie steepeners 
+and flatteners) of the interest rates whereby both the long and short rates are shocked 
+and the shift in interest rates at each tenor midpoint is obtained by applying the 
+following formulas to those shocks: 
+( ) ( ) ( ) = −   +  , , , 0.65 0.9steepner c k short c k long c kR t R t R t
+ 
+( ) ( ) ( ) = +   −  , , , 0.8 0.6flattener c k short c k long c kR t R t R t
+ 
+( ) ( ) ( ) = −   +  , , , 0.65 0.9steepener c k short c k long c kS t S t S t
+ 
+( ) ( ) ( ) = +   −  , , , 0.8 0.6flattener c k short c k long c kS t S t S t
+ 
+Footnotes 
+[8] The value of x in the denominator of the function  
+− kt
+xe  controls the rate of decay of the 
+shock. This should be set to the value of 4 for most currencies and the related shocks unless 
+otherwise determined by national supervisors. tk is the midpoint (in time) of the kth bucket 
+and tK is the midpoint (in time) of the last bucket K. There are 19 buckets in the 
+standardised framework, but the analysis may be generalised to any number of buckets. 
+31.92 The following examples illustrate the scenarios in [SRP31.91](2) and [SRP31.91](4). 
+===== PAGE 9 =====
+ 
+Recalibration of shocks in the interest rate risk in the banking book standard 5 
+ 
+ 
+(1) Short rate shock: Assume that the bank uses the standardised framework with K = 19 
+time bands and with tK = 25 years (the midpoint (in time) of the longest tenor bucket K), 
+and where tK is the midpoint (in time) for bucket k. In the standardised framework, if 
+k = 10 with tk = 3.5 years, the scalar adjustment for the short shock would be  
+( )
+−
+=
+3.5
+4
+short ks t e
+( )
+−
+=
+3.5
+4
+short kte
+= 0.417. Banks would multiply this by the value of the 
+short rate shock to obtain the amount to be added to or subtracted from the yield curve 
+at that tenor point. If the short rate shock was +100 basis points (bp), the increase in the 
+yield curve at tk = 3.5 years would be 41.7 bp. 
+(2) Steepener: Assume the same point on the yield curve as above, tk = 3.5 years. If the 
+absolute value of the short rate shock was 100 bp and the absolute value of the long 
+rate shock was 100 bp (as for the Japanese yen), the change in the yield curve at tk = 3.5 
+years would be the sum of the effect of the short rate shock p lus the effect of the long 
+rate shock in bp: −0.65 x 100 bp x 0.417 + 0.9 x 100bp x (1−0.417) = +25.4 bp. 
+(3) Flattener: The corresponding change in the yield curve for the shocks in the example 
+above at tk = 3.5 years would be:  +0.8 x 100  bp x 0.417 – 0.6 x 1 00 bp x (1−0.417) = 
+−1.6 bp. 
+31.93 The Committee acknowledges that shock sizes of  different currencies should reflect local 
+conditions in a timely manner . For this reason, t he Committee will review the calibration of the 
+interest rate shock sizes  (eg every five years) . National supervisors may, at their discretion, set 
+floors for the post -shock interest rates under the six interest rate shock scenarios, provided the 
+floors are not greater than zero. 
+SRP98 
+Derivation of the interest rate shocks 
+98.56 [SRP31] describes six prescribed interest rate shock scenarios that banks should apply to parallel 
+and non-parallel gap risks for EVE and two prescribed interest rate shock scenarios for NII.  In 
+order to derive these shocks, the following general steps are taken. 
+98.57 Step 1: generate a 16 -year time series of daily average interest rates for each currency c. The 
+average daily interest rates from the year 2000 (3 January 2000) to 2015 (31 December 2015) are 
+contained in Table 1. The average local percentile of the rate series is determined by calculating 
+the average rate across all daily rates in time buckets 3m, 6m, 1Y, 2Y, 5Y, 7Y, 10Y, 15Y and 20Y. 
+Average interest rates by currency Table 1 
+ ARS AUD BRL CAD CHF CNY EUR GBP HKD IDR INR 
+Average 3363 517 1153 341 183 373 300 375 295 1466 719 
+            
+ JPY KRW MXN RUB SAR SEK SGD TRY USD ZAR  
+Average 89 471 754 868 360 330 230 1494 329 867  
+ 
+98.58 Step 2: the global shock parameter is prescribed based on the weighted average of the currency-
+specific shock parameters, 
+i . The shock parameter for scenario i is a weighted average of the 
+ ,,i c h
+ across all currencies and defined as 
+i . The following baseline global parameters are 
+obtained: 
+===== PAGE 10 =====
+ 
+ 
+6 Recalibration of shocks in the interest rate risk in the banking book standard 
+ 
+ 
+Baseline global interest rate shock parameters Table 2 
+Parallel 
+parallel  60% 
+Short rate 
+short  85% 
+Long rate 
+long  40% 
+ 
+98.59 Applying the 
+i from Table 2 to the average long -term rates from Table 1 results in the revised 
+interest rate shocks by currency for parallel, short and long segments of the yield curve in Table 
+3. 
+Revised interest rate shocks, 𝛥𝑅𝑠ℎ𝑜𝑐𝑘𝑡𝑦𝑝𝑒,𝑐 Table 3 
+ ARS AUD BRL CAD CHF CNY EUR GBP HKD IDR INR 
+Parallel 2018 310 692 204 110 224 180 225 177 880 431 
+Short 2858 440 980 290 155 317 255 319 251 1246 611 
+Long 1345 207 461 136 73 149 120 150 118 586 288 
+            
+ JPY KRW MXN RUB SAR SEK SGD TRY USD ZAR  
+Parallel 53 283 452 521 216 198 138 896 197 520  
+Short 75 401 641 738 306 280 196 1270 279 737  
+Long 35 188 301 347 144 132 92 597 131 347  
+ 
+98.60 However, the proposed interest rate shock calibration can lead to unrealistically low interest rate 
+shocks for some currencies and to unrealistically high interest rate shocks for others. In order to 
+ensure a minimum level of prudence and a level playing f ield, a floor of 100 basis points and 
+variable caps (denoted as 
+ jR ) are set for the scenarios concerned, those caps being 500 basis 
+points for the short-term, 400 basis points for the parallel and 300 basis points for the long-term 
+interest rate shock scenario. 
+98.61 The change in the risk -free interest rate for shock scenario j and currency c can be defined as 
+follows, where 
+ jR  is 400, 500 or 300 when j is parallel, short or long respectively.[11] 
+( )=  ,, max 100,min( , )j c j c jR R R
+ 
+Footnotes 
+[11] In the case of the rotation scenarios,
+ ,jcR  cannot exceed 500 basis points and
+( ) ,j c kRt   cannot exceed 
+300 basis points. 
+98.62 Applying the caps and floors to the shocks described in Table 3 results in the final set of interest 
+rate shocks by currency that is shown in [SRP31.90]. 
+98.57 Step 1: Generate a time series of daily interest rates  
+,kcR  from the year 2000 (3 January 2000) to 
+2023 (29 December 2023) in the time buckets  k = 3m, 6m, 1Y, 2Y, 5Y, 7Y, 10Y, 15Y and 20Y for 
+each currency c. 
+98.58 Step 2: Using the time series of the interest rate levels at each tenor point k and for each currency 
+c, calculate a new time series of rate changes  
+ ,kcR  for a moving ti me window of h = 6 months 
+(125 days). 
+===== PAGE 11 =====
+ 
+Recalibration of shocks in the interest rate risk in the banking book standard 7 
+ 
+ 
+( ) ( ) ( ) = − −, , ,k c k c k cR t R t R t h
+ 
+98.59 Step 3: For each scenario  i and currency  c, take the average of the rate changes across the 
+corresponding time buckets in Table 1, where 
+iN represents the number of time buckets. 
+( ) ( ) =  ,,
+1
+i c k c
+ki
+R t R t N
+ 
+ 
+Average interest rate change by time bucket Table 1 
+Scenario Averaged interest rate series Time buckets 
+Parallel 
+( ) ,parallel cRt  3m, 6m, 1Y, 2Y, 5Y, 7Y, 10Y, 15Y, 20Y 
+Short rate 
+( ) ,short cRt  3m, 6m, 1Y 
+Long rate 
+( ) ,long cRt  10Y, 15Y, 20Y 
+ 
+98.60 Step 4: Use the 99.9th percentile value of the absolute value of 
+ ,icR  over the period from 2000 
+to 2023, denoted
+( ) ,icRt , for the interest rate shock of scenario 𝑖 for currency c. 
+( )( )=, 99.9 ,i c i cS P R t
+ 
+98.61 Step 5: In order to ensure a minimum level of prudence and a level playing field, set a floor of 
+100 bp and variable caps (denoted as 
+iC ) for the scenarios concerned, those caps being 500 bp 
+for the short -term, 400 bp for the parallel and 300 bp for the long -term interest rate shock 
+scenario. The change in the interest rate shock for scenario i and currency c can be defined as: 
+  =,, max 100,min ,i c i c iS S C
+ 
+where 
+iC = {400, 500, 300}, for i = parallel, short, and long, respectively. 
+98.62 Step 6: Finally, round the values from step 5 to the nearest multiple of 25 bp. This methodology 
+results in the specified interest rate shocks set out in [SRP31.90]. 
+98.63 Supervisors may, applying national discretion, set a higher floor under the local interest rate shock 
+scenarios for their home currency , or a higher cap, resulting in more conservative shocks . 
+Supervisors may also, applying na tional discretion, set a zero or negative lower bound for the 
+post-shock interest rates
+,jcR , where j represents the six interest rate shock scenarios set out in 
+[SRP31.91]. 
+( )= +, 0, ,( ) max ( ) ( ),( )j c k c k j c kR t R t R t zeroor negativelower bound set
+ 
+( )= +, 0, ,( ) max ( ) ( ),( )j c k c k j c kR t R t S t zeroor negativelower bound set
+ 

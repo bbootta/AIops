@@ -169,22 +169,49 @@ def test_prepayment_shortens_wal_not_just_total():
         "이 검사가 통과하지 않으면 순서 결함을 잡을 수 없다")
 
 
-def test_null_scenario_multiplier_falls_back_to_one_and_warns():
-    """NULL을 0.8로 메우면 경고가 사라진다 — 이 검사가 그것을 막는다."""
+def test_scenario_multiplier_table_is_complete_from_the_source():
+    """BCBS d368 Annex 2 Table 3·4 12칸 전건이 원문확인이다(1차자료 §A-7·§A-8).
+
+    **바뀐 것.** 앞선 회차는 steepener·flattener 네 칸을 NULL로 두고 엔진이
+    승수 1.0으로 건너뛰게 했다. 1차자료 발췌로 그 네 칸이 확인돼(CPR 0.8/1.2,
+    TDRR 0.8/1.2) 원장이 채워졌으므로, 이제 그 시나리오도 조정이 걸린다.
+    """
     mt = P.build_behaviour_scenario_mult()
+    assert mt["multiplier"].notna().all()
+    assert (mt["evidence_status"] == "원문확인").all()
+    for model in ("CPR", "TDRR"):
+        mult, warn = scenario_multiplier(mt, model, "steepener")
+        assert mult == pytest.approx(0.8) and warn is None
+        mult, warn = scenario_multiplier(mt, model, "flattener")
+        assert mult == pytest.approx(1.2) and warn is None
+
+
+def test_blank_scenario_multiplier_still_falls_back_to_one_and_warns():
+    """원장이 비면 조용히 메우지 않는다 — 폴백 경로 자체는 살아 있어야 한다."""
+    mt = P.build_behaviour_scenario_mult()
+    mt.loc[(mt["model"] == "CPR") & (mt["scenario"] == "steepener"),
+           ["multiplier", "evidence_status"]] = [None, "미확인"]
     mult, warn = scenario_multiplier(mt, "CPR", "steepener")
     assert mult == 1.0 and warn is not None and "미확인" in warn.reason
 
-    mult, warn = scenario_multiplier(mt, "CPR", "parallel_up")
-    assert mult == pytest.approx(0.8) and warn is None
 
+def test_cpr_and_tdrr_are_opposite_only_on_the_parallel_and_short_axes():
+    """평행·단기 축은 방향이 반대이고 회전 축은 두 표가 **같은 값**이다.
 
-def test_scenario_multiplier_directions_are_opposite_for_cpr_and_tdrr():
-    """CPR은 금리와 역관계, TDRR은 정관계 — 방향이 같으면 한쪽이 틀린 것이다."""
+    "TDRR은 CPR의 역방향"이라고 일반화하면 steepener·flattener 네 칸이
+    틀린다(1차자료 §A-8). Table 3과 Table 4를 각각 읽어야 한다.
+    """
     mt = P.build_behaviour_scenario_mult()
-    cpr_up, _ = scenario_multiplier(mt, "CPR", "parallel_up")
-    tdrr_up, _ = scenario_multiplier(mt, "TDRR", "parallel_up")
-    assert cpr_up < 1.0 < tdrr_up
+
+    def m(model, sc):
+        return scenario_multiplier(mt, model, sc)[0]
+
+    for sc in ("parallel_up", "short_up"):
+        assert m("CPR", sc) < 1.0 < m("TDRR", sc)
+    for sc in ("parallel_down", "short_down"):
+        assert m("TDRR", sc) < 1.0 < m("CPR", sc)
+    for sc in ("steepener", "flattener"):
+        assert m("CPR", sc) == pytest.approx(m("TDRR", sc))
 
 
 def test_nmd_caps_are_enforced_by_the_engine_not_trusted_from_the_ledger():
@@ -274,12 +301,20 @@ def test_every_parameter_ledger_validates_against_its_spec():
 
 
 def test_unverified_coefficients_are_null_not_invented():
-    """규약: 모르면 비워 둔다. 이 검사가 '나중에 채워 넣기'를 막는다."""
+    """규약: 모르면 비워 둔다. 이 검사가 '나중에 채워 넣기'를 막는다.
+
+    **바뀐 것.** 시나리오 승수 steepener·flattener는 여기서 빠졌다. 1차자료
+    발췌(§A-7·§A-8)로 네 칸이 확인돼 더 이상 미확인이 아니다. 확인된 값을
+    계속 비워 두는 것도 규약 위반이다. 아래 세 가지는 여전히 규정이 값을 주지
+    않는 자리다 — TDRR 기준율, S-curve 계수, NMD financial 범주.
+    """
     led = P.build_param_ledgers(ASOF)
-    mult = led["alm_behaviour_scenario_mult"]
-    unknown = mult[mult["scenario"].isin(("steepener", "flattener"))]
-    assert unknown["multiplier"].isna().all()
-    assert (unknown["evidence_status"] == "미확인").all()
+    nmd = led["alm_nmd_param"].set_index("nmd_category")
+    # d368 Annex 2 Table 2는 소매결제성·소매비결제성·도매 세 줄뿐이고
+    # 금융기관 범주가 없다 — 코어 0%는 설계의 가정이지 원문값이 아니다.
+    assert nmd.loc["financial", "evidence_status"] == "미확인"
+    assert (nmd.loc[["retail_transactional", "retail_non_transactional",
+                     "wholesale_nonfin"], "evidence_status"] == "원문확인").all()
 
     tdrr = led["alm_behaviour_param"].query("model == 'TDRR'")
     assert tdrr["base_rate_annual"].isna().all()
@@ -399,8 +434,10 @@ def test_prepayment_scenario_direction_shows_in_the_ladder(engine):
                      / g["principal_cf"].sum())
            for sc, g in m.groupby("scenario")}
     assert wal["parallel_up"] > wal["base"] > wal["parallel_down"]
-    # 승수가 NULL인 시나리오는 조정이 없으므로 base와 같아야 한다.
-    assert wal["steepener"] == pytest.approx(wal["base"], rel=1e-12)
+    # **바뀐 것.** steepener는 승수가 NULL이라 base와 같았다. 1차자료 §A-7로
+    # γ=0.8이 확인돼 parallel_up과 같은 승수를 쓰므로 이제 그쪽과 같아야 한다.
+    assert wal["steepener"] == pytest.approx(wal["parallel_up"], rel=1e-12)
+    assert wal["flattener"] == pytest.approx(wal["parallel_down"], rel=1e-12)
 
 
 def test_missing_parameters_surface_as_warnings(engine):
@@ -408,7 +445,10 @@ def test_missing_parameters_surface_as_warnings(engine):
     _, _, res = engine
     wf = res.warning_frame()
     assert not wf.empty
-    assert {"TDRR", "CPR", "NMD"} <= set(wf["model"])
+    # **바뀐 것.** CPR은 승수 12칸이 전부 채워져 더 이상 경고를 내지 않는다.
+    # 남는 공백은 TDRR 기준율(규정 미제시)과 NMD 안정예금 비율(자체추정)이다.
+    assert {"TDRR", "NMD"} <= set(wf["model"])
+    assert "CPR" not in set(wf["model"])
     assert (wf["param"] == "base_rate_annual").any()
 
 

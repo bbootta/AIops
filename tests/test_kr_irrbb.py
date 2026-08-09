@@ -1,4 +1,4 @@
-"""[별표 9의1] 국내 금리리스크 산출기준 — 불변식 고정.
+"""[별표 9의1] 국내 금리리스크 산출기준. 불변식 고정.
 
 이 파일의 규칙: 통과만으로는 통제가 아니다. 각 검사는 결함을 되돌렸을 때 실제로
 실패해야 한다. 네 검사가 규정을 직접 겨냥한다.
@@ -56,7 +56,7 @@ def _shock(measured: dict[str, float] | None = None) -> pd.DataFrame:
 
 
 def _contracts(rows: list[dict], *, asof: str = ASOF) -> pd.DataFrame:
-    """검사용 최소 계약원장 — 갭 산출이 읽는 컬럼만 담는다."""
+    """검사용 최소 계약원장. 갭 산출이 읽는 컬럼만 담는다."""
     base = {"asof": asof, "product_code": "X", "side": "asset", "ccy": "KRW",
             "notional": 0.0, "maturity_date": None, "next_reset_date": None,
             "is_own_equity": False}
@@ -76,7 +76,7 @@ def _monthly(balances: list[float], ccy: str = "KRW") -> pd.DataFrame:
 
 
 def _flat_gap(amounts: list[float], *, ccy: str = "KRW") -> pd.DataFrame:
-    """13구간 갭 사다리를 직접 만든다 — 엔진 산식만 떼어 보기 위한 입력."""
+    """13구간 갭 사다리를 직접 만든다. 엔진 산식만 떼어 보기 위한 입력."""
     b = _buckets()
     return pd.DataFrame([{
         "asof": ASOF, "framework_version": FW, "ccy": ccy,
@@ -201,7 +201,7 @@ def test_var_moves_with_the_duration_in_the_ledger():
 
 
 def test_ear_ignores_buckets_beyond_one_year():
-    """제7항 — 금리 EaR은 만기구간 1년 이하만 대상이다."""
+    """제7항. 금리 EaR은 만기구간 1년 이하만 대상이다."""
     b = _buckets()
     amounts = [1.0e9] * 13
     gap = _flat_gap(amounts)
@@ -294,7 +294,7 @@ def test_negative_core_is_floored_and_disclosed():
 
 
 def test_core_deposit_is_spread_over_eight_buckets_at_one_eighth():
-    """<표 1> — 핵심예금은 5년 이내 8개 구간에 12.5%씩, 비핵심은 0~1월."""
+    """<표 1>. 핵심예금은 5년 이내 8개 구간에 12.5%씩, 비핵심은 0~1월."""
     b = _buckets()
     con = _contracts([{"side": "liability", "notional": 800.0,
                        "product_code": "DEP_NMD"}])
@@ -404,7 +404,7 @@ def _result_at(ratio: float) -> pd.Series:
 
 
 def test_outlier_uses_own_capital_at_twenty_percent():
-    """제27항 — 자기자본의 20%를 **초과**하는 은행이 outlier다."""
+    """제27항. 자기자본의 20%를 **초과**하는 은행이 outlier다."""
     at = _result_at(0.20)
     assert float(at["risk_to_own_capital"]) == pytest.approx(0.20)
     assert bool(at["is_outlier"]) is False

@@ -1,4 +1,4 @@
-"""[별표 9의1] 국내 금리리스크 산출기준 — 금리 EaR · 금리 VaR.
+"""[별표 9의1] 국내 금리리스크 산출기준. 금리 EaR · 금리 VaR.
 
 **왜 별도 모듈인가.** 이 저장소의 `alm/irrbb.py`는 BCBS d368 체계의 ΔEVE·ΔNII를
 산출한다. 은행업감독업무시행세칙 [별표 9의1]이 정하는 표준방법은 그 두 지표가
@@ -30,7 +30,7 @@ G-10 이외 통화"에 걸리므로 과거 5년 실제 금리변동폭(보유기
 지킨다.
 
 **남은 미확인** (1차자료 §C).
-  · 원화 금리변동 예상폭(5년 1%·99%) — 시계열 원본이 있어야 산출된다.
+  · 원화 금리변동 예상폭(5년 1%·99%). 시계열 원본이 있어야 산출된다.
   · 기간가중 표준편차의 산식 이미지는 HWP에서 추출되지 않았다. 원문이 준
     기간가중평균과 정합한 형태를 쓰며 그 사실을 `std_formula` 컬럼에 남긴다.
   · 2018-11-13 이후 개정 여부.
@@ -69,7 +69,7 @@ KR_FRAMEWORK_VERSION = "kr_9_1_2014"
 
 _CITE = "은행업감독업무시행세칙 [별표 9의1] 금리리스크 산출기준"
 
-# 1bp = 0.0001. 단위 정의이며 규제 계수가 아니다 — 원장 값은 bp로 담고 산식은
+# 1bp = 0.0001. 단위 정의이며 규제 계수가 아니다. 원장 값은 bp로 담고 산식은
 # 비율로 돌기 때문에 환산이 한 번 필요하다.
 _BP = 1.0e-4
 
@@ -77,7 +77,7 @@ KR_SHOCK_METHODS: tuple[str, ...] = ("고정200bp", "5년실측 1%·99%")
 KR_ASSET_SHARE_BANDS: tuple[str, ...] = ("5%이상", "5%미만")
 
 # §B-6 측정대상 제외 가능 항목. 이름만 어휘로 고정하고, 어떤 계약이 여기
-# 해당하는지는 계약원장이 정한다 — 상품코드를 이 모듈에 박으면 원장이 바뀔 때
+# 해당하는지는 계약원장이 정한다. 상품코드를 이 모듈에 박으면 원장이 바뀔 때
 # 제외가 조용히 어긋난다.
 KR_EXCLUDABLE_ITEMS: tuple[str, ...] = (
     "지준예치금", "고정자산", "현금", "주식", "은행간조정자금",
@@ -103,15 +103,15 @@ KR_BUCKET = TableSpec(
           min_value=0.0),
         C("t_mid_years", "float", "금리개정 중간시점", nullable=False,
           unit="years", min_value=0.0,
-          citation=f"{_CITE} <표 2> — 금리 EaR의 (T − t_i)에 쓰는 t_i"),
+          citation=f"{_CITE} <표 2>. 금리 EaR의 (T − t_i)에 쓰는 t_i"),
         C("modified_duration_years", "float", "수정듀레이션", nullable=False,
           unit="years", min_value=0.0,
-          citation=f"{_CITE} <표 2> — 은행 자체산출값 사용 가능하나 "
+          citation=f"{_CITE} <표 2>. 은행 자체산출값 사용 가능하나 "
                    f"감독원장 사전승인 필요"),
         C("is_ear_target", "bool", "금리 EaR 대상", nullable=False,
-          citation=f"{_CITE} 제7항 — 금리 EaR은 만기구간 1년 이하만 대상"),
+          citation=f"{_CITE} 제7항. 금리 EaR은 만기구간 1년 이하만 대상"),
         C("is_core_deposit_slot", "bool", "핵심예금 안분 대상", nullable=False,
-          citation=f"{_CITE} <표 1> — 핵심예금은 5년 이내 8개 만기구간에 "
+          citation=f"{_CITE} <표 1>. 핵심예금은 5년 이내 8개 만기구간에 "
                    f"12.5%씩 균등 안분"),
         C("citation", "text", "근거", nullable=True),
         C("evidence_status", "string", "근거 상태", nullable=False,
@@ -119,7 +119,7 @@ KR_BUCKET = TableSpec(
     ),
     primary_key=("framework_version", "seq"),
     note="13구간이며 BCBS d368 Annex 2의 19구간과 다르다. 안분 비율 12.5%는 "
-         "여기 숫자로 적지 않는다 — is_core_deposit_slot이 8건이라는 사실에서 "
+         "여기 숫자로 적지 않는다. is_core_deposit_slot이 8건이라는 사실에서 "
          "엔진이 1/8로 나눈다. 마지막 구간은 20년초과 개방구간이고 원문이 주는 "
          "것은 중간시점 22.5년뿐이므로 상한도 22.5년으로 적는다.",
 )
@@ -133,7 +133,7 @@ KR_SHOCK_PARAM = TableSpec(
         C("ccy", "string", "통화", nullable=False),
         C("asset_share", "float", "총자산 대비 비중", nullable=True,
           unit="ratio", min_value=0.0, max_value=1.0,
-          note="은행의 사실이지 규정값이 아니다 — 빌더 인자로 들어온다"),
+          note="은행의 사실이지 규정값이 아니다. 빌더 인자로 들어온다"),
         C("asset_share_band", "string", "총자산 비중 구간", nullable=False,
           allowed=KR_ASSET_SHARE_BANDS),
         C("is_g10", "bool", "G-10 국가통화", nullable=False,
@@ -165,13 +165,13 @@ KR_CORE_DEPOSIT_WEIGHT = TableSpec(
         C("month_label", "string", "해당월", nullable=False),
         C("weight", "float", "기간가중치", nullable=False, unit="ratio",
           min_value=0.0, max_value=1.0,
-          citation=f"{_CITE} <표 5> — t-11월 1/78 … t월 12/78, 가중치 계 1"),
+          citation=f"{_CITE} <표 5>. t-11월 1/78 … t월 12/78, 가중치 계 1"),
         C("citation", "text", "근거", nullable=True),
         C("evidence_status", "string", "근거 상태", nullable=False,
           allowed=EVIDENCE_STATUS),
     ),
     primary_key=("framework_version", "lag_months"),
-    note="가중치를 산식 안에 두지 않고 원장 행으로 둔다 — 12행의 합이 1이라는 "
+    note="가중치를 산식 안에 두지 않고 원장 행으로 둔다. 12행의 합이 1이라는 "
          "것이 검증 대상이 되려면 값이 보여야 한다.",
 )
 
@@ -182,7 +182,7 @@ KR_CORE_DEPOSIT = TableSpec(
         C("asof", "date", "기준일", nullable=False),
         C("ccy", "string", "통화", nullable=False),
         C("scope", "text", "대상 예금", nullable=False,
-          citation=f"{_CITE} <표 5> — 요구불예금·자유저축예금·기업자유예금"
+          citation=f"{_CITE} <표 5>. 요구불예금·자유저축예금·기업자유예금"
                    f"(MMDA 제외)·어음관리계좌수탁금"),
         C("n_months", "int", "투입 월수", nullable=False, min_value=1),
         C("latest_month_avg_balance", "float", "최근월 평잔", nullable=False,
@@ -193,7 +193,7 @@ KR_CORE_DEPOSIT = TableSpec(
           unit="KRW", min_value=0.0),
         C("multiplier", "float", "표준편차 배수", nullable=False, unit="배",
           min_value=0.0,
-          citation=f"{_CITE} <표 5> — 최근월 평잔에서 연간 표준편차의 2.33배 차감"),
+          citation=f"{_CITE} <표 5>. 최근월 평잔에서 연간 표준편차의 2.33배 차감"),
         C("core_amount", "float", "핵심예금", nullable=False, unit="KRW",
           min_value=0.0),
         C("non_core_amount", "float", "비핵심예금", nullable=False, unit="KRW",
@@ -212,7 +212,7 @@ KR_CORE_DEPOSIT = TableSpec(
     ),
     primary_key=("asof", "ccy"),
     note="월중평잔 12개월치가 입력이다. 12개월이 차지 않은 통화는 행을 만들지 "
-         "않고 경고를 남긴다 — 모자란 개월수로 계산한 표준편차는 규정 산식이 "
+         "않고 경고를 남긴다. 모자란 개월수로 계산한 표준편차는 규정 산식이 "
          "아니다.",
 )
 
@@ -230,7 +230,7 @@ KR_GAP = TableSpec(
         C("rate_sensitive_liability", "float", "금리민감부채", nullable=False,
           unit="KRW", min_value=0.0),
         C("gap_amount", "float", "금리갭", nullable=False, unit="KRW",
-          citation=f"{_CITE} 제7항 — 금리갭 = 금리민감자산 − 금리민감부채"),
+          citation=f"{_CITE} 제7항. 금리갭 = 금리민감자산 − 금리민감부채"),
         C("citation", "text", "근거", nullable=True),
         C("evidence_status", "string", "근거 상태", nullable=False,
           allowed=EVIDENCE_STATUS),
@@ -238,7 +238,7 @@ KR_GAP = TableSpec(
     primary_key=("asof", "framework_version", "ccy", "seq"),
     foreign_keys=(FK(("framework_version", "seq"), "kr_irrbb_bucket",
                      ("framework_version", "seq")),),
-    note="통화별로 13구간 전건이 나온다 — 잔액이 없는 구간도 0으로 채운다. "
+    note="통화별로 13구간 전건이 나온다. 잔액이 없는 구간도 0으로 채운다. "
          "사다리에 구멍이 있으면 합산이 조용히 달라진다.",
 )
 
@@ -251,22 +251,22 @@ KR_RESULT = TableSpec(
         C("framework_version", "string", "계정", nullable=False),
         C("ccy", "string", "통화", nullable=False),
         C("is_total", "bool", "통화 합산행", nullable=False,
-          citation=f"{_CITE} 제9항 — 통화별로 산출해 합산한다"),
+          citation=f"{_CITE} 제9항. 통화별로 산출해 합산한다"),
         C("shock_bp", "float", "금리변동 예상폭", nullable=True, unit="bp"),
         C("shock_method", "string", "예상폭 결정방식", nullable=True,
           allowed=KR_SHOCK_METHODS),
         C("horizon_years", "float", "목표 관리기간", nullable=True, unit="years",
           min_value=0.0,
-          citation=f"{_CITE} 제7항 — 금리 EaR의 T. 원칙 1년"),
+          citation=f"{_CITE} 제7항. 금리 EaR의 T. 원칙 1년"),
         C("ear_amount", "float", "금리 EaR", nullable=True, unit="KRW",
-          citation=f"{_CITE} 제7항 — Σ 금리갭_i × (T − t_i) × Δr_i, "
+          citation=f"{_CITE} 제7항. Σ 금리갭_i × (T − t_i) × Δr_i, "
                    f"만기구간 1년 이하"),
         C("var_amount", "float", "금리 VaR", nullable=True, unit="KRW",
-          citation=f"{_CITE} 제8항 — Σ 금리갭_i × 수정듀레이션_i × Δr_i, "
+          citation=f"{_CITE} 제8항. Σ 금리갭_i × 수정듀레이션_i × Δr_i, "
                    f"전 만기구간"),
         C("total_ir_risk", "float", "총 금리리스크", nullable=True, unit="KRW",
           min_value=0.0,
-          citation=f"{_CITE} 제27항 — 금리 VaR에 의하여 산출한 총 금리리스크"),
+          citation=f"{_CITE} 제27항. 금리 VaR에 의하여 산출한 총 금리리스크"),
         C("own_capital", "float", "자기자본", nullable=True, unit="KRW",
           min_value=0.0,
           citation="세칙 <별표 3>의 자기자본. d368의 기본자본(Tier 1)이 아니다"),
@@ -274,7 +274,7 @@ KR_RESULT = TableSpec(
           unit="ratio"),
         C("outlier_threshold", "float", "아웃라이어 기준", nullable=True,
           unit="ratio", min_value=0.0,
-          citation=f"{_CITE} 제27항 — 자기자본의 20% 초과 시 outlier"),
+          citation=f"{_CITE} 제27항. 자기자본의 20% 초과 시 outlier"),
         C("denominator_basis", "string", "판정 분모", nullable=False,
           note="국내기준은 '자기자본', d368은 '기본자본(Tier 1)'이다. 분모가 "
                "다르다는 사실이 컬럼으로 보여야 두 수치가 섞이지 않는다"),
@@ -282,7 +282,7 @@ KR_RESULT = TableSpec(
           note="합계행에서만 판정한다. 통화행은 NULL이다"),
         C("excluded_amount", "float", "측정대상 제외액", nullable=False,
           unit="KRW", min_value=0.0,
-          citation=f"{_CITE} 제외항목 — 지준예치금·고정자산·현금·주식·"
+          citation=f"{_CITE} 제외항목. 지준예치금·고정자산·현금·주식·"
                    f"은행간조정자금·자본총계·부채성충당금"),
         C("citation", "text", "근거", nullable=True),
         C("evidence_status", "string", "근거 상태", nullable=False,
@@ -290,7 +290,7 @@ KR_RESULT = TableSpec(
     ),
     primary_key=("asof", "framework_version", "ccy"),
     note="금리 EaR·금리 VaR는 부호 있는 값이며 금리 상승(+shock_bp) 방향으로 "
-         "산출한다. 총 금리리스크는 그 크기다 — 세칙이 부호 규약을 정하지 "
+         "산출한다. 총 금리리스크는 그 크기다. 세칙이 부호 규약을 정하지 "
          "않으므로 판정에 쓰이는 것이 크기라는 사실을 컬럼으로 나눠 둔다. "
          "shock_bp가 NULL인 통화는 행이 있으되 산출값이 비어 있다.",
 )
@@ -342,7 +342,7 @@ _CORE_WEIGHT_MONTHS = 12
 _CORE_WEIGHT_DENOM = 78.0          # Σ_{k=1..12} k
 _CORE_MULTIPLIER = 2.33
 
-# 제27항 아웃라이어 기준 — 자기자본의 20%.
+# 제27항 아웃라이어 기준. 자기자본의 20%.
 _OUTLIER_PCT_OWN_CAPITAL = 0.20
 _DENOMINATOR_BASIS = "자기자본(세칙 <별표 3>)"
 
@@ -393,7 +393,7 @@ def build_kr_irrbb_shock_param(
     셋째 줄만 규정이 숫자를 준다. 둘째 줄에 걸리는 통화(원화가 여기다)는
     `measured_shock_bp`로 산출값을 넘기지 않으면 `shock_bp`가 NULL로 남고,
     엔진은 그 통화를 비운다. `<표 3>`은 'G-10 국가통화'라고만 적고 통화를
-    열거하지 않으므로 목록도 인자로 받는다 — 열거는 원문에 없다.
+    열거하지 않으므로 목록도 인자로 받는다. 열거는 원문에 없다.
     """
     measured = dict(measured_shock_bp or {})
     g10 = {str(c) for c in g10_ccys}
@@ -405,20 +405,20 @@ def build_kr_irrbb_shock_param(
         is_g10 = ccy in g10
         if not big:
             method, shock_bp = "고정200bp", _FIXED_SHOCK_BP
-            cite = f"{_CITE} <표 3> 셋째 줄 — 총자산 5% 미만 통화 ±200bp"
+            cite = f"{_CITE} <표 3> 셋째 줄. 총자산 5% 미만 통화 ±200bp"
         elif is_g10:
             # 첫째 줄은 두 방식을 허용한다. 은행이 실측값을 넘겼으면 그것을,
             # 아니면 규정이 명시한 200bp를 쓴다. 어느 쪽인지 method가 남긴다.
             if ccy in measured:
                 method, shock_bp = "5년실측 1%·99%", float(measured[ccy])
-                cite = f"{_CITE} <표 3> 첫째 줄 — 5년 실측 1%·99% 선택"
+                cite = f"{_CITE} <표 3> 첫째 줄. 5년 실측 1%·99% 선택"
             else:
                 method, shock_bp = "고정200bp", _FIXED_SHOCK_BP
-                cite = f"{_CITE} <표 3> 첫째 줄 — ±200bp 선택"
+                cite = f"{_CITE} <표 3> 첫째 줄. ±200bp 선택"
         else:
             method = "5년실측 1%·99%"
             shock_bp = float(measured[ccy]) if ccy in measured else None
-            cite = (f"{_CITE} <표 3> 둘째 줄 — 총자산 5% 이상 · G-10 이외 "
+            cite = (f"{_CITE} <표 3> 둘째 줄. 총자산 5% 이상 · G-10 이외 "
                     f"통화는 과거 5년 실제 금리변동폭(보유기간 1년) 분포의 "
                     f"1%·99% 값. 규정이 숫자를 주지 않는다")
         rows.append({
@@ -463,7 +463,7 @@ def build_kr_core_deposit(
 
     `monthly_balance`는 요구불성예금 월중평잔이며 컬럼은
     `ccy`·`lag_months`(0 = t월)·`avg_balance`다. 12개월이 차지 않은 통화는
-    행을 만들지 않고 경고를 남긴다 — 개월수를 줄여 계산한 표준편차는 규정
+    행을 만들지 않고 경고를 남긴다. 개월수를 줄여 계산한 표준편차는 규정
     산식이 아니다.
 
     배수 2.33과 가중치는 원장(`weights`)에서 오고, 이 함수는 산식만 돈다.
@@ -474,7 +474,7 @@ def build_kr_core_deposit(
     w_sum = sum(w_map.values())
     if not math.isclose(w_sum, 1.0, rel_tol=0.0, abs_tol=1e-12):
         raise ValueError(
-            f"kr_core_deposit_weight의 가중치 합이 {w_sum!r}이다 — <표 5>는 "
+            f"kr_core_deposit_weight의 가중치 합이 {w_sum!r}이다. <표 5>는 "
             "가중치 계 1을 명시한다")
 
     rows = []
@@ -483,7 +483,7 @@ def build_kr_core_deposit(
         if lags != set(w_map):
             warns.append(ParamWarning(
                 "core_deposit", str(ccy), "monthly_balance",
-                f"월중평잔이 {len(lags)}개월치다 — <표 5>는 최근 12개월 전건을 "
+                f"월중평잔이 {len(lags)}개월치다. <표 5>는 최근 12개월 전건을 "
                 f"요구한다. 핵심예금을 산출하지 않는다"))
             continue
         bal = {int(r.lag_months): float(r.avg_balance) for r in grp.itertuples()}
@@ -496,7 +496,7 @@ def build_kr_core_deposit(
         if floored:
             warns.append(ParamWarning(
                 "core_deposit", str(ccy), "core_amount",
-                f"산식 결과가 음수({raw:,.0f})다 — 음수 핵심예금은 안분이 "
+                f"산식 결과가 음수({raw:,.0f})다. 음수 핵심예금은 안분이 "
                 f"정의되지 않으므로 0으로 자른다"))
         core = max(raw, 0.0)
         rows.append({
@@ -549,7 +549,7 @@ def build_kr_irrbb_gap(
       · 비만기예금은 핵심/비핵심으로 나눠 핵심은 5년 이내 8구간 균등 안분,
         비핵심은 최단구간
 
-    제외항목(§B-6)은 갭에 들어가지 않고 두 번째 반환값에 금액으로 남는다 —
+    제외항목(§B-6)은 갭에 들어가지 않고 두 번째 반환값에 금액으로 남는다.
     조용히 사라지면 사다리 합계가 대차대조표와 어긋난 이유를 찾을 수 없다.
     계약원장은 자기자본만 플래그로 들고 있으므로 나머지 제외항목은
     `exclude_product_codes`(상품코드 → 제외항목명)로 넘긴다.
@@ -557,7 +557,7 @@ def build_kr_irrbb_gap(
     반환: (갭 원장, 제외액 프레임, 경고)
     """
     if day_count not in DAY_COUNTS:
-        raise ValueError(f"미지원 이자계산 관행 {day_count!r} — {DAY_COUNTS}")
+        raise ValueError(f"미지원 이자계산 관행 {day_count!r}. {DAY_COUNTS}")
     warns: list[ParamWarning] = []
     b = buckets.sort_values("seq").reset_index(drop=True)
     uppers = b["upper_years"].to_numpy(dtype=float)
@@ -566,7 +566,7 @@ def build_kr_irrbb_gap(
     core_seqs = [int(s) for s in b.loc[b["is_core_deposit_slot"].astype(bool),
                                        "seq"]]
     if not core_seqs:
-        raise ValueError("kr_irrbb_bucket에 is_core_deposit_slot 행이 없다 — "
+        raise ValueError("kr_irrbb_bucket에 is_core_deposit_slot 행이 없다. "
                          "핵심예금 안분 대상 구간이 정해지지 않았다")
     core_share = 1.0 / len(core_seqs)
     shortest_seq = int(seqs[0])
@@ -577,7 +577,7 @@ def build_kr_irrbb_gap(
     if core_scope is None:
         warns.append(ParamWarning(
             "kr_gap", "핵심예금 대상", "core_scope_product_codes",
-            "<표 5> 대상 예금(요구불성예금) 상품코드를 받지 못했다 — 비만기 "
+            "<표 5> 대상 예금(요구불성예금) 상품코드를 받지 못했다. 비만기 "
             "부채 전부에 핵심예금 비율을 적용한다"))
 
     core_ratio = {str(r.ccy): float(r.core_ratio)
@@ -590,7 +590,7 @@ def build_kr_irrbb_gap(
         raise ValueError(f"alm_contract.side에 미지의 값 {bad}")
     if (con["side"] == "off_balance").any():
         raise ValueError(
-            "부외(off_balance) 계약이 있다 — <표 1>은 파생상품을 기초자산으로 "
+            "부외(off_balance) 계약이 있다. <표 1>은 파생상품을 기초자산으로 "
             "분해한 뒤 분류하도록 정한다. 분해 없이 갭에 넣지 않는다")
 
     acc: dict[tuple[str, int, str], float] = {}
@@ -612,7 +612,7 @@ def build_kr_irrbb_gap(
             if item not in KR_EXCLUDABLE_ITEMS:
                 raise ValueError(
                     f"제외항목 {item!r}은 [별표 9의1]의 제외 가능 항목이 "
-                    f"아니다 — {KR_EXCLUDABLE_ITEMS}")
+                    f"아니다. {KR_EXCLUDABLE_ITEMS}")
             excl.setdefault((ccy, item), []).append(notional)
             continue
 
@@ -636,7 +636,7 @@ def build_kr_irrbb_gap(
             if ccy not in warned_ccy:
                 warns.append(ParamWarning(
                     "kr_gap", ccy, "core_ratio",
-                    "kr_core_deposit에 해당 통화 행이 없다 — 핵심예금을 "
+                    "kr_core_deposit에 해당 통화 행이 없다. 핵심예금을 "
                     "산출하지 못했으므로 전액 비핵심(최단구간)으로 분류한다"))
                 warned_ccy.add(ccy)
             ratio = 0.0
@@ -686,7 +686,7 @@ def ear_horizon_years(buckets: pd.DataFrame) -> float:
     """
     tgt = buckets[buckets["is_ear_target"].astype(bool)]
     if tgt.empty:
-        raise ValueError("kr_irrbb_bucket에 is_ear_target 행이 없다 — "
+        raise ValueError("kr_irrbb_bucket에 is_ear_target 행이 없다. "
                          "금리 EaR의 대상 구간이 정해지지 않았다")
     return float(tgt["upper_years"].max())
 
@@ -694,7 +694,7 @@ def ear_horizon_years(buckets: pd.DataFrame) -> float:
 def _join(gap: pd.DataFrame, buckets: pd.DataFrame) -> pd.DataFrame:
     """갭 사다리에 버킷 계수를 붙인다. 단일 통화 사다리를 전제한다."""
     if gap["seq"].duplicated().any():
-        raise ValueError("금리갭이 통화 하나의 사다리가 아니다 — seq가 중복이다")
+        raise ValueError("금리갭이 통화 하나의 사다리가 아니다. seq가 중복이다")
     cols = ["seq", "t_mid_years", "modified_duration_years", "is_ear_target"]
     d = gap.merge(buckets[cols], on="seq", how="left", validate="one_to_one")
     miss = d["t_mid_years"].isna()
@@ -746,12 +746,12 @@ def build_kr_irrbb_result(
     통화의 200bp를 대입하지 않는다.
 
     아웃라이어 판정은 **합계행에서만** 한다. 제27항의 기준은 자기자본의 20%이며
-    d368의 기본자본 15%와 분모·비율이 모두 다르다 — 그 사실이
+    d368의 기본자본 15%와 분모·비율이 모두 다르다. 그 사실이
     `denominator_basis`·`outlier_threshold` 컬럼으로 남는다.
     """
     if not own_capital > 0.0:
         raise ValueError(
-            f"자기자본이 {own_capital!r}이다 — 0 이하로는 자기자본 대비 비율이 "
+            f"자기자본이 {own_capital!r}이다. 0 이하로는 자기자본 대비 비율이 "
             "정의되지 않는다")
     warns: list[ParamWarning] = []
     T = ear_horizon_years(buckets) if horizon_years is None else float(
@@ -777,13 +777,13 @@ def build_kr_irrbb_result(
         if p is None:
             warns.append(ParamWarning(
                 "kr_irrbb", ccy, "shock_bp",
-                "kr_irrbb_shock_param에 해당 통화 행이 없다 — 산출하지 않는다"))
+                "kr_irrbb_shock_param에 해당 통화 행이 없다. 산출하지 않는다"))
         else:
             method = str(p.method)
             if pd.isna(p.shock_bp):
                 warns.append(ParamWarning(
                     "kr_irrbb", ccy, "shock_bp",
-                    f"금리변동 예상폭이 비어 있다(method={method}) — <표 3>이 "
+                    f"금리변동 예상폭이 비어 있다(method={method}). <표 3>이 "
                     f"숫자를 주지 않는 구간이다. 시계열 산출값 없이는 "
                     f"산출하지 않으며 다른 통화의 200bp를 대입하지 않는다"))
             else:
@@ -823,7 +823,7 @@ def build_kr_irrbb_result(
         "risk_to_own_capital": ratio,
         "outlier_threshold": thr,
         "denominator_basis": _DENOMINATOR_BASIS,
-        # 제27항은 "초과하는 은행"이라고 적는다 — 경계값은 아웃라이어가 아니다.
+        # 제27항은 "초과하는 은행"이라고 적는다. 경계값은 아웃라이어가 아니다.
         "is_outlier": None if ratio is None else bool(ratio > thr),
         "excluded_amount": float(sum(excl_by_ccy.values())),
         "citation": f"{_CITE} 제9항 통화별 합산 · 제27항 아웃라이어",
@@ -832,7 +832,7 @@ def build_kr_irrbb_result(
     if not n_priced:
         warns.append(ParamWarning(
             "kr_irrbb", TOTAL_LABEL, "total_ir_risk",
-            "산출된 통화가 하나도 없다 — 합계와 아웃라이어 판정을 비운다"))
+            "산출된 통화가 하나도 없다. 합계와 아웃라이어 판정을 비운다"))
 
     df = pd.DataFrame(rows, columns=[c.name for c in KR_RESULT.columns])
     floats = ["shock_bp", "horizon_years", "ear_amount", "var_amount",
@@ -845,7 +845,7 @@ def build_kr_irrbb_result(
 
 @dataclass
 class KrIrrbbResult:
-    """국내기준 산출 결과 — 원장 두 장과 제외액, 그리고 경고."""
+    """국내기준 산출 결과. 원장 두 장과 제외액, 그리고 경고."""
     gap: pd.DataFrame                    # kr_irrbb_gap
     result: pd.DataFrame                 # kr_irrbb_result
     excluded: pd.DataFrame               # 측정대상 제외액
@@ -855,7 +855,7 @@ class KrIrrbbResult:
     def total_row(self) -> pd.Series:
         hit = self.result[self.result["is_total"].astype(bool)]
         if len(hit) != 1:
-            raise ValueError(f"합계행이 {len(hit)}건이다 — 정확히 1건이어야 한다")
+            raise ValueError(f"합계행이 {len(hit)}건이다. 정확히 1건이어야 한다")
         return hit.iloc[0]
 
     @property
