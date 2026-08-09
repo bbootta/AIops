@@ -1,18 +1,42 @@
-# 적합성검증 기준 항목 — 국내 감독규정 + 도메인 업무요건
-
-두 층으로 구성된다.
+# 적합성검증 기준 항목 — 규제 기준 스택 + 도메인 업무요건
 
 | 층 | SSoT | 근거 | 항목 수 |
 |---|---|---|---|
-| **국내 감독규정** | `harness/domestic_rule_criteria.json` | 은행업감독**규정** [시행 2026. 4. 1.] + 시행**세칙** [시행 2026. 6. 30.] — 원문 2종을 저장소에 보관 | 검증 항목 53건 (자동 31 · 수동 22) + 계량 임계 10건 |
+| **규제 기준** | `harness/regulatory_criteria.json` | 은행업감독**규정** [2026. 4. 1.] → 시행**세칙** [2026. 6. 30.] → **Basel Framework** [2026. 8. 9.] — 원문 3종 보관 | 63건 (자동 38 · 수동 25) + 계량 임계 10건 |
 | 도메인 업무요건 | `harness/domain_requirement_criteria.json` | RYNTA BRD Level 1 v9.6.0 | 131건 (자동 69 · 수동 12 · 범위밖 50) |
 
-국내 층이 **법적 근거**, 도메인 층이 **업무 요건**이다. 국내 층이 상위다 —
-업무요건이 국내 기준을 덮지 못하면 그것이 곧 공백이다.
+규제 층이 **법적 근거**, 도메인 층이 **업무 요건**이다. 규제 층이 상위다 —
+업무요건이 규제 기준을 덮지 못하면 그것이 곧 공백이다.
+
+## 기준 스택 — 국내 우선, 모호하면 바젤
+
+```
+규정(국내구속) → 세칙(국내구속) → 바젤(국제권고)
+
+① 국내 구속 기준이 그 주제를 정하면 국내가 적용된다.               지배 국내        45건
+② 국내가 정하지 않으면 바젤을 따른다.                             지배 바젤        10건
+③ 국내가 있으나 해석이 모호하면 바젤로 보충한다.                    지배 국내+바젤보충  8건
+④ 국내가 바젤보다 느슨해도 국내가 적용되나 그 차이를 표기한다.
+```
+
+지배기준은 **손으로 적지 않는다** — 근거와 모호성 표시에서 파생되며, 손으로
+"이건 바젤을 따른다"고 고쳐 쓰면 정책과 어긋나 `verify`가 잡는다.
+
+모호로 판정해 바젤로 보충하는 8건: 별표 15→LEX30 · 별표 9의2→SRP50 ·
+별표 3의11→OPE10 · 제29조의3→SRP30 · 별표 19→SRP30 · 별표 2의11→DIS26 ·
+제26조의4→SRP30 · 규정 제29조→CRE35.
+
+### 바젤 근거의 한계
+
+BIS 이용조건상 소스북은 **Chapter 단위 source map**이며 원문 전문을 복제하지
+않는다. 따라서 Chapter 실재·시행일·공식 URL 까지만 대조되고 **paragraph 문구
+대조는 불가**하다. 국내 임계와 바젤 수치의 대소 비교도 이 소스북으로는 할 수
+없으므로 규칙 ④의 차이 표기는 사람 판단 사항이다. paragraph 인용(`CRE20.1`)은
+Chapter(`CRE20`)로 절단해 해석한다.
 
 ---
 
-# 1. 국내 감독규정 검증 항목
+# 1. 규제 기준 검증 항목
 
 ## 인용을 원문과 대조한다
 
@@ -23,12 +47,14 @@
 |---|---|---|---|
 | 규정 | `harness/reference/bank_supervision_regulation_20260401.md` | `c8bc6abb18ba355c…` | 조문 heading 148 · 별표 23 |
 | 세칙 | `harness/reference/bank_supervision_rules_20260630.md` | `66ac0b4d292b8440…` | 조문 heading 145 · 별표 45 |
+| 바젤 | `harness/reference/basel_framework_sourcebook_20260809.md` | `e0380fc20c381128…` | 현행 Chapter 124 (Standard 14종) |
 
 각 검증 항목의 조문·별표 인용은 **생성 시점과 검증 시점 양쪽에서 해당 원문을
 찾아 해석**되며, 라인 번호는 손으로 적지 않고 파생한다.
 
 이월 `CO-004`("규정 텍스트가 저장소에 없다 — 인용 474종의 원문 정합성 미보증")가
-열려 있던 이유가 원문 부재였다. 시행세칙 범위에서는 이제 대조가 가능하다.
+열려 있던 이유가 원문 부재였다. 국내 규정·세칙 범위에서는 이제 대조가 가능하고,
+바젤은 Chapter 단위까지 대조된다.
 
 ```bash
 python -m tools.domestic_criteria cite-check "별표 3의7"
@@ -57,23 +83,24 @@ $ python -m vta domestic thresholds
 
 ## verify가 강제하는 것
 
-① 근거 원문 2종의 지문 일치(원문이 바뀌면 카탈로그가 낡았다는 사실이 드러난다)
+① 근거 원문 3종의 지문 일치(원문이 바뀌면 카탈로그가 낡았다는 사실이 드러난다)
 ② 인용의 원문 해석과 기록 라인·표제 일치
 ③ 계량 임계의 원문 발췌 실재 + 하니스 임계가 규정보다 느슨하지 않을 것
 ④ `automated` 항목의 하니스 근거 파일 실재
+⑤ 지배기준이 우선순위 정책에서 파생된 값과 일치 + 대응 바젤 Chapter 실재
 
 ## 부문별
 
 ```
-총 53건 · 자동 31 · 수동 22      (규정 13건 · 세칙 40건)
-
-01 RDM·BIS비율       14건 (자동 10)   05 ALM·IRRBB·유동성  11건 (자동 4)
-02 신용리스크·RWA       8건 (자동  4)   06 운영리스크          2건 (자동 1)
-03 IFRS 9 ECL         2건 (자동  2)   07 통합위기상황분석      6건 (자동 5)
-04 시장리스크           2건 (자동  2)   08 리스크 적합성검증     8건 (자동 3)
+총 63건 · 자동 38 · 수동 25      (규정 13 · 세칙 40 · 바젤 10)
 ```
 
-## 드러난 통제 공백 22건 중 눈여겨볼 것
+바젤이 지배하는 10건은 국내 기준이 그 주제를 정하지 않는 것들이다 — SA-CCR
+(CRE52) · CVA(MAR50) · 펀드 익스포저(CRE60) · 유동화 계층(CRE40) · IMA
+백테스팅·PLA(MAR32) · EL 대 충당금(CRE35) · 공시 서식(DIS20) · 가상자산(SCO60) ·
+증거금(MGN20) · RDARR(SRP36).
+
+## 드러난 통제 공백 25건 중 눈여겨볼 것
 
 - **`KR-002` 산정 시점 (제17조제2항)** — 자기자본비중·단순기본자본비율·NSFR·
   거액익스포져비율은 가결산일·결산일 **현재** 기준, LCR·원화예대율은 **매월 평잔**
@@ -134,10 +161,11 @@ RYNTA BRD Level 1 도메인 업무요건 **131건 전부**를 적합성검증 �
 |---|---|
 | `harness/reference/bank_supervision_regulation_20260401.md` | 국내 근거 원문 — 은행업감독규정 전문 (지문 고정) |
 | `harness/reference/bank_supervision_rules_20260630.md` | 국내 근거 원문 — 시행세칙 전문 (지문 고정) |
-| `harness/domestic_rule_criteria.json` | SSoT — 국내 검증 항목 53건 + 계량 임계 10건 (생성물) |
-| `tools/gen_domestic_criteria.py` | 국내 항목 생성기 — 인용을 원문에서 해석 |
-| `tools/domestic_criteria.py` | `list` / `report` / `thresholds` / `cite-check` / `verify` |
-| `tests/test_domestic_criteria.py` | 16건 — 인용 해석·임계 대조 + 음성 통제 6건 |
+| `harness/reference/basel_framework_sourcebook_20260809.md` | 국제 근거 — Basel Framework Chapter 소스북 (지문 고정) |
+| `harness/regulatory_criteria.json` | SSoT — 규제 검증 항목 63건 + 계량 임계 10건 (생성물) |
+| `tools/gen_regulatory_criteria.py` | 생성기 — 인용 해석 + 지배기준 파생 |
+| `tools/regulatory_criteria.py` | `list` / `report` / `precedence` / `thresholds` / `cite-check` / `verify` |
+| `tests/test_regulatory_criteria.py` | 25건 — 인용 해석·임계 대조·기준 스택 + 음성 통제 8건 |
 | `harness/domain_requirement_criteria.json` | SSoT — 기준 항목 131건 (생성물) |
 | `tools/gen_domain_criteria.py` | 생성기 — 원문 레지스터가 바뀌면 재실행 |
 | `tools/domain_criteria.py` | `list` / `report` / `verify` |
@@ -150,12 +178,12 @@ RYNTA BRD Level 1 도메인 업무요건 **131건 전부**를 적합성검증 �
 git checkout claude/validation-team-agent-Pw9F5
 cp -r validation-team-agent/{harness,tools,tests} .      # 신규 4파일
 git apply INTEGRATION.patch                              # 기존 4파일
-python -m pytest -q                                      # 1391 passed / 4 skipped
+python -m pytest -q                                      # 1400 passed / 4 skipped
 python -m vta criteria verify
 python -m vta criteria report
-python -m vta domestic verify
-python -m vta domestic report
-python -m vta domestic thresholds
+python -m vta standards verify
+python -m vta standards precedence
+python -m vta standards thresholds
 ```
 
 ## 알려진 한계

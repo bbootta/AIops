@@ -1,14 +1,25 @@
-"""국내 감독규정 → 적합성검증 항목 생성기.
+"""규제 기준 → 적합성검증 항목 생성기 (국내 + 국제).
 
-근거 원문(은행업감독업무시행세칙)을 저장소에 두고, 각 검증 항목의 인용이
-**원문에서 실제로 해석되는지** 생성 시점에 확인한다. 해석되지 않는 인용은
-카탈로그에 실리지 않는다 — 인용이 규정 원문과 맞는지 검증하지 못하던 상태
-(이월 CO-004)를 시행세칙 범위에서 닫기 위한 것이다.
+근거 원문을 저장소에 두고, 각 검증 항목의 인용이 **원문에서 실제로 해석되는지**
+생성 시점에 확인한다. 해석되지 않는 인용은 카탈로그에 실리지 않는다 — 인용이
+원문과 맞는지 검증하지 못하던 상태(이월 CO-004)를 닫기 위한 것이다.
+
+기준 스택은 세 층이다.
+
+    규정(국내구속) → 세칙(국내구속) → 바젤(국제권고)
+
+**국내 기준이 우선한다.** 국내가 그 주제를 정하지 않으면 바젤을 따르고, 국내
+기준이 있으나 해석이 모호하면 바젤 원문으로 보충 해석한다. 국내가 바젤보다
+느슨해도 국내가 적용되나 그 차이는 산출물에 표기한다 (PRECEDENCE 참조).
 
 라인 번호는 손으로 적지 않는다. 인용 문자열에서 원문을 찾아 파생한다.
 
+바젤 근거는 BIS 이용조건상 원문 전문을 복제하지 않은 **Chapter 단위 source
+map**이다. 따라서 Chapter 실재·시행일·공식 URL 까지만 대조되며, paragraph
+단위 문구 대조는 이 소스북으로 할 수 없다.
+
 사용:
-    python -m tools.gen_domestic_criteria --out harness/domestic_rule_criteria.json
+    python -m tools.gen_regulatory_criteria --out harness/regulatory_criteria.json
 """
 
 from __future__ import annotations
@@ -41,8 +52,34 @@ SOURCES = {
         "path": "harness/reference/bank_supervision_rules_20260630.md",
         "role": "산정기준·별표의 근거",
     },
+    "바젤": {
+        "title": "Basel Framework 공식 원문 소스북",
+        "effective": "2026-08-09",
+        "promulgation": "BIS/BCBS 통합 Basel Framework · Standard 14종",
+        "url": "https://www.bis.org/basel_framework/",
+        "path": "harness/reference/basel_framework_sourcebook_20260809.md",
+        "role": "국제 기준 — 국내 기준이 없거나 해석이 모호할 때의 보충 근거",
+    },
 }
-BASIS_LEVEL = "국내구속"
+BASIS_LEVEL = {"규정": "국내구속", "세칙": "국내구속", "바젤": "국제권고"}
+
+# 기준 스택 — 어느 기준이 지배하는가. 손으로 판단하지 않도록 정책으로 고정한다.
+PRECEDENCE = {
+    "order": ["규정", "세칙", "바젤"],
+    "rules": [
+        "① 국내 구속 기준(규정 → 세칙)이 그 주제를 정하면 국내 기준이 적용된다.",
+        "② 국내 기준이 그 주제를 정하지 않으면 바젤 원문을 따른다.",
+        "③ 국내 기준이 있으나 해석이 모호하면 바젤 원문으로 보충 해석한다. "
+        "다만 국내가 명시적으로 정한 값·범위는 바젤과 달라도 국내가 적용된다.",
+        "④ 국내가 바젤보다 느슨한 경우에도 국내가 적용되나, 그 차이를 산출물에 "
+        "표기한다 — 국내 준수가 국제 기준 충족을 뜻하지 않는다.",
+    ],
+    "governing_values": {
+        "국내": "국내 기준이 지배한다 (규칙 ①)",
+        "바젤": "국내 기준이 없어 바젤이 지배한다 (규칙 ②)",
+        "국내+바젤보충": "국내가 지배하되 모호한 부분을 바젤로 보충한다 (규칙 ③)",
+    },
+}
 
 SECTIONS = {
     "01": "RDM·BIS비율",
@@ -83,7 +120,40 @@ def resolve(citation: str, lines: list[str]) -> int | None:
             if pat.match(l):
                 return i
         return None
+    # 바젤 Chapter — paragraph 접미사(CRE20.1)는 Chapter 로 절단해 해석한다.
+    # 소스북이 Chapter 단위 색인이므로 paragraph 문구는 대조할 수 없다.
+    m = re.fullmatch(r"([A-Z]{3})([0-9]+)(?:\.[0-9.]+)?", citation)
+    if m:
+        want = f"| {m.group(1)}{m.group(2)} |"
+        for i, l in enumerate(lines, 1):
+            if l.startswith(want):
+                return i
+        return None
     return None
+
+
+
+def count_current_chapters(lines: list[str]) -> int:
+    """'2. 현행 Chapter 전수 색인' 구간의 Chapter 행만 센다.
+
+    파일 전체에서 세면 장래 시행 예정(3장)과 전체 원장(4장)의 행까지 들어와
+    '현행'이라는 이름과 어긋난다 — 세는 범위를 이름과 맞춘다.
+    """
+    start = end = None
+    for i, l in enumerate(lines):
+        if l.startswith("## 2. "):
+            start = i
+        elif start is not None and l.startswith("## 3. "):
+            end = i
+            break
+    if start is None:
+        return 0
+    body = lines[start:end if end is not None else len(lines)]
+    return sum(1 for l in body if re.match(r"^\| [A-Z]{3}[0-9]+ \|", l))
+
+def basel_chapter(citation: str) -> str | None:
+    m = re.fullmatch(r"([A-Z]{3}[0-9]+)(?:\.[0-9.]+)?", citation)
+    return m.group(1) if m else None
 
 
 def heading_of(line_no: int, lines: list[str]) -> str:
@@ -347,25 +417,110 @@ def compare(regulated: float, harness: float | None, direction: str) -> str:
     return "stricter" if harness < regulated else "looser"
 
 
+# 국내 항목 → 대응 바젤 Chapter. 대응이 없으면 국내 고유 기준이다.
+# 세 번째 값 True 는 국내 해석이 모호해 바젤로 보충한다는 뜻이다 (규칙 ③).
+BASEL_MAP: dict[tuple[str, str], tuple[str, bool]] = {
+    ("규정", "제26조"): ("RBC20", False),
+    ("규정", "제26조의2"): ("RBC40", False),
+    ("규정", "제26조의3"): ("RBC30", False),
+    ("규정", "별표 2의10"): ("RBC30", False),
+    ("규정", "별표 2의11"): ("DIS26", True),
+    ("규정", "제26조의4"): ("SRP30", True),
+    ("규정", "제29조"): ("CRE35", True),
+    ("규정", "제30조"): ("SRP30", False),
+    ("세칙", "별표 3"): ("CRE20", False),
+    ("세칙", "별표 3의2"): ("MAR20", False),
+    ("세칙", "별표 3의6"): ("LCR20", False),
+    ("세칙", "별표 3의8"): ("LEV20", False),
+    ("세칙", "별표 3의9"): ("SRP30", False),
+    ("세칙", "별표 3의10"): ("NSF30", False),
+    ("세칙", "별표 3의11"): ("OPE10", True),
+    ("세칙", "별표 3의12"): ("LEX20", False),
+    ("세칙", "별표 9의1"): ("SRP31", False),
+    ("세칙", "별표 9의2"): ("SRP50", True),
+    ("세칙", "별표 19"): ("SRP30", True),
+    ("세칙", "제29조의2"): ("SRP20", False),
+    ("세칙", "제29조의3"): ("SRP30", True),
+    ("세칙", "별표 15"): ("LEX30", True),
+}
+
+# 국내 기준이 정하지 않아 바젤이 지배하는 주제 (규칙 ②).
+# (인용, 부문, 관점, 기준, 자동화, 근거, 비고)
+CRITERIA_BASEL: tuple[tuple, ...] = (
+    ("바젤", "CRE52", "02", ("산식",),
+     "거래상대방 신용리스크 익스포저가 SA-CCR(RC + α·PFE, α=1.4)로 산출되는가",
+     "automated", ("harness/ccr_thresholds.json", "src/vta/domains/ccr.py"),
+     "국내 세칙은 CCR 산출을 별표 3 체계 안에서 다루며 SA-CCR 전용 기준을 따로 두지 않는다"),
+    ("바젤", "MAR50", "04", ("산식",),
+     "CVA 리스크 자본이 BA-CVA/SA-CVA 체계로 산출되고 소요자본과 RWA의 차원(12.5배)이 구분되는가",
+     "automated", ("harness/cva_thresholds.json", "src/vta/domains/cva.py"),
+     "국내 기준에 CVA 전용 산출 체계가 별도로 없다"),
+    ("바젤", "CRE60", "02", ("산식",),
+     "집합투자증권 익스포저가 LTA·MBA·fallback 계층으로 산출되는가",
+     "automated", ("harness/basel_risk_taxonomy.json",),
+     "국내 기준에 펀드 익스포저 전용 산출 계층이 별도로 없다"),
+    ("바젤", "CRE40", "02", ("산식",),
+     "유동화 익스포저가 SEC-IRBA→SEC-ERBA→SEC-SA 계층 순서로 산출되는가",
+     "automated", ("harness/basel_risk_taxonomy.json",),
+     "국내 기준에 유동화 접근법 계층 전용 규정이 별도로 없다"),
+    ("바젤", "MAR32", "04", ("방법론",),
+     "내부모형 접근법의 백테스팅과 손익귀속검정(PLA)이 수행되는가",
+     "automated", ("harness/market_risk_thresholds.json", "src/vta/domains/market.py"),
+     "국내는 표준·간편법 중심이라 IMA 백테스팅 기준을 별도로 두지 않는다"),
+    ("바젤", "CRE35", "03", ("산식",),
+     "IRB 기대손실과 적격충당금의 대비가 자본에서 처리되고 EAD 차감과 이중계상되지 않는가",
+     "automated", ("harness/policies/ifrs9.md",), ""),
+    ("바젤", "DIS20", "08", ("문서화",),
+     "위험관리 개요·핵심 건전성 지표·RWA 공시 서식이 산출물 구조와 대응되는가",
+     "manual", (), "하니스는 공시 서식을 만들지 않는다 — 대외 확정은 인간 권한"),
+    ("바젤", "SCO60", "02", ("데이터", "방법론"),
+     "가상자산 익스포저의 분류·자본 처리 기준이 적용되는가",
+     "manual", (), "하니스에 가상자산 익스포저 경로가 없다. 국내 기준에도 대응 조항이 없어 바젤이 지배한다"),
+    ("바젤", "MGN20", "04", ("내부통제",),
+     "비청산 파생상품의 증거금 요건이 적용되는가",
+     "manual", (), "하니스에 증거금 요건 검증이 없다"),
+    ("바젤", "SRP36", "01", ("데이터", "내부통제"),
+     "리스크 데이터 집계와 리스크 보고 원칙(RDARR)이 충족되는가",
+     "automated", ("harness/data_definition.md", "middleware/schema_guard.py"),
+     "국내 기준에 RDARR 대응 조항이 별도로 없다"),
+)
+
+
+def governing_of(source_key: str, ambiguous: bool) -> str:
+    """기준 스택 규칙 적용 — 손으로 판단하지 않는다."""
+    if source_key == "바젤":
+        return "바젤"
+    return "국내+바젤보충" if ambiguous else "국내"
+
+
 
 def build() -> dict:
     lines = {k: _lines(k) for k in SOURCES}
     digests = {k: hashlib.sha256(source_path(k).read_bytes()).hexdigest() for k in SOURCES}
 
     items, unresolved = [], []
-    for idx, row in enumerate(CRITERIA + CRITERIA_REG, 1):
+    for idx, row in enumerate(CRITERIA + CRITERIA_REG + CRITERIA_BASEL, 1):
         src, cite, section, lenses, criterion, automation, evidence, note = row
         ln = resolve(cite, lines[src])
         if ln is None:
             unresolved.append(f"{src} {cite}")
             continue
+        ref, ambiguous = BASEL_MAP.get((src, cite), (None, False))
+        if src == "바젤":
+            ref, ambiguous = basel_chapter(cite), False
+        if ref is not None and resolve(ref, lines["바젤"]) is None:
+            unresolved.append(f"바젤 {ref} (대응 Chapter)")
+            continue
         items.append({
-            "rule_id": f"KR-{idx:03d}",
+            "rule_id": f"KR-{idx:03d}" if src != "바젤" else f"BIS-{idx:03d}",
             "source_key": src,
+            "basis_level": BASIS_LEVEL[src],
             "citation": cite,
             "source_heading": heading_of(ln, lines[src]),
             "source_line": ln,
-            "basis_level": BASIS_LEVEL,
+            "basel_ref": ref,
+            "ambiguous_domestic": ambiguous,
+            "governing": governing_of(src, ambiguous),
             "section": section,
             "section_name": SECTIONS[section],
             "lens": list(lenses),
@@ -389,6 +544,7 @@ def build() -> dict:
             "key": key,
             "korean": korean,
             "source_key": src,
+            "basis_level": BASIS_LEVEL[src],
             "citation": cite,
             "source_line": ln,
             "regulated_value": value,
@@ -405,25 +561,35 @@ def build() -> dict:
     sources = {}
     for k, meta in SOURCES.items():
         ls = lines[k]
-        sources[k] = {**meta, "sha256": digests[k],
-                      "n_schedules": sum(1 for l in ls if l.startswith("## [별표")),
-                      "n_article_headings": sum(1 for l in ls if l.startswith("##### 제"))}
+        entry = {**meta, "basis_level": BASIS_LEVEL[k], "sha256": digests[k]}
+        if k == "바젤":
+            entry["n_current_chapters"] = count_current_chapters(ls)
+            entry["text_scope"] = (
+                "Chapter 단위 source map — BIS 이용조건상 원문 전문을 복제하지 "
+                "않는다. Chapter 실재·시행일·공식 URL 까지 대조되며 paragraph "
+                "문구 대조는 이 소스북으로 할 수 없다.")
+        else:
+            entry["n_schedules"] = sum(1 for l in ls if l.startswith("## [별표"))
+            entry["n_article_headings"] = sum(1 for l in ls if l.startswith("##### 제"))
+        sources[k] = entry
 
     return {
-        "schema_version": "2.0",
-        "policy_version": "2.0",
+        "schema_version": "3.0",
+        "policy_version": "3.0",
         "sources": sources,
+        "precedence": PRECEDENCE,
         "description": (
-            "국내 감독규정(은행업감독규정 · 은행업감독업무시행세칙)에서 전개한 "
-            "적합성검증 항목. 각 항목의 citation 은 저장소에 보관한 원문에서 "
-            "해석되며 source_line 은 손으로 적지 않고 파생한다 — 인용이 원문과 "
-            "맞는지 검증하지 못하던 상태(이월 CO-004)를 두 규정 범위에서 닫는다. "
-            "thresholds 는 규정이 정한 계량 임계를 하니스 임계 파일과 기계가 "
-            "대조한 결과이며, 하니스가 규정보다 느슨하면 'looser' 로 드러난다."
+            "규제 기준(국내 규정·세칙 + 국제 바젤)에서 전개한 적합성검증 항목. "
+            "국내 기준이 우선하고, 국내가 정하지 않은 주제는 바젤이 지배하며, "
+            "국내 해석이 모호하면 바젤로 보충한다 (precedence 참조). 각 항목의 "
+            "citation 은 해당 원문에서 해석되고 source_line 은 손으로 적지 않고 "
+            "파생한다. thresholds 는 규정이 정한 계량 임계를 하니스 임계 파일과 "
+            "대조한 결과이며 하니스가 규정보다 느슨하면 'looser' 로 드러난다. "
+            "바젤 근거는 Chapter 단위 대조까지만 가능하다."
         ),
         "automation_definition": {
             "automated": "하니스에 실행 가능한 통제가 존재 (evidence 1건 이상 실재 필수)",
-            "manual": "국내 기준을 덮는 통제가 없어 사람 검토로 남김 (note 필수)",
+            "manual": "기준을 덮는 통제가 없어 사람 검토로 남김 (note 필수)",
         },
         "threshold_status_definition": {
             "ok": "하니스 임계가 규정 값과 같다",
@@ -440,7 +606,7 @@ def build() -> dict:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--out", default="harness/domestic_rule_criteria.json")
+    ap.add_argument("--out", default="harness/regulatory_criteria.json")
     args = ap.parse_args(argv)
     data = build()
     Path(args.out).write_text(
@@ -449,8 +615,11 @@ def main(argv=None) -> int:
     auto = sum(1 for c in data["criteria"] if c["automation"] == "automated")
     th = data["thresholds"]
     bad = [t for t in th if t["status"] in ("looser", "missing")]
-    print(f'{args.out} — 국내 검증 항목 {n}건 (automated {auto}) · '
-          f'계량 임계 {len(th)}건 대조 (규정 미달 {len(bad)})')
+    from collections import Counter
+    g = Counter(c["governing"] for c in data["criteria"])
+    print(f'{args.out} — 검증 항목 {n}건 (automated {auto}) · '
+          f'지배기준 국내 {g["국내"]} · 국내+바젤보충 {g["국내+바젤보충"]} · 바젤 {g["바젤"]} · '
+          f'계량 임계 {len(th)}건 (규정 미달 {len(bad)})')
     return 0
 
 

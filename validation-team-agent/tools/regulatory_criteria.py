@@ -1,8 +1,13 @@
-"""국내 감독규정 검증 항목 원장 — 조회·집계·검증.
+"""규제 기준 검증 항목 원장 — 조회·집계·검증 (국내 + 국제).
 
-근거는 두 층이다. **은행업감독규정**이 경영지도비율 등 임계값을 정하고,
-**은행업감독업무시행세칙**이 그 산정기준을 별표로 정한다. 둘 다 원문을
-저장소에 두고 인용을 대조한다.
+기준 스택은 세 층이다.
+
+    규정(국내구속) → 세칙(국내구속) → 바젤(국제권고)
+
+**국내 기준이 우선한다.** 국내가 그 주제를 정하지 않으면 바젤이 지배하고,
+국내 기준이 있으나 해석이 모호하면 바젤로 보충한다. 국내가 바젤보다 느슨해도
+국내가 적용되나 그 차이는 산출물에 표기해야 한다 — 국내 준수가 국제 기준
+충족을 뜻하지 않는다.
 
 `verify`가 강제하는 것:
 
@@ -10,13 +15,16 @@
 2. 각 항목의 인용이 해당 원문에서 실제로 해석되는가, 기록 라인·표제가 맞는가
 3. 계량 임계의 원문 발췌가 실재하고, 하니스 임계가 규정을 **느슨하게 통과시키지 않는가**
 4. `automated`로 선언한 항목의 하니스 근거 파일이 실재하는가
+5. 지배기준(governing)이 우선순위 정책에서 파생된 값과 일치하는가 — 손으로
+   "이건 바젤을 따른다"고 적을 수 없다
 
 사용:
-    python -m tools.domestic_criteria list [--section 05] [--source 규정]
-    python -m tools.domestic_criteria report
-    python -m tools.domestic_criteria thresholds
-    python -m tools.domestic_criteria cite-check "제26조" [--source 규정]
-    python -m tools.domestic_criteria verify
+    python -m tools.regulatory_criteria list [--section 05] [--source 규정] [--governing 바젤]
+    python -m tools.regulatory_criteria report
+    python -m tools.regulatory_criteria precedence
+    python -m tools.regulatory_criteria thresholds
+    python -m tools.regulatory_criteria cite-check "제26조" [--source 규정]
+    python -m tools.regulatory_criteria verify
 """
 
 from __future__ import annotations
@@ -27,10 +35,11 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from tools.gen_domestic_criteria import compare, dig, heading_of, resolve
+from tools.gen_regulatory_criteria import (basel_chapter, compare, dig,
+                                            governing_of, heading_of, resolve)
 
 ROOT = Path(__file__).resolve().parent.parent
-CATALOG = ROOT / "harness" / "domestic_rule_criteria.json"
+CATALOG = ROOT / "harness" / "regulatory_criteria.json"
 
 AUTOMATION = ("automated", "manual")
 
@@ -99,6 +108,23 @@ def violations(data: dict, root: Path = ROOT) -> list[str]:
             if l not in data["lenses"]:
                 out.append(f'{rid}: 검증 관점이 정의 밖 ({l})')
 
+        want = governing_of(key, c["ambiguous_domestic"])
+        if c["governing"] != want:
+            out.append(f'{rid}: 지배기준이 우선순위 정책과 다름 — 기록 '
+                       f'{c["governing"]} 정책 {want}')
+        if c["governing"] not in data["precedence"]["governing_values"]:
+            out.append(f'{rid}: 지배기준 값이 정의 밖 ({c["governing"]})')
+        if key == "바젤":
+            if c["basel_ref"] != basel_chapter(c["citation"]):
+                out.append(f'{rid}: 바젤 항목의 basel_ref 가 인용 Chapter 와 다름')
+            if c["basis_level"] != "국제권고":
+                out.append(f'{rid}: 바젤 항목의 근거수준이 국제권고가 아님')
+        elif c["basis_level"] != "국내구속":
+            out.append(f'{rid}: 국내 항목의 근거수준이 국내구속이 아님')
+        if c["basel_ref"] and resolve(c["basel_ref"], lines["바젤"]) is None:
+            out.append(f'{rid}: 대응 바젤 Chapter 가 소스북에서 해석되지 않음 — '
+                       f'{c["basel_ref"]}')
+
     for t in data["thresholds"]:
         key = t["key"]
         if not any(t["quote"] in l for l in lines[t["source_key"]]):
@@ -131,10 +157,13 @@ def _cmd_list(args) -> int:
         rows = [c for c in rows if c["source_key"] == args.source]
     if args.automation:
         rows = [c for c in rows if c["automation"] == args.automation]
+    if args.governing:
+        rows = [c for c in rows if c["governing"] == args.governing]
     for c in rows:
         mark = "[자동]" if c["automation"] == "automated" else "[수동]"
+        ref = f' → {c["basel_ref"]}' if c["basel_ref"] else ""
         print(f'{mark} {c["rule_id"]}  {c["section"]}  [{c["source_key"]}] '
-              f'{c["citation"]} (L{c["source_line"]})')
+              f'{c["citation"]}{ref} · 지배 {c["governing"]} (L{c["source_line"]})')
         print(f'        {c["criterion"]}')
         if c["evidence"]:
             print(f'        근거: {" · ".join(c["evidence"])}')
@@ -163,14 +192,44 @@ def _cmd_thresholds(args) -> int:
     return 0
 
 
+def _cmd_precedence(args) -> int:
+    data = load(args.catalog)
+    pr = data["precedence"]
+    print("기준 스택 — " + " → ".join(pr["order"]) + "\n")
+    for k in pr["order"]:
+        s = data["sources"][k]
+        print(f'  [{k}] {s["basis_level"]} · {s["title"]} [{s["effective"]}]')
+        print(f'       {s["role"]}')
+    print("\n적용 규칙")
+    for r in pr["rules"]:
+        print(f'  {r}')
+    print("\n지배기준 값")
+    for k, v in pr["governing_values"].items():
+        n = sum(1 for c in data["criteria"] if c["governing"] == k)
+        print(f'  {k:14s} {n:3d}건 — {v}')
+    amb = [c for c in data["criteria"] if c["ambiguous_domestic"]]
+    print(f'\n[국내 해석이 모호해 바젤로 보충하는 항목 {len(amb)}건]')
+    for c in amb:
+        print(f'  {c["rule_id"]} [{c["source_key"]}] {c["citation"]:12s} → 바젤 {c["basel_ref"]}')
+    print("\n> 국내 준수가 국제 기준 충족을 뜻하지 않는다 (규칙 ④). "
+          "국내가 바젤보다 느슨한 경우의 차이 표기는 사람 판단 사항이다 — "
+          "바젤 소스북은 Chapter 색인이라 수치 대조를 지원하지 않는다.")
+    return 0
+
+
 def _cmd_report(args) -> int:
     data = load(args.catalog)
     rows = data["criteria"]
-    print("국내 감독규정 검증 항목 — 근거 2층\n")
+    print("규제 기준 검증 항목 — 기준 스택 " +
+          " → ".join(data["precedence"]["order"]) + "\n")
     for k, s in data["sources"].items():
-        print(f'  [{k}] {s["title"]} [시행 {s["effective"]}] · {s["role"]}')
-        print(f'       지문 {s["sha256"][:16]}… · 별표 {s["n_schedules"]}건 '
-              f'· 조문 heading {s["n_article_headings"]}건')
+        print(f'  [{k}] {s["basis_level"]} · {s["title"]} [{s["effective"]}] · {s["role"]}')
+        if "n_current_chapters" in s:
+            print(f'       지문 {s["sha256"][:16]}… · 현행 Chapter {s["n_current_chapters"]}건 '
+                  f'(Chapter 단위 대조)')
+        else:
+            print(f'       지문 {s["sha256"][:16]}… · 별표 {s["n_schedules"]}건 '
+                  f'· 조문 heading {s["n_article_headings"]}건')
     auto = Counter(c["automation"] for c in rows)
     print(f'\n총 {len(rows)}건 · 자동 {auto["automated"]} · 수동 {auto["manual"]}')
 
@@ -179,6 +238,12 @@ def _cmd_report(args) -> int:
         sub = [c for c in rows if c["source_key"] == k]
         a = sum(1 for c in sub if c["automation"] == "automated")
         print(f'  {k}  {len(sub):3d}건 · 자동 {a:2d} · 수동 {len(sub)-a:2d}')
+
+    print("\n[지배기준별]")
+    from collections import Counter as _C
+    g = _C(c["governing"] for c in rows)
+    for k in data["precedence"]["governing_values"]:
+        print(f'  {k:14s} {g.get(k, 0):3d}건')
 
     print("\n[부문별]")
     for code, name in data["sections"].items():
@@ -234,6 +299,10 @@ def _cmd_verify(args) -> int:
     print(f'국내 검증 항목 정상 — {len(rows)}건 · 인용 전부 원문에서 해석 · '
           f'자동 {auto}건의 근거 {ev}개 파일 실재')
     print(f'계량 임계 {len(th)}건 — 규정보다 느슨한 임계 0건 · 원문 발췌 전부 실재')
+    from collections import Counter as _C2
+    g = _C2(c["governing"] for c in rows)
+    print(f'지배기준 정책 일치 — 국내 {g["국내"]} · 국내+바젤보충 {g["국내+바젤보충"]} '
+          f'· 바젤 {g["바젤"]}')
     print(f'근거 원문 {len(data["sources"])}종 지문 일치')
     return 0
 
@@ -247,10 +316,14 @@ def main(argv=None) -> int:
     p.add_argument("--section", help="부문 코드 (01~08)")
     p.add_argument("--source", help="근거 (규정·세칙)")
     p.add_argument("--automation", choices=AUTOMATION)
+    p.add_argument("--governing", help="지배기준 (국내·국내+바젤보충·바젤)")
     p.set_defaults(func=_cmd_list)
 
     p = sub.add_parser("report", help="근거·부문별 집계")
     p.set_defaults(func=_cmd_report)
+
+    p = sub.add_parser("precedence", help="기준 스택과 지배기준 분포")
+    p.set_defaults(func=_cmd_precedence)
 
     p = sub.add_parser("thresholds", help="규정 값 vs 하니스 임계 대조")
     p.set_defaults(func=_cmd_thresholds)
