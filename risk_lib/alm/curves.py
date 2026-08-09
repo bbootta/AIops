@@ -1,36 +1,47 @@
 """금리 시나리오 원장 + 충격곡선 생성기 (설계 §2.4).
 
 **왜 원장인가.** 현행 `irrbb.py:45-47`은 시나리오 계수 −0.65/0.90/0.80/−0.60을
-함수 본문에 숫자로 박아 두고, 충격 bp 200/300/150은 `references.py`의 상수에서
-가져온다. 박혀 있는 값은 화면에도 원장에도 나오지 않으므로 검증도 결재도 그
-값을 보지 못한다. 이 모듈은 세 가지를 원장으로 옮긴다 — 통화별 충격 모수,
-시나리오 구성식, 충격후 금리하한. 엔진 함수에는 계수가 한 개도 없다.
+함수 본문에 숫자로 박아 두고, 충격 bp는 `references.py`의 상수에서 가져온다.
+박혀 있는 값은 화면에도 원장에도 나오지 않으므로 검증도 결재도 그 값을 보지
+못한다. 이 모듈은 세 가지를 원장으로 옮긴다 — 통화별 충격 모수, 시나리오
+구성식, 충격후 금리하한. 엔진 함수에는 계수가 한 개도 없다.
 
-**충격폭은 1차자료에서 왔다.** BCBS d368(2016.4) Annex 2 Table 1 원문 발췌를
-확보해(`docs/primary_sources/IRRBB_원문발췌.md` §A-1) 21개 통화 전건을 적재한다.
-KRW는 parallel 300 · short 400 · long 200이다. 설계 단계에서 KRW short를 450으로
-적은 조사가 있었는데 450은 AUD의 short 값이며 표를 옆줄로 읽은 결과다.
+**현행 충격폭은 원문 두 종에서 왔다.** 은행업감독업무시행세칙 [별표 9-1]
+<표5>(개정 2026.1.29)와 BCBS d578 «Recalibration of shocks in the IRRBB
+standard»(2024.7) [SRP31.90] Table 2가 21개 통화 전건 동일하다. 국내가 d578을
+수치 조정 없이 채택했다. 발췌는 `docs/primary_sources/IRRBB_원문발췌.md` §A이고
+원문 PDF 텍스트 추출본이 같은 폴더에 있다. **KRW는 평행 225 · 단기 350 ·
+장기 225다.**
 
-**프록시 경로는 없앴다.** 이전 회차는 KRW 행이 비어 있어 USD 계정(200/300/150)을
-빌려 썼다. KRW 실값이 모든 축에서 USD보다 크므로 그 경로는 과소산출이었고,
-1차자료로 KRW가 확정된 지금은 빌릴 이유가 없다. `proxy_for_ccy` 컬럼은 남기되
-전 행이 NULL이다 — 컬럼을 지우면 원장 스키마와 화면이 함께 흔들리고, 남겨 두면
-"프록시를 쓰지 않는다"는 사실이 원장에서 읽힌다. 원장에 없는 통화가 들어오면
-엔진은 여전히 경고를 남기고 그 시나리오를 건너뛴다.
+**직전 회차가 적재한 KRW 300/400/200은 폐지된 값이다.** 그것은 d368(2016.4)
+Annex 2 Table 1의 값이고 d578이 대체했다. d368 계정은 대비용으로 남기되
+헤드라인이 아니다. KRW는 축마다 개정 방향이 다르다 — 평행 −75bp, 단기 −50bp,
+**장기 +25bp**이므로 장기 듀레이션 갭이 큰 포지션에서는 ΔEVE가 오히려 커진다.
+
+**계정이 네 벌이다.** `framework_version`으로 구분하고 `status`가 시행 상태를
+적는다. `별표9의1_2014`는 2019.11.29 개정으로 폐지된 금리 EaR·VaR 체계이며
+통화별 충격표 자체가 없다. 그 계정을 고르면 산출이 침묵하지 않고 폐지 사실을
+경고와 결과 컬럼(`framework_status`)에 싣는다.
+
+**프록시 경로는 없앴다.** 이전 회차는 KRW 행이 비어 있어 USD 계정을 빌려 썼다.
+`proxy_for_ccy` 컬럼은 남기되 전 행이 NULL이다 — 컬럼을 지우면 원장 스키마와
+화면이 함께 흔들리고, 남겨 두면 "프록시를 쓰지 않는다"는 사실이 원장에서
+읽힌다. 원장에 없는 통화가 들어오면 엔진은 경고를 남기고 그 시나리오를
+건너뛴다.
 
 공식 출처
   시나리오 구성   S_short(t) = e^{−t/x},  S_long(t) = 1 − e^{−t/x},  x = 4
                   steepener = −0.65·R_s·S_short + 0.90·R_l·S_long
                   flattener = +0.80·R_s·S_short − 0.60·R_l·S_long
-                  (BCBS d368 Annex 2 — 1차자료 §A-3 원문확인)
-  충격후 하한     d368은 하한 **수치를 주지 않는다**. Annex 2는 각국 감독당국이
-                  재량으로 정하되 0을 넘지 않아야 한다고만 적는다(1차자료 §A-4).
-                  국내 [별표 9의1]도 하한을 규정하지 않는다. 따라서 d368 계정의
-                  하한 행은 값이 비어 있고 엔진은 하한을 적용하지 않는다.
+                  ([별표 9-1] 제12항 나 = d578 [SRP31.91], 1차자료 §B-6)
+  충격후 하한     **[별표 9-1] 제12항 다 — "충격후 금리의 하한은 0으로 한다."**
+                  d578 [SRP98.63]이 각국 재량으로 넘긴 것을 국내가 0으로
+                  행사했다. 따라서 `별표9의1_2026` 계정의 하한은 0이고 엔진이
+                  실제로 적용한다. 국제기준 계정(d368·d578)은 재량 조항만 있고
+                  수치가 없으므로 `재량·미규정`이며 하한을 적용하지 않는다.
                   형식은 floor(t) = min(0, floor_on + slope·t), t ≥ terminal → 0
-                  이며, 감독당국이 수치를 정하면 그 값이 원장에 들어온다.
-  ΔNII 시나리오   평행충격 2개만 (applies_to_nii). 현행은 `irrbb.py:105`가
-                  튜플로 박고 있다 — 규칙을 데이터로 옮긴다.
+                  이고 세 칸이 모두 0이면 전 만기 하한 0이 된다.
+  ΔNII 시나리오   평행충격 2개만 ([별표 9-1] 제14항 라, applies_to_nii).
 
 복리 규약
   이 모듈의 금리는 전부 **연속복리 제로금리**이고 `DF(t) = exp(−z(t)·t)`다.
@@ -43,8 +54,8 @@ KRW는 parallel 300 · short 400 · long 200이다. 설계 단계에서 KRW shor
   · 아래 TableSpec 3장은 아직 `datamodel.catalog.ALL_TABLES`에 넣지 않았다.
     카탈로그 등재는 실체화·ARCHITECTURE.md 수치 검사와 함께 움직이므로
     파이프라인 배선 단계에서 `params.PARAM_TABLES`와 같이 등재한다.
-  · 어느 계정(d368_2016 / d578_2024)을 국내에 적용해야 하는지 미확인이므로
-    `framework_version`에 기본값을 두지 않는다 — 호출자가 명시한다(§5.1-2).
+  · `framework_version`에 함수 기본값을 두지 않는다 — 호출자가 명시한다.
+    헤드라인 계정명은 `HEADLINE_FRAMEWORK_VERSION`이 한 곳에서 준다.
   · 커브 최종 노드(데모 30년) 이후는 log(DF) 평탄 외삽이며 선도금리가 0이 된다.
     `market_data._df_interp`와 같은 규약을 쓴 결과이고, 규약을 여기서 다시
     정하면 커브가 두 벌이 된다. 현행 버킷 상단은 20년이라 실제로 닿지 않는다.
@@ -63,17 +74,30 @@ from risk_lib.datamodel.spec import ColumnSpec as C, TableSpec
 from risk_lib.market_data import bootstrap_zero_curve
 
 __all__ = [
-    "SHOCK_TYPES", "FRAMEWORK_VERSIONS",
+    "SHOCK_TYPES", "FRAMEWORK_VERSIONS", "FRAMEWORK_STATUSES",
+    "HEADLINE_FRAMEWORK_VERSION",
     "RATE_SHOCK_PARAM", "SCENARIO_DEF", "POST_SHOCK_FLOOR", "CURVE_TABLES",
     "build_rate_shock_param", "build_scenario_def", "build_post_shock_floor",
-    "build_curve_ledgers",
+    "build_curve_ledgers", "framework_status",
     "Curve", "ShockedCurve",
     "base_curve", "shocked_curve", "discount_factors", "nii_scenarios",
 ]
 
 # 충격유형 어휘. 시나리오(6개)와 다른 축이다 — 시나리오는 이 셋을 조합한다.
 SHOCK_TYPES: tuple[str, ...] = ("parallel", "short", "long")
-FRAMEWORK_VERSIONS: tuple[str, ...] = ("d368_2016", "d578_2024")
+
+# 계정 어휘. 국내기준 두 벌(현행·폐지)과 국제기준 두 벌(현행·직전)이다.
+# 별표9의1_2026과 d578_2024는 21개 통화 전건 값이 같다.
+FRAMEWORK_VERSIONS: tuple[str, ...] = (
+    "별표9의1_2026", "d578_2024", "d368_2016", "별표9의1_2014")
+
+# 시행 상태. '폐지'는 그 계정으로 산출하면 안 된다는 뜻이고, '직전'은 값이
+# 유효했던 이력이라 대비용으로만 쓴다는 뜻이다.
+FRAMEWORK_STATUSES: tuple[str, ...] = ("현행", "직전", "폐지")
+
+# 헤드라인 계정. 국내 은행의 산출 근거는 [별표 9-1] 개정 2026.1.29이다.
+# 소비처가 계정명을 소스에 박지 않도록 이름을 한 곳에서 준다.
+HEADLINE_FRAMEWORK_VERSION: str = "별표9의1_2026"
 
 _BP = 10_000.0
 
@@ -89,17 +113,24 @@ RATE_SHOCK_PARAM = TableSpec(
         C("ccy", "string", "통화", nullable=False),
         C("shock_type", "string", "충격유형", nullable=False,
           allowed=SHOCK_TYPES),
+        C("status", "string", "시행 상태", nullable=False,
+          allowed=FRAMEWORK_STATUSES,
+          note="'폐지' 계정으로 산출하면 엔진이 경고를 남기고 그 사실이 "
+               "alm_irrbb_result.framework_status로 나간다"),
+        C("superseded_by", "text", "대체 계정", nullable=True,
+          note="이 계정을 무엇이 대체했는지. 현행 계정은 NULL이다"),
         C("effective_from", "date", "적용시작", nullable=True,
           note="국내 시행일이 확인되지 않은 계정은 NULL이다 — 날짜를 지어내면 "
                "과거 asof 산출이 조용히 틀린다"),
         C("effective_to", "date", "적용종료", nullable=True),
         C("shock_bp", "int", "충격폭", nullable=True, unit="bp",
-          citation="BCBS d368 (2016.4) Annex 2 Table 1 — 통화별 금리충격. "
-                   "부호 없는 크기이며 방향은 alm_scenario_def의 계수가 준다"),
+          citation="[별표 9-1] <표5> 통화별 금리충격 규모 (개정 2026.1.29) "
+                   "= BCBS d578 [SRP31.90] Table 2. 부호 없는 크기이며 방향은 "
+                   "alm_scenario_def의 계수가 준다"),
         C("floor_bp", "int", "모수 하한", nullable=True, unit="bp",
           note="감독당국이 충격폭 자체에 하·상한을 두는 경우에만 채운다. "
-               "d368 Annex 2 Table 1은 통화별 값을 직접 주고 별도의 모수 "
-               "하·상한을 두지 않으므로 d368 계정에서는 NULL이다"),
+               "<표5>·Table 2는 통화별 값을 직접 주고 별도의 모수 하·상한을 "
+               "두지 않으므로 전 계정에서 NULL이다"),
         C("cap_bp", "int", "모수 상한", nullable=True, unit="bp",
           note="floor_bp와 같은 규약. 두 칸이 다 차 있을 때만 엔진이 clip한다"),
         C("proxy_for_ccy", "text", "프록시 대상 통화", nullable=True,
@@ -111,9 +142,10 @@ RATE_SHOCK_PARAM = TableSpec(
           allowed=EVIDENCE_STATUS),
     ),
     primary_key=("framework_version", "ccy", "shock_type"),
-    note="d368 계정은 Annex 2 Table 1의 21개 통화 × 3충격유형 63행이 전부 "
-         "원문확인이다. d578(2026-01-01 시행) 계정은 원문을 확보하지 못해 "
-         "행만 있고 값이 비어 있다.",
+    note="별표9의1_2026 · d578_2024 · d368_2016 세 계정이 각각 21개 통화 × "
+         "3충격유형 63행이며 전부 원문확인이다. 앞의 두 계정은 21개 통화 전건 "
+         "값이 같다 — 국내가 d578을 수치 조정 없이 채택했다. 별표9의1_2014는 "
+         "폐지된 금리 EaR·VaR 체계라 통화별 충격표가 없고 값이 비어 있다.",
 )
 
 SCENARIO_DEF = TableSpec(
@@ -128,10 +160,10 @@ SCENARIO_DEF = TableSpec(
         C("decay_x", "float", "감쇠 파라미터", nullable=False, unit="years",
           min_value=0.0,
           citation="S_short(t)=e^{−t/x}, S_long(t)=1−e^{−t/x}, x=4 — "
-                   "BCBS d368 (2016.4) Annex 2 (1차자료 §A-3)"),
+                   "[별표 9-1] 제12항 나 = BCBS d578 [SRP31.91] (1차자료 §B-6)"),
         C("applies_to_eve", "bool", "ΔEVE 대상", nullable=False),
         C("applies_to_nii", "bool", "ΔNII 대상", nullable=False,
-          citation="ΔNII는 평행충격 2개만 (BCBS d368 / SRP31)"),
+          citation="[별표 9-1] 제14항 라 — ΔNII는 평행상승·평행하락 2개만 적용"),
         C("citation", "text", "근거", nullable=True),
         C("evidence_status", "string", "근거 상태", nullable=False,
           allowed=EVIDENCE_STATUS),
@@ -148,9 +180,9 @@ POST_SHOCK_FLOOR = TableSpec(
     columns=(
         C("framework_version", "string", "계정", nullable=False,
           allowed=FRAMEWORK_VERSIONS),
-        # 세 칸이 nullable인 이유: d368은 하한을 각국 재량으로 넘기고 수치를
-        # 주지 않는다. "규정을 읽었고 그 규정이 값을 정하지 않는다"는 상태를
-        # 원장에 적으려면 값 칸이 비어 있을 수 있어야 한다.
+        # 세 칸이 nullable인 이유: d368·d578은 하한을 각국 재량으로 넘기고
+        # 수치를 주지 않는다. "규정을 읽었고 그 규정이 값을 정하지 않는다"는
+        # 상태를 원장에 적으려면 값 칸이 비어 있을 수 있어야 한다.
         C("floor_on_bp", "int", "만기 0 하한", nullable=True, unit="bp"),
         C("slope_bp_per_year", "int", "연간 상승폭", nullable=True, unit="bp"),
         C("terminal_tenor_years", "float", "하한 소멸 만기", nullable=True,
@@ -161,10 +193,10 @@ POST_SHOCK_FLOOR = TableSpec(
     ),
     primary_key=("framework_version",),
     note="floor(t) = min(0, floor_on + slope·t), t ≥ terminal → 0. "
-         "d368 행은 세 칸이 비어 있고 엔진은 하한을 적용하지 않는다 — "
-         "Annex 2가 하한을 각국 재량으로 두고 0 이하라는 상한만 적기 "
-         "때문이다(1차자료 §A-4). 감독당국이 수치를 고시하면 그 값이 여기 "
-         "들어오고 산출이 자동으로 하한을 물기 시작한다.",
+         "별표9의1_2026 행은 세 칸이 모두 0이며 이것이 [별표 9-1] 제12항 다의 "
+         "'충격후 금리의 하한은 0으로 한다'를 뜻한다. 국제기준 계정(d368·d578)은 "
+         "하한을 각국 재량으로 두고 0 이하라는 상한만 적으므로 세 칸이 비어 "
+         "있고 엔진이 하한을 적용하지 않는다.",
 )
 
 CURVE_TABLES: tuple[TableSpec, ...] = (
@@ -173,10 +205,25 @@ CURVE_TABLES: tuple[TableSpec, ...] = (
 
 # ---------------------------------------------------------------- 빌더
 
-# BCBS d368 (2016.4) Annex 2 Table 1 — 통화별 금리충격(bp) 21개 통화 전건.
-# 1차자료 발췌는 docs/primary_sources/IRRBB_원문발췌.md §A-1이며 원문 PDF
-# 텍스트 추출본이 같은 폴더에 있다. 규제표가 소스에 적히는 곳은 이 한 군데다.
+# 현행 통화별 금리충격(bp) 21개 통화 전건.
+# [별표 9-1] <표5>(개정 2026.1.29) = BCBS d578 [SRP31.90] Table 2. 두 원문의
+# 63칸이 전건 동일하다. 발췌는 docs/primary_sources/IRRBB_원문발췌.md §A이며
+# 원문 PDF 텍스트 추출본이 같은 폴더에 있다.
+# 규제표가 소스에 적히는 곳은 이 한 군데(원장 빌더)다.
 # ccy: (parallel, short, long)
+_CURRENT_SHOCK_BP: dict[str, tuple[int, int, int]] = {
+    "ARS": (400, 500, 300), "AUD": (350, 425, 300), "BRL": (400, 500, 300),
+    "CAD": (200, 275, 175), "CHF": (175, 250, 200), "CNY": (225, 300, 150),
+    "EUR": (225, 350, 200), "GBP": (275, 425, 250), "HKD": (225, 375, 200),
+    "IDR": (400, 500, 300), "INR": (325, 475, 225), "JPY": (100, 100, 100),
+    "KRW": (225, 350, 225), "MXN": (400, 500, 200), "RUB": (400, 500, 300),
+    "SAR": (275, 375, 250), "SEK": (275, 425, 200), "SGD": (175, 250, 225),
+    "TRY": (400, 500, 300), "USD": (200, 300, 225), "ZAR": (325, 500, 300),
+}
+
+# 직전 값 — BCBS d368 (2016.4) Annex 2 Table 1. 대비용으로만 둔다.
+# IDR 장기 350은 d368 원문 표의 값이다. d578의 개정 대비표는 IDR을 불변으로
+# 인쇄했으나 <표5>·Table 2의 현행값은 300이므로 현행 계정은 300을 쓴다.
 _D368_SHOCK_BP: dict[str, tuple[int, int, int]] = {
     "ARS": (400, 500, 300), "AUD": (300, 450, 200), "BRL": (400, 500, 300),
     "CAD": (200, 300, 150), "CHF": (100, 150, 100), "CNY": (250, 300, 150),
@@ -187,55 +234,101 @@ _D368_SHOCK_BP: dict[str, tuple[int, int, int]] = {
     "TRY": (400, 500, 300), "USD": (200, 300, 150), "ZAR": (400, 500, 300),
 }
 
-_D368_SOURCE_REF = (
-    "BCBS d368 «Interest rate risk in the banking book» (2016.4) Annex 2 "
-    "Table 1 — 통화별 금리충격 21개 통화 전건. 원문 발췌 "
-    "docs/primary_sources/IRRBB_원문발췌.md §A-1. 국내 [별표 9의1]은 이 표를 "
-    "쓰지 않고 별개 체계(금리 EaR·VaR, 원화는 과거 5년 실측 분위수)를 두므로 "
-    "effective_from은 비워 둔다 — 국내 적용 시행일을 확인하지 못했다.")
+_KR_SOURCE_REF = (
+    "은행업감독업무시행세칙 [별표 9-1] 금리리스크 산출기준 <표5> 통화별 "
+    "금리충격 규모 <개정 2026.1.29> — 21개 통화 전건. 원문 발췌 "
+    "docs/primary_sources/IRRBB_원문발췌.md §A. BCBS d578 [SRP31.90] Table 2와 "
+    "63칸이 전건 동일하며 국내가 수치 조정 없이 채택했다.")
 
 _D578_SOURCE_REF = (
-    "BCBS d578(2024 재조정, 시행 2026-01-01)의 충격폭은 원문을 확보하지 "
-    "못했다. 행만 두고 값은 비운다 — 부재와 공란은 다른 사건이다.")
+    "BCBS d578 «Recalibration of shocks in the interest rate risk in the "
+    "banking book standard» (2024.7) [SRP31.90] Table 2, 시행 2026-01-01 — "
+    "21개 통화 전건. 국내 [별표 9-1] <표5>(개정 2026.1.29)와 값이 같다. "
+    "산출 도출은 2000-01-03~2023-12-29 일별 금리의 6개월 이동창 변화 "
+    "99.9백분위에 플로어 100bp · 캡(평행 400 · 단기 500 · 장기 300)을 걸고 "
+    "25bp 단위로 반올림한 것이다(SRP98.57~98.62).")
+
+_D368_SOURCE_REF = (
+    "BCBS d368 «Interest rate risk in the banking book» (2016.4) Annex 2 "
+    "Table 1 — 통화별 금리충격 21개 통화 전건. **d578(2024.7)이 대체한 직전 "
+    "값이며 산출에 쓰지 않는다.** KRW 300/400/200은 여기서 나온 값이고 현행은 "
+    "225/350/225다. 대비용으로 남긴다.")
+
+_KR2014_SOURCE_REF = (
+    "은행업감독업무시행세칙 [별표 9의1] 2014.12.26. 개정본 — 금리 EaR·VaR "
+    "체계. **2019.11.29. 개정으로 ΔEVE·ΔNII 체계로 전환되면서 폐지됐다.** "
+    "그 체계에는 통화별 금리충격표가 존재하지 않으므로 shock_bp가 비어 있다. "
+    "행을 남기는 것은 시계열 단절을 설명하기 위해서이며 산출에 쓰지 않는다.")
+
+# (계정, 상태, 대체계정, 적용시작, 적용종료, 값표, 출처, 근거상태)
+_SHOCK_ACCOUNTS: tuple[tuple, ...] = (
+    (HEADLINE_FRAMEWORK_VERSION, "현행", None, "2026-01-29", None,
+     _CURRENT_SHOCK_BP, _KR_SOURCE_REF, "원문확인"),
+    ("d578_2024", "현행", None, "2026-01-01", None,
+     _CURRENT_SHOCK_BP, _D578_SOURCE_REF, "원문확인"),
+    ("d368_2016", "직전", "d578_2024", "2016-04-01", None,
+     _D368_SHOCK_BP, _D368_SOURCE_REF, "원문확인"),
+    # 폐지 계정은 값표가 없다 — 그 체계에 통화별 충격표가 존재하지 않는다.
+    ("별표9의1_2014", "폐지", HEADLINE_FRAMEWORK_VERSION, "2007-12-21",
+     "2019-11-29", None, _KR2014_SOURCE_REF, "원문확인"),
+)
 
 
 def build_rate_shock_param() -> pd.DataFrame:
-    """통화별 충격 모수 원장.
+    """통화별 충격 모수 원장 — 계정 네 벌.
 
-    d368 계정은 21개 통화 × 3충격유형 63행이 전부 원문확인이다. 프록시는 쓰지
-    않으므로 `proxy_for_ccy`는 전 행 NULL이다.
+    현행 두 계정(별표9의1_2026 · d578_2024)은 21개 통화 × 3충격유형 63행이
+    전부 원문확인이고 값이 서로 같다. d368_2016은 직전값이며 대비용이다.
+    별표9의1_2014는 폐지된 금리 EaR·VaR 체계라 통화별 충격표가 없고, 계정
+    존재와 폐지 사실만 남긴다(KRW 3행, 값 NULL).
 
-    `floor_bp`·`cap_bp`는 비운다. Annex 2 Table 1은 통화별 충격폭을 직접 주고
+    프록시는 쓰지 않으므로 `proxy_for_ccy`는 전 행 NULL이다.
+
+    `floor_bp`·`cap_bp`는 비운다. <표5>·Table 2는 통화별 충격폭을 직접 주고
     그 위에 별도의 모수 하·상한을 두지 않는다. 앞선 회차가 넣었던
     parallel 100~400 · short 100~500 · long 100~300은 표의 열별 최소·최대를
-    규정처럼 적은 것이고, long 상한 300은 IDR의 350을 잘라 원문값을 훼손한다.
-    엔진은 두 칸이 다 차 있을 때만 clip한다.
+    규정처럼 적은 것이었다. 엔진은 두 칸이 다 차 있을 때만 clip한다.
     """
     rows = []
-    for ccy, bps in _D368_SHOCK_BP.items():
-        for st, bp in zip(SHOCK_TYPES, bps):
-            rows.append({
-                "framework_version": "d368_2016", "ccy": ccy, "shock_type": st,
-                "effective_from": None, "effective_to": None,
-                "shock_bp": bp, "floor_bp": None, "cap_bp": None,
-                "proxy_for_ccy": None, "source_ref": _D368_SOURCE_REF,
-                "evidence_status": "원문확인",
-            })
-    for st in SHOCK_TYPES:
-        rows.append({
-            "framework_version": "d578_2024", "ccy": "KRW", "shock_type": st,
-            "effective_from": "2026-01-01", "effective_to": None,
-            "shock_bp": None, "floor_bp": None, "cap_bp": None,
-            "proxy_for_ccy": None, "source_ref": _D578_SOURCE_REF,
-            "evidence_status": "미확인",
-        })
+    for fw, status, superseded, eff_from, eff_to, table, ref, ev in _SHOCK_ACCOUNTS:
+        # 값표가 없는 계정도 행은 만든다. 계정을 고른 산출이 "통화 행이 없다"가
+        # 아니라 "폐지된 체계다"를 돌려주어야 사용자가 무엇을 고쳤는지 안다.
+        items = table.items() if table is not None else [("KRW", (None,) * 3)]
+        for ccy, bps in items:
+            for st, bp in zip(SHOCK_TYPES, bps):
+                rows.append({
+                    "framework_version": fw, "ccy": ccy, "shock_type": st,
+                    "status": status, "superseded_by": superseded,
+                    "effective_from": eff_from, "effective_to": eff_to,
+                    "shock_bp": bp, "floor_bp": None, "cap_bp": None,
+                    "proxy_for_ccy": None, "source_ref": ref,
+                    "evidence_status": ev,
+                })
     return pd.DataFrame(rows).astype(
         {"shock_bp": "Int64", "floor_bp": "Int64", "cap_bp": "Int64"})
 
 
-# 시나리오 구성 계수 (BCBS d368 Annex 2, 1차자료 §A-3).
+def framework_status(shock_param: pd.DataFrame, framework_version: str
+                     ) -> tuple[str, str | None]:
+    """계정의 시행 상태와 대체 계정. 원장에 없으면 ('미등재', None)이다.
+
+    상태는 통화·충격유형과 무관한 계정 단위 사실이라 아무 행에서나 읽는다.
+    통화별 행이 없는 폐지 계정에서도 상태를 읽을 수 있어야 하므로 충격폭
+    해석(`_resolve_shock_bp`)보다 앞에 둔다.
+    """
+    d = shock_param[shock_param["framework_version"] == framework_version]
+    if d.empty:
+        return "미등재", None
+    r = d.iloc[0]
+    sup = r.get("superseded_by")
+    return str(r["status"]), (None if pd.isna(sup) else str(sup))
+
+
+# 시나리오 구성 계수 ([별표 9-1] 제12항 나 = d578 [SRP31.91], 1차자료 §B-6).
 #   Δsteepener(t) = −0.65·|Δshort(t)| + 0.90·|Δlong(t)|
 #   Δflattener(t) = +0.80·|Δshort(t)| − 0.60·|Δlong(t)|
+# 계수와 감쇠 x는 d368 이래 바뀌지 않았다. d578이 재조정한 것은 통화별 충격폭
+# (<표5>)뿐이고 시나리오 구성식·시간버킷·캡/플로어 체계는 그대로다.
 # (scenario, parallel, short, long, applies_to_nii)
 _SCENARIOS: tuple[tuple[str, float, float, float, bool], ...] = (
     ("parallel_up",   +1.0,  0.00,  0.00, True),
@@ -246,64 +339,81 @@ _SCENARIOS: tuple[tuple[str, float, float, float, bool], ...] = (
     ("flattener",      0.0, +0.80, -0.60, False),
 )
 
-_DECAY_X = 4.0          # S_short(t) = e^{−t/4} — BCBS d368 Annex 2 (§A-3)
+_DECAY_X = 4.0          # S_short(t) = e^{−t/4} — [별표 9-1] 제12항 나
 
 _SCENARIO_CITATION = (
-    "BCBS d368 (2016.4) Annex 2 — 6개 표준 금리충격 시나리오 구성식. "
-    "S_short(t)=e^{−t/4}, S_long(t)=1−S_short(t), "
+    "[별표 9-1] 제12항 나 (개정 2026.1.29) = BCBS d578 [SRP31.91] — 6개 표준 "
+    "금리충격 시나리오 구성식. S_short(t)=e^{−t/4}, S_long(t)=1−S_short(t), "
     "steepener=−0.65·R_s·S_short+0.90·R_l·S_long, "
-    "flattener=+0.80·R_s·S_short−0.60·R_l·S_long (1차자료 §A-3)")
+    "flattener=+0.80·R_s·S_short−0.60·R_l·S_long (1차자료 §B-6)")
 
 
 def build_scenario_def() -> pd.DataFrame:
     """시나리오 구성식 원장 (6개).
 
     `applies_to_nii`가 규칙을 데이터로 만든다 — ΔNII는 6개가 아니라 평행충격
-    2개만이며, 현행은 이 규칙이 `irrbb.py:105`의 튜플 리터럴로만 존재한다.
+    2개만이다([별표 9-1] 제14항 라).
 
-    계수 네 개(−0.65 / 0.90 / 0.80 / −0.60)와 감쇠 x=4는 원문 발췌로 확인했다.
-    원문의 검산 예시(t=3.5Y, R_s=R_l=100bp → steepener +25.4bp,
-    flattener −1.6bp)를 `tests/test_alm_curves.py`가 회귀시험으로 고정한다.
+    계수 네 개(−0.65 / 0.90 / 0.80 / −0.60)와 감쇠 x=4는 원문 두 종에서 같다.
+    d578이 재조정한 것은 <표5>의 통화별 충격폭이고 구성식은 그대로다. 원문의
+    검산 예시(t=3.5Y, R_s=R_l=100bp → steepener +25.4bp, flattener −1.6bp)를
+    `tests/test_alm_curves.py`가 회귀시험으로 고정한다.
     """
     return pd.DataFrame([{
         "scenario": sc, "parallel_coef": p, "short_coef": s, "long_coef": l,
         "decay_x": _DECAY_X,
-        # 6개 전부 ΔEVE 대상 (BCBS d368 Annex 2 표준체계 시나리오 집합).
+        # 6개 전부 ΔEVE 대상 ([별표 9-1] 제13항 라 — 6개 중 최대값이 최종 ΔEVE).
         "applies_to_eve": True, "applies_to_nii": nii,
         "citation": _SCENARIO_CITATION,
         "evidence_status": "원문확인",
     } for sc, p, s, l, nii in _SCENARIOS])
 
 
-_FLOOR_CITATION = (
-    "BCBS d368 (2016.4) Annex 2 — \"National supervisors may, at their "
-    "discretion, set floors for the post-shock interest rates …, provided the "
-    "floors are not greater than zero.\" 하한 수치는 원문에 없다. 국내 "
-    "「은행업감독업무시행세칙」 [별표 9의1]도 하한을 규정하지 않는다 "
-    "(1차자료 §A-4). 앞선 회차의 −100bp + 5bp/년은 d368 원문에 없는 값이라 "
-    "뺐다 — d578 또는 SRP31 값으로 추정되며 미확인이다.")
+_KR_FLOOR_CITATION = (
+    "[별표 9-1] 제12항 다 (개정 2026.1.29) — \"만기구간의 충격후 금리는 "
+    "무위험금리에 금리충격 시나리오별 충격치를 합산하여 산출한다. 단, 충격후 "
+    "금리의 하한은 0으로 한다.\" r_shocked = max(r_base + Δr, 0). "
+    "d578 [SRP98.63]이 각국 재량으로 넘긴 하한을 국내가 0으로 행사한 것이다 "
+    "(1차자료 §B-6). 세 칸이 모두 0인 것이 전 만기 하한 0을 뜻한다.")
+
+_BCBS_FLOOR_CITATION = (
+    "BCBS d368 Annex 2 / d578 [SRP98.63] — 각국 감독당국이 재량으로 충격후 "
+    "금리 하한을 둘 수 있고 그 하한은 0을 넘지 않아야 한다고만 적는다. "
+    "국제기준 자체는 수치를 주지 않으므로 이 계정에서는 하한을 적용하지 "
+    "않는다. 국내가 행사한 값(하한 0)은 별표9의1_2026 행에 있다.")
+
+# (계정, floor_on_bp, slope_bp_per_year, terminal_tenor_years, 근거, 근거상태)
+_FLOOR_ROWS: tuple[tuple, ...] = (
+    (HEADLINE_FRAMEWORK_VERSION, 0, 0, 0.0, _KR_FLOOR_CITATION, "원문확인"),
+    ("d578_2024", None, None, None, _BCBS_FLOOR_CITATION, "재량·미규정"),
+    ("d368_2016", None, None, None, _BCBS_FLOOR_CITATION, "재량·미규정"),
+)
 
 
 def build_post_shock_floor() -> pd.DataFrame:
-    """충격후 금리하한 원장. d368 계정만 적재하고 **값은 비어 있다**.
+    """충격후 금리하한 원장.
 
-    행을 지우지 않는 이유는 "규정을 읽었고 그 규정이 값을 정하지 않는다"와
-    "규정을 못 읽었다"가 다른 사건이기 때문이다. 앞의 것이
-    `evidence_status='재량·미규정'`이고, 이 상태에서 엔진은 하한을 적용하지
-    않는다. 감독당국이 수치를 고시하면 이 세 칸을 채우는 것만으로 산출이
-    하한을 물기 시작한다.
+    **별표9의1_2026 행의 하한은 0이다.** 제12항 다가 명시하므로 재량이 아니라
+    규정이고, 엔진이 실제로 적용한다. 직전 회차는 "국내도 하한을 규정하지
+    않는다"고 적고 하한을 아예 적용하지 않게 두었는데 그것은 폐지된 2014년판을
+    읽은 결과였다.
 
-    d578에서 하한 규정이 유지·변경됐는지 확인하지 못했으므로 `d578_2024` 행은
-    만들지 않는다.
+    국제기준 계정 두 벌은 `evidence_status='재량·미규정'`이다. 규정을 읽었고
+    그 규정이 수치를 정하지 않는다는 상태이며, "규정을 못 읽었다"(미확인)와
+    다른 사건이라 어휘를 나눈다. 이 상태에서 엔진은 하한을 적용하지 않는다.
+
+    폐지 계정(별표9의1_2014)은 ΔEVE 체계가 아니어서 충격후 금리라는 개념이
+    없다. 행을 만들지 않으며, 그 계정으로 산출하면 하한 원장 미조회 경고가
+    충격 모수 부재 경고와 함께 나온다.
     """
     return pd.DataFrame([{
-        "framework_version": "d368_2016",
-        "floor_on_bp": None, "slope_bp_per_year": None,
-        "terminal_tenor_years": None,
-        "citation": _FLOOR_CITATION,
-        "evidence_status": "재량·미규정",
-    }]).astype({"floor_on_bp": "Int64", "slope_bp_per_year": "Int64",
-                "terminal_tenor_years": "float64"})
+        "framework_version": fw,
+        "floor_on_bp": on, "slope_bp_per_year": slope,
+        "terminal_tenor_years": terminal,
+        "citation": cite, "evidence_status": ev,
+    } for fw, on, slope, terminal, cite, ev in _FLOOR_ROWS]).astype(
+        {"floor_on_bp": "Int64", "slope_bp_per_year": "Int64",
+         "terminal_tenor_years": "float64"})
 
 
 def build_curve_ledgers() -> dict[str, pd.DataFrame]:
@@ -357,6 +467,9 @@ class ShockedCurve:
     floor_applied: bool           # 하한 원장을 찾아 적용했는지
     shock_bp: dict[str, int]      # 실제 사용 모수 (하·상한이 있으면 clip 후)
     shock_source: str             # '직접' — 프록시 경로 제거 후 이 값만 나온다
+    # 계정의 시행 상태. '현행'이 아니면 산출물이 그 사실을 실어야 한다 —
+    # 폐지된 계정으로 낸 수치가 현행 수치와 같은 칸에 놓이면 구별되지 않는다.
+    framework_status: str = "현행"
 
     @property
     def rates(self) -> np.ndarray:
@@ -481,8 +594,9 @@ def _floor_rates(floor: pd.DataFrame, *, framework_version: str,
     """floor(t) = min(0, floor_on + slope·t), t ≥ terminal → 0.
 
     행이 없거나 세 칸이 비어 있으면 하한을 적용하지 않고 사유를 경고로 남긴다.
-    d368 계정이 후자다 — 원문이 하한을 각국 재량으로 넘기고 수치를 주지 않으며
-    국내도 규정하지 않았다.
+    국제기준 계정(d368·d578)이 후자다 — 원문이 하한을 각국 재량으로 넘기고
+    수치를 주지 않는다. 국내 계정(별표9의1_2026)은 세 칸이 0이므로 전 만기에서
+    하한 0이 적용된다([별표 9-1] 제12항 다).
     """
     warns: list[ParamWarning] = []
     d = floor[floor["framework_version"] == framework_version]
@@ -517,6 +631,10 @@ def shocked_curve(base: Curve, scenario: str, *, ccy: str,
                   ) -> tuple[ShockedCurve | None, list[ParamWarning]]:
     """시나리오 충격곡선. 모수가 비어 있으면 `None` + 경고를 돌려준다.
 
+    계정이 '현행'이 아니면 그 사실을 경고로 남기고 결과 객체의
+    `framework_status`에 싣는다. 폐지 계정(별표9의1_2014)은 통화별 충격표가
+    없어 곡선이 만들어지지 않으며, 그때 산출은 침묵하지 않고 폐지 사유를 낸다.
+
     순서가 규정이다. (1) 원장 모수를 (하·상한이 있으면) clip 한 뒤
     (2) `Δr(t) = parallel_coef·R_p + short_coef·R_s·e^{−t/x}
     + long_coef·R_l·(1 − e^{−t/x})`를 기저 노드 금리에 더하고
@@ -539,10 +657,28 @@ def shocked_curve(base: Curve, scenario: str, *, ccy: str,
         raise ValueError(f"alm_scenario_def에 없는 시나리오: {scenario}")
     row = d.iloc[0]
 
+    # 상태 확인이 충격폭 해석보다 앞이다. 폐지 계정은 통화별 행 자체가 없어
+    # 충격폭 단계에서 "통화 행이 없다"로 끝나는데, 그 문구로는 사용자가 계정을
+    # 잘못 골랐다는 사실에 닿지 못한다.
+    status, superseded = framework_status(shock_param, framework_version)
+    warns: list[ParamWarning] = []
+    if status == "폐지":
+        warns.append(ParamWarning(
+            "RATE_SHOCK", framework_version, "status",
+            f"폐지된 계정이다 — 산출에 쓸 수 없다. 현행 계정은 "
+            f"{superseded!r}이며, [별표 9의1]은 2019.11.29. 개정으로 금리 "
+            f"EaR·VaR 체계에서 ΔEVE·ΔNII 체계로 전환됐다"))
+    elif status == "직전":
+        warns.append(ParamWarning(
+            "RATE_SHOCK", framework_version, "status",
+            f"직전 계정이다 — 현행이 아니며 대비 목적으로만 쓴다. 현행 계정은 "
+            f"{superseded!r}이다"))
+
     needed = _needed_shock_types(row)
-    bps, source, warns = _resolve_shock_bp(
+    bps, source, w = _resolve_shock_bp(
         shock_param, ccy=ccy, framework_version=framework_version,
         needed=needed, scenario=scenario)
+    warns.extend(w)
     if allow_proxy:
         warns.append(ParamWarning(
             "RATE_SHOCK", framework_version, "allow_proxy",
@@ -574,5 +710,5 @@ def shocked_curve(base: Curve, scenario: str, *, ccy: str,
                     tenors=t, zero_rates=shocked),
         base_rates=np.asarray(base.zero_rates, dtype=float), shift=shift,
         floor_rates=f, floor_binding=binding, floor_applied=floor_applied,
-        shock_bp=dict(bps), shock_source=source,
+        shock_bp=dict(bps), shock_source=source, framework_status=status,
     ), warns

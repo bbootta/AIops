@@ -46,7 +46,7 @@ from risk_lib.alm.schedule import AMORT_TYPES, PAY_FREQS
 __all__ = [
     "EVIDENCE_STATUS", "INPUT_SOURCES", "BEHAVIOUR_CLASSES", "RATE_TYPES",
     "NMD_CATEGORIES", "COUNTERPARTY_TYPES", "IRRBB_SCENARIOS", "SIDES",
-    "BUCKET_FRAMEWORKS", "HEADLINE_BUCKET_FRAMEWORK",
+    "BUCKET_FRAMEWORKS", "HEADLINE_BUCKET_FRAMEWORK", "OVERNIGHT_BUCKET_LABEL",
     "TIME_BUCKET", "PRODUCT_TERMS", "BEHAVIOUR_PARAM", "PREPAY_SCURVE_PARAM",
     "BEHAVIOUR_SCENARIO_MULT", "NMD_PARAM", "PARAM_TABLES",
     "build_time_bucket_ledger", "build_time_buckets", "build_product_terms",
@@ -67,11 +67,15 @@ BEHAVIOUR_CLASSES: tuple[str, ...] = (
     "none", "prepayment", "early_redemption", "nmd")
 RATE_TYPES: tuple[str, ...] = ("fixed", "floating", "administered")
 SIDES: tuple[str, ...] = ("asset", "liability", "off_balance")
-# NMD 범주 어휘 = BCBS d368 Annex 2 Table 2 의 범주. 계약의 counterparty_type과
+# NMD 범주 어휘 = [별표 9-1] <표3>의 세 범주(소매/거래 · 소매/비거래 · 도매).
+# BCBS d368 Annex 2 Table 2도 같은 세 줄이다. 계약의 counterparty_type과
 # **같은 어휘**여야 조인이 성립한다.
 NMD_CATEGORIES: tuple[str, ...] = (
-    "retail_transactional", "retail_non_transactional",
-    "wholesale_nonfin", "financial")
+    "retail_transactional", "retail_non_transactional", "wholesale_nonfin")
+# 계약원장이 기록하는 거래상대 구분은 NMD 범주보다 넓다. 금융기관 예치금은
+# 제8항 가(5)("(2)∼(4)에 해당하지 않는 비만기성예금은 도매예금")에 따라 도매로
+# 귀속되므로 <표3>의 별도 범주가 아니다. 어휘를 분리해 두면 계약원장은 원천
+# 구분을 잃지 않고, <표3> 원장은 원문에 없는 네 번째 줄을 만들지 않는다.
 COUNTERPARTY_TYPES: tuple[str, ...] = NMD_CATEGORIES
 IRRBB_SCENARIOS: tuple[str, ...] = (
     "parallel_up", "parallel_down", "steepener", "flattener",
@@ -82,12 +86,15 @@ SLOTTING_METHODS: tuple[str, ...] = (
 BASE_MODELS: tuple[str, ...] = ("psa_100", "constant", "미확정")
 
 _HOUSE = "house_9"
-_BCBS = "bcbs_19"
-BUCKET_FRAMEWORKS: tuple[str, ...] = (_HOUSE, _BCBS)
+# 계정명을 'bcbs_19'에서 '표2_19'로 바꾼다. 이 사다리의 국내 근거는 [별표 9-1]
+# <표2>이고 BCBS는 같은 값을 주는 두 번째 근거다. 계정명이 국제기준만 가리키면
+# 국내 산출의 근거가 화면·서식에서 국제기준으로 읽힌다.
+_TABLE2 = "표2_19"
+BUCKET_FRAMEWORKS: tuple[str, ...] = (_HOUSE, _TABLE2)
 # 헤드라인 계정. 원장의 is_headline 컬럼이 이 값에서 나오고, 엔진에 들어가는
-# 버킷 뷰의 기본값이 된다. 표준 19버킷으로 갈아끼우는 것은 배선 단계의 결정이며
-# 그때 이 상수와 파이프라인 인자가 함께 움직인다.
-HEADLINE_BUCKET_FRAMEWORK: str = _HOUSE
+# 버킷 뷰의 기본값이 된다. 현행 규정이 19구간이므로 헤드라인은 표2_19다.
+# house_9(자체 집계 9구간)는 이력으로만 남긴다.
+HEADLINE_BUCKET_FRAMEWORK: str = _TABLE2
 
 
 # ---------------------------------------------------------------- 스펙
@@ -116,8 +123,9 @@ TIME_BUCKET = TableSpec(
     ),
     primary_key=("framework_version", "seq"),
     note="버킷 개수 K를 소스에서 뺀다 — 엔진은 K에 무관하게 동작한다. "
-         "house_9는 자체 집계이고 bcbs_19는 BCBS d368 Annex 2 Table 1의 "
-         "19버킷이다. 두 계정이 한 원장에 있고 is_headline이 산출 계정을 정한다.",
+         "표2_19는 [별표 9-1] <표2>의 19구간이며 BCBS d578·d368의 시간버킷과 "
+         "같다. house_9는 자체 집계 9구간이고 이력으로만 둔다. 두 계정이 한 "
+         "원장에 있고 is_headline이 산출 계정을 정한다.",
 )
 
 PRODUCT_TERMS = TableSpec(
@@ -231,16 +239,17 @@ BEHAVIOUR_SCENARIO_MULT = TableSpec(
         C("scenario", "string", "시나리오", nullable=False,
           allowed=IRRBB_SCENARIOS),
         C("multiplier", "float", "승수", nullable=True, unit="배", min_value=0.0,
-          citation="BCBS d368 Annex 2 Table 3·4 — CPR_i=min(1,γ_i·CPR₀), "
-                   "TDRR_i=min(1,u_i·TDRR₀)"),
+          citation="[별표 9-1] <표4> — CPR_{i,k}=min(1, γ_i·CPR_{0,k}) 제9항 "
+                   "다(2) / TDRR_i=min(1, u_i·TDRR_0) 제10항 다(2)"),
         C("direction_rule", "text", "방향성", nullable=False),
         C("citation", "text", "근거", nullable=True),
         C("evidence_status", "string", "근거 상태", nullable=False,
           allowed=EVIDENCE_STATUS),
     ),
     primary_key=("model", "scenario"),
-    note="12행 전건이 d368 Table 3·4의 값이다. 평행·단기 축에서만 두 표의 "
-         "방향이 반대이고, 회전(steepener·flattener) 축은 두 표가 같은 값이다.",
+    note="12행 전건이 <표4>의 값이다. 평행·단기 축에서만 두 승수의 방향이 "
+         "반대이고, 회전(스티프너·플래트너) 축은 두 승수가 같은 값이다. "
+         "중도해지 현금흐름은 만기 '1일' 구간에 배분한다(제10항 라).",
 )
 
 NMD_PARAM = TableSpec(
@@ -250,7 +259,22 @@ NMD_PARAM = TableSpec(
         C("asof", "date", "기준일", nullable=False),
         C("nmd_category", "string", "NMD 범주", nullable=False,
           allowed=NMD_CATEGORIES,
-          citation="BCBS d368 Annex 2 Table 2 범주"),
+          citation="[별표 9-1] <표3> 비만기성예금의 범주별 핵심예금비율 및 "
+                   "평균만기의 상한 (개정 2026.1.29) — 소매/거래 · 소매/비거래 · "
+                   "도매 세 줄. BCBS d368 Annex 2 Table 2도 같은 세 줄이다"),
+        C("korean", "text", "범주명", nullable=False,
+          note="<표3>이 쓰는 국문 표기 그대로. 서식·화면이 범주명을 다시 "
+               "번역하면 원문과 어긋난다"),
+        C("category_rule", "text", "범주 판정 기준", nullable=False,
+          citation="[별표 9-1] 제8항 가 (1)~(5) — 범주를 무엇으로 가르는지가 "
+                   "상한값만큼이나 산출을 바꾼다. 판정 기준이 원장에 없으면 "
+                   "슬로팅 결과를 재현할 수 없다"),
+        C("sme_lookthrough_krw", "float", "소매 유사 간주 기준", nullable=True,
+          unit="KRW", min_value=0.0,
+          citation="[별표 9-1] 제8항 가(3) — 중소기업이 예치한 예금 중 소매계정 "
+                   "으로 관리하고 해당 중소기업으로부터의 자금조달 총액이 "
+                   "15억원(연결기준) 미만이면 소매예금과 유사한 것으로 간주. "
+                   "도매 범주에는 해당 조항이 없어 NULL이다"),
         C("ccy", "string", "통화", nullable=False),
         C("stable_ratio", "float", "안정예금 비율", nullable=True, unit="ratio",
           min_value=0.0, max_value=1.0,
@@ -259,17 +283,22 @@ NMD_PARAM = TableSpec(
           min_value=0.0, max_value=1.0),
         C("core_ratio_cap", "float", "코어 비율 상한", nullable=False, unit="ratio",
           min_value=0.0, max_value=1.0,
-          citation="BCBS d368 (2016.4) Annex 2 Table 2 — 소매결제성 90% / "
-                   "소매비결제성 70% / 도매(비금융) 50%. 원문 Table 2는 이 "
-                   "세 줄뿐이며 금융기관 범주는 없다"),
+          citation="[별표 9-1] <표3> — 소매/거래 90% · 소매/비거래 70% · "
+                   "도매 50%. 원문 <표3>은 이 세 줄뿐이며 금융기관 범주가 없다"),
         C("avg_maturity_years", "float", "평균만기", nullable=True, unit="years",
           min_value=0.0),
         C("avg_maturity_cap_years", "float", "평균만기 상한", nullable=False,
           unit="years", min_value=0.0,
-          citation="BCBS d368 (2016.4) Annex 2 Table 2 — 5년 / 4.5년 / 4년"),
+          citation="[별표 9-1] <표3> — 5년 · 4.5년 · 4년"),
         C("slotting_method", "string", "슬로팅 방법", nullable=False,
           allowed=SLOTTING_METHODS,
-          citation="EBA/RTS/2022/09 단순화법 — 코어를 선형 슬로팅"),
+          citation="[별표 9-1] 제8항 다(1) — 범주별 핵심예금은 <표3>의 평균만기 "
+                   "상한을 고려해 <표2>의 적절한 만기구간에 배분한다"),
+        C("non_core_bucket_label", "string", "비핵심예금 배분 구간",
+          nullable=False,
+          citation="[별표 9-1] 제8항 다(2) — 비핵심예금은 익일물예금으로 "
+                   "간주되며 만기 '1일' 구간에 배분한다. <표1>도 비핵심예금과 "
+                   "MMDA를 1일로 분류한다"),
         C("pass_through_beta", "float", "예금베타", nullable=True, unit="ratio",
           min_value=0.0, max_value=1.0),
         C("input_source", "string", "입력출처", nullable=False,
@@ -281,8 +310,11 @@ NMD_PARAM = TableSpec(
           allowed=EVIDENCE_STATUS),
     ),
     primary_key=("asof", "nmd_category", "ccy"),
-    note="잔액은 여기 두지 않는다 — 계약원장(alm_contract)이 원본이다. 같은 금액을 "
-         "두 곳에 적으면 둘 중 하나는 틀릴 준비가 된 것이다.",
+    note="<표3>의 세 범주가 전부다. 금융기관 예금을 별도 범주로 두거나 코어 0%로 "
+         "못박는 행은 국내기준에도 국제기준에도 없다 — 제8항 가(5)가 "
+         "'(2)∼(4)에 해당하지 않는 비만기성예금은 도매예금으로 구분한다'고 "
+         "적으므로 금융기관 예치금은 도매로 귀속된다. "
+         "잔액은 여기 두지 않는다 — 계약원장(alm_contract)이 원본이다.",
 )
 
 PARAM_TABLES: tuple[TableSpec, ...] = (
@@ -303,13 +335,17 @@ def _as_float(df: pd.DataFrame, *cols: str) -> pd.DataFrame:
     return df.astype({c: "float64" for c in cols})
 
 
-# BCBS d368 Annex 2 Table 1의 19개 시간버킷. 경계 규약은 (하한, 상한] 이며
-# 원문이 `O/N < tCF ≦ 1M` 형식으로 적는다(1차자료 §A-2).
+# [별표 9-1] <표2> 만기구간 19구간. BCBS d578·d368의 시간버킷과 동일하다.
+# 경계 규약은 (하한, 상한] 이며 원문이 `1일 < t ≤ 1M` 형식으로 적는다
+# (1차자료 §B-2). 중점은 원문 괄호 안의 값을 그대로 옮긴다.
 # (라벨, 하한, 상한, 중점) — 상한·중점 단위는 년.
 _M, _D = 1.0 / 12.0, 0.0028      # 1개월, 익일물 중점(원문 표기 0.0028년)
 _BCBS19_BUCKETS: tuple[tuple[str, float, float, float], ...] = (
-    ("O/N",       0.0,    _D,     _D),
-    ("O/N-1M",    _D,     1 * _M,  0.0417),
+    # 첫 구간의 라벨은 원문 표기 '1일(O/N)'을 쓴다. 제8항 다(2)·제10항 라가
+    # 비핵심예금과 중도해지 현금흐름을 만기 '1일' 구간에 배분하라고 이름으로
+    # 지시하므로, 라벨이 그 이름과 다르면 원장 조인이 규정 문구와 끊긴다.
+    ("1일(O/N)",  0.0,    _D,     _D),
+    ("1일-1M",    _D,     1 * _M,  0.0417),
     ("1M-3M",     1 * _M, 3 * _M,  0.1667),
     ("3M-6M",     3 * _M, 6 * _M,  0.375),
     ("6M-9M",     6 * _M, 9 * _M,  0.625),
@@ -333,20 +369,30 @@ _BCBS19_BUCKETS: tuple[tuple[str, float, float, float], ...] = (
     ("20Y+",      20.0,   25.0,    25.0),
 )
 
-_BCBS19_CITATION = ("BCBS d368 (2016.4) Annex 2 Table 1 — 19개 시간버킷과 중점. "
-                    "경계 규약 (하한, 상한]. 마지막 구간은 tCF > 20Y 개방구간이며 "
-                    "중점 t_K = 25년")
+_BCBS19_CITATION = (
+    "은행업감독업무시행세칙 [별표 9-1] <표2> 만기구간 (개정 2026.1.29) — "
+    "19개 구간과 중간시점. 경계 규약 (하한, 상한]. 마지막 구간은 t > 20Y "
+    "개방구간이며 중점 25년. BCBS d578 [SRP31.89] · d368 Annex 2 Table 1의 "
+    "시간버킷과 동일하다 (1차자료 §B-2)")
+
+# 비핵심예금·중도해지 현금흐름이 배분되는 구간의 라벨. 원장의 첫 행에서 뽑아
+# 두 곳(버킷 사다리와 NMD 원장)이 같은 문자열을 쓰게 한다.
+OVERNIGHT_BUCKET_LABEL: str = _BCBS19_BUCKETS[0][0]
 
 
 def build_time_bucket_ledger() -> pd.DataFrame:
-    """시간버킷 원장 전량 — 자체 집계 9개 + 표준 19개.
+    """시간버킷 원장 전량 — 자체 집계 9개 + <표2> 19개.
 
     두 계정을 한 원장에 둔다. 어느 쪽으로 산출하는지는 `is_headline`이 정하고,
     엔진에 들어가는 프레임은 `build_time_buckets`가 그 컬럼으로 골라 준다.
     계정명이 소비처 소스에 박히지 않아야 전환이 배선 한 곳에서 끝난다.
 
+    **헤드라인이 표2_19다.** [별표 9-1] <표2>가 19구간을 규정하므로 자체 집계
+    9구간을 헤드라인에 두면 산출 축이 규정과 어긋난다. house_9는 이력 보존과
+    시계열 단절 설명 용도로만 남긴다.
+
     **citation 정정.** `catalog.REPRICING_GAP.bucket`은 자체집계 9개에
-    "SRP31.94 표준 만기 구간"이라는 근거를 달고 있으나 표준체계 버킷은 19개다.
+    "SRP31.94 표준 만기 구간"이라는 근거를 달고 있으나 규정 구간은 19개다.
     9개 자체집계에 표준 조항을 다는 것은 감사에서 그대로 읽히는 자리의 허위
     표기이므로 house_9 행의 근거는 자체집계로 적는다.
     """
@@ -363,10 +409,10 @@ def build_time_bucket_ledger() -> pd.DataFrame:
         lower = float(upper)
     for seq, (label, lo, hi, t_mid) in enumerate(_BCBS19_BUCKETS, start=1):
         rows.append({
-            "framework_version": _BCBS, "seq": seq, "label": label,
+            "framework_version": _TABLE2, "seq": seq, "label": label,
             "lower_years": float(lo), "upper_years": float(hi),
             "t_mid_years": float(t_mid),
-            "is_headline": _BCBS == HEADLINE_BUCKET_FRAMEWORK,
+            "is_headline": _TABLE2 == HEADLINE_BUCKET_FRAMEWORK,
             "citation": _BCBS19_CITATION,
             "evidence_status": "원문확인",
         })
@@ -507,9 +553,12 @@ def build_prepay_scurve_param(asof: str, *,
     }]).pipe(_as_float, "coef_a", "coef_b", "coef_c", "coef_d", "refi_rate")
 
 
-# BCBS d368 Annex 2 Table 3(조기상환 γ) · Table 4(중도해지 u). 1차자료 §A-7·§A-8.
-# 회전 시나리오(steepener·flattener)에서 두 표의 값이 **같다**. 평행·단기 축의
-# 반대 방향을 회전 축까지 일반화하면 네 칸이 틀린다.
+# [별표 9-1] <표4> — 조기상환율 승수 γ(제9항 다(2))와 중도해지율 승수 u
+# (제10항 다(2))를 한 표에 담는다. 원문 순서는 시나리오 1~6이며
+# γ = 0.8/1.2/0.8/1.2/0.8/1.2, u = 1.2/0.8/0.8/1.2/1.2/0.8 이다.
+# BCBS d368 Annex 2 Table 3·4와 값이 같다(1차자료 §B-5).
+# 회전 시나리오(3 스티프너 · 4 플래트너)에서 두 승수가 **같은 값이다**.
+# 평행·단기 축의 반대 방향을 회전 축까지 일반화하면 네 칸이 틀린다.
 _SCENARIO_MULT: dict[str, dict[str, float]] = {
     "CPR":  {"parallel_up": 0.8, "parallel_down": 1.2, "steepener": 0.8,
              "flattener": 1.2, "short_up": 0.8, "short_down": 1.2},
@@ -519,23 +568,26 @@ _SCENARIO_MULT: dict[str, dict[str, float]] = {
 
 _MULT_RULE: dict[str, str] = {
     "CPR": "평행·단기 충격에서 금리 상승 시 조기상환 감소(γ=0.8) — 인센티브 "
-           "역관계. 회전 시나리오는 Table 3이 steepener 0.8 · flattener 1.2로 "
+           "역관계. 회전 시나리오는 <표4>가 스티프너 0.8 · 플래트너 1.2로 "
            "직접 정한다",
     "TDRR": "평행·단기 충격에서 금리 상승 시 중도해지 증가(u=1.2) — 재예치 유인 "
-            "정관계. 회전 시나리오는 Table 4가 steepener 0.8 · flattener 1.2로 "
-            "직접 정하며 이 두 칸은 Table 3과 값이 같다",
+            "정관계. 회전 시나리오는 <표4>가 스티프너 0.8 · 플래트너 1.2로 "
+            "직접 정하며 이 두 칸은 조기상환 승수와 값이 같다",
 }
 
 
 def build_behaviour_scenario_mult() -> pd.DataFrame:
-    """시나리오 승수표 (BCBS d368 Annex 2 Table 3·4) — 12행 전건 적재.
+    """시나리오 승수표 ([별표 9-1] <표4>) — 12행 전건 적재.
 
-    구조식은 `CPR_i = min(1, γ_i·CPR₀)` / `TDRR_i = min(1, u_i·TDRR₀)` 이다.
-    승수 12칸은 원문확인이고, 기준율 `CPR₀`·`TDRR₀`는 d368이 주지 않는다
-    (은행 자체추정 + 감독승인) — 그쪽은 `alm_behaviour_param`에서 계속 비어 있다.
+    구조식은 `CPR_{i,k} = min(1, γ_i·CPR_{0,k})`(제9항 다(2)) /
+    `TDRR_i = min(1, u_i·TDRR_0)`(제10항 다(2)) 이다.
+    승수 12칸은 원문확인이고, 기준율 `CPR_0`·`TDRR_0`는 규정이 주지 않는다
+    (은행이 과거자료로 통화별·포트폴리오별 산출) — 그쪽은
+    `alm_behaviour_param`에서 계속 비어 있다.
     """
-    cite = ("BCBS d368 (2016.4) Annex 2 Table 3(조기상환 γ)·"
-            "Table 4(중도해지 u) — 1차자료 §A-7·§A-8")
+    cite = ("[별표 9-1] <표4> 금리충격 시나리오에 따른 고정금리대출 조기상환율 "
+            "및 기간부예수금 중도해지율 승수 (개정 2026.1.29) = BCBS d368 "
+            "Annex 2 Table 3·4 — 1차자료 §B-5")
     return pd.DataFrame([
         {"model": model, "scenario": sc, "multiplier": _SCENARIO_MULT[model][sc],
          "direction_rule": _MULT_RULE[model], "citation": cite,
@@ -543,49 +595,59 @@ def build_behaviour_scenario_mult() -> pd.DataFrame:
         for model in BEHAVIOUR_MODELS for sc in IRRBB_SCENARIOS])
 
 
-# BCBS d368 (2016.4) Annex 2 Table 2 — 코어비율 상한 / 평균만기 상한.
-# 앞의 세 범주는 원문 발췌로 확인했다(1차자료 §A-6). 네 번째 `financial`은
-# **원문 Table 2에 없는 범주**다. 원문은 wholesale을 한 줄로 두고 금융기관
-# 예금을 따로 나누거나 코어 0%로 못박지 않는다. 코어 0.00은 설계가 적은
-# 값이므로 근거 상태를 '미확인'으로 낮춰 두고, 값 자체는 전액 최단버킷이라는
-# 가장 짧은 슬로팅이라 산출이 이 가정을 숨기지 않는다.
-# (범주, 코어상한, 평균만기상한, 근거상태, 입력출처)
-_NMD_CAPS: tuple[tuple[str, float, float, str, str], ...] = (
-    ("retail_transactional",     0.90, 5.0, "원문확인", "감독상한대체"),
-    ("retail_non_transactional", 0.70, 4.5, "원문확인", "감독상한대체"),
-    ("wholesale_nonfin",         0.50, 4.0, "원문확인", "감독상한대체"),
-    ("financial",                0.00, 0.0, "미확인",   "미확정"),
+# [별표 9-1] <표3> — 범주별 핵심예금 비율 상한 / 평균만기 상한.
+# 세 줄이 전부다. BCBS d368 Annex 2 Table 2도 같은 세 줄이며 값도 같다.
+# 직전 회차가 넣었던 네 번째 행(`financial`, 코어 0%)은 국내기준에도 국제기준
+# 에도 없다. 제8항 가(5)가 "(2)∼(4)에 해당하지 않는 비만기성예금은 도매예금
+# 으로 구분한다"고 적으므로 금융기관 예치금은 도매 범주로 귀속된다.
+# (범주, 국문 표기, 코어상한, 평균만기상한, 소매 유사 간주 기준, 판정 기준)
+_NMD_CAPS: tuple[tuple[str, str, float, float, float | None, str], ...] = (
+    ("retail_transactional", "소매/거래", 0.90, 5.0, 1_500_000_000.0,
+     "제8항 가(2)·(4) — 개인이 예치한 예금(법인·개인사업자 제외) 중 정기적 "
+     "거래가 이루어지거나 이자를 지급하지 않는 예금. 가(3)에 따라 소매계정으로 "
+     "관리하는 중소기업 예금 중 자금조달 총액 15억원(연결기준) 미만이면 소매와 "
+     "유사한 것으로 간주한다"),
+    ("retail_non_transactional", "소매/비거래", 0.70, 4.5, 1_500_000_000.0,
+     "제8항 가(2)·(4) — 개인이 예치한 예금 중 거래예금에 해당하지 않는 예금. "
+     "가(3)의 15억원 중소기업 간주 규정은 소매 판정에 동일하게 적용된다"),
+    ("wholesale_nonfin", "도매", 0.50, 4.0, None,
+     "제8항 가(5) — (2)∼(4)에 해당하지 않는 비만기성예금 전부. 금융기관이 "
+     "예치한 비만기성예금도 여기 귀속된다(별도 범주가 원문에 없다)"),
 )
 
 
 def build_nmd_param(asof: str) -> pd.DataFrame:
-    """NMD 코어 분해 파라미터.
+    """NMD 코어 분해 파라미터 — [별표 9-1] <표3>의 세 범주.
 
     **초기 적재는 상한값 그대로이며 보수적이지 않다.** 코어를 늘리면 부채
     슬로팅이 길어져 ΔEVE 효과가 갭 방향에 따라 양쪽으로 간다(§5.26). 따라서
     input_source='감독상한대체'로 표시해 자체추정과 구분하고, 챌린저(코어 0%)
-    대조가 필요하다는 사실을 남긴다.
+    대조가 필요하다는 사실을 남긴다. 제8항 나(2)는 과거 잔액 변동 관찰로
+    범주별 핵심예금 규모를 산출하고 나(3)에서 <표3> 상한을 적용하라고 정하므로,
+    상한을 그대로 쓰는 것은 관찰 단계를 건너뛴 자리표시다.
 
-    `financial` 행은 d368 Table 2에 없는 범주라 evidence_status='미확인'이다.
-    EBA RTS 2022/09 등 다른 규정이 금융기관 예금을 별도 취급하는지는 원문을
-    확인하지 못했다.
+    범주 판정 기준(제8항 가)과 비핵심예금 배분 구간(제8항 다(2))을 컬럼으로
+    둔다. 상한값만 있고 판정 기준이 없으면 어느 잔액이 어느 줄에 붙었는지
+    산출물에서 재현되지 않는다.
 
     stable_ratio·pass_through_beta는 은행 고유 데이터로만 추정 가능하므로
     NULL이다(§5.21).
     """
     return pd.DataFrame([{
-        "asof": asof, "nmd_category": cat, "ccy": "KRW",
+        "asof": asof, "nmd_category": cat, "korean": ko,
+        "category_rule": rule, "sme_lookthrough_krw": sme, "ccy": "KRW",
         "stable_ratio": None,
         # 코어비율·평균만기는 상한을 그대로 쓴다 — 추정이 아니라 자리표시.
         "core_ratio": cap, "core_ratio_cap": cap,
         "avg_maturity_years": mat, "avg_maturity_cap_years": mat,
         "slotting_method": "linear",
+        "non_core_bucket_label": OVERNIGHT_BUCKET_LABEL,
         "pass_through_beta": None,
-        "input_source": src,
+        "input_source": "감독상한대체",
         "entered_by": None, "approved_by": None, "approved_on": None,
-        "evidence_status": status,
-    } for cat, cap, mat, status, src in _NMD_CAPS]).pipe(
-        _as_float, "stable_ratio", "pass_through_beta")
+        "evidence_status": "원문확인",
+    } for cat, ko, cap, mat, sme, rule in _NMD_CAPS]).pipe(
+        _as_float, "stable_ratio", "pass_through_beta", "sme_lookthrough_krw")
 
 
 def build_param_ledgers(asof: str, *, param_set_id: str = "BASE",

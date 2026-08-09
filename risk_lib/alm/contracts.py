@@ -109,7 +109,11 @@ FUNDING_PRODUCT_MAP: dict[str, tuple[str, str | None]] = {
     "retail_less_stable":        ("DEP_NMD_RNT",  "retail_non_transactional"),
     "corporate_operational":     ("DEP_NMD_WNF",  "wholesale_nonfin"),
     "corporate_non_operational": ("DEP_TERM_CORP", None),
-    "wholesale_fi_lt6m":         ("DEP_NMD_FI",   "financial"),
+    # 금융기관 예치금의 NMD 범주는 **도매**다. [별표 9-1] 제8항 가(5)가
+    # "(2)∼(4)에 해당하지 않는 비만기성예금은 도매예금으로 구분한다"고 적고,
+    # <표3>에는 소매/거래 · 소매/비거래 · 도매 세 줄뿐이라 금융기관 별도 범주가
+    # 없다. 직전 회차의 "financial"은 원문에 없는 네 번째 범주였다.
+    "wholesale_fi_lt6m":         ("DEP_NMD_FI",   "wholesale_nonfin"),
     "wholesale_fi_6to12m":       ("FUND_WS_ST",   None),
     "funding_gt1y":              ("FUND_WS_LT",   None),
 }

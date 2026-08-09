@@ -190,16 +190,27 @@ RAPM_HURDLE_RATE = 0.10                  # cost of equity benchmark
 # ALM — IRRBB (interest rate risk in the banking book)
 # ============================================================================
 
-# 금리충격 폭(bp)은 **이 파일에 없다.** 통화별 값은 BCBS d368 Annex 2 Table 1의
-# 규제표이고, 그 표를 적재하는 곳은 원장 빌더 `alm.curves.build_rate_shock_param`
-# 한 군데다. 여기 상수를 두면 원장을 채워도 감응도·화면이 옛 상수로 계속 나눠
-# 두 벌이 어긋난다. 아래 이름은 그 원장을 읽어 주는 계승 접근자다.
+# 금리충격 폭(bp)은 **이 파일에 없다.** 통화별 값은 은행업감독업무시행세칙
+# [별표 9-1] <표5>(개정 2026.1.29)의 규제표이고, 그 표를 적재하는 곳은 원장
+# 빌더 `alm.curves.build_rate_shock_param` 한 군데다. 여기 상수를 두면 원장을
+# 채워도 감응도·화면이 옛 상수로 계속 나눠 두 벌이 어긋난다. 아래 이름은 그
+# 원장을 읽어 주는 계승 접근자다.
 #
-# 정정 이력: 이전 판은 200/300/150을 "USD reference calibration을 보수적
-# 기본값으로 쓴다"고 적었다. 사실과 반대다 — 원문 KRW는 300/400/200이고 USD는
-# 모든 축에서 그보다 작으므로 USD 대용은 보수가 아니라 과소산출이었다.
+# 정정 이력 두 건.
+#   1. 초기 판은 200/300/150을 "USD reference calibration을 보수적 기본값으로
+#      쓴다"고 적었다. 사실과 반대이며 USD 대용은 과소산출이었다.
+#   2. 직전 판은 계정을 d368_2016으로 두었다. 그 계정의 KRW 300/400/200은
+#      d578(2024.7)이 대체한 폐지값이다. 현행 계정은 별표9의1_2026이며 KRW는
+#      평행 225 · 단기 350 · 장기 225다.
 IRRBB_SHOCK_LEDGER_CCY = "KRW"           # 계승 이름이 가리키는 통화
-IRRBB_SHOCK_LEDGER_FRAMEWORK = "d368_2016"
+
+
+def _headline_framework() -> str:
+    """헤드라인 계정명을 원장 모듈에서 읽는다. 이름을 여기 다시 적으면 계정이
+    바뀔 때 감응도 화면만 옛 계정을 계속 가리킨다."""
+    from risk_lib.alm.curves import HEADLINE_FRAMEWORK_VERSION
+    return HEADLINE_FRAMEWORK_VERSION
+
 
 _IRRBB_SHOCK_ATTRS = {
     "IRRBB_SHOCK_PARALLEL_BP": "parallel",
@@ -210,7 +221,7 @@ _IRRBB_SHOCK_ATTRS = {
 
 def irrbb_shock_bp(shock_type: str, *,
                    ccy: str = IRRBB_SHOCK_LEDGER_CCY,
-                   framework_version: str = IRRBB_SHOCK_LEDGER_FRAMEWORK) -> int:
+                   framework_version: str | None = None) -> int:
     """`alm_rate_shock_param` 원장의 충격폭(bp).
 
     원장에 값이 없으면 예외를 낸다. 기본값으로 대신 채우면 근거 없는 절대수준이
@@ -219,6 +230,7 @@ def irrbb_shock_bp(shock_type: str, *,
     from risk_lib.alm.curves import build_rate_shock_param
     import pandas as pd
 
+    framework_version = framework_version or _headline_framework()
     sp = build_rate_shock_param()
     hit = sp[(sp["framework_version"] == framework_version)
              & (sp["ccy"] == ccy) & (sp["shock_type"] == shock_type)]
@@ -229,8 +241,12 @@ def irrbb_shock_bp(shock_type: str, *,
     return int(hit.iloc[0]["shock_bp"])
 
 
-def irrbb_decay_x(framework_version: str = IRRBB_SHOCK_LEDGER_FRAMEWORK) -> float:
-    """S_short(t) = e^{−t/x}의 x. `alm_scenario_def.decay_x`에서 읽는다."""
+def irrbb_decay_x(framework_version: str | None = None) -> float:
+    """S_short(t) = e^{−t/x}의 x. `alm_scenario_def.decay_x`에서 읽는다.
+
+    시나리오 구성식은 계정마다 다르지 않다 — d578이 재조정한 것은 <표5>의
+    통화별 충격폭뿐이다. 인자는 호출부 서명 호환을 위해 남기고 쓰지 않는다.
+    """
     from risk_lib.alm.curves import build_scenario_def
 
     xs = {float(v) for v in build_scenario_def()["decay_x"]}
@@ -254,18 +270,34 @@ def __getattr__(name: str):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-# Supervisory outlier test: max ΔEVE decline ≤ 15% of Tier 1 capital.
-# BCBS d368 (2016.4) §88 원문확인 — 분모는 기본자본(Tier 1)이고 총자기자본이
-# 아니다. 국내 「은행업감독업무시행세칙」 [별표 9의1] 제27항은 **자기자본의
-# 20%**를 쓰고 지표도 ΔEVE가 아니라 금리 VaR이므로 별개 기준이다.
+# 아웃라이어 기준 — ΔEVE로 산출한 총 금리리스크 대 **기본자본(Tier 1)의 15%**.
+# 「은행업감독업무시행세칙」 [별표 9-1] 제21항 나 원문확인. 분모는 기본자본이고
+# 총자기자본이 아니다. 초과 시 제21항 다에 따라 초과 원인과 대책을 감독원장에게
+# 보고해야 한다.
+#
+# 정정 이력: 직전 판은 국내기준을 "[별표 9의1] 제27항 자기자본의 20% · 금리
+# VaR"이라고 적었다. 그것은 2014년 개정본이며 2019.11.29. 개정으로 폐지됐다.
+# 현행은 ΔEVE 체계이고 국내기준과 BCBS 기준이 같은 15%·기본자본이다.
 IRRBB_OUTLIER_EVE_PCT_TIER1 = 0.15
 IRRBB_EARLY_WARNING_PCT_TIER1 = 0.12     # internal early-warning level
 
-CITE_IRRBB = Citation("BCBS d368 (2016.4)", "Annex 2",
-                      "6대 표준 금리충격 시나리오, ΔEVE/ΔNII. 통화별 충격폭은 "
-                      "Table 1 (KRW 300/400/200)")
-CITE_IRRBB_OUTLIER = Citation("BCBS d368 (2016.4)", "§88",
-                              "outlier test: 최대 ΔEVE 대 기본자본(Tier 1)의 15%")
+# 초과 시의 조치 의무. 판정만 원장에 남기고 의무를 남기지 않으면 결재선이
+# 무엇을 해야 하는지가 산출물 밖에 있게 된다.
+IRRBB_OUTLIER_DUTY = (
+    "기본자본의 15%를 초과하면 금리리스크가 과도한 것으로 간주한다. 헤지거래 "
+    "또는 포지션 조정으로 리스크를 축소하거나 추가적인 자기자본을 보유해야 "
+    "하고([별표 9-1] 제21항 나), 초과 원인과 대책을 감독원장에게 보고해야 "
+    "한다(제21항 다).")
+
+CITE_IRRBB = Citation(
+    "은행업감독업무시행세칙", "[별표 9-1] (개정 2026.1.29)",
+    "6개 표준 금리충격 시나리오, ΔEVE/ΔNII. 통화별 충격폭은 <표5> "
+    "(KRW 평행 225 · 단기 350 · 장기 225)이며 BCBS d578 [SRP31.90] Table 2와 "
+    "21개 통화 전건 같다")
+CITE_IRRBB_OUTLIER = Citation(
+    "은행업감독업무시행세칙", "[별표 9-1] 제21항 나·다",
+    "ΔEVE로 산출한 총 금리리스크가 기본자본(Tier 1)의 15%를 초과하면 과도한 "
+    "것으로 간주하고 초과 원인·대책을 감독원장에게 보고")
 
 
 # ============================================================================

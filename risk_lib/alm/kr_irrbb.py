@@ -1,28 +1,50 @@
-"""[별표 9의1] 국내 금리리스크 산출기준. 금리 EaR · 금리 VaR.
+"""[별표 9-1] 국내 금리리스크 산출기준. 국내 고유 요건과 폐지된 2014년 체계.
 
-**왜 별도 모듈인가.** 이 저장소의 `alm/irrbb.py`는 BCBS d368 체계의 ΔEVE·ΔNII를
-산출한다. 은행업감독업무시행세칙 [별표 9의1]이 정하는 표준방법은 그 두 지표가
-아니라 **금리 EaR·금리 VaR** 이고, 만기구간(13개)·충격폭 결정방식·아웃라이어
-분모와 비율이 전부 다르다. 두 체계를 한 산출로 합치면 어느 규정의 수치인지가
-사라지므로 나란히 놓는다. `irrbb.py`는 건드리지 않는다.
+이 모듈은 두 구역으로 나뉜다. 아래쪽 절반(금리 EaR·금리 VaR)은 **폐지된**
+2014년 개정본의 산출체계이고, 위쪽 절반은 현행 별표(개정 2026.1.29)가 d578에
+**더해** 국내에서만 정한 요건이다.
 
-  | | d368 (irrbb.py) | 별표 9의1 (이 모듈) |
-  |---|---|---|
-  | 지표 | ΔEVE · ΔNII | 금리 EaR · 금리 VaR |
-  | 만기구간 | 19개 | 13개 |
-  | 충격폭 | 통화별 고정 bp 표 | 통화별 규칙(고정 200bp 또는 5년 실측 1%·99%) |
-  | 아웃라이어 | 기본자본(Tier 1)의 15% | **자기자본의 20%** |
+## 앞 회차의 전제가 틀렸다
 
-**원화 충격폭은 규정이 숫자를 주지 않는다.** <표 3>에서 원화는 "총자산 5% 이상 ·
-G-10 이외 통화"에 걸리므로 과거 5년 실제 금리변동폭(보유기간 1년) 분포의
-1%·99% 값을 써야 한다. 시계열 산출값이 없으면 `shock_bp`는 NULL이고, 엔진은
-±200bp를 조용히 대입하지 않고 경고를 남긴 뒤 그 통화의 산출을 비운다. 다른
-통화의 200bp를 원화에 끌어다 쓰면 규정이 아니라 다른 줄의 값이 된다.
+이 모듈의 이전 판은 "별표 9의1이 정하는 표준방법은 ΔEVE·ΔNII가 아니라 금리
+EaR·금리 VaR"이라고 적었다. 그 판단의 근거였던 HWP가 2014년 개정본이었다.
+현행 별표는 **2019.11.29 개정으로 ΔEVE·ΔNII 체계로 전환**됐고 2022.1.27,
+2026.1.29 개정을 거쳤다. 표제부 개정 연혁이 근거다(1차자료 §B 머리말).
 
-**계수는 전부 원장에서 온다.** 13개 만기구간의 금리개정 중간시점·수정듀레이션,
-핵심예금 기간가중치와 2.33배, 아웃라이어 20% 기준은 `build_*` 빌더가 적재하고
-엔진 함수(`kr_ear`·`kr_var`)의 본문에는 숫자가 한 개도 없다. 버킷을 바꾸면
-산출이 반드시 따라 움직인다.
+  `<별표 9-1> <신설 2007.12.21, 2010.11.17, 2012.2.14, 2014.12.26.,
+   2019.11.29., 2022.1.27., 개정 2026.1.29>`
+
+현행 별표 <표5>의 통화별 금리충격은 d578 Table 2와 21개 통화 전건 동일하다.
+**KRW는 평행 225 · 단기 350 · 장기 225** 이며, 2014년 체계가 쓰던
+"과거 5년 실측 1%·99%"도 d368의 300/400/200도 현행이 아니다.
+
+## 폐지된 2014년 체계를 지우지 않고 떼어낸다
+
+`KR_FRAMEWORK_2014` 계정으로 못박고 결과 원장의 `framework_status`에 '폐지'를
+싣는다. 시계열 단절을 설명하려면 폐지된 수치가 어떤 규정으로 산출됐는지가
+남아 있어야 한다. 다만 **헤드라인 산출 경로에서는 뺀다**. `KR_IS_HEADLINE`이
+그 사실을 코드로 들고 있고, 파이프라인은 이 모듈의 EaR·VaR을 부르지 않는다.
+현행 헤드라인 ΔEVE·ΔNII는 `alm/irrbb.py`·`alm/nii.py`가 산출한다.
+
+## 국내 고유 요건 (현행, `KR_FRAMEWORK_2026`)
+
+d578이 정하지 않고 별표가 국내에서만 정한 것을 원장으로 만든다.
+
+  §B-4  제8항 가   비만기성예금 범주 판정. 소매는 개인 예치분이고, 중소기업
+                   예금은 소매계정 관리 + 자금조달총액 15억원(연결기준) 미만
+                   일 때만 소매 유사로 본다.
+  §B-5  제9·10항   행동옵션 적용 범위. 조기상환은 소매고객 고정금리대출 한정
+                   이며 중소기업 여신은 총여신 10억원(연결기준) 이하일 때만
+                   소매 유사다. 도매고객 행동옵션은 자동금리옵션으로 간주한다
+                   (제7항 나(2) 단서).
+  §B-7  제11항     자동금리옵션. 시나리오 수익률곡선에 내재변동성 25% 확대
+                   가정 하 완전재평가. 매도 가치변동 합 − 매수 가치변동 합.
+  §B-12 제15~20항  관리체계. 이사회·위험관리위원회 연 2회 이상 보고, 분기
+                   1회 이상 측정, 제16항 라 독립 적합성검증, 제17항 한도
+                   초과 시 원인분석·대응책.
+
+판정 기준값(15억원·10억원)과 변동성 확대율(25%)은 전부 원장 컬럼이다. 엔진
+함수 본문에는 그 숫자가 없고, 원장을 고치면 판정이 반드시 따라 움직인다.
 
 **미등재.** 아래 TableSpec은 아직 `datamodel.catalog.ALL_TABLES`에 넣지 않았다.
 카탈로그 등재는 실체화 검사·ARCHITECTURE.md 수치 검사와 함께 움직이므로 배선
@@ -30,10 +52,14 @@ G-10 이외 통화"에 걸리므로 과거 5년 실제 금리변동폭(보유기
 지킨다.
 
 **남은 미확인** (1차자료 §C).
-  · 원화 금리변동 예상폭(5년 1%·99%). 시계열 원본이 있어야 산출된다.
-  · 기간가중 표준편차의 산식 이미지는 HWP에서 추출되지 않았다. 원문이 준
-    기간가중평균과 정합한 형태를 쓰며 그 사실을 `std_formula` 컬럼에 남긴다.
-  · 2018-11-13 이후 개정 여부.
+  · `CPR_0`·`TDRR_0` 기준율. 별표가 값을 주지 않고 은행이 과거자료로 통화별·
+    포트폴리오별 산출한다.
+  · 자동금리옵션의 평가모형. 별표는 "완전재평가"만 정하고 모형을 지정하지
+    않는다. 이 모듈은 정규(Bachelier) 모형을 쓰고 그 사실을 `pricing_model`
+    컬럼에 남긴다.
+  · <별표3>(기본자본 정의)·<별표19>(위기상황분석)·<별표23>(공시 세부) 미확보.
+  · 2014년 체계의 원화 금리변동 예상폭(5년 1%·99%). 체계 자체가 폐지됐으므로
+    더 채우지 않는다.
 """
 
 from __future__ import annotations
@@ -48,11 +74,28 @@ import pandas as pd
 
 from risk_lib.alm.behaviour import ParamWarning
 from risk_lib.alm.daycount import DAY_COUNTS, year_fraction
-from risk_lib.alm.params import EVIDENCE_STATUS, SIDES
+from risk_lib.alm.params import EVIDENCE_STATUS, IRRBB_SCENARIOS, RATE_TYPES, SIDES
 from risk_lib.datamodel.spec import ColumnSpec as C, ForeignKey as FK, TableSpec
 
 __all__ = [
-    "KR_FRAMEWORK_VERSION", "KR_SHOCK_METHODS", "KR_ASSET_SHARE_BANDS",
+    # 계정
+    "KR_FRAMEWORK_2026", "KR_FRAMEWORK_2014", "KR_FRAMEWORK_STATUSES",
+    "KR_IS_HEADLINE", "KR_LEGACY_REPEAL_NOTE",
+    # 국내 고유 요건 어휘
+    "KR_NMD_CATEGORIES", "KR_NMD_CATEGORY_TO_D368", "KR_DEPOSITOR_TYPES",
+    "KR_THRESHOLD_COMPARISONS", "KR_BEHAVIOUR_CLASSES", "KR_BEHAVIOUR_TREATMENTS",
+    "KR_OPTION_POSITIONS", "KR_OPTION_TYPES", "KR_VOL_EXPANSION_CODE",
+    "KR_OPTION_WEIGHT_CODE",
+    # 국내 고유 요건 스펙·빌더
+    "KR_RETAIL_CRITERIA", "KR_NMD_CATEGORY", "KR_BEHAVIOURAL_SCOPE",
+    "KR_AUTO_OPTION_PARAM", "KR_AUTO_OPTION", "KR_AUTO_OPTION_RISK",
+    "KR_GOVERNANCE", "KR_NATIONAL_TABLES",
+    "build_kr_retail_criteria", "classify_kr_nmd_category",
+    "build_kr_retail_behavioural_scope", "build_kr_auto_option_param",
+    "bachelier_value", "build_kr_auto_option", "build_kr_auto_option_risk",
+    "build_kr_irrbb_governance", "KR_GOVERNANCE_REQUIREMENTS",
+    # 폐지된 2014년 체계
+    "KR_SHOCK_METHODS", "KR_ASSET_SHARE_BANDS",
     "KR_EXCLUDABLE_ITEMS", "TOTAL_LABEL",
     "KR_BUCKET", "KR_SHOCK_PARAM", "KR_CORE_DEPOSIT_WEIGHT", "KR_CORE_DEPOSIT",
     "KR_GAP", "KR_RESULT", "KR_IRRBB_TABLES",
@@ -63,15 +106,1203 @@ __all__ = [
     "KrIrrbbResult", "compute_kr_irrbb",
 ]
 
-# 계정 식별자. [별표 9의1]은 <신설 2007.12.21, 개정 2010.11.17, 2012.2.14,
-# 2014.12.26>이 마지막으로 확인된 개정이다(1차자료 §B 머리말).
-KR_FRAMEWORK_VERSION = "kr_9_1_2014"
+# 계정 식별자 두 개. 1차자료 §E의 이름을 그대로 쓴다.
+#   2026 = 현행. ΔEVE·ΔNII 체계이며 <표5> 금리충격이 d578과 동일하다.
+#   2014 = 폐지. 금리 EaR·금리 VaR 체계이며 2019.11.29 개정으로 대체됐다.
+KR_FRAMEWORK_2026 = "별표9의1_2026"
+KR_FRAMEWORK_2014 = "별표9의1_2014"
 
-_CITE = "은행업감독업무시행세칙 [별표 9의1] 금리리스크 산출기준"
+KR_FRAMEWORK_STATUSES: tuple[str, ...] = ("현행", "폐지")
+
+# 헤드라인 산출에 쓸 수 있는 계정. 폐지된 계정이 헤드라인으로 올라가는 것을
+# 코드가 막을 수는 없으므로, 최소한 어느 계정이 헤드라인인지를 원장·검사가
+# 읽을 수 있는 자리에 둔다.
+KR_IS_HEADLINE: dict[str, bool] = {
+    KR_FRAMEWORK_2026: True, KR_FRAMEWORK_2014: False}
+
+KR_LEGACY_REPEAL_NOTE = (
+    "폐지된 체계, 이력 보존용. 2019.11.29 개정으로 ΔEVE·ΔNII 체계로 전환됐다. "
+    "헤드라인 산출에 쓰지 않는다")
+
+_CITE = "은행업감독업무시행세칙 [별표 9-1] 금리리스크 산출기준"
+_CITE_2026 = f"{_CITE} <개정 2026.1.29>"
 
 # 1bp = 0.0001. 단위 정의이며 규제 계수가 아니다. 원장 값은 bp로 담고 산식은
 # 비율로 돌기 때문에 환산이 한 번 필요하다.
 _BP = 1.0e-4
+
+# ================================================================ 국내 고유 요건
+#
+# 현행 별표(개정 2026.1.29)가 d578에 **더해** 국내에서만 정한 것. ΔEVE·ΔNII
+# 엔진 본체는 `alm/irrbb.py`·`alm/nii.py`에 있고, 여기는 그 엔진이 읽어야 할
+# 국내 판정과 국내 모수를 원장으로 만든다.
+
+# ---------------------------------------------------------------- 어휘
+
+# 제8항 가의 범주 3종. 별표는 금융기관 예금을 별도 범주로 두지 않는다.
+KR_NMD_CATEGORIES: tuple[str, ...] = ("소매/거래", "소매/비거래", "도매")
+
+# d368 Annex 2 어휘(`params.NMD_CATEGORIES`)와의 대응. 핵심예금 비율·평균만기
+# 상한 원장이 그 어휘로 되어 있으므로 조인 키가 있어야 판정이 상한에 닿는다.
+KR_NMD_CATEGORY_TO_D368: dict[str, str] = {
+    "소매/거래": "retail_transactional",
+    "소매/비거래": "retail_non_transactional",
+    "도매": "wholesale_nonfin",
+}
+
+# 예치인·차주 구분. 제8항 가는 개인과 개인사업자를 나누므로 어휘도 나눈다.
+KR_DEPOSITOR_TYPES: tuple[str, ...] = (
+    "개인", "개인사업자", "법인", "중소기업", "금융기관")
+
+# 기준금액 비교 방향. 제8항은 '미만', 제9항은 '이하'다. 둘을 섞으면 경계에서
+# 한 건씩 어긋난다.
+KR_THRESHOLD_COMPARISONS: tuple[str, ...] = ("미만", "이하")
+
+# 별표가 소매고객에 한정하는 행동옵션 2종(제9·10항). `params.BEHAVIOUR_CLASSES`
+# 의 부분집합이며 같은 문자열을 쓴다.
+KR_BEHAVIOUR_CLASSES: tuple[str, ...] = ("prepayment", "early_redemption")
+
+# 제7항의 표준화 적합도 처리 3종.
+KR_BEHAVIOUR_TREATMENTS: tuple[str, ...] = (
+    "행동옵션", "자동금리옵션", "적합포지션")
+
+KR_OPTION_POSITIONS: tuple[str, ...] = ("매도", "매수")
+KR_OPTION_TYPES: tuple[str, ...] = ("금리캡", "금리플로어")
+
+# 자동금리옵션 모수 코드. 엔진은 코드로 원장을 조회할 뿐 값을 모른다.
+KR_VOL_EXPANSION_CODE = "내재변동성_확대율"
+KR_OPTION_WEIGHT_CODE: dict[str, str] = {
+    "매도": "가치변동_가중_매도", "매수": "가치변동_가중_매수"}
+
+# 소매 유사 간주 규칙 코드.
+KR_RULE_NMD_SME = "NMD_소매유사_중소기업"
+KR_RULE_LOAN_SME = "여신_소매유사_중소기업"
+KR_RULE_TD_SME = "예수금_소매유사_중소기업"
+
+_D368_CATEGORY_VALUES: tuple[str, ...] = tuple(KR_NMD_CATEGORY_TO_D368.values())
+
+
+# ---------------------------------------------------------------- 스펙
+
+KR_RETAIL_CRITERIA = TableSpec(
+    name="kr_retail_criteria", korean="소매 유사 간주 판정기준",
+    product="PRD-ALM",
+    grain="계정 × 판정규칙 1행",
+    columns=(
+        C("framework_version", "string", "계정", nullable=False),
+        C("rule_code", "string", "규칙 코드", nullable=False),
+        C("rule_name", "string", "규칙", nullable=False),
+        C("applies_to", "string", "적용 대상", nullable=False),
+        C("measure", "string", "판정 대상 금액", nullable=False,
+          note="자금조달총액인지 총여신인지가 규칙마다 다르다. 같은 15억원이라도 "
+               "무엇을 재는지가 다르면 걸리는 계좌가 달라진다"),
+        C("threshold_amount", "float", "기준금액", nullable=True, unit="KRW",
+          min_value=0.0,
+          citation=f"{_CITE_2026} 제8항 가 15억원 · 제9항 10억원",
+          note="엔진은 이 칸을 읽을 뿐 값을 모른다. 비어 있으면 소매 유사 "
+               "간주를 적용하지 않고 경고를 남긴다"),
+        C("comparison", "string", "비교 방향", nullable=False,
+          allowed=KR_THRESHOLD_COMPARISONS),
+        C("consolidation_basis", "string", "산정 기준", nullable=False,
+          citation=f"{_CITE_2026} 제8항 가·제9항. 연결기준"),
+        C("citation", "text", "근거", nullable=True),
+        C("evidence_status", "string", "근거 상태", nullable=False,
+          allowed=EVIDENCE_STATUS),
+    ),
+    primary_key=("framework_version", "rule_code"),
+    note="15억원·10억원이 소스가 아니라 원장 행으로 있어야 검증이 그 값을 본다. "
+         "제8항(비만기성예금)과 제10항(기간부예수금)은 15억원 자금조달총액, "
+         "제9항(조기상환 고정금리대출)은 10억원 총여신으로 기준이 다르다.",
+)
+
+KR_NMD_CATEGORY = TableSpec(
+    name="kr_nmd_category", korean="비만기성예금 범주 판정", product="PRD-ALM",
+    grain="기준일 × 예금계좌 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("account_id", "string", "예금계좌", nullable=False),
+        C("framework_version", "string", "계정", nullable=False),
+        C("ccy", "string", "통화", nullable=False),
+        C("depositor_type", "string", "예치인 구분", nullable=False,
+          allowed=KR_DEPOSITOR_TYPES),
+        C("balance", "float", "잔액", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("is_retail_managed", "bool", "소매계정 관리", nullable=True,
+          citation=f"{_CITE_2026} 제8항 가. 중소기업 예금 중 소매계정으로 "
+                   f"관리하는 것에 한한다"),
+        C("funding_total_amount", "float", "자금조달총액", nullable=True,
+          unit="KRW", min_value=0.0,
+          citation=f"{_CITE_2026} 제8항 가. 해당 중소기업으로부터의 자금조달 "
+                   f"총액(연결기준)"),
+        C("has_regular_transaction", "bool", "정기적 거래", nullable=True,
+          citation=f"{_CITE_2026} 제8항 가"),
+        C("is_interest_free", "bool", "무이자", nullable=True,
+          citation=f"{_CITE_2026} 제8항 가. 이자를 지급하지 않으면 거래예금"),
+        C("is_retail", "bool", "소매 여부", nullable=True),
+        C("is_retail_like", "bool", "소매 유사 간주 적용", nullable=False,
+          note="중소기업 예금이 기준금액 판정을 통과해 소매로 들어온 경우만 "
+               "True다. 개인 예치분은 원래 소매이므로 False다"),
+        C("category", "string", "범주", nullable=True,
+          allowed=KR_NMD_CATEGORIES,
+          note="거래/비거래를 가르는 입력이 비면 NULL이다. 조용히 비거래로 "
+               "떨어뜨리지 않는다"),
+        C("d368_category", "string", "d368 범주", nullable=True,
+          allowed=_D368_CATEGORY_VALUES,
+          note="<표3> 상한 원장이 이 어휘로 되어 있어 조인 키가 필요하다"),
+        C("rule_code", "string", "적용 규칙", nullable=True),
+        C("threshold_amount", "float", "적용 기준금액", nullable=True,
+          unit="KRW", min_value=0.0),
+        C("rule_applied", "text", "판정 사유", nullable=False),
+        C("citation", "text", "근거", nullable=True),
+        C("evidence_status", "string", "근거 상태", nullable=False,
+          allowed=EVIDENCE_STATUS),
+    ),
+    primary_key=("asof", "account_id"),
+    foreign_keys=(FK(("framework_version", "rule_code"), "kr_retail_criteria",
+                     ("framework_version", "rule_code")),),
+    note="제8항 가의 5단계 판정을 계좌 단위로 남긴다. 판정 사유가 행마다 있어야 "
+         "어느 계좌가 왜 도매로 갔는지를 검증이 되짚을 수 있다.",
+)
+
+KR_BEHAVIOURAL_SCOPE = TableSpec(
+    name="kr_retail_behavioural_scope", korean="행동옵션 적용 범위 판정",
+    product="PRD-ALM",
+    grain="기준일 × 계약 × 행동옵션 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("contract_id", "string", "계약", nullable=False),
+        C("behaviour_class", "string", "행동옵션", nullable=False,
+          allowed=KR_BEHAVIOUR_CLASSES),
+        C("framework_version", "string", "계정", nullable=False),
+        C("ccy", "string", "통화", nullable=False),
+        C("notional", "float", "잔액", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("customer_type", "string", "고객 구분", nullable=False,
+          allowed=KR_DEPOSITOR_TYPES),
+        C("rate_type", "string", "금리유형", nullable=True,
+          allowed=RATE_TYPES,
+          citation=f"{_CITE_2026} 제9항. 조기상환은 고정금리대출에 한한다"),
+        C("is_retail_managed", "bool", "소매여신·소매계정 관리", nullable=True),
+        C("exposure_amount", "float", "판정 금액", nullable=True, unit="KRW",
+          min_value=0.0,
+          note="조기상환은 총여신, 중도해지는 자금조달총액이다. 어느 쪽인지는 "
+               "exposure_measure가 적는다"),
+        C("exposure_measure", "string", "판정 금액 구분", nullable=True),
+        C("prepay_fee_charged", "bool", "조기상환 비용 고객부과", nullable=True,
+          citation=f"{_CITE_2026} 제9항. 경제적 비용이 고객에게 부과되면 "
+                   f"제외한다"),
+        C("has_legal_termination_right", "bool", "법적 해지권", nullable=True,
+          citation=f"{_CITE_2026} 제10항. 해지할 법적 권한이 없으면 제외한다"),
+        C("substantial_penalty", "bool", "상당한 위약금", nullable=True,
+          citation=f"{_CITE_2026} 제10항. 상당한 위약금이 부과되면 제외한다"),
+        C("is_retail", "bool", "소매고객", nullable=True),
+        C("is_retail_like", "bool", "소매 유사 간주 적용", nullable=False),
+        C("in_scope", "bool", "행동옵션 적용", nullable=True,
+          note="판정에 필요한 입력이 비면 NULL이다. False(적용 안 함)와 다른 "
+               "사건이므로 칸을 나눈다"),
+        C("treatment", "string", "처리", nullable=True,
+          allowed=KR_BEHAVIOUR_TREATMENTS,
+          citation=f"{_CITE_2026} 제7항 나. 도매고객이 보유한 행동옵션은 "
+                   f"자동금리옵션으로 간주한다(제7항 나(2) 단서)"),
+        C("excluded_reason", "text", "제외 사유", nullable=True),
+        C("rule_code", "string", "적용 규칙", nullable=True),
+        C("threshold_amount", "float", "적용 기준금액", nullable=True,
+          unit="KRW", min_value=0.0),
+        C("citation", "text", "근거", nullable=True),
+        C("evidence_status", "string", "근거 상태", nullable=False,
+          allowed=EVIDENCE_STATUS),
+    ),
+    primary_key=("asof", "contract_id", "behaviour_class"),
+    foreign_keys=(FK(("framework_version", "rule_code"), "kr_retail_criteria",
+                     ("framework_version", "rule_code")),),
+    note="제9·10항의 적용 범위를 계약 단위로 남긴다. 범위 밖으로 나간 계약이 "
+         "적합포지션인지 자동금리옵션인지가 treatment로 갈린다 — 도매고객 "
+         "행동옵션은 사라지는 것이 아니라 제11항으로 넘어간다.",
+)
+
+KR_AUTO_OPTION_PARAM = TableSpec(
+    name="kr_auto_option_param", korean="자동금리옵션 모수", product="PRD-ALM",
+    grain="계정 × 모수 1행",
+    columns=(
+        C("framework_version", "string", "계정", nullable=False),
+        C("param_code", "string", "모수 코드", nullable=False),
+        C("param_name", "string", "모수", nullable=False),
+        C("value", "float", "값", nullable=True, unit="ratio",
+          citation=f"{_CITE_2026} 제11항. 내재변동성 25% 확대 가정 하 "
+                   f"완전재평가"),
+        C("value_unit", "string", "값 단위", nullable=False),
+        C("application", "text", "적용 방법", nullable=False),
+        C("citation", "text", "근거", nullable=True),
+        C("evidence_status", "string", "근거 상태", nullable=False,
+          allowed=EVIDENCE_STATUS),
+    ),
+    primary_key=("framework_version", "param_code"),
+    note="25%와 매도·매수 합산부호가 원장 행이다. 엔진은 코드로 조회할 뿐 값을 "
+         "모르므로, 이 원장을 고치면 산출이 반드시 따라 움직인다.",
+)
+
+KR_AUTO_OPTION = TableSpec(
+    name="kr_auto_option", korean="자동금리옵션 재평가", product="PRD-ALM",
+    grain="기준일 × 통화 × 시나리오 × 옵션 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("framework_version", "string", "계정", nullable=False),
+        C("ccy", "string", "통화", nullable=False),
+        C("scenario", "string", "시나리오", nullable=False,
+          allowed=IRRBB_SCENARIOS),
+        C("option_id", "string", "옵션", nullable=False),
+        C("position", "string", "포지션", nullable=False,
+          allowed=KR_OPTION_POSITIONS),
+        C("option_type", "string", "옵션 유형", nullable=False,
+          allowed=KR_OPTION_TYPES),
+        C("notional", "float", "명목금액", nullable=False, unit="KRW",
+          min_value=0.0),
+        C("strike_rate", "float", "행사금리", nullable=False, unit="ratio"),
+        C("expiry_years", "float", "잔존만기", nullable=False, unit="years",
+          min_value=0.0),
+        C("forward_rate_base", "float", "기준 선도금리", nullable=False,
+          unit="ratio"),
+        C("rate_shift", "float", "시나리오 금리충격", nullable=True,
+          unit="ratio"),
+        C("floor_rate", "float", "충격후 금리 하한", nullable=True, unit="ratio",
+          citation=f"{_CITE_2026} 제12항 다. 충격후 금리의 하한은 0으로 한다"),
+        C("forward_rate_shocked", "float", "충격후 선도금리", nullable=True,
+          unit="ratio"),
+        C("implied_vol_base", "float", "기준 내재변동성", nullable=True,
+          unit="정규변동성",
+          note="은행 자체추정값이다. 별표가 값을 주지 않으므로 비어 있으면 "
+               "그 옵션의 재평가를 건너뛴다"),
+        C("vol_expansion", "float", "내재변동성 확대율", nullable=True,
+          unit="ratio"),
+        C("implied_vol_shocked", "float", "확대 내재변동성", nullable=True,
+          unit="정규변동성"),
+        C("discount_factor_base", "float", "기준 할인계수", nullable=False,
+          unit="ratio", min_value=0.0),
+        C("discount_factor_shocked", "float", "충격후 할인계수", nullable=True,
+          unit="ratio", min_value=0.0),
+        C("value_base", "float", "평가기준일 가치", nullable=True, unit="KRW"),
+        C("value_shocked", "float", "시나리오 가치", nullable=True, unit="KRW"),
+        C("delta_value", "float", "가치변동", nullable=True, unit="KRW",
+          citation=f"{_CITE_2026} 제11항. 시나리오 가치에서 평가기준일 현재 "
+                   f"가치를 차감한다"),
+        C("position_weight", "float", "합산 가중", nullable=True, unit="배",
+          note="매도 +1 · 매수 −1. 원장 모수이며 엔진에 부호가 박혀 있지 않다"),
+        C("weighted_delta_value", "float", "가중 가치변동", nullable=True,
+          unit="KRW"),
+        C("pricing_model", "string", "평가모형", nullable=False,
+          note="별표는 '완전재평가'만 정하고 모형을 지정하지 않는다. 어느 "
+               "모형으로 재평가했는지가 행마다 남아야 한다"),
+        C("skip_reason", "text", "미산출 사유", nullable=True),
+        C("citation", "text", "근거", nullable=True),
+        C("evidence_status", "string", "근거 상태", nullable=False,
+          allowed=EVIDENCE_STATUS),
+    ),
+    primary_key=("asof", "ccy", "scenario", "option_id"),
+    note="제11항은 시나리오 수익률곡선에 내재변동성이 25% 확대된다는 가정 하의 "
+         "완전재평가를 요구한다. 곡선 이동만 반영하고 변동성을 그대로 두면 "
+         "그것은 완전재평가가 아니다.",
+)
+
+KR_AUTO_OPTION_RISK = TableSpec(
+    name="kr_auto_option_risk", korean="자동금리옵션 리스크",
+    product="PRD-ALM",
+    grain="기준일 × 통화 × 시나리오 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("framework_version", "string", "계정", nullable=False),
+        C("ccy", "string", "통화", nullable=False),
+        C("scenario", "string", "시나리오", nullable=False,
+          allowed=IRRBB_SCENARIOS),
+        C("n_options", "int", "옵션 건수", nullable=False, min_value=0),
+        C("n_priced", "int", "재평가 건수", nullable=False, min_value=0),
+        C("n_skipped", "int", "미산출 건수", nullable=False, min_value=0),
+        C("sold_delta_sum", "float", "매도 가치변동 합", nullable=True,
+          unit="KRW"),
+        C("bought_delta_sum", "float", "매수 가치변동 합", nullable=True,
+          unit="KRW"),
+        C("auto_option_risk", "float", "자동금리옵션 리스크", nullable=True,
+          unit="KRW",
+          citation=f"{_CITE_2026} 제11항. 매도 옵션 가치변동치 합에서 매수 "
+                   f"옵션 가치변동치 합을 차감한다"),
+        C("is_complete", "bool", "전건 재평가 여부", nullable=False,
+          note="한 건이라도 건너뛰었으면 False다. 그 상태의 합계를 제13항 "
+               "ΔEVE에 그대로 더하면 리스크가 과소계상된다"),
+        C("vol_expansion", "float", "내재변동성 확대율", nullable=True,
+          unit="ratio"),
+        C("citation", "text", "근거", nullable=True),
+        C("evidence_status", "string", "근거 상태", nullable=False,
+          allowed=EVIDENCE_STATUS),
+    ),
+    primary_key=("asof", "ccy", "scenario"),
+    foreign_keys=(FK(("asof", "ccy", "scenario"), "kr_auto_option",
+                     ("asof", "ccy", "scenario")),),
+    note="제13항 나가 시나리오별 EVE 리스크에 더하는 항이다. 통화별·시나리오별 "
+         "1행이며 미산출 건수가 0이 아니면 합계를 신뢰할 수 없다.",
+)
+
+KR_GOVERNANCE = TableSpec(
+    name="kr_irrbb_governance", korean="금리리스크 관리체계 요구사항 추적",
+    product="PRD-ALM",
+    grain="기준일 × 요구사항 1행",
+    columns=(
+        C("asof", "date", "기준일", nullable=False),
+        C("requirement_code", "string", "요구사항 코드", nullable=False),
+        C("framework_version", "string", "계정", nullable=False),
+        C("clause", "string", "조항", nullable=False),
+        C("requirement", "text", "요구사항", nullable=False),
+        C("responsible_body", "string", "수행 주체", nullable=False),
+        C("frequency_text", "string", "요구 주기", nullable=True,
+          citation=f"{_CITE_2026} 제15항 연 2회 이상 · 제16항 나 분기 1회 이상"),
+        C("min_count_per_year", "int", "연간 최소 횟수", nullable=True,
+          min_value=1,
+          note="주기가 횟수로 적힌 요구사항만 값이 있다. NULL이면 횟수로 "
+               "판정하지 않고 입력된 이행 여부를 그대로 싣는다"),
+        C("period_label", "text", "이행 실적 기간", nullable=True),
+        C("count_in_period", "int", "기간 내 이행 횟수", nullable=True,
+          min_value=0),
+        C("is_annual_period", "bool", "연간 기간 여부", nullable=True),
+        C("last_fulfilled_date", "date", "최근 이행일", nullable=True),
+        C("evidence_ref", "text", "증적", nullable=True),
+        C("is_fulfilled", "bool", "이행 여부", nullable=True,
+          note="실적이 입력되지 않았으면 NULL이다. 미입력을 미이행(False)으로 "
+               "적으면 없는 사실을 만드는 것이다"),
+        C("verdict_reason", "text", "판정 사유", nullable=False),
+        C("citation", "text", "근거", nullable=True),
+        C("evidence_status", "string", "근거 상태", nullable=False,
+          allowed=EVIDENCE_STATUS),
+    ),
+    primary_key=("asof", "requirement_code"),
+    note="제16항 라(독립적이면서 전문성을 갖춘 별도의 부서 또는 외부전문가의 "
+         "정기 적합성검증)가 이 저장소 3선 상시 독립검증의 규정 근거다. "
+         "GOV-16-02 행이 그 자리다.",
+)
+
+KR_NATIONAL_TABLES: tuple[TableSpec, ...] = (
+    KR_RETAIL_CRITERIA, KR_NMD_CATEGORY, KR_BEHAVIOURAL_SCOPE,
+    KR_AUTO_OPTION_PARAM, KR_AUTO_OPTION, KR_AUTO_OPTION_RISK, KR_GOVERNANCE,
+)
+
+
+# ---------------------------------------------------------------- 규제표 적재
+#
+# 아래 리터럴이 국내 고유 요건 구역에서 숫자가 있는 유일한 자리다. 판정·재평가
+# 함수는 전부 원장을 인자로 받는다.
+
+# 제8항 가 15억원(자금조달총액, 연결기준, 미만) · 제9항 10억원(총여신,
+# 연결기준, 이하). 제10항은 제8항의 15억원 기준을 그대로 쓴다.
+# (rule_code, rule_name, applies_to, measure, threshold, comparison, clause)
+_RETAIL_CRITERIA_ROWS: tuple[
+    tuple[str, str, str, str, float, str, str], ...] = (
+    (KR_RULE_NMD_SME, "중소기업 예금의 소매 유사 간주", "비만기성예금",
+     "자금조달총액", 1_500_000_000.0, "미만", "제8항 가"),
+    (KR_RULE_LOAN_SME, "중소기업 여신의 소매 유사 간주", "고정금리대출",
+     "총여신", 1_000_000_000.0, "이하", "제9항"),
+    (KR_RULE_TD_SME, "중소기업 예수금의 소매 유사 간주", "기간부예수금",
+     "자금조달총액", 1_500_000_000.0, "미만", "제10항"),
+)
+
+_CONSOLIDATION_BASIS = "연결기준"
+
+# 제11항 내재변동성 25% 확대와 매도·매수 합산부호.
+# (param_code, param_name, value, unit, application)
+_AUTO_OPTION_PARAM_ROWS: tuple[
+    tuple[str, str, float, str, str], ...] = (
+    (KR_VOL_EXPANSION_CODE, "내재변동성 확대율", 0.25, "ratio",
+     "시나리오 재평가 시 내재변동성에 (1 + 확대율)을 곱한다"),
+    (KR_OPTION_WEIGHT_CODE["매도"], "매도 옵션 가치변동 합산 가중", 1.0, "배",
+     "매도 옵션 가치변동치는 그대로 더한다"),
+    (KR_OPTION_WEIGHT_CODE["매수"], "매수 옵션 가치변동 합산 가중", -1.0, "배",
+     "매수 옵션 가치변동치는 차감한다"),
+)
+
+# 제15~20항 관리체계 요구사항.
+# (code, clause, requirement, responsible_body, frequency_text, min_per_year)
+KR_GOVERNANCE_REQUIREMENTS: tuple[
+    tuple[str, str, str, str, str | None, int | None], ...] = (
+    ("GOV-15-01", "제15항",
+     "이사회 또는 위험관리위원회가 금리리스크 관리 전략과 정책을 승인한다",
+     "이사회·위험관리위원회", None, None),
+    ("GOV-15-02", "제15항",
+     "이사회 또는 위험관리위원회가 금리리스크 보고서를 정기적으로 검토한다",
+     "이사회·위험관리위원회", "연 2회 이상", 2),
+    ("GOV-16-01", "제16항 나",
+     "금리리스크를 측정한다. 금리변동이 심한 경우 측정주기를 단축한다",
+     "리스크관리부서", "분기 1회 이상", 4),
+    ("GOV-16-02", "제16항 라",
+     "독립적이면서 전문성을 갖춘 별도의 부서 또는 외부전문가가 모형·가정·"
+     "데이터와 측정시스템 관련 모든 절차·구조의 적합성검증을 실시한다",
+     "독립 검증부서·외부전문가", "정기적", None),
+    ("GOV-17-01", "제17항",
+     "ΔEVE·ΔNII를 포함한 측정결과를 종합해 업무부문별(원화·외화·신탁) 한도를 "
+     "설정하고 필요 시 부서·포트폴리오별로 배분한다",
+     "이사회·위험관리위원회", None, None),
+    ("GOV-17-02", "제17항",
+     "한도 초과 시 원인분석과 대응책(포지션 축소·헤지거래 등)을 마련·운영한다",
+     "리스크관리부서", None, None),
+    ("GOV-18-01", "제18항",
+     "금리리스크 내부자본을 내부자본적정성 평가에 포함한다",
+     "리스크관리부서", None, None),
+    ("GOV-19-01", "제19항",
+     "위기상황분석과 역위기상황분석을 실시한다",
+     "리스크관리부서", None, None),
+    ("GOV-20-01", "제20항",
+     "내부통제체계를 구축하고 내부감사 등 독립조직이 정기적으로 점검한다",
+     "감사부서", None, None),
+)
+
+# 별표가 평가모형을 지정하지 않으므로 어느 모형을 썼는지를 행에 남긴다.
+# 정규(Bachelier) 모형을 쓰는 이유는 제12항 다의 충격후 금리 하한이 0이어서
+# 선도금리가 0에 닿을 수 있고, 로그정규 모형은 그 지점에서 정의되지 않기
+# 때문이다.
+_PRICING_MODEL = "정규(Bachelier) 완전재평가"
+
+
+def build_kr_retail_criteria(
+    *, framework_version: str = KR_FRAMEWORK_2026,
+) -> pd.DataFrame:
+    """제8~10항 소매 유사 간주 기준금액 원장.
+
+    15억원·10억원이 나오는 유일한 자리다. 판정 함수는 이 원장을 인자로 받고
+    기준금액을 컬럼에서 읽으므로, 여기를 고치면 경계 판정이 반드시 따라
+    움직인다.
+    """
+    rows = []
+    for code, name, applies, measure, thr, cmp_, clause in _RETAIL_CRITERIA_ROWS:
+        rows.append({
+            "framework_version": framework_version,
+            "rule_code": code, "rule_name": name, "applies_to": applies,
+            "measure": measure, "threshold_amount": float(thr),
+            "comparison": cmp_, "consolidation_basis": _CONSOLIDATION_BASIS,
+            "citation": f"{_CITE_2026} {clause}",
+            "evidence_status": "원문확인",
+        })
+    return pd.DataFrame(rows).astype({"threshold_amount": "float64"})
+
+
+def build_kr_auto_option_param(
+    *, framework_version: str = KR_FRAMEWORK_2026,
+) -> pd.DataFrame:
+    """제11항 자동금리옵션 모수 원장. 확대율 25%와 매도·매수 합산부호."""
+    rows = []
+    for code, name, value, unit, application in _AUTO_OPTION_PARAM_ROWS:
+        rows.append({
+            "framework_version": framework_version,
+            "param_code": code, "param_name": name, "value": float(value),
+            "value_unit": unit, "application": application,
+            "citation": f"{_CITE_2026} 제11항",
+            "evidence_status": "원문확인",
+        })
+    return pd.DataFrame(rows).astype({"value": "float64"})
+
+
+# ---------------------------------------------------------------- 판정 엔진
+#
+# 이 아래 함수 본문에는 규제 수치가 없다. 기준금액·비교방향·확대율·합산부호는
+# 전부 원장 인자에서 온다.
+
+def _tri(value) -> bool | None:
+    """3값 논리로 읽는다. 결측은 False가 아니라 '모른다'이다."""
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    return bool(value)
+
+
+def _num(value) -> float | None:
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    return float(value)
+
+
+def _criteria_row(criteria: pd.DataFrame, rule_code: str,
+                  framework_version: str) -> pd.Series:
+    hit = criteria[(criteria["framework_version"] == framework_version)
+                   & (criteria["rule_code"] == rule_code)]
+    if len(hit) != 1:
+        raise KeyError(
+            f"kr_retail_criteria에 {framework_version}/{rule_code} 행이 "
+            f"{len(hit)}건이다. 판정 기준금액을 읽을 수 없다")
+    return hit.iloc[0]
+
+
+def _meets_threshold(amount: float | None, threshold: float | None,
+                     comparison: str) -> bool | None:
+    """기준금액 판정. 값이 없으면 판정하지 않고 None을 돌려준다.
+
+    '미만'과 '이하'는 경계에서 결과가 갈린다. 제8항이 미만, 제9항이 이하이며
+    비교 방향도 원장 컬럼에서 온다.
+    """
+    if amount is None or threshold is None:
+        return None
+    if comparison == KR_THRESHOLD_COMPARISONS[0]:
+        return amount < threshold
+    if comparison == KR_THRESHOLD_COMPARISONS[1]:
+        return amount <= threshold
+    raise ValueError(
+        f"비교 방향 {comparison!r}은 {KR_THRESHOLD_COMPARISONS} 중 하나여야 한다")
+
+
+def classify_kr_nmd_category(
+    deposits: pd.DataFrame,
+    criteria: pd.DataFrame,
+    *,
+    asof: str,
+    framework_version: str = KR_FRAMEWORK_2026,
+) -> tuple[pd.DataFrame, list[ParamWarning]]:
+    """제8항 가 비만기성예금 범주 판정.
+
+    판정 순서는 원문 순서를 그대로 따른다.
+
+      1. 개인 예치분은 소매다. 법인·개인사업자·금융기관 예치분은 아니다.
+      2. 중소기업 예금은 소매계정으로 관리하고 자금조달총액이 기준금액 미만일
+         때만 소매 유사로 간주한다.
+      3. 소매 중 정기적 거래가 있거나 무이자면 거래예금, 그 외는 비거래예금.
+      4. 위에 해당하지 않으면 도매예금이다.
+
+    `deposits` 컬럼: `account_id`·`ccy`·`balance`·`depositor_type`·
+    `is_retail_managed`·`funding_total_amount`·`has_regular_transaction`·
+    `is_interest_free`. `asof` 컬럼이 있으면 해당 기준일 행만 읽는다.
+
+    자금조달총액이 비어 있으면 소매 유사 간주를 **적용하지 않고** 경고를
+    남긴다. 그 계좌는 원문 4단계의 잔여규칙에 따라 도매가 되며, 그 사실이
+    `rule_applied`에 적힌다. 거래/비거래를 가르는 두 입력이 모두 비면 범주를
+    NULL로 남긴다.
+    """
+    warns: list[ParamWarning] = []
+    rule = _criteria_row(criteria, KR_RULE_NMD_SME, framework_version)
+    threshold = _num(rule["threshold_amount"])
+    comparison = str(rule["comparison"])
+    if threshold is None:
+        warns.append(ParamWarning(
+            "kr_nmd_category", KR_RULE_NMD_SME, "threshold_amount",
+            "소매 유사 간주 기준금액이 비어 있다. 중소기업 예금을 소매로 "
+            "올리지 않는다"))
+
+    src = deposits[deposits["asof"] == asof] if "asof" in deposits.columns \
+        else deposits
+    bad = sorted({str(t) for t in src["depositor_type"]} - set(KR_DEPOSITOR_TYPES))
+    if bad:
+        raise ValueError(
+            f"예치인 구분에 미지의 값 {bad}. {KR_DEPOSITOR_TYPES} 중 하나여야 한다")
+
+    rows = []
+    for r in src.itertuples():
+        dtype = str(r.depositor_type)
+        managed = _tri(getattr(r, "is_retail_managed", None))
+        funding = _num(getattr(r, "funding_total_amount", None))
+        rule_code = None
+        retail_like = False
+        evidence = "원문확인"
+
+        if dtype == KR_DEPOSITOR_TYPES[0]:          # 개인
+            is_retail: bool | None = True
+            reason = "개인이 예치한 예금이므로 소매다"
+        elif dtype == KR_DEPOSITOR_TYPES[3]:        # 중소기업
+            rule_code = KR_RULE_NMD_SME
+            if managed is not True:
+                is_retail = False
+                reason = ("중소기업 예금이나 소매계정으로 관리하지 않는다. "
+                          "소매 유사 간주를 적용하지 않는다")
+            else:
+                meets = _meets_threshold(funding, threshold, comparison)
+                if meets is None:
+                    is_retail = False
+                    evidence = "미확인"
+                    reason = (f"자금조달총액이 비어 있어 기준금액 판정을 하지 "
+                              f"못했다. 소매 유사 간주를 적용하지 않는다")
+                    warns.append(ParamWarning(
+                        "kr_nmd_category", str(r.account_id),
+                        "funding_total_amount",
+                        "자금조달총액(연결기준)이 비어 있다. 소매 유사 간주를 "
+                        "건너뛰고 잔여규칙에 따라 도매로 둔다"))
+                elif meets:
+                    is_retail = True
+                    retail_like = True
+                    reason = (f"소매계정 관리 중이고 자금조달총액이 기준금액 "
+                              f"{comparison}이므로 소매와 유사한 것으로 본다")
+                else:
+                    is_retail = False
+                    reason = (f"자금조달총액이 기준금액 {comparison}이 아니므로 "
+                              f"소매 유사 간주 대상이 아니다")
+        else:                                        # 개인사업자·법인·금융기관
+            is_retail = False
+            reason = f"{dtype} 예치분은 소매예금에서 제외된다"
+
+        category = None
+        if is_retail:
+            regular = _tri(getattr(r, "has_regular_transaction", None))
+            free = _tri(getattr(r, "is_interest_free", None))
+            if regular is True or free is True:
+                category = KR_NMD_CATEGORIES[0]
+                reason = f"{reason}. 정기적 거래 또는 무이자이므로 거래예금이다"
+            elif regular is None and free is None:
+                evidence = "미확인"
+                reason = (f"{reason}. 정기적 거래·무이자 여부가 모두 비어 있어 "
+                          f"거래/비거래를 가르지 못했다")
+                warns.append(ParamWarning(
+                    "kr_nmd_category", str(r.account_id),
+                    "has_regular_transaction",
+                    "정기적 거래·무이자 여부가 모두 비어 있다. 거래예금 여부를 "
+                    "판정하지 않고 범주를 비운다"))
+            else:
+                category = KR_NMD_CATEGORIES[1]
+                reason = (f"{reason}. 정기적 거래가 없고 이자를 지급하므로 "
+                          f"비거래예금이다")
+        else:
+            category = KR_NMD_CATEGORIES[2]
+            reason = f"{reason}. 잔여규칙에 따라 도매예금이다"
+
+        rows.append({
+            "asof": asof, "account_id": str(r.account_id),
+            "framework_version": framework_version, "ccy": str(r.ccy),
+            "depositor_type": dtype, "balance": float(r.balance),
+            "is_retail_managed": managed, "funding_total_amount": funding,
+            "has_regular_transaction": _tri(
+                getattr(r, "has_regular_transaction", None)),
+            "is_interest_free": _tri(getattr(r, "is_interest_free", None)),
+            "is_retail": is_retail, "is_retail_like": retail_like,
+            "category": category,
+            "d368_category": (None if category is None
+                              else KR_NMD_CATEGORY_TO_D368[category]),
+            "rule_code": rule_code,
+            "threshold_amount": threshold if rule_code else None,
+            "rule_applied": reason,
+            "citation": f"{_CITE_2026} 제8항 가",
+            "evidence_status": evidence,
+        })
+
+    df = pd.DataFrame(rows, columns=[c.name for c in KR_NMD_CATEGORY.columns])
+    return df.astype({"balance": "float64", "funding_total_amount": "float64",
+                      "threshold_amount": "float64",
+                      "is_retail_like": "bool"}), warns
+
+
+def build_kr_retail_behavioural_scope(
+    contracts: pd.DataFrame,
+    criteria: pd.DataFrame,
+    *,
+    asof: str,
+    framework_version: str = KR_FRAMEWORK_2026,
+) -> tuple[pd.DataFrame, list[ParamWarning]]:
+    """제9·10항 행동옵션 적용 범위 판정.
+
+    조기상환(`prepayment`)은 고정금리대출이면서 소매고객이 보유하고 조기상환
+    경제적 비용이 고객에게 부과되지 않을 때만 행동옵션으로 다룬다. 중소기업
+    여신은 소매여신으로 관리 중이고 총여신이 기준금액 이하일 때 소매 유사다.
+
+    중도해지(`early_redemption`)는 예금자에게 법적 해지권이 있고 상당한
+    위약금이 부과되지 않을 때만 행동옵션이다. 중소기업 예수금은 제8항의
+    자금조달총액 기준을 그대로 쓴다.
+
+    **도매고객이 보유한 행동옵션은 자동금리옵션으로 간주한다**(제7항 나(2)
+    단서). 범위 밖으로 나간다고 사라지는 것이 아니라 제11항으로 넘어가므로
+    `treatment`가 그 사실을 적는다.
+
+    `contracts` 컬럼: `contract_id`·`behaviour_class`·`ccy`·`notional`·
+    `customer_type`·`rate_type`·`is_retail_managed`·`exposure_amount`·
+    `prepay_fee_charged`·`has_legal_termination_right`·`substantial_penalty`.
+    """
+    warns: list[ParamWarning] = []
+    rules = {
+        KR_BEHAVIOUR_CLASSES[0]: _criteria_row(criteria, KR_RULE_LOAN_SME,
+                                               framework_version),
+        KR_BEHAVIOUR_CLASSES[1]: _criteria_row(criteria, KR_RULE_TD_SME,
+                                               framework_version),
+    }
+    src = contracts[contracts["asof"] == asof] if "asof" in contracts.columns \
+        else contracts
+    bad = sorted({str(b) for b in src["behaviour_class"]}
+                 - set(KR_BEHAVIOUR_CLASSES))
+    if bad:
+        raise ValueError(
+            f"행동옵션 구분에 미지의 값 {bad}. 별표가 소매고객에 한정하는 것은 "
+            f"{KR_BEHAVIOUR_CLASSES} 두 종이다")
+    bad = sorted({str(t) for t in src["customer_type"]} - set(KR_DEPOSITOR_TYPES))
+    if bad:
+        raise ValueError(f"고객 구분에 미지의 값 {bad}. {KR_DEPOSITOR_TYPES}")
+
+    rows = []
+    for r in src.itertuples():
+        cls = str(r.behaviour_class)
+        rule = rules[cls]
+        threshold = _num(rule["threshold_amount"])
+        comparison = str(rule["comparison"])
+        ctype = str(r.customer_type)
+        managed = _tri(getattr(r, "is_retail_managed", None))
+        exposure = _num(getattr(r, "exposure_amount", None))
+        rate_type = getattr(r, "rate_type", None)
+        rate_type = None if rate_type is None or pd.isna(rate_type) \
+            else str(rate_type)
+
+        rule_code: str | None = None
+        retail_like = False
+        in_scope: bool | None = None
+        treatment: str | None = None
+        excluded: str | None = None
+        evidence = "원문확인"
+
+        # 제9항은 고정금리대출에 한한다. 변동금리 대출에는 조기상환 행동옵션을
+        # 걸 자리가 없으므로 표준화 적합 포지션이다.
+        if cls == KR_BEHAVIOUR_CLASSES[0] and rate_type != RATE_TYPES[0]:
+            is_retail: bool | None = None
+            in_scope = False
+            treatment = KR_BEHAVIOUR_TREATMENTS[2]
+            excluded = (f"금리유형이 {rate_type!r}이다. 제9항은 고정금리대출에 "
+                        f"한한다")
+            rows.append(_scope_row(
+                r, asof=asof, framework_version=framework_version, cls=cls,
+                ctype=ctype, rate_type=rate_type, managed=managed,
+                exposure=exposure, measure=str(rule["measure"]),
+                is_retail=is_retail, retail_like=retail_like,
+                in_scope=in_scope, treatment=treatment, excluded=excluded,
+                rule_code=rule_code, threshold=None, evidence=evidence))
+            continue
+
+        if ctype == KR_DEPOSITOR_TYPES[0]:            # 개인
+            is_retail = True
+        elif ctype == KR_DEPOSITOR_TYPES[3]:          # 중소기업
+            rule_code = rule["rule_code"]
+            if managed is not True:
+                is_retail = False
+            else:
+                meets = _meets_threshold(exposure, threshold, comparison)
+                if meets is None:
+                    is_retail = False
+                    evidence = "미확인"
+                    warns.append(ParamWarning(
+                        "kr_behavioural_scope", str(r.contract_id),
+                        "exposure_amount",
+                        f"{rule['measure']}(연결기준)이 비어 있다. 소매 유사 "
+                        f"간주를 건너뛰고 도매고객으로 둔다"))
+                else:
+                    is_retail = bool(meets)
+                    retail_like = bool(meets)
+        else:
+            is_retail = False
+
+        if not is_retail:
+            # 제7항 나(2) 단서. 도매고객 행동옵션은 자동금리옵션이다.
+            in_scope = False
+            treatment = KR_BEHAVIOUR_TREATMENTS[1]
+            excluded = ("소매고객 보유분이 아니다. 도매고객이 보유한 행동옵션은 "
+                        "자동금리옵션으로 간주한다(제7항 나(2) 단서)")
+        elif cls == KR_BEHAVIOUR_CLASSES[0]:
+            fee = _tri(getattr(r, "prepay_fee_charged", None))
+            if fee is None:
+                evidence = "미확인"
+                warns.append(ParamWarning(
+                    "kr_behavioural_scope", str(r.contract_id),
+                    "prepay_fee_charged",
+                    "조기상환 경제적 비용의 고객부과 여부가 비어 있다. 적용 "
+                    "여부를 판정하지 않는다"))
+            elif fee:
+                in_scope = False
+                treatment = KR_BEHAVIOUR_TREATMENTS[2]
+                excluded = ("조기상환 경제적 비용이 고객에게 부과된다. 제9항 "
+                            "대상이 아니다")
+            else:
+                in_scope = True
+                treatment = KR_BEHAVIOUR_TREATMENTS[0]
+        else:
+            right = _tri(getattr(r, "has_legal_termination_right", None))
+            penalty = _tri(getattr(r, "substantial_penalty", None))
+            if right is False:
+                in_scope = False
+                treatment = KR_BEHAVIOUR_TREATMENTS[2]
+                excluded = "예금자에게 해지할 법적 권한이 없다. 제10항 대상이 아니다"
+            elif penalty is True:
+                in_scope = False
+                treatment = KR_BEHAVIOUR_TREATMENTS[2]
+                excluded = "중도해지 시 상당한 위약금이 부과된다. 제10항 대상이 아니다"
+            elif right is None or penalty is None:
+                evidence = "미확인"
+                warns.append(ParamWarning(
+                    "kr_behavioural_scope", str(r.contract_id),
+                    "has_legal_termination_right",
+                    "법적 해지권 또는 위약금 여부가 비어 있다. 적용 여부를 "
+                    "판정하지 않는다"))
+            else:
+                in_scope = True
+                treatment = KR_BEHAVIOUR_TREATMENTS[0]
+
+        rows.append(_scope_row(
+            r, asof=asof, framework_version=framework_version, cls=cls,
+            ctype=ctype, rate_type=rate_type, managed=managed,
+            exposure=exposure, measure=str(rule["measure"]),
+            is_retail=is_retail, retail_like=retail_like, in_scope=in_scope,
+            treatment=treatment, excluded=excluded, rule_code=rule_code,
+            threshold=threshold if rule_code else None, evidence=evidence))
+
+    df = pd.DataFrame(rows,
+                      columns=[c.name for c in KR_BEHAVIOURAL_SCOPE.columns])
+    return df.astype({"notional": "float64", "exposure_amount": "float64",
+                      "threshold_amount": "float64",
+                      "is_retail_like": "bool"}), warns
+
+
+def _scope_row(r, *, asof: str, framework_version: str, cls: str, ctype: str,
+               rate_type: str | None, managed: bool | None,
+               exposure: float | None, measure: str, is_retail: bool | None,
+               retail_like: bool, in_scope: bool | None,
+               treatment: str | None, excluded: str | None,
+               rule_code: str | None, threshold: float | None,
+               evidence: str) -> dict:
+    """판정 결과 1행. 컬럼 나열을 두 곳에 두지 않으려고 뽑아 둔다."""
+    return {
+        "asof": asof, "contract_id": str(r.contract_id),
+        "behaviour_class": cls, "framework_version": framework_version,
+        "ccy": str(r.ccy), "notional": float(r.notional),
+        "customer_type": ctype, "rate_type": rate_type,
+        "is_retail_managed": managed, "exposure_amount": exposure,
+        "exposure_measure": measure,
+        "prepay_fee_charged": _tri(getattr(r, "prepay_fee_charged", None)),
+        "has_legal_termination_right": _tri(
+            getattr(r, "has_legal_termination_right", None)),
+        "substantial_penalty": _tri(getattr(r, "substantial_penalty", None)),
+        "is_retail": is_retail, "is_retail_like": retail_like,
+        "in_scope": in_scope, "treatment": treatment,
+        "excluded_reason": excluded, "rule_code": rule_code,
+        "threshold_amount": threshold,
+        "citation": f"{_CITE_2026} 제9·10항 · 제7항 나(2) 단서",
+        "evidence_status": evidence,
+    }
+
+
+# ---------------------------------------------------------------- 자동금리옵션
+
+_SQRT_2PI = math.sqrt(2.0 * math.pi)
+
+
+def _norm_cdf(x: float) -> float:
+    return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+
+def _norm_pdf(x: float) -> float:
+    return math.exp(-0.5 * x * x) / _SQRT_2PI
+
+
+def bachelier_value(*, option_type: str, forward: float, strike: float,
+                    vol: float, expiry_years: float, discount_factor: float,
+                    notional: float) -> float:
+    """정규(Bachelier) 모형 옵션가치.
+
+    여기 있는 숫자(0.5·2·1)는 정규분포 밀도·누적분포의 정의이지 규제 계수가
+    아니다. 규제가 정하는 값(확대율 25%, 합산부호)은 이 함수에 들어오지 않고
+    호출부가 원장에서 읽어 인자로 넘긴다.
+
+    로그정규 모형을 쓰지 않는 이유는 제12항 다가 충격후 금리 하한을 0으로
+    정해서 선도금리가 0에 닿을 수 있기 때문이다.
+    """
+    intrinsic = (forward - strike if option_type == KR_OPTION_TYPES[0]
+                 else strike - forward)
+    if expiry_years <= 0.0 or vol <= 0.0:
+        return notional * discount_factor * max(intrinsic, 0.0)
+    s = vol * math.sqrt(expiry_years)
+    d = (forward - strike) / s
+    if option_type == KR_OPTION_TYPES[0]:
+        v = (forward - strike) * _norm_cdf(d) + s * _norm_pdf(d)
+    elif option_type == KR_OPTION_TYPES[1]:
+        v = (strike - forward) * _norm_cdf(-d) + s * _norm_pdf(d)
+    else:
+        raise ValueError(
+            f"옵션 유형 {option_type!r}은 {KR_OPTION_TYPES} 중 하나여야 한다")
+    return notional * discount_factor * v
+
+
+def _param_value(param: pd.DataFrame, code: str,
+                 framework_version: str) -> float | None:
+    hit = param[(param["framework_version"] == framework_version)
+                & (param["param_code"] == code)]
+    if len(hit) != 1:
+        raise KeyError(
+            f"kr_auto_option_param에 {framework_version}/{code} 행이 "
+            f"{len(hit)}건이다. 모수를 읽을 수 없다")
+    return _num(hit.iloc[0]["value"])
+
+
+def build_kr_auto_option(
+    options: pd.DataFrame,
+    shifts: pd.DataFrame,
+    param: pd.DataFrame,
+    *,
+    asof: str,
+    framework_version: str = KR_FRAMEWORK_2026,
+) -> tuple[pd.DataFrame, list[ParamWarning]]:
+    """제11항 자동금리옵션 완전재평가.
+
+    시나리오 수익률곡선에 **내재변동성이 25% 확대**된다는 가정 하에 재평가하고
+    평가기준일 현재 가치를 차감한다. 확대율과 매도·매수 합산부호는 전부
+    `param` 원장에서 읽는다. 이 함수 본문에는 그 숫자가 없다.
+
+    `options` 컬럼: `option_id`·`ccy`·`position`·`option_type`·`notional`·
+    `strike_rate`·`expiry_years`·`forward_rate_base`·`implied_vol_base`·
+    `discount_factor_base`.
+
+    `shifts` 컬럼: `ccy`·`scenario`·`expiry_years`·`rate_shift`·`floor_rate`·
+    `discount_factor_shocked`. 시나리오 곡선에서 뽑은 값이며 `alm/curves.py`가
+    만든다. 옵션 잔존만기와 정확히 맞는 행이 없으면 그 조합을 건너뛴다.
+
+    내재변동성은 은행 자체추정값이고 별표가 값을 주지 않는다. 비어 있으면 그
+    옵션의 재평가를 건너뛰고 경고를 남긴다. 곡선만 움직이고 변동성을 그대로
+    두는 것은 제11항의 완전재평가가 아니다.
+    """
+    warns: list[ParamWarning] = []
+    expansion = _param_value(param, KR_VOL_EXPANSION_CODE, framework_version)
+    weights = {pos: _param_value(param, KR_OPTION_WEIGHT_CODE[pos],
+                                 framework_version)
+               for pos in KR_OPTION_POSITIONS}
+    if expansion is None:
+        warns.append(ParamWarning(
+            "kr_auto_option", framework_version, KR_VOL_EXPANSION_CODE,
+            "내재변동성 확대율이 비어 있다. 제11항의 완전재평가 가정을 세울 수 "
+            "없으므로 재평가하지 않는다"))
+
+    opt = options[options["asof"] == asof] if "asof" in options.columns \
+        else options
+    bad = sorted({str(p) for p in opt["position"]} - set(KR_OPTION_POSITIONS))
+    if bad:
+        raise ValueError(f"포지션에 미지의 값 {bad}. {KR_OPTION_POSITIONS}")
+
+    shift_map = {
+        (str(s.ccy), str(s.scenario), float(s.expiry_years)): s
+        for s in shifts.itertuples()}
+
+    rows = []
+    for r in opt.itertuples():
+        ccy, expiry = str(r.ccy), float(r.expiry_years)
+        position = str(r.position)
+        vol_base = _num(getattr(r, "implied_vol_base", None))
+        weight = weights[position]
+        for sc in IRRBB_SCENARIOS:
+            s = shift_map.get((ccy, sc, expiry))
+            skip: str | None = None
+            if s is None:
+                skip = (f"시나리오 곡선에 ({ccy}, {sc}, {expiry}년) 행이 없다. "
+                        f"충격후 선도금리를 만들 수 없다")
+            elif vol_base is None:
+                skip = "내재변동성이 비어 있다. 은행 자체추정값이 필요하다"
+            elif expansion is None:
+                skip = "내재변동성 확대율이 비어 있다"
+            elif weight is None:
+                skip = f"{position} 합산 가중이 비어 있다"
+
+            shift = None if s is None else _num(s.rate_shift)
+            floor = None if s is None else _num(s.floor_rate)
+            df_shocked = None if s is None else _num(s.discount_factor_shocked)
+            fwd_base = float(r.forward_rate_base)
+            fwd_shocked = vol_shocked = None
+            value_base = value_shocked = delta = weighted = None
+
+            if skip is None:
+                fwd_shocked = fwd_base + shift
+                if floor is not None:
+                    # 제12항 다. 충격후 금리의 하한은 0으로 한다. 하한값 자체는
+                    # 곡선 원장이 들고 오며 여기서 숫자로 적지 않는다.
+                    fwd_shocked = max(fwd_shocked, floor)
+                vol_shocked = vol_base * (1.0 + expansion)
+                value_base = bachelier_value(
+                    option_type=str(r.option_type), forward=fwd_base,
+                    strike=float(r.strike_rate), vol=vol_base,
+                    expiry_years=expiry,
+                    discount_factor=float(r.discount_factor_base),
+                    notional=float(r.notional))
+                value_shocked = bachelier_value(
+                    option_type=str(r.option_type), forward=fwd_shocked,
+                    strike=float(r.strike_rate), vol=vol_shocked,
+                    expiry_years=expiry, discount_factor=df_shocked,
+                    notional=float(r.notional))
+                delta = value_shocked - value_base
+                weighted = weight * delta
+            else:
+                warns.append(ParamWarning(
+                    "kr_auto_option", f"{ccy}/{sc}/{r.option_id}",
+                    "value_shocked", skip))
+
+            rows.append({
+                "asof": asof, "framework_version": framework_version,
+                "ccy": ccy, "scenario": sc, "option_id": str(r.option_id),
+                "position": position, "option_type": str(r.option_type),
+                "notional": float(r.notional),
+                "strike_rate": float(r.strike_rate), "expiry_years": expiry,
+                "forward_rate_base": fwd_base, "rate_shift": shift,
+                "floor_rate": floor, "forward_rate_shocked": fwd_shocked,
+                "implied_vol_base": vol_base, "vol_expansion": expansion,
+                "implied_vol_shocked": vol_shocked,
+                "discount_factor_base": float(r.discount_factor_base),
+                "discount_factor_shocked": df_shocked,
+                "value_base": value_base, "value_shocked": value_shocked,
+                "delta_value": delta, "position_weight": weight,
+                "weighted_delta_value": weighted,
+                "pricing_model": _PRICING_MODEL, "skip_reason": skip,
+                "citation": f"{_CITE_2026} 제11항 · 제12항 다",
+                "evidence_status": "원문확인" if skip is None else "미확인",
+            })
+
+    df = pd.DataFrame(rows, columns=[c.name for c in KR_AUTO_OPTION.columns])
+    floats = ["notional", "strike_rate", "expiry_years", "forward_rate_base",
+              "rate_shift", "floor_rate", "forward_rate_shocked",
+              "implied_vol_base", "vol_expansion", "implied_vol_shocked",
+              "discount_factor_base", "discount_factor_shocked", "value_base",
+              "value_shocked", "delta_value", "position_weight",
+              "weighted_delta_value"]
+    return df.astype({c: "float64" for c in floats}), warns
+
+
+def build_kr_auto_option_risk(
+    detail: pd.DataFrame, *, asof: str,
+    framework_version: str = KR_FRAMEWORK_2026,
+) -> pd.DataFrame:
+    """제11항 총리스크. 매도 가치변동 합에서 매수 가치변동 합을 차감한다.
+
+    차감은 `position_weight`(매도 +1 · 매수 −1)를 곱해 더하는 것으로 끝난다.
+    부호가 원장에 있으므로 이 함수에는 +1도 −1도 없다.
+
+    한 건이라도 재평가를 건너뛰었으면 `is_complete=False`다. 그 상태의 합계를
+    제13항 ΔEVE에 더하면 옵션리스크가 과소계상된다.
+    """
+    rows = []
+    sold, bought = KR_OPTION_POSITIONS
+    for (ccy, sc), grp in detail.groupby(["ccy", "scenario"], sort=True):
+        priced = grp[grp["skip_reason"].isna()]
+        n_skip = len(grp) - len(priced)
+        complete = n_skip == 0 and not grp.empty
+        s_sum = b_sum = total = None
+        if not priced.empty:
+            s_sum = float(priced.loc[priced["position"] == sold,
+                                     "delta_value"].sum())
+            b_sum = float(priced.loc[priced["position"] == bought,
+                                     "delta_value"].sum())
+            total = float(priced["weighted_delta_value"].sum())
+        rows.append({
+            "asof": asof, "framework_version": framework_version,
+            "ccy": str(ccy), "scenario": str(sc),
+            "n_options": len(grp), "n_priced": len(priced),
+            "n_skipped": n_skip,
+            "sold_delta_sum": s_sum, "bought_delta_sum": b_sum,
+            "auto_option_risk": total, "is_complete": complete,
+            "vol_expansion": _num(grp["vol_expansion"].iloc[0]),
+            "citation": f"{_CITE_2026} 제11항",
+            "evidence_status": "원문확인" if complete else "미확인",
+        })
+    df = pd.DataFrame(rows, columns=[c.name for c in KR_AUTO_OPTION_RISK.columns])
+    return df.astype({
+        "n_options": "int64", "n_priced": "int64", "n_skipped": "int64",
+        "sold_delta_sum": "float64", "bought_delta_sum": "float64",
+        "auto_option_risk": "float64", "vol_expansion": "float64",
+        "is_complete": "bool"})
+
+
+# ---------------------------------------------------------------- 관리체계
+
+def build_kr_irrbb_governance(
+    records: pd.DataFrame | None = None,
+    *,
+    asof: str,
+    framework_version: str = KR_FRAMEWORK_2026,
+) -> tuple[pd.DataFrame, list[ParamWarning]]:
+    """제15~20항 관리체계 요구사항 추적 원장.
+
+    요구사항 9건은 규정에서 오고, 이행 실적은 수기입력(`records`)에서 온다.
+    실적이 없는 요구사항은 `is_fulfilled`가 NULL이며 False가 아니다. 미입력을
+    미이행으로 적으면 없는 사실을 만드는 것이고, 미이행을 미입력으로 적으면
+    있는 사실을 지우는 것이다.
+
+    주기가 횟수로 적힌 요구사항(제15항 연 2회 이상, 제16항 나 분기 1회 이상)은
+    엔진이 횟수로 판정한다. 실적 기간이 연간이 아니면 판정을 보류하고 사유를
+    남긴다.
+
+    `records` 컬럼: `requirement_code`·`period_label`·`count_in_period`·
+    `is_annual_period`·`last_fulfilled_date`·`evidence_ref`·`is_fulfilled`.
+    """
+    warns: list[ParamWarning] = []
+    by_code: dict[str, object] = {}
+    if records is not None and not records.empty:
+        known = {code for code, *_ in KR_GOVERNANCE_REQUIREMENTS}
+        unknown = sorted({str(c) for c in records["requirement_code"]} - known)
+        if unknown:
+            raise ValueError(
+                f"이행 실적에 미지의 요구사항 코드 {unknown}. 규정 요구사항은 "
+                f"{sorted(known)}이다")
+        by_code = {str(r.requirement_code): r for r in records.itertuples()}
+
+    rows = []
+    for code, clause, requirement, body, freq, min_n in KR_GOVERNANCE_REQUIREMENTS:
+        rec = by_code.get(code)
+        period = count = annual = last = evidence_ref = None
+        declared: bool | None = None
+        if rec is not None:
+            period = getattr(rec, "period_label", None)
+            period = None if period is None or pd.isna(period) else str(period)
+            c = _num(getattr(rec, "count_in_period", None))
+            count = None if c is None else int(c)
+            annual = _tri(getattr(rec, "is_annual_period", None))
+            last = getattr(rec, "last_fulfilled_date", None)
+            last = None if last is None or pd.isna(last) else str(last)
+            evidence_ref = getattr(rec, "evidence_ref", None)
+            evidence_ref = None if evidence_ref is None or pd.isna(evidence_ref) \
+                else str(evidence_ref)
+            declared = _tri(getattr(rec, "is_fulfilled", None))
+
+        if rec is None:
+            verdict, reason = None, "이행 실적이 입력되지 않았다"
+            warns.append(ParamWarning(
+                "kr_irrbb_governance", code, "records",
+                "이행 실적이 입력되지 않았다. 이행 여부를 판정하지 않는다"))
+        elif min_n is None:
+            verdict = declared
+            reason = ("입력된 이행 여부를 그대로 싣는다. 횟수로 판정하는 "
+                      "요구사항이 아니다" if declared is not None
+                      else "이행 여부가 입력되지 않았다")
+            if declared is None:
+                warns.append(ParamWarning(
+                    "kr_irrbb_governance", code, "is_fulfilled",
+                    "이행 여부가 입력되지 않았다"))
+        elif count is None:
+            verdict, reason = None, "기간 내 이행 횟수가 입력되지 않았다"
+            warns.append(ParamWarning(
+                "kr_irrbb_governance", code, "count_in_period",
+                f"{freq} 요구사항인데 이행 횟수가 비어 있다. 판정하지 않는다"))
+        elif annual is not True:
+            verdict = None
+            reason = (f"실적 기간이 연간이 아니어서 {freq} 판정을 보류한다")
+            warns.append(ParamWarning(
+                "kr_irrbb_governance", code, "is_annual_period",
+                f"실적 기간이 연간이 아니다. {freq} 판정을 보류한다"))
+        else:
+            verdict = count >= min_n
+            reason = (f"연간 이행 횟수 {count}회, 요구 {freq}")
+
+        rows.append({
+            "asof": asof, "requirement_code": code,
+            "framework_version": framework_version, "clause": clause,
+            "requirement": requirement, "responsible_body": body,
+            "frequency_text": freq, "min_count_per_year": min_n,
+            "period_label": period, "count_in_period": count,
+            "is_annual_period": annual, "last_fulfilled_date": last,
+            "evidence_ref": evidence_ref, "is_fulfilled": verdict,
+            "verdict_reason": reason,
+            "citation": f"{_CITE_2026} {clause}",
+            "evidence_status": "원문확인" if verdict is not None else "미확인",
+        })
+
+    df = pd.DataFrame(rows, columns=[c.name for c in KR_GOVERNANCE.columns])
+    return df.astype({"min_count_per_year": "Int64",
+                      "count_in_period": "Int64"}), warns
+
+
+# ================================================================ 폐지된 체계
+#
+# 아래는 2014년 개정본의 금리 EaR·금리 VaR 산출이다. 2019.11.29 개정으로
+# 폐지됐고 헤드라인 산출 경로에서 빠져 있다. 시계열 단절 설명을 위해 남긴다.
 
 KR_SHOCK_METHODS: tuple[str, ...] = ("고정200bp", "5년실측 1%·99%")
 KR_ASSET_SHARE_BANDS: tuple[str, ...] = ("5%이상", "5%미만")
@@ -249,6 +1480,15 @@ KR_RESULT = TableSpec(
     columns=(
         C("asof", "date", "기준일", nullable=False),
         C("framework_version", "string", "계정", nullable=False),
+        C("framework_status", "string", "계정 상태", nullable=False,
+          allowed=KR_FRAMEWORK_STATUSES,
+          citation=f"{_CITE} 표제부 개정 연혁. 2014년 체계는 2019.11.29 "
+                   f"개정으로 폐지됐다",
+          note="이 원장은 폐지된 계정의 산출물이다. 상태가 값과 같은 행에 "
+               "실려야 시계열 단절을 설명할 수 있다"),
+        C("is_headline", "bool", "헤드라인 산출 여부", nullable=False,
+          note="폐지 계정은 항상 False다. 헤드라인 ΔEVE·ΔNII는 alm/irrbb.py와 "
+               "alm/nii.py가 산출한다"),
         C("ccy", "string", "통화", nullable=False),
         C("is_total", "bool", "통화 합산행", nullable=False,
           citation=f"{_CITE} 제9항. 통화별로 산출해 합산한다"),
@@ -289,10 +1529,11 @@ KR_RESULT = TableSpec(
           allowed=EVIDENCE_STATUS),
     ),
     primary_key=("asof", "framework_version", "ccy"),
-    note="금리 EaR·금리 VaR는 부호 있는 값이며 금리 상승(+shock_bp) 방향으로 "
-         "산출한다. 총 금리리스크는 그 크기다. 세칙이 부호 규약을 정하지 "
-         "않으므로 판정에 쓰이는 것이 크기라는 사실을 컬럼으로 나눠 둔다. "
-         "shock_bp가 NULL인 통화는 행이 있으되 산출값이 비어 있다.",
+    note="폐지된 2014년 체계의 산출물이다. 금리 EaR·금리 VaR는 부호 있는 "
+         "값이며 금리 상승(+shock_bp) 방향으로 산출한다. 총 금리리스크는 그 "
+         "크기다. 세칙이 부호 규약을 정하지 않으므로 판정에 쓰이는 것이 "
+         "크기라는 사실을 컬럼으로 나눠 둔다. shock_bp가 NULL인 통화는 행이 "
+         "있으되 산출값이 비어 있다.",
 )
 
 KR_IRRBB_TABLES: tuple[TableSpec, ...] = (
@@ -342,8 +1583,11 @@ _CORE_WEIGHT_MONTHS = 12
 _CORE_WEIGHT_DENOM = 78.0          # Σ_{k=1..12} k
 _CORE_MULTIPLIER = 2.33
 
-# 제27항 아웃라이어 기준. 자기자본의 20%.
+# 2014년 체계 제27항 아웃라이어 기준. 자기자본의 20%. 현행 제21항은 기본자본
+# 15%이므로 두 값을 같은 칸에 넣지 않는다.
 _OUTLIER_PCT_OWN_CAPITAL = 0.20
+# 이 구역의 산출물은 전부 폐지 계정이다. 문자열을 행마다 다시 적지 않는다.
+_LEGACY_STATUS = KR_FRAMEWORK_STATUSES[1]
 _DENOMINATOR_BASIS = "자기자본(세칙 <별표 3>)"
 
 _CORE_SCOPE = ("요구불예금·자유저축예금·기업자유예금(MMDA 제외)·"
@@ -360,7 +1604,7 @@ def build_kr_irrbb_bucket() -> pd.DataFrame:
     rows = []
     for seq, (label, lo, hi, t_mid, md) in enumerate(_KR_BUCKETS, start=1):
         rows.append({
-            "framework_version": KR_FRAMEWORK_VERSION,
+            "framework_version": KR_FRAMEWORK_2014,
             "seq": seq,
             "label": label,
             "lower_years": float(lo),
@@ -422,7 +1666,7 @@ def build_kr_irrbb_shock_param(
                     f"통화는 과거 5년 실제 금리변동폭(보유기간 1년) 분포의 "
                     f"1%·99% 값. 규정이 숫자를 주지 않는다")
         rows.append({
-            "framework_version": KR_FRAMEWORK_VERSION,
+            "framework_version": KR_FRAMEWORK_2014,
             "ccy": ccy,
             "asset_share": share,
             "asset_share_band": band,
@@ -441,7 +1685,7 @@ def build_kr_core_deposit_weight() -> pd.DataFrame:
     rows = []
     for lag in range(_CORE_WEIGHT_MONTHS):
         rows.append({
-            "framework_version": KR_FRAMEWORK_VERSION,
+            "framework_version": KR_FRAMEWORK_2014,
             "lag_months": lag,
             "month_label": "t월" if lag == 0 else f"t-{lag}월",
             "weight": (_CORE_WEIGHT_MONTHS - lag) / _CORE_WEIGHT_DENOM,
@@ -653,7 +1897,7 @@ def build_kr_irrbb_gap(
             a = acc.get((ccy, int(seq), "asset"), 0.0)
             l = acc.get((ccy, int(seq), "liability"), 0.0)
             rows.append({
-                "asof": asof, "framework_version": KR_FRAMEWORK_VERSION,
+                "asof": asof, "framework_version": KR_FRAMEWORK_2014,
                 "ccy": ccy, "seq": int(seq), "label": labels[int(seq)],
                 "rate_sensitive_asset": a, "rate_sensitive_liability": l,
                 "gap_amount": a - l,
@@ -742,24 +1986,30 @@ def build_kr_irrbb_result(
 ) -> tuple[pd.DataFrame, list[ParamWarning]]:
     """통화별 금리 EaR·금리 VaR와 합계행, 자기자본 대비 아웃라이어 판정.
 
+    **폐지된 체계다.** 2019.11.29 개정으로 ΔEVE·ΔNII 체계로 전환됐으므로
+    산출물마다 `framework_status='폐지'`와 경고 한 건이 따라 나간다. 이 값을
+    현행 규제수치로 보고하면 안 된다.
+
     `shock_bp`가 NULL인 통화는 행이 남되 산출값이 비고 경고가 붙는다. 다른
     통화의 200bp를 대입하지 않는다.
 
-    아웃라이어 판정은 **합계행에서만** 한다. 제27항의 기준은 자기자본의 20%이며
-    d368의 기본자본 15%와 분모·비율이 모두 다르다. 그 사실이
-    `denominator_basis`·`outlier_threshold` 컬럼으로 남는다.
+    아웃라이어 판정은 **합계행에서만** 한다. 2014년 체계 제27항의 기준은
+    자기자본의 20%이며 현행 제21항의 기본자본 15%와 분모·비율이 모두 다르다.
+    그 사실이 `denominator_basis`·`outlier_threshold` 컬럼으로 남는다.
     """
     if not own_capital > 0.0:
         raise ValueError(
             f"자기자본이 {own_capital!r}이다. 0 이하로는 자기자본 대비 비율이 "
             "정의되지 않는다")
-    warns: list[ParamWarning] = []
+    warns: list[ParamWarning] = [ParamWarning(
+        "kr_irrbb", KR_FRAMEWORK_2014, "framework_version",
+        KR_LEGACY_REPEAL_NOTE)]
     T = ear_horizon_years(buckets) if horizon_years is None else float(
         horizon_years)
     thr = (_OUTLIER_PCT_OWN_CAPITAL if outlier_threshold is None
            else float(outlier_threshold))
 
-    sp = shock_param[shock_param["framework_version"] == KR_FRAMEWORK_VERSION]
+    sp = shock_param[shock_param["framework_version"] == KR_FRAMEWORK_2014]
     sp_by_ccy = {str(r.ccy): r for r in sp.itertuples()}
     excl_by_ccy: dict[str, float] = {}
     if excluded is not None and not excluded.empty:
@@ -794,7 +2044,9 @@ def build_kr_irrbb_result(
                 tot_var += var
                 n_priced += 1
         rows.append({
-            "asof": asof, "framework_version": KR_FRAMEWORK_VERSION,
+            "asof": asof, "framework_version": KR_FRAMEWORK_2014,
+            "framework_status": _LEGACY_STATUS,
+            "is_headline": KR_IS_HEADLINE[KR_FRAMEWORK_2014],
             "ccy": ccy, "is_total": False,
             "shock_bp": shock_bp, "shock_method": method,
             "horizon_years": T if ear is not None else None,
@@ -812,7 +2064,9 @@ def build_kr_irrbb_result(
     total_risk = abs(tot_var) if n_priced else None
     ratio = None if total_risk is None else total_risk / own_capital
     rows.append({
-        "asof": asof, "framework_version": KR_FRAMEWORK_VERSION,
+        "asof": asof, "framework_version": KR_FRAMEWORK_2014,
+        "framework_status": _LEGACY_STATUS,
+        "is_headline": KR_IS_HEADLINE[KR_FRAMEWORK_2014],
         "ccy": TOTAL_LABEL, "is_total": True,
         "shock_bp": None, "shock_method": None,
         "horizon_years": T if n_priced else None,
@@ -838,7 +2092,7 @@ def build_kr_irrbb_result(
     floats = ["shock_bp", "horizon_years", "ear_amount", "var_amount",
               "total_ir_risk", "own_capital", "risk_to_own_capital",
               "outlier_threshold", "excluded_amount"]
-    return df.astype({c: "float64" for c in floats}), warns
+    return df.astype({c: "float64" for c in floats} | {"is_headline": "bool"}), warns
 
 
 # ---------------------------------------------------------------- 결과 객체

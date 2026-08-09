@@ -3,17 +3,22 @@
 이 파일의 규칙: **통과만으로는 통제가 아니다.** 각 검사는 결함을 되돌렸을 때
 실제로 실패해야 한다.
 
-1차자료(BCBS d368 2016.4 Annex 2, `docs/primary_sources/IRRBB_원문발췌.md`)
-반영으로 이 파일에서 바뀐 것:
+현행 원문 두 종([별표 9-1] 개정 2026.1.29, BCBS d578 2024.7)을 확보해
+`docs/primary_sources/IRRBB_원문발췌.md`에 발췌했다. 그 반영으로 이 파일에서
+바뀐 것:
 
-  · KRW 충격폭 고정값이 200/300/150(USD 프록시)에서 300/400/200(원문 Table 1)이
-    됐다. 프록시 관련 검사는 "프록시를 쓰지 않는다"를 고정하는 검사로 바뀌었다.
-  · 모수 하·상한(100~400 등) clip 검사가 빠졌다. 그 경계는 Table 1 열의
-    최소·최대였을 뿐 규정이 아니고, long 상한 300은 IDR의 원문값 350을 자른다.
-    clip 기능 자체는 남아 있으므로 하·상한을 넣은 원장으로 따로 검사한다.
-  · 충격후 하한은 d368이 각국 재량으로 넘기고 수치를 주지 않는다. 배포 원장은
-    하한을 적용하지 않으며, 하한 산식은 감독당국이 수치를 넣은 원장으로
-    검사한다 — 하한이 무는 커브를 만들어 놓고 확인한다.
+  · 헤드라인 계정이 `d368_2016`에서 `별표9의1_2026`으로 바뀌었다. KRW 충격폭
+    고정값은 300/400/200에서 **225/350/225**가 됐다. 앞의 값은 d578이 대체한
+    폐지값이고, 검사는 계정별로 나눠 두 값을 각각 고정한다.
+  · **충격후 하한이 0이다.** [별표 9-1] 제12항 다가 "충격후 금리의 하한은
+    0으로 한다"고 명시한다. 직전 회차는 "국내도 하한을 규정하지 않는다"고 보고
+    하한을 적용하지 않았는데 그것은 2014년 폐지본을 읽은 결과였다. 국제기준
+    계정(d368·d578)만 여전히 재량·미규정이다.
+  · 계정 상태(`status`) 검사가 늘었다. 폐지 계정(별표9의1_2014)을 고르면
+    산출이 침묵하지 않고 폐지 사유를 낸다.
+  · 모수 하·상한(100~400 등) clip 검사는 여전히 없다. 그 경계는 표의 열별
+    최소·최대였을 뿐 규정이 아니다. clip 기능 자체는 남아 있으므로 하·상한을
+    넣은 원장으로 따로 검사한다.
 """
 
 from __future__ import annotations
@@ -23,16 +28,21 @@ import pandas as pd
 import pytest
 
 from risk_lib.alm.curves import (
-    CURVE_TABLES, Curve, base_curve, build_curve_ledgers,
-    build_post_shock_floor, build_rate_shock_param, build_scenario_def,
-    discount_factors, nii_scenarios, shocked_curve,
+    CURVE_TABLES, HEADLINE_FRAMEWORK_VERSION, Curve, base_curve,
+    build_curve_ledgers, build_post_shock_floor, build_rate_shock_param,
+    build_scenario_def, discount_factors, framework_status, nii_scenarios,
+    shocked_curve,
 )
 from risk_lib.datamodel.spec import validate
 from risk_lib.market_data import demo_market_data
 
 ASOF = "2026-08-08"
 SEED = 42
-FW = "d368_2016"
+# 헤드라인 계정. 이름을 여기 문자열로 다시 적으면 계정 전환이 원장과 검사에서
+# 따로 일어난다.
+FW = HEADLINE_FRAMEWORK_VERSION
+FW_D368 = "d368_2016"
+FW_REPEALED = "별표9의1_2014"
 
 
 # ---------------------------------------------------------------- 도우미
@@ -71,18 +81,20 @@ def _shock(base: Curve, scenario: str, *, ccy: str = "KRW",
         scenario_def=sd, floor=fl if floor is None else floor)
 
 
-def _supervisory_floor(floor_on_bp: int = -100, slope: int = 5,
-                       terminal: float = 20.0) -> pd.DataFrame:
-    """감독당국이 충격후 하한을 고시한 상태의 원장.
+def _sloped_floor(framework_version: str = FW, floor_on_bp: int = -100,
+                  slope: int = 5, terminal: float = 20.0) -> pd.DataFrame:
+    """만기에 따라 올라가는 음수 하한을 넣은 원장 — 산식 검사용.
 
-    d368 자체는 수치를 주지 않으므로 배포 원장의 하한은 비어 있다. 하한 산식이
-    살아 있는지는 값이 든 원장으로만 확인할 수 있다.
+    배포 원장의 국내 하한은 전 만기 0이라 `min(0, ·)`·`terminal` 가지가
+    실행되지 않는다. 산식이 살아 있는지는 기울기가 있는 값으로만 확인된다.
     """
-    return build_post_shock_floor().assign(
-        floor_on_bp=pd.array([floor_on_bp], dtype="Int64"),
-        slope_bp_per_year=pd.array([slope], dtype="Int64"),
-        terminal_tenor_years=float(terminal),
-        evidence_status="원문확인")
+    fl = build_post_shock_floor()
+    m = fl["framework_version"] == framework_version
+    fl.loc[m, "floor_on_bp"] = floor_on_bp
+    fl.loc[m, "slope_bp_per_year"] = slope
+    fl.loc[m, "terminal_tenor_years"] = float(terminal)
+    fl.loc[m, "evidence_status"] = "원문확인"
+    return fl
 
 
 # ---------------------------------------------------------------- 원장
@@ -94,22 +106,55 @@ def test_ledgers_satisfy_their_specs():
         assert not bad, f"{spec.name}: {[str(v) for v in bad]}"
 
 
-def test_d368_table1_is_loaded_for_all_21_currencies():
-    """Annex 2 Table 1 전건 적재. 한 통화만 넣으면 그 통화의 원장이 아니라
+def test_table5_is_loaded_for_all_21_currencies():
+    """[별표 9-1] <표5> 전건 적재. 한 통화만 넣으면 그 통화의 원장이 아니라
     그 통화의 예외가 된다."""
     sp = build_rate_shock_param()
-    d368 = sp[sp["framework_version"] == FW]
-    assert len(set(d368["ccy"])) == 21
-    assert len(d368) == 21 * 3
-    assert set(d368["evidence_status"]) == {"원문확인"}
-    # 원문 표의 네 지점 — KRW·USD·JPY·IDR. IDR long 350은 앞선 회차의 상한
-    # 300에 잘리던 값이라 회귀 검사로 남긴다.
-    want = {"KRW": (300, 400, 200), "USD": (200, 300, 150),
-            "JPY": (100, 100, 100), "IDR": (400, 500, 350)}
+    cur = sp[sp["framework_version"] == FW]
+    assert len(set(cur["ccy"])) == 21
+    assert len(cur) == 21 * 3
+    assert set(cur["evidence_status"]) == {"원문확인"}
+    assert set(cur["effective_from"]) == {"2026-01-29"}
+    # 원문 표의 다섯 지점. KRW는 축마다 개정 방향이 달라 한 축만 보면 완화로
+    # 오독된다 — 평행 −75bp · 단기 −50bp · **장기 +25bp**다.
+    want = {"KRW": (225, 350, 225), "USD": (200, 300, 225),
+            "JPY": (100, 100, 100), "IDR": (400, 500, 300),
+            "MXN": (400, 500, 200)}
     for ccy, (par, sht, lng) in want.items():
-        row = d368[d368["ccy"] == ccy].set_index("shock_type")["shock_bp"]
+        row = cur[cur["ccy"] == ccy].set_index("shock_type")["shock_bp"]
         assert (int(row["parallel"]), int(row["short"]), int(row["long"])) == \
             (par, sht, lng), ccy
+
+
+def test_the_two_current_accounts_agree_on_every_cell():
+    """국내가 d578을 수치 조정 없이 채택했다는 사실을 63칸으로 고정한다.
+
+    한 칸이라도 달라지면 국내 산출과 국제 비교치가 갈라진다.
+    """
+    sp = build_rate_shock_param()
+    key = ["ccy", "shock_type"]
+    kr = sp[sp["framework_version"] == FW].set_index(key)["shock_bp"]
+    bcbs = sp[sp["framework_version"] == "d578_2024"].set_index(key)["shock_bp"]
+    assert len(kr) == 63
+    assert kr.sort_index().equals(bcbs.sort_index())
+
+
+def test_the_repealed_krw_calibration_is_confined_to_the_previous_account():
+    """KRW 300/400/200은 d578이 대체한 값이다 — 현행 계정에 남아 있으면 안 된다.
+
+    직전 회차가 이 값을 헤드라인으로 적재해 두었다. 회귀 검사로 못박는다.
+    """
+    sp = build_rate_shock_param()
+    prev = sp[(sp["framework_version"] == FW_D368) & (sp["ccy"] == "KRW")]
+    got = prev.set_index("shock_type")["shock_bp"]
+    assert (int(got["parallel"]), int(got["short"]), int(got["long"])) == \
+        (300, 400, 200)
+    assert set(prev["status"]) == {"직전"}
+    assert set(prev["superseded_by"]) == {"d578_2024"}
+
+    cur = sp[(sp["framework_version"] == FW) & (sp["ccy"] == "KRW")]
+    assert set(cur["status"]) == {"현행"}
+    assert cur["superseded_by"].isna().all()
 
 
 def test_no_row_borrows_another_currency():
@@ -118,13 +163,23 @@ def test_no_row_borrows_another_currency():
     assert sp["proxy_for_ccy"].isna().all()
 
 
-def test_d578_account_exists_but_is_empty():
-    """신 계정은 행만 있고 값이 없다 — 부재와 공란은 다른 사건이다."""
+def test_the_repealed_2014_account_carries_no_shock_table():
+    """폐지 계정은 값이 아니라 폐지 사실을 담는다.
+
+    2014년판은 금리 EaR·VaR 체계라 통화별 충격표가 존재하지 않는다. 행을
+    남기는 것은 시계열 단절을 설명하기 위해서이고, 값을 채우면 없는 표를
+    만드는 것이 된다.
+    """
     sp = build_rate_shock_param()
-    d578 = sp[sp["framework_version"] == "d578_2024"]
-    assert len(d578) == 3 and d578["shock_bp"].isna().all()
-    assert set(d578["effective_from"]) == {"2026-01-01"}
-    assert set(d578["evidence_status"]) == {"미확인"}
+    old = sp[sp["framework_version"] == FW_REPEALED]
+    assert not old.empty and old["shock_bp"].isna().all()
+    assert set(old["status"]) == {"폐지"}
+    assert set(old["superseded_by"]) == {FW}
+    assert set(old["effective_to"]) == {"2019-11-29"}
+    # 계정 존재와 폐지 사실은 원문에서 읽었다 — 값이 비었다고 미확인이 아니다.
+    assert set(old["evidence_status"]) == {"원문확인"}
+    assert framework_status(sp, FW_REPEALED) == ("폐지", FW)
+    assert framework_status(sp, FW) == ("현행", None)
 
 
 def test_shock_bounds_are_not_invented():
@@ -153,7 +208,7 @@ def test_scenario_def_carries_the_coefficients_that_were_in_the_function_body():
 
 
 def test_rotation_scenarios_reproduce_the_source_worked_example():
-    """BCBS d368 Annex 2의 검산 예시를 그대로 고정한다.
+    """원문의 검산 예시를 그대로 고정한다 ([별표 9-1] 제12항 나 = d578 SRP31.91).
 
     t=3.5Y, R_short=R_long=100bp, S_short(3.5)=e^{−3.5/4}=0.417일 때
       steepener = −0.65·100·0.417 + 0.90·100·(1−0.417) = +25.4bp
@@ -166,6 +221,7 @@ def test_rotation_scenarios_reproduce_the_source_worked_example():
                  zero_rates=np.zeros_like(t))
     sp = pd.DataFrame([{
         "framework_version": FW, "ccy": "TST", "shock_type": st,
+        "status": "현행", "superseded_by": None,
         "effective_from": None, "effective_to": None, "shock_bp": 100,
         "floor_bp": None, "cap_bp": None, "proxy_for_ccy": None,
         "source_ref": "검산용", "evidence_status": "원문확인",

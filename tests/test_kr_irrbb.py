@@ -1,16 +1,22 @@
-"""[별표 9의1] 국내 금리리스크 산출기준. 불변식 고정.
+"""[별표 9-1] 국내 고유 요건과 폐지된 2014년 체계. 불변식 고정.
 
 이 파일의 규칙: 통과만으로는 통제가 아니다. 각 검사는 결함을 되돌렸을 때 실제로
-실패해야 한다. 네 검사가 규정을 직접 겨냥한다.
+실패해야 한다. 규정을 직접 겨냥하는 검사는 아래와 같다.
 
+  · `test_the_2014_framework_is_out_of_the_headline_path`
+    2014년 체계는 2019.11.29 개정으로 폐지됐다. 파이프라인이 이 모듈을 부르면
+    폐지된 수치가 헤드라인으로 올라간다.
+  · `test_sme_deposit_is_retail_only_below_the_ledger_threshold`
+    제8항 가는 15억원 **미만**이다. 경계값 15억원은 소매가 아니다.
+  · `test_sme_loan_is_retail_only_at_or_below_the_ledger_threshold`
+    제9항은 10억원 **이하**다. 경계값 10억원은 소매다. 두 조항의 비교 방향이
+    다르므로 한쪽을 복사하면 경계에서 한 건씩 어긋난다.
+  · `test_wholesale_behavioural_options_become_automatic_options`
+    제7항 나(2) 단서. 도매고객 행동옵션은 사라지지 않고 제11항으로 넘어간다.
+  · `test_volatility_expansion_comes_from_the_param_ledger`
+    확대율이 소스에 박혀 있으면 원장을 고쳐도 재평가가 움직이지 않는다.
   · `test_ear_ignores_buckets_beyond_one_year`
-    금리 EaR은 만기구간 1년 이하만 쓴다(제7항). 1년 초과 갭을 키워도 EaR이
-    움직이면 대상 구간이 잘못 걸린 것이다.
-  · `test_krw_without_a_measured_shock_stays_empty`
-    원화는 <표 3> 둘째 줄이라 고정 bp가 없다. 200bp가 조용히 대입되면 규정이
-    아니라 다른 줄의 값이 산출에 들어간 것이다.
-  · `test_outlier_uses_own_capital_at_twenty_percent`
-    분모가 자기자본이고 기준이 20%다. d368의 기본자본 15%와 다르다.
+    금리 EaR은 만기구간 1년 이하만 쓴다(2014년 체계 제7항).
   · `test_engine_functions_carry_no_numeric_constants`
     중간시점·수정듀레이션이 원장에서 와야 버킷을 바꿨을 때 산출이 따라 움직인다.
 """
@@ -21,19 +27,25 @@ import ast
 import inspect
 import math
 import textwrap
+from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from risk_lib.alm import kr_irrbb as K
-from risk_lib.alm.balance_sheet import generate_balance_sheet
 from risk_lib.alm.contracts import build_contract_ledger
+from risk_lib.alm.params import IRRBB_SCENARIOS
 from risk_lib.data_gen import generate_portfolio
 from risk_lib.datamodel.spec import check_refs, validate
 
 ASOF = "2026-08-08"
 SEED = 42
-FW = K.KR_FRAMEWORK_VERSION
+FW = K.KR_FRAMEWORK_2014
+
+# 제8항 가 15억원(미만) · 제9항 10억원(이하). 검사가 원장 값을 직접 대조한다.
+NMD_THRESHOLD = 1_500_000_000.0
+LOAN_THRESHOLD = 1_000_000_000.0
+VOL_EXPANSION = 0.25
 
 # <표 2> 원문값. 원장이 이 값을 담고 있는지를 검사가 직접 대조한다.
 T_MID = [0.042, 0.167, 0.375, 0.75, 1.5, 2.5, 3.5, 4.5, 6.0, 8.5, 12.5,
@@ -533,20 +545,26 @@ def test_contract_ledger_path_is_deterministic_for_the_same_asof_and_seed():
                   9.0e11, 8.9e11, 9.1e11, 9.0e11, 8.8e11, 9.2e11]),
         K.build_kr_core_deposit_weight(), asof=ASOF)
 
-    def _run() -> tuple[K.KrIrrbbResult, float]:
+    # 조달·HQLA·자기자본은 값을 직접 준다. 대차대조표 합성기를 거치면 이 검사가
+    # 결정론이 아니라 그 모듈의 상태를 재는 검사가 된다.
+    funding = {"retail_stable": 4.0e11, "retail_less_stable": 2.0e11,
+               "corporate_operational": 1.5e11,
+               "corporate_non_operational": 1.0e11,
+               "wholesale_fi_lt6m": 5.0e10, "wholesale_fi_6to12m": 3.0e10,
+               "funding_gt1y": 7.0e10}
+    hqla = {"level_1": 2.0e11, "level_2a": 5.0e10, "level_2b": 2.0e10}
+    equity = 9.0e10
+
+    def _run() -> K.KrIrrbbResult:
         pf = generate_portfolio(n_corporate=40, n_retail=60, n_mortgage=20,
                                 n_sovereign=3, n_bank=3, seed=SEED)
-        bs = generate_balance_sheet(
-            pf, capital_total=float(pf["ead"].sum()) * 0.14, seed=SEED)
-        con = build_contract_ledger(pf, asof=ASOF, funding=bs.funding,
-                                    hqla=bs.hqla, equity=bs.equity,
-                                    base_rate=0.03, seed=SEED)
-        res = K.compute_kr_irrbb(
+        con = build_contract_ledger(pf, asof=ASOF, funding=funding, hqla=hqla,
+                                    equity=equity, base_rate=0.03, seed=SEED)
+        return K.compute_kr_irrbb(
             con, b, _shock({"KRW": 250.0}), asof=ASOF,
-            own_capital=float(bs.equity), core_deposit=core)
-        return res, float(bs.equity)
+            own_capital=equity, core_deposit=core)
 
-    (r1, equity), (r2, _eq2) = _run(), _run()
+    r1, r2 = _run(), _run()
     assert r1.gap.to_csv(index=False) == r2.gap.to_csv(index=False)
     assert r1.result.to_csv(index=False) == r2.result.to_csv(index=False)
 

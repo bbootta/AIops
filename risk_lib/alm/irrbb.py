@@ -34,22 +34,31 @@
 `pct_tier1`과 항상 양수인 `worst_pct_tier1`이 같은 이름으로 두 화면에 나가
 반대 규약으로 그려지고 있었다.
 
-**아웃라이어 기준은 원문확인이다.** BCBS d368 §88은 6개 표준 시나리오 하의
-최대 ΔEVE를 **기본자본(Tier 1)의 15%**와 비교하는 시험을 최소 하나 두라고
-적는다(1차자료 §A-5). 분모는 총자기자본이 아니다. 따라서 `outlier_threshold`
-기본값이 그 15%이고 `outlier_test_pass`가 실제로 판정된다. 판정을 끄고
-싶으면 호출부가 `outlier_threshold=None`을 명시해야 하며, 그때는 판정하지
-않았다는 사실이 NULL로 남는다.
+**통화 간 상계를 허용하지 않는다.** [별표 9-1] 제13항 다는 "각 통화별로 EVE
+리스크가 손실일 경우만 합산하여 금리충격 시나리오에 대한 EVE 리스크를
+산출한다"고 적는다. 이익이 난 통화는 버린다. 직전 회차는
+`groupby(['basis','scenario'])` 단순 합산이라 이익 통화가 손실 통화를 상계해
+총리스크를 과소산출했다. 지금은 통화별로 먼저 접고 손실만 더하며, 상계 허용
+시의 값을 `delta_eve_gross`에 남겨 두 값의 차이가 원장에서 읽히게 한다.
 
-국내 [별표 9의1] 제27항은 **자기자본의 20%**를 쓰고 지표도 금리 VaR이다.
-분모·비율·지표가 모두 다르므로 두 기준을 같은 칸에 섞지 않는다.
+**아웃라이어 기준은 원문확인이다.** [별표 9-1] 제21항 나는 ΔEVE로 산출한 총
+금리리스크가 **기본자본(Tier 1)의 15%**를 초과하면 금리리스크가 과도한 것으로
+간주한다고 적는다. 분모는 총자기자본이 아니다. 제21항 다는 초과 시 원인과
+대책을 감독원장에게 보고할 의무를 둔다 — 그 의무를 `outlier_duty` 컬럼으로
+원장에 싣는다. 판정을 끄고 싶으면 호출부가 `outlier_threshold=None`을 명시해야
+하며, 그때는 판정하지 않았다는 사실이 NULL로 남는다.
+
+직전 회차가 "국내 [별표 9의1] 제27항은 자기자본의 20%이고 지표도 금리 VaR"
+이라고 적어 둔 것은 2014년 개정본이며 2019.11.29. 개정으로 폐지됐다. 현행
+국내기준과 BCBS 기준이 같은 15%·기본자본이다.
 
 **계승 경로.** `compute_irrbb(repricing, tier1)`은 갭 사다리를 받는 기존
 호출부(`pipeline.py:595`)를 위해 남긴다. 갭을 버킷 현금흐름 모양으로 옮겨
 같은 엔진에 태우고, 원장 두 장과 `by_scenario`·`worst_eve`가 함께 나온다
 (`materialize.py:327,342`의 폴백 결함 해소). 평면 곡선을 쓴다는 사실은 결과의
-`warnings`에 실린다. 산출 **수준**은 1차자료 반영으로 커졌다 — KRW 충격폭이
-USD 프록시 200/300/150에서 원문값 300/400/200으로 올라갔기 때문이다.
+`warnings`에 실린다. 계승 경로의 계정도 현행 [별표 9-1] 2026이며, KRW 충격폭은
+평행 225 · 단기 350 · 장기 225다. 직전 회차가 쓰던 300/400/200은 d578이 대체한
+폐지값이다.
 
 **미등재.** 아래 TableSpec 2장은 아직 `datamodel.catalog.ALL_TABLES`에 넣지
 않았다 — 카탈로그 등재는 실체화·ARCHITECTURE.md 수치 검사와 함께 움직이므로
@@ -66,13 +75,15 @@ import pandas as pd
 from risk_lib.alm.behaviour import ParamWarning
 from risk_lib.alm.cashflow import BASES
 from risk_lib.alm.curves import (
-    Curve, ShockedCurve, build_post_shock_floor, build_rate_shock_param,
-    build_scenario_def, discount_factors, nii_scenarios, shocked_curve,
+    FRAMEWORK_STATUSES, HEADLINE_FRAMEWORK_VERSION, Curve, ShockedCurve,
+    build_post_shock_floor, build_rate_shock_param, build_scenario_def,
+    discount_factors, framework_status, nii_scenarios, shocked_curve,
 )
 from risk_lib.alm.params import EVIDENCE_STATUS, IRRBB_SCENARIOS, SIDES
 from risk_lib.datamodel.spec import ColumnSpec as C, ForeignKey as FK, TableSpec
 from risk_lib.references import (
-    IRRBB_EARLY_WARNING_PCT_TIER1, IRRBB_OUTLIER_EVE_PCT_TIER1,
+    IRRBB_EARLY_WARNING_PCT_TIER1, IRRBB_OUTLIER_DUTY,
+    IRRBB_OUTLIER_EVE_PCT_TIER1,
 )
 
 __all__ = [
@@ -101,12 +112,13 @@ MARGIN_EVE_AND_NII = "ΔEVE 마진제외 · ΔNII 마진포함"
 RESULT_MARGIN_TREATMENTS = (MARGIN_EVE_ONLY, MARGIN_EVE_AND_NII)
 
 _EVE_CITATION = (
-    "BCBS d368 (2016.4) — ΔEVE는 무위험 곡선으로 할인하고 현금흐름에서 상업마진을 "
-    "제외한다 / §88 아웃라이어 시험(최대 ΔEVE 대 기본자본(Tier 1)의 15%, "
-    "1차자료 §A-5 원문확인)")
+    "[별표 9-1] 제13항 (개정 2026.1.29) — 만기구간별 현금흐름을 충격후 금리로 "
+    "연속복리 할인하고, 각 통화별 EVE 리스크가 손실일 경우만 합산하며(다), "
+    "6개 시나리오 중 최대값이 최종 ΔEVE다(라). 현금흐름에서 상업마진 제외는 "
+    "BCBS d368 §132(3). 아웃라이어 시험은 제21항 나(기본자본의 15%)")
 
 # 계승 경로 전용 상수. 새 엔진은 커브를 인자로 받으므로 여기 말고는 쓰이지 않는다.
-_LEGACY_FRAMEWORK = "d368_2016"
+_LEGACY_FRAMEWORK = HEADLINE_FRAMEWORK_VERSION
 _LEGACY_CCY = "KRW"
 # 현행 `compute_irrbb(base_rate=0.03)`의 함수 기본값을 그대로 옮긴 값이다.
 # 파이프라인이 `mkt_risk_factor` 커브를 넘기기 시작하면 이 상수는 사라진다.
@@ -167,7 +179,15 @@ IRRBB_RESULT = TableSpec(
         C("scenario", "string", "시나리오", nullable=False,
           allowed=IRRBB_SCENARIOS),
         C("delta_eve", "float", "ΔEVE", nullable=False, unit="KRW",
-          note="부호 있음 — 손실이 음수다"),
+          citation="[별표 9-1] 제13항 다 — 각 통화별 EVE 리스크가 손실일 "
+                   "경우만 합산한다. 통화 간 상계를 허용하지 않는다",
+          note="부호 있음 — 손실이 음수다. 이익이 난 통화는 합산에서 빠지므로 "
+               "전 통화가 이익인 시나리오는 0이다"),
+        C("delta_eve_gross", "float", "ΔEVE (통화 상계 허용)", nullable=False,
+          unit="KRW",
+          note="통화별 값을 부호 그대로 더한 값. 규정 산출값이 아니라 대조용 "
+               "이다. delta_eve − delta_eve_gross가 상계 금지로 버린 이익 "
+               "금액이며, 이 두 칸이 같으면 이익 통화가 없었다는 뜻이다"),
         C("delta_eve_to_tier1", "float", "ΔEVE / 기본자본", nullable=False,
           unit="ratio", note="부호 있음. 감소율은 뷰에서 −값을 취해 만든다"),
         C("delta_nii", "float", "ΔNII (12개월)", nullable=True, unit="KRW",
@@ -177,16 +197,26 @@ IRRBB_RESULT = TableSpec(
         C("is_worst", "bool", "최악 시나리오", nullable=False,
           note="산출기준별로 delta_eve 최솟값 1개. 부호 절단 전에 정한다"),
         C("outlier_test_pass", "bool", "아웃라이어 기준 충족", nullable=True,
-          citation="BCBS d368 (2016.4) §88 — 최대 ΔEVE 대 기본자본(Tier 1)의 "
-                   "15%. 국내 [별표 9의1] 제27항은 자기자본의 20%이고 지표도 "
-                   "금리 VaR이라 같은 칸에 넣지 않는다",
+          citation="[별표 9-1] 제21항 나 (개정 2026.1.29) — ΔEVE에 의하여 "
+                   "산출한 총 금리리스크가 세칙 <별표3>에서 정하는 기본자본의 "
+                   "15%를 초과하는 은행은 금리리스크가 과도한 것으로 간주",
           note="호출부가 outlier_threshold=None을 명시하면 판정하지 않고 "
                "NULL이 남는다"),
+        C("outlier_duty", "text", "초과 시 조치의무", nullable=True,
+          citation="[별표 9-1] 제21항 나·다 — 헤지·포지션 조정 또는 추가 "
+                   "자기자본 보유, 그리고 초과 원인·대책의 감독원장 보고",
+          note="기준을 넘긴 행에만 채운다. 판정만 남기고 의무를 남기지 않으면 "
+               "결재선이 무엇을 해야 하는지가 산출물 밖에 있게 된다"),
         C("margin_treatment", "string", "마진 처리", nullable=False,
           allowed=RESULT_MARGIN_TREATMENTS,
           citation="BCBS d368 §132(3) 제외 / EBA GL 2022-14 포함 — 두 지표가 "
                    "반대로 취급한다"),
         C("framework_version", "string", "충격 모수 계정", nullable=False),
+        C("framework_status", "string", "계정 시행 상태", nullable=False,
+          allowed=FRAMEWORK_STATUSES,
+          note="'현행'이 아닌 계정으로 낸 수치가 현행 수치와 같은 칸에 놓이면 "
+               "구별되지 않는다. 폐지 계정(별표9의1_2014)을 고르면 이 칸이 "
+               "'폐지'이고 산출 경고에 폐지 사유가 남는다"),
         C("shock_source", "string", "충격 모수 출처", nullable=False,
           note="'직접' — 통화 자기 행의 충격폭을 썼다는 뜻이다. 프록시 경로는 "
                "1차자료로 21개 통화 충격폭이 확정된 뒤 제거했다"),
@@ -195,9 +225,9 @@ IRRBB_RESULT = TableSpec(
           allowed=EVIDENCE_STATUS),
     ),
     primary_key=("asof", "basis", "scenario"),
-    note="ΔEVE는 무위험 할인 + 마진 제외, ΔNII는 마진 포함이다. 통화 간 집계 "
-         "가중치가 미확인이므로 통화별 ΔEVE를 단순 합산하며, 그 사실을 여기 "
-         "적어 둔다(설계 §5.11).",
+    note="ΔEVE는 무위험 할인 + 마진 제외, ΔNII는 마진 포함이다. 통화 간 합산은 "
+         "제13항 다에 따라 손실 통화만 더하며 상계를 허용하지 않는다. 상계를 "
+         "허용했을 때의 값은 delta_eve_gross에 남는다.",
 )
 
 IRRBB_TABLES: tuple[TableSpec, ...] = (IRRBB_BUCKET_PV, IRRBB_RESULT)
@@ -259,7 +289,8 @@ class IRRBBResult:
         return self.worst_eve_decline / self.tier1
 
     def outlier(self) -> bool:
-        """아웃라이어 여부 — 최대 ΔEVE 감소가 기본자본의 15%를 넘는가.
+        """아웃라이어 여부 — 총 금리리스크가 기본자본의 15%를 넘는가
+        ([별표 9-1] 제21항 나).
 
         원장의 `outlier_test_pass`가 같은 기준으로 판정하므로 두 자리가 하나다
         (기준이 원문확인이 되기 전에는 원장이 NULL이고 이 메서드만 판정했다).
@@ -434,22 +465,43 @@ def build_bucket_pv(
 
 # ---------------------------------------------------------------- 결과 원장
 
+def _aggregate_across_currencies(bucket_pv: pd.DataFrame) -> pd.DataFrame:
+    """통화별로 먼저 접고 **손실 통화만** 더한다 ([별표 9-1] 제13항 다).
+
+    "각 통화별로 EVE 리스크가 손실일 경우만 합산"이므로 이익이 난 통화는
+    버린다. 통화 축을 접기 전에 합산하면 이익 통화가 손실 통화를 상계해
+    총 금리리스크가 과소산출되고, 아웃라이어 판정이 그만큼 느슨해진다.
+
+    상계를 허용했을 때의 값(`delta_eve_gross`)을 함께 돌려준다. 두 값이 같으면
+    이익 통화가 없었다는 뜻이고, 다르면 그 차이가 규정이 버리라고 한 금액이다.
+    """
+    per_ccy = (bucket_pv.groupby(["basis", "scenario", "ccy"],
+                                 as_index=False)["delta_pv"].sum())
+    # delta_pv는 충격후 PV − 기저 PV이므로 손실이 음수다. 손실 통화만 남기려면
+    # 양수(이익)를 0으로 자른다.
+    per_ccy["loss_only"] = per_ccy["delta_pv"].clip(upper=0.0)
+    return (per_ccy.groupby(["basis", "scenario"], as_index=False)
+            .agg(delta_eve=("loss_only", "sum"),
+                 delta_eve_gross=("delta_pv", "sum")))
+
+
 def build_irrbb_result(
     bucket_pv: pd.DataFrame, *, asof: str | None, tier1: float,
     framework_version: str, shock_source: dict[str, str],
     delta_nii: pd.DataFrame | None = None,
     outlier_threshold: float | None = IRRBB_OUTLIER_EVE_PCT_TIER1,
     outlier_evidence: str = "원문확인",
+    framework_status: str = "현행",
 ) -> pd.DataFrame:
     """`alm_irrbb_result` — 버킷 ΔPV를 산출기준 × 시나리오로 접는다.
 
     `tier1 ≤ 0` 가드가 있다. 현행 `irrbb.py:119`는 방어 없이 나누므로 자본이
     소진된 스트레스 경로에서 0나눗셈이 난다.
 
-    아웃라이어 판정 기본값은 BCBS d368 §88의 기본자본 15%다(1차자료 §A-5).
-    `outlier_threshold=None`을 명시하면 판정하지 않고 NULL이 남는다 — 다른
-    기준(예: 국내 [별표 9의1] 제27항의 자기자본 20%)을 적용해야 하는데 그
-    산출체계가 아직 없을 때 쓰는 경로다.
+    통화 간 합산은 제13항 다를 따른다 — 손실 통화만 더하고 이익 통화는 버린다.
+
+    아웃라이어 판정 기본값은 [별표 9-1] 제21항 나의 기본자본 15%다.
+    `outlier_threshold=None`을 명시하면 판정하지 않고 NULL이 남는다.
     """
     if not tier1 > 0:
         raise ValueError(
@@ -458,8 +510,7 @@ def build_irrbb_result(
     if bucket_pv.empty:
         return pd.DataFrame(columns=list(IRRBB_RESULT.column_names))
 
-    g = (bucket_pv.groupby(["basis", "scenario"], as_index=False)["delta_pv"]
-         .sum().rename(columns={"delta_pv": "delta_eve"}))
+    g = _aggregate_across_currencies(bucket_pv)
     g["_order"] = g["scenario"].map({s: i for i, s in enumerate(SCENARIOS)})
     g = g.sort_values(["basis", "_order"]).reset_index(drop=True)
     g["asof"], g["tier1"] = asof, float(tier1)
@@ -481,11 +532,18 @@ def build_irrbb_result(
 
     if outlier_threshold is None:
         g["outlier_test_pass"] = pd.array([None] * len(g), dtype="boolean")
+        g["outlier_duty"] = None
     else:
         g["outlier_test_pass"] = pd.array(
             -g["delta_eve_to_tier1"] <= float(outlier_threshold),
             dtype="boolean")
+        # 의무는 초과한 행에만 붙인다. 전 행에 붙이면 어느 시나리오가 실제로
+        # 보고 대상인지가 보이지 않는다.
+        g["outlier_duty"] = np.where(
+            g["outlier_test_pass"].to_numpy(dtype=bool),
+            None, IRRBB_OUTLIER_DUTY)
     g["framework_version"] = framework_version
+    g["framework_status"] = framework_status
     g["shock_source"] = g["scenario"].map(shock_source)
     g["citation"], g["evidence_status"] = _EVE_CITATION, outlier_evidence
     return g[list(IRRBB_RESULT.column_names)].reset_index(drop=True)
@@ -535,6 +593,7 @@ def compute_irrbb_from_cashflows(
     """
     if headline_basis not in BASES:
         raise ValueError(f"산출기준은 {BASES} 중 하나여야 한다: {headline_basis!r}")
+    status, _superseded = framework_status(shock_param, framework_version)
     shocked, warns = build_shocked_curves(
         curves, scenarios=SCENARIOS, shock_param=shock_param,
         scenario_def=scenario_def, floor=floor,
@@ -554,7 +613,7 @@ def compute_irrbb_from_cashflows(
         bucket_pv, asof=asof, tier1=tier1,
         framework_version=framework_version, shock_source=source,
         delta_nii=delta_nii, outlier_threshold=outlier_threshold,
-        outlier_evidence=outlier_evidence)
+        outlier_evidence=outlier_evidence, framework_status=status)
     worst = str(worst_row(result, basis=headline_basis)["scenario"])
     return IRRBBResult(
         result=result, bucket_pv=bucket_pv, tier1=float(tier1),
@@ -583,9 +642,12 @@ def shock_curve(scenario: str, t, *, ccy: str = _LEGACY_CCY,
     """만기 t에서의 Δr(t) — 계승 호출부용.
 
     계수를 함수 본문에 두지 않는다. 0금리 커브에 `curves.shocked_curve`를 걸고
-    그 `shift`(하한 적용 전 Δr)를 돌려주므로, 충격 bp와 시나리오 계수는 전부
-    `alm_rate_shock_param`·`alm_scenario_def`에서 온다. 기본 통화 KRW는 이제
-    원장에 자기 값(300/400/200)이 있으므로 프록시 없이 해석된다.
+    그 `shift`(**하한 적용 전** Δr)를 돌려주므로, 충격 bp와 시나리오 계수는
+    전부 `alm_rate_shock_param`·`alm_scenario_def`에서 온다. 기본 통화 KRW는
+    원장에 자기 값(현행 225/350/225)이 있으므로 프록시 없이 해석된다.
+
+    돌려주는 것이 Δr이라 충격후 하한 0(제12항 다)은 여기 반영되지 않는다.
+    하한이 걸린 커브가 필요하면 `curves.shocked_curve`의 결과 커브를 써야 한다.
     """
     tt = np.atleast_1d(np.asarray(t, dtype=float))
     sp, sd, fl = _legacy_ledgers()
@@ -668,11 +730,12 @@ def compute_irrbb(repricing: pd.DataFrame, tier1: float, *,
                                    * gap[one_year] * (1.0 - t[one_year])))}
         for sc in nii_scenarios(sd)])
 
+    status, _superseded = framework_status(sp, _LEGACY_FRAMEWORK)
     result = build_irrbb_result(
         bucket_pv, asof=asof, tier1=tier1,
         framework_version=_LEGACY_FRAMEWORK,
         shock_source={sc: shk.shock_source for (_c, sc), shk in shocked.items()},
-        delta_nii=nii)
+        delta_nii=nii, framework_status=status)
     ladder = repricing.copy()
     worst = str(worst_row(result, basis=BASES[0])["scenario"])
     ladder["pv_effect_worst"] = (
