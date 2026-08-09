@@ -1,0 +1,755 @@
+{
+  "schema_version": "1.0",
+  "policy_version": "1.0",
+  "source": {
+    "title": "은행업감독업무시행세칙",
+    "effective": "2026-06-30",
+    "promulgation": "금융감독원세칙 제9999호, 2026. 6. 26., 일부개정",
+    "url": "https://www.law.go.kr/LSW/admRulLsInfoP.do?admRulSeq=2200000108789",
+    "path": "harness/reference/bank_supervision_rules_20260630.md",
+    "sha256": "66ac0b4d292b844095771d3aa3e50894d7c0b2eb840ed65a3d1133af0f2b455d",
+    "n_schedules": 45,
+    "n_article_headings": 145
+  },
+  "description": "국내 은행업감독업무시행세칙에서 전개한 적합성검증 항목. 각 항목의 citation 은 저장소에 보관한 원문에서 해석되며 source_line 은 손으로 적지 않고 파생한다 — 인용이 원문과 맞는지 검증하지 못하던 상태(이월 CO-004)를 시행세칙 범위에서 닫는다. automation='automated' 는 하니스에 통제가 실재함을 뜻하고 근거 파일이 실재해야 주장할 수 있다. 인용이 해석된다는 것은 조문·별표가 존재한다는 뜻이지 그 내용을 다 덮는다는 뜻이 아니다.",
+  "automation_definition": {
+    "automated": "하니스에 실행 가능한 통제가 존재 (evidence 1건 이상 실재 필수)",
+    "manual": "국내 기준을 덮는 통제가 없어 사람 검토로 남김 (note 필수)"
+  },
+  "sections": {
+    "01": "RDM·BIS비율",
+    "02": "신용리스크·RWA",
+    "03": "IFRS 9 ECL",
+    "04": "시장리스크",
+    "05": "ALM·IRRBB·유동성",
+    "06": "운영리스크",
+    "07": "통합위기상황분석",
+    "08": "리스크 적합성검증"
+  },
+  "lenses": [
+    "데이터",
+    "산식",
+    "방법론",
+    "내부통제",
+    "문서화"
+  ],
+  "criteria": [
+    {
+      "rule_id": "KR-001",
+      "citation": "제17조",
+      "source_heading": "제17조(경영지도비율의 산정기준)",
+      "source_line": 261,
+      "basis_level": "국내구속",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제",
+        "산식"
+      ],
+      "criterion": "경영지도비율의 산정기준이 세칙이 지정한 별표(3·3의2·3의3·3의4·3의5·3의6·3의7·3의8·3의10·3의12)를 따르는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json",
+        "harness/policies/capital_adequacy.md"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-002",
+      "citation": "제17조",
+      "source_heading": "제17조(경영지도비율의 산정기준)",
+      "source_line": 261,
+      "basis_level": "국내구속",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터",
+        "내부통제"
+      ],
+      "criterion": "산정 시점이 지표별로 구분되는가 — 자기자본비중·단순기본자본비율·NSFR·거액익스포져비율은 가결산일·결산일 현재, LCR·원화예대율은 매월 평잔 (제17조제2항)",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스는 LCR·원화예대율을 시점값 하나로 받는다. 월평잔 여부를 판별할 입력이 없어 사람 확인 항목으로 남긴다 — 시점값을 평잔으로 보고하면 잡지 못한다"
+    },
+    {
+      "rule_id": "KR-003",
+      "citation": "제17조",
+      "source_heading": "제17조(경영지도비율의 산정기준)",
+      "source_line": 261,
+      "basis_level": "국내구속",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "완충자본 포함 자본비율 미달이 예상될 때 배당·자사주매입·성과연동상여 제한과 자본계획 승인 절차로 연결되는가 (제17조제3항)",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json",
+        "src/vta/domains/capital.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-004",
+      "citation": "별표 3",
+      "source_heading": "[별표 3] 신용ㆍ운영리스크 위험가중자산에 대한 자기자본비율 산출 기준(바젤Ⅲ 기준)",
+      "source_line": 2566,
+      "basis_level": "국내구속",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "신용·운영리스크 위험가중자산과 자기자본비율 산출이 바젤Ⅲ 국내 기준에 따라 재계산되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/basel_risk_taxonomy.json",
+        "src/vta/domains/capital.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-005",
+      "citation": "별표 3의2",
+      "source_heading": "[별표 3의2] 신용·운영·시장리스크 위험가중자산에 대한 자기자본비율 산출기준",
+      "source_line": 11954,
+      "basis_level": "국내구속",
+      "section": "04",
+      "section_name": "시장리스크",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "시장리스크를 포함한 위험가중자산 산출기준이 적용되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/market_risk_thresholds.json",
+        "src/vta/domains/market.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-006",
+      "citation": "별표 3의8",
+      "source_heading": "[별표 3의8] 단순기본자본비율 산출기준",
+      "source_line": 23201,
+      "basis_level": "국내구속",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "단순기본자본비율(레버리지비율)이 국내 산출기준으로 재계산되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json",
+        "src/vta/domains/capital.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-007",
+      "citation": "별표 3의12",
+      "source_heading": "[별표 3의12] 거액익스포져비율 산출기준",
+      "source_line": 26046,
+      "basis_level": "국내구속",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "거액익스포져비율(LEX)이 산출기준에 따라 산정되고 한도 저촉이 판정되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/concentration_thresholds.json",
+        "src/vta/domains/concentration.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-008",
+      "citation": "별표 7",
+      "source_heading": "[별표 7] 계량지표의 산정기준",
+      "source_line": 30077,
+      "basis_level": "국내구속",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터",
+        "산식"
+      ],
+      "criterion": "경영실태평가 계량지표가 정해진 산정기준으로 산출되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 경영실태평가 계량지표 산출 경로가 없다"
+    },
+    {
+      "rule_id": "KR-009",
+      "citation": "별표 11",
+      "source_heading": "[별표 11] 자산·부채 항목별 세부 평가 및 산정기준",
+      "source_line": 32611,
+      "basis_level": "국내구속",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "자산·부채 항목별 평가·산정이 세부기준을 따르는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 항목별 평가기준 대조가 없다"
+    },
+    {
+      "rule_id": "KR-010",
+      "citation": "별표 20",
+      "source_heading": "[별표 20] 시스템적 중요도 산정 및 추가자본 부과 세부 기준",
+      "source_line": 36246,
+      "basis_level": "국내구속",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "시스템적 중요도 산정과 추가자본 부과가 세부기준에 따라 반영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-011",
+      "citation": "별표 21",
+      "source_heading": "[별표 21] 경기대응완충자본 관련 세부 기준",
+      "source_line": 36456,
+      "basis_level": "국내구속",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "경기대응완충자본이 세부기준에 따라 자본요구에 반영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-012",
+      "citation": "제18조",
+      "source_heading": "제18조(자산건전성 분류기준 등의 보고)",
+      "source_line": 285,
+      "basis_level": "국내구속",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "문서화",
+        "내부통제"
+      ],
+      "criterion": "자산건전성 분류기준·대손충당금 적립 기준과 그 결과 보고가 매분기 종료 후 20일 이내에 이루어지는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "보고 기한 준수는 운영 사실 — 하니스는 산출값만 검증하며 제출 시점 데이터를 갖지 않는다"
+    },
+    {
+      "rule_id": "KR-013",
+      "citation": "별표 12",
+      "source_heading": "[별표 12] 무수익여신 산정기준",
+      "source_line": 32713,
+      "basis_level": "국내구속",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "데이터",
+        "산식"
+      ],
+      "criterion": "무수익여신 산정이 기준에 따라 이루어지는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 무수익여신 산정 검증이 없다"
+    },
+    {
+      "rule_id": "KR-014",
+      "citation": "별표 18",
+      "source_heading": "[별표 18] 주택관련 담보대출 등에 대한 리스크관리 세부기준",
+      "source_line": 34796,
+      "basis_level": "국내구속",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "주택관련 담보대출의 LTV·DTI 등 리스크관리 세부기준이 적용되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 주담대 규제비율 점검이 없다"
+    },
+    {
+      "rule_id": "KR-015",
+      "citation": "별표 24",
+      "source_heading": "[별표 24] 조기경보제도 및 여신감리제도에 관한 기준",
+      "source_line": 36955,
+      "basis_level": "국내구속",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "조기경보제도와 여신감리제도가 기준에 따라 운영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/validation_triggers.json",
+        "tools/validation_trigger.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-016",
+      "citation": "별표 15",
+      "source_heading": "[별표 15] 국가별·거액신용·시장리스크 관리기준",
+      "source_line": 33801,
+      "basis_level": "국내구속",
+      "section": "04",
+      "section_name": "시장리스크",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "국가별·거액신용·시장리스크 관리기준이 한도 체계로 운영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/concentration_thresholds.json",
+        "src/vta/domains/concentration.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-017",
+      "citation": "별표 4",
+      "source_heading": "[별표 4] 회계처리 기준",
+      "source_line": 26369,
+      "basis_level": "국내구속",
+      "section": "03",
+      "section_name": "IFRS 9 ECL",
+      "lens": [
+        "방법론",
+        "문서화"
+      ],
+      "criterion": "회계처리 기준이 충당금·손상 인식에 일관되게 적용되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/ifrs9.md"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-018",
+      "citation": "별표 3의6",
+      "source_heading": "[별표 3의6] 유동성커버리지비율 산출 기준",
+      "source_line": 22040,
+      "basis_level": "국내구속",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "유동성커버리지비율이 국내 산출기준(HQLA 계층·유출입 인정률·유입 한도)으로 재계산되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/liquidity_risk_thresholds.json",
+        "src/vta/domains/liquidity.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-019",
+      "citation": "별표 3의7",
+      "source_heading": "[별표 3의7] 원화예대율 산출 기준",
+      "source_line": 23178,
+      "basis_level": "국내구속",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식",
+        "데이터"
+      ],
+      "criterion": "원화예대율이 월평잔 기준으로 산출되고 양도성예금증서·커버드본드 산입 한도(원화예수금의 1/100·합산 2/100)가 적용되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 원화예대율 산출·한도 적용이 없다. ALM 도메인의 예대율은 잔액 기준 관리지표이며 이 기준과 다르다"
+    },
+    {
+      "rule_id": "KR-020",
+      "citation": "별표 3의10",
+      "source_heading": "[별표 3의10] 순안정자금조달비율 산출기준",
+      "source_line": 25334,
+      "basis_level": "국내구속",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "순안정자금조달비율이 국내 산출기준(ASF·RSF 계수)으로 재계산되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/liquidity_risk_thresholds.json",
+        "src/vta/domains/liquidity.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-021",
+      "citation": "별표 9의1",
+      "source_heading": "[별표 9의1] 금리리스크 산출기준",
+      "source_line": 31514,
+      "basis_level": "국내구속",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식",
+        "방법론"
+      ],
+      "criterion": "금리리스크가 연결재무제표 기준 비트레이딩 포지션(은행계정)에 대해 산출되고 은행계정·신탁계정·자회사가 구분 관리되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/irrbb_thresholds.json",
+        "src/vta/domains/irrbb.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-022",
+      "citation": "별표 9의2",
+      "source_heading": "[별표 9의2] 유동성리스크 관리기준",
+      "source_line": 32253,
+      "basis_level": "국내구속",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "유동성리스크 관리기준(한도·비상조달계획 등)이 운영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/liquidity_risk.md",
+        "harness/liquidity_risk_thresholds.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-023",
+      "citation": "별표 14",
+      "source_heading": "[별표 14] 외화유동성비율 등 산정방법",
+      "source_line": 33623,
+      "basis_level": "국내구속",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "외화유동성비율 등이 산정방법에 따라 산출되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 외화유동성비율 산출이 없다"
+    },
+    {
+      "rule_id": "KR-024",
+      "citation": "별표 14의1",
+      "source_heading": "[별표 14의1] 외화안전자산 보유규모 산출방법",
+      "source_line": 33772,
+      "basis_level": "국내구속",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "외화안전자산 보유규모가 산출방법에 따라 산정되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 외화안전자산 산출이 없다"
+    },
+    {
+      "rule_id": "KR-025",
+      "citation": "별표 15의1",
+      "source_heading": "[별표 15의1] 외화 유동성 리스크 관리기준",
+      "source_line": 34013,
+      "basis_level": "국내구속",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "외화 유동성 리스크 관리기준이 운영되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 외화 유동성 전용 통제가 없다"
+    },
+    {
+      "rule_id": "KR-026",
+      "citation": "제39조",
+      "source_heading": "제39조(외화유동성비율등 산정방법)",
+      "source_line": 575,
+      "basis_level": "국내구속",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식",
+        "문서화"
+      ],
+      "criterion": "외화유동성비율 등의 산정방법이 세칙이 정한 바를 따르는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 외환건전성 지표 산출이 없다"
+    },
+    {
+      "rule_id": "KR-027",
+      "citation": "제40조",
+      "source_heading": "제40조(외화유동성비율 등 위반시 달성계획 제출)",
+      "source_line": 581,
+      "basis_level": "국내구속",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "외화유동성비율 등 위반 시 달성계획 제출 절차가 작동하는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "제출 절차는 운영 사실 — 하니스 범위 밖"
+    },
+    {
+      "rule_id": "KR-028",
+      "citation": "별표 3의11",
+      "source_heading": "[별표 3의11] 건전한 운영리스크 관리 원칙",
+      "source_line": 25675,
+      "basis_level": "국내구속",
+      "section": "06",
+      "section_name": "운영리스크",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "건전한 운영리스크 관리 원칙이 손실자료 수집·경계 설정에 반영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/operational_risk_thresholds.json",
+        "harness/policies/operational_risk.md"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-029",
+      "citation": "별표 8의2",
+      "source_heading": "[별표 8의2] 내부통제평가 부문별 평가항목 및 평가등급별 정의",
+      "source_line": 30744,
+      "basis_level": "국내구속",
+      "section": "06",
+      "section_name": "운영리스크",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "내부통제평가 부문별 평가항목과 등급 정의가 적용되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 내부통제평가 등급 산정이 없다"
+    },
+    {
+      "rule_id": "KR-030",
+      "citation": "제29조의3",
+      "source_heading": "제29조의3(위기상황분석)",
+      "source_line": 471,
+      "basis_level": "국내구속",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "위기상황분석이 세칙이 정한 운용 기준에 따라 실시되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/scenario_floors.json",
+        "harness/policies/macro_scenario.md"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-031",
+      "citation": "별표 19",
+      "source_heading": "[별표 19] 위기상황분석 실시 기준",
+      "source_line": 35535,
+      "basis_level": "국내구속",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "방법론",
+        "내부통제"
+      ],
+      "criterion": "위기상황분석 실시 기준의 목적·적용대상·활용(위험 식별·제어, 타 방법론 보완)이 충족되는가",
+      "automation": "automated",
+      "evidence": [
+        "skills/stress_test_validation.md",
+        "harness/scenario_floors.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-032",
+      "citation": "제29조의2",
+      "source_heading": "제29조의2(내부자본적정성 평가ㆍ관리체제 구축기준)",
+      "source_line": 465,
+      "basis_level": "국내구속",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "내부자본적정성 평가·관리체제가 별표 3의9 기준으로 구축되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/icaap_thresholds.json",
+        "src/vta/domains/icaap.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-033",
+      "citation": "별표 3의9",
+      "source_heading": "[별표 3의9] 내부자본적정성 평가·관리체제 구축·운용 및 점검 기준",
+      "source_line": 24066,
+      "basis_level": "국내구속",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "방법론",
+        "내부통제"
+      ],
+      "criterion": "내부자본적정성 평가·관리체제의 구축·운용 및 점검이 기준을 충족하는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/icaap_thresholds.json",
+        "src/vta/domains/icaap.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-034",
+      "citation": "제29조",
+      "source_heading": "제29조(리스크평가)",
+      "source_line": 457,
+      "basis_level": "국내구속",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "리스크관리실태 평가가 본점·자회사에 대해 연 1회 이상 실시되는가 (제29조제1항)",
+      "automation": "automated",
+      "evidence": [
+        "tools/validation_scope.py",
+        "harness/model_materiality.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-035",
+      "citation": "별표 9",
+      "source_heading": "[별표 9] 리스크평가 기준",
+      "source_line": 30822,
+      "basis_level": "국내구속",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "방법론",
+        "내부통제"
+      ],
+      "criterion": "리스크평가 기준의 평가 항목·주기·조치 부과기준이 검증 계획에 반영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/validation_policy.md",
+        "tools/validation_scope.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-036",
+      "citation": "별표 8",
+      "source_heading": "[별표 8] 각 평가등급별 정의",
+      "source_line": 30354,
+      "basis_level": "국내구속",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "평가등급별 정의가 검증 의견 등급 체계와 정합하는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/regulatory_rule_catalog.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-037",
+      "citation": "별표 23",
+      "source_heading": "[별표 23] 은행 경영공시 및 대출가산금리 등 비교공시 운영기준",
+      "source_line": 36550,
+      "basis_level": "국내구속",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "경영공시 운영기준이 산출물 공시 범위와 정합하는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스는 공시 산출물을 만들지 않는다 — 대외 확정은 인간 권한 (CLAUDE.md §5)"
+    },
+    {
+      "rule_id": "KR-038",
+      "citation": "별표 13",
+      "source_heading": "[별표 13] 자회사 경영실태평가 평가기준",
+      "source_line": 32806,
+      "basis_level": "국내구속",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "자회사 경영실태평가 기준이 적용되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 자회사 평가 경로가 없다"
+    },
+    {
+      "rule_id": "KR-039",
+      "citation": "제27조",
+      "source_heading": "제27조(경영실태평가)",
+      "source_line": 403,
+      "basis_level": "국내구속",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "경영실태평가 실시 체계가 검증 대상 범위와 연결되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "경영실태평가는 감독당국 절차 — 하니스는 산출값 검증만 한다"
+    },
+    {
+      "rule_id": "KR-040",
+      "citation": "제28조",
+      "source_heading": "제28조(경영실태 평가방법 및 등급)",
+      "source_line": 413,
+      "basis_level": "국내구속",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "경영실태 평가방법·등급 산정이 기준을 따르는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 경영실태 등급 산정이 없다"
+    }
+  ]
+}
