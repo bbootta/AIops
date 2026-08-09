@@ -34,18 +34,22 @@
 `pct_tier1`과 항상 양수인 `worst_pct_tier1`이 같은 이름으로 두 화면에 나가
 반대 규약으로 그려지고 있었다.
 
-**아웃라이어 기준을 지어내지 않는다.** ΔEVE 감소 ≤ Tier1의 15%(SRP31.92)는
-1차자료를 열람하지 못했다(bis.org·law.go.kr egress 차단 — 설계 §5.1·§5.29).
-따라서 `outlier_threshold`를 넘기지 않으면 `outlier_test_pass`는 NULL이고
-`evidence_status='미확인'`이다. 계승 소비자를 위해 `IRRBBResult.outlier()`는
-`references`의 15%로 계속 판정하지만, **원장은 판정하지 않는다** — 판정 근거가
-확인되지 않았다는 사실이 원장에 남는 것이 이 컬럼의 목적이다.
+**아웃라이어 기준은 원문확인이다.** BCBS d368 §88은 6개 표준 시나리오 하의
+최대 ΔEVE를 **기본자본(Tier 1)의 15%**와 비교하는 시험을 최소 하나 두라고
+적는다(1차자료 §A-5). 분모는 총자기자본이 아니다. 따라서 `outlier_threshold`
+기본값이 그 15%이고 `outlier_test_pass`가 실제로 판정된다. 판정을 끄고
+싶으면 호출부가 `outlier_threshold=None`을 명시해야 하며, 그때는 판정하지
+않았다는 사실이 NULL로 남는다.
+
+국내 [별표 9의1] 제27항은 **자기자본의 20%**를 쓰고 지표도 금리 VaR이다.
+분모·비율·지표가 모두 다르므로 두 기준을 같은 칸에 섞지 않는다.
 
 **계승 경로.** `compute_irrbb(repricing, tier1)`은 갭 사다리를 받는 기존
 호출부(`pipeline.py:595`)를 위해 남긴다. 갭을 버킷 현금흐름 모양으로 옮겨
-같은 엔진에 태우므로 산출값은 현행과 같고, 대신 원장 두 장과
-`by_scenario`·`worst_eve`가 함께 나온다(`materialize.py:327,342`의 폴백 결함
-해소). 평면 곡선을 쓴다는 사실은 결과의 `warnings`에 실린다.
+같은 엔진에 태우고, 원장 두 장과 `by_scenario`·`worst_eve`가 함께 나온다
+(`materialize.py:327,342`의 폴백 결함 해소). 평면 곡선을 쓴다는 사실은 결과의
+`warnings`에 실린다. 산출 **수준**은 1차자료 반영으로 커졌다 — KRW 충격폭이
+USD 프록시 200/300/150에서 원문값 300/400/200으로 올라갔기 때문이다.
 
 **미등재.** 아래 TableSpec 2장은 아직 `datamodel.catalog.ALL_TABLES`에 넣지
 않았다 — 카탈로그 등재는 실체화·ARCHITECTURE.md 수치 검사와 함께 움직이므로
@@ -97,8 +101,9 @@ MARGIN_EVE_AND_NII = "ΔEVE 마진제외 · ΔNII 마진포함"
 RESULT_MARGIN_TREATMENTS = (MARGIN_EVE_ONLY, MARGIN_EVE_AND_NII)
 
 _EVE_CITATION = (
-    "BCBS d368 §132 — ΔEVE는 무위험 곡선으로 할인하고 현금흐름에서 상업마진을 "
-    "제외한다 / SRP31.92 아웃라이어 판정(ΔEVE 감소 ≤ Tier1의 15%, 원문 미확인)")
+    "BCBS d368 (2016.4) — ΔEVE는 무위험 곡선으로 할인하고 현금흐름에서 상업마진을 "
+    "제외한다 / §88 아웃라이어 시험(최대 ΔEVE 대 기본자본(Tier 1)의 15%, "
+    "1차자료 §A-5 원문확인)")
 
 # 계승 경로 전용 상수. 새 엔진은 커브를 인자로 받으므로 여기 말고는 쓰이지 않는다.
 _LEGACY_FRAMEWORK = "d368_2016"
@@ -172,16 +177,19 @@ IRRBB_RESULT = TableSpec(
         C("is_worst", "bool", "최악 시나리오", nullable=False,
           note="산출기준별로 delta_eve 최솟값 1개. 부호 절단 전에 정한다"),
         C("outlier_test_pass", "bool", "아웃라이어 기준 충족", nullable=True,
-          citation="SRP31.92 — 기준(15%) 1차자료 미확인 시 NULL",
-          note="지어내지 않는다. 기준을 인자로 받지 못하면 판정하지 않는다"),
+          citation="BCBS d368 (2016.4) §88 — 최대 ΔEVE 대 기본자본(Tier 1)의 "
+                   "15%. 국내 [별표 9의1] 제27항은 자기자본의 20%이고 지표도 "
+                   "금리 VaR이라 같은 칸에 넣지 않는다",
+          note="호출부가 outlier_threshold=None을 명시하면 판정하지 않고 "
+               "NULL이 남는다"),
         C("margin_treatment", "string", "마진 처리", nullable=False,
           allowed=RESULT_MARGIN_TREATMENTS,
           citation="BCBS d368 §132(3) 제외 / EBA GL 2022-14 포함 — 두 지표가 "
                    "반대로 취급한다"),
         C("framework_version", "string", "충격 모수 계정", nullable=False),
         C("shock_source", "string", "충격 모수 출처", nullable=False,
-          note="'직접' 또는 '프록시(USD)'. 프록시 사용이 원장에 남아야 서식·"
-               "화면·독립검증이 그 사실을 본다"),
+          note="'직접' — 통화 자기 행의 충격폭을 썼다는 뜻이다. 프록시 경로는 "
+               "1차자료로 21개 통화 충격폭이 확정된 뒤 제거했다"),
         C("citation", "text", "근거", nullable=True),
         C("evidence_status", "string", "근거 상태", nullable=False,
           allowed=EVIDENCE_STATUS),
@@ -251,12 +259,10 @@ class IRRBBResult:
         return self.worst_eve_decline / self.tier1
 
     def outlier(self) -> bool:
-        """계승 판정 — `references`의 15%를 쓴다.
+        """아웃라이어 여부 — 최대 ΔEVE 감소가 기본자본의 15%를 넘는가.
 
-        원장의 `outlier_test_pass`는 기준의 1차자료를 확인하지 못해 NULL이다.
-        두 값이 다른 것이 아니라, 원장은 판정을 **보류**하고 이 메서드는 현행
-        기준을 계승한다. 기준 원문이 확보되면 `outlier_threshold` 인자로
-        넘어오고 두 자리가 하나가 된다.
+        원장의 `outlier_test_pass`가 같은 기준으로 판정하므로 두 자리가 하나다
+        (기준이 원문확인이 되기 전에는 원장이 NULL이고 이 메서드만 판정했다).
         """
         return self.worst_pct_tier1 > IRRBB_OUTLIER_EVE_PCT_TIER1
 
@@ -335,6 +341,9 @@ def build_shocked_curves(
     ΔEVE와 ΔNII가 같은 곡선을 써야 두 지표가 갈라지지 않으므로 곡선 생성은
     여기 한 군데다. 모수가 NULL이면 `curves.shocked_curve`가 None을 돌려주고,
     그 시나리오는 결과 원장에서 아예 빠진다 — 조용히 0으로 채우지 않는다.
+
+    `allow_proxy`는 `curves.shocked_curve`로 그대로 넘기며 거기서 무시된다.
+    프록시 경로 제거의 잔재이고, 호출부가 인자를 떼면 함께 사라진다.
     """
     out: dict[tuple[str, str], ShockedCurve] = {}
     warns: list[ParamWarning] = []
@@ -429,17 +438,18 @@ def build_irrbb_result(
     bucket_pv: pd.DataFrame, *, asof: str | None, tier1: float,
     framework_version: str, shock_source: dict[str, str],
     delta_nii: pd.DataFrame | None = None,
-    outlier_threshold: float | None = None,
-    outlier_evidence: str = "미확인",
+    outlier_threshold: float | None = IRRBB_OUTLIER_EVE_PCT_TIER1,
+    outlier_evidence: str = "원문확인",
 ) -> pd.DataFrame:
     """`alm_irrbb_result` — 버킷 ΔPV를 산출기준 × 시나리오로 접는다.
 
     `tier1 ≤ 0` 가드가 있다. 현행 `irrbb.py:119`는 방어 없이 나누므로 자본이
     소진된 스트레스 경로에서 0나눗셈이 난다.
 
-    `outlier_threshold`를 넘기지 않으면 `outlier_test_pass`는 NULL이다 —
-    기준의 1차자료를 확인하지 못한 상태에서 판정을 적으면 그 판정이 근거 없이
-    서식·이사회 팩으로 나간다.
+    아웃라이어 판정 기본값은 BCBS d368 §88의 기본자본 15%다(1차자료 §A-5).
+    `outlier_threshold=None`을 명시하면 판정하지 않고 NULL이 남는다 — 다른
+    기준(예: 국내 [별표 9의1] 제27항의 자기자본 20%)을 적용해야 하는데 그
+    산출체계가 아직 없을 때 쓰는 경로다.
     """
     if not tier1 > 0:
         raise ValueError(
@@ -510,8 +520,8 @@ def compute_irrbb_from_cashflows(
     scenario_def: pd.DataFrame, floor: pd.DataFrame,
     framework_version: str, headline_basis: str,
     allow_proxy: bool = False, delta_nii: pd.DataFrame | None = None,
-    outlier_threshold: float | None = None,
-    outlier_evidence: str = "미확인",
+    outlier_threshold: float | None = IRRBB_OUTLIER_EVE_PCT_TIER1,
+    outlier_evidence: str = "원문확인",
 ) -> IRRBBResult:
     """엔진 진입점 — 현금흐름 원장 + 커브 원장 → IRRBB 원장 2장.
 
@@ -574,9 +584,8 @@ def shock_curve(scenario: str, t, *, ccy: str = _LEGACY_CCY,
 
     계수를 함수 본문에 두지 않는다. 0금리 커브에 `curves.shocked_curve`를 걸고
     그 `shift`(하한 적용 전 Δr)를 돌려주므로, 충격 bp와 시나리오 계수는 전부
-    `alm_rate_shock_param`·`alm_scenario_def`에서 온다. KRW 행이 비어 있으므로
-    `allow_proxy=True`로 USD 계정을 빌리며, 이는 현행 산출을 그대로 재현하는
-    경로다(설계 §0 — 충격 bp는 이번에 바꾸지 않는다).
+    `alm_rate_shock_param`·`alm_scenario_def`에서 온다. 기본 통화 KRW는 이제
+    원장에 자기 값(300/400/200)이 있으므로 프록시 없이 해석된다.
     """
     tt = np.atleast_1d(np.asarray(t, dtype=float))
     sp, sd, fl = _legacy_ledgers()
@@ -584,8 +593,7 @@ def shock_curve(scenario: str, t, *, ccy: str = _LEGACY_CCY,
                  zero_rates=np.zeros_like(tt))
     shk, _w = shocked_curve(zero, scenario, ccy=ccy,
                             framework_version=framework_version,
-                            shock_param=sp, scenario_def=sd, floor=fl,
-                            allow_proxy=True)
+                            shock_param=sp, scenario_def=sd, floor=fl)
     if shk is None:
         raise ValueError(
             f"{ccy}/{framework_version}의 충격 모수가 비어 있다 — Δr을 만들 수 "
@@ -639,7 +647,7 @@ def compute_irrbb(repricing: pd.DataFrame, tier1: float, *,
 
     shocked, warns = build_shocked_curves(
         curves, scenarios=SCENARIOS, shock_param=sp, scenario_def=sd, floor=fl,
-        framework_version=_LEGACY_FRAMEWORK, allow_proxy=True)
+        framework_version=_LEGACY_FRAMEWORK)
     warns.append(ParamWarning(
         "IRRBB", "compute_irrbb", "base_curve",
         f"평면 {base_rate:.4%} 곡선으로 할인했다 — mkt_risk_factor 제로커브가 "

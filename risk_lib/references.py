@@ -190,22 +190,82 @@ RAPM_HURDLE_RATE = 0.10                  # cost of equity benchmark
 # ALM — IRRBB (interest rate risk in the banking book)
 # ============================================================================
 
-# Standardised shock sizes (bp).  BCBS IRRBB standard (2016) Annex 2 sets these
-# per currency; the harness applies the USD reference calibration as a
-# conservative default (KRW-specific calibration는 감독원 고시에 따름).
-IRRBB_SHOCK_PARALLEL_BP = 200
-IRRBB_SHOCK_SHORT_BP = 300
-IRRBB_SHOCK_LONG_BP = 150
-IRRBB_SHOCK_DECAY_X = 4.0                # S_short(t) = R_short * exp(-t/x)
+# 금리충격 폭(bp)은 **이 파일에 없다.** 통화별 값은 BCBS d368 Annex 2 Table 1의
+# 규제표이고, 그 표를 적재하는 곳은 원장 빌더 `alm.curves.build_rate_shock_param`
+# 한 군데다. 여기 상수를 두면 원장을 채워도 감응도·화면이 옛 상수로 계속 나눠
+# 두 벌이 어긋난다. 아래 이름은 그 원장을 읽어 주는 계승 접근자다.
+#
+# 정정 이력: 이전 판은 200/300/150을 "USD reference calibration을 보수적
+# 기본값으로 쓴다"고 적었다. 사실과 반대다 — 원문 KRW는 300/400/200이고 USD는
+# 모든 축에서 그보다 작으므로 USD 대용은 보수가 아니라 과소산출이었다.
+IRRBB_SHOCK_LEDGER_CCY = "KRW"           # 계승 이름이 가리키는 통화
+IRRBB_SHOCK_LEDGER_FRAMEWORK = "d368_2016"
+
+_IRRBB_SHOCK_ATTRS = {
+    "IRRBB_SHOCK_PARALLEL_BP": "parallel",
+    "IRRBB_SHOCK_SHORT_BP": "short",
+    "IRRBB_SHOCK_LONG_BP": "long",
+}
+
+
+def irrbb_shock_bp(shock_type: str, *,
+                   ccy: str = IRRBB_SHOCK_LEDGER_CCY,
+                   framework_version: str = IRRBB_SHOCK_LEDGER_FRAMEWORK) -> int:
+    """`alm_rate_shock_param` 원장의 충격폭(bp).
+
+    원장에 값이 없으면 예외를 낸다. 기본값으로 대신 채우면 근거 없는 절대수준이
+    조용히 산출에 들어간다.
+    """
+    from risk_lib.alm.curves import build_rate_shock_param
+    import pandas as pd
+
+    sp = build_rate_shock_param()
+    hit = sp[(sp["framework_version"] == framework_version)
+             & (sp["ccy"] == ccy) & (sp["shock_type"] == shock_type)]
+    if hit.empty or pd.isna(hit.iloc[0]["shock_bp"]):
+        raise LookupError(
+            f"alm_rate_shock_param에 {framework_version}/{ccy}/{shock_type}의 "
+            "충격폭이 없다 — 원장을 채우기 전까지 이 수치는 산출에 쓸 수 없다")
+    return int(hit.iloc[0]["shock_bp"])
+
+
+def irrbb_decay_x(framework_version: str = IRRBB_SHOCK_LEDGER_FRAMEWORK) -> float:
+    """S_short(t) = e^{−t/x}의 x. `alm_scenario_def.decay_x`에서 읽는다."""
+    from risk_lib.alm.curves import build_scenario_def
+
+    xs = {float(v) for v in build_scenario_def()["decay_x"]}
+    if len(xs) != 1:
+        raise ValueError(f"alm_scenario_def의 decay_x가 여럿이다 {sorted(xs)}")
+    return xs.pop()
+
+
+def __getattr__(name: str):
+    """계승 이름(IRRBB_SHOCK_*_BP · IRRBB_SHOCK_DECAY_X)을 원장으로 잇는다.
+
+    `sensitivity.py`가 ΔEVE를 임의 충격폭으로 환산할 때 이 이름으로 나눈다.
+    상수로 남겨 두면 원장의 충격폭이 바뀌어도 환산 분모가 따라가지 않아 감응도
+    화면이 산출과 어긋난다. 지연 import라 references를 부르는 쪽이 ALM 모듈
+    적재 비용을 항상 물지는 않는다.
+    """
+    if name in _IRRBB_SHOCK_ATTRS:
+        return irrbb_shock_bp(_IRRBB_SHOCK_ATTRS[name])
+    if name == "IRRBB_SHOCK_DECAY_X":
+        return irrbb_decay_x()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 # Supervisory outlier test: max ΔEVE decline ≤ 15% of Tier 1 capital.
+# BCBS d368 (2016.4) §88 원문확인 — 분모는 기본자본(Tier 1)이고 총자기자본이
+# 아니다. 국내 「은행업감독업무시행세칙」 [별표 9의1] 제27항은 **자기자본의
+# 20%**를 쓰고 지표도 ΔEVE가 아니라 금리 VaR이므로 별개 기준이다.
 IRRBB_OUTLIER_EVE_PCT_TIER1 = 0.15
 IRRBB_EARLY_WARNING_PCT_TIER1 = 0.12     # internal early-warning level
 
-CITE_IRRBB = Citation("Basel III", "SRP31.90 / IRRBB(2016) Annex 2",
-                      "6대 표준 금리충격 시나리오, ΔEVE/ΔNII")
-CITE_IRRBB_OUTLIER = Citation("Basel III", "SRP31.92",
-                              "outlier test: ΔEVE ≤ Tier1의 15%")
+CITE_IRRBB = Citation("BCBS d368 (2016.4)", "Annex 2",
+                      "6대 표준 금리충격 시나리오, ΔEVE/ΔNII. 통화별 충격폭은 "
+                      "Table 1 (KRW 300/400/200)")
+CITE_IRRBB_OUTLIER = Citation("BCBS d368 (2016.4)", "§88",
+                              "outlier test: 최대 ΔEVE 대 기본자본(Tier 1)의 15%")
 
 
 # ============================================================================

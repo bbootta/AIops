@@ -259,13 +259,14 @@ NMD_PARAM = TableSpec(
           min_value=0.0, max_value=1.0),
         C("core_ratio_cap", "float", "코어 비율 상한", nullable=False, unit="ratio",
           min_value=0.0, max_value=1.0,
-          citation="BCBS d368 Annex 2 Table 2 — 소매결제성 90 / 소매비결제성 70 / "
-                   "도매비금융 50 / 금융기관 0"),
+          citation="BCBS d368 (2016.4) Annex 2 Table 2 — 소매결제성 90% / "
+                   "소매비결제성 70% / 도매(비금융) 50%. 원문 Table 2는 이 "
+                   "세 줄뿐이며 금융기관 범주는 없다"),
         C("avg_maturity_years", "float", "평균만기", nullable=True, unit="years",
           min_value=0.0),
         C("avg_maturity_cap_years", "float", "평균만기 상한", nullable=False,
           unit="years", min_value=0.0,
-          citation="BCBS d368 Annex 2 Table 2 — 5 / 4.5 / 4 / 0"),
+          citation="BCBS d368 (2016.4) Annex 2 Table 2 — 5년 / 4.5년 / 4년"),
         C("slotting_method", "string", "슬로팅 방법", nullable=False,
           allowed=SLOTTING_METHODS,
           citation="EBA/RTS/2022/09 단순화법 — 코어를 선형 슬로팅"),
@@ -534,7 +535,7 @@ def build_behaviour_scenario_mult() -> pd.DataFrame:
     (은행 자체추정 + 감독승인) — 그쪽은 `alm_behaviour_param`에서 계속 비어 있다.
     """
     cite = ("BCBS d368 (2016.4) Annex 2 Table 3(조기상환 γ)·"
-            "Table 4(중도해지 u)")
+            "Table 4(중도해지 u) — 1차자료 §A-7·§A-8")
     return pd.DataFrame([
         {"model": model, "scenario": sc, "multiplier": _SCENARIO_MULT[model][sc],
          "direction_rule": _MULT_RULE[model], "citation": cite,
@@ -542,15 +543,18 @@ def build_behaviour_scenario_mult() -> pd.DataFrame:
         for model in BEHAVIOUR_MODELS for sc in IRRBB_SCENARIOS])
 
 
-# BCBS d368 Annex 2 Table 2 — 코어비율 상한 / 평균만기 상한.
-# 상한 자체는 두 조사 모두 검색으로 확인했으나 원문 대조는 못 했다 → 2차자료.
-# 금융기관 NMD는 코어 인정 불가(전액 O/N)이므로 0.00 — 이 행은 상한이 아니라
-# 금지 규정이다.
-_NMD_CAPS: tuple[tuple[str, float, float], ...] = (
-    ("retail_transactional",     0.90, 5.0),
-    ("retail_non_transactional", 0.70, 4.5),
-    ("wholesale_nonfin",         0.50, 4.0),
-    ("financial",                0.00, 0.0),
+# BCBS d368 (2016.4) Annex 2 Table 2 — 코어비율 상한 / 평균만기 상한.
+# 앞의 세 범주는 원문 발췌로 확인했다(1차자료 §A-6). 네 번째 `financial`은
+# **원문 Table 2에 없는 범주**다. 원문은 wholesale을 한 줄로 두고 금융기관
+# 예금을 따로 나누거나 코어 0%로 못박지 않는다. 코어 0.00은 설계가 적은
+# 값이므로 근거 상태를 '미확인'으로 낮춰 두고, 값 자체는 전액 최단버킷이라는
+# 가장 짧은 슬로팅이라 산출이 이 가정을 숨기지 않는다.
+# (범주, 코어상한, 평균만기상한, 근거상태, 입력출처)
+_NMD_CAPS: tuple[tuple[str, float, float, str, str], ...] = (
+    ("retail_transactional",     0.90, 5.0, "원문확인", "감독상한대체"),
+    ("retail_non_transactional", 0.70, 4.5, "원문확인", "감독상한대체"),
+    ("wholesale_nonfin",         0.50, 4.0, "원문확인", "감독상한대체"),
+    ("financial",                0.00, 0.0, "미확인",   "미확정"),
 )
 
 
@@ -561,6 +565,10 @@ def build_nmd_param(asof: str) -> pd.DataFrame:
     슬로팅이 길어져 ΔEVE 효과가 갭 방향에 따라 양쪽으로 간다(§5.26). 따라서
     input_source='감독상한대체'로 표시해 자체추정과 구분하고, 챌린저(코어 0%)
     대조가 필요하다는 사실을 남긴다.
+
+    `financial` 행은 d368 Table 2에 없는 범주라 evidence_status='미확인'이다.
+    EBA RTS 2022/09 등 다른 규정이 금융기관 예금을 별도 취급하는지는 원문을
+    확인하지 못했다.
 
     stable_ratio·pass_through_beta는 은행 고유 데이터로만 추정 가능하므로
     NULL이다(§5.21).
@@ -573,18 +581,26 @@ def build_nmd_param(asof: str) -> pd.DataFrame:
         "avg_maturity_years": mat, "avg_maturity_cap_years": mat,
         "slotting_method": "linear",
         "pass_through_beta": None,
-        "input_source": "감독상한대체",
+        "input_source": src,
         "entered_by": None, "approved_by": None, "approved_on": None,
-        "evidence_status": "2차자료",
-    } for cat, cap, mat in _NMD_CAPS]).pipe(
+        "evidence_status": status,
+    } for cat, cap, mat, status, src in _NMD_CAPS]).pipe(
         _as_float, "stable_ratio", "pass_through_beta")
 
 
-def build_param_ledgers(asof: str, *,
-                        param_set_id: str = "BASE") -> dict[str, pd.DataFrame]:
-    """계수 원장 6장을 한 번에. 키는 테이블명 — 검증·실체화가 그대로 받는다."""
+def build_param_ledgers(asof: str, *, param_set_id: str = "BASE",
+                        bucket_framework: str | None = None,
+                        ) -> dict[str, pd.DataFrame]:
+    """계수 원장 6장을 한 번에. 키는 테이블명 — 검증·실체화가 그대로 받는다.
+
+    `bucket_framework`가 사다리 계정을 고른다. None이면 원장의 `is_headline`
+    행을 쓴다. 슬로팅 엔진은 사다리 한 벌을 전제로 seq를 읽으므로 여기서
+    반드시 한 계정만 내보낸다 — 두 계정을 섞어 넘기면 경계 배열이 단조가
+    아니게 되어 배정이 조용히 틀린다. 표준 19버킷(`bcbs_19`)으로 갈아끼우는
+    것은 이 인자 하나로 끝나며, 그 결정은 파이프라인이 한다.
+    """
     return {
-        "alm_time_bucket": build_time_buckets(),
+        "alm_time_bucket": build_time_buckets(bucket_framework),
         "alm_product_terms": build_product_terms(),
         "alm_behaviour_param": build_behaviour_param(
             asof, param_set_id=param_set_id),

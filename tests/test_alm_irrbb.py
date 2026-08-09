@@ -36,8 +36,14 @@ from risk_lib.data_gen import generate_portfolio
 from risk_lib.datamodel.spec import validate
 from risk_lib.market_data import demo_market_data
 from risk_lib.references import (
-    IRRBB_SHOCK_LONG_BP, IRRBB_SHOCK_PARALLEL_BP, IRRBB_SHOCK_SHORT_BP,
+    IRRBB_OUTLIER_EVE_PCT_TIER1, irrbb_shock_bp,
 )
+
+# 충격폭은 원장(alm_rate_shock_param)에서 읽는다. 시험이 숫자를 다시 적으면
+# 원장과 시험이 두 벌이 되어, 원장이 틀려도 시험이 같이 틀린 채로 통과한다.
+SHOCK_PARALLEL_BP = irrbb_shock_bp("parallel")
+SHOCK_SHORT_BP = irrbb_shock_bp("short")
+SHOCK_LONG_BP = irrbb_shock_bp("long")
 
 ASOF = "2026-08-08"
 SEED = 42
@@ -97,7 +103,7 @@ def _irrbb(bundle, *, basis: str = "행동조정", tier1: float = TIER1,
         shock_param=cl["alm_rate_shock_param"],
         scenario_def=cl["alm_scenario_def"],
         floor=cl["alm_post_shock_floor"], framework_version=FW,
-        headline_basis=basis, allow_proxy=True, delta_nii=delta_nii)
+        headline_basis=basis, delta_nii=delta_nii)
 
 
 @pytest.fixture(scope="module")
@@ -116,7 +122,7 @@ def nii(bundle):
     shocked, _w = build_shocked_curves(
         curves, scenarios=SCENARIOS, shock_param=cl["alm_rate_shock_param"],
         scenario_def=cl["alm_scenario_def"], floor=cl["alm_post_shock_floor"],
-        framework_version=FW, allow_proxy=True)
+        framework_version=FW)
     return N.compute_delta_nii(
         con, led["alm_product_terms"], asof=ASOF, horizon_years=1.0,
         curves=curves, shocked=shocked,
@@ -301,40 +307,56 @@ def test_delta_nii_joins_into_the_result_ledger(bundle, nii):
 
 # ---------------------------------------------------------------- 근거·모수
 
-def test_outlier_verdict_is_null_when_the_threshold_is_unverified(irrbb):
-    """15% 기준의 1차자료를 확인하지 못했다 — 판정을 지어내지 않는다."""
-    assert irrbb.result["outlier_test_pass"].isna().all()
-    assert (irrbb.result["evidence_status"] == "미확인").all()
+def test_outlier_verdict_is_made_against_the_tier1_threshold(irrbb):
+    """BCBS d368 §88 원문확인 — 최대 ΔEVE 대 기본자본의 15%(1차자료 §A-5).
+
+    앞선 회차는 기준의 1차자료를 못 봐서 판정을 보류(NULL)했다. 원문을 확보한
+    지금은 판정한다. 분모는 기본자본이며 총자기자본이 아니다.
+    """
+    assert irrbb.result["outlier_test_pass"].notna().all()
+    assert (irrbb.result["evidence_status"] == "원문확인").all()
+    r = irrbb.result
+    want = -r["delta_eve_to_tier1"] <= IRRBB_OUTLIER_EVE_PCT_TIER1
+    assert list(r["outlier_test_pass"].astype(bool)) == list(want)
 
 
-def test_outlier_verdict_appears_once_a_threshold_is_supplied(irrbb):
-    """기준이 인자로 들어오면 그때 판정한다 — 소스에 15%를 박지 않는다."""
+def test_contract_basis_actually_fails_the_outlier_test(irrbb):
+    """판정이 나는 것이 정상이다 — 계약기준 ΔEVE는 기본자본의 15%를 넘는다.
+
+    이 검사가 실패하면 둘 중 하나다. 산출이 바뀌었거나, 판정을 숨기고 있거나.
+    """
+    worst = worst_row(irrbb.result, basis="계약")
+    assert -float(worst["delta_eve_to_tier1"]) > IRRBB_OUTLIER_EVE_PCT_TIER1
+    assert bool(worst["outlier_test_pass"]) is False
+
+
+def test_outlier_verdict_is_withheld_when_the_caller_says_so(irrbb):
+    """다른 기준을 써야 하는데 그 산출체계가 없으면 판정하지 않고 NULL을 남긴다."""
     r = build_irrbb_result(
         irrbb.bucket_pv, asof=ASOF, tier1=TIER1, framework_version=FW,
         shock_source={sc: "직접" for sc in SCENARIOS},
-        outlier_threshold=0.15, outlier_evidence="2차자료")
-    assert r["outlier_test_pass"].notna().all()
-    worst = r[r["is_worst"] & (r["basis"] == "행동조정")].iloc[0]
-    assert bool(worst["outlier_test_pass"]) == (
-        -float(worst["delta_eve_to_tier1"]) <= 0.15)
+        outlier_threshold=None, outlier_evidence="미확인")
+    assert r["outlier_test_pass"].isna().all()
 
 
-def test_proxy_use_is_disclosed_in_the_result_ledger(irrbb):
-    """USD 계정을 KRW에 빌려 쓴 사실이 주석이 아니라 원장에 남아야 한다."""
-    assert (irrbb.result["shock_source"] == "프록시(USD)").all()
+def test_shock_source_is_direct_not_a_proxy(irrbb):
+    """KRW 실값이 원장에 있으므로 다른 통화를 빌리지 않는다."""
+    assert (irrbb.result["shock_source"] == "직접").all()
     assert (irrbb.result["framework_version"] == FW).all()
 
 
 def test_missing_shock_parameters_refuse_to_produce_a_zero_result(bundle):
     """모수가 비어 있는데 0을 돌려주면 화면에 'ΔEVE 0'으로 읽힌다."""
     _con, _led, cl, cf, curves = bundle
+    empty = cl["alm_rate_shock_param"].copy()
+    empty.loc[empty["ccy"] == "KRW", "shock_bp"] = pd.NA
     with pytest.raises(ValueError, match="충격 모수가 전부 비어 있다"):
         compute_irrbb_from_cashflows(
             cf.bucket, asof=ASOF, tier1=TIER1, curves=curves,
-            shock_param=cl["alm_rate_shock_param"],
+            shock_param=empty,
             scenario_def=cl["alm_scenario_def"],
             floor=cl["alm_post_shock_floor"], framework_version=FW,
-            headline_basis="계약", allow_proxy=False)
+            headline_basis="계약")
 
 
 def test_zero_tier1_is_refused_not_divided_by(irrbb):
@@ -364,13 +386,15 @@ def legacy():
     return bs, compute_irrbb(bs.repricing, tier1=bs.equity * 0.9)
 
 
-def test_legacy_shock_curve_still_reads_the_current_calibration():
-    """충격 bp는 이번에 바꾸지 않는다 — 원장으로 옮겼을 뿐이다(설계 §0)."""
+def test_legacy_shock_curve_reads_the_ledger_calibration():
+    """Δr은 원장 값에서 나온다. 1차자료 반영으로 KRW가 200/300/150(USD 프록시)
+    에서 300/400/200(d368 Annex 2 Table 1)으로 올라갔고, 이 검사는 상수를
+    다시 적지 않고 원장을 읽으므로 원장이 정본이라는 사실이 유지된다."""
     t = np.array([0.05, 0.5, 1.0, 3.0, 5.0, 10.0, 20.0])
     assert np.allclose(shock_curve("parallel_up", t),
-                       IRRBB_SHOCK_PARALLEL_BP / 1e4)
+                       SHOCK_PARALLEL_BP / 1e4)
     assert np.allclose(shock_curve("parallel_down", t),
-                       -IRRBB_SHOCK_PARALLEL_BP / 1e4)
+                       -SHOCK_PARALLEL_BP / 1e4)
     s = shock_curve("short_up", t)
     assert s[0] > 0 and (np.diff(s) < 0).all()
     steep = shock_curve("steepener", t)
@@ -379,10 +403,10 @@ def test_legacy_shock_curve_still_reads_the_current_calibration():
     assert flat[0] > 0 and flat[-1] < 0
     # 장·단기 계수가 둘 다 살아 있는지는 합성식으로만 확인된다
     assert steep[-1] == pytest.approx(
-        -0.65 * IRRBB_SHOCK_SHORT_BP / 1e4 * np.exp(-20 / 4)
-        + 0.9 * IRRBB_SHOCK_LONG_BP / 1e4 * (1 - np.exp(-20 / 4)), rel=1e-12)
+        -0.65 * SHOCK_SHORT_BP / 1e4 * np.exp(-20 / 4)
+        + 0.9 * SHOCK_LONG_BP / 1e4 * (1 - np.exp(-20 / 4)), rel=1e-12)
     assert shock_curve("short_up", np.array([0.0]))[0] == pytest.approx(
-        IRRBB_SHOCK_SHORT_BP / 1e4)
+        SHOCK_SHORT_BP / 1e4)
 
 
 def test_legacy_gap_path_reproduces_the_current_numbers(legacy):
