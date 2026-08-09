@@ -2273,40 +2273,68 @@ function updateAnimals(dt) {
 }
 
 // ---------- 🧑‍🌾 마을 주민 & 가축 (마을 근처에 오면 나타남) ----------
-const VILL_ROBE = new THREE.MeshLambertMaterial({ color: 0x7a5230 });
-const VILL_APRON = new THREE.MeshLambertMaterial({ color: 0x9c6b3c });
-const VILL_SKIN = new THREE.MeshLambertMaterial({ color: 0xd8a882 });
-const VG_APRON = new THREE.BoxGeometry(0.4, 0.4, 0.31);
-const VG_NOSE = new THREE.BoxGeometry(0.12, 0.22, 0.14);
-const VG_BROW = new THREE.BoxGeometry(0.36, 0.06, 0.02);
-const VG_ARM = new THREE.BoxGeometry(0.16, 0.5, 0.16);
+// 원작 주민을 그대로 옮긴 모습: 민머리에 뒤통수만 갈색 머리, 툭 튀어나온 큰 코,
+// 짙은 일자 눈썹 아래 초록 눈, 배 앞에 한 덩어리로 모은 팔, 발목까지 오는 갈색 로브
+const VILL_ROBE = new THREE.MeshLambertMaterial({ color: 0x6b4c34 });      // 로브
+const VILL_TRIM = new THREE.MeshLambertMaterial({ color: 0x93704b });      // 가슴팍 밝은 깃
+const VILL_LEG = new THREE.MeshLambertMaterial({ color: 0x53402c });       // 로브 아랫자락·다리
+const VILL_SKIN = new THREE.MeshLambertMaterial({ color: 0xc9a07d });      // 살빛
+const VILL_ARM = new THREE.MeshLambertMaterial({ color: 0x7d5c3e });       // 모아 쥔 팔
+const VILL_NOSE = new THREE.MeshLambertMaterial({ color: 0xb2855f });      // 코 (얼굴보다 한 톤 진하게 — 정면에서도 튀어나와 보이게)
+const VILL_HAIR = new THREE.MeshLambertMaterial({ color: 0x4a3527 });      // 뒤통수 머리·눈썹
+const VILL_EYE = new THREE.MeshLambertMaterial({ color: 0x3f8a3f });       // 초록 눈동자
+const VG_LEG = new THREE.BoxGeometry(0.17, 0.45, 0.17);
+const VG_ROBE = new THREE.BoxGeometry(0.5, 0.95, 0.32);   // 무릎까지 내려오는 긴 로브
+const VG_COLLAR = new THREE.BoxGeometry(0.5, 0.12, 0.33);
+const VG_ARMS = new THREE.BoxGeometry(0.52, 0.34, 0.22);  // 두 팔을 모은 한 덩어리
+const VG_HEAD = new THREE.BoxGeometry(0.5, 0.62, 0.5);
+const VG_HAIR_B = new THREE.BoxGeometry(0.51, 0.42, 0.08); // 뒤통수
+const VG_HAIR_S = new THREE.BoxGeometry(0.04, 0.42, 0.28); // 옆머리 (얼굴 쪽 절반은 살빛으로 남김)
+const VG_BROW = new THREE.BoxGeometry(0.44, 0.08, 0.06);
+const VG_EYE_W = new THREE.BoxGeometry(0.12, 0.13, 0.03);
+const VG_EYE_G = new THREE.BoxGeometry(0.06, 0.1, 0.03);
+const VG_NOSE = new THREE.BoxGeometry(0.13, 0.26, 0.13);
 function makeVillagerMesh() {
   const g = new THREE.Group();
   for (const lx of [-0.12, 0.12]) {
-    const leg = new THREE.Mesh(ZG_LEG, VILL_ROBE);
-    leg.position.set(lx, 0.35, 0);
+    const leg = new THREE.Mesh(VG_LEG, VILL_LEG);
+    leg.position.set(lx, 0.225, 0);
     g.add(leg);
   }
-  const body = new THREE.Mesh(ZG_BODY, VILL_ROBE);
-  body.position.y = 1.05;
-  g.add(body);
-  const apron = new THREE.Mesh(VG_APRON, VILL_APRON); // 앞치마
-  apron.position.set(0, 1.0, 0);
-  g.add(apron);
-  const head = new THREE.Mesh(ZG_HEAD, VILL_SKIN);
-  head.position.y = 1.65;
+  const robe = new THREE.Mesh(VG_ROBE, VILL_ROBE);
+  robe.position.y = 0.925;
+  g.add(robe);
+  const collar = new THREE.Mesh(VG_COLLAR, VILL_TRIM); // 목 아래 밝은 깃
+  collar.position.y = 1.34;
+  g.add(collar);
+  const arms = new THREE.Mesh(VG_ARMS, VILL_ARM); // 배 앞에 모아 쥔 팔
+  arms.position.set(0, 1.06, -0.16);
+  g.add(arms);
+  const head = new THREE.Mesh(VG_HEAD, VILL_SKIN);
+  head.position.y = 1.71;
   g.add(head);
-  const nose = new THREE.Mesh(VG_NOSE, VILL_SKIN); // 큼직한 코
-  nose.position.set(0, 1.62, -0.28);
-  g.add(nose);
-  const brow = new THREE.Mesh(VG_BROW, VILL_ROBE);
-  brow.position.set(0, 1.78, -0.23);
-  g.add(brow);
-  for (const ax of [-0.33, 0.33]) { // 배 앞에 모은 팔
-    const arm = new THREE.Mesh(VG_ARM, VILL_ROBE);
-    arm.position.set(ax, 1.15, -0.05);
-    g.add(arm);
+  const hairB = new THREE.Mesh(VG_HAIR_B, VILL_HAIR); // 정수리는 벗어지고 뒤·옆만 머리
+  hairB.position.set(0, 1.68, 0.22);
+  g.add(hairB);
+  for (const hx of [-0.255, 0.255]) {
+    const hairS = new THREE.Mesh(VG_HAIR_S, VILL_HAIR);
+    hairS.position.set(hx, 1.68, 0.11);
+    g.add(hairS);
   }
+  const brow = new THREE.Mesh(VG_BROW, VILL_HAIR); // 이마를 가로지르는 일자 눈썹
+  brow.position.set(0, 1.84, -0.25);
+  g.add(brow);
+  for (const ex of [-0.125, 0.125]) { // 흰자 + 초록 눈동자 (바깥쪽으로 몰린 눈)
+    const w = new THREE.Mesh(VG_EYE_W, EYE_WHITE);
+    w.position.set(ex, 1.75, -0.255);
+    g.add(w);
+    const p = new THREE.Mesh(VG_EYE_G, VILL_EYE);
+    p.position.set(ex + (ex < 0 ? -0.03 : 0.03), 1.75, -0.27);
+    g.add(p);
+  }
+  const nose = new THREE.Mesh(VG_NOSE, VILL_NOSE); // 얼굴 한가운데 툭 튀어나온 큰 코
+  nose.position.set(0, 1.67, -0.29);
+  g.add(nose);
   g.userData.bodyMat = VILL_ROBE;
   return g;
 }
@@ -2337,7 +2365,7 @@ function activateVillage(v) {
   for (let i = 0; i < n; i++) {
     const hs = plan.houses[i % plan.houses.length];
     if (addVillageMob(v, hs.x + Math.floor(r() * 7) - 3, hs.z + 4 + Math.floor(r() * 3), makeVillagerMesh(),
-      { villager: true, speed: 1.1, colH: 1.8, hitH: 1.9, hp: 6, maxHp: 6, kindName: '마을 주민', home: [hs.x, hs.z] })) people++;
+      { villager: true, speed: 1.1, colH: 1.9, hitH: 2, hp: 6, maxHp: 6, kindName: '마을 주민', home: [hs.x, hs.z] })) people++;
   }
   const pen = plan.pen; // 우리 안 가축
   for (let i = 0; i < 6; i++) {
