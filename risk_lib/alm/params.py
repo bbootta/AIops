@@ -46,17 +46,21 @@ from risk_lib.alm.schedule import AMORT_TYPES, PAY_FREQS
 __all__ = [
     "EVIDENCE_STATUS", "INPUT_SOURCES", "BEHAVIOUR_CLASSES", "RATE_TYPES",
     "NMD_CATEGORIES", "COUNTERPARTY_TYPES", "IRRBB_SCENARIOS", "SIDES",
+    "BUCKET_FRAMEWORKS", "HEADLINE_BUCKET_FRAMEWORK",
     "TIME_BUCKET", "PRODUCT_TERMS", "BEHAVIOUR_PARAM", "PREPAY_SCURVE_PARAM",
     "BEHAVIOUR_SCENARIO_MULT", "NMD_PARAM", "PARAM_TABLES",
-    "build_time_buckets", "build_product_terms", "build_behaviour_param",
+    "build_time_bucket_ledger", "build_time_buckets", "build_product_terms",
+    "build_behaviour_param",
     "build_prepay_scurve_param", "build_behaviour_scenario_mult",
     "build_nmd_param", "build_param_ledgers",
 ]
 
 # ---------------------------------------------------------------- 어휘
 
+# '재량·미규정' — 원문을 읽었고, 그 원문이 값을 정하지 않는다는 것까지 확인한
+# 상태다. '미확인'(원문을 못 봤다)과 다른 사건이므로 어휘를 나눈다.
 EVIDENCE_STATUS: tuple[str, ...] = (
-    "원문확인", "2차자료", "원문미확인·현행계승", "미확인")
+    "원문확인", "2차자료", "원문미확인·현행계승", "재량·미규정", "미확인")
 INPUT_SOURCES: tuple[str, ...] = (
     "자체추정", "표준벤치마크", "감독제시", "감독상한대체", "미확정")
 BEHAVIOUR_CLASSES: tuple[str, ...] = (
@@ -78,6 +82,12 @@ SLOTTING_METHODS: tuple[str, ...] = (
 BASE_MODELS: tuple[str, ...] = ("psa_100", "constant", "미확정")
 
 _HOUSE = "house_9"
+_BCBS = "bcbs_19"
+BUCKET_FRAMEWORKS: tuple[str, ...] = (_HOUSE, _BCBS)
+# 헤드라인 계정. 원장의 is_headline 컬럼이 이 값에서 나오고, 엔진에 들어가는
+# 버킷 뷰의 기본값이 된다. 표준 19버킷으로 갈아끼우는 것은 배선 단계의 결정이며
+# 그때 이 상수와 파이프라인 인자가 함께 움직인다.
+HEADLINE_BUCKET_FRAMEWORK: str = _HOUSE
 
 
 # ---------------------------------------------------------------- 스펙
@@ -87,7 +97,7 @@ TIME_BUCKET = TableSpec(
     grain="계정(framework_version) × 버킷 1행",
     columns=(
         C("framework_version", "string", "계정", nullable=False,
-          allowed=(_HOUSE, "bcbs_19")),
+          allowed=BUCKET_FRAMEWORKS),
         C("seq", "int", "순서", nullable=False, min_value=1),
         C("label", "string", "버킷", nullable=False),
         C("lower_years", "float", "하한", nullable=False, unit="years",
@@ -96,13 +106,18 @@ TIME_BUCKET = TableSpec(
           min_value=0.0),
         C("t_mid_years", "float", "중점", nullable=False, unit="years",
           min_value=0.0),
+        C("is_headline", "bool", "헤드라인 계정", nullable=False,
+          note="산출에 실제로 쓰는 계정을 원장이 지정한다. 계정 전환은 이 "
+               "컬럼과 build_time_buckets(framework_version=…)로 이뤄지며 "
+               "소비처가 계정명을 소스에 박지 않는다"),
         C("citation", "text", "근거", nullable=True),
         C("evidence_status", "string", "근거 상태", nullable=False,
           allowed=EVIDENCE_STATUS),
     ),
     primary_key=("framework_version", "seq"),
     note="버킷 개수 K를 소스에서 뺀다 — 엔진은 K에 무관하게 동작한다. "
-         "현행 9개는 자체 집계이며 표준 19버킷이 아니다.",
+         "house_9는 자체 집계이고 bcbs_19는 BCBS d368 Annex 2 Table 1의 "
+         "19버킷이다. 두 계정이 한 원장에 있고 is_headline이 산출 계정을 정한다.",
 )
 
 PRODUCT_TERMS = TableSpec(
@@ -224,8 +239,8 @@ BEHAVIOUR_SCENARIO_MULT = TableSpec(
           allowed=EVIDENCE_STATUS),
     ),
     primary_key=("model", "scenario"),
-    note="구조식과 방향성(CPR은 금리와 역관계, TDRR은 정관계)만 확인했다. "
-         "steepener/flattener 행은 NULL — 엔진은 1.0으로 폴백하고 경고한다.",
+    note="12행 전건이 d368 Table 3·4의 값이다. 평행·단기 축에서만 두 표의 "
+         "방향이 반대이고, 회전(steepener·flattener) 축은 두 표가 같은 값이다.",
 )
 
 NMD_PARAM = TableSpec(
@@ -287,14 +302,52 @@ def _as_float(df: pd.DataFrame, *cols: str) -> pd.DataFrame:
     return df.astype({c: "float64" for c in cols})
 
 
-def build_time_buckets() -> pd.DataFrame:
-    """시간버킷 원장. 현행 9개 자체 집계 사다리를 그대로 옮긴다.
+# BCBS d368 Annex 2 Table 1의 19개 시간버킷. 경계 규약은 (하한, 상한] 이며
+# 원문이 `O/N < tCF ≦ 1M` 형식으로 적는다(1차자료 §A-2).
+# (라벨, 하한, 상한, 중점) — 상한·중점 단위는 년.
+_M, _D = 1.0 / 12.0, 0.0028      # 1개월, 익일물 중점(원문 표기 0.0028년)
+_BCBS19_BUCKETS: tuple[tuple[str, float, float, float], ...] = (
+    ("O/N",       0.0,    _D,     _D),
+    ("O/N-1M",    _D,     1 * _M,  0.0417),
+    ("1M-3M",     1 * _M, 3 * _M,  0.1667),
+    ("3M-6M",     3 * _M, 6 * _M,  0.375),
+    ("6M-9M",     6 * _M, 9 * _M,  0.625),
+    ("9M-1Y",     9 * _M, 1.0,     0.875),
+    ("1Y-1.5Y",   1.0,    1.5,     1.25),
+    ("1.5Y-2Y",   1.5,    2.0,     1.75),
+    ("2Y-3Y",     2.0,    3.0,     2.5),
+    ("3Y-4Y",     3.0,    4.0,     3.5),
+    ("4Y-5Y",     4.0,    5.0,     4.5),
+    ("5Y-6Y",     5.0,    6.0,     5.5),
+    ("6Y-7Y",     6.0,    7.0,     6.5),
+    ("7Y-8Y",     7.0,    8.0,     7.5),
+    ("8Y-9Y",     8.0,    9.0,     8.5),
+    ("9Y-10Y",    9.0,    10.0,    9.5),
+    ("10Y-15Y",   10.0,   15.0,    12.5),
+    ("15Y-20Y",   15.0,   20.0,    17.5),
+    # 마지막 버킷은 개방구간(tCF > 20Y)이다. 원문이 주는 것은 중점 t_K = 25년뿐
+    # 이므로 상한도 25년으로 적는다 — 상한을 임의로 늘리면 원문에 없는 경계를
+    # 만드는 것이고, 비워 두면 사다리가 끊긴다. 개방구간이라는 사실은 citation에
+    # 남긴다.
+    ("20Y+",      20.0,   25.0,    25.0),
+)
 
-    **citation 정정.** `catalog.REPRICING_GAP.bucket`은 이 9개에
-    "SRP31.94 표준 만기 구간"이라는 근거를 달고 있으나, 표준체계 버킷은 19개다
-    (K=19만 검색확인 · 19개 경계·중점은 미확인). 9개 자체집계에 표준 조항을
-    다는 것은 감사에서 그대로 읽히는 자리의 허위 표기이므로 여기서 바로잡는다.
-    `bcbs_19` 계정은 경계를 모르므로 **적재하지 않는다** — 지어내지 않는다.
+_BCBS19_CITATION = ("BCBS d368 (2016.4) Annex 2 Table 1 — 19개 시간버킷과 중점. "
+                    "경계 규약 (하한, 상한]. 마지막 구간은 tCF > 20Y 개방구간이며 "
+                    "중점 t_K = 25년")
+
+
+def build_time_bucket_ledger() -> pd.DataFrame:
+    """시간버킷 원장 전량 — 자체 집계 9개 + 표준 19개.
+
+    두 계정을 한 원장에 둔다. 어느 쪽으로 산출하는지는 `is_headline`이 정하고,
+    엔진에 들어가는 프레임은 `build_time_buckets`가 그 컬럼으로 골라 준다.
+    계정명이 소비처 소스에 박히지 않아야 전환이 배선 한 곳에서 끝난다.
+
+    **citation 정정.** `catalog.REPRICING_GAP.bucket`은 자체집계 9개에
+    "SRP31.94 표준 만기 구간"이라는 근거를 달고 있으나 표준체계 버킷은 19개다.
+    9개 자체집계에 표준 조항을 다는 것은 감사에서 그대로 읽히는 자리의 허위
+    표기이므로 house_9 행의 근거는 자체집계로 적는다.
     """
     rows, lower = [], 0.0
     for seq, (label, t_mid, upper) in enumerate(_HOUSE_BUCKETS, start=1):
@@ -302,11 +355,40 @@ def build_time_buckets() -> pd.DataFrame:
             "framework_version": _HOUSE, "seq": seq, "label": label,
             "lower_years": lower, "upper_years": float(upper),
             "t_mid_years": float(t_mid),
-            "citation": "자체 집계 사다리 — BCBS 표준 19버킷 미적재",
+            "is_headline": _HOUSE == HEADLINE_BUCKET_FRAMEWORK,
+            "citation": "자체 집계 사다리 — BCBS 표준 19버킷(bcbs_19)이 아니다",
             "evidence_status": "미확인",
         })
         lower = float(upper)
+    for seq, (label, lo, hi, t_mid) in enumerate(_BCBS19_BUCKETS, start=1):
+        rows.append({
+            "framework_version": _BCBS, "seq": seq, "label": label,
+            "lower_years": float(lo), "upper_years": float(hi),
+            "t_mid_years": float(t_mid),
+            "is_headline": _BCBS == HEADLINE_BUCKET_FRAMEWORK,
+            "citation": _BCBS19_CITATION,
+            "evidence_status": "원문확인",
+        })
     return pd.DataFrame(rows)
+
+
+def build_time_buckets(framework_version: str | None = None) -> pd.DataFrame:
+    """엔진에 들어가는 버킷 프레임 — 한 계정만 골라 준다.
+
+    슬로팅 엔진은 사다리 한 벌을 전제로 seq 순서를 읽으므로, 두 계정이 섞인
+    프레임을 넘기면 경계 배열이 단조가 아니게 되어 배정이 조용히 틀린다.
+    `framework_version=None`이면 원장의 `is_headline` 행을 쓴다.
+    """
+    led = build_time_bucket_ledger()
+    if framework_version is None:
+        d = led[led["is_headline"].astype(bool)]
+    else:
+        d = led[led["framework_version"] == framework_version]
+        if d.empty:
+            raise KeyError(
+                f"alm_time_bucket에 framework_version={framework_version!r} 행이 "
+                f"없다 — 적재된 계정은 {list(BUCKET_FRAMEWORKS)}이다")
+    return d.sort_values("seq").reset_index(drop=True)
 
 
 # 합성 상품 카탈로그. 상환방식·지급주기·이자관행의 조합은 국내 은행 상품의
@@ -424,30 +506,40 @@ def build_prepay_scurve_param(asof: str, *,
     }]).pipe(_as_float, "coef_a", "coef_b", "coef_c", "coef_d", "refi_rate")
 
 
-def build_behaviour_scenario_mult() -> pd.DataFrame:
-    """시나리오 승수표 (BCBS d368 Annex 2 Table 3·4).
+# BCBS d368 Annex 2 Table 3(조기상환 γ) · Table 4(중도해지 u). 1차자료 §A-7·§A-8.
+# 회전 시나리오(steepener·flattener)에서 두 표의 값이 **같다**. 평행·단기 축의
+# 반대 방향을 회전 축까지 일반화하면 네 칸이 틀린다.
+_SCENARIO_MULT: dict[str, dict[str, float]] = {
+    "CPR":  {"parallel_up": 0.8, "parallel_down": 1.2, "steepener": 0.8,
+             "flattener": 1.2, "short_up": 0.8, "short_down": 1.2},
+    "TDRR": {"parallel_up": 1.2, "parallel_down": 0.8, "steepener": 0.8,
+             "flattener": 1.2, "short_up": 1.2, "short_down": 0.8},
+}
 
-    구조식 `min(1, γ·CPR₀)` / `min(1, u·TDRR₀)` 과 방향성은 확인했다.
-    평행·단기 충격의 0.8/1.2는 **2차자료**이며, steepener/flattener는
-    확인하지 못해 NULL이다. NULL을 0.8로 메우지 않는다.
+_MULT_RULE: dict[str, str] = {
+    "CPR": "평행·단기 충격에서 금리 상승 시 조기상환 감소(γ=0.8) — 인센티브 "
+           "역관계. 회전 시나리오는 Table 3이 steepener 0.8 · flattener 1.2로 "
+           "직접 정한다",
+    "TDRR": "평행·단기 충격에서 금리 상승 시 중도해지 증가(u=1.2) — 재예치 유인 "
+            "정관계. 회전 시나리오는 Table 4가 steepener 0.8 · flattener 1.2로 "
+            "직접 정하며 이 두 칸은 Table 3과 값이 같다",
+}
+
+
+def build_behaviour_scenario_mult() -> pd.DataFrame:
+    """시나리오 승수표 (BCBS d368 Annex 2 Table 3·4) — 12행 전건 적재.
+
+    구조식은 `CPR_i = min(1, γ_i·CPR₀)` / `TDRR_i = min(1, u_i·TDRR₀)` 이다.
+    승수 12칸은 원문확인이고, 기준율 `CPR₀`·`TDRR₀`는 d368이 주지 않는다
+    (은행 자체추정 + 감독승인) — 그쪽은 `alm_behaviour_param`에서 계속 비어 있다.
     """
-    cite = "BCBS d368 Annex 2 Table 3(조기상환)·Table 4(중도해지)"
-    rows = []
-    for model, up_mult, dn_mult, rule in (
-        ("CPR", 0.8, 1.2, "금리 상승 시 조기상환 감소 — 인센티브 역관계"),
-        ("TDRR", 1.2, 0.8, "금리 상승 시 중도해지 증가 — 재예치 유인 정관계"),
-    ):
-        for sc in IRRBB_SCENARIOS:
-            if sc in ("parallel_up", "short_up"):
-                mult, status = up_mult, "2차자료"
-            elif sc in ("parallel_down", "short_down"):
-                mult, status = dn_mult, "2차자료"
-            else:                       # steepener · flattener
-                mult, status = None, "미확인"
-            rows.append({"model": model, "scenario": sc, "multiplier": mult,
-                         "direction_rule": rule, "citation": cite,
-                         "evidence_status": status})
-    return pd.DataFrame(rows)
+    cite = ("BCBS d368 (2016.4) Annex 2 Table 3(조기상환 γ)·"
+            "Table 4(중도해지 u)")
+    return pd.DataFrame([
+        {"model": model, "scenario": sc, "multiplier": _SCENARIO_MULT[model][sc],
+         "direction_rule": _MULT_RULE[model], "citation": cite,
+         "evidence_status": "원문확인"}
+        for model in BEHAVIOUR_MODELS for sc in IRRBB_SCENARIOS])
 
 
 # BCBS d368 Annex 2 Table 2 — 코어비율 상한 / 평균만기 상한.
