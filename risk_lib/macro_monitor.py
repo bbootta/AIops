@@ -380,6 +380,14 @@ def _rng(seed: int, key: str) -> np.random.Generator:
     return np.random.default_rng(seed + off)
 
 
+# 이 엔진이 관측시점 라벨을 만들 줄 아는 주기. 마스터의 freq 어휘(MACRO_FREQ)는
+# '연'도 허용하지만 관측치 원장의 period 표기(YYYY-MM · YYYY-Qn)에 연 라벨 자리가
+# 없다. freq가 원장에서 오게 된 뒤로는 원장을 고쳐 '연'을 넣을 수 있으므로,
+# 지원하지 않는 주기를 조용히 월로 처리하면 라벨이 사실과 달라진다. 건너뛰고
+# 경고를 남긴다.
+_SUPPORTED_FREQ: tuple[str, ...] = ("월", "분기")
+
+
 def _periods(asof: date, n: int, freq: str) -> list[str]:
     if freq == "분기":
         out, y, q = [], asof.year, (asof.month - 1) // 3 + 1
@@ -407,7 +415,8 @@ def observations(asof: date | str, *, seed: int = 42, n_periods: int = 12,
 
     계열 생성에 필요한 칸(level·vol·mean_reversion·noise_scale) 중 하나라도
     NULL인 지표는 **건너뛰고 경고를 남긴다**. 임의의 기본값을 넣으면 미입력이
-    산출물에서 사라진다.
+    산출물에서 사라진다. 관측시점 표기가 정해지지 않은 주기(`_SUPPORTED_FREQ`
+    밖)도 같은 방식으로 건너뛴다.
     """
     if isinstance(asof, str):
         asof = date.fromisoformat(asof)
@@ -419,6 +428,12 @@ def observations(asof: date | str, *, seed: int = 42, n_periods: int = 12,
             skipped.append(MacroWarning(
                 sp.indicator_id, "level·vol·mean_reversion·noise_scale",
                 "마스터에 계열 생성에 필요한 칸이 비어 있어 만들지 않는다"))
+            continue
+        if sp.freq not in _SUPPORTED_FREQ:
+            skipped.append(MacroWarning(
+                sp.indicator_id, "freq",
+                f"주기 {sp.freq!r}는 관측시점 표기가 정해져 있지 않아 계열을 "
+                "만들지 않는다"))
             continue
         g = _rng(seed, sp.indicator_id)
         # 경로의 모양(회귀 속도·잡음 배율)은 전부 원장에서 온다.

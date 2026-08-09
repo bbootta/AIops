@@ -43,7 +43,7 @@ from __future__ import annotations
 import pandas as pd
 
 from risk_lib.alm.behaviour import ParamWarning
-from risk_lib.alm.kr_irrbb import KR_FRAMEWORK_2026
+from risk_lib.alm.kr_irrbb import KR_FRAMEWORK_2026, KR_FRAMEWORK_STATUSES
 from risk_lib.alm.params import EVIDENCE_STATUS, IRRBB_SCENARIOS
 from risk_lib.datamodel.spec import ColumnSpec as C, TableSpec
 
@@ -234,16 +234,45 @@ _TIER1_BLANK = "기본자본은 기간별 값 하나이므로 ΔNII 열에 적�
 _MISSING_PRIOR = "전기 산출값이 제공되지 않았다"
 _MISSING_CURRENT = "당기 산출값이 제공되지 않았다"
 
+# 폐지 계정의 상태 문자열. `alm_irrbb_result`는 어느 계정으로 산출했는지를
+# framework_status에 싣고, 폐지 계정(별표9의1_2014)으로 낸 수치는 공시에
+# 올라가면 안 된다.
+_REPEALED_STATUS = KR_FRAMEWORK_STATUSES[1]
 
-def _scenario_values(result: pd.DataFrame | None) -> dict[str, dict[str, float | None]]:
-    """산출결과 → {시나리오: {지표: 감소액}}. 부호를 여기서 한 번만 뒤집는다."""
+
+def _scenario_values(result: pd.DataFrame | None, *,
+                     label: str) -> dict[str, dict[str, float | None]]:
+    """산출결과 → {시나리오: {지표: 감소액}}. 부호를 여기서 한 번만 뒤집는다.
+
+    입력은 산출기준(basis) 하나로 좁힌 표여야 한다. `alm_irrbb_result`의 낟알은
+    (기준일, 산출기준, 시나리오)이므로 좁히지 않고 넘기면 시나리오가 중복되고,
+    그중 마지막 행 하나가 조용히 공시값이 된다. 중복을 그대로 받지 않는다.
+
+    폐지 계정(2019.11.29 개정으로 대체된 별표9의1_2014)으로 산출한 행도 받지
+    않는다. 그 수치가 <표6>에 들어가면 폐지된 체계의 값이 현행 공시로 나간다.
+    """
     if result is None or result.empty:
         return {}
+    if "framework_status" in result.columns:
+        repealed = sorted({
+            str(r.framework_version) for r in result.itertuples()
+            if str(r.framework_status) == _REPEALED_STATUS})
+        if repealed:
+            raise ValueError(
+                f"{label} 산출결과에 폐지 계정 {repealed} 행이 있다. 폐지된 "
+                f"체계의 수치는 <표6>에 올리지 않는다")
+    counts = result["scenario"].value_counts()
+    dup = sorted(str(s) for s, n in counts.items() if n > 1)
+    if dup:
+        raise ValueError(
+            f"{label} 산출결과에 시나리오 {dup}가 여러 행이다. <표6>은 산출기준 "
+            f"하나의 표를 받는다. 좁히지 않으면 어느 행이 공시값인지 정해지지 "
+            f"않는다")
     missing = sorted(set(IRRBB_SCENARIOS) - {str(s) for s in result["scenario"]})
     if missing:
         raise ValueError(
-            f"산출결과에 시나리오 {missing}가 없다. <표6>은 6개 시나리오 전건을 "
-            "요구하며 자체 조정이 금지된다")
+            f"{label} 산출결과에 시나리오 {missing}가 없다. <표6>은 6개 시나리오 "
+            "전건을 요구하며 자체 조정이 금지된다")
     out: dict[str, dict[str, float | None]] = {}
     for r in result.itertuples():
         eve = float(r.delta_eve)
@@ -270,14 +299,15 @@ def build_table6(
     `current`·`prior`는 `alm_irrbb_result`를 산출기준 하나로 좁힌 표이며
     `scenario`·`delta_eve`·`delta_nii` 컬럼을 읽는다. 6개 시나리오가 전건
     있어야 하고, 없으면 만들다가 멈춘다. 자체 조정 금지 양식이므로 행을 빼는
-    것으로 결손을 넘어가지 않는다.
+    것으로 결손을 넘어가지 않는다. 좁히지 않은 표(시나리오 중복)와 폐지 계정으로
+    산출한 행도 받지 않는다.
 
     전기 산출값이나 기본자본이 없으면 그 칸이 비고 `blank_reason`이 사유를
     적는다. 당기 값을 전기 칸에 복사하지 않는다.
     """
     warns: list[ParamWarning] = []
-    cur = _scenario_values(current)
-    pri = _scenario_values(prior)
+    cur = _scenario_values(current, label=TABLE6_PERIODS[0])
+    pri = _scenario_values(prior, label=TABLE6_PERIODS[1])
     if current is None or current.empty:
         warns.append(ParamWarning(
             "disc_irrbb_table6", "당기", "delta_eve", _MISSING_CURRENT))

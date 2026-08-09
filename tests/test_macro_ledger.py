@@ -235,6 +235,22 @@ def test_missing_multiplier_leaves_the_value_unadjusted(master, obs, shock):
     assert row["shock"] == 0.0 and row["scenario_value"] == row["latest"]
 
 
+def test_unsupported_freq_skips_the_indicator_with_a_warning(master):
+    """freq가 원장에서 오므로 표기가 없는 주기가 들어올 수 있다.
+
+    마스터의 freq 어휘는 '연'을 허용하는데 관측치 period 표기(YYYY-MM ·
+    YYYY-Qn)에는 연 라벨 자리가 없다. 조용히 월로 처리하면 라벨이 사실과
+    달라지므로 건너뛰어야 한다.
+    """
+    edited = master.copy()
+    edited.loc[edited["indicator_id"] == "GDP_YOY", "freq"] = "연"
+    with pytest.warns(mm.MacroLedgerWarning, match="GDP_YOY"):
+        out = mm.observations(_ASOF, seed=42, master=edited)
+    assert "GDP_YOY" not in set(out["indicator_id"])
+    assert "연" not in set(mm._SUPPORTED_FREQ)
+    assert set(mm._SUPPORTED_FREQ) <= set(mm.MACRO_FREQ)
+
+
 def test_shock_map_drops_null_multipliers(shock):
     edited = shock.copy()
     sel = ((edited["scenario"] == "adverse")

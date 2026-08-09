@@ -11,6 +11,10 @@
     자체 조정 금지 양식에서 행이 사라지면 그것도 조정에 해당한다.
   · `test_a_missing_scenario_stops_the_form`
     6개 시나리오가 전건 있어야 한다. 결손을 행 삭제로 넘기지 않는다.
+  · `test_a_result_not_narrowed_to_one_basis_stops_the_form`
+    시나리오가 중복된 표를 받으면 마지막 행이 조용히 공시값이 된다.
+  · `test_a_repealed_framework_result_stops_the_form`
+    폐지된 2014년 체계의 수치가 현행 공시로 나가는 경로를 막는다.
   · `test_nii_is_blank_for_scenarios_three_to_six_by_rule`
     제14항. ΔNII는 평행 2개만 산출한다. 그 공란은 결측이 아니다.
   · `test_an_unfilled_qualitative_item_shows_as_empty`
@@ -128,6 +132,40 @@ def test_a_missing_scenario_stops_the_form():
     partial = _result().iloc[:5]
     with pytest.raises(ValueError, match="자체 조정이 금지"):
         D.build_table6(partial, asof=ASOF)
+
+
+def test_a_result_not_narrowed_to_one_basis_stops_the_form():
+    """`alm_irrbb_result`의 낟알은 (기준일, 산출기준, 시나리오)다.
+
+    좁히지 않고 넘기면 시나리오마다 행이 여럿이고, 그중 마지막 하나가 조용히
+    공시값이 된다. 어느 산출기준의 값인지 정해지지 않은 표는 받지 않는다.
+    """
+    a = _result().assign(basis="contractual")
+    b = _result(eve={s: -9.0e9 for s in IRRBB_SCENARIOS}).assign(
+        basis="behavioural")
+    with pytest.raises(ValueError, match="여러 행"):
+        D.build_table6(pd.concat([a, b], ignore_index=True), asof=ASOF)
+
+
+def test_a_repealed_framework_result_stops_the_form():
+    """2014년 체계는 2019.11.29 개정으로 폐지됐다. 그 수치는 공시로 못 나간다."""
+    repealed = _result().assign(framework_version="별표9의1_2014",
+                                framework_status="폐지")
+    with pytest.raises(ValueError, match="폐지 계정"):
+        D.build_table6(repealed, asof=ASOF)
+
+    current = _result().assign(framework_version="별표9의1_2026",
+                               framework_status="현행")
+    t6, _w = D.build_table6(current, asof=ASOF)
+    assert len(t6) == len(TABLE6_ROW_CODES) * len(TABLE6_COL_CODES)
+
+
+def test_the_prior_period_is_checked_the_same_way():
+    """전기 표에도 같은 검사가 걸린다. 한쪽만 막으면 다른 쪽으로 들어온다."""
+    repealed = _result().assign(framework_version="별표9의1_2014",
+                                framework_status="폐지")
+    with pytest.raises(ValueError, match="전기"):
+        D.build_table6(_result(), repealed, asof=ASOF)
 
 
 def test_the_form_validates_against_its_spec():
