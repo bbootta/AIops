@@ -4,7 +4,7 @@
 
 | 층 | SSoT | 근거 | 항목 수 |
 |---|---|---|---|
-| **국내 감독규정** | `harness/domestic_rule_criteria.json` | 은행업감독업무시행세칙 [시행 2026. 6. 30.] — 원문을 저장소에 보관 | 40건 (자동 23 · 수동 17) |
+| **국내 감독규정** | `harness/domestic_rule_criteria.json` | 은행업감독**규정** [시행 2026. 4. 1.] + 시행**세칙** [시행 2026. 6. 30.] — 원문 2종을 저장소에 보관 | 검증 항목 53건 (자동 31 · 수동 22) + 계량 임계 10건 |
 | 도메인 업무요건 | `harness/domain_requirement_criteria.json` | RYNTA BRD Level 1 v9.6.0 | 131건 (자동 69 · 수동 12 · 범위밖 50) |
 
 국내 층이 **법적 근거**, 도메인 층이 **업무 요건**이다. 국내 층이 상위다 —
@@ -16,10 +16,16 @@
 
 ## 인용을 원문과 대조한다
 
-`harness/reference/bank_supervision_rules_20260630.md`에 시행세칙 원문(본문
-145개 조문 heading · 별표 45건)을 지문(SHA-256 `66ac0b4d292b8440…`)과 함께
-보관한다. 각 검증 항목의 조문·별표 인용은 **생성 시점과 검증 시점 양쪽에서
-원문을 찾아 해석**되며, 라인 번호는 손으로 적지 않고 파생한다.
+근거가 두 층이다. **규정**이 경영지도비율 등 임계값을, **세칙**이 그 산정기준을
+정하므로 한쪽만으로는 국내 기준을 덮지 못한다.
+
+| 근거 | 원문 | 지문 | 수록 |
+|---|---|---|---|
+| 규정 | `harness/reference/bank_supervision_regulation_20260401.md` | `c8bc6abb18ba355c…` | 조문 heading 148 · 별표 23 |
+| 세칙 | `harness/reference/bank_supervision_rules_20260630.md` | `66ac0b4d292b8440…` | 조문 heading 145 · 별표 45 |
+
+각 검증 항목의 조문·별표 인용은 **생성 시점과 검증 시점 양쪽에서 해당 원문을
+찾아 해석**되며, 라인 번호는 손으로 적지 않고 파생한다.
 
 이월 `CO-004`("규정 텍스트가 저장소에 없다 — 인용 474종의 원문 정합성 미보증")가
 열려 있던 이유가 원문 부재였다. 시행세칙 범위에서는 이제 대조가 가능하다.
@@ -31,20 +37,43 @@ python -m tools.domestic_criteria cite-check "별표 99의9"
 #  해석 실패 — 원문에서 찾을 수 없다 (exit 1)
 ```
 
-`verify`는 세 가지를 강제한다 — ① 원문 지문 일치(원문이 바뀌면 카탈로그가
-낡았다는 사실이 드러난다) ② 인용의 원문 해석과 기록 라인·표제 일치 ③ `automated`
-항목의 하니스 근거 파일 실재.
+## 규정 임계 vs 하니스 임계 — 기계 대조
+
+규정이 정한 계량 임계 10건을 하니스 임계 파일과 대조한다. 하니스가 규정보다
+느슨하면 `looser`로 드러나며 `verify`가 위반으로 판정한다 — 규제 미달을 통과시키기
+때문이다. 더 엄격하면 `stricter`로 통과시키되 보고한다.
+
+```
+$ python -m vta domestic thresholds
+[일치] 보통주자본비율 최소      규정 0.045 이상 | 하니스 0.045 | [규정] 제26조
+[일치] 총자본비율 최소         규정 0.08  이상 | 하니스 0.08  | [규정] 제26조
+[일치] 거액익스포져비율 한도     규정 0.25  이하 | 하니스 0.25  | [규정] 제26조
+...
+10건 · 일치 10 · 엄격 0 · 느슨 0 · 없음 0
+```
+
+현재 10건 전부 일치한다. 각 임계는 원문 발췌(예: `"보통주자본비율 : 100분의 4.5"`)를
+함께 보관하며, 그 문장이 원문에 없으면 위반이다 — 지어낸 근거를 막는다.
+
+## verify가 강제하는 것
+
+① 근거 원문 2종의 지문 일치(원문이 바뀌면 카탈로그가 낡았다는 사실이 드러난다)
+② 인용의 원문 해석과 기록 라인·표제 일치
+③ 계량 임계의 원문 발췌 실재 + 하니스 임계가 규정보다 느슨하지 않을 것
+④ `automated` 항목의 하니스 근거 파일 실재
 
 ## 부문별
 
 ```
-01 RDM·BIS비율        9건 (자동 6)    05 ALM·IRRBB·유동성  10건 (자동 4)
-02 신용리스크·RWA       5건 (자동 2)    06 운영리스크          2건 (자동 1)
-03 IFRS 9 ECL         1건 (자동 1)    07 통합위기상황분석      4건 (자동 4)
-04 시장리스크           2건 (자동 2)    08 리스크 적합성검증     7건 (자동 3)
+총 53건 · 자동 31 · 수동 22      (규정 13건 · 세칙 40건)
+
+01 RDM·BIS비율       14건 (자동 10)   05 ALM·IRRBB·유동성  11건 (자동 4)
+02 신용리스크·RWA       8건 (자동  4)   06 운영리스크          2건 (자동 1)
+03 IFRS 9 ECL         2건 (자동  2)   07 통합위기상황분석      6건 (자동 5)
+04 시장리스크           2건 (자동  2)   08 리스크 적합성검증     8건 (자동 3)
 ```
 
-## 드러난 통제 공백 17건 중 눈여겨볼 것
+## 드러난 통제 공백 22건 중 눈여겨볼 것
 
 - **`KR-002` 산정 시점 (제17조제2항)** — 자기자본비중·단순기본자본비율·NSFR·
   거액익스포져비율은 가결산일·결산일 **현재** 기준, LCR·원화예대율은 **매월 평잔**
@@ -103,11 +132,12 @@ RYNTA BRD Level 1 도메인 업무요건 **131건 전부**를 적합성검증 �
 
 | 파일 | 성격 |
 |---|---|
+| `harness/reference/bank_supervision_regulation_20260401.md` | 국내 근거 원문 — 은행업감독규정 전문 (지문 고정) |
 | `harness/reference/bank_supervision_rules_20260630.md` | 국내 근거 원문 — 시행세칙 전문 (지문 고정) |
-| `harness/domestic_rule_criteria.json` | SSoT — 국내 검증 항목 40건 (생성물) |
+| `harness/domestic_rule_criteria.json` | SSoT — 국내 검증 항목 53건 + 계량 임계 10건 (생성물) |
 | `tools/gen_domestic_criteria.py` | 국내 항목 생성기 — 인용을 원문에서 해석 |
-| `tools/domestic_criteria.py` | `list` / `report` / `cite-check` / `verify` |
-| `tests/test_domestic_criteria.py` | 11건 — 인용 해석 + 음성 통제 4건 |
+| `tools/domestic_criteria.py` | `list` / `report` / `thresholds` / `cite-check` / `verify` |
+| `tests/test_domestic_criteria.py` | 16건 — 인용 해석·임계 대조 + 음성 통제 6건 |
 | `harness/domain_requirement_criteria.json` | SSoT — 기준 항목 131건 (생성물) |
 | `tools/gen_domain_criteria.py` | 생성기 — 원문 레지스터가 바뀌면 재실행 |
 | `tools/domain_criteria.py` | `list` / `report` / `verify` |
@@ -120,11 +150,12 @@ RYNTA BRD Level 1 도메인 업무요건 **131건 전부**를 적합성검증 �
 git checkout claude/validation-team-agent-Pw9F5
 cp -r validation-team-agent/{harness,tools,tests} .      # 신규 4파일
 git apply INTEGRATION.patch                              # 기존 4파일
-python -m pytest -q                                      # 1386 passed / 4 skipped
+python -m pytest -q                                      # 1391 passed / 4 skipped
 python -m vta criteria verify
 python -m vta criteria report
 python -m vta domestic verify
 python -m vta domestic report
+python -m vta domestic thresholds
 ```
 
 ## 알려진 한계

@@ -1,15 +1,21 @@
 """국내 감독규정 검증 항목 원장 — 조회·집계·검증.
 
-`harness/domestic_rule_criteria.json`을 읽는다. `verify`는 세 가지를 강제한다.
+근거는 두 층이다. **은행업감독규정**이 경영지도비율 등 임계값을 정하고,
+**은행업감독업무시행세칙**이 그 산정기준을 별표로 정한다. 둘 다 원문을
+저장소에 두고 인용을 대조한다.
 
-1. 근거 원문의 지문(SHA-256)이 카탈로그 기록과 일치하는가 — 원문이 바뀌면 드러난다
-2. 각 항목의 인용이 **원문에서 실제로 해석되는가**, 그리고 기록된 라인이 맞는가
-3. `automated`로 선언한 항목의 하니스 근거 파일이 실재하는가
+`verify`가 강제하는 것:
+
+1. 각 근거 원문의 지문(SHA-256)이 카탈로그 기록과 일치하는가 — 원문이 바뀌면 드러난다
+2. 각 항목의 인용이 해당 원문에서 실제로 해석되는가, 기록 라인·표제가 맞는가
+3. 계량 임계의 원문 발췌가 실재하고, 하니스 임계가 규정을 **느슨하게 통과시키지 않는가**
+4. `automated`로 선언한 항목의 하니스 근거 파일이 실재하는가
 
 사용:
-    python -m tools.domestic_criteria list [--section 05]
+    python -m tools.domestic_criteria list [--section 05] [--source 규정]
     python -m tools.domestic_criteria report
-    python -m tools.domestic_criteria cite-check "별표 3의6"
+    python -m tools.domestic_criteria thresholds
+    python -m tools.domestic_criteria cite-check "제26조" [--source 규정]
     python -m tools.domestic_criteria verify
 """
 
@@ -21,7 +27,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from tools.gen_domestic_criteria import SOURCE, heading_of, resolve
+from tools.gen_domestic_criteria import compare, dig, heading_of, resolve
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "harness" / "domestic_rule_criteria.json"
@@ -33,33 +39,44 @@ def load(path: Path | str = CATALOG) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def _source_lines(data: dict, root: Path) -> dict[str, list[str]]:
+    return {k: (root / v["path"]).read_text(encoding="utf-8").splitlines()
+            for k, v in data["sources"].items()}
+
+
 def violations(data: dict, root: Path = ROOT) -> list[str]:
     out: list[str] = []
-    src = root / data["source"]["path"]
-    if not src.exists():
-        return [f"근거 원문이 없다 — {data['source']['path']}"]
 
-    digest = hashlib.sha256(src.read_bytes()).hexdigest()
-    if digest != data["source"]["sha256"]:
-        out.append(f"원문 지문 불일치 — 기록 {data['source']['sha256'][:16]}… "
-                   f"실제 {digest[:16]}… (재생성 필요)")
+    for key, meta in data["sources"].items():
+        src = root / meta["path"]
+        if not src.exists():
+            out.append(f"[{key}] 근거 원문이 없다 — {meta['path']}")
+            continue
+        digest = hashlib.sha256(src.read_bytes()).hexdigest()
+        if digest != meta["sha256"]:
+            out.append(f"[{key}] 원문 지문 불일치 — 기록 {meta['sha256'][:16]}… "
+                       f"실제 {digest[:16]}… (재생성 필요)")
+    if out:
         return out
 
-    lines = src.read_text(encoding="utf-8").splitlines()
+    lines = _source_lines(data, root)
     seen: set[str] = set()
     for c in data["criteria"]:
-        rid = c["rule_id"]
+        rid, key = c["rule_id"], c["source_key"]
         if rid in seen:
             out.append(f"{rid}: rule_id 중복")
         seen.add(rid)
+        if key not in lines:
+            out.append(f'{rid}: 근거 키가 정의 밖 ({key})')
+            continue
 
-        ln = resolve(c["citation"], lines)
+        ln = resolve(c["citation"], lines[key])
         if ln is None:
-            out.append(f'{rid}: 인용이 원문에서 해석되지 않음 — {c["citation"]}')
+            out.append(f'{rid}: 인용이 {key} 원문에서 해석되지 않음 — {c["citation"]}')
         elif ln != c["source_line"]:
             out.append(f'{rid}: 기록 라인이 원문과 다름 — {c["citation"]} '
                        f'기록 {c["source_line"]} 실제 {ln}')
-        elif heading_of(ln, lines) != c["source_heading"]:
+        elif heading_of(ln, lines[key]) != c["source_heading"]:
             out.append(f'{rid}: 기록 표제가 원문과 다름 — {c["citation"]}')
 
         if c["automation"] not in AUTOMATION:
@@ -81,6 +98,27 @@ def violations(data: dict, root: Path = ROOT) -> list[str]:
         for l in c["lens"]:
             if l not in data["lenses"]:
                 out.append(f'{rid}: 검증 관점이 정의 밖 ({l})')
+
+    for t in data["thresholds"]:
+        key = t["key"]
+        if not any(t["quote"] in l for l in lines[t["source_key"]]):
+            out.append(f'임계 {key}: 원문 발췌가 {t["source_key"]}에 없다 — {t["quote"]}')
+        actual = dig(json.loads((root / t["harness_file"]).read_text(encoding="utf-8")),
+                     t["harness_path"])
+        if actual != t["harness_value"]:
+            out.append(f'임계 {key}: 하니스 값이 기록과 다름 — 기록 {t["harness_value"]} '
+                       f'실제 {actual} ({t["harness_file"]}) · 재생성 필요')
+            continue
+        status = compare(t["regulated_value"], actual, t["direction"])
+        if status != t["status"]:
+            out.append(f'임계 {key}: 기록 상태가 재계산과 다름 — 기록 {t["status"]} 실제 {status}')
+        if status == "looser":
+            out.append(f'임계 {key}: 하니스 임계가 규정보다 느슨하다 — '
+                       f'규정 {t["regulated_value"]} vs 하니스 {actual} '
+                       f'({t["citation"]}) · 규제 미달을 통과시킨다')
+        elif status == "missing":
+            out.append(f'임계 {key}: 하니스 임계 파일에 값이 없다 — '
+                       f'{t["harness_file"]} {" > ".join(t["harness_path"])}')
     return out
 
 
@@ -89,12 +127,14 @@ def _cmd_list(args) -> int:
     rows = data["criteria"]
     if args.section:
         rows = [c for c in rows if c["section"] == args.section]
+    if args.source:
+        rows = [c for c in rows if c["source_key"] == args.source]
     if args.automation:
         rows = [c for c in rows if c["automation"] == args.automation]
     for c in rows:
         mark = "[자동]" if c["automation"] == "automated" else "[수동]"
-        print(f'{mark} {c["rule_id"]}  {c["section"]}  {c["citation"]} '
-              f'(원문 L{c["source_line"]})')
+        print(f'{mark} {c["rule_id"]}  {c["section"]}  [{c["source_key"]}] '
+              f'{c["citation"]} (L{c["source_line"]})')
         print(f'        {c["criterion"]}')
         if c["evidence"]:
             print(f'        근거: {" · ".join(c["evidence"])}')
@@ -104,15 +144,41 @@ def _cmd_list(args) -> int:
     return 0
 
 
+def _cmd_thresholds(args) -> int:
+    data = load(args.catalog)
+    print("계량 임계 — 규정 값 vs 하니스 임계\n")
+    mark = {"ok": "[일치]", "stricter": "[엄격]", "looser": "[느슨]", "missing": "[없음]"}
+    for t in data["thresholds"]:
+        arrow = "이상" if t["direction"] == "min" else "이하"
+        print(f'{mark[t["status"]]} {t["korean"]:24s} 규정 {t["regulated_value"]:<7} {arrow} '
+              f'| 하니스 {t["harness_value"]} '
+              f'| [{t["source_key"]}] {t["citation"]}')
+        print(f'        원문: "{t["quote"]}"')
+        print(f'        하니스: {t["harness_file"]} > {" > ".join(t["harness_path"])}')
+    c = Counter(t["status"] for t in data["thresholds"])
+    print(f'\n{len(data["thresholds"])}건 · 일치 {c["ok"]} · 엄격 {c["stricter"]} '
+          f'· 느슨 {c["looser"]} · 없음 {c["missing"]}')
+    if c["looser"] or c["missing"]:
+        print("> 느슨·없음은 규제 미달을 통과시킨다 — verify 가 위반으로 판정한다.")
+    return 0
+
+
 def _cmd_report(args) -> int:
     data = load(args.catalog)
     rows = data["criteria"]
-    s = data["source"]
-    print(f'국내 감독규정 검증 항목 — {s["title"]} [시행 {s["effective"]}]')
-    print(f'근거수준 국내구속 · 원문 지문 {s["sha256"][:16]}…')
-    print(f'원문 수록: 별표 {s["n_schedules"]}건 · 조문 heading {s["n_article_headings"]}건')
+    print("국내 감독규정 검증 항목 — 근거 2층\n")
+    for k, s in data["sources"].items():
+        print(f'  [{k}] {s["title"]} [시행 {s["effective"]}] · {s["role"]}')
+        print(f'       지문 {s["sha256"][:16]}… · 별표 {s["n_schedules"]}건 '
+              f'· 조문 heading {s["n_article_headings"]}건')
     auto = Counter(c["automation"] for c in rows)
     print(f'\n총 {len(rows)}건 · 자동 {auto["automated"]} · 수동 {auto["manual"]}')
+
+    print("\n[근거별]")
+    for k in data["sources"]:
+        sub = [c for c in rows if c["source_key"] == k]
+        a = sum(1 for c in sub if c["automation"] == "automated")
+        print(f'  {k}  {len(sub):3d}건 · 자동 {a:2d} · 수동 {len(sub)-a:2d}')
 
     print("\n[부문별]")
     for code, name in data["sections"].items():
@@ -122,31 +188,35 @@ def _cmd_report(args) -> int:
         a = sum(1 for c in sec if c["automation"] == "automated")
         print(f'  {code} {name:22s} {len(sec):3d}건 · 자동 {a:2d} · 수동 {len(sec)-a:2d}')
 
-    print("\n[검증 관점별] (중복 계상)")
-    lens = Counter(l for c in rows for l in c["lens"])
-    for l in data["lenses"]:
-        print(f'  {l:6s} {lens.get(l, 0):3d}건')
+    tc = Counter(t["status"] for t in data["thresholds"])
+    print(f'\n[계량 임계] {len(data["thresholds"])}건 · 일치 {tc["ok"]} · 엄격 {tc["stricter"]} '
+          f'· 느슨 {tc["looser"]} · 없음 {tc["missing"]}')
 
     gap = [c for c in rows if c["automation"] == "manual"]
     print(f"\n[국내 기준을 덮지 못하는 항목 {len(gap)}건 — 통제 공백]")
     for c in gap:
-        print(f'  {c["rule_id"]} {c["citation"]:12s} {c["note"]}')
-    print("\n> 인용이 원문에서 해석된다는 것은 조문·별표가 존재한다는 뜻이며, "
-          "그 내용을 다 덮는다는 뜻이 아니다.")
+        print(f'  {c["rule_id"]} [{c["source_key"]}] {c["citation"]:12s} {c["note"]}')
+    print("\n> 인용이 해석되고 임계가 일치한다는 것은 그 값이 맞다는 뜻이며, "
+          "규정 내용을 다 덮는다는 뜻이 아니다.")
     return 0
 
 
 def _cmd_cite_check(args) -> int:
-    lines = SOURCE.read_text(encoding="utf-8").splitlines()
-    ln = resolve(args.citation, lines)
-    if ln is None:
-        print(f'해석 실패 — "{args.citation}" 는 원문에서 찾을 수 없다')
-        return 1
-    print(f'해석됨 — L{ln}: {heading_of(ln, lines)}')
-    for l in lines[ln:ln + args.context]:
-        if l.strip():
-            print(f'  {l[:160]}')
-    return 0
+    data = load(args.catalog)
+    keys = [args.source] if args.source else list(data["sources"])
+    lines = _source_lines(data, ROOT)
+    found = False
+    for k in keys:
+        ln = resolve(args.citation, lines[k])
+        if ln is None:
+            print(f'[{k}] 해석 실패 — "{args.citation}"')
+            continue
+        found = True
+        print(f'[{k}] 해석됨 — L{ln}: {heading_of(ln, lines[k])}')
+        for l in lines[k][ln:ln + args.context]:
+            if l.strip():
+                print(f'    {l[:160]}')
+    return 0 if found else 1
 
 
 def _cmd_verify(args) -> int:
@@ -160,8 +230,11 @@ def _cmd_verify(args) -> int:
     rows = data["criteria"]
     auto = sum(1 for c in rows if c["automation"] == "automated")
     ev = sum(len(c["evidence"]) for c in rows)
+    th = data["thresholds"]
     print(f'국내 검증 항목 정상 — {len(rows)}건 · 인용 전부 원문에서 해석 · '
-          f'자동 {auto}건의 근거 {ev}개 파일 실재 · 원문 지문 일치')
+          f'자동 {auto}건의 근거 {ev}개 파일 실재')
+    print(f'계량 임계 {len(th)}건 — 규정보다 느슨한 임계 0건 · 원문 발췌 전부 실재')
+    print(f'근거 원문 {len(data["sources"])}종 지문 일치')
     return 0
 
 
@@ -172,18 +245,23 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("list", help="검증 항목 조회")
     p.add_argument("--section", help="부문 코드 (01~08)")
+    p.add_argument("--source", help="근거 (규정·세칙)")
     p.add_argument("--automation", choices=AUTOMATION)
     p.set_defaults(func=_cmd_list)
 
-    p = sub.add_parser("report", help="부문·관점별 집계")
+    p = sub.add_parser("report", help="근거·부문별 집계")
     p.set_defaults(func=_cmd_report)
 
+    p = sub.add_parser("thresholds", help="규정 값 vs 하니스 임계 대조")
+    p.set_defaults(func=_cmd_thresholds)
+
     p = sub.add_parser("cite-check", help="인용이 원문에서 해석되는지 확인")
-    p.add_argument("citation", help='예: "별표 3의6" · "제29조의3"')
-    p.add_argument("--context", type=int, default=6, help="함께 출력할 원문 줄 수")
+    p.add_argument("citation", help='예: "제26조" · "별표 3의6"')
+    p.add_argument("--source", help="근거 (규정·세칙). 생략하면 둘 다")
+    p.add_argument("--context", type=int, default=6)
     p.set_defaults(func=_cmd_cite_check)
 
-    p = sub.add_parser("verify", help="원문 지문·인용 해석·근거 실재성 (위반 시 exit 1)")
+    p = sub.add_parser("verify", help="지문·인용·임계·근거 실재성 (위반 시 exit 1)")
     p.set_defaults(func=_cmd_verify)
 
     args = ap.parse_args(argv)
