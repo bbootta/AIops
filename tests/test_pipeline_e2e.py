@@ -143,7 +143,27 @@ GOLDEN = {
 #   WARN +1  `alm_irrbb_engine_single_source` 신설. 스트레스 경로가 아직 갭
 #            근사로 ΔEVE를 산출한다 — `StressBooks.irrbb` 배선이 끝나면 PASS로
 #            바뀐다.
-GOLDEN_VALIDATION = {"PASS": 58, "WARN": 9}
+# 재고정 9 (2026-08-10, 신규 원장 배선) — +4 PASS · +2 WARN.
+#
+# 헤드라인 10건은 움직이지 않는다. 신규 원장 스테이지는 RWA·자본비율·레버리지·
+# ECL 경로 뒤에 있고 그 산출물을 읽기만 한다. **ΔEVE는 움직였다** — 파이프라인
+# 헤드라인 계정이 폐지된 `d368_2016`(KRW 300/400/200 · 충격후 하한 없음)에서
+# 현행 `별표9의1_2026`(KRW 225/350/225 · 제12항 다 하한 0)으로 옮겼기 때문이다.
+# ΔEVE는 골든 헤드라인 목록에 없으므로 이 파일의 수치는 그대로다.
+#
+# +1 PASS: irrbb_headline_not_repealed — 헤드라인 ΔEVE가 폐지 계정으로 산출되지
+#    않는지. 계정만 되돌리면 값이 그럴듯하게 나오면서 폐지된 기준이 결재로 간다.
+# +1 PASS: irrbb_outlier_basis_tier1_15pct — 아웃라이어 판정이 기본자본 15%
+#    기준([별표 9-1] 제21항 나)으로 났는지. 폐지된 자기자본 20% 기준과 다르다.
+# +1 PASS: kr_irrbb_national_ledgers_present — 비만기성예금 범주·행동옵션 범위·
+#    관리체계 원장이 실제로 산출됐는지. 스펙만 있고 산출이 없으면 화면이 빈 표다.
+# +1 PASS: lgd_ccf_backtest_censoring_reported — LGD 표본의 관측중단 건수가
+#    원장에 실리는지. 세지 않으면 완결 표본만 남아 실현 LGD가 낮게 나온다.
+# +1 WARN: limit_definition_from_ledger — 한도 5종이 원장에서 오지만 내부한도
+#    4건이 승인일 미기재다. 원장을 비우면 한도 산출도 비어야 한다는 계약을 함께 본다.
+# +1 WARN: macro_master_from_ledger — 거시지표 12종이 마스터 원장에서 오지만
+#    ECOS·KOSIS 공표 카탈로그와 대조하지 않아 전건 근거 미확인이다.
+GOLDEN_VALIDATION = {"PASS": 62, "WARN": 11}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",

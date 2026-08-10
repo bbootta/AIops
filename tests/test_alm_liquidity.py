@@ -136,11 +136,17 @@ def test_contract_and_behavioural_ladders_differ(engine):
     beh = base[base["basis"] == "행동조정"].set_index("bucket")
     assert not con.empty and not beh.empty
 
-    shortest = res.bucket.sort_values("seq")["bucket"].iloc[0]
-    # 계약기준은 NMD 전액이 최단 버킷 유출이고, 행태기준은 그 일부가 장기로
-    # 옮겨간다 — 최단 버킷 유출이 반드시 줄어야 한다.
-    assert beh.loc[shortest, "outflow"] < con.loc[shortest, "outflow"]
-    long_buckets = con.index[con.index.isin(["3-5y", "5-10y"])]
+    # 계약기준은 NMD 전액이 단기 유출이고, 행태기준은 그 일부가 장기로
+    # 옮겨간다. 버킷 라벨을 적지 않고 원장의 경계로 1년·3년을 가른다 —
+    # 사다리가 9구간에서 [별표 9-1] <표2> 19구간으로 바뀌면서 라벨을 적어 둔
+    # 검사가 전건 어긋났고, NMD 계약 유출도 O/N이 아니라 그 다음 구간에 앉는다.
+    bk = P.build_time_buckets()
+    short_labels = set(bk.loc[bk["upper_years"] <= 1.0, "label"])
+    long_labels = set(bk.loc[bk["lower_years"] >= 3.0, "label"])
+    short_buckets = con.index[con.index.isin(short_labels)]
+    long_buckets = con.index[con.index.isin(long_labels)]
+    assert (beh.loc[short_buckets, "outflow"].sum()
+            < con.loc[short_buckets, "outflow"].sum())
     assert (beh.loc[long_buckets, "outflow"].sum()
             > con.loc[long_buckets, "outflow"].sum())
     # 총 유출액 자체는 명목 보존이므로 크게 달라지지 않는다 — 바뀐 것은 시점이다.
@@ -494,18 +500,26 @@ def test_compute_nsfr_keeps_its_public_shape(bs):
 # (91/365.25 = 0.2491)는 `1-3m`에 놓았다.
 
 def test_slotting_uses_the_supervisory_upper_inclusive_convention():
+    """경계 규약 (하한, 상한]. 라벨을 적지 않고 원장의 경계로 확인한다.
+
+    직전에는 자체 집계 9구간의 라벨을 문자열로 적어 두었고, 헤드라인 사다리가
+    [별표 9-1] <표2> 19구간으로 옮기면서 전건 어긋났다. 검사가 확인해야 하는
+    것은 라벨이 아니라 **경계 포함 방향**이므로 원장의 경계로 본다.
+    """
     from risk_lib.alm.liquidity import _slot
-    b = P.build_time_buckets()
-    label = {t: str(b["label"][int(_slot([t], b)[0])])
-             for t in (0.0, 0.25, 0.5, 1.0, 3.0, 5.0, 20.0, 25.0)}
-    assert label[0.0] == "0-1m"        # 첫 버킷 하한 0은 포함
-    assert label[0.25] == "1-3m"       # 3개월 재설정 = "3개월 이내"
-    assert label[0.5] == "3-6m"
-    assert label[1.0] == "6-12m"
-    assert label[3.0] == "2-3y"        # 조달 만기 중점 3.0이 앉던 자리
-    assert label[5.0] == "3-5y"
-    assert label[20.0] == "10y+"       # 마지막 버킷은 개방구간
-    assert label[25.0] == "10y+"
+    b = P.build_time_buckets().sort_values("seq").reset_index(drop=True)
+    for t in (0.0, 0.25, 0.5, 1.0, 3.0, 5.0, 20.0, 25.0):
+        i = int(_slot([t], b)[0])
+        lo, hi = float(b["lower_years"][i]), float(b["upper_years"][i])
+        if i == len(b) - 1:
+            assert t > lo or t == 0.0    # 마지막은 개방구간
+        elif i == 0:
+            assert lo <= t <= hi         # 첫 버킷은 하한 0을 포함한다
+        else:
+            assert lo < t <= hi, f"{t}가 ({lo}, {hi}] 밖이다"
+    # 상한에 정확히 걸리는 값은 그 구간에 들어간다 — 다음 구간이 아니다.
+    edge = float(b["upper_years"][2])
+    assert int(_slot([edge], b)[0]) == 2
 
 
 def test_ladder_and_contract_paths_agree_on_a_boundary_repricing_date():
@@ -525,9 +539,14 @@ def test_floating_assets_reach_the_shortest_buckets(bs):
     그 상태에서 외화유동성비율(제63조) 분자가 항상 0이 되어 감독 제출 서식에
     '비율 0% · 충족여부 0'으로 나갔다.
     """
-    rep = bs.repricing.set_index("bucket")
-    assert rep.loc["0-1m", "assets"] > 0.0
-    assert rep.loc["1-3m", "assets"] > 0.0
+    # 최단 버킷 라벨은 사다리가 바뀌면 함께 바뀐다. 원장 순서로 집는다.
+    # 1년 이내 구간에 자산이 실제로 앉는지를 본다 — 한 점에 몰리면 최단 몇
+    # 구간이 통째로 0이 되고 외화유동성비율 분자가 항상 0이 된다.
+    rep = bs.repricing.reset_index(drop=True)
+    assert float(rep.loc[0, "assets"]) > 0.0
+    bk = P.build_time_buckets().sort_values("seq").reset_index(drop=True)
+    within_1y = rep.loc[bk["upper_years"] <= 1.0, "assets"]
+    assert (within_1y > 0.0).sum() >= 3, "1년 이내 구간 대부분이 비었다"
 
 
 def test_repricing_ladder_conserves_the_portfolio_amount(portfolio, bs):

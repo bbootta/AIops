@@ -1029,11 +1029,18 @@ def _stage_ledgers(portfolio: pd.DataFrame, base: dict[str, pd.DataFrame],
                                            seed=seed)
     tables.update(fund_t)
     warns += list(fund_w)
-    deriv = synthesise_derivatives(
-        portfolio[portfolio["asset_class"] == "bank"], seed=seed)
-    mgn_t, mgn_w = margin.build_margin(deriv, asof=asof, seed=seed)
-    tables.update(mgn_t)
-    warns += list(mgn_w)
+    # 증거금 원장은 파생거래에서 나온다. 은행 익스포저가 없는 포트폴리오에서는
+    # 거래가 0건이고, 그때 원장을 억지로 세우면 거래상대방 없는 CSA가 생긴다.
+    # 원장을 만들지 않고 그 사실을 경고로 남긴다.
+    bank_book = portfolio[portfolio["asset_class"] == "bank"]
+    deriv = (synthesise_derivatives(bank_book, seed=seed) if len(bank_book)
+             else pd.DataFrame())
+    if len(deriv):
+        mgn_t, mgn_w = margin.build_margin(deriv, asof=asof, seed=seed)
+        tables.update(mgn_t)
+        warns += list(mgn_w)
+    else:
+        warns.append("파생거래가 0건이라 증거금·담보 원장을 만들지 않는다")
     prd_t, prd_w = product_master.build_product_master(asof=asof)
     tables.update(prd_t)
     warns += [f"평가불가 상품: {x}" for x in prd_w]

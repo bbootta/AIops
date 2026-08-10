@@ -235,41 +235,60 @@ def test_nmd_caps_are_enforced_by_the_engine_not_trusted_from_the_ledger():
     assert over[0].principal == pytest.approx(0.50e12, rel=1e-12)
 
 
-def test_bucket_discretisation_breaching_the_cap_is_reported_not_hidden():
-    """house 9버킷에서는 상한 4년 NMD가 4.375년으로 슬로팅된다.
+def test_bucket_discretisation_no_longer_breaches_the_cap(): 
+    """19버킷 사다리에서는 상한 4년 NMD가 상한을 넘지 않는다.
 
-    H = 2×4 = 8년이 "5-10y" 버킷 안에 떨어져 [5,8]의 질량이 t_mid 7.5년에
-    놓이기 때문이다. 감독상한 초과를 조용히 두면 산출물에 남지 않으므로
-    경고로 드러나야 한다. 근본 해결은 표준 19버킷 적재다.
+    자체 집계 9버킷에서는 H = 2×4 = 8년이 "5-10y" 구간 안에 떨어져 [5,8]의
+    질량이 중점 7.5년에 놓였고, 그 결과 달성 평균만기가 4.375년으로 감독상한을
+    넘었다. 이 검사는 그 초과가 조용히 묻히지 않고 경고로 나오는지를 보고
+    있었고, 그때의 근본 해결책으로 "표준 19버킷 적재"를 적어 두었다.
+
+    [별표 9-1] <표2> 19구간이 적재되면서 그 초과가 사라졌다. 이제 볼 것은
+    초과가 없다는 사실과, 그럼에도 상한 자체는 계속 강제된다는 것이다.
     """
     bk = P.build_time_buckets()
     _, achieved, warns = nmd_slotting(
         1e12, core_ratio=0.50, core_ratio_cap=0.50,
         avg_maturity_years=4.0, avg_maturity_cap_years=4.0,
         buckets=bk, stable_ratio=None, scope="wholesale_nonfin")
-    assert achieved > 4.0
-    assert any(w.param == "avg_maturity_cap_years" and "이산화" in w.reason
-               for w in warns)
+    assert achieved <= 4.0 + 1e-9
+    assert not any(w.param == "avg_maturity_cap_years" and "이산화" in w.reason
+                   for w in warns)
 
-    # 상한이 버킷 경계에 떨어지면(5년 → H=10년) 오차가 사라지고 경고도 없다.
-    _, exact, clean = nmd_slotting(
+    # 상한이 버킷 경계에 떨어져도(5년 → H=10년) 마지막 질량이 구간 중점에
+    # 놓이므로 미세한 이산화 오차가 남는다. 방향은 항상 상한 이하이며 경고는
+    # 나오지 않는다 — 넘지 않은 것을 경고하면 경고가 무의미해진다.
+    _, near, clean = nmd_slotting(
         1e12, core_ratio=1.0, core_ratio_cap=1.0,
         avg_maturity_years=5.0, avg_maturity_cap_years=5.0,
         buckets=bk, stable_ratio=None, scope="retail_transactional")
-    assert exact == pytest.approx(5.0, rel=1e-12)
+    assert near == pytest.approx(5.0, rel=1e-4)
+    assert near <= 5.0 + 1e-9
     assert not any(w.param == "avg_maturity_cap_years" for w in clean)
 
 
-def test_financial_nmd_gets_no_core_and_lands_overnight():
-    """금융기관 NMD는 코어 인정 불가 — 전액 최단 버킷 (BCBS d368 Annex 2)."""
+def test_there_is_no_financial_nmd_category_in_the_ledger():
+    """금융기관 범주는 원장에 없다.
+
+    직전에는 `financial` 범주에 코어 상한 0%를 박아 두고 전액 최단 버킷으로
+    보내고 있었다. [별표 9-1] <표3>과 BCBS d368 Table 2는 소매/거래 ·
+    소매/비거래 · 도매 세 범주만 두며, 금융기관을 별도 범주로 두거나 코어를
+    0%로 못박는 행이 어느 원문에도 없다(1차자료 §B-4). 근거 없는 네 번째
+    범주였으므로 지웠고, 되살아나면 여기서 걸린다.
+    """
+    nm = P.build_nmd_param(ASOF)
+    assert set(nm["nmd_category"]) == {"retail_transactional",
+                                       "retail_non_transactional",
+                                       "wholesale_nonfin"}
+
+
+def test_zero_core_cap_sends_everything_to_the_shortest_bucket():
+    """코어 상한이 0이면 전액이 최단 버킷으로 간다 — 슬로팅 엔진의 계약."""
     bk = P.build_time_buckets()
-    nm = P.build_nmd_param(ASOF).set_index("nmd_category").loc["financial"]
-    assert nm["core_ratio_cap"] == 0.0
     pts, achieved, _ = nmd_slotting(
-        1e12, core_ratio=nm["core_ratio"], core_ratio_cap=nm["core_ratio_cap"],
-        avg_maturity_years=nm["avg_maturity_years"],
-        avg_maturity_cap_years=nm["avg_maturity_cap_years"],
-        buckets=bk, stable_ratio=None, scope="financial")
+        1e12, core_ratio=0.5, core_ratio_cap=0.0,
+        avg_maturity_years=4.0, avg_maturity_cap_years=4.0,
+        buckets=bk, stable_ratio=None, scope="t")
     assert len(pts) == 1
     assert pts[0].t_years == pytest.approx(bk["t_mid_years"].iloc[0])
     assert achieved == 0.0
@@ -306,13 +325,13 @@ def test_unverified_coefficients_are_null_not_invented():
     **바뀐 것.** 시나리오 승수 steepener·flattener는 여기서 빠졌다. 1차자료
     발췌(§A-7·§A-8)로 네 칸이 확인돼 더 이상 미확인이 아니다. 확인된 값을
     계속 비워 두는 것도 규약 위반이다. 아래 세 가지는 여전히 규정이 값을 주지
-    않는 자리다 — TDRR 기준율, S-curve 계수, NMD financial 범주.
+    않는 자리다 — TDRR 기준율과 S-curve 계수.
     """
     led = P.build_param_ledgers(ASOF)
     nmd = led["alm_nmd_param"].set_index("nmd_category")
-    # d368 Annex 2 Table 2는 소매결제성·소매비결제성·도매 세 줄뿐이고
-    # 금융기관 범주가 없다 — 코어 0%는 설계의 가정이지 원문값이 아니다.
-    assert nmd.loc["financial", "evidence_status"] == "미확인"
+    # [별표 9-1] <표3>과 d368 Annex 2 Table 2는 소매결제성·소매비결제성·도매
+    # 세 줄뿐이다. 근거 없던 네 번째 범주(financial)는 지웠고
+    # `test_there_is_no_financial_nmd_category_in_the_ledger`가 그것을 고정한다.
     assert (nmd.loc[["retail_transactional", "retail_non_transactional",
                      "wholesale_nonfin"], "evidence_status"] == "원문확인").all()
 
@@ -324,14 +343,19 @@ def test_unverified_coefficients_are_null_not_invented():
     assert sc[["coef_a", "coef_b", "coef_c", "coef_d"]].isna().all().all()
 
 
-def test_house_bucket_ladder_does_not_claim_the_standard_citation():
-    """9개 자체집계에 'SRP31.94 표준 만기 구간'을 다는 것은 허위 표기다."""
+def test_headline_bucket_ladder_is_the_regulation_table():
+    """헤드라인 사다리가 [별표 9-1] <표2>의 19구간인가.
+
+    직전에는 자체 집계 9구간(`house_9`)이 헤드라인이었고, 이 검사는 그 사다리에
+    표준 인용을 달지 못하게 막고 있었다. 원문 <표2>를 확보해 19구간과 중점이
+    적재되면서 헤드라인이 `표2_19`로 옮겼다. 이제 막아야 할 것은 반대다 —
+    규정 사다리를 두고 자체 집계로 되돌아가는 것.
+    """
     bk = P.build_time_buckets()
-    assert (bk["framework_version"] == "house_9").all()
-    assert not bk["citation"].str.contains("SRP31").any()
-    assert (bk["evidence_status"] == "미확인").all()
-    # 표준 19버킷은 경계를 모르므로 적재하지 않는다.
-    assert "bcbs_19" not in set(bk["framework_version"])
+    assert (bk["framework_version"] == P.HEADLINE_BUCKET_FRAMEWORK).all()
+    assert len(bk) == 19
+    assert bk["citation"].str.contains("별표 9-1").all()
+    assert (bk["evidence_status"] == "원문확인").all()
 
 
 def test_bucket_ledger_boundaries_are_contiguous():

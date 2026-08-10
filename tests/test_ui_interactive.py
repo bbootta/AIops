@@ -155,7 +155,7 @@ def test_a_blocking_demo_chip_is_offered(page):
 
 def _blocks(pg) -> str:
     import re
-    m = re.search(r"제안 레이아웃 — (\[.*?\])", _text(pg))
+    m = re.search(r"제안 레이아웃 (\[.*?\])", _text(pg))
     assert m, _text(pg)[:400]
     return m.group(1)
 
@@ -252,7 +252,7 @@ def test_kill_switch_stops_new_queries_without_any_dialog(page):
     _tab_named(page, "정형 조회")
     # select 옵션 목록에도 "비상정지"라는 테이블명이 있으므로 카드 안만 본다.
     card = page.inner_text("section.on .card")
-    assert "비상정지 — 실행 차단" in card
+    assert "비상정지 (실행 차단)" in card
     assert "고정 컬럼 결과" not in card
     assert page.errors == []
 
@@ -265,7 +265,7 @@ def test_kill_switch_requires_a_reason(page):
     page.wait_for_timeout(300)
     assert "Kill Switch 해제" not in page.inner_text(".kill")
     _tab_named(page, "정형 조회")
-    assert "비상정지 — 실행 차단" not in page.inner_text("section.on .card")
+    assert "비상정지 (실행 차단)" not in page.inner_text("section.on .card")
 
 
 def test_kill_switch_can_be_cancelled(page):
@@ -293,7 +293,7 @@ def test_no_control_depends_on_a_blocked_modal_dialog(page_path):
     code = re.sub(r"(?m)//.*$", " ", code)
     hits = re.findall(
         r"(?<![\w.])(?:window\.)?(?:prompt|alert|confirm)\s*\(", code)
-    assert not hits, f"차단되는 대화상자 호출 {len(hits)}건 — 화면 안 입력으로 옮겨라"
+    assert not hits, f"차단되는 대화상자 호출 {len(hits)}건. 화면 안 입력으로 옮겨라"
 
 
 # ----- 위기상황: 심각도별 전 단계 산출과정 ------------------------------------
@@ -697,13 +697,13 @@ def test_scoped_kill_only_stops_its_domain(page):
     _tab_named(page, "정형 조회")
     page.select_option("section.on select.sel", "V_CRM_EWS_SIGNAL")
     page.wait_for_timeout(300)
-    assert "비상정지 — 실행 차단" in page.inner_text("section.on .card")
+    assert "비상정지 (실행 차단)" in page.inner_text("section.on .card")
     # 다른 부문(RDM) 조회는 산다
     page.select_option("section.on select.sel", "V_RDM_ASSET_QUALITY")
     page.wait_for_timeout(300)
     card = page.inner_text("section.on .card")
     assert "고정 컬럼 결과" in card
-    assert "비상정지 — 실행 차단" not in card
+    assert "비상정지 (실행 차단)" not in card
     assert page.errors == []
 
 
@@ -823,9 +823,9 @@ def test_migration_pivot_orders_grades_by_code_master(page):
 # ----- 신규 화면·요약 스트립 -----------------------------------------------------
 
 def test_new_screens_render_with_summaries(page):
-    """시뮬레이션·한도·오버레이·역스트레스·코드 매핑 — 렌더 + 규칙 요약 표시."""
+    """시뮬레이션·한도·오버레이·역스트레스·코드 매핑의 렌더와 규칙 요약 표시."""
     for name, need in [("시뮬레이션", "승인·제출값 아님"),
-                       ("한도", "소진율 상위"),
+                       ("한도", "소진율 분포"),
                        ("오버레이", "수동조정 원장"),
                        ("역스트레스", "임계 심도"),
                        ("코드 마스터", "코드그룹"),
@@ -837,14 +837,14 @@ def test_new_screens_render_with_summaries(page):
 
 
 def test_summary_strip_is_deterministic_rule_output(page):
-    """요약 스트립 — 한도 화면의 문장이 원장 수치와 일치한다."""
+    """요약 스트립. 한도 화면의 문장이 원장 수치와 일치한다."""
     _tab_named(page, "한도")
     strip = page.inner_text("section.on .aisum")
     # 화면 본문이 그리는 프레임과 같은 것을 세야 한다. limits 는 소진율 90%
     # 이상만 담은 위반 보고서라, 그걸 세면 요약이 아래 원장과 다른 건수를 말한다.
     f = page.evaluate("window.__RYNTA__.limits_full || window.__RYNTA__.limits")
     assert f"한도 {f['total']}건" in strip
-    # 심각도 어휘는 엔진(limit_engine.LimitBreach.severity)이 정본이다 —
+    # 심각도 어휘는 엔진(limit_engine.LimitBreach.severity)이 정본이다.
     # 대소문자가 어긋나면 위반이 있는데도 "위반 없음"으로 세어 통과해 버린다.
     sev = [r[f["columns"].index("severity")] for r in f["rows"]]
     br = sum(s in ("BREACH", "CRITICAL") for s in sev)

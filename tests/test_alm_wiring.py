@@ -194,11 +194,19 @@ def test_alm_ledger_ties_run_and_pass(result):
 
 
 def test_unconfirmed_parameters_are_reported_not_swallowed(result):
-    """KRW 충격 모수가 비어 USD 프록시를 쓰는 사실이 매 실행 드러나야 한다."""
+    """근거를 확인하지 못한 모수가 산출에 관여한 사실이 매 실행 드러나야 한다.
+
+    직전에는 "KRW 충격 모수가 비어 USD 프록시를 쓴다"가 그 사실이었다. 현행
+    원문([별표 9-1] 개정 2026.1.29)을 확보해 KRW 225/350/225가 원문확인으로
+    적재되면서 프록시가 사라졌으므로 그 문구를 요구하지 않는다. 대신 남아 있는
+    공백(생존기간 시장전반 시나리오 · ΔNII 전가율)이 본문에 적히는지를 본다.
+    """
     by_name = {c.name: c for c in result.validation.checks}
     used = by_name["alm_unconfirmed_param_in_use"]
     assert used.status == "WARN"
-    assert "프록시" in used.detail
+    assert used.detail.strip(), "공백을 알리는 검사인데 본문이 비었다"
+    assert "프록시" not in used.detail, (
+        "충격 모수 프록시가 되돌아왔다 — KRW 행이 다시 비었는지 확인하라")
     warned = by_name["alm_behaviour_param_warnings"]
     assert warned.status == "WARN"
     assert warned.metric == pytest.approx(len(result.alm["warnings"]))

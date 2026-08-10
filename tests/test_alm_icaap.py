@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from risk_lib.alm import params as P
 from risk_lib.alm.balance_sheet import generate_balance_sheet, REPRICING_BUCKETS
 from risk_lib.alm.irrbb import compute_irrbb, shock_curve, SCENARIOS
 from risk_lib.alm.lcr import compute_lcr
@@ -31,7 +32,9 @@ def test_balance_sheet_balances(bs):
         bs.loans + sum(bs.hqla.values()) + bs.other_assets, rel=1e-9)
     assert bs.total_assets == pytest.approx(
         bs.funding_total() + bs.equity, rel=1e-9)
-    assert len(bs.repricing) == len(REPRICING_BUCKETS)
+    # 사다리 길이는 만기구간 원장이 정한다. 상수 목록과 대조하면 원장이 규정
+    # 사다리로 옮길 때(9구간 → [별표 9-1] <표2> 19구간) 이 검사가 먼저 깨진다.
+    assert len(bs.repricing) == len(P.build_time_buckets())
     assert (bs.repricing["assets"] >= 0).all()
     assert (bs.repricing["liabilities"] >= 0).all()
 

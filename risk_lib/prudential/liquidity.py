@@ -38,9 +38,15 @@ FX_SHARE = 0.13
 FX_SHARE_ASSETS = FX_SHARE
 FX_SHARE_LIABILITIES = FX_SHARE
 
-# 1개월 이내 / 3개월 이내 버킷 (alm_time_bucket 라벨)
-_KRW_BUCKETS = ("0-1m",)
-_FX_BUCKETS = ("0-1m", "1-3m")
+# 1개월 이내 / 3개월 이내 — **경계를 연 단위로 둔다.**
+#
+# 여기 버킷 라벨("0-1m", "1-3m")을 문자열로 적어 두고 있었다. 만기 사다리가
+# [별표 9-1] <표2>의 19구간으로 바뀌면서 그 라벨이 사라졌고, 조회가 빈 결과를
+# 내 분모가 0이 됐다. 그러면 두 비율이 0%가 되고 "충족여부 0"으로 서식
+# BR-23에 그대로 나간다 — 값 오류가 아니라 조용한 0이라 더 나쁘다.
+# 라벨은 사다리가 바뀔 때마다 바뀌지만 1개월·3개월 경계는 바뀌지 않는다.
+_KRW_HORIZON_YEARS = 1 / 12
+_FX_HORIZON_YEARS = 0.25
 
 # 예수금으로 보는 조달 항목 — 차입금·사채는 예대율 분모에서 제외한다.
 _DEPOSIT_KEYS = ("retail_stable", "retail_less_stable",
@@ -67,8 +73,18 @@ class LiquidityRatios:
                 and self.loan_deposit_ratio <= LOAN_DEPOSIT_MAX)
 
 
-def _bucket_sum(rep: pd.DataFrame, buckets: tuple[str, ...], col: str) -> float:
-    hit = rep[rep["bucket"].isin(buckets)]
+def _horizon_labels(horizon_years: float) -> set[str]:
+    """만기구간 원장에서 상한이 시계 이내인 구간 라벨을 고른다.
+
+    경계 규약은 (하한, 상한]이므로 상한이 시계 이하인 구간까지가 '시계 이내'다.
+    """
+    from risk_lib.alm.params import build_time_buckets
+    bk = build_time_buckets()
+    return set(bk.loc[bk["upper_years"] <= horizon_years + 1e-12, "label"])
+
+
+def _bucket_sum(rep: pd.DataFrame, buckets, col: str) -> float:
+    hit = rep[rep["bucket"].isin(set(buckets))]
     return float(hit[col].sum())
 
 
@@ -96,13 +112,13 @@ def compute_liquidity_ratios(result) -> LiquidityRatios:
     # 외화 분자가 구조적으로 0이 된다 — 합성 계약원장에 잔존만기 3개월 이내
     # 자산이 한 건도 없기 때문이며, 그 0이 서식 BR-23으로 그대로 나갔다.
     hqla = float(sum(bs.hqla.values()))
-    krw_assets = (_bucket_sum(rep, _KRW_BUCKETS, "assets") + hqla) * (1 - FX_SHARE_ASSETS)
-    krw_liabs = _bucket_sum(rep, _KRW_BUCKETS, "liabilities") * (1 - FX_SHARE_LIABILITIES)
+    krw_assets = (_bucket_sum(rep, _horizon_labels(_KRW_HORIZON_YEARS), "assets") + hqla) * (1 - FX_SHARE_ASSETS)
+    krw_liabs = _bucket_sum(rep, _horizon_labels(_KRW_HORIZON_YEARS), "liabilities") * (1 - FX_SHARE_LIABILITIES)
     krw_ratio = krw_assets / krw_liabs if krw_liabs > 0 else 0.0
 
     # ---- 외화유동성비율: 3개월 이내
-    fx_assets = (_bucket_sum(rep, _FX_BUCKETS, "assets") + hqla) * FX_SHARE_ASSETS
-    fx_liabs = _bucket_sum(rep, _FX_BUCKETS, "liabilities") * FX_SHARE_LIABILITIES
+    fx_assets = (_bucket_sum(rep, _horizon_labels(_FX_HORIZON_YEARS), "assets") + hqla) * FX_SHARE_ASSETS
+    fx_liabs = _bucket_sum(rep, _horizon_labels(_FX_HORIZON_YEARS), "liabilities") * FX_SHARE_LIABILITIES
     fx_ratio = fx_assets / fx_liabs if fx_liabs > 0 else 0.0
 
     # ---- 원화예대율
