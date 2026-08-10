@@ -229,6 +229,9 @@ def test_every_new_screen_renders_with_content(rendered):
         pg = b.new_page(viewport={"width": 1400, "height": 1000})
         errors: list[str] = []
         pg.on("pageerror", lambda e: errors.append(str(e)))
+        # 화면 기본 언어는 영어다. 이 검사는 한국어 메뉴 이름으로 화면을
+        # 찾으므로 저장된 선택을 한국어로 두고 연다.
+        pg.add_init_script("localStorage.setItem('rynta-lang','ko')")
         pg.goto(f"file://{rendered}")
         pg.wait_for_timeout(400)
         for lab in labels:
@@ -254,6 +257,9 @@ def test_rdm_screen_opens_with_the_review_notice(rendered):
     with sync_playwright() as pw:
         b = pw.chromium.launch(executable_path=str(_CHROME))
         pg = b.new_page(viewport={"width": 1400, "height": 1000})
+        # 화면 기본 언어는 영어다. 이 검사는 한국어 메뉴 이름으로 화면을
+        # 찾으므로 저장된 선택을 한국어로 두고 연다.
+        pg.add_init_script("localStorage.setItem('rynta-lang','ko')")
         pg.goto(f"file://{rendered}")
         pg.wait_for_timeout(400)
         pg.eval_on_selector_all(
@@ -276,6 +282,9 @@ def test_simulation_amount_input_moves_the_ratio(rendered):
     with sync_playwright() as pw:
         b = pw.chromium.launch(executable_path=str(_CHROME))
         pg = b.new_page(viewport={"width": 1400, "height": 1200})
+        # 화면 기본 언어는 영어다. 이 검사는 한국어 메뉴 이름으로 화면을
+        # 찾으므로 저장된 선택을 한국어로 두고 연다.
+        pg.add_init_script("localStorage.setItem('rynta-lang','ko')")
         pg.goto(f"file://{rendered}")
         pg.wait_for_timeout(400)
         pg.eval_on_selector_all(

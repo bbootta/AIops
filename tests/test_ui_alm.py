@@ -166,6 +166,9 @@ def alm_text(page_path):
         b = pw.chromium.launch(executable_path=str(_CHROME))
         pg = b.new_page(viewport={"width": 1400, "height": 1000})
         pg.on("pageerror", lambda e: errors.append(str(e)))
+        # 화면 기본 언어는 영어다. 이 검사들은 한국어 화면 어휘로 단언하므로
+        # 저장된 선택을 한국어로 두고 연다.
+        pg.add_init_script("localStorage.setItem('rynta-lang','ko')")
         pg.goto(f"file://{page_path}")
         pg.wait_for_timeout(600)
         for label in ALM_SCREENS:

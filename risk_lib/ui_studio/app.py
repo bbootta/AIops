@@ -1088,6 +1088,9 @@ const I18N_DEBUG = I18N.debug ||
 /* 누락 문자열은 버리지 않고 모은다. 브라우저 검사가 이 목록으로 화면별
    번역률을 잰다. 사람이 눈으로 세면 빠뜨린다. */
 const I18N_MISS = [];
+/* 찾은 문자열도 센다. 누락 수만 보면 "몇 건 남았다"는 알아도 "몇 %를 옮겼다"는
+   모른다. 화면별 번역률은 두 수가 다 있어야 나온다. */
+const I18N_HIT = [];
 const HANGUL = /[가-힣]/;
 let LANG = I18N.default || 'en';
 function T(s){
@@ -1096,13 +1099,22 @@ function T(s){
   if(LANG==='ko')return k;
   if(!HANGUL.test(k))return k;          /* 한글이 없으면 옮길 것이 없다 */
   const hit=I18N.map[k];
-  if(hit!==undefined)return hit;
+  if(hit!==undefined){
+    if(I18N_HIT.indexOf(k)<0)I18N_HIT.push(k);
+    return hit;
+  }
   if(I18N_MISS.indexOf(k)<0)I18N_MISS.push(k);
   return I18N_DEBUG?('⟦'+k+'⟧'):k;
 }
 /* 두 조각을 잇는 자리. '지문 abc' 처럼 라벨과 원장 값이 붙는 문자열은
    통째로 카탈로그에 넣을 수 없다(값이 매번 다르다). 라벨만 옮긴다. */
 function TP(label,value){return T(label)+' '+value}
+/* 건수 표기. 한국어는 단위를 숫자에 붙이고(30건), 영문은 띄어 쓴다(30 items).
+   숫자는 원장 값이라 손대지 않고 단위만 바꾼다. */
+function TC(n,unit){
+  const s=(typeof n==='number')?n.toLocaleString():String(n);
+  return LANG==='ko'?(s+unit):(s+' '+T(unit));
+}
 
 /* el() 이 텍스트를 옮기는 자리는 **코드가 지은 이름**뿐이다. 표의 셀(td)과
    원장 컬럼 머리(th)는 손대지 않는다. 원장 값을 옮기면 화면의 이름과 원장의
@@ -1467,7 +1479,7 @@ function kriCards(kris){
     c.style.cssText='border:1px solid var(--'+t+');border-radius:7px;padding:9px 11px;'+
       'background:color-mix(in srgb, var(--'+t+') 9%, transparent)';
     const hd=el('div');hd.style.cssText='display:flex;align-items:center;gap:6px';
-    const cat=el('span','meta',k.category);cat.style.flex='1';
+    const cat=rawEl('span','meta',k.category);cat.style.flex='1';
     hd.appendChild(cat);
     const bg=el('span');bg.textContent=k.grade;
     bg.style.cssText='font-size:9.5px;font-weight:700;color:var(--on-accent);'+
@@ -1493,7 +1505,7 @@ function kriCards(kris){
     }
     c.appendChild(row);
     const ft=el('div');ft.style.cssText='display:flex;gap:6px;margin-top:3px';
-    const th=el('span','meta',k.threshold_text);th.style.flex='1';ft.appendChild(th);
+    const th=rawEl('span','meta',k.threshold_text);th.style.flex='1';ft.appendChild(th);
     if(k.trend)ft.appendChild(el('span','meta '+(k.trend==='악화'?'bad':'good'),
       '12M '+(k.trend==='악화'?'↘':'↗')+' '+k.trend));
     c.appendChild(ft);
@@ -1633,7 +1645,7 @@ const DOMAIN_CHARTS={
           value:r[i.days_open],sub:`차이 ${fmtMoney(r[i.diff])}`,
           tone:r[i.days_open]>=5?'bad':'warn'})),
         {title:'독립가격검증(IPV) 미해소 (경과일 상위)',money:false,
-         src:srcMeta(ipv,`미해소 ${open.length}건`)}))}
+         src:srcMeta(ipv,TP('미해소',TC(open.length,'건')))}))}
   },
   'PRD-ECL':root=>{
     const f=D.data['ecl_result'];
@@ -1677,7 +1689,7 @@ const DOMAIN_CHARTS={
       c.appendChild(el('h3',null,'핵심리스크지표(KRI) 상태'));
       c.appendChild(dotlist(k.rows.map(r=>({
         label:r[i.kri_name],
-        right:`${fmtNum(r[i.value])} / 경보 ${fmtNum(r[i.threshold_red])}`,
+        right:`${fmtNum(r[i.value])} / ${T('경보')} ${fmtNum(r[i.threshold_red])}`,
         tone:r[i.status]==='red'?'bad':r[i.status]==='amber'?'warn':'good'}))));
       c.appendChild(srcMeta(k));root.appendChild(c)}
   },
@@ -2506,8 +2518,12 @@ function renderTable(pane,r){
   pane.innerHTML='';
   const c=el('div','card');
   c.appendChild(el('h3',null,`${r.korean} · ${r.name}`));
-  c.appendChild(el('div','meta',`입도 (${r.grain})`));
-  c.appendChild(el('div','meta',`기본키 ${r.pk} · 외래키 ${r.fk}개 · 컬럼 ${r.columns}개`));
+  /* 입도·기본키 문구는 라벨만 옮긴다. 입도 본문·기본키 컬럼명은 TableSpec
+     이 정본이라 옮기면 스펙과 화면의 이름이 갈라진다. 수치가 섞인 문장은
+     통째로 카탈로그에 넣을 수 없어(값이 원장마다 다르다) 라벨을 따로 잇는다. */
+  c.appendChild(rawEl('div','meta',`${T('입도')} (${r.grain})`));
+  c.appendChild(rawEl('div','meta',
+    `${T('기본키')} ${r.pk} · ${T('외래키')} ${r.fk} · ${T('컬럼')} ${r.columns}`));
   const f=D.previews[r.name];
   if(f){
     const ch=autoChart(f,r);
@@ -2544,7 +2560,7 @@ function renderForm(pane,f){
   pane.innerHTML='';
   const c=el('div','card');
   c.appendChild(el('h3',null,`[${f.form_no}] ${f.form_name}`));
-  c.appendChild(el('div','meta',`${f.section} · 내부 ID ${f.form_id} · 제출주기 ${f.frequency} · 근거 ${f.citation}`));
+  c.appendChild(rawEl('div','meta',`${f.section} · ${T('내부 ID')} ${f.form_id} · ${T('제출주기')} ${f.frequency} · ${T('근거')} ${f.citation}`));
   if(!f.official)c.appendChild(el('div','note',
     '서식번호는 내부 배정 코드다. 금감원 배포본 서식번호 확보 후 대조가 필요하다.'));
   const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
@@ -2645,7 +2661,7 @@ function assumptionList(list){
     const sec=el('div','asmp-sec');
     const hd=el('div','asmp-hd');
     hd.appendChild(el('span',null,name));
-    const badge=el('span','pill',mine.length+'건');
+    const badge=rawEl('span','pill',TC(mine.length,'건'));
     hd.appendChild(badge);
     sec.appendChild(hd);
     const items=mine.map(r=>{
@@ -2674,7 +2690,7 @@ function assumptionList(list){
         if(kw)it.node.open=on; else if(hadKw)it.node.open=false;
         if(on)n++});
       s.node.hidden=n===0;
-      s.badge.textContent=(kw&&n<s.total)?`${n}/${s.total}건`:`${s.total}건`;
+      s.badge.textContent=(kw&&n<s.total)?(n+'/'+TC(s.total,'건')):TC(s.total,'건');
       vis+=n});
     hit.textContent=`검색어 '${q.value.trim()}' (${rows.length}건 중 ${vis}건)`;
     hit.hidden=!kw;
@@ -3212,7 +3228,7 @@ function reqTrace(root){
       (!fSt.value||r.status===fSt.value)&&
       (!fPr.value||r.id.startsWith(fPr.value+'-'))&&
       (!kw||(r.id+' '+r.title).toLowerCase().includes(kw)));
-    pane.appendChild(el('h3',null,`요건 ${rows.length}건`));
+    pane.appendChild(rawEl('h3',null,TP('요건',TC(rows.length,'건'))));
     const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
     ['요건','업권','우선순위','상태','증빙 (검증됨)','비고'].forEach(
       x=>tr.appendChild(el('th',null,x)));
@@ -3233,7 +3249,9 @@ function reqTrace(root){
         s.textContent=e.kind+' · '+e.ref;s.title=e.kind;td4.appendChild(s)});
       if(!r.evidence.length)td4.appendChild(el('span','meta','-'));
       x.appendChild(td4);
-      x.appendChild(el('td','meta',r.note||''));
+      /* 비고는 요건 레지스터(req_trace.py)가 원문에서 생성한 값이다. 옮기면
+         화면의 문장과 레지스터의 문장이 갈라져 BRD 대조가 끊긴다. */
+      x.appendChild(rawEl('td','meta',r.note||''));
       tb.appendChild(x)});
     t.appendChild(tb);w.appendChild(t);pane.appendChild(w);
   }
@@ -3465,7 +3483,9 @@ function macroMonitor(root){
       zd.appendChild(pill((a.z>0?'+':'')+a.z.toFixed(2),
         Math.abs(a.z)>=2?'bad':'warn'));
       r.appendChild(zd);
-      r.appendChild(el('td','meta',a.drives));
+      /* 지표명·부문·움직이는 축은 지표 마스터 원장(macro_monitor.py)의 값이다.
+         옮기면 화면의 이름과 원장의 이름이 갈라진다. */
+      r.appendChild(rawEl('td','meta',a.drives));
       tb.appendChild(r)});
     t.appendChild(tb);w.appendChild(t);ac.appendChild(w);
   }
@@ -3524,7 +3544,7 @@ function macroMonitor(root){
       const r=el('tr'),nd=el('td');
       /* 표에서 바로 계열을 고른다. select 하나만 두면 표에서 눈에 띈 지표를
          목록에서 다시 찾아야 한다 */
-      const b=el('button','chip',x.name);
+      const b=rawEl('button','chip',x.name);   /* 지표명은 원장 값이다 */
       b.onclick=()=>{sel.value=x.indicator_id;drawSeries();
         sc.scrollIntoView({block:'nearest'})};
       nd.appendChild(b);r.appendChild(nd);
@@ -3535,7 +3555,7 @@ function macroMonitor(root){
       r.appendChild(el('td',null,x.freq));
       r.appendChild(el('td',null,x.source));
       r.appendChild(el('td','mono',x.source_code));
-      r.appendChild(el('td','meta',x.drives));
+      r.appendChild(rawEl('td','meta',x.drives));
       ttb.appendChild(r)})});
   tt.appendChild(ttb);tw.appendChild(tt);tc.appendChild(tw);
   /* 수준이 %인 지표(금리·실업률)는 전년동기대비를 %p 차이로 읽기 쉬워, 원장
@@ -3558,7 +3578,7 @@ function macroMonitor(root){
   const chips=el('div','chips');
   const scens=[...new Set(M.links.map(x=>x.scenario))];
   let scen=scens[scens.length-1];
-  scens.forEach(s0=>{const b=el('button','chip',s0);
+  scens.forEach(s0=>{const b=rawEl('button','chip',s0);  /* 시나리오명은 원장 값 */
     b.onclick=()=>{scen=s0;drawLinks()};chips.appendChild(b)});
   lc.appendChild(chips);
   const lpane=el('div');lc.appendChild(lpane);
@@ -3688,16 +3708,16 @@ function codeScope(root){
         x.appendChild(el('td','mono',code));
         x.appendChild(el('td',null,r[ai.account_name]));
         const td0=el('td');td0.appendChild(yn(!!(c2&&c2[ci.in_scope])));x.appendChild(td0);
-        x.appendChild(el('td','meta',c2&&c2[ci.asset_class]!=='-'
+        x.appendChild(rawEl('td','meta',c2&&c2[ci.asset_class]!=='-'
           ?c2[ci.asset_class]+' · '+c2[ci.approach]:'-'));
-        x.appendChild(el('td','meta',c2?c2[ci.rw_range]:'-'));
-        x.appendChild(el('td','meta',c2&&c2[ci.ccf_type]!=='-'
+        x.appendChild(rawEl('td','meta',c2?c2[ci.rw_range]:'-'));
+        x.appendChild(rawEl('td','meta',c2&&c2[ci.ccf_type]!=='-'
           ?c2[ci.ccf_type]+' · '+(c2[ci.ccf_rate]*100).toFixed(0)+'%':'-'));
-        x.appendChild(el('td','meta',c2&&c2[ci.n_exposures]
-          ?c2[ci.n_exposures].toLocaleString()+'건 · '+fmtMoney(c2[ci.ead_total]):'-'));
+        x.appendChild(rawEl('td','meta',c2&&c2[ci.n_exposures]
+          ?TC(c2[ci.n_exposures],'건')+' · '+fmtMoney(c2[ci.ead_total]):'-'));
         [[l2&&l2[li.irrbb_scope]],[l2&&l2[li.liquidity_scope]]]
           .forEach(([v])=>{const td=el('td');td.appendChild(yn(!!v));x.appendChild(td)});
-        x.appendChild(el('td','meta',l2&&l2[li.lcr_category]!=='-'
+        x.appendChild(rawEl('td','meta',l2&&l2[li.lcr_category]!=='-'
           ?l2[li.lcr_category]+(l2[li.lcr_factor]!=null
             ?' · '+(l2[li.lcr_factor]*100).toFixed(0)+'%':''):'-'));
         tb.appendChild(x)});
@@ -3726,13 +3746,13 @@ function codeScope(root){
         x.appendChild(el('td',null,r[pi.product_name]));
         x.appendChild(el('td',null,r[pi.book]));
         const td0=el('td');td0.appendChild(yn(!!(m2&&m2[mi.in_scope])));x.appendChild(td0);
-        x.appendChild(el('td','meta',m2?m2[mi.frtb_class]:'-'));
-        x.appendChild(el('td','meta',m2&&m2[mi.n_trades]
-          ?m2[mi.trade_kind]+' · '+m2[mi.n_trades].toLocaleString()+'건':'-'));
+        x.appendChild(rawEl('td','meta',m2?m2[mi.frtb_class]:'-'));
+        x.appendChild(rawEl('td','meta',m2&&m2[mi.n_trades]
+          ?m2[mi.trade_kind]+' · '+TC(m2[mi.n_trades],'건'):'-'));
         const td1=el('td');td1.appendChild(yn(!!(o2&&o2[oi.in_scope])));x.appendChild(td1);
-        x.appendChild(el('td','meta',o2
-          ?o2[oi.event_mapping]+' · '+o2[oi.n_events].toLocaleString()+'건':'-'));
-        x.appendChild(el('td','meta',o2?o2[oi.capital_method]:'-'));
+        x.appendChild(rawEl('td','meta',o2
+          ?o2[oi.event_mapping]+' · '+TC(o2[oi.n_events],'건'):'-'));
+        x.appendChild(rawEl('td','meta',o2?o2[oi.capital_method]:'-'));
         tb.appendChild(x)});
       t.appendChild(tb);w.appendChild(t);c.appendChild(w);
       c.appendChild(srcMeta(pm,'대상여부: mkt_code_scope · opr_code_scope (규칙 파생)'));
@@ -4198,7 +4218,7 @@ function almIrrbbCharts(root){
         (n==null?'':' · 정의 원장이 ΔNII 대상으로 표시한 시나리오 '+n+'개')));
       c.appendChild(el('div','meta','ΔNII에는 산출기준(계약/행동조정) 축이 '+
         '없다. 재가격 시뮬레이션이라 EVE 현금흐름을 재활용하지 않는다.'));
-      c.appendChild(el('div','meta',String(ni.rows[0][xi.citation])));
+      c.appendChild(rawEl('div','meta',String(ni.rows[0][xi.citation])));
       pane.appendChild(c)}
   }
   sel.onchange=draw;draw();
@@ -4911,7 +4931,7 @@ function krNmdCard(root){
       simpleTable(['계정','예금자','잔액','소매','소매 유사','조달총액',
                    '기준금액','정기거래','범주','규칙','근거'],rows,
         {numeric:false}));
-    c.appendChild(el('div','meta','규칙 적용 근거: '+k.rows[0][i.citation]));
+    c.appendChild(rawEl('div','meta',T('규칙 적용 근거')+': '+k.rows[0][i.citation]));
     c.appendChild(srcMeta(k));
     root.appendChild(c)}
 }
@@ -4925,7 +4945,7 @@ function krRetailScopeCard(root){
         cr.rows.map(r=>[r[i.rule_code],r[i.rule_name],r[i.applies_to],
           r[i.measure],moneyOrDash(r[i.threshold_amount]),r[i.comparison],
           r[i.consolidation_basis],r[i.evidence_status]])));
-    c.appendChild(el('div','meta',cr.rows[0][i.citation]));
+    c.appendChild(rawEl('div','meta',cr.rows[0][i.citation]));
     root.appendChild(c)}
   if(!f)return;
   const i=frameIdx(f);
@@ -4960,7 +4980,7 @@ function krAutoOptionCard(root){
     '옵션 계약 인벤토리(계약별 종류·행사금리·내재변동성) 원장이 저장소에 '+
     '없어 재평가를 산출하지 않는다. 계수만 등재돼 있고 ΔEVE 에 옵션 리스크가 '+
     '더해지지 않았다.'));
-  c.appendChild(el('div','meta',f.rows[0][i.citation]));
+  c.appendChild(rawEl('div','meta',f.rows[0][i.citation]));
   c.appendChild(srcMeta(f));
   root.appendChild(c);
 }
@@ -5482,10 +5502,12 @@ function defaultedLgdScreen(root){
         bars(pts.map(([k,v])=>({label:k+'개월',value:v})),
           {fmt:v=>fmtNum(v)}),
         '미종결 부도관측 '+open.length+'건의 부도 후 경과월 분포다.');
-      c.appendChild(el('div','note warn',
-        '경과월별 BEEL 곡선은 그리지 않는다. 산출 원장이 그 곡선을 만들지 '+
-        '않았고 사유를 산출방법 컬럼에 남겼다: '+
-        (f.rows.length?f.rows[0][i.elbe_method]:'(원장 없음)')));
+      /* 사유 본문은 산출 원장의 elbe_method 값이다. 화면이 지은 문장만 옮기고
+         원장 값은 원문 그대로 잇는다. */
+      c.appendChild(rawEl('div','note warn',
+        T('경과월별 BEEL 곡선은 그리지 않는다. 산출 원장이 그 곡선을 '+
+          '만들지 않았고 사유를 산출방법 컬럼에 남겼다')+': '+
+        (f.rows.length?f.rows[0][i.elbe_method]:T('(원장 없음)'))));
       root.appendChild(c)}
     const cure=obs.rows.filter(r=>String(r[oi.censoring_status]).indexOf('정상화')>=0);
     root.appendChild(cardOf('정상화(cure) 인식',
@@ -6276,7 +6298,7 @@ function linkedInput(label,base,onChange){
   wrap.appendChild(pi);wrap.appendChild(el('span','meta','%'));
   wrap.appendChild(ai);wrap.appendChild(el('span','meta','억원'));
   wrap.appendChild(tag);
-  const bs=el('span','meta','기준 '+fmtMoney(base));wrap.appendChild(bs);
+  const bs=rawEl('span','meta',TP('기준',fmtMoney(base)));wrap.appendChild(bs);
   st.wrap=wrap;st.base=base;
   return st;
 }
@@ -6985,7 +7007,7 @@ function modelInventory(root){
   function draw(){
     pane.innerHTML='';
     const rows=f.rows.filter(r=>!dsel.value||r[i.domain]===dsel.value);
-    pane.appendChild(el('h3',null,`모형 ${rows.length}건`));
+    pane.appendChild(rawEl('h3',null,TP('모형',TC(rows.length,'건'))));
     pane.appendChild(table({table:'crm_model',
       columns:['model_id','model_name','domain','tier','status','owner','purpose'],
       labels:['모형','모형명','도메인','등급','상태','소유부서','목적'],
@@ -7050,7 +7072,7 @@ function modelValidationSchedule(root){
       ? pill(`기한 초과 ${r[i.days_overdue]}일`,'bad')
       : pill('기한 내','good'));
     x.appendChild(td);
-    x.appendChild(el('td','meta',r[i.owner]));
+    x.appendChild(rawEl('td','meta',r[i.owner]));
     tb.appendChild(x)});
   t.appendChild(tb);w.appendChild(t);c.appendChild(w);
   c.appendChild(srcMeta(f));
@@ -7497,7 +7519,7 @@ const DETAIL_SCREENS=[
             value:r[i.days_open],sub:`차이 ${fmtMoney(r[i.diff])}`,
             tone:r[i.days_open]>=5?'bad':'warn'})),
           {title:'미해소 경과일 상위',money:false,
-           src:srcMeta(ipv,`미해소 ${open.length}건`)}))}}},
+           src:srcMeta(ipv,TP('미해소',TC(open.length,'건')))}))}}},
     tables:[['거래 원장','mkt_trade'],['위험요소','mkt_risk_factor'],
             ['독립가격검증','mkt_ipv']]})],
   ['백테스팅','C · VaR 백테스팅 (예외 달력·손익 대 경계)',screenOf({
@@ -7746,6 +7768,7 @@ function paintStatic(){
   const rin=$('#killreason');
   if(rin){if(rin.dataset.ko===undefined)rin.dataset.ko=rin.value;
     if(!rin.dataset.touched)rin.value=T(rin.dataset.ko)}
+  const nv=$('nav');if(nv)nv.setAttribute('aria-label',T('메뉴'));
   const tb=$('#themebtn');if(tb)paintThemeButton(tb);
   const lb=$('#langbtn');
   if(lb){lb.textContent=(LANG==='en'?T('한국어'):'English');
@@ -7773,7 +7796,8 @@ function wireLang(){
 }
 /* 번역 누락을 사람이 눈으로 세면 빠뜨린다. 브라우저 검사가 화면을 전부
    돌면서 이 목록으로 화면별 번역률을 잰다(tests/test_i18n.py). */
-window.__I18N__={miss:I18N_MISS,T:s=>T(s),lang:()=>LANG,set:l=>setLang(l)};
+window.__I18N__={miss:I18N_MISS,hit:I18N_HIT,T:s=>T(s),lang:()=>LANG,
+                 set:l=>setLang(l)};
 
 /* 화면 밝기. 초기값은 시스템 설정(prefers-color-scheme)을 따르고, 한 번
    고르면 그 선택이 이긴다. 선택은 localStorage 에 남아 다음 열람에도 유지된다.
@@ -7937,7 +7961,7 @@ def render(studios: Studio | list[Studio]) -> str:
     primary = ss[-1].asof                    # 최신 기준일이 기본 화면
     m = runs[primary]["meta"]
     return f"""<!doctype html>
-<html lang="ko"><head><meta charset="utf-8">
+<html lang="{_i18n.DEFAULT_LANG}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RYNTA 에이전틱 UI 스튜디오 · {html.escape(primary)}</title>
 <style>{_CSS}</style></head><body>
