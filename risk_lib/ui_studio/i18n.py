@@ -619,7 +619,7 @@ _t("dlgd",
    '정상화(cure) 인식||Cure recognition',
    '정상화로 분류된 관측이 원장에 없다.||There are no observations classified as cured in the ledger.',
    '만들지 않은 화면||Screen not built',
-   '청산부도손실율(PLGD)의 정의와 산식을 1차자료에서 확인하지 못했다. 값을 지어내지 않으므로 PLGD 대 부도손실율 비교는 이 화면에 없다.||The definition and formula for liquidation loss given default (PLGD) could not be confirmed from a primary source. Values are not invented, so a PLGD against LGD comparison does not appear on this screen.',
+   'PLGD(Potential LGD)는 BEEL 분포의 일정 신뢰수준 극단값이다. 신뢰수준 q 와 DSF 적용방식(승산·가산)이 1차자료에 없어 내부기준으로 정해야 하며, 그 값이 원장에 적재되기 전까지 PLGD 대 BEEL 비교는 이 화면에 없다.||PLGD (Potential LGD) is the extreme value of the BEEL distribution at a given confidence level. The confidence level q and the DSF application method (multiplicative or additive) are absent from primary sources and must be set as an internal standard, so no PLGD against BEEL comparison appears on this screen until those values are loaded into the ledger.',
 )
 
 _t("irbgov",

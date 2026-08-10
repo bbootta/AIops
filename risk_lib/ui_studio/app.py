@@ -5520,8 +5520,9 @@ function defaultedLgdScreen(root){
         :'정상화로 분류된 관측이 원장에 없다.'));
   }
   root.appendChild(cardOf('만들지 않은 화면',null,
-    '청산부도손실율(PLGD)의 정의와 산식을 1차자료에서 확인하지 못했다. '+
-    '값을 지어내지 않으므로 PLGD 대 부도손실율 비교는 이 화면에 없다.'));
+    'PLGD(Potential LGD)는 BEEL 분포의 일정 신뢰수준 극단값이다. '+
+    '신뢰수준 q 와 DSF 적용방식(승산·가산)이 1차자료에 없어 내부기준으로 정해야 하며, '+
+    '그 값이 원장에 적재되기 전까지 PLGD 대 BEEL 비교는 이 화면에 없다.'));
 }
 
 function irbGovernanceScreen(root){
