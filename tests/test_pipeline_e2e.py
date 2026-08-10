@@ -179,7 +179,11 @@ GOLDEN = {
 #   rwa_matches_bis_input · bis_ratio_ordering. 구성상 성립하는 항등식이므로
 #     `is_identity=True`로 표시했다. 상태는 PASS 그대로이고 통제 건수
 #     (`ValidationReport.controls()`)에서만 빠진다.
-GOLDEN_VALIDATION = {"PASS": 62, "WARN": 13}
+# PASS 62/WARN 13 → 63/12. `rwa_components_reconcile`이 부분 대사(WARN)에서
+# 전량 대사(PASS)로 올라갔다. 파이프라인이 CCR·구조화 RWA를 검사에 넘기기
+# 시작해 여섯 구성요소를 전부 재합산해 최종 RWA와 맞춘다. 그 전에는 SA·IRB만
+# 보고 두 항을 뺀 채 합계를 맞춰, 두 항의 변조를 잡지 못했다.
+GOLDEN_VALIDATION = {"PASS": 63, "WARN": 12}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",

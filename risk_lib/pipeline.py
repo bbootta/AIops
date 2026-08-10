@@ -1509,7 +1509,8 @@ def run_pipeline(
         "granularity_addon_rate": granularity_addon(portfolio),
     }
     # v0.11.0 — limit deep-dive + hierarchical HHI + wrong-way + Gini
-    limits_deep_result = compute_limits_deep(portfolio, capital.tier1, seed=seed)
+    limits_deep_result = compute_limits_deep(
+        portfolio, capital.tier1, asof=asof.isoformat(), seed=seed)
     obligor_ead = portfolio.groupby("obligor_id")["ead"].sum()
     concentration_hier = {
         "hierarchical_hhi": hierarchical_hhi(portfolio),
@@ -1533,6 +1534,11 @@ def run_pipeline(
         bis_result=bis, rwa_total_for_bis=rwa_final,
         leverage_result=leverage, output_floor_result=floor,
         market_rwa=mkt.rwa, op_rwa=op.rwa,
+        # 구성요소 재합산 대사가 부분(WARN)에 머무르지 않게 CCR·구조화를 넘긴다.
+        # 넘기지 않으면 `rwa_components_reconcile`이 SA·IRB만 보고 두 항을
+        # 뺀 채 합계를 맞추므로, 그 두 항의 변조를 잡지 못한다.
+        ccr_rwa=rwa_ccr,
+        structured_rwa=float(structured.rwa_internal) if structured else 0.0,
         ecl_results=ecl_df, concentration=conc, stress_results=stress,
         macro_ecl_result=macro, reverse_stress_result=reverse,
         stress_path_result=stress_path,
