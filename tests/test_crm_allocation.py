@@ -454,10 +454,47 @@ def test_all_checks_pass_on_the_clean_ledger(universe, allocations, base_tables)
     _, rwa = base_tables
     rep = cc.run_crm_allocation_checks(
         links=universe["crm_collateral_link"], alloc=allocations,
-        exposure_terms=universe["crm_exposure_terms"], rwa_result=rwa)
+        exposure_terms=universe["crm_exposure_terms"],
+        collateral_terms=universe["crm_collateral_terms"], rwa_result=rwa)
     fails = [str(c) for c in rep.checks if c.status == "FAIL"]
     assert not fails, fails
-    assert len(rep.checks) == 12
+    assert len(rep.checks) == 13
+
+
+def test_collateral_value_overstatement_is_caught(universe, allocations):
+    """조정 담보가치를 부풀리고 늘어난 만큼 더 배분해도 배분 원장 안에서는
+    아귀가 맞는다. 담보 조건 원장과 대조해야 잡힌다 (담보 인정액을 늘려 RWA를
+    줄이는 방향이다).
+    """
+    bad = allocations.copy()
+    row = bad[(bad["residual_exposure"] > 0)
+              & (bad["collateral_value_adj"] > 1e6)].iloc[0]
+    i = row.name
+    old = float(row["collateral_value_adj"])
+    delta = min(float(row["residual_exposure"]),
+                float(row["coverage_ratio"]) * 2 * old
+                - float(row["allocated_amount"]), old)
+    same = bad["collateral_id"] == row["collateral_id"]
+    bad.loc[same, "collateral_value_adj"] = 2 * old
+    bad.at[i, "allocated_amount"] = float(row["allocated_amount"]) + delta
+    bad.at[i, "residual_exposure"] = float(row["residual_exposure"]) - delta
+
+    rep = _report()
+    cc.check_collateral_value_ties_to_terms(
+        bad, universe["crm_collateral_terms"], rep)
+    assert _status(rep, "crm_alloc_collateral_value_ties_to_terms") == "FAIL"
+
+
+def test_collateral_missing_from_the_terms_ledger_is_caught(universe,
+                                                            allocations):
+    """배분 원장에만 있고 조건 원장에 없는 담보는 익스포저 쪽과 같은 규약으로
+    FAIL이다."""
+    ct = universe["crm_collateral_terms"]
+    dropped = str(allocations["collateral_id"].iloc[0])
+    rep = _report()
+    cc.check_collateral_value_ties_to_terms(
+        allocations, ct[ct["collateral_id"] != dropped], rep)
+    assert _status(rep, "crm_alloc_collateral_value_ties_to_terms") == "FAIL"
 
 
 def _noop(alloc: pd.DataFrame) -> pd.DataFrame:

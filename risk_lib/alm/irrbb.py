@@ -67,6 +67,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -190,6 +191,17 @@ IRRBB_RESULT = TableSpec(
                "금액이며, 이 두 칸이 같으면 이익 통화가 없었다는 뜻이다"),
         C("delta_eve_to_tier1", "float", "ΔEVE / 기본자본", nullable=False,
           unit="ratio", note="부호 있음. 감소율은 뷰에서 −값을 취해 만든다"),
+        C("auto_option_risk", "float", "자동금리옵션 리스크 (반영액)",
+          nullable=True, unit="KRW",
+          citation="[별표 9-1] 제13항 나. EVE리스크 = 기본시나리오 EVE − "
+                   "시나리오 EVE + 11.에 따라 산출한 자동금리옵션리스크",
+          note="통화별 손실 판정 **전에** 더한 값의 시나리오 합계다. 원장이 "
+               "없거나 전건 재평가가 끝나지 않았으면 NULL이고 delta_eve에 "
+               "반영되지 않는다"),
+        C("auto_option_reflected", "bool", "자동금리옵션 반영 여부",
+          nullable=False,
+          note="False면 delta_eve가 제13항 나의 옵션 항을 빼고 산출된 값이다. "
+               "그만큼 <표6> 공시액과 제21항 아웃라이어 판정이 과소계상된다"),
         C("delta_nii", "float", "ΔNII (12개월)", nullable=True, unit="KRW",
           citation="평행충격 2개만 산출된다 (alm_scenario_def.applies_to_nii)"),
         C("tier1", "float", "기본자본", nullable=False, unit="KRW",
@@ -465,30 +477,76 @@ def build_bucket_pv(
 
 # ---------------------------------------------------------------- 결과 원장
 
-def _aggregate_across_currencies(bucket_pv: pd.DataFrame) -> pd.DataFrame:
+def _option_risk_by_ccy(auto_option_risk: pd.DataFrame | None
+                        ) -> tuple[pd.DataFrame | None, str | None]:
+    """`kr_auto_option_risk`에서 통화×시나리오 반영액을 뽑는다.
+
+    전건 재평가가 끝나지 않은(`is_complete=False`) 행은 쓰지 않는다. 값이 있는
+    것과 값을 믿을 수 있는 것은 다르며, 부분 합계를 더하면 옵션리스크가
+    과소계상된 채로 <표6>에 실린다. 쓸 수 없으면 사유를 함께 돌려준다.
+    """
+    if auto_option_risk is None:
+        return None, "자동금리옵션 리스크 원장(kr_auto_option_risk)이 없다"
+    if auto_option_risk.empty:
+        return None, "자동금리옵션 리스크 원장이 비어 있다"
+    need = {"ccy", "scenario", "auto_option_risk", "is_complete"}
+    missing = need - set(auto_option_risk.columns)
+    if missing:
+        return None, f"자동금리옵션 리스크 원장에 컬럼이 없다: {sorted(missing)}"
+    d = auto_option_risk[auto_option_risk["is_complete"].astype(bool)
+                         & auto_option_risk["auto_option_risk"].notna()]
+    n_drop = len(auto_option_risk) - len(d)
+    if d.empty:
+        return None, ("자동금리옵션 리스크가 전건 미완결이다 "
+                      f"(전건 재평가 완료 0 / {len(auto_option_risk)}행)")
+    out = (d.groupby(["ccy", "scenario"], as_index=False)["auto_option_risk"]
+            .sum())
+    reason = (None if n_drop == 0 else
+              f"자동금리옵션 {n_drop}행이 미완결이라 제외했다")
+    return out, reason
+
+
+def _aggregate_across_currencies(bucket_pv: pd.DataFrame,
+                                 option_by_ccy: pd.DataFrame | None = None
+                                 ) -> pd.DataFrame:
     """통화별로 먼저 접고 **손실 통화만** 더한다 ([별표 9-1] 제13항 다).
 
     "각 통화별로 EVE 리스크가 손실일 경우만 합산"이므로 이익이 난 통화는
     버린다. 통화 축을 접기 전에 합산하면 이익 통화가 손실 통화를 상계해
     총 금리리스크가 과소산출되고, 아웃라이어 판정이 그만큼 느슨해진다.
 
+    제13항 나는 통화·시나리오별 EVE 리스크에 **자동금리옵션 리스크를 더한 뒤**
+    손실 여부를 본다. 원장의 `auto_option_risk`는 손실이 양수(매도 옵션 가치
+    증가)인 부호이고 `delta_pv`는 손실이 음수이므로, 같은 축으로 맞추려면
+    `delta_pv − auto_option_risk`가 된다. 손실 판정 뒤에 더하면 이익 통화의
+    옵션 손실이 사라진다.
+
     상계를 허용했을 때의 값(`delta_eve_gross`)을 함께 돌려준다. 두 값이 같으면
     이익 통화가 없었다는 뜻이고, 다르면 그 차이가 규정이 버리라고 한 금액이다.
     """
     per_ccy = (bucket_pv.groupby(["basis", "scenario", "ccy"],
                                  as_index=False)["delta_pv"].sum())
+    if option_by_ccy is None:
+        per_ccy["auto_option_risk"] = np.nan
+    else:
+        per_ccy = per_ccy.merge(option_by_ccy, on=["ccy", "scenario"],
+                                how="left")
+    opt = per_ccy["auto_option_risk"].fillna(0.0)
+    per_ccy["eve_risk"] = per_ccy["delta_pv"] - opt
     # delta_pv는 충격후 PV − 기저 PV이므로 손실이 음수다. 손실 통화만 남기려면
     # 양수(이익)를 0으로 자른다.
-    per_ccy["loss_only"] = per_ccy["delta_pv"].clip(upper=0.0)
+    per_ccy["loss_only"] = per_ccy["eve_risk"].clip(upper=0.0)
     return (per_ccy.groupby(["basis", "scenario"], as_index=False)
             .agg(delta_eve=("loss_only", "sum"),
-                 delta_eve_gross=("delta_pv", "sum")))
+                 delta_eve_gross=("eve_risk", "sum"),
+                 auto_option_risk=("auto_option_risk", "sum")))
 
 
 def build_irrbb_result(
     bucket_pv: pd.DataFrame, *, asof: str | None, tier1: float,
     framework_version: str, shock_source: dict[str, str],
     delta_nii: pd.DataFrame | None = None,
+    auto_option_risk: pd.DataFrame | None = None,
     outlier_threshold: float | None = IRRBB_OUTLIER_EVE_PCT_TIER1,
     outlier_evidence: str = "원문확인",
     framework_status: str = "현행",
@@ -500,6 +558,13 @@ def build_irrbb_result(
 
     통화 간 합산은 제13항 다를 따른다 — 손실 통화만 더하고 이익 통화는 버린다.
 
+    `auto_option_risk`는 `kr_auto_option_risk`(통화 × 시나리오)다. 제13항 나가
+    EVE 리스크에 더하라고 한 항이며, 통화별 손실 판정 **전에** 더한다. 원장이
+    없거나 전건 재평가가 끝나지 않았으면 값을 지어내지 않고 경고를 남긴 뒤
+    그 조정을 건너뛴다. 건너뛴 사실은 `auto_option_reflected=False`로 산출물에
+    남으므로, <표6> 공시액과 제21항 판정이 옵션리스크만큼 과소계상됐다는 것을
+    원장에서 읽을 수 있다.
+
     아웃라이어 판정 기본값은 [별표 9-1] 제21항 나의 기본자본 15%다.
     `outlier_threshold=None`을 명시하면 판정하지 않고 NULL이 남는다.
     """
@@ -510,7 +575,32 @@ def build_irrbb_result(
     if bucket_pv.empty:
         return pd.DataFrame(columns=list(IRRBB_RESULT.column_names))
 
-    g = _aggregate_across_currencies(bucket_pv)
+    option_by_ccy, skip_reason = _option_risk_by_ccy(auto_option_risk)
+    if skip_reason:
+        warnings.warn(
+            f"[별표 9-1] 제13항 나의 자동금리옵션 리스크를 ΔEVE에 반영하지 "
+            f"못했다. 사유: {skip_reason}. <표6> 공시액과 제21항 아웃라이어 판정이 "
+            f"그만큼 과소계상된다 (alm_irrbb_result.auto_option_reflected=False)",
+            stacklevel=2)
+    if option_by_ccy is not None:
+        # 옵션 원장에 없는 (통화, 시나리오)는 0으로 다뤄진다. 자동금리옵션이
+        # 실제로 없는 통화면 맞지만, 원장에 안 들어온 것과 구별되지 않는다.
+        have = set(map(tuple, option_by_ccy[["ccy", "scenario"]].to_numpy()))
+        want = set(map(tuple, bucket_pv[["ccy", "scenario"]]
+                       .drop_duplicates().to_numpy()))
+        gap = sorted(want - have)
+        if gap:
+            warnings.warn(
+                f"자동금리옵션 리스크 원장에 (통화, 시나리오) {len(gap)}쌍이 "
+                f"없어 0으로 다룬다: {gap[:5]}. 옵션이 없는 통화인지 원장이 "
+                f"안 들어온 것인지는 이 산출물에서 구별되지 않는다",
+                stacklevel=2)
+    g = _aggregate_across_currencies(bucket_pv, option_by_ccy)
+    g["auto_option_reflected"] = option_by_ccy is not None
+    if option_by_ccy is None:
+        # 반영하지 않았으면 0이 아니라 NULL이다. 0으로 적으면 "옵션리스크가
+        # 없다"는 사실을 주장하는 것이 된다.
+        g["auto_option_risk"] = np.nan
     g["_order"] = g["scenario"].map({s: i for i, s in enumerate(SCENARIOS)})
     g = g.sort_values(["basis", "_order"]).reset_index(drop=True)
     g["asof"], g["tier1"] = asof, float(tier1)
@@ -578,6 +668,7 @@ def compute_irrbb_from_cashflows(
     scenario_def: pd.DataFrame, floor: pd.DataFrame,
     framework_version: str, headline_basis: str,
     allow_proxy: bool = False, delta_nii: pd.DataFrame | None = None,
+    auto_option_risk: pd.DataFrame | None = None,
     outlier_threshold: float | None = IRRBB_OUTLIER_EVE_PCT_TIER1,
     outlier_evidence: str = "원문확인",
 ) -> IRRBBResult:
@@ -612,7 +703,8 @@ def compute_irrbb_from_cashflows(
     result = build_irrbb_result(
         bucket_pv, asof=asof, tier1=tier1,
         framework_version=framework_version, shock_source=source,
-        delta_nii=delta_nii, outlier_threshold=outlier_threshold,
+        delta_nii=delta_nii, auto_option_risk=auto_option_risk,
+        outlier_threshold=outlier_threshold,
         outlier_evidence=outlier_evidence, framework_status=status)
     worst = str(worst_row(result, basis=headline_basis)["scenario"])
     return IRRBBResult(

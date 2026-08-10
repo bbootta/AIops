@@ -193,14 +193,20 @@ def test_action_recommendations_priority():
 def test_quarterly_trend_deterministic():
     p = enrich_portfolio(generate_portfolio(seed=42))
     lims = build_default_limit_set(tier1=1e12)
-    t1 = quarterly_utilisation_trend(p, lims, tier1=1e12, n_quarters=4, seed=42)
-    t2 = quarterly_utilisation_trend(p, lims, tier1=1e12, n_quarters=4, seed=42)
+    t1 = quarterly_utilisation_trend(p, lims, tier1=1e12, asof="2026-06-30",
+                                     n_quarters=4, seed=42)
+    t2 = quarterly_utilisation_trend(p, lims, tier1=1e12, asof="2026-06-30",
+                                     n_quarters=4, seed=42)
     pd.testing.assert_frame_equal(t1, t2)
     assert t1["quarter"].nunique() == 4
+    # 축의 마지막 분기는 기준일이 속한 분기다. 벽시계로 만들면 아직 오지 않은
+    # 분기가 마지막 점이 되고, 그 점의 값이 기준일 측정치가 된다.
+    assert sorted(t1["quarter"].unique())[-1] == "2026Q2"
 
 
 def test_historical_breach_log_columns():
-    log = historical_breach_log(n_quarters=6, seed=42)
+    log = historical_breach_log(asof="2026-06-30", n_quarters=6, seed=42)
+    assert log["quarter"].tolist()[-1] == "2026Q2"
     assert len(log) == 6
     assert set(["WARN","CRITICAL","BREACH","total"]).issubset(log.columns)
     # total = sum of severities
@@ -233,14 +239,15 @@ def test_stress_compare_long_form():
 
 def test_compute_limits_deep_returns_full_bundle():
     p = generate_portfolio(seed=42)
-    ld = compute_limits_deep(p, tier1=1e12, seed=42)
+    ld = compute_limits_deep(p, tier1=1e12, asof="2026-06-30", seed=42)
     assert isinstance(ld, LimitsDeepResult)
+    assert sorted(ld.utilisation_trend["quarter"].unique())[-1] == "2026Q2"
     # summary contains required counters
     for key in ("n_limits","n_warn","n_critical","n_breach",
                  "n_lex_reportable","max_utilisation"):
         assert key in ld.summary
     # determinism: same seed → same dashboard top
-    ld2 = compute_limits_deep(p, tier1=1e12, seed=42)
+    ld2 = compute_limits_deep(p, tier1=1e12, asof="2026-06-30", seed=42)
     pd.testing.assert_frame_equal(
         ld.dashboard.head(20).reset_index(drop=True),
         ld2.dashboard.head(20).reset_index(drop=True),

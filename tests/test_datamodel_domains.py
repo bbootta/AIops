@@ -91,6 +91,48 @@ def test_fitted_portfolio_is_deterministic(portfolio):
     pd.testing.assert_frame_equal(a, b)
 
 
+# ----- 실체화 결정론 ----------------------------------------------------------
+
+def test_materialised_ledgers_do_not_move_with_the_system_date(result, portfolio):
+    """같은 (asof, seed)를 다른 날 돌려도 같은 원장이 나와야 한다.
+
+    `crm_model`이 `build_standard_inventory()`를 기준일 없이 불러 벽시계에서
+    재검증 기한을 만들고 있었다. 같은 실행 안에서 `gov_model_state`는 asof로
+    만들어지므로 두 원장이 같은 모형에 다른 기한을 적기도 했다.
+    """
+    import datetime as dt
+    import risk_lib.model_inventory as MI
+
+    before = materialize_all(result, portfolio)
+
+    class _Frozen(dt.date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 3, 15)
+
+    real = MI.date
+    try:
+        MI.date = _Frozen
+        after = materialize_all(result, portfolio)
+    finally:
+        MI.date = real
+
+    assert set(before) == set(after)
+    for name in sorted(before):
+        pd.testing.assert_frame_equal(before[name], after[name],
+                                      obj=f"{name} (시스템 날짜만 다르다)")
+
+
+def test_model_revalidation_due_dates_agree_across_ledgers(tables):
+    """같은 모형의 재검증 기한이 원장마다 다르면 어느 쪽이 기한인지 알 수 없다."""
+    crm = tables["crm_model"].set_index("model_id")
+    gov = tables["gov_model_state"].set_index("model_id")
+    both = crm.index.intersection(gov.index)
+    assert len(both) > 0
+    for mid in both:
+        assert str(crm.at[mid, "next_due"]) == str(gov.at[mid, "next_due"]), mid
+
+
 # ----- R2 · CRM ---------------------------------------------------------------
 
 def test_crm_model_inventory_matches_source(tables):

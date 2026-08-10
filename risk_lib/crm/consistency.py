@@ -20,7 +20,8 @@ from risk_lib.validation.consistency import ConsistencyCheck, ValidationReport
 __all__ = [
     "ATOL", "RTOL", "tol",
     "check_collateral_cap", "check_exposure_cap", "check_link_cap",
-    "check_ead_conservation", "check_pool_conservation",
+    "check_ead_conservation", "check_collateral_value_ties_to_terms",
+    "check_pool_conservation",
     "check_relation_type", "check_pool_partition",
     "check_link_completeness", "check_allocation_maximality",
     "check_unit_columns_uniform", "check_rule_sensitivity",
@@ -373,6 +374,63 @@ def check_unit_columns_uniform(alloc: pd.DataFrame,
               f"담보 단위 컬럼 {len(cols)}개 전건 일치")
 
 
+def check_collateral_value_ties_to_terms(alloc: pd.DataFrame,
+                                         collateral_terms: pd.DataFrame,
+                                         report: ValidationReport) -> None:
+    """조정 담보가치가 담보 조건 원장과 맞는가.
+
+    익스포저 쪽은 `check_ead_conservation`이 `crm_exposure_terms`의 E×(1+He)와
+    대조하는데 담보 쪽에는 같은 대조가 없었다. 그래서 담보 하나의
+    `collateral_value_adj`를 부풀리고 늘어난 만큼 더 배분하면 나머지 검사가
+    전건 통과했다. 이 방향은 담보 인정액을 늘려 RWA를 줄이는 방향이다.
+
+    FAIL 조건 세 가지.
+      1. 배분 원장에만 있고 조건 원장에 없는 담보 (익스포저 쪽 miss와 같은 규약)
+      2. 조건 원장의 Hc와 배분 원장의 `haircut_total − ccy_mismatch_haircut`이 다름
+      3. `collateral_value_adj ≠ max(0, C×(1−Hc−Hfx)) × 만기불일치 조정계수`
+         ([별표 3] 62.의 C(1−Hc−Hfx)와 100.·101.의 만기조정)
+    """
+    if alloc.empty:
+        return
+    name = "crm_alloc_collateral_value_ties_to_terms"
+    g = alloc.groupby(["asof", "alloc_rule", "collateral_id"], as_index=False).agg(
+        c_adj=("collateral_value_adj", "max"),
+        h_total=("haircut_total", "max"),
+        h_fx=("ccy_mismatch_haircut", "max"),
+        mmf=("maturity_mismatch_factor", "max"))
+    ct = collateral_terms[["asof", "collateral_id", "market_value", "haircut"]]
+    m = g.merge(ct, on=["asof", "collateral_id"], how="left")
+
+    miss = int(m["market_value"].isna().sum())
+    if miss:
+        _fail(report, name,
+              f"배분 원장의 담보 {miss}건이 담보 조건 원장에 없다", miss)
+        return
+
+    hc_gap = (m["h_total"] - m["h_fx"] - m["haircut"].astype(float)).abs()
+    bad_hc = hc_gap > tol(m["haircut"].astype(float))
+    if bad_hc.any():
+        _fail(report, name,
+              f"담보 {int(bad_hc.sum())}건에서 담보차감률이 조건 원장과 불일치 "
+              f"(최대 {float(hc_gap.max()):.6f})", float(hc_gap.max()))
+        return
+
+    expected = np.maximum(
+        0.0,
+        m["market_value"].astype(float) * (1.0 - m["h_total"].astype(float))
+    ) * m["mmf"].astype(float)
+    gap = (m["c_adj"].astype(float) - expected).abs()
+    bad = gap > tol(expected)
+    if bad.any():
+        _fail(report, name,
+              f"담보 {int(bad.sum())}건에서 조정 담보가치가 조건 원장의 "
+              f"C×(1−Hc−Hfx)×만기조정과 불일치 (최대 {float(gap.max()):,.2f} KRW)",
+              float(gap.max()))
+    else:
+        _pass(report, name,
+              f"담보 {len(m)}건 전건 조건 원장 일치")
+
+
 # ---------------------------------------------------------------- 규칙·RWA
 
 def check_rule_sensitivity(alloc: pd.DataFrame, report: ValidationReport) -> None:
@@ -517,6 +575,7 @@ def run_crm_allocation_checks(
     links: pd.DataFrame,
     alloc: pd.DataFrame,
     exposure_terms: pd.DataFrame,
+    collateral_terms: pd.DataFrame,
     rwa_result: pd.DataFrame | None = None,
     report: ValidationReport | None = None,
 ) -> ValidationReport:
@@ -530,6 +589,7 @@ def run_crm_allocation_checks(
     check_exposure_cap(alloc, rep)
     check_link_cap(alloc, rep)
     check_ead_conservation(alloc, exposure_terms, rep)
+    check_collateral_value_ties_to_terms(alloc, collateral_terms, rep)
     check_pool_conservation(alloc, rep)
     check_unit_columns_uniform(alloc, rep)
     check_rule_sensitivity(alloc, rep)

@@ -252,6 +252,25 @@ def test_gate_rejects_a_recalculation_mismatch(request_obj, tmp_path):
     assert gate.status == "부적합" and "rwa_final_total" in gate.reason
 
 
+def test_gate_rejects_an_unreported_recalculation(request_obj, tmp_path):
+    """재계산을 한 건도 하지 않은 응답이 통과하면 3선 통제가 빈 dict로 우회된다."""
+    _write(tmp_path, request_obj, _response(request_obj, matches={}))
+    gate = check_gate(request_obj, tmp_path)
+    assert gate.status == "부적합"
+    assert "미보고" in gate.reason and "rwa_final_total" in gate.reason
+    with pytest.raises(IndependentValidationPending):
+        gate.require()
+
+
+def test_gate_rejects_a_partially_reported_recalculation(request_obj, tmp_path):
+    """일부만 재계산한 응답도 통과가 아니다. 나머지는 검증되지 않았다."""
+    _write(tmp_path, request_obj,
+           _response(request_obj, matches={"rwa_final_total": True}))
+    gate = check_gate(request_obj, tmp_path)
+    assert gate.status == "부적합"
+    assert "cet1_ratio" in gate.reason
+
+
 def test_gate_rejects_a_non_compliant_verdict(request_obj, tmp_path):
     _write(tmp_path, request_obj, _response(request_obj, verdict="중부적합"))
     assert check_gate(request_obj, tmp_path).status == "부적합"

@@ -163,7 +163,23 @@ GOLDEN = {
 #    4건이 승인일 미기재다. 원장을 비우면 한도 산출도 비어야 한다는 계약을 함께 본다.
 # +1 WARN: macro_master_from_ledger — 거시지표 12종이 마스터 원장에서 오지만
 #    ECOS·KOSIS 공표 카탈로그와 대조하지 않아 전건 근거 미확인이다.
-GOLDEN_VALIDATION = {"PASS": 62, "WARN": 11}
+# 재고정 10 (2026-08-10, 중대 지적 시정). +2 WARN, 헤드라인은 움직이지 않는다.
+#
+# +1 WARN: rwa_components_reconcile. sa·irb 산출 프레임에서 다시 합산해 최종
+#    RWA까지 잇는 대사. CCR·구조화 RWA가 아직 검사에 넘어오지 않아 잔여로만
+#    확인하며, 그 사실을 WARN으로 남긴다(배선이 두 값을 넘기면 PASS가 된다).
+#    이전에는 SA·IRB RWA를 전건 변조해도 상태가 바뀌는 검사가 한 건도 없었다.
+# +1 WARN: large_exposure_two_sources. 거액익스포저가 두 벌로 갈려 있다.
+#    한도엔진 동일차주 축은 기본자본 25%, 원장 lex_position의 은행법35조_동일차주는
+#    자기자본 25%로 판정해 같은 기준일에 위반 건수가 다르다.
+#
+# 같은 회차에 판정이 바뀐 두 건은 건수를 움직이지 않는다.
+#   large_exposure_25pct. 리포트 부재 시 PASS(fail-open)에서 WARN으로. 이번
+#     실행에는 리포트가 있으므로 PASS 그대로다.
+#   rwa_matches_bis_input · bis_ratio_ordering. 구성상 성립하는 항등식이므로
+#     `is_identity=True`로 표시했다. 상태는 PASS 그대로이고 통제 건수
+#     (`ValidationReport.controls()`)에서만 빠진다.
+GOLDEN_VALIDATION = {"PASS": 62, "WARN": 13}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",

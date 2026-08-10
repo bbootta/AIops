@@ -224,6 +224,63 @@ def test_currency_gains_are_discarded_not_netted():
     assert float(r.loc["parallel_down", "delta_eve_gross"]) == pytest.approx(15.0)
 
 
+def test_auto_option_risk_is_added_before_the_loss_test(irrbb):
+    """제13항 나. EVE리스크에 자동금리옵션 리스크를 더한 뒤 제13항 다의 손실
+    판정을 한다. 손실 판정 뒤에 더하면 이익 통화의 옵션 손실이 사라진다.
+    """
+    bp = pd.DataFrame([
+        {"basis": "계약", "scenario": "parallel_up",
+         "ccy": "KRW", "delta_pv": -100.0},
+        {"basis": "계약", "scenario": "parallel_up",
+         "ccy": "USD", "delta_pv": +40.0},
+    ])
+    # 옵션리스크는 손실이 양수다(매도 옵션 가치 증가). 이익 통화 USD의 옵션
+    # 손실 60이 이익 40을 넘으므로 USD도 손실 통화가 된다.
+    opt = pd.DataFrame([
+        {"asof": ASOF, "ccy": "KRW", "scenario": "parallel_up",
+         "auto_option_risk": 30.0, "is_complete": True},
+        {"asof": ASOF, "ccy": "USD", "scenario": "parallel_up",
+         "auto_option_risk": 60.0, "is_complete": True},
+    ])
+    r = build_irrbb_result(
+        bp, asof=ASOF, tier1=TIER1, framework_version=FW,
+        auto_option_risk=opt,
+        shock_source={sc: "직접" for sc in SCENARIOS}).set_index("scenario")
+    row = r.loc["parallel_up"]
+    assert bool(row["auto_option_reflected"])
+    assert float(row["auto_option_risk"]) == pytest.approx(90.0)
+    # KRW −130, USD 40−60 = −20 → 둘 다 손실이므로 −150
+    assert float(row["delta_eve"]) == pytest.approx(-150.0)
+
+
+def test_auto_option_risk_is_not_invented_when_the_ledger_is_missing(irrbb):
+    """원장이 없으면 0으로 채우지 않는다. 0은 '옵션리스크가 없다'는 주장이다."""
+    r = irrbb.result
+    assert not r["auto_option_reflected"].any()
+    assert r["auto_option_risk"].isna().all()
+
+
+def test_incomplete_auto_option_risk_is_skipped_with_a_warning(irrbb):
+    """전건 재평가가 끝나지 않은 합계를 더하면 옵션리스크가 과소계상된다."""
+    bp = pd.DataFrame([
+        {"basis": "계약", "scenario": "parallel_up",
+         "ccy": "KRW", "delta_pv": -100.0},
+    ])
+    opt = pd.DataFrame([
+        {"asof": ASOF, "ccy": "KRW", "scenario": "parallel_up",
+         "auto_option_risk": 30.0, "is_complete": False},
+    ])
+    with pytest.warns(UserWarning, match="제13항 나"):
+        r = build_irrbb_result(
+            bp, asof=ASOF, tier1=TIER1, framework_version=FW,
+            auto_option_risk=opt,
+            shock_source={sc: "직접" for sc in SCENARIOS})
+    assert not r["auto_option_reflected"].any()
+    assert r["auto_option_risk"].isna().all()
+    assert float(r.set_index("scenario").loc["parallel_up", "delta_eve"]) \
+        == pytest.approx(-100.0)
+
+
 def test_bucket_pv_reproduces_from_cashflow_and_discount_factor(irrbb):
     """PV = CF × DF가 원장 안에서 재현돼야 한다 — 재현되지 않으면 감사에서
     분해가 불가능하다."""

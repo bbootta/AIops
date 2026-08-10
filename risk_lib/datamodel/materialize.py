@@ -10,6 +10,8 @@ base_tables는 RDM 분해 결과이며, FK가 실제로 연결되는지 확인�
 
 from __future__ import annotations
 
+from datetime import date as _date
+
 import numpy as np
 import pandas as pd
 
@@ -71,7 +73,11 @@ def materialize_crm(result, portfolio, base: dict[str, pd.DataFrame]
                 "STRESS": "위기상황", "CLIMATE": "기후", "RAF": "전사",
                 }.get(head, "기타")
 
-    inv = build_standard_inventory()
+    # 기준일을 넘긴다. 넘기지 않으면 `build_standard_inventory`가 date.today()로
+    # last_validation·next_due를 만들어, 같은 (asof, seed)를 하루 뒤에 다시 돌리면
+    # 원장이 바뀐다. 같은 실행 안에서 gov_model_state는 이미 asof로 만들어지므로
+    # 두 원장이 같은 모형에 다른 재검증 기한을 적는 상태이기도 했다.
+    inv = build_standard_inventory(today=_date.fromisoformat(asof))
     model = pd.DataFrame([{
         "model_id": e.model_id,
         "model_name": e.name,

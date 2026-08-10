@@ -127,6 +127,78 @@ def test_bis_plausible_flags_tier1_and_total_minima_independently():
     assert cet1_check.status == "PASS"
 
 
+# ----- 구성요소 대사·fail-closed (2선 통제 시정) --------------------------
+
+def test_rwa_component_reconciliation_catches_a_mutated_frame():
+    """행 단위 프레임을 변조하면 헤드라인 대사가 어긋나야 한다.
+
+    이전 검사 63건은 SA·IRB RWA를 전건 변조해도 상태가 하나도 바뀌지 않았다.
+    부호·범위만 보거나 같은 값을 자기 자신과 비교했기 때문이다.
+    """
+    from risk_lib.capital.output_floor import apply_output_floor
+
+    sa = compute_rwa_sa(_sa_df())
+    sa_total = float(sa["rwa"].sum())
+    internal = sa_total + 10.0 + 20.0 + 30.0        # + ccr + market + op
+    of = apply_output_floor(internal, internal * 0.5, 0.725)
+    kw = dict(sa_results=sa, market_rwa=20.0, op_rwa=30.0, ccr_rwa=10.0,
+              structured_rwa=0.0, output_floor_result=of,
+              rwa_total_for_bis=of.rwa_final, total_ead=1.0)
+
+    ok = next(c for c in run_consistency_checks(**kw).checks
+              if c.name == "rwa_components_reconcile")
+    assert ok.status == "PASS"
+
+    bad = sa.copy()
+    bad["rwa"] = bad["rwa"] * 1.2
+    hit = next(c for c in run_consistency_checks(**{**kw, "sa_results": bad}).checks
+               if c.name == "rwa_components_reconcile")
+    assert hit.status == "FAIL"
+
+
+def test_rwa_component_reconciliation_is_partial_without_ccr_and_structured():
+    """CCR·구조화가 넘어오지 않으면 대사가 부분적이라는 사실이 남아야 한다.
+    '돌지 않았다'와 '통과했다'가 같은 칸에 들어가면 안 된다."""
+    from risk_lib.capital.output_floor import apply_output_floor
+
+    sa = compute_rwa_sa(_sa_df())
+    internal = float(sa["rwa"].sum()) + 50.0
+    of = apply_output_floor(internal, internal * 0.5, 0.725)
+    c = next(x for x in run_consistency_checks(
+        sa_results=sa, market_rwa=0.0, op_rwa=0.0, output_floor_result=of,
+        rwa_total_for_bis=of.rwa_final).checks
+        if x.name == "rwa_components_reconcile")
+    assert c.status == "WARN" and "부분 대사" in c.detail
+
+
+def test_large_exposure_check_is_not_fail_open():
+    """한도 리포트가 없으면 '위반 없음'이 아니다."""
+    c = next(x for x in run_consistency_checks(limit_report=None).checks
+             if x.name == "large_exposure_25pct")
+    assert c.status == "WARN" and "부재" in c.detail
+
+
+def test_identity_checks_are_not_counted_as_controls():
+    """항등식은 실패할 수 없으므로 통제 건수에서 빠져야 한다."""
+    from risk_lib.capital.bis import compute_bis_ratios
+
+    cap = CapitalStack(cet1=1000, additional_t1=0, tier2=0)
+    bis = compute_bis_ratios(cap, 10_000.0)
+    rep = run_consistency_checks(bis_result=bis, rwa_total_for_bis=bis.rwa)
+    identities = {c.name for c in rep.checks if c.is_identity}
+    assert "rwa_matches_bis_input" in identities
+    assert "bis_ratio_ordering" in identities
+    assert len(rep.controls()) == len(rep.checks) - len(identities)
+
+
+def test_op_rwa_of_zero_is_a_failure_when_exposure_exists():
+    """부호만 보면 운영리스크 RWA를 0으로 지워도 통과한다."""
+    c = next(x for x in run_consistency_checks(op_rwa=0.0,
+                                               total_ead=1.0e12).checks
+             if x.name == "op_rwa_nonneg")
+    assert c.status == "FAIL"
+
+
 def test_pd_backtest_report_structure():
     rng = np.random.default_rng(3)
     n = 1500

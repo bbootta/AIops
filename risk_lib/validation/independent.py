@@ -678,6 +678,16 @@ def check_gate(request: ValidationRequest,
     if resp.request_id != request.request_id:
         return ValidationGate("부적합", request, resp,
                               "응답 request_id 불일치 — 재요청 필요")
+    # 커버리지가 먼저다. `recalc_matches`에 들어 있는 항목만 보면 "재계산하지
+    # 않았다"와 "재계산해서 일치했다"가 같은 칸에 들어간다. 빈 dict 하나로
+    # 3선 통제 전체가 우회되던 자리다.
+    missing = sorted({str(t["key"]) for t in request.recalc_targets}
+                     - set(resp.recalc_matches))
+    if missing:
+        return ValidationGate(
+            "부적합", request, resp,
+            f"재계산 미보고 {len(missing)}/{len(request.recalc_targets)}건: "
+            f"{', '.join(missing)}")
     mismatched = [k for k, ok in resp.recalc_matches.items() if not ok]
     if mismatched:
         # 재계산이 어긋나면 판정과 무관하게 부적합이다.

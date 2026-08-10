@@ -17,8 +17,8 @@ documentation requirements, EBA SREP IT supervision.
 from __future__ import annotations
 
 import hashlib
+import warnings
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
 from typing import Any
 
 
@@ -47,10 +47,14 @@ class LedgerEntry:
     owner: str = ""             # 1st line — desk / business
     reviewer: str = ""          # 2nd line — risk
     approver: str = ""          # CRO / Committee
-    approval_dt: str = ""
-    # versioning — entry 생성시각(UTC). 산출 기준일(asof)이 아니라 ledger 기록
-    # 시각이다; 산출 기준일은 manifest.parameters.asof 참조.
-    asof: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    # 결재일시. 결재 원장에서 읽은 값만 들어간다. 없으면 None이고
+    # approval_evidence_status가 '미확인'이 된다. 벽시계로 채우면 없는 결재를
+    # 있다고 적는 것이므로 채우지 않는다.
+    approval_dt: str | None = None
+    approval_evidence_status: str = "미확인"
+    # 산출 기준일. 다른 원장의 asof 규약과 같다. 예전에는 여기에 벽시계
+    # 생성시각이 들어가, 같은 인자로 두 번 만든 감사원장이 서로 달랐다.
+    asof: str = ""
     schema_version: str = "1.0"
 
 
@@ -83,15 +87,31 @@ def build_ledger_from_result(result, *, git_commit: str = "",
                               owner: str = "산출 담당자",
                               reviewer: str = "리스크 2선",
                               approver: str = "CRO",
+                              asof: str | None = None,
                               approval_dt: str | None = None) -> AuditLedger:
-    """Walk through standard headline figures and create ledger entries."""
+    """Walk through standard headline figures and create ledger entries.
+
+    `asof`를 넘기지 않으면 `result.meta['asof']`를 쓴다. 같은 인자로 두 번
+    만들면 같은 원장이 나와야 보관본을 재실행으로 대조할 수 있다.
+
+    `approval_dt`는 결재 원장에서 읽은 값만 넣는다. 넘기지 않으면 None이며
+    `approval_evidence_status='미확인'`으로 남는다.
+    """
     led = AuditLedger()
-    ts = approval_dt or datetime.now(timezone.utc).isoformat(timespec="seconds")
+    if asof is None:
+        asof = str(getattr(result, "meta", {}).get("asof", "") or "")
+    if not asof:
+        warnings.warn(
+            "감사원장에 산출 기준일이 없다. result.meta['asof']가 비어 있고 "
+            "asof 인자도 넘어오지 않았다. asof를 빈 값으로 남긴다",
+            stacklevel=2)
 
     common = dict(
         git_commit=git_commit,
         owner=owner, reviewer=reviewer, approver=approver,
-        approval_dt=ts,
+        approval_dt=approval_dt,
+        approval_evidence_status="결재원장" if approval_dt else "미확인",
+        asof=asof,
     )
 
     # RWA

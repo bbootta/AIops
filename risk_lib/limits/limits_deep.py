@@ -23,6 +23,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Iterable
 
@@ -340,18 +341,32 @@ def action_recommendations(
 
 # ---------------------------------------------------------------- trend
 
+def _quarter_axis(asof: str, n_quarters: int) -> list[str]:
+    """기준일이 속한 분기에서 끝나는 분기 축.
+
+    벽시계(`pd.Timestamp.today()`)로 축을 만들면 asof=2026-06-30 산출물에
+    2026Q3가 마지막 점으로 찍히고, 그 점의 값은 기준일 시점 측정치다. 아직 오지
+    않은 분기 라벨을 단 기준일 측정치가 나가는 상태였다. 시스템 날짜가 바뀌면
+    같은 (asof, seed)에서 축이 통째로 이동하기도 했다.
+    """
+    last = pd.Period(asof, "Q")
+    return [(last - n_quarters + 1 + i).strftime("%YQ%q")
+            for i in range(n_quarters)]
+
+
 def quarterly_utilisation_trend(
     portfolio: pd.DataFrame, limits: list[LimitDefinition],
-    tier1: float, *, n_quarters: int = 8, seed: int = 42,
+    tier1: float, *, asof: str, n_quarters: int = 8, seed: int = 42,
 ) -> pd.DataFrame:
     """분기별 사용률 합성 시계열 — 현재 사용률에 ±15% 노이즈 + 완만한 트렌드.
+
+    축의 마지막 분기는 `asof`가 속한 분기다. 현재 사용률은 기준일 측정치이므로
+    그 분기에 앉아야 한다.
 
     Returns: long-form (quarter, limit, bucket, utilisation, severity).
     """
     rng = np.random.default_rng(seed)
-    today = pd.Timestamp.today().to_period("Q")
-    quarters = [(today - n_quarters + 1 + i).strftime("%YQ%q")
-                for i in range(n_quarters)]
+    quarters = _quarter_axis(asof, n_quarters)
     snap = limit_dashboard(portfolio, limits, tier1)
     rows = []
     for _, lim_row in snap.iterrows():
@@ -370,13 +385,14 @@ def quarterly_utilisation_trend(
 
 
 def historical_breach_log(
-    *, n_quarters: int = 8, seed: int = 42,
+    *, asof: str, n_quarters: int = 8, seed: int = 42,
 ) -> pd.DataFrame:
-    """분기별 (WARN/CRITICAL/BREACH) 건수 합성 시계열."""
+    """분기별 (WARN/CRITICAL/BREACH) 건수 합성 시계열.
+
+    축의 마지막 분기는 `asof`가 속한 분기다.
+    """
     rng = np.random.default_rng(seed + 7)
-    today = pd.Timestamp.today().to_period("Q")
-    quarters = [(today - n_quarters + 1 + i).strftime("%YQ%q")
-                for i in range(n_quarters)]
+    quarters = _quarter_axis(asof, n_quarters)
     rows = []
     for q in quarters:
         # 평균 발생 강도 — 분기별 변동
@@ -451,9 +467,15 @@ class LimitsDeepResult:
 
 
 def compute_limits_deep(
-    portfolio: pd.DataFrame, tier1: float, *, seed: int = 42,
+    portfolio: pd.DataFrame, tier1: float, *, asof: str | None = None,
+    seed: int = 42,
 ) -> LimitsDeepResult:
-    """모든 한도 deep-dive 산출물을 하나의 객체로 묶어 반환."""
+    """모든 한도 deep-dive 산출물을 하나의 객체로 묶어 반환.
+
+    `asof`가 없으면 분기 시계열 두 장을 만들지 않는다. 예전에는 벽시계에서
+    분기 축을 만들어, 기준일 다음 분기가 축에 들어가고 시스템 날짜가 바뀌면
+    산출물이 바뀌었다. 없는 기준일을 벽시계로 대신 채우지 않는다.
+    """
     work = enrich_portfolio(portfolio)
     lims = build_default_limit_set(tier1)
     dash = limit_dashboard(work, lims, tier1)
@@ -461,8 +483,19 @@ def compute_limits_deep(
     lex_g = large_exposure_lex(work, tier1, group=True)
     esc = escalation_matrix()
     actions = action_recommendations(dash)
-    trend = quarterly_utilisation_trend(work, lims, tier1, seed=seed)
-    breach_log = historical_breach_log(seed=seed)
+    if asof:
+        trend = quarterly_utilisation_trend(work, lims, tier1, asof=asof,
+                                            seed=seed)
+        breach_log = historical_breach_log(asof=asof, seed=seed)
+    else:
+        warnings.warn(
+            "compute_limits_deep에 기준일(asof)이 없어 사용률 추이·위반 이력의 "
+            "분기 축을 만들 수 없다. 두 프레임을 비운다",
+            stacklevel=2)
+        trend = pd.DataFrame(columns=["quarter", "limit", "bucket",
+                                      "utilisation", "severity"])
+        breach_log = pd.DataFrame(columns=["quarter", "WARN", "CRITICAL",
+                                           "BREACH", "total"])
     stress = stress_utilisation_compare(work, lims, tier1)
     summary = {
         "n_limits": int(dash["limit"].nunique()),

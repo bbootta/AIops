@@ -52,14 +52,34 @@ def sector_country_matrix(portfolio: pd.DataFrame) -> pd.DataFrame:
 
 def large_exposure_test(portfolio: pd.DataFrame, tier1: float,
                         limit_pct: float = 0.25) -> pd.DataFrame:
-    """동일차주 한도 (은행법 §35) 차주별 사용률.
+    """차주별 익스포저 사용률. **간이 산출**이다.
 
-    Returns: obligor_id, ead, threshold, utilisation, severity (1행/차주).
+    정본은 `lex_position` 원장이며 `risk_lib.limits.large_exposure`가 만든다.
+    이 함수는 그것과 세 가지가 다르므로 같은 이름으로 읽으면 안 된다.
+
+      · 분모가 **기본자본**이다. 은행법 제35조가 정한 분모는 자기자본이며
+        (`lex_setting.denominator_basis == 'own_funds'`), 기본자본 25%는
+        감독규정 제26조제1항제6호 계정이다. 이전 docstring은 이 함수를
+        은행법 §35라고 적었는데 분모가 그 조문과 다르다.
+      · 집계단위가 **개별차주(obligor_id)**다. 두 조문 모두 거래상대방그룹·
+        동일차주 단위이며 그룹 합산은 `lex_connected_group`이 한다.
+      · 익스포저가 포트폴리오 EAD이며 신용공여 측정치(`lex_exposure_measure`)가
+        아니다.
+
+    `limit_pct`가 아직 함수 기본값에 있다. 규제값은 `lex_setting` 원장에서
+    와야 하며(규약 1), 호출부를 원장에 잇는 일은 배선 담당 몫이다. 그때까지
+    산출물이 어느 기준으로 나왔는지는 아래 두 컬럼으로 읽힌다.
+
+    Returns: obligor_id, ead, threshold, utilisation, severity,
+             denominator_basis, aggregation_unit, limit_pct (1행/차주).
     """
     threshold = tier1 * limit_pct
     g = portfolio.groupby("obligor_id")["ead"].sum().reset_index()
     g["threshold"] = threshold
     g["utilisation"] = g["ead"] / threshold
+    g["denominator_basis"] = "tier1"
+    g["aggregation_unit"] = "개별차주"
+    g["limit_pct"] = float(limit_pct)
     def sev(u):
         if u >= 1.0:      return "BREACH"
         if u >= 0.90:     return "CRITICAL"

@@ -26,7 +26,11 @@ def test_ledger_entry_has_all_fields():
                     citation="CRE10.4")
     assert e.figure_id == "bis.cet1"
     assert e.schema_version == "1.0"
-    assert e.asof  # auto-timestamped
+    # asof는 산출 기준일이며 자동 타임스탬프가 아니다. 벽시계를 넣으면 같은
+    # 인자로 만든 감사원장이 실행마다 달라진다.
+    assert e.asof == ""
+    assert e.approval_dt is None
+    assert e.approval_evidence_status == "미확인"
 
 
 def test_ledger_append():
@@ -65,6 +69,22 @@ def test_ledger_from_result_covers_headlines(result):
     }
     missing = must_have - ids
     assert not missing, f"missing ledger entries: {missing}"
+
+
+def test_ledger_is_reproducible(result):
+    """같은 인자로 두 번 만들면 같은 원장이 나와야 보관본을 대조할 수 있다."""
+    import dataclasses
+
+    a = build_ledger_from_result(result, git_commit="abc123")
+    b = build_ledger_from_result(result, git_commit="abc123")
+    dump = lambda led: json.dumps(                       # noqa: E731
+        [dataclasses.asdict(e) for e in led.entries],
+        sort_keys=True, default=str, ensure_ascii=False)
+    assert dump(a) == dump(b)
+    # asof는 산출 기준일이고, 결재일시는 결재 원장이 없으면 비어 있다.
+    assert a.entries[0].asof == result.meta["asof"]
+    assert all(e.approval_dt is None for e in a.entries)
+    assert all(e.approval_evidence_status == "미확인" for e in a.entries)
 
 
 def test_ledger_carries_git_commit(result):

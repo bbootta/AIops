@@ -25,6 +25,10 @@ class ConsistencyCheck:
     status: str           # PASS | WARN | FAIL
     detail: str
     metric: float | None = None
+    # 구성상 항상 성립하는 항등식인가. 항등식은 실패할 수 없으므로 통제가
+    # 아니다. 통제 건수를 셀 때 이 표시가 있는 항목을 빼야 "63건을 통과했다"가
+    # 실제 통제 63건을 뜻한다.
+    is_identity: bool = False
 
 
 @dataclass
@@ -43,6 +47,10 @@ class ValidationReport:
     def summary(self) -> dict[str, int]:
         from collections import Counter
         return dict(Counter(c.status for c in self.checks))
+
+    def controls(self) -> list[ConsistencyCheck]:
+        """항등식을 뺀 검사 목록. 통제 건수는 이 길이로 센다."""
+        return [c for c in self.checks if not c.is_identity]
 
 
 def _check_pd_bounds(df: pd.DataFrame, report: ValidationReport) -> None:
@@ -285,16 +293,20 @@ def _check_bis_plausible(bis_result, report: ValidationReport) -> None:
             "전 계층 완충자본 포함 요구치 충족"))
 
     # Ordering: Total >= Tier1 >= CET1 by construction
+    # 세 비율이 같은 분모에 누적 분자를 쓰므로 순서는 구성상 성립한다. 통제로
+    # 세지 않는다.
     if not (bis_result.total_ratio + 1e-9 >= bis_result.tier1_ratio
             >= bis_result.cet1_ratio - 1e-9):
         report.add(ConsistencyCheck(
             "bis_ratio_ordering", "FAIL",
             "expected total >= tier1 >= cet1 by construction",
+            is_identity=True,
         ))
     else:
         report.add(ConsistencyCheck(
             "bis_ratio_ordering", "PASS",
-            "total >= tier1 >= cet1",
+            "구성상 성립. total >= tier1 >= cet1 (분자만 누적된다)",
+            is_identity=True,
         ))
 
 
@@ -303,8 +315,16 @@ def _check_rwa_aggregate(
     bis_result,
     report: ValidationReport,
 ) -> None:
+    """BIS 분모로 넘긴 RWA와 BIS 결과의 RWA가 같은가.
+
+    파이프라인은 `compute_bis_ratios(capital, rwa_final)`로 만든 뒤 같은
+    `rwa_final`을 이 검사에 넘긴다. 그때 두 항은 같은 float 객체이고 이 검사는
+    실패할 수 없다. 그 경우를 `is_identity`로 표시해 통제 건수에서 뺀다.
+    구성요소에서 다시 합산해 맞추는 대사는 `_check_rwa_components`가 한다.
+    """
     if rwa_total is None or bis_result is None:
         return
+    identity = rwa_total is bis_result.rwa
     diff = abs(rwa_total - bis_result.rwa) / max(rwa_total, 1.0)
     if diff > 1e-6:
         report.add(ConsistencyCheck(
@@ -315,8 +335,93 @@ def _check_rwa_aggregate(
     else:
         report.add(ConsistencyCheck(
             "rwa_matches_bis_input", "PASS",
-            f"aggregate RWA reconciles ({rwa_total:.2f})",
+            ("구성상 성립. BIS 분모로 넘긴 값을 그대로 되받는다 "
+             f"({rwa_total:.2f})") if identity
+            else f"aggregate RWA reconciles ({rwa_total:.2f})",
+            is_identity=identity,
         ))
+
+
+def _check_rwa_components(
+    sa_results: pd.DataFrame | None,
+    irb_results: pd.DataFrame | None,
+    market_rwa: float | None,
+    op_rwa: float | None,
+    ccr_rwa: float | None,
+    structured_rwa: float | None,
+    of_result,
+    rwa_total_for_bis: float | None,
+    report: ValidationReport,
+) -> None:
+    """구성요소 원장에서 다시 합산한 RWA가 최종 RWA와 맞는가.
+
+    기존 검사는 부호·범위만 보거나 같은 값을 자기 자신과 비교해, SA·IRB 산출
+    프레임을 통째로 변조해도 상태가 바뀌는 검사가 한 건도 없었다. 이 검사는
+    **행 단위 프레임**에서 다시 합산해 헤드라인까지 잇는다.
+
+    Σsa + Σirb + CCR + 시장 + 운영 + 구조화 + output floor 가산분 = 최종 RWA
+
+    CCR·구조화가 넘어오지 않으면 그 둘을 `output_floor_result.rwa_internal`의
+    잔여로만 확인할 수 있다. 그때는 대사가 부분적이라는 사실을 WARN으로 남긴다.
+    "돌지 않았다"와 "통과했다"를 같은 칸에 넣지 않는다.
+    """
+    name = "rwa_components_reconcile"
+    if of_result is None or rwa_total_for_bis is None:
+        report.add(ConsistencyCheck(
+            name, "WARN",
+            "output floor 결과 또는 최종 RWA가 없어 구성요소 대사를 못 한다"))
+        return
+
+    parts: dict[str, float] = {}
+    if sa_results is not None and "rwa" in getattr(sa_results, "columns", []):
+        parts["신용SA"] = float(sa_results["rwa"].sum())
+    if irb_results is not None and "rwa" in getattr(irb_results, "columns", []):
+        parts["신용IRB"] = float(irb_results["rwa"].sum())
+    if market_rwa is not None:
+        parts["시장"] = float(market_rwa)
+    if op_rwa is not None:
+        parts["운영"] = float(op_rwa)
+
+    internal = float(of_result.rwa_internal)
+    add_on = float(getattr(of_result, "add_on", 0.0) or 0.0)
+    partial = ccr_rwa is None or structured_rwa is None
+    if not partial:
+        parts["CCR"] = float(ccr_rwa)
+        parts["구조화"] = float(structured_rwa)
+        recomputed = sum(parts.values())
+    else:
+        # 잔여로만 확인한다. 음수가 나오면 구성요소 합이 내부 RWA를 넘은 것이다.
+        residual = internal - sum(parts.values())
+        parts["CCR+구조화 (잔여)"] = residual
+        recomputed = internal
+
+    contrib = " · ".join(f"{k} {v/1e12:,.2f}조" for k, v in parts.items())
+    residual_negative = partial and parts["CCR+구조화 (잔여)"] < -max(
+        1.0, 1e-9 * internal)
+    gap = abs(recomputed + add_on - float(rwa_total_for_bis))
+    rel = gap / max(float(rwa_total_for_bis), 1.0)
+
+    if residual_negative:
+        report.add(ConsistencyCheck(
+            name, "FAIL",
+            f"구성요소 합이 내부 RWA를 초과한다 (잔여 "
+            f"{parts['CCR+구조화 (잔여)']:,.0f} KRW < 0). 기여도: {contrib}",
+            metric=parts["CCR+구조화 (잔여)"]))
+        return
+    if rel > 1e-6:
+        report.add(ConsistencyCheck(
+            name, "FAIL",
+            f"구성요소 합 + floor 가산분 {recomputed + add_on:,.0f} ≠ 최종 RWA "
+            f"{float(rwa_total_for_bis):,.0f} (Δ {gap:,.0f} KRW). 기여도: {contrib}",
+            metric=rel))
+        return
+    report.add(ConsistencyCheck(
+        name, "WARN" if partial else "PASS",
+        (f"부분 대사. CCR·구조화 RWA가 검사에 넘어오지 않아 잔여로 처리했다. "
+         if partial else "")
+        + f"{contrib} · floor 가산분 {add_on/1e12:,.2f}조 = 최종 RWA "
+          f"{float(rwa_total_for_bis)/1e12:,.2f}조",
+        metric=rel))
 
 
 def _check_leverage(leverage_result, report: ValidationReport) -> None:
@@ -351,12 +456,25 @@ def _check_output_floor(of_result, report: ValidationReport) -> None:
                    metric=of_result.rwa_final))
 
 
-def _check_market_op_rwa(market_rwa, op_rwa, report: ValidationReport) -> None:
-    for label, val in [("market_rwa_nonneg", market_rwa), ("op_rwa_nonneg", op_rwa)]:
+def _check_market_op_rwa(market_rwa, op_rwa, report: ValidationReport,
+                         total_ead: float | None = None) -> None:
+    """시장·운영리스크 RWA. 부호만 보면 0으로 지워도 통과한다.
+
+    운영리스크는 영업 중인 은행이면 0일 수 없다. OPE25의 사업지표(BI)가 수익·
+    비용에서 나오므로 익스포저가 있는 한 양수다. 그래서 익스포저가 있는데 0이면
+    FAIL이다. 시장리스크는 트레이딩계정이 없으면 0일 수 있으므로 WARN으로 둔다.
+    """
+    for label, val, zero_status in [("market_rwa_nonneg", market_rwa, "WARN"),
+                                    ("op_rwa_nonneg", op_rwa, "FAIL")]:
         if val is None:
             continue
         if val < 0:
             report.add(ConsistencyCheck(label, "FAIL", f"{label} is negative", metric=val))
+        elif val == 0 and total_ead:
+            report.add(ConsistencyCheck(
+                label, zero_status,
+                f"익스포저 {float(total_ead):,.0f} KRW가 있는데 RWA가 0이다",
+                metric=0.0))
         else:
             report.add(ConsistencyCheck(label, "PASS", f"{val:,.0f}", metric=val))
 
@@ -604,12 +722,35 @@ def _check_backtest_traffic_light(
             "all grades in GREEN zone"))
 
 
+def _lex_denominator_basis(ledgers: dict | None, framework: str) -> str | None:
+    """거액익스포저 설정 원장에서 분모기준을 읽는다. 없으면 None."""
+    if not ledgers:
+        return None
+    setting = ledgers.get("lex_setting")
+    if not isinstance(setting, pd.DataFrame) or setting.empty:
+        return None
+    hit = setting.loc[setting["framework"] == framework, "denominator_basis"]
+    return str(hit.iloc[0]) if len(hit) else None
+
+
 def _check_large_exposure(limit_report: pd.DataFrame | None,
-                          report: ValidationReport) -> None:
-    """은행법 §35 동일차주 25%: any BREACH/CRITICAL on the 동일차주 limit → FAIL."""
+                          report: ValidationReport,
+                          ledgers: dict | None = None) -> None:
+    """동일차주 한도 위반 판정.
+
+    이전 판은 `limit_report`가 없거나 비면 '위반 없음'으로 PASS를 냈다. 한도
+    산출이 빠진 실행과 위반이 없는 실행이 같은 칸에 들어갔다 (fail-open).
+    또 사유문에 '은행법 §35'라고 적었는데 이 축의 분모는 기본자본이고, 원장
+    `lex_setting`이 확정한 은행법 §35의 분모는 자기자본이다. 분모기준은 원장에서
+    읽어 적는다.
+    """
+    basis = _lex_denominator_basis(ledgers, "감독규정26조_기본자본")
+    basis_txt = (f"분모기준 {basis} (감독규정 제26조, lex_setting)" if basis
+                 else "분모기준 미확인 (lex_setting 원장이 검사에 없다)")
     if limit_report is None or limit_report.empty:
-        report.add(ConsistencyCheck("large_exposure_25pct", "PASS",
-                   "no limit breaches"))
+        report.add(ConsistencyCheck(
+            "large_exposure_25pct", "WARN",
+            f"한도 리포트 부재. 위반 없음과 구별되지 않는다. {basis_txt}"))
         return
     obligor_breaches = limit_report[
         (limit_report["limit"].astype(str).str.contains("동일차주"))
@@ -618,12 +759,52 @@ def _check_large_exposure(limit_report: pd.DataFrame | None,
     if len(obligor_breaches):
         report.add(ConsistencyCheck(
             "large_exposure_25pct", "FAIL",
-            f"{len(obligor_breaches)} 차주가 Tier1 25% 한도 위반 "
-            f"(은행법 §35)", metric=float(len(obligor_breaches))))
+            f"{len(obligor_breaches)} 차주가 25% 한도 위반 · {basis_txt}",
+            metric=float(len(obligor_breaches))))
     else:
         report.add(ConsistencyCheck(
             "large_exposure_25pct", "PASS",
-            "all obligors within Tier1 25% limit"))
+            f"동일차주 축 전건 25% 한도 이내 · {basis_txt}"))
+
+
+def _check_large_exposure_sources(limit_report: pd.DataFrame | None,
+                                  ledgers: dict | None,
+                                  report: ValidationReport) -> None:
+    """거액익스포저 산출이 두 벌로 갈려 있지 않은가.
+
+    한도엔진의 동일차주 축은 기본자본 25%로, 원장 `lex_position`의
+    은행법35조_동일차주는 자기자본 25%로 판정한다. 두 산출이 같은 기준일에
+    다른 위반 건수를 낸다. 지금은 어느 쪽이 정본인지 산출물에서 읽히지 않으므로
+    두 값을 나란히 적어 남긴다.
+    """
+    name = "large_exposure_two_sources"
+    pos = (ledgers or {}).get("lex_position")
+    if not isinstance(pos, pd.DataFrame) or pos.empty:
+        report.add(ConsistencyCheck(
+            name, "WARN", "거액익스포저 원장(lex_position)이 검사에 없다"))
+        return
+    kr = pos[pos["framework"] == "은행법35조_동일차주"]
+    n_ledger = int(kr["breach"].sum()) if "breach" in kr.columns else 0
+    basis_ledger = _lex_denominator_basis(ledgers, "은행법35조_동일차주") or "미확인"
+    if limit_report is None or limit_report.empty:
+        n_engine = None
+    else:
+        n_engine = int(len(limit_report[
+            (limit_report["limit"].astype(str).str.contains("동일차주"))
+            & (limit_report["severity"].isin(["BREACH", "CRITICAL"]))]))
+    basis_engine = _lex_denominator_basis(ledgers, "감독규정26조_기본자본") or "미확인"
+    detail = (f"원장 은행법35조_동일차주({basis_ledger}) 위반 {n_ledger}건 · "
+              f"한도엔진 동일차주({basis_engine}) 위반 "
+              + ("미산출" if n_engine is None else f"{n_engine}건"))
+    if n_engine is None or n_engine != n_ledger:
+        report.add(ConsistencyCheck(
+            name, "WARN",
+            detail + ". 분모기준이 달라 두 산출이 어긋난다. 정본을 하나로 "
+                     "정하지 않으면 어느 쪽이 결재 대상인지 산출물에서 읽히지 않는다",
+            metric=float(n_ledger)))
+    else:
+        report.add(ConsistencyCheck(name, "PASS", detail,
+                                    metric=float(n_ledger)))
 
 
 def _check_macro_ecl_path(path_df: pd.DataFrame, report: ValidationReport) -> None:
@@ -748,6 +929,11 @@ def _check_delta_eve_recalc(alm: dict, bp: pd.DataFrame, res: pd.DataFrame,
     `alm_rate_shock_param`·`alm_scenario_def`·`alm_post_shock_floor`와 기저곡선
     으로 충격곡선을 다시 만들어 `DF(t)`를 새로 계산한다. 현금흐름은 버킷
     원장의 것을 쓰되(그 합은 (1) 검사가 명목과 대사한다) **할인은 독립 경로**다.
+
+    재계산은 현금흐름 할인분만 만든다. 제13항 나의 자동금리옵션 리스크가
+    `delta_eve`에 반영되면(`auto_option_reflected=True`) 이 재계산에도 같은 항을
+    더해야 하며, 그때까지는 옵션 항이 반영된 실행에서 이 검사가 그 금액만큼
+    벌어진다. 배선이 옵션 원장을 넘기기 시작하면 여기도 함께 고쳐야 한다.
     """
     from risk_lib.alm.curves import discount_factors
     from risk_lib.alm.irrbb import build_shocked_curves
@@ -894,12 +1080,18 @@ def _check_alm_ledgers(alm: dict, report: ValidationReport) -> None:
     # 이쪽에서만 잡히므로 남긴다 — 값 검증이 아니라 짝 검증이다.
     # 접기는 통화별로 먼저 하고 손실 통화만 더한다(제13항 다). 통화 축을 무시한
     # 단순 합은 상계값이며 결과 원장에서는 `delta_eve_gross`가 그 자리다.
+    # 제13항 나의 자동금리옵션 리스크가 delta_eve에 반영되면 이 접기와 결과
+    # 원장이 그 금액만큼 벌어진다. 그때는 짝만 보고 값 비교는 건너뛴다.
+    # 규정이 더하라고 한 항을 더했다는 이유로 FAIL이 나면, 다음 사람이 그 항을
+    # 빼서 검사를 통과시키게 된다.
     if bp is not None and res is not None and len(bp) and len(res):
+        opt_on = bool(res.get("auto_option_reflected",
+                              pd.Series(False, index=res.index)).any())
         got = (bp.groupby(["basis", "scenario", "ccy"])["delta_pv"].sum()
                  .clip(upper=0.0).groupby(level=["basis", "scenario"]).sum())
         want = res.set_index(["basis", "scenario"])["delta_eve"]
         joined = want.to_frame("eve").join(got.to_frame("pv"), how="outer")
-        worst = float(max(
+        worst = 0.0 if opt_on else float(max(
             (_rel_gap(float(r["eve"]), float(r["pv"]))
              for _, r in joined.dropna().iterrows()), default=0.0))
         if joined.isna().any().any() or worst > _ALM_TIE_RTOL:
@@ -1299,6 +1491,10 @@ def run_consistency_checks(
     output_floor_result: Any = None,
     market_rwa: float | None = None,
     op_rwa: float | None = None,
+    # 구성요소 대사에 필요한 나머지 두 항. 넘어오지 않으면 대사가 부분적이며
+    # `rwa_components_reconcile`이 그 사실을 WARN으로 남긴다.
+    ccr_rwa: float | None = None,
+    structured_rwa: float | None = None,
     ecl_results: pd.DataFrame | None = None,
     concentration: pd.DataFrame | None = None,
     stress_results: pd.DataFrame | None = None,
@@ -1353,7 +1549,10 @@ def run_consistency_checks(
 
     _check_leverage(leverage_result, rep)
     _check_output_floor(output_floor_result, rep)
-    _check_market_op_rwa(market_rwa, op_rwa, rep)
+    _check_market_op_rwa(market_rwa, op_rwa, rep, total_ead)
+    _check_rwa_components(sa_results, irb_results, market_rwa, op_rwa,
+                          ccr_rwa, structured_rwa, output_floor_result,
+                          rwa_total_for_bis, rep)
     _check_ecl(ecl_results, rep)
     _check_concentration(concentration, rep)
     _check_stress_monotone(stress_results, rep)
@@ -1369,7 +1568,8 @@ def run_consistency_checks(
     _check_pd_model_quality(pd_metrics, rep)
     _check_hl_calibration(backtest, rep)
     _check_backtest_traffic_light(backtest, rep)
-    _check_large_exposure(limit_report, rep)
+    _check_large_exposure(limit_report, rep, ledger_tables)
+    _check_large_exposure_sources(limit_report, ledger_tables, rep)
     _check_alm(alm_results, rep)
     if alm_results:
         _check_irrbb_single_source(alm_results, stress_path_result, rep)
