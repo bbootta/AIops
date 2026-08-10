@@ -5,7 +5,9 @@
 - ``build_default_limit_set`` — 은행법 §35 / 감독세칙 / BCBS LEX / 내부 한도를
   포함한 표준 LimitDefinition 묶음.
 - ``limit_dashboard`` — 모든 한도(OK 포함)의 사용률 grid (CRO dashboard).
-- ``large_exposure_lex`` — BCBS LEX framework (Tier1 10%+) 별도 보고.
+- ``large_exposure_lex`` — 구형 간이 산출. 실제 정의는
+  ``risk_lib.limits.large_exposure``로 옮겼고 여기서는 재수출만 한다.
+  규제 판정에는 같은 모듈의 ``compute_large_exposure``를 쓴다.
 - ``escalation_matrix`` — severity별 보고/승인 라인.
 - ``action_recommendations`` — 사용률 기반 권고 조치 + 추가가능 노출액.
 - ``quarterly_utilisation_trend`` — 합성 분기별 사용률 (시계열).
@@ -28,6 +30,23 @@ import numpy as np
 import pandas as pd
 
 from risk_lib.limits.limit_engine import LimitDefinition, LimitEngine
+
+
+def large_exposure_lex(
+    portfolio: pd.DataFrame, tier1: float,
+    *, exposure_col: str = "ead", group: bool = False,
+) -> pd.DataFrame:
+    """구형 간이 산출. 본체는 ``risk_lib.limits.large_exposure``로 옮겼다.
+
+    기존 호출부(``compute_limits_deep``)를 깨지 않기 위해 이름을 남긴다.
+    임포트를 함수 안에서 하는 이유는 순환이다. ``large_exposure``가
+    ``risk_lib.alm``을 거쳐 카탈로그·규제서식을 임포트하고, 그 끝에서
+    ``forms_fss_compliance``가 이 모듈을 임포트한다. 모듈 수준에서 반대로
+    걸면 이 모듈이 절반만 초기화된 상태에서 참조된다.
+    """
+    from risk_lib.limits.large_exposure import large_exposure_lex as _impl
+
+    return _impl(portfolio, tier1, exposure_col=exposure_col, group=group)
 
 
 # ---------------------------------------------------------------- helpers
@@ -232,36 +251,6 @@ def limit_dashboard(
                 })
     return pd.DataFrame(rows).sort_values(
         "utilisation", ascending=False).reset_index(drop=True)
-
-
-# ---------------------------------------------------------------- BCBS LEX
-
-def large_exposure_lex(
-    portfolio: pd.DataFrame, tier1: float,
-    *, exposure_col: str = "ead", group: bool = False,
-) -> pd.DataFrame:
-    """BCBS LEX framework (BCBS 283, 2014) — Tier1의 10% 이상 차주 별도 보고.
-
-    Reporting threshold (LEX §14) = 10% of Tier1.
-    Hard limit (LEX §16) = 25% of Tier1 (G-SIB 간 15%).
-    """
-    key = "obligor_group_id" if group else "obligor_id"
-    if key not in portfolio.columns:
-        portfolio = attach_group_id(portfolio) if group else portfolio
-    g = portfolio.groupby(key)[exposure_col].sum().reset_index()
-    g = g.rename(columns={exposure_col: "ead"})
-    g["pct_tier1"] = g["ead"] / tier1 if tier1 > 0 else 0.0
-    g["reportable"] = g["pct_tier1"] >= 0.10
-    g["limit_25pct"] = tier1 * 0.25
-    g["utilisation_25pct"] = g["ead"] / g["limit_25pct"]
-    def _sev(u: float) -> str:
-        if u >= 1.0:  return "BREACH"
-        if u >= 0.9:  return "CRITICAL"
-        if u >= 0.75: return "WARN"
-        return "OK"
-    g["severity"] = g["utilisation_25pct"].map(_sev)
-    g = g[g["reportable"]].sort_values("ead", ascending=False).reset_index(drop=True)
-    return g
 
 
 # ---------------------------------------------------------------- escalation

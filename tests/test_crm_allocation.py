@@ -195,6 +195,34 @@ def test_relation_type_is_derived_from_the_graph_not_the_label():
     assert out["pool_id"].nunique() == 2
 
 
+def test_relation_type_is_derived_per_asof():
+    """기준일마다 따로 유도해야 한다.
+
+    같은 담보-익스포저 쌍이 두 기준일에 각각 1행씩 있으면 기준일 안에서는
+    1:1이다. 기준일을 섞어 차수를 세면 담보 차수·익스포저 차수가 모두 2가 되어
+    M:N으로 유도되고 두 기준일이 한 풀로 합쳐진다. 배분은 풀 단위로 풀리므로
+    그 상태로는 다른 기준일의 담보가 서로의 배분을 깎는다.
+    """
+    links = pd.DataFrame({
+        "asof": ["2026-03-31", "2026-06-30"],
+        "collateral_id": ["C1", "C1"],
+        "exposure_id": ["E1", "E1"],
+        "priority": [1, 1],
+        "coverage_ratio": [1.0, 1.0],
+        "source": "synthetic",
+    })
+    out = derive_graph(links)
+    assert list(out["relation_type"]) == ["1:1", "1:1"]
+    # 기준일별로 성분을 매기므로 두 행은 서로 다른 (asof, pool_id) 키를 갖는다
+    assert out[["asof", "pool_id"]].drop_duplicates().shape[0] == 2
+
+    # 두 검사 모두 기준일마다 1건씩 등록하므로 2기준일 × 2검사 = 4건이다
+    rep = _report()
+    cc.check_relation_type(out, rep)
+    cc.check_pool_partition(out, rep)
+    assert [c.status for c in rep.checks] == ["PASS"] * 4
+
+
 # ---------------------------------------------------------------- 손계산 케이스
 
 def _tiny(pairs, *, coll, exp, coverage=None, priority=None):
@@ -429,7 +457,111 @@ def test_all_checks_pass_on_the_clean_ledger(universe, allocations, base_tables)
         exposure_terms=universe["crm_exposure_terms"], rwa_result=rwa)
     fails = [str(c) for c in rep.checks if c.status == "FAIL"]
     assert not fails, fails
-    assert len(rep.checks) == 10
+    assert len(rep.checks) == 12
+
+
+def _noop(alloc: pd.DataFrame) -> pd.DataFrame:
+    """아무것도 배분하지 않는 엔진의 산출물. 잔여는 공급 그대로 적는다."""
+    bad = alloc.copy()
+    bad["allocated_amount"] = 0.0
+    bad["residual_collateral"] = bad["collateral_value_adj"]
+    bad["residual_exposure"] = bad["exposure_ead"]
+    return bad
+
+
+def test_conservation_checks_alone_do_not_catch_a_do_nothing_engine(
+        universe, allocations, base_tables):
+    """보존식이 전부 부등식(≤)이라 무배분 산출물이 그 검사들을 통과한다.
+
+    최대성 검사가 왜 따로 필요한지가 이 사실이다. 아래 검사가 PASS를 낸다는 것
+    자체를 기록으로 남긴다.
+    """
+    bad = _noop(allocations)
+    rep = _report()
+    cc.check_collateral_cap(bad, rep)
+    cc.check_exposure_cap(bad, rep)
+    cc.check_link_cap(bad, rep)
+    cc.check_ead_conservation(bad, universe["crm_exposure_terms"], rep)
+    cc.check_pool_conservation(bad, rep)
+    assert [c.status for c in rep.checks] == ["PASS"] * 5
+
+
+def test_maximality_fails_on_a_do_nothing_engine(allocations):
+    rep = _report()
+    cc.check_allocation_maximality(_noop(allocations), rep)
+    assert _status(rep, "crm_alloc_maximality") == "FAIL"
+
+
+def test_maximality_fails_when_one_link_is_left_unfilled(allocations):
+    """연결 성분을 끝까지 풀지 않고 멈춘 상태. 링크 1건만 되돌린다."""
+    bad = allocations[(allocations["alloc_rule"] == "pro_rata")
+                      & (allocations["allocated_amount"] > 1.0)].copy()
+    bad = bad.reset_index(drop=True)
+    idx = 0
+    amount = float(bad.loc[idx, "allocated_amount"])
+    cid, eid = bad.loc[idx, "collateral_id"], bad.loc[idx, "exposure_id"]
+    bad.loc[idx, "allocated_amount"] = 0.0
+    # 잔여는 담보·익스포저 단위 값이므로 해당 담보·익스포저의 모든 행을 올린다
+    bad.loc[bad["collateral_id"] == cid, "residual_collateral"] += amount
+    bad.loc[bad["exposure_id"] == eid, "residual_exposure"] += amount
+    rep = _report()
+    cc.check_allocation_maximality(bad, rep)
+    assert _status(rep, "crm_alloc_maximality") == "FAIL"
+
+
+def test_maximality_passes_when_both_sides_are_exhausted(param):
+    """담보가 익스포저에서 잘려 여력이 없는 정상 상태는 통과해야 한다.
+
+    최대성 검사가 정상 산출을 FAIL시키면 쓸 수 없다.
+    """
+    links, ct, et = _tiny([("C1", "E1"), ("C1", "E2")],
+                          coll={"C1": {"mv": 50.0}},
+                          exp={"E1": {"ead": 100.0}, "E2": {"ead": 100.0}})
+    out, _ = allocate_crm(links, ct, et, param, asof=ASOF, alloc_rule="pro_rata")
+    rep = _report()
+    cc.check_allocation_maximality(out, rep)
+    assert _status(rep, "crm_alloc_maximality") == "PASS"
+
+
+def test_link_completeness_fails_when_the_hard_cases_are_dropped(
+        universe, allocations):
+    """M:N 링크를 통째로 버린 엔진. 남은 링크만 보면 보존식은 전부 성립한다."""
+    dropped = allocations[allocations["relation_type"] != "M:N"]
+    assert len(dropped) < len(allocations)
+    rep = _report()
+    cc.check_link_completeness(universe["crm_collateral_link"], dropped, rep)
+    assert _status(rep, "crm_alloc_link_completeness") == "FAIL"
+
+
+def test_other_checks_alone_do_not_catch_dropped_links(
+        universe, allocations, base_tables):
+    """링크 누락은 최대성·완전성 두 검사 밖에서는 드러나지 않는다."""
+    _, rwa = base_tables
+    dropped = allocations[allocations["relation_type"] != "M:N"]
+    rep = _report()
+    for fn in (cc.check_collateral_cap, cc.check_exposure_cap, cc.check_link_cap,
+               cc.check_pool_conservation, cc.check_unit_columns_uniform):
+        fn(dropped, rep)
+    cc.check_ead_conservation(dropped, universe["crm_exposure_terms"], rep)
+    cc.check_rwa_reconciliation(dropped, universe["crm_exposure_terms"], rep, rwa)
+    assert [c.status for c in rep.checks if c.status == "FAIL"] == []
+
+
+def test_link_completeness_fails_on_a_phantom_link(universe, allocations):
+    """관계 원장에 없는 링크를 배분 원장이 들고 있는 반대 방향."""
+    bad = allocations.copy()
+    bad.loc[bad.index[0], "collateral_id"] = "C_존재하지_않음"
+    rep = _report()
+    cc.check_link_completeness(universe["crm_collateral_link"], bad, rep)
+    assert _status(rep, "crm_alloc_link_completeness") == "FAIL"
+
+
+def test_link_completeness_fails_on_an_empty_allocation(universe):
+    rep = _report()
+    cc.check_link_completeness(universe["crm_collateral_link"],
+                               pd.DataFrame(columns=list(ALLOCATION.column_names)),
+                               rep)
+    assert _status(rep, "crm_alloc_link_completeness") == "FAIL"
 
 
 def test_collateral_cap_fails_on_over_allocation(allocations):

@@ -22,6 +22,7 @@ __all__ = [
     "check_collateral_cap", "check_exposure_cap", "check_link_cap",
     "check_ead_conservation", "check_pool_conservation",
     "check_relation_type", "check_pool_partition",
+    "check_link_completeness", "check_allocation_maximality",
     "check_unit_columns_uniform", "check_rule_sensitivity",
     "check_rwa_reconciliation", "run_crm_allocation_checks",
 ]
@@ -256,6 +257,93 @@ def check_pool_partition(links: pd.DataFrame, report: ValidationReport) -> None:
             _pass(report, name, f"연결 성분 {len(want)}개와 pool_id 분할 일치")
 
 
+def check_link_completeness(links: pd.DataFrame, alloc: pd.DataFrame,
+                            report: ValidationReport) -> None:
+    """배분 원장이 관계 원장의 링크를 빠짐없이, 그리고 그것만 담고 있는가.
+
+    FAIL 조건: 엔진이 1:1만 처리하고 M:N 링크를 조용히 건너뛰면 잡힌다.
+    남은 링크만 놓고 보면 보존식(1·2·3·풀별)은 전부 성립하므로 다른 검사는
+    하나도 걸리지 않는다. 이 검사가 없으면 어려운 케이스를 버린 엔진이 전건
+    통과한다. 반대 방향, 관계 원장에 없는 링크를 배분 원장이 들고 있는 경우도
+    같은 대조 하나로 잡는다.
+
+    배분규칙마다 따로 본다. 규칙 하나에서만 링크가 빠지는 경우가 있기 때문이다.
+    """
+    name = "crm_alloc_link_completeness"
+    if links.empty:
+        return
+    want = {(str(a), str(c), str(e)) for a, c, e in
+            zip(links["asof"], links["collateral_id"], links["exposure_id"])}
+    if alloc.empty:
+        _fail(report, name,
+              f"관계 원장 링크 {len(want)}건이 배분 원장에 하나도 없다", len(want))
+        return
+
+    worst = 0
+    matched = 0
+    offenders: list[str] = []
+    for (asof, rule), g in alloc.groupby(["asof", "alloc_rule"], sort=True):
+        got = {(str(a), str(c), str(e)) for a, c, e in
+               zip(g["asof"], g["collateral_id"], g["exposure_id"])}
+        mine = {k for k in want if k[0] == str(asof)}
+        missing = mine - got
+        extra = got - mine
+        if missing or extra:
+            offenders.append(
+                f"{asof}/{rule}: 누락 {len(missing)}건 · 초과 {len(extra)}건")
+            worst = max(worst, len(missing) + len(extra))
+        else:
+            matched = max(matched, len(mine))
+    if offenders:
+        _fail(report, name,
+              "배분 원장이 관계 원장과 링크 집합이 다르다 (" +
+              ", ".join(offenders) + ")", worst)
+    else:
+        _pass(report, name,
+              f"기준일 × 배분규칙 {alloc.groupby(['asof', 'alloc_rule']).ngroups}조 "
+              f"전부 관계 원장 링크와 일치 (기준일당 최대 {matched}건)")
+
+
+def check_allocation_maximality(alloc: pd.DataFrame,
+                                report: ValidationReport) -> None:
+    """배분 여력이 남았는데 배분하지 않은 링크가 있는가.
+
+    보존식 1·2·3은 전부 부등식(≤)이라 **아무것도 배분하지 않는 엔진**이 전건
+    통과한다. 배분액을 0으로 두고 잔여를 원래 값 그대로 적으면 담보 상한도
+    익스포저 상한도 총량 보존도 성립한다. 그래서 반대편 조건이 하나 필요하다.
+
+    링크 여력(coverage_ratio × 조정 담보가치 − 배분액)·담보 잔여·익스포저 잔여
+    셋이 **동시에** 남아 있으면 그 링크에 더 배분할 수 있었다는 뜻이다. 하나라도
+    있으면 FAIL한다. 셋 중 하나라도 0이면 그 링크는 더 채울 수 없으므로 정상이다.
+
+    FAIL 조건: 배분액을 0으로 두거나, 연결 성분을 끝까지 풀지 않고 중간에
+    멈추거나, 비례배분 반복을 수렴 전에 끊으면 잡힌다.
+
+    방향을 적어 둔다. 과소배분은 담보 인정액을 줄이므로 자기자본 관점에서는
+    보수적이지만, 그 경우 배분 원장의 잔여·절감액은 실제 인정 가능한 경감효과와
+    다른 값이 된다.
+    """
+    name = "crm_alloc_maximality"
+    if alloc.empty:
+        return
+    cap = (alloc["coverage_ratio"].to_numpy(float)
+           * alloc["collateral_value_adj"].to_numpy(float))
+    link_slack = cap - alloc["allocated_amount"].to_numpy(float)
+    rem_c = alloc["residual_collateral"].to_numpy(float)
+    rem_e = alloc["residual_exposure"].to_numpy(float)
+
+    bad = ((link_slack > tol(cap)) & (rem_c > tol(rem_c)) & (rem_e > tol(rem_e)))
+    if bad.any():
+        # 그 링크에서 더 배분할 수 있었던 금액. 세 여력의 하한이다.
+        room = np.minimum(np.minimum(link_slack, rem_c), rem_e)
+        worst = float(room[bad].max())
+        _fail(report, name,
+              f"링크 {int(bad.sum())}건에서 담보·익스포저·설정 여력이 모두 남았는데 "
+              f"배분되지 않았다 (최대 {worst:,.2f} KRW)", worst)
+    else:
+        _pass(report, name, f"링크 {len(alloc)}건 전건 추가 배분 여력 없음")
+
+
 def check_unit_columns_uniform(alloc: pd.DataFrame,
                                report: ValidationReport) -> None:
     """같은 담보가 익스포저마다 다른 차감률을 받지 않는가.
@@ -436,6 +524,8 @@ def run_crm_allocation_checks(
     rep = report if report is not None else ValidationReport()
     check_relation_type(links, rep)
     check_pool_partition(links, rep)
+    check_link_completeness(links, alloc, rep)
+    check_allocation_maximality(alloc, rep)
     check_collateral_cap(alloc, rep)
     check_exposure_cap(alloc, rep)
     check_link_cap(alloc, rep)

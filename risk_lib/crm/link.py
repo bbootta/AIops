@@ -181,6 +181,12 @@ def derive_graph(links: pd.DataFrame) -> pd.DataFrame:
 
     입력에 두 컬럼이 이미 있어도 덮어쓴다. 원장에 적힌 라벨을 믿고 계산하면
     라벨이 틀렸을 때 배분도 함께 틀린다.
+
+    **기준일마다 따로 유도한다.** 이 원장의 grain은 기준일 × 담보 × 익스포저이고
+    기본키에 `asof`가 들어간다. 여러 기준일을 한 프레임에 담아 통째로 차수를
+    세면, 각 기준일 안에서는 1:1인 담보가 기준일 수만큼 중복 계산돼 M:N으로
+    유도되고 서로 다른 기준일의 성분이 한 풀로 합쳐진다. 배분은 이 pool_id를
+    단위로 풀리므로 기준일이 섞인 풀은 그대로 배분 오류가 된다.
     """
     if links.empty:
         out = links.copy()
@@ -189,19 +195,28 @@ def derive_graph(links: pd.DataFrame) -> pd.DataFrame:
         return out
 
     df = links.copy()
-    cid = df["collateral_id"].astype(str)
-    eid = df["exposure_id"].astype(str)
-    deg_c = cid.map(cid.value_counts())
-    deg_e = eid.map(eid.value_counts())
+    asof_arr = df["asof"].astype(str).to_numpy()
+    cid_all = df["collateral_id"].astype(str).to_numpy()
+    eid_all = df["exposure_id"].astype(str).to_numpy()
+    rel = np.empty(len(df), dtype=object)
+    pool = np.empty(len(df), dtype=object)
 
-    rel = np.where(
-        (deg_c > 1) & (deg_e > 1), "M:N",
-        np.where(deg_c > 1, "1:N",
-                 np.where(deg_e > 1, "M:1", "1:1")))
+    # 위치 기반으로 채운다. 입력 인덱스를 건드리지 않기 위해서다.
+    for asof in sorted(set(asof_arr)):
+        pos = np.flatnonzero(asof_arr == asof)
+        cid = pd.Series(cid_all[pos])
+        eid = pd.Series(eid_all[pos])
+        deg_c = cid.map(cid.value_counts()).to_numpy()
+        deg_e = eid.map(eid.value_counts()).to_numpy()
+        rel[pos] = np.where(
+            (deg_c > 1) & (deg_e > 1), "M:N",
+            np.where(deg_c > 1, "1:N",
+                     np.where(deg_e > 1, "M:1", "1:1")))
+        comp = _components(list(zip(cid_all[pos], eid_all[pos])))
+        pool[pos] = [comp[f"C:{c}"] for c in cid_all[pos]]
+
     df["relation_type"] = rel
-
-    comp = _components(list(zip(cid, eid)))
-    df["pool_id"] = [comp[f"C:{c}"] for c in cid]
+    df["pool_id"] = pool
     return df
 
 

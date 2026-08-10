@@ -13,7 +13,10 @@ from risk_lib.crm.link import (
     derive_graph, build_baseline_links, build_crm_link_universe,
 )
 from risk_lib.crm.allocation import ALLOC_RULES, ALLOCATION, allocate_crm
-from risk_lib.crm.consistency import run_crm_allocation_checks
+from risk_lib.crm.consistency import (
+    check_allocation_maximality, check_link_completeness,
+    run_crm_allocation_checks,
+)
 
 CRM_TABLES = (MITIGATION_PARAM, COLLATERAL_TERMS, EXPOSURE_TERMS,
               COLLATERAL_LINK, ALLOCATION)
@@ -24,5 +27,6 @@ __all__ = [
     "RELATION_TYPES", "COLLATERAL_TERMS", "EXPOSURE_TERMS", "COLLATERAL_LINK",
     "derive_graph", "build_baseline_links", "build_crm_link_universe",
     "ALLOC_RULES", "ALLOCATION", "allocate_crm",
+    "check_allocation_maximality", "check_link_completeness",
     "run_crm_allocation_checks", "CRM_TABLES",
 ]
