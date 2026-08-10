@@ -55,8 +55,8 @@ from risk_lib.alm.schedule import Instalment
 
 __all__ = [
     "ParamWarning", "CashflowPoint",
-    "smm_from_cpr", "psa_cpr", "scenario_multiplier", "scurve_ri",
-    "effective_prepay_fee_rate", "apply_prepayment",
+    "smm_from_cpr", "seasoning_ramp", "psa_cpr", "scenario_multiplier",
+    "scurve_ri", "effective_prepay_fee_rate", "apply_prepayment",
     "apply_early_redemption", "nmd_slotting",
 ]
 
@@ -89,14 +89,27 @@ def smm_from_cpr(cpr: float, period_years: float) -> float:
     return 1.0 - (1.0 - cpr) ** period_years
 
 
-def psa_cpr(age_months: float) -> float:
-    """PSA 100% 기준 CPR. 30개월에 6%로 램프업 후 평탄.
+def seasoning_ramp(age_months: float, *, ceiling: float, slope: float) -> float:
+    """경과효과 램프 CPR(m) = min(ceiling, slope·m). 계수는 **인자로만** 온다.
 
-    **미국 MBS 관행이며 국내 실증근거가 없다(§5.18).** 지어낸 값은 아니지만
-    (SIFMA 공표 표준) 국내 적용 근거도 아니라는 점을 원장이
-    `input_source='표준벤치마크'`로 표시한다.
+    PSA는 이 함수형의 계수 한 벌(0.06 · 0.002)이며 유일한 벌이 아니다. 자체추정
+    계수(`alm_behaviour_model.params_json`의 ramp_ceiling·ramp_slope)를 적용할
+    자리가 필요해 함수형을 분리한다. 계수를 함수 본문에 두면 추정 결과가
+    적용 경로에 닿을 수 없다.
     """
-    return min(0.06, 0.002 * max(age_months, 0.0))
+    return min(float(ceiling), float(slope) * max(float(age_months), 0.0))
+
+
+# PSA 100%의 계수. SIFMA 공표 표준이며 지어낸 값은 아니지만 **미국 MBS 관행**
+# 이고 국내 실증근거가 없다(§5.18). 원장이 `input_source='표준벤치마크'`로
+# 표시하며, 자체추정 계수가 들어오면 이 벌은 대조군으로만 남는다.
+_PSA_100_CEILING, _PSA_100_SLOPE = 0.06, 0.002
+
+
+def psa_cpr(age_months: float) -> float:
+    """PSA 100% 기준 CPR. 30개월에 6%로 램프업 후 평탄."""
+    return seasoning_ramp(age_months, ceiling=_PSA_100_CEILING,
+                          slope=_PSA_100_SLOPE)
 
 
 def scenario_multiplier(mult_table: pd.DataFrame, model: str, scenario: str,

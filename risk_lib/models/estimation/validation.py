@@ -70,6 +70,11 @@ BACKTEST_RESULT = TableSpec(
           unit="ratio"),
         C("inside_range", "bool", "범위 내", nullable=True,
           citation="[별표 3] 203.가"),
+        C("breach_direction", "string", "이탈 방향", nullable=True,
+          allowed=("상회", "하회"),
+          note="상회는 실적이 범위 위로 나간 것이며 추정 과소, 자본 과소적립 "
+               "방향이다. 하회는 추정이 보수적인 방향이다. 두 방향을 한 칸으로 "
+               "묶으면 보수적 추정이 미달과 같은 취급을 받는다"),
         C("p_value", "float", "p값", nullable=True, unit="ratio",
           min_value=0.0, max_value=1.0),
         C("significance_level", "float", "유의수준", nullable=True,
@@ -195,14 +200,17 @@ def build_backtest_result(*, asof: str, param: pd.DataFrame,
         n = int(r["n_obligors"])
         d = int(r["n_defaults"])
         realised = float(r["default_rate"]) if n else None
-        lo = hi = inside = p = None
+        lo = hi = inside = p = breach = None
         status = "판정완료"
         if est is None or not np.isfinite(est):
             status = "추정치없음"
         elif n == 0:
             status = "표본부족"
         else:
-            p = float(binomtest(d, n, est).pvalue)
+            # 단측이다. 실적이 추정보다 유의하게 **높을 때**가 과소추정이고
+            # 자본 과소적립 방향이다. 양측으로 보면 보수적으로 높게 잡은
+            # 추정치까지 기각되어 181.의 보수적 조정과 정면으로 부딪친다.
+            p = float(binomtest(d, n, est, alternative="greater").pvalue)
             if ci_level is None:
                 status = "기준미승인"
             else:
@@ -210,6 +218,8 @@ def build_backtest_result(*, asof: str, param: pd.DataFrame,
                 lo = float(binom.ppf(tail, n, est) / n)
                 hi = float(binom.ppf(1.0 - tail, n, est) / n)
                 inside = bool(lo <= realised <= hi)
+                breach = (None if inside else
+                          ("상회" if realised > hi else "하회"))
         rows.append({
             "asof": asof, "parameter": "PD", "segment": r["segment"],
             "grade": r["grade"], "backtest_year": int(r["cohort_year"]),
@@ -220,10 +230,10 @@ def build_backtest_result(*, asof: str, param: pd.DataFrame,
             "realised_value": realised, "estimated_value": est,
             "expected_count": (None if est is None else float(est * n)),
             "test_method": ("추정 PD를 성공확률로 하는 이항분포의 신뢰구간과 "
-                            "실제 부도율을 비교한다(203.가). p값은 양측 "
-                            "이항검정"),
+                            "실제 부도율을 비교한다(203.가). p값은 단측 "
+                            "이항검정(실적 > 추정)"),
             "ci_level": ci_level, "range_lower": lo, "range_upper": hi,
-            "inside_range": inside, "p_value": p,
+            "inside_range": inside, "breach_direction": breach, "p_value": p,
             "significance_level": alpha,
             "test_pass": (None if (p is None or alpha is None)
                           else bool(p >= alpha)),
@@ -272,7 +282,7 @@ def _ttest_rows(*, asof, parameter, alpha, ci_level, realised, value_col,
             est = (None if pd.isna(est_v) else float(est_v))
         n = int(len(vals))
         status = "판정완료"
-        p = lo = hi = inside = None
+        p = lo = hi = inside = breach = None
         realised_mean = float(vals.mean()) if n else None
         if est is None:
             status = "추정치없음"
@@ -281,14 +291,18 @@ def _ttest_rows(*, asof, parameter, alpha, ci_level, realised, value_col,
         else:
             se = float(vals.std(ddof=1) / np.sqrt(n))
             if se > 0:
+                # PD와 같은 이유로 단측이다. 실적이 추정보다 높을 때가
+                # 과소추정 방향이다.
                 tstat = (realised_mean - est) / se
-                p = float(2.0 * (1.0 - _student_t.cdf(abs(tstat), df=n - 1)))
+                p = float(1.0 - _student_t.cdf(tstat, df=n - 1))
             if ci_level is None:
                 status = "기준미승인"
             elif se > 0:
                 half = float(_student_t.ppf(0.5 + ci_level / 2.0, df=n - 1) * se)
                 lo, hi = est - half, est + half
                 inside = bool(lo <= realised_mean <= hi)
+                breach = (None if inside else
+                          ("상회" if realised_mean > hi else "하회"))
         out.append({
             "asof": asof, "parameter": parameter, "segment": key_t[0],
             "grade": (key_t[1] if len(key_t) > 1 else key_t[0]),
@@ -298,7 +312,7 @@ def _ttest_rows(*, asof, parameter, alpha, ci_level, realised, value_col,
             "realised_value": realised_mean, "estimated_value": est,
             "expected_count": None, "test_method": method,
             "ci_level": ci_level, "range_lower": lo, "range_upper": hi,
-            "inside_range": inside, "p_value": p,
+            "inside_range": inside, "breach_direction": breach, "p_value": p,
             "significance_level": alpha,
             "test_pass": (None if (p is None or alpha is None)
                           else bool(p >= alpha)),

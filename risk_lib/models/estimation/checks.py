@@ -229,25 +229,37 @@ def check_backtest_inside_range(backtest: pd.DataFrame,
                                 report: ValidationReport) -> None:
     """등급별 실제 부도율이 예상 부도율 범위 안인지 (203.가).
 
-    FAIL 조건: ``judgment_status='판정완료'``이면서 ``inside_range=False``인
-    행이 있을 때. 임계(신뢰수준)가 승인 전이면 판정하지 않고 미판정 건수만
-    보고한다. 임의의 신뢰수준으로 통과를 찍지 않는다.
+    FAIL 조건: ``judgment_status='판정완료'``이면서 실적이 범위를 **상회**한
+    행이 있을 때. 상회는 추정 과소이고 자본 과소적립 방향이다.
+
+    하회는 FAIL로 보지 않고 WARN으로 둔다. 181.이 요구하는 보수적 조정을 하면
+    추정치가 실적보다 위에 놓이는 것이 정상이고, 양방향을 같이 FAIL로 걸면
+    조문이 요구한 보수화가 곧 위반이 된다. 어느 방향을 불합격으로 볼지는
+    규정이 정하지 않는 판단이며 위 근거로 상회만 FAIL로 둔다.
+
+    임계(신뢰수준)가 승인 전이면 판정하지 않고 미판정 건수만 보고한다.
     """
     if backtest.empty:
         return
     judged = backtest[backtest["judgment_status"] == "판정완료"]
-    outside = judged[judged["inside_range"] == False]            # noqa: E712
-    if len(outside):
-        _fail(report, "IRB 사후검증 범위",
-              f"실적이 예상 범위 밖 {len(outside)}건: "
-              f"{sorted(set(outside['parameter'] + '/' + outside['segment'] + '/' + outside['grade']))[:5]}",
-              len(outside))
-        return
     n_unjudged = int((backtest["judgment_status"] != "판정완료").sum())
+    over = judged[judged["breach_direction"] == "상회"]
+    under = judged[judged["breach_direction"] == "하회"]
+    if len(over):
+        _fail(report, "IRB 사후검증 범위",
+              f"실적이 예상 범위를 상회(추정 과소) {len(over)}건: "
+              f"{sorted(set(over['parameter'] + '/' + over['segment'] + '/' + over['grade']))[:5]}",
+              len(over))
+        return
     if len(judged) == 0:
         _warn(report, "IRB 사후검증 범위",
               f"판정 임계가 승인 전이라 {n_unjudged}건 전건 미판정 (203.가)",
               n_unjudged)
+        return
+    if len(under):
+        _warn(report, "IRB 사후검증 범위",
+              f"실적이 예상 범위를 하회(추정 보수적) {len(under)}건. 상회 0건",
+              len(under))
         return
     _pass(report, "IRB 사후검증 범위",
           f"판정 {len(judged)}건 전건 범위 내, 미판정 {n_unjudged}건",
