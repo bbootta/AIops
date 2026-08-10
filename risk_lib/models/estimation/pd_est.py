@@ -28,7 +28,7 @@ import pandas as pd
 
 from risk_lib.datamodel.spec import ColumnSpec as C, TableSpec
 from risk_lib.models.estimation.common import (
-    EstimationWarning, PD_METHODS, cast_to_spec, min_years_param_code, run_id,
+    PD_METHODS, cast_to_spec, min_years_param_code, run_id,
 )
 from risk_lib.models.estimation.moc import compute_moc, moc_component_rows
 from risk_lib.models.estimation.params import (

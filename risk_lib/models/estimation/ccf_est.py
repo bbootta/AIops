@@ -63,8 +63,11 @@ CCF_ESTIMATE = TableSpec(
           min_value=0, note="기준시점 한도 소진"),
         C("n_negative_denominator", "int", "분모 음수 건수", nullable=False,
           min_value=0, note="기준시점 이후 한도 축소"),
-        C("excluded_undrawn_amount", "float", "제외 건의 기준시 미인출 합계",
-          nullable=True, unit="KRW"),
+        C("excluded_exposure_amount", "float", "제외 건의 기준시 인출액 합계",
+          nullable=True, unit="KRW", min_value=0.0,
+          note="제외된 표본의 크기를 인출액으로 잰다. 미인출액으로 재면 분모 0인 "
+               "건이 0으로, 분모 음수인 건이 음수로 잡혀 합계가 제외 규모를 "
+               "나타내지 못한다"),
         C("n_ccf_below_zero", "int", "실측 CCF 음수 건수", nullable=False,
           min_value=0, note="부도 전에 상환한 건. 절사는 내부기준이라 하지 않았다"),
         C("n_ccf_above_one", "int", "실측 CCF 1 초과 건수", nullable=False,
@@ -190,7 +193,7 @@ def estimate_ccf(facility: pd.DataFrame, default_history: pd.DataFrame, *,
         n_neg = int((grp["exclusion_reason"]
                      == "분모음수(기준시 이후 한도축소)").sum())
         excl_amt = float(pd.to_numeric(
-            grp.loc[grp["ccf_observed"].isna(), "undrawn_at_reference"],
+            grp.loc[grp["ccf_observed"].isna(), "drawn_at_reference"],
             errors="coerce").sum())
         years = sorted(set(pd.to_numeric(grp["default_year"])))
         obs_years = float(len(years))
@@ -264,7 +267,7 @@ def estimate_ccf(facility: pd.DataFrame, default_history: pd.DataFrame, *,
             "estimation_basis": _BASIS, "observation_years": obs_years,
             "n_facilities": int(len(grp)), "n_valid": n_valid,
             "n_zero_denominator": n_zero, "n_negative_denominator": n_neg,
-            "excluded_undrawn_amount": excl_amt,
+            "excluded_exposure_amount": excl_amt,
             "n_ccf_below_zero": int((valid["ccf_observed"] < 0).sum()),
             "n_ccf_above_one": int((valid["ccf_observed"] > 1).sum()),
             "raw_estimate": raw, "downturn_ccf": downturn,

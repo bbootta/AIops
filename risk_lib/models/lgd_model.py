@@ -26,6 +26,16 @@ from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler
 
 
+# 아래 하한표는 규제표가 엔진 소스에 박혀 있는 상태다(저장소 규약 1 위반).
+# 새 산출 경로는 `risk_lib.models.estimation.params.build_crm_input_floor`가
+# 적재하는 `crm_input_floor` 원장을 쓰고, 엔진은 원장을 인자로 받는다.
+#
+# 값도 국내 최종안 자료와 어긋난다. 금융감독원 2018.4.12 워크숍 자료 하한표는
+# 기타소매 무담보 30%, 적격회전거래 무담보 50%, 소매 주담대 담보 5%다. 아래
+# retail_other 10%와 residential_mortgage 5%(무담보 칸)는 그 표와 맞지 않는다.
+# 기존 호출부와 tests/test_models.py가 이 값에 묶여 있어 여기서 값을 바꾸지
+# 않는다. 하한이 필요한 새 코드는 원장을 읽어라.
+#
 # Regulatory LGD floors per Basel III CRE32.42 (AIRB) — segment-specific.
 # Senior unsecured corporate 25%, retail revolvers 10%, residential mortgage 5%.
 # Anything not in this map falls back to DEFAULT_LGD_FLOOR (0.05).
@@ -56,6 +66,15 @@ def workout_lgd(
     """Compute realised LGD from observed workout cashflows.
 
     LGD = 1 - PV(recoveries - costs) / EAD_at_default
+
+    ``discount_rate``의 기본값 0.05는 근거가 없다. [별표 3] 184.(1)은 "할인효과를
+    고려할 것"까지만 정하고 값·산식·세그먼트 구분을 주지 않는다. 기존 호출부가
+    기본값에 묶여 있어 여기서는 시그니처를 바꾸지 않는다.
+
+    내부등급법 추정 경로는 이 함수를 쓰지 않는다.
+    ``risk_lib.models.estimation.lgd_est.realised_lgd``가 ``discount_rate``를
+    필수 인자로 받고 그 값을 ``crm_lgd_discount_rate`` 원장에서 읽으며, 원장이
+    비어 있으면 조용히 기본값을 쓰지 않고 해당 세그먼트 산출을 건너뛴다.
     """
     if ead_at_default <= 0:
         raise ValueError("ead_at_default must be > 0")

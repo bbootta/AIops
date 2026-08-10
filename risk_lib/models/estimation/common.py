@@ -70,7 +70,10 @@ ESTIMATION_RUN = TableSpec(
     columns=(
         C("asof", "date", "기준일", nullable=False),
         C("parameter", "string", "모수", nullable=False, allowed=PARAMETERS),
-        C("segment", "string", "세그먼트", nullable=False),
+        C("segment", "string", "세그먼트", nullable=False,
+          note="CCF는 세그먼트와 신용환산 구분의 조합이 추정 단위이므로 "
+               "'corporate/commitment_gt_1y' 형태로 적는다. 세그먼트만으로 "
+               "묶으면 환산율이 다른 약정이 한 줄에 뭉쳐 하한 비교가 무의미해진다"),
         C("run_id", "string", "산출 식별자", nullable=False),
         C("exposure_class", "string", "자산군", nullable=False),
         C("method", "text", "추정방법", nullable=False,
@@ -99,7 +102,10 @@ ESTIMATION_RUN = TableSpec(
           min_value=1900, max_value=2200,
           note="추정 표본에서 뺀 연도. 표본외 검증(203.)의 전제다"),
         C("moc_amount", "float", "MoC 합계", nullable=True, unit="ratio",
-          citation="[별표 3] 181."),
+          citation="[별표 3] 181.",
+          note="PD는 MoC가 등급 단위라 산출이력 한 줄에 담기지 않는다. PD 행은 "
+               "NULL이고 등급별 값은 crm_pd_estimate와 crm_moc_component에 "
+               "있다. 등급 평균 한 값을 여기 적으면 등급별 차이가 사라진다"),
         C("moc_status", "string", "MoC 상태", nullable=False,
           allowed=MOC_STATUS),
         C("moc_rationale", "text", "MoC 근거", nullable=True),
