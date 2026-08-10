@@ -357,6 +357,7 @@ ESTIMATION_PARAM = TableSpec(
         C("framework_version", "string", "규제판본", nullable=False,
           allowed=FRAMEWORK_VERSIONS),
         C("reference_value", "float", "참고치", nullable=True,
+          unit="param_unit 컬럼 참조",
           note="타행 실측·문헌값. 승인 판단의 참고자료이며 엔진은 읽지 않는다"),
         C("reference_citation", "text", "참고치 근거", nullable=True),
         C("approved_by", "string", "승인자", nullable=True),

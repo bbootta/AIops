@@ -986,7 +986,18 @@ def _b2916(ctx):
     gap = ctx.tables["alm_repricing_gap"]
     rating = _camel(ctx)
     # 1년 이내 누적갭 — 만기불일치는 1년 경계에서 본다.
-    cum_1y = float(gap.loc[gap["bucket"] == "6-12m", "cumulative_gap"].iloc[0])
+    #
+    # 여기서 버킷 라벨 "6-12m"을 문자열로 찾고 있었다. 사다리가 [별표 9-1]
+    # <표2>의 19구간으로 바뀌면서 그 라벨이 사라졌고 조회가 빈 결과를 냈다.
+    # 라벨은 사다리가 바뀔 때마다 바뀌지만 1년 경계는 바뀌지 않으므로,
+    # 만기구간 원장의 상한이 1년 이하인 마지막 버킷의 누적갭을 읽는다.
+    buckets = ctx.tables["alm_time_bucket"]
+    within = set(buckets.loc[buckets["upper_years"] <= 1.0, "label"])
+    in_1y = gap[gap["bucket"].isin(within)].sort_values("seq")
+    if in_1y.empty:
+        raise ValueError(
+            "만기 사다리에 1년 이하 구간이 없다. B2916 만기불일치를 산출할 수 없다")
+    cum_1y = float(in_1y["cumulative_gap"].iloc[-1])
     L = [
         FormLine("1100", "고유동성자산 (HQLA)", 1, "KRW",
                  float(lcr.hqla_total), formula="Level 1 + 2A + 2B (감액 후)",

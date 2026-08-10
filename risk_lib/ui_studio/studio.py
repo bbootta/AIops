@@ -146,6 +146,12 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     tables["gov_alert_policy"] = gov.build_alert_policy()
     tables["gov_exception_action"] = gov.build_exception_actions(tables)
 
+    # ---- 실행 통제 원장 (마감·감사체인·보존·통합 실행·AI 추적)
+    # "이 실행이 무엇을 실었는가"를 입력으로 쓰므로 조립이 끝난 뒤에 만든다.
+    # 앞에 두면 아직 서지 않은 원장이 빠진 채로 마감·통합 판정이 나간다.
+    from risk_lib.datamodel.materialize_ledgers import materialize_run_control
+    tables.update(materialize_run_control(result, tables, run_id=run_id))
+
     # ---- 문서 생성 구간 대조 (자체검증 2선) — 서식이 여기서야 만들어지므로
     # 파이프라인이 아니라 조립 시점에 붙인다. 문서에 손으로 적은 수치가 코드
     # 사실과 어긋나는 결함이 네 번 반복됐고(F-103·F-201·F-401·F-501), 그때마다

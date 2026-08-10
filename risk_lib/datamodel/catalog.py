@@ -1148,8 +1148,13 @@ LCR_SECTIONS = ("HQLA", "OUTFLOW", "INFLOW")
 # 버킷 라벨은 alm.balance_sheet가 실제로 만드는 값이다 — 추정으로 적으면 정상
 # 산출이 도메인 위반으로 잡힌다. 정본은 `alm_time_bucket` 원장이며 그쪽이
 # 경계·중점·근거상태를 담는다.
-REPRICING_BUCKETS = ("0-1m", "1-3m", "3-6m", "6-12m", "1-2y", "2-3y", "3-5y",
-                     "5-10y", "10y+")
+#
+# 여기 라벨 9개를 사본으로 적어 두고 있었다. 헤드라인 사다리가 [별표 9-1]
+# <표2>의 19구간으로 바뀐 뒤 그 사본이 낡았고, 정상 산출이 도메인 위반으로
+# 잡히는 상태였다. 사본을 지우고 원장에서 읽는다.
+from risk_lib.alm.params import build_time_buckets as _build_time_buckets  # noqa: E402
+
+REPRICING_BUCKETS: tuple[str, ...] = tuple(_build_time_buckets()["label"])
 
 LCR_ITEM = TableSpec(
     name="alm_lcr_item", korean="LCR 항목별 내역", product="PRD-ALM",
@@ -1183,10 +1188,9 @@ REPRICING_GAP = TableSpec(
         C("asof", "date", "기준일", nullable=False),
         C("bucket", "string", "만기 버킷", nullable=False,
           allowed=REPRICING_BUCKETS,
-          # 표준체계 시간버킷은 19개다. 9개 자체집계 사다리에 "표준 만기 구간"
-          # 이라 적어 두면 감사에서 그대로 읽힌다 — 값 오류보다 나쁘다.
-          citation="자체 집계 사다리 9구간 (alm_time_bucket framework_version="
-                   "'house_9') — 표준 19버킷 미적재"),
+          citation="[별표 9-1] <표2> 만기구간. 라벨·경계·중점의 정본은 "
+                   "`alm_time_bucket` 원장(헤드라인 계정)이며 이 열의 허용값을 "
+                   "그 원장에서 읽는다"),
         C("seq", "int", "순서", nullable=False, min_value=1),
         C("asset", "float", "자산", nullable=False, unit="KRW", min_value=0.0),
         C("liability", "float", "부채", nullable=False, unit="KRW",
@@ -2556,6 +2560,108 @@ ALM_LEDGER_TABLES: tuple[TableSpec, ...] = (
     + _IRRBB_TABLES + (_NII_RESULT,) + _LCR_TABLES + _NSFR_TABLES
     + _LIQ_TABLES)
 
+
+# ==================================== R15 · 신규 요건 원장
+# ALM 원장과 같은 규약이다 — 스펙은 그것을 채우는 모듈에 두고 카탈로그는
+# 계약만 모은다. 여기 등재된 테이블은 전부 `build_studio`가 실제로 만든다
+# (`test_every_catalog_table_is_materialized_or_declared`가 그것을 고정한다).
+#
+# **등재하지 않은 신규 스펙 8장과 그 이유**
+#
+#   kr_irrbb_bucket · kr_irrbb_gap · kr_irrbb_result · kr_irrbb_shock_param ·
+#   kr_core_deposit · kr_core_deposit_weight
+#     [별표 9-1] 2014년 판(금리 EaR·VaR)의 산출 원장이다. 그 체계는
+#     2019.11.29 개정으로 폐지됐다. 등재하면 실체화 엔진이 폐지된 산출을
+#     매 실행 돌려야 하고, 그 수치가 화면에 서면 폐지 사실과 무관하게 읽힌다.
+#     이력·시계열 단절 설명용으로 모듈에만 남긴다.
+#
+#   kr_auto_option · kr_auto_option_risk
+#     제11항 자동금리옵션 재평가 원장이다. 옵션 인벤토리(계약별 종류·행사금리·
+#     내재변동성)가 이 저장소의 어느 원천에도 없다. 입력을 지어내면 그 값이
+#     ΔEVE에 더해진다. 계수 원장(`kr_auto_option_param`)만 등재한다.
+from risk_lib.aig.trace import AIG_TABLES as _AIG_TABLES               # noqa: E402
+from risk_lib.alm.behaviour_estimation import (                        # noqa: E402
+    ESTIMATION_TABLES as _BEHAV_EST_TABLES,
+)
+from risk_lib.alm.behaviour_history import (                           # noqa: E402
+    HISTORY_TABLES as _BEHAV_HIST_TABLES,
+)
+from risk_lib.alm.kr_irrbb import (                                    # noqa: E402
+    KR_AUTO_OPTION_PARAM as _KR_AUTO_OPTION_PARAM,
+    KR_BEHAVIOURAL_SCOPE as _KR_BEHAV_SCOPE,
+    KR_GOVERNANCE as _KR_GOVERNANCE,
+    KR_NMD_CATEGORY as _KR_NMD_CATEGORY,
+    KR_RETAIL_CRITERIA as _KR_RETAIL_CRITERIA,
+)
+from risk_lib.close_workflow import SPECS as _CLOSE_TABLES             # noqa: E402
+from risk_lib.credit_rating.override import (                          # noqa: E402
+    OVERRIDE_TABLES as _CR_OVERRIDE_TABLES,
+)
+from risk_lib.credit_rating.requirements import (                      # noqa: E402
+    REQUIREMENT_TABLES as _CR_REQUIREMENT_TABLES,
+)
+from risk_lib.credit_rating.sample import (                            # noqa: E402
+    SAMPLE_TABLES as _CR_SAMPLE_TABLES,
+)
+from risk_lib.credit_rating.scorecard import (                         # noqa: E402
+    SCORECARD_TABLES as _CR_SCORECARD_TABLES,
+)
+from risk_lib.crm import CRM_TABLES as _CRM_ALLOC_TABLES               # noqa: E402
+from risk_lib.funding import SPECS as _FUNDING_TABLES                  # noqa: E402
+from risk_lib.governance.audit_chain import SPECS as _AUDIT_TABLES     # noqa: E402
+from risk_lib.governance.change_control import SPECS as _CHANGE_TABLES  # noqa: E402
+from risk_lib.governance.model_lifecycle import SPECS as _LIFECYCLE_TABLES  # noqa: E402
+from risk_lib.governance.pricing_control import SPECS as _PRICING_TABLES  # noqa: E402
+from risk_lib.governance.rbac import SPECS as _RBAC_TABLES             # noqa: E402
+from risk_lib.governance.retention import SPECS as _RETENTION_TABLES   # noqa: E402
+from risk_lib.governance.unified_run import SPECS as _UNIFIED_TABLES   # noqa: E402
+from risk_lib.icaap.risk_inventory import SPECS as _INVENTORY_TABLES   # noqa: E402
+from risk_lib.integration.connector import SPECS as _CONNECTOR_TABLES  # noqa: E402
+from risk_lib.integration.engine_adapter import SPECS as _ADAPTER_TABLES  # noqa: E402
+from risk_lib.integration.inbound import SPECS as _INBOUND_TABLES      # noqa: E402
+from risk_lib.integration.resilience import SPECS as _RESILIENCE_TABLES  # noqa: E402
+from risk_lib.limits.large_exposure import LEX_TABLES as _LEX_TABLES   # noqa: E402
+from risk_lib.limits_master import LIMIT_TABLES as _LIMIT_TABLES       # noqa: E402
+from risk_lib.macro_monitor import (                                   # noqa: E402
+    MACRO_MASTER_TABLES as _MACRO_TABLES,
+)
+from risk_lib.margin import SPECS as _MARGIN_TABLES                    # noqa: E402
+from risk_lib.market_feed import SPECS as _FEED_TABLES                 # noqa: E402
+from risk_lib.models.estimation import ALL_TABLES as _IRB_EST_TABLES   # noqa: E402
+from risk_lib.models.lgd_ead_backtest import (                         # noqa: E402
+    BACKTEST_TABLES as _BACKTEST_TABLES,
+)
+from risk_lib.product_master import SPECS as _PRODUCT_TABLES           # noqa: E402
+from risk_lib.provisioning.pma import SPECS as _PMA_TABLES             # noqa: E402
+from risk_lib.rcsa import SPECS as _RCSA_TABLES                        # noqa: E402
+from risk_lib.regulatory.forms_irrbb_disclosure import (               # noqa: E402
+    IRRBB_DISCLOSURE_TABLES as _IRRBB_DISC_TABLES,
+)
+from risk_lib.stress.management_action import (                        # noqa: E402
+    SPECS as _MGMT_ACTION_TABLES,
+)
+
+# [별표 9-1] 국내 고유 요건 — 폐지된 2014년 체계 원장과 입력 없는 자동금리옵션
+# 재평가 원장을 뺀 나머지.
+KR_IRRBB_NATIONAL_TABLES: tuple[TableSpec, ...] = (
+    _KR_RETAIL_CRITERIA, _KR_NMD_CATEGORY, _KR_BEHAV_SCOPE,
+    _KR_AUTO_OPTION_PARAM, _KR_GOVERNANCE)
+
+NEW_LEDGER_TABLES: tuple[TableSpec, ...] = (
+    _MACRO_TABLES + _LIMIT_TABLES
+    + KR_IRRBB_NATIONAL_TABLES + _IRRBB_DISC_TABLES
+    + _BACKTEST_TABLES + tuple(_IRB_EST_TABLES.values())
+    + _CR_REQUIREMENT_TABLES + _CR_SAMPLE_TABLES + _CR_SCORECARD_TABLES
+    + _CR_OVERRIDE_TABLES + _CRM_ALLOC_TABLES + _LEX_TABLES
+    + _BEHAV_HIST_TABLES + _BEHAV_EST_TABLES + _INVENTORY_TABLES
+    + _FUNDING_TABLES + _MARGIN_TABLES + _PRODUCT_TABLES + _RCSA_TABLES
+    + _FEED_TABLES + _PMA_TABLES + _MGMT_ACTION_TABLES
+    + _CHANGE_TABLES + _PRICING_TABLES + _LIFECYCLE_TABLES + _RBAC_TABLES
+    + _AUDIT_TABLES + _RETENTION_TABLES + _UNIFIED_TABLES + _CLOSE_TABLES
+    + _CONNECTOR_TABLES + _INBOUND_TABLES + _ADAPTER_TABLES
+    + _RESILIENCE_TABLES + _AIG_TABLES)
+
 ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
               + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES
-              + DETAIL_TABLES + R13_TABLES + AGG_TABLES + ALM_LEDGER_TABLES)
+              + DETAIL_TABLES + R13_TABLES + AGG_TABLES + ALM_LEDGER_TABLES
+              + NEW_LEDGER_TABLES)

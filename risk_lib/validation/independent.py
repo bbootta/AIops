@@ -73,6 +73,33 @@ RECALC_SCOPE: tuple[tuple[str, str, str], ...] = (
     ("stress_trough_cet1", "심각 시나리오 CET1 저점", "SRP20"),
     ("reverse_critical_severity", "역스트레스 임계 심도", "SRP20"),
     ("reserve_shortfall", "대손준비금 소요액", "은행업감독규정 제29조 제2항"),
+    # 국내기준 IRRBB — 공시서식 <표6>의 최대값이 결재·공시로 나가는 수치다.
+    # `irrbb_worst_pct_tier1`이 같은 산출의 비율 뷰이지만 서식은 금액을 싣고
+    # 부호 규약(감소액을 양수로)도 다르다. 3선이 서식 값을 직접 재계산하지
+    # 않으면 부호 규약이 뒤집혀도 아무 데서도 걸리지 않는다.
+    #
+    # 여기에 "금리 EaR·금리 VaR·자기자본 대비 비율"을 넣지 않는다. 그 세
+    # 수치는 [별표 9-1] 2014년 판의 지표이며 2019.11.29 개정으로 폐지됐다.
+    # 산출하지 않는 값을 재계산 대상에 두면 3선이 매 회차 NULL을 확인하게 되고,
+    # 폐지된 체계가 여전히 살아 있는 것처럼 보인다.
+    ("kr_irrbb_table6_max_delta_eve",
+     "[별표 9-1] <표6> 당기 최대 ΔEVE (감소액, 양수 표기)",
+     "은행업감독업무시행세칙 [별표 9-1] 제22항 나 <표6> — 자체 조정 금지 양식"),
+    ("kr_irrbb_table6_max_delta_nii",
+     "[별표 9-1] <표6> 당기 최대 ΔNII (감소액, 양수 표기)",
+     "은행업감독업무시행세칙 [별표 9-1] 제22항 나 <표6> · 제14항 목표관리기간 1년"),
+    # LGD·CCF 실측검증 — 추정치가 실현치를 계속 밑돌면 IRB 자본이 과소산출된다.
+    # 편의는 표본가중 평균이며, 관측중단 건수를 함께 넘겨 그 편의가 완결 표본만
+    # 본 결과라는 사실을 3선이 판단할 수 있게 한다.
+    ("lgd_backtest_bias",
+     "LGD 실현−추정 편의 (세그먼트축 부도건수 가중)",
+     "CRE36.83 사후검증 · BNK-CRM-010 — 표본은 완결 워크아웃이며 관측중단분은 "
+     "제외된다(`lgd_backtest_n_censored`)"),
+    ("lgd_backtest_n_censored", "LGD 표본의 관측중단 건수",
+     "회수 진행 중인 부도건. 세지 않으면 실현 LGD가 낮게 나온다"),
+    ("ccf_realised_mean",
+     "CCF 실현치 (익스포저 유형·등급대 시설건수 가중 평균)",
+     "CRE32.32 · CRE20.94 — 적용 CCF와의 차이가 EAD 과소산출로 직결된다"),
 )
 
 
@@ -328,7 +355,61 @@ def _headline(result, tables: dict[str, pd.DataFrame] | None
             result.reverse_stress.critical_severity),
         "reserve_shortfall": (_reserve_required(aq)
                               if aq is not None and len(aq) else 0.0),
+        "kr_irrbb_table6_max_delta_eve": _table6_max(t, "ΔEVE"),
+        "kr_irrbb_table6_max_delta_nii": _table6_max(t, "ΔNII"),
+        "lgd_backtest_bias": _lgd_bias(t),
+        "lgd_backtest_n_censored": _lgd_censored(t),
+        "ccf_realised_mean": _ccf_realised(t),
     }
+
+
+def _table6_max(tables: dict, measure: str) -> float | None:
+    """<표6> 당기 최대값 행. 서식이 없거나 칸이 비면 지어내지 않고 None."""
+    t6 = tables.get("disc_irrbb_table6")
+    if t6 is None or not len(t6):
+        return None
+    hit = t6[(t6["row_code"] == "최대값") & (t6["measure"] == measure)
+             & (t6["period"] == "당기")]
+    if not len(hit) or pd.isna(hit["value"].iloc[0]):
+        return None
+    return float(hit["value"].iloc[0])
+
+
+def _lgd_bias(tables: dict) -> float | None:
+    """LGD 편의 — 세그먼트축 행만 쓰고 부도건수로 가중한다.
+
+    세 축(등급·담보유형·세그먼트)이 같은 부도를 각각 다시 세므로 축을 섞어
+    평균하면 같은 건이 세 번 들어간다. 세그먼트축 하나만 쓴다.
+    """
+    lgd = tables.get("crm_lgd_backtest")
+    if lgd is None or not len(lgd):
+        return None
+    seg = lgd[(lgd["segment_axis"] == "segment") & lgd["bias"].notna()]
+    w = seg["n_defaults"].astype(float)
+    if not len(seg) or w.sum() <= 0:
+        return None
+    return float((seg["bias"].astype(float) * w).sum() / w.sum())
+
+
+def _lgd_censored(tables: dict) -> float | None:
+    """세그먼트축 관측중단 건수 합계."""
+    lgd = tables.get("crm_lgd_backtest")
+    if lgd is None or not len(lgd):
+        return None
+    seg = lgd[lgd["segment_axis"] == "segment"]
+    return float(seg["n_censored"].fillna(0).sum()) if len(seg) else None
+
+
+def _ccf_realised(tables: dict) -> float | None:
+    """CCF 실현치 — 시설건수 가중 평균."""
+    ccf = tables.get("crm_ccf_backtest")
+    if ccf is None or not len(ccf):
+        return None
+    hit = ccf[ccf["ccf_realized_mean"].notna()]
+    w = hit["n_facilities"].astype(float)
+    if not len(hit) or w.sum() <= 0:
+        return None
+    return float((hit["ccf_realized_mean"].astype(float) * w).sum() / w.sum())
 
 
 # 3선이 반드시 도전해야 하는 가정. 우리가 스스로 알고 있는 약한 고리를 숨기지

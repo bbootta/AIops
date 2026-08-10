@@ -9,6 +9,7 @@ Returns a structured `PipelineResult` consumed by report.py / cli.py.
 
 from __future__ import annotations
 
+import warnings as warnings_mod
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
@@ -149,6 +150,16 @@ class PipelineResult:
     # ALM 원장(계수·계약·현금흐름·곡선·IRRBB·유동성) — 실체화가 이 프레임을
     # 그대로 받는다. 화면이 산출 객체에서 다시 만들면 원장과 화면이 갈라진다.
     alm_tables: dict[str, pd.DataFrame] = field(default_factory=dict)
+    # 신규 요건 원장(거시 마스터·한도 정의·별표 9의1 국내 고유·LGD/CCF 실측검증·
+    # 내부등급법 추정·신용평가·CRM 배분·거액익스포져·행동모형·통제 원장).
+    # `alm_tables`와 같은 규약이다. 산출은 여기서 한 번만 돌고, 화면·검증은
+    # 그 프레임을 받는다. 화면이 같은 빌더를 다시 부르면 두 벌이 된다.
+    ledger_tables: dict[str, pd.DataFrame] = field(default_factory=dict)
+    # 원장 산출이 근거 부족으로 건너뛴 항목. 집계만 보고 "이상 없음"이라
+    # 읽지 않도록 결과에 남긴다.
+    ledger_warnings: list[str] = field(default_factory=list)
+    # RDM 분해 결과. 파이프라인이 한 번 돌리고 실체화 엔진이 그대로 받는다.
+    rdm_base: dict[str, pd.DataFrame] = field(default_factory=dict)
     icaap: Any = None
     # 한도 소진율 전량(위반 아닌 버킷 포함) — 화면용. 위반 보고서와 별개다.
     limits_full: pd.DataFrame | None = None
@@ -537,27 +548,21 @@ def _stage_monitoring(portfolio: pd.DataFrame, seed: int):
     }
 
 
-def _stage_limits_concentration(portfolio: pd.DataFrame, tier1: float):
+def _stage_limits_concentration(portfolio: pd.DataFrame, tier1: float,
+                                limit_ledger: pd.DataFrame | None = None):
     """Headline limit + HHI report.
 
     Backward-compatible signature; the CRO deep-dive uses
     :func:`compute_limits_deep` which is wired in via the limits_deep field.
+
+    한도 5종의 정의는 여기 리스트 리터럴로 박혀 있었다. 박혀 있으면 화면에
+    승인기구·승인일·근거를 실을 자리가 없다. 이제 `lim_limit_definition`
+    원장에서 읽으며, 임계가 비었거나 단위를 해석할 수 없는 행은 싣지 않고
+    `limit_definitions`가 경고를 남긴다. 원장을 비우면 한도 산출도 비어야
+    한다는 것이 이 배선의 계약이다.
     """
-    # 한도 체계는 차원 하나로 서지 않는다 — 동일차주·섹터·국가만 두면 화면이
-    # "한도관리"가 아니라 "국가 한도 한 줄"이 된다. 감독규정·내규가 실제로 두는
-    # 축(차주·그룹·업종·국가·자산군·등급·상품)을 덮는다.
-    limits = [
-        LimitDefinition("동일차주_Tier1_25pct", "obligor_id", None,
-                        0.25, basis="pct_tier1"),
-        LimitDefinition("섹터_총노출_2조", "sector", None,
-                        2.0e12, basis="absolute"),
-        LimitDefinition("국가_총노출_5조", "country", None,
-                        5.0e12, basis="absolute"),
-        LimitDefinition("자산군_총노출_7조", "asset_class", None,
-                        7.0e12, basis="absolute"),
-        LimitDefinition("등급_총노출_6조", "rating", None,
-                        6.0e12, basis="absolute"),
-    ]
+    from risk_lib.limits_master import limit_definitions
+    limits = limit_definitions(limit_ledger)
     engine = LimitEngine(limits, tier1_capital=tier1)
     limit_report = engine.report(portfolio)
     # 화면은 소진율 분포를 봐야 하므로 위반이 아닌 버킷까지 함께 낸다. 검증·서식이
@@ -596,10 +601,17 @@ def _stage_rapm(irb_book: pd.DataFrame, hurdle_rate: float):
 # 현행 `compute_irrbb(base_rate=0.03)`이 정확히 그 상태였고, 파이프라인이
 # 인자를 넘기지 않아 평면 3% 곡선이 조용히 쓰였다.
 
-# IRRBB 계정. KRW 행은 비어 있어(1차자료 미열람) USD 계정을 프록시로 빌린다.
-# 빌렸다는 사실은 `alm_rate_shock_param.proxy_for_ccy`와 결과 원장의
-# `shock_source`에 남는다 — 충격 bp 값 자체는 이번에 바꾸지 않는다.
-ALM_FRAMEWORK_VERSION = "d368_2016"
+# IRRBB 계정. 계정명을 문자열로 다시 적지 않고 충격 원장이 헤드라인으로
+# 선언한 계정을 그대로 받는다. 원장이 계정을 옮기면 파이프라인이 따라간다.
+#
+# 직전에는 여기 'd368_2016'이 박혀 있었다. 그 계정의 KRW 충격은 300/400/200이고
+# 충격후 하한도 없다. 둘 다 2019.11.29·2026.1.29 개정으로 대체된 값이므로
+# 헤드라인 ΔEVE가 폐지된 기준으로 산출되고 있었다. 현행 [별표 9-1] 개정
+# 2026.1.29는 KRW 225/350/225이고 제12항 다가 충격후 금리 하한을 0으로 둔다.
+# 계정 전환으로 ΔEVE 수치가 바뀐다 — 바뀌는 것이 맞는 방향이다.
+from risk_lib.alm.curves import (                                # noqa: E402
+    HEADLINE_FRAMEWORK_VERSION as ALM_FRAMEWORK_VERSION,
+)
 ALM_CCY = "KRW"
 
 # 헤드라인 산출기준. 표준체계의 비만기예금 슬로팅(BCBS d368 Annex 2)이
@@ -749,6 +761,385 @@ def _stage_alm(portfolio: pd.DataFrame, capital, seed: int, *,
         "warnings": warnings,
         "tables": tables,
     }
+
+
+# ---------------------------------------------------------------- 신규 원장 스테이지
+
+def _kr_nmd_deposits(contracts: pd.DataFrame, product_terms: pd.DataFrame,
+                     *, asof: str) -> pd.DataFrame:
+    """계약원장의 비만기성예금 행을 [별표 9-1] 제8항 가의 판정 입력으로 옮긴다.
+
+    예치인 구분을 새로 만들지 않는다. 계약원장이 이미 들고 있는
+    `counterparty_type`을 별표의 어휘로 옮기기만 한다. 옮길 수 없는 값은
+    비워 두며, 그러면 판정 엔진이 잔여규칙(도매)을 적용하고 그 사실을
+    `rule_applied`에 남긴다.
+
+    `is_retail_managed`·`funding_total_amount`는 계약원장에 없다. 중소기업
+    소매 유사 간주(15억원 미만)를 판정할 입력이 없다는 뜻이므로 NULL로 두고
+    엔진이 경고를 내게 한다. 임의로 채우면 도매예금이 소매로 올라간다.
+    """
+    nmd = product_terms[product_terms["behaviour_class"] == "nmd"]
+    src = contracts[contracts["product_code"].isin(set(nmd["product_code"]))]
+    # 계약원장 어휘 → 별표 어휘. 금융기관 예치금은 상품코드로만 구분되므로
+    # 상품코드를 먼저 본다(계약원장의 counterparty_type이 도매로 뭉쳐 있다).
+    rows = []
+    for r in src.itertuples():
+        code = str(r.product_code)
+        ctype = str(getattr(r, "counterparty_type", "") or "")
+        if code.endswith("_FI"):
+            dtype, regular, free = "금융기관", None, None
+        elif ctype.startswith("retail"):
+            dtype = "개인"
+            regular = ctype.endswith("transactional") and "non" not in ctype
+            free = None
+        elif ctype.startswith("wholesale"):
+            dtype, regular, free = "법인", None, None
+        else:
+            dtype, regular, free = "법인", None, None
+        rows.append({
+            "asof": asof, "account_id": str(r.contract_id), "ccy": str(r.ccy),
+            "balance": float(r.notional), "depositor_type": dtype,
+            "is_retail_managed": None, "funding_total_amount": None,
+            "has_regular_transaction": regular, "is_interest_free": free,
+        })
+    return pd.DataFrame(rows, columns=[
+        "asof", "account_id", "ccy", "balance", "depositor_type",
+        "is_retail_managed", "funding_total_amount", "has_regular_transaction",
+        "is_interest_free"])
+
+
+def _kr_behavioural_contracts(contracts: pd.DataFrame,
+                              product_terms: pd.DataFrame,
+                              portfolio: pd.DataFrame, *, asof: str
+                              ) -> pd.DataFrame:
+    """계약원장에서 제9·10항 판정 대상(조기상환·중도해지)을 뽑는다.
+
+    행동옵션 구분과 금리유형은 상품원장이 이미 들고 있다. 고객 구분은
+    익스포저의 자산군에서 온다. 예수금 행은 익스포저가 없으므로 상품코드가
+    소매·기업 중 어느 쪽인지를 그대로 쓴다.
+
+    `is_retail_managed`(소매여신 관리 여부)와 중도해지의 법적 해지권·위약금
+    여부는 이 저장소의 어느 원장에도 없다. NULL로 두면 판정 엔진이 그 계약을
+    건너뛰고 경고를 남긴다. 채워 넣으면 근거 없는 판정이 원장에 들어간다.
+    """
+    terms = product_terms.set_index("product_code")
+    cls_by_code = terms["behaviour_class"].to_dict()
+    rate_by_code = terms["rate_type"].to_dict()
+    wanted = {"prepayment", "early_redemption"}
+    src = contracts[contracts["product_code"].map(cls_by_code).isin(wanted)]
+    ac = portfolio.set_index("exposure_id")["asset_class"].to_dict()
+    # 자산군 → 별표의 고객 구분. 소매·주담대는 개인, 기업·국가는 법인,
+    # 은행은 금융기관이다. 중소기업 구분은 자산군에 없으므로 여기서 만들지
+    # 않는다. 만들면 15억·10억 기준이 근거 없이 발동한다.
+    _CUSTOMER = {"retail_other": "개인", "residential_mortgage": "개인",
+                 "corporate": "법인", "sovereign": "법인", "bank": "금융기관"}
+    rows = []
+    for r in src.itertuples():
+        code = str(r.product_code)
+        exp = getattr(r, "exposure_id", None)
+        if exp is not None and not pd.isna(exp) and str(exp) in ac:
+            ctype = _CUSTOMER.get(str(ac[str(exp)]), "법인")
+        else:
+            ctype = "개인" if code.endswith("_RT") else "법인"
+        fee = getattr(r, "prepay_fee_rate", None)
+        rows.append({
+            "asof": asof, "contract_id": str(r.contract_id),
+            "behaviour_class": str(cls_by_code[code]),
+            "ccy": str(r.ccy), "notional": float(r.notional),
+            "customer_type": ctype, "rate_type": rate_by_code.get(code),
+            "is_retail_managed": None, "exposure_amount": None,
+            "prepay_fee_charged": (None if fee is None or pd.isna(fee)
+                                   else bool(float(fee) > 0.0)),
+            "has_legal_termination_right": None, "substantial_penalty": None,
+        })
+    return pd.DataFrame(rows, columns=[
+        "asof", "contract_id", "behaviour_class", "ccy", "notional",
+        "customer_type", "rate_type", "is_retail_managed", "exposure_amount",
+        "prepay_fee_charged", "has_legal_termination_right",
+        "substantial_penalty"])
+
+
+def _stage_ledgers(portfolio: pd.DataFrame, base: dict[str, pd.DataFrame],
+                   alm: dict[str, Any], capital, bis, stress_path: pd.DataFrame,
+                   ecl_df: pd.DataFrame, rwa: dict[str, float],
+                   op_loss, limit_report: pd.DataFrame,
+                   *, asof: str, seed: int) -> dict[str, Any]:
+    """신규 원장 스테이지. 순서는 뒤 단계가 앞 단계의 산출을 쓰는 순서다.
+
+    거시지표 마스터 → 한도 정의 → [별표 9-1] 국내 금리리스크 → LGD·CCF
+    실측검증 → 나머지 신규 요건.
+
+    이 스테이지가 만드는 프레임은 `PipelineResult.ledger_tables`로 나가고
+    실체화 엔진이 그대로 싣는다. 화면이 같은 빌더를 다시 부르면 두 벌이 된다.
+
+    근거가 없어 산출하지 못한 항목은 `warnings`에 문장으로 남긴다. 조용히
+    건너뛰면 화면에서 "없음"과 "확인 안 함"이 같아진다.
+    """
+    tables: dict[str, pd.DataFrame] = {}
+    warns: list[str] = []
+
+    def _note(w) -> str:
+        return getattr(w, "reason", None) or str(w)
+
+    # ---- 1. 거시지표 마스터 (지표 정의 · 시나리오 충격 배수)
+    from risk_lib.macro_monitor import (
+        build_macro_master_ledgers, unapproved_indicators,
+        unapproved_scenario_shocks,
+    )
+    macro_led = build_macro_master_ledgers()
+    tables.update(macro_led)
+    n_ind = len(unapproved_indicators(macro_led["rdm_macro_indicator_master"]))
+    n_shk = len(unapproved_scenario_shocks(macro_led["st_macro_scenario_shock"]))
+    if n_ind:
+        warns.append(f"거시지표 마스터 {n_ind}행이 승인 전이다(출처 대조 미실시)")
+    if n_shk:
+        warns.append(f"시나리오 충격 배수 {n_shk}행이 내부가정이며 승인 전이다")
+
+    # ---- 2. 한도 정의 — `_stage_limits_concentration`이 읽은 바로 그 원장
+    from risk_lib.limits_master import build_limit_definitions, unapproved_limits
+    limit_ledger = build_limit_definitions()
+    tables["lim_limit_definition"] = limit_ledger
+    n_lim = len(unapproved_limits(limit_ledger))
+    if n_lim:
+        warns.append(f"내부한도 {n_lim}행이 승인일 미기재다")
+
+    # ---- 3. [별표 9-1] 국내 고유 요건 + 제22항 공시서식
+    from risk_lib.alm import kr_irrbb as kr
+    criteria = kr.build_kr_retail_criteria()
+    tables["kr_retail_criteria"] = criteria
+    tables["kr_auto_option_param"] = kr.build_kr_auto_option_param()
+    deposits = _kr_nmd_deposits(alm["tables"]["alm_contract"],
+                                alm["tables"]["alm_product_terms"], asof=asof)
+    nmd_cat, w = kr.classify_kr_nmd_category(deposits, criteria, asof=asof)
+    tables["kr_nmd_category"] = nmd_cat
+    warns += [_note(x) for x in w]
+    scope, w = kr.build_kr_retail_behavioural_scope(
+        _kr_behavioural_contracts(alm["tables"]["alm_contract"],
+                                  alm["tables"]["alm_product_terms"],
+                                  portfolio, asof=asof),
+        criteria, asof=asof)
+    tables["kr_retail_behavioural_scope"] = scope
+    warns += [_note(x) for x in w]
+    gov_kr, w = kr.build_kr_irrbb_governance(asof=asof)
+    tables["kr_irrbb_governance"] = gov_kr
+    warns += [_note(x) for x in w]
+
+    from risk_lib.regulatory.forms_irrbb_disclosure import (
+        build_table6, build_table7_qualitative, build_table7_quantitative,
+    )
+    # <표6>은 산출기준 하나의 표를 받는다. 결과 원장의 낟알은
+    # (기준일, 산출기준, 시나리오)이므로 헤드라인 계정·헤드라인 기준으로 좁힌다.
+    irrbb_res = alm["tables"]["alm_irrbb_result"]
+    headline = irrbb_res[
+        (irrbb_res["framework_version"] == ALM_FRAMEWORK_VERSION)
+        & (irrbb_res["basis"] == ALM_HEADLINE_BASIS)]
+    t6, w = build_table6(headline, None, asof=asof,
+                         tier1_current=float(capital.tier1),
+                         framework_version=ALM_FRAMEWORK_VERSION)
+    tables["disc_irrbb_table6"] = t6
+    warns += [_note(x) for x in w]
+    t7a, w = build_table7_qualitative(asof=asof)
+    tables["disc_irrbb_table7_qualitative"] = t7a
+    warns += [_note(x) for x in w]
+    t7b, w = build_table7_quantitative(asof=asof)
+    tables["disc_irrbb_table7_quantitative"] = t7b
+    warns += [_note(x) for x in w]
+
+    # ---- 4. LGD·CCF 실측검증 (관측중단 건수를 원장이 들고 나온다)
+    from risk_lib.models.lgd_ead_backtest import build_lgd_ead_backtest_ledgers
+    with warnings_mod.catch_warnings():
+        warnings_mod.simplefilter("ignore")
+        tables.update(build_lgd_ead_backtest_ledgers(
+            portfolio, base["rdm_exposure"], asof=asof,
+            collateral=base["rdm_collateral"], seed=seed))
+
+    # ---- 5. 신규 요건 산출
+    # 5a. 내부등급법 PD·LGD·CCF 추정 (다년 관측이력은 모듈이 합성한다)
+    from risk_lib.models.estimation import build_irb_estimation_ledgers
+    with warnings_mod.catch_warnings():
+        warnings_mod.simplefilter("ignore")
+        tables.update(build_irb_estimation_ledgers(
+            asof=asof, seed=seed, current_portfolio=portfolio))
+
+    # 5b·5c(신용평가시스템·CRM 배분)는 `crm_model`·`rwa_result`를 입력으로 쓴다.
+    # 그 둘은 실체화 단계에서 서므로 이 스테이지가 아니라
+    # `materialize_ledgers`에서 만든다. 여기서 다시 세우면 같은 산출이 두 벌이 된다.
+
+    # 5d. 거액익스포져 — 감독규정 제26조·별표 3-12
+    from risk_lib.limits import large_exposure as lex
+    # 설정 원장의 승인 3칸은 NULL을 받지 않는 스펙이다. 이 저장소에는 거액
+    # 익스포져 설정을 의결한 기록이 없으므로 승인자 자리에 '(미승인)'을 적고
+    # 승인일에는 산출 기준일을 넣는다. 승인일은 자리표시자이며 그 사실을
+    # 경고로 남긴다. 실제 의결일을 지어내지 않는다.
+    lex_setting = lex.build_lex_setting(
+        asof, bank_is_gsib=False, lookthrough_small_to_structure=False,
+        input_by="리스크데이터관리자(배선 적재)", approved_by="(미승인)",
+        approved_at=asof)
+    warns.append("거액익스포져 설정 원장에 의결 기록이 없다. 승인자 '(미승인)' · "
+                 "승인일은 기준일 자리표시자다")
+    lex_in = lex.build_lex_inputs(portfolio, asof=asof,
+                                  tier1=float(capital.tier1), seed=seed)
+    lex_res = lex.compute_large_exposure(
+        lex_in, lex_setting, asof=asof, tier1=float(capital.tier1),
+        own_funds=float(capital.total))
+    tables.update({
+        "lex_setting": lex_res.setting,
+        "lex_exposure_measure": lex_res.exposure_measure,
+        "lex_lookthrough": lex_res.lookthrough,
+        "lex_substitution": lex_res.substitution,
+        "lex_connected_group": lex_res.connected_group,
+        "lex_exemption": lex_res.exemption,
+        "lex_position": lex_res.position,
+        "lex_aggregate": lex_res.aggregate,
+    })
+    warns += [_note(x) for x in lex_res.warnings]
+
+    # 5e. 고객행동모형 관측이력·추정
+    from risk_lib.alm import behaviour_estimation as be
+    from risk_lib.alm import behaviour_history as bh
+    base_rate = float(alm["irrbb"].base_rate)
+    history = bh.build_behaviour_history(asof, seed=seed, base_rate=base_rate)
+    tables.update(history)
+    shock_row = alm["tables"]["alm_rate_shock_param"]
+    hit = shock_row[(shock_row["framework_version"] == ALM_FRAMEWORK_VERSION)
+                    & (shock_row["ccy"] == ALM_CCY)
+                    & (shock_row["shock_type"] == "parallel")]
+    est = be.run_estimation(history, asof=asof)
+    if hit.empty or pd.isna(hit["shock_bp"].iloc[0]):
+        warns.append("행동모형 전가율 산출에 쓸 평행충격이 원장에 없다. 추정 원장을 만들지 않는다")
+    else:
+        tables.update(be.build_estimation_ledgers(
+            est, history, alm["tables"]["alm_nmd_param"],
+            alm["tables"]["alm_time_bucket"],
+            shock_bp=float(hit["shock_bp"].iloc[0])))
+
+    # 5f. ICAAP 리스크 인벤토리 — 중요성 3축은 실제 산출에서 온다
+    from risk_lib.icaap.risk_inventory import build_risk_inventory
+    tables.update(build_risk_inventory(
+        _inventory_observations(rwa, ecl_df, op_loss, limit_report),
+        _inventory_capital(rwa), asof=asof))
+
+    # 5g. 조달·증거금·상품·RCSA·시장데이터·PMA·경영조치
+    from risk_lib import funding, margin, market_feed, product_master, rcsa
+    from risk_lib.ccr import synthesise_derivatives
+    from risk_lib.provisioning.pma import build_pma_and_recon
+    from risk_lib.stress.management_action import build_management_actions
+
+    fund_t, fund_w = funding.build_funding(asof=asof, base_rate=base_rate,
+                                           seed=seed)
+    tables.update(fund_t)
+    warns += list(fund_w)
+    deriv = synthesise_derivatives(
+        portfolio[portfolio["asset_class"] == "bank"], seed=seed)
+    mgn_t, mgn_w = margin.build_margin(deriv, asof=asof, seed=seed)
+    tables.update(mgn_t)
+    warns += list(mgn_w)
+    prd_t, prd_w = product_master.build_product_master(asof=asof)
+    tables.update(prd_t)
+    warns += [f"평가불가 상품: {x}" for x in prd_w]
+    tables.update(rcsa.build_rcsa(asof=asof))
+    feed_t, feed_w = market_feed.build_market_feed(asof=asof)
+    tables.update(feed_t)
+    warns += list(feed_w)
+
+    seg_ecl = (ecl_df.assign(segment=portfolio["asset_class"].to_numpy())
+               .groupby("segment", as_index=False)["ecl"].sum())
+    pma_t, pma_w = build_pma_and_recon(seg_ecl, asof=asof)
+    tables.update(pma_t)
+    warns += list(pma_w)
+
+    act_t, act_w = build_management_actions(
+        stress_path, {k: float(v) for k, v in bis.required.items()})
+    tables.update(act_t)
+    warns += list(act_w)
+
+    # 5h. 변경·연계 통제
+    from risk_lib.governance.change_control import build_change_control
+    from risk_lib.governance.model_lifecycle import build_model_lifecycle
+    from risk_lib.integration import connector, engine_adapter, inbound, resilience
+    # 변경요청 접수 경로가 이 저장소에 배선돼 있지 않다. 정책표만 싣고
+    # 요청·영향·통제 원장은 비운다. 표본을 만들어 채우면 실시하지 않은 통제가
+    # 실시한 것으로 보인다.
+    tables.update(build_change_control([], [], []))
+    warns.append("변경통제 요청 원장이 비어 있다. 변경요청 접수 경로가 배선되지 않았다")
+    life_t, life_w = build_model_lifecycle(asof=asof)
+    tables.update(life_t)
+    warns += list(life_w)
+    tables.update(connector.build_connector_control())
+    tables.update(engine_adapter.build_engine_adapter())
+    # 커넥터가 전건 미연결이므로 수신분이 없다. 전 피드가 '미수신'으로 남는다.
+    inb = inbound.build_inbound({}, asof=asof)
+    tables.update(inb)
+    tables.update(resilience.build_resilience(
+        _delivery_events(inb["int_inbound_contract"],
+                         inb["int_inbound_delivery"])))
+    n_recv = int((inb["int_inbound_delivery"]["status"] != "미수신").sum())
+    if not n_recv:
+        warns.append("외부 수신 계약 전건이 미수신이다. 커넥터가 전건 미연결이다")
+
+    return {"tables": tables, "warnings": warns, "limit_ledger": limit_ledger}
+
+
+def _delivery_events(contracts: pd.DataFrame, deliveries: pd.DataFrame
+                     ) -> list[dict]:
+    """수신 판정 원장을 복원력 엔진이 읽는 시도 사건으로 옮긴다.
+
+    연계 유형은 계약의 데이터 형식에서 온다. 파일 형식(CSV)은 '파일',
+    REST는 'API', 나머지는 계약 표기를 그대로 쓴다. 정책 원장에 없는 유형이면
+    엔진이 재시도하지 않고 즉시 격리한다 — 근거 없는 재시도를 막는 쪽이 맞다.
+    """
+    _KIND = {"CSV": "파일", "REST API": "API"}
+    fmt = contracts.set_index("feed_id")["data_format"].to_dict()
+    out = []
+    for r in deliveries.itertuples():
+        raw = str(fmt.get(str(r.feed_id), ""))
+        out.append({
+            "feed_id": str(r.feed_id), "asof": str(r.asof),
+            "batch_seq": int(r.batch_seq),
+            "channel_kind": _KIND.get(raw, raw),
+            # 미수신분에는 내용이 없다. 체크섬 자리가 비면 멱등키가 피드·기준일·
+            # 회차만으로 서고, 그것이 '아직 아무것도 오지 않았다'의 지문이다.
+            "content_fingerprint": str(r.checksum or ""),
+            "ok": str(r.status) == "정상",
+            "reason": str(r.detail),
+        })
+    return out
+
+
+def _inventory_observations(rwa: dict[str, float], ecl_df: pd.DataFrame,
+                            op_loss, limit_report: pd.DataFrame) -> list[dict]:
+    """중요성 3축(노출·손실·KRI 초과)을 실제 산출에서 만든다.
+
+    노출은 RWA 구성비, 손실은 신용 ECL과 운영손실 합계 대비 비중, KRI 초과는
+    한도 위반 건수 비중이다. 관측이 없는 리스크 유형은 행을 만들지 않으며,
+    중요성 판정은 그 유형을 '미판정'으로 남긴다.
+    """
+    total_rwa = float(rwa.get("final_total", 0.0)) or 1.0
+    credit = float(rwa.get("sa", 0.0)) + float(rwa.get("irb", 0.0)) \
+        + float(rwa.get("ccr", 0.0)) + float(rwa.get("structured_total", 0.0))
+    ecl_total = float(ecl_df["ecl"].sum())
+    op_net = float(getattr(op_loss, "total_net_loss", 0.0) or 0.0)
+    loss_total = ecl_total + op_net or 1.0
+    n_breach = int(len(limit_report)) or 1
+    return [
+        {"risk_id": "R-CRD", "exposure_share": credit / total_rwa,
+         "loss_share": ecl_total / loss_total, "kri_breach_share": 1.0},
+        {"risk_id": "R-MKT",
+         "exposure_share": float(rwa.get("market", 0.0)) / total_rwa,
+         "loss_share": 0.0, "kri_breach_share": 0.0},
+        {"risk_id": "R-OPR",
+         "exposure_share": float(rwa.get("op", 0.0)) / total_rwa,
+         "loss_share": op_net / loss_total, "kri_breach_share": 0.0},
+    ]
+
+
+def _inventory_capital(rwa: dict[str, float]) -> dict[str, float]:
+    """유형별 내부자본 = RWA × 8%. Pillar 1이 자본을 요구하는 유형만 넣는다."""
+    credit = float(rwa.get("sa", 0.0)) + float(rwa.get("irb", 0.0)) \
+        + float(rwa.get("ccr", 0.0)) + float(rwa.get("structured_total", 0.0))
+    return {"R-CRD": credit * 0.08,
+            "R-MKT": float(rwa.get("market", 0.0)) * 0.08,
+            "R-OPR": float(rwa.get("op", 0.0)) * 0.08}
 
 
 def _stage_icaap(
@@ -1049,9 +1440,13 @@ def run_pipeline(
     )
 
     # 8-11. Monitoring, limits/concentration, RAPM
+    # 한도 정의는 원장에서 읽는다. 원장 자체는 신규 원장 스테이지가 다시 싣지만
+    # 한도 산출이 그보다 앞서므로 여기서 한 번 세워 두 곳이 같은 프레임을 본다.
+    from risk_lib.limits_master import build_limit_definitions as _build_limits
+    limit_ledger = _build_limits()
     monitoring = _stage_monitoring(portfolio, seed)
     limit_report, limit_full, conc = _stage_limits_concentration(
-        portfolio, capital.tier1)
+        portfolio, capital.tier1, limit_ledger)
     rapm_by_class = _stage_rapm(irb_book, hurdle_rate)
     rapm_deep_result = compute_rapm_deep(irb_book, hurdle_rate=hurdle_rate)
 
@@ -1073,6 +1468,19 @@ def run_pipeline(
     stress, reverse, stress_path, stress_path_trough = _stage_stress(
         irb_book, capital, rwa_other_fixed, bis, quarters, buffers, books,
     )
+
+    # 12d. 신규 원장 스테이지 — RDM 분해를 여기서 한 번만 돌리고 그 결과를
+    # 실체화 엔진에 넘긴다. 실체화가 다시 분해하면 두 벌이 되고, 두 벌이
+    # 갈라지면 원장 FK가 어느 쪽을 가리키는지 알 수 없게 된다.
+    from risk_lib.datamodel.decompose import decompose as _decompose
+    rdm_base = _decompose(portfolio, asof=asof.isoformat(), seed=seed)
+    ledgers = _stage_ledgers(
+        portfolio, rdm_base, alm, capital, bis, stress_path, ecl_df,
+        {"sa": rwa_sa, "irb": rwa_irb, "ccr": rwa_ccr, "market": mkt.rwa,
+         "op": op.rwa, "structured_total": structured.rwa_internal,
+         "final_total": rwa_final},
+        op_loss_result, limit_report,
+        asof=asof.isoformat(), seed=seed)
 
     # 13. 내부자본(ICAAP)
     icaap = _stage_icaap(sa_res, irb_res, mkt, op, alm, conc, capital,
@@ -1130,6 +1538,7 @@ def run_pipeline(
         capital_source="ledger" if capital_ledger is not None else "synthetic",
         capital_stack=capital,
         total_ead=total_ead,
+        ledger_tables=ledgers["tables"],
     )
     # v0.14.0 — cross-domain 정합성 (PD↔RWA, RWA↔BIS, ECL↔RWA,
     # 한도↔집중, RAPM↔EC, 스트레스↔BIS).  재현성 digest는 호출자가
@@ -1292,7 +1701,9 @@ def run_pipeline(
         macro_ecl_path=macro_path,
         stress_path=stress_path, stress_path_trough=stress_path_trough,
         backtest=backtest, validation=validation,
-        alm=alm, alm_tables=alm["tables"], icaap=icaap,
+        alm=alm, alm_tables=alm["tables"],
+        ledger_tables=ledgers["tables"], ledger_warnings=ledgers["warnings"],
+        rdm_base=rdm_base, icaap=icaap,
         raf=raf, climate=climate_result, ccr=ccr_result,
         op_loss=op_loss_result, concentration_deep=conc_deep,
         model_cards=model_cards_real, sensitivity=sens, attribution=attr,

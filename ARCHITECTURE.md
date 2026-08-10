@@ -21,7 +21,7 @@ Reports (표현 계층)      html_report(빌드 오케스트레이터), report_c
                         page_registry
   ↓
 Canonical data model    datamodel/ (spec·catalog·decompose·materialize·
-                        materialize_detail) — 131 테이블 / 1206 컬럼
+                        materialize_detail·materialize_ledgers) — 261 테이블 / 2706 컬럼
   ↓
 Orchestration           pipeline.run_pipeline → PipelineResult
   ↓
@@ -86,7 +86,7 @@ out/
 
 ## 정규 데이터모델 (datamodel/)
 
-`catalog.ALL_TABLES`가 단일 소스다 — 테이블 131장 / 컬럼 1206개. 각 컬럼은 타입·
+`catalog.ALL_TABLES`가 단일 소스다 — 테이블 261장 / 컬럼 2706개. 각 컬럼은 타입·
 단위·허용값·범위·규정 근거를 스펙으로 선언하고, DDL·검증·DQ 규칙이 모두 여기서
 파생된다.
 
@@ -117,8 +117,31 @@ out/
 **도메인 값은 반드시 실제 데이터에서 가져온다.** 추정으로 적으면 정상 산출이
 위반으로 잡히거나(거짓 경보) 신규 값이 조용히 통과한다. `GRADES`는
 `models.rating.DEFAULT_MASTER_SCALE`에서, `REPRICING_BUCKETS`는
-`alm.balance_sheet`가 실제로 만드는 라벨에서 파생한다(정본 원장은
-`alm_time_bucket` — 9구간은 자체 집계이며 표준 19버킷이 아니다).
+`alm_time_bucket` 원장의 헤드라인 계정(`표2_19`) 라벨에서 파생한다. 카탈로그가
+라벨 사본을 들고 있었고, 헤드라인 사다리가 [별표 9-1] <표2>의 19구간으로 바뀐
+뒤 그 사본이 낡아 정상 산출이 도메인 위반으로 잡혔다.
+
+### R15 신규 요건 원장 (`catalog.NEW_LEDGER_TABLES`, 130장)
+
+거시 마스터·한도 정의·[별표 9-1] 국내 고유 요건·제22항 공시서식·LGD/CCF
+실측검증·내부등급법 추정·신용평가시스템·CRM 담보배분·거액익스포져·고객행동모형·
+ICAAP 리스크 인벤토리·조달·증거금·상품·RCSA·시장데이터 피드·PMA·경영조치·
+변경통제·가격통제·모형 생애주기·RBAC·감사체인·보존·통합실행·마감·외부연계·
+AI 추적. 산출 경로는 세 갈래다.
+
+1. `pipeline._stage_ledgers` — 거시 마스터 → 한도 정의 → [별표 9-1] 국내
+   금리리스크 → LGD·CCF 실측검증 → 나머지 신규 요건. `PipelineResult.
+   ledger_tables`로 나가고 근거가 없어 건너뛴 항목은 `ledger_warnings`에 남는다.
+2. `datamodel.materialize_ledgers.materialize_ledgers` — `crm_model`·
+   `rwa_result`·`mkt_ipv`를 입력으로 쓰는 신용평가시스템·CRM 배분·가격통제.
+3. `datamodel.materialize_ledgers.materialize_run_control` — 조립이 끝나야
+   원장 목록이 확정되는 RBAC·마감·감사체인·보존·통합실행·AI 추적.
+   `build_studio` 마지막에 부른다.
+
+**등재하지 않은 신규 스펙 8장.** [별표 9-1] 2014년 판(금리 EaR·VaR)의 산출
+원장 6장은 2019.11.29 개정으로 폐지된 체계이므로 실체화하지 않는다. 제11항
+자동금리옵션 재평가 원장 2장은 옵션 인벤토리 원천이 없어 산출하지 않는다.
+사유는 `catalog.py`의 R15 구간에 적혀 있다.
 
 ## 감독보고 (regulatory/)
 

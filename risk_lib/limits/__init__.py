@@ -1,3 +1,13 @@
+"""한도·집중도·거액익스포져.
+
+카탈로그를 먼저 세운다. `datamodel.catalog`가 `large_exposure`의 TableSpec을
+가져다 `ALL_TABLES`에 등재하는데, `large_exposure`가 `alm.behaviour`를 부르고
+그 경로가 다시 catalog를 부른다. 이 패키지가 먼저 실행되면 catalog가 반쯤
+초기화된 `large_exposure`를 만난다. 여기서 카탈로그를 완결시켜 두면 하위모듈
+본문은 항상 완성된 catalog 위에서 돈다. `alm/__init__`이 같은 이유로 같은
+줄을 갖고 있다.
+"""
+from risk_lib.datamodel import catalog as _catalog  # noqa: F401
 from risk_lib.limits.limit_engine import (
     LimitDefinition,
     LimitEngine,

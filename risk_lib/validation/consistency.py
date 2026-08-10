@@ -775,16 +775,24 @@ def _check_delta_eve_recalc(alm: dict, bp: pd.DataFrame, res: pd.DataFrame,
         framework_version=str(res["framework_version"].iloc[0]),
         allow_proxy=True)
 
-    recalc: dict[tuple[str, str], float] = {}
-    for (basis, sc), g in bp.groupby(["basis", "scenario"]):
-        shk = shocked.get((ccys[0], str(sc)))
+    # 통화별로 접은 뒤 **손실 통화만** 더한다 ([별표 9-1] 제13항 다). 통화 축을
+    # 접기 전에 합산하면 이익 통화가 손실 통화를 상계하고, 그 값은 결과 원장의
+    # `delta_eve`가 아니라 `delta_eve_gross`와 짝이 된다. 충격후 하한 0(제12항
+    # 다)이 걸리면서 하락 시나리오가 이익으로 나오는 조합이 생겼고, 상계 규칙을
+    # 빼고 대사하던 이 검사가 그때 FAIL을 냈다.
+    per_ccy: dict[tuple[str, str, str], float] = {}
+    for (basis, sc, ccy), g in bp.groupby(["basis", "scenario", "ccy"]):
+        shk = shocked.get((str(ccy), str(sc)))
         if shk is None:
             continue
         t = g["t_mid"].to_numpy(dtype=float)
-        recalc[(str(basis), str(sc))] = float(
+        per_ccy[(str(basis), str(sc), str(ccy))] = float(
             (g["cf"].to_numpy(dtype=float) * discount_factors(shk.curve, t)
              - g["cf_base"].to_numpy(dtype=float) * discount_factors(curve, t)
              ).sum())
+    recalc: dict[tuple[str, str], float] = {}
+    for (basis, sc, _ccy), v in per_ccy.items():
+        recalc[(basis, sc)] = recalc.get((basis, sc), 0.0) + min(v, 0.0)
 
     want = res.set_index(["basis", "scenario"])["delta_eve"]
     skipped = [k for k in want.index if (str(k[0]), str(k[1])) not in recalc]
@@ -884,8 +892,11 @@ def _check_alm_ledgers(alm: dict, report: ValidationReport) -> None:
 
     # (2b) 접기 자체의 항등식. 정의상 참이지만 짝 없는 (basis, scenario) 조합은
     # 이쪽에서만 잡히므로 남긴다 — 값 검증이 아니라 짝 검증이다.
+    # 접기는 통화별로 먼저 하고 손실 통화만 더한다(제13항 다). 통화 축을 무시한
+    # 단순 합은 상계값이며 결과 원장에서는 `delta_eve_gross`가 그 자리다.
     if bp is not None and res is not None and len(bp) and len(res):
-        got = bp.groupby(["basis", "scenario"])["delta_pv"].sum()
+        got = (bp.groupby(["basis", "scenario", "ccy"])["delta_pv"].sum()
+                 .clip(upper=0.0).groupby(level=["basis", "scenario"]).sum())
         want = res.set_index(["basis", "scenario"])["delta_eve"]
         joined = want.to_frame("eve").join(got.to_frame("pv"), how="outer")
         worst = float(max(
@@ -1126,6 +1137,158 @@ def _check_doc_figures(built: list | None, asof: str | None,
             report.add(c)
 
 
+def _check_national_irrbb_basis(ledgers: dict | None, alm: dict | None,
+                                report: ValidationReport) -> None:
+    """[별표 9-1] 산출이 현행 계정으로 서고 폐지 계정이 헤드라인에 없는가.
+
+    두 체계를 같은 값으로 대사하지 않는다. 2014년 판(금리 EaR·금리 VaR,
+    자기자본 20%)과 현행 판(ΔEVE·ΔNII, 기본자본 15%)은 측정지표도 분모도
+    다르므로 대사가 성립하지 않는다. 확인할 것은 셋이다.
+
+      1. 헤드라인 ΔEVE가 폐지 계정으로 산출되지 않았는가
+      2. 아웃라이어 판정이 기본자본 15% 기준으로 났는가
+      3. 국내 고유 요건 원장(범주 판정·행동옵션 범위·거버넌스)이 실제로 있는가
+
+    폐지된 자기자본 20% 기준이 어딘가에서 판정에 쓰이면 그 판정은 현행 규정과
+    무관한 값이다.
+    """
+    if not alm or alm.get("irrbb") is None:
+        return
+    from risk_lib.references import IRRBB_OUTLIER_EVE_PCT_TIER1
+    irrbb = alm["irrbb"]
+    res = alm.get("tables", {}).get("alm_irrbb_result")
+    if isinstance(res, pd.DataFrame) and "framework_status" in res.columns:
+        bad = sorted(set(res.loc[res["framework_status"] == "폐지",
+                                 "framework_version"]))
+        if bad:
+            report.add(ConsistencyCheck(
+                "irrbb_headline_not_repealed", "FAIL",
+                f"헤드라인 ΔEVE 원장에 폐지 계정 {bad}이 있다", metric=len(bad)))
+        else:
+            cur = sorted(set(res["framework_version"]))
+            status = sorted(set(res["framework_status"]))
+            report.add(ConsistencyCheck(
+                "irrbb_headline_not_repealed",
+                "PASS" if status == ["현행"] else "WARN",
+                f"헤드라인 계정 {cur} (계정 상태 {status})"))
+
+    pct = float(getattr(irrbb, "worst_pct_tier1", 0.0))
+    thr = float(IRRBB_OUTLIER_EVE_PCT_TIER1)
+    over = bool(getattr(irrbb, "outlier", lambda: False)())
+    report.add(ConsistencyCheck(
+        "irrbb_outlier_basis_tier1_15pct", "FAIL" if over else "PASS",
+        f"ΔEVE/기본자본 {pct:.2%} 대 기준 {thr:.0%} ([별표 9-1] 제21항 나). "
+        f"{'초과 — 제21항 다 감독원장 보고 의무' if over else '미초과'}",
+        metric=pct))
+
+    need = ("kr_nmd_category", "kr_retail_behavioural_scope",
+            "kr_irrbb_governance")
+    have = {k: int(len(ledgers.get(k, []))) for k in need} if ledgers else {}
+    missing = [k for k in need if not have.get(k)]
+    report.add(ConsistencyCheck(
+        "kr_irrbb_national_ledgers_present",
+        "FAIL" if missing else "PASS",
+        f"국내 고유 요건 원장 {have}" if not missing
+        else f"국내 고유 요건 원장 결손 {missing}",
+        metric=float(len(need) - len(missing))))
+
+
+def _check_limit_ledger_source(ledgers: dict | None,
+                               limit_report: pd.DataFrame | None,
+                               report: ValidationReport) -> None:
+    """한도 산출이 한도 정의 원장에서 왔는가.
+
+    원장 행 수가 0이면 한도 산출도 비어야 한다. 원장이 비었는데 한도 판정이
+    나오면 임계가 코드 어딘가에 남아 있다는 뜻이고, 그러면 화면의 승인기구·
+    승인일은 산출과 무관한 장식이 된다.
+    """
+    if ledgers is None:
+        return
+    led = ledgers.get("lim_limit_definition")
+    if not isinstance(led, pd.DataFrame):
+        report.add(ConsistencyCheck(
+            "limit_definition_from_ledger", "FAIL",
+            "한도 정의 원장이 산출물에 없다"))
+        return
+    n_def = int(len(led))
+    n_axis = 0 if limit_report is None or limit_report.empty else int(
+        limit_report["dimension"].nunique()
+        if "dimension" in limit_report.columns else 0)
+    if n_def == 0 and n_axis > 0:
+        report.add(ConsistencyCheck(
+            "limit_definition_from_ledger", "FAIL",
+            f"한도 정의 원장이 비었는데 한도 판정이 {n_axis}축 나왔다",
+            metric=float(n_axis)))
+        return
+    unapproved = int(len(led[(led["basis"] == "내부한도")
+                             & (led["approved_on"].isna())]))
+    report.add(ConsistencyCheck(
+        "limit_definition_from_ledger", "WARN" if unapproved else "PASS",
+        f"한도 정의 {n_def}건이 원장에서 왔고 판정 축은 {n_axis}개다"
+        + (f". 내부한도 {unapproved}건이 승인일 미기재다" if unapproved else ""),
+        metric=float(n_def)))
+
+
+def _check_macro_master_source(ledgers: dict | None,
+                               report: ValidationReport) -> None:
+    """거시지표와 시나리오 충격 배수가 마스터 원장에서 오는가."""
+    if ledgers is None:
+        return
+    master = ledgers.get("rdm_macro_indicator_master")
+    shock = ledgers.get("st_macro_scenario_shock")
+    if not isinstance(master, pd.DataFrame) or not isinstance(shock, pd.DataFrame):
+        report.add(ConsistencyCheck(
+            "macro_master_from_ledger", "FAIL",
+            "거시지표 마스터 또는 시나리오 충격 원장이 산출물에 없다"))
+        return
+    orphan = sorted(set(shock["indicator_id"]) - set(master["indicator_id"]))
+    if orphan:
+        report.add(ConsistencyCheck(
+            "macro_master_from_ledger", "FAIL",
+            f"마스터에 없는 지표를 충격 원장이 가리킨다: {orphan[:5]}",
+            metric=float(len(orphan))))
+        return
+    unapproved = int((master["evidence_status"] != "원문확인").sum())
+    report.add(ConsistencyCheck(
+        "macro_master_from_ledger", "WARN" if unapproved else "PASS",
+        f"지표 {len(master)}종 · 충격 {len(shock)}행이 마스터 원장에서 왔다"
+        + (f". 근거 미확인 {unapproved}종" if unapproved else ""),
+        metric=float(len(master))))
+
+
+def _check_backtest_censoring(ledgers: dict | None,
+                              report: ValidationReport) -> None:
+    """LGD·CCF 실측검증이 관측중단 건수를 보고하는가.
+
+    관측중단(회수 진행 중인 부도건)을 세지 않으면 표본이 완결된 건만 남고,
+    회수가 오래 걸리는 건이 빠져 실현 LGD가 낮게 나온다. 건수가 원장에
+    없으면 그 편의가 얼마나 큰지 판단할 근거가 없다.
+    """
+    if ledgers is None:
+        return
+    lgd = ledgers.get("crm_lgd_backtest")
+    if not isinstance(lgd, pd.DataFrame) or lgd.empty:
+        report.add(ConsistencyCheck(
+            "lgd_ccf_backtest_censoring_reported", "FAIL",
+            "LGD 실측검증 원장이 산출물에 없다"))
+        return
+    if "n_censored" not in lgd.columns:
+        report.add(ConsistencyCheck(
+            "lgd_ccf_backtest_censoring_reported", "FAIL",
+            "LGD 실측검증 원장에 관측중단 건수 컬럼이 없다"))
+        return
+    censored = int(lgd["n_censored"].fillna(0).sum())
+    used = int(lgd["n_defaults"].fillna(0).sum())
+    ccf = ledgers.get("crm_ccf_backtest")
+    n_fac = 0 if not isinstance(ccf, pd.DataFrame) else int(
+        ccf["n_facilities"].fillna(0).sum())
+    share = censored / (censored + used) if (censored + used) else 0.0
+    report.add(ConsistencyCheck(
+        "lgd_ccf_backtest_censoring_reported", "PASS",
+        f"LGD 표본 {used}건 · 관측중단 {censored}건(중단 비중 {share:.1%}) · "
+        f"CCF 표본 {n_fac}건", metric=float(censored)))
+
+
 def run_consistency_checks(
     *,
     sa_results: pd.DataFrame | None = None,
@@ -1156,6 +1319,7 @@ def run_consistency_checks(
     doc_paths: tuple[str, ...] = (),
     portfolio: pd.DataFrame | None = None,
     meta: dict | None = None,
+    ledger_tables: dict | None = None,
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
@@ -1210,5 +1374,12 @@ def run_consistency_checks(
     if alm_results:
         _check_irrbb_single_source(alm_results, stress_path_result, rep)
     _check_icaap(icaap_result, rep)
+
+    # 신규 원장 — 원장이 없으면 검사가 돌지 않는다. "돌지 않았다"와 "통과했다"가
+    # 같아지지 않게 각 검사가 원장 결손 자체를 FAIL로 잡는다.
+    _check_national_irrbb_basis(ledger_tables, alm_results, rep)
+    _check_limit_ledger_source(ledger_tables, limit_report, rep)
+    _check_macro_master_source(ledger_tables, rep)
+    _check_backtest_censoring(ledger_tables, rep)
 
     return rep

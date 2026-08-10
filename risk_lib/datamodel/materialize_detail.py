@@ -229,7 +229,11 @@ def materialize_rdm_detail(result, portfolio, base) -> dict[str, pd.DataFrame]:
                           "FAIL", f"UNIQUE({', '.join(spec.primary_key)})",
                           "BCBS 239 원칙3 정확성·무결성"))
         for fk in spec.foreign_keys:
-            rules.append((f"DQ-{spec.name}-FK-{fk.ref_table}", spec.name,
+            # 규칙 식별자에 참조 컬럼을 넣는다. 대상 테이블만 쓰면 한 테이블이
+            # 같은 대상을 두 번 가리킬 때(전이 원장의 from/to 단계, 직무분리
+            # 원장의 역할 두 축) 규칙 식별자가 겹쳐 기본키가 깨진다.
+            rules.append((f"DQ-{spec.name}-FK-{fk.ref_table}-"
+                          f"{'_'.join(fk.columns)}", spec.name,
                           ", ".join(fk.columns), "referential", "FAIL",
                           f"→ {fk.ref_table}({', '.join(fk.ref_columns)})",
                           "BCBS 239 원칙3"))

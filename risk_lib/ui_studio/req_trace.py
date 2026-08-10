@@ -39,11 +39,17 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
                 "승인 전 화면 미반영 + Rollback"),
     "AIG-005": ("반영", (("table", "agent_registry"), ("screen", "에이전트 레지스트리 · 최소 권한")),
                 "도구 목록·권한이 원장으로 열거된다"),
-    "AIG-006": ("부분", (("table", "ui_field_policy"),
+    "AIG-006": ("반영", (("table", "ui_field_policy"),
+                        ("table", "aig_redaction_rule"),
+                        ("module", "risk_lib.aig.trace"),
                         ("test", "test_masked_field_condition_is_blocked_on_screen")),
-                "필드 마스킹·집계최소단위는 있으나 전송 DLP는 없다"),
-    "AIG-007": ("부분", (("table", "agent_activity"),),
-                "활동 원장은 있으나 프롬프트 전문 로그는 데모 수준"),
+                "필드 마스킹·집계최소단위 + 전송 마스킹 규칙 원장(aig_redaction_rule)"),
+    "AIG-007": ("부분", (("table", "agent_activity"),
+                        ("table", "aig_agent_trace"),
+                        ("module", "risk_lib.aig.trace")),
+                "도구호출·출력 두 구간을 지문·사슬로 잇는 전구간 로그가 있다. "
+                "프롬프트 본문은 비어 있다 — 이 저장소의 산출은 언어모형을 "
+                "호출하지 않아 오간 본문이 존재하지 않는다"),
     "AIG-008": ("반영", (("test", "test_engine_js_is_inlined_by_the_renderer"),
                         ("module", "risk_lib.validation.consistency")),
                 "회귀 스위트 1,000+건 · 구조/인용 기준선 · 엔진 패리티"),
@@ -68,8 +74,10 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
                         ("test", "test_typing_recompiles_the_plan_and_changes_results")),
                 "권한·마스킹·집계최소단위를 통과해야 조건이 된다"),
     # ---- DAT ---------------------------------------------------------------
-    "DAT-001": ("반영", (("module", "risk_lib.datamodel.catalog"), ("screen", "데이터모델")),
-                "정규 테이블 131장 · 컬럼 1,203개 · 입도 서술"),
+    "DAT-001": ("반영", (("module", "risk_lib.datamodel.catalog"), ("screen", "데이터모델"),
+                        ("test", "test_architecture_doc_table_and_column_counts_match_the_catalog")),
+                "정규 테이블 전건이 입도·기본키·단위·근거를 스펙으로 선언한다. "
+                "장수·컬럼수는 ARCHITECTURE.md와 검사로 묶여 있어 여기 적지 않는다"),
     "DAT-002": ("반영", (("module", "risk_lib.archive"), ("screen", "기준일")),
                 "기준일자/수행일자·판 체계 + 화면 기준일 전환"),
     "DAT-003": ("부분", (("table", "gov_evidence_node"), ("table", "gov_evidence_edge")),
@@ -86,15 +94,28 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
     "GOV-002": ("반영", (("table", "rdm_dq_result"), ("table", "gov_evidence_edge")), ""),
     "GOV-003": ("반영", (("module", "risk_lib.pipeline"), ("module", "risk_lib.validation.consistency")),
                 "결정론 엔진 + 자체검증 57건 + 서식검증 1,735건"),
-    "GOV-004": ("부분", (("module", "risk_lib.models.rating"), ("table", "crm_model")),
-                "PD/LGD 모형·백테스트는 있으나 승인 라이프사이클은 없다"),
+    "GOV-004": ("반영", (("module", "risk_lib.governance.model_lifecycle"),
+                        ("table", "gov_model_stage"), ("table", "gov_model_state"),
+                        ("table", "gov_model_transition"),
+                        ("test", "test_production_models_without_approval_evidence_are_flagged")),
+                "모형 인벤토리 + 단계·상태·전이 원장. 승인 증빙 없는 운영 모형이 "
+                "전이 판정에서 걸린다"),
     "GOV-005": ("반영", (("table", "st_calc_trace"), ("screen", "위기상황")),
                 "14축 동시 충격 · 전 단계 추적표 · 경로-추적 일치"),
-    "GOV-006": ("부분", (("table", "mkt_ipv"), ("table", "mkt_backtest_exception")),
-                "IPV·백테스트·가격회귀는 있으나 승인 정책 연결은 없다"),
+    "GOV-006": ("부분", (("table", "mkt_ipv"), ("table", "mkt_backtest_exception"),
+                        ("table", "gov_pricing_control"),
+                        ("table", "gov_pricing_result"),
+                        ("test", "test_ipv_adapter_uses_notional_coverage")),
+                "통제 5종 대장과 판정·미비 원장이 섰고 IPV 커버리지 관측이 공표 "
+                "원장에서 온다. 관측이 금리 데스크 한 곳뿐이고 PLA·재현 통제는 "
+                "실행 기록이 없어 '미실시'로 남는다"),
     "GOV-007": ("반영", (("table", "agent_registry"), ("table", "agent_killswitch")), ""),
-    "GOV-008": ("부분", (("table", "chg_change_request"), ("table", "chg_regression_test")),
-                "변경 팩토리 원장 — 배포 자동화는 하지 않는다(설계상)"),
+    "GOV-008": ("부분", (("table", "chg_change_request"), ("table", "chg_regression_test"),
+                        ("table", "gov_change_policy"), ("table", "gov_change_gate"),
+                        ("test", "test_top_tier_regulation_change_requires_all_five_steps")),
+                "변경 유형×위험등급별 필수 5단계 정책표와 fail-closed 배포 게이트가 "
+                "있으나 **변경요청 접수 경로가 배선되지 않아 요청·영향·통제 원장이 "
+                "비어 있다.** 배포 자동화는 하지 않는다(설계상)"),
     "GOV-009": ("반영", (("table", "gov_evidence_node"), ("module", "risk_lib.archive")),
                 "증빙 계보 + MANIFEST SHA-256 + 판별 보관"),
     # ---- PLT · 에이전틱 UI -------------------------------------------------
@@ -106,8 +127,11 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
                         ("test", "test_approve_then_rollback_round_trip")), ""),
     "PLT-013": ("반영", (("test", "test_rejected_prompt_shows_the_reason_and_blocks_approval"),
                         ("table", "ui_field_policy")), ""),
-    "PLT-014": ("부분", (("screen", "검증"),),
-                "실행 단일 컨텍스트(run_id·지문)는 있으나 통합 알림 런은 없다"),
+    "PLT-014": ("반영", (("screen", "검증"), ("table", "gov_unified_run"),
+                        ("table", "gov_run_domain"),
+                        ("test", "test_unified_run_flags_missing_domains")),
+                "실행 하나가 전 도메인을 덮는지 원장이 판정한다 — 미산출 도메인과 "
+                "다른 run_id 혼입이 문제 목록으로 나온다"),
     "PLT-016": ("반영", (("screen", "killscope"),
                         ("test", "test_scoped_kill_only_stops_its_domain")),
                 "범위형 정지 — 부문 정지 시 다른 부문 조회는 산다"),
@@ -125,35 +149,66 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
     "BNK-CRE-003": ("반영", (("module", "risk_lib.capital.crm"), ("table", "rdm_collateral")), ""),
     "BNK-CRE-004": ("반영", (("table", "ecl_result"),), "3-stage · SICR 트리거"),
     "BNK-CRE-005": ("반영", (("module", "risk_lib.provisioning"),), ""),
-    "BNK-CRE-006": ("부분", (("module", "risk_lib.regulatory.provenance"),),
-                    "IRB–ECL EL 대사는 있으나 PMA·GL 연결은 없다"),
-    "BNK-CRM-004": ("부분", (("module", "risk_lib.models.rating"),),
-                    "로지스틱 PD·등급화는 있으나 CSS 스코어카드 전주기는 없다"),
-    "BNK-CRM-009": ("부분", (("table", "crm_ews_signal"), ("screen", "조기경보")),
-                    "EWS 신호·단계는 있으나 Override 원장은 없다"),
+    "BNK-CRE-006": ("반영", (("module", "risk_lib.regulatory.provenance"),
+                            ("table", "ecl_pma"), ("table", "ecl_gl_reconciliation"),
+                            ("test", "test_reconciliation_without_a_gl_feed_is_not_marked_as_passing")),
+                    "IRB–ECL EL 대사 + 모형외조정(PMA) 통제 원장 + 총계정원장 대사. "
+                    "GL 피드가 없으면 대사를 통과로 적지 않는다"),
+    "BNK-CRM-004": ("반영", (("module", "risk_lib.credit_rating.scorecard"),
+                            ("table", "crm_scorecard_param"), ("table", "crm_scorecard_bin"),
+                            ("table", "crm_obligor_score"), ("table", "crm_obligor_axis_score"),
+                            ("test", "test_score_scale_is_a_linear_transform_that_leaves_pd_unchanged")),
+                    "WOE 구간·모수·차주 점수·축 결합 원장. 점수 척도 변환이 PD를 "
+                    "바꾸지 않는 것을 검사가 고정한다"),
+    "BNK-CRM-009": ("반영", (("table", "crm_ews_signal"), ("screen", "조기경보"),
+                            ("table", "crm_override"), ("table", "crm_override_reason"),
+                            ("table", "crm_override_performance"),
+                            ("test", "test_override_performance_counts_unapproved_changes")),
+                    "EWS 신호·단계 + 등급변경 사유·범위 판정·사후성과 원장"),
     "BNK-OTH-001": ("반영", (("table", "opr_loss_event"), ("table", "opr_kri")),
                     "손실·KRI·PSMOR 원칙 매핑"),
     "BNK-OTH-002": ("반영", (("module", "risk_lib.ccr"), ("module", "risk_lib.frtb")),
                     "SA-CCR·CVA·FRTB·XVA·Greeks"),
-    # 산출 구조는 갭 근사에서 계약 현금흐름으로 바뀌었으나(계약원장 →
-    # 현금흐름 → 버킷 → ΔEVE, 계약/행동조정 두 기준), **KRW 금리충격 모수가
-    # 비어 있다.** USD 계정을 프록시로 빌려 쓰고 그 사실을 원장에 남길 뿐이므로
-    # ΔEVE 절대수준은 결재 대상이 아니다. 자동금리옵션 add-on도 미구현이다.
-    # 구조가 갖춰졌다고 '반영'으로 올리면 값이 근거 없이 승인된 것으로 읽힌다.
+    # 재평가(이번 회차). 직전 판정의 근거였던 "KRW 충격 모수가 비어 USD 프록시를
+    # 쓴다"는 상태가 해소됐다. 현행 원문([별표 9-1] 개정 2026.1.29 · BCBS d578)을
+    # 확보해 KRW 225/350/225가 원문확인으로 적재됐고, 파이프라인 헤드라인 계정이
+    # 폐지된 d368_2016에서 별표9의1_2026으로 옮겨졌다. 제12항 다 충격후 하한 0,
+    # 제13항 다 통화 간 상계 금지, 제21항 나 기본자본 15% 아웃라이어가 모두 산출에
+    # 걸려 있고, 국내 고유 요건(제8항 비만기성예금 범주·제9~10항 행동옵션 범위·
+    # 제15~20항 관리체계)과 제22항 공시서식 <표6>·<표7>이 원장으로 선다.
+    #
+    # 그래도 '반영'이 아니다. 제11항 자동금리옵션 리스크가 산출되지 않는다.
+    # 옵션 인벤토리 원천이 없어 계수 원장만 있고 재평가가 없으며, ΔEVE는 그
+    # add-on을 뺀 값이다. 기본 조기상환율·중도해지율도 규정이 값을 주지 않아
+    # 자체추정이다. 두 공백이 ΔEVE 절대수준에 남아 있으므로 부분이다.
     "BNK-OTH-003": ("부분", (("module", "risk_lib.alm.cashflow"),
                             ("table", "alm_cashflow_bucket"),
                             ("table", "alm_irrbb_result"),
                             ("table", "alm_rate_shock_param"),
-                            ("test", "test_alm_ledgers_are_all_materialised")),
-                    "IRRBB(ΔEVE 6시나리오 × 계약/행동조정 2기준)·ΔNII·LCR·NSFR을 "
-                    "계약 현금흐름에서 산출한다. KRW 충격 bp는 1차자료 미열람으로 "
-                    "NULL이며 USD 계정 프록시로 산출한다 — 절대수준 미결재. "
-                    "자동금리옵션 add-on 미구현"),
+                            ("table", "kr_nmd_category"),
+                            ("table", "kr_retail_behavioural_scope"),
+                            ("table", "kr_irrbb_governance"),
+                            ("table", "disc_irrbb_table6"),
+                            ("test", "test_domestic_post_shock_floor_is_zero_and_binds"),
+                            ("test", "test_outlier_verdict_is_made_against_the_tier1_threshold")),
+                    "국내기준([별표 9-1] 개정 2026.1.29)으로 ΔEVE 6시나리오 × "
+                    "계약/행동조정 2기준과 ΔNII를 계약 현금흐름에서 산출한다. "
+                    "KRW 충격 225/350/225 원문확인 · 충격후 하한 0(제12항 다) · "
+                    "통화 간 상계 금지(제13항 다) · 기본자본 15% 아웃라이어"
+                    "(제21항 나) 적용. 비만기성예금 범주·행동옵션 범위·관리체계 "
+                    "원장과 <표6>·<표7> 공시서식까지 선다. **제11항 자동금리옵션 "
+                    "리스크는 옵션 인벤토리 원천이 없어 산출하지 않으며 ΔEVE에 "
+                    "빠져 있다.** 기본 조기상환율·중도해지율은 규정 미제시로 "
+                    "자체추정이다"),
     "BNK-ST-002": ("반영", (("table", "st_capital_path"),), "기준·악화·심각 3경로"),
     "BNK-ST-003": ("반영", (("table", "st_calc_trace"),), "신용→시장→운영→유동성→손익→자본 전이"),
     "BNK-ST-004": ("반영", (("table", "st_capital_path"), ("screen", "위기상황")), ""),
-    "BNK-ST-005": ("부분", (("module", "risk_lib.limits"),),
-                   "한도 엔진·위반 경보는 있으나 경영조치 연결은 없다"),
+    "BNK-ST-005": ("반영", (("module", "risk_lib.limits"),
+                           ("table", "lim_limit_definition"),
+                           ("table", "st_action_playbook"), ("table", "st_management_action"),
+                           ("test", "test_playbook_carries_the_source_clause")),
+                   "한도 정의가 원장에서 오고(승인기구·근거 포함) 자본경로 위반에 "
+                   "발동표가 붙는다"),
     "BNK-ST-007": ("반영", (("table", "st_calc_trace"),
                            ("test", "test_stress_screen_shows_every_calculation_block")), ""),
     # ---- SEC ---------------------------------------------------------------
@@ -170,7 +225,11 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
     "SEC-CCR-002": ("반영", (("module", "risk_lib.ccr"),), "CVA·DVA·FVA·ColVA·MVA"),
     "SEC-PRC-003": ("반영", (("module", "risk_lib.ipv"),), "가격·Greeks 회귀"),
     "SEC-PRC-005": ("반영", (("table", "mkt_ipv"), ("screen", "독립가격검증")), ""),
-    "SEC-OAI-001": ("부분", (("table", "opr_loss_event"),), "손실 원장 — RCSA는 없다"),
+    "SEC-OAI-001": ("반영", (("table", "opr_loss_event"), ("table", "opr_rcsa_control"),
+                            ("table", "opr_rcsa_assessment"), ("table", "opr_rcsa_action"),
+                            ("test", "test_rcsa_uses_the_loss_event_vocabulary")),
+                    "손실 원장 + RCSA 척도·통제·평가·조치 원장. 사건유형 어휘가 "
+                    "손실 원장과 같다"),
     # ---- INT · NFR ---------------------------------------------------------
     "INT-006": ("부분", (("module", "risk_lib.notifications"),), "webhook 발송까지 — 티켓 연계는 없다"),
     "INT-007": ("반영", (("module", "risk_lib.regulatory.forms"),),
@@ -210,8 +269,12 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
     # 플랫폼 우산 요건 3건은 구성요소가 상당히 있으나 요건 전체를 덮지는 않는다.
     # '반영'으로 올리면 감사에서 드러난 과대표시를 되풀이하는 것이다.
     "PLT-002": ("부분", (("module", "risk_lib.datamodel.catalog"),
-                        ("table", "rdm_obligor")),
-                "정규 원장 131장·스펙 검증은 있으나 Data Mart 적재·수명주기는 없다"),
+                        ("table", "rdm_obligor"), ("table", "dat_mart_load"),
+                        ("table", "dat_retention_policy"),
+                        ("test", "test_retention_ledgers_match_their_specs")),
+                "정규 원장·스펙 검증과 실행별 적재 이력·보존 정책·폐기 판정 원장이 "
+                "있다. 별도 Data Mart 저장소는 없고 적재 이력은 실행이 실은 원장의 "
+                "행수·지문 기록이다"),
     "PLT-004": ("부분", (("module", "risk_lib.pipeline"),
                         ("module", "risk_lib.validation.backtest")),
                 "결정론 계산엔진 5종 + 검증 Lab은 있으나 사용자 정의 계산은 없다"),
@@ -242,12 +305,104 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
                     "모형 인벤토리·모형위험 등급은 있으나 증권 고유 거버넌스 축은 없다"),
     # 이번 시정(2026-08-06)으로 상태가 움직인 둘.
     "BNK-ST-001": ("부분", (("module", "risk_lib.icaap.economic_capital"),
+                           ("table", "icaap_risk_taxonomy"), ("table", "icaap_materiality"),
+                           ("table", "icaap_capital_map"),
                            ("test", "test_ec_covers_every_credit_rwa_component")),
-                   "신용(SA·IRB·구조화·CCR)·시장·운영·IRRBB 경제자본 + 가용자본 대비 "
-                   "적정성. 기후는 EC로 환산하지 않았다 — BNK-OTH-004 참조"),
+                   "리스크 11종 인벤토리 × 3축 중요성 판정 × 내부자본 매핑 + "
+                   "신용(SA·IRB·구조화·CCR)·시장·운영·IRRBB 경제자본. 기후는 EC로 "
+                   "환산하지 않았다 — BNK-OTH-004 참조"),
     "BNK-OTH-004": ("부분", (("module", "risk_lib.stress.climate_capital"),),
                     "NGFS 3시나리오×7시점 CET1 경로는 산출하나 **경제자본으로 "
                     "환산하지 않는다** — 환산 방법론이 정해지지 않았다. 전략·평판은 없다"),
+
+    # ---- 이번 회차(2026-08-10) 배선으로 판정이 바뀐 요건 --------------------
+    # 원장이 서고 산출 경로에 연결됐다. 판정 근거는 원장 실재가 아니라
+    # **실행이 그 원장을 실제로 만든다**는 것이며, 카탈로그 등재와
+    # `test_every_catalog_table_is_materialized_or_declared`가 그것을 고정한다.
+    "DAT-008": ("부분", (("table", "dat_retention_policy"),
+                        ("table", "dat_retention_action"),
+                        ("test", "test_disposal_is_not_decided_without_a_confirmed_retention_period")),
+                "데이터 구분별 보존기간·보관 세대수 정책과 폐기 판정 원장. "
+                "보존기간이 확정되지 않은 구분은 '판정불가'로 남는다. "
+                "비식별 처리 자체는 구현하지 않았다"),
+    "BNK-CRM-002": ("반영", (("module", "risk_lib.credit_rating.requirements"),
+                            ("table", "crm_rating_requirement"),
+                            ("table", "crm_lifecycle_event"),
+                            ("table", "crm_lifecycle_compliance"),
+                            ("test", "test_lifecycle_deadline_follows_the_requirement_ledger")),
+                    "신용평가시스템 최소요건 원장과 개발·승인·재개발 생애주기 "
+                    "기한 판정. 기한은 요건 원장에서 오고 소스에 없다"),
+    "BNK-CRM-003": ("부분", (("table", "crm_dev_sample"),
+                            ("table", "crm_sample_representativeness"),
+                            ("test", "test_dev_sample_fails_the_five_year_observation_requirement")),
+                    "개발표본·부도정의·대표성 판정 원장. 요건 행이 없으면 판정하지 "
+                    "않는다. 실제 은행 표본이 아니라 합성 표본이다"),
+    "BNK-CRM-006": ("반영", (("table", "crm_scorecard_factor"),
+                            ("module", "risk_lib.credit_rating.scorecard"),
+                            ("test", "test_scorecard_separates_defaulters")),
+                    "기업 재무 4변수 WOE 스코어카드"),
+    "BNK-CRM-007": ("반영", (("table", "crm_qualitative_item"),
+                            ("table", "crm_qualitative_assessment"),
+                            ("test", "test_qualitative_axes_are_used_in_the_scorecard")),
+                    "비재무 6항목 평가와 축 결합. 척도를 벗어난 평가는 걸린다"),
+    "SEC-CCR-003": ("부분", (("table", "ccr_csa_term"),
+                            ("table", "ccr_collateral_position"),
+                            ("table", "ccr_margin_call"), ("table", "ccr_margin_dispute"),
+                            ("test", "test_margin_ledgers_match_specs_and_references")),
+                    "CSA 조건·담보 포지션·마진콜·분쟁 원장. 감독 담보조정계수를 "
+                    "확인하지 못해 조정을 적용하지 않고 그 사실을 경고로 남긴다 — "
+                    "담보가치가 과대평가되고 콜 금액이 과소산출된다"),
+    "SEC-LIQ-001": ("부분", (("table", "liq_funding_trade"), ("table", "liq_funding_ladder"),
+                            ("table", "liq_funding_concentration"),
+                            ("table", "liq_funding_limit"),
+                            ("test", "test_funding_limits_are_not_judged_without_a_threshold")),
+                    "단기조달 거래·사다리·집중도·한도 원장. 콜차입 한도 조문을 "
+                    "열람하지 못했고 나머지 3종은 이사회 승인 내부한도 원장이 없어 "
+                    "임계 4건이 NULL이며 판정하지 않는다"),
+    "SEC-OAI-003": ("반영", (("table", "opr_close_task"), ("table", "opr_close_gate"),
+                            ("test", "test_close_gate_blocks_a_step_whose_predecessor_is_incomplete")),
+                    "마감 단계·게이트 원장. 단계 완료 여부를 플래그가 아니라 증빙 "
+                    "원장의 행수로 판정하고, 선행 미완이면 차단한다"),
+    "SEC-PRC-002": ("반영", (("table", "mkt_product"), ("table", "mkt_pricing_model"),
+                            ("table", "mkt_product_model_map"),
+                            ("test", "test_product_without_an_approved_official_model_cannot_be_priced")),
+                    "상품·평가모형·매핑 원장. 승인된 공식평가 모형이 없는 상품은 "
+                    "'평가불가'로 판정된다"),
+    "INT-001": ("부분", (("table", "int_connector"), ("table", "int_connector_operation"),
+                        ("table", "int_connector_violation"),
+                        ("test", "test_every_registered_connector_is_read_only")),
+                "커넥터 등록부와 조회전용 판정. 쓰기 동사·미등록·미승인 3종 위반을 "
+                "잡는다. **연결 상태는 전건 '미연결'이다** — 이 저장소는 외부 "
+                "시스템과 통신하지 않는다"),
+    "INT-002": ("부분", (("table", "int_inbound_contract"), ("table", "int_inbound_delivery"),
+                        ("test", "test_feed_without_a_contract_is_not_passed_through")),
+                "수신 계약과 스키마·기준일·sha256 체크섬 판정. 커넥터가 미연결이라 "
+                "전 피드가 '미수신'으로 남으며, 미수신도 수신 결과로 기록된다"),
+    "INT-003": ("반영", (("table", "int_engine_adapter"), ("table", "int_engine_io"),
+                        ("test", "test_adapters_satisfy_the_protocol")),
+                "계산엔진 5종의 입출력 선언과 실행가능성 판정"),
+    "INT-004": ("부분", (("table", "int_market_feed"), ("table", "int_feed_health"),
+                        ("table", "int_feed_field_map"),
+                        ("test", "test_synthetic_fallback_is_labelled_as_synthetic")),
+                "시장데이터 피드 등록부·필드 매핑·건강도 원장. 전건 미연결이며 "
+                "합성 대체분은 출처가 '합성'으로 찍히고 상태가 '정상'이 되지 않는다"),
+    "INT-008": ("반영", (("table", "int_retry_policy"), ("table", "int_delivery_attempt"),
+                        ("table", "int_quarantine"),
+                        ("test", "test_idempotency_key_is_stable_and_content_sensitive")),
+                "내용 지문을 포함한 sha256 멱등키·지수 백오프·격리. 정책에 없는 "
+                "연계 유형은 재시도하지 않고 즉시 격리한다"),
+    "NFR-003": ("반영", (("module", "risk_lib.governance.rbac"),
+                        ("table", "gov_role"), ("table", "gov_role_permission"),
+                        ("table", "gov_user_role"), ("table", "gov_sod_conflict"),
+                        ("table", "gov_access_decision"),
+                        ("test", "test_rbac_ledgers_match_their_specs")),
+                "역할·권한·부여·직무분리 충돌·접근판정 원장. 권한 행이 없으면 "
+                "거부다"),
+    "NFR-004": ("반영", (("module", "risk_lib.governance.audit_chain"),
+                        ("table", "gov_audit_chain"),
+                        ("test", "test_editing_any_field_breaks_the_chain")),
+                "승인·수동조정·접근판정·검증·산출 사건을 sha256 prev_hash로 잇는다. "
+                "변조·삭제가 체인 검증에서 드러난다"),
 }
 
 # 아직 판정하지 않은 요건 — id → 사유.
@@ -259,19 +414,10 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
 # 사유는 요건별로 쓴다 — 공통 문구를 복사하면 이 목록이 다시 무의미해진다.
 UNASSESSED: dict[str, str] = {
     "AIG-010": "LLM·모델 변경관리 — 모형 인벤토리는 있으나 LLM 판올림 절차는 미검토",
-    "DAT-008": "보존·폐기·비식별 — 보존기간 정책 자체가 없다",
     "RDM-001": "유연한 원천 수집·등록 — 합성 생성기만 있고 원천 등록 경로 미검토",
     "RDM-002": "집계·가공 Rule Studio — 규칙이 코드에 있고 사용자 저작 경로 없음",
 
-    "BNK-CRM-002": "CSS 생애주기 — PD 모형은 있으나 개발·승인·재개발 주기 미검토",
-    "BNK-CRM-003": "CSS 데이터·Target — 표본 정의·타깃 설정 문서화 미검토",
-    "BNK-CRM-006": "기업 재무모형 — 재무비율 기반 스코어링 없음",
-    "BNK-CRM-007": "기업 비재무·대표자 — 정성 평가 축 없음",
 
-    "SEC-CCR-003": "Margin·Collateral — SA-CCR은 있으나 증거금 관리 미검토",
-    "SEC-LIQ-001": "Repo·단기조달 — 증권사 조달 원장 없음",
-    "SEC-OAI-003": "Agentic Close Workflow — 결산 마감 워크플로 없음",
-    "SEC-PRC-002": "상품명세·Pricing Model — 상품 마스터 원장 없음",
 
     # 플랫폼·비기능·연계 — 이 저장소는 산출 라이브러리라 상당수가 범위 밖이다.
     # 범위 밖이라는 판단 자체도 판정이므로 숨기지 않고 여기 적는다.
@@ -280,16 +426,9 @@ UNASSESSED: dict[str, str] = {
     "PLT-006": "RAG & Agentic — 검색·생성 계층이 이 저장소에 없다",
     "PLT-007": "Control & Observability — Kill Switch·감사추적은 있으나 관측 계층 없음",
     "PLT-008": "Reporting & Lifecycle — 보고서 산출은 있으나 배포 수명주기 없음",
-    "INT-001": "Read-only Secure Connector — 연계 계층 범위 밖",
-    "INT-002": "파일·API·배치 연계 — CLI·API 스키마는 있으나 배치 연계 없음",
-    "INT-003": "계산엔진 Adapter — 엔진이 라이브러리로 직접 호출된다",
-    "INT-004": "시장데이터 Adapter — 합성 시장데이터만 있고 외부 피드 어댑터 없음",
     "INT-005": "IAM·SSO 연계 — 인증 계층 범위 밖",
-    "INT-008": "재시도·멱등성·오류격리 — 배치 실행 계층 범위 밖",
     "NFR-001": "배포모델 — 배포 형상이 정의되지 않았다",
     "NFR-002": "암호화·키관리 — 저장·전송 암호화 계층 범위 밖",
-    "NFR-003": "RBAC·직무분리 — 4-Eyes는 있으나 역할 기반 접근통제 없음",
-    "NFR-004": "감사로그 불변성 — 감사 원장은 있으나 불변성 보증 없음",
     "NFR-005": "성능·처리량 — 성능 목표·측정 없음",
     "NFR-006": "가용성·복구 — 운영 인프라 범위 밖",
     "NFR-007": "확장성 — 운영 인프라 범위 밖",

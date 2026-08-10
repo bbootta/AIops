@@ -487,6 +487,17 @@ def materialize_governance(result, portfolio, base) -> dict[str, pd.DataFrame]:
 
 # ---------------------------------------------------------------- 통합
 
+def _materialize_new_ledgers(result, portfolio, base):
+    """R15 신규 원장 — 한 엔진이 여러 제품을 채운다.
+
+    신규 원장은 모듈이 여러 개로 나뉘어 있으나 산출은 파이프라인의 한
+    스테이지가 하고 여기서는 그 프레임을 받는다. 제품별로 엔진을 나누면
+    같은 스테이지를 제품 수만큼 부르게 된다.
+    """
+    from risk_lib.datamodel.materialize_ledgers import materialize_ledgers
+    return materialize_ledgers(result, portfolio, base)
+
+
 _MATERIALIZERS = {
     "PRD-CRM": materialize_crm,
     "PRD-RWA": materialize_rwa,
@@ -496,17 +507,31 @@ _MATERIALIZERS = {
     "PRD-MKT": materialize_market,
     "PRD-OPR": materialize_operational,
     "PRD-VAL": materialize_governance,
+    # 신규 원장이 쓰는 제품. 값은 같은 함수이며 `materialize_all`이 중복 호출을
+    # 걸러낸다. 제품이 여기 없으면 "엔진 없는 제품"으로 잡힌다.
+    "PRD-ICP": _materialize_new_ledgers,
+    "PRD-LIMIT": _materialize_new_ledgers,
 }
 
 
 def materialize_all(result, portfolio, base: dict[str, pd.DataFrame] | None = None
                     ) -> dict[str, pd.DataFrame]:
-    """RDM 분해 + 등록된 모든 부문 엔진을 실행해 전체 테이블을 만든다."""
+    """RDM 분해 + 등록된 모든 부문 엔진을 실행해 전체 테이블을 만든다.
+
+    분해 결과는 파이프라인이 이미 세운 것(`result.rdm_base`)을 받는다. 여기서
+    다시 분해하면 신규 원장 스테이지가 참조한 익스포저·담보와 화면이 싣는
+    익스포저·담보가 두 벌이 되고, 두 벌이 갈라지면 FK가 어느 쪽을 가리키는지
+    알 수 없게 된다. 구형 result로 부를 때만 여기서 분해한다.
+    """
     from risk_lib.datamodel.decompose import decompose
     if base is None:
-        base = decompose(portfolio, asof=_asof(result),
-                         seed=result.meta.get("seed", 42))
+        base = getattr(result, "rdm_base", None) or decompose(
+            portfolio, asof=_asof(result), seed=result.meta.get("seed", 42))
     out = dict(base)
-    for fn in _MATERIALIZERS.values():
-        out.update(fn(result, portfolio, base))
+    # 같은 함수가 여러 제품에 걸릴 수 있으므로 중복 호출을 걸러낸다.
+    # 뒤 엔진은 앞 엔진의 산출을 본다 — 신규 원장이 `crm_model`·`rwa_result`·
+    # `mkt_ipv`를 입력으로 쓰기 때문이며, 앞 엔진들은 원래 쓰던 키만 읽으므로
+    # 넘겨받는 dict가 커져도 산출이 달라지지 않는다.
+    for fn in dict.fromkeys(_MATERIALIZERS.values()):
+        out.update(fn(result, portfolio, out))
     return out

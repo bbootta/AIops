@@ -112,11 +112,19 @@ def test_pipeline_and_studio_share_the_same_alm_frames(result, studio):
 # ---------------------------------------------------------------- 산출 원장
 
 def test_irrbb_shock_ledger_has_all_six_scenarios(studio):
-    """`getattr` 폴백 결함이 되돌아오면 1행·delta_eve=0으로 떨어진다."""
+    """`getattr` 폴백 결함이 되돌아오면 1행·delta_eve=0으로 떨어진다.
+
+    전 시나리오가 0이 아닐 것을 요구하던 검사다. [별표 9-1] 제13항 다는 통화별
+    EVE 리스크가 **손실일 경우만** 합산하라고 정하므로, 이익이 난 시나리오의
+    ΔEVE는 0이 맞다. 제12항 다의 충격후 하한 0이 걸리면서 하락 시나리오가
+    이익으로 나오는 조합이 생겼고 그때 이 검사가 실패했다. 잡으려던 결함은
+    "전 시나리오가 한꺼번에 0"이므로 그것을 그대로 본다.
+    """
     s = studio.tables["alm_irrbb_shock"]
     assert set(s["scenario"]) == set(cat.IRRBB_SCENARIOS)
     assert len(s) == len(cat.IRRBB_SCENARIOS)
-    assert (s["delta_eve"].abs() > 0).all(), "전 시나리오 ΔEVE가 0이다"
+    assert (s["delta_eve"].abs() > 0).any(), "전 시나리오 ΔEVE가 0이다"
+    assert (s["delta_eve"] <= 0).all(), "ΔEVE 리스크에 이익 통화가 남아 있다"
 
 
 def test_irrbb_result_carries_both_bases(studio):
