@@ -1,4 +1,4 @@
-"""규제 기준 검증 항목 원장 — 조회·집계·검증 (국내 + 국제).
+"""규제 기준 검증 항목 원장: 조회·집계·검증 (국내 + 국제).
 
 기준 스택은 세 층이다.
 
@@ -6,16 +6,16 @@
 
 **국내 기준이 우선한다.** 국내가 그 주제를 정하지 않으면 바젤이 지배하고,
 국내 기준이 있으나 해석이 모호하면 바젤로 보충한다. 국내가 바젤보다 느슨해도
-국내가 적용되나 그 차이는 산출물에 표기해야 한다 — 국내 준수가 국제 기준
+국내가 적용되나 그 차이는 산출물에 표기해야 한다: 국내 준수가 국제 기준
 충족을 뜻하지 않는다.
 
 `verify`가 강제하는 것:
 
-1. 각 근거 원문의 지문(SHA-256)이 카탈로그 기록과 일치하는가 — 원문이 바뀌면 드러난다
+1. 각 근거 원문의 지문(SHA-256)이 카탈로그 기록과 일치하는가: 원문이 바뀌면 드러난다
 2. 각 항목의 인용이 해당 원문에서 실제로 해석되는가, 기록 라인·표제가 맞는가
 3. 계량 임계의 원문 발췌가 실재하고, 하니스 임계가 규정을 **느슨하게 통과시키지 않는가**
 4. `automated`로 선언한 항목의 하니스 근거 파일이 실재하는가
-5. 지배기준(governing)이 우선순위 정책에서 파생된 값과 일치하는가 — 손으로
+5. 지배기준(governing)이 우선순위 정책에서 파생된 값과 일치하는가: 손으로
    "이건 바젤을 따른다"고 적을 수 없다
 
 사용:
@@ -59,11 +59,11 @@ def violations(data: dict, root: Path = ROOT) -> list[str]:
     for key, meta in data["sources"].items():
         src = root / meta["path"]
         if not src.exists():
-            out.append(f"[{key}] 근거 원문이 없다 — {meta['path']}")
+            out.append(f"[{key}] 근거 원문이 없다: {meta['path']}")
             continue
         digest = hashlib.sha256(src.read_bytes()).hexdigest()
         if digest != meta["sha256"]:
-            out.append(f"[{key}] 원문 지문 불일치 — 기록 {meta['sha256'][:16]}… "
+            out.append(f"[{key}] 원문 지문 불일치: 기록 {meta['sha256'][:16]}… "
                        f"실제 {digest[:16]}… (재생성 필요)")
     if out:
         return out
@@ -81,12 +81,12 @@ def violations(data: dict, root: Path = ROOT) -> list[str]:
 
         ln = resolve(c["citation"], lines[key])
         if ln is None:
-            out.append(f'{rid}: 인용이 {key} 원문에서 해석되지 않음 — {c["citation"]}')
+            out.append(f'{rid}: 인용이 {key} 원문에서 해석되지 않음: {c["citation"]}')
         elif ln != c["source_line"]:
-            out.append(f'{rid}: 기록 라인이 원문과 다름 — {c["citation"]} '
+            out.append(f'{rid}: 기록 라인이 원문과 다름: {c["citation"]} '
                        f'기록 {c["source_line"]} 실제 {ln}')
         elif heading_of(ln, lines[key]) != c["source_heading"]:
-            out.append(f'{rid}: 기록 표제가 원문과 다름 — {c["citation"]}')
+            out.append(f'{rid}: 기록 표제가 원문과 다름: {c["citation"]}')
 
         if c["automation"] not in AUTOMATION:
             out.append(f'{rid}: automation 값이 정의 밖 ({c["automation"]})')
@@ -95,7 +95,7 @@ def violations(data: dict, root: Path = ROOT) -> list[str]:
                 out.append(f"{rid}: automated 인데 근거가 0건")
             for p in c["evidence"]:
                 if not (root / p).exists():
-                    out.append(f"{rid}: 근거 파일 없음 — {p}")
+                    out.append(f"{rid}: 근거 파일 없음: {p}")
         else:
             if c["evidence"]:
                 out.append(f"{rid}: manual 인데 근거가 선언됨")
@@ -110,7 +110,7 @@ def violations(data: dict, root: Path = ROOT) -> list[str]:
 
         want = governing_of(key, c["ambiguous_domestic"])
         if c["governing"] != want:
-            out.append(f'{rid}: 지배기준이 우선순위 정책과 다름 — 기록 '
+            out.append(f'{rid}: 지배기준이 우선순위 정책과 다름: 기록 '
                        f'{c["governing"]} 정책 {want}')
         if c["governing"] not in data["precedence"]["governing_values"]:
             out.append(f'{rid}: 지배기준 값이 정의 밖 ({c["governing"]})')
@@ -122,28 +122,28 @@ def violations(data: dict, root: Path = ROOT) -> list[str]:
         elif c["basis_level"] != "국내구속":
             out.append(f'{rid}: 국내 항목의 근거수준이 국내구속이 아님')
         if c["basel_ref"] and resolve(c["basel_ref"], lines["바젤"]) is None:
-            out.append(f'{rid}: 대응 바젤 Chapter 가 소스북에서 해석되지 않음 — '
+            out.append(f'{rid}: 대응 바젤 Chapter 가 소스북에서 해석되지 않음: '
                        f'{c["basel_ref"]}')
 
     for t in data["thresholds"]:
         key = t["key"]
         if not any(t["quote"] in l for l in lines[t["source_key"]]):
-            out.append(f'임계 {key}: 원문 발췌가 {t["source_key"]}에 없다 — {t["quote"]}')
+            out.append(f'임계 {key}: 원문 발췌가 {t["source_key"]}에 없다: {t["quote"]}')
         actual = dig(json.loads((root / t["harness_file"]).read_text(encoding="utf-8")),
                      t["harness_path"])
         if actual != t["harness_value"]:
-            out.append(f'임계 {key}: 하니스 값이 기록과 다름 — 기록 {t["harness_value"]} '
+            out.append(f'임계 {key}: 하니스 값이 기록과 다름: 기록 {t["harness_value"]} '
                        f'실제 {actual} ({t["harness_file"]}) · 재생성 필요')
             continue
         status = compare(t["regulated_value"], actual, t["direction"])
         if status != t["status"]:
-            out.append(f'임계 {key}: 기록 상태가 재계산과 다름 — 기록 {t["status"]} 실제 {status}')
+            out.append(f'임계 {key}: 기록 상태가 재계산과 다름: 기록 {t["status"]} 실제 {status}')
         if status == "looser":
-            out.append(f'임계 {key}: 하니스 임계가 규정보다 느슨하다 — '
+            out.append(f'임계 {key}: 하니스 임계가 규정보다 느슨하다: '
                        f'규정 {t["regulated_value"]} vs 하니스 {actual} '
                        f'({t["citation"]}) · 규제 미달을 통과시킨다')
         elif status == "missing":
-            out.append(f'임계 {key}: 하니스 임계 파일에 값이 없다 — '
+            out.append(f'임계 {key}: 하니스 임계 파일에 값이 없다: '
                        f'{t["harness_file"]} {" > ".join(t["harness_path"])}')
     return out
 
@@ -175,7 +175,7 @@ def _cmd_list(args) -> int:
 
 def _cmd_thresholds(args) -> int:
     data = load(args.catalog)
-    print("계량 임계 — 규정 값 vs 하니스 임계\n")
+    print("계량 임계: 규정 값 vs 하니스 임계\n")
     mark = {"ok": "[일치]", "stricter": "[엄격]", "looser": "[느슨]", "missing": "[없음]"}
     for t in data["thresholds"]:
         arrow = "이상" if t["direction"] == "min" else "이하"
@@ -188,14 +188,14 @@ def _cmd_thresholds(args) -> int:
     print(f'\n{len(data["thresholds"])}건 · 일치 {c["ok"]} · 엄격 {c["stricter"]} '
           f'· 느슨 {c["looser"]} · 없음 {c["missing"]}')
     if c["looser"] or c["missing"]:
-        print("> 느슨·없음은 규제 미달을 통과시킨다 — verify 가 위반으로 판정한다.")
+        print("> 느슨·없음은 규제 미달을 통과시킨다: verify 가 위반으로 판정한다.")
     return 0
 
 
 def _cmd_precedence(args) -> int:
     data = load(args.catalog)
     pr = data["precedence"]
-    print("기준 스택 — " + " → ".join(pr["order"]) + "\n")
+    print("기준 스택: " + " → ".join(pr["order"]) + "\n")
     for k in pr["order"]:
         s = data["sources"][k]
         print(f'  [{k}] {s["basis_level"]} · {s["title"]} [{s["effective"]}]')
@@ -206,13 +206,13 @@ def _cmd_precedence(args) -> int:
     print("\n지배기준 값")
     for k, v in pr["governing_values"].items():
         n = sum(1 for c in data["criteria"] if c["governing"] == k)
-        print(f'  {k:14s} {n:3d}건 — {v}')
+        print(f'  {k:14s} {n:3d}건: {v}')
     amb = [c for c in data["criteria"] if c["ambiguous_domestic"]]
     print(f'\n[국내 해석이 모호해 바젤로 보충하는 항목 {len(amb)}건]')
     for c in amb:
         print(f'  {c["rule_id"]} [{c["source_key"]}] {c["citation"]:12s} → 바젤 {c["basel_ref"]}')
     print("\n> 국내 준수가 국제 기준 충족을 뜻하지 않는다 (규칙 ④). "
-          "국내가 바젤보다 느슨한 경우의 차이 표기는 사람 판단 사항이다 — "
+          "국내가 바젤보다 느슨한 경우의 차이 표기는 사람 판단 사항이다: "
           "바젤 소스북은 Chapter 색인이라 수치 대조를 지원하지 않는다.")
     return 0
 
@@ -220,7 +220,7 @@ def _cmd_precedence(args) -> int:
 def _cmd_report(args) -> int:
     data = load(args.catalog)
     rows = data["criteria"]
-    print("규제 기준 검증 항목 — 기준 스택 " +
+    print("규제 기준 검증 항목: 기준 스택 " +
           " → ".join(data["precedence"]["order"]) + "\n")
     for k, s in data["sources"].items():
         print(f'  [{k}] {s["basis_level"]} · {s["title"]} [{s["effective"]}] · {s["role"]}')
@@ -258,7 +258,7 @@ def _cmd_report(args) -> int:
           f'· 느슨 {tc["looser"]} · 없음 {tc["missing"]}')
 
     gap = [c for c in rows if c["automation"] == "manual"]
-    print(f"\n[국내 기준을 덮지 못하는 항목 {len(gap)}건 — 통제 공백]")
+    print(f"\n[기준을 덮지 못하는 항목 {len(gap)}건: 통제 공백]")
     for c in gap:
         print(f'  {c["rule_id"]} [{c["source_key"]}] {c["citation"]:12s} {c["note"]}')
     print("\n> 인용이 해석되고 임계가 일치한다는 것은 그 값이 맞다는 뜻이며, "
@@ -274,10 +274,10 @@ def _cmd_cite_check(args) -> int:
     for k in keys:
         ln = resolve(args.citation, lines[k])
         if ln is None:
-            print(f'[{k}] 해석 실패 — "{args.citation}"')
+            print(f'[{k}] 해석 실패: "{args.citation}"')
             continue
         found = True
-        print(f'[{k}] 해석됨 — L{ln}: {heading_of(ln, lines[k])}')
+        print(f'[{k}] 해석됨 L{ln}: {heading_of(ln, lines[k])}')
         for l in lines[k][ln:ln + args.context]:
             if l.strip():
                 print(f'    {l[:160]}')
@@ -296,12 +296,12 @@ def _cmd_verify(args) -> int:
     auto = sum(1 for c in rows if c["automation"] == "automated")
     ev = sum(len(c["evidence"]) for c in rows)
     th = data["thresholds"]
-    print(f'국내 검증 항목 정상 — {len(rows)}건 · 인용 전부 원문에서 해석 · '
+    print(f'규제 기준 검증 항목 정상: {len(rows)}건 · 인용 전부 원문에서 해석 · '
           f'자동 {auto}건의 근거 {ev}개 파일 실재')
-    print(f'계량 임계 {len(th)}건 — 규정보다 느슨한 임계 0건 · 원문 발췌 전부 실재')
+    print(f'계량 임계 {len(th)}건: 규정보다 느슨한 임계 0건 · 원문 발췌 전부 실재')
     from collections import Counter as _C2
     g = _C2(c["governing"] for c in rows)
-    print(f'지배기준 정책 일치 — 국내 {g["국내"]} · 국내+바젤보충 {g["국내+바젤보충"]} '
+    print(f'지배기준 정책 일치: 국내 {g["국내"]} · 국내+바젤보충 {g["국내+바젤보충"]} '
           f'· 바젤 {g["바젤"]}')
     print(f'근거 원문 {len(data["sources"])}종 지문 일치')
     return 0

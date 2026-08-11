@@ -186,7 +186,7 @@
       "criterion": "실행 중단·수동대체 경로가 존재하는가",
       "automation": "manual",
       "evidence": [],
-      "note": "하니스에 kill switch 구현이 없다 — 운영 플랫폼 통제이며 사람 확인 항목으로 남긴다"
+      "note": "하니스에 kill switch 구현이 없다: 운영 플랫폼 통제이며 사람 확인 항목으로 남긴다"
     },
     {
       "req_id": "AIG-010",
@@ -272,7 +272,7 @@
       "criterion": "집계·가공 규칙이 사람이 검토 가능한 형태로 관리되는가",
       "automation": "manual",
       "evidence": [],
-      "note": "Rule Studio 는 플랫폼 기능 — 하니스는 규칙 산출물만 검증한다"
+      "note": "Rule Studio 는 플랫폼 기능: 하니스는 규칙 산출물만 검증한다"
     },
     {
       "req_id": "RDM-003",
@@ -320,7 +320,7 @@
         "데이터",
         "산식"
       ],
-      "criterion": "원천–산출–보고 값이 대사되고 차이가 설명되는가",
+      "criterion": "원천-산출-보고 값이 대사되고 차이가 설명되는가",
       "automation": "automated",
       "evidence": [
         "tools/provenance.py"
@@ -375,7 +375,7 @@
       "criterion": "조회조건이 권한 범위를 넘지 않는가",
       "automation": "manual",
       "evidence": [],
-      "note": "자연어 조회 컴파일러는 플랫폼 기능 — 하니스에 대응 통제가 없다"
+      "note": "자연어 조회 컴파일러는 플랫폼 기능: 하니스에 대응 통제가 없다"
     },
     {
       "req_id": "BNK-CAP-001",
@@ -463,7 +463,7 @@
       "criterion": "신용위험경감의 적격성·법적 확실성이 확인되는가",
       "automation": "manual",
       "evidence": [],
-      "note": "하니스에 CRM 적격성 판정 통제가 없다 — 요청서 가정으로만 넘어온다"
+      "note": "하니스에 CRM 적격성 판정 통제가 없다: 요청서 가정으로만 넘어온다"
     },
     {
       "req_id": "BNK-CRE-004",
@@ -513,7 +513,7 @@
         "방법론",
         "내부통제"
       ],
-      "criterion": "PMA·overlay 와 IRB–ECL 차이가 근거와 함께 설명되는가",
+      "criterion": "PMA·overlay 와 IRB-ECL 차이가 근거와 함께 설명되는가",
       "automation": "automated",
       "evidence": [
         "harness/policies/ifrs9.md"
@@ -624,7 +624,7 @@
       "criterion": "기업 재무모형의 변수 선택·추정이 검증되는가",
       "automation": "manual",
       "evidence": [],
-      "note": "하니스에 기업 재무모형 전용 검증 절차가 없다 — 일반 신용모형 절차로 대체 검토"
+      "note": "하니스에 기업 재무모형 전용 검증 절차가 없다: 일반 신용모형 절차로 대체 검토"
     },
     {
       "req_id": "BNK-CRM-007",
@@ -639,7 +639,7 @@
       "criterion": "비재무·대표자 평가 항목의 근거가 확인되는가",
       "automation": "manual",
       "evidence": [],
-      "note": "정성 평가 항목 — 자동 판정 불가, 사람 검토"
+      "note": "정성 평가 항목: 자동 판정 불가, 사람 검토"
     },
     {
       "req_id": "BNK-CRM-008",
@@ -832,7 +832,7 @@
       "criterion": "한도 저촉 시 경영조치가 연결되는가",
       "automation": "manual",
       "evidence": [],
-      "note": "경영조치 연계는 사람 결재 영역 — 하니스는 저촉 사실만 표시한다"
+      "note": "경영조치 연계는 사람 결재 영역: 하니스는 저촉 사실만 표시한다"
     },
     {
       "req_id": "BNK-ST-006",
@@ -847,7 +847,7 @@
       "criterion": "역스트레스 임계 심도가 산출되고 독립 재산출 여부가 명시되는가",
       "automation": "manual",
       "evidence": [],
-      "note": "시나리오 엔진을 재구현하지 않아 읽어 대조만 한다 — 이월 CO-009 로 공시 중"
+      "note": "시나리오 엔진을 재구현하지 않아 읽어 대조만 한다: 이월 CO-009 로 공시 중"
     },
     {
       "req_id": "BNK-ST-007",
@@ -880,7 +880,7 @@
       "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+      "note": "상업·가격 요건: 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
     },
     {
       "req_id": "COM-002",
@@ -895,7 +895,7 @@
       "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+      "note": "상업·가격 요건: 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
     },
     {
       "req_id": "COM-003",
@@ -910,7 +910,7 @@
       "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+      "note": "상업·가격 요건: 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
     },
     {
       "req_id": "COM-004",
@@ -925,7 +925,7 @@
       "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+      "note": "상업·가격 요건: 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
     },
     {
       "req_id": "COM-005",
@@ -940,7 +940,7 @@
       "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+      "note": "상업·가격 요건: 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
     },
     {
       "req_id": "COM-006",
@@ -955,7 +955,7 @@
       "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+      "note": "상업·가격 요건: 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
     },
     {
       "req_id": "COM-007",
@@ -970,7 +970,7 @@
       "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+      "note": "상업·가격 요건: 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
     },
     {
       "req_id": "COM-008",
@@ -985,7 +985,7 @@
       "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+      "note": "상업·가격 요건: 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
     },
     {
       "req_id": "DAT-001",
@@ -1088,7 +1088,7 @@
       "criterion": "수동조정이 사유·승인자와 함께 원장에 남고 제거 시 결론이 뒤집히는지 확인되는가",
       "automation": "manual",
       "evidence": [],
-      "note": "하니스에 수동조정 원장이 없다 — 적대적 검증 ADV-PROC-04 로만 다룬다"
+      "note": "하니스에 수동조정 원장이 없다: 적대적 검증 ADV-PROC-04 로만 다룬다"
     },
     {
       "req_id": "DAT-007",
@@ -1260,7 +1260,7 @@
       "lens": [
         "내부통제"
       ],
-      "criterion": "변경이 제안–승인–검증–롤백 수명주기로 관리되는가",
+      "criterion": "변경이 제안-승인-검증-롤백 수명주기로 관리되는가",
       "automation": "automated",
       "evidence": [
         "harness/change_manifest.json"
@@ -1299,7 +1299,7 @@
       "criterion": "외부 연계가 read-only 로 제한되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "플랫폼 연계 요건 — 하니스는 연계 결과물만 검증한다"
+      "note": "플랫폼 연계 요건: 하니스는 연계 결과물만 검증한다"
     },
     {
       "req_id": "INT-002",
@@ -1329,7 +1329,7 @@
       "criterion": "계산엔진 어댑터가 산출값을 변형하지 않는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "플랫폼 연계 요건 — 산출값 자체는 GOV-003 으로 검증"
+      "note": "플랫폼 연계 요건: 산출값 자체는 GOV-003 으로 검증"
     },
     {
       "req_id": "INT-004",
@@ -1374,7 +1374,7 @@
       "criterion": "조치 워크플로가 티켓으로 추적되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "플랫폼 연계 요건 — 하니스는 Finding 원장으로 대체 (RDM-007)"
+      "note": "플랫폼 연계 요건: 하니스는 Finding 원장으로 대체 (RDM-007)"
     },
     {
       "req_id": "INT-007",
@@ -1421,7 +1421,7 @@
       "criterion": "배포모델이 승인된 형태인가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "인프라 요건 — 하니스 범위 밖"
+      "note": "인프라 요건: 하니스 범위 밖"
     },
     {
       "req_id": "NFR-002",
@@ -1436,7 +1436,7 @@
       "criterion": "암호화·키관리가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "인프라 요건 — 하니스 범위 밖"
+      "note": "인프라 요건: 하니스 범위 밖"
     },
     {
       "req_id": "NFR-003",
@@ -1504,7 +1504,7 @@
       "criterion": "가용성·복구 목표가 충족되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "인프라 요건 — 하니스 범위 밖"
+      "note": "인프라 요건: 하니스 범위 밖"
     },
     {
       "req_id": "NFR-007",
@@ -1519,7 +1519,7 @@
       "criterion": "확장성 요건이 충족되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "인프라 요건 — 하니스 범위 밖"
+      "note": "인프라 요건: 하니스 범위 밖"
     },
     {
       "req_id": "NFR-008",
@@ -1587,7 +1587,7 @@
       "criterion": "접근성·사용성 기준이 충족되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "UI 요건 — 하니스 범위 밖"
+      "note": "UI 요건: 하니스 범위 밖"
     },
     {
       "req_id": "NFR-012",
@@ -1620,7 +1620,7 @@
       "criterion": "커넥터 보안 요건이 충족되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "플랫폼 구성요소 — 하니스 범위 밖"
+      "note": "플랫폼 구성요소: 하니스 범위 밖"
     },
     {
       "req_id": "PLT-002",
@@ -1635,7 +1635,7 @@
       "criterion": "데이터 마트 구성이 표준 모형을 따르는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "플랫폼 구성요소 — 정의 검증은 DAT-001"
+      "note": "플랫폼 구성요소: 정의 검증은 DAT-001"
     },
     {
       "req_id": "PLT-003",
@@ -1684,7 +1684,7 @@
       "criterion": "시나리오·가격 엔진이 승인된 방법론을 따르는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "플랫폼 구성요소 — 방법론 검증은 GOV-005·GOV-006"
+      "note": "플랫폼 구성요소: 방법론 검증은 GOV-005·GOV-006"
     },
     {
       "req_id": "PLT-006",
@@ -1699,7 +1699,7 @@
       "criterion": "검색증강·에이전트 구성이 통제되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "플랫폼 구성요소 — 권한 통제는 AIG-005"
+      "note": "플랫폼 구성요소: 권한 통제는 AIG-005"
     },
     {
       "req_id": "PLT-007",
@@ -1750,7 +1750,7 @@
       "criterion": "조회조건 컴파일러가 권한을 넘지 않는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "플랫폼 구성요소 — 하니스 범위 밖"
+      "note": "플랫폼 구성요소: 하니스 범위 밖"
     },
     {
       "req_id": "PLT-010",
@@ -1765,7 +1765,7 @@
       "criterion": "정형 UI 가 통제된 스키마만 노출하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "UI 요건 — 하니스 범위 밖"
+      "note": "UI 요건: 하니스 범위 밖"
     },
     {
       "req_id": "PLT-011",
@@ -1780,7 +1780,7 @@
       "criterion": "비정형 UI 구성이 승인 범위를 넘지 않는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "UI 요건 — 하니스 범위 밖"
+      "note": "UI 요건: 하니스 범위 밖"
     },
     {
       "req_id": "PLT-012",
@@ -1795,7 +1795,7 @@
       "criterion": "UI 변경이 검증·승인·롤백을 거치는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "UI 요건 — 변경통제 자체는 NFR-012"
+      "note": "UI 요건: 변경통제 자체는 NFR-012"
     },
     {
       "req_id": "PLT-013",
@@ -1810,7 +1810,7 @@
       "criterion": "미승인 항목·레이아웃이 차단되는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "UI 요건 — 하니스 범위 밖"
+      "note": "UI 요건: 하니스 범위 밖"
     },
     {
       "req_id": "PLT-014",
@@ -1828,7 +1828,7 @@
         "harness/orchestration_matrix.json",
         "tools/run_audit.py"
       ],
-      "note": "부문 08 의 핵심 요건 — 본 하니스의 자기 부문"
+      "note": "부문 08 의 핵심 요건: 본 하니스의 자기 부문"
     },
     {
       "req_id": "PLT-015",
@@ -1861,7 +1861,7 @@
       "criterion": "실행 전 보류와 범위 한정 중단이 가능한가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 플랫폼 요건 — 본 하니스는 은행 부문"
+      "note": "증권 업권 플랫폼 요건: 본 하니스는 은행 부문"
     },
     {
       "req_id": "PLT-017",
@@ -1912,7 +1912,7 @@
       "criterion": "Netting·담보·Exposure 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-CCR-002",
@@ -1927,7 +1927,7 @@
       "criterion": "XVA 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-CCR-003",
@@ -1942,7 +1942,7 @@
       "criterion": "Margin·Collateral 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-LIQ-001",
@@ -1957,7 +1957,7 @@
       "criterion": "Repo·단기조달 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-LIQ-002",
@@ -1972,7 +1972,7 @@
       "criterion": "Liquidity Stress·CFP 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-MKT-001",
@@ -1987,7 +1987,7 @@
       "criterion": "VaR/ES·Stress 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-MKT-002",
@@ -2002,7 +2002,7 @@
       "criterion": "Sensitivities·FRTB형 분석 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-MKT-003",
@@ -2017,7 +2017,7 @@
       "criterion": "P&L Attribution·한도 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-NCR-001",
@@ -2032,7 +2032,7 @@
       "criterion": "적용범위·인가 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-NCR-002",
@@ -2047,7 +2047,7 @@
       "criterion": "영업용순자본 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-NCR-003",
@@ -2062,7 +2062,7 @@
       "criterion": "총위험액 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-NCR-004",
@@ -2077,7 +2077,7 @@
       "criterion": "전월·공시 대사 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-OAI-001",
@@ -2092,7 +2092,7 @@
       "criterion": "운영손실·RCSA/KRI 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-OAI-002",
@@ -2107,7 +2107,7 @@
       "criterion": "AI·모델거버넌스 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-OAI-003",
@@ -2122,7 +2122,7 @@
       "criterion": "Agentic Close Workflow 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-PRC-001",
@@ -2137,7 +2137,7 @@
       "criterion": "시장데이터 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-PRC-002",
@@ -2152,7 +2152,7 @@
       "criterion": "상품명세·Pricing Model 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-PRC-003",
@@ -2167,7 +2167,7 @@
       "criterion": "가격·Greeks 회귀 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-PRC-004",
@@ -2182,7 +2182,7 @@
       "criterion": "Curve·Vol·Calibration 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     },
     {
       "req_id": "SEC-PRC-005",
@@ -2197,7 +2197,7 @@
       "criterion": "IPV·Valuation Adjustment 산출·검증 절차가 기준을 충족하는가",
       "automation": "out_of_scope",
       "evidence": [],
-      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+      "note": "증권 업권 요건: 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
     }
   ]
 }

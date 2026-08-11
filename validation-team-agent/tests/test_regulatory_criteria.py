@@ -1,4 +1,4 @@
-"""규제 기준 검증 항목 원장 검사 — 기준 스택 3층(규정·세칙·바젤).
+"""규제 기준 검증 항목 원장 검사: 기준 스택 3층(규정·세칙·바젤).
 
 인용이 원문에서 해석되는지, 규정 임계와 하니스 임계가 어긋나면 드러나는지,
 그리고 **그 검사들이 실패할 수 있는지**를 함께 고정한다 (ADV-CALC-06).
@@ -65,13 +65,13 @@ def test_gaps_are_named_not_hidden(data):
 
 
 def test_source_index_is_counted_not_asserted(data, lines):
-    """별표·조문·Chapter 수는 원문에서 세서 쓴다 — 손으로 적으면 낡는다."""
+    """별표·조문·Chapter 수는 원문에서 세서 쓴다: 손으로 적으면 낡는다."""
     import re
     for key, meta in data["sources"].items():
         ls = lines[key]
         if key == "바젤":
             assert meta["n_current_chapters"] == gen.count_current_chapters(ls)
-            # 문서가 스스로 밝힌 현행 Chapter 수와 대사한다 — 세는 범위가
+            # 문서가 스스로 밝힌 현행 Chapter 수와 대사한다: 세는 범위가
             # 이름과 어긋나면 여기서 깨진다.
             assert "| Current Chapter | 124 |" in "\n".join(ls).replace(" |", " |")
             assert meta["n_current_chapters"] == 124
@@ -84,7 +84,7 @@ def test_source_index_is_counted_not_asserted(data, lines):
 # ---- 기준 스택 (국내 우선 · 모호하면 바젤)
 
 def test_governing_is_derived_from_the_precedence_policy(data):
-    """지배기준은 손으로 적지 않는다 — 근거와 모호성에서 파생된다."""
+    """지배기준은 손으로 적지 않는다: 근거와 모호성에서 파생된다."""
     for c in data["criteria"]:
         assert c["governing"] == gen.governing_of(
             c["source_key"], c["ambiguous_domestic"]), c["rule_id"]
@@ -92,7 +92,7 @@ def test_governing_is_derived_from_the_precedence_policy(data):
 
 
 def test_domestic_takes_precedence_over_basel(data):
-    """국내 근거 항목은 국내가 지배한다 — 바젤이 국내를 밀어내지 못한다."""
+    """국내 근거 항목은 국내가 지배한다: 바젤이 국내를 밀어내지 못한다."""
     for c in data["criteria"]:
         if c["source_key"] in ("규정", "세칙"):
             assert c["governing"] != "바젤", c["rule_id"]
@@ -108,7 +108,7 @@ def test_basel_governs_only_where_domestic_is_silent(data):
 
 
 def test_ambiguous_domestic_items_point_at_a_basel_chapter(data):
-    """규칙 ③ — 모호하면 바젤로 보충하되, 보충할 Chapter 가 실재해야 한다."""
+    """규칙 ③: 모호하면 바젤로 보충하되, 보충할 Chapter 가 실재해야 한다."""
     amb = [c for c in data["criteria"] if c["ambiguous_domestic"]]
     assert amb
     for c in amb:

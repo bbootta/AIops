@@ -1,7 +1,7 @@
 """도메인 업무요건 → 적합성검증 기준 항목 원장 검사.
 
 근거 실재성이 강제되는지, 그리고 그 검사가 **실패할 수 있는지**를 함께 고정한다
-(적대적 검증 ADV-CALC-06 — 항상 참인 검증은 통제가 아니다).
+(적대적 검증 ADV-CALC-06: 항상 참인 검증은 통제가 아니다).
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ def test_catalog_covers_the_whole_register(data):
 
 
 def test_committed_catalog_matches_the_generator(data):
-    """손으로 고치면 깨진다 — 원문이 바뀌면 생성기를 다시 돌린다."""
+    """손으로 고치면 깨진다: 원문이 바뀌면 생성기를 다시 돌린다."""
     assert data == json.loads(json.dumps(gen.build(), ensure_ascii=False))
 
 

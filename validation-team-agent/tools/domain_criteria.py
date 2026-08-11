@@ -3,7 +3,7 @@
 RYNTA BRD Level 1 요건 131건을 부문·검증관점·기준·자동화 상태로 전개한
 `harness/domain_requirement_criteria.json`을 읽어 조회·집계·검증한다.
 
-`verify`는 근거 실재성을 강제한다 — `automated`로 선언했는데 근거 파일이
+`verify`는 근거 실재성을 강제한다: `automated`로 선언했는데 근거 파일이
 없으면 위반이다. 통과가 곧 구현이 아니라는 규율을 파일 단위로 고정한다.
 
 사용:
@@ -53,10 +53,10 @@ def violations(data: dict, root: Path = ROOT) -> list[str]:
                 out.append(f"{rid}: automated 인데 근거가 0건")
             for p in ev:
                 if not (root / p).exists():
-                    out.append(f"{rid}: 근거 파일 없음 — {p}")
+                    out.append(f"{rid}: 근거 파일 없음: {p}")
         else:
             if ev:
-                out.append(f"{rid}: {auto} 인데 근거가 선언됨 — 통제가 없다는 뜻이어야 한다")
+                out.append(f"{rid}: {auto} 인데 근거가 선언됨: 통제가 없다는 뜻이어야 한다")
             if not c.get("note"):
                 out.append(f"{rid}: {auto} 인데 사유(note)가 비어 있다")
 
@@ -97,7 +97,7 @@ def _cmd_report(args) -> int:
     data = load(args.catalog)
     rows = data["criteria"]
     auto = Counter(c["automation"] for c in rows)
-    print(f'도메인 업무요건 → 적합성검증 기준 항목 — {data["source"]}')
+    print(f'도메인 업무요건 → 적합성검증 기준 항목: {data["source"]}')
     print(f'원문 지문 {data["source_sha256"][:16]}… · 레지스터 {data["source_register"]}')
     print(f'\n총 {len(rows)}건 · 자동 {auto["automated"]} · 수동 {auto["manual"]} '
           f'· 범위밖 {auto["out_of_scope"]}')
@@ -112,7 +112,7 @@ def _cmd_report(args) -> int:
         o = len(sec) - a - m
         print(f'  {code} {name:28s} {len(sec):3d}건 · 자동 {a:3d} · 수동 {m:2d} · 범위밖 {o:3d}')
 
-    print("\n[검증 관점별] (중복 계상 — 한 요건이 여러 관점을 가진다)")
+    print("\n[검증 관점별] (중복 계상: 한 요건이 여러 관점을 가진다)")
     lens = Counter(l for c in rows for l in c["lens"])
     for l in data["lenses"]:
         print(f'  {l:6s} {lens.get(l, 0):3d}건')
@@ -124,9 +124,9 @@ def _cmd_report(args) -> int:
 
     manual = [c for c in rows if c["automation"] == "manual"]
     if manual:
-        print(f"\n[사람 검토로 남은 항목 {len(manual)}건 — 통제 공백]")
+        print(f"\n[사람 검토로 남은 항목 {len(manual)}건: 통제 공백]")
         for c in manual:
-            print(f'  {c["req_id"]:14s} {c["title"]} — {c["note"]}')
+            print(f'  {c["req_id"]:14s} {c["title"]}: {c["note"]}')
     print("\n> 자동 통제가 있다는 것이 요건을 다 덮는다는 뜻은 아니다. 범위밖은 "
           "은행 8부문 검증 범위 밖이라는 선언이며 요건이 불필요하다는 뜻이 아니다.")
     return 0
@@ -143,7 +143,7 @@ def _cmd_verify(args) -> int:
     rows = data["criteria"]
     auto = sum(1 for c in rows if c["automation"] == "automated")
     ev = sum(len(c["evidence"]) for c in rows)
-    print(f"기준 항목 정상 — {len(rows)}건 · 자동 {auto}건의 근거 {ev}개 파일 전부 실재")
+    print(f"기준 항목 정상: {len(rows)}건 · 자동 {auto}건의 근거 {ev}개 파일 전부 실재")
     return 0
 
 
