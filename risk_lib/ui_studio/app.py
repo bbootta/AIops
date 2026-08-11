@@ -7857,8 +7857,8 @@ function instRowPairs(frameName,code){
   const i=frameIdx(f);
   const hit=f.rows.find(r=>r[i.institution_code]===code);
   if(!hit)return null;
-  return {frame:f,pairs:f.columns.map((c,k)=>[
-    (f.labels&&f.labels[k])||c, hit[k]===null?'-':hit[k]])};
+  return f.columns.map((c,k)=>[
+    (f.labels&&f.labels[k])||c, hit[k]===null?'-':hit[k]]);
 }
 
 function institutions(root){
@@ -7882,10 +7882,10 @@ function institutions(root){
   cur.appendChild(bar);
   const m=instRowPairs('inst_master',code);
   if(m){cur.appendChild(el('h4',null,'기관 원장 (inst_master)'));
-    cur.appendChild(simpleTable(['항목','값'],m.pairs));}
+    cur.appendChild(simpleTable(['항목','값'],m));}
   const p=instRowPairs('inst_profile',code);
   if(p){cur.appendChild(el('h4',null,'기관 프로파일 (inst_profile)'));
-    cur.appendChild(simpleTable(['항목','값'],p.pairs));}
+    cur.appendChild(simpleTable(['항목','값'],p));}
   if(!m&&!p)cur.appendChild(el('div','note',
     '선택 기관의 원장 행이 payload 에 없다'));
   cur.appendChild(el('div','meta',
@@ -8741,26 +8741,18 @@ window.__RYNTA_I18N__={json.dumps(_i18n.payload(), ensure_ascii=False,
 def write_app(s: Studio | list[Studio], path: str | Path) -> Path:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    text = render(s)
-    p.write_text(text, encoding="utf-8")
+    p.write_text(render(s), encoding="utf-8")
     n = p.stat().st_size
     if n > DEPLOY_SIZE_LIMIT:
         # 자르지 않는다. 화면이 조용히 줄어들면 "전량"이라 적힌 표가 실제로는
         # 일부만 실은 상태가 되고, 그 사실이 화면 어디에도 남지 않는다.
         # 배포가 안 되는 것은 눈에 띄지만 조용히 잘린 원장은 눈에 띄지 않는다.
+        n_runs = 1 if isinstance(s, Studio) else len(list(s))
         warnings.warn(
             f"UI 스튜디오 HTML 이 {n/1024/1024:.1f}MB 로 배포 상한 "
             f"{DEPLOY_SIZE_LIMIT/1024/1024:.0f}MB 를 넘었다. 실은 실행 "
-            f"{sum(len(r) for r in _loaded_runs(s))}건. 싣는 실행 수를 줄이거나 "
-            f"행 예산(INTERACTIVE_ROWS·INTERACTIVE_ROWS_DEMO)을 낮춰야 하며, "
+            f"{n_runs}건. 싣는 실행 수를 줄이거나 행 예산"
+            f"(INTERACTIVE_ROWS·INTERACTIVE_ROWS_DEMO)을 낮춰야 하며, "
             f"어느 쪽을 줄일지는 사람이 정한다.",
             stacklevel=2)
     return p
-
-
-def _loaded_runs(s: Studio | list[Studio]) -> list[list[Studio]]:
-    ss = [s] if isinstance(s, Studio) else list(s)
-    by: dict[str, list[Studio]] = {}
-    for x in ss:
-        by.setdefault(x.institution_code, []).append(x)
-    return list(by.values())
