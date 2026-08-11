@@ -1944,7 +1944,8 @@ def run_multi_institution(
       완충자본·요구수익률·산출하한·시장운영 모수  `inst_profile`
 
     돌리는 순서는 기관 원장의 등록 순서이며 기관 간 상태를 공유하지 않는다.
-    같은 (asof, seed) 로 몇 번을 돌려도 같은 값이 나온다.
+    같은 (asof, seed) 로 몇 번을 돌려도 같은 값이 나온다. `asof` 에 기본값을
+    둔 것은 벽시계를 타지 않기 위해서다. 보고기준일은 호출자가 정한다.
     """
     import time
     from risk_lib import data_gen_intl as intl

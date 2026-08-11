@@ -311,12 +311,18 @@ def test_model_discrimination_failures_are_surfaced_not_swallowed(multi):
 
 
 def test_headline_is_one_row_per_institution_with_no_total(multi):
+    """규제자본은 기관 단위 지표다. 통화가 다른 기관을 더한 수는 뜻이 없다."""
     h = multi.headline
     assert list(h["institution_code"]) == list(_SAMPLE)
-    assert h["institution_code"].is_unique
-    # 합계 행을 만들면 통화가 다른 기관을 더한 수가 화면에 오른다.
-    assert not h["institution_code"].astype(str).str.contains(
-        "합계|TOTAL|total", case=False).any()
+    assert len(h) == len(multi.runs) == len(_SAMPLE)
+    # 각 행의 금액은 그 기관 포트폴리오만으로 설명돼야 한다. 기관이 섞이면
+    # 여기서 갈린다.
+    for r in h.itertuples():
+        run = multi.runs[r.institution_code]
+        assert float(r.total_ead) == pytest.approx(
+            float(run.portfolio["ead"].sum()))
+        assert float(r.ecl_total) == pytest.approx(
+            float(run.result.ecl["total"]))
 
 
 def test_institutions_produce_different_capital_outcomes(multi):
