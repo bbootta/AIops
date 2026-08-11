@@ -88,26 +88,18 @@ def test_pipeline_source_carries_no_discount_rate_literal():
         "잠정 준용 함수에 소수 리터럴이 있다. 값은 원장에서 읽어야 한다")
 
 
-def test_no_reference_value_means_no_rate_and_a_stated_reason():
+def test_no_reference_value_means_no_rate_and_a_stated_reason(monkeypatch):
     """근거가 없으면 값을 넣지 않는다. 조용히 건너뛰지도 않는다."""
-    from risk_lib.models.estimation import build_crm_lgd_discount_rate
+    import risk_lib.models.estimation as est
     from risk_lib import pipeline
 
-    blank = build_crm_lgd_discount_rate(ASOF)
+    blank = est.build_crm_lgd_discount_rate(ASOF)
     blank["reference_value"] = float("nan")
-    orig = pipeline.build_crm_lgd_discount_rate if hasattr(
-        pipeline, "build_crm_lgd_discount_rate") else None
-    assert orig is None  # 파이프라인은 함수 안에서 import 한다
-
-    import risk_lib.models.estimation as est
-    real = est.build_crm_lgd_discount_rate
-    est.build_crm_lgd_discount_rate = lambda asof, *a, **k: blank
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            rates, warns = pipeline._provisional_discount_rates(ASOF)
-    finally:
-        est.build_crm_lgd_discount_rate = real
+    monkeypatch.setattr(est, "build_crm_lgd_discount_rate",
+                        lambda asof, *a, **k: blank)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        rates, warns = pipeline._provisional_discount_rates(ASOF)
 
     assert rates["discount_rate"].isna().all(), "참고치가 없는데 값이 들어갔다"
     assert warns and all("참고치가 없어" in w for w in warns), warns
