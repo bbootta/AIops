@@ -257,24 +257,29 @@ def _rng_seeded_functions(trees) -> dict[str, tuple[str, int | None]]:
                 if not isinstance(arg, ast.Name):
                     continue
                 if arg.id in pos:
-                    k = pos.index(arg.id) - (len(pos) - len(a.defaults))
+                    idx = pos.index(arg.id)
+                    k = idx - (len(pos) - len(a.defaults))
+                    if pos[:1] in (["self"], ["cls"]):
+                        idx = None       # 메서드는 위치가 한 칸 밀린다. 안 센다
                     dflt = a.defaults[k] if k >= 0 else None
                 elif arg.id in kwo:
+                    idx = None           # 키워드로만 넘길 수 있다
                     dflt = a.kw_defaults[kwo.index(arg.id)]
                 else:
                     continue
                 lit = (dflt.value if isinstance(dflt, ast.Constant)
                        and isinstance(dflt.value, int) else None)
-                out[fn.name] = (arg.id, lit)
+                out[fn.name] = (arg.id, lit, idx)
     return out
 
 
 def _scan_literal_seed_sites(trees=None) -> dict[str, list[str]]:
     """리터럴 정수 시드가 난수기에 닿는 자리 → 그 자리의 `파일:행` 목록.
 
-    잡는 형태는 셋이다.
+    잡는 형태는 넷이다.
       - `default_rng(<정수>)`, 절대 시드를 직접 연다
       - `f(..., seed=<정수>)`, 시드 파라미터에 리터럴을 넘긴다
+      - `f(..., <정수>)`, 같은 자리를 위치인자로 넘긴다
       - `f(...)` 에서 시드 생략, 리터럴 기본값이 그대로 시드가 된다
     `params.get("seed", 42)` 처럼 값이 리터럴이 아닌 자리는 잡지 않는다.
     그 자리는 시드를 **읽는** 것이지 박은 것이 아니다.
@@ -305,8 +310,10 @@ def _scan_literal_seed_sites(trees=None) -> dict[str, list[str]]:
                 continue
             if name not in seeded:
                 continue
-            param, lit = seeded[name]
+            param, lit, idx = seeded[name]
             given = {k.arg: k.value for k in node.keywords}.get(param)
+            if given is None and idx is not None and len(node.args) > idx:
+                given = node.args[idx]   # 위치인자로 넘긴 시드도 시드다
             if given is None:
                 if lit is not None:      # 생략 → 리터럴 기본값이 시드가 된다
                     _add(f"{rel} · {name}({param}={lit} 기본)", path, node.lineno)
@@ -350,15 +357,16 @@ def opens(df, seed: int = 7):
 def caller(df, a):
     np.random.default_rng(31337)
     opens(df, seed=99)
+    opens(df, 55)
     opens(df)
     opens(df, seed=a + 1)
 '''
 
 
-def test_the_scan_reads_all_three_literal_seed_forms():
-    """세 형태를 다 읽는지 합성 조각으로 본다. 소스 사정과 무관하게 성립한다.
+def test_the_scan_reads_every_literal_seed_form():
+    """네 형태를 다 읽는지 합성 조각으로 본다. 소스 사정과 무관하게 성립한다.
 
-    이전 훑기는 `default_rng(시드 + 오프셋)` 만 읽어 아래 셋을 전부 놓쳤고,
+    이전 훑기는 `default_rng(시드 + 오프셋)` 만 읽어 아래 넷을 전부 놓쳤고,
     놓친 자리는 시험에 잡히지 않은 채 전 기관이 공유하는 스트림이 됐다.
     """
     import ast
@@ -367,8 +375,9 @@ def test_the_scan_reads_all_three_literal_seed_forms():
         {_RISK_LIB / "_scan_probe.py": ast.parse(_SCAN_PROBE)})
     assert set(got) == {
         "risk_lib/_scan_probe.py · default_rng(31337)",     # 절대 시드
-        "risk_lib/_scan_probe.py · opens(seed=99)",         # 인자에 리터럴
-        "risk_lib/_scan_probe.py · opens(seed=7 기본)",      # 생략 → 리터럴 기본값
+        "risk_lib/_scan_probe.py · opens(seed=99)",         # 키워드 리터럴
+        "risk_lib/_scan_probe.py · opens(seed=55)",         # 위치인자 리터럴
+        "risk_lib/_scan_probe.py · opens(seed=7 기본)",      # 생략 시 기본값
     }, got
     # `seed=a + 1` 은 리터럴이 아니다. 호출자가 넘긴 값을 타므로 잡지 않는다.
 
