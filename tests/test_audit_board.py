@@ -162,7 +162,7 @@ def test_board_pack_rwa_table_lists_every_identity_term(tmp_path, result):
     shares = [float(x) for x in re.findall(r">(\d+\.\d)%<", block)]
     listed = sum(s for s in shares if s != 100.0)
     assert listed == pytest.approx(100.0, abs=0.3), (
-        f"열거된 비중 합 {listed:.1f}% — 합계만 100%로 닫으면 빠진 몫이 숨는다")
+        f"열거된 비중 합 {listed:.1f}%. 합계만 100%로 닫으면 빠진 몫이 숨는다")
 
 
 def test_board_pack_includes_abbreviation_dict(tmp_path, result):

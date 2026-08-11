@@ -275,7 +275,7 @@ def test_pillar3_ov1_sums_to_total(result):
 def test_pillar3_ov1_reports_each_sector_instead_of_a_residual(result):
     """OV1 부문 줄이 산출 결과의 해당 항과 같아야 한다.
 
-    합계만 닫는 검사는 잔차식을 잡지 못한다 — CCR·증권화를 "없음 0"으로
+    합계만 닫는 검사는 잔차식을 잡지 못한다. CCR·증권화를 "없음 0"으로
     적고 그 합을 Output floor 가산 줄에 넣어도 합계는 그대로 닫혔다.
     실제로 그렇게 공시된 회차가 있었다(CCR/CVA 0 · 증권화 0 · floor 4.15조,
     같은 실행의 rwa_output_floor.csv uplift 는 0). 줄마다 원천을 대조한다.
@@ -298,7 +298,7 @@ def test_pillar3_ov1_reports_each_sector_instead_of_a_residual(result):
     # "없음" 으로 적힌 부문이 없다. 산출된 값을 0으로 적으면 공시가 틀린다.
     assert not [s for s in v if "없음" in s]
     for sector in ("CCR/CVA", "집합투자증권 (CRE60)", "증권화 (CRE40)"):
-        assert v[sector] > 0.0, f"{sector} 가 0이다 — 산출값과 대조하라"
+        assert v[sector] > 0.0, f"{sector} 가 0이다. 산출값과 대조하라"
 
 
 # ---- html_report integration --------------------------------------------

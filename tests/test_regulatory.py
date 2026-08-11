@@ -380,11 +380,11 @@ def test_overseas_allocated_lines_are_not_reported_as_measured(built):
         for ln in f.lines:
             if ln.unit == "KRW" and any(n in ln.line_name for n in allocated):
                 assert line_basis(ln) != BASIS_MEASURED, (
-                    f"{form_id}/{ln.line_code} {ln.line_name} — 배분값이 "
+                    f"{form_id}/{ln.line_code} {ln.line_name}: 배분값이 "
                     f"실측으로 분류된다")
         for code in codes:
             assert line_basis(by_code[code]) != BASIS_MEASURED, (
-                f"{form_id}/{code} — 배분자본 ÷ 배분RWA 인데 실측으로 분류된다")
+                f"{form_id}/{code}: 배분자본 ÷ 배분RWA 인데 실측으로 분류된다")
 
         # 신용리스크는 소재국 실측이다. 전부 배분으로 낮춰 적어도 안 된다.
         credit = next(ln for ln in f.lines if "신용리스크 (실측)" in ln.line_name)
