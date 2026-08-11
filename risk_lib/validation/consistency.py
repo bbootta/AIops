@@ -1290,12 +1290,19 @@ def _check_capital_source(capital_source: str | None, capital: Any,
     F-202 가 가리키는 상태는 합성기를 쓸 때보다 오히려 강하다. 그것을 "합성기
     미사용" PASS 로 적으면 검사가 잡으려던 상태에서 검사가 꺼진다. 자본의
     산출근거(`capital_basis`)를 함께 받아 그 경우를 WARN 으로 남긴다.
+
+    산출근거가 아예 오지 않은 경우도 PASS 로 두지 않는다. 이 검사가 답해야
+    하는 물음은 "합성기 함수를 호출했는가" 가 아니라 "이 값이 어디서 왔는가"
+    인데, 근거가 비어 있으면 뒤쪽을 말할 수 없다. 말할 수 없는 것을 PASS 로
+    적으면 그 문장이 자체검증 요약을 타고 독립검증 요청서까지 그대로 실린다.
     """
     if capital_source is None or capital is None:
         return
     if capital_source == "ledger":
+        cet1 = float(getattr(capital, "cet1", 0.0))
+        ratio = (f" (CET1/총익스포저 {cet1 / float(total_ead):.3f})"
+                 if total_ead else "")
         if capital_basis == RATIO_TO_EAD_BASIS:
-            cet1 = float(getattr(capital, "cet1", 0.0))
             detail = ("자본 원장 주입이나 산출근거가 총익스포저 비율이다. "
                       "규모 비례분 100%")
             if total_ead:
@@ -1303,10 +1310,17 @@ def _check_capital_source(capital_source: str | None, capital: Any,
             detail += ". 레버리지 반응성이 소멸한다 (F-201·F-202)"
             report.add(ConsistencyCheck("capital_source", "WARN", detail))
             return
+        if not capital_basis:
+            report.add(ConsistencyCheck(
+                "capital_source", "WARN",
+                "자본 원장 주입이나 산출근거가 기재되지 않았다. 이 값이 실측 "
+                f"자본인지 비율로 만든 값인지 이 결과로는 말할 수 없다{ratio}. "
+                "주입한 쪽이 capital_basis 를 함께 넘겨야 한다 "
+                "(F-201·F-202)"))
+            return
         report.add(ConsistencyCheck(
             "capital_source", "PASS",
-            "자본 원장 주입 (합성기 미사용) · 산출근거 "
-            f"{capital_basis or '미기재'}"))
+            f"자본 원장 주입 · 산출근거 {capital_basis}{ratio}"))
         return
     cet1 = float(getattr(capital, "cet1", 0.0))
     if cet1 <= 0:

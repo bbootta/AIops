@@ -259,6 +259,45 @@ def test_domestic_sample_keeps_the_profitability_fallback():
     assert gi.capital_ledger_for(gi.BASE_INSTITUTION, 1.0e13) is None
 
 
+def _capital_source_check(stack, basis):
+    from risk_lib.validation.consistency import (
+        ValidationReport, _check_capital_source)
+    rep = ValidationReport()
+    _check_capital_source("ledger", stack, 1.0e13, rep, basis)
+    hit = [c for c in rep.checks if c.name == "capital_source"]
+    assert len(hit) == 1, basis
+    return hit[0]
+
+
+def test_ratio_built_capital_is_not_recorded_as_an_observed_ledger():
+    """원장에서 왔다는 것만으로 capital_source 가 PASS 로 꺼지면 안 된다.
+
+    이 원장의 자본은 `cet1_to_ead` × 총익스포저라 규모 비례분이 100% 다.
+    독립검증 F-201·F-202 가 가리키는 상태가 가장 강할 때 검사가 PASS 로
+    꺼지면 그 검사는 그 상태를 한 번도 드러내지 못한다. 산출근거를 아예 안
+    넘긴 실행도 마찬가지다. 통과시키면 근거를 생략하는 것이 검사를 끄는
+    가장 쉬운 길이 된다.
+    """
+    from risk_lib.validation.consistency import RATIO_TO_EAD_BASIS
+    assert gi.CAPITAL_BASIS == RATIO_TO_EAD_BASIS
+    stack = gi.capital_ledger_for("EU_BANK_01", 1.0e13)
+
+    by_ratio = _capital_source_check(stack, gi.CAPITAL_BASIS)
+    assert by_ratio.status == "WARN"
+    assert "규모 비례분 100%" in by_ratio.detail
+
+    blank = _capital_source_check(stack, None)
+    assert blank.status == "WARN"
+    for phrase in ("합성기 미사용", "실제 자본 원장"):
+        assert phrase not in blank.detail
+        assert phrase not in by_ratio.detail
+
+    # 근거를 댈 수 있는 주입만 통과하고, 통과할 때도 그 근거를 적는다.
+    named = _capital_source_check(stack, "감독제출_자본원장")
+    assert named.status == "PASS"
+    assert "감독제출_자본원장" in named.detail
+
+
 def test_pipeline_defaults_read_the_ledger_not_a_literal():
     """`run_pipeline` 기본 완충자본은 원장의 국내 표본 행과 같아야 한다."""
     import inspect
