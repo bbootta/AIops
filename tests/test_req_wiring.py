@@ -68,11 +68,13 @@ def test_every_new_ledger_spec_is_registered_or_excluded_with_a_reason():
         f"카탈로그에 등재도 사유 기재도 없는 스펙: {undocumented}")
 
     # 사유가 적혀 있다고 아무 테이블이나 빼도 되는 것은 아니다. 이번 회차에
-    # 뺀 것은 폐지된 2014년 체계 6장과 입력 원천이 없는 자동금리옵션 2장뿐이다.
+    # 뺀 것은 폐지된 2014년 체계 6장과 입력 원천이 없는 자동금리옵션 2장,
+    # 그리고 아직 산출 엔진이 채우지 않는 기관 원장 1장이다.
     assert unregistered == {
         "kr_irrbb_bucket", "kr_irrbb_gap", "kr_irrbb_result",
         "kr_irrbb_shock_param", "kr_core_deposit", "kr_core_deposit_weight",
         "kr_auto_option", "kr_auto_option_risk",
+        "inst_master",
     }, f"미등재 집합이 바뀌었다: {sorted(unregistered)}"
 
 

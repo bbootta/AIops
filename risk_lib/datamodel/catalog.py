@@ -2669,6 +2669,11 @@ ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
 
 # ---------------------------------------------------------------- 기관코드 축
 #
+# 기관 원장 `inst_master` (risk_lib.institutions.INST_MASTER) 는 ALL_TABLES 에
+# 넣지 않는다. 산출 엔진이 아직 이 원장을 만들지 않고, 계보(lineage)·문서 수량
+# 검사가 ALL_TABLES 를 그대로 세기 때문이다. 원장을 채우는 쪽이 붙을 때 함께
+# 등재한다.
+#
 # 기관 축을 적용한 카탈로그는 `ALL_TABLES` 에서 파생한다. 원본을 그 자리에서
 # 바꾸지 않는 이유는 두 가지다.
 #   - 지금 실체화되는 원장에는 institution_code 컬럼이 아직 없다. 스펙만 먼저
