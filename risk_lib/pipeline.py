@@ -1935,7 +1935,6 @@ def run_multi_institution(
     seed: int = 42,
     asof: str = "2025-12-31",
     ledgers: "dict[str, pd.DataFrame] | None" = None,
-    on_progress: "Any" = None,
 ) -> MultiInstitutionResult:
     """등록된 기관 전부(또는 `codes`)에 대해 파이프라인을 돌린다.
 
@@ -1996,8 +1995,6 @@ def run_multi_institution(
             "n_checks": int(len(res.validation.checks)),
             "passes": bool(run.passes()),
         })
-        if on_progress is not None:
-            on_progress(code, elapsed, s)
 
     timing = pd.DataFrame([{"institution_code": c, "elapsed_sec": r.elapsed_sec}
                            for c, r in runs.items()])
