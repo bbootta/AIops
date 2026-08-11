@@ -108,6 +108,7 @@ def payload(debug: bool = False) -> dict:
 
 _m(
     app_title='에이전틱 UI 스튜디오||Agentic UI Studio',
+    hdr_institution='기관||Institution',
     hdr_asof='기준일||As-of date',
     hdr_digest='지문||Digest',
     hdr_seed='시드||Seed',
@@ -196,6 +197,7 @@ _m(
     nav_datamodel='데이터모델||Data model',
     nav_req_trace='요건 추적||Requirement traceability',
     nav_settings='⚙ 설정||⚙ Settings',
+    nav_institution='기관 설정||Institution setup',
     nav_source_contract='원천·계약||Source contracts',
     nav_dq='DQ·대사||DQ and reconciliation',
     nav_exception='예외·조치||Exceptions and actions',
@@ -1489,6 +1491,34 @@ _t("settings",
    '집합투자증권 (LTA · MBA · Fallback, CRE60)||Collective investment undertakings (look-through, mandate-based, fallback, CRE60)',
    '방법론 변경 제안||Propose a methodology change',
    '제안 생성||Create proposal',
+)
+
+# 기관 설정 (기관 축). 기관명·권역·업권 같은 **원장 값**은 여기 넣지 않는다.
+# 옮기면 화면의 이름과 inst_master 의 이름이 갈라진다. 여기 있는 것은 화면이
+# 지은 이름뿐이다.
+_t("inst",
+   '⚙ · 기관 설정 (권역 · 유형 · 규제체계 · 데이터 출처)||⚙, institution setup (region, type, regulatory regime, data origin)',
+   '기관 전환은 미리 산출해 실은 실행 사이의 전환이다. 화면은 다른 기관의 산출을 만들지 못하며, 새 기관 산출은 파이프라인 재실행으로만 생긴다. 보고통화가 기관마다 다르고 환율 근거가 없어 통화 환산을 하지 않았으므로 기관 간 금액은 비교하거나 합산하지 않는다.||Switching institution moves between runs that were calculated and loaded in advance. The screen cannot produce figures for another institution, and a new institution run is created only by re-running the pipeline. Reporting currencies differ by institution and no exchange rate basis is held here, so no currency conversion was applied and amounts are neither compared nor added across institutions.',
+   '선택 기관||Selected institution',
+   '기관 원장 (inst_master)||Institution master (inst_master)',
+   '기관 프로파일 (inst_profile)||Institution profile (inst_profile)',
+   '선택 기관의 원장 행이 payload 에 없다||The ledger row for the selected institution is not in the payload',
+   '데이터 출처가 합성인 기관은 실존 기관의 수치가 아니라 업권 유형의 공개된 성격을 모수로 옮긴 가상 기관이다. 국내 표본 기관의 실명과 규모 구분은 근거가 없어 채우지 않았고 근거 상태를 미확인으로 두었다.||An institution whose data origin is synthetic is not an actual institution. It is a fictitious institution built by turning publicly known characteristics of a business type into parameters. The real name and size tier of the domestic sample institution were left empty for lack of a basis, and its evidence status is recorded as unconfirmed.',
+   '기관별 실린 산출||Runs loaded by institution',
+   '선택기에는 산출이 실린 기관만 올라간다. 원장에 있어도 산출이 실리지 않은 기관은 고를 수 없다.||Only institutions whose runs are loaded appear in the selector. An institution present in the ledger but without a loaded run cannot be selected.',
+   '기관코드||Institution code',
+   '기관명||Institution name',
+   '권역||Region',
+   '규제체계||Regulatory regime',
+   '보고통화||Reporting currency',
+   '데이터 출처||Data origin',
+   '실린 기준일||As-of dates loaded',
+   '산출 미적재||No run loaded',
+   '기관 원장||Institution master ledger',
+   '기관 프로파일 원장||Institution profile ledger',
+   '기관별 자산군 구성||Asset class mix by institution',
+   '기관별 국가 구성||Country mix by institution',
+   '라벨 어휘집||Label lexicon',
 )
 
 _t("commercial",

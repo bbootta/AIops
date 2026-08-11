@@ -10,6 +10,7 @@ from __future__ import annotations
 import html
 import json
 import math
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -17,12 +18,19 @@ import pandas as pd
 
 from risk_lib.datamodel import catalog as cat
 from risk_lib import commercial as _com
+from risk_lib import data_gen_intl as _intl
 from risk_lib.ui_studio import i18n as _i18n
 from risk_lib.ui_studio.req_trace import build_trace as _req_rows
 from risk_lib.ui_studio.req_trace import coverage as _req_coverage
 from risk_lib.ui_studio.studio import DEMO_PROMPTS, DEMO_QUERIES, Studio
 
 PREVIEW_ROWS = 12
+
+# 배포 상한. 이 파일이 이 크기를 넘으면 아티팩트로 올라가지 않는다. 실행
+# 하나가 대략 10MB 이므로 (기관 × 기준일) 두 벌부터 이미 상한을 넘는다.
+# 넘겼을 때 화면을 자동으로 줄이지 않고 경고만 남긴다. 무엇을 줄일지는
+# 사람이 정할 일이고, 조용히 줄인 원장은 화면에 흔적이 남지 않는다.
+DEPLOY_SIZE_LIMIT = 16 * 1024 * 1024
 
 # 화면 안에서 조회·필터를 실제로 돌리기 위한 행 예산. 시연 대상 테이블은
 # 넉넉히, 나머지는 미리보기 수준으로만 싣는다.
@@ -123,6 +131,16 @@ def _cell(v):
 # 전역 사전이 아니라 테이블별로 푼다.
 _SPEC_BY_NAME = {sp.name: sp for sp in cat.ALL_TABLES}
 
+# 기관 축 원장 5장은 `catalog.ALL_TABLES` 밖이다(미등재 사유는 카탈로그 소스에
+# 적혀 있다). 표시명 조회에만 더한다. 카탈로그 수량·실체화 판정에는 넣지
+# 않는다. 여기 없으면 기관 설정 화면의 열 머리가 전부 물리명으로 떨어진다.
+_INST_SPECS = (_intl.INST_MASTER_INTL, _intl.INST_PROFILE,
+               _intl.INST_PORTFOLIO_MIX, _intl.INST_COUNTRY_MIX,
+               _intl.INTL_LABEL_LEXICON)
+_INST_TABLES = tuple(sp.name for sp in _INST_SPECS)
+for _sp in _INST_SPECS:
+    _SPEC_BY_NAME.setdefault(_sp.name, _sp)
+
 
 def _labels(table: str | None, columns: list[str]) -> list[str | None]:
     sp = _SPEC_BY_NAME.get(table or "")
@@ -157,6 +175,32 @@ def _adj_frame(s: Studio) -> pd.DataFrame:
         "requester": a.requester, "approver": a.approver,
         "expires_on": a.expires_on, "status": a.status,
     } for a in led.adjustments])
+
+
+def _institution(s: Studio) -> dict:
+    """기관 축 원장 조각. 화면의 기관 선택기·기관 설정 화면이 여기만 읽는다.
+
+    선택 기관의 마스터·프로파일 행은 따로 뽑아 준다. 화면에서 원장을 다시
+    걸러 찾게 하면 같은 조회가 화면마다 한 벌씩 생기고, 그중 하나가 다른
+    기관의 행을 집으면 화면에 남는 흔적이 없다.
+    """
+    t = s.tables
+    code = s.institution_code
+    out: dict = {"code": code, "master_row": {}, "profile_row": {},
+                 "tables": {}}
+    for name in _INST_TABLES:
+        df = t.get(name)
+        if isinstance(df, pd.DataFrame):
+            out["tables"][name] = _frame(df, 200, table=name)
+    for key, name in (("master_row", _intl.INST_MASTER_INTL.name),
+                      ("profile_row", _intl.INST_PROFILE.name)):
+        df = t.get(name)
+        if isinstance(df, pd.DataFrame) and "institution_code" in df.columns:
+            hit = df[df["institution_code"] == code]
+            if len(hit):
+                out[key] = {str(k): _cell(v)
+                            for k, v in hit.iloc[0].items()}
+    return out
 
 
 def _reverse_dict(s: Studio) -> dict:
@@ -698,6 +742,7 @@ def _payload(s: Studio) -> dict:
     return {
         "meta": {
             "asof": s.asof, "run_id": s.run_id, "digest": s.digest,
+            "institution_code": s.institution_code,
             "seed": s.result.meta.get("seed", 42),
             "n_tables": len(cat.ALL_TABLES),
             "n_columns": sum(len(sp.columns) for sp in cat.ALL_TABLES),
@@ -705,6 +750,8 @@ def _payload(s: Studio) -> dict:
                               if isinstance(df, pd.DataFrame))),
         },
         "kpis": _kpis(s),
+        # 기관 축 원장. 선택기와 기관 설정 화면의 연결 원장이다.
+        "institution": _institution(s),
         # 경영진 요약. html_exec와 같은 생성기에서 나온다 (02_reports/executive.html).
         "executive": _executive_dict(s),
         "catalog": catalog_rows,
@@ -878,7 +925,8 @@ display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 padding:4px 9px;font-size:10.5px;font-weight:650;letter-spacing:.03em;
 color:var(--muted)}
 label.hchip{display:inline-flex;align-items:center;gap:5px}
-.asofsel{padding:1px 5px;font-size:11px;border-radius:5px}
+.asofsel,.instsel{padding:1px 5px;font-size:11px;border-radius:5px}
+.instsel{max-width:26ch}
 /* 화면 밝기 토글은 비상정지 버튼 왼쪽에 붙는다. 오른쪽 끝 여백을 이 버튼이
    먼저 차지하고 비상정지가 그 뒤에 온다. */
 /* 언어 전환이 밝기 토글 왼쪽에 붙는다. 오른쪽 끝 여백은 둘 중 앞선 것이
@@ -1083,7 +1131,12 @@ color:var(--muted);max-width:92ch}
 """
 
 _JS = r"""
-const RUNS = window.__RYNTA_RUNS__;
+/* 실린 산출은 (기관, 기준일) 두 축이다. INSTS 가 기관코드 → 기준일 → 실행이고
+   RUNS 는 **선택된 기관의** 기준일 축이다. 기관을 바꾸면 RUNS 가 그 기관의
+   축으로 통째로 바뀐다. 두 선택기 모두 미리 산출해 실은 실행 사이를 오갈
+   뿐이며 화면은 새 산출을 만들지 못한다. */
+let RUNS = window.__RYNTA_RUNS__;
+const INSTS = window.__RYNTA_INSTS__ || {};
 let D = window.__RYNTA__;               /* 활성 실행 (기준일 전환 시 재지정) */
 const $ = (s,r=document)=>r.querySelector(s);
 
@@ -7794,6 +7847,83 @@ function methodology(root){
   root.appendChild(c3);
 }
 
+/* ---- 기관 설정 (기관 축 원장) --------------------------------------------
+   화면이 기관 값을 짓지 않는다. 표시되는 것은 전부 inst_master·inst_profile·
+   inst_portfolio_mix·inst_country_mix·intl_label_lexicon 원장의 행이고,
+   컬럼 표시명도 그 스펙에서 온다. */
+function instRowPairs(frameName,code){
+  const f=instFrame(frameName);
+  if(!f)return null;
+  const i=frameIdx(f);
+  const hit=f.rows.find(r=>r[i.institution_code]===code);
+  if(!hit)return null;
+  return {frame:f,pairs:f.columns.map((c,k)=>[
+    (f.labels&&f.labels[k])||c, hit[k]===null?'-':hit[k]])};
+}
+
+function institutions(root){
+  root.appendChild(el('p','lead',
+    '기관 전환은 미리 산출해 실은 실행 사이의 전환이다. 화면은 다른 기관의 '+
+    '산출을 만들지 못하며, 새 기관 산출은 파이프라인 재실행으로만 생긴다. '+
+    '보고통화가 기관마다 다르고 환율 근거가 없어 통화 환산을 하지 않았으므로 '+
+    '기관 간 금액은 비교하거나 합산하지 않는다.'));
+
+  const code=D.meta.institution_code;
+
+  /* 선택 기관 상세. 마스터 행과 프로파일 행을 원장 컬럼 순서 그대로 */
+  const cur=el('div','card inst-current');
+  cur.appendChild(el('h3',null,'선택 기관'));
+  const bar=el('div','toolbar');
+  bar.appendChild(rawEl('span','pill',code));
+  const mr=(D.institution&&D.institution.master_row)||{};
+  if(mr.data_origin)bar.appendChild(rawEl('span','pill'+
+    (mr.data_origin==='합성'?' warn':''),mr.data_origin));
+  if(mr.evidence_status)bar.appendChild(rawEl('span','pill',mr.evidence_status));
+  cur.appendChild(bar);
+  const m=instRowPairs('inst_master',code);
+  if(m){cur.appendChild(el('h4',null,'기관 원장 (inst_master)'));
+    cur.appendChild(simpleTable(['항목','값'],m.pairs));}
+  const p=instRowPairs('inst_profile',code);
+  if(p){cur.appendChild(el('h4',null,'기관 프로파일 (inst_profile)'));
+    cur.appendChild(simpleTable(['항목','값'],p.pairs));}
+  if(!m&&!p)cur.appendChild(el('div','note',
+    '선택 기관의 원장 행이 payload 에 없다'));
+  cur.appendChild(el('div','meta',
+    '데이터 출처가 합성인 기관은 실존 기관의 수치가 아니라 업권 유형의 공개된 '+
+    '성격을 모수로 옮긴 가상 기관이다. 국내 표본 기관의 실명과 규모 구분은 '+
+    '근거가 없어 채우지 않았고 근거 상태를 미확인으로 두었다.'));
+  root.appendChild(cur);
+
+  /* 실은 산출. 어느 기관의 어느 기준일이 실렸는가 */
+  const reg=el('div','card inst-runs');
+  reg.appendChild(el('h3',null,'기관별 실린 산출'));
+  reg.appendChild(el('div','meta',
+    '선택기에는 산출이 실린 기관만 올라간다. 원장에 있어도 산출이 실리지 '+
+    '않은 기관은 고를 수 없다.'));
+  reg.appendChild(simpleTable(
+    ['기관코드','기관명','권역','유형','규제체계','보고통화','데이터 출처',
+     '실린 기준일'],
+    institutionRows().map(r=>[
+      r.institution_code,instName(r),r.region||'-',r.institution_type||'-',
+      r.regulatory_regime||'-',r.currency||'-',r.data_origin||'-',
+      r.loaded?Object.keys(INSTS[r.institution_code]).sort().join(' · ')
+              :T('산출 미적재')])));
+  root.appendChild(reg);
+
+  /* 원장 전량 */
+  [['기관 원장','inst_master'],
+   ['기관 프로파일 원장','inst_profile'],
+   ['기관별 자산군 구성','inst_portfolio_mix'],
+   ['기관별 국가 구성','inst_country_mix'],
+   ['라벨 어휘집','intl_label_lexicon']].forEach(([title,name])=>{
+    const f=instFrame(name);
+    const c=el('div','card');
+    c.appendChild(el('h3',null,title));
+    if(f){c.appendChild(table(f));c.appendChild(srcMeta(f))}
+    else c.appendChild(el('div','note','원장 '+name+' 이 payload에 없다'));
+    root.appendChild(c)});
+}
+
 function settings(root){
   root.appendChild(el('p','lead',
     '표시명·기준일 전환은 세션 안에서 즉시 적용된다(산출값 무관). 서식번호 '+
@@ -8155,7 +8285,7 @@ const NAVGROUPS=[
   ]],
   ['데이터·설정',[
     '데이터모델',
-    ['⚙ 설정',['코드 마스터','코드 매핑','산출 방법론']],
+    ['⚙ 설정',['기관 설정','코드 마스터','코드 매핑','산출 방법론']],
   ]],
   /* 사업성은 규제 산출물이 아니다. 제출 지문·독립검증 대상이 아니므로
      메뉴에서도 맨 끝에 두고 이름으로 성격을 밝힌다. */
@@ -8193,25 +8323,87 @@ const TABS=[
   ['요건 추적','REQ · v9.6.0 업무요건 추적 (131건 대비 구현 재고조사)',reqTrace],
   ...DETAIL_SCREENS.map(([lab,title,fn])=>[lab,title,fn]),
   ['⚙ 설정','⚙ · 설정 (기준일 · 표시명 · 코드 매핑 · 시나리오)',settings],
+  ['기관 설정','⚙ · 기관 설정 (권역 · 유형 · 규제체계 · 데이터 출처)',
+   institutions],
 ];
 
 let repaintAll=()=>{};                   /* boot에서 실체가 채워진다 */
 
-function setRun(a){
-  /* 승인·이력은 **실행에 속한다**. proposal_id는 (view, 프롬프트)의 해시라
-     실행이 바뀌어도 같으므로, 그대로 두면 이전 기준일 데이터로 받은 승인이
-     새 기준일 화면에 "승인 적용"으로 뜬다. 다른 산출물에 승인 도장이
-     옮겨 찍히는 것이다. 실행별로 보관하고 전환 시 맞바꾼다. */
+/* 승인·이력은 **실행에 속한다**. proposal_id는 (view, 프롬프트)의 해시라
+   실행이 바뀌어도 같으므로, 그대로 두면 이전 실행 데이터로 받은 승인이 새
+   실행 화면에 "승인 적용"으로 뜬다. 다른 산출물에 승인 도장이 옮겨 찍히는
+   것이다. 실행별로 보관하고 전환 시 맞바꾼다. 실행의 신원은 기준일만이
+   아니라 (기관, 기준일)이다. 기관을 빼면 A은행 화면에서 받은 승인이 같은
+   기준일의 B은행 화면에 그대로 찍힌다. */
+function runKey(d){return (d.meta.institution_code||'-')+'|'+d.meta.asof}
+function stashRun(){
   STATE.byRun=STATE.byRun||{};
-  STATE.byRun[D.meta.asof]={approved:STATE.approved,history:STATE.history};
-  const kept=STATE.byRun[a]||{approved:{},history:{}};
+  STATE.byRun[runKey(D)]={approved:STATE.approved,history:STATE.history};
+}
+function applyRun(next){
+  const kept=(STATE.byRun&&STATE.byRun[runKey(next)])||{approved:{},history:{}};
   STATE.approved=kept.approved;STATE.history=kept.history;
 
-  D=RUNS[a];
+  D=next;
   paintChips();
-  const fa=$('#foot-asof');if(fa)fa.textContent=a;
+  const fa=$('#foot-asof');if(fa)fa.textContent=D.meta.asof;
   const fs=$('#foot-seed');if(fs)fs.textContent=String(D.meta.seed);
   repaintAll();
+}
+function setRun(a){
+  if(!RUNS[a])return;
+  stashRun();applyRun(RUNS[a]);
+}
+
+/* 기관 전환. 기준일 전환과 같은 성질이다. 미리 산출해 실은 실행 사이를
+   오갈 뿐 화면이 다른 기관의 산출을 만들지 않는다. 기준일 축은 기관마다
+   다를 수 있으므로 선택기를 다시 채우고, 지금 보던 기준일이 그 기관에도
+   있으면 유지한다. 없으면 그 기관의 마지막 기준일로 간다. */
+function setInst(code){
+  const runs=INSTS[code];
+  if(!runs)return;
+  stashRun();
+  RUNS=runs;
+  const asofs=Object.keys(RUNS).sort();
+  const want=asofs.indexOf(D.meta.asof)>=0?D.meta.asof:asofs[asofs.length-1];
+  const asel=$('#asofsel');
+  if(asel){
+    asel.innerHTML='';
+    asofs.forEach(a=>{const o=el('option');o.value=a;o.textContent=a;
+      asel.appendChild(o)});
+    asel.value=want;
+  }
+  applyRun(RUNS[want]);
+}
+
+/* 기관 표시명은 원장(inst_master.name_ko·name_en)에서 온다. 화면 언어에 따라
+   **어느 컬럼을 보일지**만 고르고 번역하지는 않는다. 한쪽이 비어 있으면
+   다른 쪽을, 둘 다 비었으면 기관코드를 쓴다. */
+function instName(row){
+  if(!row)return '';
+  const a=LANG==='ko'?row.name_ko:row.name_en;
+  return a||row.name_en||row.name_ko||row.institution_code||'';
+}
+/* 프레임 한 줄을 컬럼명 객체로. 열 순서에 기대는 코드를 늘리지 않는다. */
+function frameObjects(f){
+  if(!f)return [];
+  return f.rows.map(r=>{const o={};f.columns.forEach((c,k)=>{o[c]=r[k]});
+    return o});
+}
+function instFrame(name){
+  return (D.institution&&D.institution.tables&&
+          D.institution.tables[name])||null;
+}
+/* 기관 원장 전량. 원장에 있어도 산출이 실리지 않은 기관이 있을 수 있으므로
+   `loaded` 를 함께 준다. 선택기에는 실린 기관만 올린다. 산출이 없는 기관을
+   고를 수 있게 하면 화면이 빈 채로 남고 그 이유가 화면에 없다. */
+function institutionRows(){
+  const rows=frameObjects(instFrame('inst_master'));
+  const out=rows.length?rows:Object.keys(INSTS).map(
+    c=>({institution_code:c}));
+  out.forEach(r=>{r.loaded=Object.prototype.hasOwnProperty.call(
+    INSTS,r.institution_code)});
+  return out;
 }
 
 /* 머리말 칩은 라벨(카탈로그)과 원장 값(실행 메타)이 붙어 있다. 라벨만
@@ -8225,6 +8417,19 @@ function paintChips(){
   set('#chip-rows',LANG==='ko'
     ? `테이블 ${D.meta.n_tables}장 · ${D.meta.n_rows.toLocaleString()}행`
     : `${D.meta.n_tables} tables · ${D.meta.n_rows.toLocaleString()} rows`);
+  /* 기관 칩. 권역·유형은 원장 값이라 옮기지 않고, 합성 표기는 어느 화면에
+     있어도 보이게 둔다. 이 값이 실적 수치로 오인될 여지를 줄이는 표시다. */
+  const ir=(D.institution&&D.institution.master_row)||{};
+  const bits=[ir.region,ir.institution_type,ir.data_origin]
+    .filter(x=>x!=null&&x!=='');
+  set('#chip-inst',bits.join(' · '));
+  /* 기관 선택기 옵션 표기는 언어에 따라 어느 이름 컬럼을 보일지가 달라진다 */
+  const isel=$('#instsel');
+  if(isel){[...isel.options].forEach(o=>{
+    const nm=instName({name_ko:o.dataset.nameKo||'',
+                       name_en:o.dataset.nameEn||'',
+                       institution_code:o.value});
+    o.textContent=(nm&&nm!==o.value)?(nm+' · '+o.value):o.value})}
   document.title='RYNTA '+T('에이전틱 UI 스튜디오')+' · '+D.meta.asof;
 }
 
@@ -8385,6 +8590,18 @@ function boot(){
   };
   repaintAll=repaint;
 
+  /* 기관 전환. 기준일 선택기 왼쪽에 둔다. 옵션은 기관 원장 순서이고 산출이
+     실린 기관만 올린다. 이름은 원장 컬럼이며 화면이 짓지 않는다. */
+  const isel=$('#instsel');
+  institutionRows().filter(r=>r.loaded).forEach(r=>{
+    const o=el('option');o.value=r.institution_code;
+    if(r.name_ko!=null)o.dataset.nameKo=r.name_ko;
+    if(r.name_en!=null)o.dataset.nameEn=r.name_en;
+    o.textContent=r.institution_code;
+    isel.appendChild(o)});
+  isel.value=D.meta.institution_code;
+  isel.onchange=()=>setInst(isel.value);
+
   /* 기준일 전환. 실은 실행 사이의 전환이다. 옵션은 실행 목록에서 나온다. */
   const asel=$('#asofsel');
   Object.keys(RUNS).sort().forEach(a=>{
@@ -8433,12 +8650,30 @@ def render(studios: Studio | list[Studio]) -> str:
     아니므로 새 기준일을 즉석에서 만들 수 없다. 만들 수 있는 것처럼 보이면
     검증 안 된 수치가 화면에 생긴다. 실행마다 자기 run_id·지문·검증 상태를
     갖고, 전환하면 그 실행의 것으로 전부 바뀐다.
+
+    기관 전환도 같은 성질이다. 실행을 (기관, 기준일)로 갈라 싣고 화면은 그
+    사이를 오간다. 기관의 순서는 기관 원장 순서이며 기본 화면은 첫 기관의
+    마지막 기준일이다.
     """
-    ss = [studios] if isinstance(studios, Studio) else sorted(
-        studios, key=lambda x: x.asof)
-    runs = {s.asof: _payload(s) for s in ss}
-    primary = ss[-1].asof                    # 최신 기준일이 기본 화면
+    ss = [studios] if isinstance(studios, Studio) else list(studios)
+    _order = {c: i for i, c in enumerate(_intl.institution_codes())}
+    ss = sorted(ss, key=lambda x: (_order.get(x.institution_code, len(_order)),
+                                   x.asof))
+    insts: dict[str, dict[str, dict]] = {}
+    for s in ss:
+        insts.setdefault(s.institution_code, {})[s.asof] = _payload(s)
+    primary_inst = ss[0].institution_code    # 원장 순서의 첫 기관이 기본 화면
+    runs = insts[primary_inst]
+    primary = sorted(runs)[-1]               # 최신 기준일이 기본 화면
     m = runs[primary]["meta"]
+    # 기본 기관의 실행은 두 번 싣지 않는다. 같은 payload 를 복제하면 파일이
+    # 그만큼 커지고, 두 벌 중 한쪽만 고쳐질 여지가 생긴다.
+    insts_js = "{" + ",".join(
+        f"{json.dumps(code)}:" + (
+            "window.__RYNTA_RUNS__" if code == primary_inst
+            else json.dumps(rr, ensure_ascii=False, default=str,
+                            separators=(",", ":")))
+        for code, rr in insts.items()) + "}"
     return f"""<!doctype html>
 <html lang="{_i18n.DEFAULT_LANG}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -8453,8 +8688,11 @@ if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)
 <div class="topbar">
 <header>
   <div class="brand">RYNTA <span>·</span> <b data-i18n>에이전틱 UI 스튜디오</b></div>
+  <label class="hchip" for="instsel"><span data-i18n>기관</span>
+    <select id="instsel" class="sel instsel"></select></label>
   <label class="hchip" for="asofsel"><span data-i18n>기준일</span>
     <select id="asofsel" class="sel asofsel"></select></label>
+  <span class="hchip" id="chip-inst"></span>
   <span class="hchip" id="chip-run">{html.escape(m['run_id'])}</span>
   <span class="hchip" id="chip-digest">지문 {html.escape(m['digest'][:12])}</span>
   <span class="hchip" id="chip-seed">시드 {m['seed']}</span>
@@ -8492,6 +8730,7 @@ if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)
 <script>window.__RYNTA_RUNS__={json.dumps(runs, ensure_ascii=False, default=str,
                                           separators=(",", ":"))};
 window.__RYNTA__=window.__RYNTA_RUNS__[{json.dumps(primary)}];
+window.__RYNTA_INSTS__={insts_js};
 window.__RYNTA_I18N__={json.dumps(_i18n.payload(), ensure_ascii=False,
                                   separators=(",", ":"))};</script>
 <script>{_ENGINE_JS}</script>
@@ -8502,5 +8741,26 @@ window.__RYNTA_I18N__={json.dumps(_i18n.payload(), ensure_ascii=False,
 def write_app(s: Studio | list[Studio], path: str | Path) -> Path:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(render(s), encoding="utf-8")
+    text = render(s)
+    p.write_text(text, encoding="utf-8")
+    n = p.stat().st_size
+    if n > DEPLOY_SIZE_LIMIT:
+        # 자르지 않는다. 화면이 조용히 줄어들면 "전량"이라 적힌 표가 실제로는
+        # 일부만 실은 상태가 되고, 그 사실이 화면 어디에도 남지 않는다.
+        # 배포가 안 되는 것은 눈에 띄지만 조용히 잘린 원장은 눈에 띄지 않는다.
+        warnings.warn(
+            f"UI 스튜디오 HTML 이 {n/1024/1024:.1f}MB 로 배포 상한 "
+            f"{DEPLOY_SIZE_LIMIT/1024/1024:.0f}MB 를 넘었다. 실은 실행 "
+            f"{sum(len(r) for r in _loaded_runs(s))}건. 싣는 실행 수를 줄이거나 "
+            f"행 예산(INTERACTIVE_ROWS·INTERACTIVE_ROWS_DEMO)을 낮춰야 하며, "
+            f"어느 쪽을 줄일지는 사람이 정한다.",
+            stacklevel=2)
     return p
+
+
+def _loaded_runs(s: Studio | list[Studio]) -> list[list[Studio]]:
+    ss = [s] if isinstance(s, Studio) else list(s)
+    by: dict[str, list[Studio]] = {}
+    for x in ss:
+        by.setdefault(x.institution_code, []).append(x)
+    return list(by.values())
