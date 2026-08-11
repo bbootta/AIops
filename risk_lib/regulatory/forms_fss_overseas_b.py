@@ -52,7 +52,7 @@ from risk_lib.prudential.financials import CORPORATE_TAX_RATE
 from risk_lib.regulatory.forms_base import (
     FormCheck, FormLine, _ratio_check, _sum_check, _val,
 )
-from risk_lib.regulatory.provenance import BASIS_MIXED
+from risk_lib.regulatory.provenance import BASIS_DERIVED, BASIS_MIXED
 from risk_lib.regulatory.forms_fss_overseas_b_data import (
     GRADE_CUTS, NONINT_ITEMS, SEC_PNL_ITEMS, SCORE_SECTIONS, SECTION_POINTS,
     TOTAL_POINTS, allocated_balance, funding_book, grade_of, hq_staff,
@@ -898,35 +898,50 @@ def _bf601_1(ctx) -> tuple[list[FormLine], list[FormCheck]]:
 # ---------------------------------------------------------------- BF602
 
 def _rwa_block(ctx, base: int) -> tuple[list[FormLine], tuple[str, ...], dict]:
-    """해외 위험가중자산 구성 — 신용은 실측, 나머지는 근거를 밝힌 비중 배분이다."""
+    """해외 위험가중자산 구성 — 신용만 실측이고 나머지 다섯 항은 내부배분이다.
+
+    다섯 항 모두 본점 산출값(합계)에 앵커되고 지역 배분만 파생이므로 근거는
+    `혼합`이다. **근거를 적지 않으면 provenance가 기본값인 실측으로 세어
+    배분값이 실측으로 보고된다.** 예전에는 구조화 한 줄만 적었고 거래상대방
+    신용·시장·운영·산출하한 네 줄이 실측으로 분류됐다.
+
+    산출하한 조정분은 표준방법 총액 대비 집계 수준 max()라 지역별 정체성이
+    없다(`attribution._RWA_DETAIL_AXIS` 주석과 같은 이유다). 그래도 배분해
+    적는 것은 이 서식이 제출본이고 분자인 배분자기자본이 같은 비중으로 전액
+    배분되기 때문이다 — 분모에서만 빼면 해외 자본비율이 본점보다 구조적으로
+    높아진다. 배분하되 그것이 산출이 아니라 배분임을 근거란과 비고에 적는다.
+    """
     ov = overseas_rwa(ctx)
+    _ALLOC = "내부배분(추정)이며 실측이 아니다"
     rows = (
         ("신용리스크 (실측)", ov["credit"],
-         f"rwa_result 해외 익스포저 실측 합 · {_MEASURED}", _CRE20, _M_RWA),
+         f"rwa_result 해외 익스포저 실측 합 · {_MEASURED}", _CRE20, _M_RWA,
+         None),
         ("거래상대방신용리스크 (SA-CCR + CVA)", ov["ccr"],
          f"본점 CCR RWA × 해외 거래상대방 비중 {ov['ccr_share']:.6f} — "
-         f"거래상대방 소재국은 원장 실측", "Basel III CRE52 · MAR50", _M_CCR),
+         f"거래상대방 소재국은 원장 실측이고 CVA 몫은 그 비중으로 배분 · "
+         f"{_ALLOC}", "Basel III CRE52 · MAR50", _M_CCR, BASIS_MIXED),
         ("시장리스크", ov["market"],
          f"본점 시장 RWA × {ov['market_share']:.6f} — 트레이딩계정에 소재국 "
-         f"귀속이 없어 EAD 비중 배분", "Basel III MAR40", _M_MKT),
+         f"귀속이 없어 EAD 비중 배분 · {_ALLOC}", "Basel III MAR40", _M_MKT,
+         BASIS_MIXED),
         ("운영리스크", ov["op"],
          f"본점 운영 RWA × 해외 영업수익 비중 {ov['op_share']:.6f} — OPE25 "
-         f"사업지표가 수익 기반", "Basel III OPE25", _M_OPR),
+         f"사업지표가 수익 기반 · {_ALLOC}", "Basel III OPE25", _M_OPR,
+         BASIS_MIXED),
         ("산출하한 조정분", ov["floor"],
-         "본점 하한 조정분 × 해외 신용 RWA 비중 — 배분",
-         "Basel III RBC20.11", "risk_lib.capital.output_floor"),
+         "본점 하한 조정분 × 해외 신용 RWA 비중 — 산출하한은 집계 수준 "
+         f"max()라 지역별 정체성이 없다 · {_ALLOC}",
+         "Basel III RBC20.11", "risk_lib.capital.output_floor", BASIS_MIXED),
         ("구조화 익스포저 (집합투자증권·유동화)", ov["structured"],
          f"본점 구조화 RWA × {ov['structured_share']:.6f} — 두 원장에 소재국 "
-         f"귀속이 없어 EAD 비중 배분", "CRE60 · CRE40", _M_RWA),
+         f"귀속이 없어 EAD 비중 배분 · {_ALLOC}", "CRE60 · CRE40", _M_RWA,
+         BASIS_MIXED),
     )
     L, codes = [], []
-    for i, (name, value, formula, cit, mod) in enumerate(rows, start=1):
+    for i, (name, value, formula, cit, mod, basis) in enumerate(rows, start=1):
         code = str(base + i * 10)
         codes.append(code)
-        # 구조화는 본점 산출값(실측)에 실측 EAD 비중을 곱한 배분값이다 — 합계는
-        # 앵커되고 지역 배분만 파생이므로 혼합이다. 근거를 적지 않으면
-        # provenance가 기본값인 실측으로 세어 배분값이 실측으로 보고된다.
-        basis = BASIS_MIXED if "구조화" in name else None
         L.append(FormLine(code, name, 1, "KRW", value, formula=formula,
                           citation=cit, source_module=mod, basis=basis))
     return L, tuple(codes), ov
@@ -950,21 +965,26 @@ def _bf602(ctx) -> tuple[list[FormLine], list[FormCheck]]:
         FormLine("1010", "해외영업점 기본자본", 1, "KRW", t1,
                  formula=_ALLOC_CAP, citation=_CRE40, source_module=_M_DER),
         FormLine("2000", "해외 위험가중자산 합계", 0, "KRW", total_rwa,
-                 formula="신용(실측) + CCR + 시장 + 운영 + 산출하한 + 구조화",
-                 citation=_CRE20, source_module=_M_RWA, is_subtotal=True),
+                 formula="신용(실측) + CCR + 시장 + 운영 + 산출하한 + 구조화 — "
+                         "신용만 실측이고 나머지 다섯 항은 내부배분(추정)이다",
+                 citation=_CRE20, source_module=_M_RWA, is_subtotal=True,
+                 basis=BASIS_MIXED),
     ] + rwa_lines + [
         FormLine("3000", "자기자본비율 (총자본비율)", 0, "ratio",
-                 _r(own, total_rwa), formula="해외영업점 자기자본 ÷ 해외 RWA",
-                 citation=_C26, source_module=_M_DER),
+                 _r(own, total_rwa),
+                 formula="해외영업점 자기자본 ÷ 해외 RWA — 분자·분모 모두 "
+                         "배분값이라 실측 비율이 아니다",
+                 citation=_C26, source_module=_M_DER, basis=BASIS_DERIVED),
         FormLine("3010", "기본자본비율", 0, "ratio", _r(t1, total_rwa),
+                 basis=BASIS_DERIVED,
                  formula="해외영업점 기본자본 ÷ 해외 RWA", citation=_C26,
                  source_module=_M_DER),
         FormLine("4000", "최저 총자본비율", 0, "ratio", min_total,
                  formula="risk_lib.capital.bis.BIS_MINIMUMS 참조",
                  citation="은행업감독규정 제26조 제1항", source_module=_M_BIS),
         FormLine("5000", "잉여(+)·부족(−)", 0, "ratio",
-                 _r(own, total_rwa) - min_total, formula="실측 비율 − 최저기준",
-                 citation=_C26, source_module=_M_DER),
+                 _r(own, total_rwa) - min_total, formula="배분 비율 − 최저기준",
+                 citation=_C26, source_module=_M_DER, basis=BASIS_DERIVED),
         FormLine("6000", "본점 총자본비율 (참고)", 0, "ratio",
                  float(ctx.result.bis.total_ratio),
                  formula="본점 자기자본 ÷ 본점 RWA — 자본은 EAD 비중, RWA는 "
@@ -973,16 +993,23 @@ def _bf602(ctx) -> tuple[list[FormLine], list[FormCheck]]:
         FormLine("6010", "해외 RWA 밀도", 0, "ratio",
                  _r(total_rwa, float(pnl_book(ctx)["ead"].sum())),
                  formula="해외 RWA ÷ 해외 EAD", citation=_CRE20,
-                 source_module=_M_RWA),
+                 source_module=_M_RWA, basis=BASIS_MIXED),
         FormLine("9000", "배분 범위 비고", 0, "text", None,
                  text_value=(
-                     f"본점 구조화 위험가중자산 "
+                     f"해외 위험가중자산 여섯 항 가운데 신용리스크만 소재국 "
+                     f"실측이다. 거래상대방신용·시장·운영·산출하한·구조화 "
+                     f"다섯 항은 본점 산출값에 배분비율을 곱한 내부배분(추정)이며 "
+                     f"실측이 아니다. 본점 구조화 위험가중자산 "
                      f"{float(ctx.result.rwa.get('structured_total', 0.0)):,.0f}"
                      f"원(집합투자증권·유동화)은 두 원장에 소재국 축이 없어 "
-                     f"해외 EAD 비중 {w:.6f}으로 배분했다 — 트레이딩계정과 같은 "
-                     f"근거이며 실측이 아니다. 배분하지 않으면 분모에서만 빠지고 "
-                     f"분자인 배분자본은 같은 비중으로 전액 배분되므로 해외 "
-                     f"자본비율이 본점보다 구조적으로 높게 나온다."),
+                     f"해외 EAD 비중 {w:.6f}으로 배분했고, 산출하한 조정분 "
+                     f"{float(ctx.result.rwa['output_floor'].add_on):,.0f}원은 "
+                     f"표준방법 총액 대비 집계 수준 max()라 지역별 정체성이 "
+                     f"없는데도 해외 신용 RWA 비중으로 배분했다. 배분하지 "
+                     f"않으면 분모에서만 빠지고 분자인 배분자본은 같은 비중으로 "
+                     f"전액 배분되므로 해외 자본비율이 본점보다 구조적으로 "
+                     f"높게 나온다. 자기자본비율 라인도 분자·분모가 모두 "
+                     f"배분값이므로 실측 비율로 읽지 않는다."),
                  citation="CRE60 · CRE40", source_module=_M_RWA),
     ]
     t = _tol(total_rwa)
@@ -1013,8 +1040,10 @@ def _bf602_1(ctx) -> tuple[list[FormLine], list[FormCheck]]:
     buffer_total = float(bis.required["total"]) - float(BIS_MINIMUMS["total"])
     L = [
         FormLine("1000", "해외 위험가중자산 합계", 0, "KRW", total_rwa,
-                 formula="신용(실측) + CCR + 시장 + 운영 + 산출하한 + 구조화",
-                 citation=_CRE20, source_module=_M_RWA, is_subtotal=True),
+                 formula="신용(실측) + CCR + 시장 + 운영 + 산출하한 + 구조화 — "
+                         "신용만 실측이고 나머지 다섯 항은 내부배분(추정)이다",
+                 citation=_CRE20, source_module=_M_RWA, is_subtotal=True,
+                 basis=BASIS_MIXED),
     ] + rwa_lines + [
         FormLine("2000", "배분 보통주자본 (CET1)", 0, "KRW", cet1,
                  formula=_ALLOC_CAP, citation="Basel III CRE40.1~40.26",
@@ -1027,15 +1056,17 @@ def _bf602_1(ctx) -> tuple[list[FormLine], list[FormCheck]]:
         FormLine("2020", "배분 자기자본 (총자본)", 0, "KRW", tot,
                  formula=_ALLOC_CAP, citation=_CRE40, source_module=_M_DER,
                  is_subtotal=True),
+        # 분자(배분자본)도 분모(배분 RWA)도 배분값이다. 근거를 적지 않으면
+        # 세 비율이 실측으로 분류된다.
         FormLine("3000", "보통주자본비율", 0, "ratio", _r(cet1, total_rwa),
                  formula="배분 CET1 ÷ 해외 RWA", citation=_C26,
-                 source_module=_M_DER),
+                 source_module=_M_DER, basis=BASIS_DERIVED),
         FormLine("3010", "기본자본비율", 0, "ratio", _r(t1, total_rwa),
                  formula="배분 Tier 1 ÷ 해외 RWA", citation=_C26,
-                 source_module=_M_DER),
+                 source_module=_M_DER, basis=BASIS_DERIVED),
         FormLine("3020", "총자본비율", 0, "ratio", _r(tot, total_rwa),
                  formula="배분 총자본 ÷ 해외 RWA", citation=_C26,
-                 source_module=_M_DER),
+                 source_module=_M_DER, basis=BASIS_DERIVED),
         FormLine("4000", "최저 보통주자본비율", 1, "ratio",
                  float(BIS_MINIMUMS["cet1"]),
                  formula="risk_lib.capital.bis.BIS_MINIMUMS 참조",
@@ -1056,7 +1087,7 @@ def _bf602_1(ctx) -> tuple[list[FormLine], list[FormCheck]]:
         FormLine("6000", "총자본비율 잉여(+)·부족(−)", 0, "ratio",
                  _r(tot, total_rwa) - float(bis.required["total"]),
                  formula="총자본비율 − 요구 총자본비율", citation=_C26,
-                 source_module=_M_DER),
+                 source_module=_M_DER, basis=BASIS_DERIVED),
     ]
     t = _tol(total_rwa)
     return L, [

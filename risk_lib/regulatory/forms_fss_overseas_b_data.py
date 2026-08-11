@@ -264,6 +264,13 @@ def overseas_rwa(ctx) -> dict[str, float]:
     # 을 쓰면 안 된다 — 거기에는 CCR·CVA가 들어 있어(pipeline.py) 분자·분모의
     # 기준이 달라지고 해외 몫이 그만큼 과소 배분된다. 같은 기준인 SA+IRB를 쓴다.
     credit_all = float(r.rwa["sa"]) + float(r.rwa["irb"])
+    # 산출하한 가산은 표준방법 총액 대비 집계 수준 max()라 자산분류별로도
+    # 지역별로도 정체성이 없다. `attribution._RWA_DETAIL_AXIS` 주석이 같은
+    # 이유로 자산분류 축의 쪼개기를 거부한다. 여기서 지역 축으로 배분하는
+    # 것은 이 서식이 제출본이고 분자인 배분자기자본이 `w`로 전액 배분되기
+    # 때문이다 — 분모에서만 빼면 해외 자본비율이 본점보다 구조적으로 높게
+    # 나온다. 그래서 배분하되 이것이 산출이 아니라 배분임을 서식에 적는다
+    # (`forms_fss_overseas_b._rwa_block`의 basis=혼합, BF602 9000 비고).
     floor_share = credit / credit_all if credit_all else 0.0
 
     out = {

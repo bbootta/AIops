@@ -352,3 +352,55 @@ def test_overseas_rwa_denominator_carries_every_hq_component(built, result,
     # 해외 RWA 합계는 서식 자체대사(_sum_check)가 이미 보지만, 구조화를 넣고도
     # 합계에 반영하지 않는 경로가 남지 않도록 여기서도 확인한다.
     assert _val(bf602.lines, "2000") >= line.value
+
+
+def test_overseas_allocated_lines_are_not_reported_as_measured(built):
+    """해외 배분 서식의 배분 라인이 provenance 에서 실측으로 세어지면 안 된다.
+
+    BF602/BF602-1 의 위험가중자산 여섯 항 중 소재국 실측은 신용리스크
+    하나뿐이다. 나머지 다섯 항은 본점 산출값에 배분비율을 곱한 값이고,
+    자기자본비율은 배분자본 ÷ 배분RWA 라 분자·분모가 모두 배분값이다.
+
+    예전에는 구조화 한 줄만 `basis` 를 적어 두었고 거래상대방신용·시장·
+    운영·산출하한 네 줄과 비율 라인이 근거 미기재라 기본값인 실측으로
+    분류됐다. `unclassified()` 는 "파생"이라는 낱말이 든 라인만 잡으므로
+    어디에도 걸리지 않았다. 배분값을 실측으로 세면 제출본의 실측 비중이
+    과장된다.
+    """
+    from risk_lib.regulatory.provenance import BASIS_MEASURED, line_basis
+
+    allocated = ("거래상대방신용리스크", "시장리스크", "운영리스크",
+                 "산출하한 조정분", "구조화 익스포저")
+    ratio_codes = {"BF602": ("3000", "3010"),
+                   "BF602-1": ("3000", "3010", "3020")}
+    for form_id, codes in ratio_codes.items():
+        f = next(b for b in built if b.spec.form_id == form_id)
+        by_code = {ln.line_code: ln for ln in f.lines}
+
+        for ln in f.lines:
+            if ln.unit == "KRW" and any(n in ln.line_name for n in allocated):
+                assert line_basis(ln) != BASIS_MEASURED, (
+                    f"{form_id}/{ln.line_code} {ln.line_name} — 배분값이 "
+                    f"실측으로 분류된다")
+        for code in codes:
+            assert line_basis(by_code[code]) != BASIS_MEASURED, (
+                f"{form_id}/{code} — 배분자본 ÷ 배분RWA 인데 실측으로 분류된다")
+
+        # 신용리스크는 소재국 실측이다. 전부 배분으로 낮춰 적어도 안 된다.
+        credit = next(ln for ln in f.lines if "신용리스크 (실측)" in ln.line_name)
+        assert line_basis(credit) == BASIS_MEASURED
+
+
+def test_overseas_note_records_the_output_floor_allocation(built):
+    """산출하한 가산을 배분했다는 사실이 서식 본문에 남아야 한다.
+
+    산출하한 가산은 표준방법 총액 대비 집계 수준 max() 라 지역별 정체성이
+    없다. 그래도 배분하는 것은 분자인 배분자본이 같은 비중으로 전액
+    배분되기 때문이며, 그 선택을 적지 않으면 서식만 보고는 배분인지 산출인지
+    구분할 수 없다.
+    """
+    bf602 = next(b for b in built if b.spec.form_id == "BF602")
+    note = next(ln for ln in bf602.lines if ln.line_code == "9000")
+    assert note.text_value
+    assert "산출하한" in note.text_value
+    assert "내부배분" in note.text_value
