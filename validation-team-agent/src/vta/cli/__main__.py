@@ -41,6 +41,8 @@ _DISPATCH = {
     ("report", "digest"): "tools.cro_digest",
     ("pack", "verify"): "tools.pack_verify",
     ("coverage",): "tools.val_coverage",
+    ("criteria",): "tools.domain_criteria",
+    ("standards",): "tools.regulatory_criteria",
     ("trigger",): "tools.validation_trigger",
     ("finding",): "tools.validation_finding",
     ("recalc",): "tools.independent_recalc",

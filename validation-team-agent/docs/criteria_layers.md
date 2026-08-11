@@ -1,5 +1,8 @@
 # 적합성검증 기준 항목 — 규제 기준 스택 + 도메인 업무요건
 
+검증 기준이 어디서 오는지, 그리고 그 근거가 실재하는지 어떻게 강제되는지를
+적는다. 두 층 모두 하니스에 통합돼 있으며 `pytest`와 `verify`로 고정된다.
+
 | 층 | SSoT | 근거 | 항목 수 |
 |---|---|---|---|
 | **규제 기준** | `harness/regulatory_criteria.json` | 은행업감독**규정** [2026. 4. 1.] → 시행**세칙** [2026. 6. 30.] → **Basel Framework** [2026. 8. 9.] — 원문 3종 보관 | 63건 (자동 38 · 수동 25) + 계량 임계 10건 |
@@ -57,9 +60,9 @@ Chapter(`CRE20`)로 절단해 해석한다.
 바젤은 Chapter 단위까지 대조된다.
 
 ```bash
-python -m tools.domestic_criteria cite-check "별표 3의7"
-#  해석됨 — L23178: [별표 3의7] 원화예대율 산출 기준
-python -m tools.domestic_criteria cite-check "별표 99의9"
+python -m vta standards cite-check "별표 3의7"
+#  [세칙] 해석됨 — L23178: [별표 3의7] 원화예대율 산출 기준
+python -m vta standards cite-check "별표 99의9"
 #  해석 실패 — 원문에서 찾을 수 없다 (exit 1)
 ```
 
@@ -70,7 +73,7 @@ python -m tools.domestic_criteria cite-check "별표 99의9"
 때문이다. 더 엄격하면 `stricter`로 통과시키되 보고한다.
 
 ```
-$ python -m vta domestic thresholds
+$ python -m vta standards thresholds
 [일치] 보통주자본비율 최소      규정 0.045 이상 | 하니스 0.045 | [규정] 제26조
 [일치] 총자본비율 최소         규정 0.08  이상 | 하니스 0.08  | [규정] 제26조
 [일치] 거액익스포져비율 한도     규정 0.25  이하 | 하니스 0.25  | [규정] 제26조
@@ -115,10 +118,6 @@ $ python -m vta domestic thresholds
 ---
 
 # 2. 도메인 업무요건 전개
-
-`claude/validation-team-agent-Pw9F5` 하니스에 얹을 컴포넌트다. 본 브랜치
-(`claude/compliance-team-agent-call-midnvi`)는 하니스 본체를 담고 있지 않으므로
-여기서는 신규 파일과 기존 파일 패치를 분리해 둔다.
 
 ## 무엇인가
 
@@ -170,21 +169,20 @@ RYNTA BRD Level 1 도메인 업무요건 **131건 전부**를 적합성검증 �
 | `tools/gen_domain_criteria.py` | 생성기 — 원문 레지스터가 바뀌면 재실행 |
 | `tools/domain_criteria.py` | `list` / `report` / `verify` |
 | `tests/test_domain_criteria.py` | 10건 — 근거 실재성 + 음성 통제 3건 |
-| `INTEGRATION.patch` | 기존 파일 4종 패치 (CLAUDE.md · README.md · cli_index · vta dispatch) |
 
-## 적용
+## 사용
 
 ```bash
-git checkout claude/validation-team-agent-Pw9F5
-cp -r validation-team-agent/{harness,tools,tests} .      # 신규 4파일
-git apply INTEGRATION.patch                              # 기존 4파일
-python -m pytest -q                                      # 1400 passed / 4 skipped
-python -m vta criteria verify
+python -m vta standards verify       # 지문·인용·임계·지배기준 검사 (위반 시 exit 1)
+python -m vta standards precedence   # 기준 스택과 지배기준 분포
+python -m vta standards thresholds   # 규정 값 vs 하니스 임계 대조
+python -m vta standards list --governing 바젤
+python -m vta criteria verify        # 도메인 요건 근거 실재성
 python -m vta criteria report
-python -m vta standards verify
-python -m vta standards precedence
-python -m vta standards thresholds
 ```
+
+두 `verify`는 `pytest`에도 걸려 있어 근거 파일이 사라지거나 임계가 규정보다
+느슨해지면 테스트가 깨진다.
 
 ## 알려진 한계
 
