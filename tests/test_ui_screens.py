@@ -141,7 +141,8 @@ def test_pending_ledger_absence_is_stated_on_the_screen():
 def test_new_screens_are_registered_in_menu_and_tab_list():
     labels = ["국내 금리리스크", "행동모형 추정", "비만기성예금 코어",
               "행동모형 백테스트", "PD 추정", "LGD 추정", "CCF 추정",
-              "부도자산 LGD", "모형 거버넌스", "LGD·EAD 실측검증",
+              "부도자산 LGD", "회수 할인율", "BEEL·PLGD",
+              "모형 거버넌스", "LGD·EAD 실측검증",
               "거액 설정", "거액 분석"]
     detail = _JS[_JS.index("const DETAIL_SCREENS=["):_JS.index("const NAVGROUPS=[")]
     nav = _JS[_JS.index("const NAVGROUPS=["):_JS.index("const TABS=[")]
@@ -153,7 +154,9 @@ def test_new_screens_are_registered_in_menu_and_tab_list():
 def test_new_screens_reference_the_full_load_budget_tables():
     """집계해서 그리는 원장은 전량 실려야 한다. 표본으로 그리면 축이 잘린다."""
     for name in ("alm_repricing_gap", "crm_pd_estimate", "lex_setting",
-                 "alm_nmd_core_method_compare", "crm_backtest_result"):
+                 "alm_nmd_core_method_compare", "crm_backtest_result",
+                 "crm_capm_observation", "crm_beel_curve",
+                 "crm_plgd_sensitivity"):
         assert name in uiapp.NEW_SCREEN_FULL_TABLES
 
 
@@ -222,7 +225,8 @@ def test_every_new_screen_renders_with_content(rendered):
     from playwright.sync_api import sync_playwright
     labels = ["국내 금리리스크", "행동모형 추정", "비만기성예금 코어",
               "행동모형 백테스트", "PD 추정", "LGD 추정", "CCF 추정",
-              "부도자산 LGD", "모형 거버넌스", "LGD·EAD 실측검증",
+              "부도자산 LGD", "회수 할인율", "BEEL·PLGD",
+              "모형 거버넌스", "LGD·EAD 실측검증",
               "거액 설정", "거액 분석", "시뮬레이션", "한도관리"]
     with sync_playwright() as pw:
         b = pw.chromium.launch(executable_path=str(_CHROME))

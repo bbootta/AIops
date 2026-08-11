@@ -143,7 +143,30 @@ TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
     # ---- BNK ---------------------------------------------------------------
     "BNK-CAP-001": ("반영", (("module", "risk_lib.capital.bis"), ("table", "cap_stack")), ""),
     "BNK-CAP-002": ("반영", (("module", "risk_lib.performance"),), "RAROC·경제자본·허들"),
-    "BNK-CRE-001": ("반영", (("module", "risk_lib.models.rating"), ("table", "crm_pd_calibration")), ""),
+    # 2026-08-11 재평가로 '반영'에서 내렸다. 등급·PD 보정만 볼 때는 반영이었으나
+    # 내부등급법 추정 원장이 서면서 적용값이 어디서 멈추는지가 드러났다.
+    # PD·CCF는 최종 적용값까지 나오고, LGD는 원시 추정·하한까지만 나온다.
+    # 회수 할인율은 승인기구 의결 없이 타행 실측을 잠정 준용한 상태이고
+    # PLGD는 신뢰수준 미승인으로 값이 비어 있다. 승인 미완은 부분이다.
+    "BNK-CRE-001": ("부분", (("module", "risk_lib.models.rating"),
+                            ("module", "risk_lib.models.estimation"),
+                            ("table", "crm_pd_calibration"),
+                            ("table", "crm_capm_estimate"),
+                            ("table", "crm_lgd_discount_rate"),
+                            ("table", "crm_beel_curve"),
+                            ("table", "crm_plgd"),
+                            ("screen", "회수 할인율"),
+                            ("screen", "BEEL·PLGD"),
+                            ("test", "test_capm_screen_shows_the_approval_state_of_the_rate"),
+                            ("test", "test_lgd_is_calculated_once_the_discount_rate_is_applied")),
+                    "PD·LGD·CCF 추정이 관측이력 원장 위에서 돌고 부도자산 "
+                    "BEEL 곡선·PLGD 민감도까지 선다. **세 가지가 승인 전이다.** "
+                    "① 회수 할인율은 관측만으로 자기자본비용이 나오지 않아"
+                    "(위험프리미엄 비양수) 원장 참고치를 잠정 준용했고 승인자 "
+                    "칸이 '(미승인)'이다. ② PLGD 신뢰수준 q가 미승인이라 PLGD "
+                    "값이 비어 있고 민감도 격자만 있다. ③ MoC·침체기 정의 모수도 "
+                    "미승인이다. LGD는 185.다의 차주·담보 상관과 통화불일치 "
+                    "조정 자료가 없어 최종 적용값이 비어 있고 0으로 두지 않는다"),
     "BNK-CRE-002": ("반영", (("module", "risk_lib.capital.rwa_sa"), ("table", "rwa_sa_bucket")),
                     "SA + IRB + output floor"),
     "BNK-CRE-003": ("반영", (("module", "risk_lib.capital.crm"), ("table", "rdm_collateral")), ""),

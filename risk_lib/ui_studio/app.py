@@ -1420,32 +1420,82 @@ function squarify(data,rect){
   }
   return out;
 }
+/* 묶음이 있으면 2단으로 그린다. 상위 묶음이 제목띠를 달고 그 안에서 항목이
+   다시 넓이로 갈린다. 묶음 색은 팔레트에서 하나씩 가져가고, 그 안의 항목은
+   같은 색을 옅게 써서 한 묶음이 한 색 계열로 읽히게 한다.
+
+   글자색이 두 종류인 이유. 제목띠는 불투명해서 --on-accent 가 맞다. 항목은
+   투명도를 낮춰 바탕색과 섞이므로 라이트에서는 밝아지고 다크에서는 어두워진다.
+   두 경우 모두 --text 가 대비를 유지한다. --on-accent 를 항목에 쓰면 한쪽
+   테마에서 읽히지 않는다. */
+function tmCell(s,c,col,op,txtVar,fmt,frac,sub){
+  const G=2,pad=7;
+  const g=svgNode(s,'g',{});
+  svgNode(g,'rect',{x:c.x+G/2,y:c.y+G/2,width:Math.max(c.w-G,1),
+    height:Math.max(c.h-G,1),rx:2,fill:'var('+col+')','fill-opacity':op})
+    .appendChild(document.createElementNS(s.namespaceURI,'title')).textContent=
+      `${c.label}: ${fmt?fmt(c.value):fmtNum(c.value)} (${(frac*100).toFixed(1)}%)`;
+  const cx=c.x+c.w/2,fit=Math.floor((c.w-pad*2)/6.5);
+  if(c.w>52&&c.h>30){
+    const two=c.h>52;
+    svgNode(g,'text',{x:cx,y:c.y+c.h/2+(two?-3:4),'text-anchor':'middle',
+      'font-size':11,'font-weight':600,fill:'var('+txtVar+')'},
+      String(c.label).slice(0,Math.max(fit,1)));
+    if(two)svgNode(g,'text',{x:cx,y:c.y+c.h/2+13,'text-anchor':'middle',
+      'font-size':10,fill:'var('+txtVar+')','fill-opacity':0.8},sub);
+  }
+}
 function donut(items,{title,note,fmt}={}){
-  const W=680,H=260,G=2;
+  const W=1180,H=520,HDR=21;
   const tot=items.reduce((a,x)=>a+Math.abs(x.value),0)||1;
   const s=svgEl(W,H,title||'트리맵');
-  const data=items.map((it,i)=>({label:it.label,value:it.value,i:i,
-    v:Math.abs(it.value)})).filter(d=>d.v>0).sort((a,b)=>b.v-a.v);
-  if(!data.length)return chartBox(s,title,note);
-  squarify(data,{x:0,y:0,w:W,h:H}).forEach(c=>{
-    const frac=c.v/tot;
-    const g=svgNode(s,'g',{});
-    svgNode(g,'rect',{x:c.x+G/2,y:c.y+G/2,width:Math.max(c.w-G,1),
-      height:Math.max(c.h-G,1),rx:2,
-      fill:'var('+CHART_PALETTE[c.i%CHART_PALETTE.length]+')'})
-      .appendChild(document.createElementNS(s.namespaceURI,'title')).textContent=
-        `${c.label}: ${fmt?fmt(c.value):fmtNum(c.value)} (${(frac*100).toFixed(1)}%)`;
-    /* 라벨은 구역이 받아줄 때만 넣는다. 넘치면 안 그린다. */
-    const pad=8;
-    if(c.w>62&&c.h>26)
-      svgNode(g,'text',{x:c.x+pad,y:c.y+pad+10,'font-size':11,
-        'font-weight':700,fill:'var(--on-accent)'},
-        String(c.label).slice(0,Math.floor((c.w-pad*2)/6.6))+
-        ' / '+(frac*100).toFixed(1)+'%');
-    if(c.w>62&&c.h>44)
-      svgNode(g,'text',{x:c.x+pad,y:c.y+pad+25,'font-size':10,
-        fill:'var(--on-accent)','fill-opacity':0.78},
-        fmt?fmt(c.value):fmtNum(c.value));
+  const clean=items.map(it=>({label:String(it.label),group:it.group,
+    value:it.value,v:Math.abs(it.value)})).filter(d=>d.v>0);
+  if(!clean.length)return chartBox(s,title,note);
+  const pct=v=>(v/tot*100).toFixed(1)+'%';
+  const money=v=>fmt?fmt(v):fmtNum(v);
+
+  if(!clean.some(d=>d.group!=null)){
+    /* 묶음이 없으면 1단이다. */
+    clean.sort((a,b)=>b.v-a.v);
+    squarify(clean,{x:0,y:0,w:W,h:H}).forEach((c,i)=>
+      tmCell(s,c,CHART_PALETTE[i%CHART_PALETTE.length],1,'--on-accent',
+        fmt,c.v/tot,money(c.value)+' · '+pct(c.v)));
+    return chartBox(s,title,note);
+  }
+
+  const m=new Map();
+  clean.forEach(d=>{
+    const g=d.group==null?'(미지정)':String(d.group);
+    if(!m.has(g))m.set(g,{label:g,v:0,value:0,kids:[]});
+    const e=m.get(g);e.v+=d.v;e.value+=d.value;e.kids.push(d)});
+  const groups=[...m.values()].sort((a,b)=>b.v-a.v);
+  groups.forEach(g=>g.kids.sort((a,b)=>b.v-a.v));
+
+  squarify(groups,{x:0,y:0,w:W,h:H}).forEach((gc,gi)=>{
+    const col=CHART_PALETTE[gi%CHART_PALETTE.length];
+    const G=2;
+    /* 제목띠. 묶음이 너무 낮으면 띠를 빼고 항목만 채운다. */
+    const band=gc.h>=HDR+26?HDR:0;
+    if(band){
+      const gg=svgNode(s,'g',{});
+      svgNode(gg,'rect',{x:gc.x+G/2,y:gc.y+G/2,width:Math.max(gc.w-G,1),
+        height:band-G/2,rx:2,fill:'var('+col+')'})
+        .appendChild(document.createElementNS(s.namespaceURI,'title')).textContent=
+          `${gc.label}: ${money(gc.value)} (${pct(gc.v)})`;
+      if(gc.w>70)svgNode(gg,'text',{x:gc.x+gc.w/2,y:gc.y+band-6,
+        'text-anchor':'middle','font-size':11,'font-weight':700,
+        fill:'var(--on-accent)'},
+        gc.label.slice(0,Math.floor((gc.w-12)/6.5))+'  '+pct(gc.v));
+    }
+    const inner={x:gc.x,y:gc.y+band,w:gc.w,h:gc.h-band};
+    if(inner.h<=1)return;
+    const n=gc.kids.length;
+    squarify(gc.kids,inner).forEach((c,ki)=>{
+      /* 같은 묶음 안에서 큰 항목일수록 진하다. 순위가 색으로도 읽힌다. */
+      const op=n<2?0.60:0.60-(ki/(n-1))*0.32;
+      tmCell(s,c,col,op,'--text',fmt,c.v/tot,money(c.value)+' · '+pct(c.v));
+    });
   });
   return chartBox(s,title,note);
 }
@@ -2543,20 +2593,34 @@ function autoChart(f,r){
   if(val<0&&nums.length)val=nums[0];
   if(val<0)return null;
 
+  /* 범주형이 하나 더 있고 그것이 cat 보다 성기면 상위 묶음으로 쓴다. 묶음이
+     있으면 트리맵이 2단이 되어 "어느 묶음의 어느 항목인지"를 같이 말한다.
+     cat 선택 규칙은 건드리지 않는다. 묶음만 얹는다. */
+  const uCat=uniq(cat);
+  let grp=-1;
+  for(let i=0;i<cols.length;i++){
+    if(i===cat||isNum(i)||skip.test(cols[i]))continue;
+    const u=uniq(i);
+    if(u>=2&&u<=8&&u<uCat){grp=i;break}}
+
   const agg=new Map();
   f.rows.forEach(x=>{
+    const g=grp>=0?String(x[grp]):null;
     const k=String(x[cat]),v=typeof x[val]==='number'?x[val]:0;
-    agg.set(k,(agg.get(k)||0)+v)});
-  let items=[...agg].map(([label,value])=>({label,value}))
+    const key=g==null?k:g+'\x00'+k;
+    const e=agg.get(key);
+    if(e)e.value+=v;else agg.set(key,{group:g,label:k,value:v})});
+  let items=[...agg.values()]
     .filter(x=>x.value!==0).sort((a,b)=>Math.abs(b.value)-Math.abs(a.value));
   if(items.length<2)return null;
   const label=(i)=>colLabel(f,i);
-  const note=`축 ${label(cat)} × ${label(val)} (스펙에서 자동 선택) · `+
+  const axis=grp>=0?`${label(grp)} > ${label(cat)}`:label(cat);
+  const note=`축 ${axis} × ${label(val)} (스펙에서 자동 선택) · `+
     `원장 전량 ${f.total.toLocaleString()}행 집계`;
   const title=`${r.korean} (${label(val)} 구성)`;
-  /* 항목이 적고 전부 같은 부호면 구성비가 읽기 쉽다. 그 외는 막대다 */
+  /* 전부 같은 부호면 구성비를 넓이로 읽는 편이 낫다. 그 외는 막대다 */
   const allPos=items.every(x=>x.value>0);
-  if(allPos&&items.length<=6)return donut(items,{title,note});
+  if(allPos&&items.length<=24)return donut(items,{title,note});
   return bars(items.slice(0,14),{title,note});
 }
 
@@ -5534,10 +5598,9 @@ function defaultedLgdScreen(root){
   const obs=almF('crm_default_observation');
   if(obs){
     const oi=frameIdx(obs);
-    /* 경과월별 BEEL 곡선은 그리지 않는다. 산출 원장이 그 곡선을 만들지 않은
-       이유(경과월 축 산식의 분모 미확정)를 elbe_method 컬럼에 적어 두었고,
-       화면이 임의의 분모로 곡선을 만들면 원장에 없는 값이 생긴다. 대신 경과월
-       분포와 그 사유를 싣는다. */
+    /* 이 화면은 경과월 분포와 산출방법만 싣는다. 곡선 자체는 곡선 원장
+       (crm_beel_curve)이 만들고 BEEL·PLGD 화면이 그린다. 두 화면이 같은
+       곡선을 각자 그리면 두 벌이 된다. */
     const open=obs.rows.filter(r=>r[oi.workout_complete]===false);
     const m=new Map();
     open.forEach(r=>{const k=r[oi.months_since_default];
@@ -7281,6 +7344,27 @@ Object.assign(SUMMARIES,{
     return {t:'추정 대상 '+f.rows.length+'건 · 수렴 실패 '+bad+
       ' · 수렴하지 못한 포트폴리오에는 행동가정이 적용되지 않는다',
       tone:bad?'warn':'good'}},
+  '회수 할인율':()=>{const f=almF('crm_lgd_discount_rate');if(!f)return null;
+    const i=frameIdx(f);
+    const blank=f.rows.filter(r=>r[i.discount_rate]==null).length;
+    const prov=f.rows.filter(r=>r[i.discount_rate]!=null&&
+      String(r[i.approved_by]||'').indexOf('미승인')>=0).length;
+    const e=almF('crm_capm_estimate');
+    const ke=(e&&e.rows.length)?String(e.rows[0][frameIdx(e).ke_status]):'-';
+    return {t:'할인율 '+f.rows.length+'행 · 값 공란 '+blank+'행 · 잠정 준용 '+
+      prov+'행 · 자기자본비용 '+ke,
+      tone:(blank||prov)?'warn':'good'}},
+  'BEEL·PLGD':()=>{const f=almF('crm_beel_curve');if(!f)return null;
+    const i=frameIdx(f);
+    const den=f.rows.filter(r=>r[i.is_applied_denominator]);
+    const brk=[...new Set(f.rows.filter(r=>r[i.is_applied_denominator]&&
+      r[i.monotonicity_verdict]==='단조증가아님').map(r=>r[i.segment]))].length;
+    const p=almF('crm_plgd');
+    const open=p?p.rows.filter(r=>r[frameIdx(p).plgd]==null).length:0;
+    return {t:'곡선 '+f.rows.length+'행 (적용 분모 '+
+      String(den.length?den[0][i.beel_denominator]:'-')+') · 우상향 깨진 '+
+      '세그먼트 '+brk+' · PLGD 미산출 '+open+'행',
+      tone:(brk||open)?'warn':'good'}},
 });
 
 function scenarioScreen(root){
