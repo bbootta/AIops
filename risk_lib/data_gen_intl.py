@@ -467,8 +467,10 @@ def build_inst_master_intl() -> pd.DataFrame:
     """
     base = inst.build_inst_master()
     rows = []
-    # 난수 오프셋은 등록 순서로 1부터 준다. 국내 표본이 0 이며 그 값을 유지해야
-    # 기존 산출이 재현된다.
+    # 난수 오프셋은 등록 순서로 1부터 주되 간격은 `institutions.SEED_STRIDE` 다.
+    # 간격이 모듈 오프셋 폭보다 좁으면 기관 A 의 어떤 모듈과 기관 B 의 다른
+    # 모듈이 같은 난수열을 쓴다. 국내 표본이 0 이며 그 값을 유지해야 기존
+    # 산출이 재현된다.
     for i, (code, ko, en, itype, region, country, ccy, domestic,
             regime, tier, _arch) in enumerate(_INSTITUTIONS, start=1):
         rows.append({
@@ -482,7 +484,7 @@ def build_inst_master_intl() -> pd.DataFrame:
             "is_domestic": domestic,
             "regulatory_regime": regime,
             "size_tier": tier,
-            "seed_offset": i * 1000,
+            "seed_offset": i * inst.SEED_STRIDE,
             "data_origin": SYNTHETIC_ORIGIN,
             "evidence_status": SYNTHETIC_EVIDENCE,
             "note": _SYNTHETIC_NOTE,

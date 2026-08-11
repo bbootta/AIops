@@ -270,6 +270,17 @@ def check_names(master: pd.DataFrame) -> list[Violation]:
 
 # ---------------------------------------------------------------- 결정론
 
+# 기관 오프셋의 최소 간격. 모듈별 전용 스트림은 `기관시드 + 모듈오프셋` 으로
+# 만들므로, 기관 간격이 모듈 오프셋 폭보다 좁으면 기관 A 의 어떤 모듈과 기관 B 의
+# 다른 모듈이 같은 난수열을 쓴다. 오프셋 값이 서로 달라도 그렇다. 실제로 간격이
+# 1000 이던 때 KR_BANK_01 의 alm_contract(0+1101)와 APAC_BANK_01 의
+# balance_sheet(1000+101)가 seed+1143 으로 같았고 기저 균등난수가 비트 단위로
+# 일치했다. 모듈 오프셋의 상한은 `macro_monitor._rng` 의 sha256 % 100_000 이므로
+# 간격을 그 열 배로 둔다. 새 모듈 오프셋이 이 폭을 넘으면
+# tests/test_institutions.py 의 스트림 중복 시험이 먼저 실패한다.
+SEED_STRIDE = 1_000_000
+
+
 def seed_offsets(master: pd.DataFrame | None = None) -> dict[str, int]:
     """기관코드 → 난수 오프셋. 원장이 유일한 출처다."""
     m = build_inst_master() if master is None else master
@@ -279,6 +290,13 @@ def seed_offsets(master: pd.DataFrame | None = None) -> dict[str, int]:
     if dup:
         raise ValueError("seed_offset 이 기관 간 중복이다. 두 기관이 같은 "
                          "난수 스트림을 쓰면 산출이 서로를 재현한다")
+    ordered = sorted(offsets.items(), key=lambda kv: kv[1])
+    for (code_a, a), (code_b, b) in zip(ordered, ordered[1:]):
+        if b - a < SEED_STRIDE:
+            raise ValueError(
+                f"seed_offset 간격이 좁다: {code_a}({a})와 {code_b}({b})의 "
+                f"차이가 {b - a} 로 {SEED_STRIDE} 미만이다. 모듈 오프셋 폭보다 "
+                "좁으면 두 기관의 서로 다른 모듈이 같은 난수 스트림을 쓴다")
     return offsets
 
 

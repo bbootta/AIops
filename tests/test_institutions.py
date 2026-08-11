@@ -108,6 +108,158 @@ def test_seed_derivation_does_not_use_builtin_hash():
     assert "hash" not in called
 
 
+def test_narrow_offset_gap_is_rejected():
+    """오프셋 값이 서로 달라도 간격이 좁으면 스트림이 겹친다.
+
+    간격이 1000 이던 때 KR_BANK_01 의 alm_contract(0+1101)와 APAC_BANK_01 의
+    balance_sheet(1000+101)가 seed+1143 으로 같았다. 값 중복 검사만으로는
+    그 상태를 잡지 못한다.
+    """
+    m = inst.build_inst_master().copy()
+    m.loc[len(m)] = {**m.iloc[0].to_dict(), "institution_code": "KR_BANK_02",
+                     "seed_offset": 1000}
+    with pytest.raises(ValueError, match="간격"):
+        inst.seed_offsets(m)
+
+
+# ----- 난수 스트림 겹침 --------------------------------------------------------
+#
+# 기관별 스트림은 `기관시드 + 모듈오프셋` 이다. 모듈 오프셋을 소스에서 걷고
+# 기관 오프셋과 곱해 전 스트림을 모은 뒤 중복을 센다. 중복이 하나라도 있으면
+# 기관 A 의 어떤 모듈과 기관 B 의 다른 모듈이 같은 난수열을 쓴다.
+
+_RISK_LIB = Path(inst.__file__).parent
+
+
+def _int_consts(tree) -> dict[str, int]:
+    """모듈 상단의 정수 상수. 튜플 대입과 타입 표기를 함께 읽는다."""
+    import ast
+
+    out: dict[str, int] = {}
+    for node in tree.body:
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) \
+                and isinstance(node.value, ast.Constant) \
+                and isinstance(node.value.value, int):
+            out[node.target.id] = node.value.value
+        elif isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name) and isinstance(node.value, ast.Constant) \
+                        and isinstance(node.value.value, int):
+                    out[t.id] = node.value.value
+                elif isinstance(t, ast.Tuple) and isinstance(node.value, ast.Tuple):
+                    for name, val in zip(t.elts, node.value.elts):
+                        if isinstance(name, ast.Name) \
+                                and isinstance(val, ast.Constant) \
+                                and isinstance(val.value, int):
+                            out[name.id] = val.value
+    return out
+
+
+def _offset_bound(expr, consts: dict[str, int], local: dict) -> int | None:
+    """오프셋 식의 상한. 못 읽으면 None 이며 시험이 그 자리를 알린다."""
+    import ast
+
+    if isinstance(expr, ast.Constant) and isinstance(expr.value, int):
+        return expr.value
+    if isinstance(expr, ast.Name):
+        if expr.id in consts:
+            return consts[expr.id]
+        if expr.id in local:
+            return _offset_bound(local[expr.id], consts, local)
+        return None
+    if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Mod):
+        right = _offset_bound(expr.right, consts, local)
+        return None if right is None else right - 1
+    return None
+
+
+def _scan_module_offsets() -> tuple[set[int], list[str]]:
+    """`default_rng(시드 + 오프셋)` 의 오프셋 집합과 못 읽은 자리 목록."""
+    import ast
+
+    offsets: set[int] = set()
+    unread: list[str] = []
+    for path in sorted(_RISK_LIB.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        consts = _int_consts(tree)
+        funcs = [n for n in ast.walk(tree)
+                 if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and node.args
+                    and ast.unparse(node.func).endswith("default_rng")):
+                continue
+            arg = node.args[0]
+            if not (isinstance(arg, ast.BinOp) and isinstance(arg.op, ast.Add)):
+                continue                 # 시드 자체이거나 절대 시드다
+            owner = None
+            for fn in funcs:
+                if fn.lineno <= node.lineno <= (fn.end_lineno or fn.lineno):
+                    if owner is None or fn.lineno > owner.lineno:
+                        owner = fn
+            local = {}
+            if owner is not None:
+                for n in ast.walk(owner):
+                    if isinstance(n, ast.Assign):
+                        for t in n.targets:
+                            if isinstance(t, ast.Name):
+                                local[t.id] = n.value
+            bound = _offset_bound(arg.right, consts, local)
+            where = f"{path.relative_to(_RISK_LIB.parent)}:{node.lineno}"
+            if bound is None:
+                unread.append(f"{where} · {ast.unparse(arg)}")
+            else:
+                offsets.add(bound)
+    return offsets, unread
+
+
+def test_every_module_offset_is_readable_and_fits_the_stride():
+    """오프셋을 못 읽으면 겹침을 셀 수 없다. 조용히 넘기지 않는다."""
+    offsets, unread = _scan_module_offsets()
+    assert not unread, "모듈 오프셋을 읽지 못한 자리:\n" + "\n".join(unread)
+    assert len(offsets) > 40, f"오프셋을 {len(offsets)}개만 찾았다. 훑기가 깨졌다"
+    over = sorted(o for o in offsets if o >= inst.SEED_STRIDE)
+    assert not over, (f"모듈 오프셋이 기관 간격({inst.SEED_STRIDE}) 이상이다: "
+                      f"{over}. 간격을 넓히거나 오프셋을 줄인다")
+
+
+def test_no_two_institutions_share_a_random_stream():
+    """전 기관 × 전 모듈 스트림을 모아 중복을 센다. 0 이어야 한다."""
+    from collections import Counter
+    from risk_lib import data_gen_intl as intl
+
+    module_offsets, _ = _scan_module_offsets()
+    inst_offsets = inst.seed_offsets(intl.build_inst_master_intl())
+    streams = Counter(base + off for base in inst_offsets.values()
+                      for off in module_offsets)
+    shared = [s for s, n in streams.items() if n > 1]
+    assert not shared, (
+        f"기관이 다른데 같은 난수 스트림을 쓴다: {sorted(shared)[:5]} "
+        f"(총 {len(shared)}건)")
+    assert len(streams) == len(inst_offsets) * len(module_offsets)
+
+
+def test_the_stream_count_catches_a_narrow_stride():
+    """검사가 실제로 발동하는지 본다. 통과가 상시면 통제가 아니다."""
+    from collections import Counter
+
+    module_offsets, _ = _scan_module_offsets()
+    narrow = {f"INST_{i}": i * 1000 for i in range(9)}   # 고치기 전의 간격
+    streams = Counter(base + off for base in narrow.values()
+                      for off in module_offsets)
+    assert [s for s, n in streams.items() if n > 1], \
+        "간격 1000 에서도 겹침이 없다면 이 시험은 아무것도 지키지 않는다"
+
+
+def test_the_reported_stream_collision_is_gone():
+    """지적이 든 예: KR 의 alm_contract 와 APAC 의 balance_sheet."""
+    from risk_lib import data_gen_intl as intl
+
+    m = intl.build_inst_master_intl()
+    kr = inst.institution_seed(42, "KR_BANK_01", m) + 1101
+    apac = inst.institution_seed(42, "APAC_BANK_01", m) + 101
+    assert kr != apac, f"두 스트림이 같은 시드({kr})를 쓴다"
+
+
 # ----- 적용범위 판정 ----------------------------------------------------------
 
 def test_every_catalog_table_is_classified():
