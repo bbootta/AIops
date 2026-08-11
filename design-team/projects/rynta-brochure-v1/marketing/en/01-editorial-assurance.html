@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RYNTA Brochure Draft 01 EN, Institutional Editorial (Pre-clearance draft)</title>
+<!--
+  ============================================================
+  RYNTA RiskOps 3단 접지 브로셔 · 시안 01 · 영어판(EN) · 팀1 · 2026-08-08
+  인스티튜셔널 에디토리얼: paper #f5f3ee + ink #101217 + blue #0057ff + red #ff3b30
+  ------------------------------------------------------------
+  [재단·인쇄 주석, 필독]
+  · 본 파일은 재단선 기준 297×210mm(A4 가로) 2면. 실제 인쇄 데이터 제작 시
+    사방 3mm bleed를 추가해 303×216mm로 확장할 것 (배경색 paper를 bleed까지 연장).
+  · 접는 선 안쪽 5mm 세이프존 준수, 본 시안의 패널 좌우 패딩 9mm로 확보됨.
+  · 날개 패널(바깥면 맨 왼쪽)은 실제 인쇄 시 폭을 2~3mm 축소(96~97mm)해야
+    안으로 접힐 때 간섭이 없다. 본 시안은 비교용으로 3패널 균등 99mm.
+  · 인쇄 출력은 CMYK 변환 + 300dpi 기준. blue #0057ff / red #ff3b30은
+    CMYK 전환 시 채도 저하 확인 필요.
+  · 접는 선 점선(.fold-guide)은 화면 확인용, 인쇄 시 자동 숨김.
+  ------------------------------------------------------------
+  [EN 에디션 조정 내역, 라틴 조판 최적화, 레이아웃·컬러·그리드 불변]
+  · word-break:keep-all 전부 제거(normal).
+  · 헤드라인 letter-spacing -.01~-.02em 타이트닝.
+  · 세리프 스택에 Georgia 선두 추가 (Georgia, "Noto Serif KR", serif).
+  · 카피 덱 확정에 따라 KPI 표 3열(Metric/Target/Measured by), 표 8.5pt,
+    goal 셀 nowrap 해제. 표지 h1 23.5pt→20pt (라틴 장체 폭 보정).
+  ============================================================
+-->
+<style>
+  :root{
+    --paper:#f5f3ee;
+    --ink:#101217;
+    --blue:#0057ff;
+    --red:#ff3b30;
+    --muted:#4b4f57;
+    --hair:#b9b3a4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#cfcabd}
+  body{
+    font-family:Pretendard,"Noto Sans KR","Malgun Gothic",sans-serif;
+    color:var(--ink);
+    display:flex;flex-direction:column;align-items:center;
+    gap:8px;padding:28px 16px 60px;
+  }
+  .serif{font-family:Georgia,"Noto Serif KR",serif}
+
+  /* ---------- 화면 전용 요소 ---------- */
+  .screen-only{max-width:297mm;width:100%}
+  header.screen-only{
+    padding:14px 18px;background:var(--ink);color:var(--paper);
+    display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  }
+  header.screen-only b{font-size:15px;letter-spacing:.02em}
+  header.screen-only span{font-size:12px;color:#c9c4b8}
+  .sheet-label{
+    font-size:12px;font-weight:700;color:#3a3d44;
+    padding:10px 2px 2px;letter-spacing:.04em;
+  }
+
+  /* ---------- 시트 공통 ---------- */
+  .sheet{
+    width:297mm;height:210mm;background:var(--paper);
+    display:grid;grid-template-columns:99mm 99mm 99mm;
+    position:relative;overflow:hidden;
+    box-shadow:0 10px 34px rgba(16,18,23,.28);
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;
+  }
+  .fold-guide{
+    position:absolute;top:0;bottom:0;width:0;z-index:9;
+    border-left:1.2px dashed rgba(16,18,23,.42);
+  }
+  .panel{position:relative;padding:11mm 9mm;overflow:hidden;font-size:9.5pt;line-height:1.55}
+
+  /* 에디토리얼 공통 장치 */
+  .rule{border:0;border-top:.6pt solid var(--ink)}
+  .rule.thick{border-top-width:2.2pt}
+  .rule.hairline{border-top-color:var(--hair)}
+  .kicker{
+    font-size:7.5pt;font-weight:800;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--blue);
+  }
+  .issue-strip{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:7pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink);padding:2mm 0;
+  }
+  .byline{font-size:8pt;color:var(--muted);letter-spacing:.06em}
+
+  /* ---------- 표지 ---------- */
+  .cover{display:flex;flex-direction:column;border-left:.6pt solid var(--hair)}
+  .cover .masthead{display:flex;align-items:center;gap:4mm;margin:5mm 0 2.5mm}
+  .cover .masthead .wordmark{font-weight:900;font-size:17pt;letter-spacing:.05em}
+  .cover .masthead .wordmark small{
+    display:block;font-size:8pt;font-weight:700;letter-spacing:.28em;
+    color:var(--muted);margin-top:.6mm;
+  }
+  .cover h1{
+    font-size:20pt;line-height:1.34;font-weight:900;letter-spacing:-.02em;
+    margin:8mm 0 5mm;
+  }
+  .cover h1 .em{border-bottom:2.6pt solid var(--red);padding-bottom:.4mm}
+  .cover .deck{
+    font-size:10pt;color:var(--muted);line-height:1.6;
+    padding-left:4mm;border-left:2.2pt solid var(--blue);
+  }
+  .cover .spacer{flex:1}
+  .cover .vol{
+    display:flex;justify-content:space-between;align-items:flex-end;margin-top:4mm;
+  }
+  .cover .vol .volnum{font-weight:900;font-size:15pt;letter-spacing:.03em}
+  .cover .vol .volnum small{display:block;font-size:7pt;font-weight:700;letter-spacing:.2em;color:var(--muted)}
+
+  /* ---------- 날개 ---------- */
+  .flap h2,.back h2,.inner-panel h2{
+    font-size:14.5pt;font-weight:900;line-height:1.3;letter-spacing:-.01em;margin:2.5mm 0 3mm;
+  }
+  .flap .lead,.inner-panel .lead{
+    font-size:9.5pt;color:var(--muted);line-height:1.6;margin-bottom:4mm;
+  }
+  table.kpi{width:100%;border-collapse:collapse;font-size:8.5pt}
+  table.kpi caption{
+    caption-side:top;text-align:left;font-size:7.5pt;font-weight:800;
+    letter-spacing:.14em;color:var(--blue);padding-bottom:1.6mm;text-transform:uppercase;
+  }
+  table.kpi th,table.kpi td{
+    text-align:left;padding:2.4mm 1mm;border-bottom:.6pt solid var(--hair);
+    vertical-align:top;
+  }
+  table.kpi thead th{
+    border-top:1.6pt solid var(--ink);border-bottom:.9pt solid var(--ink);
+    font-size:7.5pt;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  }
+  table.kpi td.goal{font-weight:800}
+  table.kpi td.goal .tag{
+    display:inline-block;font-size:6.8pt;font-weight:800;color:var(--paper);
+    background:#8b1e2d;border-radius:1mm;padding:.4mm 1.4mm;margin-left:1.2mm;
+    vertical-align:middle;letter-spacing:.06em;
+  }
+  .footnote{font-size:7.5pt;color:var(--muted);line-height:1.55;margin-top:2.6mm}
+  .flap .measure{
+    margin-top:4mm;padding:3mm 3.5mm;border:.6pt solid var(--ink);
+    font-size:8.5pt;line-height:1.55;
+  }
+  .flap .measure b{color:var(--blue)}
+
+  /* ---------- 뒷면 ---------- */
+  .back{display:flex;flex-direction:column;border-left:.6pt solid var(--hair)}
+  .back .about{font-size:9pt;line-height:1.65;margin:3mm 0 4mm}
+  .back .tagline{
+    font-size:10.5pt;font-weight:700;font-style:italic;
+    margin:1mm 0 5mm;
+  }
+  .back .contact{font-size:8.5pt;line-height:1.8;color:var(--ink)}
+  .back .contact b{
+    display:inline-block;min-width:16mm;margin-right:2.5mm;font-size:7pt;letter-spacing:.12em;
+    color:var(--muted);text-transform:uppercase;
+  }
+  .back .spacer{flex:1}
+  .disclosure{
+    font-size:7pt;line-height:1.6;color:var(--ink);
+    border-top:.9pt solid var(--ink);padding-top:2.2mm;margin-top:3mm;
+  }
+  .disclosure b{letter-spacing:.04em}
+
+  /* ---------- 안쪽면 ---------- */
+  .inner-panel{border-left:.6pt solid var(--hair)}
+  .inner-panel:first-child{border-left:0}
+  .inner-panel .no{
+    font-family:Georgia,"Noto Serif KR",serif;font-size:21pt;font-weight:900;
+    color:var(--blue);line-height:1;
+  }
+  .prob{margin:3.4mm 0 0;padding-left:4mm;border-left:1.6pt solid var(--red)}
+  .prob h3{font-size:10pt;font-weight:800;margin-bottom:1mm}
+  .prob p{font-size:9pt;color:var(--muted);line-height:1.55}
+
+  .layer{display:flex;gap:3mm;margin-top:3.2mm;align-items:stretch}
+  .layer .bar{flex:0 0 2.4mm;border-radius:.6mm}
+  .layer .txt h3{font-size:10pt;font-weight:800}
+  .layer .txt h3 small{font-size:7.5pt;font-weight:700;color:var(--muted);letter-spacing:.08em;margin-left:1mm}
+  .layer .txt p{font-size:8.8pt;color:var(--muted);line-height:1.5;margin-top:.6mm}
+  .ai-note{
+    margin-top:4mm;padding:2.6mm 3.2mm;background:rgba(0,87,255,.07);
+    border-left:2.2pt solid var(--blue);font-size:8pt;line-height:1.55;
+  }
+  .ai-note b{color:var(--blue)}
+
+  table.ab{width:100%;border-collapse:collapse;font-size:8pt;margin-top:1mm}
+  table.ab th,table.ab td{
+    text-align:left;padding:2.1mm 1mm;border-bottom:.6pt solid var(--hair);
+    vertical-align:top;
+  }
+  table.ab thead th{
+    border-top:1.6pt solid var(--ink);border-bottom:.9pt solid var(--ink);
+    font-size:7.5pt;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  }
+  table.ab td.tobe{font-weight:700}
+  .duration{
+    margin-top:4mm;padding:3mm 0 3.4mm;border-top:1.6pt solid var(--ink);
+    border-bottom:.6pt solid var(--ink);
+  }
+  .duration .row{display:flex;align-items:baseline;gap:2.6mm;flex-wrap:wrap}
+  .duration .big{font-family:Georgia,"Noto Serif KR",serif;font-size:15.5pt;font-weight:900;line-height:1.1;letter-spacing:-.01em}
+  .duration .big.red{color:var(--red)}
+  .duration .arrow{font-size:13pt;font-weight:900;color:var(--ink)}
+  .duration .target-inline{font-size:9pt;font-weight:800}
+  .duration .cap{font-size:7.5pt;color:var(--muted);margin-top:1.4mm}
+  .security{margin-top:4mm}
+  .security li{
+    list-style:none;font-size:9pt;line-height:1.5;margin-top:2mm;
+    padding-left:5.4mm;position:relative;
+  }
+  .security li svg{position:absolute;left:0;top:.6mm}
+  .security li b{display:block}
+  .security li span{color:var(--muted);font-size:8.4pt}
+
+  /* ---------- 인쇄 ---------- */
+  @page{size:A4 landscape;margin:0}
+  @media print{
+    body{padding:0;gap:0;background:#fff}
+    .screen-only,.fold-guide{display:none !important}
+    .sheet{box-shadow:none;page-break-after:always}
+    .sheet:last-of-type{page-break-after:auto}
+  }
+</style>
+</head>
+<body>
+
+<header class="screen-only">
+  <b>Draft 01 EN, Institutional Editorial · RYNTA RiskOps Tri-fold Brochure</b>
+  <span>A4 landscape 297×210mm × 2 sheets · 3 panels × 99mm · dashed = fold lines (hidden in print) · Pre-clearance draft · Team 1 · 2026-08-08</span>
+</header>
+
+<div class="sheet-label screen-only">Outside, [Flap (folds in) | Back | Cover]</div>
+
+<!-- ================= Outside ================= -->
+<section class="sheet" aria-label="Outside">
+
+  <!-- Flap panel -->
+  <article class="panel flap">
+    <div class="issue-strip"><span>Proposal</span><span>Pilot Program</span></div>
+    <hr class="rule thick">
+    <p class="kicker" style="margin-top:4mm">Parallel-Run Evaluation</p>
+    <h2 class="serif">Three to six months, in parallel. Judged by your standards.</h2>
+    <p class="lead">RYNTA runs in parallel with your existing risk and validation workflow on one or two models.</p>
+
+    <table class="kpi">
+      <caption>Success criteria</caption>
+      <thead>
+        <tr><th>Metric</th><th>Target</th><th>Measured by</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Output variance vs. current results</td><td class="goal">0 discrepancies</td><td>Your validators</td></tr>
+        <tr><td>Validation cycle per model</td><td class="goal">≥50% shorter</td><td>Jointly measured</td></tr>
+        <tr><td>Audit-trail completeness</td><td class="goal">100%</td><td>Your audit function</td></tr>
+        <tr><td>4-Eyes policy exceptions</td><td class="goal">0</td><td>System logs</td></tr>
+      </tbody>
+    </table>
+    <p class="footnote">※ Targets, not commitments. Outcomes vary by institution and environment. · Inquiries, info@onelineai.com</p>
+
+    <div class="measure">
+      <b>Success is defined by your institution, not by us.</b> Your validators measure the results against your baseline.
+    </div>
+  </article>
+
+  <!-- Back panel -->
+  <article class="panel back">
+    <div class="issue-strip"><span>Publisher</span><span>ONELINE AI</span></div>
+    <hr class="rule thick">
+
+    <!-- ONELINE-EMBLEM-LIGHT (assets/brand-snippets.html) -->
+    <svg viewBox="0 0 340 96" width="170" role="img" aria-label="OneLine AI logo" xmlns="http://www.w3.org/2000/svg" style="margin-top:6mm">
+      <circle cx="34" cy="62" r="26" fill="#F8B739"/>
+      <circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".9"/>
+      <line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+      <text x="100" y="70" font-family="Pretendard,'Noto Sans KR',Arial,sans-serif" font-weight="900" font-size="44" letter-spacing="1">
+        <tspan fill="#101828">ONE</tspan><tspan fill="#F8B739">LINE</tspan><tspan fill="#8A93A6" font-size="20" font-weight="700" dx="6">AI</tspan>
+      </text>
+    </svg>
+
+    <p class="tagline serif" style="margin-top:4mm">“Financial-grade AI, built by validators.”</p>
+    <p class="about">
+      OneLine AI is a Seoul-based financial AI company. RYNTA RiskOps was designed by practitioners who sat on the validating
+      side of the desk, bank risk-audit experience across IRRBB (ΔEVE·ΔNII), ICAAP, stress testing, and PD·LGD·EAD validation,
+      with about ten years in financial data and risk models. We automate the work; authority and accountability stay with your people.
+    </p>
+
+    <hr class="rule hairline">
+    <div class="contact" style="margin-top:3mm">
+      <div><b>Address</b>Front One 14F, 122 Mapo-daero, Mapo-gu, Seoul, Korea</div>
+      <div><b>Web</b>www.onelineai.com</div>
+      <div><b>Mail</b>info@onelineai.com</div>
+    </div>
+
+    <div class="spacer"></div>
+    <p class="disclosure">
+      Performance indicators in this material are evaluation targets, not achieved results; actual outcomes vary by
+      institution and environment. AI-generated outputs are not final until reviewed and approved by authorized personnel.
+      <b>· Pre-clearance draft · 01 · 2026-08-08</b>
+    </p>
+  </article>
+
+  <!-- Cover panel -->
+  <article class="panel cover">
+    <div class="issue-strip"><span>Risk Operations Dossier</span><span>Seoul · 2026</span></div>
+    <hr class="rule thick">
+
+    <div class="masthead">
+      <!-- RYNTA-BRANDMARK (assets/brand-snippets.html) -->
+      <svg viewBox="10 30 214 104" width="87" role="img" aria-label="RYNTA brandmark" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="rw11a" x1="-42.3" y1="42.3" x2="66.6" y2="-66.6" gradientUnits="userSpaceOnUse"><stop offset="0.05" stop-color="#396EAA"/><stop offset="0.15" stop-color="#4486BD"/><stop offset="0.25" stop-color="#509FD0"/><stop offset="0.35" stop-color="#5AB3DD"/><stop offset="0.45" stop-color="#5EBBE1"/><stop offset="0.55" stop-color="#6ECCE7"/><stop offset="0.65" stop-color="#91DFEC"/><stop offset="0.75" stop-color="#80DAEA"/><stop offset="0.85" stop-color="#69CAE6"/><stop offset="0.95" stop-color="#61C0E2"/></linearGradient><linearGradient id="rw11b" x1="-36.4" y1="36.4" x2="75.1" y2="-75.1" gradientUnits="userSpaceOnUse"><stop offset="0.05" stop-color="#3156C1"/><stop offset="0.15" stop-color="#335CCB"/><stop offset="0.25" stop-color="#3765D6"/><stop offset="0.35" stop-color="#3E73E3"/><stop offset="0.45" stop-color="#4580EC"/><stop offset="0.55" stop-color="#4B89F1"/><stop offset="0.65" stop-color="#65A1F1"/><stop offset="0.75" stop-color="#5293F3"/><stop offset="0.85" stop-color="#4580F1"/><stop offset="0.95" stop-color="#3D70E2"/></linearGradient></defs><path fill="url(#rw11b)" d="M213.64 64.17C205.97 63.32,164.32 63.75,153.88 63.77C143.43 63.8,150.89 63.81,148.88 64.33C146.86 64.86,143.78 65.85,141.38 67.04C138.97 68.23,136.06 70.17,133.97 71.71C131.87 73.26,133.91 70.9,128.38 76.63C122.85 82.36,106.76 100.05,99.68 107.24C92.6 114.42,88.98 117.73,84.5 121.19C80.02 124.65,75.92 127.02,71.88 128.69C67.83 130.35,60.52 130.95,59.42 131.5C58.31 132.06,55.11 132.06,65 132.12C74.89 132.18,110.15 132.24,120.75 131.86C131.35 131.49,128.07 130.69,130.75 129.78C133.43 128.87,135.26 127.59,137.37 126.22C139.49 124.86,138.65 126.35,143.87 121.29C149.09 116.24,162.82 101.63,169.75 94.89C176.68 88.14,181.74 83.63,186.85 79.47C191.96 75.3,197.13 71.51,201.45 69.05C205.78 66.58,221.32 65.02,213.64 64.17Z"/><path fill="url(#rw11a)" d="M165.77 33.3C166.27 32.85,171.61 32.5,162.38 32.41C153.14 32.31,118.84 32.24,108.5 32.72C98.15 33.19,100.95 34.31,98.25 35.34C95.55 36.37,94.19 37.36,91.77 39.1C89.35 40.85,89.26 39.98,83.26 46.15C77.26 52.32,61.65 70.07,54.6 77.37C47.55 84.67,43.91 87.97,39.58 91.41C35.25 94.85,31.3 97.08,27.75 98.71C24.2 100.34,18.59 100.97,17.59 101.52C16.58 102.07,12.02 102.05,21.5 102.12C30.98 102.2,66.05 102.37,76.38 101.99C86.7 101.61,82.98 100.69,85.5 99.75C88.01 98.81,89.84 97.66,91.97 96.14C94.09 94.63,93.28 96.1,98.68 90.38C104.09 84.67,119.34 67.24,125.5 60.72C131.66 54.2,132.42 53.58,136.88 49.96C141.33 46.34,149.54 40.65,153.15 38.27C156.76 35.89,157.21 36.02,159.25 35.22C161.29 34.42,165.26 33.75,165.77 33.3Z"/></svg>
+      <div class="wordmark">RYNTA<small>RISKOPS</small></div>
+    </div>
+    <hr class="rule">
+
+    <h1 class="serif">Numbers by the <span class="em">engine</span>.<br>Language by <span class="em">agents</span>.<br>Judgment by <span class="em">people</span>.</h1>
+
+    <p class="deck">The AI agent platform for<br>risk management and validation.</p>
+
+    <div class="spacer"></div>
+    <hr class="rule hairline">
+    <div class="vol">
+      <div class="volnum serif"><small>ISSUE</small>Vol.1</div>
+      <!-- ONELINE-SYMBOL 소형 + 워드마크 (assets/brand-snippets.html) -->
+      <svg viewBox="0 0 340 96" width="88" role="img" aria-label="OneLine AI" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="34" cy="62" r="26" fill="#F8B739"/>
+        <circle cx="62" cy="34" r="26" fill="#4455A3" fill-opacity=".9"/>
+        <line x1="22" y1="74" x2="74" y2="22" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+        <text x="100" y="70" font-family="Pretendard,'Noto Sans KR',Arial,sans-serif" font-weight="900" font-size="44" letter-spacing="1">
+          <tspan fill="#101828">ONE</tspan><tspan fill="#F8B739">LINE</tspan><tspan fill="#8A93A6" font-size="20" font-weight="700" dx="6">AI</tspan>
+        </text>
+      </svg>
+    </div>
+  </article>
+
+  <div class="fold-guide" style="left:99mm" aria-hidden="true"></div>
+  <div class="fold-guide" style="left:198mm" aria-hidden="true"></div>
+</section>
+
+<div class="sheet-label screen-only">Inside, [01 Diagnosis | 02 Architecture | 03 Transition]</div>
+
+<!-- ================= Inside ================= -->
+<section class="sheet" aria-label="Inside">
+
+  <!-- Inside 1: Diagnosis -->
+  <article class="panel inner-panel">
+    <div class="issue-strip"><span>Chapter 01</span><span>Diagnosis</span></div>
+    <hr class="rule thick">
+    <p class="no serif" style="margin-top:4mm">01</p>
+    <h2 class="serif">Risk operations shouldn't depend on whoever runs them.</h2>
+    <p class="lead">From risk calculation to reporting to validation, risk operations rest on three fragile habits, at 2–4 weeks per model, today (as-is, internal estimate).</p>
+
+    <div class="prob">
+      <h3>Recurring recalculation</h3>
+      <p>Per-analyst scripts recompute the same figures, stress tests, limits, provisions; results are hard to reproduce.</p>
+    </div>
+    <div class="prob">
+      <h3>Manual reporting</h3>
+      <p>Risk and validation reports are written from scratch; evidence is collected after the fact.</p>
+    </div>
+    <div class="prob">
+      <h3>Individual know-how</h3>
+      <p>Procedures live with people, not systems. When staff move, process disappears.</p>
+    </div>
+  </article>
+
+  <!-- Inside 2: Architecture -->
+  <article class="panel inner-panel">
+    <div class="issue-strip"><span>Chapter 02</span><span>Architecture</span></div>
+    <hr class="rule thick">
+    <p class="no serif" style="margin-top:4mm">02</p>
+    <h2 class="serif">Divide the work.<br>Keep the judgment.</h2>
+    <p class="lead">Numbers by the engine. Language by agents. Judgment by people.</p>
+
+    <div class="layer">
+      <div class="bar" style="background:#42a9ff"></div>
+      <div class="txt">
+        <h3>Calculation, Deterministic engine<small>ENGINE</small></h3>
+        <p>No LLM in the numbers. Same input, same output, reproducible and verifiable.</p>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="bar" style="background:#a78bfa"></div>
+      <div class="txt">
+        <h3>Drafting, AI agents<small>ARI · AVI</small></h3>
+        <p>ARI runs day-to-day risk work: calculations, stress tests, limits, provisions, report drafts. AVI independently monitors and recalculates. Language, never numbers.</p>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="bar" style="background:#f6bb56"></div>
+      <div class="txt">
+        <h3>Judgment, People + 4-Eyes<small>HUMAN</small></h3>
+        <p>Nothing is final without sign-off by authorized reviewers.</p>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="bar" style="background:#2dd4bf"></div>
+      <div class="txt">
+        <h3>Record, Evidence Ledger<small>LEDGER</small></h3>
+        <p>Inputs, versions, verdicts, and approvals, logged immutably as work happens.</p>
+      </div>
+    </div>
+
+    <div class="ai-note">
+      <b>AI labeling</b>, Agent-drafted content is labeled as AI-generated and remains non-final until approved.
+    </div>
+  </article>
+
+  <!-- Inside 3: Transition -->
+  <article class="panel inner-panel">
+    <div class="issue-strip"><span>Chapter 03</span><span>Transition</span></div>
+    <hr class="rule thick">
+    <p class="no serif" style="margin-top:4mm">03</p>
+    <h2 class="serif">Same mandate.<br>Different operating model.</h2>
+
+    <table class="ab">
+      <thead><tr><th>As-is</th><th>To-be</th></tr></thead>
+      <tbody>
+        <tr><td>Per-analyst scripts</td><td class="tobe">Standard engine API</td></tr>
+        <tr><td>Fully manual reports</td><td class="tobe">Auto-drafted with evidence links</td></tr>
+        <tr><td>Evidence gathered after the fact</td><td class="tobe">Accumulated at execution</td></tr>
+        <tr><td>Re-collection on request</td><td class="tobe">Reproducibility package, on demand</td></tr>
+      </tbody>
+    </table>
+
+    <div class="duration">
+      <p class="kicker" style="margin-bottom:1.6mm">Validation cycle per model</p>
+      <div class="row">
+        <span class="big serif">2–4 weeks</span>
+        <span class="arrow" aria-hidden="true">→</span>
+        <span class="big serif red">5–10 business days</span>
+        <span class="target-inline"></span>
+      </div>
+      <p class="cap">※ 5–10 business days is an evaluation <b>target</b>, not a result; actual outcomes vary by institution and environment.</p>
+    </div>
+
+    <ul class="security">
+      <li>
+        <svg width="11" height="13" viewBox="0 0 12 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 6V4a4 4 0 1 1 8 0v2h1v7H1V6h1Zm2 0h4V4a2 2 0 1 0-4 0v2Z" fill="#0057ff"/></svg>
+        <b>Your data stays inside.</b><span>On-premises, deployed inside your network and jurisdiction.</span>
+      </li>
+      <li>
+        <svg width="11" height="13" viewBox="0 0 12 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 1 1 3v4c0 3.5 2.2 5.6 5 6.5 2.8-.9 5-3 5-6.5V3L6 1Z" fill="none" stroke="#0057ff" stroke-width="1.5"/></svg>
+        <b>No source data retained</b><span>No source data is retained by OneLine AI.</span>
+      </li>
+      <li>
+        <svg width="11" height="13" viewBox="0 0 12 14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M1 7l3.2 3.5L11 3" fill="none" stroke="#0057ff" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <b>Fits existing frameworks</b><span>An internal support tool for your risk and validation functions, designed to fit existing model risk management frameworks.</span>
+      </li>
+    </ul>
+  </article>
+
+  <div class="fold-guide" style="left:99mm" aria-hidden="true"></div>
+  <div class="fold-guide" style="left:198mm" aria-hidden="true"></div>
+</section>
+
+</body>
+</html>
