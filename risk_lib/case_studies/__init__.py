@@ -424,6 +424,34 @@ class BankAnalysis:
     manifest: Any = None
 
 
+# 시장·운영 산출의 구성비. 이 모듈이 다루는 은행들에 대해 근거 상태는
+# '미확인'이다 — 트레이딩 계정 구성과 영업지표(BI) 구성은 분기 공시에서 얻지
+# 못했다. 그래도 이 자리에 적어 두는 이유는, 적지 않으면 파이프라인이 기관
+# 프로파일 원장의 국내 표본 행(KR_BANK_01)을 대신 읽어 이 은행들의 시장·운영
+# RWA 가 되기 때문이다. 다른 기관의 행을 빌려 쓰는 것보다 이쪽의 근거 없음을
+# 드러내 두는 편이 낫다. 규모감만은 각 은행의 공시 총여신에서 온다.
+_CASE_MARKET_OP_SHARES: dict[str, float] = {
+    "share_fx": 0.02, "share_equity": 0.01, "share_ir": 0.05,
+    "share_bi_ildc": 0.02, "share_bi_sc": 0.01, "share_bi_fc": 0.005,
+    "op_loss_rate": 0.001,
+}
+
+
+def market_op_for(profile: BankProfile, *, scale: float = 1.0
+                  ) -> dict[str, float]:
+    """은행 하나의 시장·운영 산출 모수.
+
+    기준 명목은 그 은행의 **공시 총여신**이다. 이전에는 이 인자를 넘기지
+    않아 파이프라인이 국내 표본 기관의 프로파일 행(명목 10조)을 읽었고, 총여신
+    46.9조·18.4조·15.35조인 세 은행이 전부 같은 시장 RWA·운영 RWA 를 받았다.
+    규모가 세 배 넘게 벌어지는데 값이 같다는 것은 그 값이 이 은행들과 무관하다는
+    뜻이다. 구성비는 여전히 근거가 없고 `_CASE_MARKET_OP_SHARES` 가 그 사실을
+    적는다.
+    """
+    return {"mkt_notional_base": float(profile.total_loans_krw) * float(scale),
+            **_CASE_MARKET_OP_SHARES}
+
+
 def run_bank_stress(profile: BankProfile, *, seed: int = 42,
                     scale: float = 1.0) -> BankAnalysis:
     """은행 portfolio 합성 → run_pipeline → 결과 반환."""
@@ -435,7 +463,8 @@ def run_bank_stress(profile: BankProfile, *, seed: int = 42,
     result = run_pipeline(portfolio, seed=seed,
                           buffers={"capital_conservation": 0.025,
                                    "countercyclical": 0.0,
-                                   "dsib": 0.0})  # 인뱅은 D-SIB 미해당
+                                   "dsib": 0.0},  # 인뱅은 D-SIB 미해당
+                          market_op=market_op_for(profile, scale=scale))
     return BankAnalysis(profile=profile, portfolio=portfolio, result=result)
 
 

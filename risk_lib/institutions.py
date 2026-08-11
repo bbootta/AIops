@@ -38,6 +38,30 @@ AXIS_MASTER = "inst_master"
 INSTITUTION_TYPES: tuple[str, ...] = ("은행", "증권")
 DATA_ORIGINS: tuple[str, ...] = ("수기등록", "외부공시", "미확정")
 
+# 업권별 건전성 규제 체계와 대표 비율. 이 저장소의 파이프라인은 은행 기준
+# (BIS 비율·산출하한·LCR·NSFR·[별표 9-1] IRRBB) 한 벌만 산출한다. 증권 기관은
+# 순자본비율(NCR) 체계이며 그 산출은 아직 없다. 그 사실을 코드가 알고 있어야
+# 화면과 headline 이 은행 비율을 증권 기관의 건전성 지표로 내보내지 않는다.
+PRUDENTIAL_REGIME: dict[str, str] = {
+    "은행": "BIS",
+    "증권": "NCR",
+}
+
+# 파이프라인이 실제로 산출하는 체계. 여기 없는 업권의 결과는 참고치다.
+IMPLEMENTED_REGIME = "BIS"
+
+
+def prudential_regime(institution_type: str) -> str:
+    """업권의 건전성 규제 체계. 모르는 업권이면 판단하지 않고 알린다."""
+    if institution_type not in PRUDENTIAL_REGIME:
+        raise ValueError(f"건전성 규제 체계를 정하지 않은 업권: {institution_type}")
+    return PRUDENTIAL_REGIME[institution_type]
+
+
+def regime_applies(institution_type: str) -> bool:
+    """이 업권에 파이프라인의 산출 체계가 그대로 적용되는가."""
+    return prudential_regime(institution_type) == IMPLEMENTED_REGIME
+
 # 기존 산출 원장 전체가 귀속되는 기관. 지금 저장소의 데이터는 국내 은행 표본
 # 한 벌이므로 기관은 하나이며, 그 하나에 코드를 못 박는다.
 PRIMARY_INSTITUTION = "KR_BANK_01"
@@ -120,7 +144,10 @@ AMBIGUOUS_TABLES: dict[str, tuple[str, str]] = {
     "ncr_component": (
         "기관 종속",
         "순자본비율은 금융투자업자 지표인데 현재 원장은 은행 표본 기관 아래에 있다. "
-        "증권 기관이 등록되면 그쪽으로 옮겨야 한다."),
+        "증권 기관이 등록되어 옮길 조건은 갖춰졌으나 아직 옮기지 못했다. "
+        "`ncr.synthesise_securities_firm` 이 은행 북을 축소해 만든 예시라서, "
+        "그대로 옮기면 등록된 증권 기관의 순자본비율이라고 말하는 셈이 된다. "
+        "증권 기관의 재무구조 원장이 서기 전에는 옮기지 않는다."),
 }
 
 # 통화·국가 코드는 별도 표가 아니라 컬럼 허용값(ColumnSpec.allowed)으로만 있다.
@@ -319,6 +346,45 @@ def stamp_all(tables: Mapping[str, pd.DataFrame], code: str
     """기관 종속 원장에만 기관코드를 채운다. 공유 참조 원장은 손대지 않는다."""
     return {name: (stamp(df, code) if is_institution_scoped(name) else df)
             for name, df in tables.items()}
+
+
+def check_shared_reference_agreement(
+        by_institution: Mapping[str, Mapping[str, pd.DataFrame]]
+) -> list[Violation]:
+    """공유 참조 원장이 기관 간에 실제로 같은가.
+
+    공유 참조 판정은 "기관이 달라도 값이 같다" 는 주장이다. 주장만 적어 두면
+    산출 경로가 기관 시드를 타는 순간 조용히 무너진다. 이 표들에는 기관코드가
+    없으므로 값이 갈려도 어느 기관 것인지 말할 수 없고, 두 기관 원장을 합치면
+    기본키가 충돌해 한쪽이 덮인다. 실제로 `macro_indicator` 가 그랬다.
+
+    첫 기관을 기준으로 나머지를 대조하고, 다른 표마다 위반 한 건을 남긴다.
+    """
+    out: list[Violation] = []
+    codes = list(by_institution)
+    if len(codes) < 2:
+        return out
+    base_code, *rest = codes
+    base = by_institution[base_code]
+    for name in sorted(n for n in base if not is_institution_scoped(n)):
+        for code in rest:
+            other = by_institution[code].get(name)
+            if other is None:
+                continue
+            left = base[name].reset_index(drop=True)
+            right = other.reset_index(drop=True)
+            if left.equals(right):
+                continue
+            if list(left.columns) != list(right.columns) or len(left) != len(right):
+                n_diff = max(len(left), len(right))
+            else:
+                n_diff = int((left != right).any(axis=1).sum())
+            out.append(Violation(
+                name, "shared_reference_differs", "", n_diff,
+                f"공유 참조 원장인데 {base_code} 와 {code} 의 값이 다르다. "
+                "기관 시드를 타는 산출 경로가 있다"))
+            break
+    return out
 
 
 # ---------------------------------------------------------------- 적용범위 문서

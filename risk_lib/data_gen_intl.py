@@ -72,7 +72,8 @@ __all__ = [
     "build_inst_master_intl", "build_inst_profile", "build_portfolio_mix",
     "build_country_mix", "build_label_lexicon", "build_all",
     "institution_codes", "profile_row", "market_op_params", "buffers_for",
-    "capital_ledger_for", "validate_ledgers",
+    "structured_scale_for", "pillar2_for",
+    "capital_ledger_for", "CAPITAL_BASIS", "validate_ledgers",
     "generate_institution_portfolio",
 ]
 
@@ -179,6 +180,23 @@ INST_PROFILE = TableSpec(
           min_value=0.0, max_value=1.0, citation="OPE25 BI"),
         C("op_loss_rate", "float", "10년 평균 운영손실률", nullable=False,
           unit="ratio", min_value=0.0, max_value=1.0, citation="OPE25 ILM"),
+        # 구조화 익스포저(집합투자증권 CRE60 · 유동화 CRE40)의 금액 배수.
+        # 이 두 갈래는 신용 포트폴리오와 모집단이 겹치지 않아 `ead_scale` 이
+        # 닿지 않는다. 배수가 없으면 기관이 바뀌어도 국내 표본 규모의 구조화
+        # 블록이 그대로 붙고, 그 블록이 최종 RWA 의 5분의 1을 넘는다.
+        C("fund_scale", "float", "집합투자증권 규모 배수", nullable=False,
+          unit="ratio", min_value=0.0, citation="CRE60",
+          note="국내 표본 생성기 금액에 대한 배수다. 통화 환산이 아니다"),
+        C("sec_scale", "float", "유동화 규모 배수", nullable=False,
+          unit="ratio", min_value=0.0, citation="CRE40",
+          note="국내 표본 생성기 금액에 대한 배수다. 통화 환산이 아니다"),
+        # 감독당국의 개별 부과분(SREP)이다. 이 저장소에 근거가 없으므로 비운다.
+        # 채우면 그 순간 없는 감독 결정이 있는 것처럼 보인다. 비어 있으면
+        # 파이프라인이 0 으로 산출하고 자체검증이 그 사실을 매 회차 남긴다.
+        C("p2r", "float", "Pillar 2 요구(P2R)", nullable=True, unit="ratio",
+          min_value=0.0, max_value=1.0, citation="SRP20"),
+        C("p2g", "float", "Pillar 2 가이드(P2G)", nullable=True, unit="ratio",
+          min_value=0.0, max_value=1.0, citation="SRP20"),
         # 자본은 산출물이 아니라 입력이다(독립검증 지적 F-001·F-101). 금액을
         # 그대로 적으면 구성 원장을 고칠 때마다 낡은 값이 남으므로 총 익스포저에
         # 대한 비율로 둔다. 자기자본/총자산이 은행 대차대조표의 구조적 특성이라는
@@ -306,8 +324,12 @@ _ARCHETYPE_PROFILE: dict[str, dict[str, float]] = {
         "share_fx": 0.02, "share_equity": 0.01, "share_ir": 0.05,
         "share_bi_ildc": 0.02, "share_bi_sc": 0.01, "share_bi_fc": 0.005,
         "op_loss_rate": 0.001,
+        # 배수 1.0 — 국내 표본은 기존 생성기 금액을 그대로 쓴다.
+        "fund_scale": 1.0, "sec_scale": 1.0,
         # 비워 둔다. 채우면 국내 표본의 자본이 바뀌고 기존 산출이 재현되지 않는다.
         "cet1_to_ead": None, "at1_to_ead": None, "tier2_to_ead": None,
+        # 감독 부과분은 근거가 없다. 비운 상태가 사실이다.
+        "p2r": None, "p2g": None,
     },
     # 트레이딩 자산 비중이 크고 완충자본 부과가 두텁다.
     "대형유니버설뱅크": {
@@ -317,7 +339,10 @@ _ARCHETYPE_PROFILE: dict[str, dict[str, float]] = {
         "share_fx": 0.035, "share_equity": 0.025, "share_ir": 0.075,
         "share_bi_ildc": 0.022, "share_bi_sc": 0.014, "share_bi_fc": 0.008,
         "op_loss_rate": 0.0012,
+        # 트레이딩·투자은행 업무가 커서 펀드 수익증권과 유동화 보유가 크다.
+        "fund_scale": 1.5, "sec_scale": 1.6,
         "cet1_to_ead": 0.120, "at1_to_ead": 0.014, "tier2_to_ead": 0.024,
+        "p2r": None, "p2g": None,
     },
     # 트레이딩이 작고 예대 중심이다.
     "지역은행": {
@@ -327,7 +352,10 @@ _ARCHETYPE_PROFILE: dict[str, dict[str, float]] = {
         "share_fx": 0.012, "share_equity": 0.004, "share_ir": 0.030,
         "share_bi_ildc": 0.020, "share_bi_sc": 0.006, "share_bi_fc": 0.003,
         "op_loss_rate": 0.0009,
+        # 예대 중심이라 구조화 보유가 얇다.
+        "fund_scale": 0.45, "sec_scale": 0.40,
         "cet1_to_ead": 0.150, "at1_to_ead": 0.018, "tier2_to_ead": 0.030,
+        "p2r": None, "p2g": None,
     },
     # 신용 익스포저가 작고 시장·운영 비중이 크다. 명목 자체는 은행보다 작다.
     # 큰 것은 자기 신용 익스포저 대비 **비중**이지 절대 규모가 아니다.
@@ -338,7 +366,11 @@ _ARCHETYPE_PROFILE: dict[str, dict[str, float]] = {
         "share_fx": 0.060, "share_equity": 0.090, "share_ir": 0.110,
         "share_bi_ildc": 0.010, "share_bi_sc": 0.040, "share_bi_fc": 0.020,
         "op_loss_rate": 0.0025,
+        # 신용 익스포저 대비 구조화·재고 보유 비중이 크지만 절대 규모는
+        # 은행보다 작다. 배수도 그 순서를 따른다.
+        "fund_scale": 0.55, "sec_scale": 0.50,
         "cet1_to_ead": 0.150, "at1_to_ead": 0.018, "tier2_to_ead": 0.030,
+        "p2r": None, "p2g": None,
     },
 }
 
@@ -582,6 +614,11 @@ def market_op_params(code: str = BASE_INSTITUTION,
 
 _CAPITAL_KEYS = ("cet1_to_ead", "at1_to_ead", "tier2_to_ead")
 
+# 이 원장의 자본이 무엇으로 만들어졌는지. 총익스포저 비율이므로 규모 비례분이
+# 100% 이고, 그 사실은 자체검증이 매 회차 적어야 한다 (독립검증 F-201·F-202).
+# 문자열은 `validation.consistency.RATIO_TO_EAD_BASIS` 와 같아야 한다.
+CAPITAL_BASIS = "ratio_to_ead"
+
 
 def capital_ledger_for(code: str, total_ead: float,
                        profile: pd.DataFrame | None = None):
@@ -589,6 +626,10 @@ def capital_ledger_for(code: str, total_ead: float,
 
     None 이면 파이프라인이 수익성 기반 합성기를 쓰고 그 사실을 자체검증에
     `capital_source='synthetic'` 로 공시한다. 국내 표본이 그 경우다.
+
+    값이 있을 때도 "실제 자본 원장" 은 아니다. `cet1_to_ead` 비율 × 총익스포저
+    이므로 자본이 익스포저를 그대로 따라간다. 호출부는 `CAPITAL_BASIS` 를
+    `run_pipeline(capital_basis=...)` 로 함께 넘겨 그 사실이 검증에 남게 한다.
     """
     from risk_lib.capital.bis import CapitalStack
     row = profile_row(code, profile)
@@ -606,6 +647,28 @@ def buffers_for(code: str,
     return {"capital_conservation": float(row["buffer_ccb"]),
             "countercyclical": float(row["buffer_ccyb"]),
             "dsib": float(row["buffer_dsib"])}
+
+
+_STRUCTURED_KEYS = ("fund_scale", "sec_scale")
+
+
+def structured_scale_for(code: str, profile: pd.DataFrame | None = None
+                         ) -> dict[str, float]:
+    """`run_pipeline(structured_scale=...)` 인자. 구조화 원장의 금액 배수다."""
+    row = profile_row(code, profile)
+    return {k: float(row[k]) for k in _STRUCTURED_KEYS}
+
+
+def pillar2_for(code: str, profile: pd.DataFrame | None = None
+                ) -> dict[str, float | None]:
+    """`run_pipeline(pillar2=...)` 인자. 값이 없으면 None 을 그대로 돌려준다.
+
+    없는 것을 0 으로 바꿔 돌려주면 "감독 부과분이 0" 과 "근거가 없다" 가
+    구분되지 않는다. 구분은 호출부가 아니라 여기서 유지한다.
+    """
+    row = profile_row(code, profile)
+    return {k: (None if pd.isna(row[k]) else float(row[k]))
+            for k in ("p2r", "p2g")}
 
 
 def _lexicon_map(language: str, kind: str,

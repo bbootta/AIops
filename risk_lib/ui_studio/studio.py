@@ -89,7 +89,14 @@ class Studio:
 
 def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Studio:
     asof = result.meta.get("asof", "1970-01-01")
-    run_id = f"RUN-{asof.replace('-', '')}"
+    # 실행 식별자에 기관을 넣는다. 기준일만으로는 같은 날의 두 기관이 같은
+    # run_id 를 갖고, 결재·감사체인·마감 판정처럼 기관코드 컬럼이 없는 실행
+    # 통제 원장이 어느 기관 것인지 말할 수 없게 된다. `gov_unified_run` 은
+    # run_id 단독 기본키라 두 기관을 같은 기준일로 조립하면 겹친다.
+    from risk_lib import data_gen_intl as _intl
+    inst_code = str(result.meta.get("institution_code")
+                    or _intl.BASE_INSTITUTION)
+    run_id = f"RUN-{asof.replace('-', '')}-{inst_code}"
 
     from risk_lib.datamodel.code_master import build_code_master
     from risk_lib.datamodel.decompose import dq_result_frame, validate_all
@@ -198,8 +205,6 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     # 담은 축 마스터라, 실행 원장에 섞으면 DQ·마감·기관귀속 판정이 그것까지
     # 세게 된다.
     from risk_lib import data_gen_intl as _intl
-    inst_code = str(result.meta.get("institution_code")
-                    or _intl.BASE_INSTITUTION)
 
     studio = Studio(asof=asof, run_id=run_id, digest=digest, tables=tables,
                     built_forms=built, result=result,

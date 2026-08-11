@@ -419,18 +419,27 @@ class StructuredRWA:
         return self.fund_rwa + self.sec_rwa_standardised
 
 
-def _stage_structured(asof: "date", seed: int) -> StructuredRWA:
+def _stage_structured(asof: "date", seed: int,
+                      scale: "Mapping[str, float]") -> StructuredRWA:
     """집합투자증권·유동화 원장을 세우고 RWA를 뽑는다.
 
     신용·시장운영·CCR 어느 갈래의 산출물도 쓰지 않으므로 네 번째 병렬 갈래다.
     원장 생성은 (asof, seed) 로 결정론적이다.
+
+    `scale` 은 기관 프로파일 원장의 금액 배수(`fund_scale`·`sec_scale`)다.
+    이전에는 (asof, seed) 만 받았으므로 기관이 바뀌어도 규모가 같은 구조화
+    블록이 붙었고, 그 블록이 최종 RWA 의 19~31% 였다. 시드가 다르니 값은
+    달랐지만 규모감은 국내 표본 그대로였다. 배수를 본문에 두지 않고 원장에서
+    받는 이유는 다른 모수와 같다.
     """
     from risk_lib.datamodel.funds import build_funds
     from risk_lib.datamodel.securitisation import build_securitisation
 
     asof_s = asof.isoformat()
-    tables = build_funds(asof=asof_s, seed=seed)
-    tables.update(build_securitisation(asof=asof_s, seed=seed))
+    tables = build_funds(asof=asof_s, seed=seed,
+                         scale=float(scale["fund_scale"]))
+    tables.update(build_securitisation(asof=asof_s, seed=seed,
+                                       scale=float(scale["sec_scale"])))
 
     fund = tables["rwa_fund_result"]
     sec = tables["rwa_sec_result"]
@@ -1437,20 +1446,39 @@ def run_pipeline(
     capital_ledger: CapitalStack | None = None,
     market_op: Mapping[str, float] | None = None,
     institution_code: str | None = None,
+    institution_type: str | None = None,
+    base_seed: int | None = None,
+    structured_scale: "Mapping[str, float] | None" = None,
+    pillar2: "Mapping[str, float | None] | None" = None,
+    capital_basis: str | None = None,
 ) -> PipelineResult:
     """`capital_ledger`를 주면 실제 자본 원장으로 산출한다. 주지 않으면
     수익성 기반 합성기를 쓰며, 그 사실이 독립검증 요청에 공시된다.
 
-    `market_op`·`buffers` 를 주지 않으면 기관 프로파일 원장의 국내 표본 행을
-    읽는다. 엔진 기본값으로 두면 그 수가 소스에 남는다.
+    `market_op`·`buffers`·`structured_scale`·`pillar2` 를 주지 않으면 기관
+    프로파일 원장의 국내 표본 행을 읽는다. 엔진 기본값으로 두면 그 수가 소스에
+    남는다. 기관 산출을 돌리는 호출자는 반드시 자기 기관의 행을 넘겨야 하며,
+    넘기지 않으면 국내 표본의 모수로 자기 기관을 설명하게 된다.
+
     `institution_code` 는 산출에 쓰이지 않고 meta 에만 남는다. 결과 한 벌이
     어느 기관 것인지 결과 자신이 말하게 하기 위한 것이다.
+
+    `base_seed` 는 **기관 오프셋을 더하기 전** 시드다. 공유 참조 원장(거시지표
+    관측치처럼 기관과 무관하게 한 값인 표)은 이 시드로 만들어야 한다. 기관
+    시드로 만들면 같은 시점 같은 지표가 기관마다 다른 값을 갖고, 기관코드가
+    없는 그 표들은 합쳤을 때 기본키가 충돌한다. 주지 않으면 `seed` 와 같다.
     """
     from risk_lib import data_gen_intl as _intl
     if buffers is None:
         buffers = _intl.buffers_for(_intl.BASE_INSTITUTION)
     if market_op is None:
         market_op = _intl.market_op_params(_intl.BASE_INSTITUTION)
+    if structured_scale is None:
+        structured_scale = _intl.structured_scale_for(_intl.BASE_INSTITUTION)
+    if pillar2 is None:
+        pillar2 = _intl.pillar2_for(_intl.BASE_INSTITUTION)
+    if base_seed is None:
+        base_seed = seed
     if portfolio is None:
         portfolio = generate_portfolio(seed=seed)
 
@@ -1504,7 +1532,7 @@ def run_pipeline(
     # 구조화(집합투자증권·유동화) — 은행계정 익스포저와 모집단이 겹치지 않고
     # 어느 갈래의 산출물도 쓰지 않으므로 네 번째 독립 갈래다.
     def _branch_structured():
-        return _stage_structured(asof, seed)
+        return _stage_structured(asof, seed, structured_scale)
 
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=4) as _ex:
@@ -1616,7 +1644,10 @@ def run_pipeline(
                                   pd_col="pd", default_col="default_12m")
     validation = run_consistency_checks(
         portfolio=portfolio,
-        meta={"asof": asof.isoformat(), "asof_source": asof_source},
+        meta={"asof": asof.isoformat(), "asof_source": asof_source,
+              "pillar2": dict(pillar2),
+              "institution_code": institution_code,
+              "institution_type": institution_type},
         sa_results=sa_res, irb_results=irb_res,
         bis_result=bis, rwa_total_for_bis=rwa_final,
         leverage_result=leverage, output_floor_result=floor,
@@ -1636,6 +1667,7 @@ def run_pipeline(
         alm_results=alm,
         icaap_result=icaap,
         capital_source="ledger" if capital_ledger is not None else "synthetic",
+        capital_basis=capital_basis,
         capital_stack=capital,
         total_ead=total_ead,
         ledger_tables=ledgers["tables"],
@@ -1729,15 +1761,21 @@ def run_pipeline(
         irb_rwa=rwa_irb,
         el_shortfall=el_vs_prov["shortfall"],
     )
-    # Jurisdictional exposure split for CCyB weighting (illustrative split
-    # of portfolio EAD: KR-heavy domestic bank profile).
-    exposures_by_country_synth = {
-        "KR": float(portfolio["ead"].sum()) * 0.80,
-        "US": float(portfolio["ead"].sum()) * 0.08,
-        "JP": float(portfolio["ead"].sum()) * 0.05,
-        "CN": float(portfolio["ead"].sum()) * 0.05,
-        "VN": float(portfolio["ead"].sum()) * 0.02,
-    }
+    # 국가별 익스포저는 포트폴리오가 실제로 들고 있는 것을 센다. 이전에는
+    # KR 80%/US 8%/JP 5%/CN 5%/VN 2% 로 고정한 배분을 넘겼고, 그 배분은 어느
+    # 기관의 원장과도 대조되지 않았다. 국가가중 CCyB 는 이 배분 위에서 나온다.
+    exposures_by_country = (
+        {str(k): float(v) for k, v in
+         portfolio.groupby("country")["ead"].sum().items()}
+        if "country" in portfolio.columns else None)
+    # 완충·Pillar 2 는 전부 원장에서 온다. 이전에는 DSIB 등급 2(가산 1.5%)와
+    # P2R 1.5%·P2G 1.0% 를 여기에 박아 넘겼다. 그러면 같은 기관에 대해
+    # `compute_bis_ratios` 가 쓰는 요구비율과 이 계층의 요구비율이 갈리고,
+    # 화면(33. 버퍼 layering)과 자본비율 화면이 서로 다른 요구치를 공시한다.
+    # DSIB 는 등급이 아니라 원장의 가산율을 그대로 넘긴다 — 등급표를 한 번 더
+    # 거치면 원장 값과 어긋날 수 있다.
+    _p2r = pillar2.get("p2r")
+    _p2g = pillar2.get("p2g")
     bis_deep = compute_bis_deep(
         cet1=cet1_c, at1=at1_c, tier2=t2_c, rwa=rwa_final,
         threshold_inputs={
@@ -1745,10 +1783,11 @@ def run_pipeline(
             "msr": capital.cet1 * 0.01,
             "significant_investments": capital.cet1 * 0.02,
         },
-        countercyclical=buffers.get("countercyclical", 0.0),
-        dsib_bucket=2,                  # 가산 1.5% — KR 시중은행 가정
-        p2r=0.015, p2g=0.010,            # SREP 가정
-        exposures_by_country=exposures_by_country_synth,
+        countercyclical=float(buffers.get("countercyclical", 0.0)),
+        dsib_rate=float(buffers.get("dsib", 0.0)),
+        p2r=0.0 if _p2r is None else float(_p2r),
+        p2g=0.0 if _p2g is None else float(_p2g),
+        exposures_by_country=exposures_by_country,
         mda_request={
             "dividend": capital.cet1 * 0.012,
             "buyback": capital.cet1 * 0.006,
@@ -1842,7 +1881,18 @@ def run_pipeline(
               # 어느 기관의 산출인가. 없으면 결과 한 벌만 보고는 알 수 없고,
               # 기관을 섞은 표를 만들었을 때 그것을 잡아낼 근거도 없다.
               "institution_code": institution_code,
+              # 업권. 이 파이프라인은 은행 기준 한 벌만 산출하므로, 업권이
+              # 다르면 그 결과가 그 기관의 건전성 지표가 아니라는 사실을
+              # 결과 자신이 들고 있어야 한다.
+              "institution_type": institution_type,
+              # 공유 참조 원장(거시지표 관측치)을 만들 때 쓰는 시드. 기관
+              # 오프셋을 더하기 전 값이며, 실체화 단계가 이것을 봐야 같은
+              # 시점 같은 지표가 기관과 무관하게 한 값으로 나온다.
+              "base_seed": int(base_seed),
               "market_op": dict(market_op),
+              "structured_scale": dict(structured_scale),
+              "pillar2": dict(pillar2),
+              "capital_basis": capital_basis,
               # 추적표가 같은 입력으로 다시 세워질 수 있게 실제 쓴 완충자본을
               # 남긴다. 없으면 `trace_from_result`가 값을 지어내야 하고, 실제로
               # 지어내고 있었다 — 화면과 보고서가 같은 은행에 다른 요구비율을
@@ -1902,11 +1952,24 @@ def _headline_row(code: str, run: InstitutionRun,
     alm = r.alm or {}
     lcr = getattr(alm.get("lcr"), "lcr", float("nan"))
     nsfr = getattr(alm.get("nsfr"), "nsfr", float("nan"))
+    # 업권별 건전성 체계. 산출은 은행 기준 한 벌뿐이라 증권 기관의 자본·유동성
+    # 비율은 참고치다. 표에 그 사실이 없으면 헤드라인만 보고 은행 비율을 그
+    # 기관의 건전성 지표로 읽게 된다.
+    from risk_lib import institutions as _inst
+    itype = str(m["institution_type"])
+    regime = _inst.prudential_regime(itype)
+    applies = _inst.regime_applies(itype)
     return {
         "institution_code": code,
         "name": (m["name_ko"] if bool(m["is_domestic"]) else m["name_en"]),
         "region": m["region"],
-        "institution_type": m["institution_type"],
+        "institution_type": itype,
+        "regulatory_regime": m["regulatory_regime"],
+        "prudential_regime": regime,
+        "ratio_applicable": bool(applies),
+        "ratio_basis": ("적용" if applies
+                        else f"참고치 ({_inst.IMPLEMENTED_REGIME} 기준 산출, "
+                             f"적용 체계는 {regime})"),
         "currency": m["currency"],
         "archetype": p["archetype"],
         "n_exposures": int(len(run.portfolio)),
@@ -1979,9 +2042,17 @@ def run_multi_institution(
             buffers=intl.buffers_for(code, profile),
             asof=asof,
             market_op=intl.market_op_params(code, profile),
+            structured_scale=intl.structured_scale_for(code, profile),
+            pillar2=intl.pillar2_for(code, profile),
             capital_ledger=intl.capital_ledger_for(
                 code, float(port["ead"].sum()), profile),
+            capital_basis=intl.CAPITAL_BASIS,
             institution_code=code,
+            institution_type=str(
+                master.loc[master["institution_code"] == code,
+                           "institution_type"].iloc[0]),
+            # 공유 참조 원장은 기관 오프셋을 더하기 전 시드로 만든다.
+            base_seed=seed,
         )
         elapsed = time.perf_counter() - t0
         run = InstitutionRun(code, res, elapsed, port)

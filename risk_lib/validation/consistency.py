@@ -1270,9 +1270,13 @@ def _check_stress_trough_requirement(path_df, bis_result,
         + "; ".join(breached)))
 
 
+RATIO_TO_EAD_BASIS = "ratio_to_ead"
+
+
 def _check_capital_source(capital_source: str | None, capital: Any,
                           total_ead: float | None,
-                          report: ValidationReport) -> None:
+                          report: ValidationReport,
+                          capital_basis: str | None = None) -> None:
     """자본이 어디서 왔는지, 그중 얼마가 규모 비례분인지 매 실행 드러낸다.
 
     독립검증 F-201·F-202: 합성 자본의 이익잉여금은 연간이익 × 4년인데 합성
@@ -1280,12 +1284,29 @@ def _check_capital_source(capital_source: str | None, capital: Any,
     무관한 축은 고정 발행자본뿐이고, 자산이 커지면 그 비중이 희석돼 레버리지
     비율의 반응성이 소멸한다. 지표가 상수로 수렴하는 구조는 조용히 진행되므로
     비중을 매번 결재선에 올린다 (3선 권고 — 2·3차 연속 제기).
+
+    원장에서 왔다는 것만으로 이 검사가 꺼지지는 않는다. 원장 값이 총익스포저
+    비율(`cet1_to_ead` 등)로 만들어진 것이면 규모 비례분이 100% 이므로 F-201·
+    F-202 가 가리키는 상태는 합성기를 쓸 때보다 오히려 강하다. 그것을 "합성기
+    미사용" PASS 로 적으면 검사가 잡으려던 상태에서 검사가 꺼진다. 자본의
+    산출근거(`capital_basis`)를 함께 받아 그 경우를 WARN 으로 남긴다.
     """
     if capital_source is None or capital is None:
         return
     if capital_source == "ledger":
+        if capital_basis == RATIO_TO_EAD_BASIS:
+            cet1 = float(getattr(capital, "cet1", 0.0))
+            detail = ("자본 원장 주입이나 산출근거가 총익스포저 비율이다 — "
+                      "규모 비례분 100%")
+            if total_ead:
+                detail += f" (CET1/총익스포저 {cet1 / float(total_ead):.3f} 고정)"
+            detail += ". 레버리지 반응성이 소멸한다 (F-201·F-202)"
+            report.add(ConsistencyCheck("capital_source", "WARN", detail))
+            return
         report.add(ConsistencyCheck(
-            "capital_source", "PASS", "실제 자본 원장 주입 (합성기 미사용)"))
+            "capital_source", "PASS",
+            "자본 원장 주입 (합성기 미사용) · 산출근거 "
+            f"{capital_basis or '미기재'}"))
         return
     cet1 = float(getattr(capital, "cet1", 0.0))
     if cet1 <= 0:
@@ -1301,6 +1322,62 @@ def _check_capital_source(capital_source: str | None, capital: Any,
                    f" (희석될수록 레버리지 반응성이 소멸)")
     report.add(ConsistencyCheck(
         "capital_source", "WARN" if share >= 0.5 else "PASS", detail))
+
+
+def _check_prudential_regime(meta: dict | None,
+                             report: ValidationReport) -> None:
+    """업권에 이 산출 체계가 적용되는가.
+
+    이 파이프라인은 은행 기준 한 벌(BIS 비율·산출하한·LCR·NSFR·[별표 9-1]
+    IRRBB)만 산출한다. 증권 기관은 순자본비율 체계이며 그 산출은 아직 없다.
+    업권을 보지 않고 돌리면 증권 기관의 결과가 `cet1_ratio` 로 공시되는데,
+    그것은 그 기관의 건전성 지표가 아니다. 매 실행 그 사실을 남긴다.
+    """
+    if not meta:
+        return
+    itype = meta.get("institution_type")
+    if itype is None:
+        return
+    from risk_lib import institutions as _inst
+    try:
+        regime = _inst.prudential_regime(str(itype))
+    except ValueError as e:
+        report.add(ConsistencyCheck(
+            "prudential_regime_applies", "FAIL", str(e)))
+        return
+    if regime == _inst.IMPLEMENTED_REGIME:
+        report.add(ConsistencyCheck(
+            "prudential_regime_applies", "PASS",
+            f"업권 {itype} · 적용 체계 {regime} — 산출 체계와 일치"))
+        return
+    report.add(ConsistencyCheck(
+        "prudential_regime_applies", "WARN",
+        f"업권 {itype} 의 건전성 체계는 {regime} 인데 산출은 "
+        f"{_inst.IMPLEMENTED_REGIME} 기준 한 벌뿐이다 — 이 결과의 자본비율· "
+        "유동성비율은 이 기관의 건전성 지표가 아니라 참고치다"))
+
+
+def _check_pillar2_evidence(meta: dict | None,
+                            report: ValidationReport) -> None:
+    """P2R·P2G 가 원장에 있는가. 없으면 0 으로 산출했다는 사실을 남긴다.
+
+    감독당국의 개별 부과분이라 이 저장소에는 근거가 없다. 없는 것을 지어내
+    넣으면 요구자본이 그만큼 부풀고, 조용히 0 으로 두면 OCR 이 과소 표시된
+    채 결재선에 오른다. 어느 쪽도 하지 않고 사실을 적는다.
+    """
+    if not meta or "pillar2" not in meta:
+        return
+    p2 = meta["pillar2"] or {}
+    missing = sorted(k for k in ("p2r", "p2g") if p2.get(k) is None)
+    if missing:
+        report.add(ConsistencyCheck(
+            "pillar2_requirement_evidence", "WARN",
+            f"{'·'.join(missing).upper()} 가 원장에 없어 0 으로 산출했다 — "
+            "OCR·SREP 요구치가 감독 부과분만큼 과소 표시된다"))
+        return
+    report.add(ConsistencyCheck(
+        "pillar2_requirement_evidence", "PASS",
+        f"P2R {float(p2['p2r']):.2%} · P2G {float(p2['p2g']):.2%} 원장 주입"))
 
 
 def _check_doc_figures(built: list | None, asof: str | None,
@@ -1557,6 +1634,7 @@ def run_consistency_checks(
     alm_results: dict | None = None,
     icaap_result: Any = None,
     capital_source: str | None = None,
+    capital_basis: str | None = None,
     capital_stack: Any = None,
     total_ead: float | None = None,
     built_forms: list | None = None,
@@ -1575,7 +1653,10 @@ def run_consistency_checks(
     _check_asof_provenance(meta, rep)
 
     _check_stress_trough_requirement(stress_path_result, bis_result, rep)
-    _check_capital_source(capital_source, capital_stack, total_ead, rep)
+    _check_capital_source(capital_source, capital_stack, total_ead, rep,
+                          capital_basis)
+    _check_pillar2_evidence(meta, rep)
+    _check_prudential_regime(meta, rep)
     _check_doc_figures(built_forms, asof, doc_paths, rep)
 
     if sa_results is not None:

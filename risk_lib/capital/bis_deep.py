@@ -614,8 +614,9 @@ def compute_bis_deep(
     tier2: Tier2Components,
     rwa: float,
     threshold_inputs: dict[str, float] | None = None,
-    countercyclical: float = 0.0,
+    countercyclical: float | None = None,
     dsib_bucket: int | None = None,
+    dsib_rate: float | None = None,
     p2r: float = 0.0,
     p2g: float = 0.0,
     exposures_by_country: dict[str, float] | None = None,
@@ -643,20 +644,25 @@ def compute_bis_deep(
     # 2. AT1/T2 인정한도
     rec = at1_t2_recognition_limits(cet1.net, at1.net, tier2.net)
 
-    # 3. Buffer layering — CCyB from exposures if supplied
+    # 3. Buffer layering — CCyB from exposures only when none was supplied.
+    #    `countercyclical=0.0` 은 "적용 CCyB 가 0" 이라는 값이지 "값이 없다"가
+    #    아니다. 예전에는 0.0 을 미지정으로 읽어 국가가중치로 갈아치웠고, 그래서
+    #    완충 원장이 0 인 기관에서 이 계층과 `compute_bis_ratios` 의 요구비율이
+    #    갈렸다. 미지정은 None 으로만 말한다.
     if exposures_by_country:
         ccyb_info = country_ccyb_weighted(exposures_by_country,
                                           ccyb_rates=ccyb_rates)
-        ccyb_eff = ccyb_info["weighted_ccyb"] if countercyclical == 0.0 else countercyclical
+        ccyb_eff = (ccyb_info["weighted_ccyb"] if countercyclical is None
+                    else countercyclical)
     else:
         ccyb_info = {"weighted_ccyb": 0.0,
                      "by_country": pd.DataFrame(
                          columns=["country", "exposure", "share",
                                   "ccyb", "weighted"])}
-        ccyb_eff = countercyclical
+        ccyb_eff = 0.0 if countercyclical is None else countercyclical
     layering = compute_buffer_layering(
         countercyclical=ccyb_eff, dsib_bucket=dsib_bucket,
-        p2r=p2r, p2g=p2g,
+        dsib_rate=dsib_rate, p2r=p2r, p2g=p2g,
     )
 
     # 4. SREP evaluation

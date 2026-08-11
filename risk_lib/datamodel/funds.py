@@ -443,7 +443,7 @@ def fund_rwa_summary(master: pd.DataFrame, holding: pd.DataFrame,
 
 # ---------------------------------------------------------------- 합성 원장
 
-def _build_master(asof: str, seed: int) -> pd.DataFrame:
+def _build_master(asof: str, seed: int, scale: float) -> pd.DataFrame:
     rng = np.random.default_rng(seed + 6100)
     rows: list[dict[str, object]] = []
     for i, (name, ftype, mgr, trust, freq, audited,
@@ -470,7 +470,10 @@ def _build_master(asof: str, seed: int) -> pd.DataFrame:
         else:
             approach = "fallback"
 
-        fair_value = float(rng.uniform(3.0e10, 2.4e11))
+        # 금액 배수는 기관 프로파일 원장에서 온다. 시가에만 곱하면 장부가·
+        # 순자산·총자산이 전부 여기서 파생되므로 원장 전체가 같은 배수로
+        # 움직이고, 편입자산 시가 합계 = 총자산 같은 항등식이 유지된다.
+        fair_value = float(rng.uniform(3.0e10, 2.4e11)) * scale
         if approach == "fallback":
             # 1250%는 투자원금 전액을 자본으로 덮는 것과 같다. 실무상 이 대상은
             # 소액 잔여 포지션으로 관리하므로 규모를 축소해 반영한다.
@@ -635,15 +638,23 @@ def _build_mandate(master: pd.DataFrame, holding: pd.DataFrame, asof: str,
     return pd.DataFrame(rows)
 
 
-def build_funds(*, asof: str, seed: int = 42) -> dict[str, pd.DataFrame]:
+def build_funds(*, asof: str, seed: int = 42,
+                scale: float = 1.0) -> dict[str, pd.DataFrame]:
     """집합투자증권 원장 3종과 CRE60 산출결과를 만든다.
 
-    같은 (asof, seed)이면 비트 단위로 같은 결과가 나온다 — 난수는 모두
+    같은 (asof, seed, scale)이면 비트 단위로 같은 결과가 나온다 — 난수는 모두
     default_rng(seed + 테이블 고유 오프셋)에서만 나오고 시각 의존이 없다.
+
+    `scale` 은 금액 배수다. 기관마다 구조화 보유 규모가 다른데 배수가 없으면
+    어느 기관을 돌려도 같은 규모의 펀드 블록이 붙는다. 값은 이 모듈이 정하지
+    않고 기관 프로파일 원장(`inst_profile.fund_scale`)에서 온다. 1.0 은 국내
+    표본 그대로이며 곱셈이 정확해 기존 산출이 비트 단위로 재현된다.
     """
     asof = _validate_asof(asof)
+    if not scale > 0:
+        raise ValueError(f"금액 배수는 양수여야 한다: {scale}")
 
-    master = _build_master(asof, seed)
+    master = _build_master(asof, seed, scale)
     holding = _build_holding(master, asof, seed)
     mandate = _build_mandate(master, holding, asof, seed)
     result = fund_rwa_summary(master, holding, mandate)

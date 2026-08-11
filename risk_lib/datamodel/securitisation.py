@@ -941,7 +941,7 @@ _RATING_POOL: dict[str, tuple[str, ...]] = {
 }
 
 
-def _build_master_base(asof: str, seed: int) -> pd.DataFrame:
+def _build_master_base(asof: str, seed: int, scale: float) -> pd.DataFrame:
     """딜 속성 + 풀 잔액. 풀·트렌치에서 파생되는 컬럼은 _finalise_master 가 붙인다."""
     rng = np.random.default_rng(seed + 7400)
     rows: list[dict[str, Any]] = []
@@ -957,7 +957,10 @@ def _build_master_base(asof: str, seed: int) -> pd.DataFrame:
             "simple_transparent_comparable": bool(s["stc"]),
             "originator": s["originator"],
             "originated_by_bank": bool(s["originator"] == _BANK_NAME),
-            "pool_balance": float(rng.uniform(lo, hi)),
+            # 금액 배수는 기관 프로파일 원장에서 온다. 풀 잔액에만 곱하면
+            # 트렌치 두께·발행액·보유액이 전부 비율로 파생되므로 원장 전체가
+            # 같은 배수로 움직인다.
+            "pool_balance": float(rng.uniform(lo, hi)) * scale,
             "deal_maturity_years": float(s["maturity"]),
             "irb_data_available": bool(s["irb_available"]),
             "rating_profile": s["rating_profile"],
@@ -1204,15 +1207,21 @@ def _finalise_master(base: pd.DataFrame, tranche: pd.DataFrame,
     ]]
 
 
-def build_securitisation(*, asof: str, seed: int = 42) -> dict[str, pd.DataFrame]:
+def build_securitisation(*, asof: str, seed: int = 42,
+                         scale: float = 1.0) -> dict[str, pd.DataFrame]:
     """유동화 익스포저 원장 3종과 CRE40~45 산출결과를 만든다.
 
-    같은 (asof, seed) 이면 비트 단위로 같은 결과가 나온다 — 난수는 모두
+    같은 (asof, seed, scale) 이면 비트 단위로 같은 결과가 나온다 — 난수는 모두
     default_rng(seed + 테이블 고유 오프셋) 에서만 나오고 시각 의존이 없다.
+
+    `scale` 은 금액 배수다. 값은 이 모듈이 정하지 않고 기관 프로파일 원장
+    (`inst_profile.sec_scale`) 에서 온다. 1.0 은 국내 표본 그대로다.
     """
     asof = _validate_asof(asof)
+    if not scale > 0:
+        raise ValueError(f"금액 배수는 양수여야 한다: {scale}")
 
-    base = _build_master_base(asof, seed)
+    base = _build_master_base(asof, seed, scale)
     tranche = _build_tranche(base, asof, seed)
     pool = _build_pool(base, asof, seed)
     master = _finalise_master(base, tranche, pool)
@@ -1271,11 +1280,12 @@ def build_securitisation(*, asof: str, seed: int = 42) -> dict[str, pd.DataFrame
     used = set(result["adopted_method"])
     assert used == set(APPROACHES), f"채택되지 않은 산출방법이 있다: {set(APPROACHES) - used}"
 
-    # 보유 잔액 규모 — 원장이 상정한 익스포저 대역(3천억~1조 KRW)을 벗어나면
-    # 하류 리포트의 비중이 통째로 어긋난다.
+    # 보유 잔액 규모 — 원장이 상정한 익스포저 대역(배수 1.0 에서 3천억~1조
+    # KRW)을 벗어나면 하류 리포트의 비중이 통째로 어긋난다. 대역은 금액 배수를
+    # 따라 움직인다. 배수를 고정 대역에 대보면 규모가 다른 기관이 전부 걸린다.
     total_hold = float(tranche["holding_amount"].sum())
-    assert 3.0e11 <= total_hold <= 1.0e12, \
-        f"보유 잔액 합계가 상정 대역을 벗어났다: {total_hold:,.0f} KRW"
+    assert 3.0e11 * scale <= total_hold <= 1.0e12 * scale, \
+        f"보유 잔액 합계가 상정 대역(배수 {scale})을 벗어났다: {total_hold:,.0f}"
 
     return {
         "rdm_sec_master": master,

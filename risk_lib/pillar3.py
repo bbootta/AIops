@@ -48,18 +48,39 @@ def km1(result: Any) -> pd.DataFrame:
 
 
 def ov1(result: Any) -> pd.DataFrame:
-    """OV1 — Overview of RWA (DIS25.10)."""
+    """OV1 — Overview of RWA (DIS25.10).
+
+    부문은 산출 결과의 구성요소를 그대로 적는다. 예전에는 CCR/CVA 와 증권화를
+    "없음 0" 으로 적고 남는 차액을 전부 Output floor 가산 줄에 넣었다. 두 부문은
+    산출되고 자본비율 분모에도 들어가 있었으므로 그 줄은 공시에서만 0이었고,
+    floor 가산 줄은 두 부문의 합을 삼킨 잔차였다. 잔차를 한 줄에 몰아넣으면
+    어느 부문이 얼마인지 공시가 말하지 못한다.
+
+    floor 가산은 최종 RWA 에서 내부모형 기준 총계를 뺀 값이다. 그 총계를 결과가
+    가지고 있지 않으면(구형 result) 부문 합으로 대신하며, 둘은 같은 정의다.
+    """
     rwa = result.rwa
+    sa = float(rwa["sa"])
+    irb = float(rwa["irb"])
+    ccr = float(rwa.get("ccr", 0.0))
+    fund = float(rwa.get("fund", 0.0))
+    sec = float(rwa.get("securitisation", 0.0))
+    market = float(rwa["market"])
+    op = float(rwa["op"])
+    final = float(rwa["final_total"])
+    internal = float(rwa.get("internal_total",
+                             sa + irb + ccr + fund + sec + market + op))
     rows = [
-        ("신용리스크 (SA)",       rwa["sa"]),
-        ("신용리스크 (IRB)",       rwa["irb"]),
-        ("CCR/CVA (없음)",         0),
-        ("증권화 (없음)",          0),
-        ("시장리스크",            rwa["market"]),
-        ("운영리스크",            rwa["op"]),
-        ("Output floor 가산",
-         rwa["final_total"] - rwa["sa"] - rwa["irb"] - rwa["market"] - rwa["op"]),
-        ("최종 합계",             rwa["final_total"]),
+        ("신용리스크 (SA)",       sa),
+        ("신용리스크 (IRB)",       irb),
+        ("CCR/CVA",               ccr),
+        ("집합투자증권 (CRE60)",   fund),
+        ("증권화 (CRE40)",         sec),
+        ("시장리스크",            market),
+        ("운영리스크",            op),
+        ("소계 (내부모형 기준)",   internal),
+        ("Output floor 가산",     final - internal),
+        ("최종 합계",             final),
     ]
     return pd.DataFrame(rows, columns=["부문", "RWA"])
 
