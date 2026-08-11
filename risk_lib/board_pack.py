@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from risk_lib import viz, viz_advanced
+from risk_lib.attribution import decompose_rwa
 from risk_lib.html_report import CSS, _won, _pct, _esc, _table, _kpi, _badge
 from risk_lib.abbreviations import abbr_dict_card_html
 
@@ -212,21 +213,20 @@ def _page_capital(result) -> str:
             ["Leverage", f"{result.leverage.leverage_ratio*100:.2f}%",
              "3.00%",
              f"{(result.leverage.leverage_ratio - 0.03)*100:+.2f}%p"]]
+    # RWA 구성은 산출 항등식을 그대로 적는다(`attribution.decompose_rwa`).
+    # 예전에는 SA·IRB·시장·운영 넷만 열거하고 그 아래에 최종 합계를 100%로
+    # 달았다. 거래상대방신용·구조화·산출하한 가산이 표에서 빠진 채 합만 100%가
+    # 되어, 열거된 넷이 전부인 것처럼 읽혔다(합은 69.2%였다). 항이 늘면 여기도
+    # 같이 늘도록 한 곳에서 읽는다.
+    rwa_rows = [[str(r2["component"]), _won(r2["rwa"]),
+                 f"{r2['share']*100:.1f}%"]
+                for _, r2 in decompose_rwa(result).iterrows()]
+    rwa_rows.append(['<b>최종 합계</b>',
+                     f"<b>{_won(result.rwa['final_total'])}</b>", "100.0%"])
     return _section("4 / 12", "Capital Position + Buffer Status", f"""
 {_table(['비율','실측','요구치(P1+CBR)','잉여/부족'], rows, right_cols=[1,2,3])}
 <h3>RWA 구성</h3>
-{_table(['구분','금액','비중'],
-        [['신용 SA', _won(result.rwa['sa']),
-          f"{result.rwa['sa']/result.rwa['final_total']*100:.1f}%"],
-         ['신용 IRB', _won(result.rwa['irb']),
-          f"{result.rwa['irb']/result.rwa['final_total']*100:.1f}%"],
-         ['시장리스크', _won(result.rwa['market']),
-          f"{result.rwa['market']/result.rwa['final_total']*100:.1f}%"],
-         ['운영리스크', _won(result.rwa['op']),
-          f"{result.rwa['op']/result.rwa['final_total']*100:.1f}%"],
-         ['<b>최종 합계</b>',
-          f"<b>{_won(result.rwa['final_total'])}</b>", "100%"]],
-        right_cols=[1, 2])}
+{_table(['구분','금액','비중'], rwa_rows, right_cols=[1, 2])}
 <p class="cite">근거: Basel III CRE10.4 · RBC20.1 (CCB 2.5%) · 감독세칙
 자본적정성 편</p>
 """)

@@ -139,6 +139,32 @@ def test_board_pack_renders_korean(tmp_path, result):
         assert term in body
 
 
+def test_board_pack_rwa_table_lists_every_identity_term(tmp_path, result):
+    """RWA 구성표가 산출 항등식의 모든 항을 적는다.
+
+    예전에는 SA·IRB·시장·운영 넷만 열거하고 그 아래에 최종 합계를 100%로
+    달았다. 열거된 비중의 합은 69.2%였고 거래상대방신용·구조화·산출하한
+    가산에 해당하는 행도 주석도 없었다. 잔차를 표에서 지우면 이사회는
+    열거된 넷이 RWA 전부라고 읽는다.
+    """
+    import re
+
+    from risk_lib.attribution import decompose_rwa
+
+    p = build_board_pack(result, tmp_path / "bp.html")
+    body = Path(p).read_text(encoding="utf-8")
+    block = body[body.index("RWA 구성"):]
+    block = block[:block.index("</table>")]
+
+    for component in decompose_rwa(result)["component"]:
+        assert component in block, f"RWA 구성표에 {component} 행이 없다"
+
+    shares = [float(x) for x in re.findall(r">(\d+\.\d)%<", block)]
+    listed = sum(s for s in shares if s != 100.0)
+    assert listed == pytest.approx(100.0, abs=0.3), (
+        f"열거된 비중 합 {listed:.1f}% — 합계만 100%로 닫으면 빠진 몫이 숨는다")
+
+
 def test_board_pack_includes_abbreviation_dict(tmp_path, result):
     p = build_board_pack(result, tmp_path / "bp.html")
     body = Path(p).read_text(encoding="utf-8")

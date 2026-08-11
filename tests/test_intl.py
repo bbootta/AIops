@@ -415,3 +415,191 @@ def test_rerunning_one_institution_reproduces_the_headline(multi):
     b = again.headline.set_index("institution_code").loc[code]
     for col in ("rwa_final", "cet1_ratio", "leverage_ratio", "ecl_total"):
         assert float(a[col]) == pytest.approx(float(b[col]), rel=0, abs=0), col
+
+
+# ------------------------------------------------- 기관 배선 회귀 (적대적 검증)
+#
+# 아래 네 묶음은 "기관 축은 세웠는데 산출 경로가 그 원장을 읽지 않는다" 는
+# 지적에 대응한다. 지적이 되살아나면 여기서 실패한다.
+#
+#   구조화   `_stage_structured` 가 (asof, seed) 만 받아 최종 RWA 의 19~31%가
+#            기관과 무관하게 국내 표본 규모감으로 붙었다.
+#   시장운영 케이스 스터디 3사가 국내 표본 행(명목 10조)을 공유했다.
+#   완충     `bis_deep` 호출부에 DSIB 등급 2 와 P2R·P2G 가 박혀 있어 같은
+#            기관에 요구 CET1 이 두 벌 나왔다. 국가별 익스포저도 고정이었다.
+#   업권     업권이 산출 분기에도 경고에도 닿지 않아 증권 기관 결과가 은행
+#            건전성 지표로 공시됐다.
+
+
+def test_structured_stage_cannot_run_without_the_ledger_scale():
+    """(asof, seed) 만으로 돌던 서명으로 되돌아가면 여기서 걸린다."""
+    import inspect
+    from datetime import date as _date
+    from risk_lib.pipeline import _stage_structured
+    assert list(inspect.signature(_stage_structured).parameters) == [
+        "asof", "seed", "scale"]
+    with pytest.raises(TypeError):
+        _stage_structured(_date(2025, 12, 31), _SEED)
+
+
+def test_structured_rwa_scales_with_the_profile_ledger():
+    """같은 시드라도 원장 배수가 다르면 구조화 RWA 가 그만큼 달라야 한다."""
+    from datetime import date as _date
+    from risk_lib.pipeline import _stage_structured
+    asof = _date.fromisoformat(_ASOF)
+    base = _stage_structured(asof, _SEED, {"fund_scale": 1.0, "sec_scale": 1.0})
+    twice = _stage_structured(asof, _SEED, {"fund_scale": 2.0, "sec_scale": 2.0})
+    assert twice.rwa_internal == pytest.approx(2.0 * base.rwa_internal)
+    # 국내 표본 배수는 1.0 이므로 기관 축을 붙이기 전 값과 같아야 한다.
+    assert gi.structured_scale_for(gi.BASE_INSTITUTION) == {
+        "fund_scale": 1.0, "sec_scale": 1.0}
+    assert base.rwa_internal == pytest.approx(4128332776117.6333, rel=0, abs=1.0)
+
+
+def test_structured_rwa_in_the_headline_comes_from_the_institution_scale(
+        multi, ledgers):
+    """헤드라인의 구조화 RWA 가 그 기관의 배수로 다시 세워져야 한다.
+
+    파이프라인이 배수를 안 넘기면 두 기관이 배수와 무관한 값을 갖고, 아래
+    재계산과 어긋난다.
+    """
+    from datetime import date as _date
+    from risk_lib.pipeline import _stage_structured
+    master = ledgers[inst.AXIS_MASTER]
+    profile = ledgers[gi.INST_PROFILE.name]
+    h = multi.headline.set_index("institution_code")
+    for code in _SAMPLE:
+        scale = gi.structured_scale_for(code, profile)
+        again = _stage_structured(
+            _date.fromisoformat(_ASOF),
+            inst.institution_seed(_SEED, code, master), scale)
+        assert float(h.loc[code, "rwa_structured"]) == pytest.approx(
+            again.rwa_internal, rel=0, abs=1.0), code
+    # 배수가 다른 두 기관이면 값도 갈린다.
+    a, b = _SAMPLE
+    assert (gi.structured_scale_for(a, profile)
+            != gi.structured_scale_for(b, profile))
+    assert h.loc[a, "rwa_structured"] != h.loc[b, "rwa_structured"]
+
+
+def test_case_study_banks_do_not_borrow_the_domestic_market_op_row(monkeypatch):
+    """케이스 스터디 3사가 각자의 공시 총여신으로 시장·운영 명목을 받는가.
+
+    이전에는 `market_op` 를 안 넘겨 파이프라인이 국내 표본 행(명목 10조)을
+    읽었고, 총여신 46.9조·18.4조·15.35조인 세 은행이 같은 시장 RWA 를 받았다.
+    """
+    from risk_lib import case_studies as cs
+    seen: list[dict] = []
+
+    def _capture(portfolio, **kw):
+        seen.append(kw)
+        return object()
+
+    monkeypatch.setattr("risk_lib.pipeline.run_pipeline", _capture)
+    for p in cs.BANKS:
+        cs.run_bank_stress(p, seed=_SEED)
+    assert len(seen) == len(cs.BANKS)
+    notionals = [kw["market_op"]["mkt_notional_base"] for kw in seen]
+    assert notionals == [p.total_loans_krw for p in cs.BANKS]
+    assert len(set(notionals)) == len(notionals)
+    # 업권도 함께 넘어가야 자체검증이 어느 체계 기준인지 적을 수 있다.
+    assert {kw["institution_type"] for kw in seen} == {cs.INSTITUTION_TYPE}
+    assert cs.INSTITUTION_TYPE in inst.INSTITUTION_TYPES
+
+
+def test_case_study_market_op_rwa_differs_across_the_three_banks():
+    """모수가 다르면 산출도 달라야 한다. 같으면 원장을 안 읽은 것이다."""
+    from risk_lib import case_studies as cs
+    from risk_lib.pipeline import _stage_market_op_rwa
+    out = []
+    for p in cs.BANKS:
+        mkt, op, _pos, _bi, _n = _stage_market_op_rwa(
+            _SEED, cs.market_op_for(p))
+        out.append((mkt.rwa, op.rwa))
+    assert len(set(out)) == len(out)
+    # 총여신이 큰 은행이 더 큰 시장 RWA 를 받는다.
+    order = sorted(range(len(cs.BANKS)),
+                   key=lambda i: cs.BANKS[i].total_loans_krw)
+    assert [out[i][0] for i in order] == sorted(out[i][0] for i in order)
+
+
+def test_buffer_layering_and_capital_ratio_share_one_requirement(multi):
+    """한 기관에 요구 CET1 이 두 벌 나오면 안 된다.
+
+    `compute_bis_ratios` 의 required 와 `bis_deep` 의 계층(P1+CBR)은 같은
+    완충 원장에서 나와야 한다. 이전에는 계층 쪽에 DSIB 등급 2(1.5%)가 박혀
+    있어 완충 원장이 0 인 증권 기관에서 1.5%p 어긋났다.
+    """
+    for code, run in multi.runs.items():
+        lay = run.result.bis_deep.layering
+        buf = run.result.meta["buffers"]
+        assert lay.dsib == pytest.approx(buf["dsib"]), code
+        assert lay.countercyclical == pytest.approx(buf["countercyclical"]), code
+        assert lay.capital_conservation == pytest.approx(
+            buf["capital_conservation"]), code
+        cbr = lay.capital_conservation + lay.countercyclical + lay.dsib
+        assert lay.p1_cet1 + cbr == pytest.approx(
+            float(run.result.bis.required["cet1"])), code
+
+
+def test_pillar2_layers_come_from_the_ledger_not_the_source(multi):
+    """P2R·P2G 는 원장에서 온다. 원장에 없으면 0 이고 그 사실이 검증에 남는다."""
+    import inspect
+    from risk_lib import pipeline
+    src = inspect.getsource(pipeline.run_pipeline)
+    assert "dsib_bucket=2" not in src
+    assert "p2r=0.015" not in src
+    assert "p2g=0.010" not in src
+    for code, run in multi.runs.items():
+        p2 = run.result.meta["pillar2"]
+        lay = run.result.bis_deep.layering
+        assert lay.p2r == pytest.approx(0.0 if p2.get("p2r") is None
+                                        else float(p2["p2r"])), code
+        assert lay.p2g == pytest.approx(0.0 if p2.get("p2g") is None
+                                        else float(p2["p2g"])), code
+        fr = run.result.validation.to_frame()
+        assert len(fr[fr["name"] == "pillar2_requirement_evidence"]) == 1, code
+
+
+def test_country_ccyb_reads_the_institution_portfolio(multi):
+    """국가가중 CCyB 의 국가 배분이 그 기관의 포트폴리오와 같아야 한다.
+
+    이전에는 KR 80%/US 8%/JP 5%/CN 5%/VN 2% 로 고정한 배분을 넘겼고, 그 배분은
+    어느 기관의 원장과도 대조되지 않았다.
+    """
+    for code, run in multi.runs.items():
+        by = run.result.bis_deep.country_ccyb["by_country"]
+        assert not by.empty, code
+        assert set(by["country"]) == set(run.portfolio["country"].unique()), code
+        for row in by.itertuples():
+            assert float(row.exposure) == pytest.approx(float(
+                run.portfolio[run.portfolio["country"] == row.country]
+                ["ead"].sum()), rel=1e-9), (code, row.country)
+
+
+def test_headline_says_which_prudential_regime_applies(multi):
+    """증권 기관의 은행 기준 비율이 그 기관의 건전성 지표로 읽히면 안 된다."""
+    h = multi.headline.set_index("institution_code")
+    for code in _SAMPLE:
+        itype = str(h.loc[code, "institution_type"])
+        assert h.loc[code, "prudential_regime"] == inst.prudential_regime(itype)
+        assert bool(h.loc[code, "ratio_applicable"]) == inst.regime_applies(itype)
+        if not inst.regime_applies(itype):
+            assert "참고치" in str(h.loc[code, "ratio_basis"])
+            assert inst.prudential_regime(itype) in str(h.loc[code, "ratio_basis"])
+    # 표본에 은행과 증권이 하나씩 있어야 이 시험이 뜻을 갖는다.
+    assert set(h["institution_type"]) == {"은행", "증권"}
+
+
+def test_every_run_records_the_regime_gap_in_its_own_validation(multi):
+    """업권이 산출에 반영되지 않았다는 사실을 산출물이 스스로 들고 있어야 한다."""
+    h = multi.headline.set_index("institution_code")
+    for code, run in multi.runs.items():
+        fr = run.result.validation.to_frame()
+        hit = fr[fr["name"] == "prudential_regime_applies"]
+        assert len(hit) == 1, code
+        itype = str(h.loc[code, "institution_type"])
+        assert str(hit.iloc[0]["status"]) == (
+            "PASS" if inst.regime_applies(itype) else "WARN"), code
+        if not inst.regime_applies(itype):
+            assert inst.prudential_regime(itype) in str(hit.iloc[0]["detail"])
