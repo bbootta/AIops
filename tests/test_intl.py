@@ -475,6 +475,30 @@ def test_rerunning_one_institution_reproduces_the_headline(multi):
         assert float(a[col]) == pytest.approx(float(b[col]), rel=0, abs=0), col
 
 
+def test_shared_reference_macro_indicator_does_not_split_by_institution(multi):
+    """공유 참조 판정은 "기관이 달라도 값이 같다" 는 주장이다. 확인한다.
+
+    `macro_indicator` 에는 기관코드가 없고 기본키가 (indicator_id, period) 다.
+    산출 경로가 기관 시드를 타면 같은 기본키에 기관마다 다른 값이 생기고 두
+    기관 원장을 합칠 때 한쪽이 조용히 덮인다. 그래서 계열은 기관 오프셋을
+    더하기 전 시드로 만든다. 그 배선이 끊기면 여기서 실패한다.
+    """
+    from risk_lib.datamodel.materialize_detail import materialize_stress_trace
+    by_inst = {
+        code: {"macro_indicator": materialize_stress_trace(
+            run.result, run.portfolio, {})["macro_indicator"]}
+        for code, run in multi.runs.items()}
+    assert inst.check_shared_reference_agreement(by_inst) == []
+    a, b = (by_inst[c]["macro_indicator"] for c in _SAMPLE)
+    assert len(a) == len(b) > 0
+    assert list(a["value"]) == list(b["value"])
+    # 판정이 성립하는 이유는 산출 경로가 기관 오프셋 전 시드를 넘기기 때문이다.
+    # 기관 시드는 기관마다 다르다는 사실은 그대로다.
+    for code, run in multi.runs.items():
+        assert int(run.result.meta["base_seed"]) == _SEED, code
+        assert int(run.result.meta["seed"]) != _SEED, code
+
+
 # ------------------------------------------------- 기관 배선 회귀 (적대적 검증)
 #
 # 아래 네 묶음은 "기관 축은 세웠는데 산출 경로가 그 원장을 읽지 않는다" 는
