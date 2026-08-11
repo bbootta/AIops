@@ -1296,7 +1296,7 @@ def _check_capital_source(capital_source: str | None, capital: Any,
     if capital_source == "ledger":
         if capital_basis == RATIO_TO_EAD_BASIS:
             cet1 = float(getattr(capital, "cet1", 0.0))
-            detail = ("자본 원장 주입이나 산출근거가 총익스포저 비율이다 — "
+            detail = ("자본 원장 주입이나 산출근거가 총익스포저 비율이다. "
                       "규모 비례분 100%")
             if total_ead:
                 detail += f" (CET1/총익스포저 {cet1 / float(total_ead):.3f} 고정)"
@@ -1348,12 +1348,12 @@ def _check_prudential_regime(meta: dict | None,
     if regime == _inst.IMPLEMENTED_REGIME:
         report.add(ConsistencyCheck(
             "prudential_regime_applies", "PASS",
-            f"업권 {itype} · 적용 체계 {regime} — 산출 체계와 일치"))
+            f"업권 {itype} · 적용 체계 {regime} · 산출 체계와 일치"))
         return
     report.add(ConsistencyCheck(
         "prudential_regime_applies", "WARN",
         f"업권 {itype} 의 건전성 체계는 {regime} 인데 산출은 "
-        f"{_inst.IMPLEMENTED_REGIME} 기준 한 벌뿐이다 — 이 결과의 자본비율· "
+        f"{_inst.IMPLEMENTED_REGIME} 기준 한 벌뿐이다. 이 결과의 자본비율·"
         "유동성비율은 이 기관의 건전성 지표가 아니라 참고치다"))
 
 
@@ -1372,7 +1372,7 @@ def _check_pillar2_evidence(meta: dict | None,
     if missing:
         report.add(ConsistencyCheck(
             "pillar2_requirement_evidence", "WARN",
-            f"{'·'.join(missing).upper()} 가 원장에 없어 0 으로 산출했다 — "
+            f"{'·'.join(missing).upper()} 가 원장에 없어 0 으로 산출했다. "
             "OCR·SREP 요구치가 감독 부과분만큼 과소 표시된다"))
         return
     report.add(ConsistencyCheck(

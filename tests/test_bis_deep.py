@@ -423,12 +423,13 @@ def test_compute_bis_deep_full():
         cet1=cet1, at1=at1, tier2=t2, rwa=7000,
         threshold_inputs={"dta_temporary_diff": 50, "msr": 40,
                           "significant_investments": 30},
-        countercyclical=0.0,
+        # 미지정은 None 으로만 말한다. 0.0 은 "적용 CCyB 가 0" 이라는 값이며
+        # 그때는 국가가중치로 갈아치우지 않는다 (아래 별도 시험).
+        countercyclical=None,
         dsib_bucket=2, p2r=0.015, p2g=0.010,
         exposures_by_country={"KR": 600, "US": 200, "JP": 200},
     )
     # Layering CBR = 2.5% + weighted CCyB (0.6·0.01=0.006) + DSIB(2)=1.5% = 4.6%
-    # but since countercyclical=0 is passed, ccyb takes the country-weighted value
     assert res.layering.dsib == pytest.approx(0.015)
     # weighted CCyB from {KR:600,US:200,JP:200} with KR=1% defaults
     assert res.layering.countercyclical == pytest.approx(0.6 * 0.010)
@@ -440,6 +441,27 @@ def test_compute_bis_deep_full():
     # MDA components — 4 rows
     assert len(res.mda_components) == 4
     # Country CCyB DF has 3 rows
+    assert len(res.country_ccyb["by_country"]) == 3
+
+
+def test_supplied_zero_ccyb_is_a_value_not_a_missing_input():
+    """적용 CCyB 가 0 인 기관에서 국가가중치가 그 자리를 차지하지 않는다.
+
+    예전에는 0.0 을 미지정으로 읽어 국가가중 CCyB 로 갈아치웠다. 그러면 완충
+    원장이 0 인 기관에서 이 계층의 요구비율이 `compute_bis_ratios` 의 요구비율과
+    갈리고, 같은 기관에 요구비율 두 벌이 공시된다. 국가별 표는 그대로 낸다.
+    """
+    cet1 = CET1Components(common_shares=100, share_premium=200,
+                          retained_earnings=500, goodwill=20, intangibles=10)
+    at1 = AT1Components(perpetual_notes=60)
+    t2 = Tier2Components(subordinated_debt=80)
+    res = compute_bis_deep(
+        cet1=cet1, at1=at1, tier2=t2, rwa=7000,
+        countercyclical=0.0, dsib_rate=0.0,
+        exposures_by_country={"KR": 600, "US": 200, "JP": 200},
+    )
+    assert res.layering.countercyclical == pytest.approx(0.0)
+    assert res.layering.dsib == pytest.approx(0.0)
     assert len(res.country_ccyb["by_country"]) == 3
 
 

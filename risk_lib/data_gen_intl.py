@@ -324,7 +324,7 @@ _ARCHETYPE_PROFILE: dict[str, dict[str, float]] = {
         "share_fx": 0.02, "share_equity": 0.01, "share_ir": 0.05,
         "share_bi_ildc": 0.02, "share_bi_sc": 0.01, "share_bi_fc": 0.005,
         "op_loss_rate": 0.001,
-        # 배수 1.0 — 국내 표본은 기존 생성기 금액을 그대로 쓴다.
+        # 배수 1.0 은 국내 표본이 기존 생성기 금액을 그대로 쓴다는 뜻이다.
         "fund_scale": 1.0, "sec_scale": 1.0,
         # 비워 둔다. 채우면 국내 표본의 자본이 바뀌고 기존 산출이 재현되지 않는다.
         "cet1_to_ead": None, "at1_to_ead": None, "tier2_to_ead": None,

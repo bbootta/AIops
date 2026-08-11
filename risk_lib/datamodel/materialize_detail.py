@@ -780,7 +780,7 @@ def materialize_stress_trace(result, portfolio, base) -> dict[str, pd.DataFrame]
                          "citation", "note"]]
     # 거시·금융지표 — 시나리오 심도의 근거가 되는 관측치와 그 연결.
     # 값은 파생이나 출처 코드는 실제 ECOS·KOSIS 계열을 가리킨다.
-    # `macro_indicator` 는 공유 참조 원장이다 — 같은 시점 같은 지표는 기관과
+    # `macro_indicator` 는 공유 참조 원장이다. 같은 시점 같은 지표는 기관과
     # 무관하게 한 값이고, 그래서 이 표에는 기관코드가 없고 기본키도
     # (indicator_id, period) 다. 기관 시드로 만들면 그 전제가 깨진다. 기관마다
     # 다른 값이 같은 기본키로 나오고, 두 기관 원장을 합치면 전 행이 충돌해
