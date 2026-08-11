@@ -60,6 +60,15 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
+## 5. Punctuation Rule (Global)
+
+**Never use long dashes.** Em dash (—) and en dash (–) are banned in all output: documents, artifacts, HTML, commit messages, chat replies, and any other deliverable.
+
+Replacements:
+- Appositive or explanation: use a comma or colon (:)
+- Ranges (dates, numbers): use a tilde (~)
+- Word joining: use a hyphen (-)
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
