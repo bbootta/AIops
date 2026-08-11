@@ -79,17 +79,29 @@ def ov1(result) -> pd.DataFrame:
     rwa = result.rwa
     ccr_rwa = result.ccr.rwa_total if result.ccr else 0
     cva_charge = result.ccr.cva_charge if result.ccr else 0
-    floor_addon = rwa["final_total"] - rwa["sa"] - rwa["irb"] - rwa["market"] - rwa["op"]
+    fund = float(rwa.get("fund", 0.0))
+    sec = float(rwa.get("securitisation", 0.0))
+    final = float(rwa["final_total"])
+    # floor 가산은 최종 RWA 에서 내부모형 기준 총계를 뺀 값이다. 예전에는
+    # SA·IRB·시장·운영 넷만 빼서 CCR·CVA·집합투자증권·증권화가 전부 이 줄에
+    # 섞였고, 증권화는 그 옆에서 "없음 0" 으로 적혀 있었다. 공시가 부문별로
+    # 읽히지 않으면 OV1 이 하는 일이 없다.
+    internal = float(rwa.get(
+        "internal_total",
+        float(rwa["sa"]) + float(rwa["irb"]) + float(rwa.get("ccr", 0.0))
+        + fund + sec + float(rwa["market"]) + float(rwa["op"])))
+    floor_addon = final - internal
     rows = [
         ("1",  "신용리스크 (SA)",          rwa["sa"],          rwa["sa"] * 0.08),
         ("2",  "신용리스크 (IRB)",          rwa["irb"],         rwa["irb"] * 0.08),
         ("3",  "CCR (SA-CCR)",            ccr_rwa,            ccr_rwa * 0.08),
         ("4",  "CVA 자본요구",              cva_charge * 12.5, cva_charge),
-        ("5",  "증권화 (없음)",             0,                  0),
-        ("6",  "시장리스크",                rwa["market"],      rwa["market"] * 0.08),
-        ("7",  "운영리스크 (SMA)",          rwa["op"],          rwa["op"] * 0.08),
-        ("8",  "Output floor 가산",        floor_addon,        floor_addon * 0.08),
-        ("9",  "<b>최종 RWA / 자본요구</b>", rwa["final_total"], rwa["final_total"] * 0.08),
+        ("5",  "집합투자증권 (CRE60)",       fund,               fund * 0.08),
+        ("6",  "증권화 (CRE40)",            sec,                sec * 0.08),
+        ("7",  "시장리스크",                rwa["market"],      rwa["market"] * 0.08),
+        ("8",  "운영리스크 (SMA)",          rwa["op"],          rwa["op"] * 0.08),
+        ("9",  "Output floor 가산",        floor_addon,        floor_addon * 0.08),
+        ("10", "<b>최종 RWA / 자본요구</b>", final,              final * 0.08),
     ]
     return pd.DataFrame(rows, columns=["행", "부문", "RWA", "최저 자본요구 (8%)"])
 

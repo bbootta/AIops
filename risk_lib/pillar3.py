@@ -58,6 +58,8 @@ def ov1(result: Any) -> pd.DataFrame:
 
     floor 가산은 최종 RWA 에서 내부모형 기준 총계를 뺀 값이다. 그 총계를 결과가
     가지고 있지 않으면(구형 result) 부문 합으로 대신하며, 둘은 같은 정의다.
+    부문 줄의 합은 최종 합계와 같다. 소계 줄을 따로 두지 않는 이유는 그 줄이
+    합에 두 번 들어가기 때문이다.
     """
     rwa = result.rwa
     sa = float(rwa["sa"])
@@ -78,7 +80,6 @@ def ov1(result: Any) -> pd.DataFrame:
         ("증권화 (CRE40)",         sec),
         ("시장리스크",            market),
         ("운영리스크",            op),
-        ("소계 (내부모형 기준)",   internal),
         ("Output floor 가산",     final - internal),
         ("최종 합계",             final),
     ]
