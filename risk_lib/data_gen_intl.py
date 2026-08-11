@@ -515,7 +515,12 @@ def build_inst_profile() -> pd.DataFrame:
             "note": ("기존 엔진이 쓰던 값과 같은 수다. 근거 문서가 없으므로 "
                      "근거 상태는 미확인이다." if base else _SYNTHETIC_NOTE),
         })
-    return pd.DataFrame(rows, columns=list(INST_PROFILE.column_names))
+    df = pd.DataFrame(rows, columns=list(INST_PROFILE.column_names))
+    # 전건이 비어 있는 float 칸은 pandas 가 object 로 만든다. 스펙 대조가
+    # dtype 으로 걸리므로 여기서 float 로 못박는다. 값을 채우는 것이 아니라
+    # 빈 칸의 자료형을 정하는 것이다.
+    return df.astype({c.name: "float64" for c in INST_PROFILE.columns
+                      if c.dtype == "float"})
 
 
 def build_portfolio_mix() -> pd.DataFrame:

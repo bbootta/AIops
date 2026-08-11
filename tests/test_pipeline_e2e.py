@@ -189,7 +189,12 @@ GOLDEN = {
 # WARN +1 은 `PLGD 예상외손실 추가분 부호` 하나다. 신뢰수준 q 가 승인 전이라
 #     PLGD 가 산출된 행이 없고, 검사는 그 사실을 "판정하지 않았다"로 남긴다.
 #     산출물이 없는데 PASS 로 넘기지 않는다. q 가 승인되면 PASS 나 FAIL 로 갈린다.
-GOLDEN_VALIDATION = {"PASS": 70, "WARN": 13}
+# PASS 70/WARN 13 → 70/14. WARN +1 은 `pillar2_requirement_evidence` 다.
+#     P2R·P2G 는 감독당국의 개별 부과분이고 이 저장소에 근거가 없다. 예전에는
+#     소스에 1.5%·1.0% 를 박아 넘겨 요구비율이 원장과 어긋난 두 벌로 공시됐다.
+#     원장에 빈 칸으로 두고 0 으로 산출하되, OCR 이 그만큼 과소 표시된다는
+#     사실을 매 실행 남긴다. 근거가 들어오면 PASS 로 갈린다.
+GOLDEN_VALIDATION = {"PASS": 70, "WARN": 14}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",
