@@ -26,6 +26,7 @@ import pytest
 from risk_lib import data_gen_intl as intl
 from risk_lib.ui_studio import app as uiapp
 from risk_lib.ui_studio import i18n
+from risk_lib.ui_studio import studio as st
 from risk_lib.ui_studio.app import render, write_app
 from risk_lib.ui_studio.studio import build_studio
 
@@ -33,8 +34,17 @@ _OTHER = "EU_BANK_01"
 
 
 @pytest.fixture(scope="module")
-def studio(result, portfolio):
-    return build_studio(result, portfolio)
+def studio_build(result, portfolio):
+    """스냅샷 한 벌과 조립할 때 나온 경고. 조립이 비싸서 한 번만 한다."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        built = build_studio(result, portfolio)
+    return built, [str(w.message) for w in caught]
+
+
+@pytest.fixture(scope="module")
+def studio(studio_build):
+    return studio_build[0]
 
 
 @pytest.fixture(scope="module")
@@ -60,9 +70,30 @@ def _insts_src(h: str) -> str:
 
 # ----- payload ----------------------------------------------------------------
 
-def test_studio_carries_the_institution_of_its_run(studio):
-    """실행은 자기 기관을 안다. 모르면 화면이 어느 기관의 수치인지 못 적는다."""
+def test_studio_carries_the_institution_of_its_run():
+    """실행이 자기 기관을 말하면 스냅샷은 그 기관을 쓰고 경고도 남기지 않는다."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        code, source = st.resolve_institution({"institution_code": _OTHER})
+    assert (code, source) == (_OTHER, st.INSTITUTION_FROM_RUN)
+    assert not [w for w in caught if "기관코드" in str(w.message)]
+
+
+def test_a_run_without_an_institution_is_not_silently_labelled_domestic(
+        studio_build, result):
+    """기관코드 없는 실행을 조용히 국내 표본으로 라벨하지 않는다.
+
+    대체값은 실행이 말한 적이 없는 귀속이다. 그것이 화면 칩·payload 의
+    institution.code·master_row 에 그대로 적히므로, 대체했다는 사실이 경고와
+    `institution_source` 두 곳에 남아야 한다. 이 시험이 없으면 대체값을
+    단언하는 시험이 그 동작을 고정한다.
+    """
+    studio, messages = studio_build
+    assert result.meta.get("institution_code") is None    # 전제
     assert studio.institution_code == intl.BASE_INSTITUTION
+    assert studio.institution_source == st.INSTITUTION_FROM_DEFAULT
+    assert any(intl.BASE_INSTITUTION in m and "기관코드" in m
+               for m in messages), messages
 
 
 def test_institution_ledgers_are_built_but_kept_out_of_the_run_tables(studio):

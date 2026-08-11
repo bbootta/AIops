@@ -7,11 +7,17 @@ UIX 통제 원장을 모두 채우고, 그 위에서 실제로 실행된 조회�
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 
 import pandas as pd
 
 from risk_lib import institutions as _inst
+
+# 기관코드의 출처 표기. 실행이 자기 기관을 말했는지, 말하지 않아 기본 기관으로
+# 채웠는지를 가른다.
+INSTITUTION_FROM_RUN = "실행 지정"
+INSTITUTION_FROM_DEFAULT = "미지정 · 기본 기관 대체"
 from risk_lib.datamodel.materialize import materialize_all
 from risk_lib.datamodel.materialize_detail import materialize_detail
 from risk_lib.regulatory.forms import build_forms, form_frames, submission_digest
@@ -71,6 +77,11 @@ class Studio:
     # 이 스냅샷이 어느 기관의 산출인가. 화면의 기관 선택기는 이 값으로
     # 실행을 가른다. 산출에 쓰이는 값이 아니라 실행의 소속 표시다.
     institution_code: str = _inst.PRIMARY_INSTITUTION
+    # 그 기관코드를 어디서 얻었는가. 실행이 말했으면 '실행 지정' 이고, 말하지
+    # 않아 기본 기관으로 채웠으면 '미지정 · 기본 기관 대체' 다. 둘을 구분하지
+    # 않으면 실행이 한 적 없는 귀속이 화면 칩·payload·master_row 에 그대로
+    # 적힌다. 값이 아니라 값의 출처를 적는 칸이다.
+    institution_source: str = INSTITUTION_FROM_RUN
     # 기관 축 원장. `tables` 에 넣지 않는 이유는 이것이 이 실행의 산출물이
     # 아니기 때문이다. 전 기관을 담은 축 마스터를 실행 원장에 섞으면 기관
     # 귀속·DQ·마감 판정이 이 원장까지 세게 되고, 실제로 기관코드 도장을
@@ -87,15 +98,34 @@ class Studio:
         return hit.iloc[0] if len(hit) else None
 
 
+def resolve_institution(meta) -> tuple[str, str]:
+    """실행의 기관코드와 그 코드의 출처.
+
+    실행이 기관을 말하지 않으면 기본 기관으로 채우되 조용히 채우지 않는다.
+    조용히 채우면 화면 칩·payload 의 institution.code·master_row 가 전부 국내
+    표본이라고 적히는데, 그 귀속은 실행이 말한 적이 없는 것이다. 대체했다는
+    사실은 경고와 `Studio.institution_source` 두 곳에 남는다.
+    """
+    from risk_lib import data_gen_intl as _intl
+    declared = (meta or {}).get("institution_code")
+    if declared is None:
+        warnings.warn(
+            "실행이 기관코드를 말하지 않아 기본 기관 "
+            f"{_intl.BASE_INSTITUTION} 으로 라벨한다. 이 스냅샷의 기관 귀속은 "
+            "실행이 아니라 이 대체값에서 왔다 "
+            "(run_pipeline(institution_code=...) 로 지정한다)",
+            stacklevel=3)
+        return _intl.BASE_INSTITUTION, INSTITUTION_FROM_DEFAULT
+    return str(declared), INSTITUTION_FROM_RUN
+
+
 def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Studio:
     asof = result.meta.get("asof", "1970-01-01")
     # 실행 식별자에 기관을 넣는다. 기준일만으로는 같은 날의 두 기관이 같은
     # run_id 를 갖고, 결재·감사체인·마감 판정처럼 기관코드 컬럼이 없는 실행
     # 통제 원장이 어느 기관 것인지 말할 수 없게 된다. `gov_unified_run` 은
     # run_id 단독 기본키라 두 기관을 같은 기준일로 조립하면 겹친다.
-    from risk_lib import data_gen_intl as _intl
-    inst_code = str(result.meta.get("institution_code")
-                    or _intl.BASE_INSTITUTION)
+    inst_code, inst_source = resolve_institution(result.meta)
     run_id = f"RUN-{asof.replace('-', '')}-{inst_code}"
 
     from risk_lib.datamodel.code_master import build_code_master
@@ -210,6 +240,7 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
                     built_forms=built, result=result,
                     iv_request=iv_request, iv_gate=iv_gate,
                     institution_code=inst_code,
+                    institution_source=inst_source,
                     inst_tables=_intl.build_all())
 
     # ---- 조회계획 컴파일 + 실행
