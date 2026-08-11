@@ -272,6 +272,35 @@ def test_pillar3_ov1_sums_to_total(result):
     assert total_row == pytest.approx(components, rel=1e-9)
 
 
+def test_pillar3_ov1_reports_each_sector_instead_of_a_residual(result):
+    """OV1 부문 줄이 산출 결과의 해당 항과 같아야 한다.
+
+    합계만 닫는 검사는 잔차식을 잡지 못한다 — CCR·증권화를 "없음 0"으로
+    적고 그 합을 Output floor 가산 줄에 넣어도 합계는 그대로 닫혔다.
+    실제로 그렇게 공시된 회차가 있었다(CCR/CVA 0 · 증권화 0 · floor 4.15조,
+    같은 실행의 rwa_output_floor.csv uplift 는 0). 줄마다 원천을 대조한다.
+    """
+    from risk_lib.pillar3 import ov1
+    rwa = result.rwa
+    v = dict(zip(ov1(result)["부문"], ov1(result)["RWA"], strict=True))
+
+    assert v["신용리스크 (SA)"] == pytest.approx(float(rwa["sa"]))
+    assert v["신용리스크 (IRB)"] == pytest.approx(float(rwa["irb"]))
+    assert v["CCR/CVA"] == pytest.approx(float(rwa["ccr"]))
+    assert v["집합투자증권 (CRE60)"] == pytest.approx(float(rwa["fund"]))
+    assert v["증권화 (CRE40)"] == pytest.approx(float(rwa["securitisation"]))
+    assert v["시장리스크"] == pytest.approx(float(rwa["market"]))
+    assert v["운영리스크"] == pytest.approx(float(rwa["op"]))
+    # 산출하한 가산은 하한 산출값 그 자체이지 남은 차액이 아니다.
+    assert v["Output floor 가산"] == pytest.approx(
+        float(rwa["output_floor"].add_on), abs=1.0)
+
+    # "없음" 으로 적힌 부문이 없다. 산출된 값을 0으로 적으면 공시가 틀린다.
+    assert not [s for s in v if "없음" in s]
+    for sector in ("CCR/CVA", "집합투자증권 (CRE60)", "증권화 (CRE40)"):
+        assert v[sector] > 0.0, f"{sector} 가 0이다 — 산출값과 대조하라"
+
+
 # ---- html_report integration --------------------------------------------
 
 # ---- mda -----------------------------------------------------------------
