@@ -1,0 +1,1646 @@
+{
+  "schema_version": "3.0",
+  "policy_version": "3.0",
+  "sources": {
+    "규정": {
+      "title": "은행업감독규정",
+      "effective": "2026-04-01",
+      "promulgation": "금융위원회고시 제2026-10호, 2026. 3. 18., 일부개정",
+      "url": "https://www.law.go.kr/LSW/admRulLsInfoP.do?admRulSeq=2100000276094",
+      "path": "harness/reference/bank_supervision_regulation_20260401.md",
+      "role": "경영지도비율 등 임계값의 근거",
+      "basis_level": "국내구속",
+      "sha256": "c8bc6abb18ba355c7c33fbcf673e9f425425c92c1e179573644985ffefac2984",
+      "n_schedules": 23,
+      "n_article_headings": 148
+    },
+    "세칙": {
+      "title": "은행업감독업무시행세칙",
+      "effective": "2026-06-30",
+      "promulgation": "금융감독원세칙 제9999호, 2026. 6. 26., 일부개정",
+      "url": "https://www.law.go.kr/LSW/admRulLsInfoP.do?admRulSeq=2200000108789",
+      "path": "harness/reference/bank_supervision_rules_20260630.md",
+      "role": "산정기준·별표의 근거",
+      "basis_level": "국내구속",
+      "sha256": "66ac0b4d292b844095771d3aa3e50894d7c0b2eb840ed65a3d1133af0f2b455d",
+      "n_schedules": 45,
+      "n_article_headings": 145
+    },
+    "바젤": {
+      "title": "Basel Framework 공식 원문 소스북",
+      "effective": "2026-08-09",
+      "promulgation": "BIS/BCBS 통합 Basel Framework · Standard 14종",
+      "url": "https://www.bis.org/basel_framework/",
+      "path": "harness/reference/basel_framework_sourcebook_20260809.md",
+      "role": "국제 기준 — 국내 기준이 없거나 해석이 모호할 때의 보충 근거",
+      "basis_level": "국제권고",
+      "sha256": "e0380fc20c3811284fdf33ffa534c2f76946dc6beae1de6afd080d4a2c5bdfd7",
+      "n_current_chapters": 124,
+      "text_scope": "Chapter 단위 source map — BIS 이용조건상 원문 전문을 복제하지 않는다. Chapter 실재·시행일·공식 URL 까지 대조되며 paragraph 문구 대조는 이 소스북으로 할 수 없다."
+    }
+  },
+  "precedence": {
+    "order": [
+      "규정",
+      "세칙",
+      "바젤"
+    ],
+    "rules": [
+      "① 국내 구속 기준(규정 → 세칙)이 그 주제를 정하면 국내 기준이 적용된다.",
+      "② 국내 기준이 그 주제를 정하지 않으면 바젤 원문을 따른다.",
+      "③ 국내 기준이 있으나 해석이 모호하면 바젤 원문으로 보충 해석한다. 다만 국내가 명시적으로 정한 값·범위는 바젤과 달라도 국내가 적용된다.",
+      "④ 국내가 바젤보다 느슨한 경우에도 국내가 적용되나, 그 차이를 산출물에 표기한다 — 국내 준수가 국제 기준 충족을 뜻하지 않는다."
+    ],
+    "governing_values": {
+      "국내": "국내 기준이 지배한다 (규칙 ①)",
+      "바젤": "국내 기준이 없어 바젤이 지배한다 (규칙 ②)",
+      "국내+바젤보충": "국내가 지배하되 모호한 부분을 바젤로 보충한다 (규칙 ③)"
+    }
+  },
+  "description": "규제 기준(국내 규정·세칙 + 국제 바젤)에서 전개한 적합성검증 항목. 국내 기준이 우선하고, 국내가 정하지 않은 주제는 바젤이 지배하며, 국내 해석이 모호하면 바젤로 보충한다 (precedence 참조). 각 항목의 citation 은 해당 원문에서 해석되고 source_line 은 손으로 적지 않고 파생한다. thresholds 는 규정이 정한 계량 임계를 하니스 임계 파일과 대조한 결과이며 하니스가 규정보다 느슨하면 'looser' 로 드러난다. 바젤 근거는 Chapter 단위 대조까지만 가능하다.",
+  "automation_definition": {
+    "automated": "하니스에 실행 가능한 통제가 존재 (evidence 1건 이상 실재 필수)",
+    "manual": "기준을 덮는 통제가 없어 사람 검토로 남김 (note 필수)"
+  },
+  "threshold_status_definition": {
+    "ok": "하니스 임계가 규정 값과 같다",
+    "stricter": "하니스 임계가 규정보다 엄격하다 — 통과시키되 보고한다",
+    "looser": "하니스 임계가 규정보다 느슨하다 — 규제 미달을 통과시키므로 위반이다",
+    "missing": "하니스 임계 파일에 해당 값이 없다"
+  },
+  "sections": {
+    "01": "RDM·BIS비율",
+    "02": "신용리스크·RWA",
+    "03": "IFRS 9 ECL",
+    "04": "시장리스크",
+    "05": "ALM·IRRBB·유동성",
+    "06": "운영리스크",
+    "07": "통합위기상황분석",
+    "08": "리스크 적합성검증"
+  },
+  "lenses": [
+    "데이터",
+    "산식",
+    "방법론",
+    "내부통제",
+    "문서화"
+  ],
+  "criteria": [
+    {
+      "rule_id": "KR-001",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "제17조",
+      "source_heading": "제17조(경영지도비율의 산정기준)",
+      "source_line": 261,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제",
+        "산식"
+      ],
+      "criterion": "경영지도비율의 산정기준이 세칙이 지정한 별표(3·3의2·3의3·3의4·3의5·3의6·3의7·3의8·3의10·3의12)를 따르는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json",
+        "harness/policies/capital_adequacy.md"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-002",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "제17조",
+      "source_heading": "제17조(경영지도비율의 산정기준)",
+      "source_line": 261,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터",
+        "내부통제"
+      ],
+      "criterion": "산정 시점이 지표별로 구분되는가 — 자기자본비중·단순기본자본비율·NSFR·거액익스포져비율은 가결산일·결산일 현재, LCR·원화예대율은 매월 평잔 (제17조제2항)",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스는 LCR·원화예대율을 시점값 하나로 받는다. 월평잔 여부를 판별할 입력이 없어 사람 확인 항목으로 남긴다 — 시점값을 평잔으로 보고하면 잡지 못한다"
+    },
+    {
+      "rule_id": "KR-003",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "제17조",
+      "source_heading": "제17조(경영지도비율의 산정기준)",
+      "source_line": 261,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "완충자본 포함 자본비율 미달이 예상될 때 배당·자사주매입·성과연동상여 제한과 자본계획 승인 절차로 연결되는가 (제17조제3항)",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json",
+        "src/vta/domains/capital.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-004",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 3",
+      "source_heading": "[별표 3] 신용ㆍ운영리스크 위험가중자산에 대한 자기자본비율 산출 기준(바젤Ⅲ 기준)",
+      "source_line": 2566,
+      "basel_ref": "CRE20",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "신용·운영리스크 위험가중자산과 자기자본비율 산출이 바젤Ⅲ 국내 기준에 따라 재계산되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/basel_risk_taxonomy.json",
+        "src/vta/domains/capital.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-005",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 3의2",
+      "source_heading": "[별표 3의2] 신용·운영·시장리스크 위험가중자산에 대한 자기자본비율 산출기준",
+      "source_line": 11954,
+      "basel_ref": "MAR20",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "04",
+      "section_name": "시장리스크",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "시장리스크를 포함한 위험가중자산 산출기준이 적용되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/market_risk_thresholds.json",
+        "src/vta/domains/market.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-006",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 3의8",
+      "source_heading": "[별표 3의8] 단순기본자본비율 산출기준",
+      "source_line": 23201,
+      "basel_ref": "LEV20",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "단순기본자본비율(레버리지비율)이 국내 산출기준으로 재계산되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json",
+        "src/vta/domains/capital.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-007",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 3의12",
+      "source_heading": "[별표 3의12] 거액익스포져비율 산출기준",
+      "source_line": 26046,
+      "basel_ref": "LEX20",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "거액익스포져비율(LEX)이 산출기준에 따라 산정되고 한도 저촉이 판정되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/concentration_thresholds.json",
+        "src/vta/domains/concentration.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-008",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 7",
+      "source_heading": "[별표 7] 계량지표의 산정기준",
+      "source_line": 30077,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터",
+        "산식"
+      ],
+      "criterion": "경영실태평가 계량지표가 정해진 산정기준으로 산출되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 경영실태평가 계량지표 산출 경로가 없다"
+    },
+    {
+      "rule_id": "KR-009",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 11",
+      "source_heading": "[별표 11] 자산·부채 항목별 세부 평가 및 산정기준",
+      "source_line": 32611,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "자산·부채 항목별 평가·산정이 세부기준을 따르는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 항목별 평가기준 대조가 없다"
+    },
+    {
+      "rule_id": "KR-010",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 20",
+      "source_heading": "[별표 20] 시스템적 중요도 산정 및 추가자본 부과 세부 기준",
+      "source_line": 36246,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "시스템적 중요도 산정과 추가자본 부과가 세부기준에 따라 반영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-011",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 21",
+      "source_heading": "[별표 21] 경기대응완충자본 관련 세부 기준",
+      "source_line": 36456,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "경기대응완충자본이 세부기준에 따라 자본요구에 반영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-012",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "제18조",
+      "source_heading": "제18조(자산건전성 분류기준 등의 보고)",
+      "source_line": 285,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "문서화",
+        "내부통제"
+      ],
+      "criterion": "자산건전성 분류기준·대손충당금 적립 기준과 그 결과 보고가 매분기 종료 후 20일 이내에 이루어지는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "보고 기한 준수는 운영 사실 — 하니스는 산출값만 검증하며 제출 시점 데이터를 갖지 않는다"
+    },
+    {
+      "rule_id": "KR-013",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 12",
+      "source_heading": "[별표 12] 무수익여신 산정기준",
+      "source_line": 32713,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "데이터",
+        "산식"
+      ],
+      "criterion": "무수익여신 산정이 기준에 따라 이루어지는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 무수익여신 산정 검증이 없다"
+    },
+    {
+      "rule_id": "KR-014",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 18",
+      "source_heading": "[별표 18] 주택관련 담보대출 등에 대한 리스크관리 세부기준",
+      "source_line": 34796,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "주택관련 담보대출의 LTV·DTI 등 리스크관리 세부기준이 적용되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 주담대 규제비율 점검이 없다"
+    },
+    {
+      "rule_id": "KR-015",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 24",
+      "source_heading": "[별표 24] 조기경보제도 및 여신감리제도에 관한 기준",
+      "source_line": 36955,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "조기경보제도와 여신감리제도가 기준에 따라 운영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/validation_triggers.json",
+        "tools/validation_trigger.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-016",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 15",
+      "source_heading": "[별표 15] 국가별·거액신용·시장리스크 관리기준",
+      "source_line": 33801,
+      "basel_ref": "LEX30",
+      "ambiguous_domestic": true,
+      "governing": "국내+바젤보충",
+      "section": "04",
+      "section_name": "시장리스크",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "국가별·거액신용·시장리스크 관리기준이 한도 체계로 운영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/concentration_thresholds.json",
+        "src/vta/domains/concentration.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-017",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 4",
+      "source_heading": "[별표 4] 회계처리 기준",
+      "source_line": 26369,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "03",
+      "section_name": "IFRS 9 ECL",
+      "lens": [
+        "방법론",
+        "문서화"
+      ],
+      "criterion": "회계처리 기준이 충당금·손상 인식에 일관되게 적용되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/ifrs9.md"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-018",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 3의6",
+      "source_heading": "[별표 3의6] 유동성커버리지비율 산출 기준",
+      "source_line": 22040,
+      "basel_ref": "LCR20",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "유동성커버리지비율이 국내 산출기준(HQLA 계층·유출입 인정률·유입 한도)으로 재계산되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/liquidity_risk_thresholds.json",
+        "src/vta/domains/liquidity.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-019",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 3의7",
+      "source_heading": "[별표 3의7] 원화예대율 산출 기준",
+      "source_line": 23178,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식",
+        "데이터"
+      ],
+      "criterion": "원화예대율이 월평잔 기준으로 산출되고 양도성예금증서·커버드본드 산입 한도(원화예수금의 1/100·합산 2/100)가 적용되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 원화예대율 산출·한도 적용이 없다. ALM 도메인의 예대율은 잔액 기준 관리지표이며 이 기준과 다르다"
+    },
+    {
+      "rule_id": "KR-020",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 3의10",
+      "source_heading": "[별표 3의10] 순안정자금조달비율 산출기준",
+      "source_line": 25334,
+      "basel_ref": "NSF30",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "순안정자금조달비율이 국내 산출기준(ASF·RSF 계수)으로 재계산되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/liquidity_risk_thresholds.json",
+        "src/vta/domains/liquidity.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-021",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 9의1",
+      "source_heading": "[별표 9의1] 금리리스크 산출기준",
+      "source_line": 31514,
+      "basel_ref": "SRP31",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식",
+        "방법론"
+      ],
+      "criterion": "금리리스크가 연결재무제표 기준 비트레이딩 포지션(은행계정)에 대해 산출되고 은행계정·신탁계정·자회사가 구분 관리되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/irrbb_thresholds.json",
+        "src/vta/domains/irrbb.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-022",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 9의2",
+      "source_heading": "[별표 9의2] 유동성리스크 관리기준",
+      "source_line": 32253,
+      "basel_ref": "SRP50",
+      "ambiguous_domestic": true,
+      "governing": "국내+바젤보충",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "유동성리스크 관리기준(한도·비상조달계획 등)이 운영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/liquidity_risk.md",
+        "harness/liquidity_risk_thresholds.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-023",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 14",
+      "source_heading": "[별표 14] 외화유동성비율 등 산정방법",
+      "source_line": 33623,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "외화유동성비율 등이 산정방법에 따라 산출되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 외화유동성비율 산출이 없다"
+    },
+    {
+      "rule_id": "KR-024",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 14의1",
+      "source_heading": "[별표 14의1] 외화안전자산 보유규모 산출방법",
+      "source_line": 33772,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "외화안전자산 보유규모가 산출방법에 따라 산정되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 외화안전자산 산출이 없다"
+    },
+    {
+      "rule_id": "KR-025",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 15의1",
+      "source_heading": "[별표 15의1] 외화 유동성 리스크 관리기준",
+      "source_line": 34013,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "외화 유동성 리스크 관리기준이 운영되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 외화 유동성 전용 통제가 없다"
+    },
+    {
+      "rule_id": "KR-026",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "제39조",
+      "source_heading": "제39조(외화유동성비율등 산정방법)",
+      "source_line": 575,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식",
+        "문서화"
+      ],
+      "criterion": "외화유동성비율 등의 산정방법이 세칙이 정한 바를 따르는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 외환건전성 지표 산출이 없다"
+    },
+    {
+      "rule_id": "KR-027",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "제40조",
+      "source_heading": "제40조(외화유동성비율 등 위반시 달성계획 제출)",
+      "source_line": 581,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "외화유동성비율 등 위반 시 달성계획 제출 절차가 작동하는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "제출 절차는 운영 사실 — 하니스 범위 밖"
+    },
+    {
+      "rule_id": "KR-028",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 3의11",
+      "source_heading": "[별표 3의11] 건전한 운영리스크 관리 원칙",
+      "source_line": 25675,
+      "basel_ref": "OPE10",
+      "ambiguous_domestic": true,
+      "governing": "국내+바젤보충",
+      "section": "06",
+      "section_name": "운영리스크",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "건전한 운영리스크 관리 원칙이 손실자료 수집·경계 설정에 반영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/operational_risk_thresholds.json",
+        "harness/policies/operational_risk.md"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-029",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 8의2",
+      "source_heading": "[별표 8의2] 내부통제평가 부문별 평가항목 및 평가등급별 정의",
+      "source_line": 30744,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "06",
+      "section_name": "운영리스크",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "내부통제평가 부문별 평가항목과 등급 정의가 적용되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 내부통제평가 등급 산정이 없다"
+    },
+    {
+      "rule_id": "KR-030",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "제29조의3",
+      "source_heading": "제29조의3(위기상황분석)",
+      "source_line": 471,
+      "basel_ref": "SRP30",
+      "ambiguous_domestic": true,
+      "governing": "국내+바젤보충",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "위기상황분석이 세칙이 정한 운용 기준에 따라 실시되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/scenario_floors.json",
+        "harness/policies/macro_scenario.md"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-031",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 19",
+      "source_heading": "[별표 19] 위기상황분석 실시 기준",
+      "source_line": 35535,
+      "basel_ref": "SRP30",
+      "ambiguous_domestic": true,
+      "governing": "국내+바젤보충",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "방법론",
+        "내부통제"
+      ],
+      "criterion": "위기상황분석 실시 기준의 목적·적용대상·활용(위험 식별·제어, 타 방법론 보완)이 충족되는가",
+      "automation": "automated",
+      "evidence": [
+        "skills/stress_test_validation.md",
+        "harness/scenario_floors.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-032",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "제29조의2",
+      "source_heading": "제29조의2(내부자본적정성 평가ㆍ관리체제 구축기준)",
+      "source_line": 465,
+      "basel_ref": "SRP20",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "내부자본적정성 평가·관리체제가 별표 3의9 기준으로 구축되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/icaap_thresholds.json",
+        "src/vta/domains/icaap.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-033",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 3의9",
+      "source_heading": "[별표 3의9] 내부자본적정성 평가·관리체제 구축·운용 및 점검 기준",
+      "source_line": 24066,
+      "basel_ref": "SRP30",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "방법론",
+        "내부통제"
+      ],
+      "criterion": "내부자본적정성 평가·관리체제의 구축·운용 및 점검이 기준을 충족하는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/icaap_thresholds.json",
+        "src/vta/domains/icaap.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-034",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "제29조",
+      "source_heading": "제29조(리스크평가)",
+      "source_line": 457,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "리스크관리실태 평가가 본점·자회사에 대해 연 1회 이상 실시되는가 (제29조제1항)",
+      "automation": "automated",
+      "evidence": [
+        "tools/validation_scope.py",
+        "harness/model_materiality.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-035",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 9",
+      "source_heading": "[별표 9] 리스크평가 기준",
+      "source_line": 30822,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "방법론",
+        "내부통제"
+      ],
+      "criterion": "리스크평가 기준의 평가 항목·주기·조치 부과기준이 검증 계획에 반영되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/validation_policy.md",
+        "tools/validation_scope.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-036",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 8",
+      "source_heading": "[별표 8] 각 평가등급별 정의",
+      "source_line": 30354,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "평가등급별 정의가 검증 의견 등급 체계와 정합하는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/regulatory_rule_catalog.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-037",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 23",
+      "source_heading": "[별표 23] 은행 경영공시 및 대출가산금리 등 비교공시 운영기준",
+      "source_line": 36550,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "경영공시 운영기준이 산출물 공시 범위와 정합하는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스는 공시 산출물을 만들지 않는다 — 대외 확정은 인간 권한 (CLAUDE.md §5)"
+    },
+    {
+      "rule_id": "KR-038",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "별표 13",
+      "source_heading": "[별표 13] 자회사 경영실태평가 평가기준",
+      "source_line": 32806,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "자회사 경영실태평가 기준이 적용되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 자회사 평가 경로가 없다"
+    },
+    {
+      "rule_id": "KR-039",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "제27조",
+      "source_heading": "제27조(경영실태평가)",
+      "source_line": 403,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "경영실태평가 실시 체계가 검증 대상 범위와 연결되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "경영실태평가는 감독당국 절차 — 하니스는 산출값 검증만 한다"
+    },
+    {
+      "rule_id": "KR-040",
+      "source_key": "세칙",
+      "basis_level": "국내구속",
+      "citation": "제28조",
+      "source_heading": "제28조(경영실태 평가방법 및 등급)",
+      "source_line": 413,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "경영실태 평가방법·등급 산정이 기준을 따르는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 경영실태 등급 산정이 없다"
+    },
+    {
+      "rule_id": "KR-041",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조",
+      "source_heading": "제26조(경영지도비율)",
+      "source_line": 626,
+      "basel_ref": "RBC20",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "산식",
+        "내부통제"
+      ],
+      "criterion": "경영지도비율(자본비율·LCR·원화예대율·NSFR·단순기본자본비율·거액익스포져비율)이 규정이 정한 최소·최대 수준을 충족하는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json",
+        "harness/liquidity_risk_thresholds.json",
+        "harness/concentration_thresholds.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-042",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조",
+      "source_heading": "제26조(경영지도비율)",
+      "source_line": 626,
+      "basel_ref": "RBC20",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "원화예대율이 적용 제외 대상인지 판정되는가 — 직전분기말월 원화대출금 4조원 미만 은행은 적용하지 않는다 (제26조제1항 단서)",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 원화예대율 자체가 없어 적용 대상 판정도 없다"
+    },
+    {
+      "rule_id": "KR-043",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조의2",
+      "source_heading": "제26조의2(금융체계상 중요한 은행의 선정 등)",
+      "source_line": 696,
+      "basel_ref": "RBC40",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "금융체계상 중요한 은행 추가자본이 자본요구에 반영되고, 선정 외은지점의 LCR 100% 유지 의무가 구분되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-044",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조의3",
+      "source_heading": "제26조의3(경기대응완충자본)",
+      "source_line": 734,
+      "basel_ref": "RBC30",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "경기대응완충자본이 위험가중자산의 0~2.5% 범위에서 반영되고 해외 차주는 해당국 수준을 감안하는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-045",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "별표 2의10",
+      "source_heading": "[별표 2의10] 자본보전완충자본 등을 포함한 자본비율",
+      "source_line": 4564,
+      "basel_ref": "RBC30",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "완충자본을 포함한 자본비율 요구(2019.1.1. 이후 CET1 7.0+K · T1 8.5+K · 총자본 10.5+K, K=D-SIB 추가자본+경기대응완충자본)가 적용되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json",
+        "src/vta/domains/capital.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-046",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "별표 2의11",
+      "source_heading": "[별표 2의11] 이익 배당 등의 최저 내부유보비율",
+      "source_line": 4614,
+      "basel_ref": "DIS26",
+      "ambiguous_domestic": true,
+      "governing": "국내+바젤보충",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "완충자본 미달 구간별 이익 배당 등의 최저 내부유보비율이 적용되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스는 미달 사실만 표시하고 구간별 내부유보비율을 산정하지 않는다"
+    },
+    {
+      "rule_id": "KR-047",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조의4",
+      "source_heading": "제26조의4(자체정상화계획)",
+      "source_line": 748,
+      "basel_ref": "SRP30",
+      "ambiguous_domestic": true,
+      "governing": "국내+바젤보충",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "자체정상화계획이 작성기준(별표 9)에 따라 수립되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 자체정상화계획 검증 경로가 없다"
+    },
+    {
+      "rule_id": "KR-048",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제27조",
+      "source_heading": "제27조(자산건전성분류 등)",
+      "source_line": 770,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "데이터",
+        "방법론"
+      ],
+      "criterion": "자산건전성 분류가 별표 3 분류기준에 따라 이루어지는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/credit_scoring.md"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-049",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제29조",
+      "source_heading": "제29조(대손충당금등 적립기준)",
+      "source_line": 810,
+      "basel_ref": "CRE35",
+      "ambiguous_domestic": true,
+      "governing": "국내+바젤보충",
+      "section": "03",
+      "section_name": "IFRS 9 ECL",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "대손충당금등 적립기준이 충족되는가 — 최저적립액 대비 충당금은 합계 기준으로 대비한다",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/ifrs9.md"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-050",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제30조",
+      "source_heading": "제30조(리스크관리체제 등)",
+      "source_line": 930,
+      "basel_ref": "SRP30",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "리스크관리체제와 내부자본적정성 평가·관리체제가 규정이 요구하는 수준으로 구축·운용되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/icaap_thresholds.json",
+        "src/vta/domains/icaap.py"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-051",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "별표 3",
+      "source_heading": "[별표 3] 자산건전성 분류기준",
+      "source_line": 5029,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "자산건전성 분류기준(정상·요주의·고정·회수의문·추정손실)이 적용되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/credit_scoring.md"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "KR-052",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "별표 5",
+      "source_heading": "[별표 5] 경영실태평가 부문별 평가항목(제33조 관련)",
+      "source_line": 5310,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "경영실태평가 부문별 평가항목이 검증 범위와 대응되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 경영실태평가 항목 산정이 없다"
+    },
+    {
+      "rule_id": "KR-053",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "별표 6",
+      "source_heading": "[별표 6] 주택 관련 담보대출 등에 대한 리스크관리기준",
+      "source_line": 5410,
+      "basel_ref": null,
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "주택 관련 담보대출 리스크관리기준이 적용되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 주담대 규제비율 점검이 없다"
+    },
+    {
+      "rule_id": "BIS-054",
+      "source_key": "바젤",
+      "basis_level": "국제권고",
+      "citation": "CRE52",
+      "source_heading": "| CRE52 | Standardised approach to counterparty credit risk | 2023-01-01 | 2020-06-05 | [Official](https://www.bis.org/basel_framework/chapter/CRE/52.htm?inforce=20230101&published=20200605&tldate=20260809) |",
+      "source_line": 110,
+      "basel_ref": "CRE52",
+      "ambiguous_domestic": false,
+      "governing": "바젤",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "거래상대방 신용리스크 익스포저가 SA-CCR(RC + α·PFE, α=1.4)로 산출되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/ccr_thresholds.json",
+        "src/vta/domains/ccr.py"
+      ],
+      "note": "국내 세칙은 CCR 산출을 별표 3 체계 안에서 다루며 SA-CCR 전용 기준을 따로 두지 않는다"
+    },
+    {
+      "rule_id": "BIS-055",
+      "source_key": "바젤",
+      "basis_level": "국제권고",
+      "citation": "MAR50",
+      "source_heading": "| MAR50 | Credit valuation adjustment framework | 2023-01-01 | 2020-07-08 | [Official](https://www.bis.org/basel_framework/chapter/MAR/50.htm?inforce=20230101&published=20200708&tldate=20260809) |",
+      "source_line": 136,
+      "basel_ref": "MAR50",
+      "ambiguous_domestic": false,
+      "governing": "바젤",
+      "section": "04",
+      "section_name": "시장리스크",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "CVA 리스크 자본이 BA-CVA/SA-CVA 체계로 산출되고 소요자본과 RWA의 차원(12.5배)이 구분되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/cva_thresholds.json",
+        "src/vta/domains/cva.py"
+      ],
+      "note": "국내 기준에 CVA 전용 산출 체계가 별도로 없다"
+    },
+    {
+      "rule_id": "BIS-056",
+      "source_key": "바젤",
+      "basis_level": "국제권고",
+      "citation": "CRE60",
+      "source_heading": "| CRE60 | Equity investments in funds | 2023-01-01 | 2020-03-27 | [Official](https://www.bis.org/basel_framework/chapter/CRE/60.htm?inforce=20230101&published=20200327&tldate=20260809) |",
+      "source_line": 115,
+      "basel_ref": "CRE60",
+      "ambiguous_domestic": false,
+      "governing": "바젤",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "집합투자증권 익스포저가 LTA·MBA·fallback 계층으로 산출되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/basel_risk_taxonomy.json"
+      ],
+      "note": "국내 기준에 펀드 익스포저 전용 산출 계층이 별도로 없다"
+    },
+    {
+      "rule_id": "BIS-057",
+      "source_key": "바젤",
+      "basis_level": "국제권고",
+      "citation": "CRE40",
+      "source_heading": "| CRE40 | Securitisation: general provisions | 2023-01-01 | 2020-11-26 | [Official](https://www.bis.org/basel_framework/chapter/CRE/40.htm?inforce=20230101&published=20201126&tldate=20260809) |",
+      "source_line": 102,
+      "basel_ref": "CRE40",
+      "ambiguous_domestic": false,
+      "governing": "바젤",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "유동화 익스포저가 SEC-IRBA→SEC-ERBA→SEC-SA 계층 순서로 산출되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/basel_risk_taxonomy.json"
+      ],
+      "note": "국내 기준에 유동화 접근법 계층 전용 규정이 별도로 없다"
+    },
+    {
+      "rule_id": "BIS-058",
+      "source_key": "바젤",
+      "basis_level": "국제권고",
+      "citation": "MAR32",
+      "source_heading": "| MAR32 | Internal models approach: backtesting and P&L attribution test requirements | 2023-01-01 | 2020-03-27 | [Official](https://www.bis.org/basel_framework/chapter/MAR/32.htm?inforce=20230101&published=20200327&tldate=20260809) |",
+      "source_line": 133,
+      "basel_ref": "MAR32",
+      "ambiguous_domestic": false,
+      "governing": "바젤",
+      "section": "04",
+      "section_name": "시장리스크",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "내부모형 접근법의 백테스팅과 손익귀속검정(PLA)이 수행되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/market_risk_thresholds.json",
+        "src/vta/domains/market.py"
+      ],
+      "note": "국내는 표준·간편법 중심이라 IMA 백테스팅 기준을 별도로 두지 않는다"
+    },
+    {
+      "rule_id": "BIS-059",
+      "source_key": "바젤",
+      "basis_level": "국제권고",
+      "citation": "CRE35",
+      "source_heading": "| CRE35 | IRB approach: treatment of expected losses and provisions | 2023-01-01 | 2020-03-27 | [Official](https://www.bis.org/basel_framework/chapter/CRE/35.htm?inforce=20230101&published=20200327&tldate=20260809) |",
+      "source_line": 100,
+      "basel_ref": "CRE35",
+      "ambiguous_domestic": false,
+      "governing": "바젤",
+      "section": "03",
+      "section_name": "IFRS 9 ECL",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "IRB 기대손실과 적격충당금의 대비가 자본에서 처리되고 EAD 차감과 이중계상되지 않는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/ifrs9.md"
+      ],
+      "note": ""
+    },
+    {
+      "rule_id": "BIS-060",
+      "source_key": "바젤",
+      "basis_level": "국제권고",
+      "citation": "DIS20",
+      "source_heading": "| DIS20 | Overview of risk management, key prudential metrics and RWA | 2023-01-01 | 2020-03-27 | [Official](https://www.bis.org/basel_framework/chapter/DIS/20.htm?inforce=20230101&published=20200327&tldate=20260809) |",
+      "source_line": 217,
+      "basel_ref": "DIS20",
+      "ambiguous_domestic": false,
+      "governing": "바젤",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "위험관리 개요·핵심 건전성 지표·RWA 공시 서식이 산출물 구조와 대응되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스는 공시 서식을 만들지 않는다 — 대외 확정은 인간 권한"
+    },
+    {
+      "rule_id": "BIS-061",
+      "source_key": "바젤",
+      "basis_level": "국제권고",
+      "citation": "SCO60",
+      "source_heading": "| SCO60 | Cryptoasset exposures | 2026-01-01 | 2024-11-27 | [Official](https://www.bis.org/basel_framework/chapter/SCO/60.htm?inforce=20260101&published=20241127&tldate=20260809) |",
+      "source_line": 65,
+      "basel_ref": "SCO60",
+      "ambiguous_domestic": false,
+      "governing": "바젤",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "데이터",
+        "방법론"
+      ],
+      "criterion": "가상자산 익스포저의 분류·자본 처리 기준이 적용되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 가상자산 익스포저 경로가 없다. 국내 기준에도 대응 조항이 없어 바젤이 지배한다"
+    },
+    {
+      "rule_id": "BIS-062",
+      "source_key": "바젤",
+      "basis_level": "국제권고",
+      "citation": "MGN20",
+      "source_heading": "| MGN20 | Requirements | 2019-12-15 | 2019-12-15 | [Official](https://www.bis.org/basel_framework/chapter/MGN/20.htm?inforce=20191215&published=20191215&tldate=20260809) |",
+      "source_line": 192,
+      "basel_ref": "MGN20",
+      "ambiguous_domestic": false,
+      "governing": "바젤",
+      "section": "04",
+      "section_name": "시장리스크",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "비청산 파생상품의 증거금 요건이 적용되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 증거금 요건 검증이 없다"
+    },
+    {
+      "rule_id": "BIS-063",
+      "source_key": "바젤",
+      "basis_level": "국제권고",
+      "citation": "SRP36",
+      "source_heading": "| SRP36 | Risk data aggregation and risk reporting | 2019-12-15 | 2019-12-15 | [Official](https://www.bis.org/basel_framework/chapter/SRP/36.htm?inforce=20191215&published=20191215&tldate=20260809) |",
+      "source_line": 206,
+      "basel_ref": "SRP36",
+      "ambiguous_domestic": false,
+      "governing": "바젤",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터",
+        "내부통제"
+      ],
+      "criterion": "리스크 데이터 집계와 리스크 보고 원칙(RDARR)이 충족되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/data_definition.md",
+        "middleware/schema_guard.py"
+      ],
+      "note": "국내 기준에 RDARR 대응 조항이 별도로 없다"
+    }
+  ],
+  "thresholds": [
+    {
+      "key": "cet1_min",
+      "korean": "보통주자본비율 최소",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조",
+      "source_line": 626,
+      "regulated_value": 0.045,
+      "direction": "min",
+      "quote": "보통주자본비율 : 100분의 4.5",
+      "harness_file": "harness/capital_adequacy_thresholds.json",
+      "harness_path": [
+        "minimum_ratios",
+        "cet1_min"
+      ],
+      "harness_value": 0.045,
+      "status": "ok"
+    },
+    {
+      "key": "tier1_min",
+      "korean": "기본자본비율 최소",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조",
+      "source_line": 626,
+      "regulated_value": 0.06,
+      "direction": "min",
+      "quote": "기본자본비율 : 100분의 6",
+      "harness_file": "harness/capital_adequacy_thresholds.json",
+      "harness_path": [
+        "minimum_ratios",
+        "tier1_min"
+      ],
+      "harness_value": 0.06,
+      "status": "ok"
+    },
+    {
+      "key": "total_capital_min",
+      "korean": "총자본비율 최소",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조",
+      "source_line": 626,
+      "regulated_value": 0.08,
+      "direction": "min",
+      "quote": "총자본비율 : 100분의 8",
+      "harness_file": "harness/capital_adequacy_thresholds.json",
+      "harness_path": [
+        "minimum_ratios",
+        "total_capital_min"
+      ],
+      "harness_value": 0.08,
+      "status": "ok"
+    },
+    {
+      "key": "lcr_min",
+      "korean": "유동성커버리지비율 최소",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조",
+      "source_line": 626,
+      "regulated_value": 1.0,
+      "direction": "min",
+      "quote": "유동성커버리지비율\"이라 한다) : 100분의 100 이상",
+      "harness_file": "harness/liquidity_risk_thresholds.json",
+      "harness_path": [
+        "lcr_min"
+      ],
+      "harness_value": 1.0,
+      "status": "ok"
+    },
+    {
+      "key": "nsfr_min",
+      "korean": "순안정자금조달비율 최소",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조",
+      "source_line": 626,
+      "regulated_value": 1.0,
+      "direction": "min",
+      "quote": "순안정자금조달비율\"이라 한다) : 100분의 100 이상",
+      "harness_file": "harness/liquidity_risk_thresholds.json",
+      "harness_path": [
+        "nsfr_min"
+      ],
+      "harness_value": 1.0,
+      "status": "ok"
+    },
+    {
+      "key": "leverage_ratio_min",
+      "korean": "단순기본자본비율 최소",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조",
+      "source_line": 626,
+      "regulated_value": 0.03,
+      "direction": "min",
+      "quote": "단순기본자본비율\"이라 한다) : 100분의 3 이상",
+      "harness_file": "harness/capital_adequacy_thresholds.json",
+      "harness_path": [
+        "leverage_ratio_min"
+      ],
+      "harness_value": 0.03,
+      "status": "ok"
+    },
+    {
+      "key": "single_counterparty_limit",
+      "korean": "거액익스포져비율 한도",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조",
+      "source_line": 626,
+      "regulated_value": 0.25,
+      "direction": "max",
+      "quote": "거액익스포져비율\"이라 한다) : 100분의 25 이하",
+      "harness_file": "harness/concentration_thresholds.json",
+      "harness_path": [
+        "single_counterparty_limit_pct_tier1"
+      ],
+      "harness_value": 0.25,
+      "status": "ok"
+    },
+    {
+      "key": "gsib_interbank_limit",
+      "korean": "글로벌 중요 은행 간 거액익스포져 한도",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조의2",
+      "source_line": 696,
+      "regulated_value": 0.15,
+      "direction": "max",
+      "quote": "다른 글로벌 금융체계상 중요한 은행에 대한 거액익스포져비율을 100분의 15 이하",
+      "harness_file": "harness/concentration_thresholds.json",
+      "harness_path": [
+        "gsib_interbank_limit_pct_tier1"
+      ],
+      "harness_value": 0.15,
+      "status": "ok"
+    },
+    {
+      "key": "countercyclical_buffer_max",
+      "korean": "경기대응완충자본 상한",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제26조의3",
+      "source_line": 734,
+      "regulated_value": 0.025,
+      "direction": "max",
+      "quote": "100분의 0부터 2.5까지",
+      "harness_file": "harness/capital_adequacy_thresholds.json",
+      "harness_path": [
+        "buffers",
+        "countercyclical_buffer_max"
+      ],
+      "harness_value": 0.025,
+      "status": "ok"
+    },
+    {
+      "key": "conservation_buffer",
+      "korean": "자본보전완충자본",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "별표 2의10",
+      "source_line": 4564,
+      "regulated_value": 0.025,
+      "direction": "min",
+      "quote": "7.0 + K",
+      "harness_file": "harness/capital_adequacy_thresholds.json",
+      "harness_path": [
+        "buffers",
+        "conservation_buffer"
+      ],
+      "harness_value": 0.025,
+      "status": "ok"
+    }
+  ]
+}

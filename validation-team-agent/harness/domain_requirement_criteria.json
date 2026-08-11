@@ -1,0 +1,2203 @@
+{
+  "schema_version": "1.0",
+  "policy_version": "1.0",
+  "source": "RYNTA_Business_Requirements_v9.6.0.html",
+  "source_sha256": "e1a8daa2907c445effc1488a7d7a052d4844d2bd253f285653823be189c0dd16",
+  "source_register": "risk_lib/regulatory/requirements_v960.py (리스크관리 팀에이전트)",
+  "description": "RYNTA BRD Level 1 도메인 업무요건 131건을 적합성검증 기준 항목으로 전개한 것. automation='automated' 는 하니스에 자동 통제가 실재함을 뜻하며 evidence 파일이 실재해야만 주장할 수 있다 (tools.domain_criteria verify 가 강제). 'manual' 은 통제가 없어 사람 검토로 남긴 항목, 'out_of_scope' 는 은행 8부문 검증 범위 밖이다. automated 가 요건 전체를 덮는다는 뜻은 아니다.",
+  "automation_definition": {
+    "automated": "하니스에 실행 가능한 통제가 존재하고 근거 파일이 실재함 (evidence 1건 이상 필수)",
+    "manual": "하니스에 통제가 없어 사람 검토로 남김 (note 필수, evidence 0건)",
+    "out_of_scope": "은행 8부문 적합성검증 범위 밖 (note 필수, evidence 0건)"
+  },
+  "sections": {
+    "01": "RDM·BIS비율",
+    "02": "신용리스크·RWA",
+    "03": "IFRS 9 ECL",
+    "04": "시장리스크",
+    "05": "ALM·IRRBB·유동성",
+    "06": "운영리스크",
+    "07": "통합위기상황분석",
+    "08": "리스크 적합성검증",
+    "--": "부문 미귀속 (플랫폼·상업·연계)"
+  },
+  "lenses": [
+    "데이터",
+    "산식",
+    "방법론",
+    "내부통제",
+    "문서화"
+  ],
+  "criteria": [
+    {
+      "req_id": "AIG-001",
+      "title": "AI 사용사례·위험등급 등록",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "AI 사용사례가 중요도 등급과 함께 등록되고 등급별 최소 검증 심도·주기가 강제되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/model_materiality.json",
+        "tools/validation_scope.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "AIG-002",
+      "title": "Read-only 기본권한",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "기본 권한이 read-only 이고 쓰기 권한이 활동별로 열리는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/permission_matrix.json",
+        "middleware/permission_guard.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "AIG-003",
+      "title": "Recommend-only 판단",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제",
+        "문서화"
+      ],
+      "criterion": "산출물이 권고에 머무르고 확정 판정을 스스로 내리지 않는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/validation_policy.md",
+        "middleware/draft_watermark_guard.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "AIG-004",
+      "title": "Approval-first 실행",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "실행 전 승인이 선행되고 자동 승격이 차단되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/conditional_approval.py",
+        "tools/manifest.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "AIG-005",
+      "title": "Tool Registry·최소권한",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "도구 목록과 활동별 최소권한이 SSoT 로 관리되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/permission_matrix.json",
+        "harness/permission_policy.md"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "AIG-006",
+      "title": "DLP·마스킹",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "데이터",
+        "내부통제"
+      ],
+      "criterion": "개인식별정보가 입력·산출 양쪽에서 차단되는가",
+      "automation": "automated",
+      "evidence": [
+        "middleware/data_safety_guard.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "AIG-007",
+      "title": "Prompt·Tool·Output 전구간 로그",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "프롬프트·도구호출·산출이 전구간 로그로 남는가",
+      "automation": "automated",
+      "evidence": [
+        "middleware/run_logger.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "AIG-008",
+      "title": "내부 평가셋·회귀테스트",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "내부 평가셋으로 회귀검증이 배포 전 전량 실행되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/golden_cases.json",
+        "tools/golden_regression.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "AIG-009",
+      "title": "Kill Switch·수동대체",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "실행 중단·수동대체 경로가 존재하는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 kill switch 구현이 없다 — 운영 플랫폼 통제이며 사람 확인 항목으로 남긴다"
+    },
+    {
+      "req_id": "AIG-010",
+      "title": "LLM·모델 변경관리",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "모델·프롬프트 변경이 사유·증거·롤백 기준과 함께 기록되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/change_manifest.json",
+        "tools/manifest.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "AIG-011",
+      "title": "근거·한계 표시",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "모든 산출물에 근거와 한계가 표시되는가",
+      "automation": "automated",
+      "evidence": [
+        "middleware/output_completeness_guard.py",
+        "memory/known_limitations.json"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "AIG-012",
+      "title": "Human-in-the-loop 최종판단",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "최종 판단이 인간에게 유보되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/validation_policy.md",
+        "docs/human_in_the_loop.md"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "RDM-001",
+      "title": "유연한 원천 수집·등록",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "운영 추출 파일이 안전 경계를 거쳐 적재되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/data_adapter.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "RDM-002",
+      "title": "집계·가공 Rule Studio",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "집계·가공 규칙이 사람이 검토 가능한 형태로 관리되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "Rule Studio 는 플랫폼 기능 — 하니스는 규칙 산출물만 검증한다"
+    },
+    {
+      "req_id": "RDM-003",
+      "title": "Canonical Mapping·표준화",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "표준 항목 정의가 SSoT 로 존재하고 매핑이 대조되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/data_definition.md"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "RDM-004",
+      "title": "DQ Validation·Quality Gate",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "스키마·품질 게이트가 실행 전에 걸리는가",
+      "automation": "automated",
+      "evidence": [
+        "middleware/schema_guard.py",
+        "tools/data_profile.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "RDM-005",
+      "title": "원천–산출–보고 Reconciliation",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터",
+        "산식"
+      ],
+      "criterion": "원천–산출–보고 값이 대사되고 차이가 설명되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/provenance.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "RDM-006",
+      "title": "Field Lineage·Versioned Snapshot",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "항목 계보와 버전 스냅샷이 재현 가능한 형태로 남는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/provenance.py",
+        "tools/pack_verify.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "RDM-007",
+      "title": "데이터 예외·조치 Workflow",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "데이터 예외가 조치 원장으로 추적되고 종결 요건이 강제되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/validation_finding.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "RDM-008",
+      "title": "권한형 자연어 조회조건",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "조회조건이 권한 범위를 넘지 않는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "자연어 조회 컴파일러는 플랫폼 기능 — 하니스에 대응 통제가 없다"
+    },
+    {
+      "req_id": "BNK-CAP-001",
+      "title": "BIS·Constraint",
+      "scope": "은행",
+      "priority": "Should",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "산식",
+        "내부통제"
+      ],
+      "criterion": "CET1·기본자본·총자본·레버리지 비율과 완충자본 요구치가 재계산·대조되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/capital_adequacy_thresholds.json",
+        "harness/policies/capital_adequacy.md",
+        "src/vta/domains/capital.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-CAP-002",
+      "title": "RAROC·거래전 의사결정",
+      "scope": "은행",
+      "priority": "Should",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "RAROC 산정 가정과 거래전 의사결정 근거가 검증되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 RAROC 산출·검증 경로가 없다"
+    },
+    {
+      "req_id": "BNK-CRE-001",
+      "title": "PD·LGD·EAD·CCF",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "방법론",
+        "산식"
+      ],
+      "criterion": "PD·LGD·EAD·CCF 추정과 검증 절차가 정책 기준을 충족하는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/pd_lgd_ead.md",
+        "skills/pd_lgd_ead_validation.md"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-CRE-002",
+      "title": "SA/IRB RWA",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "SA·IRB RWA 산출과 산출하한 적용이 재계산으로 확인되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/basel_risk_taxonomy.json",
+        "harness/policies/capital_adequacy.md"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-CRE-003",
+      "title": "신용위험경감(CRM)·CCF·법률",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "방법론",
+        "문서화"
+      ],
+      "criterion": "신용위험경감의 적격성·법적 확실성이 확인되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 CRM 적격성 판정 통제가 없다 — 요청서 가정으로만 넘어온다"
+    },
+    {
+      "req_id": "BNK-CRE-004",
+      "title": "Stage·SICR",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "03",
+      "section_name": "IFRS 9 ECL",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "스테이지 배분과 SICR 판정 기준이 일관되게 적용되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/ifrs9.md",
+        "skills/ifrs9_ecl_validation.md"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-CRE-005",
+      "title": "ECL 측정·시나리오",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "03",
+      "section_name": "IFRS 9 ECL",
+      "lens": [
+        "산식",
+        "방법론"
+      ],
+      "criterion": "ECL 측정과 시나리오 가중이 재계산·대조되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/ifrs9.md",
+        "tools/run_ifrs9_validation.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-CRE-006",
+      "title": "PMA·IRB–ECL·GL",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "03",
+      "section_name": "IFRS 9 ECL",
+      "lens": [
+        "방법론",
+        "내부통제"
+      ],
+      "criterion": "PMA·overlay 와 IRB–ECL 차이가 근거와 함께 설명되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/ifrs9.md"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-CRM-001",
+      "title": "공통 거버넌스",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "모형 거버넌스 역할·승인 경로가 직무분리를 지키는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/sod_policy.json",
+        "middleware/sod_guard.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-CRM-002",
+      "title": "CSS Life Cycle",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "모형 수명주기 단계별 산출물과 재검증 주기가 강제되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/validation_scope.py",
+        "harness/model_materiality.json"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-CRM-003",
+      "title": "CSS 데이터·Target",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "개발표본·목표변수 정의와 누수 차단이 확인되는가",
+      "automation": "automated",
+      "evidence": [
+        "middleware/leakage_guard.py",
+        "middleware/sample_size_guard.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-CRM-004",
+      "title": "CSS Scorecard",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "스코어카드 변별력·안정성·등급별 캘리브레이션이 임계로 판정되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/metric_ks_auc.py",
+        "tools/metric_psi.py",
+        "tools/binomial_calibration.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-CRM-005",
+      "title": "CSS 검증·전략",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "모형 검증 전략과 대안모형 대조가 수행되는가",
+      "automation": "automated",
+      "evidence": [
+        "skills/challenger_model_review.md",
+        "harness/adversarial_protocol.json"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-CRM-006",
+      "title": "기업 재무모형",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "기업 재무모형의 변수 선택·추정이 검증되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 기업 재무모형 전용 검증 절차가 없다 — 일반 신용모형 절차로 대체 검토"
+    },
+    {
+      "req_id": "BNK-CRM-007",
+      "title": "기업 비재무·대표자",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "비재무·대표자 평가 항목의 근거가 확인되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "정성 평가 항목 — 자동 판정 불가, 사람 검토"
+    },
+    {
+      "req_id": "BNK-CRM-008",
+      "title": "기업 결합·Master Scale",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "모형 결합과 마스터스케일 매핑이 재현되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 마스터스케일 매핑 검증이 없다"
+    },
+    {
+      "req_id": "BNK-CRM-009",
+      "title": "기업 Override·EWS",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "Override 와 조기경보의 승인·사후검증이 이루어지는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/adversarial_protocol.json",
+        "tools/validation_trigger.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-OTH-001",
+      "title": "운영리스크",
+      "scope": "은행",
+      "priority": "Should",
+      "section": "06",
+      "section_name": "운영리스크",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "운영리스크 SMA(BI·BIC·ILM) 산출과 손실자료 완전성이 확인되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/operational_risk_thresholds.json",
+        "harness/policies/operational_risk.md",
+        "src/vta/domains/operational.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-OTH-002",
+      "title": "시장·CCR/XVA",
+      "scope": "은행",
+      "priority": "Should",
+      "section": "04",
+      "section_name": "시장리스크",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "시장·CCR·CVA 산출이 재계산되고 임계로 판정되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/ccr_thresholds.json",
+        "harness/cva_thresholds.json",
+        "src/vta/domains/ccr.py",
+        "src/vta/domains/cva.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-OTH-003",
+      "title": "IRRBB·유동성",
+      "scope": "은행",
+      "priority": "Should",
+      "section": "05",
+      "section_name": "ALM·IRRBB·유동성",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "IRRBB(ΔEVE·ΔNII)와 유동성(LCR·NSFR)이 임계로 판정되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/irrbb_thresholds.json",
+        "harness/liquidity_risk_thresholds.json",
+        "src/vta/domains/irrbb.py",
+        "src/vta/domains/liquidity.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-OTH-004",
+      "title": "AI·기후·전략·평판",
+      "scope": "은행",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "AI·기후·전략·평판 리스크의 측정 가정이 검증되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 해당 도메인 산출·검증 경로가 없다"
+    },
+    {
+      "req_id": "BNK-ST-001",
+      "title": "Risk inventory·내부자본",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "리스크 인벤토리와 내부자본 산정이 연결되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/icaap_thresholds.json",
+        "src/vta/domains/icaap.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-ST-002",
+      "title": "시나리오·TD/BU",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "시나리오의 하향식·상향식 설계와 심도가 기준을 충족하는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/scenario_floors.json",
+        "harness/policies/macro_scenario.md"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-ST-003",
+      "title": "Cross-risk 전이",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "리스크 간 전이 경로가 모형에 반영되는가",
+      "automation": "automated",
+      "evidence": [
+        "skills/stress_test_validation.md"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-ST-004",
+      "title": "손익·RWA·자본",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "시나리오가 손익·RWA·자본으로 전이되는 계산이 재현되는가",
+      "automation": "automated",
+      "evidence": [
+        "skills/stress_test_validation.md",
+        "harness/scenario_floors.json"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "BNK-ST-005",
+      "title": "한도·경영조치",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "한도 저촉 시 경영조치가 연결되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "경영조치 연계는 사람 결재 영역 — 하니스는 저촉 사실만 표시한다"
+    },
+    {
+      "req_id": "BNK-ST-006",
+      "title": "Reverse Stress",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "역스트레스 임계 심도가 산출되고 독립 재산출 여부가 명시되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "시나리오 엔진을 재구현하지 않아 읽어 대조만 한다 — 이월 CO-009 로 공시 중"
+    },
+    {
+      "req_id": "BNK-ST-007",
+      "title": "실행·Evidence",
+      "scope": "은행",
+      "priority": "Must",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "실행 증빙이 재현 가능한 형태로 남는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/pack_verify.py",
+        "middleware/run_logger.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "COM-001",
+      "title": "고객·계약 가정",
+      "scope": "공통",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "COM-002",
+      "title": "순구축대가 산정",
+      "scope": "공통",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "COM-003",
+      "title": "ARR·Lifecycle·1년차·TCO 산정",
+      "scope": "공통",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "COM-004",
+      "title": "패키지 Preset",
+      "scope": "공통",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "COM-005",
+      "title": "Lifecycle 요율",
+      "scope": "공통",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "COM-006",
+      "title": "가격 승인·가정 표시",
+      "scope": "공통",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "COM-007",
+      "title": "ROI 이중계상 방지",
+      "scope": "공통",
+      "priority": "Could",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "COM-008",
+      "title": "GTM Funnel 관리",
+      "scope": "공통",
+      "priority": "Could",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "가격·수익 가정의 근거가 문서로 확인되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "상업·가격 요건 — 리스크 적합성검증 범위 밖 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "DAT-001",
+      "title": "Canonical Risk Data Model",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "표준 리스크 데이터 모형이 정의되고 산출이 그 정의를 따르는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/data_definition.md"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "DAT-002",
+      "title": "기준일·유효기간",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터",
+        "내부통제"
+      ],
+      "criterion": "기준일·유효기간이 규칙 단위로 분리 관리되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/reg_rules.py",
+        "harness/regulatory_rule_catalog.json"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "DAT-003",
+      "title": "Source-to-report Lineage",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "원천에서 보고까지 계보가 끊기지 않는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/provenance.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "DAT-004",
+      "title": "Source Registry·Snapshot",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "원천 등록부와 스냅샷 해시로 입력이 고정되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/pack_verify.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "DAT-005",
+      "title": "DQ 규칙",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "품질 규칙이 코드로 존재하고 위반이 차단되는가",
+      "automation": "automated",
+      "evidence": [
+        "middleware/schema_guard.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "DAT-006",
+      "title": "수동조정 원장",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "데이터",
+        "내부통제"
+      ],
+      "criterion": "수동조정이 사유·승인자와 함께 원장에 남고 제거 시 결론이 뒤집히는지 확인되는가",
+      "automation": "manual",
+      "evidence": [],
+      "note": "하니스에 수동조정 원장이 없다 — 적대적 검증 ADV-PROC-04 로만 다룬다"
+    },
+    {
+      "req_id": "DAT-007",
+      "title": "원천–산출–보고 대사",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "원천·산출·보고 세 지점의 값이 대사되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/provenance.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "DAT-008",
+      "title": "보존·폐기·비식별",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "01",
+      "section_name": "RDM·BIS비율",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "보존기간·폐기·비식별이 통제되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/audit_retention.py",
+        "middleware/data_safety_guard.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "GOV-001",
+      "title": "데이터 원천·기준시점 통제",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "데이터",
+        "내부통제"
+      ],
+      "criterion": "데이터 원천과 기준시점이 산출물에 고정되어 재현되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/pack_verify.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "GOV-002",
+      "title": "DQ·Lineage 통제",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "품질·계보 통제가 실행 경로에 실제로 걸리는가",
+      "automation": "automated",
+      "evidence": [
+        "middleware/schema_guard.py",
+        "tools/provenance.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "GOV-003",
+      "title": "산식·계산엔진 통제",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "산식과 계산엔진이 독립 재계산으로 검증되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/independent_recalc.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "GOV-004",
+      "title": "신용평가모형 통제",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "02",
+      "section_name": "신용리스크·RWA",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "신용평가모형의 성능·안정성·캘리브레이션이 정책 기준으로 점검되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/credit_scoring.md",
+        "skills/credit_scoring_validation.md"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "GOV-005",
+      "title": "통합 ST 통제",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "07",
+      "section_name": "통합위기상황분석",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "통합 위기상황분석의 시나리오·전이 가정이 통제되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/macro_scenario.md",
+        "harness/scenario_floors.json"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "GOV-006",
+      "title": "Market/Pricing 통제",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "04",
+      "section_name": "시장리스크",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "시장·가격 산출의 방법론과 임계가 통제되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/policies/market_risk.md",
+        "harness/market_risk_thresholds.json"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "GOV-007",
+      "title": "AI/Agentic 통제",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "AI·에이전트 실행이 권한·직무분리 통제 아래 있는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/permission_matrix.json",
+        "harness/sod_policy.json"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "GOV-008",
+      "title": "변경·Lifecycle 통제",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "변경이 제안–승인–검증–롤백 수명주기로 관리되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/change_manifest.json"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "GOV-009",
+      "title": "Evidence·감사 통제",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제",
+        "문서화"
+      ],
+      "criterion": "증빙과 감사 추적이 실행 단위로 남는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/run_audit.py",
+        "middleware/run_logger.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "INT-001",
+      "title": "Read-only Secure Connector",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "외부 연계가 read-only 로 제한되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "플랫폼 연계 요건 — 하니스는 연계 결과물만 검증한다"
+    },
+    {
+      "req_id": "INT-002",
+      "title": "파일·API·배치 연계",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "파일·API·배치 연계의 무결성이 확인되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "플랫폼 연계 요건"
+    },
+    {
+      "req_id": "INT-003",
+      "title": "계산엔진 Adapter",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "계산엔진 어댑터가 산출값을 변형하지 않는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "플랫폼 연계 요건 — 산출값 자체는 GOV-003 으로 검증"
+    },
+    {
+      "req_id": "INT-004",
+      "title": "시장데이터 Adapter",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "시장데이터 어댑터의 출처·기준시점이 기록되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "플랫폼 연계 요건"
+    },
+    {
+      "req_id": "INT-005",
+      "title": "IAM·SSO 연계",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "IAM·SSO 연계가 권한 모형과 일치하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "플랫폼 연계 요건"
+    },
+    {
+      "req_id": "INT-006",
+      "title": "Workflow·Ticket 연계",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "조치 워크플로가 티켓으로 추적되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "플랫폼 연계 요건 — 하니스는 Finding 원장으로 대체 (RDM-007)"
+    },
+    {
+      "req_id": "INT-007",
+      "title": "보고서 Export",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "보고서 export 가 원본 산출물과 일치하는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/report_export.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "INT-008",
+      "title": "재시도·멱등성·오류격리",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "재시도·멱등성·오류격리가 보장되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "플랫폼 비기능 요건"
+    },
+    {
+      "req_id": "NFR-001",
+      "title": "배포모델",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "배포모델이 승인된 형태인가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "인프라 요건 — 하니스 범위 밖"
+    },
+    {
+      "req_id": "NFR-002",
+      "title": "암호화·키관리",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "암호화·키관리가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "인프라 요건 — 하니스 범위 밖"
+    },
+    {
+      "req_id": "NFR-003",
+      "title": "RBAC·직무분리",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "역할 기반 접근과 직무분리가 강제되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/sod_policy.json",
+        "middleware/sod_guard.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "NFR-004",
+      "title": "감사로그 불변성",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "감사로그가 append-only 로 보존되는가",
+      "automation": "automated",
+      "evidence": [
+        "middleware/run_logger.py",
+        "tools/audit_retention.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "NFR-005",
+      "title": "성능·처리량",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "처리 성능이 측정되고 기준과 대조되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/benchmark.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "NFR-006",
+      "title": "가용성·복구",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "가용성·복구 목표가 충족되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "인프라 요건 — 하니스 범위 밖"
+    },
+    {
+      "req_id": "NFR-007",
+      "title": "확장성",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "확장성 요건이 충족되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "인프라 요건 — 하니스 범위 밖"
+    },
+    {
+      "req_id": "NFR-008",
+      "title": "Observability",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "실행 상태와 거버넌스 지표가 관측 가능한가",
+      "automation": "automated",
+      "evidence": [
+        "tools/dashboard.py",
+        "tools/governance_kpi.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "NFR-009",
+      "title": "재현성",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "동일 입력·동일 버전에서 산출물이 재현되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/pack_verify.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "NFR-010",
+      "title": "보안검증",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "보안 점검(개인정보·누수)이 실행 경로에 걸리는가",
+      "automation": "automated",
+      "evidence": [
+        "middleware/data_safety_guard.py",
+        "middleware/leakage_guard.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "NFR-011",
+      "title": "접근성·사용성",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "접근성·사용성 기준이 충족되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "UI 요건 — 하니스 범위 밖"
+    },
+    {
+      "req_id": "NFR-012",
+      "title": "변경·배포·Rollback",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "변경·배포·롤백 기준이 기록되고 지켜지는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/change_manifest.json",
+        "tools/manifest.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "PLT-001",
+      "title": "Secure Connectors",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "커넥터 보안 요건이 충족되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "플랫폼 구성요소 — 하니스 범위 밖"
+    },
+    {
+      "req_id": "PLT-002",
+      "title": "Risk Data Mart",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "데이터"
+      ],
+      "criterion": "데이터 마트 구성이 표준 모형을 따르는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "플랫폼 구성요소 — 정의 검증은 DAT-001"
+    },
+    {
+      "req_id": "PLT-003",
+      "title": "Evidence & Knowledge",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "증빙이 산출물에서 원천까지 추적되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/provenance.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "PLT-004",
+      "title": "Calculation & Validation",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "산식"
+      ],
+      "criterion": "계산과 검증이 분리되어 독립 재계산이 가능한가",
+      "automation": "automated",
+      "evidence": [
+        "tools/independent_recalc.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "PLT-005",
+      "title": "Scenario & Pricing",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "시나리오·가격 엔진이 승인된 방법론을 따르는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "플랫폼 구성요소 — 방법론 검증은 GOV-005·GOV-006"
+    },
+    {
+      "req_id": "PLT-006",
+      "title": "RAG & Agentic",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "검색증강·에이전트 구성이 통제되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "플랫폼 구성요소 — 권한 통제는 AIG-005"
+    },
+    {
+      "req_id": "PLT-007",
+      "title": "Control & Observability",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "통제와 관측이 실행 단위로 작동하는가",
+      "automation": "automated",
+      "evidence": [
+        "middleware/run_logger.py",
+        "tools/run_audit.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "PLT-008",
+      "title": "Reporting & Lifecycle",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "보고와 수명주기 관리가 산출물로 연결되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/report_pack.py",
+        "tools/pack_archive.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "PLT-009",
+      "title": "공통 자연어 조회조건 Compiler",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "조회조건 컴파일러가 권한을 넘지 않는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "플랫폼 구성요소 — 하니스 범위 밖"
+    },
+    {
+      "req_id": "PLT-010",
+      "title": "정형 UI · Governed Schema",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "정형 UI 가 통제된 스키마만 노출하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "UI 요건 — 하니스 범위 밖"
+    },
+    {
+      "req_id": "PLT-011",
+      "title": "비정형 UI · Prompt-composable Layout",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "비정형 UI 구성이 승인 범위를 넘지 않는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "UI 요건 — 하니스 범위 밖"
+    },
+    {
+      "req_id": "PLT-012",
+      "title": "UI Preview·검증·승인·Rollback",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "UI 변경이 검증·승인·롤백을 거치는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "UI 요건 — 변경통제 자체는 NFR-012"
+    },
+    {
+      "req_id": "PLT-013",
+      "title": "Unauthorized Field·Layout 차단",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "미승인 항목·레이아웃이 차단되는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "UI 요건 — 하니스 범위 밖"
+    },
+    {
+      "req_id": "PLT-014",
+      "title": "F 적합성검증 포트폴리오 · Unified Run Context",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "적합성검증 실행이 단일 Run Context 로 묶이고 계획 대비 실제 실행이 감사되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/orchestration_matrix.json",
+        "tools/run_audit.py"
+      ],
+      "note": "부문 08 의 핵심 요건 — 본 하니스의 자기 부문"
+    },
+    {
+      "req_id": "PLT-015",
+      "title": "Alert-to-Action Policy Binding",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "임계 위반이 정책에 묶인 조치로 전환되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/validation_triggers.json",
+        "tools/validation_trigger.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "PLT-016",
+      "title": "Pre-execution Hold · Scoped Kill Switch",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "실행 전 보류와 범위 한정 중단이 가능한가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 플랫폼 요건 — 본 하니스는 은행 부문"
+    },
+    {
+      "req_id": "PLT-017",
+      "title": "Object-based 4-Eyes · Segregation of Duties",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제"
+      ],
+      "criterion": "객체 단위 4-eyes 와 직무분리가 강제되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/sod_policy.json",
+        "middleware/sod_guard.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "PLT-018",
+      "title": "Evidence Drill-down · Version Diff · Replay Snapshot",
+      "scope": "공통",
+      "priority": "Must",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "문서화"
+      ],
+      "criterion": "증빙 드릴다운·버전 비교·재현 스냅샷이 제공되는가",
+      "automation": "automated",
+      "evidence": [
+        "tools/pack_diff.py",
+        "tools/pack_verify.py"
+      ],
+      "note": ""
+    },
+    {
+      "req_id": "SEC-CCR-001",
+      "title": "Netting·담보·Exposure",
+      "scope": "증권",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "Netting·담보·Exposure 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-CCR-002",
+      "title": "XVA",
+      "scope": "증권",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "XVA 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-CCR-003",
+      "title": "Margin·Collateral",
+      "scope": "증권",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "Margin·Collateral 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-LIQ-001",
+      "title": "Repo·단기조달",
+      "scope": "증권",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "Repo·단기조달 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-LIQ-002",
+      "title": "Liquidity Stress·CFP",
+      "scope": "증권",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "Liquidity Stress·CFP 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-MKT-001",
+      "title": "VaR/ES·Stress",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "VaR/ES·Stress 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-MKT-002",
+      "title": "Sensitivities·FRTB형 분석",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "Sensitivities·FRTB형 분석 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-MKT-003",
+      "title": "P&L Attribution·한도",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "P&L Attribution·한도 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-NCR-001",
+      "title": "적용범위·인가",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "적용범위·인가 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-NCR-002",
+      "title": "영업용순자본",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "영업용순자본 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-NCR-003",
+      "title": "총위험액",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "총위험액 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-NCR-004",
+      "title": "전월·공시 대사",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "전월·공시 대사 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-OAI-001",
+      "title": "운영손실·RCSA/KRI",
+      "scope": "증권",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "운영손실·RCSA/KRI 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-OAI-002",
+      "title": "AI·모델거버넌스",
+      "scope": "증권",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "AI·모델거버넌스 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-OAI-003",
+      "title": "Agentic Close Workflow",
+      "scope": "증권",
+      "priority": "Should",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "Agentic Close Workflow 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-PRC-001",
+      "title": "시장데이터",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "시장데이터 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-PRC-002",
+      "title": "상품명세·Pricing Model",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "상품명세·Pricing Model 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-PRC-003",
+      "title": "가격·Greeks 회귀",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "가격·Greeks 회귀 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-PRC-004",
+      "title": "Curve·Vol·Calibration",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "Curve·Vol·Calibration 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    },
+    {
+      "req_id": "SEC-PRC-005",
+      "title": "IPV·Valuation Adjustment",
+      "scope": "증권",
+      "priority": "Must",
+      "section": "--",
+      "section_name": "부문 미귀속 (플랫폼·상업·연계)",
+      "lens": [
+        "방법론"
+      ],
+      "criterion": "IPV·Valuation Adjustment 산출·검증 절차가 기준을 충족하는가",
+      "automation": "out_of_scope",
+      "evidence": [],
+      "note": "증권 업권 요건 — 본 하니스의 검증 범위는 은행 8부문 (CLAUDE.md §2)"
+    }
+  ]
+}
