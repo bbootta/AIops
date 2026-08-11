@@ -1,0 +1,21 @@
+{
+  "policy_version": "1.0",
+  "framework": "CRE52 SA-CCR",
+  "description": "SA-CCR EAD = α × (RC + PFE). α 는 default 1.4, IMM 사용 시 감독기관 승인으로 조정.",
+  "alpha": 1.4,
+  "rc_floor": 0.0,
+  "pfe_multiplier_min": 0.05,
+  "pfe_multiplier_max": 1.0,
+  "supervisory_factors": {
+    "interest_rate": 0.005,
+    "fx": 0.04,
+    "credit_ig": 0.0046,
+    "credit_hy": 0.013,
+    "equity_single": 0.32,
+    "equity_index": 0.20,
+    "commodity_energy": 0.18,
+    "commodity_metals": 0.18,
+    "commodity_agri": 0.18,
+    "commodity_other": 0.18
+  }
+}

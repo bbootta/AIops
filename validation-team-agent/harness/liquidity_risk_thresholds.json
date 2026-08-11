@@ -1,0 +1,17 @@
+{
+  "policy_version": "1.1",
+  "framework": "LCR (LIQ40) + NSFR (LIQ20) + 감독시행세칙(외화LCR)",
+  "description": "BCBS LCR/NSFR + 국내 감독원 외화 LCR. 본 임계는 감독기관 최소이며 내부 RAS 는 더 엄격할 수 있다.",
+  "lcr_min": 1.00,
+  "nsfr_min": 1.00,
+  "lcr_warning": 1.10,
+  "nsfr_warning": 1.05,
+  "foreign_currency_lcr_min": 0.80,
+  "foreign_currency_lcr_warning": 0.90,
+  "intraday_liquidity_reporting_required": true,
+  "notes": [
+    "감독시행세칙: 외화LCR 의무 보고. 최소 80% 충족 (시중은행, 감독원 행정지도 기준).",
+    "통화별 LCR 분해 (USD / JPY / EUR / CNY 등) 보고 의무.",
+    "일중유동성(intraday) 은 분기 보고서로 별도 제출."
+  ]
+}

@@ -1,0 +1,386 @@
+{
+  "schema_version": "1.0",
+  "policy_version": "1.0",
+  "framework": "리스크 적합성검증 요건 개요서(2026-08-02) §3 규칙 카탈로그 최소 필드 + §4 리스크별 최소요건 — 규정/해석/권고 분리",
+  "principles": [
+    "원문 주기(frequency_raw)와 내부 주기(internal_frequency)를 분리한다. 규정에 '정기적' 이라고만 적힌 경우 내부정책상 연 1회를 택할 수 있으나 이를 법정 연 1회 의무로 표기하지 않는다 (OVR-000).",
+    "근거 수준(authority_level)을 국내 구속근거 / Basel 기준 / 내부 권고로 분리한다. Basel 요건을 국내 공통 의무로 표기하지 않는다 (OVR-003 — 예: IMA 의 PLA·RFET).",
+    "경과조치는 유효일자 규칙으로 관리한다 — 출력하한 2026년 65% · 2027년 70% · 2028년 이후 72.5% (OVR-001).",
+    "구교재의 폐기된 수치는 RETIRED 로 등재해 재사용을 차단한다 — 자동 교체하지 않고 확인 후 새 버전을 활성화한다 (OVR-009)."
+  ],
+  "authority_levels": {
+    "DOMESTIC_BINDING": "국내 구속근거 — 은행업감독규정(2026-04-01 시행)·시행세칙(2026-06-30 시행)의 직접 요건",
+    "BASEL_STANDARD": "Basel 국제 최소기준 — 국내 반영 범위를 별도 확인한다",
+    "BASEL_GUIDELINE": "BCBS 가이드라인·권고 — 법정 의무로 오인하지 않는다",
+    "INTERNAL_POLICY": "내부 권고·정책 — 검사·감사 대응 통제이며 법정 주기가 아니다"
+  },
+  "rules": [
+    {
+      "rule_id": "REG-IRB-001",
+      "title": "IRB 신용리스크(PD·LGD·EAD) 사후검증·적합성검증",
+      "authority_level": "DOMESTIC_BINDING",
+      "source_locator": "은행업감독업무시행세칙 별표 3 · Basel CRE36",
+      "status": "ACTIVE",
+      "effective_from": "2026-06-30",
+      "effective_to": null,
+      "frequency_raw": "연 1회 이상",
+      "frequency_basis": "LEGAL",
+      "internal_frequency": "ANNUAL",
+      "trigger": "정기 · 중요변경 · 성능저하",
+      "params": {
+        "report_due": "as_of+6M",
+        "internal_audit": "ANNUAL"
+      },
+      "required_evidence": [
+        "검증보고서",
+        "독립재계산 대사",
+        "금감원 보고(기준일 후 6개월 이내)",
+        "내부감사 결과"
+      ]
+    },
+    {
+      "rule_id": "REG-ECL-001",
+      "title": "IFRS 9 ECL 충당금 적정성 — 독립조직 검증",
+      "authority_level": "DOMESTIC_BINDING",
+      "source_locator": "은행업감독규정 · BCBS Guidance on credit risk and accounting for ECL",
+      "status": "ACTIVE",
+      "effective_from": "2026-04-01",
+      "effective_to": null,
+      "frequency_raw": "매년",
+      "frequency_basis": "LEGAL",
+      "internal_frequency": "ANNUAL",
+      "trigger": "정기 · SICR 기준 변경 · 시나리오·가중치 변경",
+      "params": {},
+      "notes": "공개규정상 획일적 제출일수·양식은 확인되지 않음 — 제출 요건은 은행별 확인",
+      "required_evidence": [
+        "독립검증 보고서",
+        "SICR·Stage 검증",
+        "overlay 중복 시험",
+        "회계대사"
+      ]
+    },
+    {
+      "rule_id": "REG-ICAAP-001",
+      "title": "ICAAP 자체평가모형 검증",
+      "authority_level": "DOMESTIC_BINDING",
+      "source_locator": "은행업감독규정 · 시행세칙 (ICAAP)",
+      "status": "ACTIVE",
+      "effective_from": "2026-04-01",
+      "effective_to": null,
+      "frequency_raw": "정기적",
+      "frequency_basis": "INTERNAL_POLICY",
+      "internal_frequency": "ANNUAL",
+      "trigger": "정기 · 중요리스크 변경 · 자본계획 변경",
+      "params": {
+        "internal_audit": "ANNUAL",
+        "board_report": "ANNUAL"
+      },
+      "notes": "숫자 주기 미명시 — 내부정책상 연 1회를 택하되 법정 연례로 표기하지 않는다 (OVR-000)",
+      "required_evidence": [
+        "검증보고서",
+        "이사회 승인·보고",
+        "연례 제출 패키지"
+      ]
+    },
+    {
+      "rule_id": "REG-ST-001",
+      "title": "위기상황분석 — 통합분석 및 모형·시나리오 독립검증",
+      "authority_level": "DOMESTIC_BINDING",
+      "source_locator": "은행업감독업무시행세칙 별표 19 · BCBS Stress testing principles",
+      "status": "ACTIVE",
+      "effective_from": "2026-06-30",
+      "effective_to": null,
+      "frequency_raw": "반기 1회 이상(통합) · 독립검증 연 1회 이상",
+      "frequency_basis": "LEGAL",
+      "internal_frequency": "SEMI_ANNUAL",
+      "trigger": "정기 · 시나리오 개정 · 자본계획 변경",
+      "params": {
+        "model_validation": "ANNUAL",
+        "internal_audit": "ANNUAL",
+        "capital_plan_horizon": "2Y"
+      },
+      "required_evidence": [
+        "통합 위기상황분석 결과",
+        "역위기 분석",
+        "관리조치 실행가능성 평가",
+        "전년도 결과 연례 제출"
+      ]
+    },
+    {
+      "rule_id": "REG-IRR-001",
+      "title": "IRRBB 측정·자본평가·측정시스템 검증",
+      "authority_level": "DOMESTIC_BINDING",
+      "source_locator": "은행업감독업무시행세칙 별표 9-1 · BCBS Recalibration of shocks for IRRBB",
+      "status": "ACTIVE",
+      "effective_from": "2025-12-31",
+      "effective_to": null,
+      "frequency_raw": "측정·자본평가 분기 1회 이상 · 위원회 검토 연 2회 이상",
+      "frequency_basis": "LEGAL",
+      "internal_frequency": "QUARTERLY",
+      "trigger": "정기 · 임계 위반(EVE 최대 감소 > Tier1 15%) · 충격 재보정",
+      "params": {
+        "eve_tier1_threshold": 0.15,
+        "krw_shocks_bp": [
+          225,
+          350,
+          225
+        ],
+        "system_validation": "ANNUAL(내부정책)"
+      },
+      "notes": "측정 주기는 법정(분기). 전체 측정시스템 '검증' 주기는 원문 '정기적' 이라 params.system_validation 에 내부정책 연 1회로 분리 — 법정 연례로 표기하지 않는다 (OVR-000). KRW 충격 225/350/225bp 는 2025년 12월 말 기준 산출부터 적용",
+      "required_evidence": [
+        "6개 EVE·2개 NII 충격 산출",
+        "15% 임계 판정 로그",
+        "위원회 검토 기록"
+      ]
+    },
+    {
+      "rule_id": "REG-MKT-001",
+      "title": "시장리스크·가치평가 — 독립가격검증(IPV)",
+      "authority_level": "DOMESTIC_BINDING",
+      "source_locator": "은행업감독업무시행세칙 별표 3-2 (표준방법·간편법 중심)",
+      "status": "ACTIVE",
+      "effective_from": "2026-06-30",
+      "effective_to": null,
+      "frequency_raw": "IPV 월 1회 이상 · 거래계정 분류 내부감사 연 1회 이상",
+      "frequency_basis": "LEGAL",
+      "internal_frequency": "MONTHLY",
+      "trigger": "정기 · 가격원천 변경 · 비유동 포지션 증가",
+      "params": {
+        "trading_book_audit": "ANNUAL"
+      },
+      "notes": "국내 자본규정은 표준방법·간편법 중심 — Basel IMA 의 PLA·RFET 를 국내 공통 의무로 표기하지 않는다 (OVR-003)",
+      "required_evidence": [
+        "IPV 결과·허용오차",
+        "가치평가조정 검토",
+        "거래계정 경계 감사"
+      ]
+    },
+    {
+      "rule_id": "REG-CCR-001",
+      "title": "거래상대방리스크 IMM·CVA 검증",
+      "authority_level": "DOMESTIC_BINDING",
+      "source_locator": "Basel CRE53 · BCBS 2024 CCR Guidelines · 시행세칙",
+      "status": "ACTIVE",
+      "effective_from": "2026-06-30",
+      "effective_to": null,
+      "frequency_raw": "IMM 대표 포트폴리오 백테스트 분기 1회 이상 · CVA 주기는 은행이 문서화",
+      "frequency_basis": "LEGAL",
+      "internal_frequency": "QUARTERLY",
+      "trigger": "정기 · netting set 변경 · wrong-way risk 징후",
+      "params": {
+        "cva_frequency": "INTERNAL_DOCUMENTED"
+      },
+      "required_evidence": [
+        "백테스트 결과",
+        "benchmark 대조",
+        "담보·MPOR 검증"
+      ]
+    },
+    {
+      "rule_id": "REG-OPR-001",
+      "title": "운영리스크 SMA 손실자료 검증",
+      "authority_level": "DOMESTIC_BINDING",
+      "source_locator": "Basel OPE25 · 시행세칙 (SMA)",
+      "status": "ACTIVE",
+      "effective_from": "2026-06-30",
+      "effective_to": null,
+      "frequency_raw": "사용 전 사전검증(독립 전문부서·외부감사인) · 이후 정기적·독립적 검토",
+      "frequency_basis": "INTERNAL_POLICY",
+      "internal_frequency": "ANNUAL",
+      "trigger": "최초 사용 전 · 정기 · 손실 정의 변경",
+      "params": {
+        "loss_threshold_krw": 25000000,
+        "loss_history": "10Y"
+      },
+      "notes": "숫자 주기 미명시 — 규제자본 반영 최소 손실금액 2,500만원",
+      "required_evidence": [
+        "사전검증 보고서",
+        "손실자료 완전성 대조",
+        "경계(신용·시장) 검증"
+      ]
+    },
+    {
+      "rule_id": "REG-LIQ-001",
+      "title": "유동성 LCR·NSFR 산출·보고 및 CFP 검증",
+      "authority_level": "DOMESTIC_BINDING",
+      "source_locator": "은행업감독규정 · 시행세칙 (LCR·NSFR·CFP)",
+      "status": "ACTIVE",
+      "effective_from": "2026-04-01",
+      "effective_to": null,
+      "frequency_raw": "LCR 영업일별 산출·월평잔 보고 · NSFR 최소 분기 · CFP 정기검증·최소 연 1회 갱신",
+      "frequency_basis": "LEGAL",
+      "internal_frequency": "DAILY",
+      "trigger": "정기 · 미달·예상미달 즉시 보고",
+      "params": {
+        "nsfr_frequency": "QUARTERLY",
+        "cfp_refresh": "ANNUAL"
+      },
+      "notes": "전체 계산의 획일적 연례 '모형검증' 명문은 없음 — 독립 내부통제로 관리",
+      "required_evidence": [
+        "일별 LCR 로그",
+        "분기 NSFR",
+        "CFP 갱신·검증 기록"
+      ]
+    },
+    {
+      "rule_id": "REG-FLOOR-2026",
+      "title": "출력하한(Output floor) 경과조치 — 2026년",
+      "authority_level": "DOMESTIC_BINDING",
+      "source_locator": "은행업감독업무시행세칙 별표 3-2",
+      "status": "ACTIVE",
+      "group_id": "OUTPUT_FLOOR",
+      "effective_from": "2026-01-01",
+      "effective_to": "2026-12-31",
+      "frequency_raw": "상시 적용",
+      "frequency_basis": "LEGAL",
+      "internal_frequency": "CONTINUOUS",
+      "trigger": "RWA 산출 시 상시",
+      "params": {
+        "floor_factor": 0.65
+      },
+      "required_evidence": [
+        "floor base 산출 근거",
+        "적용 총 RWA 대사",
+        "유효일자 규칙 버전"
+      ]
+    },
+    {
+      "rule_id": "REG-FLOOR-2027",
+      "title": "출력하한 경과조치 — 2027년",
+      "authority_level": "DOMESTIC_BINDING",
+      "source_locator": "은행업감독업무시행세칙 별표 3-2",
+      "status": "ACTIVE",
+      "group_id": "OUTPUT_FLOOR",
+      "effective_from": "2027-01-01",
+      "effective_to": "2027-12-31",
+      "frequency_raw": "상시 적용",
+      "frequency_basis": "LEGAL",
+      "internal_frequency": "CONTINUOUS",
+      "trigger": "RWA 산출 시 상시",
+      "params": {
+        "floor_factor": 0.7
+      },
+      "required_evidence": [
+        "floor base 산출 근거",
+        "적용 총 RWA 대사",
+        "유효일자 규칙 버전"
+      ]
+    },
+    {
+      "rule_id": "REG-FLOOR-2028",
+      "title": "출력하한 — 2028년 이후 완전 적용",
+      "authority_level": "DOMESTIC_BINDING",
+      "source_locator": "은행업감독업무시행세칙 별표 3-2 · Basel III 최종안",
+      "status": "ACTIVE",
+      "group_id": "OUTPUT_FLOOR",
+      "effective_from": "2028-01-01",
+      "effective_to": null,
+      "frequency_raw": "상시 적용",
+      "frequency_basis": "LEGAL",
+      "internal_frequency": "CONTINUOUS",
+      "trigger": "RWA 산출 시 상시",
+      "params": {
+        "floor_factor": 0.725
+      },
+      "required_evidence": [
+        "floor base 산출 근거",
+        "적용 총 RWA 대사"
+      ]
+    },
+    {
+      "rule_id": "REG-RDARR-001",
+      "title": "RDARR·BCBS 239 리스크데이터 집계·보고",
+      "authority_level": "BASEL_STANDARD",
+      "source_locator": "BCBS 239 · 2023 이행점검 보고서",
+      "status": "ACTIVE",
+      "effective_from": "2026-01-01",
+      "effective_to": null,
+      "frequency_raw": "미명시 (원칙 기반)",
+      "frequency_basis": "INTERNAL_POLICY",
+      "internal_frequency": "ANNUAL",
+      "trigger": "정기 · 위기보고 요구 시",
+      "params": {
+        "domestic_scope": "CONFIRM"
+      },
+      "notes": "최초 직접 대상은 G-SIB — 국내 직접 적용은 은행별 지정·감독요구·내부규정 확인 필요",
+      "required_evidence": [
+        "lineage 검증",
+        "회계대사",
+        "수기조정 통제 점검"
+      ]
+    },
+    {
+      "rule_id": "RET-IRR-200BP",
+      "title": "[폐기] IRRBB ±200bp 표준충격 (2016 교재)",
+      "authority_level": "INTERNAL_POLICY",
+      "source_locator": "2016년 교육자료 (구교재) — 현행 별표 9-1 로 대체",
+      "status": "RETIRED",
+      "effective_from": "2016-01-01",
+      "effective_to": "2025-12-30",
+      "replaced_by": "REG-IRR-001",
+      "frequency_raw": "폐기",
+      "frequency_basis": "INTERNAL_POLICY",
+      "internal_frequency": "NONE",
+      "trigger": "사용 시 차단 (OVR-009)",
+      "params": {
+        "retired_value_bp": 200
+      },
+      "required_evidence": [
+        "구값·신값·변경사유·승인자·효력일 보존"
+      ]
+    },
+    {
+      "rule_id": "RET-OPR-AMA",
+      "title": "[폐기] 운영리스크 AMA 고급측정법",
+      "authority_level": "INTERNAL_POLICY",
+      "source_locator": "2016년 교육자료 (구교재) — SMA·손실자료 검증으로 대체",
+      "status": "RETIRED",
+      "effective_from": "2016-01-01",
+      "effective_to": "2023-01-01",
+      "replaced_by": "REG-OPR-001",
+      "frequency_raw": "폐기",
+      "frequency_basis": "INTERNAL_POLICY",
+      "internal_frequency": "NONE",
+      "trigger": "사용 시 차단 (OVR-009)",
+      "params": {},
+      "required_evidence": [
+        "대체 규칙 매핑 기록"
+      ]
+    }
+  ],
+  "opinion_map": {
+    "note": "'적정/조건부 적정/부적정' 등 의견 명칭은 공개 금감원 통일의견이 아니라 은행 내부정책으로 정의한다 (OVR-011). 아래는 본 하니스의 교환 판정·게이트와의 대응이다.",
+    "codes": {
+      "SATISFACTORY": {
+        "korean": "적정",
+        "exchange_verdict": "적합",
+        "gate": "적합"
+      },
+      "SATISFACTORY_WITH_CONDITIONS": {
+        "korean": "조건부 적정",
+        "exchange_verdict": "경부적합",
+        "gate": "조건부",
+        "requires": "잔여위험·후속조건·이행기한 기록 (VAL-017 조건부 승인)"
+      },
+      "NEEDS_IMPROVEMENT": {
+        "korean": "개선 필요",
+        "exchange_verdict": "중부적합",
+        "gate": "부적합",
+        "requires": "시정 후 재검증"
+      },
+      "UNSATISFACTORY": {
+        "korean": "부적정",
+        "exchange_verdict": "중부적합",
+        "gate": "부적합",
+        "requires": "배포·사용 중단 권고 (severity_when_unanswered critical)"
+      },
+      "NO_OPINION": {
+        "korean": "의견 불표명",
+        "exchange_verdict": "없음",
+        "gate": "응답대기",
+        "requires": "critical 미확인 미해소 — 의견 확정 불가 (adversarial_review exit 1)"
+      }
+    }
+  }
+}

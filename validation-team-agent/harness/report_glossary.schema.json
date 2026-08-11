@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://validation-team-agent/report_glossary.schema.json",
+  "title": "Report Glossary",
+  "type": "object",
+  "properties": {
+    "glossary_version": { "type": "string" },
+    "description": { "type": "string" },
+    "ko_to_en": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    }
+  },
+  "required": ["glossary_version", "ko_to_en"],
+  "additionalProperties": false
+}

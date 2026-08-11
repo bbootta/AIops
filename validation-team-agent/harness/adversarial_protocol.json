@@ -1,0 +1,251 @@
+{
+  "schema_version": "1.0",
+  "policy_version": "1.0",
+  "framework": "적대적 검증 프로토콜 — 리스크관리팀(1선) 검증 의뢰에 대한 2선 독립검증 대응",
+  "principle": "주장이 옳다는 근거를 모으지 않는다. 주장이 틀렸을 경로를 먼저 찾는다. 각 challenge 는 '무엇이 관측되면 이 주장이 무너지는가'(disconfirming_evidence)를 사전에 못박아 두며, 사후에 기준을 바꿀 수 없다.",
+  "stance": [
+    "입증 책임은 의뢰자에게 있다. 근거가 제시되지 않은 항목은 '확인됨' 이 아니라 '미확인' 이다.",
+    "반증하지 못했다는 것은 참이라는 뜻이 아니다. 검증 범위와 한계를 함께 기록한다.",
+    "적합·부적합 의견은 사람이 확정한다 (CLAUDE.md §7). 본 프로토콜은 근거와 미해소 쟁점만 제시한다."
+  ],
+  "severity_when_unanswered": {
+    "critical": "미해소 시 의견 확정 불가 — 배포·사용 중단 권고",
+    "high": "미해소 시 조건부 승인 대상 (VAL-017)",
+    "medium": "미해소 시 한계로 명시하고 후속 점검"
+  },
+  "challenges": [
+    {
+      "challenge_id": "ADV-DATA-01",
+      "category": "데이터",
+      "question": "평가 표본이 결론을 뒷받침할 만큼 충분하고 대표성이 있는가?",
+      "method": "표본 수·부도 건수·세그먼트 분포 확인 (middleware/sample_size_guard)",
+      "disconfirming_evidence": "표본 수 또는 부도 건수가 정책 최소 기준 미만이거나, 운영 모집단과 세그먼트 분포가 유의하게 다르다",
+      "auto_check": "sample_size",
+      "severity": "high"
+    },
+    {
+      "challenge_id": "ADV-DATA-02",
+      "category": "데이터",
+      "question": "목표변수 정보가 설명변수에 새어 들어가지 않았는가?",
+      "method": "누수 점검 (middleware/leakage_guard) + 변수 생성 시점 대조",
+      "disconfirming_evidence": "목표변수 파생 변수 포함, 관측시점 이후 정보 사용, 개발표본과 평가표본의 기간·키 중첩",
+      "auto_check": "leakage",
+      "severity": "critical"
+    },
+    {
+      "challenge_id": "ADV-DATA-03",
+      "category": "데이터",
+      "question": "결측·이상치 처리가 성능을 인위적으로 좋게 만들지 않았는가?",
+      "method": "처리 전후 지표 비교, 제외 표본의 부도율 확인",
+      "disconfirming_evidence": "제외된 표본의 부도율이 잔여 표본과 유의하게 다르다 (선택 편의)",
+      "auto_check": null,
+      "severity": "high"
+    },
+    {
+      "challenge_id": "ADV-DATA-04",
+      "category": "데이터",
+      "question": "입력 데이터에 개인식별정보가 포함되어 있지 않은가?",
+      "method": "PII 스캔 (middleware/data_safety_guard)",
+      "disconfirming_evidence": "주민번호·계좌번호·연락처 패턴이 검출된다",
+      "auto_check": "pii",
+      "severity": "critical"
+    },
+    {
+      "challenge_id": "ADV-CALC-01",
+      "category": "산식",
+      "question": "주장된 산출값이 독립 재계산과 일치하는가?",
+      "method": "독립 재계산 후 Variance/Tolerance 대조 (tools/independent_recalc)",
+      "disconfirming_evidence": "허용오차를 초과하는 차이가 존재한다",
+      "auto_check": "recalc",
+      "severity": "critical"
+    },
+    {
+      "challenge_id": "ADV-CALC-02",
+      "category": "산식",
+      "question": "차이가 있다면 그 원인이 무엇인지 대사되는가?",
+      "method": "단계적 치환 기여도 분해 (데이터/모형/산식/구현)",
+      "disconfirming_evidence": "기여도 합계가 총 차이와 대사되지 않는다 — 설명되지 않은 잔차 존재",
+      "auto_check": "attribution",
+      "severity": "high"
+    },
+    {
+      "challenge_id": "ADV-CALC-03",
+      "category": "산식",
+      "question": "경계·예외 입력에서 산식이 무너지지 않는가?",
+      "method": "Golden Case 경계값·금지행위 실행 (tools/golden_regression)",
+      "disconfirming_evidence": "분모 0·모순 입력·범위 밖 파라미터가 거부되지 않고 값을 산출한다",
+      "auto_check": "golden",
+      "severity": "critical"
+    },
+    {
+      "challenge_id": "ADV-CALC-04",
+      "category": "산식",
+      "question": "합계가 맞더라도 더해진 항목들의 단위·차원이 같은가?",
+      "method": "각 구성요소의 정의 단위를 확인하고 규제상 환산계수 적용 여부를 대조 (예: 소요자기자본 K → RWA 는 1/최저비율 배 환산, BCBS RBC20.6)",
+      "disconfirming_evidence": "차원이 다른 값이 환산 없이 합산되었거나(소요자본을 RWA 에 직접 가산), 코드 주석·문서가 반환값의 단위를 실제와 반대로 기술한다",
+      "auto_check": null,
+      "severity": "critical",
+      "origin": "RUN-20260630-42 IVR-68128ECE5694 (F-503) — 3선이 1차 F-002 에서 CVA 소요자본을 RWA 에 직접 합산하도록 요구하고 2차 F-104 에서 '합계 일치'만 보고 적합 판정했다. 12.5배 차원 오류를 2선이 자체 검토로 찾았다. 합계 대사는 단위 오류를 잡지 못한다."
+    },
+    {
+      "challenge_id": "ADV-CALC-05",
+      "category": "산식",
+      "question": "규정이 요구하는 **적용 단위**에서 계산했는가 — 건별인가 합계인가?",
+      "method": "규정 문언의 주어를 확인한다. '합계액이 ... 미달하는 경우' 면 Σ 후 비교이고, '각 자산에 대하여' 면 건별 비교다. 코드가 Σmax(0, xᵢ) 를 쓰는데 규정이 max(0, Σxᵢ) 를 요구하면 초과분 상계가 막혀 과대계상된다 (두 값의 차이는 결코 음수가 아니므로 항상 한 방향으로만 틀린다)",
+      "disconfirming_evidence": "규정이 합계 기준인데 코드가 건별 clip 을 합산하거나(또는 그 반대), 두 기준의 값이 유의하게 다른데 어느 쪽을 보고하는지 산출물에 드러나지 않는다",
+      "auto_check": null,
+      "severity": "critical",
+      "origin": "RUN-20260630-42 IVR-2BFA6A52C664 (F-601) — 대손준비금 소요액을 Σmax(0, 최저적립액ᵢ − 충당금ᵢ) 로 산출했으나 은행업감독규정 제29조 제2항은 합계액 미달분이다. 2.41배(+472억) 과대. 3선은 6회 연속 이 값을 재계산해 '일치' 로 통과시켰다 — 같은 산식을 다시 계산하면 적용 단위 오류는 절대 드러나지 않는다. ADV-CALC-04 가 단위를 물었다면 이 항목은 **경계**를 묻는다."
+    },
+    {
+      "challenge_id": "ADV-CALC-06",
+      "category": "산식",
+      "question": "그 검증식은 실패할 수 있는가 — 아니면 항상 참인 항등식인가?",
+      "method": "① 정적: 검증식 양변의 표현식 트리를 대조한다. 소계 대사는 부모 라인의 값 표현식이 자식 라인 값 표현식의 합과 같으면 항등이고, 단측 단언(0 vs min/max(0, e))은 e 의 부호가 정의역에서 고정되면 항등이다. ② 동적: 무작위·경계 입력을 대량 투입해 실패 사례를 만들 수 있는지 실증한다. 정적 판별은 구문이 다른 의미적 항등(x 와 (x−y)+y)을 놓치므로 둘을 함께 쓴다",
+      "disconfirming_evidence": "무작위·경계 입력을 대량 투입해도 해당 검증이 단 한 번도 실패하지 않으며, 실패 불가능성이 자료가 아니라 산식 구조에서 나온다",
+      "auto_check": null,
+      "severity": "high",
+      "origin": "RUN-20260630-42 IVR-2BFA6A52C664 (F-602) — BR-11 의 FormCheck '대손준비금 ≥ 총액 기준 차액' 은 actual=min(0, short−agg) 이고 short ≥ agg 가 정리이므로 항상 0 이다. 하필 F-601 쟁점을 지키는 자리에 통제력 0 인 검증이 놓여 있었다. 검증 건수와 실패 0 건은 통제의 세기가 아니다."
+    },
+    {
+      "challenge_id": "ADV-MODEL-01",
+      "category": "모형",
+      "question": "성능이 개발표본에만 국한된 것은 아닌가?",
+      "method": "OOT/OOS 성능 대조, dev-oot 지표 격차 확인",
+      "disconfirming_evidence": "OOT AUROC 가 개발표본 대비 유의하게 낮다 (과적합 징후)",
+      "auto_check": null,
+      "severity": "high"
+    },
+    {
+      "challenge_id": "ADV-MODEL-02",
+      "category": "모형",
+      "question": "운영 중 모집단이 변했는데 성능을 유지한다고 주장하는가?",
+      "method": "PSI 등 안정성 지표와 임계 대조 (tools/validation_trigger)",
+      "disconfirming_evidence": "PSI 가 임계를 초과하는데 성능 저하가 보고되지 않았다",
+      "auto_check": "trigger",
+      "severity": "high"
+    },
+    {
+      "challenge_id": "ADV-MODEL-03",
+      "category": "모형",
+      "question": "등급별 추정 PD 가 실제 부도율과 정합하는가?",
+      "method": "등급별 binomial 검정 (tools/binomial_calibration)",
+      "disconfirming_evidence": "다중검정 보정 후에도 reject 되는 등급이 존재한다",
+      "auto_check": "trigger",
+      "severity": "high"
+    },
+    {
+      "challenge_id": "ADV-MODEL-04",
+      "category": "모형",
+      "question": "단순 대안모형보다 실제로 나은가?",
+      "method": "벤치마크 대조 및 성능 격차의 통계적 유의성",
+      "disconfirming_evidence": "단순 벤치마크와의 성능 차이가 표본오차 범위 내다",
+      "auto_check": null,
+      "severity": "medium"
+    },
+    {
+      "challenge_id": "ADV-PROC-01",
+      "category": "프로세스",
+      "question": "개발자와 검증자가 분리되어 있는가?",
+      "method": "직무분리 판정 (middleware/sod_guard)",
+      "disconfirming_evidence": "보완 수행자와 재검증 수행자가 동일하거나 역할이 부적격하다",
+      "auto_check": "sod",
+      "severity": "critical"
+    },
+    {
+      "challenge_id": "ADV-PROC-02",
+      "category": "프로세스",
+      "question": "동일 조건에서 같은 결과가 재현되는가?",
+      "method": "입력 해시·정책/코드 버전 대조 및 재실행 (tools/pack_verify). 재현은 **의뢰자가 커밋한 트리 그대로**에서 하고, 산출물 식별자까지 비트 단위로 대조한다. 요청·보고 패키지가 **자기 자신이 실린 산출물의 통계**(문서 토큰 수·파일 크기·라인 수 등)를 담고 있으면 그 통계를 먼저 의심한다 — 그 산출물이 뒤이어 편집되면 패키지는 자기 커밋에서 재현되지 않는다",
+      "disconfirming_evidence": "동일 입력·동일 버전에서 결과가 달라지거나, 재현에 필요한 정보가 기록되지 않았다. 또는 커밋된 트리에서 재실행한 요청 식별자가 커밋된 요청서의 식별자와 다르다 (순환 의존 포함)",
+      "auto_check": "reproducibility",
+      "severity": "critical",
+      "origin": "RUN-20260630-42 IVR-698F96486264 (F-C01) — 요청 패키지의 가정 [27] 이 대조 대상 문서의 수치 토큰 수를 담는데 그 문서가 요청서와 같은 커밋에서 커졌다. 실측: 직전 커밋 시점 1,260 토큰(요청서 값) vs 요청서가 실린 커밋 시점 1,349 토큰(재현값) → request_id 가 IVR-698F96486264 에서 IVR-9FE1167F7A00 으로 갈렸다. 12회차까지 비트 일치를 확인해 온 항목이 13회차에 처음 깨졌고, 원인은 값이 아니라 순환 의존이었다."
+    },
+    {
+      "challenge_id": "ADV-PROC-03",
+      "category": "프로세스",
+      "question": "임계치나 판정 기준이 결과에 맞춰 조정되지 않았는가?",
+      "method": "임계 변경 이력과 판정 시점 대조 (harness 정책 버전 · change_manifest)",
+      "disconfirming_evidence": "산출 이후에 임계가 완화되었고 그 승인 근거가 없다",
+      "auto_check": null,
+      "severity": "critical"
+    },
+    {
+      "challenge_id": "ADV-PROC-04",
+      "category": "프로세스",
+      "question": "수동조정·Override 가 결과를 만들어내지 않았는가?",
+      "method": "Override 건수·금액 비중과 승인 이력 확인",
+      "disconfirming_evidence": "Override 제거 시 결론이 뒤집히거나, 승인 없는 조정이 존재한다",
+      "auto_check": null,
+      "severity": "high"
+    },
+    {
+      "challenge_id": "ADV-PROC-05",
+      "category": "프로세스",
+      "question": "시정이 그 값의 **모든 사용처**에 전파됐는가 — 고친 곳만 보고 있지 않은가?",
+      "method": "정정된 값·컬럼·함수를 전수 참조 검색(grep)해 사용처를 열거하고, 각 사용처가 새 정의를 쓰는지 산출물에서 실측 대조한다. 같은 이름·같은 규정 인용을 단 값이 두 곳에서 다르면 그 자체가 반증이다",
+      "disconfirming_evidence": "정정 전 값이 남아 있는 사용처가 존재하거나, 동일 항목이 산출물 안에서 서로 다른 값으로 나타나는데 그 차이를 설명하는 대사가 없다",
+      "auto_check": null,
+      "severity": "critical",
+      "origin": "RUN-20260630-42 IVR-4F87EE098FF3 (F-701) — F-601(대손준비금 적용 단위) 시정이 headline 과 BR-11 에만 적용되고 B2402·B2403·B2506·B2426·B2429 제출 서식 5종은 옛 값을 유지했다. 같은 팩 안에서 B2402-1 은 33,582,430,343.88, B2402 는 80,848,614,462.94 를 같은 라인명·같은 인용으로 실었고 교차 서식 대사가 없어 자체검증 실패 0 이었다. 시정 확인은 '고친 곳' 이 아니라 '쓰는 곳 전부' 에서 해야 한다."
+    },
+    {
+      "challenge_id": "ADV-PROC-06",
+      "category": "프로세스",
+      "question": "3선이 낸 **권고 자체**가 옳은가 — 그대로 이행하면 다른 지적이 재발하지 않는가?",
+      "method": "권고를 이행한 상태를 수치로 모의해 이미 확정된 다른 지적의 반증 기준에 대입한다. 특히 상위 수준에서 정정한 원칙(예: 합계 기준 적용)을 하위 분해에 그대로 복제하도록 권고했다면, 분해 합이 상위 값과 어긋나지 않는지 먼저 계산한다",
+      "disconfirming_evidence": "권고대로 이행한 결과가 이전 지적의 반증 기준에 걸리거나, 분해 합이 상위 정정값과 어긋난다",
+      "auto_check": null,
+      "severity": "high",
+      "origin": "RUN-20260630-42 IVR-3F62C4510DDE (F-805) — 3선이 8차에서 '부분집합 서식은 해당 부분집합의 합계 기준으로 다시 계산하라' 고 권고했으나, 2선이 부문에 max(0,·) 를 걸지 않고 부호 있는 순차액을 택했다. 실측: 차주구분 2분할만으로도 권고안은 50,613,889,990.72 로 전행 33,582,430,343.88 대비 +17,031,459,646.84 과대이며 F-601 을 부문 수준에서 재현한다. 2선의 해법이 옳았다. 권고도 검증 대상이다."
+    },
+    {
+      "challenge_id": "ADV-PROC-07",
+      "category": "프로세스",
+      "question": "시정이 대상 밖의 것을 지우거나 바꾸지 않았는가 — 부수 피해는 없는가?",
+      "method": "시정 diff 를 전수 판독하고, 산출물 인벤토리(서식 라인 수·라인 코드 집합·인용·검증 목록)를 시정 전후로 대조한다. 생성 구간 대조나 지표가 '값이 바뀌었다' 를 알리면 값을 갱신하기 **전에** 왜 바뀌었는지, 특히 **줄어든 방향**이면 그 원인을 먼저 답한다",
+      "disconfirming_evidence": "시정 대상과 무관한 라인·인용·검증이 사라지거나 바뀌었고, 그 변화가 어디에도 설명되지 않는다. 또는 자동 대조가 잡아낸 수치 변화를 원인 규명 없이 새 값으로 갱신한 흔적이 있다",
+      "auto_check": null,
+      "severity": "critical",
+      "origin": "RUN-20260630-42 IVR-11C3372DCB57 (F-901) — F-801(formula 문자열) 시정 중 BF202 의 라인 5000(담보평가액)·5010(담보인정액)이 삭제되고 4020 의 인용이 은행업감독규정 제29조에서 Basel III CRE22 로 바뀌었다. 서식 라인이 5,896 → 5,894, 실측이 4,002 → 4,000 으로 줄었는데 문서 대조 통제는 이 변화를 잡고도 값만 갱신됐다 — 직전 회차에는 같은 통제가 4,000 → 4,002 를 잡아 원인(BR-26 라인 추가)까지 확인했다. 통제는 변화를 알릴 뿐 방향과 원인을 묻지 않는다."
+    },
+    {
+      "challenge_id": "ADV-PROC-08",
+      "category": "프로세스",
+      "question": "통제가 **제출 대상 그 자체**를 검사하는가 — 대리 실행을 검사하고 있지 않은가?",
+      "method": "통제(테스트·기준선·대사)가 어떤 입력에서 돌았는지 확인하고, 제출 산출물을 만든 실행의 파라미터(기준일·seed·범위)와 대조한다. 다르면 두 실행의 산출물 인벤토리를 실제로 비교해 **통제가 덮지 못하는 부분을 건수로** 낸다",
+      "disconfirming_evidence": "통제가 제출 실행과 다른 파라미터의 실행에서 돌고 있으며, 두 실행의 산출물이 실제로 달라 일부가 검사 범위 밖이다. 또는 통제의 판별 기준이 제출 실행에 적용하면 반드시 실패하도록 설계돼 있어 애초에 적용할 수 없다",
+      "auto_check": null,
+      "severity": "high",
+      "origin": "RUN-20260630-42 IVR-9D5A5DBAE888 (F-A01) — F-901 재발 방지로 신설한 서식 구조 기준선이 테스트 고정일(2026-06-11) 실행에서 생성돼 5,844라인인데 제출 실행(2026-06-30)은 5,896라인이다. 차이 52건은 라인명에 날짜가 박힌 일별 라인이며 삭제돼도 통제가 통과한다. 나아가 라인명이 날짜를 담으므로 기준선은 원리적으로 다른 기준일에 적용할 수 없다. 같은 함정을 문서 대조에서는 docs_for_run 이 이미 풀었는데 테스트 계층에서 재발했다."
+    },
+    {
+      "challenge_id": "ADV-CLAIM-01",
+      "category": "주장",
+      "question": "관측된 상관을 인과로 주장하고 있지 않은가?",
+      "method": "주장 문구와 근거 설계 대조 (실험·통제 여부)",
+      "disconfirming_evidence": "인과 주장을 뒷받침할 통제·반사실 설계가 없다",
+      "auto_check": null,
+      "severity": "medium"
+    },
+    {
+      "challenge_id": "ADV-CLAIM-02",
+      "category": "주장",
+      "question": "유리한 구간·기간만 선택해 보고하지 않았는가?",
+      "method": "전체 기간·세그먼트 결과 요구 후 대조",
+      "disconfirming_evidence": "제시되지 않은 기간·세그먼트에서 결론이 성립하지 않는다",
+      "auto_check": null,
+      "severity": "high"
+    },
+    {
+      "challenge_id": "ADV-CLAIM-03",
+      "category": "주장",
+      "question": "효과 크기가 실무적으로 유의미한가, 통계적으로만 유의한가?",
+      "method": "효과 크기와 의사결정 임계 대조",
+      "disconfirming_evidence": "효과가 의사결정을 바꾸지 못할 만큼 작다",
+      "auto_check": null,
+      "severity": "medium"
+    }
+  ]
+}

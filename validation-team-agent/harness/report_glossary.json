@@ -1,0 +1,24 @@
+{
+  "glossary_version": "1.0",
+  "description": "tools/report_template._translate_en이 lang='en' 모드에서 한글 도메인 키워드 옆에 영문을 병기할 때 참조하는 도메인 사전. 신규 용어 추가는 본 파일을 편집하고 CHG로 기록한다.",
+  "ko_to_en": {
+    "검증 보조 산출물": "validation aid",
+    "인간 검증자": "human reviewer",
+    "외부 제출": "external publication",
+    "운영계": "production system",
+    "스테이지": "stage",
+    "시나리오 가중치": "scenario weights",
+    "캘리브레이션": "calibration",
+    "다중공선성": "multicollinearity",
+    "정상성": "stationarity",
+    "표본": "sample",
+    "변별력": "discrimination",
+    "안정성": "stability",
+    "이상 징후": "anomaly",
+    "한계": "limitation",
+    "추가 확인 사항": "follow-up",
+    "감사추적": "audit trail",
+    "변경 이력": "change history",
+    "임계": "threshold"
+  }
+}

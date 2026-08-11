@@ -1,0 +1,65 @@
+{
+ "release": "v9.6.0",
+ "status": "PENDING_4_EYES",
+ "discrepancies": [
+  {
+   "discrepancy_id": "VAL-GAP-001",
+   "severity": "HIGH",
+   "topic": "RTM 범위",
+   "finding": "AC-25-01은 AC-0~25를 RTM화한다고 하나 실제 명시 AC는 AC-31까지 119건",
+   "required_resolution": "119개 전체 RTM 범위를 독립 검토 후 승인",
+   "status": "PENDING_4_EYES",
+   "activation_flag": false
+  },
+  {
+   "discrepancy_id": "VAL-GAP-002",
+   "severity": "HIGH",
+   "topic": "오류코드 카탈로그",
+   "finding": "본문 사용 코드 6종이 53개 오류코드 표에 없음",
+   "required_resolution": "코드 alias 또는 신규 코드 여부를 자동 병합 없이 결정",
+   "status": "PENDING_4_EYES",
+   "activation_flag": false
+  },
+  {
+   "discrepancy_id": "VAL-GAP-003",
+   "severity": "HIGH",
+   "topic": "상태 enum",
+   "finding": "CLOSED_WITH_OPEN_ACTIONS가 본문 선택지이나 상태 enum/DDL에 없음",
+   "required_resolution": "기본 REMEDIATION_OPEN 유지 또는 정식 상태 추가를 승인",
+   "status": "PENDING_4_EYES",
+   "activation_flag": false
+  },
+  {
+   "discrepancy_id": "VAL-GAP-004",
+   "severity": "MEDIUM",
+   "topic": "Snapshot 상태",
+   "finding": "의사코드는 snapshot.status=FROZEN을 요구하지만 PostgreSQL dataset_snapshot에 통합 status 컬럼이 없음",
+   "required_resolution": "frozen_at/dq_status/reconciliation_status 조합 또는 status 컬럼 추가 결정",
+   "status": "PENDING_4_EYES",
+   "activation_flag": false
+  },
+  {
+   "discrepancy_id": "VAL-GAP-005",
+   "severity": "MEDIUM",
+   "topic": "역할 alias",
+   "finding": "전이표의 Independent Approver·Closure Validator+Approver와 역할 카탈로그의 APPROVER·VALIDATOR 관계가 미정",
+   "required_resolution": "RBAC/ABAC 역할 alias와 SoD 충돌 규칙 확정",
+   "status": "PENDING_4_EYES",
+   "activation_flag": false
+  },
+  {
+   "discrepancy_id": "VAL-GAP-006",
+   "severity": "MEDIUM",
+   "topic": "상태도 권위",
+   "finding": "개요서 한 줄 상태도는 승인·반려 이후 분기를 축약",
+   "required_resolution": "실행 기준은 해설서 3.3의 13개 전이표로 고정",
+   "status": "PENDING_4_EYES",
+   "activation_flag": false
+  }
+ ],
+ "_provenance": {
+  "copied_from": "02_부문별_상세요건/00_통합_메타/적합성검증_불일치레지스트리_v9.6.0.json",
+  "purpose": "요건정의 마스터(v9.6.0) 자체의 미해소 불일치 6건 — 검증 요청이 AC 번호·오류코드·상태 enum 을 인용할 때 이 레지스트리와 대조한다. 해소는 마스터 소유자의 4-Eyes 권한이며 본 하니스는 인지·추적만 한다.",
+  "all_pending": true
+ }
+}

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://validation-team-agent/change_manifest.schema.json",
+  "title": "Change Manifest",
+  "description": "Decision-observability log for the validation team agent harness.",
+  "type": "object",
+  "properties": {
+    "manifest_version": {
+      "type": "string",
+      "description": "Schema version of this manifest."
+    },
+    "changes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/change" }
+    }
+  },
+  "required": ["manifest_version", "changes"],
+  "additionalProperties": false,
+  "$defs": {
+    "change": {
+      "type": "object",
+      "properties": {
+        "change_id": {
+          "type": "string",
+          "pattern": "^CHG-[0-9]{4,}$"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "YYYY-MM-DD HH:MM:SS local time"
+        },
+        "component": {
+          "type": "string",
+          "description": "Target file or component path"
+        },
+        "change_type": {
+          "type": "string",
+          "enum": ["create", "modify", "delete", "rollback"]
+        },
+        "evidence": { "type": "string" },
+        "root_cause": { "type": "string" },
+        "targeted_fix": { "type": "string" },
+        "expected_benefit": { "type": "string" },
+        "expected_regression_risk": { "type": "string" },
+        "validation_method": { "type": "string" },
+        "rollback_rule": { "type": "string" },
+        "human_approval_required": { "type": "boolean" },
+        "status": {
+          "type": "string",
+          "enum": ["proposed", "applied", "validated", "rolled_back"]
+        }
+      },
+      "required": [
+        "change_id",
+        "timestamp",
+        "component",
+        "change_type",
+        "evidence",
+        "root_cause",
+        "targeted_fix",
+        "expected_benefit",
+        "expected_regression_risk",
+        "validation_method",
+        "rollback_rule",
+        "human_approval_required",
+        "status"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

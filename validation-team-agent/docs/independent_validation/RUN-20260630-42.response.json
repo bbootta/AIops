@@ -1,0 +1,71 @@
+{
+ "request_id": "IVR-AC0EDF9E5A37",
+ "run_id": "RUN-20260630-42",
+ "verdict": "경부적합",
+ "validated_by": "적합성검증 팀에이전트",
+ "validated_at": "2026-08-05T17:10:00+00:00",
+ "recalc_matches": {
+  "rwa_final_total": true,
+  "rwa_fund": true,
+  "rwa_securitisation": true,
+  "cet1_ratio": true,
+  "total_ratio": true,
+  "leverage_ratio": true,
+  "ecl_total": true,
+  "lcr": true,
+  "nsfr": true,
+  "stress_trough_cet1": true,
+  "reverse_critical_severity": true,
+  "reserve_shortfall": true
+ },
+ "findings": [
+  {
+   "finding_id": "F-F01",
+   "severity": "경부적합",
+   "target": "rwa_final_total",
+   "detail": "**3선 응답을 수신하지 않은 채 요청을 세 번 대체했고, 15차 지적 F-E01이 그대로 존속한다.** 15차 응답(경부적합, F-E01~F-E05)은 2026-07-29 11:08 커밋 `f939743` 으로 게시됐다. 그런데 2선은 2026-08-03 요청 대체 시점 문서(remediation·HANDOFF)에 '응답대기(IVR-8CDB13393503)' 로 적고, 이후 세 번의 산출 변경(의존성 재구조 → 구조화 통합 → 콕핏 KPI)을 15차 지적을 읽지 않은 채 진행했다 — F-E01·F-E02~E05 는 2선 브랜치 어디에도 언급이 없다. 3선 반증 재실험(트리 `e1e0c87`): `tests/test_assumption_claims.test_every_generated_sentence_helper_is_wired` 의 grep 대상에 검사 파일 자신이 여전히 포함되어, `coverage_report` 의 실제 호출부 1건(`deliverables.py:229`)을 제거해도 검사 파일 자기 텍스트 3줄(`:59`·`:64`·`:67`)이 '호출부' 로 세어져 **통과한다** — 15차와 동일한 자기충족이다. 게이트는 fail-closed 라 응답 없이 결재는 막혔지만, 응답 **수신·반영** 은 게이트가 강제하지 않는 공백이다 — 요청 생성 시 우편함(응답 파일)의 request_id 를 대조해 '이전 응답 미수신' 을 요청서에 표시하는 통제를 권고한다. 시정은 15차 권고 그대로다: ⓑ ast 기반 호출식(Call) 판별로 교체하고, 교체 후 같은 반증 실험(호출부 제거 시 실패)을 자체 수행해 결과를 다음 요청서에 실어 달라.",
+   "recomputed": 3,
+   "reported": 0
+  },
+  {
+   "finding_id": "F-F02",
+   "severity": "경부적합",
+   "target": "stress_trough_cet1",
+   "detail": "**자체검증 `stress_trough_meets_requirement` 가 제약 비율이 아니라 CET1만 요구치와 비교한다 — 기준 시나리오가 자기 규칙('기준 침범은 FAIL')상 FAIL 인데 발동하지 않는다.** `stress_path_trough` 는 baseline 행에 `passes_all=False · breach_ratio=total` 을 이미 기록한다: 현 상태 총자본비율 10.94% < 완충 포함 요구 11.50% (tier1 도 9.16% < 9.50%). 그런데 검사(`validation/consistency.py:660~692`)는 `required['cet1']`(8.00%) 하나만 읽고 baseline CET1 8.12% ≥ 8.00% 이므로 넘어간다 — WARN 문구가 '제약 total' 이라 적으면서 비교는 CET1 로 하는 자기모순이 문장 안에 있다. 커밋 `d47f866` 이 **같은 결함('CET1만 보고 초록')을 콕핏 KPI 에서는 고쳤으나** 이 검사에는 파급되지 않았다 — 시정은 쓰는 곳 전부를 고쳐야 한다는 원칙 ② 의 재사례이며 ADV-PROC-05 유형이다. 완충 미달 사실 자체는 신설 `bis_buffer_requirement` WARN 으로 결재선에 공시되고 있어(배당·성과급 제한 대상) 은폐는 아니다 — 그러나 2선 스스로 정한 등급(기준 침범=FAIL)이 배선 결함으로 WARN 에 머물렀고, 2선은 이번 회차에 'FAIL 을 안은 요청은 다른 요청' 이라며 최초 생성분(IVR-B2DC2EE7DF63)을 폐기한 전례가 있다 — 이 검사가 규칙대로 동작했다면 요청 지문 자체가 달라졌다. 시정: 검사가 trough 행의 제약 비율(binding)·세 비율 전부를 각 요구치와 비교하게 하라.",
+   "recomputed": 0.10938569432396912,
+   "reported": 0.115
+  },
+  {
+   "finding_id": "F-F03",
+   "severity": "경부적합",
+   "target": "cet1_ratio",
+   "detail": "**EL-적격충당금 비교(CRE35.3)의 적격충당금에 SA북 충당금이 섞였다 — ECL 전 포트폴리오 확장의 조용한 파급이다.** `pipeline.py:845` 가 `eligible_provisions=float(ecl_df['ecl'].sum())` 으로 **전 포트폴리오** ECL(975.5억)을 넘기는데, CRE35.4 는 IRB 익스포저에 귀속된 충당금만 적격으로 인정한다(SA북 일반충당금은 CRE20.4 의 Tier 2 산입 경로가 따로 있다). ECL 이 IRB북만 계산하던 이전 회차에는 이 줄이 정확했고, 이번 회차에 ECL 을 SA북으로 넓히면서(+30.2억) 비교 모집단이 조용히 바뀌었다. **현재 산출값 영향은 0** — 3선 재계산으로 IRB EL 512.8억 < IRB북 충당금 945.3억 < 전체 975.5억이라 어느 규약으로도 부족액이 0 이다. 그러나 방향은 비보수적이다: EL 이 충당금을 초과하는 국면에서 SA북 30.2억이 부족액을 그만큼 줄여 CET1 차감이 과소된다. 시정: `ecl_df[ecl_df.asset_class.isin(IRB_CLASSES)]['ecl'].sum()` 으로 좁히고, 잉여 산입(CRE40.30) 공시 계산도 같은 모집단을 쓰는지 함께 확인하라.",
+   "recomputed": 51279506919.3,
+   "reported": 97546776363.82
+  },
+  {
+   "finding_id": "F-F04",
+   "severity": "경부적합",
+   "target": "rwa_final_total",
+   "detail": "**응답 없는 요청에 회차를 선부여했다 — 자기 규칙(F-502 시정)과 충돌한다.** remediation 문서 상단 표는 '회차 부여는 3선이 F-502 에서 확정한 열거를 그대로 따른다' 고 스스로 명시했고, 응답 전에 대체된 `IVR-35F6EAB36D7F` 에 '회차 없음' 을 부여한 전례까지 만들었다. 그런데 이번 문서의 절 제목은 `IVR-18A07F207702` 를 '(16차)', `IVR-AC0EDF9E5A37` 를 '(17차)' 로 적고 HANDOFF.md 도 '17차 응답' 을 기다린다고 적는다. `IVR-18A07F207702` 는 응답 없이 대체됐으므로 자기 전례상 회차가 없고, 본 응답이 **16차**다 — 3선 회차 원장(`validation-team-agent/memory/validation_rounds.jsonl` seq 16)이 정본이다. 문서 수치·명명이 코드/원장 사실과 어긋나는 P-DOC 유형의 아홉 번째 반복이며, 회차가 어긋난 채 남으면 다음 결재 문서가 존재하지 않는 회차를 인용하게 된다. 시정: 두 절 제목의 괄호 회차를 제거하거나 '회차 없음(대체)' 로 정정하고, 상단 표를 7행에서 현재까지로 연장하라.",
+   "recomputed": 16,
+   "reported": 17
+  },
+  {
+   "finding_id": "F-F05",
+   "severity": "적합",
+   "target": "rwa_final_total",
+   "detail": "**완전 재현과 독립 재계산 12/12 — 구조화 4.13조 통합은 규정 문언과 정합한다.** 커밋 트리 `e1e0c87` 에서 요청서의 reproduce 절차를 실행해 request_id `IVR-AC0EDF9E5A37`·headline_digest·portfolio_fingerprint·submission_digest·재계산 대상 12종·자체검증 집계가 **전부 비트 단위 일치** (created_at 만 상이 — 정합). 독립 재계산은 risk_lib 미참조 구현으로 10종을 원장에서 재산출해 소수점까지 일치: rwa_final 13,478,626,877,092.65 · rwa_fund 3,331,225,499,902.05 (12펀드 — LTA 7·MBA 4·fallback 1, 원장 위험가중치와 3선 자체 CRE20 표 최대편차 0) · rwa_sec 797,107,276,215.58 (27트렌치 — SSFA·ERBA 보간·IRBA p 산식 트렌치별 대조) · cet1 0.08119291 · total 0.10938569 · leverage 0.09697351 · ecl 97,546,776,363.82 · lcr 1.18070935 · nsfr 1.13067086 (계수는 3선 자체 표준표로 독립 적용) · 대손준비금 30,567,097,645.00 (감독규정 별표 최저적립률 자체 재구성, 요율 편차 0). 스트레스 저점·역스트레스 2종은 재현 실행으로 대조했고 독립 재산출이 아니다(이월 CO-009). 통합의 규정 정합을 개별 확인: 모집단 불일치 검사 실재·변이 시 실패, output floor 표준 총계의 SEC-IRBA 제외(RBC20.11), 재유동화 W=0(CRE41.19(2))·p=1.5, STC p 반감(CRE44.5)·선순위 하한 10%, 레버리지에 장부 익스포저 2.190조 동반 편입(LEV20.1), ICAAP 신용 EC 에 구조화 ×8%, 위기상황 고정의 한계를 model_inventory `STRESS_MACRO` known_limitations 에 등록. **3선 재계산기 최초판의 결함 2건(재유동화 W·STC 반감 누락, +293.5억 과대)은 트렌치 단위 대사에서 3선이 발견·자기 시정했다(자기결함 원장 SD-07)** — 총액만 대조했으면 2선 결함으로 오판했을 사안이다.",
+   "recomputed": 13478626877092.648,
+   "reported": 13478626877092.645
+  },
+  {
+   "finding_id": "F-F06",
+   "severity": "적합",
+   "target": "rwa_fund",
+   "detail": "**도전 지점 답변 4건 + 질의 1건.** ① 모집단 불일치(1차 도전): 합성 원장은 생성 구조상 은행계정과 겹치지 않아 주장이 참이고 이중계상이 아니다 — 다만 통제(`test_structured_population_does_not_overlap_the_banking_book`)는 자산군 **명칭 3종의 어휘 검사**라 실질 겹침(예: originator=당행 딜 SEC-2301 의 기초자산 2.31조가 부외화되지 않고 은행계정에 남는 경우)을 탐지하지 못한다. 실데이터 전환 시 익스포저 식별자 수준 대사가 필요하다 — 이월 CO-011 로 등재했다. ② SA북 등급→PD(합성 상수): 장기 코호트 수준과 정합 범위이나 UNRATED=110bp(BB 동치)는 무등급 포트폴리오 실태에 따라 재검토 대상. sovereign LGD 45% 일괄은 충당금 과대 방향(보수)이고 영향은 SA북 ECL 30.2억에 한정 — 수용 가능, 공시 유지. ③ 시장·운영 독립 명목(1.0e13 × U(0.95,1.05)): 실측 원장 대체 전제의 공시로 수용 — 규모감 외 근거가 없다는 한계 문구를 유지하라. ④ SA Stage 3 차감 경로 실효 0: 경로가 테스트로 고정돼 있음을 확인 — 데이터 발생 시 자동 작동. ⑤ **출력하한 경과조치 질의(CO-010, ADV-PROC-03)**: `FULLY_LOADED_FLOOR=0.725` 상수와 `audit_trail.py:136` 의 0.725 하드코딩은 asof 2026-06-30 의 경과조치 계수 **65%**(3선 규칙 카탈로그 REG-FLOOR-2026, 은행업감독업무시행세칙 별표 3-2)와 다르다. 양 계수 모두 미구속(표준 11,408,972,707,959 × 0.65 = 7.416조 · × 0.725 = 8.272조 < 내부 13.479조)이라 산출값 영향 0 — 그러나 하한은 max() 라 **계수가 클수록 구속 가능성이 커지므로 '완전적용 72.5%가 보수적'이라는 논거는 방향이 반대다**. `output_floor_factor(asof)` 유효일자 파생으로 전환하고 audit_trail 파라미터도 실제 적용 계수를 기록하라 — 다음 요청서에 채택 계수와 근거 조문을 실어 답해 달라.",
+   "recomputed": 3331225499902.049,
+   "reported": 3331225499902.0503
+  }
+ ]
+}

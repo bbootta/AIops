@@ -1,0 +1,20 @@
+{
+  "policy_version": "1.0",
+  "framework": "Pillar 2 ICAAP (BCBS SRP20/30) + 은행업감독업무시행세칙 내부자본적정성",
+  "description": "내부자본(가용자본) 대비 필요내부자본(경제적 자본) 점검. 본 임계는 감독 최소 기준이며 내부 리스크성향(RAS) 한도는 더 엄격할 수 있다.",
+  "internal_capital_ratio_min": 1.00,
+  "internal_capital_ratio_warning": 1.20,
+  "post_stress_ratio_min": 1.00,
+  "post_stress_ratio_warning": 1.05,
+  "single_risk_share_warning": 0.60,
+  "diversification_benefit_max": 0.30,
+  "required_risk_types": [
+    "credit", "market", "operational", "irrbb", "concentration"
+  ],
+  "notes": [
+    "내부자본비율 = 가용내부자본 / 필요내부자본 합계 (분산효과 반영 후).",
+    "스트레스 후 비율은 자본계획 시나리오 (최소 baseline + adverse) 기준.",
+    "단일 리스크 유형이 필요내부자본의 60% 초과 시 집중 경고.",
+    "분산효과 30% 초과 차감은 보수성 원칙 위반 경고 (BCBS SRP30)."
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "policy_version": "1.0",
+  "framework": "LEX (Large Exposures) + 은행법 제35조 / 은행업감독규정",
+  "description": "신용집중리스크 임계. Basel LEX: 거액익스포저 보고 기준 Tier1 10%, 단일 거래상대방 한도 Tier1 25% (G-SIB 간 15%). 국내: 동일차주 신용공여 자기자본 25%, 동일한 개인·법인 20%, 거액신용공여(자기자본 10% 초과) 합계는 자기자본의 5배 이내.",
+  "large_exposure_reporting_pct_tier1": 0.10,
+  "single_counterparty_limit_pct_tier1": 0.25,
+  "gsib_interbank_limit_pct_tier1": 0.15,
+  "domestic": {
+    "source": "은행법 제35조, 은행업감독규정",
+    "same_borrower_group_limit_pct_equity": 0.25,
+    "same_person_limit_pct_equity": 0.20,
+    "large_exposure_aggregate_multiple_equity": 5.0
+  },
+  "hhi_bands": {
+    "low_max": 0.10,
+    "moderate_max": 0.18
+  }
+}

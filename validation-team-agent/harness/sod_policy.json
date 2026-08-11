@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "policy_version": "1.0",
+  "framework": "PRD-VAL VAL-006 (직무분리·검증 권한 통제) · 3선 방어 체계 · 02_수식랩!16_Validation_Monitor_1K 의 Developer_ID / Independent_Reviewer_ID / SoD_Status 규약",
+  "description": "검증 활동별 수행 역할과 겸직 금지 규칙. actor_id 는 조직 내부 역할 배정용 가명 식별자이며 실명·개인정보를 담지 않는다 (CLAUDE.md §5). 실제 운영 적용 시 기관의 인사·권한 시스템 식별자로 대체한다.",
+  "roles": {
+    "model_developer": {
+      "line_of_defense": 1,
+      "description": "모형·규칙·산식을 개발하고 보완조치를 수행한다."
+    },
+    "business_owner": {
+      "line_of_defense": 1,
+      "description": "업무 소유자. 데이터·프로세스 보완을 수행한다."
+    },
+    "independent_validator": {
+      "line_of_defense": 2,
+      "description": "개발 조직과 분리되어 재계산·재검증을 수행한다."
+    },
+    "approver": {
+      "line_of_defense": 2,
+      "description": "검증 결과를 근거로 변경·종결을 승인한다."
+    }
+  },
+  "activity_required_roles": {
+    "remediation": ["model_developer", "business_owner"],
+    "reverification": ["independent_validator"],
+    "closure_approval": ["approver"]
+  },
+  "conflicts": [
+    {
+      "conflict_id": "SOD-001",
+      "activities": ["remediation", "reverification"],
+      "rule": "different_actor",
+      "rationale": "보완을 수행한 사람이 그 보완의 유효성을 스스로 재검증하면 독립성이 성립하지 않는다. 개발과 독립검증의 분리는 모형리스크관리의 기본 통제다."
+    },
+    {
+      "conflict_id": "SOD-002",
+      "activities": ["reverification", "closure_approval"],
+      "rule": "different_actor",
+      "rationale": "재검증 수행자와 최종 승인자를 분리해 검증 결과에 대한 이중 확인을 확보한다. 기관에 따라 승인 권한을 위원회에 두는 경우 이 규칙을 조정할 수 있다."
+    }
+  ],
+  "actors": [
+    { "actor_id": "DEV-101", "roles": ["model_developer"], "org": "모형개발팀" },
+    { "actor_id": "DEV-102", "roles": ["model_developer"], "org": "모형개발팀" },
+    { "actor_id": "BIZ-151", "roles": ["business_owner"], "org": "여신기획부" },
+    { "actor_id": "REV-201", "roles": ["independent_validator"], "org": "리스크관리부 검증팀" },
+    { "actor_id": "REV-202", "roles": ["independent_validator"], "org": "리스크관리부 검증팀" },
+    { "actor_id": "APR-301", "roles": ["approver"], "org": "리스크관리위원회" },
+    { "actor_id": "DUAL-901", "roles": ["model_developer", "independent_validator"], "org": "겸직 예시 (통제 시험용)" }
+  ],
+  "notes": [
+    "DUAL-901 은 겸직 차단 통제가 실제로 작동하는지 시험하기 위한 예시 actor 이며 운영 배정 대상이 아니다.",
+    "역할 미보유자가 활동을 수행하면 SoD 위반으로 판정한다 (권한 없는 수행 차단).",
+    "본 정책은 활동 단위 통제이며 시스템 접근권한(RBAC)은 harness/permission_matrix.json 이 담당한다."
+  ]
+}

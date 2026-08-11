@@ -1,0 +1,222 @@
+{
+  "schema_version": "1.0",
+  "source_documents": [
+    "리스크 적합성검증 요건 개요서 (2026-08-02, v1.0)",
+    "리스크 적합성검증 시스템 실무진 해설서 (2026-08-02, 27장 · AC-0~AC-26)",
+    "RYNTA BRD v9.6.0 — 적합성검증 부문(DDOC-VAL-PR) 정규 부모: PLT-003/004/006/008/014~018 · NFR-001~012 (SourceMap 기준 21건)"
+  ],
+  "scope_note": "본 매트릭스는 **적합성검증 팀에이전트(3선 하니스) 관점**의 커버리지다. 해설서의 전사 시스템 구축 요건 — §9 API · §10 이벤트/Outbox · §11 PostgreSQL DDL · §14 UI 화면 · §16 배치 · §18 NFR 인프라 · §19 DevSecOps — 은 시스템 구축 조직(1·2선/IT) 범위이므로 여기 포함하지 않는다. 포함 기준: 검증 하니스가 스스로 수행·강제할 수 있는 요건.",
+  "requirements": [
+    {
+      "id": "OVD-001",
+      "korean": "규칙 카탈로그 — 근거수준·원문주기·내부주기·유효일자 분리 (개요서 §0·§3, 해설서 §12)",
+      "status": "implemented",
+      "evidence": [
+        "harness/regulatory_rule_catalog.json",
+        "tools/reg_rules.py",
+        "tests/test_reg_rules.py"
+      ],
+      "note": "OVR-000 주기 오표기 방지 — basis=LEGAL 은 원문 구체 주기 필수, verify 가 강제",
+      "master_ref_v960": "PLT-003 규칙·규제 인벤토리"
+    },
+    {
+      "id": "OVD-002",
+      "korean": "출력하한 경과조치 유효일자 규칙 — 2026 65% / 2027 70% / 2028~ 72.5% (OVR-001, 해설서 §12.3)",
+      "status": "implemented",
+      "evidence": [
+        "harness/regulatory_rule_catalog.json",
+        "tools/reg_rules.py",
+        "tests/test_reg_rules.py"
+      ],
+      "note": "output_floor_factor(date) 로 파생 — 상수 금지. 기존 교환(asof 2026-06-30)이 72.5% 상수를 쓴 사실이 드러남 → 이월 CO-010, 16차 도전 예정",
+      "master_ref_v960": "PLT-003 규칙·규제 인벤토리 (경과조치)"
+    },
+    {
+      "id": "OVD-003",
+      "korean": "검증(2선)과 내부감사(3선 보증) 통제선 분리 (개요서 §1·§2, OVR-002)",
+      "status": "partial",
+      "evidence": [
+        "harness/sod_policy.json",
+        "harness/delegation_policy.md"
+      ],
+      "gap": "역할·겸직 차단은 SoD 정책으로 강제되나, 내부감사 활동(검증체계 자체의 효과성 보증)은 본 하니스 범위 밖 — 감사 관점 점검표가 없다"
+    },
+    {
+      "id": "OVD-004",
+      "korean": "리스크별 최소요건·주기 매트릭스 — IRB·ECL·ICAAP·ST·IRRBB·시장·CCR·운영·유동성·RDARR (개요서 §4)",
+      "status": "implemented",
+      "evidence": [
+        "harness/regulatory_rule_catalog.json",
+        "tools/reg_rules.py"
+      ],
+      "note": "11개 ACTIVE 규칙 + 검증 캘린더 생성 (OVR-004 — 법정/내부정책 이중 표시, 근거 없는 법정주기 0건)",
+      "master_ref_v960": "PLT-003 규칙·규제 인벤토리"
+    },
+    {
+      "id": "OVD-005",
+      "korean": "공통 검증축 10종 — 목적·독립성·수명주기·데이터·방법론·구현·성과·사용·판단·이슈 (개요서 §5)",
+      "status": "partial",
+      "evidence": [
+        "harness/adversarial_protocol.json",
+        "harness/model_materiality.json",
+        "tools/validation_finding.py"
+      ],
+      "gap": "축 8(사용 적합성 — 승인·가격·한도·보고에 승인된 결과를 쓰는가) 의 사용처 대사 challenge 가 프로토콜에 없다. 축 1~7·9·10 은 기존 challenge·도구가 덮는다"
+    },
+    {
+      "id": "OVD-006",
+      "korean": "표준 업무흐름·상태전이 — 인벤토리→계획→동결→실행→검토→승인→보고→개선→종결→모니터링 (개요서 §6, 해설서 §3)",
+      "status": "partial",
+      "evidence": [
+        "tools/validation_finding.py",
+        "tools/validation_trigger.py"
+      ],
+      "gap": "finding 수명주기(open→remediating→reverifying→closed)와 트리거는 있으나 validation_case 수준의 상태머신(DRAFT→…→CLOSED)은 없다 — 15회 교환은 요청/응답 게이트로 대신했다",
+      "master_ref_v960": "PLT-015 검증 상태모형"
+    },
+    {
+      "id": "OVD-007",
+      "korean": "검증의견 코드 — SATISFACTORY ~ NO_OPINION 5종, 명칭은 내부정책 정의 (개요서 §6, 해설서 §3.4, OVR-011)",
+      "status": "implemented",
+      "evidence": [
+        "harness/regulatory_rule_catalog.json",
+        "tools/reg_rules.py"
+      ],
+      "note": "opinion_map 이 교환 판정(적합/경부적합/중부적합)·게이트(적합/조건부/부적합)와 5종 코드를 대응 — verify 가 5종 완비·내부정책 단서를 강제",
+      "master_ref_v960": "PLT-015 검증 상태모형 (의견 코드)"
+    },
+    {
+      "id": "OVD-008",
+      "korean": "4-Eyes·동일인 승인 차단 (OVR-006, 해설서 §7)",
+      "status": "implemented",
+      "evidence": [
+        "middleware/sod_guard.py",
+        "tools/conditional_approval.py",
+        "harness/sod_policy.json"
+      ],
+      "note": "SOD-001(보완≠재검증)·SOD-002(재검증≠승인), 조건부 승인은 approver 역할만 — 기실증",
+      "master_ref_v960": "PLT-017 RBAC·ABAC·4-Eyes"
+    },
+    {
+      "id": "OVD-009",
+      "korean": "재현 실행키 — snapshot·규칙·코드·파라미터 동일 시 동일 결과, 불일치 시 격리 (OVR-008, 해설서 §5.3)",
+      "status": "implemented",
+      "evidence": [
+        "tools/pack_verify.py",
+        "harness/adversarial_protocol.json"
+      ],
+      "note": "pack_verify(입력해시·정책·코드·페이지 재빌드) + ADV-PROC-02(커밋 트리 재현·순환 의존) — 13차 F-C01 로 실전 검증됨",
+      "master_ref_v960": "PLT-004 독립재계산·테스트 러너"
+    },
+    {
+      "id": "OVD-010",
+      "korean": "데이터 동결·스냅샷·라인리지·회계대사 (개요서 §6, 해설서 §4)",
+      "status": "partial",
+      "evidence": [
+        "harness/adversarial_protocol.json"
+      ],
+      "gap": "seed 고정·포트폴리오 지문으로 재현성은 확보되나 스냅샷 원장(dataset_snapshot)·lineage 그래프·수기조정 통제는 없다 — 합성 데이터 하니스라 원천 동결 개념이 아직 없음. 실데이터 전환 시 필수"
+    },
+    {
+      "id": "OVD-011",
+      "korean": "이슈 수명주기 — 중요도, 재검증 없는 종결 차단, CRITICAL/HIGH 미해소 시 승인 gate (해설서 §3.5)",
+      "status": "implemented",
+      "evidence": [
+        "tools/validation_finding.py",
+        "harness/sod_policy.json"
+      ],
+      "note": "close 는 재검증 통과+근본원인+SoD 필수, approval_blockers 가 promote 를 차단 — R82 기구현",
+      "master_ref_v960": "PLT-016 결과·이슈 critical path"
+    },
+    {
+      "id": "OVD-012",
+      "korean": "증빙 원장 불변성 — append-only·해시·보존 (해설서 §6)",
+      "status": "partial",
+      "evidence": [
+        "tools/validation_finding.py",
+        "tools/conditional_approval.py"
+      ],
+      "gap": "원장은 append-only jsonl 이나 레코드 해시 체인·WORM 보존정책은 없다 — 변조 탐지가 git 이력에 의존",
+      "master_ref_v960": "PLT-018 Evidence Ledger·hash"
+    },
+    {
+      "id": "OVD-013",
+      "korean": "Agent 허용/금지 역할 — 결정론 계산과 분리, 계산값 변경·최종 판정·승인 불가 (개요서 §8, 해설서 §15)",
+      "status": "implemented",
+      "evidence": [
+        "CLAUDE.md",
+        "harness/system_prompt.md",
+        "harness/permission_matrix.json"
+      ],
+      "note": "판정·결재는 인간(§7 HITL), 산식은 tools/ 결정론 함수, 프롬프트 원칙 6개조 — 15회 교환에서 준수 실증",
+      "master_ref_v960": "PLT-006 Agent 통제경계"
+    },
+    {
+      "id": "OVD-014",
+      "korean": "구교재 폐기 수치 재사용 차단 — RETIRED 등재·대체 규칙 매핑 (개요서 §9, OVR-009)",
+      "status": "implemented",
+      "evidence": [
+        "harness/regulatory_rule_catalog.json",
+        "tools/reg_rules.py",
+        "tests/test_reg_rules.py"
+      ],
+      "note": "RET-IRR-200BP(±200bp)·RET-OPR-AMA 등재 — RETIRED 는 effective_to·replaced_by 필수를 verify 가 강제",
+      "master_ref_v960": "PLT-003 규칙·규제 인벤토리 (RETIRED)"
+    },
+    {
+      "id": "OVD-015",
+      "korean": "시스템 자체 검증 — 불변식·골든 케이스·mutation, 실패할 수 있는 검사 (해설서 §20)",
+      "status": "implemented",
+      "evidence": [
+        "harness/golden_cases.json",
+        "tools/golden_regression.py",
+        "tests/test_validation_memory.py"
+      ],
+      "note": "골든 16케이스 + verify 규칙마다 위반 fixture 반증 관행(F-E01 교훈) — 해설서 20.2 불변식 사상과 동일",
+      "master_ref_v960": "PLT-004 독립재계산·테스트 러너"
+    },
+    {
+      "id": "OVD-016",
+      "korean": "미확인·이월 추적 — 승인자 점검표의 미충족 항목 관리 (개요서 §11)",
+      "status": "implemented",
+      "evidence": [
+        "memory/carryover_register.jsonl",
+        "tools/validation_memory.py"
+      ],
+      "note": "이월 원장이 연속 미해소 구간을 생성 — 미확인은 통과가 아니다",
+      "master_ref_v960": "PLT-016 결과·이슈 critical path"
+    },
+    {
+      "id": "OVD-017",
+      "korean": "보고서·증빙팩 자동생성과 수치 자동삽입 (해설서 §23)",
+      "status": "implemented",
+      "evidence": [
+        "tools/report_pack.py",
+        "tools/pack_verify.py",
+        "tools/cro_digest.py"
+      ],
+      "note": "계층형 보고서 팩 + 재현성 자체검증 — 수치는 생성값 (F-501 원칙)",
+      "master_ref_v960": "PLT-008 검증 보고서"
+    },
+    {
+      "id": "OVD-018",
+      "korean": "개인정보·민감정보 통제 (해설서 §18.3)",
+      "status": "implemented",
+      "evidence": [
+        "middleware/data_safety_guard.py",
+        "harness/permission_matrix.json"
+      ],
+      "note": "PII 패턴 스캔(ADV-DATA-04 auto_check)·가명 식별자 원칙 — CLAUDE.md §5 금지 행위와 정합"
+    },
+    {
+      "id": "OVD-019",
+      "korean": "요건정의 마스터 자체의 불일치 인지·추적 — VAL-GAP-001~006, 전건 PENDING_4_EYES (v9.6.0 통합 메타)",
+      "status": "implemented",
+      "evidence": [
+        "harness/valdoc_discrepancy_registry.json"
+      ],
+      "master_ref_v960": "00_통합_메타 · 적합성검증_불일치레지스트리",
+      "note": "RTM 범위(AC-31까지 119건) · 오류코드 6종 미등재 · CLOSED_WITH_OPEN_ACTIONS enum 부재 · snapshot status · 역할 alias · 상태도 권위. 검증 요청이 이 영역을 인용하면 활성화 여부(activation_flag=false)를 먼저 확인한다 — 해소 권한은 마스터 소유자"
+    }
+  ]
+}

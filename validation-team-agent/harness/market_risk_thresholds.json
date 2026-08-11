@@ -1,0 +1,18 @@
+{
+  "policy_version": "1.0",
+  "framework": "MAR33 IMA Backtesting + MAR10 FRTB",
+  "description": "Basel FRTB / 시장리스크 검증 임계. 본 값은 BCBS 표준이며 모형 / 포트폴리오 정책에 의해 강화될 수 있다 (완화 금지).",
+  "var_backtest_traffic_light": {
+    "horizon_days": 250,
+    "p_value": 0.99,
+    "green_max_exceptions": 4,
+    "yellow_max_exceptions": 9,
+    "red_min_exceptions": 10
+  },
+  "expected_shortfall": {
+    "p_value": 0.975,
+    "horizon_days_liquidity_adjusted": true
+  },
+  "var_multiplier_floor": 3.0,
+  "stress_var_required": true
+}

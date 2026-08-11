@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://validation-team-agent/runner_result.schema.json",
+  "title": "Runner Result",
+  "description": "Schema for the dict returned by run_validation/run_macro_validation/run_ifrs9_validation runners.",
+  "type": "object",
+  "properties": {
+    "report_md": { "type": "string", "minLength": 1 },
+    "completeness": {
+      "type": "object",
+      "properties": { "passed": { "type": "boolean" } },
+      "required": ["passed"]
+    },
+    "citations": {
+      "type": "object",
+      "properties": { "passed": { "type": "boolean" } },
+      "required": ["passed"]
+    },
+    "watermarks": {
+      "type": "object",
+      "properties": { "passed": { "type": "boolean" } },
+      "required": ["passed"]
+    }
+  },
+  "required": ["report_md", "completeness", "citations", "watermarks"]
+}

@@ -1,0 +1,130 @@
+{
+  "schema_version": "1.0",
+  "policy_version": "1.0",
+  "framework": "PRD-VAL VAL-010 (Golden Case 회귀검증) / VAL-012 (비의도 변경 탐지)",
+  "description": "검증 산출값의 기대결과 집합. 배포 전 전량 실행해 기존 정상 기능의 비의도 변경을 차단한다. 기대값은 tools/independent_recalc 의 독립 계산기로 산출하며 도메인 코드와 분리되어 있다. Golden Case 추가·수정·삭제는 change_manifest 로 승인 이력을 남긴다.",
+  "kinds": {
+    "regression": "정상 입력에 대한 기대 산출값 — 기존 기능의 비의도 변경 탐지",
+    "boundary": "경계값 — 임계에 정확히 걸친 입력에서의 판정 안정성",
+    "sensitivity": "민감도 — 입력 변화 시 산출이 기대한 방향·크기로 움직이는지",
+    "prohibited": "금지행위 — 정의되지 않은/모순된 입력은 반드시 거부되어야 한다"
+  },
+  "blocking_policy": "critical=true 인 사례가 하나라도 실패하면 배포를 차단한다. prohibited 와 boundary 는 통제의 마지막 방어선이므로 전부 critical 이다.",
+  "cases": [
+    {
+      "case_id": "GC-001", "kind": "regression", "critical": true,
+      "target": "lcr", "inputs": {"hqla": 130.0, "net_outflow": 100.0},
+      "expected": 1.30, "tolerance": 1e-9,
+      "rationale": "LCR 표준 비율 산출의 기준 사례"
+    },
+    {
+      "case_id": "GC-002", "kind": "regression", "critical": true,
+      "target": "nsfr",
+      "inputs": {"available_stable_funding": 110.0, "required_stable_funding": 100.0},
+      "expected": 1.10, "tolerance": 1e-9,
+      "rationale": "NSFR 표준 비율 산출의 기준 사례"
+    },
+    {
+      "case_id": "GC-003", "kind": "regression", "critical": true,
+      "target": "cet1_ratio", "inputs": {"cet1_capital": 13.5, "rwa": 100.0},
+      "expected": 0.135, "tolerance": 1e-9,
+      "rationale": "CET1 비율 기준 사례"
+    },
+    {
+      "case_id": "GC-004", "kind": "regression", "critical": false,
+      "target": "leverage_ratio",
+      "inputs": {"tier1_capital": 4.9, "total_exposure": 100.0},
+      "expected": 0.049, "tolerance": 1e-9,
+      "rationale": "레버리지비율 기준 사례"
+    },
+    {
+      "case_id": "GC-005", "kind": "regression", "critical": true,
+      "target": "icaap_ratio",
+      "inputs": {"available_capital": 110.0, "required_gross": 100.0,
+                 "diversification_benefit": 0.2},
+      "expected": 1.375, "tolerance": 1e-9,
+      "rationale": "분산효과 반영 내부자본비율 — 110 / (100 × 0.8)"
+    },
+    {
+      "case_id": "GC-006", "kind": "regression", "critical": false,
+      "target": "portfolio_default_rate",
+      "inputs": {"default_count": 25.0, "obligor_count": 1000.0},
+      "expected": 0.025, "tolerance": 1e-9,
+      "rationale": "포트폴리오 부도율 기준 사례"
+    },
+
+    {
+      "case_id": "GC-007", "kind": "boundary", "critical": true,
+      "target": "lcr", "inputs": {"hqla": 100.0, "net_outflow": 100.0},
+      "expected": 1.0, "tolerance": 1e-9,
+      "rationale": "규제 최소 기준(LCR 1.0)에 정확히 걸친 경계값"
+    },
+    {
+      "case_id": "GC-008", "kind": "boundary", "critical": true,
+      "target": "icaap_ratio",
+      "inputs": {"available_capital": 100.0, "required_gross": 100.0,
+                 "diversification_benefit": 0.0},
+      "expected": 1.0, "tolerance": 1e-9,
+      "rationale": "분산효과 0 (하한) — 차감 없이 그대로 산출되어야 한다"
+    },
+    {
+      "case_id": "GC-009", "kind": "boundary", "critical": true,
+      "target": "portfolio_default_rate",
+      "inputs": {"default_count": 1000.0, "obligor_count": 1000.0},
+      "expected": 1.0, "tolerance": 1e-9,
+      "rationale": "전건 부도 — 비율 상한 1.0"
+    },
+    {
+      "case_id": "GC-010", "kind": "boundary", "critical": true,
+      "target": "portfolio_default_rate",
+      "inputs": {"default_count": 0.0, "obligor_count": 1000.0},
+      "expected": 0.0, "tolerance": 1e-9,
+      "rationale": "무부도 — 비율 하한 0.0"
+    },
+
+    {
+      "case_id": "GC-011", "kind": "sensitivity", "critical": false,
+      "target": "lcr", "inputs": {"hqla": 100.0, "net_outflow": 100.0},
+      "perturbed_inputs": {"hqla": 110.0, "net_outflow": 100.0},
+      "expected_direction": "increase", "expected_delta": 0.10,
+      "tolerance": 1e-9,
+      "rationale": "HQLA 10% 증가 시 LCR 이 정확히 0.10 상승해야 한다 (선형성)"
+    },
+    {
+      "case_id": "GC-012", "kind": "sensitivity", "critical": false,
+      "target": "cet1_ratio", "inputs": {"cet1_capital": 10.0, "rwa": 100.0},
+      "perturbed_inputs": {"cet1_capital": 10.0, "rwa": 125.0},
+      "expected_direction": "decrease", "expected_delta": -0.02,
+      "tolerance": 1e-9,
+      "rationale": "RWA 25% 증가 시 CET1 비율은 0.10 → 0.08 로 하락"
+    },
+
+    {
+      "case_id": "GC-013", "kind": "prohibited", "critical": true,
+      "target": "lcr", "inputs": {"hqla": 100.0, "net_outflow": 0.0},
+      "expect_error": "분모가 0",
+      "rationale": "분모 0 은 비율이 정의되지 않는다 — 0 이나 무한대로 대체하면 안 된다"
+    },
+    {
+      "case_id": "GC-014", "kind": "prohibited", "critical": true,
+      "target": "portfolio_default_rate",
+      "inputs": {"default_count": 50.0, "obligor_count": 10.0},
+      "expect_error": "입력 모순",
+      "rationale": "부도 차주가 전체 차주보다 많을 수 없다 — 조용히 1.0 으로 절단하면 데이터 오류를 은폐한다"
+    },
+    {
+      "case_id": "GC-015", "kind": "prohibited", "critical": true,
+      "target": "icaap_ratio",
+      "inputs": {"available_capital": 100.0, "required_gross": 100.0,
+                 "diversification_benefit": 1.5},
+      "expect_error": "범위 밖",
+      "rationale": "분산효과 100% 초과는 필요자본을 음수로 만든다 (BCBS SRP30 보수성 원칙 위반)"
+    },
+    {
+      "case_id": "GC-016", "kind": "prohibited", "critical": true,
+      "target": "lcr", "inputs": {"hqla": "많음", "net_outflow": 100.0},
+      "expect_error": "수치가 아니다",
+      "rationale": "비수치 입력을 암묵 형변환하면 산출이 조용히 오염된다"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "policy_version": "1.0",
+  "framework": "SRP31 IRRBB (BCBS d368)",
+  "description": "IRRBB outlier 기준. 6개 표준 시나리오 중 최대 ΔEVE 가 Tier 1 의 15% 초과 시 outlier bank.",
+  "delta_eve_outlier_pct_tier1": 0.15,
+  "delta_nii_warning_pct_nii": 0.20,
+  "standard_scenarios": [
+    "parallel_up",
+    "parallel_down",
+    "steepener",
+    "flattener",
+    "short_rate_up",
+    "short_rate_down"
+  ]
+}
