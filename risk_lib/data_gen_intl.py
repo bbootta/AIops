@@ -21,8 +21,14 @@
 그 원장을 인자로 받는다. 생성기 본문에는 계수가 없다.
 
 모든 합성 행에는 `data_origin='합성'`·`evidence_status='내부기준(합성)'` 이
-붙는다. 국내 표본(KR_BANK_01)은 여기서 새로 만들지 않고 기존 생성기를 그대로
-쓰므로 그 표기를 바꾸지 않는다.
+붙는다. 국내 표본(KR_BANK_01)의 익스포저도 여기 든다. 그 숫자는 여기서 다시
+만들지 않고 기존 생성기(`data_gen.generate_portfolio`)의 산출을 그대로 쓰지만,
+기존 생성기의 산출도 합성이다. 표기는 값을 만든 경로를 가리켜야 하므로 국내
+표본이라고 해서 '수기등록'(사람이 등록한 실데이터)으로 적지 않는다.
+
+프로파일·구성 원장의 국내 표본 행은 다르다. 그 행의 값은 기존 엔진이 쓰던
+상수를 사람이 옮겨 적은 것이라 등록 경로가 '수기등록'·근거 상태가 '미확인'
+이며, 그것이 그 원장 행의 사실이다.
 
 금액 단위에 대하여
 ------------------
@@ -764,8 +770,13 @@ def generate_institution_portfolio(
     ]
 
     p.insert(0, inst.INSTITUTION_COLUMN, code)
-    p["data_origin"] = str(prow["data_origin"])
-    p["evidence_status"] = str(prow["evidence_status"])
+    # 표기는 이 행을 만든 경로를 가리킨다. 프로파일 원장의 등록 경로를 그대로
+    # 옮기면 국내 표본의 합성 익스포저 전건이 '수기등록'(사람이 등록한
+    # 실데이터)으로 표시되고, `data_origin=='합성'` 으로 합성 행을 거르는 쪽은
+    # 그 전건을 놓친다. 프로파일 행의 등록 경로는 그 원장 행의 사실이지 여기
+    # 익스포저의 출처가 아니다.
+    p["data_origin"] = SYNTHETIC_ORIGIN
+    p["evidence_status"] = SYNTHETIC_EVIDENCE
     return p
 
 

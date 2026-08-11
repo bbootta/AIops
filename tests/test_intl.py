@@ -156,6 +156,25 @@ def test_domestic_portfolio_is_numerically_unchanged():
             assert (a.fillna("∅").values == b.fillna("∅").values).all(), col
 
 
+def test_every_generated_exposure_is_marked_synthetic():
+    """익스포저 표기는 그 행을 만든 경로를 가리켜야 한다.
+
+    국내 표본의 익스포저도 `data_gen.generate_portfolio` 가 만든 합성 행이다.
+    프로파일 원장의 등록 경로('수기등록')를 그대로 옮기면 배포되는 유일한
+    기관의 전 포트폴리오가 사람이 등록한 실데이터로 표시되고, 합성 행을
+    거르는 쪽은 그 전건을 놓친다.
+    """
+    for code in (inst.PRIMARY_INSTITUTION, "EU_BANK_01"):
+        p = gi.generate_institution_portfolio(code, seed=_SEED)
+        assert (p["data_origin"] == gi.SYNTHETIC_ORIGIN).all(), code
+        assert (p["evidence_status"] == gi.SYNTHETIC_EVIDENCE).all(), code
+        assert not p.empty, code
+    # 프로파일 원장의 국내 표본 행은 별개다. 그 값은 사람이 옮겨 적은 상수이며
+    # 그 사실이 바뀌면 이 시험이 아니라 원장 쪽을 다시 봐야 한다.
+    prow = gi.profile_row(inst.PRIMARY_INSTITUTION)
+    assert str(prow["data_origin"]) == "수기등록"
+
+
 def test_domestic_labels_are_korean_and_foreign_labels_are_english():
     dom = gi.generate_institution_portfolio(inst.PRIMARY_INSTITUTION,
                                             seed=_SEED)
