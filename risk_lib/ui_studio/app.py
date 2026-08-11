@@ -182,6 +182,7 @@ def _executive_dict(s: Studio) -> dict:
     HTML 리포트는 이 dict에 서식을 입힌 것이고, 이 화면은 같은 dict를 브라우저에서
     그린다. 두 산출물의 수치가 갈라질 자리가 없다.
     """
+    from risk_lib.attribution import decompose_rwa_detail
     from risk_lib.html_exec import (
         _cro_briefing, _kri_card_data, _top_actions, briefing_facts,
     )
@@ -198,6 +199,12 @@ def _executive_dict(s: Studio) -> dict:
             {"component": str(x["component"]), "rwa": float(x["rwa"]),
              "share": float(x["share"])}
             for _, x in r.attribution["rwa_components"].iterrows()],
+        # 2단 분해. 1단은 위 프레임과 같은 값에서 나오고 2단만 원장 축으로 한
+        # 번 더 갈린다. 집계는 서버측 엔진이 하고 브라우저는 그리기만 한다.
+        "attribution_detail": [
+            {"group": str(x["group"]), "label": str(x["label"]),
+             "value": float(x["value"]), "note": str(x["note"])}
+            for _, x in decompose_rwa_detail(r, s.tables).iterrows()],
         "actions": list(_top_actions(r, max_actions=5)),
         "source": "risk_lib.html_exec (02_reports/executive.html 과 동일 산출)",
     }
@@ -3249,13 +3256,21 @@ function executiveReport(root){
     root.appendChild(c);
   }
 
-  /* --- RWA 귀속 (리포트 ops/23) --- */
-  const at=E.attribution;
+  /* --- RWA 귀속 (리포트 ops/23) ---
+     1단은 최종 RWA 항등식의 구성요소, 2단은 자산군·위험군·BI 구성비 축이다.
+     두 단 모두 서버측 decompose_rwa_detail 이 만든다. 트리맵은 group 이
+     있으면 스스로 2단으로 그리므로 데이터만 넘긴다. */
+  const at=E.attribution,atd=E.attribution_detail;
   if(at&&at.length){
     const c=el('div','card');c.id='sec-rwa-attr';
     c.appendChild(el('h3',null,'위험가중자산 귀속 (구성요소별 비중)'));
-    c.appendChild(donut(at.map(x=>({label:x.component,value:x.rwa})),
-      {note:'구성요소별 위험가중자산 · 합계는 공표 RWA와 같다'}));
+    const src=(atd&&atd.length)?atd
+      :at.map(x=>({group:x.component,label:x.component,value:x.rwa,note:''}));
+    c.appendChild(donut(src.map(x=>({group:x.group,label:x.label,
+      value:x.value})),
+      {note:'묶음은 최종 RWA 구성요소, 그 안은 원장 축 · 합계는 공표 RWA와 같다'}));
+    const nts=[...new Set(src.map(x=>x.note).filter(Boolean))];
+    if(nts.length)c.appendChild(el('div','meta',nts.join(' / ')));
     root.appendChild(c);
   }
 

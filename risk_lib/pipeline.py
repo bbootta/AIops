@@ -1661,8 +1661,16 @@ def run_pipeline(
     # right attributes for the closed-form sensitivities.
     shim.ecl = {"total": float(ecl_df["ecl"].sum()),
                 "by_stage": ecl_by_stage}
+    # 구성요소는 최종 RWA 항등식(sa+irb+ccr+market+op+structured+floor add-on)
+    # 전부를 넘긴다. 네 항만 넘기면 `decompose_rwa`가 나머지를 미배분으로
+    # 드러낸다. 예전에는 그 잔차가 "Output floor 가산"으로 표시되어 CCR과
+    # 구조화가 산출하한 안에 숨었다.
     shim.rwa = {
-        "sa": rwa_sa, "irb": rwa_irb, "market": mkt.rwa, "op": op.rwa,
+        "sa": rwa_sa, "irb": rwa_irb, "ccr": rwa_ccr,
+        "market": mkt.rwa, "op": op.rwa,
+        "structured_total": (float(structured.rwa_internal)
+                             if structured else 0.0),
+        "output_floor": floor,
         "final_total": rwa_final,
     }
     shim.meta = {"capital": capital}
