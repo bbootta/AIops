@@ -821,6 +821,11 @@ SCREENS_WITHOUT_LEDGER: dict[str, str] = {
                   "원장이 없어 정형 조회·감독서식에서 이 결과를 쓸 수 없다",
     "요건 추적": "요건 추적표는 원장이 아니라 코드 선언(req_trace.TRACE)이다. "
                  "증빙 실재는 tests/test_req_trace.py 가 검증한다",
+    "기관 설정": "연결 원장은 있다. inst_master·inst_profile·"
+                 "inst_portfolio_mix·inst_country_mix·intl_label_lexicon 이며 "
+                 "data_gen_intl.build_all() 이 만든다. 다만 그 다섯 장이 아직 "
+                 "ALL_TABLES 밖이라 이 계보 그래프의 원장 집합에 없다. "
+                 "카탈로그에 등재되면 이 줄을 뺀다",
 }
 
 

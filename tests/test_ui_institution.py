@@ -65,10 +65,13 @@ def test_studio_carries_the_institution_of_its_run(studio):
     assert studio.institution_code == intl.BASE_INSTITUTION
 
 
-def test_institution_ledgers_are_materialised_in_the_studio(studio):
+def test_institution_ledgers_are_built_but_kept_out_of_the_run_tables(studio):
+    """축 마스터는 실행 산출물이 아니다. 실행 원장에 섞으면 기관귀속·DQ 판정이
+    전 기관이 든 원장까지 세게 된다."""
     for name in uiapp._INST_TABLES:
-        assert name in studio.tables, f"{name} 원장이 없다"
-        assert len(studio.tables[name]) > 0, f"{name} 원장이 비었다"
+        assert name in studio.inst_tables, f"{name} 원장이 없다"
+        assert len(studio.inst_tables[name]) > 0, f"{name} 원장이 비었다"
+        assert name not in studio.tables, f"{name} 이 실행 원장에 섞였다"
 
 
 def test_payload_carries_the_axis_and_the_selected_row(studio):

@@ -184,7 +184,7 @@ def _institution(s: Studio) -> dict:
     걸러 찾게 하면 같은 조회가 화면마다 한 벌씩 생기고, 그중 하나가 다른
     기관의 행을 집으면 화면에 남는 흔적이 없다.
     """
-    t = s.tables
+    t = s.inst_tables
     code = s.institution_code
     out: dict = {"code": code, "master_row": {}, "profile_row": {},
                  "tables": {}}

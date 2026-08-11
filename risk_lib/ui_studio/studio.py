@@ -71,6 +71,11 @@ class Studio:
     # 이 스냅샷이 어느 기관의 산출인가. 화면의 기관 선택기는 이 값으로
     # 실행을 가른다. 산출에 쓰이는 값이 아니라 실행의 소속 표시다.
     institution_code: str = _inst.PRIMARY_INSTITUTION
+    # 기관 축 원장. `tables` 에 넣지 않는 이유는 이것이 이 실행의 산출물이
+    # 아니기 때문이다. 전 기관을 담은 축 마스터를 실행 원장에 섞으면 기관
+    # 귀속·DQ·마감 판정이 이 원장까지 세게 되고, 실제로 기관코드 도장을
+    # 찍는 검사가 전 기관이 든 프로파일 원장에서 걸렸다.
+    inst_tables: dict[str, pd.DataFrame] = field(default_factory=dict)
 
     def view_fields(self, view_id: str) -> pd.DataFrame:
         p = self.tables["ui_field_policy"]
@@ -189,18 +194,18 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     tables.update(request_frames(iv_request, iv_gate))
 
     # ---- 기관 축 원장. 기관 선택기와 기관 설정 화면의 연결 원장이다.
-    # 여기가 마지막인 이유: 앞의 DQ·마감·통합 판정과 독립검증 요청은 "이 실행이
-    # 무엇을 실었는가"를 세는데, 기관 원장은 실행 산출물이 아니라 축 마스터다.
-    # 앞에 두면 그 판정의 분모가 조용히 달라진다.
+    # `tables` 와 섞지 않는다. 이 원장은 이 실행의 산출물이 아니라 전 기관을
+    # 담은 축 마스터라, 실행 원장에 섞으면 DQ·마감·기관귀속 판정이 그것까지
+    # 세게 된다.
     from risk_lib import data_gen_intl as _intl
     inst_code = str(result.meta.get("institution_code")
                     or _intl.BASE_INSTITUTION)
-    tables.update(_intl.build_all())
 
     studio = Studio(asof=asof, run_id=run_id, digest=digest, tables=tables,
                     built_forms=built, result=result,
                     iv_request=iv_request, iv_gate=iv_gate,
-                    institution_code=inst_code)
+                    institution_code=inst_code,
+                    inst_tables=_intl.build_all())
 
     # ---- 조회계획 컴파일 + 실행
     plans, plan_results = [], {}
