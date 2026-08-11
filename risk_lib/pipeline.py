@@ -12,7 +12,7 @@ from __future__ import annotations
 import warnings as warnings_mod
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -356,25 +356,33 @@ def _stage_credit_rwa(sa_book: pd.DataFrame, irb_book: pd.DataFrame):
     return sa_res, irb_res, rwa_sa, rwa_irb
 
 
-def _stage_market_op_rwa(seed: int):
+def _stage_market_op_rwa(seed: int, params: "Mapping[str, float]"):
     """시장·운영 RWA — 신용 포트폴리오와 **독립**이다(전용 시드 스트림).
 
     이전에는 트레이딩 명목과 영업지표(BI)를 신용 EAD 합에 비례시켰다.
     그러면 신용 익스포저가 움직일 때마다 시장·운영 RWA가 따라 움직인다 —
     실제 원천은 서로 다르다(트레이딩 북·손익 지표). 도메인 병렬 산출의
     전제가 이 독립성이므로, 규모감만 같은 합성 명목을 독립 시드로 만든다.
+
+    명목 규모와 위험군·BI 구성비는 `params` 로 받는다. 기관마다 트레이딩
+    비중이 다른데 본문에 수를 두면 어느 기관을 돌려도 같은 시장 RWA가 나온다.
+    값의 출처는 `data_gen_intl.INST_PROFILE` 한 곳뿐이다.
     """
     rng = np.random.default_rng(seed + 7100)
     # 총자산 규모감(합성) — 신용 EAD가 아니라 독립 기준이다.
-    notional = 1.0e13 * float(rng.uniform(0.95, 1.05))
+    notional = float(params["mkt_notional_base"]) * float(rng.uniform(0.95, 1.05))
     mkt_positions = pd.DataFrame({
         "risk_class": ["fx", "equity", "interest_rate"],
-        "net_position": [notional * 0.02, notional * 0.01, notional * 0.05],
+        "net_position": [notional * float(params["share_fx"]),
+                         notional * float(params["share_equity"]),
+                         notional * float(params["share_ir"])],
     })
     mkt = compute_market_risk_rwa(mkt_positions)
-    bi = BusinessIndicator(ildc=notional * 0.02, sc=notional * 0.01,
-                           fc=notional * 0.005)
-    op = compute_op_risk_rwa(bi, avg_annual_losses_10y=notional * 0.001)
+    bi = BusinessIndicator(ildc=notional * float(params["share_bi_ildc"]),
+                           sc=notional * float(params["share_bi_sc"]),
+                           fc=notional * float(params["share_bi_fc"]))
+    op = compute_op_risk_rwa(
+        bi, avg_annual_losses_10y=notional * float(params["op_loss_rate"]))
     return mkt, op, mkt_positions, bi, notional
 
 
@@ -1427,11 +1435,22 @@ def run_pipeline(
     years_ahead: int = 2,
     asof: "date | str | None" = None,
     capital_ledger: CapitalStack | None = None,
+    market_op: Mapping[str, float] | None = None,
+    institution_code: str | None = None,
 ) -> PipelineResult:
     """`capital_ledger`를 주면 실제 자본 원장으로 산출한다. 주지 않으면
-    수익성 기반 합성기를 쓰며, 그 사실이 독립검증 요청에 공시된다."""
+    수익성 기반 합성기를 쓰며, 그 사실이 독립검증 요청에 공시된다.
+
+    `market_op`·`buffers` 를 주지 않으면 기관 프로파일 원장의 국내 표본 행을
+    읽는다. 엔진 기본값으로 두면 그 수가 소스에 남는다.
+    `institution_code` 는 산출에 쓰이지 않고 meta 에만 남는다 — 결과 한 벌이
+    어느 기관 것인지 결과 자신이 말하게 하기 위한 것이다.
+    """
+    from risk_lib import data_gen_intl as _intl
     if buffers is None:
-        buffers = {"capital_conservation": 0.025, "countercyclical": 0.0, "dsib": 0.01}
+        buffers = _intl.buffers_for(_intl.BASE_INSTITUTION)
+    if market_op is None:
+        market_op = _intl.market_op_params(_intl.BASE_INSTITUTION)
     if portfolio is None:
         portfolio = generate_portfolio(seed=seed)
 
@@ -1476,7 +1495,7 @@ def run_pipeline(
                 sa_book, irb_book, sa_res, irb_res, rwa_sa, rwa_irb)
 
     def _branch_market_op():
-        return _stage_market_op_rwa(seed)
+        return _stage_market_op_rwa(seed, market_op)
 
     def _branch_ccr():
         bank_book = portfolio[portfolio["asset_class"] == "bank"]
@@ -1820,9 +1839,184 @@ def run_pipeline(
         meta={"seed": seed, "capital": capital, "hurdle_rate": hurdle_rate,
               "asof": asof.isoformat(), "asof_source": asof_source,
               "quarters": quarters,
+              # 어느 기관의 산출인가. 없으면 결과 한 벌만 보고는 알 수 없고,
+              # 기관을 섞은 표를 만들었을 때 그것을 잡아낼 근거도 없다.
+              "institution_code": institution_code,
+              "market_op": dict(market_op),
               # 추적표가 같은 입력으로 다시 세워질 수 있게 실제 쓴 완충자본을
               # 남긴다. 없으면 `trace_from_result`가 값을 지어내야 하고, 실제로
               # 지어내고 있었다 — 화면과 보고서가 같은 은행에 다른 요구비율을
               # 보였다.
               "buffers": dict(buffers)},
     )
+
+
+# ---------------------------------------------------------------- 다기관 실행부
+#
+# 기관 축(INST-001)을 세우고 권역별 가상 기관을 등록했지만, 태그를 붙인 것만으로는
+# 축이 산다는 증거가 되지 않는다. 기관마다 파이프라인을 실제로 돌려 RWA·자본비율·
+# ECL 이 각각 다른 값으로 나오고, 각자의 자체검증을 통과해야 축이 선 것이다.
+#
+# 합산하지 않는다. 규제자본은 기관 단위 지표이고, 통화가 다르고 환산 근거도 없다.
+# 여기서 만드는 표는 전부 **기관 1행**이며 합계 행이 없다.
+
+
+@dataclass
+class InstitutionRun:
+    """기관 한 곳의 산출 한 벌."""
+    institution_code: str
+    result: PipelineResult
+    elapsed_sec: float
+    portfolio: pd.DataFrame
+
+    @property
+    def validation_summary(self) -> dict[str, int]:
+        return self.result.validation.summary()
+
+    def passes(self) -> bool:
+        return self.result.validation.passes()
+
+
+@dataclass
+class MultiInstitutionResult:
+    """기관별 산출 묶음. 합계는 없다."""
+    runs: dict[str, InstitutionRun]
+    headline: pd.DataFrame
+    validation: pd.DataFrame
+    timing: pd.DataFrame
+    ledgers: dict[str, pd.DataFrame]
+    asof: str
+    seed: int
+
+    def failing(self) -> list[str]:
+        return [c for c, r in self.runs.items() if not r.passes()]
+
+
+def _headline_row(code: str, run: InstitutionRun,
+                  master: pd.DataFrame, profile: pd.DataFrame) -> dict:
+    r = run.result
+    m = master[master["institution_code"] == code].iloc[0]
+    p = profile[profile["institution_code"] == code].iloc[0]
+    rwa = r.rwa
+    final = float(rwa["final_total"])
+    alm = r.alm or {}
+    lcr = getattr(alm.get("lcr"), "lcr", float("nan"))
+    nsfr = getattr(alm.get("nsfr"), "nsfr", float("nan"))
+    return {
+        "institution_code": code,
+        "name": (m["name_ko"] if bool(m["is_domestic"]) else m["name_en"]),
+        "region": m["region"],
+        "institution_type": m["institution_type"],
+        "currency": m["currency"],
+        "archetype": p["archetype"],
+        "n_exposures": int(len(run.portfolio)),
+        "total_ead": float(run.portfolio["ead"].sum()),
+        "rwa_credit": float(rwa["sa"]) + float(rwa["irb"]) + float(rwa["ccr"]),
+        "rwa_market": float(rwa["market"]),
+        "rwa_op": float(rwa["op"]),
+        "rwa_structured": float(rwa["structured_total"]),
+        "rwa_final": final,
+        "market_op_share": (float(rwa["market"]) + float(rwa["op"])) / final,
+        "cet1_ratio": float(r.bis.cet1_ratio),
+        "tier1_ratio": float(r.bis.tier1_ratio),
+        "total_ratio": float(r.bis.total_ratio),
+        "leverage_ratio": float(r.leverage.leverage_ratio),
+        "ecl_total": float(r.ecl["total"]),
+        "lcr": float(lcr),
+        "nsfr": float(nsfr),
+        "data_origin": p["data_origin"],
+        "evidence_status": p["evidence_status"],
+    }
+
+
+def run_multi_institution(
+    codes: "Sequence[str] | None" = None,
+    *,
+    seed: int = 42,
+    asof: str = "2025-12-31",
+    ledgers: "dict[str, pd.DataFrame] | None" = None,
+    on_progress: "Any" = None,
+) -> MultiInstitutionResult:
+    """등록된 기관 전부(또는 `codes`)에 대해 파이프라인을 돌린다.
+
+    기관마다 쓰는 것:
+      포트폴리오   `data_gen_intl.generate_institution_portfolio`
+      난수 스트림  `institutions.institution_seed` (seed + 원장의 오프셋)
+      완충자본·요구수익률·산출하한·시장운영 모수  `inst_profile`
+
+    돌리는 순서는 기관 원장의 등록 순서이며 기관 간 상태를 공유하지 않는다.
+    같은 (asof, seed) 로 몇 번을 돌려도 같은 값이 나온다.
+    """
+    import time
+    from risk_lib import data_gen_intl as intl
+    from risk_lib import institutions as _inst
+
+    led = intl.build_all() if ledgers is None else ledgers
+    master = led[_inst.AXIS_MASTER]
+    profile = led[intl.INST_PROFILE.name]
+    all_codes = intl.institution_codes(master)
+    todo = tuple(all_codes) if codes is None else tuple(codes)
+    unknown = [c for c in todo if c not in all_codes]
+    if unknown:
+        raise ValueError(f"기관 원장에 없는 기관코드: {unknown}")
+
+    runs: dict[str, InstitutionRun] = {}
+    head: list[dict] = []
+    val: list[dict] = []
+    for code in todo:
+        prow = intl.profile_row(code, profile)
+        port = intl.generate_institution_portfolio(
+            code, seed=seed, master=master, profile=profile,
+            mix=led[intl.INST_PORTFOLIO_MIX.name],
+            country_mix=led[intl.INST_COUNTRY_MIX.name],
+            lexicon=led[intl.INTL_LABEL_LEXICON.name])
+        t0 = time.perf_counter()
+        res = run_pipeline(
+            port.drop(columns=[_inst.INSTITUTION_COLUMN]),
+            seed=_inst.institution_seed(seed, code, master),
+            hurdle_rate=float(prow["hurdle_rate"]),
+            output_floor=float(prow["output_floor"]),
+            buffers=intl.buffers_for(code, profile),
+            asof=asof,
+            market_op=intl.market_op_params(code, profile),
+            institution_code=code,
+        )
+        elapsed = time.perf_counter() - t0
+        run = InstitutionRun(code, res, elapsed, port)
+        runs[code] = run
+        head.append(_headline_row(code, run, master, profile))
+        s = run.validation_summary
+        val.append({
+            "institution_code": code,
+            "PASS": int(s.get("PASS", 0)),
+            "WARN": int(s.get("WARN", 0)),
+            "FAIL": int(s.get("FAIL", 0)),
+            "n_checks": int(len(res.validation.checks)),
+            "passes": bool(run.passes()),
+        })
+        if on_progress is not None:
+            on_progress(code, elapsed, s)
+
+    timing = pd.DataFrame([{"institution_code": c, "elapsed_sec": r.elapsed_sec}
+                           for c, r in runs.items()])
+    return MultiInstitutionResult(
+        runs=runs,
+        headline=pd.DataFrame(head),
+        validation=pd.DataFrame(val),
+        timing=timing,
+        ledgers=led,
+        asof=asof,
+        seed=seed,
+    )
+
+
+def institution_ledgers(run: InstitutionRun) -> dict[str, pd.DataFrame]:
+    """산출 원장에 기관코드를 채운 사본. 공유 참조 원장은 손대지 않는다."""
+    from risk_lib import institutions as _inst
+    tables: dict[str, pd.DataFrame] = {}
+    tables.update(run.result.rdm_base)
+    tables.update(run.result.alm_tables)
+    tables.update(run.result.ledger_tables)
+    if run.result.structured is not None:
+        tables.update(run.result.structured.tables)
+    return _inst.stamp_all(tables, run.institution_code)
