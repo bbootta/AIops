@@ -1,3 +1,17 @@
+# AIops — 팀 에이전트 하네스 모음
+
+Claude Code 기반 팀 에이전트 하네스 모노레포.
+
+| 팀 | 위치 | 설명 |
+|---|---|---|
+| 법무팀 | `.claude/agents/legal-*`, `harness/legal/`, `kb/legal/`, `templates/legal/` | 아래 [법무 에이전트팀 하네스](#법무-에이전트팀-하네스-legal-agent-team-harness) |
+| 데이터 엔지니어링팀 | `.claude/agents/`, `harness/`, `templates/`, `deliverables/` | 아래 [Data Engineering Team Agent Harness](#data-engineering-team-agent-harness) |
+| 디자인팀 | `design-team/` | `design-team/README.md` |
+| 번역팀 | `translation/` | `translation/README.md` |
+| 적합성검증팀 연동 | `validation-team-agent/` | `validation-team-agent/README-INTEGRATION.md` |
+
+---
+
 # 법무 에이전트팀 하네스 (Legal Agent Team Harness)
 
 회사 법무팀 · 변호인 · 법무컨설팅 업무를 지원하는 Claude Code 기반 법무
@@ -78,3 +92,48 @@ Workflow legal-kb-update    args: { "date": "YYYY-MM-DD", "topics": ["kr-corpora
 KB 기준일은 `kb/legal/00-index.md` 참조. 분기 1회 또는 큰 입법·판례
 이벤트(정기국회, 대형 전원합의체 판결) 후 `legal-kb-update` 워크플로로
 갱신한다. KB 구축·검증 이력은 각 문서 헤더의 갱신일로 추적한다.
+
+---
+
+# Data Engineering Team Agent Harness
+
+A Claude Code multi-agent harness that acts as a data engineering team. The
+team's methodology is inherited from
+[DataExpert-io/data-engineer-handbook](https://github.com/DataExpert-io/data-engineer-handbook)
+— each specialist agent encodes one module of the handbook's curriculum
+(see [`harness/handbook-map.md`](harness/handbook-map.md)).
+
+## Team
+
+| Agent | Role |
+|---|---|
+| `data-engineering-lead` | Orchestrator: intake, routing, review gates, final assembly |
+| `dimensional-data-modeler` | Dimensions, SCDs, cumulative tables, graph models |
+| `fact-data-modeler` | Event/fact grain, dedup, datelist ints, array metrics |
+| `spark-engineer` | Batch compute: PySpark + Iceberg jobs, joins, tests |
+| `streaming-engineer` | Flink/Kafka real-time pipelines, watermarks, windows |
+| `analytics-engineer` | Analytical patterns, growth accounting, KPIs, experiments |
+| `data-quality-engineer` | Mandatory QA gate: contracts, checks, write-audit-publish |
+| `pipeline-ops-engineer` | Runbooks, ownership, SLAs, on-call, tech debt |
+
+## Usage
+
+Open this repo in Claude Code — agents in `.claude/agents/` load automatically.
+
+- Full-team task: "As the data-engineering-lead, design a daily user activity
+  pipeline from our event stream."
+- Narrow task: "Use the fact-data-modeler subagent to design a datelist-int
+  activity table."
+
+Workflow, gates, and invocation details: [`harness/de-team-runbook.md`](harness/de-team-runbook.md).
+Roster and routing rules: [`harness/team.yaml`](harness/team.yaml).
+Deliverable templates: [`templates/`](templates/).
+
+## Layout
+
+```
+.claude/agents/   # agent definitions (auto-loaded by Claude Code)
+harness/          # team roster, operating runbook, handbook inheritance map
+templates/        # data-model spec, pipeline runbook, quality checklist
+deliverables/     # team outputs (models/, pipelines/, runbooks/, analyses/)
+```

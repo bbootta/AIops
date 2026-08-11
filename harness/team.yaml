@@ -1,0 +1,59 @@
+# Data Engineering Team Agent Harness
+# Roster and routing rules. Agent definitions live in .claude/agents/.
+# Expertise is inherited from DataExpert-io/data-engineer-handbook
+# (see handbook-map.md for the exact source mapping).
+
+team:
+  name: data-engineering-team
+  upstream_knowledge: https://github.com/DataExpert-io/data-engineer-handbook
+
+lead:
+  agent: data-engineering-lead
+  responsibilities:
+    - intake and goal definition
+    - task decomposition and routing
+    - conflict resolution across specialists
+    - final assembly of deliverables
+
+specialists:
+  - agent: dimensional-data-modeler
+    domain: entities, dimensions, SCDs, cumulative tables, graph models
+    handbook_module: intermediate-bootcamp/materials/1-dimensional-data-modeling
+  - agent: fact-data-modeler
+    domain: event/fact grain, dedup, datelist ints, array metrics
+    handbook_module: intermediate-bootcamp/materials/2-fact-data-modeling
+  - agent: spark-engineer
+    domain: batch compute, Spark/Iceberg, joins, caching, job testing
+    handbook_module: intermediate-bootcamp/materials/3-spark-fundamentals
+  - agent: streaming-engineer
+    domain: Flink/Kafka real-time pipelines, watermarks, windows
+    handbook_module: intermediate-bootcamp/materials/4-apache-flink-training
+  - agent: analytics-engineer
+    domain: analytical patterns, growth accounting, KPIs, experiments
+    handbook_module:
+      - intermediate-bootcamp/materials/4-applying-analytical-patterns
+      - intermediate-bootcamp/materials/5-kpis-and-experimentation
+      - intermediate-bootcamp/materials/6-data-impact-training
+  - agent: data-quality-engineer
+    domain: contracts, checks, cleaning rules, write-audit-publish
+    handbook_module: data_cleaning.md + bootcamp data-quality weeks
+  - agent: pipeline-ops-engineer
+    domain: runbooks, ownership, SLAs, on-call, tech debt
+    handbook_module: intermediate-bootcamp/materials/6-data-pipeline-maintenance
+
+routing:
+  - match: "new dataset / table / data model"
+    sequence: [dimensional-data-modeler | fact-data-modeler, data-quality-engineer]
+  - match: "batch pipeline / backfill / Spark job"
+    sequence: [spark-engineer, data-quality-engineer, pipeline-ops-engineer]
+  - match: "real-time / streaming / Kafka / Flink"
+    sequence: [streaming-engineer, data-quality-engineer, pipeline-ops-engineer]
+  - match: "metric / KPI / retention / funnel / experiment"
+    sequence: [analytics-engineer, data-quality-engineer]
+  - match: "incident / on-call / prioritization / runbook"
+    sequence: [pipeline-ops-engineer]
+
+gates:
+  - every design and pipeline passes data-quality-engineer review before final
+  - every scheduled pipeline ships with a pipeline-ops-engineer runbook
+  - facts vs dimensions boundary disputes are settled by the lead
