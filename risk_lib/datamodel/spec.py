@@ -18,7 +18,7 @@ tests/test_datamodel.py가 각 규칙마다 위반 케이스로 발동을 확인
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Sequence
 
 import numpy as np
@@ -109,6 +109,34 @@ class TableSpec:
             col = self.column(pk)
             if col.nullable:
                 raise SchemaError(f"{self.name}.{pk}: PK 컬럼은 nullable일 수 없다")
+
+    def with_key_prefix(self, column: ColumnSpec, *,
+                        propagate_to: frozenset[str] = frozenset(),
+                        grain: str | None = None) -> "TableSpec":
+        """선행 키 컬럼을 앞에 붙인 새 스펙을 만든다. 원본은 그대로 둔다.
+
+        축을 하나 새로 세우면(기관·법인·연결범위 등) 그 축은 모든 대상 표의
+        기본키 앞머리에 들어가야 한다. 표를 한 장씩 손으로 고치면 빠뜨린 장이
+        생기고, 빠뜨린 장은 축의 값이 둘이 된 다음에야 드러난다.
+
+        `propagate_to` 는 같은 축을 쓰는 참조 대상 표의 이름이다. 그 대상을
+        가리키는 외래키는 축 컬럼까지 묶어 넓힌다. 넓히지 않으면 축 A 의
+        자식이 축 B 의 부모를 참조해도 참조무결성이 통과한다.
+        """
+        if column.name in self.column_names:
+            raise SchemaError(f"{self.name}: {column.name} 컬럼이 이미 있다")
+        if column.nullable:
+            raise SchemaError(f"{column.name}: 선행 키 컬럼은 nullable일 수 없다")
+        fks = tuple(
+            ForeignKey((column.name,) + fk.columns, fk.ref_table,
+                       (column.name,) + fk.ref_columns)
+            if fk.ref_table in propagate_to else fk
+            for fk in self.foreign_keys)
+        return replace(self,
+                       columns=(column,) + self.columns,
+                       primary_key=(column.name,) + self.primary_key,
+                       foreign_keys=fks,
+                       grain=self.grain if grain is None else grain)
 
     def column(self, name: str) -> ColumnSpec:
         for c in self.columns:

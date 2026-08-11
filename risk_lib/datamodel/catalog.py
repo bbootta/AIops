@@ -2665,3 +2665,22 @@ ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
               + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES
               + DETAIL_TABLES + R13_TABLES + AGG_TABLES + ALM_LEDGER_TABLES
               + NEW_LEDGER_TABLES)
+
+
+# ---------------------------------------------------------------- 기관코드 축
+#
+# 기관 축을 적용한 카탈로그는 `ALL_TABLES` 에서 파생한다. 원본을 그 자리에서
+# 바꾸지 않는 이유는 두 가지다.
+#   - 지금 실체화되는 원장에는 institution_code 컬럼이 아직 없다. 스펙만 먼저
+#     바꾸면 모든 원장이 missing_column 으로 떨어진다.
+#   - 원장을 채우는 쪽(materialize·studio)과 계보·문서 검사는 이 축 작업의
+#     소유 범위 밖이다. 그쪽이 `institutions.stamp_all` 로 기관코드를 채운
+#     다음 이 파생본을 검증 스펙으로 바꿔 다는 것이 순서다.
+#
+# 함수로 두는 것은 순환 임포트를 피하기 위해서다. `risk_lib.institutions` 는
+# `risk_lib.datamodel.spec` 를 읽고, 그 패키지 초기화가 이 모듈을 부른다.
+
+def inst_axis_tables() -> tuple[TableSpec, ...]:
+    """기관코드 축을 적용한 카탈로그 (기관 원장 1장을 포함한다)."""
+    from risk_lib.institutions import INST_MASTER, apply_institution_axis
+    return apply_institution_axis(ALL_TABLES) + (INST_MASTER,)
