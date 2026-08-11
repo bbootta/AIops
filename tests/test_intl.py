@@ -609,27 +609,52 @@ def test_structured_rwa_scales_with_the_profile_ledger():
 
 def test_structured_rwa_in_the_headline_comes_from_the_institution_scale(
         multi, ledgers):
-    """헤드라인의 구조화 RWA 가 그 기관의 배수로 다시 세워져야 한다.
+    """헤드라인의 구조화 RWA 를 원장 배수로 **독립하게** 세워 대조한다.
 
-    파이프라인이 배수를 안 넘기면 두 기관이 배수와 무관한 값을 갖고, 아래
-    재계산과 어긋난다.
+    이전 판은 헤드라인을 같은 `_stage_structured` 에 같은 배수를 넣어 다시
+    돌린 값과 맞대었다. 그러면 `_stage_structured` 가 배수를 통째로 버려도
+    양변이 함께 무너져 통과한다. 재검증이 그 변조를 주입해 통과를 확인했다.
+    재계산 대조는 통제가 아니다.
+
+    여기서는 배수 1.0 의 값만 엔진에서 받고, 기대값은 **원장 컬럼에서 직접
+    읽은 배수**로 시험이 세운다.
+
+        기대 = fund_scale × (배수 1.0 의 fund_rwa)
+             + sec_scale  × (배수 1.0 의 sec_rwa_internal)
+
+    배수를 버리는 변조가 들어오면 헤드라인은 배수 1.0 값이 되고 기대값과
+    어긋난다(EU_BANK_01 은 6,399,895,242,737 대 4,204,717,131,288).
+    엔진 안의 배수 적용이 선형이라는 사실 자체는
+    `test_structured_rwa_scales_with_the_profile_ledger` 가 따로 고정한다.
     """
     from datetime import date as _date
     from risk_lib.pipeline import _stage_structured
     master = ledgers[inst.AXIS_MASTER]
-    profile = ledgers[gi.INST_PROFILE.name]
+    profile = ledgers[gi.INST_PROFILE.name].set_index("institution_code")
+    unit = {"fund_scale": 1.0, "sec_scale": 1.0}
     h = multi.headline.set_index("institution_code")
     for code in _SAMPLE:
-        scale = gi.structured_scale_for(code, profile)
-        again = _stage_structured(
+        fund_scale = float(profile.loc[code, "fund_scale"])
+        sec_scale = float(profile.loc[code, "sec_scale"])
+        # 배수가 1.0 이면 "배수를 버린 값" 과 기대값이 같아져 대조가 성립하지
+        # 않는다. 표본 기관이 그런 배수를 갖게 되면 여기서 먼저 걸린다.
+        assert fund_scale != 1.0 and sec_scale != 1.0, code
+        # 헤드라인이 읽는 인자 생성기도 원장 그대로여야 한다.
+        assert gi.structured_scale_for(code, ledgers[gi.INST_PROFILE.name]) == {
+            "fund_scale": fund_scale, "sec_scale": sec_scale}, code
+        base = _stage_structured(
             _date.fromisoformat(_ASOF),
-            inst.institution_seed(_SEED, code, master), scale)
-        assert float(h.loc[code, "rwa_structured"]) == pytest.approx(
-            again.rwa_internal, rel=0, abs=1.0), code
+            inst.institution_seed(_SEED, code, master), unit)
+        expected = fund_scale * base.fund_rwa + sec_scale * base.sec_rwa_internal
+        got = float(h.loc[code, "rwa_structured"])
+        assert got == pytest.approx(expected, rel=1e-12), code
+        # 배수를 버린 값(= 배수 1.0 값)과는 반드시 달라야 한다.
+        assert got != pytest.approx(base.rwa_internal, rel=1e-9), code
     # 배수가 다른 두 기관이면 값도 갈린다.
     a, b = _SAMPLE
-    assert (gi.structured_scale_for(a, profile)
-            != gi.structured_scale_for(b, profile))
+    assert (float(profile.loc[a, "fund_scale"]),
+            float(profile.loc[a, "sec_scale"])) != (
+        float(profile.loc[b, "fund_scale"]), float(profile.loc[b, "sec_scale"]))
     assert h.loc[a, "rwa_structured"] != h.loc[b, "rwa_structured"]
 
 

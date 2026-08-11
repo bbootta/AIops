@@ -222,8 +222,211 @@ def test_every_module_offset_is_readable_and_fits_the_stride():
                       f"{over}. 간격을 넓히거나 오프셋을 줄인다")
 
 
+# ----- 리터럴 시드 (기관 시드를 타지 않는 자리) --------------------------------
+#
+# 위 훑기는 `default_rng(시드 + 오프셋)` 만 읽는다. 리터럴 정수 시드를 넘기는
+# 자리는 그 형태가 아니라서 조용히 빠졌고, 빠진 자리는 기관이 바뀌어도 같은
+# 난수열을 쓴다. 즉 전 기관이 그 스트림을 공유한다. 아래 훑기가 그 자리를
+# 잡고, `_LITERAL_SEED_SITES` 가 그것을 알려진 예외로 못박는다. 새 자리가
+# 생기면 목록과 어긋나 실패한다.
+
+_LITERAL_SEED_BASE = 42          # 국내 표본 산출이 쓰는 기준 시드
+
+
+def _rng_seeded_functions(trees) -> dict[str, tuple[str, int | None]]:
+    """`default_rng(<파라미터>)` 로 난수를 여는 risk_lib 함수.
+
+    함수이름 → (파라미터 이름, 그 파라미터의 리터럴 기본값 또는 None).
+    호출부가 그 파라미터에 리터럴을 넘기거나 생략하면 리터럴 시드가 된다.
+    """
+    import ast
+
+    out: dict[str, tuple[str, int | None]] = {}
+    for tree in trees.values():
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            a = fn.args
+            pos = [x.arg for x in a.posonlyargs + a.args]
+            kwo = [x.arg for x in a.kwonlyargs]
+            for node in ast.walk(fn):
+                if not (isinstance(node, ast.Call) and node.args
+                        and ast.unparse(node.func).endswith("default_rng")):
+                    continue
+                arg = node.args[0]
+                if not isinstance(arg, ast.Name):
+                    continue
+                if arg.id in pos:
+                    k = pos.index(arg.id) - (len(pos) - len(a.defaults))
+                    dflt = a.defaults[k] if k >= 0 else None
+                elif arg.id in kwo:
+                    dflt = a.kw_defaults[kwo.index(arg.id)]
+                else:
+                    continue
+                lit = (dflt.value if isinstance(dflt, ast.Constant)
+                       and isinstance(dflt.value, int) else None)
+                out[fn.name] = (arg.id, lit)
+    return out
+
+
+def _scan_literal_seed_sites(trees=None) -> dict[str, list[str]]:
+    """리터럴 정수 시드가 난수기에 닿는 자리 → 그 자리의 `파일:행` 목록.
+
+    잡는 형태는 셋이다.
+      - `default_rng(<정수>)`                     — 절대 시드를 직접 연다
+      - `f(..., seed=<정수>)`                     — 시드 파라미터에 리터럴
+      - `f(...)` 에서 시드 생략 + 리터럴 기본값    — 기본값이 그대로 시드다
+    `params.get("seed", 42)` 처럼 값이 리터럴이 아닌 자리는 잡지 않는다.
+    그 자리는 시드를 **읽는** 것이지 박은 것이 아니다.
+    """
+    import ast
+
+    if trees is None:
+        trees = {p: ast.parse(p.read_text(encoding="utf-8"))
+                 for p in sorted(_RISK_LIB.rglob("*.py"))}
+    seeded = _rng_seeded_functions(trees)
+    sites: dict[str, list[str]] = {}
+
+    def _add(key: str, path, lineno: int) -> None:
+        sites.setdefault(key, []).append(
+            f"{path.relative_to(_RISK_LIB.parent)}:{lineno}")
+
+    for path, tree in trees.items():
+        rel = path.relative_to(_RISK_LIB.parent)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            name = ast.unparse(node.func).split(".")[-1]
+            if name == "default_rng":
+                if node.args and isinstance(node.args[0], ast.Constant) \
+                        and isinstance(node.args[0].value, int):
+                    _add(f"{rel} · default_rng({node.args[0].value})",
+                         path, node.lineno)
+                continue
+            if name not in seeded:
+                continue
+            param, lit = seeded[name]
+            given = {k.arg: k.value for k in node.keywords}.get(param)
+            if given is None:
+                if lit is not None:      # 생략 → 리터럴 기본값이 시드가 된다
+                    _add(f"{rel} · {name}({param}={lit} 기본)", path, node.lineno)
+            elif isinstance(given, ast.Constant) and isinstance(given.value, int):
+                _add(f"{rel} · {name}({param}={given.value})", path, node.lineno)
+    return sites
+
+
+# 잡힌 자리와 그것을 그대로 두는 근거. 근거 없이 늘리지 않는다.
+#
+# 넷 다 기관 시드를 타지 않는다. 앞의 둘은 `run_pipeline` 안에 있어 기관마다
+# 돌므로 **전 기관이 실제로 같은 난수열을 공유한다**. 고치지 않는 이유는
+# 국내 표본 수치가 바뀌기 때문이며, 아래 값은 직접 돌려 측정한 것이다.
+_LITERAL_SEED_SITES: dict[str, str] = {
+    "risk_lib/pipeline.py · split_train_test(seed=7 기본)":
+        "PD 모형의 학습·검증 분할. 기관 시드를 태우면 분할 마스크가 바뀌어 "
+        "국내 표본 CET1 이 8.119291% 에서 8.364940% 로 움직인다(seed=999 로 "
+        "직접 측정). 재현 고정이 우선이므로 두고, 전 기관이 같은 분할을 쓴다는 "
+        "사실을 여기 남긴다.",
+    "risk_lib/pipeline.py · permutation_importance(seed=42)":
+        "변수중요도 셔플. 시드를 바꿔도 국내 표본 CET1 은 8.119291% 로 같았으나 "
+        "explain 표의 중요도 수치열이 바뀐다. 전 기관이 같은 셔플 순열을 쓴다.",
+    "risk_lib/explainability.py · default_rng(42)":
+        "shapley_attribution 의 rng 미지정 기본값. ops_pages/governance.py 가 "
+        "rng 를 넘기지 않아 전 기관이 같은 연합 표본을 쓴다. 규제자본 산출이 "
+        "아니라 화면 설명용 근사다.",
+    "risk_lib/datamodel/lineage.py · generate_portfolio(seed=42)":
+        "DATA_FLOW.md 의 행수를 붙이기 위한 문서 기준 실행. 기관 산출 경로가 "
+        "아니며 시드 고정이 목적이다.",
+}
+
+
+_SCAN_PROBE = '''
+import numpy as np
+
+
+def opens(df, seed: int = 7):
+    return np.random.default_rng(seed)
+
+
+def caller(df, a):
+    np.random.default_rng(31337)
+    opens(df, seed=99)
+    opens(df)
+    opens(df, seed=a + 1)
+'''
+
+
+def test_the_scan_reads_all_three_literal_seed_forms():
+    """세 형태를 다 읽는지 합성 조각으로 본다. 소스 사정과 무관하게 성립한다.
+
+    이전 훑기는 `default_rng(시드 + 오프셋)` 만 읽어 아래 셋을 전부 놓쳤고,
+    놓친 자리는 시험에 잡히지 않은 채 전 기관이 공유하는 스트림이 됐다.
+    """
+    import ast
+
+    got = _scan_literal_seed_sites(
+        {_RISK_LIB / "_scan_probe.py": ast.parse(_SCAN_PROBE)})
+    assert set(got) == {
+        "risk_lib/_scan_probe.py · default_rng(31337)",     # 절대 시드
+        "risk_lib/_scan_probe.py · opens(seed=99)",         # 인자에 리터럴
+        "risk_lib/_scan_probe.py · opens(seed=7 기본)",      # 생략 → 리터럴 기본값
+    }, got
+    # `seed=a + 1` 은 리터럴이 아니다. 호출자가 넘긴 값을 타므로 잡지 않는다.
+
+
+def test_every_literal_seed_site_is_a_listed_known_exception():
+    """잡힌 자리는 전부 근거와 함께 적혀 있어야 한다. 늘어나면 실패한다."""
+    sites = _scan_literal_seed_sites()
+    added = sorted(set(sites) - set(_LITERAL_SEED_SITES))
+    gone = sorted(set(_LITERAL_SEED_SITES) - set(sites))
+    assert not added, (
+        "기관 시드를 타지 않는 리터럴 시드 자리가 늘었다. 기관 시드로 "
+        "돌리거나 근거와 함께 _LITERAL_SEED_SITES 에 적어라:\n"
+        + "\n".join(f"{k}  ({', '.join(sites[k])})" for k in added))
+    assert not gone, ("목록에만 있고 소스에 없는 자리다. 고쳤으면 목록에서 "
+                      f"지워라: {gone}")
+    for k, why in _LITERAL_SEED_SITES.items():
+        assert len(why) > 30, k
+        assert len(sites[k]) == 1, (k, sites[k])   # 같은 자리 복제도 새 자리다
+
+
+def test_the_literal_seed_sites_give_every_institution_one_shared_stream():
+    """리터럴 시드 자리가 기관을 안 탄다는 사실을 값으로 보인다."""
+    import inspect
+    from risk_lib import data_gen_intl as intl
+    from risk_lib.data_gen import split_train_test
+    from risk_lib.models.explain import permutation_importance
+
+    m = intl.build_inst_master_intl()
+    codes = sorted(inst.seed_offsets(m))
+    assert len(codes) >= 9
+    df = pd.DataFrame({"x": range(400)})
+
+    # (1) 파이프라인 호출부는 seed 를 넘기지 않는다. 기관이 무엇이든 같은 분할이다.
+    shared = {tuple(split_train_test(df)[0]["x"]) for _ in codes}
+    assert len(shared) == 1
+    assert shared == {tuple(split_train_test(df, seed=7)[0]["x"])}
+
+    # (2) 기관 시드를 넘겼다면 기관마다 갈렸을 것이다. 그 차이가 지금은 없다.
+    per_inst = {tuple(split_train_test(
+        df, seed=inst.institution_seed(_LITERAL_SEED_BASE, c, m))[0]["x"])
+        for c in codes}
+    assert len(per_inst) == len(codes)
+
+    # (3) 변수중요도 셔플도 같은 자리다. 서명의 기본값과 호출부가 둘 다 42 다.
+    assert inspect.signature(
+        permutation_importance).parameters["seed"].default == 42
+    assert ("risk_lib/pipeline.py · permutation_importance(seed=42)"
+            in _scan_literal_seed_sites())
+
+
 def test_no_two_institutions_share_a_random_stream():
-    """전 기관 × 전 모듈 스트림을 모아 중복을 센다. 0 이어야 한다."""
+    """`기관시드 + 모듈오프셋` 스트림을 모아 중복을 센다. 0 이어야 한다.
+
+    이 셈의 범위는 기관 시드를 타는 자리뿐이다. 리터럴 시드 자리는 애초에
+    기관 시드를 안 타므로 여기 들어오지 않으며, 그중 `run_pipeline` 안의 둘은
+    전 기관이 실제로 공유하는 스트림이다. 아래 마지막 검사가 그 둘을 여기서도
+    드러낸다. 이 시험만 보고 "겹침 0" 이라고 적으면 안 된다.
+    """
     from collections import Counter
     from risk_lib import data_gen_intl as intl
 
@@ -236,6 +439,10 @@ def test_no_two_institutions_share_a_random_stream():
         f"기관이 다른데 같은 난수 스트림을 쓴다: {sorted(shared)[:5]} "
         f"(총 {len(shared)}건)")
     assert len(streams) == len(inst_offsets) * len(module_offsets)
+    # 이 셈 밖에서 전 기관이 공유하는 자리. 지금은 2 건이다.
+    in_pipeline = sorted(k for k in _LITERAL_SEED_SITES
+                         if k.startswith("risk_lib/pipeline.py"))
+    assert len(in_pipeline) == 2, in_pipeline
 
 
 def test_the_stream_count_catches_a_narrow_stride():
