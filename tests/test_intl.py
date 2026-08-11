@@ -499,6 +499,75 @@ def test_shared_reference_macro_indicator_does_not_split_by_institution(multi):
         assert int(run.result.meta["seed"]) != _SEED, code
 
 
+# ----------------------------------------------- 적용범위 판정을 값으로 확인
+#
+# 판정 검사가 문서 대조(`docs/기관축_적용범위.md`)에만 걸리면, 문서는
+# `scope_markdown()` 의 출력이라 코드를 고치고 문서를 다시 생성하는 것만으로
+# 통과한다. 기관 종속 표를 공유 참조로 옮겨도 그 상태에서는 아무 검사도
+# 걸리지 않았다. 여기서는 두 기관을 실제로 돌린 원장을 맞대고, 공유 참조로
+# 분류된 표에서 값이 갈리면 실패한다.
+
+@pytest.fixture(scope="module")
+def by_institution(multi):
+    """기관별 실체화 원장 한 벌. 실행은 `multi` 것을 쓰고 실체화만 더한다."""
+    from risk_lib.datamodel.materialize import materialize_all
+    from risk_lib.datamodel.materialize_detail import materialize_detail
+
+    out: dict[str, dict] = {}
+    for code, run in multi.runs.items():
+        t: dict = {}
+        t.update(run.result.rdm_base)
+        t.update(run.result.alm_tables)
+        t.update(run.result.ledger_tables)
+        if run.result.structured is not None:
+            t.update(run.result.structured.tables)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            t.update(materialize_all(run.result, run.portfolio))
+            t.update(materialize_detail(run.result, run.portfolio, dict(t)))
+        out[code] = t
+    return out
+
+
+def test_no_shared_reference_ledger_splits_by_institution(by_institution):
+    """공유 참조로 분류된 표는 두 기관의 값이 실제로 같아야 한다."""
+    assert inst.check_shared_reference_agreement(by_institution) == []
+
+
+def test_the_comparison_reaches_the_headline_output_ledgers(by_institution):
+    """대조 범위가 줄면 오분류를 잡을 수 없다. 어디까지 닿는지 적어 둔다."""
+    common = set.intersection(*(set(t) for t in by_institution.values()))
+    for name in ("rwa_result", "ecl_result", "cap_stack", "val_check",
+                 "rdm_exposure", "alm_irrbb_result", "lex_position",
+                 "macro_indicator"):
+        assert name in common, f"{name} 이 대조 범위 밖이다"
+    split = [n for n in sorted(common) if inst.is_institution_scoped(n)
+             and not _same(by_institution, n)]
+    assert len(split) >= 100, (
+        f"기관마다 값이 갈리는 표가 {len(split)}장뿐이다. 대조 범위가 줄었거나 "
+        "산출이 기관을 타지 않는다")
+
+
+def _same(by_institution, name: str) -> bool:
+    frames = [t[name].reset_index(drop=True) for t in by_institution.values()]
+    return all(f.equals(frames[0]) for f in frames[1:])
+
+
+@pytest.mark.parametrize("name", ["rwa_result", "ecl_result", "cap_stack",
+                                  "rdm_exposure"])
+def test_a_misclassified_output_ledger_is_caught_by_the_data(
+        by_institution, monkeypatch, name):
+    """산출 원장을 공유 참조로 옮기면 여기서 걸린다. 통과가 상시면 통제가 아니다.
+
+    이 검사가 없던 때는 `rwa_result` 를 공유 참조 목록에 넣어도 판정 검사
+    일곱 중 하나(문서 대조)만 걸렸고, 문서를 다시 생성하면 그마저 통과했다.
+    """
+    monkeypatch.setitem(inst.SHARED_REFERENCE_TABLES, name,
+                        "시험이 일부러 넣은 오분류다. 값으로 걸려야 한다.")
+    v = inst.check_shared_reference_agreement(by_institution)
+    assert [x.table for x in v] == [name], v
+
+
 # ------------------------------------------------- 기관 배선 회귀 (적대적 검증)
 #
 # 아래 네 묶음은 "기관 축은 세웠는데 산출 경로가 그 원장을 읽지 않는다" 는
