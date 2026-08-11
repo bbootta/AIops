@@ -137,10 +137,14 @@ DEFAULTED_LGD = TableSpec(
           citation="[별표 3] 185.바 예상손실의 최적추정치"),
         C("elbe_method", "text", "산출방법", nullable=False),
         C("unexpected_loss_addon", "float", "예상외손실 추가분", nullable=True,
-          unit="ratio", citation="[별표 3] 185.바 두 번째 문장"),
+          unit="ratio", citation="[별표 3] 185.바 두 번째 문장",
+          note="PLGD − ELBE. crm_plgd를 넘겨받았을 때만 채워진다"),
         C("lgd_in_default", "float", "부도자산 적용 LGD", nullable=True,
           unit="ratio", min_value=0.0, max_value=1.0),
-        C("addon_status", "string", "추가분 상태", nullable=False),
+        C("addon_status", "string", "추가분 상태", nullable=False,
+          note="'미산출(근거미확인)'은 crm_plgd를 받지 못한 상태, "
+               "'미산출(신뢰수준미승인)'은 받았으나 분위 신뢰수준이 승인 전인 "
+               "상태다. 적용된 신뢰수준 값은 crm_plgd.confidence_q에 있다"),
         C("elbe_amount", "float", "ELBE 금액", nullable=True, unit="KRW",
           min_value=0.0),
         C("specific_provision", "float", "개별충당금", nullable=True,
@@ -493,20 +497,27 @@ def _run_row(base: dict, *, min_years, meets, years, param,
 
 _ELBE_METHOD = (
     "부도상태 건에 해당 세그먼트의 회수종료 부도건 실현 LGD 부도가중평균을 "
-    "적용했다. 경과월별 BEEL 곡선은 만들지 않았다. 교안이 제시하는 경과월 축 "
-    "산식의 분모(경과시점 잔여 익스포저인지 부도시 익스포저인지)를 자료에서 "
-    "확정하지 못했고, 분모 선택 하나로 값이 크게 달라진다")
+    "적용했다. 경과월별 BEEL 곡선을 이 산출에 연결하지 않았다. 곡선은 "
+    "crm_beel_curve가 만들고 경과월 축 산식의 분모(경과시점 잔여 익스포저인지 "
+    "부도시 익스포저인지)는 회수이력 시뮬레이션으로 정했으며 근거는 "
+    "docs/PLGD_시뮬레이션.md에 있다. 분모 선택 하나로 값이 크게 달라지므로 "
+    "곡선을 연결하면 이 컬럼의 값도 바뀐다")
 _ADDON_NOTE = (
-    "185.바 두 번째 문장의 예상외손실 추가분을 산출하지 않았다. 교안은 "
-    "PLGD(Potential LGD)를 BEEL에 Downturn Scaling Factor를 반영하거나 BEEL "
-    "분포에서 직접 추정한다고 적을 뿐, 반영이 승산인지 가산인지와 분위 신뢰수준을 "
-    "적지 않는다. 두 값 모두 자료에서 확정하지 못했으므로 지어내지 않는다")
+    "``plgd`` 인자를 받지 않으면 185.바 두 번째 문장의 예상외손실 추가분을 "
+    "산출하지 않는다. crm_plgd를 받으면 곡선의 분모와 Downturn Scaling Factor "
+    "반영형태는 시뮬레이션으로 정해져 있고, 남는 것은 분위 신뢰수준 q뿐이다. "
+    "q는 규정도 교안도 값을 주지 않는 정책 선택이라 승인 전에는 비워 둔다")
+_ELBE_METHOD_PLGD = (
+    "경과월별 BEEL 곡선(crm_beel_curve)에서 기준일 부도상태 건의 경과월에 해당 "
+    "하는 값을 읽어 부도가중평균했다. 곡선의 분모와 Downturn Scaling Factor의 "
+    "반영형태는 회수이력 시뮬레이션으로 정했고 근거는 docs/PLGD_시뮬레이션.md에 "
+    "있다. 신뢰수준 q는 정책 선택이라 시뮬레이션이 정해 주지 않는다")
 
 
 def build_defaulted_lgd(recovery: pd.DataFrame, lgd_estimate: pd.DataFrame, *,
                         asof: str,
-                        provisions: pd.DataFrame | None = None
-                        ) -> pd.DataFrame:
+                        provisions: pd.DataFrame | None = None,
+                        plgd: pd.DataFrame | None = None) -> pd.DataFrame:
     """부도자산 LGD 원장 (185.바).
 
     ``provisions``는 ``segment``·``specific_provision``·``partial_writeoff``를
@@ -514,13 +525,20 @@ def build_defaulted_lgd(recovery: pd.DataFrame, lgd_estimate: pd.DataFrame, *,
     NULL로 둔다. 비교 대상이 없는데 False로 두면 '입증이 필요 없음을 확인했다'가
     되어 판정하지 않은 것과 구분되지 않는다.
 
-    **예상외손실 추가분(PLGD)은 구현하지 않았다.** 사유는 ``addon_status``와
+    ``plgd``는 :func:`risk_lib.models.estimation.plgd.build_crm_plgd`가 만든
+    ``crm_plgd`` 원장이다. 넘기면 185.바 두 번째 문장의 예상외손실 추가분과
+    부도자산 적용 LGD가 채워진다. 넘기지 않으면 두 컬럼은 NULL이고
+    ``addon_status``가 그 이유를 든다. **q가 승인되지 않은 상태의 crm_plgd를
+    넘기면 추가분은 여전히 NULL이고 상태가 '미산출(신뢰수준미승인)'로 남는다.**
+    승인 전 상태가 산출 결과에 보이는 것이 이 컬럼의 목적이다. 자세한 사정은
     이 모듈의 ``_ADDON_NOTE``에 있다.
     """
     r = recovery[recovery["asof"] == asof]
     rows: list[dict] = []
     prov = (provisions.set_index("segment") if provisions is not None
             and not provisions.empty else None)
+    pl = (plgd.set_index("segment") if plgd is not None and not plgd.empty
+          else None)
     for _, est in lgd_estimate.iterrows():
         seg = est["segment"]
         open_ids = r[(r["segment"] == seg) & (r["workout_open"].astype(bool))]
@@ -529,6 +547,25 @@ def build_defaulted_lgd(recovery: pd.DataFrame, lgd_estimate: pd.DataFrame, *,
                          ["ead_at_default"].sum())
         elbe = est["longrun_default_weighted_lgd"]
         elbe = None if pd.isna(elbe) else float(elbe)
+        addon = lgd_in_default = None
+        method = _ELBE_METHOD
+        addon_status = "미산출(근거미확인)"
+        if pl is not None and seg in pl.index:
+            row = pl.loc[seg]
+            method = _ELBE_METHOD_PLGD
+            # ELBE도 곡선 기준으로 바꾼다. 장기 부도가중평균은 신규 부도를
+            # 대상으로 한 값이고 185.바가 요구하는 것은 이미 부도난 건의 현재
+            # 상태를 조건으로 한 최적추정치다. 두 값을 한 행에 섞으면
+            # lgd_in_default − elbe가 unexpected_loss_addon과 어긋난다.
+            if not pd.isna(row["elbe"]):
+                elbe = float(row["elbe"])
+            if pd.isna(row["plgd"]):
+                addon_status = "미산출(신뢰수준미승인)"
+            else:
+                lgd_in_default = float(row["plgd"])
+                addon = (None if pd.isna(row["unexpected_loss_addon"])
+                         else float(row["unexpected_loss_addon"]))
+                addon_status = "산출완료"
         elbe_amount = None if elbe is None else float(elbe * ead_open)
         sp = wo = shortfall = None
         required = None
@@ -540,9 +577,10 @@ def build_defaulted_lgd(recovery: pd.DataFrame, lgd_estimate: pd.DataFrame, *,
                 required = bool(shortfall > 0)
         rows.append({
             "asof": asof, "segment": seg, "n_defaulted_open": n_open,
-            "elbe": elbe, "elbe_method": _ELBE_METHOD,
-            "unexpected_loss_addon": None, "lgd_in_default": None,
-            "addon_status": "미산출(근거미확인)",
+            "elbe": elbe, "elbe_method": method,
+            "unexpected_loss_addon": addon,
+            "lgd_in_default": lgd_in_default,
+            "addon_status": addon_status,
             "elbe_amount": elbe_amount, "specific_provision": sp,
             "partial_writeoff": wo, "shortfall": shortfall,
             "justification_required": required,

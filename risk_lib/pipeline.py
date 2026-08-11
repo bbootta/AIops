@@ -859,6 +859,72 @@ def _kr_behavioural_contracts(contracts: pd.DataFrame,
         "substantial_penalty"])
 
 
+#: 잠정 준용 할인율의 승인자 자리. 승인기구 의결이 아니라는 것을 값 자체가
+#: 말하게 둔다. 거액익스포져 설정 원장의 '(미승인)'과 같은 표기 방식이다.
+PROVISIONAL_RATE_APPROVER = "(미승인·업계참고 잠정준용)"
+
+#: 준용 행의 무위험이자율·베타 출처 칸. 우리가 산출한 값이 아니라는 사실을
+#: 칸 자체가 말한다. 참고치의 원문 근거는 같은 행의 참고치 근거 칸에 있다.
+_PROVISIONAL_SOURCE_NOTE = (
+    "산출하지 않았다. 타행이 공시한 자기자본비용을 통째로 준용한 값이라 "
+    "우리 쪽 무위험이자율·베타가 들어가지 않았다. 근거는 참고치 근거 칸에 있다")
+
+
+def _provisional_discount_rates(asof: str) -> tuple[pd.DataFrame, list[str]]:
+    """'전체' 회수유형 할인율을 참고치로 잠정 준용한 원장을 만든다.
+
+    [별표 3] 184.(1)은 할인율의 산식·수준을 주지 않는다. CAPM 추정은
+    무위험이자율과 베타까지는 관측으로 내지만 시장수익률은 내지 못한다
+    (지표 마스터의 주가 계열에 표류항이 없어 실현 위험프리미엄이 음수다).
+    그 결과 '전체' 회수유형 할인율이 비고, LGD·BEEL 곡선·PLGD가 전부
+    산출불가로 멈춘다.
+
+    여기서 쓰는 값은 지어낸 수가 아니라 할인율 원장이 이미 들고 있는 참고치
+    (`reference_value`, 타행 실측)다. 파이프라인은 그 값을 옮겨 적을 뿐이고
+    승인자 자리에는 :data:`PROVISIONAL_RATE_APPROVER`가 들어가 의결이 없다는
+    사실을 원장·화면·결재 문서가 함께 읽는다. 참고치가 비어 있으면 아무것도
+    채우지 않고 사유만 남긴다.
+
+    무위험회수 회수유형은 관측 평균(국고채 만기수익률)으로 채워지므로 준용
+    대상이 아니다. `discount_capm.apply_capm_discount_rates`가 채운다.
+    """
+    from risk_lib.models.estimation import (
+        build_crm_lgd_discount_rate, approve_discount_rate,
+    )
+    rates = build_crm_lgd_discount_rate(asof)
+    warns: list[str] = []
+    scope = "전체"
+    target = rates[(rates["asof"] == asof) & (rates["recovery_scope"] == scope)]
+    applied = 0
+    for _, row in target.iterrows():
+        ref = row["reference_value"]
+        seg = str(row["segment"])
+        if pd.isna(ref):
+            warns.append(
+                f"회수 할인율({seg}/{scope})에 참고치가 없어 잠정 준용도 하지 "
+                "못했다. 이 세그먼트 LGD는 산출불가로 남는다")
+            continue
+        rates = approve_discount_rate(
+            rates, asof=asof, segment=seg, recovery_scope=scope,
+            rate=float(ref), basis="자기자본비용",
+            approved_by=PROVISIONAL_RATE_APPROVER, approval_date=asof,
+            # 준용 값은 타행이 공시한 자기자본비용을 통째로 가져온 것이라
+            # 우리 쪽 무위험이자율·베타가 들어가지 않았다. 두 칸에 원장의
+            # 참고치 근거를 그대로 옮기면 우리가 낸 값처럼 읽히므로, 산출을
+            # 하지 않았다는 사실을 적는다. 근거 원문은 참고치 근거 칸에 있다.
+            rf_source=_PROVISIONAL_SOURCE_NOTE,
+            beta_source=_PROVISIONAL_SOURCE_NOTE,
+            evidence_status="2차자료")
+        applied += 1
+    if applied:
+        warns.append(
+            f"'{scope}' 회수유형 할인율 {applied}건을 원장 참고치(타행 실측)로 "
+            f"잠정 준용했다. 승인자 '{PROVISIONAL_RATE_APPROVER}' · 승인일은 "
+            "기준일 자리표시자다. crm_estimation_param의 capm_market_return이 "
+            "승인되면 CAPM 추정치로 갈아탄다")
+    return rates, warns
+
+
 def _stage_ledgers(portfolio: pd.DataFrame, base: dict[str, pd.DataFrame],
                    alm: dict[str, Any], capital, bis, stress_path: pd.DataFrame,
                    ecl_df: pd.DataFrame, rwa: dict[str, float],
@@ -956,10 +1022,12 @@ def _stage_ledgers(portfolio: pd.DataFrame, base: dict[str, pd.DataFrame],
     # ---- 5. 신규 요건 산출
     # 5a. 내부등급법 PD·LGD·CCF 추정 (다년 관측이력은 모듈이 합성한다)
     from risk_lib.models.estimation import build_irb_estimation_ledgers
+    rates, rate_warns = _provisional_discount_rates(asof)
+    warns += [_note(x) for x in rate_warns]
     with warnings_mod.catch_warnings():
         warnings_mod.simplefilter("ignore")
         tables.update(build_irb_estimation_ledgers(
-            asof=asof, seed=seed, current_portfolio=portfolio))
+            asof=asof, seed=seed, current_portfolio=portfolio, rates=rates))
 
     # 5b·5c(신용평가시스템·CRM 배분)는 `crm_model`·`rwa_result`를 입력으로 쓴다.
     # 그 둘은 실체화 단계에서 서므로 이 스테이지가 아니라

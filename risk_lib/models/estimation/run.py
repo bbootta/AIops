@@ -18,7 +18,9 @@ import pandas as pd
 
 from risk_lib.models.estimation.ccf_est import estimate_ccf, observed_ccf
 from risk_lib.models.estimation.common import ESTIMATION_RUN, MOC_COMPONENT, cast_to_spec
+from risk_lib.models.estimation.discount_capm import build_capm_discount_ledgers
 from risk_lib.models.estimation.history import build_history_ledgers
+from risk_lib.models.estimation.plgd import build_plgd_ledgers
 from risk_lib.models.estimation.lgd_est import (
     build_defaulted_lgd, estimate_lgd, identify_downturn_years, realised_lgd,
 )
@@ -38,8 +40,10 @@ ESTIMATION_TABLES: tuple[str, ...] = (
     "crm_lgd_discount_rate",
     "crm_default_history", "crm_recovery_history",
     "crm_facility_drawdown_history",
+    "crm_capm_observation", "crm_capm_estimate",
     "crm_pd_yearly_dr", "crm_pd_estimate", "crm_lgd_estimate",
     "crm_ccf_estimate", "crm_defaulted_lgd",
+    "crm_beel_curve", "crm_plgd", "crm_plgd_sensitivity",
     "crm_estimation_run", "crm_moc_component",
     "crm_backtest_result", "crm_representativeness", "crm_model_governance",
 )
@@ -56,6 +60,9 @@ def build_irb_estimation_ledgers(*, asof: str, seed: int = 42,
                                  provisions: pd.DataFrame | None = None,
                                  framework_version: str = "바젤3최종안",
                                  pd_method: str = "내부부도경험",
+                                 confidence_q: float | None = None,
+                                 q_approved_by: str | None = None,
+                                 q_approval_date: str | None = None,
                                  ) -> dict[str, pd.DataFrame]:
     """추정 원장 묶음을 만든다.
 
@@ -73,6 +80,14 @@ def build_irb_estimation_ledgers(*, asof: str, seed: int = 42,
     if scope is not None:
         params["crm_irb_scope"] = scope
     p = params["crm_estimation_param"]
+
+    # ---- 회수 할인율 (CAPM) ----
+    # 관측 → 추정 → 승인이 한 묶음이다. R_M(capm_market_return)이 승인돼 있으면
+    # 자기자본비용이 나오고 '전체' 회수유형 할인율이 채워진다. 승인 전이면
+    # 무위험회수만 채워지고 '전체'는 NULL로 남아 LGD가 산출불가로 남는다.
+    capm = build_capm_discount_ledgers(asof=asof, seed=seed, param=p,
+                                       rates=params["crm_lgd_discount_rate"])
+    params["crm_lgd_discount_rate"] = capm["crm_lgd_discount_rate"]
 
     hist = history or build_history_ledgers(asof=asof, seed=seed, years=years)
     dh = hist["crm_default_history"]
@@ -145,13 +160,26 @@ def build_irb_estimation_ledgers(*, asof: str, seed: int = 42,
         lgd_realised=lgd_real_df, lgd_estimate=lgd_out["crm_lgd_estimate"],
         ccf_observed=ccf_obs, ccf_estimate=ccf_out["crm_ccf_estimate"])
 
+    # ---- BEEL 곡선 · PLGD (185.바) ----
+    # 분모구분은 관측이 판정한다. 할인율이 없으면 곡선이 산출불가 자리행만
+    # 남고 PLGD 원장은 빈다. 신뢰수준 q는 승인 없이 들어가지 않는다.
+    plgd_led = build_plgd_ledgers(rh, asof=asof,
+                                  rates=params["crm_lgd_discount_rate"],
+                                  confidence_q=confidence_q,
+                                  approved_by=q_approved_by,
+                                  approval_date=q_approval_date,
+                                  provisions=provisions)
     defaulted = build_defaulted_lgd(rh, lgd_out["crm_lgd_estimate"],
-                                    asof=asof, provisions=provisions)
+                                    asof=asof, provisions=provisions,
+                                    plgd=plgd_led["crm_plgd"])
     governance = build_model_governance(run, asof=asof, param=p)
 
     out: dict[str, pd.DataFrame] = {}
     out.update(params)
     out.update(hist)
+    out["crm_capm_observation"] = capm["crm_capm_observation"]
+    out["crm_capm_estimate"] = capm["crm_capm_estimate"]
+    out.update(plgd_led)
     out["crm_pd_yearly_dr"] = pd_out["crm_pd_yearly_dr"]
     out["crm_pd_estimate"] = pd_out["crm_pd_estimate"]
     out["crm_lgd_estimate"] = lgd_out["crm_lgd_estimate"]

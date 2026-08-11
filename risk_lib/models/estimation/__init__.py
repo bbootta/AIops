@@ -49,6 +49,17 @@ from risk_lib.models.estimation.lgd_est import (
 from risk_lib.models.estimation.ccf_est import (
     CCF_ESTIMATE, observed_ccf, estimate_ccf,
 )
+from risk_lib.models.estimation.discount_capm import (
+    CAPM_ESTIMATE, CAPM_OBSERVATION, CAPM_TABLES, CapmEstimate,
+    build_capm_discount_ledgers, build_crm_capm_estimate,
+    build_crm_capm_observation, estimate_capm_discount_rate, run_capm_checks,
+)
+from risk_lib.models.estimation.plgd import (
+    BEEL_CURVE, PLGD, PLGD_SENSITIVITY, PLGD_TABLES,
+    build_crm_beel_curve, build_crm_plgd, build_crm_plgd_sensitivity,
+    build_plgd_ledgers, decide_beel_denominator, decide_dsf_form,
+    run_plgd_checks,
+)
 from risk_lib.models.estimation.validation import (
     BACKTEST_RESULT, REPRESENTATIVENESS, MODEL_GOVERNANCE,
     build_backtest_result, build_representativeness, build_model_governance,
@@ -63,6 +74,8 @@ from risk_lib.models.estimation.run import (
 ALL_TABLES = {
     **PARAM_TABLES,
     **HISTORY_TABLES,
+    **CAPM_TABLES,
+    **PLGD_TABLES,
     PD_YEARLY_DR.name: PD_YEARLY_DR,
     PD_ESTIMATE.name: PD_ESTIMATE,
     LGD_ESTIMATE.name: LGD_ESTIMATE,
@@ -96,6 +109,14 @@ __all__ = [
     "LGD_ESTIMATE", "DEFAULTED_LGD", "realised_lgd",
     "identify_downturn_years", "estimate_lgd", "build_defaulted_lgd",
     "CCF_ESTIMATE", "observed_ccf", "estimate_ccf",
+    "CAPM_OBSERVATION", "CAPM_ESTIMATE", "CAPM_TABLES", "CapmEstimate",
+    "build_crm_capm_observation", "estimate_capm_discount_rate",
+    "build_crm_capm_estimate", "build_capm_discount_ledgers",
+    "run_capm_checks",
+    "BEEL_CURVE", "PLGD", "PLGD_SENSITIVITY", "PLGD_TABLES",
+    "build_crm_beel_curve", "build_crm_plgd", "build_crm_plgd_sensitivity",
+    "build_plgd_ledgers", "decide_beel_denominator", "decide_dsf_form",
+    "run_plgd_checks",
     "BACKTEST_RESULT", "REPRESENTATIVENESS", "MODEL_GOVERNANCE",
     "build_backtest_result", "build_representativeness",
     "build_model_governance", "record_governance_review", "population_psi",

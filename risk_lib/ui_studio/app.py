@@ -78,6 +78,11 @@ NEW_SCREEN_FULL_TABLES = (
     "crm_lgd_backtest", "crm_ccf_backtest", "crm_representativeness",
     "crm_dev_sample", "crm_lgd_discount_rate", "crm_irb_scope",
     "crm_default_observation", "crm_sample_representativeness",
+    # 회수 할인율(CAPM)·부도자산 LGD(BEEL 곡선·PLGD). 관측 산점과 경과월 곡선은
+    # 축 전체가 있어야 그림이 된다. 뒤쪽 관측월이 잘리면 그 공백이 관측이 없는
+    # 구간으로 읽힌다.
+    "crm_capm_observation", "crm_capm_estimate",
+    "crm_beel_curve", "crm_plgd", "crm_plgd_sensitivity",
     # 거액익스포져 (position·measure·group 은 만 행대라 _lex_dict 가 집계한다)
     "lex_setting", "lex_aggregate", "lex_exemption", "lex_lookthrough",
     "lex_substitution",
@@ -1299,7 +1304,9 @@ function svgEl(w,h,title){
   const s=document.createElementNS('http://www.w3.org/2000/svg','svg');
   s.setAttribute('viewBox',`0 0 ${w} ${h}`);
   s.setAttribute('width','100%');s.setAttribute('preserveAspectRatio','xMidYMid meet');
-  s.style.cssText='display:block;max-width:100%;height:auto';
+  /* 자연 크기(viewBox 폭)를 상한으로 둔다. 상한이 없으면 넓은 창에서 도넛 같은
+     정사각 도형이 창 폭까지 늘어나고 9px 라벨도 같은 배율로 커진다. */
+  s.style.cssText='display:block;width:100%;max-width:'+w+'px;height:auto;flex:0 1 auto';
   if(title){const t=document.createElementNS(s.namespaceURI,'title');
     t.textContent=title;s.appendChild(t)}
   return s;
@@ -1377,31 +1384,70 @@ function legend(items){
     r.appendChild(d);r.appendChild(el('span',null,it.name));w.appendChild(r)});
   return w;
 }
-/* 도넛 (donut_chart 대응) */
-function donut(items,{title,note}={}){
-  const W=280,H=200,cx=100,cy=100,R=78,r=46;
+/* 트리맵 (donut_chart 대응). 구역 넓이가 곧 비중이고 라벨을 구역 안에 넣는다.
+   범례를 따로 두지 않으므로 이름과 비중을 눈이 한 번에 받는다. */
+function squarify(data,rect){
+  /* 각 구역이 정사각형에 가깝게 나오도록 행을 끊는다 (Bruls 외 squarified). */
+  const out=[],items=data.slice();
+  let cur={...rect};
+  const ratio=(row,side,scale)=>{
+    const a=row.reduce((t,x)=>t+x.v,0)*scale;
+    const mx=Math.max(...row.map(x=>x.v))*scale;
+    const mn=Math.min(...row.map(x=>x.v))*scale;
+    return Math.max(side*side*mx/(a*a),(a*a)/(side*side*mn));
+  };
+  while(items.length&&cur.w>0.5&&cur.h>0.5){
+    const rest=items.reduce((t,x)=>t+x.v,0)||1;
+    const scale=(cur.w*cur.h)/rest;
+    const side=Math.min(cur.w,cur.h);
+    let row=[items.shift()],best=ratio(row,side,scale);
+    while(items.length){
+      const cand=row.concat([items[0]]),r=ratio(cand,side,scale);
+      if(r>best)break;
+      best=r;row=cand;items.shift();
+    }
+    const area=row.reduce((t,x)=>t+x.v,0)*scale,thick=area/side;
+    let off=0;
+    if(cur.w>=cur.h){
+      row.forEach(it=>{const h=(it.v*scale)/thick;
+        out.push({...it,x:cur.x,y:cur.y+off,w:thick,h:h});off+=h});
+      cur={x:cur.x+thick,y:cur.y,w:cur.w-thick,h:cur.h};
+    }else{
+      row.forEach(it=>{const w=(it.v*scale)/thick;
+        out.push({...it,x:cur.x+off,y:cur.y,w:w,h:thick});off+=w});
+      cur={x:cur.x,y:cur.y+thick,w:cur.w,h:cur.h-thick};
+    }
+  }
+  return out;
+}
+function donut(items,{title,note,fmt}={}){
+  const W=680,H=260,G=2;
   const tot=items.reduce((a,x)=>a+Math.abs(x.value),0)||1;
-  const s=svgEl(W,H,title||'도넛 차트');
-  let a0=-Math.PI/2;
-  items.forEach((it,i)=>{
-    const frac=Math.abs(it.value)/tot,a1=a0+frac*2*Math.PI;
-    const p=(ra,an)=>[cx+ra*Math.cos(an),cy+ra*Math.sin(an)];
-    const [x0,y0]=p(R,a0),[x1,y1]=p(R,a1),[x2,y2]=p(r,a1),[x3,y3]=p(r,a0);
-    const big=frac>0.5?1:0;
-    svgNode(s,'path',{d:`M${x0},${y0} A${R},${R} 0 ${big},1 ${x1},${y1} `+
-      `L${x2},${y2} A${r},${r} 0 ${big},0 ${x3},${y3} Z`,
-      fill:'var('+CHART_PALETTE[i%CHART_PALETTE.length]+')'})
+  const s=svgEl(W,H,title||'트리맵');
+  const data=items.map((it,i)=>({label:it.label,value:it.value,i:i,
+    v:Math.abs(it.value)})).filter(d=>d.v>0).sort((a,b)=>b.v-a.v);
+  if(!data.length)return chartBox(s,title,note);
+  squarify(data,{x:0,y:0,w:W,h:H}).forEach(c=>{
+    const frac=c.v/tot;
+    const g=svgNode(s,'g',{});
+    svgNode(g,'rect',{x:c.x+G/2,y:c.y+G/2,width:Math.max(c.w-G,1),
+      height:Math.max(c.h-G,1),rx:2,
+      fill:'var('+CHART_PALETTE[c.i%CHART_PALETTE.length]+')'})
       .appendChild(document.createElementNS(s.namespaceURI,'title')).textContent=
-        `${it.label}: ${fmtNum(it.value)} (${(frac*100).toFixed(1)}%)`;
-    a0=a1});
-  const box=el('div');box.style.cssText='display:flex;gap:10px;align-items:center;flex-wrap:wrap';
-  box.appendChild(s);
-  box.appendChild(legend(items.map((x,i)=>({name:`${x.label} ${(Math.abs(x.value)/tot*100).toFixed(1)}%`,i}))));
-  const wrap=el('div');
-  if(title)wrap.appendChild(el('div','meta',title));
-  wrap.appendChild(box);
-  if(note)wrap.appendChild(el('div','meta',note));
-  return wrap;
+        `${c.label}: ${fmt?fmt(c.value):fmtNum(c.value)} (${(frac*100).toFixed(1)}%)`;
+    /* 라벨은 구역이 받아줄 때만 넣는다. 넘치면 안 그린다. */
+    const pad=8;
+    if(c.w>62&&c.h>26)
+      svgNode(g,'text',{x:c.x+pad,y:c.y+pad+10,'font-size':11,
+        'font-weight':700,fill:'var(--on-accent)'},
+        String(c.label).slice(0,Math.floor((c.w-pad*2)/6.6))+
+        ' / '+(frac*100).toFixed(1)+'%');
+    if(c.w>62&&c.h>44)
+      svgNode(g,'text',{x:c.x+pad,y:c.y+pad+25,'font-size':10,
+        fill:'var(--on-accent)','fill-opacity':0.78},
+        fmt?fmt(c.value):fmtNum(c.value));
+  });
+  return chartBox(s,title,note);
 }
 /* 히트맵 (heatmap 대응. rows/cols 라벨 + 값 행렬) */
 function heat(matrix,rowLabels,colLabels,{title,note,fmt}={}){
@@ -5502,12 +5548,13 @@ function defaultedLgdScreen(root){
         bars(pts.map(([k,v])=>({label:k+'개월',value:v})),
           {fmt:v=>fmtNum(v)}),
         '미종결 부도관측 '+open.length+'건의 부도 후 경과월 분포다.');
-      /* 사유 본문은 산출 원장의 elbe_method 값이다. 화면이 지은 문장만 옮기고
-         원장 값은 원문 그대로 잇는다. */
-      c.appendChild(rawEl('div','note warn',
-        T('경과월별 BEEL 곡선은 그리지 않는다. 산출 원장이 그 곡선을 '+
-          '만들지 않았고 사유를 산출방법 컬럼에 남겼다')+': '+
+      /* 산출방법은 원장 값이다. 화면이 지은 문장만 옮기고 원장 값은 원문
+         그대로 잇는다. */
+      c.appendChild(rawEl('div','meta',
+        T('산출방법')+': '+
         (f.rows.length?f.rows[0][i.elbe_method]:T('(원장 없음)'))));
+      c.appendChild(el('div','note',
+        '경과월별 BEEL 곡선과 분모 두 방식 대비는 BEEL·PLGD 화면에 있다.'));
       root.appendChild(c)}
     const cure=obs.rows.filter(r=>String(r[oi.censoring_status]).indexOf('정상화')>=0);
     root.appendChild(cardOf('정상화(cure) 인식',
@@ -5519,10 +5566,326 @@ function defaultedLgdScreen(root){
       cure.length?('정상화 '+cure.length+'건이 실현 LGD 평균을 끌어내린다.')
         :'정상화로 분류된 관측이 원장에 없다.'));
   }
-  root.appendChild(cardOf('만들지 않은 화면',null,
-    'PLGD(Potential LGD)는 BEEL 분포의 일정 신뢰수준 극단값이다. '+
-    '신뢰수준 q 와 DSF 적용방식(승산·가산)이 1차자료에 없어 내부기준으로 정해야 하며, '+
-    '그 값이 원장에 적재되기 전까지 PLGD 대 BEEL 비교는 이 화면에 없다.'));
+  root.appendChild(cardOf('PLGD 는 어디에 있나',null,
+    'PLGD(Potential LGD)는 BEEL 분포의 일정 신뢰수준 극단값이다. 곡선·분모 '+
+    '판정·신뢰수준 민감도는 BEEL·PLGD 화면이 낸다. 신뢰수준 q 는 1차자료에 '+
+    '없는 내부기준이라 승인 전에는 PLGD 값이 비어 있고, 그 상태도 그 화면이 '+
+    '표시한다.'));
+}
+
+/* ---- 회수 할인율 (CAPM) ------------------------------------------------ */
+
+/* 할인율 한 칸이 비면 LGD·BEEL 곡선·PLGD가 통째로 산출불가로 멈춘다. 그래서
+   관측·추정·승인·적용을 한 화면에 두고 값이 어느 단계에서 왔는지 화면에서
+   바로 읽히게 한다. 회귀선은 추정 원장의 절편·기울기를 그대로 긋는다. 화면이
+   점에서 다시 회귀하면 원장의 베타와 화면의 선이 갈라져도 드러나지 않는다. */
+
+const CAPM_TABLES=['crm_capm_observation','crm_capm_estimate',
+  'crm_lgd_discount_rate','crm_lgd_estimate'];
+
+function capmDiscountScreen(root){
+  reviewNotice(root,'CRE');
+  root.appendChild(almSources(CAPM_TABLES,
+    '회수 할인율의 관측·추정·승인·적용이다. [별표 3] 184.(1)은 회수기간에 '+
+    '따른 할인효과를 고려하라고만 정하고 할인율의 수준·산식·세그먼트 구분을 '+
+    '주지 않으므로, 값과 승인 기록이 원장에 함께 있어야 한다.'));
+  if(!almHas(root,['crm_capm_estimate','crm_capm_observation',
+                   'crm_lgd_discount_rate']))return;
+  const e=almF('crm_capm_estimate'),ei=frameIdx(e);
+  if(!e.rows.length){
+    root.appendChild(el('div','note bad','추정 원장에 행이 없다.'));return}
+  const r=e.rows[0];
+  const prem=r[ei.market_premium];
+  const g=el('div','grid');
+  /* 'lab'·'sub' 는 el() 이 옮기는 클래스가 아니므로 T() 를 직접 부른다.
+     원장 값(추정 상태·출처)은 옮기지 않고 원문 그대로 붙인다. */
+  [['무위험이자율 R_f',pctv(r[ei.riskfree_annual],4),
+    T('관측 만기수익률 평균'),''],
+   ['시장수익률 R_M',pctv(r[ei.market_return_applied],4),
+    TP('출처',String(r[ei.market_return_source]||'-')),''],
+   ['위험프리미엄',pctv(prem,4),T('시장수익률에서 무위험이자율을 뺀 값'),
+    (prem!=null&&prem<=0)?'bad':''],
+   ['베타',numOrDash(r[ei.beta],4),
+    TP('표준오차',numOrDash(r[ei.beta_stderr],4)),''],
+   ['자기자본비용 k_e',pctv(r[ei.cost_of_equity],4),
+    String(r[ei.ke_status]||''),r[ei.cost_of_equity]==null?'bad':'']]
+  .forEach(([k,v,s,t])=>{
+    const c=el('div','card kpi');
+    c.appendChild(rawEl('div','lab',T(k)));
+    c.appendChild(el('div','val '+t,v));
+    c.appendChild(rawEl('div','sub',s));
+    g.appendChild(c)});
+  root.appendChild(g);
+
+  /* 산점은 백분율 축으로 그린다. 초과수익률은 소수점 두세 자리라 비율 그대로
+     그리면 눈금 라벨이 전부 같은 값으로 찍힌다. 기울기는 축을 같은 배수로
+     늘려도 그대로이고 절편만 같은 배수를 곱한다. */
+  const o=almF('crm_capm_observation'),oi=frameIdx(o);
+  const pts=o.rows.filter(x=>x[oi.excess_market_return]!=null
+                          &&x[oi.excess_bank_return]!=null)
+    .map(x=>({x:x[oi.excess_market_return]*100,
+              y:x[oi.excess_bank_return]*100,
+              label:String(x[oi.period])}));
+  if(pts.length){
+    const c2=cardOf('베타 회귀 (초과수익률 산점과 적합선)',
+      scatterXY(pts,{xlabel:T('시장 초과수익률 (백분율)'),
+        ylabel:T('은행주 초과수익률 (백분율)'),
+        fit:{slope:r[ei.beta],intercept:(r[ei.alpha]||0)*100},
+        tick:v=>v.toFixed(1)}));
+    c2.appendChild(simpleTable(
+      ['관측수','산출대상기간','기울기 (베타)','표준오차','t 값','결정계수',
+       '절편 (월)'],
+      [[r[ei.n_observations],r[ei.estimation_period],numOrDash(r[ei.beta],4),
+        numOrDash(r[ei.beta_stderr],4),numOrDash(r[ei.beta_tstat],2),
+        numOrDash(r[ei.beta_r2],4),numOrDash(r[ei.alpha],6)]]));
+    c2.appendChild(el('div','meta',
+      '점 하나가 관측 한 달이다. 가로는 시장 초과수익률, 세로는 은행주 '+
+      '초과수익률이며, 파선은 추정 원장의 절편과 기울기로 그은 적합선이다.'));
+    c2.appendChild(srcMeta(o));
+    root.appendChild(c2)}
+
+  /* 근거 고지. 관측 계열 자체가 합성이라 여기서 나온 베타는 실측 베타와 같은
+     칸에 둘 수 없다. 원장의 출처 문구를 그대로 싣는다. */
+  const c3=el('div','card');
+  c3.appendChild(el('h3',null,'근거와 산출 상태'));
+  c3.appendChild(simpleTable(['항목','원장 값'],
+    [['무위험이자율 출처',String(r[ei.rf_source]||'-')],
+     ['베타 출처',String(r[ei.beta_source]||'-')],
+     ['시장수익률 출처',String(r[ei.market_return_source]||'-')],
+     ['자기자본비용 상태',String(r[ei.ke_status]||'-')],
+     ['근거 판정',String(r[ei.evidence_status]||'-')],
+     ['규정 근거',String(r[ei.citation]||'-')],
+     ['타행 참고',String(r[ei.reference_note]||'-')]]));
+  c3.appendChild(el('div','note warn',
+    '이 화면의 베타는 합성 관측으로 낸 추정치다. 관측 가능한 은행 주가 계열이 '+
+    '원장에 없어 결정론 합성 표본으로 회귀했고, 근거 판정이 그 사실을 든다. '+
+    '실측 베타로 읽지 않는다.'));
+  root.appendChild(c3);
+
+  /* 회수유형별 할인율. 값이 원장에 들어가는 경로는 승인 함수 하나뿐이므로
+     값·승인자·승인일이 같은 행에 있다. 승인자 칸이 비면 값도 없어야 한다. */
+  const d=almF('crm_lgd_discount_rate'),di=frameIdx(d);
+  const AP=6;
+  const c4=cardOf('회수유형별 할인율 (승인 기록 포함)',
+    simpleTable(['세그먼트','회수유형','할인율','산출근거','근거 판정','값의 근거',
+                 '승인자','승인일'],
+      d.rows.map(x=>[x[di.segment],x[di.recovery_scope],
+        pctv(x[di.discount_rate],4),x[di.basis],x[di.evidence_status],
+        x[di.input_source],x[di.approved_by]||'(미승인)',
+        x[di.approval_date]||'-']),
+      {numeric:false,rowClass:x=>String(x[AP]).indexOf('미승인')>=0?'warn':null}));
+  c4.appendChild(el('div','meta',
+    '예적금 상계처럼 회수 불확실성이 없는 회수를 무위험회수로 나눠 둔다. '+
+    '하나의 할인율로 묶으면 회수 타이밍이 다른 세그먼트 사이의 LGD 서열이 '+
+    '왜곡된다.'));
+  c4.appendChild(srcMeta(d));
+  root.appendChild(c4);
+
+  /* 타행 실측 대비. 참고치는 승인 판단의 자료이고 엔진이 읽는 값이 아니다. */
+  const c5=cardOf('타행 참고치와의 대비',
+    simpleTable(['세그먼트','회수유형','적용 할인율','참고치','차이'],
+      d.rows.map(x=>[x[di.segment],x[di.recovery_scope],
+        pctv(x[di.discount_rate],4),pctv(x[di.reference_value],4),
+        (x[di.discount_rate]==null||x[di.reference_value]==null)?'-'
+          :numOrDash((x[di.discount_rate]-x[di.reference_value])*100,4)])),
+    '차이는 적용 할인율에서 참고치를 뺀 값이며 단위는 백분율 포인트다.');
+  c5.appendChild(rawEl('div','meta',
+    T('참고치 근거')+': '+
+    String((d.rows.length?d.rows[0][di.reference_citation]:null)||'-')));
+  root.appendChild(c5);
+
+  /* 할인율이 실제로 LGD를 열었는지. 승인 상태만 보이고 산출 결과가 안 보이면
+     화면이 통제 상태만 말하고 산출물은 말하지 않는 것이 된다. */
+  const L=almF('crm_lgd_estimate');
+  if(L){const li=frameIdx(L),ST=4;
+    root.appendChild(cardOf('할인율 적용 결과 (LGD 산출 상태)',
+      simpleTable(['세그먼트','적용 할인율','할인율 상태','원시 추정','산출 상태'],
+        L.rows.map(x=>[x[li.segment],pctv(x[li.discount_rate],4),
+          x[li.discount_rate_status],pctv(x[li.raw_estimate],2),x[li.status]]),
+        {numeric:false,rowClass:x=>x[ST]==='산출불가'?'bad':null}),
+      '할인율이 비어 있으면 그 세그먼트 LGD 산출을 건너뛰고 산출불가로 남긴다. '+
+      '엔진이 조용히 기본값을 쓰지 않는다.'))}
+
+  root.appendChild(almEvidence(['crm_capm_observation','crm_capm_estimate',
+    'crm_lgd_discount_rate']));
+}
+
+/* ---- 부도자산 LGD (BEEL 곡선·PLGD) ------------------------------------- */
+
+/* 경과월별 BEEL 곡선, 분모 두 방식 대비, 신뢰수준 민감도, PLGD 대 ELBE,
+   185.바의 개별충당금+부분상각 비교를 한 화면에 둔다. 신뢰수준 q 는 1차자료에
+   없는 내부기준이라 승인 전에는 PLGD 값이 비고, 그 상태를 화면이 적는다. */
+
+const BEEL_TABLES=['crm_beel_curve','crm_plgd','crm_plgd_sensitivity',
+  'crm_defaulted_lgd','crm_lgd_discount_rate'];
+
+function beelPlgdScreen(root){
+  reviewNotice(root,'CRE');
+  root.appendChild(almSources(BEEL_TABLES,
+    '부도 후 경과월별 예상손실 최적추정치(BEEL) 곡선과 그 곡선의 극단값인 '+
+    'PLGD 다. [별표 3] 185.바가 부도자산 예상손실에 예상외 손실 가능성을 추가 '+
+    '반영하라고 정하고, 120.가(2) 주4)가 부도자산 예상손실을 그 최적추정치로 '+
+    '정한다.'));
+  if(!almHas(root,['crm_beel_curve','crm_plgd']))return;
+  const c=almF('crm_beel_curve'),ci=frameIdx(c);
+  const p=almF('crm_plgd'),pi=frameIdx(p);
+  if(!c.rows.length){
+    root.appendChild(el('div','note bad','곡선 원장에 행이 없다.'));return}
+
+  /* 판정 카드. 세 판정 모두 원장 컬럼이며 화면이 다시 정하지 않는다. */
+  const p0=p.rows.length?p.rows[0]:null;
+  const applied=c.rows.filter(x=>x[ci.is_applied_denominator]);
+  const g=el('div','grid');
+  [['적용 분모',String(applied.length?applied[0][ci.beel_denominator]:'-'),
+    T('경과월과 곡선의 순위상관 부호로 판정'),''],
+   ['DSF 반영형태',String((p0&&p0[pi.dsf_form])||'미정'),
+    T('분포 분위수 대 평균의 변동계수 비교'),''],
+   ['신뢰수준 q',(p0?numOrDash(p0[pi.confidence_q],2):'-'),
+    String((p0&&p0[pi.confidence_q_status])||'-'),
+    (p0&&p0[pi.confidence_q]==null)?'warn':''],
+   ['PLGD 산출 상태',String((p0&&p0[pi.status])||'-'),
+    T('값이 비면 신뢰수준이 승인되지 않은 것'),
+    (p0&&p0[pi.plgd]==null)?'bad':'']]
+  .forEach(([k,v,s,t])=>{
+    const x=el('div','card kpi');
+    x.appendChild(rawEl('div','lab',T(k)));
+    x.appendChild(el('div','val '+t,v));
+    x.appendChild(rawEl('div','sub',s));
+    g.appendChild(x)});
+  root.appendChild(g);
+
+  /* 곡선. 적용 분모 쪽만 그린다. 두 분모를 한 그림에 겹치면 어느 쪽이 원장의
+     적용값인지 화면에서 사라진다. 대비는 아래 표가 맡는다. */
+  const segs=[...new Set(c.rows.map(x=>x[ci.segment]))].sort();
+  const bar=el('div','toolbar');
+  const sel=almSelect(bar,'세그먼트',segs,segs[0]);
+  const pane=el('div');
+  function draw(){
+    pane.innerHTML='';
+    const sub=c.rows.filter(x=>x[ci.segment]===sel.value
+                             &&x[ci.is_applied_denominator]
+                             &&x[ci.beel_mean]!=null)
+      .sort((a,b)=>a[ci.months_since_default]-b[ci.months_since_default]);
+    if(!sub.length){
+      pane.appendChild(el('div','note bad',
+        '이 세그먼트의 적용 분모 곡선이 산출되지 않았다.'));return}
+    pane.appendChild(areaLine(
+      sub.map(x=>+(x[ci.beel_mean]*100).toFixed(2)),
+      {label:T('BEEL 평균 (백분율)')}));
+    const first=sub[0],last=sub[sub.length-1];
+    pane.appendChild(simpleTable(
+      ['경과월','부도건수','BEEL 평균','관측중단 제외 영향','단조성 판정',
+       '순위상관'],
+      [[first[ci.months_since_default],first[ci.n_defaults],
+        pctv(first[ci.beel_mean],2),numOrDash(first[ci.censoring_impact],4),
+        first[ci.monotonicity_verdict],
+        numOrDash(first[ci.monotonicity_rho],4)],
+       [last[ci.months_since_default],last[ci.n_defaults],
+        pctv(last[ci.beel_mean],2),numOrDash(last[ci.censoring_impact],4),
+        last[ci.monotonicity_verdict],
+        numOrDash(last[ci.monotonicity_rho],4)]]));
+    pane.appendChild(el('div','meta',
+      '곡선 평균은 회수가 끝난 건만 쓴다. 관측중단 제외 영향은 미종결 건을 '+
+      '관측분만으로 포함했을 때와의 차이이며, 양수면 제외 처리가 낙관적이라는 '+
+      '뜻이다.'))}
+  sel.onchange=draw;draw();
+  const c1=cardOf('경과월별 BEEL 곡선 (적용 분모)',null);
+  c1.appendChild(bar);c1.appendChild(pane);c1.appendChild(srcMeta(c));
+  root.appendChild(c1);
+
+  /* 분모 두 방식 대비. 원장이 두 분모를 모두 산출하고 적용 표시만 다르다. */
+  const key=new Map();
+  c.rows.forEach(x=>{
+    const k=x[ci.segment]+'||'+x[ci.beel_denominator];
+    const cur=key.get(k);
+    if(!cur||x[ci.months_since_default]>cur[ci.months_since_default])
+      key.set(k,x)});
+  const AP=2,VD=3;
+  const c2=cardOf('분모 두 방식 대비',
+    simpleTable(['세그먼트','분모구분','적용','단조성 판정','순위상관',
+                 '유의확률','마지막 경과월 BEEL'],
+      [...key.entries()].sort().map(([k,x])=>[
+        x[ci.segment],x[ci.beel_denominator],
+        x[ci.is_applied_denominator]?'적용':'',
+        x[ci.monotonicity_verdict],numOrDash(x[ci.monotonicity_rho],4),
+        numOrDash(x[ci.monotonicity_pvalue],4),pctv(x[ci.beel_mean],2)]),
+      {numeric:false,
+       rowClass:x=>x[VD]==='단조증가아님'?'warn':(x[AP]==='적용'?'good':null)}),
+    '분모를 부도시 익스포저로 두면 할인 되감기 항이 사라져 곡선이 경과월에 '+
+    '따라 올라간다. 잔여익스포저로 두면 분모도 함께 줄어 곡선이 무너지는 '+
+    '세그먼트가 생긴다. 판정은 순위상관 부호이며 원장 컬럼이다.');
+  root.appendChild(c2);
+
+  /* 신뢰수준 민감도. q 는 승인 대상이므로 화면이 고르지 않는다. */
+  const S=almF('crm_plgd_sensitivity');
+  if(S&&S.rows.length){
+    const si=frameIdx(S);
+    const c3=cardOf('신뢰수준 q 민감도',
+      simpleTable(['세그먼트','신뢰수준 q','PLGD','소요자기자본 K',
+                   '위험가중자산','최저 q 대비 증가','충당금 소요',
+                   '꼬리 관측 최소'],
+        S.rows.map(x=>[x[si.segment],numOrDash(x[si.confidence_q],2),
+          pctv(x[si.plgd],2),numOrDash(x[si.capital_requirement_k],4),
+          moneyOrDash(x[si.rwa]),moneyOrDash(x[si.rwa_delta_vs_lowest_q]),
+          moneyOrDash(x[si.provision_requirement]),
+          numOrDash(x[si.min_tail_observations])]),
+        {numeric:false}));
+    c3.appendChild(rawEl('div','meta',
+      T('충당금 산출 근거')+': '+String(S.rows[0][si.provision_basis]||'-')));
+    c3.appendChild(el('div','note warn',
+      '표의 어느 줄도 승인된 값이 아니다. q 는 시뮬레이션이 정해 주는 값이 '+
+      '아니고 승인기구 의결이 효력 요건이라, 원장의 신뢰수준 칸은 비어 있다. '+
+      '꼬리 관측이 적은 줄은 분위수가 표본 밖 순서통계량에 기댄다.'));
+    c3.appendChild(srcMeta(S));
+    root.appendChild(c3)}
+
+  /* PLGD 대 ELBE. 예상외 손실 가산은 둘의 차이이며 음수가 될 수 없다. */
+  const SS=10;
+  const c4=cardOf('PLGD 대 ELBE',
+    simpleTable(['세그먼트','미종결 부도','부도상태 익스포저','ELBE','PLGD',
+                 '예상외손실 가산','부도자산 LGD','침체가산 배수','반영형태',
+                 '소요자기자본 K','산출 상태'],
+      p.rows.map(x=>[x[pi.segment],numOrDash(x[pi.n_defaulted_open]),
+        moneyOrDash(x[pi.ead_at_default_open]),pctv(x[pi.elbe],2),
+        pctv(x[pi.plgd],2),numOrDash(x[pi.unexpected_loss_addon],4),
+        pctv(x[pi.lgd_in_default],2),numOrDash(x[pi.dsf],4),
+        x[pi.dsf_form]||'-',numOrDash(x[pi.capital_requirement_k],4),
+        x[pi.status]]),
+      {numeric:false,
+       rowClass:x=>String(x[SS]).indexOf('산출불가')>=0?'warn':null}));
+  c4.appendChild(rawEl('div','meta',
+    T('부도자산 LGD 의 근거')+': '+
+    String((p0&&p0[pi.lgd_in_default_basis])||'-')));
+  const few=p.rows.filter(x=>x[pi.insufficient_sample]);
+  if(few.length)c4.appendChild(el('div','note warn',
+    '꼬리 표본이 모자란 세그먼트가 있다. 표본이 모자란 분위수는 순서통계량이 '+
+    '표본 밖으로 나가 값이 관측에 기대지 않는다.'));
+  c4.appendChild(srcMeta(p));
+  root.appendChild(c4);
+
+  /* 185.바 후단. 비대칭이므로 반대 방향은 입증 대상이 아니다. */
+  const JR=6;
+  const c5=cardOf('개별충당금 + 부분상각 비교',
+    simpleTable(['세그먼트','ELBE 금액','다른 분모 기준 금액','개별충당금',
+                 '부분상각','차액','입증 필요','증빙'],
+      p.rows.map(x=>[x[pi.segment],moneyOrDash(x[pi.elbe_amount]),
+        moneyOrDash(x[pi.elbe_amount_alt_denominator]),
+        moneyOrDash(x[pi.specific_provision]),
+        moneyOrDash(x[pi.partial_writeoff]),moneyOrDash(x[pi.shortfall]),
+        x[pi.justification_required]==null?'미판정'
+          :(x[pi.justification_required]?'필요':'불필요'),
+        x[pi.justification_ref]||'(없음)']),
+      {numeric:false,rowClass:x=>x[JR]==='필요'?'bad':
+        (x[JR]==='미판정'?'warn':null)}),
+    '최적추정치가 개별충당금과 부분상각 합계보다 작으면 그 정당성을 입증해야 '+
+    '한다 ([별표 3] 185.바). 반대 방향은 입증 대상이 아니다. 충당금 자료가 '+
+    '원장에 없으면 판정하지 않고 미판정으로 둔다.');
+  c5.appendChild(el('div','meta',
+    '다른 분모 기준 금액은 적용하지 않은 분모로 같은 계산을 한 결과다. 분모 '+
+    '판정이 바뀌면 이 비교의 방향이 뒤집힐 수 있어 함께 싣는다.'));
+  root.appendChild(c5);
+
+  root.appendChild(almEvidence(['crm_beel_curve','crm_plgd']));
 }
 
 function irbGovernanceScreen(root){
@@ -5702,10 +6065,11 @@ function lgdEadBacktestScreen(root){
 
 /* 45도선 산점. 축은 0~1 비율이며 값은 원장 그대로다. */
 function scatter45(points){
-  const W=520,H=380,pad=44;
+  /* 위쪽 28px 은 y축 이름 자리다. 눈금 칸에 겹쳐 그리지 않는다. */
+  const W=520,H=380,pad=44,padT=28;
   const s=svgEl(W,H,'추정 대 실현 산점');
   const X=v=>pad+Math.max(0,Math.min(1,v))*(W-pad-14);
-  const Y=v=>H-pad-Math.max(0,Math.min(1,v))*(H-pad-14);
+  const Y=v=>H-pad-Math.max(0,Math.min(1,v))*(H-pad-padT);
   [0,0.25,0.5,0.75,1].forEach(t=>{
     svgNode(s,'line',{x1:X(0),x2:X(1),y1:Y(t),y2:Y(t),stroke:'var(--line)',
       'stroke-width':0.5,'stroke-dasharray':'3 3'});
@@ -5722,7 +6086,7 @@ function scatter45(points){
       p.label+' · 추정 '+(p.x*100).toFixed(1)+'% · 실현 '+(p.y*100).toFixed(1)+'%'});
   svgNode(s,'text',{x:W/2,y:H-8,'text-anchor':'middle','font-size':9,
     fill:'var(--muted)'},'추정');
-  svgNode(s,'text',{x:12,y:16,'font-size':9,fill:'var(--muted)'},'실현');
+  svgNode(s,'text',{x:4,y:11,'font-size':9,fill:'var(--muted)'},'실현');
   return chartBox(s,null,null);
 }
 
@@ -5983,31 +6347,41 @@ function bhvBacktestScreen(root){
 }
 
 /* 일반 산점. 축 라벨은 호출자가 준다. */
-function scatterXY(points,{xlabel,ylabel}={}){
-  const W=560,H=330,padL=52,padB=42,padT=14,padR=14;
+/* `fit` 은 원장이 이미 낸 회귀계수(절편·기울기)를 그대로 받아 직선을 긋는다.
+   화면이 점에서 다시 회귀하지 않는다. 다시 하면 추정 원장의 베타와 화면의
+   선이 갈라져도 아무도 모른다. `tick` 은 눈금 표기 함수다. */
+function scatterXY(points,{xlabel,ylabel,fit,tick}={}){
+  /* padT 는 y축 이름이 앉을 자리까지 포함한다. 이름을 눈금 칸에 그리면
+     맨 위 눈금 라벨과 겹친다. */
+  const W=560,H=330,padL=52,padB=42,padT=28,padR=14;
   const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
   const x0=Math.min(...xs,0),x1=Math.max(...xs,0)||1;
   const y0=Math.min(...ys,0),y1=Math.max(...ys,0)||1;
   const sx=v=>padL+(x1===x0?0.5:(v-x0)/(x1-x0))*(W-padL-padR);
   const sy=v=>H-padB-(y1===y0?0.5:(v-y0)/(y1-y0))*(H-padB-padT);
+  const ty=tick||(v=>v.toFixed(1)),tx=tick||(v=>v.toFixed(0));
   const s=svgEl(W,H,(ylabel||'')+' 대 '+(xlabel||''));
   [0,0.25,0.5,0.75,1].forEach(t=>{
     const yv=y0+(y1-y0)*t;
     svgNode(s,'line',{x1:padL,x2:W-padR,y1:sy(yv),y2:sy(yv),
       stroke:'var(--line)','stroke-width':0.5,'stroke-dasharray':'3 3'});
     svgNode(s,'text',{x:padL-6,y:sy(yv)+3,'text-anchor':'end','font-size':9,
-      fill:'var(--muted)'},yv.toFixed(1));
+      fill:'var(--muted)'},ty(yv));
     const xv=x0+(x1-x0)*t;
     svgNode(s,'text',{x:sx(xv),y:H-padB+14,'text-anchor':'middle','font-size':9,
-      fill:'var(--muted)'},xv.toFixed(0))});
+      fill:'var(--muted)'},tx(xv))});
   points.forEach(p=>{
     const c=svgNode(s,'circle',{cx:sx(p.x),cy:sy(p.y),r:3,
       fill:'var(--'+(p.tone||'accent')+')','fill-opacity':0.6});
     c.appendChild(document.createElementNS(s.namespaceURI,'title')).textContent=
       (p.label||'')+' · '+p.x+' → '+p.y.toFixed(2)});
+  if(fit&&fit.slope!=null&&fit.intercept!=null){
+    const ya=fit.intercept+fit.slope*x0,yb=fit.intercept+fit.slope*x1;
+    svgNode(s,'line',{x1:sx(x0),y1:sy(ya),x2:sx(x1),y2:sy(yb),
+      stroke:'var(--accent)','stroke-width':1.4,'stroke-dasharray':'5 4'})}
   if(xlabel)svgNode(s,'text',{x:W/2,y:H-6,'text-anchor':'middle','font-size':9,
     fill:'var(--muted)'},xlabel);
-  if(ylabel)svgNode(s,'text',{x:12,y:14,'font-size':9,fill:'var(--muted)'},ylabel);
+  if(ylabel)svgNode(s,'text',{x:4,y:11,'font-size':9,fill:'var(--muted)'},ylabel);
   return chartBox(s,null,null);
 }
 
@@ -7622,6 +7996,10 @@ const DETAIL_SCREENS=[
   ['LGD 추정','IRB · LGD 추정 (회수곡선·경기침체·관측중단)',lgdEstimateScreen],
   ['CCF 추정','IRB · CCF 추정 (관측설계·상관·보수화)',ccfEstimateScreen],
   ['부도자산 LGD','IRB · 부도자산 LGD (ELBE·충당금 비교)',defaultedLgdScreen],
+  ['회수 할인율','IRB · 회수 할인율 (CAPM 관측·추정·승인·적용)',
+   capmDiscountScreen],
+  ['BEEL·PLGD','IRB · 부도자산 LGD (BEEL 곡선·PLGD·신뢰수준 민감도)',
+   beelPlgdScreen],
   ['모형 거버넌스','IRB · 모형 거버넌스·사후검증 (적용·실측·허용범위)',
    irbGovernanceScreen],
   ['LGD·EAD 실측검증','B · LGD·EAD 실측 검증 (추정 대 실현)',lgdEadBacktestScreen],
@@ -7648,7 +8026,8 @@ const NAVGROUPS=[
     ['신용모형',['변별력·안정성','등급 보정','등급 전이']],
     /* 내부등급법 추정은 신용모형 성능과 다른 것을 본다. 성능은 변별력이고
        추정은 값 자체와 하한·MoC·관측기간이다. 그래서 하위그룹을 따로 둔다. */
-    ['내부등급법 추정',['PD 추정','LGD 추정','CCF 추정','부도자산 LGD',
+    ['내부등급법 추정',['PD 추정','LGD 추정','CCF 추정','회수 할인율',
+                        '부도자산 LGD','BEEL·PLGD',
                         '모형 거버넌스','LGD·EAD 실측검증']],
     ['고객행동모형',['행동모형 추정','비만기성예금 코어','행동모형 백테스트']],
   ]],

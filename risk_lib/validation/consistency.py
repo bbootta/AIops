@@ -1481,6 +1481,55 @@ def _check_backtest_censoring(ledgers: dict | None,
         f"CCF 표본 {n_fac}건", metric=float(censored)))
 
 
+#: 회수 할인율(CAPM) 검사가 읽는 원장. 한 장이라도 없으면 검사가 통째로
+#: 돌지 않으므로 결손 자체를 FAIL로 잡는다.
+_CAPM_LEDGERS = ("crm_capm_observation", "crm_capm_estimate",
+                 "crm_lgd_discount_rate", "crm_recovery_history")
+#: 부도자산 LGD(BEEL 곡선·PLGD) 검사가 읽는 원장.
+_PLGD_LEDGERS = ("crm_beel_curve", "crm_plgd")
+
+
+def _missing_ledgers(ledgers: dict, names: tuple[str, ...]) -> list[str]:
+    return [n for n in names
+            if not isinstance(ledgers.get(n), pd.DataFrame)]
+
+
+def _check_irb_estimation_ledgers(ledgers: dict | None, asof: str | None,
+                                  report: ValidationReport) -> None:
+    """회수 할인율(CAPM)과 부도자산 LGD(BEEL·PLGD)의 자체검사를 합류시킨다.
+
+    검사 본문은 산출 모듈이 들고 있다(`models.estimation.discount_capm`·
+    `plgd`). 여기서 다시 쓰면 같은 규칙이 두 벌이 되고 한쪽만 고쳐지는 날이
+    온다. 이 함수가 하는 일은 원장이 실제로 산출물에 실렸는지 확인하고
+    모듈의 검사 묶음을 같은 보고서에 붙이는 것뿐이다.
+
+    원장이 없으면 검사를 건너뛰지 않고 FAIL을 남긴다. 건너뛰면 "돌지 않았다"가
+    보고서에서 "통과했다"와 구분되지 않는다.
+    """
+    if ledgers is None:
+        return
+    from risk_lib.models.estimation.discount_capm import run_capm_checks
+    from risk_lib.models.estimation.plgd import run_plgd_checks
+
+    missing = _missing_ledgers(ledgers, _CAPM_LEDGERS)
+    if missing:
+        report.add(ConsistencyCheck(
+            "irb_discount_rate_ledgers_present", "FAIL",
+            f"회수 할인율 검사가 읽을 원장이 산출물에 없다: {missing}",
+            metric=float(len(missing))))
+    else:
+        run_capm_checks(ledgers, asof=asof, report=report)
+
+    missing = _missing_ledgers(ledgers, _PLGD_LEDGERS)
+    if missing:
+        report.add(ConsistencyCheck(
+            "irb_plgd_ledgers_present", "FAIL",
+            f"부도자산 LGD 검사가 읽을 원장이 산출물에 없다: {missing}",
+            metric=float(len(missing))))
+    else:
+        run_plgd_checks(ledgers, report=report)
+
+
 def run_consistency_checks(
     *,
     sa_results: pd.DataFrame | None = None,
@@ -1581,5 +1630,6 @@ def run_consistency_checks(
     _check_limit_ledger_source(ledger_tables, limit_report, rep)
     _check_macro_master_source(ledger_tables, rep)
     _check_backtest_censoring(ledger_tables, rep)
+    _check_irb_estimation_ledgers(ledger_tables, asof, rep)
 
     return rep

@@ -21,7 +21,7 @@ Reports (표현 계층)      html_report(빌드 오케스트레이터), report_c
                         page_registry
   ↓
 Canonical data model    datamodel/ (spec·catalog·decompose·materialize·
-                        materialize_detail·materialize_ledgers) — 261 테이블 / 2708 컬럼
+                        materialize_detail·materialize_ledgers) — 266 테이블 / 2822 컬럼
   ↓
 Orchestration           pipeline.run_pipeline → PipelineResult
   ↓
@@ -86,7 +86,7 @@ out/
 
 ## 정규 데이터모델 (datamodel/)
 
-`catalog.ALL_TABLES`가 단일 소스다 — 테이블 261장 / 컬럼 2708개. 각 컬럼은 타입·
+`catalog.ALL_TABLES`가 단일 소스다 — 테이블 266장 / 컬럼 2822개. 각 컬럼은 타입·
 단위·허용값·범위·규정 근거를 스펙으로 선언하고, DDL·검증·DQ 규칙이 모두 여기서
 파생된다.
 
@@ -121,7 +121,7 @@ out/
 라벨 사본을 들고 있었고, 헤드라인 사다리가 [별표 9-1] <표2>의 19구간으로 바뀐
 뒤 그 사본이 낡아 정상 산출이 도메인 위반으로 잡혔다.
 
-### R15 신규 요건 원장 (`catalog.NEW_LEDGER_TABLES`, 130장)
+### R15 신규 요건 원장 (`catalog.NEW_LEDGER_TABLES`, 135장)
 
 거시 마스터·한도 정의·[별표 9-1] 국내 고유 요건·제22항 공시서식·LGD/CCF
 실측검증·내부등급법 추정·신용평가시스템·CRM 담보배분·거액익스포져·고객행동모형·
@@ -137,6 +137,35 @@ AI 추적. 산출 경로는 세 갈래다.
 3. `datamodel.materialize_ledgers.materialize_run_control` — 조립이 끝나야
    원장 목록이 확정되는 RBAC·마감·감사체인·보존·통합실행·AI 추적.
    `build_studio` 마지막에 부른다.
+
+#### 회수 할인율과 부도자산 LGD (내부등급법 추정 5장)
+
+[별표 3] 184.(1)은 회수기간의 할인효과만 정하고 할인율의 산식·수준을 주지
+않는다. 그래서 할인율 하나가 비면 LGD·BEEL 곡선·PLGD가 통째로 산출불가다.
+산출 순서는 관측 → 추정 → 승인 → 적용이며 원장 5장이 그 순서를 그대로 든다.
+
+```
+crm_capm_observation (144개월 시장·무위험 관측)
+  → crm_capm_estimate (R_f · beta · k_e, 산출 못하면 ke_status가 사유)
+  → crm_lgd_discount_rate (승인 기록과 값이 같은 행에 들어간다)
+  → crm_lgd_estimate → crm_beel_curve → crm_plgd · crm_plgd_sensitivity
+```
+
+지표 마스터의 주가 계열에 표류항이 없어 관측 실현 시장수익률이 0 부근이고
+위험프리미엄이 음수로 나온다. 그래서 자기자본비용은 관측만으로 산출되지
+않으며 `ke_status='추정불가(위험프리미엄비양수)'`로 남는다. 이 상태에서
+`_stage_ledgers`는 할인율 원장의 참고치 칸(타행 실측, `reference_value`)을
+'전체' 회수유형에 **잠정 준용**해 승인자 `(미승인·업계참고 잠정준용)`으로
+적재하고 `ledger_warnings`에 남긴다. 값을 지어내지 않되 비어 있는 채로 두면
+하위 산출이 전부 멈추므로, 출처가 있는 값을 쓰고 승인자 칸이 미승인임을
+말하게 한다. 승인기구 의결이 생기면 `crm_estimation_param`의
+`capm_market_return`을 승인하는 것으로 갈아탄다. 무위험회수 할인율은 관측
+평균이므로 준용 대상이 아니다.
+
+PLGD 신뢰수준 `confidence_q`는 승인 전이라 `crm_plgd.plgd`가 비어 있고
+`crm_plgd_sensitivity`가 q 격자별 RWA·충당금 소요만 낸다. 화면 두 장
+(`회수 할인율(CAPM)`·`부도자산 LGD (BEEL·PLGD)`)이 이 승인 상태를 그대로
+표시한다.
 
 **등재하지 않은 신규 스펙 8장.** [별표 9-1] 2014년 판(금리 EaR·VaR)의 산출
 원장 6장은 2019.11.29 개정으로 폐지된 체계이므로 실체화하지 않는다. 제11항

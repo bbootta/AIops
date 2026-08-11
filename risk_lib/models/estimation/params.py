@@ -64,9 +64,12 @@ class ParamWarning(UserWarning):
 # 뜻이고, '사전예고안원문'은 감독당국이 낸 개정안 원문이지만 확정본과의 문언
 # 일치를 확인하지 못했다는 뜻이다. 둘을 '원문확인'으로 뭉치면 확정본을 본 값과
 # 구분이 사라진다.
+# '내부추정(합성관측)'은 규정도 실측도 아닌 값이다. 관측 계열 자체가 합성이라
+# 그것으로 낸 추정치는 실측 관측으로 낸 값과 같은 칸에 둘 수 없다. 회수 할인율의
+# CAPM 추정이 이 상태로 들어온다.
 IRB_EVIDENCE_STATUS: tuple[str, ...] = (
-    "원문확인", "개정전판본원문", "사전예고안원문", "2차자료", "업계관행",
-    "추론", "재량·미규정", "미확인")
+    "원문확인", "개정전판본원문", "사전예고안원문", "2차자료",
+    "내부추정(합성관측)", "업계관행", "추론", "재량·미규정", "미확인")
 # 값의 효력 근거. '규정'은 법령·감독규정이 정한 것, '내부기준'은 내규가 정하며
 # 승인기구 의결이 효력 요건, '업계참고'는 타행 실측으로 승인 판단의 참고자료다.
 INPUT_SOURCES: tuple[str, ...] = ("규정", "내부기준", "업계참고")
@@ -101,6 +104,7 @@ PARAM_CODES: tuple[str, ...] = (
     "lgd_censoring_treatment", "pd_seasoning_addon_retail",
     "backtest_ci_level", "backtest_significance_level",
     "psi_threshold_warn", "psi_threshold_fail",
+    "capm_market_return",
 )
 
 # 원문 파일 위치를 문자열에 남긴다. 인용만 있고 파일이 없으면 재현이 안 된다.
@@ -498,6 +502,21 @@ def build_crm_estimation_param() -> pd.DataFrame:
     internal("psi_threshold_fail", "ratio",
              "대표성 판정의 PSI 불합격 임계",
              f"{_SEC18} 180. {_INTERNAL}")
+    # 회수 할인율을 CAPM으로 추정할 때 관측으로 대체할 수 없는 유일한 입력이다.
+    # R_f는 국고채 3년 관측 평균, 베타는 초과수익률 회귀로 나오지만 R_M은
+    # 지표 원장의 KOSPI가 표류항 없는 평균회귀 계열이라 실현 평균이 0 부근이고
+    # R_M − R_f 가 구조적으로 음수가 된다. 값을 지어내지 않고 비워 둔다.
+    internal("capm_market_return", "ratio",
+             "CAPM 시장수익률 R_M (연율). 회수 할인율 k_e = R_f + beta·(R_M − R_f)"
+             "의 입력이며 승인 전에는 '전체' 회수유형 할인율이 비고 그 세그먼트 "
+             "LGD가 산출불가로 남는다",
+             f"{_SEC18} 184.(1)은 '회수기간에 따른 할인효과'만 정하고 할인율의 "
+             f"산식·수준을 주지 않는다. {_INTERNAL}",
+             ref_cite=(
+                 "우리금융지주 적합성 검증 서식은 KOSPI 일별 로그수익률의 연도별 "
+                 "평균을 R_M으로 쓰고 2003~2014 산술평균으로 자기자본비용 "
+                 "11.22%를 냈다. 베타를 공시하지 않아 그 서식에서 R_M을 역산할 "
+                 "수 없으므로 참고치 칸을 비운다"))
 
     df = pd.DataFrame(rows)
     df["param_value"] = pd.to_numeric(df["param_value"],
@@ -563,28 +582,38 @@ def build_crm_lgd_discount_rate(
     asof: str,
     segments: tuple[str, ...] = ("corporate", "retail_other",
                                  "residential_mortgage"),
+    *,
+    rf_source: str | None = None,
+    beta_source: str | None = None,
+    estimation_period: str | None = None,
 ) -> pd.DataFrame:
     """할인율 원장을 적재한다. 값은 비어 있다.
 
     승인된 내부기준이 생기면 :func:`approve_discount_rate`로 값과 승인자를
     채운다. 그 전까지 LGD 추정은 세그먼트별로 '산출불가'로 남는다. 값이 없는데
     0.05를 조용히 쓰면 LGD가 근거 없는 숫자가 되고, 그 숫자가 RWA로 흘러간다.
+
+    ``rf_source``·``beta_source``·``estimation_period``는 추정 절차가 자기 출처를
+    미리 적어 두는 칸이다(``discount_capm.build_capm_discount_ledgers``가
+    채운다). **넣어도 ``discount_rate``는 그대로 NULL이고 근거 상태도
+    '재량·미규정'이다.** 출처를 적는 것과 값을 넣는 것은 다른 사건이고, 값과
+    근거 상태는 승인을 거쳐야 바뀐다.
     """
     rows = []
     for seg in segments:
         rows.append({
             "asof": asof, "segment": seg, "recovery_scope": "전체",
             "discount_rate": None, "basis": "미정",
-            "rf_source": None, "beta_source": None,
-            "estimation_period": None, "input_source": "내부기준",
+            "rf_source": rf_source, "beta_source": beta_source,
+            "estimation_period": estimation_period, "input_source": "내부기준",
             "reference_value": 0.1122, "reference_citation": _DISC_REF,
             "citation": _DISC_CITE, "evidence_status": "재량·미규정",
             "approved_by": None, "approval_date": None})
         rows.append({
             "asof": asof, "segment": seg, "recovery_scope": "무위험회수",
             "discount_rate": None, "basis": "미정",
-            "rf_source": None, "beta_source": None,
-            "estimation_period": None, "input_source": "내부기준",
+            "rf_source": rf_source, "beta_source": beta_source,
+            "estimation_period": estimation_period, "input_source": "내부기준",
             "reference_value": 0.0401, "reference_citation": _DISC_REF,
             "citation": _DISC_CITE, "evidence_status": "재량·미규정",
             "approved_by": None, "approval_date": None})
@@ -682,11 +711,20 @@ def approve_discount_rate(rates: pd.DataFrame, *, asof: str, segment: str,
                           approved_by: str, approval_date: str,
                           rf_source: str | None = None,
                           beta_source: str | None = None,
-                          estimation_period: str | None = None
+                          estimation_period: str | None = None,
+                          evidence_status: str | None = None
                           ) -> pd.DataFrame:
-    """할인율 행에 값과 승인 기록을 넣은 사본을 돌려준다."""
+    """할인율 행에 값과 승인 기록을 넣은 사본을 돌려준다.
+
+    **할인율 값이 원장에 들어가는 경로는 이 함수 하나다.** 값과 승인자·승인일을
+    한 번에 적으므로 승인 없이 값만 들어간 행이 생기지 않는다.
+    ``evidence_status``는 그 값이 원문·실측·내부추정 중 무엇인지를 적는 칸이며,
+    합성 관측으로 낸 추정치는 '내부추정(합성관측)'으로 들어온다.
+    """
     if basis not in DISCOUNT_BASES:
         raise ValueError(f"basis는 {DISCOUNT_BASES} 중 하나여야 한다")
+    if evidence_status is not None and evidence_status not in IRB_EVIDENCE_STATUS:
+        raise ValueError(f"evidence_status는 {IRB_EVIDENCE_STATUS} 중 하나여야 한다")
     out = rates.copy()
     m = ((out["asof"] == asof) & (out["segment"] == segment)
          & (out["recovery_scope"] == recovery_scope))
@@ -703,6 +741,8 @@ def approve_discount_rate(rates: pd.DataFrame, *, asof: str, segment: str,
         out.loc[m, "beta_source"] = beta_source
     if estimation_period is not None:
         out.loc[m, "estimation_period"] = estimation_period
+    if evidence_status is not None:
+        out.loc[m, "evidence_status"] = evidence_status
     return out
 
 
