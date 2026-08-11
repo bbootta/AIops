@@ -3233,18 +3233,6 @@ function executiveReport(root){
     root.appendChild(c);
   }
 
-  /* --- RWA 귀속 (리포트 ops/23) --- */
-  const at=E.attribution;
-  if(at&&at.length){
-    const c=el('div','card');c.id='sec-rwa-attr';
-    c.appendChild(el('h3',null,'위험가중자산 귀속 (구성요소별 비중)'));
-    c.appendChild(donut(at.map(x=>({label:x.component,value:x.rwa})),
-      {note:'구성요소별 위험가중자산 · 합계는 공표 RWA와 같다'}));
-    root.appendChild(c);
-  }
-
-  /* --- 심각 시나리오 (리포트 ops/49) --- */
-
   /* --- KRI 스코어카드 (리포트(viz_advanced.kri_scorecard)와 같은 카드 격자) --- */
   if(E.kris&&E.kris.length){
     const c=el('div','card');c.id='sec-raf';
@@ -3260,6 +3248,18 @@ function executiveReport(root){
       `GREEN ${n('GREEN')} · 전체 ${E.kris.length} (임계는 RAF 원장에서 온다)`));
     root.appendChild(c);
   }
+
+  /* --- RWA 귀속 (리포트 ops/23) --- */
+  const at=E.attribution;
+  if(at&&at.length){
+    const c=el('div','card');c.id='sec-rwa-attr';
+    c.appendChild(el('h3',null,'위험가중자산 귀속 (구성요소별 비중)'));
+    c.appendChild(donut(at.map(x=>({label:x.component,value:x.rwa})),
+      {note:'구성요소별 위험가중자산 · 합계는 공표 RWA와 같다'}));
+    root.appendChild(c);
+  }
+
+  /* --- 심각 시나리오 (리포트 ops/49) --- */
 
   /* --- CRO 액션 --- */
   if(E.actions&&E.actions.length){
