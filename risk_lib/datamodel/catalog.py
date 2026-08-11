@@ -2674,6 +2674,14 @@ ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
 # 검사가 ALL_TABLES 를 그대로 세기 때문이다. 원장을 채우는 쪽이 붙을 때 함께
 # 등재한다.
 #
+# 같은 이유로 권역별 기관 원장 4장도 뺀다 (risk_lib.data_gen_intl):
+#   inst_profile         기관별 산출 모수 (완충자본·산출하한·시장운영 모수)
+#   inst_portfolio_mix   기관 × 자산군 건수·규모 배수
+#   inst_country_mix     기관 × 국가 구성비
+#   intl_label_lexicon   언어별 라벨 어휘집 (기관 축을 쓰지 않는다)
+# 넷 다 `inst_master` 를 참조하므로 그 원장이 등재되기 전에 먼저 등재하면
+# 외래키가 없는 표를 가리키게 된다. 기관 원장과 같은 회차에 함께 올린다.
+#
 # 기관 축을 적용한 카탈로그는 `ALL_TABLES` 에서 파생한다. 원본을 그 자리에서
 # 바꾸지 않는 이유는 두 가지다.
 #   - 지금 실체화되는 원장에는 institution_code 컬럼이 아직 없다. 스펙만 먼저

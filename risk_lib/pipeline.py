@@ -1443,7 +1443,7 @@ def run_pipeline(
 
     `market_op`·`buffers` 를 주지 않으면 기관 프로파일 원장의 국내 표본 행을
     읽는다. 엔진 기본값으로 두면 그 수가 소스에 남는다.
-    `institution_code` 는 산출에 쓰이지 않고 meta 에만 남는다 — 결과 한 벌이
+    `institution_code` 는 산출에 쓰이지 않고 meta 에만 남는다. 결과 한 벌이
     어느 기관 것인지 결과 자신이 말하게 하기 위한 것이다.
     """
     from risk_lib import data_gen_intl as _intl
@@ -1979,6 +1979,8 @@ def run_multi_institution(
             buffers=intl.buffers_for(code, profile),
             asof=asof,
             market_op=intl.market_op_params(code, profile),
+            capital_ledger=intl.capital_ledger_for(
+                code, float(port["ead"].sum()), profile),
             institution_code=code,
         )
         elapsed = time.perf_counter() - t0

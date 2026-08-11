@@ -35,7 +35,7 @@
 미등재 사유
 -----------
 여기 정의한 스펙 4장은 `catalog.ALL_TABLES` 에 넣지 않는다. `inst_master` 와
-같은 이유다 — 실체화·계보·문서 수량 검사가 ALL_TABLES 를 그대로 세는데 그쪽은
+같은 이유다. 실체화·계보·문서 수량 검사가 ALL_TABLES 를 그대로 세는데 그쪽은
 이 작업의 소유 범위 밖이다. 사유는 catalog 소스에 적어 두었다.
 """
 
@@ -59,6 +59,7 @@ __all__ = [
     "build_inst_master_intl", "build_inst_profile", "build_portfolio_mix",
     "build_country_mix", "build_label_lexicon", "build_all",
     "institution_codes", "profile_row", "market_op_params", "buffers_for",
+    "capital_ledger_for", "validate_ledgers",
     "generate_institution_portfolio",
 ]
 
@@ -165,6 +166,17 @@ INST_PROFILE = TableSpec(
           min_value=0.0, max_value=1.0, citation="OPE25 BI"),
         C("op_loss_rate", "float", "10년 평균 운영손실률", nullable=False,
           unit="ratio", min_value=0.0, max_value=1.0, citation="OPE25 ILM"),
+        # 자본은 산출물이 아니라 입력이다(독립검증 지적 F-001·F-101). 금액을
+        # 그대로 적으면 구성 원장을 고칠 때마다 낡은 값이 남으므로 총 익스포저에
+        # 대한 비율로 둔다. 자기자본/총자산이 은행 대차대조표의 구조적 특성이라는
+        # 것 말고 다른 근거는 없으며, 국내 표본은 비워 두어 기존 수익성 기반
+        # 합성기를 그대로 쓴다.
+        C("cet1_to_ead", "float", "보통주자본/총익스포저", nullable=True,
+          unit="ratio", min_value=0.0, max_value=1.0),
+        C("at1_to_ead", "float", "기타기본자본/총익스포저", nullable=True,
+          unit="ratio", min_value=0.0, max_value=1.0),
+        C("tier2_to_ead", "float", "보완자본/총익스포저", nullable=True,
+          unit="ratio", min_value=0.0, max_value=1.0),
         _ORIGIN_COL,
         _evidence_col(),
         C("note", "text", "비고", nullable=True),
@@ -212,7 +224,7 @@ INST_COUNTRY_MIX = TableSpec(
     primary_key=("institution_code", "country"),
     foreign_keys=(ForeignKey(("institution_code",), inst.AXIS_MASTER,
                              ("institution_code",)),),
-    note=("국가 배분. 국내 표본은 행이 없다 — 기존 생성기의 국가 배정을 그대로 "
+    note=("국가 배분. 국내 표본은 행이 없다. 기존 생성기의 국가 배정을 그대로 "
           "두어야 (asof, seed) 재현이 유지되기 때문이다."),
 )
 
@@ -281,6 +293,8 @@ _ARCHETYPE_PROFILE: dict[str, dict[str, float]] = {
         "share_fx": 0.02, "share_equity": 0.01, "share_ir": 0.05,
         "share_bi_ildc": 0.02, "share_bi_sc": 0.01, "share_bi_fc": 0.005,
         "op_loss_rate": 0.001,
+        # 비워 둔다. 채우면 국내 표본의 자본이 바뀌고 기존 산출이 재현되지 않는다.
+        "cet1_to_ead": None, "at1_to_ead": None, "tier2_to_ead": None,
     },
     # 트레이딩 자산 비중이 크고 완충자본 부과가 두텁다.
     "대형유니버설뱅크": {
@@ -290,6 +304,7 @@ _ARCHETYPE_PROFILE: dict[str, dict[str, float]] = {
         "share_fx": 0.035, "share_equity": 0.025, "share_ir": 0.075,
         "share_bi_ildc": 0.022, "share_bi_sc": 0.014, "share_bi_fc": 0.008,
         "op_loss_rate": 0.0012,
+        "cet1_to_ead": 0.120, "at1_to_ead": 0.014, "tier2_to_ead": 0.024,
     },
     # 트레이딩이 작고 예대 중심이다.
     "지역은행": {
@@ -299,8 +314,9 @@ _ARCHETYPE_PROFILE: dict[str, dict[str, float]] = {
         "share_fx": 0.012, "share_equity": 0.004, "share_ir": 0.030,
         "share_bi_ildc": 0.020, "share_bi_sc": 0.006, "share_bi_fc": 0.003,
         "op_loss_rate": 0.0009,
+        "cet1_to_ead": 0.150, "at1_to_ead": 0.018, "tier2_to_ead": 0.030,
     },
-    # 신용 익스포저가 작고 시장·운영 비중이 크다. 명목 자체는 은행보다 작다 —
+    # 신용 익스포저가 작고 시장·운영 비중이 크다. 명목 자체는 은행보다 작다.
     # 큰 것은 자기 신용 익스포저 대비 **비중**이지 절대 규모가 아니다.
     "증권회사": {
         "hurdle_rate": 0.12,
@@ -309,10 +325,11 @@ _ARCHETYPE_PROFILE: dict[str, dict[str, float]] = {
         "share_fx": 0.060, "share_equity": 0.090, "share_ir": 0.110,
         "share_bi_ildc": 0.010, "share_bi_sc": 0.040, "share_bi_fc": 0.020,
         "op_loss_rate": 0.0025,
+        "cet1_to_ead": 0.150, "at1_to_ead": 0.018, "tier2_to_ead": 0.030,
     },
 }
 
-# 유형별 자산군 구성 — (건수, 규모 배수).
+# 유형별 자산군 구성. 값은 (건수, 규모 배수) 다.
 # 국내표본은 `data_gen.generate_portfolio` 의 기본 인수와 같은 건수이며 배수는
 # 1.0 이다. 그래야 같은 (asof, seed) 에서 기존 산출이 그대로 나온다.
 _ARCHETYPE_MIX: dict[str, dict[str, tuple[int, float]]] = {
@@ -321,10 +338,13 @@ _ARCHETYPE_MIX: dict[str, dict[str, tuple[int, float]]] = {
         "residential_mortgage": (600, 1.0), "sovereign": (30, 1.0),
         "bank": (50, 1.0),
     },
+    # 소매 건수·규모를 국내 표본보다 크게 잡는다. 국내 표본의 기타소매 잔액은
+    # 총 익스포저의 0.6% 로 유니버설 뱅크의 예대 구조와 맞지 않고, 그 상태에서는
+    # 자기자본(수익성 기반 합성)이 기업여신 한 갈래에만 기댄다.
     "대형유니버설뱅크": {
-        "corporate": (900, 1.6), "retail_other": (1200, 1.1),
-        "residential_mortgage": (700, 1.2), "sovereign": (60, 1.4),
-        "bank": (90, 1.5),
+        "corporate": (900, 1.4), "retail_other": (3000, 5.0),
+        "residential_mortgage": (700, 1.2), "sovereign": (60, 1.3),
+        "bank": (90, 1.4),
     },
     "지역은행": {
         "corporate": (800, 0.7), "retail_other": (1000, 0.8),
@@ -332,11 +352,13 @@ _ARCHETYPE_MIX: dict[str, dict[str, tuple[int, float]]] = {
         "bank": (30, 0.4),
     },
     # 국공채·은행간 익스포저(재고·환매조건부) 비중이 높고 소매가 거의 없다.
-    # 기업 건수를 800으로 두는 것은 편중과 무관하다 — 그보다 적으면 PD 모형
+    # 기업 건수를 800으로 두는 것은 편중과 무관하다. 그보다 적으면 PD 모형
     # 변별력(Gini) 하한을 못 넘고, 그것은 기관 특성이 아니라 표본 부족이다.
+    # 소매·주담대 건수는 잔액을 그대로 두고 늘렸다(배수를 같은 비율로 낮췄다).
+    # 250건짜리 주담대 표본으로는 PD 모형 변별력을 측정한다고 말할 수 없다.
     "증권회사": {
-        "corporate": (800, 0.30), "retail_other": (300, 0.30),
-        "residential_mortgage": (250, 0.25), "sovereign": (120, 0.35),
+        "corporate": (800, 0.30), "retail_other": (800, 0.1125),
+        "residential_mortgage": (600, 0.104), "sovereign": (120, 0.35),
         "bank": (180, 0.45),
     },
 }
@@ -545,6 +567,25 @@ def market_op_params(code: str = BASE_INSTITUTION,
     return {k: float(row[k]) for k in _MARKET_OP_KEYS}
 
 
+_CAPITAL_KEYS = ("cet1_to_ead", "at1_to_ead", "tier2_to_ead")
+
+
+def capital_ledger_for(code: str, total_ead: float,
+                       profile: pd.DataFrame | None = None):
+    """기관의 자본 원장. 비율이 비어 있으면 None 을 돌려준다.
+
+    None 이면 파이프라인이 수익성 기반 합성기를 쓰고 그 사실을 자체검증에
+    `capital_source='synthetic'` 로 공시한다. 국내 표본이 그 경우다.
+    """
+    from risk_lib.capital.bis import CapitalStack
+    row = profile_row(code, profile)
+    vals = [row[k] for k in _CAPITAL_KEYS]
+    if any(pd.isna(v) for v in vals):
+        return None
+    cet1, at1, t2 = (float(v) * float(total_ead) for v in vals)
+    return CapitalStack(cet1=cet1, additional_t1=at1, tier2=t2)
+
+
 def buffers_for(code: str,
                 profile: pd.DataFrame | None = None) -> dict[str, float]:
     """`run_pipeline(buffers=...)` 인자."""
@@ -606,7 +647,7 @@ def generate_institution_portfolio(
         seed=inst_seed,
     )
 
-    # 금액 배수 — EAD 와 그 파생 금액을 같은 배수로 옮긴다. 하나만 옮기면
+    # 금액 배수. EAD 와 그 파생 금액을 같은 배수로 옮긴다. 하나만 옮기면
     # 수익성 기반 자본 합성기가 다른 규모의 은행을 설명하게 된다.
     money_cols = [c for c in ("ead", "balance", "revenue", "operating_cost")
                   if c in p.columns]
@@ -617,7 +658,7 @@ def generate_institution_portfolio(
     for col in money_cols:
         p[col] = p[col].astype(float) * factor
 
-    # 국가 재배정 — 원장에 행이 있는 기관만. 국내 표본은 행이 없어 그대로 둔다.
+    # 국가 재배정. 원장에 행이 있는 기관만 한다. 국내 표본은 행이 없어 그대로 둔다.
     my_countries = country_mix[country_mix["institution_code"] == code]
     if not my_countries.empty:
         rng = np.random.default_rng(inst_seed + 8200)
@@ -625,7 +666,7 @@ def generate_institution_portfolio(
         p["country"] = rng.choice(my_countries["country"].to_numpy(),
                                   size=len(p), p=w / w.sum())
 
-    # 표기 — 같은 컬럼에 한글과 영문이 섞이는 것은 정상이며 기관코드로 갈린다.
+    # 표기. 같은 컬럼에 한글과 영문이 섞이는 것은 정상이며 기관코드로 갈린다.
     lang = str(prow["label_language"])
     sector_label = _lexicon_map(lang, "sector", lexicon)
     product_label = _lexicon_map(lang, "product", lexicon)
