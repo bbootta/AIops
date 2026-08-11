@@ -13,17 +13,17 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from risk_lib import institutions as _inst
-
-# 기관코드의 출처 표기. 실행이 자기 기관을 말했는지, 말하지 않아 기본 기관으로
-# 채웠는지를 가른다.
-INSTITUTION_FROM_RUN = "실행 지정"
-INSTITUTION_FROM_DEFAULT = "미지정 · 기본 기관 대체"
 from risk_lib.datamodel.materialize import materialize_all
 from risk_lib.datamodel.materialize_detail import materialize_detail
 from risk_lib.regulatory.forms import build_forms, form_frames, submission_digest
 from risk_lib.ui_studio import governance as gov
 from risk_lib.ui_studio import layout as lay
 from risk_lib.ui_studio.nl_query import QueryPlan, compile_query, execute
+
+# 기관코드의 출처 표기. 실행이 자기 기관을 말했는지, 말하지 않아 기본 기관으로
+# 채웠는지를 가른다.
+INSTITUTION_FROM_RUN = "실행 지정"
+INSTITUTION_FROM_DEFAULT = "미지정 · 기본 기관 대체"
 
 # 데모 조회 — 실제 데이터에 대해 **실행되는** 문장이다. 화면에만 있는 예시가
 # 아니라 결과 행 수가 실제 산출에서 나온다.
@@ -108,7 +108,7 @@ def resolve_institution(meta) -> tuple[str, str]:
     """
     from risk_lib import data_gen_intl as _intl
     declared = (meta or {}).get("institution_code")
-    if declared is None:
+    if not declared:
         warnings.warn(
             "실행이 기관코드를 말하지 않아 기본 기관 "
             f"{_intl.BASE_INSTITUTION} 으로 라벨한다. 이 스냅샷의 기관 귀속은 "
