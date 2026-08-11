@@ -380,10 +380,13 @@ def page_comparison(r: PipelineResult) -> str:
     b.rwa = dict(r.rwa)
     b.rwa["irb"] = r.rwa["irb"] * 1.08
     b.rwa["sa"] = r.rwa["sa"] * 1.05
-    b.rwa["market"] = r.rwa["market"]
-    b.rwa["op"] = r.rwa["op"]
-    b.rwa["final_total"] = (b.rwa["sa"] + b.rwa["irb"]
-                             + b.rwa["market"] + b.rwa["op"])
+    # 예전에는 final_total 을 SA·IRB·시장·운영 네 항만 더해 다시 만들었다.
+    # 그러면 거래상대방신용·구조화·산출하한 가산이 통째로 사라져 브리지가
+    # 그 몫을 "미배분"으로 드러냈다. 충격을 준 항의 증감만 기초 final_total 에
+    # 얹는다. 나머지 항은 dict 복사본이 그대로 들고 있으므로 항등식이 닫힌다.
+    b.rwa["final_total"] = (r.rwa["final_total"]
+                             + (b.rwa["sa"] - r.rwa["sa"])
+                             + (b.rwa["irb"] - r.rwa["irb"]))
     b.bis = _Cl()
     b.bis.cet1_ratio = r.meta["capital"].cet1 / b.rwa["final_total"]
     b.bis.tier1_ratio = r.meta["capital"].tier1 / b.rwa["final_total"]
@@ -407,6 +410,11 @@ def page_comparison(r: PipelineResult) -> str:
     cb = diff.capital_bridge
     rb = diff.rwa_bridge
     eb = diff.ecl_bridge
+
+    # 캡션은 분해가 실제로 낸 항 이름을 그대로 읽는다. 손으로 적으면 항이
+    # 늘거나 줄었을 때 화면이 코드와 어긋난다 (예전 캡션은 네 항 + 하한이라
+    # 적었지만 분해는 일곱 항을 냈다). 시험이 이 span 을 파싱해 대조한다.
+    rwa_terms = " / ".join(_esc(s.label) for s in rb.steps)
 
     # waterfall for CET1 bridge
     cet1_wf = viz_advanced.attribution_waterfall(
@@ -455,7 +463,9 @@ def page_comparison(r: PipelineResult) -> str:
 
 <div class="card"><h2>26-3. RWA 변동 분해</h2>
 <div class="chart">{rwa_wf}</div>
-<p class="section-lead">4부문(SA / IRB / 시장 / 운영) + Output floor 가산 변화로 분해.</p>
+<p class="section-lead">최종 RWA 항등식의 구성요소별 변화로 분해:
+<span class="bridge-terms">{rwa_terms}</span>.
+구성요소 합이 최종 RWA 변화와 어긋나면 그 차이가 "미배분" 항으로 함께 표시된다.</p>
 </div>
 
 <div class="card"><h2>26-4. ECL 변동 분해</h2>

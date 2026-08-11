@@ -325,8 +325,13 @@ def page_attribution(r: PipelineResult) -> str:
     stressed.rwa = {k: v for k, v in r.rwa.items()}
     stressed.rwa["sa"] = r.rwa["sa"] * 1.2
     stressed.rwa["irb"] = r.rwa["irb"] * 1.2
-    stressed.rwa["final_total"] = (stressed.rwa["sa"] + stressed.rwa["irb"]
-                                    + r.rwa["market"] + r.rwa["op"])
+    # 예전에는 final_total 을 SA·IRB·시장·운영 네 항만 더해 다시 만들었다.
+    # 그러면 거래상대방신용·구조화·산출하한 가산이 통째로 사라져 브리지가
+    # 그 몫을 "미배분"으로 드러냈다. 충격을 준 항의 증감만 기초 final_total 에
+    # 얹는다. 나머지 항은 dict 복사본이 그대로 들고 있으므로 항등식이 닫힌다.
+    stressed.rwa["final_total"] = (r.rwa["final_total"]
+                                    + (stressed.rwa["sa"] - r.rwa["sa"])
+                                    + (stressed.rwa["irb"] - r.rwa["irb"]))
     stressed.bis = _S()
     stressed.bis.rwa = stressed.rwa["final_total"]
     stressed.meta = {"capital": r.meta["capital"]}
