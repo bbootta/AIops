@@ -119,14 +119,25 @@ def resolve_institution(meta) -> tuple[str, str]:
     return str(declared), INSTITUTION_FROM_RUN
 
 
+def run_identifier(asof: str, institution_code: str) -> str:
+    """실행 식별자. 기준일과 기관을 함께 담는다.
+
+    기준일만으로는 같은 날의 두 기관이 같은 run_id 를 갖고, 결재·감사체인·마감
+    판정처럼 기관코드 컬럼이 없는 실행 통제 원장이 어느 기관 것인지 말할 수
+    없게 된다. `gov_unified_run` 은 run_id 단독 기본키라 두 기관을 같은
+    기준일로 조립하면 행이 겹친다.
+
+    시드는 담지 않는다. 담으면 실행 식별자를 바꿀 때마다 산출 수치가 따라
+    움직여 기존 (asof, seed) 재현이 끊긴다. 조립부에서 부르지 않고 이 자리에
+    둔 것은, 두 기관의 식별자가 갈린다는 사실을 실행 없이 확인하기 위해서다.
+    """
+    return f"RUN-{asof.replace('-', '')}-{institution_code}"
+
+
 def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Studio:
     asof = result.meta.get("asof", "1970-01-01")
-    # 실행 식별자에 기관을 넣는다. 기준일만으로는 같은 날의 두 기관이 같은
-    # run_id 를 갖고, 결재·감사체인·마감 판정처럼 기관코드 컬럼이 없는 실행
-    # 통제 원장이 어느 기관 것인지 말할 수 없게 된다. `gov_unified_run` 은
-    # run_id 단독 기본키라 두 기관을 같은 기준일로 조립하면 겹친다.
     inst_code, inst_source = resolve_institution(result.meta)
-    run_id = f"RUN-{asof.replace('-', '')}-{inst_code}"
+    run_id = run_identifier(asof, inst_code)
 
     from risk_lib.datamodel.code_master import build_code_master
     from risk_lib.datamodel.decompose import dq_result_frame, validate_all

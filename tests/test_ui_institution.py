@@ -68,6 +68,36 @@ def _insts_src(h: str) -> str:
     return m.group(1)
 
 
+# ----- 실행 식별자 ------------------------------------------------------------
+
+def test_run_identifier_splits_two_institutions_on_the_same_asof():
+    """기준일만 담으면 같은 날의 두 기관이 같은 run_id 를 갖는다.
+
+    실행 통제 원장(`gov_unified_run`)의 기본키는 run_id 단독이라 그 상태에서
+    두 기관을 같은 기준일로 조립하면 행이 겹치고, 기관코드 컬럼이 없는
+    결재·감사체인·마감 판정은 어느 기관 것인지 말할 수 없게 된다.
+    """
+    kr = st.run_identifier("2026-06-11", "KR_BANK_01")
+    eu = st.run_identifier("2026-06-11", _OTHER)
+    assert kr == "RUN-20260611-KR_BANK_01"
+    assert kr != eu
+    assert kr.endswith("KR_BANK_01") and eu.endswith(_OTHER)
+
+
+def test_run_identifier_does_not_carry_the_seed():
+    """식별자가 시드를 담으면 식별자를 바꿀 때 산출 재현이 끊긴다."""
+    import inspect
+
+    assert set(inspect.signature(st.run_identifier).parameters) == {
+        "asof", "institution_code"}
+
+
+def test_studio_run_id_is_the_identifier_of_its_institution(studio):
+    assert studio.run_id == st.run_identifier(studio.asof,
+                                              studio.institution_code)
+    assert studio.tables["gov_unified_run"]["run_id"].tolist() == [studio.run_id]
+
+
 # ----- payload ----------------------------------------------------------------
 
 def test_studio_carries_the_institution_of_its_run():
