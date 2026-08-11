@@ -92,26 +92,28 @@ def capital_bridge(a: Any, b: Any) -> Bridge:
 
 
 def rwa_bridge(a: Any, b: Any) -> Bridge:
-    """Final RWA change A → B, decomposed into the four risk-type buckets
-    plus the residual that the output-floor add-on contributes."""
-    components = ["sa", "irb", "market", "op"]
-    labels = {"sa": "신용 SA", "irb": "신용 IRB",
-              "market": "시장리스크", "op": "운영리스크"}
-    cum = a.rwa["final_total"]
-    steps = []
-    for k in components:
-        d = b.rwa[k] - a.rwa[k]
-        cum += d
-        steps.append(BridgeStep(labels[k], d, cum))
+    """최종 RWA 변화 A → B를 항등식 구성요소별 변화로 가른다.
 
-    # Output-floor add-on residual: (final - sum_of_components) for each side.
-    floor_a = a.rwa["final_total"] - sum(a.rwa[k] for k in components)
-    floor_b = b.rwa["final_total"] - sum(b.rwa[k] for k in components)
-    d_floor = floor_b - floor_a
-    cum += d_floor
-    steps.append(BridgeStep("Output floor 가산 변화", d_floor, cum))
-    return Bridge(metric="최종 RWA", start_value=a.rwa["final_total"],
-                  end_value=b.rwa["final_total"], steps=steps)
+    예전에는 SA·IRB·시장·운영 네 항만 직접 빼고 남는 차이를 전부
+    "Output floor 가산 변화" 한 줄에 넣었다. 거래상대방신용과 구조화가 그 줄
+    안으로 사라졌고, 한쪽 스냅샷에만 그 두 항이 있으면 산출하한이 움직인
+    것처럼 보였다. 1단 분해(`decompose_rwa`)와 같은 항을 같은 순서로 읽고,
+    남는 차이도 같은 방식으로 "미배분" 줄에 드러낸다.
+
+    구성요소별 변화의 합은 언제나 `final_total` 변화와 같다(`residual == 0`).
+    """
+    da = decompose_rwa(a).set_index("component")["rwa"]
+    db = decompose_rwa(b).set_index("component")["rwa"]
+    labels = list(da.index) + [c for c in db.index if c not in set(da.index)]
+
+    cum = float(a.rwa["final_total"])
+    steps = []
+    for label in labels:
+        d = float(db.get(label, 0.0)) - float(da.get(label, 0.0))
+        cum += d
+        steps.append(BridgeStep(label, d, cum))
+    return Bridge(metric="최종 RWA", start_value=float(a.rwa["final_total"]),
+                  end_value=float(b.rwa["final_total"]), steps=steps)
 
 
 def ecl_bridge(a: Any, b: Any) -> Bridge:

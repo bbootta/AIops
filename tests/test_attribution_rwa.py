@@ -22,7 +22,7 @@ import pandas as pd
 import pytest
 
 from risk_lib.attribution import (
-    AttributionWarning, decompose_rwa, decompose_rwa_detail,
+    AttributionWarning, decompose_rwa, decompose_rwa_detail, rwa_bridge,
 )
 
 
@@ -216,6 +216,72 @@ def test_l2_without_ledgers_degenerates_to_l1():
     assert (d["group"] == d["label"]).all()
     assert float(d["value"].sum()) == pytest.approx(_TOTAL, rel=1e-12)
     assert d[d["group"] == "신용 SA"]["note"].iloc[0]
+
+
+# ---------------------------------------------------------------- 브리지
+
+def _steps(bridge) -> dict[str, float]:
+    return {s.label: float(s.value) for s in bridge.steps}
+
+
+def test_bridge_walks_the_same_seven_terms_as_the_l1_split():
+    """브리지 단계는 1단 구성요소와 같은 항·같은 순서다."""
+    a = _synthetic()
+    b = _synthetic(sa=_SA * 1.2, ccr=_CCR * 2,
+                   final_total=_TOTAL + _SA * 0.2 + _CCR)
+    br = rwa_bridge(a, b)
+    assert [s.label for s in br.steps] == list(decompose_rwa(a)["component"])
+    assert _steps(br)["신용 SA"] == pytest.approx(_SA * 0.2)
+    assert _steps(br)["거래상대방신용"] == pytest.approx(_CCR)
+    assert br.explained_change == pytest.approx(
+        br.end_value - br.start_value, rel=1e-12)
+
+
+def test_bridge_floor_step_moves_only_when_the_add_on_moves():
+    """산출하한 단계는 output_floor.add_on 변화 그 자체여야 한다."""
+    a = _synthetic()
+    b = _synthetic(output_floor=_Floor(_ADD + 90.0), final_total=_TOTAL + 90.0)
+    assert _steps(rwa_bridge(a, b))["Output floor 가산"] == pytest.approx(90.0)
+
+
+def test_bridge_no_longer_absorbs_ccr_and_structured_into_the_floor_step():
+    """예전 버그의 재발 방지.
+
+    한쪽 스냅샷의 final_total 이 CCR·구조화·하한 가산을 빼먹으면, 잔차식은
+    그 전부를 "Output floor 가산 변화"로 적어 산출하한이 움직인 것처럼
+    보이게 했다. 이제는 하한 단계가 0이고 빠진 몫이 "미배분"으로 드러난다.
+    """
+    a = _synthetic()
+    b = _synthetic(sa=_SA * 1.2, irb=_IRB * 1.2,
+                   final_total=_SA * 1.2 + _IRB * 1.2 + _MKT + _OP)
+    with pytest.warns(AttributionWarning, match="미배분"):
+        br = rwa_bridge(a, b)
+    st = _steps(br)
+    old_residual_style = (b.rwa["final_total"] - (_SA * 1.2 + _IRB * 1.2
+                                                  + _MKT + _OP)) \
+        - (_TOTAL - (_SA + _IRB + _MKT + _OP))
+    assert st["Output floor 가산"] == pytest.approx(0.0)
+    assert st["미배분"] == pytest.approx(-(_CCR + _STR + _ADD))
+    assert st["Output floor 가산"] != pytest.approx(old_residual_style)
+    assert br.explained_change == pytest.approx(
+        br.end_value - br.start_value, rel=1e-12)
+
+
+def test_bridge_on_real_result_closes_without_an_unallocated_step(result):
+    """실제 산출 두 벌 사이에서는 미배분 단계가 생기지 않는다."""
+    stressed = _Shim(rwa=dict(result.rwa))
+    stressed.rwa["sa"] = float(result.rwa["sa"]) * 1.2
+    stressed.rwa["final_total"] = (float(result.rwa["final_total"])
+                                   + float(result.rwa["sa"]) * 0.2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", AttributionWarning)
+        br = rwa_bridge(result, stressed)
+    st = _steps(br)
+    assert "미배분" not in st
+    assert st["Output floor 가산"] == pytest.approx(0.0)
+    assert st["구조화"] == pytest.approx(0.0)
+    assert st["신용 SA"] == pytest.approx(float(result.rwa["sa"]) * 0.2,
+                                         rel=1e-9)
 
 
 # ---------------------------------------------------------------- 실제 산출

@@ -424,6 +424,12 @@ class BankAnalysis:
     manifest: Any = None
 
 
+# 이 모듈이 다루는 기관의 업권. 인터넷전문은행 3사와 시중은행 4사는 전부
+# 은행업 인가 기관이라 BIS 기준이 그대로 적용된다. 표기는 기관 원장의 업권
+# 어휘(`institutions.INSTITUTION_TYPES`)와 같아야 하며 시험이 그것을 대조한다.
+INSTITUTION_TYPE = "은행"
+
+
 # 시장·운영 산출의 구성비. 이 모듈이 다루는 은행들에 대해 근거 상태는
 # '미확인'이다. 트레이딩 계정 구성과 영업지표(BI) 구성은 분기 공시에서 얻지
 # 못했다. 그래도 이 자리에 적어 두는 이유는, 적지 않으면 파이프라인이 기관
@@ -460,11 +466,16 @@ def run_bank_stress(profile: BankProfile, *, seed: int = 42,
 
     portfolio = synthesise_bank_portfolio(profile, seed=seed, scale=scale)
     # 자본 구성 — 실측 BIS와 매칭하도록 buffers 조정
+    # 업권을 넘기지 않으면 자체검증의 `prudential_regime_applies` 가 아예 서지
+    # 않는다. 그러면 이 결과가 어느 건전성 체계 기준인지 결과 자신이 말하지
+    # 못한다. 이 모듈이 다루는 곳은 전부 은행업 인가 기관이므로 BIS 기준이
+    # 그대로 적용된다.
     result = run_pipeline(portfolio, seed=seed,
                           buffers={"capital_conservation": 0.025,
                                    "countercyclical": 0.0,
                                    "dsib": 0.0},  # 인뱅은 D-SIB 미해당
-                          market_op=market_op_for(profile, scale=scale))
+                          market_op=market_op_for(profile, scale=scale),
+                          institution_type=INSTITUTION_TYPE)
     return BankAnalysis(profile=profile, portfolio=portfolio, result=result)
 
 
