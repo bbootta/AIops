@@ -1488,6 +1488,28 @@ function squarify(data,rect){
    투명도를 낮춰 바탕색과 섞이므로 라이트에서는 밝아지고 다크에서는 어두워진다.
    두 경우 모두 --text 가 대비를 유지한다. --on-accent 를 항목에 쓰면 한쪽
    테마에서 읽히지 않는다. */
+/* 한 글자를 같은 폭으로 세면 한글에서 어긋난다. 한글·한자·가나는 전각이라
+   라틴 문자의 두 배 가까이 넓다. 문자 종류를 나눠 재고, 넘치면 줄이다가
+   그래도 안 들어가면 지운다. 잘린 라벨을 남기지 않는다.
+
+   getComputedTextLength() 를 쓰지 않는 것은 의도다. 이 svg 는 아직 문서에
+   붙기 전이라 분리된 요소에서는 0 이 나오고, 그러면 검사가 늘 통과한다. */
+const textW=(txt,fs)=>{
+  let w=0;
+  for(const ch of txt)
+    w+=/[\u1100-\u11FF\u2E80-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFF00-\uFF60]/
+      .test(ch)?1.0:0.55;
+  return w*fs;
+};
+const fitText=(n,maxw,txt,fs)=>{
+  if(textW(txt,fs)<=maxw){n.textContent=txt;return true}
+  for(let k=txt.length-1;k>0;k--){
+    const cand=txt.slice(0,k)+'…';
+    if(textW(cand,fs)<=maxw){n.textContent=cand;return true}
+  }
+  n.remove();return false;
+};
+
 function tmCell(s,c,col,op,txtVar,fmt,frac,sub){
   const G=2,pad=7;
   const g=svgNode(s,'g',{});
@@ -1495,18 +1517,22 @@ function tmCell(s,c,col,op,txtVar,fmt,frac,sub){
     height:Math.max(c.h-G,1),rx:2,fill:'var('+col+')','fill-opacity':op})
     .appendChild(document.createElementNS(s.namespaceURI,'title')).textContent=
       `${c.label}: ${fmt?fmt(c.value):fmtNum(c.value)} (${(frac*100).toFixed(1)}%)`;
-  const cx=c.x+c.w/2,fit=Math.floor((c.w-pad*2)/6.5);
-  if(c.w>52&&c.h>30){
-    const two=c.h>52;
-    svgNode(g,'text',{x:cx,y:c.y+c.h/2+(two?-3:4),'text-anchor':'middle',
-      'font-size':11,'font-weight':600,fill:'var('+txtVar+')'},
-      String(c.label).slice(0,Math.max(fit,1)));
-    if(two)svgNode(g,'text',{x:cx,y:c.y+c.h/2+13,'text-anchor':'middle',
-      'font-size':10,fill:'var('+txtVar+')','fill-opacity':0.8},sub);
+  /* viewBox 상한이 자연 크기라 확대가 없다. 글자 크기가 화면에 그대로
+     나가므로 눈금 라벨과 같은 9~11px 로 두면 작다. 구역 안 라벨은 읽는
+     글씨이지 축 눈금이 아니다. */
+  const cx=c.x+c.w/2;
+  if(c.w>72&&c.h>38){
+    const two=c.h>64,maxw=c.w-pad*2;
+    fitText(svgNode(g,'text',{x:cx,y:c.y+c.h/2+(two?-4:5),
+      'text-anchor':'middle','font-size':15,'font-weight':600,
+      fill:'var('+txtVar+')'}),maxw,String(c.label),15);
+    if(two)fitText(svgNode(g,'text',{x:cx,y:c.y+c.h/2+16,
+      'text-anchor':'middle','font-size':13,fill:'var('+txtVar+')',
+      'fill-opacity':0.82}),maxw,sub,13);
   }
 }
 function donut(items,{title,note,fmt}={}){
-  const W=1180,H=520,HDR=21;
+  const W=1180,H=520,HDR=26;
   const tot=items.reduce((a,x)=>a+Math.abs(x.value),0)||1;
   const s=svgEl(W,H,title||'트리맵');
   const clean=items.map(it=>({label:String(it.label),group:it.group,
@@ -1543,10 +1569,15 @@ function donut(items,{title,note,fmt}={}){
         height:band-G/2,rx:2,fill:'var('+col+')'})
         .appendChild(document.createElementNS(s.namespaceURI,'title')).textContent=
           `${gc.label}: ${money(gc.value)} (${pct(gc.v)})`;
-      if(gc.w>70)svgNode(gg,'text',{x:gc.x+gc.w/2,y:gc.y+band-6,
-        'text-anchor':'middle','font-size':11,'font-weight':700,
-        fill:'var(--on-accent)'},
-        gc.label.slice(0,Math.floor((gc.w-12)/6.5))+'  '+pct(gc.v));
+      if(gc.w>70){
+        const t=svgNode(gg,'text',{x:gc.x+gc.w/2,y:gc.y+band-8,
+          'text-anchor':'middle','font-size':14,'font-weight':700,
+          fill:'var(--on-accent)'});
+        if(!fitText(t,gc.w-14,gc.label+'  '+pct(gc.v),14))
+          fitText(svgNode(gg,'text',{x:gc.x+gc.w/2,y:gc.y+band-8,
+            'text-anchor':'middle','font-size':14,'font-weight':700,
+            fill:'var(--on-accent)'}),gc.w-14,pct(gc.v),14);
+      }
     }
     const inner={x:gc.x,y:gc.y+band,w:gc.w,h:gc.h-band};
     if(inner.h<=1)return;
@@ -3275,6 +3306,22 @@ function executiveReport(root){
     root.appendChild(c);
   }
 
+  /* --- KRI 스코어카드 (리포트(viz_advanced.kri_scorecard)와 같은 카드 격자) --- */
+  if(E.kris&&E.kris.length){
+    const c=el('div','card');c.id='sec-raf';
+    c.appendChild(el('h3',null,'KRI 스코어카드 (Risk Appetite Framework)'));
+    c.appendChild(el('p','meta',
+      '12개 핵심 지표를 board/management/operational 3단 한계로 채점. RED는 board '+
+      '한계 위반(즉시 대응), AMBER는 management 한계(에스컬레이션), WATCH는 '+
+      'operational 조기경보, GREEN은 한계 이내.'));
+    c.appendChild(kriCards(E.kris));
+    const n=g=>E.kris.filter(k=>k.grade===g).length;
+    c.appendChild(el('div','meta',
+      `RED ${n('RED')} · AMBER ${n('AMBER')} · WATCH ${n('WATCH')} · `+
+      `GREEN ${n('GREEN')} · 전체 ${E.kris.length} (임계는 RAF 원장에서 온다)`));
+    root.appendChild(c);
+  }
+
   /* --- 자본 스택 (리포트 ops/32) --- */
   const cs=D.data&&D.data['cap_stack'];
   if(cs&&cs.rows.length){
@@ -3290,22 +3337,6 @@ function executiveReport(root){
     const short=cs.rows.filter(r=>r[i.surplus]<0).map(r=>r[i.tier]);
     if(short.length)c.appendChild(el('div','meta bad',
       `요구 미달 계층. ${short.join(' · ')}. 배당·성과급 제한 대상.`));
-    root.appendChild(c);
-  }
-
-  /* --- KRI 스코어카드 (리포트(viz_advanced.kri_scorecard)와 같은 카드 격자) --- */
-  if(E.kris&&E.kris.length){
-    const c=el('div','card');c.id='sec-raf';
-    c.appendChild(el('h3',null,'KRI 스코어카드 (Risk Appetite Framework)'));
-    c.appendChild(el('p','meta',
-      '12개 핵심 지표를 board/management/operational 3단 한계로 채점. RED는 board '+
-      '한계 위반(즉시 대응), AMBER는 management 한계(에스컬레이션), WATCH는 '+
-      'operational 조기경보, GREEN은 한계 이내.'));
-    c.appendChild(kriCards(E.kris));
-    const n=g=>E.kris.filter(k=>k.grade===g).length;
-    c.appendChild(el('div','meta',
-      `RED ${n('RED')} · AMBER ${n('AMBER')} · WATCH ${n('WATCH')} · `+
-      `GREEN ${n('GREEN')} · 전체 ${E.kris.length} (임계는 RAF 원장에서 온다)`));
     root.appendChild(c);
   }
 
@@ -6836,21 +6867,6 @@ function simulation(root){
     '구성요소별로, 자본을 계층별로 움직여 비율이 어떻게 반응하는지 즉시 본다. '+
     '파이프라인 재계산이 아니며 승인·제출값이 아니다. 실제 영향도는 시나리오 '+
     '설정 제안, 재실행, 검증 두 층으로만 확정된다.'));
-  root.appendChild(cardOf('기준값의 출처',
-    simpleTable(['항목','값','출처'],
-      [['위험가중자산 (내부산출 합)',fmtMoney(S.internal_total),'파이프라인 rwa'],
-       ['표준방법 산출 합',fmtMoney(S.standardised_total),'파이프라인 rwa'],
-       ['산출하한 비율',pctv(S.floor_pct,1),'파이프라인 rwa'],
-       ['최종 위험가중자산',fmtMoney(S.final_total),'파이프라인 rwa'],
-       ['보통주자본',fmtMoney(S.capital.cet1),'자본 스택'],
-       ['기타기본자본',fmtMoney(S.capital.at1),'자본 스택'],
-       ['보완자본',fmtMoney(S.capital.t2),'자본 스택'],
-       ['레버리지 익스포저 측정치',fmtMoney(S.leverage.exposure_measure),
-        '파이프라인 leverage']]),
-    '구성요소 합이 내부산출 합과 같은지는 tests/test_ui_interactive.py 가 고정한다. '+
-    '거래상대방과 유동화는 원장에서 별도 구성요소이고, 신용 표준방법·내부등급법에 '+
-    '섞여 있지 않다.'));
-
   const box=el('div','card');
   box.appendChild(el('h3',null,'입력'));
   const inputs={};
@@ -6892,6 +6908,23 @@ function simulation(root){
   box.appendChild(btnBar);
   root.appendChild(box);
   const pane=el('div');root.appendChild(pane);
+  /* 기준값의 출처는 화면 맨 아래에 둔다. 조작하러 들어온 화면에서
+     참조표가 입력보다 먼저 나오면 입력이 한 화면 아래로 밀린다. */
+  root.appendChild(cardOf('기준값의 출처',
+    simpleTable(['항목','값','출처'],
+      [['위험가중자산 (내부산출 합)',fmtMoney(S.internal_total),'파이프라인 rwa'],
+       ['표준방법 산출 합',fmtMoney(S.standardised_total),'파이프라인 rwa'],
+       ['산출하한 비율',pctv(S.floor_pct,1),'파이프라인 rwa'],
+       ['최종 위험가중자산',fmtMoney(S.final_total),'파이프라인 rwa'],
+       ['보통주자본',fmtMoney(S.capital.cet1),'자본 스택'],
+       ['기타기본자본',fmtMoney(S.capital.at1),'자본 스택'],
+       ['보완자본',fmtMoney(S.capital.t2),'자본 스택'],
+       ['레버리지 익스포저 측정치',fmtMoney(S.leverage.exposure_measure),
+        '파이프라인 leverage']]),
+    '구성요소 합이 내부산출 합과 같은지는 tests/test_ui_interactive.py 가 고정한다. '+
+    '거래상대방과 유동화는 원장에서 별도 구성요소이고, 신용 표준방법·내부등급법에 '+
+    '섞여 있지 않다.'));
+
   const saved=[];
 
   function state(){

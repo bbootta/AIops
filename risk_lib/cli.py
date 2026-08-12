@@ -218,9 +218,12 @@ def _cmd_reg_report(args: argparse.Namespace) -> int:
 def _cmd_ui_studio(args: argparse.Namespace) -> int:
     """에이전틱 UI 스튜디오 — 전 모듈 관리 화면.
 
-    --asof 는 콤마 목록을 받는다. 여러 기준일을 주면 실행을 전부 산출해 한
-    화면에 싣고, 화면의 기준일 전환은 그 실행들 사이를 오간다 — 화면이
-    즉석에서 새 기준일을 계산하는 것이 아니다.
+    --asof 와 --institutions 는 콤마 목록을 받는다. 둘을 주면 그 조합마다
+    파이프라인을 돌려 산출을 전부 싣고, 화면의 선택기는 그 실행들 사이를
+    오간다. 화면이 즉석에서 새 기준일이나 새 기관을 계산하는 것이 아니다.
+
+    --institutions all 은 `inst_master` 에 등록된 기관 전부를 뜻한다. 기관
+    수 x 기준일 수만큼 실행하므로 시간이 그만큼 늘어난다 (기관당 20초 안팎).
     """
     import os
     from risk_lib.data_gen import generate_portfolio
@@ -232,12 +235,45 @@ def _cmd_ui_studio(args: argparse.Namespace) -> int:
     # 돌리고 한 번만 실으면 "산출 2회" 출력과 화면이 어긋난다.
     asofs = list(dict.fromkeys(
         a.strip() for a in (args.asof or "").split(",") if a.strip())) or [None]
-    portfolio = generate_portfolio(seed=args.seed)
+    codes = list(dict.fromkeys(
+        c.strip() for c in (args.institutions or "").split(",") if c.strip()))
+
+    # 행 예산을 낮추는 것은 사람이 정하는 일이다 (app.py 의 상한 경고 참조).
+    # 낮추면 그 사실을 출력에 적어 조용히 줄지 않게 한다.
+    if args.rows or args.rows_demo:
+        from risk_lib.ui_studio import app as _app
+        if args.rows:
+            print(f"  행 예산 조정 · 일반 {_app.INTERACTIVE_ROWS} -> {args.rows}")
+            _app.INTERACTIVE_ROWS = args.rows
+        if args.rows_demo:
+            print(f"  행 예산 조정 · 상세 {_app.INTERACTIVE_ROWS_DEMO} -> "
+                  f"{args.rows_demo}")
+            _app.INTERACTIVE_ROWS_DEMO = args.rows_demo
+
     studios = []
-    for a in asofs:
-        result = run_pipeline(portfolio, seed=args.seed, asof=a)
-        studios.append(build_studio(result, portfolio))
-        print(f"  산출 {studios[-1].run_id} · 지문 {studios[-1].digest[:16]}")
+    if codes:
+        # 기관을 지정하면 기관별 포트폴리오·시드·프로파일로 각각 돌린다.
+        # 국내 표본만 돌리는 아래 경로와 달리 원장에서 기관 모수를 읽는다.
+        from risk_lib.pipeline import run_multi_institution
+        if codes == ["all"]:
+            # 확장 원장을 읽는다. `institutions.build_inst_master()` 는 국내
+            # 표본 1행뿐이고 권역별 기관은 data_gen_intl 이 담는다.
+            from risk_lib import data_gen_intl as _intl
+            codes = list(_intl.build_inst_master_intl()["institution_code"])
+        for a in asofs:
+            multi = run_multi_institution(
+                codes, seed=args.seed, asof=a or "2025-12-31")
+            for code in codes:
+                run = multi.runs[code]
+                studios.append(build_studio(run.result, run.portfolio))
+                print(f"  산출 {studios[-1].run_id} · "
+                      f"지문 {studios[-1].digest[:16]} · {run.elapsed_sec:.1f}s")
+    else:
+        portfolio = generate_portfolio(seed=args.seed)
+        for a in asofs:
+            result = run_pipeline(portfolio, seed=args.seed, asof=a)
+            studios.append(build_studio(result, portfolio))
+            print(f"  산출 {studios[-1].run_id} · 지문 {studios[-1].digest[:16]}")
     out = write_app(studios if len(studios) > 1 else studios[0], args.out)
     # 요약의 "최신 기준"은 화면의 기본 실행과 같아야 한다 — 입력 순서가 아니라
     # 기준일 정렬의 마지막이다 (render 가 그렇게 고른다).
@@ -474,6 +510,14 @@ def main(argv: list[str] | None = None) -> int:
                         help="에이전틱 UI 스튜디오 HTML 생성 (전 모듈 관리 화면)")
     ui.add_argument("--out", required=True, help="HTML 출력 경로")
     ui.add_argument("--seed", type=int, default=42)
+    ui.add_argument("--rows", type=int, default=None,
+                    help="일반 원장의 임베드 행 상한 (기본 200). 기관을 여러 곳 "
+                         "실으면 파일이 그만큼 커지므로 낮춰야 할 수 있다")
+    ui.add_argument("--rows-demo", type=int, default=None,
+                    help="상세 원장의 임베드 행 상한 (기본 3000)")
+    ui.add_argument("--institutions", default=None,
+                    help="기관코드 (콤마로 여러 개, all 은 등록 기관 전부). "
+                         "생략하면 국내 표본 한 곳만 산출한다")
     ui.add_argument("--asof", default=None,
                     help="기준일 (YYYY-MM-DD, 콤마로 여러 개 — 전부 산출해 싣는다)")
     ui.set_defaults(func=_cmd_ui_studio)
