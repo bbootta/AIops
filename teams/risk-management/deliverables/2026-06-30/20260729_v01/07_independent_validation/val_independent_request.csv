@@ -1,0 +1,2 @@
+﻿request_id,run_id,asof,requested_by,requested_to,branch,headline_digest,n_recalc_targets,n_self_fail,n_self_warn,status,reason
+IVR-8CDB13393503,RUN-20260630-42,2026-06-30,리스크관리 팀에이전트,적합성검증 팀에이전트,claude/validation-team-agent-Pw9F5,3b4b6b311cc10fd3c4ebb886147b13b4,10,0,5,부적합,응답 request_id 불일치 — 재요청 필요

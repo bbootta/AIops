@@ -1,0 +1,348 @@
+"""RYNTA v9.0 수식 카탈로그 ↔ 하니스 엔진 정합성 (BRD GOV-003 산식·계산엔진 통제).
+
+원본: `02_RYNTA_내부개발용_합성데이터_수식랩_v9.0_한국어.xlsx` 시트
+`12_Formula_Catalog` (sha256 1462077f…6585). 카탈로그의 정식 산식과 risk_lib
+구현이 같은 결과를 내는지 검증한다.
+
+카탈로그 자체가 "데모 수식이며 운영 적용 전 기관 승인 사양과 독립검증으로
+교체해야 한다"고 명시하므로, 여기서는 **구조적 항등식**(입력→출력 관계)을
+검증하고 캘리브레이션 상수는 검증 대상에서 제외한다.
+
+의도적 이탈은 `DEVIATIONS`에 사유와 함께 명시한다 — 조용한 이탈은
+추적성 위반이다 (AIMS_POLICY §8-4).
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+
+# 카탈로그 대비 의도적 이탈 — 사유를 명시하고 테스트로 고정한다.
+DEVIATIONS = {
+    "CR-F003": (
+        "PD 하한: 카탈로그 0.0003(3bp) vs 하니스 0.0005(5bp). "
+        "Basel III 최종안(BCBS d424 / CRE32.42)이 기업·리테일 PD 하한을 "
+        "5bp로 상향했으므로 하니스는 현행 규정을 따른다. 카탈로그는 데모값."
+    ),
+}
+
+
+# ----- CR-F001 · EAD = Drawn + CCF × Undrawn -------------------------------
+
+def test_crf001_ead_identity():
+    from risk_lib.capital.crm import ccf_ead, CCF_BUCKETS
+    for ccf_type, ccf in CCF_BUCKETS.items():
+        drawn, undrawn = 1_000.0, 500.0
+        assert ccf_ead(drawn, undrawn, ccf_type) == pytest.approx(
+            drawn + ccf * undrawn), f"{ccf_type} EAD 항등식 위반"
+
+
+def test_crf001_ead_is_non_negative_and_monotone():
+    """핵심 통제: 비음수, 미인출액에 대해 단조증가."""
+    from risk_lib.capital.crm import ccf_ead
+    prev = -1.0
+    for undrawn in (0.0, 100.0, 500.0, 1_000.0):
+        v = ccf_ead(100.0, undrawn, "commitment_gt_1y")
+        assert v >= 0
+        assert v >= prev
+        prev = v
+
+
+# ----- CR-F003 · PD 하한/상한 ----------------------------------------------
+
+def test_crf003_pd_bounds_with_documented_deviation():
+    """PD는 하한으로 클립된다. 하한값은 의도적 이탈(위 DEVIATIONS 참조)."""
+    from risk_lib.references import PD_FLOOR_BPS
+    assert "CR-F003" in DEVIATIONS
+    assert PD_FLOOR_BPS == 5, "PD 하한이 바뀌면 DEVIATIONS 설명도 갱신해야 한다"
+    # 카탈로그 데모값(3bp)보다 보수적(높음)이어야 한다 — 자본 과소계상 방지
+    assert PD_FLOOR_BPS >= 3
+
+
+def test_crf003_pipeline_pd_respects_floor(result):
+    """자체검증의 PD 하한 체크가 실제로 수행되고 통과/경고 상태여야 한다."""
+    from risk_lib.references import PD_FLOOR_BPS
+    checks = {c.name: c for c in result.validation.checks}
+    floor_checks = [n for n in checks if "pd_floor" in n]
+    assert floor_checks, "PD 하한 검증 체크가 없다"
+    for n in floor_checks:
+        assert checks[n].status in ("PASS", "WARN"), f"{n}: FAIL"
+        assert str(PD_FLOOR_BPS) in n or "bp" in n
+
+
+# ----- CR-F007 · 실현 LGD = 1 − PV(순회수)/EAD ------------------------------
+
+def test_crf007_workout_lgd_identity():
+    from risk_lib.models.lgd_model import workout_lgd
+    ead, disc = 1_000.0, 0.05
+    recoveries = [(1.0, 300.0), (2.0, 200.0)]
+    costs = 50.0
+    pv = -costs + 300.0 / 1.05 + 200.0 / 1.05 ** 2
+    assert workout_lgd(ead, recoveries, costs, disc) == pytest.approx(
+        1 - pv / ead)
+
+
+def test_crf007_lgd_in_unit_interval():
+    """핵심 통제: 회수가 EAD를 초과해도 LGD는 [0,1]."""
+    from risk_lib.models.lgd_model import workout_lgd
+    assert 0.0 <= workout_lgd(1_000.0, [(0.5, 5_000.0)]) <= 1.0
+    assert 0.0 <= workout_lgd(1_000.0, []) <= 1.0
+
+
+# ----- CR-F013 · CRM 적용 후 PD 불변 (PD_Delta = 0) -------------------------
+
+def test_crf013_crm_does_not_change_pd(portfolio):
+    """담보배분은 차주의 부도가능성을 자동변경하지 않는다 — Negative Test."""
+    from risk_lib.capital.crm import apply_crm
+    before = portfolio.copy()
+    after = apply_crm(before)
+    if "pd" in before.columns and "pd" in after.columns:
+        np.testing.assert_allclose(
+            after["pd"].to_numpy(dtype=float),
+            before["pd"].to_numpy(dtype=float),
+            rtol=0, atol=0,
+            err_msg="CRM이 PD를 변경했다 — CR-F013 위반")
+
+
+def test_crf008_crm_allocation_never_exceeds_exposure(portfolio):
+    """CRM 조정 EAD는 음수가 아니고 gross EAD를 초과하지 않는다 (초과배분 방지)."""
+    from risk_lib.capital.crm import apply_crm
+    df = apply_crm(portfolio.copy())
+    ead = df["ead"].to_numpy(dtype=float)
+    gross = df["ead_gross"].to_numpy(dtype=float)
+    assert (ead >= -1e-9).all(), "CRM 조정 EAD 음수"
+    assert (ead <= gross + 1e-6).all(), "CRM 조정 EAD가 gross 초과 — 초과배분"
+
+
+# ----- OR-F001 · 순손실 = MAX(0, 총손실 − 직접회수 − 보험) ------------------
+
+def test_orf001_net_loss_identity(result):
+    reg = result.op_loss.register
+    gross = reg["gross"].to_numpy(dtype=float)
+    rec = reg["recovery"].to_numpy(dtype=float)
+    net = reg["net"].to_numpy(dtype=float)
+    np.testing.assert_allclose(net, np.maximum(0.0, gross - rec), rtol=1e-9)
+    assert (net >= 0).all(), "순손실 음수 — OR-F001 위반"
+
+
+def test_orf001_recovery_never_exceeds_gross(result):
+    """핵심 통제: 회수액이 총손실을 초과하지 않도록 회계대사."""
+    reg = result.op_loss.register
+    assert (reg["recovery"] <= reg["gross"] + 1e-9).all()
+
+
+# ----- MR-F005 · 백테스트 예외 = 손실이 VaR 초과 ----------------------------
+
+def test_mrf005_backtest_exception_rule():
+    """예외 = 손실이 VaR 임계를 초과한 날. 실제 API로 직접 검증한다.
+
+    (이전 구현은 존재하지 않는 `result.frtb` 를 참조해 영구 skip이었다 —
+    skip된 테스트는 검증이 아니다.)
+    """
+    from risk_lib.frtb import backtest_var
+    pnl = np.array([-1.0, -3.0, 0.5, -2.5, -10.0])
+    var = np.array([2.0, 2.0, 2.0, 2.0, 2.0])
+    bt = backtest_var(pnl, var)
+    # 손실 3.0·10.0 두 건만 VaR 2.0 초과 (2.5도 초과 → 3건)
+    expected = int(sum(1 for p_, v_ in zip(pnl, var) if -p_ > v_))
+    assert bt.n_exceptions == expected == 3
+    assert bt.n_days == 5
+    assert 0 <= bt.n_exceptions <= bt.n_days
+
+
+def test_mrf005_traffic_light_zones():
+    """MAR99 신호등 — 예외 수에 따른 구간·승수."""
+    from risk_lib.frtb import backtest_var
+    def zone_for(n_exc, n_days=250):
+        pnl = np.array([-10.0] * n_exc + [0.0] * (n_days - n_exc))
+        var = np.array([1.0] * n_days)
+        return backtest_var(pnl, var)
+    assert zone_for(4).zone == "green" and zone_for(4).multiplier == 1.50
+    assert zone_for(5).zone == "yellow" and zone_for(5).multiplier == 1.70
+    assert zone_for(9).zone == "yellow"
+    r10 = zone_for(10)
+    assert r10.zone == "red" and r10.multiplier == 2.00 and r10.failed
+
+
+# ----- MR-F006 · PLA 잔차 = HPL − RTPL --------------------------------------
+
+def test_mrf006_pla_residual_definition():
+    """PLAT은 HPL vs RTPL의 Spearman·KS로 판정하며, 완전 일치 시 green."""
+    from risk_lib.frtb import plat_test
+    rng = np.random.default_rng(42)
+    hpl = rng.normal(0, 1, 250)
+    # RTPL이 HPL과 동일하면 잔차 0 → 최상 구간
+    same = plat_test(hpl, hpl.copy(), desk="d")
+    assert same.spearman == pytest.approx(1.0, abs=1e-9)
+    assert same.overall_zone == "green"
+    assert same.n_days == 250
+    # 무관한 RTPL이면 상관이 무너져 구간이 악화돼야 한다
+    noise = plat_test(hpl, rng.normal(0, 1, 250), desk="d")
+    assert noise.spearman < same.spearman
+    assert noise.overall_zone in ("amber", "red")
+
+
+# ----- ST-F001 · 충격형태 (정점 → 회복 경로) --------------------------------
+
+def test_stf001_shock_path_peaks_then_decays():
+    """0 → 정점 → 감쇠. 카탈로그는 (q/peak)·exp(1−q/peak) 형태를 제시하고,
+    하니스는 선형상승 + 지수감쇠를 쓴다 — 두 구현 모두 동일한 구조적 성질
+    (정점에서 최대, 이후 단조감소, 비음수)을 만족해야 한다."""
+    from risk_lib.stress.ccar import hump_severities
+    path = hump_severities(peak=1.0, peak_q=3, n=10)
+    assert len(path) == 10
+    assert all(v >= 0 for v in path), "충격 경로 음수"
+    assert path[3] == pytest.approx(max(path)), "정점 분기가 최대가 아님"
+    tail = path[3:]
+    assert all(b <= a + 1e-12 for a, b in zip(tail, tail[1:])), "정점 이후 비단조"
+
+
+# ----- ST-F004 · CET1 Roll-forward -----------------------------------------
+
+def test_stf004_cet1_rollforward_is_path_consistent(result):
+    """분기 CET1 경로는 시나리오별로 연속이어야 한다 (경계에서 리셋)."""
+    sp = result.stress_path
+    for scen, g in sp.groupby("scenario"):
+        g = g.sort_values("q_index")
+        assert len(g) == len(result.meta["quarters"])
+        assert (g["cet1_ratio"] > 0).all(), f"{scen}: CET1 비율 비양수"
+
+
+# ----- ST-F006 · 임계값 위반 판정 -------------------------------------------
+
+def test_stf006_breach_flag_names_the_binding_ratio(result):
+    """침범 표기가 있으면 어느 요구치(CET1/Tier1/총자본)인지 명시돼야 한다.
+
+    CET1에 여유가 있어도 Tier1·총자본 요구치 때문에 침범이 발생할 수 있으므로,
+    비율 이름 없이 '요구치 침범'만 적으면 CRO가 CET1 침범으로 오독한다.
+    """
+    trough = result.stress_path_trough
+    assert "breach_ratio" in trough.columns
+    for _, row in trough.iterrows():
+        if isinstance(row.get("first_breach"), str):
+            assert row["breach_ratio"] in ("cet1", "tier1", "total"), (
+                f"{row['scenario']}: 침범 비율 미표기")
+        else:
+            assert row["breach_ratio"] is None or (
+                isinstance(row["breach_ratio"], float)), (
+                f"{row['scenario']}: 침범 없음인데 비율이 표기됨")
+
+
+def test_stf006_breach_is_consistent_with_all_three_requirements(result):
+    """passes=False인 분기는 세 비율 중 최소 하나가 요구치 미만이어야 한다."""
+    sp = result.stress_path
+    req = result.bis.required
+    for _, row in sp.iterrows():
+        below = [k for k in ("cet1", "tier1", "total")
+                 if float(row[f"{k}_ratio"]) < req[k] - 1e-12]
+        assert bool(below) == (not bool(row["passes"])), (
+            f"{row['scenario']} {row['quarter']}: passes={row['passes']}이나 "
+            f"요구치 미달 비율={below}")
+        if below:
+            assert row["binding"] in below, (
+                f"binding={row['binding']}가 실제 미달 비율 {below}에 없다")
+
+
+# ----- SCN-F002 · Loss → RWA 대용치 (12.5배 = 1/8%) -------------------------
+
+def test_scnf002_rwa_conversion_factor():
+    """카탈로그의 6.25는 데모 계수이고, 하니스는 규제 정식 12.5배(=1/0.08)를
+    쓴다. 자본요구액 → RWA 환산은 규정상 12.5가 맞다 (CRE20.1)."""
+    from risk_lib.capital.op_risk import compute_op_risk_rwa, BusinessIndicator
+    r = compute_op_risk_rwa(BusinessIndicator(1e12, 5e11, 3e11),
+                            avg_annual_losses_10y=1e10, use_ilm=True)
+    assert r.rwa == pytest.approx(r.orc * 12.5, rel=1e-9)
+
+
+# ----- AIG-F001 · 권한경계 (Read-only → Recommend-only → Approval-first) ----
+
+def test_aigf001_guardrail_chain_declared():
+    from risk_lib import rynta
+    names = [g[0] for g in rynta.GUARDRAILS]
+    assert names[:3] == ["조회 전용", "제안 전용", "승인 우선"], (
+        "가드레일 순서가 AIG-F001 권한경계와 다르다")
+
+
+# ----- 이탈 문서화 강제 -----------------------------------------------------
+
+def test_every_deviation_states_a_reason():
+    for fid, reason in DEVIATIONS.items():
+        assert len(reason) > 40, f"{fid}: 이탈 사유가 불충분"
+        assert "카탈로그" in reason and "하니스" in reason
+
+
+# ----- 수식 카탈로그 ↔ 에이전트 정의 연결 -----------------------------------
+
+def test_agents_declare_their_canonical_formulas():
+    """각 에이전트가 담당 도메인의 정식 산식 ID를 자체 보유해야 한다."""
+    from pathlib import Path
+    agents = Path(__file__).resolve().parent.parent / ".claude" / "agents"
+    expected = {
+        "rwa-calculator": ["CR-F001", "CR-F008", "CR-F013"],
+        "credit-rating-modeler": ["CR-F002", "CR-F003", "CR-F004"],
+        "ifrs9-ecl-analyst": ["CR-F005"],
+        "delinquency-pd-lgd-monitor": ["CR-F007", "CR-F011"],
+        "stress-test-engineer": ["ST-F001", "ST-F004", "ST-F006"],
+        "bis-ratio-analyst": ["CAP-F001", "SCN-F002"],
+        "risk-validator": ["VAL-F001", "VAL-F002"],
+        "aims-compliance-auditor": ["AIG-F001", "AIG-F002"],
+        "risk-orchestrator": ["AIG-F001"],
+        "market-risk-analyst": ["MR-F001", "MR-F003", "MR-F005",
+                                "MR-F006", "MR-F007"],
+    }
+    for agent, fids in expected.items():
+        txt = (agents / f"{agent}.md").read_text(encoding="utf-8")
+        assert "정식 산식" in txt, f"{agent}: 산식 섹션 없음"
+        for fid in fids:
+            assert fid in txt, f"{agent}: {fid} 미표기"
+
+
+def test_documented_deviations_appear_in_owning_agent():
+    """의도적 이탈은 해당 산식을 담당하는 에이전트 정의에도 명시돼야 한다."""
+    from pathlib import Path
+    agents = Path(__file__).resolve().parent.parent / ".claude" / "agents"
+    # CR-F003(PD 하한) 이탈은 credit-rating-modeler가 담당
+    txt = (agents / "credit-rating-modeler.md").read_text(encoding="utf-8")
+    assert "5bp" in txt and "d424" in txt, "PD 하한 이탈이 담당 에이전트에 미기재"
+
+
+# ----- 시장리스크 에이전트 신설 검증 ----------------------------------------
+
+def test_market_agent_owns_all_market_formulas():
+    """MR-F001~F007이 모두 담당 에이전트를 갖는다 (주인 없는 산식 방지)."""
+    from pathlib import Path
+    txt = (Path(__file__).resolve().parent.parent / ".claude" / "agents"
+           / "market-risk-analyst.md").read_text(encoding="utf-8")
+    for i in range(1, 8):
+        assert f"MR-F00{i}" in txt, f"MR-F00{i} 미담당"
+
+
+def test_market_agent_declares_module_boundary():
+    """sensitivity(전행 what-if) vs sensitivities(트레이딩북 Greeks) 경계 명시."""
+    from pathlib import Path
+    agents = Path(__file__).resolve().parent.parent / ".claude" / "agents"
+    mkt = (agents / "market-risk-analyst.md").read_text(encoding="utf-8")
+    orch = (agents / "risk-orchestrator.md").read_text(encoding="utf-8")
+    for txt, who in ((mkt, "market-risk-analyst"), (orch, "risk-orchestrator")):
+        assert "risk_lib.sensitivities" in txt and "risk_lib.sensitivity" in txt, (
+            f"{who}: 유사 모듈 경계 미명시")
+        assert "stress-test-engineer" in txt, f"{who}: 인접 에이전트 미표기"
+
+
+def test_orchestrator_routes_to_market_agent():
+    from pathlib import Path
+    orch = (Path(__file__).resolve().parent.parent / ".claude" / "agents"
+            / "risk-orchestrator.md").read_text(encoding="utf-8")
+    assert "market-risk-analyst" in orch.split("---")[1], (
+        "orchestrator frontmatter description에 미등록")
+    assert "→ `market-risk-analyst`" in orch, "위임 라우팅 미등록"
+
+
+def test_market_agent_forbids_gate_manipulation():
+    """PLAT/백테스트 red 완화 금지가 명시돼야 한다 (IMA 자격 조작 방지)."""
+    from pathlib import Path
+    txt = (Path(__file__).resolve().parent.parent / ".claude" / "agents"
+           / "market-risk-analyst.md").read_text(encoding="utf-8")
+    assert "red 판정을 완화하거나 재실행으로 우회하지 말 것" in txt
+    assert "SA로 강제 전환" in txt

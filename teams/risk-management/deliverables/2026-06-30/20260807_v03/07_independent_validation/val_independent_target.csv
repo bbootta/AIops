@@ -1,0 +1,14 @@
+﻿request_id,target,korean,reported,recomputed,matched,citation
+IVR-397316300BCF,rwa_final_total,위험가중자산 합계,13478626877092.645,0.0,True,CRE20.1 · RBC20.11
+IVR-397316300BCF,rwa_fund,집합투자증권 위험가중자산,3331225499902.0503,,,CRE60
+IVR-397316300BCF,rwa_securitisation,유동화 위험가중자산,797107276215.5831,,,CRE40 · CRE41 · CRE44
+IVR-397316300BCF,cet1_ratio,보통주자본비율,0.08119291152308737,0.11642330105320828,True,은행업감독규정 제26조
+IVR-397316300BCF,total_ratio,총자본비율,0.10938569432396912,,True,은행업감독규정 제26조
+IVR-397316300BCF,leverage_ratio,레버리지비율,0.09697351438263638,,True,LEV20.1
+IVR-397316300BCF,ecl_total,기대신용손실 합계 (TTC · 시점추정),97546776363.82495,,True,IFRS 9 5.5
+IVR-397316300BCF,ecl_weighted_total,기대신용손실 합계 (PIT · 확률가중),135045061371.37775,,,IFRS 9 5.5.17
+IVR-397316300BCF,lcr,유동성커버리지비율,1.1807093493508851,,True,LCR20.1
+IVR-397316300BCF,nsfr,순안정자금조달비율,1.1306708599813413,,True,NSF20.1
+IVR-397316300BCF,stress_trough_cet1,심각 시나리오 CET1 저점,0.03790983582266148,,True,SRP20
+IVR-397316300BCF,reverse_critical_severity,역스트레스 임계 심도,0.04917144775390625,,True,SRP20
+IVR-397316300BCF,reserve_shortfall,대손준비금 소요액,30567097645.00345,11.0,True,은행업감독규정 제29조 제2항

@@ -1,0 +1,133 @@
+Table 1. The maturity schedule with 19 time buckets for notional repricing cash flows repricing at tCF. The number in brackets is the time bucket’s midpoint
+
+Time bucket intervals (M: months; Y: years)
+
+Short- term rates
+
+O/N\< tCF ≦1M (0.0417Y)
+
+1M\< tCF ≦3M (0.1667Y)
+
+3M\< tCF ≦6M (0.375Y)
+
+6M\< tCF ≦9M (0.625Y)
+
+9M\< tCF ≦1Y (0.875Y)
+
+1Y\< tCF ≦1.5Y (1.25Y)
+
+1.5Y\< tCF ≦2Y (1.75Y)
+
+Medium- term rates
+
+Overnight (0.0028Y)
+
+2Y\< tCF ≦3Y (2.5Y)
+
+3Y\< tCF ≦4Y (3.5Y)
+
+4Y \< tCF ≦ 5Y (4.5Y)
+
+5Y\< tCF ≦6Y (5.5Y)
+
+6Y\< tCF ≦7Y (6.5Y)
+
+Long- term rates
+
+7Y\< tCF ≦8Y (7.5Y)
+
+8Y \< tCF ≦ 9Y (8.5Y)
+
+9Y \< tCF ≦ 10Y (9.5Y)
+
+10Y\< tCF
+
+15Y\< ≦ 15Y (12.5Y)
+
+tCF ≦ 20Y (17.5Y)
+
+tCF \> 20Y (25Y)
+
+2.2 Process for slotting and decomposing banking book instruments
+
+105\. All notional repricing cash flows associated with interest rate-sensitive assets, liabilities and off- balance sheet items, for each currency, are allocated to the prescribed time buckets or time bucket midpoints (henceforth, denoted by ð¶ð¶ð¶ð¶ðð,ðð(ðð) or ð¶ð¶ð¶ð¶ðð,ðð(ð¡ð¡ðð) under interest rate shock scenario ðð and currency ðð) based on their amenability to standardisation.
+
+Process for positions that are amenable to standardisation
+
+106\. Notional repricing cash flows can be slotted into appropriate time buckets or time bucket midpoints based on their contractual maturity, if subject to fixed coupons, or into the next repricing period if coupons are floating. Positions amenable to standardisation fall into two categories:
+
+1\. Fixed rate positions: such positions generate cash flows that are certain till the point of contractual maturity. Examples are fixed rate loans without embedded prepayment options, term deposits without redemption risk and other amortising products such as mortgage loans. All coupon cash flows and periodic or final principal repayments should be allocated to the time bucket midpoints closest to the contractual maturity.
+
+24 Interest rate risk in the banking book
+
+2\. Floating rate positions: such positions generate cash flows that are not predictable past the next repricing date other than that the present value would
+
+=====
+
+Table 2. Caps on core deposits and average maturity by category
+
+Cap on proportion of core deposits (%)
+
+Cap on average maturity of core deposits (years) Retail/transactional 90 5
+
+Retail/non-transactional 70 4.5 Wholesale 50 4
+
+4\. Treatment of positions with behavioural options other than NMDs
+
+116\. The treatment set out in this section applies only to behavioural options related to retail customers. Where a wholesale customer has a behavioural option that may change the pattern of notional repricing cash flows, such options must be included within the category of automatic interest rate options.19
+
+Standardised framework for positions with behavioural options other than NMDs
+
+117\. The s
+
+=====
+
+Table 3. CPRs under the shock scenarios
+
+Scenario number (ðð) Interest rate shock scenarios ð¾ð¾ðð (scenario multiplier) 1 Parallel up 0.8 2 Parallel down 1.2 3 Steepener 0.8
+
+4 Flattener 1.2 5 Short rate up 0.8 6 Short rate down 1.2
+
+124\. The prepayments on the fixed rate loans must ultimately be reflected in the relevant cash flows (scheduled payments on the loans, prepayments and interest payments). These payments can be broken up into scheduled payments adjusted for prepayment and uncompensated prepayments:22
+
+ð¶ð¶ð¶ð¶ðð,ðððð (ðð) = ð¶ð¶ð¶ð¶ðð,ðððð (k) + ð¶ð¶ð¶ð¶ð¶ð¶ðð,ðððð ∙ ðð
+
+=====
+
+Table 4. Term deposit redemption rate (TDRR) scalars under the shock scenarios
+
+Scenario number (ðð) Interest rate shock scenarios Scalar multipliers ð¢ð¢ðð
+
+1 Parallel up 1.2 2 Parallel down 0.8 3 Steepener 0.8 4 Flattener 1.2 5 Short rate up 1.2 6 Short rate down 0.8
+
+129\. The notional repricing cash flows which are expected to be withdrawn early under any interest rate shock scenario i are described as:
+
+ð¶ð¶ð¶ð¶ðð,ðððð (1) = ðððð0,ðððð ∙ ððððð¶ð¶ð¶ð¶ðð,ðððð where ðððð0,ðððð is the outstanding amount of term deposits of type p.
+
+5\. Automatic interest rate optio
+
+=====
+
+Table 1. Specified size of interest rate shocks ð¶ð¶�ð ð ℎðððððððððððððð,ðð
+
+ARS AUD BRL CAD CHF CNY EUR GBP HKD IDR INR Parallel 400 300 400 200 100 250 200 250 200 400 400 Short 500 450 500 300 150 300 250 300 250 500 500 Long 300 200 300 150 100 150 100 150 100 350 300
+
+JPY KRW MXN RUB SAR SEK SGD TRY USD ZAR Parallel 100 300 400 400 200 200 150 400 200 400 Short 100 400 500 500 300 300 200 500 300 500 Long 100 200 300 300 150 150 100 300 150 300
+
+Given Table 1, the instantaneous shocks to the risk-free rate for parallel, short and long, for each currency, the following parameterisations of the six interest rate shock scenarios should be applied:
+
+42 Jurisdictions may under national discretion, deviate from the initial 16-year period if it better reflects their idiosyncratic
+
+circumstances.
+
+44 Interest rate risk in the banking b
+
+=====
+
+Examples Short rate shock: Assume that the bank uses the standardised framework with K=19 time bands and with tK=25 years (the midpoint (in time) of the longest tenor bucket K), and where ð¡ð¡ðð is the midpoint (in time) for bucket k. In the standardised framework, if k=10 with tk=3.5 years, the scalar adjustment for the short shock would be ððð ð ℎðððððð(ð¡ð¡ðð)=(ðð−3.54 ) = 0.417. Banks would multiply this by the value of the short rate shock to obtain the amount to be added to or subtracted from the yield curve at that tenor point. If the short rate shock was +100 bp, the increase in the yield curve at tk=3.5 years would be 41.7 bp.
+
+Steepener: Assume the same point on the yield curve as above, tk=3.5 years. If the absolute value of the short rate shock was 100 bp and the absolute value of the long rate shock was 100 bp (as for the Japanese yen), the change in the yield curve at tk=3.5 years would be the sum of the effect of the short rate shock plus the effect of the long rate shock in basis points: − 0.65 ∙ 100bp ∙ 0.417 + 0.9 ∙ 100bp ∙ (1 − 0.417) = +25.4bp.
+
+Flattener: The corresponding change in the yield curve for the shocks in the example above at tk=3.5 years would be: + 0.8 ∙ 100bp ∙ 0.417 − 0.6 ∙ 100bp ∙ (1 − 0.417) = −1.6bp.
+
+43 The value of x in the denominator of the function ðð−ð¡ð¡kð¥ð¥ contro

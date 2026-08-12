@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+.venv/
+out/
+
+# 산출물 이력 — 판마다 **핵심만** 커밋한다.
+#
+# 정규 테이블·리포트·UI는 seed·asof·코드 리비전이 같으면 비트 단위로 재생성되고,
+# 그 셋이 버전정보.json에 기록돼 있다. 감사에 필요한 것은 "무엇을 제출했고 그
+# 판의 정체가 무엇인가"이지 파생물 사본이 아니다. 파생물까지 커밋하면 판마다
+# 4.7MB가 쌓이고 git은 되돌릴 수 없다.
+#
+# 커밋되는 것: 버전정보.json · MANIFEST.txt · 업무보고서 xlsx · 독립검증 문서
+teams/risk-management/deliverables/*/*/01_datamodel/
+teams/risk-management/deliverables/*/*/02_reports/
+teams/risk-management/deliverables/*/*/03_evidence/
+teams/risk-management/deliverables/*/*/04_work_report/
+teams/risk-management/deliverables/*/*/06_agentic_ui/
+teams/risk-management/deliverables/*/*/05_regulatory/*.csv
+teams/risk-management/deliverables/*/*.zip
+teams/risk-management/deliverables/*/*/*.zip
+teams/risk-management/deliverables/*/*/README.md

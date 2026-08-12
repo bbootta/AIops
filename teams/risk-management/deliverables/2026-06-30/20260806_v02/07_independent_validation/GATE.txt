@@ -1,0 +1,6 @@
+상태: 부적합
+사유: 응답 request_id 불일치 — 재요청 필요
+요청: IVR-CEB70642E24B
+수신: 적합성검증 팀에이전트 / claude/validation-team-agent-Pw9F5
+
+게이트가 '적합'이 되기 전에는 결재 상신 불가 (fail-closed).
