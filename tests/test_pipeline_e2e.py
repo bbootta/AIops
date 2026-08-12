@@ -194,7 +194,15 @@ GOLDEN = {
 #     소스에 1.5%·1.0% 를 박아 넘겨 요구비율이 원장과 어긋난 두 벌로 공시됐다.
 #     원장에 빈 칸으로 두고 0 으로 산출하되, OCR 이 그만큼 과소 표시된다는
 #     사실을 매 실행 남긴다. 근거가 들어오면 PASS 로 갈린다.
-GOLDEN_VALIDATION = {"PASS": 70, "WARN": 14}
+# PASS 70/WARN 14 → 70/15. WARN +1 은 `prudential_regime_applies` 다. 이
+#     검사는 업권(institution_type)이 없으면 조용히 반환해 검사 자체가
+#     사라졌다(fail-open). 그러면 업권을 안 넘긴 실행과 은행 실행이 자체검증
+#     결과에서 구별되지 않고, 증권 기관을 업권 없이 돌려 은행 기준 BIS 비율을
+#     내도 검증이 아무 말을 하지 않는다. 없으면 "판정할 수 없다"를 WARN 으로
+#     남기게 바꿨다(fail-closed). 이 fixture 는 `run_pipeline` 을
+#     institution_type 없이 부르므로 그 WARN 이 선다. 업권을 넘기면 은행은
+#     PASS, 증권은 기존의 참고치 WARN 으로 갈린다.
+GOLDEN_VALIDATION = {"PASS": 70, "WARN": 15}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",

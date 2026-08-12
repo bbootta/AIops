@@ -1346,13 +1346,24 @@ def _check_prudential_regime(meta: dict | None,
     IRRBB)만 산출한다. 증권 기관은 순자본비율 체계이며 그 산출은 아직 없다.
     업권을 보지 않고 돌리면 증권 기관의 결과가 `cet1_ratio` 로 공시되는데,
     그것은 그 기관의 건전성 지표가 아니다. 매 실행 그 사실을 남긴다.
+
+    업권이 넘어오지 않으면 검사를 지우지 않고 "판정할 수 없다"를 WARN 으로
+    남긴다. 예전에는 조용히 반환해 검사 자체가 사라졌고, 그러면 업권을 안
+    넘긴 실행과 은행 실행이 자체검증 결과에서 구별되지 않는다. 증권 기관을
+    업권 없이 돌려도 검증이 아무 말을 하지 않는 상태가 그 결과다. 근거가
+    없으면 WARN 을 남기는 `_check_capital_source` 와 방향을 맞춘다.
     """
-    if not meta:
-        return
-    itype = meta.get("institution_type")
-    if itype is None:
-        return
     from risk_lib import institutions as _inst
+    itype = meta.get("institution_type") if meta else None
+    if itype is None or str(itype).strip() == "":
+        report.add(ConsistencyCheck(
+            "prudential_regime_applies", "WARN",
+            "업권(institution_type)이 산출에 넘어오지 않아 이 산출 체계가 이 "
+            "기관에 적용되는지 판정할 수 없다. 이 파이프라인은 "
+            f"{_inst.IMPLEMENTED_REGIME} 기준 한 벌만 산출하므로, 다른 체계의 "
+            "기관이면 여기 나온 자본비율·유동성비율은 그 기관의 건전성 지표가 "
+            "아니다. 호출부가 institution_type 을 넘겨야 판정한다"))
+        return
     try:
         regime = _inst.prudential_regime(str(itype))
     except ValueError as e:

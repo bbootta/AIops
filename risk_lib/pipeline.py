@@ -1452,8 +1452,15 @@ def run_pipeline(
     pillar2: "Mapping[str, float | None] | None" = None,
     capital_basis: str | None = None,
 ) -> PipelineResult:
-    """`capital_ledger`를 주면 실제 자본 원장으로 산출한다. 주지 않으면
-    수익성 기반 합성기를 쓰며, 그 사실이 독립검증 요청에 공시된다.
+    """`capital_ledger`를 주면 그 자본으로 산출하고, 주지 않으면 수익성 기반
+    합성기를 쓴다. 어느 쪽이든 그 사실이 독립검증 요청에 공시된다.
+
+    원장을 준다고 해서 실측 자본이 되지는 않는다. 이 저장소가 가진 유일한
+    원장 경로(`data_gen_intl.capital_ledger_for`)는 `cet1_to_ead` 등 총익스포저
+    비율에 총익스포저를 곱한 값이라 자본이 익스포저를 그대로 따라간다. 이
+    함수는 넘어온 `CapitalStack` 의 출처를 확인하지 않으므로, 호출부가
+    `capital_basis` 로 산출근거를 함께 넘겨야 자체검증이 그 사실을 적을 수
+    있다 (넘기지 않으면 `capital_source` 가 WARN 이다).
 
     `market_op`·`buffers`·`structured_scale`·`pillar2` 를 주지 않으면 기관
     프로파일 원장의 국내 표본 행을 읽는다. 엔진 기본값으로 두면 그 수가 소스에
