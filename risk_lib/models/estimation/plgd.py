@@ -966,6 +966,11 @@ def check_plgd_not_below_elbe(plgd: pd.DataFrame, report) -> None:
     두면 이 위반이 난다.
     """
     if plgd.empty:
+        # 조용히 사라지면 "검사를 통과했다" 와 "검사가 아예 없었다" 가 산출물에서
+        # 구분되지 않는다. 원장이 비는 것은 정상 경로(분모 판정불가·q 미승인)일
+        # 수 있으나 그 사실은 남아야 한다.
+        _warn(report, "PLGD 예상외손실 추가분 부호",
+              "PLGD 원장이 비어 판정하지 않았다 (분모 판정불가 또는 q 미승인)")
         return
     d = plgd.dropna(subset=["plgd", "elbe"])
     if d.empty:
@@ -990,6 +995,8 @@ def check_plgd_provision_justification(plgd: pd.DataFrame, report) -> None:
     양방향으로 검사를 걸면 정상 건에 거짓 경보가 난다.
     """
     if plgd.empty:
+        _warn(report, "PLGD 부도자산 ELBE 대 충당금",
+              "PLGD 원장이 비어 판정하지 않았다 (분모 판정불가 또는 q 미승인)")
         return
     need = plgd[plgd["justification_required"] == True]      # noqa: E712
     missing = need[need["justification_ref"].isna()]

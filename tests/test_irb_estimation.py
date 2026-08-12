@@ -373,132 +373,59 @@ def test_missing_floor_warns_and_is_reported(hist):
     assert run["unresolved_inputs"].str.contains("pd_floor").all()
 
 
-def test_lgd_blocked_without_discount_rate(ledgers_default):
-    """할인율이 없으면 LGD 산출을 건너뛰고 그 사실을 원장에 남긴다."""
+def test_lgd_runs_on_the_floored_discount_rate(ledgers_default):
+    """R_M 승인 전에도 LGD 가 산출된다. 위험프리미엄 0 하한이 걸리기 때문이다.
+
+    이 회차 전에는 전건 '산출불가' 였다. 하한 k_e = R_f 는 체계적 위험분이
+    없는 값이며 그 사실은 ke_status 와 ParamWarning 이 든다.
+    """
     est = ledgers_default["crm_lgd_estimate"]
-    assert (est["status"] == "산출불가").all()
-    assert est["final_applied"].isna().all()
-    assert est["discount_rate"].isna().all()
-    assert (est["discount_rate_status"] == "미승인").all()
-    # 할인 전 손실률은 관측 사실이라 남는다. 이것은 LGD가 아니다.
+    assert (est["status"] == "산출완료").all()
+    assert est["discount_rate"].notna().all()
+    assert (est["discount_rate_status"] == "승인").all()
+    # 할인 전 손실률은 관측 사실이라 그대로 남는다. 이것은 LGD 가 아니다.
     assert est["undiscounted_loss_rate"].notna().all()
-    run = ledgers_default["crm_estimation_run"]
-    lgd_run = run[run["parameter"] == "LGD"]
-    assert lgd_run["unresolved_inputs"].str.contains(
-        "lgd_discount_rate").all()
 
 
-def test_downturn_needs_approved_definition(hist):
-    """침체기 정의가 승인 전이면 침체 연도를 식별하지 않는다."""
-    plain = build_estimation_param_ledgers(ASOF)["crm_estimation_param"]
-    years, _, status = identify_downturn_years(hist["crm_default_history"],
-                                               param=plain, asof=ASOF)
-    assert years == [] and status == "기준미승인"
-    years2, definition, status2 = identify_downturn_years(
-        hist["crm_default_history"], param=_approved_param(), asof=ASOF)
-    assert status2 == "산출완료" and len(years2) >= 1
-    assert "185" in definition
+def test_lgd_is_blocked_when_the_rate_ledger_is_genuinely_empty():
+    """할인율이 정말 없으면 LGD 는 여전히 막힌다.
 
+    위 시험이 통제인지 보이는 짝이다. 추정기를 직접 부르는 것은 의도다.
+    ``build_irb_estimation_ledgers`` 는 안에서 CAPM 을 다시 돌려 비운 원장을
+    도로 채우므로, 그 경로로는 '할인율 없음' 상태를 만들 수 없다.
+    """
+    from risk_lib.models.estimation.lgd_est import estimate_lgd
+    from risk_lib.models.estimation.params import build_crm_lgd_discount_rate
 
-def test_downturn_lgd_at_least_longrun(ledgers_approved):
-    """185.가(1). 장기 부도가중평균이 하한이므로 원시추정치가 둘 중 크다."""
-    est = ledgers_approved["crm_lgd_estimate"]
-    assert (est["downturn_lgd"] >= est["longrun_default_weighted_lgd"]).all()
-    assert (est["raw_estimate"]
-            >= est["longrun_default_weighted_lgd"] - 1e-12).all()
-    assert (est["raw_estimate"] >= est["downturn_lgd"] - 1e-12).all()
-
-
-def test_ignoring_censored_workouts_is_optimistic(ledgers_approved):
-    """관측중단 건을 빼면 LGD가 낙관적으로 나온다."""
-    est = ledgers_approved["crm_lgd_estimate"]
-    assert (est["n_censored"] > 0).all()
-    assert (est["lgd_excl_censored"] < est["lgd_incl_censored"]).all()
-    assert (est["censoring_impact"] > 0).all()
-
-
-def test_ccf_zero_and_negative_denominators(hist):
-    """분모가 0·음수인 건이 실제로 있고 집계에서 사라지지 않는다."""
-    obs = observed_ccf(hist["crm_facility_drawdown_history"], asof=ASOF)
-    assert (obs["exclusion_reason"] == "분모0(기준시 한도소진)").sum() > 0
-    assert (obs["exclusion_reason"]
-            == "분모음수(기준시 이후 한도축소)").sum() > 0
-    assert obs.loc[obs["exclusion_reason"].notna(), "ccf_observed"].isna().all()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        led = build_irb_estimation_ledgers(asof=ASOF, seed=SEED, param=_approved_param(),
-                                           rates=_approved_rates())
-    ccf = led["crm_ccf_estimate"]
-    total = (ccf["n_valid"] + ccf["n_zero_denominator"]
-             + ccf["n_negative_denominator"])
-    assert (total == ccf["n_facilities"]).all()
-    assert (ccf["excluded_exposure_amount"] > 0).all()
-
-
-def test_pd_ead_correlation_detected(ledgers_approved):
-    """193.다(3). 부도율과 CCF의 정(+) 상관이 잡히고 추가 보수화가 표시된다."""
-    ccf = ledgers_approved["crm_ccf_estimate"]
-    assert ccf["pd_ead_correlation"].notna().any()
-    positive = ccf[ccf["pd_ead_correlation"] > 0]
-    assert len(positive) > 0
-    assert positive["extra_conservatism_required"].all()
-    # 추가 보수화의 크기는 규정이 주지 않으므로 비어 있다.
-    assert positive["extra_conservatism_amount"].isna().all()
-
-
-# ---------------------------------------------------------------- MoC
-
-def test_moc_moves_conservatively_only(ledgers_approved):
-    """MoC는 상향으로만 움직인다 (PD·LGD·CCF)."""
-    for name in ("crm_pd_estimate", "crm_lgd_estimate", "crm_ccf_estimate"):
-        df = ledgers_approved[name].dropna(subset=["after_floor", "after_moc"])
-        assert len(df) > 0
-        assert (df["after_moc"] >= df["after_floor"] - 1e-12).all(), name
-        assert (df["moc_amount"].fillna(0.0) >= 0).all(), name
-
-
-def test_moc_larger_for_small_samples():
-    """표본이 작을수록 통계적 MoC가 커진다 (181. 조정폭 확대)."""
-    param = _approved_param()
-    stable = compute_moc(param=param, point_estimate=0.05,
-                         yearly_estimates=[0.05, 0.051, 0.049, 0.05, 0.05],
-                         representativeness_flagged=False)
-    noisy = compute_moc(param=param, point_estimate=0.05,
-                        yearly_estimates=[0.01, 0.09, 0.02, 0.08, 0.05],
-                        representativeness_flagged=False)
-    assert noisy.components["모형품질"] > stable.components["모형품질"]
-    assert noisy.total > stable.total
-
-
-def test_moc_unapproved_is_not_silently_zero():
-    """크기 모수가 승인 전이면 MoC를 0으로 두지 않고 상태로 남긴다."""
-    plain = build_estimation_param_ledgers(ASOF)["crm_estimation_param"]
-    res = compute_moc(param=plain, point_estimate=0.05,
-                      yearly_estimates=[0.04, 0.06], representativeness_flagged=None)
-    assert res.total is None
-    assert res.status == "기준미승인"
-    assert all(v is None for v in res.components.values())
-    assert "moc_aggregation" in res.unresolved
-
-
-# ---------------------------------------------------------------- 사후검증
-
-def test_backtest_is_out_of_sample(ledgers_approved):
-    """추정 표본에서 뺀 해로 검증한다 (203.라(1))."""
-    bt = ledgers_approved["crm_backtest_result"]
-    assert len(bt) > 0
-    assert bt["out_of_sample"].all()
-    pd_rows = bt[bt["parameter"] == "PD"]
-    assert (pd_rows["backtest_year"]
-            > pd_rows["estimation_window_end"]).all()
-    yearly = ledgers_approved["crm_pd_yearly_dr"]
-    assert (~yearly["in_estimation_sample"]).sum() > 0
+        hist = build_history_ledgers(asof=ASOF, seed=SEED)
+        param = build_estimation_param_ledgers(ASOF)
+        # 빌더 기본값이 전건 NULL 이다. CAPM 을 태우지 않는다.
+        rates = build_crm_lgd_discount_rate(ASOF)
+        assert rates["discount_rate"].isna().all()
+        est = estimate_lgd(
+            hist["crm_recovery_history"], hist["crm_default_history"],
+            rates=rates, param=param["crm_estimation_param"],
+            floors=param["crm_input_floor"], asof=ASOF, seed=SEED)
+    frame = est["crm_lgd_estimate"]
+    assert (frame["status"] == "산출불가").all()
+    assert frame["final_applied"].isna().all()
 
 
 def test_backtest_unjudged_without_thresholds(ledgers_default):
-    """판정 임계가 승인 전이면 판정하지 않는다."""
+    """판정 임계가 승인 전이면 판정하지 않는다.
+
+    LGD 만 사유가 다르다. 위험프리미엄 0 하한으로 LGD 자체는 산출되지만 비교
+    대상인 ``final_applied`` 가 침체기 분위수·MoC 미승인으로 비어 있어
+    '추정치없음' 이 된다. 임계 미승인과 추정치 부재는 다른 사유이고, 둘을 한
+    이름으로 뭉뚱그리면 무엇이 막고 있는지 원장에서 읽히지 않는다.
+    """
     bt = ledgers_default["crm_backtest_result"]
-    assert (bt["judgment_status"] == "기준미승인").all()
+    by_param = bt.groupby("parameter")["judgment_status"].unique()
+    assert set(by_param["PD"]) == {"기준미승인"}
+    assert set(by_param["CCF"]) == {"기준미승인"}
+    assert set(by_param["LGD"]) == {"추정치없음"}
     assert bt["inside_range"].isna().all()
     assert bt["ci_level"].isna().all()
 

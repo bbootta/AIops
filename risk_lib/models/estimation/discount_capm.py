@@ -38,11 +38,18 @@ R_f를, 나머지(``전체``)는 k_e를 쓴다. 교안이 무위험이자율을 
 seed·기간을 바꿔도 부호가 바뀌지 않는다.
 
 이것을 조용히 넘기면 k_e = R_f + beta·(음수) 가 되어 무위험회수보다 낮은, beta가
-1을 넘으면 음수인 할인율이 나온다. 그래서 관측 프리미엄이 0 이하이면 k_e를 내지
-않고 ``ke_status='추정불가(위험프리미엄비양수)'``로 둔다. R_M은
-``crm_estimation_param``의 ``capm_market_return``으로 승인받는 내부기준 모수이며,
-승인 전에는 '전체' 할인율이 비어 있고 LGD도 전과 같이 '산출불가'다. 값을 지어내지
-않는다.
+1을 넘으면 음수인 할인율이 나온다. 그래서 **위험프리미엄에 0 하한을 둔다**
+(내부기준, 사용자 지시). 프리미엄이 0 이하이면 0으로 막아 ``k_e = R_f`` 를 쓰고
+``ke_status='산출완료(프리미엄0하한)'`` 로 그 사실을 남긴다. 체계적 위험분이
+빠진 값이며 beta 는 결과에 들어가지 않는다.
+
+이 하한은 할인율을 **낮추는** 쪽이다. 할인율이 낮으면 회수액의 현재가치가 커져
+LGD 가 작아지므로 보수적인 방향이 아니다. 그래서 상태값을 산출물과 화면까지
+따라붙게 두고, 승인된 R_M 이 들어오면 그 값이 하한보다 우선한다.
+
+R_M은 ``crm_estimation_param``의 ``capm_market_return``으로 승인받는 내부기준
+모수다. 승인되면 관측 실현 대신 그 값으로 프리미엄을 내고, 그때 프리미엄이
+양수이면 하한이 걸리지 않는다.
 
 **결정론.** 은행주 계열은 전용 스트림 ``default_rng(seed + 90_404)``를 쓴다.
 전역 ``np.random``·내장 ``hash()``·벽시계 시각을 쓰지 않으며 승인일은 ``asof``다.
@@ -97,8 +104,8 @@ CAPM_APPROVER = "내부추정(CAPM)"
 #: 합성 관측으로 낸 값이라는 표시. 실측·원문확인과 섞이면 안 된다.
 CAPM_EVIDENCE = "내부추정(합성관측)"
 KE_STATUS: tuple[str, ...] = (
-    "산출완료", "추정불가(위험프리미엄비양수)", "추정불가(할인율범위밖)",
-    "추정불가(표본부족)")
+    "산출완료", "산출완료(프리미엄0하한)", "추정불가(위험프리미엄비양수)",
+    "추정불가(할인율범위밖)", "추정불가(표본부족)")
 MARKET_RETURN_SOURCES: tuple[str, ...] = ("관측실현", "승인모수")
 
 _MARKET_RETURN_BASES: tuple[str, ...] = ("로그수익률",)
@@ -375,9 +382,12 @@ def estimate_capm_discount_rate(obs: pd.DataFrame, *,
 
     ``market_return``은 승인된 내부기준 시장수익률(연율)이다. 주지 않으면 관측
     계열의 실현 평균을 쓰는데, 지표 마스터의 KOSPI가 표류항 없는 평균회귀
-    계열이라 실현 프리미엄이 구조적으로 0 이하다. 그때는 k_e를 내지 않고
-    ``ke_status``가 사유를 든다. 음수 프리미엄으로 낸 값을 할인율로 쓰면
-    무위험회수보다 낮은 할인율이 LGD로 흘러간다.
+    계열이라 실현 프리미엄이 구조적으로 0 이하다.
+
+    프리미엄이 0 이하이면 0으로 막아 ``k_e = R_f`` 를 쓰고 ``ke_status`` 를
+    ``'산출완료(프리미엄0하한)'`` 로 둔다 (내부기준). 그 값에는 체계적 위험분이
+    없고 beta 가 들어가지 않는다. ``cost_of_equity_raw`` 는 하한 전 산식값을
+    그대로 들고 있으므로 둘을 대조하면 하한이 얼마나 걸렸는지 읽힌다.
     """
     asof = (str(obs["asof"].iloc[0]) if len(obs) else "")
     if len(obs) < 3:
@@ -404,7 +414,14 @@ def estimate_capm_discount_rate(obs: pd.DataFrame, *,
     ke_raw = rf_annual + slope * premium
 
     if premium <= 0.0:
-        ke, status = None, "추정불가(위험프리미엄비양수)"
+        # 위험프리미엄에 0 하한을 둔다 (내부기준). 프리미엄이 음수면 체계적
+        # 위험의 대가가 음수라는 뜻이 되어 beta 가 클수록 할인율이 낮아지는,
+        # 방향이 뒤집힌 값이 나온다. 0 으로 막으면 k_e = R_f 이며 체계적
+        # 위험분이 빠진 값이다. 그 사실은 상태값이 든다.
+        #
+        # 주의. 이 하한은 할인율을 낮추는 쪽이고, 할인율이 낮으면 회수액의
+        # 현재가치가 커져 LGD 가 작아진다. 보수적인 방향이 아니다.
+        ke, status = float(rf_annual), "산출완료(프리미엄0하한)"
     elif not (0.0 < ke_raw <= 1.0):
         ke, status = None, "추정불가(할인율범위밖)"
     else:
@@ -499,6 +516,17 @@ def apply_capm_discount_rates(rates: pd.DataFrame, est: CapmEstimate, *,
             f"(ke_status={est.ke_status}). crm_estimation_param의 "
             "capm_market_return이 승인되면 채워진다. 그때까지 해당 세그먼트 "
             "LGD는 산출불가로 남는다", ParamWarning, stacklevel=2)
+    if est.ke_status == "산출완료(프리미엄0하한)":
+        # 하한이 걸렸다는 것은 승인된 R_M 없이 대체값을 썼다는 뜻이다. 값이
+        # 채워졌다는 이유로 조용히 넘어가면 그 사실이 산출물에만 남고 부르는
+        # 쪽에는 남지 않는다.
+        warnings.warn(
+            f"위험프리미엄이 0 이하({est.market_premium:.4%})라 0 하한을 걸어 "
+            f"k_e = R_f = {est.cost_of_equity:.4%}로 할인율을 채웠다. 체계적 "
+            f"위험분이 빠진 값이며 beta({est.beta:.4f})가 들어가지 않았다. "
+            "할인율이 낮으면 회수 현재가치가 커져 LGD가 작아지므로 보수적인 "
+            "방향이 아니다. crm_estimation_param의 capm_market_return이 "
+            "승인되면 그 값이 하한보다 우선한다", ParamWarning, stacklevel=2)
     return out
 
 

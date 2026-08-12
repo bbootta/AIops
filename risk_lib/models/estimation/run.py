@@ -83,8 +83,13 @@ def build_irb_estimation_ledgers(*, asof: str, seed: int = 42,
 
     # ---- 회수 할인율 (CAPM) ----
     # 관측 → 추정 → 승인이 한 묶음이다. R_M(capm_market_return)이 승인돼 있으면
-    # 자기자본비용이 나오고 '전체' 회수유형 할인율이 채워진다. 승인 전이면
-    # 무위험회수만 채워지고 '전체'는 NULL로 남아 LGD가 산출불가로 남는다.
+    # 자기자본비용이 나오고 '전체' 회수유형 할인율이 그 값으로 채워진다.
+    #
+    # 승인 전이면 관측 프리미엄이 음수라 0 하한이 걸리고 k_e = R_f 가 두 회수유형
+    # 모두에 채워진다 (내부기준). 그래서 승인 전에도 LGD 는 산출된다. 다만 그
+    # 할인율에는 체계적 위험분이 없고 하한이 걸렸다는 사실이 ke_status 와
+    # ParamWarning 으로 남는다. 할인율이 낮으면 회수 현재가치가 커져 LGD 가
+    # 작아지므로 보수적인 방향이 아니다.
     capm = build_capm_discount_ledgers(asof=asof, seed=seed, param=p,
                                        rates=params["crm_lgd_discount_rate"])
     params["crm_lgd_discount_rate"] = capm["crm_lgd_discount_rate"]

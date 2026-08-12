@@ -153,20 +153,35 @@ def test_riskfree_is_the_ktb3y_average(obs):
 
 # ---------------------------------------------------------------- 프리미엄
 
-def test_observed_market_premium_is_nonpositive_and_blocks_ke(obs):
-    """관측 원장으로는 k_e를 낼 수 없다. 그 사실이 상태로 남는다.
+def test_observed_market_premium_is_nonpositive_and_floors_at_zero(obs):
+    """관측 프리미엄이 음수면 0으로 막아 k_e = R_f 를 쓴다 (내부기준).
 
     지표 마스터의 KOSPI는 표류항 없는 평균회귀 계열이라 어느 구간을 잡아도
-    로그수익률 평균이 0 부근이고 R_M − R_f 가 음수가 된다. 이때 산식값을 그대로
-    할인율로 쓰면 무위험회수보다 낮은 값이 LGD로 흘러간다. 내지 않는다.
+    로그수익률 평균이 0 부근이고 R_M - R_f 가 음수가 된다. 산식값을 그대로
+    쓰면 beta 가 클수록 할인율이 낮아지는 뒤집힌 값이 된다. 0 하한을 두면
+    체계적 위험분이 빠진 무위험이자율이 남고, 그 사실을 상태값이 든다.
     """
     est = estimate_capm_discount_rate(obs)
     assert est.market_return_source == "관측실현"
     assert est.market_premium < 0
-    assert est.cost_of_equity is None
-    assert est.ke_status == "추정불가(위험프리미엄비양수)"
-    # 산식값 자체는 숨기지 않는다. 화면이 왜 비었는지 볼 수 있어야 한다.
+    assert est.cost_of_equity == pytest.approx(est.riskfree_annual)
+    assert est.ke_status == "산출완료(프리미엄0하한)"
+    # 하한 전 산식값을 숨기지 않는다. 하한이 얼마나 걸렸는지 대조할 수 있어야 한다.
     assert est.cost_of_equity_raw is not None
+    assert est.cost_of_equity_raw < est.cost_of_equity
+
+
+def test_the_floor_ignores_beta_so_it_is_not_a_capm_estimate(obs):
+    """하한이 걸린 k_e 에는 beta 가 들어가지 않는다.
+
+    beta 를 크게 흔들어도 하한 값은 R_f 그대로다. 이 값을 CAPM 추정치라고
+    읽으면 안 되며, 그래서 상태값이 '산출완료' 와 다른 이름을 쓴다.
+    """
+    est = estimate_capm_discount_rate(obs)
+    assert est.beta is not None and est.beta > 0
+    assert est.cost_of_equity == pytest.approx(est.riskfree_annual)
+    # beta 가 결과에 들어갔다면 R_f 와 달라졌을 것이다.
+    assert est.cost_of_equity != pytest.approx(est.cost_of_equity_raw)
 
 
 def test_ke_follows_the_capm_formula_when_market_return_is_approved(obs):
@@ -230,19 +245,26 @@ def test_capm_market_return_ships_unapproved():
     assert "역산" in str(row["reference_citation"])
 
 
-def test_only_the_riskfree_scope_is_filled_without_an_approved_market_return():
-    """R_M 승인 전에는 무위험회수만 채워지고 전체는 빈다."""
+def test_both_scopes_fill_at_the_riskfree_rate_when_the_premium_floors():
+    """R_M 승인 전에는 프리미엄 0 하한이 걸려 두 회수유형이 같은 값이 된다.
+
+    전체(자기자본비용)에 체계적 위험분이 없으므로 무위험회수와 같아진다.
+    같아지는 것 자체가 하한이 걸렸다는 신호이며, 승인된 R_M 이 들어오면
+    전체가 무위험회수보다 커진다 (아래 시험이 그것을 고정한다).
+    """
     with pytest.warns(ParamWarning):
         led = build_capm_discount_ledgers(asof=ASOF, seed=SEED)
     r = led["crm_lgd_discount_rate"]
     rf_rows = r[r["recovery_scope"] == "무위험회수"]
     all_rows = r[r["recovery_scope"] == "전체"]
     assert rf_rows["discount_rate"].notna().all()
+    assert all_rows["discount_rate"].notna().all()
     assert (rf_rows["basis"] == "무위험이자율").all()
+    assert (all_rows["basis"] == "자기자본비용").all()
     assert (rf_rows["approved_by"] == CAPM_APPROVER).all()
     assert (rf_rows["approval_date"] == ASOF).all()      # 벽시계가 아니라 기준일
-    assert all_rows["discount_rate"].isna().all()
-    assert all_rows["approved_by"].isna().all()
+    # 하한이 걸린 상태에서는 두 값이 같다.
+    assert set(all_rows["discount_rate"]) == set(rf_rows["discount_rate"])
 
 
 def test_approved_market_return_fills_both_scopes(approved):
@@ -288,9 +310,10 @@ def test_check_suite_has_no_failures_before_the_market_return_is_approved(
     led["crm_recovery_history"] = hist_recovery
     rep = run_capm_checks(led, asof=ASOF)
     assert not [c for c in rep.checks if c.status == "FAIL"]
-    warned = {c.name for c in rep.checks if c.status == "WARN"}
-    # 전체 회수유형에 값이 없으므로 서열 비교와 LGD 민감도는 판정하지 않는다.
-    assert warned == {"CAPM 회수유형 할인율 서열", "CAPM 할인율 LGD 민감도"}
+    # 하한이 걸려도 두 회수유형에 값이 있으므로 서열 검사는 판정한다.
+    # 무위험회수 <= 전체 이며 하한 상태에서는 동률이다.
+    order = [c for c in rep.checks if c.name == "CAPM 회수유형 할인율 서열"]
+    assert order and order[0].status == "PASS"
 
 
 @pytest.fixture(scope="module")
@@ -380,15 +403,23 @@ def test_check_lgd_sensitivity_fails_when_the_discount_effect_disappears(
 
 # ---------------------------------------------------------------- LGD 산출
 
-def test_lgd_stays_blocked_without_an_approved_cost_of_equity():
-    """R_M 승인 전에는 LGD가 지금과 같이 전건 산출불가로 남는다."""
+def test_lgd_is_produced_even_when_the_premium_floors():
+    """프리미엄 0 하한만으로도 LGD 가 산출된다. 이전에는 전건 산출불가였다.
+
+    하한 k_e = R_f 는 체계적 위험분이 빠진 값이라 승인된 R_M 으로 낸 k_e 보다
+    낮고, 할인율이 낮으면 회수 현재가치가 커져 LGD 가 작아진다. 그 방향을
+    아래에서 값으로 고정한다.
+    """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         cap = build_capm_discount_ledgers(asof=ASOF, seed=SEED)
         led = build_irb_estimation_ledgers(
             asof=ASOF, seed=SEED, rates=cap["crm_lgd_discount_rate"])
     est = led["crm_lgd_estimate"]
-    assert (est["status"] == "산출불가").all()
+    # 할인율이 막고 있던 것은 풀렸다. 이 회차 전에는 전건 '산출불가' 였다.
+    assert (est["status"] == "산출완료").all()
+    # final_applied 가 아직 비는 것은 할인율이 아니라 침체기 분위수·MoC 모수가
+    # 미승인이기 때문이다. 그 둘은 별개의 승인이며 여기서 채우지 않는다.
     assert est["final_applied"].isna().all()
 
 

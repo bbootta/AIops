@@ -202,7 +202,26 @@ GOLDEN = {
 #     남기게 바꿨다(fail-closed). 이 fixture 는 `run_pipeline` 을
 #     institution_type 없이 부르므로 그 WARN 이 선다. 업권을 넘기면 은행은
 #     PASS, 증권은 기존의 참고치 WARN 으로 갈린다.
-GOLDEN_VALIDATION = {"PASS": 70, "WARN": 15}
+# 재고정 (위험프리미엄 0 하한, 사용자 지시) — PASS 70/WARN 15 -> 68/17.
+# FAIL 은 0 그대로다. 헤드라인 10건도 움직이지 않는다 (할인율은 LGD 추정 경로에만
+# 들어가고 RWA·자본비율·레버리지·ECL 경로에 없다).
+#
+# 관측 프리미엄이 음수라 0 하한이 걸려 k_e = R_f = 3.2735% 가 두 회수유형에
+# 채워진다. 그 결과가 아래 세 줄이다.
+#   PASS -2  `PLGD 예상외손실 추가분 부호`·`PLGD 부도자산 ELBE 대 충당금` 이
+#            PASS/WARN 에서 둘 다 WARN 으로 내려갔다. 할인율이 3.27% 로 낮아지자
+#            BEEL 분모 판정이 '판정불가' 가 되어 PLGD 원장이 비었기 때문이다.
+#            분모 판정은 두 후보의 단조성 차이로 가르는데, 할인율이 낮으면 두
+#            후보 모두 우상향해 갈라지지 않는다. PLGD 조사 문서가 이 의존을
+#            미리 적어 두었다 (docs/PLGD_시뮬레이션.md).
+#   WARN +1  `BEEL 곡선 단조성` 이 PASS 에서 WARN 으로. 같은 원인이다.
+#   WARN +1  위 두 PLGD 검사가 원장이 비면 **조용히 사라지던** fail-open 을
+#            닫았다. 전에는 `if plgd.empty: return` 이라 통과와 부재가
+#            산출물에서 구분되지 않았다. 이제 사유를 적은 WARN 이 남는다.
+#
+# 승인된 capm_market_return 이 들어오면 k_e 가 올라가고 분모 판정이 다시 갈릴
+# 수 있다. 그때 이 세 줄은 되돌아간다.
+GOLDEN_VALIDATION = {"PASS": 68, "WARN": 17}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",
