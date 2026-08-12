@@ -677,138 +677,18 @@ class Judgement:
 # 남아 있는데 화면·서식이 생기면 낡은 항목으로 잡는다. 사유 없이 목록만
 # 늘리면 통제 기능을 잃고 면제 목록이 된다.
 ORPHAN_REGISTRY: dict[str, Judgement] = {
-    # ---- 편입 대상 --------------------------------------------------
-    "icaap_risk_taxonomy": Judgement(
-        "편입 대상",
-        "ICAAP 리스크 인벤토리 4장이 `_stage_icaap` 앞에서 만들어지는데 "
-        "내부자본 화면이 없다. 요건추적 ICP 항목이 이 원장을 증빙으로 든다",
-        "app.py DETAIL_SCREENS 에 '리스크 인벤토리' 화면을 screenOf 로 추가하고 "
-        "NAVGROUPS 의 'ALM·위기상황' 아래 '위기상황' 하위그룹에 리프를 단다"),
-    "icaap_materiality": Judgement(
-        "편입 대상",
-        "중요성 3축(익스포저·손실·자본) 판정 결과인데 어느 화면도 그리지 않는다",
-        "위 '리스크 인벤토리' 화면의 tables 에 함께 싣는다"),
-    "icaap_materiality_policy": Judgement(
-        "편입 대상",
-        "중요성 판정 기준값 원장. 판정 결과만 보이고 기준이 안 보이면 "
-        "판정을 검증할 수 없다",
-        "위 '리스크 인벤토리' 화면의 tables 에 함께 싣는다"),
-    "icaap_capital_map": Judgement(
-        "편입 대상",
-        "리스크 유형 → 내부자본 배분 사상. 자본 화면과 이어져야 한다",
-        "위 '리스크 인벤토리' 화면의 tables 에 함께 싣는다"),
-    "st_management_action": Judgement(
-        "편입 대상",
-        "위기상황 자본경로가 완충 미달일 때 발동하는 경영조치 원장인데 "
-        "위기상황 화면이 자본경로만 그리고 조치는 그리지 않는다",
-        "app.py stressDeepDive 말미에 경영조치 카드를 붙이거나 "
-        "DETAIL_SCREENS 에 '경영조치' 화면을 추가한다"),
-    "st_action_playbook": Judgement(
-        "편입 대상",
-        "경영조치의 발동조건·효과 정의 원장. 조치 결과와 같이 보여야 "
-        "무엇이 왜 발동했는지 읽힌다",
-        "위 경영조치 화면의 tables 에 함께 싣는다"),
-    "reg_submission": Judgement(
-        "편입 대상",
-        "제출 이력 원장 290행. 감독보고 화면은 서식 라인만 그리고 제출 이력을 "
-        "그리지 않는다. 결산 마감 태스크 CL-12 가 이 원장을 증빙으로 지목한다 "
-        "(close_workflow.py)",
-        "app.py regulatory() 에 제출 이력 카드를 붙인다 "
-        "(D.data['reg_submission'])"),
-    "gov_audit_chain": Judgement(
-        "편입 대상",
-        "승인·조정·접근판정·검증·산출 5개 원장을 해시 사슬로 이은 감사기록인데 "
-        "화면이 없다. 사슬이 끊겼는지 화면에서 확인할 수 없다",
-        "app.py validation() 또는 agents() 에 감사사슬 카드를 붙인다"),
-    "val_audit_ledger": Judgement(
-        "편입 대상",
-        "헤드라인 수치별 산식·인용 원장. 검증 화면이 val_check 만 그린다",
-        "app.py validation() 에 산출근거 카드를 붙인다"),
-
-    # ---- 중간산출 ----------------------------------------------------
-    "aig_adjustment": Judgement(
-        "중간산출",
-        "수동조정 원장의 정규 사본. 화면은 `_adj_frame` 이 만든 payload "
-        "`adjustments` 를 그리고, 이 원장은 감사사슬 수집 대상으로만 쓰인다"),
-    "gov_access_decision": Judgement(
-        "중간산출",
-        "RBAC 접근판정 기록. 감사사슬(gov_audit_chain) 수집 대상이다"),
-
-    # ---- 참조용 마스터 ------------------------------------------------
-    "gov_role_permission": Judgement(
-        "참조용 마스터", "역할별 권한 정의표. 접근판정이 조회한다"),
-    "gov_user_role": Judgement(
-        "참조용 마스터", "사용자 역할 부여표. 접근판정이 조회한다"),
-    "gov_sod_conflict": Judgement(
-        "참조용 마스터", "직무분리 상충 규칙표. 접근판정이 조회한다"),
-    "gov_change_policy": Judgement(
-        "참조용 마스터", "변경 유형별 필수 게이트 정의표"),
-    "gov_model_stage": Judgement(
-        "참조용 마스터", "모형 생애주기 단계 정의표"),
-    "gov_model_state": Judgement(
-        "참조용 마스터",
-        "모형별 현재 생애주기 단계 13행. 모형리스크 화면(modelRiskGovernance)은 "
-        "crm_model 의 tier·status 축을 쓰고 이 원장을 보지 않는다"),
-    "gov_model_transition": Judgement(
-        "참조용 마스터", "단계 전이 허용표 37행"),
-    "int_engine_adapter": Judgement(
-        "참조용 마스터", "산출엔진 어댑터 등록부"),
-    "int_engine_io": Judgement(
-        "참조용 마스터", "엔진 입출력 계약표"),
-    "aig_redaction_rule": Judgement(
-        "참조용 마스터", "전송 마스킹 규칙표. 요건추적 AIG-006 증빙"),
-    "ui_view": Judgement(
-        "참조용 마스터",
-        "승인 View 마스터 333행(정규 원장 261 + 보고서 페이지 72). 정형 조회와 "
-        "데이터모델 화면이 조회 목록을 만드는 데 쓴다. 둘 다 범용 조회기라 "
-        "전용 화면 집계에 들어가지 않는다"),
-    "ui_field_policy": Judgement(
-        "참조용 마스터",
-        "필드 권한·마스킹 정책. 화면은 payload `field_policy` 로 받아 "
-        "정형 조회 필드 목록을 만든다. 범용 조회기 소속이라 전용 화면이 없다"),
-
-    # ---- 배선 미완(빈 원장) --------------------------------------------
-    # 변경통제 원장이 두 벌이다. `chg_*` 4장(ui_studio/governance.py)은 미매핑
-    # 표준코드에서 실제 요청을 유도해 '변경' 화면이 그리고, `gov_change_*`
-    # 4장(governance/change_control.py)은 접수 경로가 없어 정책표를 뺀 3장이
-    # 0행이다. 같은 업무를 두 원장이 설명하는 상태이며 어느 쪽이 정본인지
-    # 이 저장소에 기록이 없다.
-    "gov_change_request": Judgement(
-        "편입 대상",
-        "변경요청 접수 경로가 배선되지 않아 0행이다. `_stage_ledgers` 가 "
-        "`build_change_control([], [], [])` 로 빈 원장을 싣고 경고를 남긴다. "
-        "화면이 그리는 변경 원장은 chg_change_request 쪽이다",
-        "0행을 그리면 '변경이 없다'로 읽히므로 접수 경로가 서기 전에는 붙이지 "
-        "않는다. 먼저 chg_* 와 gov_change_* 중 정본을 정하고, gov_change_* 가 "
-        "정본이면 '변경' 화면(changes)의 원장을 이쪽으로 바꾼다"),
-    "gov_change_control": Judgement(
-        "편입 대상", "위와 같다. 0행. 변경 통제 이행 기록",
-        "gov_change_request 와 같은 결정에 함께 따른다"),
-    "gov_change_impact": Judgement(
-        "편입 대상", "위와 같다. 0행. 변경 영향 사상",
-        "gov_change_request 와 같은 결정에 함께 따른다"),
-    "gov_change_gate": Judgement(
-        "편입 대상", "위와 같다. 0행. 변경 게이트 판정",
-        "gov_change_request 와 같은 결정에 함께 따른다"),
-
-    # ---- 중간산출(실행 메타) -------------------------------------------
-    "gov_unified_run": Judgement(
-        "중간산출",
-        "통합 실행 헤더. 화면은 `runRegistry` 가 payload `meta` 로 같은 "
-        "정보를 그린다. 이 원장은 gov_run_domain 의 상위 키다"),
-    "aig_agent_trace": Judgement(
-        "중간산출",
-        "도구호출·출력 전구간 로그. 에이전트 화면은 agent_activity 를 "
-        "그리고 이 원장은 그 사슬 근거로만 쓰인다. 요건추적 AIG-007 증빙"),
-    "ui_query_plan": Judgement(
-        "중간산출",
-        "조회 계획 원장. 화면은 payload `plans` 로 같은 내용을 그린다"),
-    "ui_layout_proposal": Judgement(
-        "중간산출",
-        "레이아웃 제안 원장. 화면은 payload `proposals` 로 같은 내용을 그린다"),
+    # 비어 있다. 면제 목록이라서가 아니라 **다 소진해서** 비었다.
+    #
+    # 여기 있던 31장은 전부 산출은 되는데 전용 화면이 없던 원장이었고, 각
+    # 항목이 편입 방법까지 적어 두고 있었다. app.py 에 여덟 화면을 붙여
+    # 그대로 실행했다 (변경통제·모형 수명주기·접근통제·AI 거버넌스·
+    # 실행감사추적·ICAAP 인벤토리·경영조치제출·조회 거버넌스).
+    #
+    # 다시 채워야 할 때가 온다. 새 원장을 화면 없이 만들면 check_orphans 가
+    # 미등재로 잡고, 그때 사유와 편입 방법을 적어 여기 넣는다. 사유 없이
+    # 이름만 넣으면 통제가 아니라 면제가 된다.
 }
 
-# 미배선 원장의 허용 상한. 배선 없이 원장만 늘어나는 것을 막는 자물쇠다.
 MAX_UNWIRED = len(ORPHAN_REGISTRY)
 
 # 연결 원장 없이 그리는 화면. 이 저장소의 규약은 화면마다 연결 원장을 두는
@@ -1136,7 +1016,10 @@ def render_doc(lin: Lineage) -> str:
                  "전용 화면도 감독서식도 쓰지 않는 원장이다. 판정 대장은 "
                  "`lineage.ORPHAN_REGISTRY` 이고 `tests/test_lineage.py` 가 "
                  "미등재 원장이 생기면 실패시킨다.\n\n")
-    for verdict in VERDICTS + ("미분류",):
+    if cls.empty:
+        parts.append("현재 0장이다. 원장 전부가 전용 화면이나 감독서식에 "
+                     "닿는다.\n")
+    for verdict in (VERDICTS + ("미분류",)) if not cls.empty else ():
         sub = cls[cls["verdict"] == verdict]
         if sub.empty:
             continue

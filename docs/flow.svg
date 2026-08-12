@@ -34,7 +34,7 @@ markerHeight="5" orient="auto-start-reverse">
 <rect x="1252.0" y="173.0" width="276.0" height="92.0" rx="6" fill="#c2255c" fill-opacity="0.1" stroke="none"/>
 <rect x="1252.0" y="173.0" width="4.0" height="92.0" rx="2" fill="#c2255c" fill-opacity="1.0" stroke="none"/>
 <text x="1268.0" y="200.0" font-size="15" font-weight="700" fill="#c2255c" text-anchor="start" fill-opacity="1.0">화면·서식</text>
-<text x="1268.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">화면 73 (전용 69)</text>
+<text x="1268.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">화면 81 (전용 77)</text>
 <text x="1268.0" y="243.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">감독서식 모듈 23</text>
 <text x="44.0" y="303.0" font-size="21" font-weight="700" fill="#212529" text-anchor="start" fill-opacity="1.0">2. 테이블 흐름</text>
 <text x="44.0" y="324.0" font-size="12.5" font-weight="400" fill="#5c6670" text-anchor="start" fill-opacity="1.0">행이 재료, 열이 결과다. 칸의 숫자와 진하기가 블록 사이의 feeds·fk 엣지 수이며 회색 대각선은 블록 안쪽 흐름이라 세지 않는다.</text>
@@ -165,11 +165,11 @@ markerHeight="5" orient="auto-start-reverse">
 <text x="212.0" y="790.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">원천·리스크데이터</text>
 <rect x="222.0" y="777.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
 <rect x="222.0" y="777.0" width="649.6" height="18.0" rx="4" fill="#4c6ef5" fill-opacity="0.85" stroke="none"/>
-<text x="881.6" y="790.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">72건 · 16%</text>
+<text x="881.6" y="790.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">72건 · 15%</text>
 <text x="212.0" y="820.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">신용</text>
 <rect x="222.0" y="807.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
 <rect x="222.0" y="807.0" width="1254.0" height="18.0" rx="4" fill="#1c7ed6" fill-opacity="0.85" stroke="none"/>
-<text x="1486.0" y="820.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">139건 · 30%</text>
+<text x="1486.0" y="820.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">139건 · 28%</text>
 <text x="212.0" y="850.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">시장</text>
 <rect x="222.0" y="837.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
 <rect x="222.0" y="837.0" width="297.7" height="18.0" rx="4" fill="#0ca678" fill-opacity="0.85" stroke="none"/>
@@ -177,22 +177,22 @@ markerHeight="5" orient="auto-start-reverse">
 <text x="212.0" y="880.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">운영</text>
 <rect x="222.0" y="867.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
 <rect x="222.0" y="867.0" width="189.5" height="18.0" rx="4" fill="#f08c00" fill-opacity="0.85" stroke="none"/>
-<text x="421.5" y="880.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">21건 · 5%</text>
+<text x="421.5" y="880.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">21건 · 4%</text>
 <text x="212.0" y="910.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">ALM</text>
 <rect x="222.0" y="897.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
 <rect x="222.0" y="897.0" width="1055.5" height="18.0" rx="4" fill="#7048e8" fill-opacity="0.85" stroke="none"/>
-<text x="1287.5" y="910.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">117건 · 25%</text>
+<text x="1287.5" y="910.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">117건 · 24%</text>
 <text x="212.0" y="940.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">위기상황</text>
 <rect x="222.0" y="927.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
-<rect x="222.0" y="927.0" width="72.2" height="18.0" rx="4" fill="#e8590c" fill-opacity="0.85" stroke="none"/>
-<text x="304.2" y="940.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">8건 · 2%</text>
+<rect x="222.0" y="927.0" width="126.3" height="18.0" rx="4" fill="#e8590c" fill-opacity="0.85" stroke="none"/>
+<text x="358.3" y="940.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">14건 · 3%</text>
 <text x="212.0" y="970.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">규제서식</text>
 <rect x="222.0" y="957.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
-<rect x="222.0" y="957.0" width="99.2" height="18.0" rx="4" fill="#495057" fill-opacity="0.85" stroke="none"/>
-<text x="331.2" y="970.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">11건 · 2%</text>
+<rect x="222.0" y="957.0" width="108.3" height="18.0" rx="4" fill="#495057" fill-opacity="0.85" stroke="none"/>
+<text x="340.3" y="970.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">12건 · 2%</text>
 <text x="212.0" y="1000.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">거버넌스·통제</text>
 <rect x="222.0" y="987.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
-<rect x="222.0" y="987.0" width="550.3" height="18.0" rx="4" fill="#c2255c" fill-opacity="0.85" stroke="none"/>
-<text x="782.3" y="1000.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">61건 · 13%</text>
-<text x="44.0" y="1033.0" font-size="12.5" font-weight="400" fill="#c92a2a" text-anchor="start" fill-opacity="1.0">전용 화면이 그리지 않는 원장 31장. 그중 하류 원장도 감독서식도 없는 고아 18장.</text>
+<rect x="222.0" y="987.0" width="766.8" height="18.0" rx="4" fill="#c2255c" fill-opacity="0.85" stroke="none"/>
+<text x="998.8" y="1000.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">85건 · 17%</text>
+<text x="44.0" y="1033.0" font-size="12.5" font-weight="400" fill="#c92a2a" text-anchor="start" fill-opacity="1.0">전용 화면이 그리지 않는 원장 0장. 그중 하류 원장도 감독서식도 없는 고아 0장.</text>
 </svg>
