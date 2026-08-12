@@ -9,6 +9,7 @@ audit ledger/manifest + ops/ 2계층 패키지를 산출.
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 from risk_lib.pipeline import PipelineResult
@@ -48,6 +49,32 @@ def build_report_set(result: PipelineResult, out_dir: str | Path,
         p.write_text(content, encoding="utf-8")
         written[spec.filename] = str(p.resolve())
     return written
+
+
+# 실행이 기관코드를 말하지 않았을 때 산출물 표지에 적는 값. 빈칸을 그럴듯한
+# 기관명으로 메우지 않고 미지정이라는 사실 자체를 적는다. 표지가 "(기관명)"
+# 이면 받는 쪽은 기관 귀속이 빠졌다는 것조차 알 수 없다.
+INSTITUTION_UNSPECIFIED = "미지정 (실행이 기관코드를 지정하지 않음)"
+
+
+def institution_label(result) -> str:
+    """산출물 표지에 찍을 기관 귀속. 실행의 `meta['institution_code']`에서 온다.
+
+    실행이 기관을 말하지 않으면 경고를 남기고 미지정으로 적는다. 조용히
+    대체값을 쓰면 배포된 패키지의 기관 귀속이 실행이 아니라 그 대체값에서
+    오게 되는데, 표지만 보고는 그 사실을 알 수 없다.
+
+    stacklevel을 올리지 않는 것은 의도다. 호출 지점마다 경고 위치가 갈리면
+    같은 사실이 한 번의 산출에서 여러 줄로 나온다.
+    """
+    code = (getattr(result, "meta", None) or {}).get("institution_code")
+    if not code:
+        warnings.warn(
+            "실행이 기관코드를 지정하지 않아 산출물의 기관 귀속이 비어 있다. "
+            f"표지 제출기관은 '{INSTITUTION_UNSPECIFIED}'로 적힌다 "
+            "(run_pipeline(institution_code=...) 로 지정한다)")
+        return INSTITUTION_UNSPECIFIED
+    return str(code)
 
 
 def _quarter_label(asof_iso: str) -> str:
@@ -142,9 +169,12 @@ def build_full_report_package(
         # 호출자가 이미 조립한 스냅샷이 있으면 재사용한다 — 두 번 조립하면
         # 지문이 같더라도 산출 시간이 두 배가 된다.
         studio = studio if studio is not None else build_studio(result, portfolio)
+        # 표지의 제출기관은 실행이 말한 기관코드다. 넘기지 않으면 excel._cover
+        # 가 "(기관명)"으로 조용히 메워 실행이 한 적 없는 귀속이 배포본에 남는다.
         reg_path = str(write_workbook(
             studio.built_forms, out / "업무보고서_금감원기준.xlsx",
-            asof=studio.asof, meta={"seed": result.meta.get("seed", 42)}))
+            asof=studio.asof, meta={"seed": result.meta.get("seed", 42),
+                                    "institution": institution_label(result)}))
     return {
         "executive": str(exec_path.resolve()),
         "printable": str(printable_path),

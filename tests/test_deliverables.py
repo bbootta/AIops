@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import hashlib
+import warnings
 import zipfile
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from risk_lib.deliverables import (
     export_tables, export_ddl, export_catalog_summary,
     write_manifest, make_zip, verify_zip, build_deliverables,
 )
+from risk_lib.html_report import INSTITUTION_UNSPECIFIED, institution_label
 from risk_lib.work_report import (
     ROUNDS, build_context, render_markdown, render_html, write_work_report,
 )
@@ -195,3 +197,77 @@ def test_full_package_builds_and_self_verifies(tmp_path, result, portfolio):
                      "02_reports/executive.html",
                      "04_work_report/업무보고서.html"):
         assert expected in names, f"{expected} 누락"
+
+
+# ----- 기관 귀속 --------------------------------------------------------------
+#
+# 배포 패키지의 기관 귀속은 실행이 말한 institution_code 에서 와야 한다. 넘기지
+# 않으면 업무보고서 표지가 "(기관명)"으로 조용히 메워져, 받는 쪽은 기관 귀속이
+# 빠졌다는 사실 자체를 알 수 없었다.
+
+def _stub_result(**meta):
+    class _R:
+        pass
+    r = _R()
+    r.meta = dict(meta)
+    return r
+
+
+def test_institution_label_warns_when_the_run_declared_none():
+    with pytest.warns(UserWarning, match="기관코드"):
+        label = institution_label(_stub_result(asof="2026-06-11", seed=42))
+    assert label == INSTITUTION_UNSPECIFIED
+    # 대체 기관코드를 표지에 적으면 실행이 한 적 없는 귀속이 배포본에 남는다.
+    assert "KR_BANK" not in label
+
+
+def test_institution_label_uses_the_declared_institution():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")          # 경고가 나면 실패한다
+        assert institution_label(
+            _stub_result(institution_code="KR_BANK_01")) == "KR_BANK_01"
+
+
+def _cover_institution(xlsx_path) -> str:
+    from openpyxl import load_workbook
+    ws = load_workbook(xlsx_path)["표지"]
+    for row in ws.iter_rows(values_only=True):
+        cells = [c for c in row if c is not None]
+        if cells and str(cells[0]) == "제출기관":
+            return str(cells[1])
+    raise AssertionError("업무보고서 표지에 제출기관 행이 없다")
+
+
+@pytest.mark.slow
+def test_package_without_institution_warns_and_says_so(tmp_path, result,
+                                                       portfolio):
+    """기관코드 없이 부르면 경고가 나고, 그 사실이 산출물에 적힌다."""
+    with pytest.warns(UserWarning, match="기관코드"):
+        out = build_deliverables(result, portfolio, tmp_path / "d",
+                                 zip_name="pkg.zip")
+    assert out["institution"] == INSTITUTION_UNSPECIFIED
+    assert _cover_institution(out["regulatory_xlsx"]) == INSTITUTION_UNSPECIFIED
+    readme = (Path(out["root"]) / "README.md").read_text(encoding="utf-8")
+    assert "기관 미지정" in readme
+    assert "run_pipeline(institution_code=...)" in readme
+
+
+@pytest.mark.slow
+def test_package_labels_the_institution_the_run_declared(tmp_path, result,
+                                                         portfolio):
+    """실행이 기관을 말하면 표지·README가 그 기관으로 라벨되고 경고가 없다."""
+    import copy
+    declared = copy.copy(result)
+    declared.meta = {**result.meta, "institution_code": "KR_BANK_01"}
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        out = build_deliverables(declared, portfolio, tmp_path / "d",
+                                 zip_name="pkg.zip")
+    assert not [w for w in caught if "기관코드" in str(w.message)]
+    assert out["institution"] == "KR_BANK_01"
+    assert out["institution_source"] == "실행 지정"
+    assert _cover_institution(out["regulatory_xlsx"]) == "KR_BANK_01"
+    readme = (Path(out["root"]) / "README.md").read_text(encoding="utf-8")
+    assert "제출기관 **KR_BANK_01**" in readme
+    assert "기관 미지정" not in readme

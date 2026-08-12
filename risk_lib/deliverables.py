@@ -163,12 +163,16 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
                        adjustment_ledger=None, zip_name: str = "deliverables.zip"
                        ) -> dict:
     """10라운드 산출물 전체를 디렉터리로 구성하고 ZIP으로 묶는다."""
-    from risk_lib.html_report import build_full_report_package
+    from risk_lib.html_report import build_full_report_package, institution_label
     from risk_lib.work_report import write_work_report
     from risk_lib.ui_studio.studio import build_studio
     from risk_lib.ui_studio.app import write_app
     from risk_lib.regulatory import write_workbook
     from risk_lib import datamodel as dm
+
+    # 이 패키지의 기관 귀속. 실행이 말하지 않았으면 여기서 경고가 나고 표지·
+    # README에 미지정으로 적힌다. 한 번만 풀어 두 곳에 같은 값을 쓴다.
+    inst = institution_label(result)
 
     root = Path(out_root)
     if root.exists():
@@ -212,8 +216,7 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
     xlsx = write_workbook(
         studio.built_forms, reg_dir / "업무보고서_금감원기준.xlsx",
         asof=studio.asof,
-        meta={"seed": result.meta.get("seed", 42),
-              "institution": "(기관명 — 제출 시 기재)"})
+        meta={"seed": result.meta.get("seed", 42), "institution": inst})
     for name in ("reg_form", "reg_form_line", "reg_form_check",
                  "reg_submission"):
         tables[name].to_csv(reg_dir / f"{name}.csv", index=False,
@@ -254,13 +257,16 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
         encoding="utf-8")
 
     # README + 무결성 매니페스트
-    (root / "README.md").write_text(_readme(result, tables, len(csvs), studio),
-                                    encoding="utf-8")
+    (root / "README.md").write_text(
+        _readme(result, tables, len(csvs), studio, institution=inst),
+        encoding="utf-8")
     write_manifest(root)
     zip_path = make_zip(root, root.parent / zip_name)
     check = verify_zip(zip_path)
     return {
         "root": str(root), "zip": str(zip_path),
+        "institution": inst,
+        "institution_source": studio.institution_source,
         "n_tables": len(tables), "n_csv": len(csvs),
         "ddl": str(sql), "catalog": str(cat_csv),
         "work_report": wr, "reports": len(rep),
@@ -277,15 +283,24 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
     }
 
 
-def _readme(result, tables, n_csv: int, studio=None) -> str:
+def _readme(result, tables, n_csv: int, studio=None, *,
+            institution: str = "") -> str:
     from risk_lib.datamodel import catalog as cat
     asof = result.meta.get("asof", "")
     n_forms = len(studio.built_forms) if studio else 0
     n_lines = int(len(tables.get("reg_form_line", []))) if studio else 0
+    # 기관 귀속이 실행에서 온 것인지 아닌지를 패키지 첫 화면에 적는다. 미지정을
+    # 적지 않으면 받는 쪽은 표지의 기관을 실행이 말한 것으로 읽는다.
+    inst_note = "" if result.meta.get("institution_code") else (
+        "\n> **기관 미지정.** 이 실행은 기관코드를 지정하지 않았다. 업무보고서\n"
+        "> 표지의 제출기관과 이 문서의 기관 표기는 실행이 말한 값이 아니라\n"
+        "> 미지정 표기이며, 감독 제출 전에\n"
+        "> `run_pipeline(institution_code=...)` 로 기관을 지정해 다시 산출해야\n"
+        "> 한다.\n")
     return f"""# 리스크관리 에이전트 하니스 — 산출물 패키지
 
-산출 기준일 **{asof}** · seed **{result.meta.get('seed')}**
-
+산출 기준일 **{asof}** · seed **{result.meta.get('seed')}** · 제출기관 **{institution}**
+{inst_note}
 ## 구성
 
 | 폴더 | 내용 |
