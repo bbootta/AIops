@@ -544,54 +544,13 @@ def test_validator_declares_it_is_not_independent():
     assert VALIDATION_TEAM_BRANCH in txt
 
 
-# 이 저장소는 여러 팀 하네스를 담은 모노레포이고 `.claude/agents/` 에는 번역·
-# 법무·데이터·디자인·연구 에이전트가 함께 있다. 3선 독립검증 위임은 **리스크
-# 산출** 에이전트의 의무이므로 그 목록만 본다. 전체를 훑으면 번역 에이전트가
-# 리스크 검증팀을 인용해야 하는 셈이 된다.
-#
-# 목록을 손으로 유지하는 것은 의도다. glob 으로 잡으면 새 리스크 에이전트가
-# 위임 문구 없이 들어와도 조용히 통과한다. 아래 두 시험이 그 구멍을 막는다.
-RISK_DOMAIN_AGENTS = (
-    "bis-ratio-analyst", "credit-rating-modeler", "delinquency-pd-lgd-monitor",
-    "ifrs9-ecl-analyst", "limit-manager", "macro-indicator-monitor",
-    "market-risk-analyst", "prudential-capital-analyst", "rapm-analyst",
-    "rwa-calculator", "stress-test-engineer",
-)
-
-
 def test_every_domain_agent_states_the_delegation():
-    from pathlib import Path
+    """3선 위임은 리스크 산출 에이전트의 의무다. 명부는 tests/risk_agents.py
+    한 곳에 두고 RYNTA 규약 시험과 함께 쓴다.
+    """
+    from tests.risk_agents import AGENTS_DIR, RISK_DOMAIN_AGENTS
+
     for stem in RISK_DOMAIN_AGENTS:
-        f = Path(".claude/agents") / f"{stem}.md"
+        f = AGENTS_DIR / f"{stem}.md"
         assert f.exists(), stem
         assert VALIDATION_TEAM_BRANCH in f.read_text(encoding="utf-8"), stem
-
-
-def test_the_risk_agent_list_covers_every_risk_agent_on_disk():
-    """리스크 에이전트가 새로 들어오면 위 목록에 넣어야 한다.
-
-    `risk-*` 는 코디네이터·자체검증이라 별도 시험이 맡고, 내부심사자는 조항
-    9.2 의 다른 역할이다. 그 셋을 뺀 나머지 리스크 에이전트가 목록과 어긋나면
-    실패한다. 다른 팀 에이전트는 접두어로 갈라낸다.
-    """
-    from pathlib import Path
-    other_teams = ("legal-", "rp-", "translation-")
-    other_names = {
-        "accuracy-reviewer", "analytics-engineer", "brand-designer",
-        "data-engineering-lead", "data-quality-engineer", "design-director",
-        "design-reviewer", "dimensional-data-modeler", "doc-analyst",
-        "fact-data-modeler", "fluency-editor", "marketing-designer",
-        "pipeline-ops-engineer", "presentation-designer", "spark-engineer",
-        "streaming-engineer", "terminology-curator", "translator",
-        "ui-designer",
-    }
-    seen = set()
-    for f in sorted(Path(".claude/agents").glob("*.md")):
-        stem = f.stem
-        if (stem.startswith(other_teams) or stem in other_names
-                or stem.startswith("risk-") or stem == "aims-compliance-auditor"):
-            continue
-        seen.add(stem)
-    assert seen == set(RISK_DOMAIN_AGENTS), (
-        f"목록 밖 {sorted(seen - set(RISK_DOMAIN_AGENTS))} · "
-        f"사라진 것 {sorted(set(RISK_DOMAIN_AGENTS) - seen)}")

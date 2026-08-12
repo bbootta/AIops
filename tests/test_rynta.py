@@ -102,13 +102,32 @@ def test_in_scope_ratio_excludes_platform():
 # ----- 가드레일이 에이전트 정의에 실제로 반영됐는지 --------------------------
 
 def test_all_agents_declare_rynta_product_and_guardrails():
-    mds = list(AGENTS.glob("*.md"))
-    assert len(mds) >= 11
-    for p in mds:
+    """리스크 에이전트만 본다. 이 저장소는 여러 팀 하네스를 담은 모노레포이고
+    `.claude/agents/` 에는 법무·번역·데이터·디자인·연구 에이전트가 함께 있다.
+    RYNTA 는 리스크 제품이므로 번역 에이전트가 그 표기를 달 이유가 없다.
+    """
+    from tests.risk_agents import RISK_DOMAIN_AGENTS, RISK_ROLE_AGENTS
+
+    names = RISK_DOMAIN_AGENTS + RISK_ROLE_AGENTS
+    assert len(names) >= 11
+    for stem in names:
+        p = AGENTS / f"{stem}.md"
+        assert p.exists(), stem
         txt = p.read_text(encoding="utf-8")
         assert "RYNTA v9.0 정합" in txt, f"{p.name}: RYNTA 섹션 없음"
         assert "자동확정 금지" in txt, f"{p.name}: 자동확정 금지 목록 없음"
         assert "PRD-" in txt, f"{p.name}: Canonical Product 미표기"
+
+
+def test_the_risk_agent_roster_matches_disk():
+    """리스크 에이전트가 새로 들어오면 명부에 넣어야 한다.
+
+    명부를 손으로 유지하는 대신 glob 으로 잡으면 규약 문구 없는 에이전트가
+    조용히 통과한다. 이 시험이 그 구멍을 막는다.
+    """
+    from tests.risk_agents import assert_roster_is_current
+
+    assert_roster_is_current()
 
 
 def test_policy_documents_guardrails():
