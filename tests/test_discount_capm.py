@@ -310,10 +310,11 @@ def test_check_suite_has_no_failures_before_the_market_return_is_approved(
     led["crm_recovery_history"] = hist_recovery
     rep = run_capm_checks(led, asof=ASOF)
     assert not [c for c in rep.checks if c.status == "FAIL"]
-    # 하한이 걸려도 두 회수유형에 값이 있으므로 서열 검사는 판정한다.
-    # 무위험회수 <= 전체 이며 하한 상태에서는 동률이다.
+    # 하한이 걸리면 두 회수유형이 동률이라 서열을 가릴 수 없다. 값을 맞바꿔도
+    # 통과하므로 PASS 로 적으면 지켜지고 있다는 착각을 준다. WARN 이어야 한다.
     order = [c for c in rep.checks if c.name == "CAPM 회수유형 할인율 서열"]
-    assert order and order[0].status == "PASS"
+    assert order and order[0].status == "WARN"
+    assert "동률" in str(order[0].detail)
 
 
 @pytest.fixture(scope="module")

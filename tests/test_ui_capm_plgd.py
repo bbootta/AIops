@@ -130,20 +130,24 @@ def ledgers():
 
 
 def test_lgd_is_calculated_once_the_discount_rate_is_applied(ledgers):
-    """할인율이 없던 상태에서는 전건 산출불가였다.
+    """준용 할인율로 LGD 가 산출된다. 그 값이 하한값과 다른지도 함께 본다.
 
-    승인 전 상태(할인율 원장을 넘기지 않음)와 준용 후를 같은 자리에서 비교한다.
-    비교하지 않으면 '원래부터 산출됐다'와 구분되지 않는다.
+    위험프리미엄 0 하한이 생긴 뒤로는 할인율 원장을 넘기지 않아도 LGD 가
+    산출된다 (하한 k_e = R_f 로 채워진다). 그래서 '산출되는가' 만으로는 준용이
+    실제로 쓰였는지 알 수 없다. **값이 다른지**를 본다.
     """
     from risk_lib.models.estimation import build_irb_estimation_ledgers
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        before = build_irb_estimation_ledgers(asof=ASOF, seed=42)
-    assert set(before["crm_lgd_estimate"]["status"]) == {"산출불가"}
-    assert before["crm_lgd_estimate"]["raw_estimate"].isna().all()
+        floored = build_irb_estimation_ledgers(asof=ASOF, seed=42)
+    # 하한 경로도 산출은 된다. 그 할인율은 무위험이자율이다.
+    assert set(floored["crm_lgd_estimate"]["status"]) == {"산출완료"}
 
     after = ledgers["crm_lgd_estimate"]
+    # 준용 참고치가 하한값을 밀어내지 않고 살아남아야 한다.
+    assert (after["discount_rate"] > floored["crm_lgd_estimate"]
+            ["discount_rate"]).all(), "준용 참고치가 하한값으로 덮였다"
     assert set(after["status"]) == {"산출완료"}
     assert after["raw_estimate"].notna().all()
     assert after["discount_rate"].notna().all()
@@ -388,7 +392,9 @@ def test_capm_screen_shows_the_approval_state_of_the_rate(rendered):
         txt = _open(pg, rendered, "회수 할인율")
         assert PROVISIONAL_RATE_APPROVER in txt, "승인자 칸이 화면에 없다"
         assert "합성 관측" in txt, "합성 관측 기반이라는 사실이 화면에 없다"
-        assert "추정불가" in txt, "자기자본비용 산출 상태가 화면에 없다"
+        # 하한이 걸린 상태의 상태값이 화면에 있어야 한다. 이 문구가 사라지면
+        # 하한이 걸렸다는 사실이 화면에서 읽히지 않는다.
+        assert "프리미엄0하한" in txt, "자기자본비용 산출 상태가 화면에 없다"
         assert "crm_capm_observation" in txt, "연결 원장 카드가 없다"
         assert "참고치" in txt, "타행 참고치 대비가 없다"
         assert errors == []

@@ -499,9 +499,13 @@ def apply_capm_discount_rates(rates: pd.DataFrame, est: CapmEstimate, *,
         if rate is None:
             skipped.append(scope)
             continue
-        segs = sorted(set(out.loc[(out["asof"] == asof)
-                                  & (out["recovery_scope"] == scope),
-                                  "segment"]))
+        sel = (out["asof"] == asof) & (out["recovery_scope"] == scope)
+        if est.ke_status == "산출완료(프리미엄0하한)":
+            # 하한값은 근거가 가장 약하다. 이미 값이 들어간 행을 덮으면 참고치
+            # 준용(타행 실측)처럼 출처가 더 나은 값을 밀어낸다. 빈 행만 채운다.
+            # 승인된 R_M 으로 낸 k_e 는 이 제한을 받지 않는다.
+            sel = sel & out["discount_rate"].isna()
+        segs = sorted(set(out.loc[sel, "segment"]))
         for seg in segs:
             out = approve_discount_rate(
                 out, asof=asof, segment=seg, recovery_scope=scope,
@@ -648,6 +652,17 @@ def check_riskfree_scope_below_total(rates: pd.DataFrame,
         _fail(report, "CAPM 회수유형 할인율 서열",
               f"무위험회수 할인율이 전체보다 크다 {len(bad)}건: "
               f"{sorted({str(i[1]) for i in bad.index})}", len(bad))
+        return
+    # 두 회수유형이 전건 동률이면 이 검사는 무엇을 넣어도 통과한다. 값을 맞바꿔도
+    # 달라지는 것이 없으므로 위반을 잡을 수 없다. 위험프리미엄 0 하한이 걸려
+    # k_e = R_f 가 된 상태가 그렇다. 통과로 적으면 지켜지고 있다는 착각을 준다.
+    tied = (both["전체"] - both["무위험회수"]).abs() <= _ATOL
+    if bool(tied.all()):
+        _warn(report, "CAPM 회수유형 할인율 서열",
+              f"{len(both)}건 전건에서 두 회수유형이 동률이라 서열을 판정하지 "
+              f"못한다. 값을 맞바꿔도 이 검사는 통과한다. 위험프리미엄 0 하한이 "
+              f"걸려 k_e = R_f 인 상태이며, capm_market_return 이 승인되면 "
+              f"전체가 무위험회수보다 커져 판정이 살아난다", len(both))
         return
     _pass(report, "CAPM 회수유형 할인율 서열",
           f"{len(both)}건 전건에서 무위험회수 ≤ 전체", len(both))
