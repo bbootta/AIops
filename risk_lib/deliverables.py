@@ -265,7 +265,11 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
     check = verify_zip(zip_path)
     return {
         "root": str(root), "zip": str(zip_path),
+        # `institution` 은 표지 표기(미지정이면 비운다)이고
+        # `institution_in_ledgers` 는 원장·run_id 가 실제로 담은 코드다. 실행이
+        # 기관을 말하지 않으면 둘이 갈리므로 한 키로 합치지 않는다.
         "institution": inst,
+        "institution_in_ledgers": studio.institution_code,
         "institution_source": studio.institution_source,
         "n_tables": len(tables), "n_csv": len(csvs),
         "ddl": str(sql), "catalog": str(cat_csv),
@@ -291,12 +295,22 @@ def _readme(result, tables, n_csv: int, studio=None, *,
     n_lines = int(len(tables.get("reg_form_line", []))) if studio else 0
     # 기관 귀속이 실행에서 온 것인지 아닌지를 패키지 첫 화면에 적는다. 미지정을
     # 적지 않으면 받는 쪽은 표지의 기관을 실행이 말한 것으로 읽는다.
+    # 표지와 패키지 안 원장은 대체 정책이 다르다. 표지는 미지정으로 비우고,
+    # 원장·run_id 는 화면이 그려져야 하므로 기본 기관으로 채운다. 그 사실을
+    # 적지 않으면 같은 패키지가 두 기관을 주장하는 것으로 읽힌다.
+    subbed = studio.institution_code if studio else ""
     inst_note = "" if result.meta.get("institution_code") else (
         "\n> **기관 미지정.** 이 실행은 기관코드를 지정하지 않았다. 업무보고서\n"
         "> 표지의 제출기관과 이 문서의 기관 표기는 실행이 말한 값이 아니라\n"
-        "> 미지정 표기이며, 감독 제출 전에\n"
-        "> `run_pipeline(institution_code=...)` 로 기관을 지정해 다시 산출해야\n"
-        "> 한다.\n")
+        "> 미지정 표기다.\n"
+        ">\n"
+        f"> 반면 패키지 안의 원장·`run_id`·에이전틱 UI 는 기본 기관\n"
+        f"> **{subbed}** 로 채워져 있다. 화면과 원장이 기관코드 없이는 그려지지\n"
+        "> 않기 때문이며, 그 값 역시 실행이 말한 귀속이 아니다. 표지와 원장의\n"
+        "> 기관이 다르게 보이는 것은 이 두 대체 정책 때문이다.\n"
+        ">\n"
+        "> 감독 제출 전에 `run_pipeline(institution_code=...)` 로 기관을 지정해\n"
+        "> 다시 산출해야 한다. 그때 표지와 원장이 같은 기관을 가리킨다.\n")
     return f"""# 리스크관리 에이전트 하니스 — 산출물 패키지
 
 산출 기준일 **{asof}** · seed **{result.meta.get('seed')}** · 제출기관 **{institution}**
