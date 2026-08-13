@@ -90,8 +90,12 @@ _TASKS = (
      "risk-validator", False, 2, "rdm_dq_result"),
     ("CL-03", 3, "데이터", "원천 대사", ("CL-02",), "리스크데이터관리자",
      "risk-validator", False, 2, "rdm_reconciliation"),
+    # 증빙은 rwa_result 다. rwa_sa_bucket 은 approach=="SA" 행만 담는 집계라
+    # 국채·은행 익스포저가 없는 책에서는 0행이 되고, 그러면 신용 RWA 를 다
+    # 산출하고도 이 단계가 미완료로 남는다. 다른 산출 단계와 마찬가지로 그
+    # 리스크의 주 산출 원장을 본다.
     ("CL-04", 4, "산출", "신용 RWA 산출", ("CL-03",), "신용리스크관리자",
-     "credit-risk-analyst", False, 3, "rwa_sa_bucket"),
+     "credit-risk-analyst", False, 3, "rwa_result"),
     ("CL-05", 5, "산출", "충당금 산출", ("CL-03",), "신용리스크관리자",
      "credit-risk-analyst", False, 3, "ecl_result"),
     ("CL-06", 6, "산출", "시장·평가 산출", ("CL-03",), "시장리스크관리자",

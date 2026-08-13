@@ -224,6 +224,33 @@ def test_every_evidence_table_exists_in_the_catalog():
     assert not missing, f"카탈로그에 없는 증빙 원장 {missing}"
 
 
+def test_credit_rwa_evidence_survives_an_all_irb_book():
+    """CL-04 의 증빙은 산출법에 흔들리지 않아야 한다.
+
+    rwa_sa_bucket 은 approach=="SA" 행만 담는다. 국채·은행 익스포저가 없는
+    책이면 0행이고, 그걸 증빙으로 삼으면 신용 RWA 를 다 산출하고도 이 단계가
+    미완료가 된다. 실제로 그렇게 돼 있었다.
+    """
+    irb_only = {
+        "rwa_result": pd.DataFrame({"exposure_id": ["E1", "E2"],
+                                    "approach": ["AIRB", "FIRB"],
+                                    "rwa": [100.0, 200.0]}),
+        "rwa_sa_bucket": pd.DataFrame(columns=["asof", "asset_class"]),
+    }
+    tasks = cw.build_close_tasks(irb_only).set_index("task_id")
+    assert tasks.loc["CL-04", "status"] == "완료", (
+        f"증빙 {tasks.loc['CL-04', 'evidence_table']} 이 산출법에 흔들린다")
+
+
+def test_each_calculation_step_points_at_its_primary_ledger():
+    """산출 단계의 증빙은 그 리스크의 주 산출 원장이다. 한 산출법의 집계가 아니다."""
+    tasks = cw.build_close_tasks({}).set_index("task_id")
+    assert tasks.loc["CL-04", "evidence_table"] == "rwa_result"
+    assert tasks.loc["CL-05", "evidence_table"] == "ecl_result"
+    assert tasks.loc["CL-06", "evidence_table"] == "mkt_var_es"
+    assert tasks.loc["CL-07", "evidence_table"] == "alm_irrbb_result"
+
+
 def test_task_status_comes_from_evidence_not_from_a_flag():
     tables, _ = cw.build_close_workflow(
         {"rdm_snapshot": pd.DataFrame({"a": [1, 2]})}, asof=ASOF)
