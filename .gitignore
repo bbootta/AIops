@@ -24,3 +24,5 @@ teams/risk-management/deliverables/*/*/05_regulatory/*.csv
 teams/risk-management/deliverables/*/*.zip
 teams/risk-management/deliverables/*/*/*.zip
 teams/risk-management/deliverables/*/*/README.md
+
+.DS_Store
