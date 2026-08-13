@@ -21,6 +21,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gen_erd as erd            # noqa: E402  ERD 절을 그린다
+# collect() 안에 포트폴리오를 담는 지역변수 pf 가 있다. 이름을 겹치지 않게 둔다.
+import gen_pipeline_flow as pflow  # noqa: E402  전체 흐름 절을 그린다
 
 BLOCK_ORDER = (
     "원천·리스크데이터", "신용", "시장", "운영", "ALM",
@@ -211,15 +213,23 @@ def render(lin, blk) -> str:
              f'<div class="scroll">{matrix_svg(order, flow, counts)}</div>'
              '</section>')
 
-    # ---- 2. ERD ----
+    # ---- 2. 전체 흐름 ----
+    # 행렬은 블록 단위라 어느 원장이 어느 단계를 지나는지 안 보인다. 이름만
+    # 적은 상자로 기초데이터에서 업무보고서까지 한 줄로 편다.
+    P.append('<section id="pipeline">'
+             + pflow.section(lin, blk,
+                          '<h2>2. 원장 흐름 (기초데이터 → 업무보고서)</h2>')
+             + '</section>')
+
+    # ---- 3. ERD ----
     # 위 행렬은 블록끼리 몇 개나 이어졌나만 센다. 어느 표의 어느 칸이 어느 표를
     # 가리키는지는 FK 를 상자와 화살표로 그려야 보이므로 gen_erd 가 그린다.
-    P.append('<section id="erd"><h2>2. 원장 간 참조 (ERD)</h2>'
+    P.append('<section id="erd"><h2>3. 원장 간 참조 (ERD)</h2>'
              + erd.lead(lin, blk) + erd.diagrams(lin, blk, tag="chip mono")
              + '</section>')
 
     # ---- 3. 블록별 ----
-    P.append('<section id="blocks"><h2>3. 블록별 상세</h2>')
+    P.append('<section id="blocks"><h2>4. 블록별 상세</h2>')
     for b in order:
         up = sorted(((a, n) for (a, t), n in flow.items() if t == b),
                     key=lambda kv: -kv[1])[:6]
@@ -258,7 +268,7 @@ def render(lin, blk) -> str:
 
     # ---- 3. 화면 ----
     groups = nav_groups()
-    P.append('<section id="screens"><h2>4. 화면 그룹별 상세</h2>'
+    P.append('<section id="screens"><h2>5. 화면 그룹별 상세</h2>'
              '<p class="note">묶음은 <code>app.py</code> 의 '
              '<code>NAVGROUPS</code> 가 정본이다. 각 화면이 읽는 원장과 그 '
              '원장이 속한 블록을 함께 적는다.</p>')
@@ -295,7 +305,7 @@ def render(lin, blk) -> str:
     P.append("</section>")
 
     # ---- 4. 감독서식 ----
-    P.append('<section id="forms"><h2>5. 감독서식 모듈이 읽는 원장</h2>'
+    P.append('<section id="forms"><h2>6. 감독서식 모듈이 읽는 원장</h2>'
              '<div class="scroll"><table><thead><tr><th>모듈</th>'
              '<th class="n">원장</th><th>연결 원장</th></tr></thead><tbody>')
     for mod in sorted(lin.forms):
@@ -310,7 +320,7 @@ def render(lin, blk) -> str:
     P.append("</tbody></table></div></section>")
 
     # ---- 5. 미배선 ----
-    P.append('<section id="unwired"><h2>6. 미배선과 고아</h2>'
+    P.append('<section id="unwired"><h2>7. 미배선과 고아</h2>'
              '<p class="note">전용 화면도 감독서식도 읽지 않는 원장이 '
              f'<b>{len(unwired)}장</b>이고, 그중 하류 원장까지 없는 고아가 '
              f'<b>{len(orphans)}장</b>이다. 좋아 보이라고 빼지 않는다. '
@@ -386,7 +396,7 @@ svg{display:block}
 def build(with_rows: bool = True) -> str:
     lin, blk = collect(with_rows)
     return f"""<title>리스크관리 하네스 흐름도</title>
-<style>{CSS}</style>
+<style>{CSS}{pflow.CSS}</style>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
 <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5"
 markerHeight="5" orient="auto-start-reverse">
