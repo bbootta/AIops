@@ -2340,7 +2340,7 @@ MACRO_INDICATOR = TableSpec(
 )
 
 MACRO_SCENARIO_LINK = TableSpec(
-    name="macro_scenario_link", korean="시나리오–지표 연결", product="PRD-ST",
+    name="macro_scenario_link", korean="시나리오·지표 연결", product="PRD-ST",
     grain="시나리오 × 지표 1행",
     columns=(
         C("scenario", "string", "시나리오", nullable=False, allowed=SCENARIOS),
