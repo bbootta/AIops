@@ -397,8 +397,10 @@ def build_exception_actions(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
                      f"{r['axis']} 대사 차이 {r['gap']:,.0f} (비율 {r['gap_ratio']:.4%})",
                      p[3], p[5], "접수", p[4]))
     dq = tables["rdm_dq_result"]
-    # DQ 결과는 판정 열이 severity(error/warning)다 — error만 예외 큐로 온다.
-    for i, r in dq[dq["severity"] == "error"].iterrows():
+    # 판정 열은 severity 이고 값은 FAIL·WARN·PASS 다. 여기 'error' 를 걸어 두어
+    # 어떤 DQ 위반도 예외 큐에 오른 적이 없었다. FAIL 만 올린다 — WARN 은
+    # 경고이고 PASS 는 통과 이력이라 예외가 아니다.
+    for i, r in dq[dq["severity"] == "FAIL"].iterrows():
         p = pol["데이터품질 위반"]
         rows.append((f"EX-DQ-{i:03d}", "rdm_dq_result",
                      f"{r['table_name']}.{r['column_name']}", "중대",

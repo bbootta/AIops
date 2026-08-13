@@ -181,7 +181,12 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     tables.update(build_exposure_aggregates(tables, asof=asof))
 
     # DQ 결과는 분해 단계의 산물이다 — 없으면 "그때는 통과했다"를 증명 못 한다.
-    tables["rdm_dq_result"] = dq_result_frame(validate_all(tables), asof=asof)
+    # 수행한 점검을 같이 받아 통과 이력까지 남긴다. 위반만 적으면 깨끗한
+    # 실행에서 이 원장이 비고, 마감 절차가 그것을 '점검 미수행'으로 읽는다.
+    _dq_checks: list[tuple[str, str, str]] = []
+    tables["rdm_dq_result"] = dq_result_frame(
+        validate_all(tables, record=_dq_checks), asof=asof,
+        checks=_dq_checks)
 
     # ---- 업무보고서 (PRD-REG)
     built = build_forms(result, portfolio, tables)

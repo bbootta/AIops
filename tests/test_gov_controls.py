@@ -314,3 +314,36 @@ def test_production_models_without_approval_evidence_are_flagged(lifecycle):
     judged = ml.judge(inv, no_transitions, asof=ASOF)
     prod = judged[judged["current_stage"] == "운영"]
     assert (prod["control_status"] == "승인없이운영").all()
+
+
+# ----- 예외 조치 큐 (RDM-007) --------------------------------------------------
+
+def test_a_dq_failure_reaches_the_exception_queue():
+    """DQ 위반이 예외 큐에 올라야 한다.
+
+    필터가 severity=='error' 로 걸려 있었는데 스펙 허용값은 FAIL·WARN 이라,
+    어떤 DQ 위반도 큐에 오른 적이 없었다. 통과 이력(PASS)은 예외가 아니므로
+    같이 올라오면 안 된다.
+    """
+    import pandas as pd
+    from risk_lib.ui_studio.governance import build_exception_actions
+
+    dq = pd.DataFrame([
+        {"asof": "2026-06-30", "table_name": "rdm_exposure",
+         "column_name": "ead", "rule": "range_min", "severity": "FAIL",
+         "n_rows": 3, "detail": "최솟값 0.0 미만"},
+        {"asof": "2026-06-30", "table_name": "rdm_exposure",
+         "column_name": "ead", "rule": "range_max", "severity": "PASS",
+         "n_rows": 0, "detail": "통과"},
+    ])
+    tables = {
+        "rdm_dq_result": dq,
+        "rdm_reconciliation": pd.DataFrame(
+            columns=["recon_id", "status", "axis", "gap", "gap_ratio"]),
+        "mkt_ipv": pd.DataFrame(
+            columns=["trade_id", "is_break", "days_open"]),
+    }
+    q = build_exception_actions(tables)
+    src = q[q["source_ledger"] == "rdm_dq_result"]
+    assert len(src) == 1, "FAIL 하나만 올라와야 한다"
+    assert "range_min" in src.iloc[0]["finding"]

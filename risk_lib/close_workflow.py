@@ -132,16 +132,44 @@ def build_close_tasks(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=[c.name for c in CLOSE_TASK.columns])
 
 
+def _all_predecessors(tasks: pd.DataFrame) -> dict[str, list[str]]:
+    """작업 → 그 작업의 모든 선행(이행폐포).
+
+    직속 선행만 보면 상류 위반이 아래로 내려가지 않는다. CL-02 가 미완인데
+    CL-03 이 완료면 CL-03 만 순서위반으로 찍히고, CL-04 부터 CL-12 결재 상신·
+    업무보고서 제출까지는 직속 선행이 완료라는 이유로 진행가능이 된다. 마감
+    게이트가 결재를 막는 통제인 이상 그 통과는 사실과 다르다.
+    """
+    direct = {str(t): [p for p in str(v).split(",") if p]
+              for t, v in zip(tasks["task_id"], tasks["predecessors"])}
+    out: dict[str, list[str]] = {}
+    for tid in direct:
+        seen: set[str] = set()
+        stack = list(direct.get(tid, ()))
+        while stack:
+            q = stack.pop()
+            if q in seen:
+                continue
+            seen.add(q)
+            stack.extend(direct.get(q, ()))
+        out[tid] = sorted(seen)
+    return out
+
+
 def evaluate_gates(tasks: pd.DataFrame, *, asof: str) -> pd.DataFrame:
     """단계별 진행 가능 여부. 선행이 모두 완료여야 진행할 수 있다.
+
+    '선행'은 직속이 아니라 이행폐포다. 앞 단계 하나가 미완이면 그 뒤 전부가
+    막히거나 순서위반이 된다.
 
     선행이 미완인데 그 단계가 이미 완료로 판정된 경우는 '순서위반'이다.
     마감 절차가 지켜지지 않았다는 뜻이므로 차단과 구분해 남긴다.
     """
     status = dict(zip(tasks["task_id"], tasks["status"]))
+    allp = _all_predecessors(tasks)
     rows = []
     for _, t in tasks.sort_values("sequence").iterrows():
-        preds = [p for p in str(t["predecessors"]).split(",") if p]
+        preds = allp.get(str(t["task_id"]), [])
         pending = [p for p in preds if status.get(p) != "완료"]
         if pending and str(t["status"]) == "완료":
             decision = "순서위반"
@@ -151,8 +179,10 @@ def evaluate_gates(tasks: pd.DataFrame, *, asof: str) -> pd.DataFrame:
             reason = f"선행 {'·'.join(pending)} 미완료"
         else:
             decision = "진행가능"
+            # 이행폐포라 뒤 단계일수록 선행이 길다. 다 적으면 못 읽는다.
             reason = ("선행 없음" if not preds
-                      else f"선행 {'·'.join(preds)} 완료")
+                      else f"선행 {'·'.join(preds)} 완료" if len(preds) <= 3
+                      else f"선행 {len(preds)}단계 완료 ({preds[0]}~{preds[-1]})")
         rows.append({
             "gate_id": f"CG-{asof.replace('-', '')}-{t['task_id']}",
             "task_id": str(t["task_id"]), "asof": asof, "decision": decision,

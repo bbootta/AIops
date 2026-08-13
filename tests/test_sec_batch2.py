@@ -224,6 +224,37 @@ def test_every_evidence_table_exists_in_the_catalog():
     assert not missing, f"카탈로그에 없는 증빙 원장 {missing}"
 
 
+def test_an_upstream_violation_reaches_the_approval_step():
+    """상류 순서위반은 결재 상신까지 내려가야 한다.
+
+    직속 선행만 보면 CL-02 가 미완인데 CL-03 만 순서위반으로 찍히고, CL-04 부터
+    CL-12 결재 상신·업무보고서 제출까지는 직속 선행이 완료라는 이유로
+    진행가능이 된다. 마감 게이트가 결재를 막는 통제인 이상 그 통과는 거짓이다.
+    """
+    one = pd.DataFrame({"a": [1]})
+    # CL-02 의 증빙만 비운다. 나머지는 전부 완료다.
+    tables = {t: one for t in cw.build_close_tasks({})["evidence_table"]}
+    del tables["rdm_dq_result"]
+    led, issues = cw.build_close_workflow(tables, asof=ASOF)
+    g = led["opr_close_gate"].set_index("task_id")
+    # CL-02 자신은 선행이 완료라 진행가능이다. 미완인 것은 제 상태이고,
+    # 게이트가 보는 것은 진행 가능 여부다.
+    assert g.loc["CL-02", "decision"] == "진행가능"
+    for tid in ("CL-03", "CL-08", "CL-11", "CL-12"):
+        assert g.loc[tid, "decision"] == "순서위반", f"{tid} 가 그냥 통과했다"
+        assert "CL-02" in g.loc[tid, "blocked_by"]
+    assert any("CL-11" in i for i in issues)
+
+
+def test_a_clean_run_has_no_gate_violation():
+    """모든 증빙이 있으면 이행폐포로 봐도 전부 진행가능이다."""
+    one = pd.DataFrame({"a": [1]})
+    tables = {t: one for t in cw.build_close_tasks({})["evidence_table"]}
+    led, issues = cw.build_close_workflow(tables, asof=ASOF)
+    assert set(led["opr_close_gate"]["decision"]) == {"진행가능"}
+    assert not issues
+
+
 def test_credit_rwa_evidence_survives_an_all_irb_book():
     """CL-04 의 증빙은 산출법에 흔들리지 않아야 한다.
 

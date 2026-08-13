@@ -125,38 +125,65 @@ def decompose(portfolio: pd.DataFrame, *, asof: str,
 
 
 def validate_all(tables: dict[str, pd.DataFrame], *,
-                 specs: tuple[TableSpec, ...] = cat.ALL_TABLES
+                 specs: tuple[TableSpec, ...] = cat.ALL_TABLES,
+                 record: list[tuple[str, str, str]] | None = None
                  ) -> list[Violation]:
-    """모든 테이블을 스펙과 대조하고 참조무결성까지 검사한다."""
+    """모든 테이블을 스펙과 대조하고 참조무결성까지 검사한다.
+
+    ``record`` 를 주면 수행한 점검을 전부 적는다. 통과 이력을 남기려면
+    위반뿐 아니라 무엇을 봤는지가 있어야 한다.
+    """
     spec_map = {s.name: s for s in specs}
     out: list[Violation] = []
     for name, df in tables.items():
         if name in spec_map:
-            out.extend(validate(df, spec_map[name]))
+            out.extend(validate(df, spec_map[name], record=record))
     out.extend(check_refs(tables, {k: v for k, v in spec_map.items()
-                                   if k in tables}))
+                                   if k in tables}, record=record))
     return out
 
 
-def dq_result_frame(violations: list[Violation], *, asof: str) -> pd.DataFrame:
-    """검증 결과를 rdm_dq_result 스펙 형태로 — 통과 이력도 저장돼야 증명이 된다."""
-    if not violations:
+_DQ_EMPTY = {
+    "asof": "object", "table_name": "object", "column_name": "object",
+    "rule": "object", "severity": "object", "n_rows": "int64",
+    "detail": "object",
+}
+
+
+def dq_result_frame(violations: list[Violation], *, asof: str,
+                    checks: list[tuple[str, str, str]] | None = None
+                    ) -> pd.DataFrame:
+    """검증 결과를 rdm_dq_result 스펙 형태로 — 통과 이력도 저장돼야 증명이 된다.
+
+    ``checks`` 는 ``validate_all(record=...)`` 이 적어 준 '수행한 점검'이다.
+    위반이 없는 점검은 severity=PASS 로 남긴다. 위반만 적으면 깨끗한 실행일수록
+    이 원장이 비고, 그러면 '점검하지 않았다'와 구별되지 않는다. 마감 절차는
+    이 원장의 행수로 「데이터품질 점검」 수행 여부를 판정하므로, 통과 이력이
+    없으면 깨끗한 실행이 미완료로 찍힌다.
+    """
+    rows = [{
+        "asof": asof, "table_name": v.table,
+        "column_name": v.column or "", "rule": v.rule,
+        "severity": v.severity, "n_rows": int(v.n_rows), "detail": v.detail,
+    } for v in violations]
+    if checks is not None:
+        hit = {(v.table, v.column or "", v.rule) for v in violations}
+        # 같은 점검을 두 번 적지 않는다. 기본키가 (기준일, 원장, 컬럼, 규칙)이다.
+        for key in dict.fromkeys(checks):
+            if key in hit:
+                continue
+            table, column, rule = key
+            rows.append({
+                "asof": asof, "table_name": table,
+                "column_name": column or "", "rule": rule,
+                "severity": "PASS", "n_rows": 0, "detail": "통과",
+            })
+    if not rows:
         # 빈 프레임도 스펙 dtype을 지켜야 한다 — object로 두면 위반 0건일 때만
         # 스키마 검증이 실패하는, 가장 헷갈리는 형태의 오류가 된다.
-        return pd.DataFrame({
-            "asof": pd.Series(dtype="object"),
-            "table_name": pd.Series(dtype="object"),
-            "column_name": pd.Series(dtype="object"),
-            "rule": pd.Series(dtype="object"),
-            "severity": pd.Series(dtype="object"),
-            "n_rows": pd.Series(dtype="int64"),
-            "detail": pd.Series(dtype="object"),
-        })
-    return pd.DataFrame([{
-        "asof": asof, "table_name": v.table,
-        "column_name": v.column or None, "rule": v.rule,
-        "severity": v.severity, "n_rows": int(v.n_rows), "detail": v.detail,
-    } for v in violations])
+        return pd.DataFrame({k: pd.Series(dtype=t)
+                             for k, t in _DQ_EMPTY.items()})
+    return pd.DataFrame(rows)
 
 
 def decompose_from_result(result, portfolio: pd.DataFrame) -> dict[str, pd.DataFrame]:

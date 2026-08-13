@@ -177,13 +177,24 @@ def _dtype_ok(series: pd.Series, dtype: str) -> bool:
 
 
 def validate(df: pd.DataFrame, spec: TableSpec, *,
-             strict_columns: bool = True) -> list[Violation]:
+             strict_columns: bool = True,
+             record: list[tuple[str, str, str]] | None = None
+             ) -> list[Violation]:
     """DataFrame을 스펙과 대조해 위반 목록을 반환한다 (예외를 던지지 않는다).
 
     통과/실패 한 글자가 아니라 **무엇이 왜 틀렸는지**를 돌려줘야 조치가 된다.
+
+    ``record`` 를 주면 **수행한 점검**을 (원장, 컬럼, 규칙)으로 전부 적는다.
+    위반만 보면 "위반이 없다"와 "점검하지 않았다"를 구별할 수 없고, 그 둘을
+    구별해야 '그때는 통과했다'가 증명된다 (RDM-004). 위반 목록과 같은 코드
+    경로에서 나오므로 점검 목록이 실제 점검과 어긋날 수 없다.
     """
     v: list[Violation] = []
     have, want = set(df.columns), set(spec.column_names)
+
+    def did(column: str, rule: str) -> None:
+        if record is not None:
+            record.append((spec.name, column, rule))
 
     for miss in sorted(want - have):
         v.append(Violation(spec.name, "missing_column", miss, 0, "컬럼 없음"))
@@ -198,32 +209,42 @@ def validate(df: pd.DataFrame, spec: TableSpec, *,
         s = df[col.name]
 
         if not col.nullable:
+            did(col.name, "not_null")
             n = int(s.isna().sum())
             if n:
                 v.append(Violation(spec.name, "not_null", col.name, n,
                                    "널 불허 컬럼에 결측"))
+        did(col.name, "dtype")
         if not _dtype_ok(s, col.dtype):
             v.append(Violation(spec.name, "dtype", col.name, len(s),
                                f"기대 {col.dtype}, 실제 {s.dtype}"))
         if col.allowed is not None:
+            did(col.name, "allowed")
             bad = s.dropna()[~s.dropna().isin(col.allowed)]
             if len(bad):
                 v.append(Violation(spec.name, "allowed", col.name, len(bad),
                                    f"허용값 밖: {sorted(set(bad))[:5]}"))
         if col.dtype in ("int", "float"):
             num = pd.to_numeric(s, errors="coerce")
+            # 최솟값·최댓값을 한 규칙 이름으로 묶지 않는다. 한 컬럼이 양쪽을
+            # 동시에 위반하면 (원장, 컬럼, 규칙)이 같은 행이 둘 생기고,
+            # rdm_dq_result 의 기본키가 그 셋이라 결과 원장이 스스로
+            # 기본키 중복이 된다.
             if col.min_value is not None:
+                did(col.name, "range_min")
                 n = int((num < col.min_value).sum())
                 if n:
-                    v.append(Violation(spec.name, "range", col.name, n,
+                    v.append(Violation(spec.name, "range_min", col.name, n,
                                        f"최솟값 {col.min_value} 미만"))
             if col.max_value is not None:
+                did(col.name, "range_max")
                 n = int((num > col.max_value).sum())
                 if n:
-                    v.append(Violation(spec.name, "range", col.name, n,
+                    v.append(Violation(spec.name, "range_max", col.name, n,
                                        f"최댓값 {col.max_value} 초과"))
 
     if spec.primary_key and set(spec.primary_key) <= have:
+        did("+".join(spec.primary_key), "pk_unique")
         dup = int(df.duplicated(subset=list(spec.primary_key)).sum())
         if dup:
             v.append(Violation(spec.name, "pk_unique",
@@ -232,7 +253,9 @@ def validate(df: pd.DataFrame, spec: TableSpec, *,
 
 
 def check_refs(tables: dict[str, pd.DataFrame],
-               specs: dict[str, TableSpec]) -> list[Violation]:
+               specs: dict[str, TableSpec],
+               record: list[tuple[str, str, str]] | None = None
+               ) -> list[Violation]:
     """테이블 간 참조무결성 — 고아 레코드는 집계에서 조용히 누락된다."""
     v: list[Violation] = []
     for name, spec in specs.items():
@@ -240,9 +263,14 @@ def check_refs(tables: dict[str, pd.DataFrame],
             continue
         df = tables[name]
         for fk in spec.foreign_keys:
+            cols = "+".join(fk.columns)
             if fk.ref_table not in tables:
-                v.append(Violation(name, "fk_missing_table",
-                                   "+".join(fk.columns), 0,
+                # 참조 테이블이 없으면 고아 여부를 본 것이 아니다. 본 점검은
+                # '참조 테이블 존재'이며, 그 이름으로 적어야 통과 이력이
+                # 하지 않은 점검을 했다고 말하지 않는다.
+                if record is not None:
+                    record.append((name, cols, "fk_missing_table"))
+                v.append(Violation(name, "fk_missing_table", cols, 0,
                                    f"참조 테이블 없음: {fk.ref_table}"))
                 continue
             ref = tables[fk.ref_table]
@@ -250,13 +278,14 @@ def check_refs(tables: dict[str, pd.DataFrame],
                 continue
             if not set(fk.ref_columns) <= set(ref.columns):
                 continue
+            if record is not None:
+                record.append((name, cols, "fk_orphan"))
             left = df[list(fk.columns)].dropna().apply(tuple, axis=1)
             right = set(ref[list(fk.ref_columns)].dropna().apply(tuple, axis=1))
             orphan = int((~left.isin(right)).sum()) if len(left) else 0
             if orphan:
-                v.append(Violation(
-                    name, "fk_orphan", "+".join(fk.columns), orphan,
-                    f"{fk.ref_table}에 없는 참조"))
+                v.append(Violation(name, "fk_orphan", cols, orphan,
+                                   f"{fk.ref_table}에 없는 참조"))
     return v
 
 

@@ -95,8 +95,59 @@ def test_range_rule_fires_on_both_bounds():
                        ColumnSpec("kind", "string", allowed=("a", "b"))))
     low = _good(); low.loc[0, "amt"] = -1.0
     high = _good(); high.loc[0, "amt"] = 11.0
-    assert any(x.rule == "range" for x in validate(low, s))
-    assert any(x.rule == "range" for x in validate(high, s))
+    assert any(x.rule == "range_min" for x in validate(low, s))
+    assert any(x.rule == "range_max" for x in validate(high, s))
+
+
+def test_record_lists_every_check_that_ran():
+    """수행한 점검을 적어야 '위반 없음'과 '점검 안 함'이 구별된다."""
+    s = _spec(columns=(ColumnSpec("id", "string", nullable=False),
+                       ColumnSpec("amt", "float", min_value=0.0, max_value=10.0),
+                       ColumnSpec("kind", "string", allowed=("a", "b"))))
+    rec: list[tuple[str, str, str]] = []
+    assert validate(_good(), s, record=rec) == []
+    got = {(c, r) for _, c, r in rec}
+    assert ("id", "not_null") in got
+    assert ("amt", "dtype") in got
+    assert ("amt", "range_min") in got and ("amt", "range_max") in got
+    assert ("kind", "allowed") in got
+
+
+def test_every_violation_was_also_recorded_as_a_check():
+    """적힌 점검 목록이 실제 점검과 어긋나면 통과 이력이 거짓이 된다.
+
+    위반이 났는데 그 점검이 목록에 없으면, 그 규칙은 '수행하지 않은 것'으로
+    남아 통과 이력에서 조용히 빠진다. 규칙마다 위반을 만들어 확인한다.
+    """
+    s = _spec(columns=(ColumnSpec("id", "string", nullable=False),
+                       ColumnSpec("amt", "float", min_value=0.0, max_value=10.0),
+                       ColumnSpec("kind", "string", allowed=("a", "b"))))
+    bad = pd.DataFrame({"id": [None, "B"], "amt": [-1.0, 11.0],
+                        "kind": ["z", "b"]})
+    rec: list[tuple[str, str, str]] = []
+    vs = validate(bad, s, record=rec)
+    assert vs, "위반이 하나도 없으면 이 검사가 무의미하다"
+    got = {(t, c, r) for t, c, r in rec}
+    for v in vs:
+        assert (v.table, v.column, v.rule) in got, (
+            f"{v.rule} 위반이 났는데 점검 목록에 없다")
+
+
+def test_both_bounds_violated_at_once_stay_distinguishable():
+    """두 위반을 한 규칙 이름으로 묶으면 rdm_dq_result 의 기본키가 겹친다.
+
+    기본키가 (기준일, 원장, 컬럼, 규칙)이라, 최솟값과 최댓값 위반을 둘 다
+    'range' 로 적으면 결과 원장이 스스로 기본키 중복이 된다.
+    """
+    s = _spec(columns=(ColumnSpec("id", "string", nullable=False),
+                       ColumnSpec("amt", "float", min_value=0.0, max_value=10.0),
+                       ColumnSpec("kind", "string", allowed=("a", "b"))))
+    df = _good()
+    df.loc[0, "amt"] = -1.0
+    df.loc[1, "amt"] = 11.0
+    rules = [x.rule for x in validate(df, s) if x.column == "amt"]
+    assert sorted(rules) == ["range_max", "range_min"]
+    assert len(set(rules)) == len(rules)
 
 
 def test_dtype_rule_fires():
@@ -246,7 +297,7 @@ def test_injected_corruption_is_caught(tables):
     bad["rdm_exposure"].loc[0, "ead"] = -1.0                  # 범위 위반
     bad["rdm_collateral"].loc[0, "exposure_id"] = "NOT_EXIST"  # 고아
     v = dm.validate_all(bad)
-    assert any(x.rule == "range" for x in v)
+    assert any(x.rule == "range_min" for x in v)
     assert any(x.rule == "fk_orphan" for x in v)
 
 
@@ -260,6 +311,48 @@ def test_dq_result_frame_matches_its_own_spec(tables):
     df2 = dm.dq_result_frame(dm.validate_all(bad), asof=ASOF)
     assert len(df2) > 0
     assert validate(df2, cat.DQ_RESULT, strict_columns=False) == []
+
+
+def test_a_clean_run_still_leaves_a_dq_ledger(tables):
+    """위반 0건이어도 통과 이력이 남아야 한다 (RDM-004).
+
+    빈 원장은 '점검했고 깨끗했다'와 '점검하지 않았다'를 구별하지 못한다.
+    마감 절차 CL-02 가 이 원장의 행수로 점검 수행 여부를 판정하므로, 비면
+    깨끗한 실행일수록 마감이 미완료로 찍힌다.
+    """
+    rec: list[tuple[str, str, str]] = []
+    v = dm.validate_all(tables, record=rec)
+    df = dm.dq_result_frame(v, asof=ASOF, checks=rec)
+    assert len(df) > 0
+    assert (df["severity"] == "PASS").any()
+    assert validate(df, cat.DQ_RESULT, strict_columns=False) == []
+    # 통과 이력이 위반을 덮지 않는다. 한 점검은 한 행이다.
+    assert not df.duplicated(subset=list(cat.DQ_RESULT.primary_key)).any()
+
+
+def test_a_violated_check_is_not_also_recorded_as_passed(tables):
+    """같은 점검이 위반과 통과로 동시에 남으면 기본키가 겹치고 뜻도 반대다."""
+    bad = {k: x.copy() for k, x in tables.items()}
+    bad["rdm_exposure"].loc[0, "ead"] = -1.0
+    rec: list[tuple[str, str, str]] = []
+    v = dm.validate_all(bad, record=rec)
+    df = dm.dq_result_frame(v, asof=ASOF, checks=rec)
+    row = df[(df["table_name"] == "rdm_exposure")
+             & (df["column_name"] == "ead") & (df["rule"] == "range_min")]
+    assert len(row) == 1
+    assert row.iloc[0]["severity"] == "FAIL"
+    assert not df.duplicated(subset=list(cat.DQ_RESULT.primary_key)).any()
+
+
+def test_violations_come_before_pass_history(tables):
+    """위반이 통과 이력 6천 행 밑에 깔리면 화면에서 사라진다."""
+    bad = {k: x.copy() for k, x in tables.items()}
+    bad["rdm_exposure"].loc[0, "ead"] = -1.0
+    rec: list[tuple[str, str, str]] = []
+    df = dm.dq_result_frame(dm.validate_all(bad, record=rec), asof=ASOF,
+                            checks=rec)
+    first_pass = int((df["severity"] == "PASS").idxmax())
+    assert (df.iloc[:first_pass]["severity"] != "PASS").all()
 
 
 def test_every_table_declares_a_primary_key():

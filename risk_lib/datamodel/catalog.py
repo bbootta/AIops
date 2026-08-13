@@ -153,8 +153,11 @@ DQ_RESULT = TableSpec(
         C("column_name", "string", "대상 컬럼 (테이블 단위 규칙은 빈 문자열)",
           nullable=False),
         C("rule", "string", "규칙", nullable=False),
+        # PASS 는 위반이 아니라 '이 점검을 했고 통과했다'는 기록이다. 위반만
+        # 남기면 깨끗한 실행일수록 이 원장이 비고, 그러면 점검하지 않은 것과
+        # 구별되지 않는다.
         C("severity", "string", "심각도", nullable=False,
-          allowed=("FAIL", "WARN")),
+          allowed=("FAIL", "WARN", "PASS")),
         C("n_rows", "int", "위반 행 수", nullable=False, min_value=0),
         C("detail", "text", "상세", nullable=True),
     ),
