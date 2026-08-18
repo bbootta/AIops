@@ -140,6 +140,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.gen_domain_criteria --out <json>` | 기준 항목 원장 생성기: RYNTA BRD 레지스터가 바뀌면 재실행 (손으로 고치지 않는다) |
 | `python -m tools.regulatory_criteria list / report / precedence / thresholds / cite-check / verify` | 규제 기준 검증 항목: 기준 스택(규정→세칙→바젤), 인용의 원문 해석, 규정 임계 대 하니스 임계 대조 |
 | `python -m tools.gen_regulatory_criteria --out <json>` | 규제 검증 항목 생성기: 라인 번호·지배기준을 손으로 적지 않고 파생 |
+| `python -m tools.pd_cyclicality demo / analyse / convert` | PD 설계 구분(TTC·PIT) 검증: 등급별 PD 경기 민감도, 등급 수준 시점 추종성, 단일요인 변환 왕복 |
 | `python -m tools.validation_trigger triggers / evaluate / queue` | 상시 모니터링 트리거 평가 → 검증 사례 생성·검토 큐 |
 | `python -m tools.validation_finding open / remediate / reverify / close / queue / lineage / blockers` | Finding 원장 — 재검증 없는 종결 차단·재발 시 중대도 상향 |
 | `python -m tools.validation_memory rounds / patterns / self-defects / carryover / verify` | 검증 기억 원장 — 회차·결함 계보·자기결함·이월을 생성·상호 대조 (손으로 세지 않는다) |
@@ -183,6 +184,7 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `harness/regulatory_rule_catalog.json` | 규제 규칙 카탈로그 — 근거수준(국내구속/Basel/내부권고)·원문주기·유효일자(출력하한 경과조치)·RETIRED 차단·의견 코드 5종 매핑 |
 | `harness/domain_requirement_criteria.json` | RYNTA BRD Level 1 도메인 업무요건 131건 → 적합성검증 기준 항목 (부문·검증관점·자동/수동/범위밖 · 근거 실재성 강제) |
 | `harness/regulatory_criteria.json` | 규제 검증 항목 63건 + 계량 임계 10건: 근거 원문 3종(`harness/reference/` 은행업감독규정·시행세칙·Basel Framework 소스북, 지문 고정). 국내 우선·모호 시 바젤 보충 |
+| `harness/pd_design_thresholds.json` | PD 설계(TTC·PIT) 판정 임계. 관측기간 5년은 세칙 별표 3 인용값이며 임계 원장이 원문과 대조 |
 | `harness/valdoc_coverage.json` | 적합성검증 요건문서(개요서·해설서·BRD v9.6.0 DDOC-VAL) 대비 하니스 커버리지 — v9.6.0 정규 부모 master_ref 연결 |
 | `harness/valdoc_discrepancy_registry.json` | 요건 마스터 자체 불일치 6건(VAL-GAP, PENDING_4_EYES) 참조 사본 — 인지·추적 전용, 해소 권한은 마스터 소유자 |
 | 검증 트리거 원장 | `harness/validation_triggers.json` | (tools/validation_trigger 게이트) |
