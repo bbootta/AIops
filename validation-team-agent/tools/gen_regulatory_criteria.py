@@ -357,6 +357,31 @@ CRITERIA_REG: tuple[tuple, ...] = (
 )
 
 
+# PD 설계 구분(TTC·PIT) 검증 항목. 근거는 세칙 별표 3 이 명시하므로 국내가 지배한다.
+CRITERIA_PD: tuple[tuple, ...] = (
+    ("세칙", "별표 3", "02", ("데이터", "방법론"),
+     "PD 추정 관측기간이 5년 이상이고 경기순환주기를 반영하며 과거 1년 부도율의 평균을 기초로 산출되는가",
+     "automated", ("harness/pd_design_thresholds.json", "tools/pd_cyclicality.py",
+                   "harness/policies/pd_lgd_ead.md"), ""),
+    ("세칙", "별표 3", "02", ("방법론",),
+     "TTC 를 주장하는 PD 가 실제로 경기에 둔감한가: 등급별 PD 변동계수와 평균 PD 변동의 등급 이동분 비중으로 판정한다",
+     "automated", ("tools/pd_cyclicality.py", "harness/pd_design_thresholds.json"), ""),
+    ("세칙", "별표 3", "02", ("방법론", "데이터"),
+     "등급별 PD 가 거시변수와 유의하게 상관되지 않는가: 상관되면 TTC 라는 주장과 자료가 어긋난다",
+     "automated", ("tools/pd_cyclicality.py",), ""),
+    ("규정", "제29조", "03", ("방법론",),
+     "PIT 를 주장하는 PD 가 실현 1년 부도율 시계열을 추종하는가: 상관·평균절대편차·방향 일치율로 판정한다",
+     "automated", ("tools/pd_cyclicality.py", "harness/pd_design_thresholds.json"), ""),
+    ("세칙", "별표 3", "02", ("산식",),
+     "TTC 와 PIT 의 단일요인 변환이 왕복에서 복원되고 국면 부호가 뒤집히지 않는가 (호황 PIT<TTC · 침체 PIT>TTC)",
+     "automated", ("tools/pd_cyclicality.py",), ""),
+    ("세칙", "별표 3", "02", ("방법론", "문서화"),
+     "같은 등급체계를 IRB 자본(TTC)과 IFRS 9 ECL(PIT)에 함께 쓸 때 두 산출물의 PD 가 변환 관계로 설명되는가",
+     "manual", (),
+     "하니스는 두 산출물을 한 실행에서 받지 않는다. 변환 도구는 있으나 자본용·ECL용 PD 를 동시에 입력받는 경로가 없어 사람 대조로 남긴다"),
+)
+
+
 # 계량 임계: 규정 값과 하니스 임계 파일을 기계가 대조한다.
 #
 # (근거, 인용, 키, 한글명, 규정값, 방향, 원문 발췌, 하니스 파일, JSON 경로)
@@ -395,6 +420,9 @@ THRESHOLDS: tuple[tuple, ...] = (
     ("규정", "별표 2의10", "conservation_buffer", "자본보전완충자본", 0.025, "min",
      "7.0 + K",
      "harness/capital_adequacy_thresholds.json", ("buffers", "conservation_buffer")),
+    ("세칙", "별표 3", "pd_min_observation_years", "PD 추정 최소 관측기간(년)", 5, "min",
+     "은행은 PD 추정시 5년 이상의 관측기간에 걸친 외부 데이터, 내부 데이터 또는 금융기관간 공유 데이터 중 하나 이상을 이용하여야 한다",
+     "harness/pd_design_thresholds.json", ("ttc", "min_observation_years")),
 )
 
 
@@ -415,6 +443,22 @@ def compare(regulated: float, harness: float | None, direction: str) -> str:
     if direction == "min":
         return "stricter" if harness > regulated else "looser"
     return "stricter" if harness < regulated else "looser"
+
+
+# 같은 조문·별표를 인용해도 대응 바젤 Chapter 가 다를 수 있다. 검증 기준 문장으로
+# 지정하며 BASEL_MAP 보다 우선한다.
+BASEL_MAP_BY_CRITERION: dict[str, tuple[str, bool]] = {
+    "PD 추정 관측기간이 5년 이상이고 경기순환주기를 반영하며 과거 1년 부도율의 평균을 기초로 산출되는가":
+        ("CRE36", False),
+    "TTC 를 주장하는 PD 가 실제로 경기에 둔감한가: 등급별 PD 변동계수와 평균 PD 변동의 등급 이동분 비중으로 판정한다":
+        ("CRE36", False),
+    "등급별 PD 가 거시변수와 유의하게 상관되지 않는가: 상관되면 TTC 라는 주장과 자료가 어긋난다":
+        ("CRE36", False),
+    "TTC 와 PIT 의 단일요인 변환이 왕복에서 복원되고 국면 부호가 뒤집히지 않는가 (호황 PIT<TTC · 침체 PIT>TTC)":
+        ("CRE32", True),
+    "같은 등급체계를 IRB 자본(TTC)과 IFRS 9 ECL(PIT)에 함께 쓸 때 두 산출물의 PD 가 변환 관계로 설명되는가":
+        ("CRE35", True),
+}
 
 
 # 국내 항목 → 대응 바젤 Chapter. 대응이 없으면 국내 고유 기준이다.
@@ -499,13 +543,14 @@ def build() -> dict:
     digests = {k: hashlib.sha256(source_path(k).read_bytes()).hexdigest() for k in SOURCES}
 
     items, unresolved = [], []
-    for idx, row in enumerate(CRITERIA + CRITERIA_REG + CRITERIA_BASEL, 1):
+    for idx, row in enumerate(CRITERIA + CRITERIA_REG + CRITERIA_PD + CRITERIA_BASEL, 1):
         src, cite, section, lenses, criterion, automation, evidence, note = row
         ln = resolve(cite, lines[src])
         if ln is None:
             unresolved.append(f"{src} {cite}")
             continue
-        ref, ambiguous = BASEL_MAP.get((src, cite), (None, False))
+        ref, ambiguous = BASEL_MAP_BY_CRITERION.get(
+            criterion, BASEL_MAP.get((src, cite), (None, False)))
         if src == "바젤":
             ref, ambiguous = basel_chapter(cite), False
         if ref is not None and resolve(ref, lines["바젤"]) is None:
