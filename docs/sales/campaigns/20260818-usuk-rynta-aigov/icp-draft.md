@@ -9,7 +9,7 @@
 
 - **제품: RYNTA v9.0 (확인됨).** "Risk Yard with Neural Trustworthy Architecture", Financial Control Execution Layer. 근거: AIMS_POLICY.md §8, risk_lib/rynta.py (`PACKAGE_NAME`, `PRODUCTS`, `GUARDRAILS`). 이 저장소 자체가 RYNTA 구현체다. 제품 정의는 가설이 아니다.
 - **쐐기: AI Governance + Independent Validation (PO 확정).** 앞세우는 제품은 두 개다. `PRD-AIG` "AI Governance & Agentic"(suite RYNTA-FND, 구매자 AI위원회·IT·보안)와 `PRD-VAL` "Continuous & Independent Validation Assurance"(suite RYNTA-FND, 구매자 CRO·모델리스크·독립검증). RWA/ECL 등 규제 계산 어슈어런스는 이번 쐐기가 아니다(맥락으로만 언급).
-- **상태: ICP 초안, PO 확정 필요 (G4).** 이 문서는 prospect-researcher 초안이다. ICP 확정, 우선순위, Anti-ICP(negative ICP) 신설·변경은 PO 전속 결정이다. PO 승인 서명이 없는 한 이 ICP는 "초안"이며 캠페인 착수 조건을 충족하지 못한다.
+- **상태: PO 확정 (2026-08-18).** ICP 본문(§1~§8)과 Negative ICP(§6, 경쟁사 목록 포함)는 PO가 확정했다(하단 PO 확정란). 캠페인 착수 조건 중 "PO 승인 ICP"는 충족. 단, 메가뱅크 부서 단위 접근(§6.2 S1)과 SOC 2/인증 상태 확인은 별도 결정 대기이며, 확인 전 Tier 1 발송 보류 해제는 금지다. 이후 ICP 변경은 PO 재승인 사항이다.
 - **이 시장은 검증된 closed-won이 아니라 가설 단계다.** KB08 §6은 미국·싱가포르를 "레퍼런스 없음, 디자인 파트너 모집형 아웃바운드"로 규정한다. US/UK ICP는 창업팀 가설 + 빠른 검증 루프이며(KB03 §2.3 초기 스타트업 예외), 목표는 즉시 매출이 아니라 로컬 레퍼런스(디자인 파트너 2~3곳) 확보다(KB08 §10.3).
 
 ---
@@ -194,12 +194,12 @@ KB03 §2.4 시작점 가중치를 이 쐐기에 맞춰 조정한 초안. **탈�
 
 ---
 
-## PO 확정란 (비움 - G1)
+## PO 확정란 (G1)
 
-- [ ] ICP 확정 (승인 서명): ____________________  날짜: __________
-- [ ] Negative ICP 승인(§6, 경쟁사 목록 포함): ____________________
-- [ ] 대형 기관 부서 단위 접근 승인(§6.2 S1): ____________________
-- [ ] SOC 2/인증 상태 확인 반영(§6.4): ____________________
+- [x] ICP 확정 (승인 서명): PO jjlee@onelineai.com (Claude Code 세션 대화 승인)  날짜: 2026-08-18
+- [x] Negative ICP 승인(§6, 경쟁사 목록 포함): PO jjlee@onelineai.com (Claude Code 세션 대화 승인)  날짜: 2026-08-18
+- [ ] 대형 기관 부서 단위 접근 승인(§6.2 S1): ____________________ (결정 대기)
+- [ ] SOC 2/인증 상태 확인 반영(§6.4): ____________________ (결정 대기. 확인 전 Tier 1 보류 해제 금지)
 
 ## 규제 순풍 출처 (웹 검증, 2026-08-18 접속)
 

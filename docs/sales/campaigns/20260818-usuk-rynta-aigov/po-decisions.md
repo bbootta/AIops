@@ -14,13 +14,13 @@
 ## 1. ICP 확정 (icp-draft.md)
 
 - 권고: icp-draft §1~§8을 이 쐐기의 US/UK ICP로 확정. Firmographic sweet spot은 "MRM/독립검증 기능은 있으나 대형 사내 AI 플랫폼팀은 없는 슈퍼리저널·미드마켓·챌린저 층".
-- **판정(PO):** [ ] 확정 / [ ] 수정 요청 ____________________  서명·날짜: __________
+- **판정(PO):** [x] 확정 / [ ] 수정 요청  서명·날짜: PO jjlee@onelineai.com (Claude Code 세션 대화 승인) · 2026-08-18
 
 ## 2. Negative ICP 승인 (경쟁사 목록 포함, icp-draft §6)
 
 - 권고: 탈락 기준 H1~H5, 감점 S1~S4 승인.
 - **경쟁사 매핑(§6.3)을 negative ICP로 확정**: AI 거버넌스 = Credo AI, Holistic AI, Monitaur, ValidMind, Fairly AI / 모델검증 = SAS Model Risk Management, Yields.io, Evalueserve. 이들은 발송 대상이 아니라 경쟁 맥락(배틀카드)으로만 다룬다. ValidMind는 SS1/23·SR 26-2를 정면 마케팅하는 직접 경쟁자로 확인됨.
-- **판정(PO):** [ ] 승인 / [ ] 수정 ____________________  서명·날짜: __________
+- **판정(PO):** [x] 승인 / [ ] 수정  서명·날짜: PO jjlee@onelineai.com (Claude Code 세션 대화 승인) · 2026-08-18
 
 ## 3. 대형 기관 부서 단위 접근 승인 (icp-draft §6.2 S1, target-accounts §1.4·§2.3)
 
