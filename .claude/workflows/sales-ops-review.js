@@ -15,6 +15,7 @@ const DATE = args && args.date ? args.date : ''
 const MODE = args && args.mode ? String(args.mode) : 'weekly'
 const CAMPAIGNS = args && Array.isArray(args.campaigns) ? args.campaigns : (args && args.campaigns ? [args.campaigns] : [])
 if (!DATE || !/^\d{4}-\d{2}-\d{2}$/.test(DATE)) throw new Error('args.date가 필요합니다: YYYY-MM-DD 형식')
+const DATE8 = DATE.replace(/-/g, '')
 if (MODE !== 'daily' && MODE !== 'weekly') throw new Error('args.mode는 daily 또는 weekly여야 합니다')
 if (MODE === 'daily' && !CAMPAIGNS.length) throw new Error('daily 모드는 args.campaigns(활성 캠페인 ID 목록)가 필수입니다')
 
@@ -145,7 +146,7 @@ const analyst = await agent([
       '[weekly]',
       '- 3층 지표(활동/파이프라인/결과) 주간 리포트를 작성하고 벤치마크와 대조하라. 성과 판정은 발송량이 아니라 긍정 답장과 기회 생성 기준이다.',
       '- 파이프라인 위생 플래그: 다음 단계 없는 딜, 정체 딜, 싱글스레드 딜, PO 판정 대기 기회를 표시하라.',
-      '- 격주 회고 주기에 해당하는 캠페인이 있으면 templates/sales/campaign-retro.md 구조로 회고 초안(가설-셋업-결과-판정 권고-배운 것)을 reports/sales/' + DATE + '-campaign-retro.md 에 작성하라(확대/폐기 최종 판정은 PO). 해당 없으면 retro_file은 빈 문자열.',
+      '- 격주 회고 주기에 해당하는 캠페인이 있으면 templates/sales/campaign-retro.md 구조로 회고 초안(가설-셋업-결과-판정 권고-배운 것)을 캠페인별 파일 reports/sales/retro-<캠페인ID>-' + DATE8 + '.md 에 작성하라(템플릿 헤더의 경로 규약, 확대/폐기 최종 판정은 PO). retro_file에 작성한 파일을 전부 나열하라(세미콜론 구분). 해당 없으면 retro_file은 빈 문자열.',
       '- A/B 실험 로그를 갱신하고 KB08 "확인 필요" 항목의 창업팀 확인 추적 상태를 기록하라.',
       '리포트를 reports/sales/' + DATE + '-weekly-metrics.md 에 저장하라.',
     ].join('\n'),
@@ -230,7 +231,7 @@ const brief = await agent([
   DAILY
     ? [
       '[daily 브리프 요구사항]',
-      '1) 터치 릴리스 판정을 캠페인별로 templates/sales/touch-release-checklist.md 구조에 따라 ' + COMP_DIR + '/' + DATE + '-touch-release-<캠페인ID>.md 에 기록하라. 아래 종합 판정을 그대로 기록하고, PASS 기록이 없는 터치는 발송 불가임을 명기하라(fail-closed):',
+      '1) 터치 릴리스 판정을 templates/sales/touch-release-checklist.md 구조에 따라 해당일 릴리스 대상 터치별로 ' + COMP_DIR + '/<캠페인ID>-touch<터치번호>-release.md 에 기록하라(템플릿 헤더의 경로 규약). 아래 종합 판정을 그대로 기록하고, PASS 기록이 없는 터치는 발송 불가임을 명기하라(fail-closed):',
       JSON.stringify(touchRelease),
       '2) 브리프 최상단에 서킷브레이커 발동 여부를 배치하라. 발동이면 "PO 즉시 실행: 발송 중단"을 첫 줄에 쓰고 런북 절차와 재개 조건(원인 제거 + PO 승인)을 요약하라.',
       '3) 터치 릴리스 가능/차단 현황, 수신거부 처리 현황, 긍정 답장(딜 지원 후보)을 PO에 보고하라.',
@@ -261,7 +262,7 @@ return {
     compliance_record: compliance.record_file,
     signal_scan: signals ? signals.scan_file : null,
     retro: analyst.retro_file || null,
-    touch_release_records: DAILY ? CAMPAIGNS.map(id => COMP_DIR + '/' + DATE + '-touch-release-' + id + '.md') : null,
+    touch_release_records: DAILY ? CAMPAIGNS.map(id => COMP_DIR + '/' + id + '-touch<터치번호>-release.md (해당일 릴리스 대상 터치별 1파일)') : null,
   },
   headline: brief.headline,
   po_todo: [

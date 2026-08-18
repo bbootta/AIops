@@ -1,6 +1,6 @@
 # 디스커버리 준비 브리프: {계정명}
 
-> 저장 경로: `docs/sales/deals/{계정슬러그}/discovery-prep-{YYYYMMDD}.md`
+> 저장 경로: `docs/sales/deals/{계정슬러그}/{YYYY-MM-DD}-prep-discovery-brief.md`
 > 미팅 수행, 관계 판단, 자격검증 최종 판정은 PO 몫이다. 이 문서는 준비물이다 [G1].
 
 | 항목 | 내용 |

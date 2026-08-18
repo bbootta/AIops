@@ -1,6 +1,6 @@
 # 파일럿 헌장: {계정명}
 
-> 저장 경로: `docs/sales/deals/{계정슬러그}/pilot-charter.md`
+> 저장 경로: `docs/sales/deals/{계정슬러그}/{YYYY-MM-DD}-pilot-charter.md`
 > 헌장(단일 KPI, 합격선, 기간 6~8주 고정, 유료, EB 승인) 없이는 파일럿 제안이 PO에게 "발송 가능" 상태로 전달되지 않는다 [G8].
 
 | 항목 | 내용 |

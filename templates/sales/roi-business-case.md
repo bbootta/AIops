@@ -1,6 +1,6 @@
 # ROI 비즈니스 케이스: {계정명}
 
-> 저장 경로: `docs/sales/deals/{계정슬러그}/roi-case.md`
+> 저장 경로: `docs/sales/deals/{계정슬러그}/{YYYY-MM-DD}-proposal-roi-case.md`
 > 세일즈 화법은 보수 시나리오 숫자로 말한다. 보수 시나리오에서도 양성 ROI가 나오게 설계한다 (kb/sales/05 §4.3).
 
 | 항목 | 내용 |

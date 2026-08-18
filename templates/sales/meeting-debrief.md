@@ -1,6 +1,6 @@
 # 미팅 부검: {계정명} ({미팅 일자})
 
-> 저장 경로: `docs/sales/deals/{계정슬러그}/debrief-{YYYYMMDD}.md`
+> 저장 경로: `docs/sales/deals/{계정슬러그}/{YYYY-MM-DD}-debrief-memo.md`
 > 에이전트는 채점 초안과 판정 권고까지만 만든다. 진행/조건부/탈락의 최종 판정은 PO가 §6 판정란에 기록해야 유효하다 [G1][G8].
 
 | 항목 | 내용 |

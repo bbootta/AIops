@@ -1,6 +1,6 @@
 # 멀티채널 시퀀스: {캠페인ID}
 
-> 저장 경로: `docs/sales/campaigns/{캠페인ID}/sequence.md`
+> 저장 경로: 터치맵(§구성 중 터치맵 표와 실행 캘린더)은 `docs/sales/campaigns/{캠페인ID}/touchmap.md`, 전 채널 카피(이메일/LinkedIn/콜 스크립트와 푸터 변형)는 같은 디렉터리의 `copy.md`에 나눠 저장한다
 > 표준 구조: 이메일 3~4통 + LinkedIn/전화 슬롯, 첫 5일 집중 배치. 이메일 단독 5터치 이상 시퀀스는 구조 자체가 반려된다 [G11].
 
 | 항목 | 내용 |

@@ -244,6 +244,8 @@ const finalPkg = await agent([
   '패키지를 ' + DEAL_DIR + '/' + DATE + '-' + STAGE + '-support.md 에 저장하고 저장 경로와 3문장 요지를 반환하라.',
 ].join('\n'), { label: 'lead:전달', phase: '종합 전달', agentType: 'sales-lead' })
 
+if (!finalPkg) throw new Error('PO 전달 패키지 작성 실패: ' + DEAL_DIR + '/' + DATE + '-' + STAGE + '-support.md 미생성(fail-closed)')
+
 log('딜 지원 완료: ' + DEAL_DIR + '/' + DATE + '-' + STAGE + '-support.md')
 
 return {

@@ -34,7 +34,8 @@
 | 구성물 | 경로 |
 |---|---|
 | 캠페인 브리프 | `docs/sales/campaigns/{캠페인ID}/campaign-brief.md` |
-| 터치맵 + 전 채널 최종 카피 (이메일, LinkedIn 노트/DM, 콜/보이스메일) | `docs/sales/campaigns/{캠페인ID}/sequence.md` |
+| 터치맵 (Day-by-Day, 실행 주체 명기) | `docs/sales/campaigns/{캠페인ID}/touchmap.md` |
+| 전 채널 최종 카피 (이메일, LinkedIn 노트/DM, 콜/보이스메일) | `docs/sales/campaigns/{캠페인ID}/copy.md` |
 | 리스트 요약 | §4 (원본: {경로}) |
 | 계정 리서치 (Tier 1~2 전건) [G4] | `docs/sales/campaigns/{캠페인ID}/research/` |
 | 발송 스케줄 | §6 |
@@ -54,7 +55,7 @@
 - 각 후속 터치는 발송 예정일에 `templates/sales/touch-release-checklist.md` **PASS 기록이 있어야 릴리스**된다 [G2][G5]. 발송 도구에 스케줄이 걸려 있어도 PASS 없이는 실행 금지.
 - 릴리스 게이트 분담: sales-ops-analyst (답장 로그 분류) / sales-compliance-officer (suppression 델타 재대조, 전 채널 제외 확인) / deliverability-engineer (도구 동기화, 잔여 한도, 직전 터치 지표)
 - 자동 제외 트리거: 수신거부(링크/자연어), 답장, 하드바운스, 스팸 신고 → 즉시 전 채널 시퀀스 제외 [G2]
-- 캠페인 개시 후 3일간 sales-ops-review daily 모드 필수 실행 [G6]
+- 캠페인 개시와 볼륨 증량 후 3일간, 그리고 발송 활성 기간 매 영업일 sales-ops-review daily 모드 필수 실행 [G6]
 
 | 터치 | 예정일 | 릴리스 조건 | 체크리스트 기록 |
 |---|---|---|---|
