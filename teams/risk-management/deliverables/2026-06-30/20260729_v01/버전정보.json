@@ -1,0 +1,20 @@
+{
+  "asof": "2026-06-30",
+  "run_date": "2026-07-29",
+  "version": 1,
+  "seed": 42,
+  "request_id": "IVR-8CDB13393503",
+  "headline_digest": "3b4b6b311cc10fd3c4ebb886147b13b4",
+  "submission_digest": "bd27dd1128373d5a29c54984f6cbbe6b95cd5767d8f2d951fd0ed2e1ef861f94",
+  "gate_status": "부적합",
+  "n_forms": 290,
+  "n_form_lines": 5896,
+  "n_form_checks_failed": 0,
+  "n_tables": 81,
+  "self_validation": {
+    "PASS": 60,
+    "WARN": 5
+  },
+  "git_revision": "b4a9ba2f4e743d3f279180359965919f7ae61377+dirty",
+  "created_at": "2026-07-29T12:25:07+00:00"
+}

@@ -1,0 +1,42 @@
+{
+  "run_id": "RUN-20260630-42",
+  "request_id": "IVR-68128ECE5694",
+  "gate_status_at_approval": "조건부",
+  "approver": "검증 책임자 (인간)",
+  "approved_at": "2026-07-27T00:00:00+00:00",
+  "residual_risk": "문서·요청서에 사람이 적은 수치가 코드 사실과 어긋난다. (F-501) 산출 근거 통계를 '5,842라인 중 실측 68.2%' 로 기술했으나 독립 재현은 5,894라인·실측 4,000건(67.87%) 이다 — 라인 +52, 비중 -0.33%p. 같은 실행에서 headline 10종이 비트 단위로 일치하므로 산출 조건 차이가 아니라 문서 수치가 낡은 것이다. 이 유형은 F-103(문서 수치 오기) · F-201(문서 주장과 코드 불일치) · F-401(가정이 코드보다 낡음) 에 이은 네 번째 반복이다. (F-502) 회차 번호가 실제 6차인데 '5차' 로 표기돼 시정 문서의 절 구성이 흐려진다. 산출값 오류 0건 · 독립 재계산 10/10 일치 · 중부적합 0건이므로 산출 결과의 신뢰성은 훼손되지 않으나, 문서 기재 통계를 근거로 한 2차 인용은 본 승인의 보증 범위 밖이다.",
+  "conditions": [
+    "라인 수·실측 비중 등 기계로 산출 가능한 통계를 문서에 손으로 적지 말고 provenance_frame 에서 생성하도록 전환한다 — F-102 에서 파급 목록에, F-301 에서 지문 대상에 이미 적용한 원칙이다 (담당 model_developer)",
+    "요청서 가정·시정 문서의 수치를 코드 사실과 대조하는 자체검증 체크를 신설한다 — 5차 권고 미이행으로 같은 유형이 네 번 재발했다 (담당 model_developer)",
+    "회차 표기를 request_id 정본에서 파생하거나 표기하지 않는다 — 시정 문서에 '5차' 가 두 번 나타나는 상태를 정정한다 (담당 business_owner)"
+  ],
+  "due_date": "2026-08-10",
+  "scope": "RUN-20260630-42 (asof 2026-06-30 · seed 42) 단일 실행 결재에 한정한다. 후속 실행·다른 기준일·다른 seed 는 본 승인의 범위가 아니며 재검증이 필요하다. 문서에 손으로 적힌 산출 근거 통계(라인 수·실측 비중·회차)는 승인 대상이 아니며 코드 산출값만 결재 범위다.",
+  "findings_accepted": ["F-501", "F-502"],
+  "enhanced_monitoring": [
+    "다음 실행 요청 시 3선이 문서 기재 통계와 코드 산출값을 전수 대조한다 (라인 수·비중·건수·회차)",
+    "ADV-CALC-04(단위·차원 정합성) 를 모든 합산 항목에 적용해 합계 일치만으로 적합 판정하지 않는다"
+  ],
+  "basis": {
+    "independent_validation_response": "RUN-20260630-42.response.json (IVR-68128ECE5694)",
+    "opinion": "RUN-20260630-42.opinion.md (6차)",
+    "verdict": "경부적합",
+    "severity_counts": { "중부적합": 0, "경부적합": 2, "적합": 4 },
+    "recalc_matches": "10/10 일치",
+    "validation_ledger": "적합성검증 팀 tools.conditional_approval 원장에 RUN-20260630-42/IVR-68128ECE5694 로 동일 내용 등재"
+  },
+  "prior_approvals": [
+    {
+      "request_id": "IVR-0DC4055ED5AF",
+      "round": 4,
+      "approved_at": "2026-07-26",
+      "findings_accepted": ["F-301"],
+      "conditions_fulfilled": "2/2 (request_identifier 전체 직렬화 전환 · 전 필드 ID 변동 회귀 테스트 일반화)"
+    }
+  ],
+  "notes": [
+    "본 기록은 인간 결재 책임자의 판단을 적합성검증 팀에이전트가 대신 기록한 것이며, 판단 자체를 대리하지 않는다 (CLAUDE.md §7).",
+    "조건 미이행이 이행기한(2026-08-10)을 초과하면 본 승인의 효력을 재검토해야 한다 — 검증팀 원장이 기한 초과를 에스컬레이션 대상으로 표시한다.",
+    "risk_lib.validation.independent.ConditionalApproval 스키마에 대응한다 — approver·residual_risk·conditions·due_date·scope·findings_accepted."
+  ]
+}

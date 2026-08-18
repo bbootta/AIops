@@ -1,0 +1,198 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1640" height="1087" viewBox="0 0 1640 1087" font-family="Noto Sans KR, Malgun Gothic, Apple SD Gothic Neo, sans-serif">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5"
+markerHeight="5" orient="auto-start-reverse">
+<path d="M0,0 L10,5 L0,10 z" fill="#adb5bd"/></marker></defs>
+<rect width="1640" height="1087" fill="#ffffff"/>
+<text x="44.0" y="54.0" font-size="27" font-weight="700" fill="#212529" text-anchor="start" fill-opacity="1.0">리스크관리 하네스 · 배치와 흐름</text>
+<text x="44.0" y="84.0" font-size="12.5" font-weight="400" fill="#5c6670" text-anchor="start" fill-opacity="1.0">이 그림은 손으로 그린 것이 아니라 lineage.build_lineage() 가 소스에서 읽어낸 값으로 그렸다. 배선이 바뀌면 다시 돌려 갱신한다.</text>
+<text x="44.0" y="130.0" font-size="21" font-weight="700" fill="#212529" text-anchor="start" fill-opacity="1.0">1. 전체 배치</text>
+<text x="44.0" y="151.0" font-size="12.5" font-weight="400" fill="#5c6670" text-anchor="start" fill-opacity="1.0">산출이 지나는 다섯 단계. 각 단계의 수는 실측이다.</text>
+<rect x="44.0" y="173.0" width="276.0" height="92.0" rx="6" fill="#4c6ef5" fill-opacity="0.1" stroke="none"/>
+<rect x="44.0" y="173.0" width="4.0" height="92.0" rx="2" fill="#4c6ef5" fill-opacity="1.0" stroke="none"/>
+<text x="60.0" y="200.0" font-size="15" font-weight="700" fill="#4c6ef5" text-anchor="start" fill-opacity="1.0">원천 생성</text>
+<text x="60.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">47개 모듈</text>
+<text x="60.0" y="243.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">합성 포트폴리오·관측이력·지표</text>
+<path d="M326.0,219.0 L340.0,219.0" stroke="#adb5bd" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="346.0" y="173.0" width="276.0" height="92.0" rx="6" fill="#1c7ed6" fill-opacity="0.1" stroke="none"/>
+<rect x="346.0" y="173.0" width="4.0" height="92.0" rx="2" fill="#1c7ed6" fill-opacity="1.0" stroke="none"/>
+<text x="362.0" y="200.0" font-size="15" font-weight="700" fill="#1c7ed6" text-anchor="start" fill-opacity="1.0">산출 엔진</text>
+<text x="362.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">RWA·자본·ECL·ALM·한도</text>
+<text x="362.0" y="243.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">생산 함수 312건</text>
+<path d="M628.0,219.0 L642.0,219.0" stroke="#adb5bd" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="648.0" y="173.0" width="276.0" height="92.0" rx="6" fill="#0ca678" fill-opacity="0.1" stroke="none"/>
+<rect x="648.0" y="173.0" width="4.0" height="92.0" rx="2" fill="#0ca678" fill-opacity="1.0" stroke="none"/>
+<text x="664.0" y="200.0" font-size="15" font-weight="700" fill="#0ca678" text-anchor="start" fill-opacity="1.0">원장</text>
+<text x="664.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">TableSpec 266장</text>
+<text x="664.0" y="243.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">블록 8개</text>
+<path d="M930.0,219.0 L944.0,219.0" stroke="#adb5bd" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="950.0" y="173.0" width="276.0" height="92.0" rx="6" fill="#f08c00" fill-opacity="0.1" stroke="none"/>
+<rect x="950.0" y="173.0" width="4.0" height="92.0" rx="2" fill="#f08c00" fill-opacity="1.0" stroke="none"/>
+<text x="966.0" y="200.0" font-size="15" font-weight="700" fill="#f08c00" text-anchor="start" fill-opacity="1.0">자체검증</text>
+<text x="966.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">정합성·규제기준·통계</text>
+<text x="966.0" y="243.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">FAIL 0 이어야 결재</text>
+<path d="M1232.0,219.0 L1246.0,219.0" stroke="#adb5bd" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="1252.0" y="173.0" width="276.0" height="92.0" rx="6" fill="#c2255c" fill-opacity="0.1" stroke="none"/>
+<rect x="1252.0" y="173.0" width="4.0" height="92.0" rx="2" fill="#c2255c" fill-opacity="1.0" stroke="none"/>
+<text x="1268.0" y="200.0" font-size="15" font-weight="700" fill="#c2255c" text-anchor="start" fill-opacity="1.0">화면·서식</text>
+<text x="1268.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">화면 81 (전용 77)</text>
+<text x="1268.0" y="243.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">감독서식 모듈 23</text>
+<text x="44.0" y="303.0" font-size="21" font-weight="700" fill="#212529" text-anchor="start" fill-opacity="1.0">2. 테이블 흐름</text>
+<text x="44.0" y="324.0" font-size="12.5" font-weight="400" fill="#5c6670" text-anchor="start" fill-opacity="1.0">행이 재료, 열이 결과다. 칸의 숫자와 진하기가 블록 사이의 feeds·fk 엣지 수이며 회색 대각선은 블록 안쪽 흐름이라 세지 않는다.</text>
+<text x="281.0" y="382.0" font-size="11.5" font-weight="700" fill="#4c6ef5" text-anchor="middle" transform="rotate(-18 281.0 382.0)">원천·리스크데이터</text>
+<text x="403.0" y="382.0" font-size="11.5" font-weight="700" fill="#1c7ed6" text-anchor="middle" transform="rotate(-18 403.0 382.0)">신용</text>
+<text x="525.0" y="382.0" font-size="11.5" font-weight="700" fill="#0ca678" text-anchor="middle" transform="rotate(-18 525.0 382.0)">시장</text>
+<text x="647.0" y="382.0" font-size="11.5" font-weight="700" fill="#f08c00" text-anchor="middle" transform="rotate(-18 647.0 382.0)">운영</text>
+<text x="769.0" y="382.0" font-size="11.5" font-weight="700" fill="#7048e8" text-anchor="middle" transform="rotate(-18 769.0 382.0)">ALM</text>
+<text x="891.0" y="382.0" font-size="11.5" font-weight="700" fill="#e8590c" text-anchor="middle" transform="rotate(-18 891.0 382.0)">위기상황</text>
+<text x="1013.0" y="382.0" font-size="11.5" font-weight="700" fill="#495057" text-anchor="middle" transform="rotate(-18 1013.0 382.0)">규제서식</text>
+<text x="1135.0" y="382.0" font-size="11.5" font-weight="700" fill="#c2255c" text-anchor="middle" transform="rotate(-18 1135.0 382.0)">거버넌스·통제</text>
+<text x="208.0" y="382.0" font-size="11.5" font-weight="400" fill="#868e96" text-anchor="end" fill-opacity="1.0">재료 → 결과</text>
+<text x="208.0" y="414.0" font-size="12.5" font-weight="700" fill="#4c6ef5" text-anchor="end" fill-opacity="1.0">원천·리스크데이터</text>
+<text x="208.0" y="414.0" font-size="1" font-weight="400" fill="#212529" text-anchor="start" fill-opacity="1.0"></text>
+<rect x="221.0" y="395.0" width="120.0" height="28.0" rx="4" fill="#f1f3f5" fill-opacity="1.0" stroke="none"/>
+<rect x="343.0" y="395.0" width="120.0" height="28.0" rx="4" fill="#4c6ef5" fill-opacity="0.86" stroke="none"/>
+<text x="403.0" y="415.0" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle" fill-opacity="1.0">59</text>
+<rect x="465.0" y="395.0" width="120.0" height="28.0" rx="4" fill="#4c6ef5" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="525.0" y="415.0" font-size="13" font-weight="700" fill="#4c6ef5" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="587.0" y="395.0" width="120.0" height="28.0" rx="4" fill="#4c6ef5" fill-opacity="0.2986440677966102" stroke="none"/>
+<text x="647.0" y="415.0" font-size="13" font-weight="700" fill="#4c6ef5" text-anchor="middle" fill-opacity="1.0">13</text>
+<rect x="709.0" y="395.0" width="120.0" height="28.0" rx="4" fill="#4c6ef5" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="769.0" y="415.0" font-size="13" font-weight="700" fill="#4c6ef5" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="831.0" y="395.0" width="120.0" height="28.0" rx="4" fill="#4c6ef5" fill-opacity="0.16440677966101697" stroke="none"/>
+<text x="891.0" y="415.0" font-size="13" font-weight="700" fill="#4c6ef5" text-anchor="middle" fill-opacity="1.0">2</text>
+<rect x="953.0" y="395.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="1075.0" y="395.0" width="120.0" height="28.0" rx="4" fill="#4c6ef5" fill-opacity="0.22542372881355932" stroke="none"/>
+<text x="1135.0" y="415.0" font-size="13" font-weight="700" fill="#4c6ef5" text-anchor="middle" fill-opacity="1.0">7</text>
+<text x="208.0" y="448.0" font-size="12.5" font-weight="700" fill="#1c7ed6" text-anchor="end" fill-opacity="1.0">신용</text>
+<text x="208.0" y="448.0" font-size="1" font-weight="400" fill="#212529" text-anchor="start" fill-opacity="1.0"></text>
+<rect x="221.0" y="429.0" width="120.0" height="28.0" rx="4" fill="#1c7ed6" fill-opacity="0.21322033898305087" stroke="none"/>
+<text x="281.0" y="449.0" font-size="13" font-weight="700" fill="#1c7ed6" text-anchor="middle" fill-opacity="1.0">6</text>
+<rect x="343.0" y="429.0" width="120.0" height="28.0" rx="4" fill="#f1f3f5" fill-opacity="1.0" stroke="none"/>
+<rect x="465.0" y="429.0" width="120.0" height="28.0" rx="4" fill="#1c7ed6" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="525.0" y="449.0" font-size="13" font-weight="700" fill="#1c7ed6" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="587.0" y="429.0" width="120.0" height="28.0" rx="4" fill="#1c7ed6" fill-opacity="0.24983050847457627" stroke="none"/>
+<text x="647.0" y="449.0" font-size="13" font-weight="700" fill="#1c7ed6" text-anchor="middle" fill-opacity="1.0">9</text>
+<rect x="709.0" y="429.0" width="120.0" height="28.0" rx="4" fill="#1c7ed6" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="769.0" y="449.0" font-size="13" font-weight="700" fill="#1c7ed6" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="831.0" y="429.0" width="120.0" height="28.0" rx="4" fill="#1c7ed6" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="891.0" y="449.0" font-size="13" font-weight="700" fill="#1c7ed6" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="953.0" y="429.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="1075.0" y="429.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<text x="208.0" y="482.0" font-size="12.5" font-weight="700" fill="#0ca678" text-anchor="end" fill-opacity="1.0">시장</text>
+<text x="208.0" y="482.0" font-size="1" font-weight="400" fill="#212529" text-anchor="start" fill-opacity="1.0"></text>
+<rect x="221.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="343.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#0ca678" fill-opacity="0.16440677966101697" stroke="none"/>
+<text x="403.0" y="483.0" font-size="13" font-weight="700" fill="#0ca678" text-anchor="middle" fill-opacity="1.0">2</text>
+<rect x="465.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#f1f3f5" fill-opacity="1.0" stroke="none"/>
+<rect x="587.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#0ca678" fill-opacity="0.21322033898305087" stroke="none"/>
+<text x="647.0" y="483.0" font-size="13" font-weight="700" fill="#0ca678" text-anchor="middle" fill-opacity="1.0">6</text>
+<rect x="709.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#0ca678" fill-opacity="0.16440677966101697" stroke="none"/>
+<text x="769.0" y="483.0" font-size="13" font-weight="700" fill="#0ca678" text-anchor="middle" fill-opacity="1.0">2</text>
+<rect x="831.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#0ca678" fill-opacity="0.16440677966101697" stroke="none"/>
+<text x="891.0" y="483.0" font-size="13" font-weight="700" fill="#0ca678" text-anchor="middle" fill-opacity="1.0">2</text>
+<rect x="953.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="1075.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<text x="208.0" y="516.0" font-size="12.5" font-weight="700" fill="#f08c00" text-anchor="end" fill-opacity="1.0">운영</text>
+<text x="208.0" y="516.0" font-size="1" font-weight="400" fill="#212529" text-anchor="start" fill-opacity="1.0"></text>
+<rect x="221.0" y="497.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="343.0" y="497.0" width="120.0" height="28.0" rx="4" fill="#f08c00" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="403.0" y="517.0" font-size="13" font-weight="700" fill="#f08c00" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="465.0" y="497.0" width="120.0" height="28.0" rx="4" fill="#f08c00" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="525.0" y="517.0" font-size="13" font-weight="700" fill="#f08c00" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="587.0" y="497.0" width="120.0" height="28.0" rx="4" fill="#f1f3f5" fill-opacity="1.0" stroke="none"/>
+<rect x="709.0" y="497.0" width="120.0" height="28.0" rx="4" fill="#f08c00" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="769.0" y="517.0" font-size="13" font-weight="700" fill="#f08c00" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="831.0" y="497.0" width="120.0" height="28.0" rx="4" fill="#f08c00" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="891.0" y="517.0" font-size="13" font-weight="700" fill="#f08c00" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="953.0" y="497.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="1075.0" y="497.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<text x="208.0" y="550.0" font-size="12.5" font-weight="700" fill="#7048e8" text-anchor="end" fill-opacity="1.0">ALM</text>
+<text x="208.0" y="550.0" font-size="1" font-weight="400" fill="#212529" text-anchor="start" fill-opacity="1.0"></text>
+<rect x="221.0" y="531.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="343.0" y="531.0" width="120.0" height="28.0" rx="4" fill="#7048e8" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="403.0" y="551.0" font-size="13" font-weight="700" fill="#7048e8" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="465.0" y="531.0" width="120.0" height="28.0" rx="4" fill="#7048e8" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="525.0" y="551.0" font-size="13" font-weight="700" fill="#7048e8" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="587.0" y="531.0" width="120.0" height="28.0" rx="4" fill="#7048e8" fill-opacity="0.20101694915254237" stroke="none"/>
+<text x="647.0" y="551.0" font-size="13" font-weight="700" fill="#7048e8" text-anchor="middle" fill-opacity="1.0">5</text>
+<rect x="709.0" y="531.0" width="120.0" height="28.0" rx="4" fill="#f1f3f5" fill-opacity="1.0" stroke="none"/>
+<rect x="831.0" y="531.0" width="120.0" height="28.0" rx="4" fill="#7048e8" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="891.0" y="551.0" font-size="13" font-weight="700" fill="#7048e8" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="953.0" y="531.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="1075.0" y="531.0" width="120.0" height="28.0" rx="4" fill="#7048e8" fill-opacity="0.18881355932203392" stroke="none"/>
+<text x="1135.0" y="551.0" font-size="13" font-weight="700" fill="#7048e8" text-anchor="middle" fill-opacity="1.0">4</text>
+<text x="208.0" y="584.0" font-size="12.5" font-weight="700" fill="#e8590c" text-anchor="end" fill-opacity="1.0">위기상황</text>
+<text x="208.0" y="584.0" font-size="1" font-weight="400" fill="#212529" text-anchor="start" fill-opacity="1.0"></text>
+<rect x="221.0" y="565.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="343.0" y="565.0" width="120.0" height="28.0" rx="4" fill="#e8590c" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="403.0" y="585.0" font-size="13" font-weight="700" fill="#e8590c" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="465.0" y="565.0" width="120.0" height="28.0" rx="4" fill="#e8590c" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="525.0" y="585.0" font-size="13" font-weight="700" fill="#e8590c" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="587.0" y="565.0" width="120.0" height="28.0" rx="4" fill="#e8590c" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="647.0" y="585.0" font-size="13" font-weight="700" fill="#e8590c" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="709.0" y="565.0" width="120.0" height="28.0" rx="4" fill="#e8590c" fill-opacity="0.1522033898305085" stroke="none"/>
+<text x="769.0" y="585.0" font-size="13" font-weight="700" fill="#e8590c" text-anchor="middle" fill-opacity="1.0">1</text>
+<rect x="831.0" y="565.0" width="120.0" height="28.0" rx="4" fill="#f1f3f5" fill-opacity="1.0" stroke="none"/>
+<rect x="953.0" y="565.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="1075.0" y="565.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<text x="208.0" y="618.0" font-size="12.5" font-weight="700" fill="#495057" text-anchor="end" fill-opacity="1.0">규제서식</text>
+<text x="208.0" y="618.0" font-size="1" font-weight="400" fill="#212529" text-anchor="start" fill-opacity="1.0"></text>
+<rect x="221.0" y="599.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="343.0" y="599.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="465.0" y="599.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="587.0" y="599.0" width="120.0" height="28.0" rx="4" fill="#495057" fill-opacity="0.18881355932203392" stroke="none"/>
+<text x="647.0" y="619.0" font-size="13" font-weight="700" fill="#495057" text-anchor="middle" fill-opacity="1.0">4</text>
+<rect x="709.0" y="599.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="831.0" y="599.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="953.0" y="599.0" width="120.0" height="28.0" rx="4" fill="#f1f3f5" fill-opacity="1.0" stroke="none"/>
+<rect x="1075.0" y="599.0" width="120.0" height="28.0" rx="4" fill="#495057" fill-opacity="0.16440677966101697" stroke="none"/>
+<text x="1135.0" y="619.0" font-size="13" font-weight="700" fill="#495057" text-anchor="middle" fill-opacity="1.0">2</text>
+<text x="208.0" y="652.0" font-size="12.5" font-weight="700" fill="#c2255c" text-anchor="end" fill-opacity="1.0">거버넌스·통제</text>
+<text x="208.0" y="652.0" font-size="1" font-weight="400" fill="#212529" text-anchor="start" fill-opacity="1.0"></text>
+<rect x="221.0" y="633.0" width="120.0" height="28.0" rx="4" fill="#c2255c" fill-opacity="0.21322033898305087" stroke="none"/>
+<text x="281.0" y="653.0" font-size="13" font-weight="700" fill="#c2255c" text-anchor="middle" fill-opacity="1.0">6</text>
+<rect x="343.0" y="633.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="465.0" y="633.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="587.0" y="633.0" width="120.0" height="28.0" rx="4" fill="#c2255c" fill-opacity="0.33525423728813564" stroke="none"/>
+<text x="647.0" y="653.0" font-size="13" font-weight="700" fill="#c2255c" text-anchor="middle" fill-opacity="1.0">16</text>
+<rect x="709.0" y="633.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="831.0" y="633.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="953.0" y="633.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
+<rect x="1075.0" y="633.0" width="120.0" height="28.0" rx="4" fill="#f1f3f5" fill-opacity="1.0" stroke="none"/>
+<text x="44.0" y="688.0" font-size="12.5" font-weight="400" fill="#5c6670" text-anchor="start" fill-opacity="1.0">블록 간 엣지 161건. 가장 굵은 줄기는 원천·리스크데이터에서 신용으로 가는 59건이며, 회색 칸은 블록 안쪽 흐름이라 세지 않았다.</text>
+<text x="44.0" y="728.0" font-size="21" font-weight="700" fill="#212529" text-anchor="start" fill-opacity="1.0">3. 화면 흐름</text>
+<text x="44.0" y="749.0" font-size="12.5" font-weight="400" fill="#5c6670" text-anchor="start" fill-opacity="1.0">전용 화면이 어느 블록의 원장을 그리는지. 범용 조회기는 세지 않는다.</text>
+<text x="212.0" y="790.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">원천·리스크데이터</text>
+<rect x="222.0" y="777.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
+<rect x="222.0" y="777.0" width="649.6" height="18.0" rx="4" fill="#4c6ef5" fill-opacity="0.85" stroke="none"/>
+<text x="881.6" y="790.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">72건 · 15%</text>
+<text x="212.0" y="820.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">신용</text>
+<rect x="222.0" y="807.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
+<rect x="222.0" y="807.0" width="1254.0" height="18.0" rx="4" fill="#1c7ed6" fill-opacity="0.85" stroke="none"/>
+<text x="1486.0" y="820.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">139건 · 28%</text>
+<text x="212.0" y="850.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">시장</text>
+<rect x="222.0" y="837.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
+<rect x="222.0" y="837.0" width="297.7" height="18.0" rx="4" fill="#0ca678" fill-opacity="0.85" stroke="none"/>
+<text x="529.7" y="850.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">33건 · 7%</text>
+<text x="212.0" y="880.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">운영</text>
+<rect x="222.0" y="867.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
+<rect x="222.0" y="867.0" width="189.5" height="18.0" rx="4" fill="#f08c00" fill-opacity="0.85" stroke="none"/>
+<text x="421.5" y="880.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">21건 · 4%</text>
+<text x="212.0" y="910.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">ALM</text>
+<rect x="222.0" y="897.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
+<rect x="222.0" y="897.0" width="1055.5" height="18.0" rx="4" fill="#7048e8" fill-opacity="0.85" stroke="none"/>
+<text x="1287.5" y="910.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">117건 · 24%</text>
+<text x="212.0" y="940.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">위기상황</text>
+<rect x="222.0" y="927.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
+<rect x="222.0" y="927.0" width="126.3" height="18.0" rx="4" fill="#e8590c" fill-opacity="0.85" stroke="none"/>
+<text x="358.3" y="940.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">14건 · 3%</text>
+<text x="212.0" y="970.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">규제서식</text>
+<rect x="222.0" y="957.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
+<rect x="222.0" y="957.0" width="108.3" height="18.0" rx="4" fill="#495057" fill-opacity="0.85" stroke="none"/>
+<text x="340.3" y="970.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">12건 · 2%</text>
+<text x="212.0" y="1000.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">거버넌스·통제</text>
+<rect x="222.0" y="987.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
+<rect x="222.0" y="987.0" width="766.8" height="18.0" rx="4" fill="#c2255c" fill-opacity="0.85" stroke="none"/>
+<text x="998.8" y="1000.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">85건 · 17%</text>
+<text x="44.0" y="1033.0" font-size="12.5" font-weight="400" fill="#c92a2a" text-anchor="start" fill-opacity="1.0">전용 화면이 그리지 않는 원장 0장. 그중 하류 원장도 감독서식도 없는 고아 0장.</text>
+</svg>
