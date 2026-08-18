@@ -137,6 +137,17 @@
 
 주의: 실제 가격 체계, 표준 계약 조건, 유지보수 요율은 전부 [확인 필요]다. 제안서 작성 전 반드시 내부 확인.
 
+### 4.6 RYNTA: 금융기관용 리스크·신뢰 AI 거버넌스 패키지
+
+내부 저장소 근거로 확인되는 제품. [확인] (근거: `AIMS_POLICY.md` §8, `risk_lib/rynta.py`, 용어집. 이 저장소 자체가 RYNTA 구현체다. 대외 수치·성과 주장은 데모/제안 전 재확인.)
+
+- **정의**: RYNTA v9.0 = "Risk Yard with Neural Trustworthy Architecture". Financial Control Execution Layer. 결정론적 엔진이 규제 리스크 수치를 계산하고, AI 에이전트는 조사·분류·설명·워크플로 조정을 지원하며, 중요한 결과는 책임 있는 사람이 승인한다.
+- **AI 가드레일(BRD AIG-002~012)**: 조회 전용, 제안 전용(자동확정 금지), 승인 우선(중요 변경은 사람 승인), 최소 권한, Kill Switch. 신용등급·여신·가격·PD/LGD·ECL·RWA·감독제출 등은 산출·권고까지만, 확정은 인간.
+- **구성**: 12개 canonical 제품 / 6개 상업 suite. 공통 기반(Risk Data Fabric, AI Governance & Agentic, 독립검증 어슈어런스) + 신용·회계(신용등급모형·RWA·IFRS9 ECL) + 자본·스트레스(ICAAP·자본비율·RAPM) + Treasury(IRRBB·ALM·유동성) + Markets·건전성(NCR 등).
+- **명시된 구매자**: CRO/CFO/CIO/CDO, 모델리스크·독립검증, 자본관리, 회계/ECL, ALM·자금, AI위원회·IT·보안.
+- **준거 기준**: ISO/IEC 42001 주 기준 + EU AI Act(Reg 2024/1689) + NIST AI RMF 교차 참조. 자동 준수·인증·법률자문을 의미하지 않는다.
+- **세일즈 함의**: OLA(생성형 AI 워크플로우)와 다른 라인이다. RYNTA는 규제 받는 금융기관의 리스크·모델·규제보고·검증 조직과 AI 거버넌스를 파는 어슈어런스 제품이다. 글로벌(US/UK) 진입 쐐기는 AI 거버넌스(PRD-AIG) + 독립검증 어슈어런스(PRD-VAL)로, SR 11-7·PRA SS1/23·EU AI Act 순풍을 탄다. 상세 ICP는 `docs/sales/campaigns/20260818-usuk-rynta-aigov/`.
+
 ---
 
 ## 5. 확인된 고객·파트너·레퍼런스 맵
