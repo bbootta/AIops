@@ -1,3 +1,5 @@
+> **[폐기 / SUPERSEDED 2026-08-18]** 이 문서는 RYNTA 제품 정의가 확인되기 전, 잘못된 가설(아시아 데이터 커버리지 / 금융 LLM 평가) 위에서 작성되어 폐기됐다. 참조 금지. 현행 패키지: `docs/sales/campaigns/20260818-usuk-rynta-aigov/` (RYNTA v9.0, AI 거버넌스 + 독립검증 쐐기).
+
 # PO 결정 대기 항목: 미국·영국 금융기관 (린타 / Rinta)
 
 > 저장 경로: `docs/sales/campaigns/20260818-us-uk-rinta-fin/po-decisions.md`
