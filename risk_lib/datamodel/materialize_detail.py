@@ -414,17 +414,10 @@ def materialize_rwa_detail(result, portfolio, base) -> dict[str, pd.DataFrame]:
                                   "lgd_weighted", "maturity_weighted", "rwa",
                                   "rw_average", "expected_loss"]]
 
-    # ---- 시장리스크 위험군별
-    md = result.rwa.get("market_detail")
-    mrows = []
-    for cls, capital in (getattr(md, "by_class", {}) or {}).items():
-        if cls not in cat.MARKET_RISK_CLASSES:
-            continue
-        mrows.append({"asof": asof, "risk_class": cls,
-                      "position": float(capital) / 0.08,
-                      "capital": float(capital), "rwa": float(capital) * 12.5})
-    out["rwa_market_component"] = pd.DataFrame(mrows, columns=[
-        "asof", "risk_class", "position", "capital", "rwa"])
+    # (시장리스크 위험군별 표는 materialize_mkt_portfolio_detail 로 옮겼다.
+    #  포지션 열이 mkt_position 원장 집계에서 와야 하는데, 이 함수에서 그
+    #  원장을 읽으면 함수 단위 계보가 mkt_position → rwa_irb_pool 같은 없는
+    #  의존까지 만들기 때문이다.)
 
     # ---- 운영리스크 BI 구성 (파이프라인이 넘긴 실제 구성요소)
     bd = result.rwa.get("bi_detail")
@@ -746,6 +739,28 @@ def materialize_opr_detail(result, portfolio, base) -> dict[str, pd.DataFrame]:
     return out
 
 
+def materialize_mkt_portfolio_detail(result, portfolio, base
+                                     ) -> dict[str, pd.DataFrame]:
+    """시장 포지션 원장 → 규제 표(위험군)와 포트폴리오 상세.
+
+    몸통은 market_portfolio.build_component_tables 다. 원장을 읽고 쓰는
+    코드가 materialize* 이름 아래 있으면 계보 스캐너가 오케스트레이터로
+    보고 mkt_position → rwa_market_component 의존을 만들지 않는다.
+    """
+    from risk_lib import market_portfolio as mp
+
+    md = result.rwa.get("market_detail")
+    by_class = dict(getattr(md, "by_class", {}) or {})
+    return mp.build_component_tables(by_class, base, asof=_asof(result))
+
+
+def materialize_mkt_var_alloc(result, portfolio, base
+                              ) -> dict[str, pd.DataFrame]:
+    """전사 VaR·ES 를 포트폴리오 자본비중으로 배분한다 (내부기준)."""
+    from risk_lib import market_portfolio as mp
+    return mp.build_var_es_allocation(base)
+
+
 DETAIL_MATERIALIZERS = {
     "rdm_detail": materialize_rdm_detail,
     "crm_detail": materialize_crm_detail,
@@ -753,6 +768,9 @@ DETAIL_MATERIALIZERS = {
     "ecl_detail": materialize_ecl_detail,
     "alm_detail": materialize_alm_detail,
     "mkt_detail": materialize_mkt_detail,
+    # mkt_detail 뒤여야 한다 — 배분이 mkt_var_es 를 읽는다.
+    "mkt_portfolio_detail": materialize_mkt_portfolio_detail,
+    "mkt_var_alloc": materialize_mkt_var_alloc,
     "opr_detail": materialize_opr_detail,
 }
 
@@ -766,7 +784,10 @@ def materialize_detail(result, portfolio, base: dict[str, pd.DataFrame]
     """
     out: dict[str, pd.DataFrame] = {}
     for fn in DETAIL_MATERIALIZERS.values():
-        out.update(fn(result, portfolio, base))
+        # 뒤 엔진은 앞 엔진의 세분화 산출을 본다 — VaR 배분이 mkt_detail 의
+        # mkt_var_es 를 읽는다. 앞 엔진들은 원래 쓰던 키만 읽으므로 dict 가
+        # 커져도 산출이 달라지지 않는다 (materialize_all 과 같은 규약).
+        out.update(fn(result, portfolio, {**base, **out}))
     return out
 
 

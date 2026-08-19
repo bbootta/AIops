@@ -361,12 +361,30 @@ def materialize_alm(result, portfolio, base) -> dict[str, pd.DataFrame]:
 # ---------------------------------------------------------------- R7 · MKT/NCR
 
 def materialize_market(result, portfolio, base) -> dict[str, pd.DataFrame]:
-    """트레이딩북 포지션 · IPV 결과 · NCR 구성요소."""
+    """포트폴리오 설정 · 포지션 원장 · 트레이딩북 · IPV · NCR 구성요소.
+
+    포지션 원장(`mkt_position`)은 엔진이 실제로 RWA 에 쓴 순포지션
+    (`result.rwa["market_positions"]`)을 포트폴리오로 가른 것이다. 시장 RWA
+    상세·VaR 배분이 전부 이 원장에서 다시 계산되므로, 여기가 시장 포지션의
+    단일 원천이다 (일원화).
+    """
     asof = _asof(result)
     seed = result.meta.get("seed", 42)
+    from risk_lib import market_portfolio as mp
     from risk_lib.sensitivities import synthesise_trading_book
     from risk_lib.ipv import run_ipv
     from risk_lib.ncr import compute_ncr_from_result
+
+    out: dict[str, pd.DataFrame] = {}
+    out["mkt_portfolio"] = mp.portfolio_frame()
+    class_pos = result.rwa.get("market_positions")
+    if isinstance(class_pos, pd.DataFrame) and not class_pos.empty:
+        out["mkt_position"] = mp.split_positions(class_pos, asof=asof)
+    else:
+        # 구형 result 에는 포지션이 없다. 빈 원장을 지어내지 않고 비운다 —
+        # 하류(rwa_market_component 포지션 열)가 이 부재를 그대로 말한다.
+        out["mkt_position"] = pd.DataFrame(
+            columns=[c.name for c in mp.POSITION.columns])
 
     bank = portfolio[portfolio["asset_class"] == "bank"]
     book = synthesise_trading_book(bank, seed=seed)
@@ -386,7 +404,11 @@ def materialize_market(result, portfolio, base) -> dict[str, pd.DataFrame]:
         "vega": tr["vega"].astype(float),
         "dv01": tr["dv01"].astype(float),
         "cs01": tr["cs01"].astype(float),
+        "portfolio_id": tr["kind"].astype(str).map(mp.KIND_TO_PORTFOLIO),
     })
+    assert trade.empty or trade["portfolio_id"].notna().all(), (
+        "포트폴리오 미배정 거래 — KIND_TO_PORTFOLIO 에 없는 상품 유형은 "
+        "포트폴리오 축 집계에서 조용히 빠진다")
 
     ipv_res = run_ipv(tr, seed=seed)
     pos = ipv_res.positions.reset_index(drop=True)
@@ -419,7 +441,8 @@ def materialize_market(result, portfolio, base) -> dict[str, pd.DataFrame]:
                  "category": "필요유지자기자본",
                  "amount": n.required_capital, "citation": "제3-6조 (최저×70%)"})
     ncr = pd.DataFrame(rows, columns=cat.NCR_COMPONENT.column_names)
-    return {"mkt_trade": trade, "mkt_ipv": ipv, "ncr_component": ncr}
+    out.update({"mkt_trade": trade, "mkt_ipv": ipv, "ncr_component": ncr})
+    return out
 
 
 
