@@ -41,7 +41,7 @@
 
 ## 4. 사용 가능한 문구
 
-- 영문 (풀 문장, 보험 A, **정밀 버전**): `With the NAIC's AI model bulletin adopted in roughly half the states and state-specific AI frameworks in four more, insurer AI use is now regulated in roughly 29 jurisdictions, and a 12-state examination pilot of the NAIC's AI Systems Evaluation Tool runs through September 2026.`
+- 영문 (풀 문장, 보험 A, **정밀 버전**): `With the NAIC's AI model bulletin adopted in roughly half the states and state-specific AI frameworks in four more, roughly 29 jurisdictions have AI-specific regulatory guidance or frameworks in place for insurers, and a 12-state examination pilot of the NAIC's AI Systems Evaluation Tool runs through September 2026.`
 - 영문 (짧은 형, 보험 A): `the NAIC's 12-state exam pilot making insurer AI governance an exam item`
 - 영문 (풀 문장, 자산운용 B, 마스터 카피 T1-B와 정합): `There's no binding model governance rule for asset managers, but the SEC's FY2026 exam priorities do put AI-use policies, supervision, and the accuracy of AI claims on the exam agenda.`
 - 국문 (내부용): `NAIC 불레틴은 약 25개 주 + DC가 채택했고 자체 프레임 4개 주를 합치면 약 29개 관할이 보험사 AI를 규율한다. 12개 주 검사 파일럿이 2026-09까지 진행 중이다. 자산운용은 구속력 규칙 없이 SEC 시험 우선순위만 유효하다.`

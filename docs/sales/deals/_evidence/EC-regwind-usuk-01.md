@@ -37,7 +37,7 @@
 
 ## 4. 사용 가능한 문구
 
-- 영문 (풀 문장, US): `SR 26-2, effective April 2026, replaced SR 11-7 and explicitly placed generative and agentic AI outside its scope, noting they require a separate governance framework. The validation expectations for traditional models remain, and a new governance gap is now on the record.`
+- 영문 (풀 문장, US): `SR 26-2, effective April 2026, replaced SR 11-7 and explicitly placed generative and agentic AI outside its scope, noting they call for a separate governance framework. The validation expectations for traditional models remain, and a new governance gap is now on the record.`
 - 영문 (풀 문장, UK): `PRA SS1/23 has been in force since May 2024, and its Principle 4 makes independent model validation an explicit supervisory expectation.`
 - 영문 (짧은 형, 카피 삽입용): `SR 26-2 carved generative and agentic AI out for separate governance; SS1/23 Principle 4 codified independent validation`
 - 국문 (내부용): `SR 26-2가 생성형·에이전틱 AI를 별도 거버넌스로 떼어냈고, SS1/23 원칙 4는 독립검증을 명문화했다.`

@@ -19,7 +19,7 @@ A two-page briefing for heads of model validation and model risk at UK firms. Po
 
 ## What SS1/23 says, and to whom it applies
 
-The PRA's supervisory statement SS1/23 on model risk management has been in force since May 2024. It sets out five principles, and Principle 4 makes independent model validation an explicit supervisory expectation.
+The PRA's supervisory statement SS1/23 on model risk management has applied since May 2024. It sets out five principles, and Principle 4 makes independent model validation an explicit supervisory expectation.
 
 Scope, stated plainly: SS1/23 applies to UK-incorporated banks, building societies, and PRA-designated investment firms that hold internal model approval for regulatory capital purposes. If your firm sits outside that formal scope, nothing in this note creates an obligation; the principles can still serve as a reference point when setting internal standards, but that is a choice, not a requirement.
 
@@ -61,4 +61,4 @@ OneLineAI is a research-driven team working on AI governance and model assurance
 
 ---
 
-This note is for general information, not legal or compliance advice. Positions are stated as of August 2026 and may change.
+This note is provided for general information only. It is not legal, compliance, or regulatory advice, and it is not a substitute for advice from qualified counsel or your own legal and compliance functions in your jurisdiction. Summaries of regulatory documents are ours, not the regulators'; the original texts govern. No regulator referenced in this note has reviewed or endorsed this note or our products. Positions are stated as of August 2026 and may change.

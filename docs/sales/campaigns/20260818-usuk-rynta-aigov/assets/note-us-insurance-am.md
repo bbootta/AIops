@@ -23,7 +23,7 @@ A two-page briefing for risk, compliance, and actuarial governance leaders. The 
 
 The NAIC's Model Bulletin on the Use of Artificial Intelligence Systems by Insurers, adopted in December 2023, asks insurers for a written AI systems (AIS) program; board and senior management accountability; risk controls; validation and bias and error testing of models; and oversight of third-party AI, with responsibility remaining with the insurer.
 
-Adoption has spread. As of mid-2026, roughly 25 states plus the District of Columbia have adopted the bulletin, and four further states (California, Colorado, New York, and Texas) operate their own AI frameworks for insurers. Taken together, insurer AI use is regulated in roughly 29 jurisdictions. These counts continue to move; treat them as approximate and check current adoption against your own state footprint before relying on them.
+Adoption has spread. As of mid-2026, roughly 25 states plus the District of Columbia have adopted the bulletin, and four further states (California, Colorado, New York, and Texas) operate their own AI frameworks for insurers. Taken together, roughly 29 jurisdictions have adopted AI-specific regulatory guidance or frameworks that apply to insurers. The bulletin itself is regulatory guidance issued under existing state law rather than a new statute or regulation. These counts continue to move; treat them as approximate and check current adoption against your own state footprint before relying on them.
 
 ## The 12-state examination pilot
 
@@ -66,4 +66,4 @@ OneLineAI is a research-driven team working on AI governance and model assurance
 
 ---
 
-This note is for general information, not legal or compliance advice. Positions are stated as of August 2026 and may change.
+This note is provided for general information only. It is not legal, compliance, or regulatory advice, and it is not a substitute for advice from qualified counsel or your own legal and compliance functions in your jurisdiction. Summaries of regulatory documents are ours, not the regulators'; the original texts govern. No regulator referenced in this note has reviewed or endorsed this note or our products. Positions are stated as of August 2026 and may change.

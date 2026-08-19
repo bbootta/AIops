@@ -66,4 +66,4 @@ OneLineAI is a research-driven team working on AI governance and model assurance
 
 ---
 
-This note is for general information, not legal or compliance advice. Positions are stated as of August 2026 and may change; in particular, the final guidelines may differ from the consultation described here.
+This note is provided for general information only. It is not legal, compliance, or regulatory advice, and it is not a substitute for advice from qualified counsel or your own legal and compliance functions in your jurisdiction. Summaries of regulatory documents are ours, not the regulators'; the original texts govern. No regulator referenced in this note has reviewed or endorsed this note or our products. Positions are stated as of August 2026 and may change. In particular, the final guidelines may differ from the consultation described here.

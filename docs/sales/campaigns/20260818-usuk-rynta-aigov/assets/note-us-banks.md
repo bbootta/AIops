@@ -22,14 +22,14 @@ In April 2026, the US federal banking agencies (the Federal Reserve, OCC, and FD
 For validation teams, two points carry most of the weight:
 
 1. **Validation expectations for traditional models remain.** SR 26-2 keeps independent validation as a supervisory expectation for the models it covers. Nothing in the revision reduces the need to validate the traditional book.
-2. **Generative and agentic AI now sit outside the guidance.** SR 26-2 explicitly places generative and agentic AI outside its scope and notes that they require a separate governance framework. The guidance names the gap; it does not fill it.
+2. **Generative and agentic AI now sit outside the guidance.** SR 26-2 explicitly places generative and agentic AI outside its scope and notes that they call for a separate governance framework. Like other SR letters, SR 26-2 is supervisory guidance rather than a binding rule; it frames what examiners look for. The guidance names the gap; it does not fill it.
 
 ## What this means in practice
 
 In our reading, the revision splits the work of a model risk function into two tracks that need different treatment:
 
 - **The traditional track.** The inventory keeps growing as machine learning models enter production, and each material model still needs independent validation. The practical question is capacity: review depth, backlog, and whether the evidence behind each validation is reproducible when someone later asks how a conclusion was reached.
-- **The separate governance track.** For generative and agentic AI, SR 26-2 does not hand banks a prescriptive framework. Each institution has to decide what its separate governance framework contains, who owns it, and how it connects to the existing model risk function. In many organizations this work lands, at least initially, on validation teams that are already at capacity.
+- **The separate governance track.** For generative and agentic AI, SR 26-2 does not hand banks a prescriptive framework. Each institution is left to decide what its separate governance framework contains, who owns it, and how it connects to the existing model risk function. In many organizations this work lands, at least initially, on validation teams that are already at capacity.
 
 ## Questions worth being ready to answer
 
@@ -59,4 +59,4 @@ OneLineAI is a research-driven team working on AI governance and model assurance
 
 ---
 
-This note is for general information, not legal or compliance advice. Positions are stated as of August 2026 and may change.
+This note is provided for general information only. It is not legal, compliance, or regulatory advice, and it is not a substitute for advice from qualified counsel or your own legal and compliance functions in your jurisdiction. Summaries of regulatory documents are ours, not the regulators'; the original texts govern. No regulator referenced in this note has reviewed or endorsed this note or our products. Positions are stated as of August 2026 and may change.
