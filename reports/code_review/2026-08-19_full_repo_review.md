@@ -400,6 +400,19 @@ market_portfolio`
 | `10-ui-studio-integration-ops-pages-datamodel.md` | 8856-line app.py/ops_pages/datamodel/integration | CRITICAL ×5, HIGH ×4, MEDIUM ×5, LOW ×1 |
 | `11-tests.md` | tests/ 40 개 파일 | 커버리지 공백 CRITICAL ×1, HIGH ×2 + 20+ 개선 |
 
+## 6-1. 베이스라인 테스트 결과 (HEAD `60bda57`)
+
+리뷰와 병렬로 `pytest tests/` 를 실행: **2180 passed, 11 skipped, 0 failed
+(42분 24초)**. 이는 리뷰의 중심 메시지를 강화한다: 이번에 발견된 CRITICAL 15건과
+HIGH 45건 대부분이 **현재 테스트 스위트에서 잡히지 않는다**. §5-2 "약한 곳" 이 지적한
+- 항등식 tautological check (BR-08 tol swallow, B2602-2 등),
+- 조용한 폴백 (미주입 = PASS, `_headline` NaN→0.0),
+- 커버리지 공백 (10개 core 모듈 무테스트, output floor 심도 반응 미검증)
+- 세션 fixture 위반 20+ 개, 벽시계 asof 사용
+
+이 그대로 "green CI + 조용한 결함" 을 낳는다는 것을 실측으로 확인. §5-2 "HIGH,
+아키텍처 불변식 grep 없음" 항목이 이번 CRITICAL 다수의 **PR 단계 발견을 놓친 뿌리 원인**.
+
 ## 7. 권장 조치 순서
 
 **Phase 1, fail-closed 무결성 회복 (즉시)**
