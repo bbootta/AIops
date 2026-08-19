@@ -2,6 +2,7 @@
 
 > 저장 경로: `docs/sales/campaigns/20260818-usuk-rynta-aigov/research/us-b5-mt-bank.md`
 > Tier 1~2 레코드는 이 산출물(30일 이내 작성분) 없이 시퀀스에 투입할 수 없다 [G4].
+> 3차 배치(2026-08-19) 갱신: 재상신 대기 건의 시그널 일자 확정 조사 반영.
 
 | 항목 | 내용 |
 |---|---|
@@ -10,30 +11,31 @@
 | 작성 에이전트 | prospect-researcher |
 | 검토 | sales-lead (대기) |
 | 승인 | PO (앵글 선택 §7, 보류 해제 §1에 한함) 미서명 |
-| 기준일 | 2026-08-19 (유효기간: 2026-09-18까지) |
+| 기준일 | 2026-08-19 (유효기간: 2026-09-18까지) · 3차 배치 일자 확정 조사 반영 |
 
 ## 1. 판정 요약
 
-- **투입 판정: 발송 보류 (보류 유지 권고)**
-- [G4] "왜 이 사람, 왜 지금" 한 문장: 현재로서는 답하지 못한다. 시그널의 실체는 있으나(전사 생성형 AI 사용 22,000명 중 16,000명, CDO 주도 데이터·AI 현대화) 유효창(30~120일) 내 일자가 확정된 시그널이 없다.
-- 보류 유지 사유: (1) 신임 CRO 시그널은 2025-01 보도로 유효창 대폭 경과, (2) 전사 생성형 AI 규모(16,000명) 보도의 게재 일자를 확정하지 못함(원문 접근 차단), (3) 어닝콜·채용 등 최신 실측 시그널 미확보.
-- **재상신 조건**: American Banker/CDO Magazine 기사 일자 확정, 또는 신규 시그널(어닝콜 AI 발언, AI 거버넌스·모델검증 채용공고) 확보 시 재상신한다.
+- **투입 판정: 발송 보류 (보류 유지 확정)**
+- [G4] "왜 이 사람, 왜 지금" 한 문장: 현재로서는 답하지 못한다. 2차 배치에서 미확정이던 "전사 생성형 AI 16,000명" 기사의 게재일을 **2025-09-18로 확정**했고, 이는 기술 도입 시그널 유효창(1~6개월)을 명확히 벗어난다. Q2 2026 어닝콜(2026-07-15)에서도 AI 관련 구체 발언은 확인되지 않았다.
+- 3차 확정 결과(과제 지시): (1) American Banker 기사 게재일 2025-09-18 확정 = 시그널 만료 확정, (2) Q2 2026 콜은 기술 인프라·사이버보안 투자와 Seneca One 테크 허브 5주년 언급 수준으로 AI 구체 발언 미확인.
+- **재상신 조건 (갱신)**: 유효창 내 신규 시그널(어닝콜의 구체적 AI 발언, AI 거버넌스·모델검증 채용공고, 신임 임원) 확보 시에만 재상신한다. 기존 16,000명 기사는 만료 시그널로 재사용하지 않는다.
 - **보류 해제는 PO만 할 수 있다 [G1].** 해제 기록: 없음.
 
 ## 2. 시그널 (강제 필드)
 
 | 종류 | 내용 | 일자 | 출처 (URL) |
 |---|---|---|---|
-| 신임 CRO (유효창 경과, 맥락) | Neeraj Singh CRO 선임(USAA CRO 4년, Citi 미국 소비자은행 CRO 4년, TD 소비자리스크·모델·자본평가 5년+ 경력). 전임 Mike Todaro 은퇴 후임 | 2025-01 (보도) | https://www.bankingdive.com/news/mt-bank-names-new-risk-chief-singh/738515/ |
-| 전사 생성형 AI (일자 미확정) | 직원 22,000명 중 16,000명이 생성형 AI(Microsoft Copilot 채택)로 이메일·보고서 초안, 콜센터 대화 요약 수행 | 일자 미확정 [확정 필요] | https://www.cdomagazine.tech/aiml/what-it-takes-to-modernize-a-165-year-old-bank-for-ai-lessons-from-mt-banks-cdo , https://www.americanbanker.com/news/how-m-t-bank-ensures-data-quality-as-it-implements-gen-ai |
-| 데이터·AI 현대화 (경과, 맥락) | CDO 주도: 연합(federated) 데이터 소유 모델, 데이터+AI 관측성, Solidatus 기반 데이터 거버넌스·계보 | 2025-05-09 (Forbes) | https://www.forbes.com/sites/randybean/2025/05/09/how-data-and-ai-are-driving-business-transformation-at-mt-bank/ , https://www.solidatus.com/resource/unifying-the-enterprise-how-mt-bank-is-rewriting-the-rules-of-data-governance-with-solidatus/ |
+| 전사 생성형 AI (**일자 확정, 유효창 만료**) | 직원 22,000명 중 16,000명이 생성형 AI(Microsoft Copilot)로 이메일·보고서 초안, 콜센터 대화 요약 수행 | **2025-09-18 (게재일 확정, 3차 조사)** | https://www.americanbanker.com/news/how-m-t-bank-ensures-data-quality-as-it-implements-gen-ai |
+| 어닝콜 (AI 구체 발언 미확인) | Q2 2026 콜: 기록적 실적. 기술 인프라·사이버보안 투자 증가($10M), 테크 허브 5주년, 신규 GL 시스템 언급. AI 구체 발언은 검색 요약 기준 미확인 | 2026-07-15 | https://www.investing.com/news/transcripts/earnings-call-transcript-mt-bank-posts-record-q2-2026-profit-beats-estimates-93CH-4793454 |
+| 신임 CRO (유효창 경과, 맥락) | Neeraj Singh CRO 선임(USAA CRO, Citi 미국 소비자은행 CRO, TD 모델·자본평가 경력) | 2025-01 (보도) | https://www.bankingdive.com/news/mt-bank-names-new-risk-chief-singh/738515/ |
+| 데이터·AI 현대화 (경과, 맥락) | CDO 주도: 연합 데이터 소유 모델, 데이터+AI 관측성, Solidatus 기반 데이터 거버넌스·계보 | 2025-05-09 | https://www.forbes.com/sites/randybean/2025/05/09/how-data-and-ai-are-driving-business-transformation-at-mt-bank/ |
 
-- 유효기간 판정(KB03 §5.2): 신임 임원 유효창(부임 후 30~120일)은 경과. 기술 도입 시그널(1~6개월)은 일자 미확정으로 판정 불가. 정직하게 "유효 시그널 없음, 보류 유지"로 둔다.
-- 정직 표기: 시그널이 "없다"기보다 "일자를 확정하지 못했다"에 가깝다. 계정 자체의 ICP 적합성(자산 $200bn+, MRM 실재 개연, AI 확산 실재)은 높다.
+- 유효기간 판정(KB03 §5.2): 모든 AI·임원 시그널이 유효창 밖으로 확정됐다. 유효 시그널 0건.
+- 정직 표기: 계정 자체의 ICP 적합성(자산 $200bn+, MRM 실재 개연, AI 확산 실재)은 여전히 높다. 시그널 재고가 소진된 것이지 계정이 부적합해진 것이 아니다.
 
 ## 3. 가설
 
-(재상신 대비 기록) 16,000명이 쓰는 생성형 AI는 그 자체로 거버넌스 대상의 대량 존재를 의미하고, CDO가 계보·관측성 인프라를 갖춰가는 조직은 "감사 가능한 AI 통제 계층"의 가치를 이해할 준비도가 높다. CRO가 모델·자본평가 배경(TD 시절) 보유자라는 점도 PRD-VAL 대화 감수성에 긍정적 가설. 단, "왜 지금"이 성립하려면 유효창 내 사건이 필요하다.
+(재상신 대비 기록) 16,000명이 쓰는 생성형 AI는 거버넌스 대상의 대량 존재를 의미하고, CDO가 계보·관측성 인프라를 갖춰가는 조직은 "감사 가능한 AI 통제 계층"의 가치를 이해할 준비도가 높다. CRO가 모델·자본평가 배경 보유자라는 점도 PRD-VAL 대화 감수성에 긍정적 가설. 단, "왜 지금"이 성립하려면 유효창 내 사건이 필요하다.
 
 ## 4. 타깃 인물
 
@@ -49,7 +51,7 @@
 
 ## 5. 훅 1문장
 
-- 해당 없음 (유효창 내 시그널 일자 미확정. 시그널 없이 훅을 만들지 않는다)
+- 해당 없음 (유효창 내 시그널 0건 확정. 시그널 없이 훅을 만들지 않는다)
 
 ## 6. Anti-ICP 배제 확인
 
@@ -62,7 +64,7 @@
 
 | # | 앵글 | 근거 시그널 | 예상 채널 |
 |---|---|---|---|
-| 1 | 전사 생성형 AI 거버넌스: 16,000명 사용 환경의 가드레일·감사 원장 코드화 (PRD-AIG) | 전사 gen AI (일자 확정 후) | 이메일 |
+| 1 | 전사 생성형 AI 거버넌스: 대규모 사용 환경의 가드레일·감사 원장 코드화 (PRD-AIG) | 신규 유효 시그널 필요 | 이메일 |
 | 2 | CRO 어젠다 정렬: 모델·자본평가 배경 CRO에 독립검증 상시화 제안 (PRD-VAL) | 신임 CRO(맥락) + 신규 시그널 필요 | 이메일 / LinkedIn |
 
 - **앵글 선택은 PO 전속 결정이다 [G1].** 선택 기록: 미선택 / PO 서명 없음 / 날짜 없음
