@@ -29,7 +29,7 @@ What makes Principle 4 topical now is timing. The expectation of independent val
 
 Our practical reading: as AI and ML models join the inventory, questions about independent validation tend to concentrate in four places.
 
-1. **Capacity against inventory growth.** More models and deeper reviews with the same headcount pushes validation into annual cycles where the backlog, rather than risk, decides the schedule.
+1. **Capacity against inventory growth.** More models and deeper reviews with the same headcount push validation into annual cycles where the backlog, rather than risk, decides the schedule.
 2. **Independence of judgement, not just reporting lines.** Where validators rely on the development team's own tooling and outputs to check a model, independence weakens in practice even when the organisation chart says otherwise.
 3. **Point-in-time conclusions on adaptive models.** A model reviewed once a year can change behaviour between reviews. For models that learn or degrade, the validation conclusion ages faster than the review cycle.
 4. **Reproducibility of the conclusion.** Whether a different reviewer, months later, could reach and defend the same validation conclusion from what was recorded at the time.

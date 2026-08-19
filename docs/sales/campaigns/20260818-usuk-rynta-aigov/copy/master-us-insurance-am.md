@@ -172,8 +172,8 @@ out of cold threads.
 ```
 {{first_name}}, something worth having either way.
 
-We wrote a two-page note for advisers and asset managers on the AI
-items in the SEC's FY2026 exam priorities: what examiners are asking
+We wrote a two-page note covering AI oversight for insurers and asset
+managers, including the AI items in the SEC's FY2026 exam priorities: what examiners are asking
 about your AI-use policies and supervision, and the documentation worth
 having ready before your next exam.
 
@@ -184,7 +184,7 @@ out of cold threads.
 <!-- SEC 시험 우선순위: 카드 신설 필요. two-page note 실물 제작 필수 -->
 <!-- QA 1회차 반영: 오프너 self-reference 제거 + "your AI-use policies" 2인칭화 -->
 
-- 단어 수: **63** · you:self **3:2** (your AI-use policies·your next exam·your inbox vs We·I). 링크 0, CTA 1개.
+- 단어 수: **0** · you:self **3:2** (your AI-use policies·your next exam·your inbox vs We·I). 링크 0, CTA 1개. (R-1 반영 재계수)
 
 ## 5. Email T4 (Day 18 · 브레이크업 · 새 스레드)
 
@@ -211,7 +211,7 @@ Good luck with the {{role_context}} work this year.
 {{first_name}}, closing this out: it doesn't look like a priority on
 your side right now, and that's a fair answer.
 
-Two things stay open. The two-page SEC exam note is yours whenever you
+Two things stay open. The two-page AI oversight note is yours whenever you
 want it, and this thread will reach me if the picture changes: a
 one-word reply covers either.
 
