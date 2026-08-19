@@ -1,10 +1,11 @@
 # 타깃 계정 (기관 단위) - US/UK · RYNTA AI거버넌스·독립검증 쐐기
 
 > 저장 경로: `docs/sales/campaigns/20260818-usuk-rynta-aigov/target-accounts.md`
-> 작성: prospect-researcher · 기준일: 2026-08-18 · 2차 확장 갱신: 2026-08-19 · 3차 배치 갱신: 2026-08-19 · **4차 배치 갱신: 2026-08-19** · 상태: 초안 (PO 확정 필요, G4)
+> 작성: prospect-researcher · 기준일: 2026-08-18 · 2차 확장 갱신: 2026-08-19 · 3차 배치 갱신: 2026-08-19 · 4차 배치 갱신: 2026-08-19 · **5차 국가 확장(SG/AU) 갱신: 2026-08-19** · 상태: 초안 (PO 확정 필요, G4)
 > 2차 갱신 요지: (1) 계정 리서치 2차 배치 12건 반영(§5), (2) 풀을 총 75개+ 활성 기관으로 확장(수백 통 규모 산수 §7), (3) Virgin Money·Comerica 재분류 표기.
 > 3차 갱신 요지: (1) 3차 배치 12건 반영(신규 10 + M&T·Ally 갱신 2, §5), (2) 합병 상태 확정(Pinnacle-Synovus 완료, PNC-FirstBank 전환 완료, UMB·Old National 통합 종료), (3) 해제 상신 8건 추가, (4) 티어 조정 제안 3건(§6).
 > 4차 갱신 요지: (1) 4차 배치 15건 반영(브로커딜러 5, US 미드사이즈 4, UK 6, §5), (2) **브로커딜러 세그먼트 공통 규제 프레임 확정**(FINRA 2026 감독보고서 2025-12, SEC FY2026 시험 우선순위 2025-11. SR 26-2는 브로커딜러 카피에 쓰지 않는다), (3) **Webster 재분류 상신**(Santander $12.3bn 인수, 연준 승인 2026-08-04, 클로징 2026-08-20 예정), (4) 해제 상신 10건 추가(누계 32~34), (5) 150명+ 도달 경로 재판단(§7).
+> 5차 갱신 요지 (PO 결정: 국가 확장): (1) **싱가포르(§8)·호주(§9) 후보 발굴** 각 11~13곳 + 메가·빅4 S1 판정, (2) 관할 공통 규제 프레임 실측(SG: MAS AIRG 확정 임박 / AU: APRA AI 서한 2026-04-30·CPS 230), (3) 상위 8곳 리서치 산출물 작성(SG 4·AU 4, §5 5차 배치), (4) **SG/AU 전건 "컴플라이언스 프레임 대기 + 발송 보류"**(조건부 국가, G9), (5) 수신자 증분 추정(§10).
 
 ## 사용 규칙 (먼저 읽을 것)
 
@@ -12,7 +13,7 @@
 - **"리서치 대기" 계정의 시그널은 전부 [검증 필요]다.** "찾아야 할 시그널"은 실측 사건이 아니라 탐지해야 할 유형이다. 실측(사건·날짜·출처) 없이는 발송하지 않는다(G4).
 - **Tier 1~2 전건은 발송 보류로 시작한다(G4).** 리서치 산출물(§5)이 있는 계정도 보류 해제 전에는 발송 불가. **보류 해제는 PO 전속(G1).**
 - **계정 유형·규모는 공개 정보 기반 후보 분류이며 근거는 가설이다.** 총자산·규제 상태·조직은 리스트 구축 단계에서 확정한다([검증 필요]).
-- **관할은 국가 단위(US / UK). "EU" 세그먼트 없음(G9).**
+- **관할은 국가 단위(US / UK / SG / AU). "EU" 세그먼트 없음(G9).** SG·AU는 조건부 국가로, sales-compliance-officer의 국가별 컴플라이언스 프레임 확정 전에는 발송 큐 진입 불가.
 
 ---
 
@@ -177,6 +178,7 @@ PRA 지정 투자회사 (지정 여부 전건 [검증 필요], Tier 3 가배정)
 
 - Barclays, HSBC UK, Lloyds Banking Group, NatWest Group, Standard Chartered, Santander UK: 부서 단위 접근은 PO 승인 시에만.
 - (4차 추가 주석) Santander는 Webster(US-B17) 인수 클로징(2026-08-20 예정)으로 US 리테일 확장. Santander US 부서 접근 여부는 이 목록의 PO 승인 경로로만 검토.
+- (5차 추가 주석) Standard Chartered는 SG의 Trust Bank(SG-B3) 대주주(~60%)다. Trust Bank의 독립 계정 취급 여부는 §8 및 PO 결정 대기(§6) 참조.
 
 ### 2.5 UK 함정 (compliance-frame 연동)
 
@@ -195,21 +197,22 @@ PRA 지정 투자회사 (지정 여부 전건 [검증 필요], Tier 3 가배정)
 - 티어 가배정 수치는 리서치 대기분의 가설 배정 포함. 티어 조정 제안(3차: US-B14 상향, US-B21 상향, UK-B8 하향)은 PO 승인 후 반영(§6).
 - 국가별 분포: US / UK 이원, "EU" 세그먼트 없음(G9 준수).
 - 검증 상태: **리서치 산출물 45건**(1차 8 + 2차 12 + 3차 신규 10 + 4차 15, 별도로 3차에서 M&T·Ally 2건 갱신. 재분류 3 포함). 나머지 전건 리서치 대기·[검증 필요].
+- (5차 주석) SG/AU 확장분은 이 표에 합산하지 않고 §10에서 별도 집계한다(컴플라이언스 프레임 미확정 상태의 분모 혼입 방지).
 
 ---
 
 ## 4. 발송 보류 목록 (G4) - 전건
 
-**활성 후보 전건이 발송 보류다.** 공통 사유: (1) 개인 연락처·수신근거·jurisdiction 필드 미충족(G9), (2) UK는 LIA ID·보관기간 만료일 미공급(sales-compliance-officer 대기), (3) suppression 리스트 미구축. 리서치 대기 계정은 추가로 실측 시그널·산출물 부재.
+**활성 후보 전건이 발송 보류다.** 공통 사유: (1) 개인 연락처·수신근거·jurisdiction 필드 미충족(G9), (2) UK는 LIA ID·보관기간 만료일 미공급(sales-compliance-officer 대기), (3) suppression 리스트 미구축. 리서치 대기 계정은 추가로 실측 시그널·산출물 부재. **(5차 추가) SG/AU는 국가별 컴플라이언스 프레임 자체가 미구축이므로 시그널 강도와 무관하게 전건 "컴플라이언스 프레임 대기 + 발송 보류"다(§8~§9).**
 
 보류 상태 세분(리서치 완료분):
 
-- **해제 상신 권고(강)**: US-B1, US-B3, US-B6 / UK-B4 (+1차 상신분: US-B2, UK-S1 등 1차 산출물 참조) / 3차: US-B14(Pinnacle), US-B27(Synchrony), UK-B9(Shawbrook), UK-B10(Starling) / **4차 추가: US-D6(Interactive Brokers), US-D7(Ameriprise)**
-- **해제 상신 권고(중)**: US-B9, US-B10 / UK-S5, UK-B3, UK-B5 / 3차: US-B11(PNC, S1 근접 조건부), US-B13(First Citizens), US-B21(Old National), UK-B11(Monzo) / **4차 추가: US-D5(Schwab, S1 근접 조건부), US-D8(Edward Jones), US-B12(U.S. Bancorp, 상한·S1 근접 조건부), US-B15(Western Alliance), US-B16(First Horizon), UK-B6(Close Brothers, 재무 스트레스 주의), UK-B7(Investec), UK-S9(Nottingham, Tier 3)**
-- **보류 유지**: US-B5(시그널 만료 확정), US-B7(원문 접근 불가·총론), 3차: US-B24(UMB), UK-B8(Aldermore) / **4차 추가: US-D9(Jefferies, 내부 시그널 없음), UK-S6(Principality, 총론만), UK-S7(West Brom, 유효창 경과·총론), UK-S8(Newcastle, 확정 시그널 없음)**
-- **보류 유지 + 재분류 상신**: US-B8(→US-B3), UK-B1(→UK-S1), **4차 추가: US-B17(Webster → 제외. Santander 인수 클로징 2026-08-20 예정, 흡수처가 §2.4 목록)**
+- **해제 상신 권고(강)**: US-B1, US-B3, US-B6 / UK-B4 (+1차 상신분: US-B2, UK-S1 등 1차 산출물 참조) / 3차: US-B14(Pinnacle), US-B27(Synchrony), UK-B9(Shawbrook), UK-B10(Starling) / 4차: US-D6(Interactive Brokers), US-D7(Ameriprise) / **5차 추가(전건 컴플라이언스 프레임 확정 조건부): SG-S1(iFAST), SG-S2(Moomoo SG), AU-B1(Bendigo)**
+- **해제 상신 권고(중)**: US-B9, US-B10 / UK-S5, UK-B3, UK-B5 / 3차: US-B11(PNC, S1 근접 조건부), US-B13(First Citizens), US-B21(Old National), UK-B11(Monzo) / 4차: US-D5(Schwab, S1 근접 조건부), US-D8(Edward Jones), US-B12(U.S. Bancorp, 상한·S1 근접 조건부), US-B15(Western Alliance), US-B16(First Horizon), UK-B6(Close Brothers, 재무 스트레스 주의), UK-B7(Investec), UK-S9(Nottingham, Tier 3) / **5차 추가(전건 컴플라이언스 프레임 확정 조건부): SG-B1(GXS), SG-B3(Trust Bank, 그룹 관계 PO 판단 조건부), AU-B2(BOQ), AU-B3(Judo, AI 시그널 일자 미확정 명기), AU-B4(AMP Bank, AI 특정 시그널 부재 명기)**
+- **보류 유지**: US-B5(시그널 만료 확정), US-B7(원문 접근 불가·총론), 3차: US-B24(UMB), UK-B8(Aldermore) / 4차: US-D9(Jefferies, 내부 시그널 없음), UK-S6(Principality, 총론만), UK-S7(West Brom, 유효창 경과·총론), UK-S8(Newcastle, 확정 시그널 없음)
+- **보류 유지 + 재분류 상신**: US-B8(→US-B3), UK-B1(→UK-S1), 4차: US-B17(Webster → 제외. Santander 인수 클로징 2026-08-20 예정, 흡수처가 §2.4 목록)
 
-**보류 해제는 PO 전속이다(G1).** 해제 조건: 실측 시그널 + 30일 이내 산출물 + G9 필드 충족 + SOC 2 미보유 전제의 디자인 파트너 구조 유지(PO 확인 2026-08-18).
+**보류 해제는 PO 전속이다(G1).** 해제 조건: 실측 시그널 + 30일 이내 산출물 + G9 필드 충족 + SOC 2 미보유 전제의 디자인 파트너 구조 유지(PO 확인 2026-08-18). **SG/AU는 추가로 국가별 컴플라이언스 프레임 확정이 선결 조건이다.**
 
 ---
 
@@ -220,7 +223,8 @@ PRA 지정 투자회사 (지정 여부 전건 [검증 필요], Tier 3 가배정)
 - **2차 배치 (2026-08-19, 12건)**: us-b1-regions-financial, us-b3-fifth-third, us-b5-mt-bank, us-b6-citizens, us-b7-ally, us-b8-comerica(재분류), us-b9-zions, us-b10-truist, uk-s5-leeds, uk-b3-metro-bank, uk-b4-osb-group, uk-b5-paragon
 - **3차 배치 (2026-08-19, 신규 10건 + 갱신 2건)**: 신규 us-b11-pnc, us-b13-first-citizens, us-b14-pinnacle-synovus, us-b21-old-national, us-b24-umb, us-b27-synchrony, uk-b8-aldermore, uk-b9-shawbrook, uk-b10-starling, uk-b11-monzo · 갱신 us-b5-mt-bank(일자 확정), us-b7-ally(콜 일자 정정·원문 확인 결과)
 - **4차 배치 (2026-08-19, 15건)**: us-d5-charles-schwab, us-d6-interactive-brokers, us-d7-ameriprise, us-d8-edward-jones, us-d9-jefferies, us-b12-us-bancorp, us-b15-western-alliance, us-b16-first-horizon, us-b17-webster(재분류), uk-b6-close-brothers, uk-b7-investec, uk-s6-principality, uk-s7-west-brom, uk-s8-newcastle, uk-s9-nottingham
-- 5차 배치 후보: §1.2 브로커딜러 잔여(D1~D4), §1.5 잔여 미드사이즈(B18~B20, B22~B23, B25~B26, B28, B29는 S1 주의), §2.3 잔여(B13~B18, P1~P3, B12는 PO 판정 후), §1.3 보험·운용(PO 편입 승인 시), 보류 유지분 재탐지(M&T, Ally, UMB, Aldermore, Jefferies, S6~S8).
+- **5차 배치 (2026-08-19, SG/AU 국가 확장 8건)**: sg-b1-gxs-bank, sg-b3-trust-bank, sg-s1-ifast, sg-s2-moomoo-sg, au-b1-bendigo, au-b2-boq, au-b3-judo, au-b4-amp-bank
+- 차기 배치 후보: §1.2 브로커딜러 잔여(D1~D4), §1.5 잔여 미드사이즈(B18~B20, B22~B23, B25~B26, B28, B29는 S1 주의), §2.3 잔여(B13~B18, P1~P3, B12는 PO 판정 후), §1.3 보험·운용(PO 편입 승인 시), 보류 유지분 재탐지(M&T, Ally, UMB, Aldermore, Jefferies, S6~S8), **SG/AU 잔여(§8~§9 리서치 대기분, 컴플라이언스 프레임 확정 후)**.
 
 ---
 
@@ -229,13 +233,19 @@ PRA 지정 투자회사 (지정 여부 전건 [검증 필요], Tier 3 가배정)
 - [ ] 티어링 확정(2차 확장분 포함 Tier 배정 승인)
 - [ ] **3차 티어 조정 제안 승인**: US-B14 Pinnacle Tier 2 → Tier 1 상향, US-B21 Old National Tier 3 → Tier 2 상향, UK-B8 Aldermore Tier 2 → Tier 3 하향
 - [ ] **US-B14 단일 계정 처리 승인**: Synovus를 Pinnacle로 흡수(합병 완료 2026-01-01 확정)
-- [ ] **S1 근접 계정의 기능 단위 좁은 접근 전제 승인**: US-B11 PNC(3차), **4차 추가: US-D5 Charles Schwab, US-B12 U.S. Bancorp**
-- [ ] 재분류 승인: US-B8 Comerica → US-B3 흡수, UK-B1 Virgin Money → UK-S1 흡수, **4차 추가: US-B17 Webster → 제외(Santander 인수, 클로징 2026-08-20 예정)**
+- [ ] **S1 근접 계정의 기능 단위 좁은 접근 전제 승인**: US-B11 PNC(3차), 4차 추가: US-D5 Charles Schwab, US-B12 U.S. Bancorp
+- [ ] 재분류 승인: US-B8 Comerica → US-B3 흡수, UK-B1 Virgin Money → UK-S1 흡수, 4차 추가: US-B17 Webster → 제외(Santander 인수, 클로징 2026-08-20 예정)
 - [ ] UK-B2 TSB 소유권 변동(Santander 인수 보도) 확인 후 재분류 여부
 - [ ] UK-B12 OakNorth의 경쟁 인접(H5) 여부 판정
 - [ ] 부서접근-PO승인 대상(§1.4, §2.4) 접근 여부 (Webster 제외 시 Santander US 부서 접근 여부 포함)
 - [ ] **보험·자산운용 세그먼트(§1.3) 편입 여부: §7 재판단에 따라 150명+ 도달에 사실상 필요. 우선 결정 요청**
 - [ ] 발송 보류 해제(계정별: §4 상신 목록)
+- [ ] **(5차) SG/AU 컴플라이언스 프레임 구축 착수 지시**: sales-compliance-officer에 SG(Spam Control Act·PDPA)·AU(Spam Act 2003 동의 요건) 프레임 위임. 확정 전 SG/AU 전건 발송 불가(G9)
+- [ ] **(5차) 캠페인 ID 처리**: SG/AU 확장분을 본 캠페인(20260818-usuk-rynta-aigov)에 유지할지, 별도 캠페인으로 분리할지
+- [ ] **(5차) SG 메가 3사(DBS·OCBC·UOB)·AU 빅4+Macquarie 부서 단위 접근 여부** (§8.1, §9.1. 전사 타깃 금지 전제)
+- [ ] **(5차) SG-B3 Trust Bank 그룹 관계 처리**: 대주주 Standard Chartered가 §2.4 목록. 독립 로컬 계정 취급 여부
+- [ ] **(5차) 비은행 세그먼트 편입 판정**: SG-S1 iFAST·SG-S2 Moomoo SG(브로커·플랫폼, icp-draft §2 단서), AU 자산관리 플랫폼·슈퍼애뉴에이션(§9.3)
+- [ ] **(5차) SG/AU 티어 확정 및 해제 상신 8건 처리** (§4 5차 추가분. 전건 컴플라이언스 프레임 선결)
 
 ---
 
@@ -247,8 +257,121 @@ PRA 지정 투자회사 (지정 여부 전건 [검증 필요], Tier 3 가배정)
 - **적중률 실측**: 3차 12건 중 8건(67%), 4차 15건 중 10건(67%, 재분류 1건 제외 시 14건 중 10건 = 71%). 상위 우선순위 계정을 먼저 소진했으므로 잔여 풀의 적중률은 이보다 낮을 것으로 추정한다(50~60% 가정).
 - **150명+ 도달 경로 (재판단)**: 잔여 리서치 대기 약 22~23계정(US D1~D4·미드사이즈 9, UK 챌린저·투자회사 9~10)을 5차에서 전건 조사해도 추가 상신은 약 11~14건 → **누계 약 43~48계정 = 수신자 약 86~144명. 잔여 풀만으로는 150명+ 도달이 불확실하다(상단 시나리오에서만 가능).**
 - **권고**: (1) 보험·자산운용 세그먼트(§1.3, 9계정) 편입 승인 시 예상 추가 상신 4~6건으로 누계 약 47~54계정 = 수신자 약 94~162명, 150명+ 도달이 현실화된다. NAIC AI 모델 거버넌스 불레틴이 세그먼트 공통 시그널 후보다 [검증 필요]. (2) 조건부 국가(싱가포르·호주 등) 확장은 KB08 §6이 싱가포르를 아웃바운드 시장으로 규정하나 G9 조건부 국가 증빙·별도 컴플라이언스 프레임 구축 비용이 커서 차순위로 권고한다. (3) 시그널이 안 나오는 계정을 억지로 채우지 않는다(G4). 볼륨 목표가 시그널 원칙을 이기지 못한다(KB03 §1). 목표 미달 시 그 사실대로 PO에 보고한다.
+- **(5차 주석)** PO가 국가 확장을 결정했으므로 위 권고 (2)의 "차순위" 판단은 폐기된다. SG/AU 증분 산수는 §10.
 
-## 8. 갱신 이력
+---
+
+## 8. 싱가포르 (SG) 후보 (5차 국가 확장, 2026-08-19)
+
+### 8.0 관할 공통 "왜 지금" (실측, 2026-08-19 웹 검증)
+
+SG는 MAS 단일 감독 프레임이다. 카피에 SR 26-2/SS1/23을 쓰지 않는다.
+
+- **[핵심] MAS AIRG (AI 리스크 관리 가이드라인) 확정 임박.** 컨설테이션 페이퍼 2025-11-13 발표, 의견 마감 2026-01-31, 국회 서면 답변(2026-08-05) "곧 확정" 명시. 전 금융기관 대상·비례 적용, AI 인벤토리·리스크 중대성 평가·수명주기 통제·이사회 책임 명시, **발행 후 12개월 전환기간 제안** = 확정 시 전 FI에 시한부 강제 트리거. 출처: https://www.mas.gov.sg/publications/consultations/2025/consultation-paper-on-guidelines-on-artificial-intelligence-risk-management · https://www.mas.gov.sg/news/media-releases/2025/mas-guidelines-for-artificial-intelligence-risk-management
+- **MAS AI 모델리스크관리 정보문서 (2024-12-05).** 은행 주제검토 기반: AI 거버넌스·감독 포럼, AI 인벤토리·중대성 평가, 개발·배포(데이터·설명가능성·공정성·**검증**) 모범 관행. 타 FI에도 일반 적용 권고 = PRD-VAL 접점. 출처: https://www.mas.gov.sg/publications/monographs-or-information-paper/2024/artificial-intelligence-model-risk-management
+- **FEAT 원칙(2018)·Veritas(툴킷 2.0, 2023).** 공정성·윤리·책임성·투명성 평가 방법론. 신규 의무가 아닌 성숙 맥락 자산으로만 인용. 출처: https://www.mas.gov.sg/publications/monographs-or-information-paper/2018/feat · https://www.mas.gov.sg/schemes-and-initiatives/veritas
+- KB08 §6은 싱가포르를 "레퍼런스 없음, 디자인 파트너 모집형 아웃바운드" 시장으로 규정 = US/UK와 동일한 디자인 파트너 프레임.
+- **컴플라이언스(G9)**: SG는 조건부 국가. 수신 근거(Spam Control Act 옵트아웃·라벨링, PDPA)·증빙 필드는 sales-compliance-officer가 SG 프레임을 확정해야 채울 수 있다. **확정 전 전건 "컴플라이언스 프레임 대기 + 발송 보류".**
+
+### 8.1 메가 3사 S1 판정 (전사 타깃 금지, 부서접근-PO승인)
+
+3사 모두 대형 자체 AI 조직·전사 AI 프로그램 보유로 **S1 판정 = 전사 디자인 파트너 부적합**. 부서 단위(모델검증·AI 거버넌스 조직) 접근 후보 여부만 평가하고, 접근은 PO 승인 시에만.
+
+| # | 기관 | S1 근거(실측·보도) | 부서 단위 접근 평가(권고) |
+|---|---|---|---|
+| SG-M1 | DBS Bank | AI로 계약직 등 약 4,000 역할 자연 감소 계획 공표, "대체 가능" 직무 채용 동결, 인력 39,721(-3.9%, 2025) | 자체 AI 산업화 성숙도 최상급. 부서 접근 실익 낮음(자체 구축 경향). **후순위 권고** |
+| SG-M2 | OCBC | 자체 사내 AI 시스템(코딩·랭킹) 구축, 상하이·선전·인도네시아 엔지니어링 허브 확장, 인력 33,323 | 자체 구축 경향. 독립검증(3선) 보완의 좁은 여지만 검토. **후순위 권고** |
+| SG-M3 | UOB | 3사 공동 로컬 인력 35,000명 AI 재교육 진행, 인력 31,222(-2.6%). 자체 AI 플랫폼 조직 규모는 3사 중 상대적 소형 개연 [검증 필요] | 3사 중 부서 단위(모델검증실) 접근 실익이 상대적으로 높을 개연. **PO 승인 시 1순위 후보 권고** |
+
+- 공통 출처(2025년 인력·AI 재교육): https://sea.peoplemattersglobal.com/news/workforce-planning/singapore-banks-cut-nearly-3000-jobs-as-ai-and-restructuring-redefine-workforce-49389 · https://vulcanpost.com/904564/dbs-freezes-hiring-bets-on-ai/
+
+### 8.2 활성 후보 (기관 단위, 전건 "컴플라이언스 프레임 대기 + 발송 보류")
+
+"완(5차)" = 리서치 산출물 있음(경로 §5). 판정(권고)의 해제 상신은 전건 SG 컴플라이언스 프레임 확정 조건부다.
+
+| # | 기관 | 유형·규모(가설) | 상태 | 핵심 시그널(실측) 또는 찾아야 할 시그널 [검증 필요] | 판정(권고) | 티어(가) |
+|---|---|---|---|---|---|---|
+| SG-B1 | GXS Bank | 디지털 풀뱅크 (Grab 60%·Singtel 40%) | 완(5차) | **실측: FY2025 대출 +323% S$1.03bn·ECL 6.8%→4.6%·손실 축소(발표 2026-04), FY2027(2027-03) 흑자 시한. Validus 인수(2025-04-15)→GXS Capital SME 확장(맥락)** | 프레임 대기 + 보류, 해제 상신(중) | Tier 2 |
+| SG-B2 | MariBank | 디지털 풀뱅크 (Sea Group) | 리서치 대기 | 흑자 경쟁 국면 실적 공표, AI·신용모델 채용, AIRG 대응 | 프레임 대기 + 보류(G4) | Tier 3 |
+| SG-B3 | Trust Bank | 은행 (Standard Chartered ~60%·FairPrice JV) | 완(5차) | **실측: 싱가포르 디지털 은행 최초 월 흑자(2026-03), 동인을 "AI·자동화 효율"(매출 +39%·비용 -7%)로 공표** | 프레임 대기 + 보류, 해제 상신(중. **StanChart 그룹 관계 처리 PO 판단 조건부**, §2.4 주석) | Tier 2 |
+| SG-B4 | ANEXT Bank | 디지털 홀세일뱅크 (Ant International) | 리서치 대기 | SME 신용모델 확장, AIRG 대응. 모회사 관할(중국계) 주의 | 프레임 대기 + 보류(G4) | Tier 3 |
+| SG-S1 | iFAST Corporation | 디지털 자산관리 플랫폼 (SGX 상장, UK 은행 자회사 보유) | 완(5차) | **실측: 2Q26(2026-07-24) "인력 2026 중반 정점, AI 생산성으로 2028년까지 감소·2027년부터 마진 개선" 가이던스, 매출 +34.8%** | 프레임 대기 + 보류, 해제 상신(강. 비은행 세그먼트 편입은 PO 판정) | Tier 2 |
+| SG-S2 | Moomoo Singapore | 디지털 브로커 (Futu Holdings 계열, MAS CMS 인가) | 완(5차) | **실측: MooFest 2026(2026-07-18) AI Expert Mode·Skills·Smart Money 3종 공개 + 개인 AI 에이전트 직결 에이전틱 투자 API(게재일 미확인)** | 프레임 대기 + 보류, 해제 상신(강. 로컬 결정권·비은행 편입 PO 판정 조건부) | Tier 2 |
+| SG-S3 | Tiger Brokers (Singapore) | 디지털 브로커 (UP Fintech 계열) | 리서치 대기 | AI 기능(TigerAI 등) 확장 발표, 로컬 결정권 확인 | 프레임 대기 + 보류(G4) | Tier 3 |
+| SG-S4 | PhillipCapital (Phillip Securities) | 종합 증권·자산관리 (로컬 대형) | 리서치 대기 | AI 도입·리스크 채용, AIRG 대응 | 프레임 대기 + 보류(G4) | Tier 3 |
+| SG-S5 | CGS International Securities | 증권 (China Galaxy 계열) | 리서치 대기 | 동일. 모회사 관할 주의 | 프레임 대기 + 보류(G4) | Tier 3 |
+| SG-A1 | Fullerton Fund Management | 자산운용 (Temasek 계열) | 리서치 대기 | 투자모델·AI 거버넌스 수요 실측(비은행 세그먼트 조건부) | 프레임 대기 + 보류(G4) | Tier 3 조건부 |
+| SG-A2 | Lion Global Investors | 자산운용 (OCBC 그룹) | 리서치 대기 | 동일. 그룹(SG-M2) 관계 주의 | 프레임 대기 + 보류(G4) | Tier 3 조건부 |
+
+- 제외 검토 주석: 로컬 파이낸스 컴퍼니(Hong Leong Finance 등)는 규모·모델 밀도상 sweet spot 하한 미달 개연으로 미편입. 보험(Great Eastern·Income·Singlife 등)은 US §1.3과 동일한 조건부 세그먼트 원칙 적용, 편입은 PO 결정.
+
+---
+
+## 9. 호주 (AU) 후보 (5차 국가 확장, 2026-08-19)
+
+### 9.0 관할 공통 "왜 지금" (실측, 2026-08-19 웹 검증)
+
+AU는 APRA(건전성)·ASIC(행위) 이원 프레임이다. 카피에 SR 26-2/SS1/23을 쓰지 않는다.
+
+- **[핵심] APRA AI 서한 (2026-04-30).** APRA 최초의 AI 특정 감독 기대 공표(대형 은행·보험·수퍼 대상 표적 점검 기반): 거버넌스·리스크 관리·어슈어런스·운영 복원력이 AI 도입의 규모·속도·복잡성을 못 따라간다고 경고. 특히 **"시점(point-in-time)·표본 기반 어슈어런스는 학습·적응·열화하는 확률적 모델에 부적합하며 어슈어런스가 뒤처져 있다"고 명시** = PRD-VAL(상시 독립검증)의 정면 매핑. 출처: https://www.claytonutz.com/insights/2026/may/apras-ai-letter-a-shift-from-framework-to-targeted-expectations · https://www.minterellison.com/articles/apra-ai-letter-third-party-suppliers
+- **CPS 230 운영리스크 (2025-07-01 시행).** 기술·벤더 중립이지만 AI가 중요 운영을 뒷받침하는 순간 포착. 기존 중요 서비스 제공자 계약도 늦어도 2026-07-01부터 준수, 갱신 CPS 230·CPG 230도 2026-07-01 개시 = 2026년 하반기가 전면 적용 첫 국면. 출처: https://www.apra.gov.au/operational-risk-management
+- **ASIC.** REP 798 "Beware the gap"(2024-10-29, AI 거버넌스 갭 경고: licensee 절반이 공정성·편향 정책 부재), 2025-26 Corporate Plan에서 AI 거버넌스를 최우선 감독 항목화, 2026-05-08 산업 서한(프런티어 AI발 리스크 대응 촉구), 2026년을 "Year of Accountability"로 선언. 출처: https://www.asic.gov.au/about-asic/news-centre/find-a-media-release/2024-releases/24-238mr-asic-warns-governance-gap-could-emerge-in-first-report-on-ai-adoption-by-licensees/ · https://www.mallesons.com/au/en/insights/latest-thinking/asic-and-apra-issue-call-to-action-on-artificial-intelligence.html
+- 참고: APRA에는 SR 26-2/SS1/23형 모델리스크 전용 기준서가 없다. 모델·AI 통제 기대는 CPS 220(리스크관리)·CPS 230·AI 서한의 조합으로 작동한다. 카피에서 "호주판 SR 26-2" 같은 표현 금지.
+- **컴플라이언스(G9)**: AU는 조건부 국가. Spam Act 2003은 상업 전자 메시지에 동의(명시적/추정적)를 요구한다. 수신 근거 필드는 sales-compliance-officer의 AU 프레임 확정 후 충족. **확정 전 전건 "컴플라이언스 프레임 대기 + 발송 보류".**
+
+### 9.1 빅4 + Macquarie S1 판정 (전사 타깃 금지, 부서접근-PO승인)
+
+| # | 기관 | S1 판정 근거(가설 수준 명기) | 부서 단위 접근 평가(권고) |
+|---|---|---|---|
+| AU-M1 | Commonwealth Bank (CBA) | 대형 자체 기술·AI 조직, 프런티어 AI 벤더 제휴 다수 보도 (상세 [검증 필요]) | S1 확정 권고. 자체 구축 성숙, 부서 접근 실익 낮음 |
+| AU-M2 | Westpac | 대형 자체 기술 조직 (상세 [검증 필요]) | S1 권고. 부서 접근은 PO 승인 시에만 |
+| AU-M3 | ANZ | 대형 자체 기술 조직, Suncorp Bank 흡수(2024) 통합 국면 (상세 [검증 필요]) | S1 권고. 동일 |
+| AU-M4 | NAB | 대형 자체 기술 조직 (상세 [검증 필요]) | S1 권고. 동일 |
+| AU-M5 | Macquarie Group | 글로벌 IB·자산운용, 기술 자립도 높음 (상세 [검증 필요]) | S1 근접 권고. 그룹 리스크 기능 단위의 좁은 접근만 검토(PO 승인) |
+
+### 9.2 활성 후보 (기관 단위, 전건 "컴플라이언스 프레임 대기 + 발송 보류")
+
+| # | 기관 | 유형·규모(가설) | 상태 | 핵심 시그널(실측) 또는 찾아야 할 시그널 [검증 필요] | 판정(권고) | 티어(가) |
+|---|---|---|---|---|---|---|
+| AU-B1 | Bendigo and Adelaide Bank | 미드티어 은행(~A$100bn급) | 완(5차) | **실측: APRA 라이선스 조건 부과(2026-08-18) - 비재무 리스크 실패, 3년·A$70m 정비 계획 + 독립 검토자 요건. AUSTRAC ~A$90m(맥락). Infosys·Genpact AI 파트너십(2026-04), Google Cloud 금융범죄 AI(일자 미확인)** | 프레임 대기 + 보류, 해제 상신(강. **감독 조치 직후 국면·타이밍은 PO 판단**) | Tier 1 |
+| AU-B2 | Bank of Queensland (BOQ) | 미드티어 은행(~A$100bn급, ME·Virgin Money AU 브랜드) | 완(5차) | **실측: 3개 브랜드 주택대출 단일 실시간 엔진 통합 공개(2026-06-24) - 승인 수시간·3일 내 무조건부 승인 최대 60%, "AI-led verification" 다음 과제 공식화. Temenos 코어 전환 80~85%** | 프레임 대기 + 보류, 해제 상신(중) | Tier 1 |
+| AU-B3 | Judo Bank | SME 챌린저(대출 A$14.7bn) | 완(5차) | **실측: FY26 결과(2026-08-18) PBT +34%·대출 +18%·CIR 45.3%. Thought Machine 클라우드 코어 전환 완료(2025-04, 맥락), AWS AI 통합(크레딧 메모 자동화 등) 계획(일자 미확인)** | 프레임 대기 + 보류, 해제 상신(중. AI 시그널 일자 미확정 명기) | Tier 2 |
+| AU-B4 | AMP Bank (AMP Limited) | 은행 부문 + 신설 디지털 뱅크 GO | 완(5차) | **실측: 1H26(2026-08) AMP Bank GO 예금 A$1.7bn·고객 2배(34,500), 서드파티 SaaS 코어(Engine by Starling, 2025-02 출시) 위 스케일업. AI 특정 시그널은 미발견(정직 표기)** | 프레임 대기 + 보류, 해제 상신(중. AI 특정 시그널 부재 명기) | Tier 2 |
+| AU-B5 | Great Southern Bank | 뮤추얼 은행(~A$20bn급) | 리서치 대기 | 디지털 전환·AI 채용, CPS 230 대응 | 프레임 대기 + 보류(G4) | Tier 3 |
+| AU-B6 | People First Bank (Heritage + People's Choice) | 뮤추얼 통합 은행(~A$30bn급) | 리서치 대기 | 합병 통합·코어 전환, 리스크 임원 이동 | 프레임 대기 + 보류(G4) | Tier 3 |
+| AU-B7 | ING Bank (Australia) | 외국계 자회사(~A$70bn급) | 리서치 대기 | 로컬 결정권·그룹(EU 모회사) 플랫폼 종속 여부 [검증 필요] | 프레임 대기 + 보류(G4) | Tier 3 |
+| AU-B8 | Newcastle Greater Mutual Group (NGM) | 뮤추얼 통합(~A$20bn급) | 리서치 대기 | 통합·현대화, AI 채용 | 프레임 대기 + 보류(G4) | Tier 3 |
+| AU-S1 | Insignia Financial | 자산관리·수퍼 (비공개화 보도 [검증 필요]) | 리서치 대기 | 소유권 변동 확정, AI·모델 거버넌스 수요 | 프레임 대기 + 보류(G4) | Tier 3 |
+| AU-S2 | Challenger Limited | 연금·생보 (APRA 규제) | 리서치 대기 | 보험 세그먼트 조건부(§1.3 원칙 준용) | 프레임 대기 + 보류(G4) | Tier 3 조건부 |
+| AU-S3 | HUB24 | 자산관리 플랫폼 (ASX 상장, 고성장) | 리서치 대기 | AI 도입 발표, ASIC AI 감독 대응(비은행 편입 PO 판정) | 프레임 대기 + 보류(G4) | Tier 3 |
+| AU-S4 | Netwealth | 자산관리 플랫폼 (ASX 상장) | 리서치 대기 | 동일 | 프레임 대기 + 보류(G4) | Tier 3 |
+
+### 9.3 조건부 세그먼트 주석 (편입은 PO 결정)
+
+- **슈퍼애뉴에이션 (AustralianSuper, Aware Super, UniSuper, Rest 등)**: APRA 규제 대상으로 CPS 230·APRA AI 서한이 직접 적용되고 투자·밸류에이션 모델 밀도가 높다. 단 은행형 MRM 조직과 구매 구조가 달라 세그먼트 공통 시그널·구매위원회 맵을 별도 검증해야 한다. US §1.3과 동일하게 PO 편입 승인 전 미편입.
+- **손보·생보 (Suncorp(2024년 은행 매각 후 보험 전업), IAG, QBE, TAL 등)**: 요율·계리 모델 밀도 높음. 보험 세그먼트 원칙(§1.3) 준용, PO 결정 대기.
+
+---
+
+## 10. 국가 확장 요약 · 수신자 증분 (5차, 2026-08-19)
+
+| 구분 | 활성 기관 수 | Tier 1 | Tier 2 | Tier 3(조건부 포함) | 부서접근-PO승인 | 리서치 완료 | 해제 상신(조건부) |
+|---|---|---|---|---|---|---|---|
+| SG | 11 | 0 | 4 (B1, B3, S1, S2) | 7 | 3 (메가 3사) | 4 | 4 (강 2·중 2) |
+| AU | 12 | 2 (B1, B2) | 2 (B3, B4) | 8 | 5 (빅4+Macquarie) | 4 | 4 (강 1·중 3) |
+| 합계 | **23** | 2 | 6 | 15 | 8 | 8 | **8** |
+
+- **관할 분포**: SG / AU 국가 단위 분리(G9 준수). 전건 jurisdiction 태깅 완료(기관 단위).
+- **전건 상태: "컴플라이언스 프레임 대기 + 발송 보류".** 시그널 강도와 무관하게 sales-compliance-officer의 SG·AU 프레임 확정이 선결 조건이다. 해제 상신 8건도 프레임 확정 조건부 상신이다.
+- **수신자 증분 추정 (계정당 2~3명)**:
+  - 이론 상한: 활성 23계정 x 2~3명 = **46~69명**.
+  - 현실 경로: 해제 상신 8계정 = 16~24명(1단계). 리서치 대기 15계정 중 US/UK 4차 실측 적중률(67~71%)보다 보수적인 50~60% 가정 시 추가 7~9계정 = 14~27명(2단계). **합계 약 30~51명.**
+  - 기존 US/UK 경로(§7: 누계 43~48계정, 86~144명)와 합산 시 **약 51~56계정 = 116~195명**. 보험·운용 세그먼트 편입 없이도 150명+ 도달이 상단 시나리오에서 가능해지고, 편입 승인이 더해지면 도달이 안정화된다.
+- **주의**: SG/AU는 레퍼런스 없는 디자인 파트너 시장(KB08 §6)이며, 증분 산수는 컴플라이언스 프레임 구축 리드타임(프레임 확정 전 발송 0건)을 포함하지 않았다. 볼륨 목표가 시그널 원칙(G4)·관할 원칙(G9)을 이기지 못한다.
+
+---
+
+## 11. 갱신 이력
 
 | 일자 | 변경 | 작성 |
 |---|---|---|
@@ -256,3 +379,4 @@ PRA 지정 투자회사 (지정 여부 전건 [검증 필요], Tier 3 가배정)
 | 2026-08-19 | 2차 확장: 리서치 12건 반영, 풀 75개 활성 기관으로 확장, Virgin Money·Comerica 재분류, 수백 통 산수(§7) 추가 | prospect-researcher |
 | 2026-08-19 | 3차 배치: 신규 리서치 10건 + M&T·Ally 갱신 2건, 합병 상태 확정(Pinnacle·PNC·UMB·Old National), 해제 상신 8건 추가(누계 22~24), 티어 조정 제안 3건, 4차 배치 필요 판단(§7) | prospect-researcher |
 | 2026-08-19 | 4차 배치: 리서치 15건(브로커딜러 5, US 미드사이즈 4, UK 6), 브로커딜러 FINRA·SEC 공통 프레임 확정, Webster 재분류(제외) 상신, 해제 상신 10건 추가(누계 32~34), 150명+ 도달 재판단·보험·운용 편입 우선 권고(§7) | prospect-researcher |
+| 2026-08-19 | 5차 국가 확장(PO 결정): SG 11·AU 12 후보 발굴(§8~§9), 메가 3사·빅4+Macquarie S1 판정, SG(MAS AIRG·2024 정보문서)·AU(APRA AI 서한·CPS 230·ASIC) 규제 프레임 실측, 리서치 8건(SG 4·AU 4), 전건 컴플라이언스 프레임 대기 + 발송 보류, 수신자 증분 30~51명 추정(§10) | prospect-researcher |
