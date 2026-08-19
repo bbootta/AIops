@@ -1,11 +1,12 @@
 # 타깃 계정 (기관 단위) - US/UK · RYNTA AI거버넌스·독립검증 쐐기
 
 > 저장 경로: `docs/sales/campaigns/20260818-usuk-rynta-aigov/target-accounts.md`
-> 작성: prospect-researcher · 기준일: 2026-08-18 · 2차 확장 갱신: 2026-08-19 · 3차 배치 갱신: 2026-08-19 · 4차 배치 갱신: 2026-08-19 · **5차 국가 확장(SG/AU) 갱신: 2026-08-19** · 상태: 초안 (PO 확정 필요, G4)
+> 작성: prospect-researcher · 기준일: 2026-08-18 · 2차 확장 갱신: 2026-08-19 · 3차 배치 갱신: 2026-08-19 · 4차 배치 갱신: 2026-08-19 · 5차 국가 확장(SG/AU) 갱신: 2026-08-19 · **6차 배치(보험·자산운용 §1.3) 갱신: 2026-08-19** · 상태: 초안 (PO 확정 필요, G4)
 > 2차 갱신 요지: (1) 계정 리서치 2차 배치 12건 반영(§5), (2) 풀을 총 75개+ 활성 기관으로 확장(수백 통 규모 산수 §7), (3) Virgin Money·Comerica 재분류 표기.
 > 3차 갱신 요지: (1) 3차 배치 12건 반영(신규 10 + M&T·Ally 갱신 2, §5), (2) 합병 상태 확정(Pinnacle-Synovus 완료, PNC-FirstBank 전환 완료, UMB·Old National 통합 종료), (3) 해제 상신 8건 추가, (4) 티어 조정 제안 3건(§6).
 > 4차 갱신 요지: (1) 4차 배치 15건 반영(브로커딜러 5, US 미드사이즈 4, UK 6, §5), (2) **브로커딜러 세그먼트 공통 규제 프레임 확정**(FINRA 2026 감독보고서 2025-12, SEC FY2026 시험 우선순위 2025-11. SR 26-2는 브로커딜러 카피에 쓰지 않는다), (3) **Webster 재분류 상신**(Santander $12.3bn 인수, 연준 승인 2026-08-04, 클로징 2026-08-20 예정), (4) 해제 상신 10건 추가(누계 32~34), (5) 150명+ 도달 경로 재판단(§7).
 > 5차 갱신 요지 (PO 결정: 국가 확장): (1) **싱가포르(§8)·호주(§9) 후보 발굴** 각 11~13곳 + 메가·빅4 S1 판정, (2) 관할 공통 규제 프레임 실측(SG: MAS AIRG 확정 임박 / AU: APRA AI 서한 2026-04-30·CPS 230), (3) 상위 8곳 리서치 산출물 작성(SG 4·AU 4, §5 5차 배치), (4) **SG/AU 전건 "컴플라이언스 프레임 대기 + 발송 보류"**(조건부 국가, G9), (5) 수신자 증분 추정(§10).
+> 6차 갱신 요지 (PO 승인 2026-08-19: 보험·자산운용 편입): (1) **§1.3 상태를 "조건부"에서 "편입(PO 승인)"으로 변경**, 9계정 전건 리서치 완료(§5 6차 배치), (2) **세그먼트 규제 축 웹 검증 완료**: 보험은 가설보다 강함(NAIC 불레틴 25개 주+DC 채택, **AI Systems Evaluation Tool 12개 주 검사 파일럿 2026-03~09 진행 중**, NY DFS CL 7, CO 3 CCR 702-10), 운용은 가설보다 약함(구속 규칙 없음, PDA 규칙 2025-06-12 철회, SEC FY2026 시험 우선순위가 유일 축), (3) 해제 상신 8건 추가(강 5·중 3), 보류 유지 1건(Principal), (4) 수신자 전망 전 지역 재계산(§7).
 
 ## 사용 규칙 (먼저 읽을 것)
 
@@ -64,22 +65,28 @@
 | US-D8 | Edward Jones | 리테일 브로커딜러 | 완(4차) | **실측: AI·어드바이저 연구 발표 2026-07-08(Morning Consult), 자체 시스템 AI 내재화(Q1 업데이트, 게시일 미확인)** | 보류, 해제 상신(중) |
 | US-D9 | Jefferies Financial Group | 투자은행·브로커딜러 | 완(4차) | **실측 결과: 자사 내부 AI·MRM 시그널 미발견.** 위임장의 AI 리스크 감독 문언(약한 보조), AI Summit 호스팅은 셀사이드 이벤트로 제외 | **보류 유지**(내부 도입·채용·임원 시그널 확인 시 재상신) |
 
-### 1.3 Tier 3 조건부 (보험·자산운용 - 모델리스크 의무 확인 시 세그먼트 접근)
+### 1.3 보험·자산운용 (편입: PO 승인 2026-08-19 · 6차 배치 전건 리서치 완료)
 
-- 편입 조건(icp-draft §2 단서): 모델 거버넌스 수요 실측 확인. 세그먼트당 공통 시그널 1개 강제(KB03 §7.2). 규제 근거 가설: 보험은 NAIC AI 모델 거버넌스 불레틴·주 감독 [검증 필요], 운용은 SEC 규제·모델 거버넌스 수요 [검증 필요].
-- 전건 리서치 대기 · 신규(2차 확장). **§7 재판단: 150명+ 도달을 위해 이 세그먼트 편입 승인이 사실상 필요해졌다(PO 결정 §6).**
+- **편입 상태: "조건부" 해제 → 편입(PO 승인 jjlee@onelineai.com, 세션 대화, 2026-08-19).** 편입 조건이던 모델 거버넌스 수요 실측과 세그먼트 공통 시그널 1개(KB03 §7.2)는 6차 웹 검증(2026-08-19)으로 충족했다.
+- **보험 세그먼트 공통 "왜 지금" (6차 확정, 실측. 가설 대비 상향)**: 보험은 SR 26-2가 아니라 NAIC·주 감독 프레임이다. 카피에 SR 26-2를 쓰지 않는다.
+  - **NAIC Model Bulletin: Use of AI Systems by Insurers (2023-12 채택)**: 서면 AIS 프로그램, 이사회·경영진 책임, 리스크 통제, **모델 검증·편향/오류 테스트**, 서드파티 AI 감독(책임은 보험사) 요구. 2026 중반 기준 약 25개 주 + DC 채택, CA·CO·NY·TX는 자체 프레임(합계 29개 관할이 보험사 AI 규율, 2차 소스 종합 [주 단위 확정은 리스트 구축 시]). 출처: https://content.naic.org/sites/default/files/cmte-h-big-data-artificial-intelligence-wg-ai-model-bulletin.pdf.pdf · https://actuary.info/insights/ai-regulation-insurance-naic-2026 · https://www.kennedyslaw.com/en/thought-leadership/article/2025/understanding-the-naic-model-ai-bulletin-what-it-means-for-insurers/
+  - **[핵심 시한부 트리거] NAIC AI Systems Evaluation Tool 12개 주 파일럿 2026-03~09 진행 중**: 시장행위·재무 검사에서 보험사 AI 거버넌스를 구조화 평가(비도메스틱에도 시장행위 검사 맥락 적용 검토). 파일럿 피드백 반영 후 2026-11 Fall National Meeting 채택 검토 = 세그먼트 공통 시그널. 출처: https://www.fenwick.com/insights/publications/naic-expands-ai-systems-evaluation-tool-pilot-program-to-12-states-key-updates-for-insurers-and-ai-vendors-supporting-insurers · https://insurancenewsnet.com/innarticle/naic-regulators-prep-ai-evaluation-tool-for-use-in-2026-as-industry-balks
+  - **NY DFS Insurance Circular Letter No. 7 (2024-07-11)**: NY 인가 보험사의 언더라이팅·프라이싱 AIS/ECDIS에 이사회 감독·적격 인력 포함 거버넌스 프레임 요구. 출처: https://www.dfs.ny.gov/industry-guidance/circular-letters/cl2024-07 · https://www.willkie.com/publications/2024/07/nydfs-adopts-circular-letter-on-the-use-of-ai-in-insurance
+  - **Colorado 3 CCR 702-10 (2023-11-14 발효, 생보 전용)**: ECDIS·알고리즘·예측모델의 리스크 기반 거버넌스 + 별도 계량 테스트 규정(인종 불공정 차별 검증). 손보 카피에 인용 금지. 출처: https://www.alston.com/en/insights/publications/2023/10/new-ai-regulation-from-colorado-dept-of-insurance · https://www.sos.state.co.us/CCR/GenerateRulePdf.do?ruleVersionId=11153
+- **자산운용 세그먼트 공통 "왜 지금" (6차 확정, 실측. 가설 대비 하향)**: 구속력 있는 모델 거버넌스 규칙은 **없다**. SEC 예측 데이터 분석(PDA) 규칙 제안은 2025-06-12 공식 철회됐다. 수요 근거는 (a) SEC FY2026 시험 우선순위(2025-11 발표): AI 사용 감독 정책·절차의 적정성, AI 역량 표현의 정확성(AI-washing 심사), 산출물·고객 프로파일 정합성, (b) 수탁자 의무다. 보험보다 규제 축이 약함을 카피·기대치에 반영한다. 출처: https://www.sec.gov/rules-regulations/2025/06/s7-12-23 · https://www.proskauer.com/alert/sec-withdraws-fourteen-rule-proposals · https://www.dorsey.com/newsresources/publications/client-alerts/2025/12/sec-2026-examination-priorities · https://www.goodwinlaw.com/en/insights/publications/2025/12/alerts-privateequity-pif-2026-sec-exam-priorities-for-registered-investment-advisers
+- 발송은 계정 개별 시그널 확인분만(G4). 티어는 가배정이며 확정은 PO(§6).
 
-| # | 기관 | 유형(가설) | 찾아야 할 시그널 [검증 필요] |
-|---|---|---|---|
-| US-I1 | MetLife | 대형 생보 | AI 거버넌스 직책, NAIC AI 대응 발표, 계리모델 검증 채용 |
-| US-I2 | Prudential Financial | 대형 생보·운용 | 동일 |
-| US-I3 | Lincoln Financial | 생보·연금 | 동일 |
-| US-I4 | Principal Financial Group | 연금·운용 | 동일 |
-| US-I5 | Allstate | 손보 (요율 모델 밀도) | 요율·텔레매틱스 모델 거버넌스, AI 채용 |
-| US-I6 | MassMutual | 상호 생보 | 데이터과학 조직·모델 거버넌스 채용 |
-| US-A1 | T. Rowe Price | 대형 자산운용 | 투자모델·AI 거버넌스 직책 신설 |
-| US-A2 | Franklin Templeton | 대형 자산운용 | 동일 |
-| US-A3 | AllianceBernstein | 대형 자산운용 | 동일 |
+| # | 기관 | 유형·규모 | 상태 | 핵심 시그널(실측) 또는 보류 사유 | 판정(권고) | 티어(가) |
+|---|---|---|---|---|---|---|
+| US-I1 | MetLife | 대형 생보 (S1 근접 주의) | 완(6차) | **실측: Q2 콜(2026-08-13) AI를 구조적 우위로 규정, "거버넌스·리스크 감독이 AI 배치의 중심" 명시. 5년 $3.2bn 기술 현대화(맥락)** | 보류, 해제 상신(강. 기능 단위 좁은 접근 전제, 전제 승인은 PO) | Tier 2 |
+| US-I2 | Prudential Financial | 대형 생보·운용 (S1 근접 주의) | 완(6차) | **실측: Chief Data & AI Officer 승격 2026-04(보도, 직무에 리스크 관리 강화 명시), AI 사용례 260+·에이전틱 AI 사용 2,300명+(2026 Q2 뉴스룸)** | 보류, 해제 상신(강. 동일 전제, 일자 월 단위 명기) | Tier 2 |
+| US-I3 | Lincoln Financial | 생보·연금 | 완(6차) | **실측: 신설 EVP Chief AI, Data & Analytics Officer(발표 2025-12-04, 효력 2026-01-09, 경과 맥락) + AI 조직 활성 채용(2026-08-19 확인, 1건 마감 2026-08-31)** | 보류, 해제 상신(중) | Tier 2 |
+| US-I4 | Principal Financial Group | 연금·운용 | 완(6차) | **실측 결과: 유효창 내 계정 개별 시그널 미발견.** Q2 콜(2026-07-28) AI 구체 발언 미확인, 2025 생성형 AI 도입 이력은 유효창 경과 | **보류 유지**(채용·임원·콜 발언 확인 시 재상신) | Tier 3 |
+| US-I5 | Allstate | 손보, 요율 모델 밀도 (S1 근접 강주의: 내부 전용 AI 공표) | 완(6차) | **실측: 자체 LLM 생태계 ALLIE 공개 2026-08-07(내부 전용, 250+ 분석 모델·40PB 위 생성·에이전틱, 3개 주 AI 직접 판매·클레임 처리)** | 보류, 해제 상신(강. 자체 구축 성향 확인, 독립검증 보완의 좁은 접근 전제, 전제 승인은 PO) | Tier 2 |
+| US-I6 | MassMutual | 상호 생보 | 완(6차) | **실측: AI 플랫폼·아키텍트 채용 활성(2026-08-19 확인, 게시일 미확인). 공고에 "AI Governance, Security and Privacy 팀 협업"·Colorado AI Act 준수 요건 명시 = 거버넌스 기능 실재 확인** | 보류, 해제 상신(중. 게시일 미확인 명기) | Tier 2 |
+| US-A1 | T. Rowe Price | 대형 자산운용 | 완(6차) | **실측: AI 리더십 개편 발표 2026-08-13("리스크 감독 강화" 명시, Investment AI Solutions 확장). AI 솔루션 130+ 배포·직원 70%+ 채택(2026-06-30 기준, Q2 콜)** | 보류, 해제 상신(강) | Tier 2 |
+| US-A2 | Franklin Templeton | 대형 자산운용 | 완(6차) | **실측: Q3 FY26 콜(2026-07-31) Intelligence Hub 성과 계량 공표(+25% 방문·+11% 판매) + 리스크 관리 기능 AI 적용 명시. Hub 출시 2026-01-29(맥락)** | 보류, 해제 상신(강) | Tier 2 |
+| US-A3 | AllianceBernstein | 대형 자산운용 | 완(6차) | **실측: 자사 AI 전략 4필라 발간 2026-02-02(책임 있는 AI 사용 축, 유효창 하한 경계). CAIO(2024-07-01, 10년+ CRO 출신)·AI 리스크 거버넌스 위원회 실재(2025-09 보도, 맥락)** | 보류, 해제 상신(중. 시그널 강도 하향 명기) | Tier 2 |
 
 ### 1.4 부서접근-PO승인 (메가뱅크, 전사 타깃 금지)
 
@@ -186,17 +193,17 @@ PRA 지정 투자회사 (지정 여부 전건 [검증 필요], Tier 3 가배정)
 
 ---
 
-## 3. 리스트 요약 (2026-08-19 4차 재집계)
+## 3. 리스트 요약 (2026-08-19 6차 재집계)
 
-| 구분 | 활성 기관 수 | Tier 1 | Tier 1~2/2 | Tier 3(조건부·대기 포함) | 재분류(상신 포함) | 부서접근-PO승인 |
+| 구분 | 활성 기관 수 | Tier 1 | Tier 1~2/2 | Tier 3(대기 포함) | 재분류(상신 포함) | 부서접근-PO승인 |
 |---|---|---|---|---|---|---|
-| US | 45 | 9 (US-B1~B10, B8 제외) | 12 (D1~D9 + B11~B16 중 Tier2 가배정, B17 제외) | 24 내외 (§1.3 9 + §1.5 Tier3 가배정) | 2 (Comerica, **Webster 상신 중**) | 6 (메가뱅크) |
+| US | 45 | 9 (US-B1~B10, B8 제외) | 20 (D1~D9 + B11~B16 중 Tier2 가배정 + **§1.3 8건(6차 가배정)**, B17 제외) | 16 내외 (§1.3 잔여 1 + §1.5 Tier3 가배정) | 2 (Comerica, **Webster 상신 중**) | 6 (메가뱅크) |
 | UK | 29 | 5 (S1~S5) | 10 (B2~B7 활성 6 + B8~B11 Tier2 가배정 4) | 14 (S6~S9, B12~B18, P1~P3) | 1 (Virgin Money) | 6 (대형은행) |
-| 합계 | **74** | 14 | 22 | 38 내외 | 3 | 12 |
+| 합계 | **74** | 14 | 30 | 30 내외 | 3 | 12 |
 
-- 티어 가배정 수치는 리서치 대기분의 가설 배정 포함. 티어 조정 제안(3차: US-B14 상향, US-B21 상향, UK-B8 하향)은 PO 승인 후 반영(§6).
+- 티어 가배정 수치는 리서치 대기분의 가설 배정 포함. 티어 조정 제안(3차: US-B14 상향, US-B21 상향, UK-B8 하향 / 6차: §1.3 8건 Tier 2 가배정)은 PO 승인 후 반영(§6).
 - 국가별 분포: US / UK 이원, "EU" 세그먼트 없음(G9 준수).
-- 검증 상태: **리서치 산출물 45건**(1차 8 + 2차 12 + 3차 신규 10 + 4차 15, 별도로 3차에서 M&T·Ally 2건 갱신. 재분류 3 포함). 나머지 전건 리서치 대기·[검증 필요].
+- 검증 상태: **리서치 산출물 54건**(1차 8 + 2차 12 + 3차 신규 10 + 4차 15 + **6차 9**, 별도로 3차에서 M&T·Ally 2건 갱신. 재분류 3 포함). 나머지 전건 리서치 대기·[검증 필요].
 - (5차 주석) SG/AU 확장분은 이 표에 합산하지 않고 §10에서 별도 집계한다(컴플라이언스 프레임 미확정 상태의 분모 혼입 방지).
 
 ---
@@ -207,9 +214,9 @@ PRA 지정 투자회사 (지정 여부 전건 [검증 필요], Tier 3 가배정)
 
 보류 상태 세분(리서치 완료분):
 
-- **해제 상신 권고(강)**: US-B1, US-B3, US-B6 / UK-B4 (+1차 상신분: US-B2, UK-S1 등 1차 산출물 참조) / 3차: US-B14(Pinnacle), US-B27(Synchrony), UK-B9(Shawbrook), UK-B10(Starling) / 4차: US-D6(Interactive Brokers), US-D7(Ameriprise) / **5차 추가(전건 컴플라이언스 프레임 확정 조건부): SG-S1(iFAST), SG-S2(Moomoo SG), AU-B1(Bendigo)**
-- **해제 상신 권고(중)**: US-B9, US-B10 / UK-S5, UK-B3, UK-B5 / 3차: US-B11(PNC, S1 근접 조건부), US-B13(First Citizens), US-B21(Old National), UK-B11(Monzo) / 4차: US-D5(Schwab, S1 근접 조건부), US-D8(Edward Jones), US-B12(U.S. Bancorp, 상한·S1 근접 조건부), US-B15(Western Alliance), US-B16(First Horizon), UK-B6(Close Brothers, 재무 스트레스 주의), UK-B7(Investec), UK-S9(Nottingham, Tier 3) / **5차 추가(전건 컴플라이언스 프레임 확정 조건부): SG-B1(GXS), SG-B3(Trust Bank, 그룹 관계 PO 판단 조건부), AU-B2(BOQ), AU-B3(Judo, AI 시그널 일자 미확정 명기), AU-B4(AMP Bank, AI 특정 시그널 부재 명기)**
-- **보류 유지**: US-B5(시그널 만료 확정), US-B7(원문 접근 불가·총론), 3차: US-B24(UMB), UK-B8(Aldermore) / 4차: US-D9(Jefferies, 내부 시그널 없음), UK-S6(Principality, 총론만), UK-S7(West Brom, 유효창 경과·총론), UK-S8(Newcastle, 확정 시그널 없음)
+- **해제 상신 권고(강)**: US-B1, US-B3, US-B6 / UK-B4 (+1차 상신분: US-B2, UK-S1 등 1차 산출물 참조) / 3차: US-B14(Pinnacle), US-B27(Synchrony), UK-B9(Shawbrook), UK-B10(Starling) / 4차: US-D6(Interactive Brokers), US-D7(Ameriprise) / **6차: US-I1(MetLife, S1 근접·기능 단위 조건부), US-I2(Prudential, S1 근접·기능 단위 조건부), US-I5(Allstate, S1 근접 강주의·독립검증 보완의 좁은 접근 조건부), US-A1(T. Rowe Price), US-A2(Franklin Templeton)** / 5차(전건 컴플라이언스 프레임 확정 조건부): SG-S1(iFAST), SG-S2(Moomoo SG), AU-B1(Bendigo)
+- **해제 상신 권고(중)**: US-B9, US-B10 / UK-S5, UK-B3, UK-B5 / 3차: US-B11(PNC, S1 근접 조건부), US-B13(First Citizens), US-B21(Old National), UK-B11(Monzo) / 4차: US-D5(Schwab, S1 근접 조건부), US-D8(Edward Jones), US-B12(U.S. Bancorp, 상한·S1 근접 조건부), US-B15(Western Alliance), US-B16(First Horizon), UK-B6(Close Brothers, 재무 스트레스 주의), UK-B7(Investec), UK-S9(Nottingham, Tier 3) / **6차: US-I3(Lincoln Financial), US-I6(MassMutual, 채용 게시일 미확인 명기), US-A3(AllianceBernstein, 시그널 강도 하향 명기)** / 5차(전건 컴플라이언스 프레임 확정 조건부): SG-B1(GXS), SG-B3(Trust Bank, 그룹 관계 PO 판단 조건부), AU-B2(BOQ), AU-B3(Judo, AI 시그널 일자 미확정 명기), AU-B4(AMP Bank, AI 특정 시그널 부재 명기)
+- **보류 유지**: US-B5(시그널 만료 확정), US-B7(원문 접근 불가·총론), 3차: US-B24(UMB), UK-B8(Aldermore) / 4차: US-D9(Jefferies, 내부 시그널 없음), UK-S6(Principality, 총론만), UK-S7(West Brom, 유효창 경과·총론), UK-S8(Newcastle, 확정 시그널 없음) / **6차: US-I4(Principal, 유효창 내 계정 개별 시그널 없음)**
 - **보류 유지 + 재분류 상신**: US-B8(→US-B3), UK-B1(→UK-S1), 4차: US-B17(Webster → 제외. Santander 인수 클로징 2026-08-20 예정, 흡수처가 §2.4 목록)
 
 **보류 해제는 PO 전속이다(G1).** 해제 조건: 실측 시그널 + 30일 이내 산출물 + G9 필드 충족 + SOC 2 미보유 전제의 디자인 파트너 구조 유지(PO 확인 2026-08-18). **SG/AU는 추가로 국가별 컴플라이언스 프레임 확정이 선결 조건이다.**
@@ -224,7 +231,8 @@ PRA 지정 투자회사 (지정 여부 전건 [검증 필요], Tier 3 가배정)
 - **3차 배치 (2026-08-19, 신규 10건 + 갱신 2건)**: 신규 us-b11-pnc, us-b13-first-citizens, us-b14-pinnacle-synovus, us-b21-old-national, us-b24-umb, us-b27-synchrony, uk-b8-aldermore, uk-b9-shawbrook, uk-b10-starling, uk-b11-monzo · 갱신 us-b5-mt-bank(일자 확정), us-b7-ally(콜 일자 정정·원문 확인 결과)
 - **4차 배치 (2026-08-19, 15건)**: us-d5-charles-schwab, us-d6-interactive-brokers, us-d7-ameriprise, us-d8-edward-jones, us-d9-jefferies, us-b12-us-bancorp, us-b15-western-alliance, us-b16-first-horizon, us-b17-webster(재분류), uk-b6-close-brothers, uk-b7-investec, uk-s6-principality, uk-s7-west-brom, uk-s8-newcastle, uk-s9-nottingham
 - **5차 배치 (2026-08-19, SG/AU 국가 확장 8건)**: sg-b1-gxs-bank, sg-b3-trust-bank, sg-s1-ifast, sg-s2-moomoo-sg, au-b1-bendigo, au-b2-boq, au-b3-judo, au-b4-amp-bank
-- 차기 배치 후보: §1.2 브로커딜러 잔여(D1~D4), §1.5 잔여 미드사이즈(B18~B20, B22~B23, B25~B26, B28, B29는 S1 주의), §2.3 잔여(B13~B18, P1~P3, B12는 PO 판정 후), §1.3 보험·운용(PO 편입 승인 시), 보류 유지분 재탐지(M&T, Ally, UMB, Aldermore, Jefferies, S6~S8), **SG/AU 잔여(§8~§9 리서치 대기분, 컴플라이언스 프레임 확정 후)**.
+- **6차 배치 (2026-08-19, 보험·자산운용 §1.3 전건 9건)**: us-i1-metlife, us-i2-prudential, us-i3-lincoln-financial, us-i4-principal, us-i5-allstate, us-i6-massmutual, us-a1-t-rowe-price, us-a2-franklin-templeton, us-a3-alliancebernstein
+- 차기 배치 후보: §1.2 브로커딜러 잔여(D1~D4), §1.5 잔여 미드사이즈(B18~B20, B22~B23, B25~B26, B28, B29는 S1 주의), §2.3 잔여(B13~B18, P1~P3, B12는 PO 판정 후), 보류 유지분 재탐지(M&T, Ally, UMB, Aldermore, Jefferies, S6~S8, **Principal**), SG/AU 잔여(§8~§9 리서치 대기분, 컴플라이언스 프레임 확정 후).
 
 ---
 
@@ -238,7 +246,10 @@ PRA 지정 투자회사 (지정 여부 전건 [검증 필요], Tier 3 가배정)
 - [ ] UK-B2 TSB 소유권 변동(Santander 인수 보도) 확인 후 재분류 여부
 - [ ] UK-B12 OakNorth의 경쟁 인접(H5) 여부 판정
 - [ ] 부서접근-PO승인 대상(§1.4, §2.4) 접근 여부 (Webster 제외 시 Santander US 부서 접근 여부 포함)
-- [x] **보험·자산운용 세그먼트(§1.3) 편입: PO 승인 (jjlee@onelineai.com, 세션 대화, 2026-08-19).** 편입 조건은 유지: 세그먼트 공통 시그널 1개 강제, NAIC 불레틴 등 규제 근거는 조사 시 웹 검증 필수
+- [x] **보험·자산운용 세그먼트(§1.3) 편입: PO 승인 (jjlee@onelineai.com, 세션 대화, 2026-08-19).** 편입 조건은 유지: 세그먼트 공통 시그널 1개 강제, NAIC 불레틴 등 규제 근거는 조사 시 웹 검증 필수 → **6차 조사 완료(2026-08-19): 규제 근거 웹 검증 충족(보험 상향·운용 하향, §1.3), 세그먼트 공통 시그널 충족(보험: NAIC 평가 도구 파일럿 / 운용: SEC FY2026 시험 우선순위), 상신 8·보류 유지 1**
+- [ ] **(6차) 보험·자산운용 티어 확정**: 8건 Tier 2 가배정(US-I1·I2·I3·I5·I6·A1·A2·A3), US-I4 Principal Tier 3 유지
+- [ ] **(6차) S1 근접 보험 3사의 기능 단위 좁은 접근 전제 승인**: US-I1 MetLife, US-I2 Prudential, US-I5 Allstate(내부 전용 AI 공표 = 자체 구축 성향 확인, 독립검증 보완의 좁은 접근만)
+- [ ] **(6차) 해제 상신 8건 처리** (§4 6차 추가분: 강 5·중 3)
 - [ ] 발송 보류 해제(계정별: §4 상신 목록)
 - [ ] **(5차) SG/AU 컴플라이언스 프레임 구축 착수 지시**: sales-compliance-officer에 SG(Spam Control Act·PDPA)·AU(Spam Act 2003 동의 요건) 프레임 위임. 확정 전 SG/AU 전건 발송 불가(G9)
 - [ ] **(5차) 캠페인 ID 처리**: SG/AU 확장분을 본 캠페인(20260818-usuk-rynta-aigov)에 유지할지, 별도 캠페인으로 분리할지
@@ -249,15 +260,19 @@ PRA 지정 투자회사 (지정 여부 전건 [검증 필요], Tier 3 가배정)
 
 ---
 
-## 7. 수백 통 규모 산수 (PO 지시 2026-08-19 반영, 4차 갱신)
+## 7. 수백 통 규모 산수 (PO 지시 2026-08-19 반영, 6차 갱신)
 
 - 목표 구조: 계정당 수신자 2~3명 x 활성 계정, 1인당 시퀀스 3~4통.
 - **풀 용량**: 활성 74개 기관 x 2~3명 = 이론상 148~222명. 풀 자체는 150명+ 요건을 상단에서 충족한다.
-- **현실 제약(G4)**: 발송 가능 분모는 "리서치 완료 + 시그널 확인 + PO 보류 해제" 계정만이다. **4차 배치 후 해제 상신 가능 계정 누계: 약 32~34개**(1차·2차 14~16 + 3차 8 + 4차 10) = 수신자 약 64~102명 수준.
-- **적중률 실측**: 3차 12건 중 8건(67%), 4차 15건 중 10건(67%, 재분류 1건 제외 시 14건 중 10건 = 71%). 상위 우선순위 계정을 먼저 소진했으므로 잔여 풀의 적중률은 이보다 낮을 것으로 추정한다(50~60% 가정).
-- **150명+ 도달 경로 (재판단)**: 잔여 리서치 대기 약 22~23계정(US D1~D4·미드사이즈 9, UK 챌린저·투자회사 9~10)을 5차에서 전건 조사해도 추가 상신은 약 11~14건 → **누계 약 43~48계정 = 수신자 약 86~144명. 잔여 풀만으로는 150명+ 도달이 불확실하다(상단 시나리오에서만 가능).**
-- **권고**: (1) 보험·자산운용 세그먼트(§1.3, 9계정) 편입 승인 시 예상 추가 상신 4~6건으로 누계 약 47~54계정 = 수신자 약 94~162명, 150명+ 도달이 현실화된다. NAIC AI 모델 거버넌스 불레틴이 세그먼트 공통 시그널 후보다 [검증 필요]. (2) 조건부 국가(싱가포르·호주 등) 확장은 KB08 §6이 싱가포르를 아웃바운드 시장으로 규정하나 G9 조건부 국가 증빙·별도 컴플라이언스 프레임 구축 비용이 커서 차순위로 권고한다. (3) 시그널이 안 나오는 계정을 억지로 채우지 않는다(G4). 볼륨 목표가 시그널 원칙을 이기지 못한다(KB03 §1). 목표 미달 시 그 사실대로 PO에 보고한다.
-- **(5차 주석)** PO가 국가 확장을 결정했으므로 위 권고 (2)의 "차순위" 판단은 폐기된다. SG/AU 증분 산수는 §10.
+- **현실 제약(G4)**: 발송 가능 분모는 "리서치 완료 + 시그널 확인 + PO 보류 해제" 계정만이다. 4차 배치 후 해제 상신 가능 계정 누계: 약 32~34개(1차·2차 14~16 + 3차 8 + 4차 10) = 수신자 약 64~102명 수준.
+- **적중률 실측**: 3차 12건 중 8건(67%), 4차 15건 중 10건(67%, 재분류 1건 제외 시 14건 중 10건 = 71%), **6차 9건 중 8건(89%. 세그먼트 신규 편입 첫 배치로 상위 브랜드 우선 소진 효과)**. 잔여 풀의 적중률은 50~60% 가정을 유지한다.
+- **(6차 갱신) 전 지역 합산 현황**:
+  - US/UK 해제 상신 가능 누계: 기존 32~34 + **6차 8** = **40~42계정** = 수신자 약 **80~126명**.
+  - SG/AU 조건부 상신 8계정(컴플라이언스 프레임 확정 선결) = 16~24명.
+  - **전 지역 상신 가능 합계: 48~50계정 = 약 96~150명.** 150명+는 상단 시나리오에서만 도달한다.
+  - 잔여 리서치 대기(US/UK 약 21~22계정 + SG/AU 15계정) 적중률 50~60% 가정 시 추가 약 18~22계정 = 36~66명 → **최종 전망 약 66~72계정 = 132~216명**.
+- **(6차) 잔여 작업 판단**: (1) 150명+를 하단 시나리오에서도 안정화하려면 **7차 1개 배치(US 브로커딜러 D1~D4 + US 미드사이즈·UK 잔여 중 우선순위 10~12건)**가 필요하다. (2) SG/AU 프레임 확정이 지연되면 US/UK 단독 80~126명으로 150 미달 가능성이 있으므로, 프레임 구축 착수(§6 5차 항목)가 볼륨 경로의 병목이다. (3) 7차 이후에는 신규 조사보다 리스트 구축(개인 레코드·suppression·LIA)·보류 유지분 재탐지로 전환을 권고한다. (4) 시그널이 안 나오는 계정을 억지로 채우지 않는다(G4). 볼륨 목표가 시그널 원칙을 이기지 못한다(KB03 §1). 목표 미달 시 그 사실대로 PO에 보고한다.
+- (4차 권고의 처리) "보험·운용 편입 시 추가 상신 4~6건" 예상은 실측 8건으로 상회 달성. (5차 주석) PO가 국가 확장을 결정했으므로 4차 권고 (2)의 "차순위" 판단은 폐기된다. SG/AU 증분 산수는 §10.
 
 ---
 
@@ -349,7 +364,7 @@ AU는 APRA(건전성)·ASIC(행위) 이원 프레임이다. 카피에 SR 26-2/SS
 ### 9.3 조건부 세그먼트 주석 (편입은 PO 결정)
 
 - **슈퍼애뉴에이션 (AustralianSuper, Aware Super, UniSuper, Rest 등)**: APRA 규제 대상으로 CPS 230·APRA AI 서한이 직접 적용되고 투자·밸류에이션 모델 밀도가 높다. 단 은행형 MRM 조직과 구매 구조가 달라 세그먼트 공통 시그널·구매위원회 맵을 별도 검증해야 한다. US §1.3과 동일하게 PO 편입 승인 전 미편입.
-- **손보·생보 (Suncorp(2024년 은행 매각 후 보험 전업), IAG, QBE, TAL 등)**: 요율·계리 모델 밀도 높음. 보험 세그먼트 원칙(§1.3) 준용, PO 결정 대기.
+- **손보·생보 (Suncorp(2024년 은행 매각 후 보험 전업), IAG, QBE, TAL 등)**: 요율·계리 모델 밀도 높음. 보험 세그먼트 원칙(§1.3) 준용, PO 결정 대기. (6차 주석) US 보험 세그먼트의 규제 축 검증(§1.3)은 NAIC 프레임 기준이므로 AU 보험에 전용하지 않는다. AU 보험은 APRA CPS 230·AI 서한 축으로 별도 검증 필요.
 
 ---
 
@@ -366,7 +381,7 @@ AU는 APRA(건전성)·ASIC(행위) 이원 프레임이다. 카피에 SR 26-2/SS
 - **수신자 증분 추정 (계정당 2~3명)**:
   - 이론 상한: 활성 23계정 x 2~3명 = **46~69명**.
   - 현실 경로: 해제 상신 8계정 = 16~24명(1단계). 리서치 대기 15계정 중 US/UK 4차 실측 적중률(67~71%)보다 보수적인 50~60% 가정 시 추가 7~9계정 = 14~27명(2단계). **합계 약 30~51명.**
-  - 기존 US/UK 경로(§7: 누계 43~48계정, 86~144명)와 합산 시 **약 51~56계정 = 116~195명**. 보험·운용 세그먼트 편입 없이도 150명+ 도달이 상단 시나리오에서 가능해지고, 편입 승인이 더해지면 도달이 안정화된다.
+  - (6차 갱신) 기존 US/UK 경로(§7: 상신 가능 40~42계정, 80~126명)와 합산한 전 지역 현황은 §7의 "(6차 갱신) 전 지역 합산 현황"을 기준으로 한다(본 절의 5차 합산 수치는 6차로 대체됨).
 - **주의**: SG/AU는 레퍼런스 없는 디자인 파트너 시장(KB08 §6)이며, 증분 산수는 컴플라이언스 프레임 구축 리드타임(프레임 확정 전 발송 0건)을 포함하지 않았다. 볼륨 목표가 시그널 원칙(G4)·관할 원칙(G9)을 이기지 못한다.
 
 ---
@@ -380,3 +395,4 @@ AU는 APRA(건전성)·ASIC(행위) 이원 프레임이다. 카피에 SR 26-2/SS
 | 2026-08-19 | 3차 배치: 신규 리서치 10건 + M&T·Ally 갱신 2건, 합병 상태 확정(Pinnacle·PNC·UMB·Old National), 해제 상신 8건 추가(누계 22~24), 티어 조정 제안 3건, 4차 배치 필요 판단(§7) | prospect-researcher |
 | 2026-08-19 | 4차 배치: 리서치 15건(브로커딜러 5, US 미드사이즈 4, UK 6), 브로커딜러 FINRA·SEC 공통 프레임 확정, Webster 재분류(제외) 상신, 해제 상신 10건 추가(누계 32~34), 150명+ 도달 재판단·보험·운용 편입 우선 권고(§7) | prospect-researcher |
 | 2026-08-19 | 5차 국가 확장(PO 결정): SG 11·AU 12 후보 발굴(§8~§9), 메가 3사·빅4+Macquarie S1 판정, SG(MAS AIRG·2024 정보문서)·AU(APRA AI 서한·CPS 230·ASIC) 규제 프레임 실측, 리서치 8건(SG 4·AU 4), 전건 컴플라이언스 프레임 대기 + 발송 보류, 수신자 증분 30~51명 추정(§10) | prospect-researcher |
+| 2026-08-19 | 6차 배치(PO 승인: 보험·자산운용 편입): §1.3 "조건부" → "편입(PO 승인)" 전환, 규제 축 웹 검증(보험: NAIC 불레틴 25개 주+DC·평가 도구 12개 주 파일럿 2026-03~09·NY DFS CL 7·CO 702-10 = 가설 대비 상향 / 운용: PDA 규칙 2025-06-12 철회·SEC FY2026 시험 우선순위만 = 가설 대비 하향), 리서치 9건, 해제 상신 8건 추가(강 5·중 3, US/UK 누계 40~42), 보류 유지 1건(Principal), 전 지역 합산 재계산·7차 1개 배치 권고(§7) | prospect-researcher |
