@@ -1,7 +1,7 @@
 # 마스터 시퀀스: 호주 (APRA AI 서한 + CPS 230 앵커)
 
 > 저장 경로: `docs/sales/campaigns/20260818-usuk-rynta-aigov/copy/master-au.md`
-> 작성: cold-email-writer · 기준일: 2026-08-19 · 상태: 마스터 초안 (outreach-qa 검수 대기)
+> 작성: cold-email-writer · 기준일: 2026-08-19 · 상태: 마스터 수정본 v1.1 (QA 1회차 반영, outreach-qa 재검수 대기)
 > **발송 불가: 이 파일은 마스터 버전이다. `{{...}}` 치환자 미충전 상태로는 어떤 터치도 발송할 수 없다.** 충전 → outreach-qa 재검수 → compliance 게이트 → PO 승인 순서를 지킨다 [G1][G3][G4]. 공통 규칙은 `00-index.md`.
 
 ## 0. 세그먼트 정의
@@ -70,8 +70,8 @@ Worth a look at how that sits alongside your current assurance model?
 
 Sampling-based assurance can say a control worked when it was checked.
 Continuous assurance can say it is working now, for every material
-model, with the evidence already logged. That difference is exactly
-what APRA's letter put on the table.
+model you run, with your evidence already logged. That difference is
+exactly what APRA's letter put on the table.
 
 Evaluation at scale is our background: the Korea Exchange used
 KRX-Bench, a benchmark we co-developed, to judge roughly 233 teams and
@@ -81,28 +81,30 @@ Is that shift something your team is weighing?
 ```
 
 <!-- 증거 문단: EC-krx-bench-01 (승인 수치 그대로) · APRA 언급: EC-regwind-au-01 예정 -->
+<!-- QA 1회차 반영: Before 문단 2인칭화("you run" 추가, "with your evidence already logged"는 QA §4.6 예시 그대로) -->
 
-- 단어 수: **80**. Before(표본 어슈어런스) → After(상시 어슈어런스) → Bridge(평가 실증). CTA 1개, 링크 0.
+- 단어 수: **82** · you:self **3:2** (you run·your evidence·your team vs our·we). Before(표본 어슈어런스) → After(상시 어슈어런스) → Bridge(평가 실증). CTA 1개, 링크 0.
 
 ## 4. Email T3 (Day 12 · 가치 제공형 · 같은 스레드 Re:)
 
 본문:
 
 ```
-{{first_name}}, something useful with or without us.
+{{first_name}}, something worth having either way.
 
 We wrote a two-page note for Australian risk teams on APRA's AI letter
-read next to CPS 230: where sample-based assurance falls short for AI
-models, and a practical sequence for moving specific controls to
-continuous checking first.
+read next to CPS 230: where sample-based assurance falls short for your
+AI models, and which of your controls are worth moving to continuous
+checking first.
 
 Reply "send it" and it's in your inbox: I keep links and attachments
 out of cold threads.
 ```
 
 <!-- 규제 내용: EC-regwind-au-01 예정. two-page note 실물 제작 필수 (00-index §5-6) -->
+<!-- QA 1회차 반영: 오프너 self-reference 제거 + 노트 서술 2인칭화(+2 your) -->
 
-- 단어 수: **62**. 새 가치 = 규제 시사점 요약. 링크 0. CTA 1개.
+- 단어 수: **62** · you:self **3:2** (your AI models·your controls·your inbox vs We·I). 새 가치 = 규제 시사점 요약. 링크 0. CTA 1개.
 
 ## 5. Email T4 (Day 18 · 브레이크업 · 새 스레드)
 
@@ -157,7 +159,7 @@ humans approving throughout. Is that shift under discussion at
 Hi {{first_name}}, this is {{caller_name}} from OneLine AI. I emailed
 you about APRA's AI letter and moving from sample-based to continuous
 assurance. I have one specific idea for {{account}}. Can I take thirty
-seconds, and you tell me if it's relevant?
+seconds, and you can tell me if it's relevant?
 ```
 
 ### 7.2 보이스메일 (20초)
@@ -197,11 +199,15 @@ list straight away.
 | 1 | 시그널 게이트 | 조건부: {{signal_hook}} 충전 시 research/§5 훅 사용 강제 + au_role_relevance_note 정합 |
 | 2 | 제목줄 2~6단어·소문자·camouflage | PASS (3/3/5단어, T4 3~4단어, 스팸 단어 0) |
 | 3 | 오프닝 = 상대 관찰 | PASS |
-| 4 | 본문 50~125단어·프레임워크 식별 | PASS (T1 90~103 PAS / T2 80 BAB / T3 62 / T4 61) |
-| 5 | you:I 비율 | PASS (T2는 경계권, QA 재확인 요청) |
+| 4 | 본문 50~125단어·프레임워크 식별 | PASS (T1 90~103 PAS / T2 82 BAB / T3 62 / T4 61) |
+| 5 | you:I 비율 | PASS (실측: T2 3:2 · T3 3:2, 동수 없음. T1·T4는 QA 1회차 실측 PASS 유지) |
 | 6 | 증거 출처 확인 | 조건부: APRA 앵커 카드 신설·원문 대조 전 발송 불가 |
 | 7 | CTA 정확히 1개·interest-based | PASS |
 | 8 | 안티패턴 스캔 | PASS (수신자 기관의 위반 상태 단정·암시 없음, 공포 마케팅 없음) |
 | 9 | 시퀀스 정합성 | PASS |
 | 10 | 링크 0~1·이미지 0·첨부 0 | PASS (본문 링크 0) |
 | 11 | 규제 게이트 | 조건부: AU 증빙 5필드, 3요건 푸터, DNCR 확인, 카드 신설, G4 해제 전 발송 불가 |
+
+## 11. 변경 이력
+
+- 2026-08-19 v1.1 (cold-email-writer, QA 1회차 반려 반영): T2·T3 2인칭화·오프너 교체(you:self 각 3:2), 콜 오프닝 I-3, 단어 수 갱신(T2 80→82, T3 62 유지).

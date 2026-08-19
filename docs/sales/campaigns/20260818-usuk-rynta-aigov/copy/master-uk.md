@@ -1,7 +1,7 @@
 # 마스터 시퀀스: 영국 빌딩소사이어티·챌린저 (SS1/23 원칙 4 앵커)
 
 > 저장 경로: `docs/sales/campaigns/20260818-usuk-rynta-aigov/copy/master-uk.md`
-> 작성: cold-email-writer · 기준일: 2026-08-19 · 상태: 마스터 초안 (outreach-qa 검수 대기)
+> 작성: cold-email-writer · 기준일: 2026-08-19 · 상태: 마스터 수정본 v1.1 (QA 1회차 반영, outreach-qa 재검수 대기)
 > **발송 불가: 이 파일은 마스터 버전이다. `{{...}}` 치환자 미충전 상태로는 어떤 터치도 발송할 수 없다.** 충전 → outreach-qa 재검수 → compliance 게이트 → PO 승인 순서를 지킨다 [G1][G3][G4]. 공통 규칙은 `00-index.md`.
 
 ## 0. 세그먼트 정의
@@ -68,7 +68,7 @@ Worth a look at how that fits your validation agenda?
 {{first_name}}, one more angle on this.
 
 Right now, independent validation mostly works in annual cycles:
-point-in-time reviews and a backlog that decides the schedule. The
+point-in-time reviews and a backlog that decides your schedule. The
 alternative reads differently to a supervisor: material models re-run
 and checked continuously, each result logged, your reviewers judging
 rather than recomputing.
@@ -81,27 +81,30 @@ Is continuous validation on your roadmap?
 ```
 
 <!-- 증거 문단: EC-krx-bench-01 (CRO 변형 "credentials are institutional" 계열, 승인 수치 그대로) -->
+<!-- QA 1회차 반영: Before 문단 2인칭화 ("decides the schedule" → "decides your schedule", QA §4.6 수정 방향 1) -->
 
-- 단어 수: **79**. Before(연차 주기 검증) → After(상시 재계산) → Bridge(평가 실증). CTA 1개, 링크 0.
+- 단어 수: **79** · you:self **3:2** (your schedule·your reviewers·your roadmap vs Our·we). Before(연차 주기 검증) → After(상시 재계산) → Bridge(평가 실증). CTA 1개, 링크 0.
 
 ## 4. Email T3 (Day 12 · 가치 제공형 · 같은 스레드 Re:)
 
 본문:
 
 ```
-{{first_name}}, sharing something useful whether or not we ever speak.
+{{first_name}}, something worth having either way.
 
 We wrote a two-page note for heads of model validation on SS1/23
-Principle 4 as it meets AI and ML models: where independence questions
-show up, and the evidence supervisors tend to ask for first.
+Principle 4 as it applies to AI and ML models: where independence
+questions show up across your inventory, and the evidence supervisors
+tend to ask your team for first.
 
 Reply "send it" and it's in your inbox: I keep links and attachments
 out of cold threads.
 ```
 
 <!-- 규제 내용: EC-regwind-usuk-01. two-page note 실물 제작 필수 (00-index §5-6) -->
+<!-- QA 1회차 반영: I-2 ("as it meets" → "as it applies to") + 오프너 self-reference 제거 + 노트 서술 2인칭화. SS1/23 적용 지위(내부모형 승인)는 계정 충전 시 확인, QA §5.3 F-4 릴리스 조건 -->
 
-- 단어 수: **62**. 새 가치 = 규제 시사점 요약. 링크 0 (reply-to-receive). CTA 1개.
+- 단어 수: **64** · you:self **3:2** (your inventory·your team·your inbox vs We·I). 새 가치 = 규제 시사점 요약. 링크 0 (reply-to-receive). CTA 1개.
 
 ## 5. Email T4 (Day 18 · 브레이크업 · 새 스레드)
 
@@ -157,7 +160,8 @@ list this year?
 Hi {{first_name}}, this is {{caller_name}} from OneLine AI. I emailed
 you about SS1/23 Principle 4 and continuous independent validation. I
 have one specific idea on clearing validation backlog without adding
-headcount. Can I take thirty seconds, and you tell me if it's relevant?
+headcount. Can I take thirty seconds, and you can tell me if it's
+relevant?
 ```
 
 ### 7.2 보이스메일 (20초)
@@ -179,7 +183,8 @@ You're receiving this one-to-one email because your name and work
 contact were sourced from {{data_source}} for outreach relevant to your
 role in {{role_context}}. Our privacy notice, including your right to
 object: {{privacy_notice_url}}
-If you'd rather not hear from me, reply "opt out" and you won't again.
+If you'd rather not hear from me, reply "opt out" and you won't hear
+from me again.
 ```
 
 - 필수 요소: 발신자 신원 + 데이터 출처 + 프라이버시 노티스 링크(법정 고지, 본문 링크 0개 원칙의 예외) + 반대권·수신거부. LIA 문서 ID 공급 전 발송 불가 (compliance-frame §2.2).
@@ -188,7 +193,8 @@ If you'd rather not hear from me, reply "opt out" and you won't again.
 
 ```
 {{sender_name}}, OneLine AI · {{company_registration_line}}
-If you'd rather not hear from me, reply "opt out" and you won't again.
+If you'd rather not hear from me, reply "opt out" and you won't hear
+from me again.
 ```
 
 - 수신거부·제21조 반대권 접수 시 즉시 전 채널 suppression [G2].
@@ -209,11 +215,15 @@ If you'd rather not hear from me, reply "opt out" and you won't again.
 | 1 | 시그널 게이트 | 조건부: {{signal_hook}} 충전 시 research/§5 훅 사용 강제 |
 | 2 | 제목줄 2~6단어·소문자·camouflage | PASS (3/3/4~5단어, T4 3~4단어, 스팸 단어 0) |
 | 3 | 오프닝 = 상대 관찰 | PASS |
-| 4 | 본문 50~125단어·프레임워크 식별 | PASS (T1 92~105 PAS / T2 79 BAB / T3 62 / T4 58) |
-| 5 | you:I 비율 | PASS (경계권 터치는 QA 재확인 요청) |
+| 4 | 본문 50~125단어·프레임워크 식별 | PASS (T1 92~105 PAS / T2 79 BAB / T3 64 / T4 58) |
+| 5 | you:I 비율 | PASS (실측: T2 3:2 · T3 3:2, 동수 없음. T1·T4는 QA 1회차 실측 PASS 유지) |
 | 6 | 증거 출처 확인 | PASS (수치는 EC-krx-bench-01 승인 문구 그대로) |
 | 7 | CTA 정확히 1개·interest-based | PASS |
 | 8 | 안티패턴 스캔 | PASS |
 | 9 | 시퀀스 정합성 | PASS |
 | 10 | 링크 0~1·이미지 0·첨부 0 | PASS (본문 링크 0, 푸터 법정 링크 1은 G10 요건) |
 | 11 | 규제 게이트 | 조건부: 제14조 고지 요소·LIA·legal-team 확인·G4 해제 전 발송 불가 |
+
+## 11. 변경 이력
+
+- 2026-08-19 v1.1 (cold-email-writer, QA 1회차 반려 반영): T2 +1 your, T3 오프너 교체·I-2·2인칭화(you:self 각 3:2), 콜 오프닝 I-3, 푸터 I-4("you won't hear from me again", §8.1·§8.2), 단어 수 갱신(T3 62→64).

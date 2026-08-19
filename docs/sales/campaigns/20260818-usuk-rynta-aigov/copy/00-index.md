@@ -1,8 +1,8 @@
 # 마스터 시퀀스 카피 인덱스 · RYNTA 글로벌 아웃리치
 
 > 저장 경로: `docs/sales/campaigns/20260818-usuk-rynta-aigov/copy/00-index.md`
-> 작성: cold-email-writer · 기준일: 2026-08-19 · 상태: 마스터 초안 (outreach-qa 검수 대기)
-> 근거: kb/sales/01(카피 원칙), docs/sales/deals/_evidence/(증거 카드 9건), icp-draft.md §1·§5.2·§7, compliance-frame.md, compliance-frame-sg-au.md, templates/sales/multichannel-sequence.md
+> 작성: cold-email-writer · 기준일: 2026-08-19 · 상태: 마스터 수정본 v1.1 (QA 1회차 반영, outreach-qa 재검수 대기)
+> 근거: kb/sales/01(카피 원칙), docs/sales/deals/_evidence/(증거 카드), icp-draft.md §1·§5.2·§7, compliance-frame.md, compliance-frame-sg-au.md, templates/sales/multichannel-sequence.md
 
 ## ⚠️ 발송 불가 조건 (전 파일 공통, 파일 상단에도 명기)
 
@@ -76,7 +76,7 @@
 |---|---|---|---|
 | 1 | EC-regwind-usuk-01 legal-team 규제 해석 확인 미완 | US 은행·UK 세그먼트 발송 | sales-compliance-officer 경유 legal-team |
 | 2 | FINRA 2026 보고서·SEC FY2026 시험 우선순위 증거 카드 미등재 (리서치 파일에 출처는 검증됨: research/us-d1 §2 등) | 브로커딜러·자산운용 세그먼트 발송 | deal-strategist (카드 신설, 가칭 EC-regwind-us-bd-01) |
-| 3 | NAIC AI 불레틴(약 29개 관할)·12개 주 검사 파일럿 증거 카드 미등재 (research/us-i1 §2 검증) | 보험 세그먼트 발송 | deal-strategist (가칭 EC-regwind-us-ins-01) |
+| 3 | NAIC AI 불레틴(채택 약 25개 주 + DC)·12개 주 검사 파일럿 카드 **EC-regwind-us-ins-01 등재 완료(2026-08-19)**, legal-team 확인 대기 | 보험 세그먼트 발송 | sales-compliance-officer 경유 legal-team |
 | 4 | MAS AIRG 컨설테이션·확정 임박·12개월 전환기간 증거 카드 미등재 (research/sg-s1 §2 검증) | SG 세그먼트 발송 | deal-strategist (가칭 EC-regwind-sg-01) |
 | 5 | APRA AI 서한(2026-04-30)·CPS 230 증거 카드 미등재 (research/au-b1·b2 §2 검증, 단 2차 해설 출처) | AU 세그먼트 발송 | deal-strategist (가칭 EC-regwind-au-01) |
 | 6 | T3 제공 자산("two-page note" 세그먼트별 5종 + SG 체크리스트) 실물 미제작 | 전 세그먼트 T3 발송 | sales-lead 배정 |
@@ -89,8 +89,12 @@
 | 주장 | 카드 | 사용 세그먼트 |
 |---|---|---|
 | SR 26-2가 생성형·에이전틱 AI를 별도 거버넌스로 지목 / SS1/23 원칙 4 독립검증 | EC-regwind-usuk-01 | US 은행, UK |
+| NAIC 불레틴 채택 확산(more than 25 jurisdictions, 약 25개 주 + DC) + 12개 주 검사 파일럿 | EC-regwind-us-ins-01 (legal-team 확인 대기) | 보험 A (T1, T3, DM, 전화) |
 | RYNTA 3층 구조·가드레일·감사 추적 (아키텍처 서술만) | EC-rynta-arch-01 | 전 세그먼트 |
-| KRX-Bench, 약 233팀·1,100개+ 모델 평가 기준 | EC-krx-bench-01 | US 은행, 브로커딜러, 보험 A, UK, AU |
-| KRX 공동개발 모델 ACL 2025 게재 | EC-krx-acl2025-01 | 자산운용 B, SG, LinkedIn 노트 전반 |
-| 도쿄증권거래소 상장 민카부와 상용 협업 | EC-minkabu-01 | SG T3 |
-| 미사용 (이번 버전) | EC-kmmlu-01, EC-founder-team-01, EC-kr-references-01(익명), EC-olaf-v2-perf-01 | 디스커버리·트러스트 패키지 단계용으로 보존 |
+| KRX-Bench, 약 233팀·1,100개+ 모델 평가 기준 | EC-krx-bench-01 | US 은행, 브로커딜러, 보험 A, UK, AU (AU는 T2 + LinkedIn 노트) |
+| KRX 공동개발 모델 ACL 2025 게재 | EC-krx-acl2025-01 | 자산운용 B, SG, LinkedIn 노트 (US 은행·브로커딜러·보험·자산운용·UK·SG. AU 노트는 EC-krx-bench-01 사용) |
+| 미사용 (이번 버전) | EC-minkabu-01 (SG T3 문장 삭제, QA §5.3 F-2), EC-kmmlu-01, EC-founder-team-01, EC-kr-references-01(익명), EC-olaf-v2-perf-01 | 디스커버리·트러스트 패키지 단계용으로 보존 |
+
+## 7. 변경 이력
+
+- 2026-08-19 v1.1 (cold-email-writer, QA 1회차 반려 반영): §6 AU LinkedIn 노트 카드 매핑을 EC-krx-bench-01로 수정(QA §7 지적), EC-minkabu-01 미사용 전환(SG T3 문장 삭제), EC-regwind-us-ins-01 사용 행 추가, §5-3 관할 수 표기·카드 등재 상태 갱신.

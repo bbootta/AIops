@@ -1,7 +1,7 @@
 # 마스터 시퀀스: 싱가포르 (MAS AIRG 확정 임박 앵커)
 
 > 저장 경로: `docs/sales/campaigns/20260818-usuk-rynta-aigov/copy/master-sg.md`
-> 작성: cold-email-writer · 기준일: 2026-08-19 · 상태: 마스터 초안 (outreach-qa 검수 대기)
+> 작성: cold-email-writer · 기준일: 2026-08-19 · 상태: 마스터 수정본 v1.1 (QA 1회차 반영, outreach-qa 재검수 대기)
 > **발송 불가: 이 파일은 마스터 버전이다. `{{...}}` 치환자 미충전 상태로는 어떤 터치도 발송할 수 없다.** 충전 → outreach-qa 재검수 → compliance 게이트 → PO 승인 순서를 지킨다 [G1][G3][G4]. 공통 규칙은 `00-index.md`.
 
 ## 0. 세그먼트 정의
@@ -70,9 +70,9 @@ Is AIRG readiness on your agenda yet?
 {{first_name}}, one more angle on this.
 
 Most teams will meet the guidelines the manual way: spreadsheets for
-the AI inventory, screenshots for the evidence, a scramble each time a
-review lands. The alternative is an assurance layer where controls and
-sign-offs accumulate as a by-product of daily use.
+your AI inventory, screenshots for your evidence, a scramble each time
+a review lands. The alternative is an assurance layer where your
+controls and sign-offs accumulate as a by-product of daily use.
 
 On who we are: we co-developed a finance-specific language model with
 the Korea Exchange, peer-reviewed and published at ACL 2025.
@@ -81,30 +81,31 @@ Worth a look?
 ```
 
 <!-- 증거 문단: EC-krx-acl2025-01 -->
+<!-- QA 1회차 반영: Before 문단 2인칭화(+3 your, "spreadsheets for your AI inventory"는 QA §4.6 예시 그대로) -->
 
-- 단어 수: **71**. Before(수기 대응) → After(상시 축적) → Bridge(연구 실증). CTA 1개, 링크 0.
+- 단어 수: **72** · you:self **3:2** (your AI inventory·your evidence·your controls vs we·we). Before(수기 대응) → After(상시 축적) → Bridge(연구 실증). CTA 1개, 링크 0.
 
 ## 4. Email T3 (Day 12 · 가치 제공형 · 같은 스레드 Re:)
 
 본문:
 
 ```
-{{first_name}}, something useful with or without us.
+{{first_name}}, something worth having either way.
 
 We keep a short readiness note on the MAS AI risk management guidelines
 for risk teams at digital-first institutions: the likely scope, what a
-12-month transition actually leaves time for, and a one-page evidence
-checklist. We work across Asia already, including a live commercial
-collaboration with Tokyo Stock Exchange-listed Minkabu.
+12-month transition actually leaves you time for, and a one-page
+evidence checklist for the AI systems you already run.
 
 Reply "send it" and it's in your inbox: I keep links and attachments
 out of cold threads.
 ```
 
-<!-- MAS 내용: EC-regwind-sg-01 예정 · 민카부 협업: EC-minkabu-01 ("독점·투자" 표현 없음 준수) -->
+<!-- MAS 내용: EC-regwind-sg-01 예정. "We work across Asia already, including a live commercial collaboration with Tokyo Stock Exchange-listed Minkabu." 문장은 QA §5.3 F-2로 삭제(EC-minkabu-01 §5 경계, 이번 버전 미사용 전환. you:I 개선 겸용) -->
+<!-- QA 1회차 반영: 오프너 self-reference 제거 + 2인칭화 -->
 <!-- 발송 전 조건: readiness note 실물 제작 필수 (00-index §5-6) -->
 
-- 단어 수: **74**. 새 가치 = 준비 노트 + 아시아 운영 실증. 링크 0. CTA 1개.
+- 단어 수: **66** · you:self **3:2** (leaves you·you already run·your inbox vs We·I). 새 가치 = 준비 노트. 링크 0. CTA 1개.
 
 ## 5. Email T4 (Day 18 · 브레이크업 · 새 스레드)
 
@@ -174,7 +175,8 @@ straight away.
 | MAS AIRG 컨설테이션·확정 임박·12개월 전환기간 | T1, T3, DM | **카드 신설 필요** (가칭 EC-regwind-sg-01, 원출처 research/sg-s1 §2) |
 | RYNTA 3층 구조·감사 추적 | T1, DM | EC-rynta-arch-01 |
 | KRX 공동개발 모델 ACL 2025 게재 | T2, LinkedIn 노트 | EC-krx-acl2025-01 |
-| 도쿄증권거래소 상장 민카부와 상용 협업 | T3 | EC-minkabu-01 |
+
+- EC-minkabu-01은 T3 문장 삭제(QA §5.3 F-2)로 이번 버전 미사용. 디스커버리 단계용 보존.
 
 ## 10. 자기점검 (11항목)
 
@@ -183,11 +185,15 @@ straight away.
 | 1 | 시그널 게이트 | 조건부: {{signal_hook}} 충전 시 research/§5 훅 사용 강제 |
 | 2 | 제목줄 2~6단어·소문자·camouflage | PASS (4/3/4~5단어, T4 3~4단어, 스팸 단어 0) |
 | 3 | 오프닝 = 상대 관찰 | PASS |
-| 4 | 본문 50~125단어·프레임워크 식별 | PASS (T1 87~100 PAS / T2 71 BAB / T3 74 / T4 52) |
-| 5 | you:I 비율 | PASS (T3는 자사 언급 2회로 경계권, QA 재확인 요청) |
-| 6 | 증거 출처 확인 | 조건부: MAS 앵커 카드 신설 전 발송 불가 |
+| 4 | 본문 50~125단어·프레임워크 식별 | PASS (T1 87~100 PAS / T2 72 BAB / T3 66 / T4 52) |
+| 5 | you:I 비율 | PASS (실측: T2 3:2 · T3 3:2, 동수 없음. T1·T4는 QA 1회차 실측 PASS 유지) |
+| 6 | 증거 출처 확인 | 조건부: MAS 앵커 카드 신설 전 발송 불가. "across Asia" 과장 경계 문장은 삭제(F-2) |
 | 7 | CTA 정확히 1개·interest-based | PASS |
 | 8 | 안티패턴 스캔 | PASS (12개월 전환기간을 가짜 긴급성으로 연출하지 않음: 사실 서술 + 준비 관점) |
 | 9 | 시퀀스 정합성 | PASS. C1 채널 대체는 channel-strategist 확인 요청 |
 | 10 | 링크 0~1·이미지 0·첨부 0 | PASS (본문 링크 0) |
 | 11 | 규제 게이트 | 조건부: SG 트랙 착수 PO 승인, BCI 필드, 볼륨 카운터, 카드 신설 전 발송 불가 |
+
+## 11. 변경 이력
+
+- 2026-08-19 v1.1 (cold-email-writer, QA 1회차 반려 반영): T2 2인칭화, T3 오프너 교체·"We work across Asia already..." 문장 삭제(F-2, EC-minkabu-01 미사용 전환)·2인칭화(you:self 각 3:2), 단어 수 갱신(T2 71→72, T3 74→66).

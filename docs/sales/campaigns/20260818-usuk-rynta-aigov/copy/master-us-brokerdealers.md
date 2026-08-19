@@ -1,7 +1,7 @@
 # 마스터 시퀀스: 미국 브로커딜러·자산관리 (FINRA 2026 + SEC FY2026 앵커)
 
 > 저장 경로: `docs/sales/campaigns/20260818-usuk-rynta-aigov/copy/master-us-brokerdealers.md`
-> 작성: cold-email-writer · 기준일: 2026-08-19 · 상태: 마스터 초안 (outreach-qa 검수 대기)
+> 작성: cold-email-writer · 기준일: 2026-08-19 · 상태: 마스터 수정본 v1.1 (QA 1회차 반영, outreach-qa 재검수 대기)
 > **발송 불가: 이 파일은 마스터 버전이다. `{{...}}` 치환자 미충전 상태로는 어떤 터치도 발송할 수 없다.** 충전 → outreach-qa 재검수 → compliance 게이트 → PO 승인 순서를 지킨다 [G1][G3][G4]. 공통 규칙은 `00-index.md`.
 
 ## 0. 세그먼트 정의
@@ -67,12 +67,12 @@ Is agent-level auditability on your {{role_context}} list this year?
 ```
 {{first_name}}, one more angle on this.
 
-Right now, AI supervision mostly lives in policy documents, and the
-agent rollout moves faster than the written procedures behind it. The
-stronger position in an exam is a system of record: every agent action
-logged, replayable, and tied to a named approver.
+Right now, your AI supervision mostly lives in policy documents, and
+your agent rollout moves faster than the written procedures behind it.
+The stronger position in an exam is a system of record: every agent
+action logged, replayable, and tied to a named approver.
 
-On credibility, since we're new to you: the Korea Exchange used
+Since we're probably a new name to you: the Korea Exchange used
 KRX-Bench, a benchmark we co-developed, as the judging standard for a
 competition where roughly 233 teams submitted over 1,100 models.
 
@@ -80,8 +80,9 @@ Worth a look?
 ```
 
 <!-- 증거 문단: EC-krx-bench-01 (승인 문구 준수) -->
+<!-- QA 1회차 반영: Before 문단 2인칭화(+2 your, QA §4.6 수정 방향 1) + I-5 채택("On credibility, since we're new to you" → "Since we're probably a new name to you") -->
 
-- 단어 수: **83**. Before(정책 문서 수준 감독) → After(기록 시스템) → Bridge(평가 역량 실증).
+- 단어 수: **85** · you:self **3:2** (your AI supervision·your agent rollout·to you vs we're·we). Before(정책 문서 수준 감독) → After(기록 시스템) → Bridge(평가 역량 실증).
 - CTA 1개, 링크 0.
 
 ## 4. Email T3 (Day 12 · 가치 제공형 · 같은 스레드 Re:)
@@ -89,20 +90,22 @@ Worth a look?
 본문:
 
 ```
-{{first_name}}, one thing worth having regardless of us.
+{{first_name}}, one thing worth having either way.
 
 We condensed the AI sections of FINRA's 2026 report and the SEC's
 FY2026 exam priorities into a two-page note for broker-dealer risk and
 compliance teams: what your written procedures are now expected to
-cover, and the audit evidence worth preparing early.
+cover, and the audit evidence worth preparing before your examiners
+ask.
 
 Reply "send it" and it's in your inbox: I keep links and attachments
 out of cold threads.
 ```
 
 <!-- 규제 내용: 카드 신설 필요(EC-regwind-us-bd-01 예정). 발송 전 two-page note 실물 제작 필수 -->
+<!-- QA 1회차 반영: 오프너 self-reference 제거("regardless of us" → "either way") + 노트 서술에 your 추가("before your examiners ask", QA §4.6 수정 방향 2 예시 그대로) -->
 
-- 단어 수: **66**. 새 가치 = 규제 시사점 요약. 링크 0 (reply-to-receive). CTA 1개.
+- 단어 수: **68** · you:self **3:2** (your written procedures·your examiners·your inbox vs We·I). 새 가치 = 규제 시사점 요약. 링크 0 (reply-to-receive). CTA 1개.
 
 ## 5. Email T4 (Day 18 · 브레이크업 · 새 스레드)
 
@@ -156,7 +159,7 @@ human-approved, replayable. Is that on your desk this quarter?
 Hi {{first_name}}, this is {{caller_name}} from OneLine AI. I emailed
 you about FINRA's 2026 report and AI-agent monitoring in supervisory
 procedures. I have one specific idea on agent-level audit evidence.
-Can I take thirty seconds, and you tell me if it's relevant?
+Can I take thirty seconds, and you can tell me if it's relevant?
 ```
 
 ### 7.2 보이스메일 (20초)
@@ -193,11 +196,15 @@ you again.
 | 1 | 시그널 게이트 | 조건부: {{signal_hook}} 충전 시 research/§5 훅 사용 강제 |
 | 2 | 제목줄 2~6단어·소문자·camouflage | PASS (6/3/4단어, T4 3~4단어, 스팸 단어 0) |
 | 3 | 오프닝 = 상대 관찰 | PASS |
-| 4 | 본문 50~125단어·프레임워크 식별 | PASS (T1 96~109 PAS / T2 83 BAB / T3 66 / T4 60) |
-| 5 | you:I 비율 | PASS (경계권 터치는 QA 재확인 요청) |
+| 4 | 본문 50~125단어·프레임워크 식별 | PASS (T1 96~109 PAS / T2 85 BAB / T3 68 / T4 60) |
+| 5 | you:I 비율 | PASS (실측: T2 3:2 · T3 3:2, 동수 없음. T1·T4는 QA 1회차 실측 PASS 유지) |
 | 6 | 증거 출처 확인 | 조건부: FINRA/SEC 앵커 카드 신설 전 발송 불가 |
 | 7 | CTA 정확히 1개·interest-based | PASS |
 | 8 | 안티패턴 스캔 | PASS |
 | 9 | 시퀀스 정합성 | PASS (T1 규제 갭 / T2 기록 시스템+실증 / T3 요약 노트 / T4 브레이크업) |
 | 10 | 링크 0~1·이미지 0·첨부 0 | PASS (본문 링크 0) |
 | 11 | 규제 게이트 | 조건부: 앵커 카드·legal-team 확인, G4 해제, 주소 충전 전 발송 불가 |
+
+## 11. 변경 이력
+
+- 2026-08-19 v1.1 (cold-email-writer, QA 1회차 반려 반영): T2 Before 2인칭화 + I-5 채택, T3 오프너 교체·"before your examiners ask" 추가(you:self 각 3:2), 콜 오프닝 I-3, 단어 수 갱신(T2 83→85, T3 66→68).

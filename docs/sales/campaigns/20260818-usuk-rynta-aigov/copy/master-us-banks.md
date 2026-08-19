@@ -1,7 +1,7 @@
 # 마스터 시퀀스: 미국 은행 (SR 26-2 앵커)
 
 > 저장 경로: `docs/sales/campaigns/20260818-usuk-rynta-aigov/copy/master-us-banks.md`
-> 작성: cold-email-writer · 기준일: 2026-08-19 · 상태: 마스터 초안 (outreach-qa 검수 대기)
+> 작성: cold-email-writer · 기준일: 2026-08-19 · 상태: 마스터 수정본 v1.1 (QA 1회차 반영, outreach-qa 재검수 대기)
 > **발송 불가: 이 파일은 마스터 버전이다. `{{...}}` 치환자 미충전 상태로는 어떤 터치도 발송할 수 없다.** 충전 → outreach-qa 재검수 → compliance 게이트 → PO 승인 순서를 지킨다 [G1][G3][G4]. 공통 규칙은 `00-index.md`.
 
 ## 0. 세그먼트 정의
@@ -70,9 +70,9 @@ Worth a look at how that maps to your {{role_context}} agenda?
 {{first_name}}, one more angle on this.
 
 Right now, validation is periodic: sampled outputs, point-in-time
-reviews, a queue that grows faster than it clears. Imagine each
-material model rerun and checked continuously, every result logged for
-audit, your reviewers deciding instead of recomputing.
+reviews, a queue that grows faster than your team clears it. Imagine
+each material model rerun and checked continuously, every result
+logged for audit, your reviewers deciding instead of recomputing.
 
 Evaluation at that scale is our background: when the Korea Exchange ran
 its financial language model competition, roughly 233 teams submitted
@@ -83,8 +83,9 @@ Is continuous validation on your roadmap this year?
 ```
 
 <!-- 증거 문단: EC-krx-bench-01 (카드 승인 영문 문구 준수: "roughly 233 teams", "over 1,100 models") -->
+<!-- QA 1회차 반영: Before 문단 2인칭화 ("than it clears" → "than your team clears it", QA §4.6 수정 방향 1) -->
 
-- 단어 수: **84**. Before(현재 주기적 검증) → After(상시 재계산·로깅) → Bridge(평가 역량 실증). 새 가치 = 제3자 검증 증거.
+- 단어 수: **86** · you:self **3:2** (your team·your reviewers·your roadmap vs our·we). Before(현재 주기적 검증) → After(상시 재계산·로깅) → Bridge(평가 역량 실증). 새 가치 = 제3자 검증 증거.
 - CTA 1개, 링크 0.
 
 ## 4. Email T3 (Day 12 · 가치 제공형 · 같은 스레드 Re:)
@@ -92,7 +93,7 @@ Is continuous validation on your roadmap this year?
 본문:
 
 ```
-{{first_name}}, sharing something useful whether or not we ever talk.
+{{first_name}}, something worth having either way.
 
 We put together a two-page note on SR 26-2 for validation leads: what
 changed from SR 11-7, where generative and agentic AI now sit, and the
@@ -104,9 +105,10 @@ out of cold threads.
 ```
 
 <!-- 규제 내용: EC-regwind-usuk-01 (SR 11-7은 "대체된 구 지침"으로만 언급, 현행 인용 아님) -->
+<!-- QA 1회차 반영: 오프너 self-reference 제거 ("whether or not we ever talk" → "worth having either way" 계열, QA §4.6 수정 방향 2) -->
 <!-- 발송 전 조건: two-page note 실물 제작 필수 (00-index §5-6) -->
 
-- 단어 수: **65**. 새 가치 = 규제 시사점 요약 제공. 링크 0 (reply-to-receive).
+- 단어 수: **61** · you:self **3:2** (your examiners·your AI inventory·your inbox vs We·I). 새 가치 = 규제 시사점 요약 제공. 링크 0 (reply-to-receive).
 - CTA 1개 (자료 수신 여부 확인).
 
 ## 5. Email T4 (Day 18 · 브레이크업 · 새 스레드)
@@ -162,7 +164,7 @@ this quarter?
 Hi {{first_name}}, this is {{caller_name}} from OneLine AI. I emailed
 you about SR 26-2 and the governance gap it flagged for generative and
 agentic AI. I have one specific idea on continuous, auditable
-validation. Can I take thirty seconds, and you tell me if it's
+validation. Can I take thirty seconds, and you can tell me if it's
 relevant?
 ```
 
@@ -201,11 +203,15 @@ you again.
 | 1 | 시그널 게이트 | 조건부: {{signal_hook}} 충전 시 research/§5 훅 사용 강제. 미충전 발송 불가 |
 | 2 | 제목줄 2~6단어·소문자·camouflage | PASS (T1 5/4/3~4단어, T4 3~4단어, 스팸 단어 0) |
 | 3 | 오프닝 = 상대 관찰 | PASS (T1 첫 문장 {{signal_hook}}, 자기소개·인사치레 없음) |
-| 4 | 본문 50~125단어·프레임워크 식별 | PASS (T1 88~101 PAS / T2 84 BAB / T3 65 가치 / T4 59 브레이크업) |
-| 5 | you:I 비율 (상대 > 자사) | PASS (터치별 your/you ≥ we/I, T2·T3 경계권이라 QA 재확인 요청) |
+| 4 | 본문 50~125단어·프레임워크 식별 | PASS (T1 88~101 PAS / T2 86 BAB / T3 61 가치 / T4 59 브레이크업) |
+| 5 | you:I 비율 (상대 > 자사) | PASS (실측: T2 3:2 · T3 3:2, 동수 없음. T1·T4는 QA 1회차 실측 PASS 유지) |
 | 6 | 증거: 수치·사례 출처 확인 | PASS (수치는 EC-krx-bench-01 승인 문구 그대로) |
 | 7 | CTA 정확히 1개·interest-based | PASS |
 | 8 | 안티패턴 스캔 (KB01 §9) | PASS (과장·스팸 트리거·죄책감 유발·기능 나열 없음) |
 | 9 | 시퀀스 정합성 (터치당 새 가치 1개) | PASS (T1 규제 갭 / T2 검증 실증 / T3 요약 노트 / T4 브레이크업) |
 | 10 | 링크 0~1·이미지 0·첨부 0 | PASS (본문 링크 0) |
 | 11 | 규제 게이트 | 조건부: legal-team 확인(EC-regwind-usuk-01), G4 보류 해제, 물리 주소 충전 전 발송 불가 |
+
+## 11. 변경 이력
+
+- 2026-08-19 v1.1 (cold-email-writer, QA 1회차 반려 반영): T2 Before 문단 2인칭화·T3 오프너 self-reference 제거(you:self 각 3:2), 콜 오프닝 I-3 관용 수정, 단어 수 갱신(T2 84→86, T3 65→61).
