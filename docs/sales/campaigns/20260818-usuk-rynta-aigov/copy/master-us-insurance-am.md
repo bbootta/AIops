@@ -184,7 +184,7 @@ out of cold threads.
 <!-- SEC 시험 우선순위: 카드 신설 필요. two-page note 실물 제작 필수 -->
 <!-- QA 1회차 반영: 오프너 self-reference 제거 + "your AI-use policies" 2인칭화 -->
 
-- 단어 수: **0** · you:self **3:2** (your AI-use policies·your next exam·your inbox vs We·I). 링크 0, CTA 1개. (R-1 반영 재계수)
+- 단어 수: **66** · you:self **3:2** (your AI-use policies·your next exam·your inbox vs We·I). 링크 0, CTA 1개. (R-1 반영 재계수)
 
 ## 5. Email T4 (Day 18 · 브레이크업 · 새 스레드)
 
