@@ -22,6 +22,10 @@
 | EC-minkabu-01 | 도쿄증권거래소 상장사 민카부와 상용 협업(업무협약·하나증권 서비스·합동 영업) | [확인] | 대외 가능. "독점/투자" 표현 금지 |
 | EC-founder-team-01 | 창업팀: 증권 현업 약 8년 CEO + 신한카드·카카오페이 CTO + KMMLU 1저자 CDO | [확인] | 대외 가능. 회사 규모 언급 금지 |
 | EC-regwind-usuk-01 | Why Now: SR 26-2(생성형·에이전틱 AI 별도 거버넌스 지목), PRA SS1/23 원칙 4(독립검증) | [확인] (규제기관 공식, ICP 웹 검증) | 시장 맥락으로만. **legal-team 확인 후 대외 사용.** 준수 보장 주장 금지 |
+| EC-regwind-us-bd-01 | Why Now(US 브로커딜러): FINRA 2026 보고서(WSP에 AI 거버넌스·벤더 리스크·AI 에이전트 모니터링) + SEC FY2026 시험 우선순위(AI 정책·절차·감독, AI-washing) | [확인] (규제기관 공식, 2026-08-19 웹 검증) | 시장 맥락으로만. **legal-team 확인 후 대외 사용.** 이 세그먼트에 SR 26-2 인용 금지 |
+| EC-regwind-us-ins-01 | Why Now(US 보험·자산운용): NAIC AI 불레틴(약 25개 주 + DC 채택, 자체 프레임 4개 주 합산 약 29개 관할) + 12개 주 평가 도구 검사 파일럿(2026-03~09). 자산운용은 구속력 규칙 없음(PDA 규칙 2025-06-12 철회, SEC 시험 우선순위만) 정직 병기 | [확인] (관할 수는 2차 종합 근사, "약" 필수) | 시장 맥락으로만. **legal-team 확인 후 대외 사용.** 카피 T1-A 관할 수 문구 수정 플래그(카드 §4) |
+| EC-regwind-sg-01 | Why Now(SG): MAS AIRG 컨설테이션(2025-11-13) + 확정 임박(국회 답변 2026-08-05) + 발행 후 12개월 전환기간 제안 + AI MRM 정보문서(2024-12) | [확인] (MAS 공식, 2026-08-19 웹 검증) | 시장 맥락으로만. **legal-team 확인 후 대외 사용.** 확정 전이므로 "proposed" 서술 유지, AIRG 확정 시 카드 즉시 개정 |
+| EC-regwind-au-01 | Why Now(AU): APRA AI 서한(2026-04-30, 거버넌스·어슈어런스가 AI 도입 속도를 못 따라감 + 시점·표본 어슈어런스 한계 관찰) + CPS 230 전면 적용 국면 | [확인] (서한 존재·일자·상위 메시지. **어슈어런스 세부는 원문 verbatim 미대조 → 요약 서술만, 직접 인용 금지**) | 시장 맥락으로만. **legal-team 확인 + outreach-qa 원문 대조 후 대외 사용.** "호주판 SR 26-2" 표현 금지 |
 
 ## 공통 사용 금지 표현 (전 카드 공통, KB08 §11.2)
 
@@ -33,6 +37,7 @@
 6. 민카부·핑거·KRX 관계의 "독점", "전략적 투자" 과장
 7. 국내 실적(OLA/데이터 라인)을 RYNTA 도입 사례로 치환
 8. ISO/IEC 42001·EU AI Act·NIST AI RMF의 "인증·자동 준수" 표현
+9. 규제 카드(EC-regwind-* 전체): "규제가 우리 제품을 요구한다" 류 단정, 수신자 기관의 위반·미준비 상태 단정·암시
 
 ## PO 확인 필요 항목 (판정 대기)
 
@@ -43,9 +48,12 @@
 | OLAF v2 허깅페이스 모델 카드 정확한 URL | EC-olaf-v2-perf-01 | 링크 확정 전 링크 포함 발송 불가 |
 | RYNTA 커버리지 수치의 대외 인용 가부 | EC-rynta-arch-01 | 아키텍처 서술만 우선 사용 |
 | EC-regwind-usuk-01의 legal-team 규제 해석 확인 | EC-regwind-usuk-01 | sales-compliance-officer 경유 |
+| 신설 규제 카드 4장의 legal-team 규제 해석 확인 | EC-regwind-us-bd-01 · us-ins-01 · sg-01 · au-01 | sales-compliance-officer 경유. 확인 전 대외 발송 불가 |
+| APRA 서한 원문 verbatim 대조 (직접 인용 허용 여부) | EC-regwind-au-01 | outreach-qa 대조 전 요약 서술만 |
+| 마스터 카피 T1-A "bulletin adopted in roughly 29 jurisdictions" 문구 수정 | EC-regwind-us-ins-01 | 카드 §4 정합성 플래그, outreach-qa 반영 |
 
 ## 운영 규칙
 
 - 신규 사실 주장이 필요하면 카드를 먼저 만들고(등급 판정 포함) outreach-qa 대조를 받는다. 카드 없는 주장 삽입 금지.
-- 재검증 주기: 분기. 규제 카드(EC-regwind-usuk-01)는 개정 발생 시 즉시.
+- 재검증 주기: 분기. 규제 카드(EC-regwind-* 계열)는 개정·후속 지침 발생 시 즉시. 특히 EC-regwind-sg-01은 AIRG 확정 발표 시, EC-regwind-us-ins-01은 NAIC 파일럿 종료(2026-09)·Fall Meeting(2026-11) 시 즉시.
 - 원출처 소멸·변경 시 카드 폐기 또는 등급 강등 후, 인용 산출물 전수 재점검.
