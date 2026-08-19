@@ -1,6 +1,6 @@
 # RYNTA 아웃리치 타깃 리스트 요약 (조사 완료분)
 
-> 기준일: 2026-08-19 (6차 배치 반영) · 작성: sales-lead 종합 (원본: research/ 62건, target-accounts.md)
+> 기준일: 2026-08-19 (7차 최종 배치 반영, 조사 단계 종료) · 작성: sales-lead 종합 (원본: research/ 72건, target-accounts.md §12)
 > **이 리스트는 기관·직책 단위다. 개인 이메일 주소는 포함하지 않는다.** 주소는 PO가
 > 검증 도구(권고: US=ZoomInfo, UK=Cognism)로 채우고 검증한다(list-build-spec.md).
 > 발송 여부 최종 승인은 전건 PO 몫이며(G1), 아래 "판정"은 에이전트 권고다.
@@ -9,13 +9,13 @@
 
 | 구분 | 값 |
 |---|---|
-| 조사 완료 기관 | 62곳 (US/UK 은행·증권 45 + 보험·자산운용 9 + SG/AU 8) |
-| 발송 준비 후보 (연락 이유 확보) | **49곳** |
-| 보류·재분류 | 13곳 |
+| 조사 완료 기관 | 69곳 (US 39 + UK 22 + SG/AU 8) |
+| 발송 준비 후보 (연락 이유 확보) | **57~59곳 (최종)** |
+| 보류·재분류 | 14곳 |
 | 후보 풀 전체 (미조사 포함) | 106곳 |
-| 수신자 전망 | 96~150명 (확보분 기준), 잔여 조사 후 132~216명 전망 |
+| 수신자 전망 | **114~177명 = 발송량 342~708통** (수백 통 요건 충족) |
 
-## 1. 발송 준비 후보 49곳
+## 1. 발송 준비 후보 57~59곳
 
 각 기관의 타깃 직책: CRO(리스크총괄), Head of Model Risk(모델리스크), Head of Model
 Validation(모델검증), Head of AI Governance / Responsible AI, CDO. 기관당 2~3명.
@@ -81,6 +81,25 @@ Validation(모델검증), Head of AI Governance / Responsible AI, CDO. 기관당
 | 7 | MassMutual | AI 거버넌스 팀 명시 채용 활성 | 중 |
 | 8 | AllianceBernstein | AI 전략 4필라 + AI 리스크 거버넌스 위원회 (2026-02) | 중 |
 
+### 미국 증권사·은행 추가 (7차, 6곳)
+
+| # | 기관 | 핵심 시그널 (일자) | 강도 |
+|---|---|---|---|
+| 1 | Raymond James | 자체 AI 에이전트 1개월 내 6,500명 사용, $1.1bn 기술지출 (2026-07-22) | 강 |
+| 2 | LPL Financial | AI 에이전트 Cyan 발표, $2bn/3년 (2026-07-28) | 강 |
+| 3 | Robinhood | 어드바이저용 AI Cortex 발표 (2026-06-03) | 강 |
+| 4 | Valley National | 어닝콜에서 AI 손익 계량 공표($15M 절감) (2026-07-23) | 강 |
+| 5 | Stifel | "AI로 채용 축소" 계획 + CEO의 에이전틱 AI 리스크 발언 (2026-07) | 중 |
+| 6 | Associated Banc-Corp | 인수 클로징 + 이사회 기술위원회 신설 (2026-04) | 중 |
+
+### 영국 추가 (7차, 3곳)
+
+| # | 기관 | 핵심 시그널 (일자) | 강도 |
+|---|---|---|---|
+| 1 | Allica Bank | 유니콘 달성 + "AI 에이전트 배포" 선언 (2026-02~04) | 강 |
+| 2 | Zopa | 이익 2배 + AI 어시스턴트 확장 공표 (2026-03) | 중 |
+| 3 | IG Group | "AI 스쿼드" 배치 + 전략 리뷰 (2026-03) | 중 |
+
 ### 싱가포르·호주 (8곳, 컴플라이언스 프레임 통과 조건부)
 
 | # | 기관 | 핵심 시그널 (일자) | 강도 |
@@ -109,6 +128,7 @@ Validation(모델검증), Head of AI Governance / Responsible AI, CDO. 기관당
 | Principality / West Brom / Newcastle (UK) | 유효 시그널 없음 |
 | Ally Financial | 원문 확인 불가, 확보 시 재상신 |
 | Principal (보험) | 유효기간 내 시그널 없음 |
+| East West Bancorp | 유효기간 내 시그널 없음 |
 
 ## 3. 다음 단계 (이메일 주소는 여기서 채워진다)
 
@@ -117,3 +137,10 @@ Validation(모델검증), Head of AI Governance / Responsible AI, CDO. 기관당
 2. 위 41곳의 타깃 직책으로 인물 특정 → 이메일 주소 추출 → 검증(바운스 예방) →
    국가별 규정 심사(G2) → 발송 패키지 조립 → PO 최종 승인 → 발송
 3. 호주 레코드는 주소별 공개 게시 증빙이 추가로 필요하다 (compliance-frame-sg-au.md)
+
+## 4. 시그널 유효기간 경고 (발송 전 재확인 대상)
+
+시그널은 조사일로부터 30일간 유효하다(G4). 1차 배치(2026-08-18 조사)의 활성 7곳
+(KeyCorp, Huntington, Nationwide, Coventry, Yorkshire, Skipton 등)은 **2026-09-17
+만료**되므로, 인프라 예열·주소 검증이 그보다 늦어지면 발송 직전 재확인이 필요하다.
+상세 목록: target-accounts.md §12.
