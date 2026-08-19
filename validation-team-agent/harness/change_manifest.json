@@ -2445,6 +2445,21 @@
       "rollback_rule": "범위 이견 시 §2 표의 해당 부문 행만 조정 — 문서 변경이라 코드 무영향",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0164",
+      "timestamp": "2026-08-09 16:40:00",
+      "component": "harness/pd_design_thresholds.json + tools/pd_cyclicality.py + harness/policies/pd_lgd_ead.md §1.2 + tools/gen_regulatory_criteria.py (CRITERIA_PD · BASEL_MAP_BY_CRITERION · THRESHOLDS) + tests/test_pd_cyclicality.py",
+      "change_type": "create",
+      "evidence": "사용자 질의(TTC·PIT PD 검증 방법)로 공백 확인. 실측: 하니스 전체에서 TTC·PIT 개념이 정책·도구·기준 항목 어디에도 없었다. policies/pd_lgd_ead.md §1 은 변별력·캘리브레이션·표본만 다뤄, 같은 등급체계를 IRB 자본(TTC)과 IFRS 9 ECL(PIT)에 라벨만 바꿔 쓰는 사례를 잡을 수 없었다. 국내 근거는 존재한다: 세칙 별표 3 은 'PD 추정시 5년 이상의 관측기간'과 'PD 추정에 사용된 데이터는 경기순환주기를 반영하여야 하며, 과거 1년 부도율의 평균을 기초로 산출되어야 한다'를 명시한다.",
+      "root_cause": "PD 검증 정책이 성능·캘리브레이션 축으로만 구성되고 설계 축(경기 민감도)이 없었다. 세칙이 요구하는 경기순환주기 반영 여부를 확인할 통제가 부재.",
+      "targeted_fix": "PD 설계 판정 도구 신설. TTC 주장 시 관측기간·등급별 PD 변동계수·평균 PD 변동의 등급 이동분 비중·거시 상관을 보고, PIT 주장 시 등급 수준 추종성을 본다. 단일요인 변환의 왕복·국면 부호 검증 포함. 임계는 pd_design_thresholds.json 로 분리하고 관측기간 5년은 세칙 원문 발췌와 함께 regulatory_criteria 임계 원장에 등재해 원문 대조를 받게 했다. 검증 항목 6건(자동 5·수동 1) 추가.",
+      "expected_benefit": "PIT 자료를 TTC 로 주장하는 사례를 자동으로 잡는다. 합성 표본에서 변동계수 0.726(임계 0.25)·이동분 비중 0.282(임계 0.6)·거시 상관 r=-0.980(p=0.0006) 3건이 동시에 발현했다.",
+      "expected_regression_risk": "임계 4종(cv·상관·이동분 비중·추종성)이 내부 판정값이라 포트폴리오 특성에 따라 오탐 가능. 규제가 정한 수치가 아님을 thresholds notes 에 명시했다. 등급 수 3개 미만이거나 기간 3개 미만이면 판정하지 않고 사유를 남긴다.",
+      "validation_method": "tests/test_pd_cyclicality.py 16건. 음성 통제 3건 포함: PIT 자료를 TTC 로 주장(3개 지적 동시 발현), 5년 미만 관측기간, TTC 자료를 PIT 으로 주장. 변환 왕복은 PD 4종 × rho 3종 × z 5종 = 60조합에서 허용오차 1e-9 이내. 초판 결함을 이 시험이 잡았다: pit_tracking 초판이 포트폴리오 평균으로 추종성을 계산해, TTC 표본을 PIT 이라 주장해도 통과시켰다(평균 상관 +0.936). 등급 이동만으로 평균이 경기를 따라 움직이기 때문이다. 등급 수준으로 고쳐 가중 상관 -0.226 으로 잡히는 것을 확인했다. 통제가 실패할 수 있는지 시험하지 않았다면 발견하지 못했을 결함이다 (ADV-CALC-06).",
+      "rollback_rule": "독립 컴포넌트다. pd_cyclicality.py + pd_design_thresholds.json + CRITERIA_PD 항목 + 임계 1건을 함께 되돌리면 기존 PD 검증(변별력·캘리브레이션)은 무영향으로 남는다. policies/pd_lgd_ead.md §1.2 도 함께 제거할 것.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }
