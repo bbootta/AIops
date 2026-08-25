@@ -16,7 +16,7 @@ struct SearchOutcome {
 }
 
 // 크롤 중에 인덱스 버퍼를 점진적으로 쌓는 빌더.
-// 경로와 소문자 파일명을 각각 하나의 연속 바이트 버퍼에 이어 붙이고
+// 경로와 정규화된(NFC·소문자) 파일명을 각각 하나의 연속 바이트 버퍼에 이어 붙이고
 // 오프셋 배열로 경계를 기록한다. 엔트리당 String 객체를 만들지 않아
 // 수백만 파일에서도 메모리와 검색 속도가 유지된다.
 final class IndexBuilder {
@@ -34,10 +34,10 @@ final class IndexBuilder {
 
     var count: Int { pathOffsets.count - 1 }
 
-    func add(path: String, lowercasedName: String) {
+    func add(path: String, normalizedName: String) {
         pathBuf.append(contentsOf: path.utf8)
         pathOffsets.append(UInt32(pathBuf.count))
-        nameBuf.append(contentsOf: lowercasedName.utf8)
+        nameBuf.append(contentsOf: normalizedName.utf8)
         nameOffsets.append(UInt32(nameBuf.count))
     }
 
@@ -86,11 +86,18 @@ final class IndexSnapshot {
         let nameLen: Int
     }
 
+    // 소문자화 + NFC 정규화. macOS는 파일명을 NFD(한글 자모 분해형)로 저장하는
+    // 경우가 있어, 정규화 없이 바이트 비교하면 같은 한글이라도 파일마다
+    // 매칭이 되다 안 되다 한다. 인덱스와 검색어 양쪽에 동일하게 적용한다.
+    static func normalize(_ s: String) -> String {
+        s.lowercased().precomposedStringWithCanonicalMapping
+    }
+
     // 공백으로 나눈 토큰 전부가 파일명에 포함되면 일치(AND).
     // 점수: 0 완전 일치, 1 접두 일치, 2 부분 일치. 낮을수록 위.
     func search(_ rawQuery: String, limit: Int) -> SearchOutcome {
         let started = Date()
-        let tokens = rawQuery.lowercased()
+        let tokens = Self.normalize(rawQuery)
             .split(separator: " ")
             .map { Array($0.utf8) }
             .filter { !$0.isEmpty }
@@ -199,7 +206,7 @@ final class IndexSnapshot {
                 errorHandler: { _, _ in true }
             ) else { continue }
             for case let url as URL in enumerator {
-                builder.add(path: url.path, lowercasedName: url.lastPathComponent.lowercased())
+                builder.add(path: url.path, normalizedName: normalize(url.lastPathComponent))
                 if builder.count % 25_000 == 0 { progress(builder.count) }
             }
         }
@@ -208,7 +215,9 @@ final class IndexSnapshot {
 
     // MARK: - 캐시 (기계 로컬, 리틀 엔디언 고정 포맷)
 
-    private static let magic = Array("FLASHFINDIDX1".utf8)
+    // 포맷이나 정규화 규칙이 바뀌면 버전을 올려 기존 캐시를 폐기한다.
+    // IDX2: 파일명 NFC 정규화 도입 (IDX1 캐시는 정규화 안 된 이름을 담고 있음).
+    private static let magic = Array("FLASHFINDIDX2".utf8)
 
     static func cacheURL() throws -> URL {
         let base = try FileManager.default.url(for: .applicationSupportDirectory,
