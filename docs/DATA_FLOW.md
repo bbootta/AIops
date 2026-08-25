@@ -28,11 +28,11 @@ python -m risk_lib.datamodel.lineage
 
 | 항목 | 수 |
 |---|---|
-| 카탈로그 원장 | 266장 |
-| 실체화된 원장 | 266 |
-| 전용 화면 | 77장 (범용 조회기 4장 별도) |
+| 카탈로그 원장 | 270장 |
+| 실체화된 원장 | 270 |
+| 전용 화면 | 79장 (범용 조회기 4장 별도) |
 | 감독서식 모듈 | 23개 |
-| 전용 화면이 그리는 원장 | 263장 |
+| 전용 화면이 그리는 원장 | 267장 |
 | 감독서식이 읽는 원장 | 38장 |
 | 미배선 원장 (화면·서식 둘 다 없음) | 0장 |
 | 그중 하류 원장도 없는 것 | 0장 |
@@ -45,7 +45,7 @@ python -m risk_lib.datamodel.lineage
 flowchart LR
   B1["원천·리스크데이터 · 원장 39장"]
   B2["신용 · 원장 72장"]
-  B3["시장 · 원장 23장"]
+  B3["시장 · 원장 27장"]
   B4["운영 · 원장 13장"]
   B5["ALM · 원장 47장"]
   B6["위기상황 · 원장 14장"]
@@ -61,7 +61,7 @@ flowchart LR
   B7 -->|2| B8
   B7 -->|4| B4
   B3 -->|2| B5
-  B3 -->|2| B2
+  B3 -->|3| B2
   B3 -->|6| B4
   B3 -->|2| B6
   B2 -->|1| B5
@@ -112,7 +112,7 @@ flowchart LR
   end
   subgraph G["원천·리스크데이터 원장 39장"]
   direction TB
-    Tdat_mart_load["dat_mart_load (255행)"]
+    Tdat_mart_load["dat_mart_load (259행)"]
     Tdat_retention_action["dat_retention_action (3행)"]
     Tdat_retention_policy["dat_retention_policy (6행)"]
     Tint_connector["int_connector (5행)"]
@@ -127,13 +127,13 @@ flowchart LR
     Trdm_account_master["rdm_account_master (20행)"]
     Trdm_asset_quality["rdm_asset_quality (2,980행)"]
     Trdm_canonical_map["rdm_canonical_map (30행)"]
-    Trdm_code_master["rdm_code_master (1,935행)"]
+    Trdm_code_master["rdm_code_master (1,957행)"]
     Trdm_collateral["rdm_collateral (2,900행)"]
     Trdm_delinquency["rdm_delinquency (2,980행)"]
     Trdm_derivative_master["rdm_derivative_master (84행)"]
     Trdm_derivative_underlying["rdm_derivative_underlying (123행)"]
-    Trdm_dq_result["rdm_dq_result (6,057행)"]
-    Trdm_dq_rule["rdm_dq_rule (3,759행)"]
+    Trdm_dq_result["rdm_dq_result (6,143행)"]
+    Trdm_dq_rule["rdm_dq_rule (3,811행)"]
     Trdm_exposure["rdm_exposure (2,980행)"]
     Trdm_exposure_balance["rdm_exposure_balance (2,980행)"]
     Trdm_fund_holding["rdm_fund_holding (153행)"]
@@ -223,7 +223,7 @@ flowchart LR
 flowchart LR
   subgraph G["원천·리스크데이터 원장"]
   direction TB
-    Tdat_mart_load["dat_mart_load (255행)"]
+    Tdat_mart_load["dat_mart_load (259행)"]
     Tdat_retention_action["dat_retention_action (3행)"]
     Tdat_retention_policy["dat_retention_policy (6행)"]
     Tint_connector["int_connector (5행)"]
@@ -238,13 +238,13 @@ flowchart LR
     Trdm_account_master["rdm_account_master (20행)"]
     Trdm_asset_quality["rdm_asset_quality (2,980행)"]
     Trdm_canonical_map["rdm_canonical_map (30행)"]
-    Trdm_code_master["rdm_code_master (1,935행)"]
+    Trdm_code_master["rdm_code_master (1,957행)"]
     Trdm_collateral["rdm_collateral (2,900행)"]
     Trdm_delinquency["rdm_delinquency (2,980행)"]
     Trdm_derivative_master["rdm_derivative_master (84행)"]
     Trdm_derivative_underlying["rdm_derivative_underlying (123행)"]
-    Trdm_dq_result["rdm_dq_result (6,057행)"]
-    Trdm_dq_rule["rdm_dq_rule (3,759행)"]
+    Trdm_dq_result["rdm_dq_result (6,143행)"]
+    Trdm_dq_rule["rdm_dq_rule (3,811행)"]
     Trdm_exposure["rdm_exposure (2,980행)"]
     Trdm_exposure_balance["rdm_exposure_balance (2,980행)"]
     Trdm_fund_holding["rdm_fund_holding (153행)"]
@@ -382,6 +382,7 @@ flowchart LR
     Prisk_libx2fdatamodelx2fmaterialize_ledgersx2epy["risk_lib/datamodel/materialize_ledgers.py"]
     Prisk_libx2fdatamodelx2fsecuritisationx2epy["risk_lib/datamodel/securitisation.py"]
     Prisk_libx2finstitutionsx2epy["risk_lib/institutions.py"]
+    Prisk_libx2fmarket_portfoliox2epy["risk_lib/market_portfolio.py"]
     Prisk_libx2fmodelsx2festimationx2fccf_estx2epy["risk_lib/models/estimation/ccf_est.py"]
     Prisk_libx2fmodelsx2festimationx2fchecksx2epy["risk_lib/models/estimation/checks.py"]
     Prisk_libx2fmodelsx2festimationx2fdiscount_capmx2epy["risk_lib/models/estimation/discount_capm.py"]
@@ -505,7 +506,6 @@ flowchart LR
   Prisk_libx2fdatamodelx2fmaterialize_detailx2epy --> Tecl_sicr_trigger_stat
   Prisk_libx2fdatamodelx2fmaterialize_detailx2epy --> Tecl_stage_transition
   Prisk_libx2fdatamodelx2fmaterialize_detailx2epy --> Trwa_irb_pool
-  Prisk_libx2fdatamodelx2fmaterialize_detailx2epy --> Trwa_market_component
   Prisk_libx2fdatamodelx2fmaterialize_detailx2epy --> Trwa_operational_bi
   Prisk_libx2fdatamodelx2fmaterialize_detailx2epy --> Trwa_output_floor
   Prisk_libx2fdatamodelx2fmaterialize_detailx2epy --> Trwa_sa_bucket
@@ -517,6 +517,7 @@ flowchart LR
   Prisk_libx2finstitutionsx2epy --> Tcrm_irb_scope
   Prisk_libx2finstitutionsx2epy --> Tcrm_mitigation_param
   Prisk_libx2finstitutionsx2epy --> Tcrm_rating_requirement
+  Prisk_libx2fmarket_portfoliox2epy --> Trwa_market_component
   Prisk_libx2fmodelsx2festimationx2fccf_estx2epy --> Tcrm_ccf_estimate
   Prisk_libx2fmodelsx2festimationx2fchecksx2epy --> Tcrm_ccf_estimate
   Prisk_libx2fmodelsx2festimationx2fchecksx2epy --> Tcrm_lgd_estimate
@@ -955,7 +956,7 @@ flowchart LR
   Trwa_sa_bucket --> FORMS
 ```
 
-### 2.3 시장 · 원장 23장
+### 2.3 시장 · 원장 27장
 
 산출 모듈 → 원장 (미배선 0장 포함)
 
@@ -971,10 +972,11 @@ flowchart LR
     Prisk_libx2finstitutionsx2epy["risk_lib/institutions.py"]
     Prisk_libx2fmarginx2epy["risk_lib/margin.py"]
     Prisk_libx2fmarket_feedx2epy["risk_lib/market_feed.py"]
+    Prisk_libx2fmarket_portfoliox2epy["risk_lib/market_portfolio.py"]
     Prisk_libx2fproduct_masterx2epy["risk_lib/product_master.py"]
     Prisk_libx2fui_studiox2fstudiox2epy["risk_lib/ui_studio/studio.py"]
   end
-  subgraph G["시장 원장 23장"]
+  subgraph G["시장 원장 27장"]
   direction TB
     Tagg_market_exposure["agg_market_exposure (8행)"]
     Tccr_collateral_position["ccr_collateral_position (105행)"]
@@ -992,17 +994,23 @@ flowchart LR
     Tmkt_code_scope["mkt_code_scope (16행)"]
     Tmkt_derivative_sensitivity["mkt_derivative_sensitivity (21행)"]
     Tmkt_ipv["mkt_ipv (182행)"]
+    Tmkt_portfolio["mkt_portfolio (4행)"]
+    Tmkt_portfolio_capital["mkt_portfolio_capital (7행)"]
+    Tmkt_position["mkt_position (7행)"]
     Tmkt_pricing_model["mkt_pricing_model (7행)"]
     Tmkt_product["mkt_product (10행)"]
     Tmkt_product_model_map["mkt_product_model_map (12행)"]
     Tmkt_risk_factor["mkt_risk_factor (46행)"]
     Tmkt_trade["mkt_trade (182행)"]
     Tmkt_var_es["mkt_var_es (3행)"]
+    Tmkt_var_es_portfolio["mkt_var_es_portfolio (12행)"]
     Tncr_component["ncr_component (8행)"]
   end
   Prisk_libx2fdatamodelx2fderivativesx2epy --> Tmkt_derivative_sensitivity
   Prisk_libx2fdatamodelx2fexposure_aggx2epy --> Tagg_market_exposure
   Prisk_libx2fdatamodelx2fmaterializex2epy --> Tmkt_ipv
+  Prisk_libx2fdatamodelx2fmaterializex2epy --> Tmkt_portfolio
+  Prisk_libx2fdatamodelx2fmaterializex2epy --> Tmkt_position
   Prisk_libx2fdatamodelx2fmaterializex2epy --> Tmkt_trade
   Prisk_libx2fdatamodelx2fmaterializex2epy --> Tncr_component
   Prisk_libx2fdatamodelx2fmaterialize_detailx2epy --> Tmkt_backtest_exception
@@ -1021,12 +1029,17 @@ flowchart LR
   Prisk_libx2fmarket_feedx2epy --> Tint_feed_field_map
   Prisk_libx2fmarket_feedx2epy --> Tint_feed_health
   Prisk_libx2fmarket_feedx2epy --> Tint_market_feed
+  Prisk_libx2fmarket_portfoliox2epy --> Tmkt_portfolio_capital
+  Prisk_libx2fmarket_portfoliox2epy --> Tmkt_var_es_portfolio
   Prisk_libx2fproduct_masterx2epy --> Tmkt_pricing_model
   Prisk_libx2fproduct_masterx2epy --> Tmkt_product
   Prisk_libx2fproduct_masterx2epy --> Tmkt_product_model_map
   Prisk_libx2fui_studiox2fstudiox2epy --> Tmkt_code_scope
   Tmkt_risk_factor -.-> Tagg_market_exposure
   Tmkt_trade -.-> Tagg_market_exposure
+  Tmkt_position -.-> Tmkt_portfolio_capital
+  Tmkt_portfolio_capital -.-> Tmkt_var_es_portfolio
+  Tmkt_var_es -.-> Tmkt_var_es_portfolio
   Tccr_csa_term -.-> Tccr_collateral_position
   Tccr_csa_term -.-> Tccr_margin_call
   Tccr_csa_term -.-> Tccr_margin_dispute
@@ -1034,12 +1047,16 @@ flowchart LR
   Tgov_pricing_result -.-> Tgov_pricing_gap
   Tint_market_feed -.-> Tint_feed_field_map
   Tint_market_feed -.-> Tint_feed_health
+  Tmkt_portfolio -.-> Tmkt_portfolio_capital
+  Tmkt_portfolio -.-> Tmkt_position
+  Tmkt_portfolio -.-> Tmkt_trade
+  Tmkt_portfolio -.-> Tmkt_var_es_portfolio
   Tmkt_pricing_model -.-> Tmkt_product_model_map
   Tmkt_product -.-> Tmkt_product_model_map
   Tmkt_trade -.-> Tmkt_ipv
 ```
 
-원장 → 화면·서식 (쓰이는 23장만)
+원장 → 화면·서식 (쓰이는 27장만)
 
 ```mermaid
 flowchart LR
@@ -1061,12 +1078,16 @@ flowchart LR
     Tmkt_code_scope["mkt_code_scope (16행)"]
     Tmkt_derivative_sensitivity["mkt_derivative_sensitivity (21행)"]
     Tmkt_ipv["mkt_ipv (182행)"]
+    Tmkt_portfolio["mkt_portfolio (4행)"]
+    Tmkt_portfolio_capital["mkt_portfolio_capital (7행)"]
+    Tmkt_position["mkt_position (7행)"]
     Tmkt_pricing_model["mkt_pricing_model (7행)"]
     Tmkt_product["mkt_product (10행)"]
     Tmkt_product_model_map["mkt_product_model_map (12행)"]
     Tmkt_risk_factor["mkt_risk_factor (46행)"]
     Tmkt_trade["mkt_trade (182행)"]
     Tmkt_var_es["mkt_var_es (3행)"]
+    Tmkt_var_es_portfolio["mkt_var_es_portfolio (12행)"]
     Tncr_component["ncr_component (8행)"]
   end
   subgraph V["화면·서식"]
@@ -1077,10 +1098,12 @@ flowchart LR
     Vxbc31xd14cxc2a4xd305["백테스팅"]
     Vxc2dcxc7a5["시장"]
     Vxc2dcxc7a5x20RWA["시장 RWA"]
+    Vxc2dcxc7a5x20xd3ecxd2b8xd3f4xb9acxc624["시장 포트폴리오"]
     Vxc9d1xacc4x20xc6d0xc7a5["집계 원장"]
     Vxcf54xb4dcx20xb9e4xd551["코드 매핑"]
     Vxcf55xd54f["콕핏"]
     Vxd30cxc0ddxc0c1xd488["파생상품"]
+    Vxd3ecxd2b8xd3f4xb9acxc624x20xc124xc815["포트폴리오 설정"]
     FORMS["감독서식 10개 모듈"]
   end
   Tncr_component --> VNCRxb7xac74xc804xc131
@@ -1105,17 +1128,26 @@ flowchart LR
   Tmkt_code_scope --> Vxc2dcxc7a5
   Tmkt_derivative_sensitivity --> Vxc2dcxc7a5
   Tmkt_ipv --> Vxc2dcxc7a5
+  Tmkt_portfolio --> Vxc2dcxc7a5
+  Tmkt_portfolio_capital --> Vxc2dcxc7a5
+  Tmkt_position --> Vxc2dcxc7a5
   Tmkt_pricing_model --> Vxc2dcxc7a5
   Tmkt_product --> Vxc2dcxc7a5
   Tmkt_product_model_map --> Vxc2dcxc7a5
   Tmkt_risk_factor --> Vxc2dcxc7a5
   Tmkt_trade --> Vxc2dcxc7a5
   Tmkt_var_es --> Vxc2dcxc7a5
+  Tmkt_var_es_portfolio --> Vxc2dcxc7a5
   Tmkt_var_es --> Vxc2dcxc7a5x20RWA
+  Tmkt_portfolio_capital --> Vxc2dcxc7a5x20xd3ecxd2b8xd3f4xb9acxc624
+  Tmkt_position --> Vxc2dcxc7a5x20xd3ecxd2b8xd3f4xb9acxc624
+  Tmkt_var_es_portfolio --> Vxc2dcxc7a5x20xd3ecxd2b8xd3f4xb9acxc624
   Tagg_market_exposure --> Vxc9d1xacc4x20xc6d0xc7a5
   Tmkt_code_scope --> Vxcf54xb4dcx20xb9e4xd551
   Tmkt_ipv --> Vxcf55xd54f
   Tmkt_derivative_sensitivity --> Vxd30cxc0ddxc0c1xd488
+  Tmkt_portfolio --> Vxd3ecxd2b8xd3f4xb9acxc624x20xc124xc815
+  Tmkt_trade --> Vxd3ecxd2b8xd3f4xb9acxc624x20xc124xc815
   Tmkt_backtest_exception --> FORMS
   Tmkt_ipv --> FORMS
   Tmkt_risk_factor --> FORMS
@@ -1802,7 +1834,7 @@ flowchart LR
     Tgov_access_decision["gov_access_decision (6행)"]
     Tgov_alert_policy["gov_alert_policy (5행)"]
     Tgov_approval["gov_approval (294행)"]
-    Tgov_audit_chain["gov_audit_chain (412행)"]
+    Tgov_audit_chain["gov_audit_chain (413행)"]
     Tgov_change_control["gov_change_control (0행)"]
     Tgov_change_gate["gov_change_gate (0행)"]
     Tgov_change_impact["gov_change_impact (0행)"]
@@ -1830,12 +1862,12 @@ flowchart LR
     Tlex_position["lex_position (8,739행)"]
     Tlex_setting["lex_setting (25행)"]
     Tlex_substitution["lex_substitution (300행)"]
-    Tui_field_policy["ui_field_policy (2,822행)"]
+    Tui_field_policy["ui_field_policy (2,850행)"]
     Tui_layout_proposal["ui_layout_proposal (3행)"]
     Tui_query_plan["ui_query_plan (6행)"]
-    Tui_view["ui_view (338행)"]
+    Tui_view["ui_view (342행)"]
     Tval_audit_ledger["val_audit_ledger (23행)"]
-    Tval_check["val_check (85행)"]
+    Tval_check["val_check (86행)"]
     Tval_independent_request["val_independent_request (1행)"]
     Tval_independent_target["val_independent_target (21행)"]
   end
@@ -1935,7 +1967,7 @@ flowchart LR
     Tgov_access_decision["gov_access_decision (6행)"]
     Tgov_alert_policy["gov_alert_policy (5행)"]
     Tgov_approval["gov_approval (294행)"]
-    Tgov_audit_chain["gov_audit_chain (412행)"]
+    Tgov_audit_chain["gov_audit_chain (413행)"]
     Tgov_change_control["gov_change_control (0행)"]
     Tgov_change_gate["gov_change_gate (0행)"]
     Tgov_change_impact["gov_change_impact (0행)"]
@@ -1963,12 +1995,12 @@ flowchart LR
     Tlex_position["lex_position (8,739행)"]
     Tlex_setting["lex_setting (25행)"]
     Tlex_substitution["lex_substitution (300행)"]
-    Tui_field_policy["ui_field_policy (2,822행)"]
+    Tui_field_policy["ui_field_policy (2,850행)"]
     Tui_layout_proposal["ui_layout_proposal (3행)"]
     Tui_query_plan["ui_query_plan (6행)"]
-    Tui_view["ui_view (338행)"]
+    Tui_view["ui_view (342행)"]
     Tval_audit_ledger["val_audit_ledger (23행)"]
-    Tval_check["val_check (85행)"]
+    Tval_check["val_check (86행)"]
     Tval_independent_request["val_independent_request (1행)"]
     Tval_independent_target["val_independent_target (21행)"]
   end
@@ -2149,6 +2181,7 @@ flowchart RL
   Vxc2dcxbbacxb808xc774xc158("시뮬레이션")
   Vxc2dcxc7a5("시장")
   Vxc2dcxc7a5x20RWA("시장 RWA")
+  Vxc2dcxc7a5x20xd3ecxd2b8xd3f4xb9acxc624("시장 포트폴리오")
   Vxc2e0xc6a9("신용")
   Vxc2e0xc6a9x20RWA("신용 RWA")
   Vxc2e4xd589xb7xac10xc0acxcd94xc801("실행·감사추적")
@@ -2172,6 +2205,7 @@ flowchart RL
   Vxcf54xb4dcx20xb9e4xd551("코드 매핑")
   Vxcf55xd54f("콕핏")
   Vxd30cxc0ddxc0c1xd488("파생상품")
+  Vxd3ecxd2b8xd3f4xb9acxc624x20xc124xc815("포트폴리오 설정")
   Vxd55cxb3c4xad00xb9ac("한도관리")
   Vxd589xb3d9xbaa8xd615x20xbc31xd14cxc2a4xd2b8("행동모형 백테스트")
   Vxd589xb3d9xbaa8xd615x20xcd94xc815("행동모형 추정")
@@ -2238,8 +2272,9 @@ flowchart RL
   Vxc2dcxb098xb9acxc624x20xc124xc815 -.->|1| B6
   Vxc2dcxbbacxb808xc774xc158 -.->|1| B5
   Vxc2dcxbbacxb808xc774xc158 -.->|1| B1
-  Vxc2dcxc7a5 -.->|22| B3
+  Vxc2dcxc7a5 -.->|26| B3
   Vxc2dcxc7a5x20RWA -.->|1| B3
+  Vxc2dcxc7a5x20xd3ecxd2b8xd3f4xb9acxc624 -.->|3| B3
   Vxc2e0xc6a9 -.->|29| B2
   Vxc2e0xc6a9x20RWA -.->|36| B2
   Vxc2e4xd589xb7xac10xc0acxcd94xc801 -.->|5| B8
@@ -2281,6 +2316,7 @@ flowchart RL
   Vxcf55xd54f -.->|1| B6
   Vxd30cxc0ddxc0c1xd488 -.->|1| B3
   Vxd30cxc0ddxc0c1xd488 -.->|3| B1
+  Vxd3ecxd2b8xd3f4xb9acxc624x20xc124xc815 -.->|2| B3
   Vxd55cxb3c4xad00xb9ac -.->|2| B5
   Vxd55cxb3c4xad00xb9ac -.->|3| B1
   Vxd589xb3d9xbaa8xd615x20xbc31xd14cxc2a4xd2b8 -.->|3| B5
@@ -2341,8 +2377,9 @@ flowchart RL
 | 손실·회수 | 3 | opr_capital, opr_loss_event, opr_recovery |
 | 시나리오 설정 | 5 | chg_change_request, chg_impact_map, chg_regression_test, rdm_canonical_map, st_calc_trace |
 | 시뮬레이션 | 2 | alm_irrbb_result, lim_limit_definition |
-| 시장 | 22 | agg_market_exposure, ccr_collateral_position, ccr_csa_term, ccr_margin_call, ccr_margin_dispute, gov_price_source_rank, gov_pricing_control, gov_pricing_gap, gov_pricing_result, int_feed_field_map, int_feed_health, int_market_feed, mkt_backtest_exception, mkt_code_scope, mkt_derivative_sensitivity, mkt_ipv, mkt_pricing_model, mkt_product, mkt_product_model_map, mkt_risk_factor, mkt_trade, mkt_var_es |
+| 시장 | 26 | agg_market_exposure, ccr_collateral_position, ccr_csa_term, ccr_margin_call, ccr_margin_dispute, gov_price_source_rank, gov_pricing_control, gov_pricing_gap, gov_pricing_result, int_feed_field_map, int_feed_health, int_market_feed, mkt_backtest_exception, mkt_code_scope, mkt_derivative_sensitivity, mkt_ipv, mkt_portfolio, mkt_portfolio_capital, mkt_position, mkt_pricing_model, mkt_product, mkt_product_model_map, mkt_risk_factor, mkt_trade, mkt_var_es, mkt_var_es_portfolio |
 | 시장 RWA | 1 | mkt_var_es |
+| 시장 포트폴리오 | 3 | mkt_portfolio_capital, mkt_position, mkt_var_es_portfolio |
 | 신용 | 29 | agg_credit_exposure, crm_backtest_criteria, crm_ccf_backtest, crm_code_scope, crm_default_observation, crm_dev_sample, crm_ews_signal, crm_lgd_backtest, crm_lgd_component, crm_lifecycle_compliance, crm_lifecycle_event, crm_model, crm_obligor_axis_score, crm_obligor_score, crm_override, crm_override_performance, crm_override_reason, crm_pd_calibration, crm_performance, crm_qualitative_assessment, crm_qualitative_item, crm_rating, crm_rating_migration, crm_rating_requirement, crm_sample_representativeness, crm_scorecard_axis, crm_scorecard_bin, crm_scorecard_factor, crm_scorecard_param |
 | 신용 RWA | 36 | crm_allocation, crm_backtest_result, crm_beel_curve, crm_capm_estimate, crm_capm_observation, crm_ccf_estimate, crm_collateral_link, crm_collateral_terms, crm_default_history, crm_defaulted_lgd, crm_estimation_param, crm_estimation_run, crm_exposure_terms, crm_facility_drawdown_history, crm_input_floor, crm_irb_scope, crm_lgd_discount_rate, crm_lgd_estimate, crm_mitigation_param, crm_moc_component, crm_model_governance, crm_pd_estimate, crm_pd_yearly_dr, crm_plgd, crm_plgd_sensitivity, crm_recovery_history, crm_representativeness, rwa_crm_allocation, rwa_fund_result, rwa_irb_pool, rwa_market_component, rwa_operational_bi, rwa_output_floor, rwa_result, rwa_sa_bucket, rwa_sec_result |
 | 실행·감사추적 | 5 | gov_audit_chain, gov_unified_run, int_engine_adapter, int_engine_io, val_audit_ledger |
@@ -2368,6 +2405,7 @@ flowchart RL
 | 코드 매핑 | 6 | alm_code_scope, crm_code_scope, mkt_code_scope, opr_code_scope, rdm_account_master, rdm_product_master |
 | 콕핏 | 16 | gov_approval, gov_evidence_edge, gov_evidence_node, gov_exception_action, mkt_ipv, rdm_asset_quality, rdm_reconciliation, rdm_source_contract, reg_form, reg_form_check, reg_form_line, rwa_sa_bucket, st_capital_path, val_check, val_independent_request, val_independent_target |
 | 파생상품 | 4 | mkt_derivative_sensitivity, rdm_derivative_master, rdm_derivative_underlying, rdm_netting_set |
+| 포트폴리오 설정 | 2 | mkt_portfolio, mkt_trade |
 | 한도관리 | 5 | alm_irrbb_result, kr_irrbb_governance, lim_limit_definition, rdm_exposure, rdm_obligor |
 | 행동모형 백테스트 | 5 | alm_behaviour_backtest, alm_behaviour_model, alm_behaviour_param, gov_role, gov_run_domain |
 | 행동모형 추정 | 9 | alm_behaviour_backtest, alm_behaviour_model, alm_behaviour_param, alm_behaviour_scenario_mult, alm_early_redemption_observation, alm_prepay_observation, alm_prepay_scurve_param, gov_role, gov_run_domain |

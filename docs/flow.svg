@@ -10,19 +10,19 @@ markerHeight="5" orient="auto-start-reverse">
 <rect x="44.0" y="173.0" width="276.0" height="92.0" rx="6" fill="#4c6ef5" fill-opacity="0.1" stroke="none"/>
 <rect x="44.0" y="173.0" width="4.0" height="92.0" rx="2" fill="#4c6ef5" fill-opacity="1.0" stroke="none"/>
 <text x="60.0" y="200.0" font-size="15" font-weight="700" fill="#4c6ef5" text-anchor="start" fill-opacity="1.0">원천 생성</text>
-<text x="60.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">47개 모듈</text>
+<text x="60.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">48개 모듈</text>
 <text x="60.0" y="243.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">합성 포트폴리오·관측이력·지표</text>
 <path d="M326.0,219.0 L340.0,219.0" stroke="#adb5bd" stroke-width="2" marker-end="url(#ar)"/>
 <rect x="346.0" y="173.0" width="276.0" height="92.0" rx="6" fill="#1c7ed6" fill-opacity="0.1" stroke="none"/>
 <rect x="346.0" y="173.0" width="4.0" height="92.0" rx="2" fill="#1c7ed6" fill-opacity="1.0" stroke="none"/>
 <text x="362.0" y="200.0" font-size="15" font-weight="700" fill="#1c7ed6" text-anchor="start" fill-opacity="1.0">산출 엔진</text>
 <text x="362.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">RWA·자본·ECL·ALM·한도</text>
-<text x="362.0" y="243.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">생산 함수 312건</text>
+<text x="362.0" y="243.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">생산 함수 316건</text>
 <path d="M628.0,219.0 L642.0,219.0" stroke="#adb5bd" stroke-width="2" marker-end="url(#ar)"/>
 <rect x="648.0" y="173.0" width="276.0" height="92.0" rx="6" fill="#0ca678" fill-opacity="0.1" stroke="none"/>
 <rect x="648.0" y="173.0" width="4.0" height="92.0" rx="2" fill="#0ca678" fill-opacity="1.0" stroke="none"/>
 <text x="664.0" y="200.0" font-size="15" font-weight="700" fill="#0ca678" text-anchor="start" fill-opacity="1.0">원장</text>
-<text x="664.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">TableSpec 266장</text>
+<text x="664.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">TableSpec 270장</text>
 <text x="664.0" y="243.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">블록 8개</text>
 <path d="M930.0,219.0 L944.0,219.0" stroke="#adb5bd" stroke-width="2" marker-end="url(#ar)"/>
 <rect x="950.0" y="173.0" width="276.0" height="92.0" rx="6" fill="#f08c00" fill-opacity="0.1" stroke="none"/>
@@ -34,7 +34,7 @@ markerHeight="5" orient="auto-start-reverse">
 <rect x="1252.0" y="173.0" width="276.0" height="92.0" rx="6" fill="#c2255c" fill-opacity="0.1" stroke="none"/>
 <rect x="1252.0" y="173.0" width="4.0" height="92.0" rx="2" fill="#c2255c" fill-opacity="1.0" stroke="none"/>
 <text x="1268.0" y="200.0" font-size="15" font-weight="700" fill="#c2255c" text-anchor="start" fill-opacity="1.0">화면·서식</text>
-<text x="1268.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">화면 81 (전용 77)</text>
+<text x="1268.0" y="223.0" font-size="12.5" font-weight="400" fill="#343a40" text-anchor="start" fill-opacity="1.0">화면 83 (전용 79)</text>
 <text x="1268.0" y="243.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">감독서식 모듈 23</text>
 <text x="44.0" y="303.0" font-size="21" font-weight="700" fill="#212529" text-anchor="start" fill-opacity="1.0">2. 테이블 흐름</text>
 <text x="44.0" y="324.0" font-size="12.5" font-weight="400" fill="#5c6670" text-anchor="start" fill-opacity="1.0">행이 재료, 열이 결과다. 칸의 숫자와 진하기가 블록 사이의 feeds·fk 엣지 수이며 회색 대각선은 블록 안쪽 흐름이라 세지 않는다.</text>
@@ -81,8 +81,8 @@ markerHeight="5" orient="auto-start-reverse">
 <text x="208.0" y="482.0" font-size="12.5" font-weight="700" fill="#0ca678" text-anchor="end" fill-opacity="1.0">시장</text>
 <text x="208.0" y="482.0" font-size="1" font-weight="400" fill="#212529" text-anchor="start" fill-opacity="1.0"></text>
 <rect x="221.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
-<rect x="343.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#0ca678" fill-opacity="0.16440677966101697" stroke="none"/>
-<text x="403.0" y="483.0" font-size="13" font-weight="700" fill="#0ca678" text-anchor="middle" fill-opacity="1.0">2</text>
+<rect x="343.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#0ca678" fill-opacity="0.17661016949152544" stroke="none"/>
+<text x="403.0" y="483.0" font-size="13" font-weight="700" fill="#0ca678" text-anchor="middle" fill-opacity="1.0">3</text>
 <rect x="465.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#f1f3f5" fill-opacity="1.0" stroke="none"/>
 <rect x="587.0" y="463.0" width="120.0" height="28.0" rx="4" fill="#0ca678" fill-opacity="0.21322033898305087" stroke="none"/>
 <text x="647.0" y="483.0" font-size="13" font-weight="700" fill="#0ca678" text-anchor="middle" fill-opacity="1.0">6</text>
@@ -159,21 +159,21 @@ markerHeight="5" orient="auto-start-reverse">
 <rect x="831.0" y="633.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
 <rect x="953.0" y="633.0" width="120.0" height="28.0" rx="4" fill="#fafbfc" fill-opacity="1.0" stroke="none"/>
 <rect x="1075.0" y="633.0" width="120.0" height="28.0" rx="4" fill="#f1f3f5" fill-opacity="1.0" stroke="none"/>
-<text x="44.0" y="688.0" font-size="12.5" font-weight="400" fill="#5c6670" text-anchor="start" fill-opacity="1.0">블록 간 엣지 161건. 가장 굵은 줄기는 원천·리스크데이터에서 신용으로 가는 59건이며, 회색 칸은 블록 안쪽 흐름이라 세지 않았다.</text>
+<text x="44.0" y="688.0" font-size="12.5" font-weight="400" fill="#5c6670" text-anchor="start" fill-opacity="1.0">블록 간 엣지 162건. 가장 굵은 줄기는 원천·리스크데이터에서 신용으로 가는 59건이며, 회색 칸은 블록 안쪽 흐름이라 세지 않았다.</text>
 <text x="44.0" y="728.0" font-size="21" font-weight="700" fill="#212529" text-anchor="start" fill-opacity="1.0">3. 화면 흐름</text>
 <text x="44.0" y="749.0" font-size="12.5" font-weight="400" fill="#5c6670" text-anchor="start" fill-opacity="1.0">전용 화면이 어느 블록의 원장을 그리는지. 범용 조회기는 세지 않는다.</text>
 <text x="212.0" y="790.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">원천·리스크데이터</text>
 <rect x="222.0" y="777.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
 <rect x="222.0" y="777.0" width="649.6" height="18.0" rx="4" fill="#4c6ef5" fill-opacity="0.85" stroke="none"/>
-<text x="881.6" y="790.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">72건 · 15%</text>
+<text x="881.6" y="790.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">72건 · 14%</text>
 <text x="212.0" y="820.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">신용</text>
 <rect x="222.0" y="807.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
 <rect x="222.0" y="807.0" width="1254.0" height="18.0" rx="4" fill="#1c7ed6" fill-opacity="0.85" stroke="none"/>
 <text x="1486.0" y="820.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">139건 · 28%</text>
 <text x="212.0" y="850.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">시장</text>
 <rect x="222.0" y="837.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
-<rect x="222.0" y="837.0" width="297.7" height="18.0" rx="4" fill="#0ca678" fill-opacity="0.85" stroke="none"/>
-<text x="529.7" y="850.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">33건 · 7%</text>
+<rect x="222.0" y="837.0" width="378.9" height="18.0" rx="4" fill="#0ca678" fill-opacity="0.85" stroke="none"/>
+<text x="610.9" y="850.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">42건 · 8%</text>
 <text x="212.0" y="880.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">운영</text>
 <rect x="222.0" y="867.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
 <rect x="222.0" y="867.0" width="189.5" height="18.0" rx="4" fill="#f08c00" fill-opacity="0.85" stroke="none"/>
@@ -181,7 +181,7 @@ markerHeight="5" orient="auto-start-reverse">
 <text x="212.0" y="910.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">ALM</text>
 <rect x="222.0" y="897.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
 <rect x="222.0" y="897.0" width="1055.5" height="18.0" rx="4" fill="#7048e8" fill-opacity="0.85" stroke="none"/>
-<text x="1287.5" y="910.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">117건 · 24%</text>
+<text x="1287.5" y="910.0" font-size="12" font-weight="400" fill="#6b7378" text-anchor="start" fill-opacity="1.0">117건 · 23%</text>
 <text x="212.0" y="940.0" font-size="13" font-weight="400" fill="#343a40" text-anchor="end" fill-opacity="1.0">위기상황</text>
 <rect x="222.0" y="927.0" width="1254.0" height="18.0" rx="4" fill="#e9ecef" fill-opacity="1.0" stroke="none"/>
 <rect x="222.0" y="927.0" width="126.3" height="18.0" rx="4" fill="#e8590c" fill-opacity="0.85" stroke="none"/>

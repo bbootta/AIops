@@ -1,0 +1,181 @@
+team:
+  name: sales-agent-team
+  purpose: >
+    원라인AI의 Product Owner 한 명(founder-led sales 단계)을 지원하는
+    글로벌 타깃 세일즈 에이전트팀. 콜드 아웃리치 캠페인의 리서치, 카피,
+    검수, 컴플라이언스, 전달성 관리와 딜 진행 지원(미팅 준비, 파일럿,
+    ROI, 보안 심사)을 담당한다. 에이전트는 준비와 검증까지만 하고,
+    발송·미팅·최종 판정은 사람(PO)이 한다.
+  default_language: ko-KR            # 내부 문서·보고서. 아웃리치 카피는 영어가 기본
+  target_market_policy:
+    primary: [US, UK]                # 콜드 메일 트랙. US: CAN-SPAM 옵트아웃 체제. UK: KB09상 '가능(조건 충족 시)' 등급으로, corporate subscriber 확인(불명 시 개인 가입자로 fail-closed)과 UK GDPR LIA(G10)가 전제다
+    conditional: [EU 국가별, AU, SG, JP]  # LIA 등 조건 충족 시에만, 국가 단위로 분리 심사
+    avoid_cold_email: [DE, AT, IT, ES, PL, CH, CN, CA, KR]  # 대체 채널 플레이만. KB09 §8.1 회피 등급(DE, AT, IT, ES, PL, CH, CN) + 팀 정책 회피(CA: KB09상 조건부이나 CASL 리스크로 기본값 회피) + KR(KB06, G7)
+    rule: >
+      "EU"라는 단일 세그먼트는 금지, 반드시 국가 단위로 관할을 판정한다.
+      관할 불명 레코드는 회피 등급으로 처리한다.
+  knowledge_base: kb/sales/00-index.md
+  outreach_policy:
+    english_copy_default: true       # 제목줄·본문·시퀀스는 영어로 작성
+    agents_never_send: true          # G1: 에이전트는 발송 도구를 실행하지 않는다
+    outbox_dir: docs/sales/outbox/   # 발송 패키지는 여기 저장되고 사람이 발송
+    compliance_records_dir: docs/sales/compliance/
+    campaign_workdir: docs/sales/campaigns/
+    deal_workdir: docs/sales/deals/
+    reports_dir: reports/sales/
+    campaign_id_format: "YYYYMMDD-<region>-<slug>"
+  po_exclusive_decisions:            # 에이전트가 판정할 수 없는 PO 전속 결정 (초안·권고까지만)
+    - ICP 확정과 Anti-ICP 규칙 신설·변경
+    - 공략 앵글 선택
+    - 자격검증 최종 판정(진행/조건부/탈락)과 챔피언 판정
+    - 딜 전략·Commit 판정
+    - LIA 승인
+    - 발송 승인과 LinkedIn/전화 터치 실행
+    - 서킷브레이커 중단·재개 실행
+    - 캠페인 회고의 확대/폐기 판정
+    - 시그널 없는 계정의 발송 보류 해제
+
+agents:
+  - id: sales-lead
+    role: 세일즈팀장. PO의 유일한 접점. 캠페인·딜 지원 스코핑, 작업 분배, 발송 패키지 조립, PO 의사결정 큐 운영.
+    owns: [캠페인 계획, 지역 플레이북 선택, 산출물 종합, PO 의사결정 큐, 사람/에이전트 경계 관리]
+    delegates_to:
+      - prospect-researcher
+      - channel-strategist
+      - cold-email-writer
+      - outreach-qa
+      - sales-compliance-officer
+      - deliverability-engineer
+      - deal-strategist
+      - sales-ops-analyst
+
+  - id: prospect-researcher
+    role: 프로스펙팅 리서처. ICP 초안(확정은 PO), 시그널 기반 리스트 구축·검증·티어링, 계정 리서치.
+    owns: [ICP 초안과 갱신 제안, Anti-ICP 필터 적용, 리스트 구축·검증, 시그널 모니터링, 계정 리서치 산출물, 관할·출처·증빙 태깅]
+
+  - id: channel-strategist
+    role: 채널 전략가. 멀티채널 터치맵(이메일 3~4통 + LinkedIn/전화 슬롯)과 회피 등급 국가·한국의 대체 채널 플레이북.
+    owns: [Day-by-Day 터치맵, 대체 채널 플레이북, 한국 대체 채널 설계, 파트너 채널 계정 맵, 시차 기반 PO 실행 캘린더]
+
+  - id: cold-email-writer
+    role: 콜드메일 카피라이터(영문). 영어 네이티브 수준 아웃리치 카피 전담. 터치맵 전 채널 카피(이메일·LinkedIn·콜 스크립트).
+    owns: [영문 제목줄·본문·CTA, 터치별 카피, 스레드 전략, 국가·문화권 변형(한국은 건별 개별 작성), 브레이크업, A/B 변형]
+
+  - id: outreach-qa
+    role: 아웃리치 검수관. 카피라이터와 분리된 독립 검수. 11항목 게이트, 팩트체크, 시퀀스 구조 검수, 영어 관용성 검토. fail-closed.
+    owns: [발송 전 게이트 판정(PASS/FAIL), 시퀀스 구조 검수, 수치·레퍼런스 팩트체크, 안티패턴·스팸 트리거 스캔, 환각 훅 검증, 대외 전달물 주장 검증]
+
+  - id: sales-compliance-officer
+    role: 아웃리치 컴플라이언스 심사관. 수신자 관할별 규제 3층 게이트(리스트/메시지/운영), LIA 초안, suppression 정책. fail-closed.
+    owns: [국가별 매트릭스 판정, 게이트 A/B/C 심사·기록, EU LIA 초안과 보관기간 정책, 한국 분기 게이트, suppression 정책·감사, 터치별 델타 재대조, 규제 모니터링과 legal-team 에스컬레이션]
+
+  - id: deliverability-engineer
+    role: 딜리버러빌리티 엔지니어. 발신 인프라(도메인·인증·웜업·한도)와 도달률의 단일 책임자. 서킷브레이커 판정.
+    owns: [도메인·메일박스 설계, DNS 인증 명세·검증, 웜업·램프업, 발송 도구 안전장치 설정 명세·검증, 발송 스케줄 설계, 서킷브레이커 판정과 런북, 일간·주간 점검, 터치 릴리스 기술 파트]
+
+  - id: deal-strategist
+    role: 딜 전략가. 미팅 전후방 지원. SPICED 채점 초안(판정은 PO), 파일럿 헌장, ROI 케이스, 보안 설문 패키지, 증거 카드.
+    owns: [미팅 브리프·부검, 자격검증 채점 초안과 판정 권고, 딜 맵·챔피언 추적, 반대논거 플레이북, 파일럿 헌장·ROI 케이스, 보안 설문·트러스트 패키지, 증거 카드 라이브러리]
+
+  - id: sales-ops-analyst
+    role: 세일즈 운영 분석가. 기록과 학습 루프. CRM 스키마, 답장 로그 분류, 3층 지표 리포트, 회고, A/B 규율, KB 갱신 루프.
+    owns: [CRM·리스트 스키마와 위생, 답장 로그 일간 분류, 지표 주간 리포트, 격주 회고 초안, A/B 테스트 규율, KB 갱신 추적]
+
+workflows:
+  - name: cold-outreach-campaign    # 캠페인: 브리프 → 리스트 → 터치맵 → 카피 → QA → 컴플라이언스 → 프리플라이트 → 발송 패키지
+    entry: .claude/workflows/cold-outreach-campaign.js
+  - name: outreach-infra-setup      # 인프라: 도메인 설계 → DNS 인증 → 웜업 → 발송 도구 안전장치 → 완료 판정 (캠페인 2~4주 전 선행)
+    entry: .claude/workflows/outreach-infra-setup.js
+  - name: deal-support              # 딜 지원: 미팅 준비/부검/파일럿/제안/보안 심사 산출물
+    entry: .claude/workflows/deal-support.js
+  - name: sales-ops-review          # 운영 리듬: weekly 전체 점검 / daily 캠페인 활성 집중 점검(터치 릴리스 게이트 포함)
+    entry: .claude/workflows/sales-ops-review.js
+
+quality_gates:
+  - id: G1
+    name: 인간 승인 게이트
+    rule: >
+      모든 대외 발신물은 PO의 명시적 승인 없이 나가지 않는다. 에이전트는
+      발송 도구를 실행하지 않으며, 발송 패키지는 docs/sales/outbox/에
+      저장되고 사람이 발송한다. LinkedIn/전화 터치 실행 주체도 PO다.
+      po_exclusive_decisions 목록은 에이전트가 판정할 수 없다.
+      초기 100% 검수, 안정화 후에도 샘플링 검수를 유지한다.
+  - id: G2
+    name: 컴플라이언스 게이트 (fail-closed)
+    rule: >
+      게이트 A(리스트)/B(메시지)/C(운영) PASS 기록 없는 발송 패키지는 조립
+      금지. 터치 2~N 각각도 발송 직전 suppression 델타 재대조를 통과해야
+      하며, 수신거부·답장·하드바운스·신고 발생 수신자는 즉시 전 채널
+      시퀀스에서 제외한다. 관할 불명은 회피 등급 처리, 회피 등급 레코드가
+      콜드 메일 큐에 있으면 캠페인 중단 후 대체 채널로 이관. 기록은
+      docs/sales/compliance/에 보존한다.
+  - id: G3
+    name: QA 게이트
+    rule: >
+      KB01 §13 11항목(시그널 존재, 제목줄 2~6단어, 본문 50~125단어, you:I
+      비율, CTA 1개, 안티패턴 0건, 링크 0~1개) 전건 통과. 검수 대상은
+      이메일·LinkedIn 노트/DM·콜 스크립트 전부. 영어 네이티브 관용성·톤
+      포함. 미검증 수치가 1개라도 있으면 FAIL.
+  - id: G4
+    name: 시그널 게이트
+    rule: >
+      Tier 1~2 레코드는 30일 이내 리서치 산출물(시그널, 가설, 훅, 배제
+      확인) 없이 시퀀스 투입 불가. "왜 이 사람, 왜 지금"에 한 문장으로
+      답하지 못하면 발송 보류. 보류 해제는 PO만 가능.
+  - id: G5
+    name: 딜리버러빌리티 프리플라이트
+    rule: >
+      리스트 100% 검증(예상 바운스 2% 미만), 웜업 완료, 전역 suppression
+      대조, 플레인 텍스트·첨부 0, 발송 도구 안전장치 설정 검증(답장 시
+      시퀀스 자동 중단, 하드바운스 자동 억제, suppression 동기화, 임계
+      초과 자동 중단)이 전부 확인되어야 발송 스케줄 배정. 터치별 릴리스
+      직전 touch-release-checklist PASS 필수.
+  - id: G6
+    name: 서킷브레이커 (3요소)
+    rule: >
+      (1) 판정 기준: 바운스율 2% 초과, 스팸 신고율 0.1% 이상, 인박스
+      배치율 85% 미만, 블랙리스트 등재 중 하나라도 발생. (2) 사전 방어선:
+      발송 도구의 자동 중단 규칙을 PO가 사전 설정하고 에이전트가 검증
+      (미설정 시 착수 불가). (3) 실행: 판정 즉시 PO에 중단 요청, PO가
+      수동 중단 실행. 캠페인 개시·증량 후 3일과 발송 활성 기간 매
+      영업일에 daily 점검. 재개는 원인 제거 확인과 PO 승인 모두 필요.
+  - id: G7
+    name: 한국 분기 게이트
+    rule: >
+      한국 수신자가 1명이라도 포함되면 KB06 §8 게이트를 별도 통과.
+      템플릿 대량 발송(C/D 유형)은 무조건 반려. 무동의 콜드 발송 중에서는
+      A/B 유형(1:1 사업 제안. A: 순수 거래·제휴 문의, B: 1:1 맞춤 제안)만
+      건별 개별 작성으로 소량 수동 발송 후보이고, 동의 기반·거래관계 예외
+      루트는 KB06 §2.4 표기 의무를 충족해야 한다. 경계 사안은 legal-team
+      회신 전까지 발송 금지. 한국 기본값은 콜드 메일이 아니라 대체 채널이다.
+  - id: G8
+    name: 딜 게이트
+    rule: >
+      기회 승격에는 SPICED 5필드 기록, 페인 정량화 값, 결정권자 실명 필요.
+      에이전트는 채점 초안·판정 권고까지만, PO 판정 기록 없는 기회는
+      "판정 대기"로 다음 스테이지 이동 불가. 파일럿 제안은 헌장(단일 KPI,
+      합격선, 6~8주, 유료, EB 승인) 없이 발송 가능 상태로 전달되지 않는다.
+  - id: G9
+    name: 스키마 게이트
+    rule: >
+      jurisdiction, 수집 출처, 수집일, (조건부 국가) 증빙, (한국) 수신
+      근거, (EU/영국) LIA ID와 보관기간 만료일 필드가 빈 레코드는 발송 큐
+      진입 불가. "EU" 단일 세그먼트 금지, 국가 단위로 분리한다.
+  - id: G10
+    name: EU 데이터 게이트
+    rule: >
+      EU/영국 레코드는 PO가 승인한 LIA(3단 테스트) 없이 발송 큐 진입 불가.
+      LIA 초안 작성은 캠페인 워크플로의 정규 단계다(경계 사안만 legal-team,
+      회신 대기 중에는 경계 레코드만 분리 보류하고 잔여 레코드로 부분
+      진행). 보관기간은 마지막 접촉 3년, 만료 레코드는 삭제·익명화. 첫
+      메일에 제14조 고지 요소(출처 + 프라이버시 노티스 링크) 포함. 검증
+      도구 사용 시 역외 이전 체크(EU 리전 또는 SCC, DPA). 마케팅 반대는
+      절대적 권리로 즉시 suppression 등록.
+  - id: G11
+    name: 시퀀스 구조 게이트
+    rule: >
+      이메일 단독 5터치 이상 시퀀스는 구조 반려. 표준은 이메일 3~4통 +
+      LinkedIn/전화 슬롯의 멀티채널 터치맵. 답장 없는 상대에게 이메일 8통
+      이상 금지, 같은 날 같은 채널 중복 금지, 터치별 실행 주체(발송
+      도구/PO) 명기. 회피 등급 국가는 이메일 시퀀스 투입 금지, 대체 채널
+      플레이북으로만 접근.

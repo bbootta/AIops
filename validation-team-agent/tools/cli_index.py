@@ -40,6 +40,7 @@ CLI_MODULES: list[tuple[str, str]] = [
     ("tools.gen_domain_criteria", "기준 항목 원장 생성기 — 원문 레지스터가 바뀌면 재실행"),
     ("tools.regulatory_criteria", "규제 기준 검증 항목 — 기준 스택(국내→바젤)·인용의 원문 해석·임계 대조"),
     ("tools.gen_regulatory_criteria", "규제 검증 항목 생성기 — 규정·세칙·바젤 원문에서 인용을 해석해 생성"),
+    ("tools.pd_cyclicality", "PD 설계 구분(TTC·PIT) 검증: 경기 민감도·시점 추종성·단일요인 변환"),
     ("tools.validation_trigger", "상시 모니터링 트리거 평가 → 검증 사례·검토 큐"),
     ("tools.validation_finding", "Finding 원장 (발견·원인·보완·재검증·종결 계보)"),
     ("tools.independent_recalc", "독립 재계산 + 차이 원인 분해 (VAL-007/008)"),

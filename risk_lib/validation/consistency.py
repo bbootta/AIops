@@ -479,6 +479,37 @@ def _check_market_op_rwa(market_rwa, op_rwa, report: ValidationReport,
             report.add(ConsistencyCheck(label, "PASS", f"{val:,.0f}", metric=val))
 
 
+def _check_market_portfolio_split(market_positions, market_rwa,
+                                  report: ValidationReport) -> None:
+    """포트폴리오 분해가 시장 RWA 를 보존하는지 (일원화 대사).
+
+    mkt_position 은 엔진 순포지션을 설정 가중치로 가른 것이고, 포트폴리오
+    자본은 같은 SSA 산식으로 다시 계산된다. 가중치가 위험군별 합 1.0·전부
+    양수라는 전제가 깨지면 이 합이 시장 RWA 와 갈라진다 — 그때 포지션은
+    조용히 새거나 두 번 세어진 것이다. 입력이 없으면 검사하지 않았음을
+    WARN 으로 남긴다 (fail-open 금지).
+    """
+    name = "market_portfolio_split_reconciles"
+    if market_positions is None or market_rwa is None:
+        report.add(ConsistencyCheck(
+            name, "WARN", "시장 포지션이 넘어오지 않아 분해 대사를 하지 않았다"))
+        return
+    from risk_lib import market_portfolio as mp
+    asof = "0000-00-00"                     # 대사에는 기준일이 필요 없다
+    split = mp.split_positions(market_positions, asof=asof)
+    got = float(mp.capital_frame(split)["rwa"].sum())
+    want = float(market_rwa)
+    tol = max(abs(want), 1.0) * 1e-9
+    if abs(got - want) > tol:
+        report.add(ConsistencyCheck(
+            name, "FAIL",
+            f"포트폴리오 자본 합 {got:,.0f} 이 시장 RWA {want:,.0f} 와 다르다",
+            metric=got - want))
+    else:
+        report.add(ConsistencyCheck(name, "PASS",
+                                    f"{len(split)}행 분해 · 합 보존", metric=got))
+
+
 def _check_ecl(ecl_results: pd.DataFrame, report: ValidationReport) -> None:
     if ecl_results is None or "ecl" not in ecl_results.columns:
         return
@@ -1641,6 +1672,7 @@ def run_consistency_checks(
     leverage_result: Any = None,
     output_floor_result: Any = None,
     market_rwa: float | None = None,
+    market_positions: pd.DataFrame | None = None,
     op_rwa: float | None = None,
     # 구성요소 대사에 필요한 나머지 두 항. 넘어오지 않으면 대사가 부분적이며
     # `rwa_components_reconcile`이 그 사실을 WARN으로 남긴다.
@@ -1705,6 +1737,7 @@ def run_consistency_checks(
     _check_leverage(leverage_result, rep)
     _check_output_floor(output_floor_result, rep)
     _check_market_op_rwa(market_rwa, op_rwa, rep, total_ead)
+    _check_market_portfolio_split(market_positions, market_rwa, rep)
     _check_rwa_components(sa_results, irb_results, market_rwa, op_rwa,
                           ccr_rwa, structured_rwa, output_floor_result,
                           rwa_total_for_bis, rep)

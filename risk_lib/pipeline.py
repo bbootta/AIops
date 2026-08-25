@@ -1658,7 +1658,8 @@ def run_pipeline(
         sa_results=sa_res, irb_results=irb_res,
         bis_result=bis, rwa_total_for_bis=rwa_final,
         leverage_result=leverage, output_floor_result=floor,
-        market_rwa=mkt.rwa, op_rwa=op.rwa,
+        market_rwa=mkt.rwa, market_positions=mkt_positions,
+        op_rwa=op.rwa,
         # 구성요소 재합산 대사가 부분(WARN)에 머무르지 않게 CCR·구조화를 넘긴다.
         # 넘기지 않으면 `rwa_components_reconcile`이 SA·IRB만 보고 두 항을
         # 뺀 채 합계를 맞추므로, 그 두 항의 변조를 잡지 못한다.

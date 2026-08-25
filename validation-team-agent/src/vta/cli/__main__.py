@@ -43,6 +43,7 @@ _DISPATCH = {
     ("coverage",): "tools.val_coverage",
     ("criteria",): "tools.domain_criteria",
     ("standards",): "tools.regulatory_criteria",
+    ("pd-design",): "tools.pd_cyclicality",
     ("trigger",): "tools.validation_trigger",
     ("finding",): "tools.validation_finding",
     ("recalc",): "tools.independent_recalc",

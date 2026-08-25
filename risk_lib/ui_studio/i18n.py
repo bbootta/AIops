@@ -269,6 +269,8 @@ _m(
     nav_kri='KRI·통제||KRI and controls',
     nav_ncr='NCR·건전성||NCR and prudential',
     nav_market_rwa='시장 RWA||Market RWA',
+    nav_mkt_portfolio='시장 포트폴리오||Market portfolios',
+    nav_portfolio_setup='포트폴리오 설정||Portfolio setup',
     nav_op_rwa='운영 RWA||Operational RWA',
     nav_ciu='집합투자증권||Collective investment undertakings',
     nav_derivative='파생상품||Derivatives',
@@ -1549,6 +1551,20 @@ _t("settings",
    '집합투자증권 (LTA · MBA · Fallback, CRE60)||Collective investment undertakings (look-through, mandate-based, fallback, CRE60)',
    '방법론 변경 제안||Propose a methodology change',
    '제안 생성||Create proposal',
+)
+
+_t("mktpf",
+   'C · 시장리스크 포트폴리오 상세 (포지션·자본·VaR 배분)||C, market risk portfolio detail (positions, capital, VaR allocation)',
+   '포지션 원장을 포트폴리오 × 위험군으로 편 상세. 규제 표(위험군 집계)와 같은 원장·같은 산식에서 나오며, VaR·ES 열은 자본비중 비례배분(내부기준)이라 독립 재계산이 아니다.||Detail of the position ledger by portfolio and risk class. It comes from the same ledger and the same formula as the regulatory table (aggregated by risk class). The VaR and ES columns are allocated in proportion to capital (internal basis), not recalculated independently.',
+   '포지션 원장||Position ledger',
+   '포트폴리오 × 위험군 자본||Capital by portfolio and risk class',
+   'VaR·ES 배분||VaR and ES allocation',
+   '포트폴리오별 위험가중자산||RWA by portfolio',
+   '포트폴리오별 VaR·ES 배분||VaR and ES allocation by portfolio',
+   '⚙ · 트레이딩 포트폴리오 설정 (구분·배분 가중치·한도 비중)||⚙, trading portfolio setup (classification, allocation weights, limit shares)',
+   '포트폴리오 구분과 배분 가중치의 정본. 가중치는 위험군별 합 1.0·전부 양수이며, 포지션 원장·트레이딩북 배정이 전부 이 설정을 따른다. 값은 합성 설정이라 실기관 적용 시 운용 지침으로 교체된다.||The authoritative source for portfolio classification and allocation weights. Weights sum to 1.0 per risk class and are all positive; the position ledger and trading book assignment both follow this setup. The values are synthetic and are replaced by desk mandates when applied to a real institution.',
+   '포트폴리오 설정 원장||Portfolio setup ledger',
+   '트레이딩북 배정 현황||Trading book assignment',
 )
 
 # 기관 설정 (기관 축). 기관명·권역·업권 같은 **원장 값**은 여기 넣지 않는다.

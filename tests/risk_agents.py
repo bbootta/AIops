@@ -41,6 +41,10 @@ RISK_ROLE_AGENTS = (
 # 다른 팀 하네스. 접두어로 갈리지 않는 것만 이름으로 적는다.
 _OTHER_TEAM_PREFIXES = ("legal-", "rp-", "translation-")
 _OTHER_TEAM_NAMES = frozenset({
+    # 세일즈팀 (2026-08 신설)
+    "channel-strategist", "cold-email-writer", "deal-strategist",
+    "deliverability-engineer", "outreach-qa", "prospect-researcher",
+    "sales-compliance-officer", "sales-lead", "sales-ops-analyst",
     "accuracy-reviewer", "analytics-engineer", "brand-designer",
     "data-engineering-lead", "data-quality-engineer", "design-director",
     "design-reviewer", "dimensional-data-modeler", "doc-analyst",

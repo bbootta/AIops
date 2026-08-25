@@ -21,7 +21,7 @@ Reports (표현 계층)      html_report(빌드 오케스트레이터), report_c
                         page_registry
   ↓
 Canonical data model    datamodel/ (spec·catalog·decompose·materialize·
-                        materialize_detail·materialize_ledgers) — 266 테이블 / 2822 컬럼
+                        materialize_detail·materialize_ledgers) — 270 테이블 / 2850 컬럼
   ↓
 Orchestration           pipeline.run_pipeline → PipelineResult
   ↓
@@ -86,7 +86,7 @@ out/
 
 ## 정규 데이터모델 (datamodel/)
 
-`catalog.ALL_TABLES`가 단일 소스다 — 테이블 266장 / 컬럼 2822개. 각 컬럼은 타입·
+`catalog.ALL_TABLES`가 단일 소스다 — 테이블 270장 / 컬럼 2850개. 각 컬럼은 타입·
 단위·허용값·범위·규정 근거를 스펙으로 선언하고, DDL·검증·DQ 규칙이 모두 여기서
 파생된다.
 

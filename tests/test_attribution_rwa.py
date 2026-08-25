@@ -290,9 +290,14 @@ def test_bridge_on_real_result_closes_without_an_unallocated_step(result):
 def rwa_ledgers(result, portfolio):
     """실체화 엔진이 만든 RWA 세분화 원장. 화면이 읽는 바로 그 프레임이다."""
     from risk_lib.datamodel.materialize import materialize_all
-    from risk_lib.datamodel.materialize_detail import materialize_rwa_detail
-    return materialize_rwa_detail(result, portfolio,
-                                  materialize_all(result, portfolio))
+    from risk_lib.datamodel.materialize_detail import (
+        materialize_mkt_portfolio_detail, materialize_rwa_detail)
+    base = materialize_all(result, portfolio)
+    led = materialize_rwa_detail(result, portfolio, base)
+    # 시장 위험군 표는 포지션 원장을 읽는 별도 엔진으로 옮겨졌다 (일원화).
+    led.update(materialize_mkt_portfolio_detail(result, portfolio,
+                                                {**base, **led}))
+    return led
 
 
 def test_pipeline_l1_matches_the_cross_domain_identity(result):
