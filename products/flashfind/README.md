@@ -50,6 +50,18 @@ cd products/flashfind && ./install.sh
 - 데스크톱 / 문서 / 다운로드 폴더에 처음 접근할 때 macOS 권한 창이 뜨면 허용한다.
 - 일부 보호 영역(Mail 데이터 등)까지 인덱싱하려면 시스템 설정 > 개인정보 보호 및 보안 > 전체 디스크 접근 권한에 FlashFind를 추가한다(선택).
 
+## 팀원에게 배포하기
+
+빌드할 맥(내 맥)에서 한 번 실행한다:
+
+```bash
+./make-dist.sh
+```
+
+`dist/FlashFind-<버전>.dmg` 가 만들어진다. 이 파일 하나를 Slack이나 드라이브로 공유하면 되고, 받은 사람은 저장소나 개발 도구 없이 DMG를 열어 앱을 Applications로 드래그하기만 하면 된다. 인텔과 애플실리콘 맥 모두에서 도는 유니버설 바이너리로 빌드된다(유니버설 빌드가 안 되는 환경이면 현재 아키텍처로 대체).
+
+앱이 개발자 서명 없이(ad-hoc) 배포되므로 처음 열 때 macOS 경고가 한 번 뜬다. 통과 방법은 DMG 안의 "설치 방법.txt"에 macOS 버전별로 적혀 있다. Apple Developer 계정으로 서명·공증하면 이 경고를 없앨 수 있다.
+
 ## 제거
 
 ```bash
@@ -66,7 +78,8 @@ Sources/FlashFind/
   SearchViewModel.swift       상태 관리, 디바운스 검색, 키보드 처리
   SearchIndex.swift           크롤러, 바이트 버퍼 인덱스, 검색, 캐시
 Info.plist                    앱 번들 메타데이터
-install.sh                    빌드 + 번들 + 설치
+install.sh                    빌드 + 번들 + 설치 (내 맥에 직접 설치)
+make-dist.sh                  팀 배포용 유니버설 DMG 생성
 assets/icon.png               앱 아이콘 원본 (1024x1024)
 ```
 
