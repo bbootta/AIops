@@ -245,13 +245,21 @@ def liquidity_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResul
         if float(req["liquidity_outflow"]) == 0.0:
             return StepResult("3.liquidity", "skipped", {},
                               "outflow=0 → LCR 정의 불가 (분모 0)")
-        lcr = liquidity.check_lcr(req["liquidity_hqla"], req["liquidity_outflow"])
+        lcr = liquidity.check_lcr(req["liquidity_hqla"], req["liquidity_outflow"],
+                                  basis=req.get("liquidity_basis"))
         out["lcr"] = lcr
         detail.append(f"LCR {lcr['ratio']:.3f} ({lcr['status']})")
         if lcr["status"] == "below_min":
             status = "fail"
         elif lcr["status"] == "warning" and status == "ok":
             status = "warning"
+        # 세칙 제17조제2항: 경영지도비율 LCR 은 월평잔 기준. 시점값은 비율과
+        # 무관하게 보고 기준 위반이다. 기준을 밝히지 않으면 판단하지 않는다.
+        if lcr["basis_ok"] is False:
+            status = "fail"
+            detail.append(f"LCR 산정기준 {lcr['basis']} (요구 {lcr['required_basis']})")
+        elif lcr["basis_ok"] is None:
+            detail.append("LCR 산정기준 미확인")
     if _has(req, "liquidity_asf") and req.get("liquidity_rsf") is not None:
         if _bad_scalar(req["liquidity_asf"], req["liquidity_rsf"]):
             return StepResult("3.liquidity", "skipped", {},
@@ -817,6 +825,7 @@ def alm_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
         check_funding_concentration,
         check_loan_to_deposit,
         check_maturity_gap,
+        check_won_loan_to_deposit,
     )
 
     out: dict[str, Any] = {}
@@ -858,6 +867,17 @@ def alm_handler(req: Mapping[str, Any], ctx: WorkflowContext) -> StepResult:
         detail.append(f"예대율 {ltd['ratio']:.1%} ({ltd['level']})")
         _worse("fail" if ltd["level"] == "below_min"
                else "warning" if ltd["level"] == "warning" else "ok")
+
+    won = req.get("alm_won_ltd")
+    if isinstance(won, Mapping):
+        try:
+            wl = check_won_loan_to_deposit(**won)
+        except (TypeError, ValueError) as exc:
+            return StepResult("3.alm", "skipped", {}, f"원화예대율 입력 비정상: {exc}")
+        out["won_loan_to_deposit"] = wl
+        detail.append(f"원화예대율 {wl['ratio']:.1%} ({wl['level']})")
+        _worse("fail" if wl["level"] == "below_min" or wl["basis_ok"] is False
+               else "warning" if wl["level"] == "warning" else "ok")
 
     if not out:
         return StepResult("3.alm", "skipped", {}, "ALM 입력 미제공")

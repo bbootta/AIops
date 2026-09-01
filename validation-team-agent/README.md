@@ -31,7 +31,8 @@ validation-team-agent/
 ├── harness/                      # 시스템 프롬프트, 정책, 변경 매니페스트
 ├── skills/                       # 도메인별 절차 지식
 ├── subagents/                    # 서브에이전트 역할 정의
-├── tools/                        # 검증용 Python 함수
+├── tools/                        # 검증용 Python 함수 (v1 진입점 python -m tools.*)
+├── src/vta/                      # v2 패키지: domains/ 핸들러·워크플로우·python -m vta
 ├── middleware/                   # 실행 전후 통제 미들웨어
 ├── tests/                        # pytest 단위 테스트
 ├── examples/                     # 입력 스키마·요청·보고서 예시
@@ -145,7 +146,8 @@ v2 CLI 는 v1 의 `python -m tools.*` 명령을 runpy 로 dispatch 하므로 v1 
 | `python -m tools.validation_finding open / remediate / reverify / close / queue / lineage / blockers` | Finding 원장 — 재검증 없는 종결 차단·재발 시 중대도 상향 |
 | `python -m tools.validation_memory rounds / patterns / self-defects / carryover / verify` | 검증 기억 원장 — 회차·결함 계보·자기결함·이월을 생성·상호 대조 (손으로 세지 않는다) |
 | `python -m tools.reg_rules list / effective / calendar / verify` | 규제 규칙 카탈로그 — 근거수준·원문주기·유효일자 분리, 경과조치 파생, 검증 캘린더(법정/내부 이중 표시) |
-| `python -m tools.independent_recalc list / run` | 독립 재계산 + 차이 원인 분해 (데이터/모형/산식/구현 기여도) |
+| `python -m tools.independent_recalc list / run` | 독립 재계산 + 차이 원인 분해 (데이터/모형/산식/구현 기여도). 비율형 6종 + 합계형(RWA 합계와 산출하한·총자본비율·ECL 합계·대손준비금 소요액) |
+| `python -m tools.ivr_response validate / build` | 독립검증 응답(response.json) 작성·검증: 요청 대조(run_id·request_id·재계산 대상 전수), 판정을 지적에서 파생, 2선 게이트가 거절할 응답을 먼저 잡는다 (`harness/ivr_response.schema.json`) |
 | `python -m tools.golden_regression run [--change-request <json>]` | Golden Case 회귀검증 — 범위 밖 변경 시 배포 차단 |
 | `python -m tools.validation_scope tiers / score / check` | 모형 중요도 등급 + 검증계획 최소 심도·주기 강제 |
 | `python -m tools.conditional_approval grant / fulfil / status / check-scope` | 조건부 승인 — 잔여위험·후속조건·제한 배포 범위 |

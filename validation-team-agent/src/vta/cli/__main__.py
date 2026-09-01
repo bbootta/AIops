@@ -47,6 +47,7 @@ _DISPATCH = {
     ("trigger",): "tools.validation_trigger",
     ("finding",): "tools.validation_finding",
     ("recalc",): "tools.independent_recalc",
+    ("ivr-response",): "tools.ivr_response",
     ("golden",): "tools.golden_regression",
     ("scope",): "tools.validation_scope",
     ("approval",): "tools.conditional_approval",

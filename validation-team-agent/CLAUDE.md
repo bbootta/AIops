@@ -170,7 +170,8 @@
 | `harness/` | 시스템 프롬프트, 정책, 변경 매니페스트 |
 | `skills/` | 업무 도메인별 절차 지식 |
 | `subagents/` | 전문 역할 정의 |
-| `tools/` | 실행 가능한 Python 검증 함수 |
+| `tools/` | 실행 가능한 Python 검증 함수 (v1 진입점 `python -m tools.*`) |
+| `src/vta/` | v2 패키지: 도메인 점검(`domains/`)·핸들러·워크플로우·`python -m vta` 진입점 |
 | `middleware/` | 실행 전후 통제 (권한·민감정보·표본·누수·완결성·로깅) |
 | `tests/` | pytest 기반 단위 테스트 |
 | `docs/` | 운영 모델, 위험통제 프레임워크, 인간 검토 정책 |

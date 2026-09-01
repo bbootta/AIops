@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "독립검증 응답 (3선 → 2선)",
+  "description": "docs/independent_validation/<run_id>.response.json 의 형식. 리스크관리 팀에이전트의 risk_lib.validation.independent.ValidationResponse 와 필드가 같아야 게이트가 읽는다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "run_id", "verdict", "validated_by", "validated_at",
+               "recalc_matches", "findings"],
+  "properties": {
+    "request_id": {"type": "string", "pattern": "^IVR-[0-9A-F]{12}$"},
+    "run_id": {"type": "string", "minLength": 1},
+    "verdict": {"enum": ["적합", "경부적합", "중부적합"]},
+    "validated_by": {"type": "string", "minLength": 1},
+    "validated_at": {"type": "string", "minLength": 1},
+    "recalc_matches": {
+      "type": "object",
+      "additionalProperties": {"type": "boolean"}
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["finding_id", "severity", "target", "detail"],
+        "properties": {
+          "finding_id": {"type": "string", "minLength": 1},
+          "severity": {"enum": ["적합", "경부적합", "중부적합"]},
+          "target": {"type": "string", "minLength": 1},
+          "detail": {"type": "string", "minLength": 1},
+          "recomputed": {"type": ["number", "null"]},
+          "reported": {"type": ["number", "null"]}
+        }
+      }
+    }
+  }
+}

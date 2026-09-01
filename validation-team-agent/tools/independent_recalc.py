@@ -9,8 +9,9 @@
 않고** 표준 산식을 직접 구현한다. 같은 코드를 다시 부르는 것은 재계산이 아니라
 동어반복이므로, 도메인 모듈 미참조를 테스트로 강제한다.
 
-한계는 명확히 둔다. 여기서 다루는 것은 비율형 표준 산출(LCR·NSFR·CET1·
-레버리지·ICAAP·포트폴리오 부도율)이며, IRB·FRTB 내부모형처럼 복합적인 산출의
+한계는 명확히 둔다. 여기서 다루는 것은 비율형 표준 산출(LCR·NSFR·CET1·총자본·
+레버리지·ICAAP·포트폴리오 부도율)과 합계형 산출(RWA 합계와 산출하한·ECL 합계·
+대손준비금 소요액)이며, IRB·FRTB 내부모형처럼 복합적인 산출의
 완전 독립 구현은 범위 밖이다. 다만 실무에서 발견되는 차이의 다수는 난해한
 수학이 아니라 **입력과 규칙 적용**에서 발생하므로, 이 범위만으로도 통제 가치가
 있다.
@@ -136,6 +137,95 @@ def recalc_portfolio_default_rate(inputs: Mapping[str, Any]) -> float:
     return _ratio(defaults, obligors, label="부도율")
 
 
+def recalc_rwa_final_total(inputs: Mapping[str, Any]) -> float:
+    """RWA 합계 = 구성요소 합 과 산출하한(하한계수 × 표준방법 총계) 중 큰 값.
+
+    신용·시장·운영은 필수, CCR·집합투자증권·유동화는 없으면 0 으로 본다.
+    ``floor_factor`` 와 ``standardised_rwa_total`` 이 둘 다 있을 때만 하한을
+    적용한다: 하나만 있으면 하한을 계산할 수 없으므로 오류다.
+    """
+    credit, market, operational = _need(
+        inputs, "credit_rwa", "market_rwa", "operational_rwa", label="RWA")
+    optional = [float(inputs.get(k, 0.0))
+                for k in ("ccr_rwa", "fund_rwa", "securitisation_rwa")]
+    parts = [credit, market, operational, *optional]
+    if any(v < 0 for v in parts):
+        raise RecalcError("RWA: 음수 구성요소")
+    internal = sum(parts)
+    has_factor = "floor_factor" in inputs
+    has_std = "standardised_rwa_total" in inputs
+    if has_factor != has_std:
+        raise RecalcError("RWA: 산출하한은 floor_factor 와 standardised_rwa_total 이 "
+                          "함께 있어야 적용할 수 있다")
+    if not has_factor:
+        return internal
+    factor, std = _need(inputs, "floor_factor", "standardised_rwa_total", label="RWA")
+    if not 0.0 <= factor <= 1.0:
+        raise RecalcError(f"RWA: 하한계수 {factor} 가 [0,1] 범위 밖")
+    return max(internal, factor * std)
+
+
+def recalc_total_ratio(inputs: Mapping[str, Any]) -> float:
+    cet1, at1, t2, rwa = _need(inputs, "cet1_capital", "at1_capital",
+                               "tier2_capital", "rwa", label="총자본")
+    return _ratio(cet1 + at1 + t2, rwa, label="총자본")
+
+
+def recalc_ecl_total(inputs: Mapping[str, Any]) -> float:
+    """ECL 합계 = 스테이지별 ECL 의 합. 스테이지 3개가 전부 있어야 한다."""
+    by_stage = inputs.get("ecl_by_stage")
+    if not isinstance(by_stage, Mapping):
+        raise RecalcError("ECL: ecl_by_stage 매핑이 필요하다 ({'1': …, '2': …, '3': …})")
+    missing = [s for s in ("1", "2", "3") if s not in by_stage]
+    if missing:
+        raise RecalcError(f"ECL: 스테이지 누락 {missing}")
+    vals = _need(by_stage, "1", "2", "3", label="ECL")
+    if any(v < 0 for v in vals):
+        raise RecalcError("ECL: 음수 스테이지 ECL")
+    return sum(vals)
+
+
+def reserve_shortfall_forms(lines: Any) -> dict[str, float]:
+    """대손준비금 소요액의 두 산출 형태를 나란히 낸다.
+
+    규정 제29조 제2항은 최저적립액 **합계**와 충당금 **합계**를 대비한다.
+    건별로 부족분만 잘라 더하면(clip 합산) 초과 적립 건이 부족 건을 상쇄하지
+    못해 소요액이 부풀려진다. 18차 검수에서 주장값이 합계 기준이고 표의
+    열 합이 건별 형태였던 사례가 있어 두 형태를 같이 보고한다.
+    """
+    if not isinstance(lines, (list, tuple)) or not lines:
+        raise RecalcError("대손준비금: lines 가 비어 있다")
+    min_total = ifrs9_total = per_line_clip = 0.0
+    for i, row in enumerate(lines):
+        if not isinstance(row, Mapping):
+            raise RecalcError(f"대손준비금: lines[{i}] 가 매핑이 아니다")
+        m, p = _need(row, "min_provision", "ifrs9_provision", label=f"대손준비금[{i}]")
+        min_total += m
+        ifrs9_total += p
+        per_line_clip += max(0.0, m - p)
+    return {
+        "min_provision_total": min_total,
+        "ifrs9_provision_total": ifrs9_total,
+        "aggregate": max(0.0, min_total - ifrs9_total),
+        "per_line_clip_sum": per_line_clip,
+    }
+
+
+def recalc_reserve_shortfall(inputs: Mapping[str, Any]) -> float:
+    """대손준비금 소요액 = max(0, Σ최저적립액 − Σ충당금). 합계 기준이다.
+
+    ``lines`` (건별 min_provision · ifrs9_provision) 를 주면 합계를 거기서
+    구하고, 아니면 두 합계를 직접 받는다.
+    """
+    if "lines" in inputs:
+        return reserve_shortfall_forms(inputs["lines"])["aggregate"]
+    min_total, ifrs9_total = _need(inputs, "min_provision_total",
+                                   "ifrs9_provision_total", label="대손준비금")
+    if min_total < 0 or ifrs9_total < 0:
+        raise RecalcError("대손준비금: 음수 합계")
+    return max(0.0, min_total - ifrs9_total)
+
+
 #: target → (계산기, 설명, 산식 근거)
 RECALCULATORS: dict[str, tuple[Callable[[Mapping[str, Any]], float], str, str]] = {
     "lcr": (recalc_lcr, "LCR = HQLA / 순현금유출", "BCBS LIQ40"),
@@ -150,6 +240,16 @@ RECALCULATORS: dict[str, tuple[Callable[[Mapping[str, Any]], float], str, str]] 
     "portfolio_default_rate": (recalc_portfolio_default_rate,
                                "부도율 = 부도 차주 수 / 전체 차주 수",
                                "harness/metric_policy.md §3"),
+    "rwa_final_total": (recalc_rwa_final_total,
+                        "RWA 합계 = max(신용+CCR+시장+운영+펀드+유동화, 하한계수 × 표준방법 총계)",
+                        "BCBS RBC20 · 세칙 별표 3 (산출하한 경과조치)"),
+    "total_ratio": (recalc_total_ratio,
+                    "총자본비율 = (보통주자본 + 기타기본자본 + 보완자본) / 위험가중자산",
+                    "은행업감독규정 제26조"),
+    "ecl_total": (recalc_ecl_total, "ECL 합계 = Σ 스테이지별 ECL", "IFRS 9 5.5"),
+    "reserve_shortfall": (recalc_reserve_shortfall,
+                          "대손준비금 소요액 = max(0, Σ최저적립액 − Σ충당금) (합계 기준)",
+                          "은행업감독규정 제29조 제2항"),
 }
 
 
@@ -334,7 +434,7 @@ def main(argv: list[str] | None = None) -> int:
 
 __all__ = [
     "RecalcError", "RECALCULATORS", "ATTRIBUTION_KINDS", "within_tolerance",
-    "recalculate", "decompose", "to_finding", "render",
+    "recalculate", "decompose", "to_finding", "render", "reserve_shortfall_forms",
 ]
 
 

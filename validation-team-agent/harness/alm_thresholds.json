@@ -9,10 +9,27 @@
   "funding_top10_share_warning": 0.30,
   "loan_to_deposit_max": 1.00,
   "loan_to_deposit_warning": 0.97,
+  "won_ltd": {
+    "max": 1.00,
+    "warning": 0.97,
+    "exemption_prior_quarter_won_loans_below": 4000000000000,
+    "cd_cap_share_of_deposits": 0.01,
+    "benchmark_cd_addon": 0.50,
+    "other_cd_haircut": 0.50,
+    "covered_bond_5_10y_cap_share": 0.01,
+    "covered_bond_total_cap_share": 0.02,
+    "loan_adjustments": {
+      "corporate_metro": -0.15,
+      "corporate_nonmetro": -0.20,
+      "sole_proprietor_nonmetro": -0.05,
+      "household": 0.15
+    }
+  },
   "notes": [
     "누적 만기 갭 비율 = bucket 누적 (자산-부채) / 총자산. -10% 미만 한도 위반, -5% 미만 경고.",
     "자금조달 집중: 단일 제공자 10%, 상위 10개 30% 초과 시 경고 (조달 안정성).",
-    "예대율(원화) 100% 이하 (감독시행세칙). 97% 초과 시 경고.",
+    "loan_to_deposit_* 는 잔액 기준 관리지표다. 규정의 원화예대율은 won_ltd 가 SSoT 이며 check_won_loan_to_deposit 이 쓴다.",
+    "won_ltd.max 100분의 100 이하와 적용제외 4조원은 규정 제26조제1항 인용값, 커버드본드 1/100·2/100 한도와 CD 1/100 한도·지표물 50% 가산·그 외 50% 차감, 지역별 기업대출 차감(수도권 15%·그 외 20%·그 외 개인사업자 5%)과 가계대출 15% 가산은 규정 제26조제1항제3호와 세칙 별표 3의7 의 값이다. 모든 금액은 월평잔 기준이다. warning 0.97 은 내부 관리값이다.",
     "일중유동성·통화별 갭은 분기 상세 보고로 별도 관리."
   ]
 }

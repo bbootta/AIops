@@ -9,7 +9,9 @@
   "foreign_currency_lcr_min": 0.80,
   "foreign_currency_lcr_warning": 0.90,
   "intraday_liquidity_reporting_required": true,
+  "lcr_measurement_basis": "monthly_average",
   "notes": [
+    "lcr_measurement_basis 는 세칙 제17조제2항 인용값이다: '유동성커버리지비율 및 원화예대율은 매월 평잔을 기준으로 산정'. 자본비율·단순기본자본비율·NSFR·거액익스포져비율은 가결산일·결산일 현재 기준이라 여기 적용하지 않는다. check_lcr 이 basis 를 받아 대조한다.",
     "감독시행세칙: 외화LCR 의무 보고. 최소 80% 충족 (시중은행, 감독원 행정지도 기준).",
     "통화별 LCR 분해 (USD / JPY / EUR / CNY 등) 보고 의무.",
     "일중유동성(intraday) 은 분기 보고서로 별도 제출."
