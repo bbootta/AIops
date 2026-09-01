@@ -537,8 +537,12 @@ TRADE = TableSpec(
         C("dv01", "float", "dV01", nullable=True, unit="KRW",
           citation="1bp 평행이동 민감도"),
         C("cs01", "float", "CS01", nullable=True, unit="KRW"),
+        # 트레이딩북도 포트폴리오 축에 앉는다. 배정은
+        # market_portfolio.KIND_TO_PORTFOLIO 가 정본이다.
+        C("portfolio_id", "string", "포트폴리오 식별자", nullable=False),
     ),
     primary_key=("trade_id",),
+    foreign_keys=(FK(("portfolio_id",), "mkt_portfolio", ("portfolio_id",)),),
 )
 
 PRICE_VERIFICATION = TableSpec(
@@ -2634,6 +2638,7 @@ from risk_lib.models.estimation import ALL_TABLES as _IRB_EST_TABLES   # noqa: E
 from risk_lib.models.lgd_ead_backtest import (                         # noqa: E402
     BACKTEST_TABLES as _BACKTEST_TABLES,
 )
+from risk_lib.market_portfolio import SPECS as _MKT_PORTFOLIO_TABLES  # noqa: E402
 from risk_lib.product_master import SPECS as _PRODUCT_TABLES           # noqa: E402
 from risk_lib.provisioning.pma import SPECS as _PMA_TABLES             # noqa: E402
 from risk_lib.rcsa import SPECS as _RCSA_TABLES                        # noqa: E402
@@ -2658,6 +2663,7 @@ NEW_LEDGER_TABLES: tuple[TableSpec, ...] = (
     + _CR_OVERRIDE_TABLES + _CRM_ALLOC_TABLES + _LEX_TABLES
     + _BEHAV_HIST_TABLES + _BEHAV_EST_TABLES + _INVENTORY_TABLES
     + _FUNDING_TABLES + _MARGIN_TABLES + _PRODUCT_TABLES + _RCSA_TABLES
+    + _MKT_PORTFOLIO_TABLES
     + _FEED_TABLES + _PMA_TABLES + _MGMT_ACTION_TABLES
     + _CHANGE_TABLES + _PRICING_TABLES + _LIFECYCLE_TABLES + _RBAC_TABLES
     + _AUDIT_TABLES + _RETENTION_TABLES + _UNIFIED_TABLES + _CLOSE_TABLES

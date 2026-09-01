@@ -212,7 +212,8 @@ GOLDEN = {
 # ke_status='산출완료(프리미엄0하한)' 와 ParamWarning 이 남고, 두 회수유형이
 # 동률이 되어 서열 검사가 PASS 대신 WARN 으로 내려간다 (동률이면 값을 맞바꿔도
 # 통과하므로 통제가 아니다).
-GOLDEN_VALIDATION = {"PASS": 70, "WARN": 15}
+# market_portfolio_split_reconciles (일원화 대사) 가 PASS 1건을 더한다.
+GOLDEN_VALIDATION = {"PASS": 71, "WARN": 15}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",

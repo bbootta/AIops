@@ -1,0 +1,385 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "리스크관리 팀에이전트 아키텍처",
+    "output": "risk-team-architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "line1",
+        "label": "1선 · 산출",
+        "focus": [
+          "po",
+          "orch",
+          "agents",
+          "harness",
+          "ledgers",
+          "screens"
+        ],
+        "note": "요청이 조율자를 거쳐 전문 에이전트와 하네스로 내려가 원장·화면이 되는 주 경로."
+      },
+      {
+        "id": "line23",
+        "label": "2선·3선 검증",
+        "focus": [
+          "orch",
+          "val2",
+          "ledgers",
+          "ivreq",
+          "team3",
+          "gate"
+        ],
+        "note": "같은 코드로 점검하는 2선과, 별도 기준셋으로 재계산하는 3선은 서로 대체하지 않는다."
+      },
+      {
+        "id": "gatepath",
+        "label": "결재 게이트",
+        "focus": [
+          "gate",
+          "aims",
+          "approval"
+        ],
+        "note": "fail-closed 게이트와 ISO 42001 내부심사를 지나야 사람 결재에 닿는다."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "po",
+      "type": "external",
+      "label": "리스크 요청",
+      "sublabel": "사용자 · PO",
+      "pos": [
+        30,
+        320
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "orch",
+      "type": "backend",
+      "label": "risk-orchestrator",
+      "sublabel": "팀 코디네이터",
+      "pos": [
+        230,
+        320
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "agents",
+      "type": "backend",
+      "label": "산출 전문 에이전트",
+      "sublabel": "rwa·ecl·시장·ALM 등 11종",
+      "pos": [
+        450,
+        320
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "harness",
+      "type": "backend",
+      "label": "risk_lib 하네스",
+      "sublabel": "pipeline · 엔진",
+      "pos": [
+        680,
+        320
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "ledgers",
+      "type": "database",
+      "label": "원장 270장",
+      "sublabel": "TableSpec 계약",
+      "pos": [
+        900,
+        320
+      ],
+      "size": [
+        140,
+        64
+      ]
+    },
+    {
+      "id": "screens",
+      "type": "frontend",
+      "label": "화면 83 · 서식 23",
+      "sublabel": "에이전틱 UI · 업무보고서",
+      "pos": [
+        1140,
+        320
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "val2",
+      "type": "security",
+      "label": "risk-validator",
+      "sublabel": "2선 자체검증 · 같은 코드",
+      "pos": [
+        450,
+        110
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "FAIL 0 요건"
+    },
+    {
+      "id": "aims",
+      "type": "security",
+      "label": "aims-compliance-auditor",
+      "sublabel": "ISO/IEC 42001 내부심사",
+      "pos": [
+        900,
+        110
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "ivreq",
+      "type": "database",
+      "label": "독립검증 요청",
+      "sublabel": "재계산 지문 · 가정 목록",
+      "pos": [
+        680,
+        560
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "team3",
+      "type": "external",
+      "label": "적합성검증 팀에이전트",
+      "sublabel": "3선 · 별도 기준셋 재계산",
+      "pos": [
+        900,
+        560
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "gate",
+      "type": "security",
+      "label": "check_gate",
+      "sublabel": "fail-closed 게이트",
+      "pos": [
+        1140,
+        560
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "tag": "응답 없으면 결재 불가"
+    },
+    {
+      "id": "approval",
+      "type": "external",
+      "label": "결재",
+      "sublabel": "CRO · 사람",
+      "pos": [
+        1160,
+        110
+      ],
+      "size": [
+        120,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "리스크관리 팀 (개발조직 · 1선과 2선)",
+      "wraps": [
+        "orch",
+        "agents",
+        "harness",
+        "ledgers",
+        "screens",
+        "val2",
+        "aims",
+        "ivreq"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "독립 기준셋 (개발조직과 분리)",
+      "wraps": [
+        "team3"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "po-orch",
+      "from": "po",
+      "to": "orch",
+      "label": "위임",
+      "variant": "emphasis"
+    },
+    {
+      "id": "orch-agents",
+      "from": "orch",
+      "to": "agents",
+      "label": "작업 분배",
+      "variant": "emphasis"
+    },
+    {
+      "id": "agents-harness",
+      "from": "agents",
+      "to": "harness",
+      "label": "엔진 호출",
+      "variant": "emphasis"
+    },
+    {
+      "id": "harness-ledgers",
+      "from": "harness",
+      "to": "ledgers",
+      "label": "산출 실체화",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ledgers-screens",
+      "from": "ledgers",
+      "to": "screens",
+      "label": "renders · reports",
+      "variant": "emphasis"
+    },
+    {
+      "id": "orch-val2",
+      "from": "orch",
+      "to": "val2",
+      "label": "매 작업 강제",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "val2-ledgers",
+      "from": "val2",
+      "to": "ledgers",
+      "label": "val_check 기록",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "ledgers-ivreq",
+      "from": "ledgers",
+      "to": "ivreq",
+      "label": "build_request",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "ivreq-team3",
+      "from": "ivreq",
+      "to": "team3",
+      "label": "위임",
+      "variant": "security"
+    },
+    {
+      "id": "team3-gate",
+      "from": "team3",
+      "to": "gate",
+      "label": "판정 응답",
+      "variant": "security"
+    },
+    {
+      "id": "gate-approval",
+      "from": "gate",
+      "to": "approval",
+      "label": "require()",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          1310,
+          592
+        ],
+        [
+          1310,
+          142
+        ]
+      ],
+      "labelDy": 140
+    },
+    {
+      "id": "aims-approval",
+      "from": "aims",
+      "to": "approval",
+      "label": "내부심사 의견",
+      "variant": "dashed"
+    },
+    {
+      "id": "ledgers-aims",
+      "from": "ledgers",
+      "to": "aims",
+      "label": "산출 패키지",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": -60
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "검증 3층",
+      "items": [
+        "1선: 전문 에이전트 11종 + 조율자가 산출",
+        "2선: 같은 코드로 정합성·규제기준 점검, FAIL 0",
+        "3선: 분리된 기준셋으로 독립 재계산, 가정을 도전"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "강제 장치",
+      "items": [
+        "마감 워크플로 CL-08~CL-11이 검증을 선행조건으로 요구",
+        "check_gate 는 fail-closed: 응답대기·부적합이면 결재 불가",
+        "경부적합은 잔여위험 기록이 있어야만 조건부 통과"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "현재 상태",
+      "items": [
+        "3선 게이트: 부적합 · 재요청 필요 (RUN-20260630-42)",
+        "포트폴리오 축 확장으로 산출 지문이 바뀌어 재검증 대기",
+        "게이트가 열리기 전까지 결재 상신 불가"
+      ]
+    }
+  ]
+}
