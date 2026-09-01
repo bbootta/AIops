@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "적합성검증 팀에이전트 (3선) 아키텍처",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "main-path",
+        "label": "검증 주 경로",
+        "focus": [
+          "riskteam",
+          "orch",
+          "guards",
+          "engine",
+          "outctl",
+          "gate",
+          "approver"
+        ],
+        "note": "2선 요청이 게이트 판정을 거쳐 인간 결재선까지 가는 주 경로. 게이트는 fail-closed다."
+      },
+      {
+        "id": "standards",
+        "label": "기준 스택",
+        "focus": [
+          "refs",
+          "ssot",
+          "engine"
+        ],
+        "note": "규정·세칙·바젤 원문에서 해석된 기준과 임계가 검증 실행에 공급된다."
+      },
+      {
+        "id": "self-audit",
+        "label": "자기 교정",
+        "focus": [
+          "engine",
+          "memoryledger"
+        ],
+        "note": "회차·자기결함·이월이 원장에 남는다. 검증자도 검증 대상이다."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "riskteam",
+      "type": "external",
+      "label": "리스크관리 팀에이전트",
+      "sublabel": "2선 · risk_lib 파이프라인",
+      "pos": [
+        30,
+        220
+      ],
+      "size": [
+        160,
+        72
+      ],
+      "tag": "자체검증: 같은 코드·같은 가정"
+    },
+    {
+      "id": "orch",
+      "type": "backend",
+      "label": "검증 오케스트레이터",
+      "sublabel": "6단계 루틴 · 10섹션 보고",
+      "pos": [
+        260,
+        220
+      ],
+      "size": [
+        160,
+        72
+      ]
+    },
+    {
+      "id": "subagents",
+      "type": "backend",
+      "label": "서브에이전트 6종",
+      "sublabel": "정량·방법론·규제 등 6역할",
+      "pos": [
+        260,
+        60
+      ],
+      "size": [
+        180,
+        72
+      ]
+    },
+    {
+      "id": "guards",
+      "type": "security",
+      "label": "실행 전 가드",
+      "sublabel": "middleware 9종",
+      "pos": [
+        490,
+        220
+      ],
+      "size": [
+        150,
+        72
+      ],
+      "tag": "PII·누수·SoD 위반 시 차단"
+    },
+    {
+      "id": "engine",
+      "type": "backend",
+      "label": "검증 실행",
+      "sublabel": "독립 재계산 · ADV 25 · 도메인 10",
+      "pos": [
+        710,
+        220
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "ssot",
+      "type": "database",
+      "label": "SSoT (harness/)",
+      "sublabel": "정책 12 · 임계 12 · 기준 69+131",
+      "pos": [
+        710,
+        60
+      ],
+      "size": [
+        180,
+        72
+      ]
+    },
+    {
+      "id": "refs",
+      "type": "database",
+      "label": "근거 원문 3종",
+      "sublabel": "규정 · 세칙 · 바젤 (지문 고정)",
+      "pos": [
+        960,
+        60
+      ],
+      "size": [
+        180,
+        72
+      ]
+    },
+    {
+      "id": "outctl",
+      "type": "security",
+      "label": "산출 통제",
+      "sublabel": "완결성 · 인용 · DRAFT 워터마크",
+      "pos": [
+        960,
+        220
+      ],
+      "size": [
+        180,
+        72
+      ]
+    },
+    {
+      "id": "memoryledger",
+      "type": "database",
+      "label": "기억 원장 (memory/)",
+      "sublabel": "회차 16 · 자기결함 7 · 이월 11",
+      "pos": [
+        710,
+        370
+      ],
+      "size": [
+        180,
+        72
+      ]
+    },
+    {
+      "id": "gate",
+      "type": "security",
+      "label": "check_gate",
+      "sublabel": "fail-closed",
+      "pos": [
+        960,
+        370
+      ],
+      "size": [
+        180,
+        72
+      ],
+      "tag": "응답대기·부적합 = 결재 차단"
+    },
+    {
+      "id": "approver",
+      "type": "external",
+      "label": "인간 결재선",
+      "sublabel": "판정 확정 · ConditionalApproval",
+      "pos": [
+        960,
+        500
+      ],
+      "size": [
+        180,
+        72
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "적합성검증 팀에이전트 · 3선 하니스 (main)",
+      "wraps": [
+        "orch",
+        "subagents",
+        "guards",
+        "engine",
+        "ssot",
+        "refs",
+        "outctl",
+        "memoryledger"
+      ]
+    },
+    {
+      "kind": "security-group",
+      "label": "결재 경로 · require() 통과 시에만",
+      "wraps": [
+        "gate",
+        "approver"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "request-in",
+      "from": "riskteam",
+      "to": "orch",
+      "label": "request.json (IVR·지문)",
+      "variant": "emphasis",
+      "labelDy": -30
+    },
+    {
+      "id": "delegate",
+      "from": "orch",
+      "to": "subagents",
+      "label": "위임 (자유 대화 금지)",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "precheck",
+      "from": "orch",
+      "to": "guards",
+      "label": "실행 전 점검"
+    },
+    {
+      "id": "guarded-run",
+      "from": "guards",
+      "to": "engine",
+      "label": "통과 시에만",
+      "variant": "security"
+    },
+    {
+      "id": "standards-feed",
+      "from": "ssot",
+      "to": "engine",
+      "label": "기준·임계 공급",
+      "labelDy": 24
+    },
+    {
+      "id": "cite-resolve",
+      "from": "refs",
+      "to": "ssot",
+      "label": "인용은 원문에서 해석",
+      "variant": "dashed",
+      "labelAt": [
+        925,
+        56
+      ]
+    },
+    {
+      "id": "produce",
+      "from": "engine",
+      "to": "outctl",
+      "label": "판정 초안·보고서 팩",
+      "labelDy": -34
+    },
+    {
+      "id": "remember",
+      "from": "engine",
+      "to": "memoryledger",
+      "label": "회차·자기결함·이월 기록",
+      "labelDy": 24
+    },
+    {
+      "id": "response-out",
+      "from": "outctl",
+      "to": "gate",
+      "label": "response.json (판정·지적)",
+      "variant": "emphasis",
+      "labelDy": 24
+    },
+    {
+      "id": "approve-path",
+      "from": "gate",
+      "to": "approver",
+      "label": "적합 · 조건부(기록 필요)만",
+      "variant": "security",
+      "labelDy": 24
+    }
+  ]
+}

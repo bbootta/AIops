@@ -1,0 +1,387 @@
+<title>적합성검증 팀에이전트 아키텍처</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#FAF9F6; --ink:#22303C; --muted:#5C6B78; --line:#C9CFD4;
+  --panel:#FFFFFF; --panel2:#F1EFE9; --accent:#24577D; --accent-soft:#E4EBF1;
+  --ok:#2E7D51; --cond:#B07C1F; --fail:#B3402F; --wait:#6B7680;
+  --code-bg:#EEECE6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#14191E; --ink:#E3E8EC; --muted:#98A5B0; --line:#37424C;
+    --panel:#1B222A; --panel2:#20282F; --accent:#7FA8C9; --accent-soft:#223240;
+    --ok:#5CB585; --cond:#D6A94E; --fail:#DA7B6C; --wait:#8B98A3;
+    --code-bg:#242D35;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#14191E; --ink:#E3E8EC; --muted:#98A5B0; --line:#37424C;
+  --panel:#1B222A; --panel2:#20282F; --accent:#7FA8C9; --accent-soft:#223240;
+  --ok:#5CB585; --cond:#D6A94E; --fail:#DA7B6C; --wait:#8B98A3;
+  --code-bg:#242D35;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:15px; line-height:1.65;
+}
+.wrap{max-width:1060px; margin:0 auto; padding:48px 28px 80px}
+header.hd{border-bottom:2px solid var(--ink); padding-bottom:26px; margin-bottom:8px}
+.hd .eyebrow{font-size:12px; letter-spacing:.14em; color:var(--muted); text-transform:uppercase}
+.hd h1{
+  font-family:'Noto Serif KR','Apple SD Gothic Neo',serif; font-weight:700;
+  font-size:clamp(28px,4.4vw,44px); margin:10px 0 12px; letter-spacing:-.01em; text-wrap:balance;
+}
+.hd p.lede{max-width:62ch; margin:0 0 18px; color:var(--muted)}
+.chips{display:flex; flex-wrap:wrap; gap:8px}
+.chip{
+  font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--ink);
+  border:1px solid var(--line); border-radius:3px; padding:3px 9px; background:var(--panel);
+}
+.chip b{color:var(--accent); font-weight:500}
+section{margin-top:52px}
+h2{
+  font-family:'Noto Serif KR',serif; font-weight:600; font-size:22px; margin:0 0 6px;
+  display:flex; align-items:baseline; gap:10px;
+}
+h2 .no{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--accent)}
+.sub{color:var(--muted); margin:0 0 20px; max-width:70ch}
+figure{margin:0; background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:22px 18px 10px; overflow-x:auto}
+figure svg{display:block; max-width:100%; height:auto; min-width:760px; margin:0 auto;
+  font-family:'IBM Plex Sans KR',sans-serif; color:var(--ink)}
+figcaption{font-size:12.5px; color:var(--muted); padding:12px 6px 10px; border-top:1px dashed var(--line); margin-top:14px}
+figcaption code, p code, li code{
+  font-family:'IBM Plex Mono',monospace; font-size:.92em; background:var(--code-bg);
+  padding:1px 5px; border-radius:3px;
+}
+.statgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:20px}
+.stat{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:14px 16px}
+.stat .n{font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:500; color:var(--accent); font-variant-numeric:tabular-nums}
+.stat .l{font-size:12px; color:var(--muted); margin-top:2px}
+.twocol{display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-top:18px}
+@media (max-width:760px){.twocol{grid-template-columns:1fr}}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px 20px}
+.card h3{font-family:'Noto Serif KR',serif; font-size:15.5px; margin:0 0 10px}
+.card ul{margin:0; padding-left:18px}
+.card li{margin:5px 0; font-size:13.5px}
+.card li .mono{font-family:'IBM Plex Mono',monospace; font-size:12px}
+.legend{display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin:10px 4px 0}
+.legend span{display:inline-flex; align-items:center; gap:6px}
+.dot{width:9px; height:9px; border-radius:50%; display:inline-block}
+footer{margin-top:64px; border-top:1px solid var(--line); padding-top:16px; font-size:12px; color:var(--muted)}
+footer .mono{font-family:'IBM Plex Mono',monospace}
+</style>
+
+<div class="wrap">
+<header class="hd">
+  <div class="eyebrow">Validation Team Agent · 3rd Line of Defense</div>
+  <h1>적합성검증 팀에이전트 아키텍처</h1>
+  <p class="lede">은행 리스크관리 3선 방어체계의 3선. 리스크관리 팀에이전트(2선)의 산출물을
+  개발조직과 분리된 기준셋으로 <b>독립 재계산</b>하고 가정을 도전하는 검증 자동화 하니스다.
+  게이트는 fail-closed이며, 판정 확정은 인간 검증자 권한이다.</p>
+  <div class="chips">
+    <span class="chip">브랜치 <b>main</b> (claude/validation-team-agent-Pw9F5 통합)</span>
+    <span class="chip">테스트 <b>1,417 passed</b></span>
+    <span class="chip">독립검증 회차 <b>16</b></span>
+    <span class="chip">기준 스택 <b>규정 → 세칙 → 바젤</b></span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="no">図 1</span>3선 교환과 fail-closed 게이트</h2>
+  <p class="sub">아키텍처가 성립하는 핵심 메커니즘. 자체검증(2선)은 같은 코드·같은 가정을 쓰므로
+  그것만으로 결재할 수 없고, 3선의 응답이 게이트에 도달해야 결재 경로가 열린다.
+  응답이 없으면 <code>응답대기</code>로 차단된다.</p>
+  <figure>
+  <svg viewBox="0 0 1000 470" role="img" aria-label="2선 리스크관리 팀에이전트가 request.json을 3선 적합성검증 팀에이전트에 보내고, 3선이 재현성 대조·독립 재계산·적대적 검증을 거쳐 response.json으로 응답하면 check_gate가 fail-closed로 판정하여 적합 시에만 인간 결재선으로 상신되는 흐름">
+    <defs>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+      </marker>
+      <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+      </marker>
+    </defs>
+
+    <!-- 2선 -->
+    <rect x="20" y="60" width="240" height="150" rx="5" fill="var(--panel2)" stroke="currentColor" stroke-width="1.3"/>
+    <text x="140" y="87" text-anchor="middle" font-size="14" font-weight="700" fill="currentColor">리스크관리 팀에이전트</text>
+    <text x="140" y="104" text-anchor="middle" font-size="11" fill="var(--muted)">2선 · risk_lib 파이프라인</text>
+    <line x1="36" y1="116" x2="244" y2="116" stroke="var(--line)"/>
+    <text x="36" y="136" font-size="11.5" fill="currentColor">산출: RWA · BIS · ECL · LCR/NSFR</text>
+    <text x="36" y="154" font-size="11.5" fill="currentColor">스트레스 · 업무보고서 서식 290종</text>
+    <text x="36" y="178" font-size="11.5" fill="currentColor">자체검증 risk-validator</text>
+    <text x="36" y="194" font-size="10.5" fill="var(--muted)">— 같은 코드 · 같은 가정 (2선)</text>
+
+    <!-- request arrow -->
+    <line x1="260" y1="105" x2="368" y2="105" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#arA)"/>
+    <text x="314" y="92" text-anchor="middle" font-size="11" font-weight="500" fill="var(--accent)" font-family="IBM Plex Mono,monospace">request.json</text>
+    <text x="314" y="126" text-anchor="middle" font-size="10" fill="var(--muted)">재계산 대상 12종 · 가정 30건</text>
+    <text x="314" y="140" text-anchor="middle" font-size="10" fill="var(--muted)">submission_digest (지문)</text>
+
+    <!-- 3선 -->
+    <rect x="372" y="40" width="300" height="200" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
+    <text x="522" y="67" text-anchor="middle" font-size="14.5" font-weight="700" fill="currentColor">적합성검증 팀에이전트</text>
+    <text x="522" y="84" text-anchor="middle" font-size="11" fill="var(--muted)">3선 · 본 하니스</text>
+    <line x1="390" y1="96" x2="654" y2="96" stroke="var(--line)"/>
+    <text x="390" y="117" font-size="11.5" fill="currentColor">① 재현성 대조 — 커밋 트리에서 요청 재생성</text>
+    <text x="390" y="137" font-size="11.5" fill="currentColor">② 독립 재계산 — risk_lib 산식 미참조</text>
+    <text x="390" y="157" font-size="11.5" fill="currentColor">③ 적대적 검증 — 반증 기준 ADV 25종</text>
+    <text x="390" y="177" font-size="11.5" fill="currentColor">④ 판정 초안 — 적합 · 경부적합 · 중부적합</text>
+    <text x="390" y="203" font-size="10.5" fill="var(--muted)">독립 기준셋 · 가정을 도전한다 (3선)</text>
+    <text x="390" y="219" font-size="10.5" fill="var(--muted)">판정 확정은 인간 검증자 (DRAFT 워터마크)</text>
+
+    <!-- response arrow -->
+    <line x1="672" y1="105" x2="780" y2="105" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#arA)"/>
+    <text x="726" y="92" text-anchor="middle" font-size="11" font-weight="500" fill="var(--accent)" font-family="IBM Plex Mono,monospace">response.json</text>
+    <text x="726" y="126" text-anchor="middle" font-size="10" fill="var(--muted)">판정 · 재계산 대조</text>
+    <text x="726" y="140" text-anchor="middle" font-size="10" fill="var(--muted)">지적 F-…</text>
+
+    <!-- gate -->
+    <rect x="784" y="48" width="196" height="184" rx="5" fill="var(--panel2)" stroke="currentColor" stroke-width="1.3"/>
+    <text x="882" y="74" text-anchor="middle" font-size="13.5" font-weight="700" fill="currentColor">check_gate</text>
+    <text x="882" y="90" text-anchor="middle" font-size="10.5" font-family="IBM Plex Mono,monospace" fill="var(--fail)">fail-closed</text>
+    <line x1="798" y1="100" x2="966" y2="100" stroke="var(--line)"/>
+    <circle cx="806" cy="118" r="4.5" fill="var(--wait)"/>
+    <text x="818" y="122" font-size="11.5" fill="currentColor">응답대기 — 결재 차단</text>
+    <circle cx="806" cy="142" r="4.5" fill="var(--fail)"/>
+    <text x="818" y="146" font-size="11.5" fill="currentColor">부적합 — 결재 차단</text>
+    <circle cx="806" cy="166" r="4.5" fill="var(--cond)"/>
+    <text x="818" y="170" font-size="11.5" fill="currentColor">조건부 — 기록 필요</text>
+    <circle cx="806" cy="190" r="4.5" fill="var(--ok)"/>
+    <text x="818" y="194" font-size="11.5" fill="currentColor">적합 — 상신 가능</text>
+    <text x="798" y="218" font-size="10" fill="var(--muted)">run_id·request_id 불일치 = 부적합</text>
+
+    <!-- 조건부 path -->
+    <line x1="882" y1="232" x2="882" y2="290" stroke="var(--cond)" stroke-width="1.4" marker-end="url(#ar)" stroke-dasharray="5 4"/>
+    <rect x="742" y="292" width="248" height="76" rx="5" fill="var(--panel)" stroke="var(--cond)" stroke-width="1.3"/>
+    <text x="866" y="316" text-anchor="middle" font-size="12.5" font-weight="700" fill="currentColor">ConditionalApproval</text>
+    <text x="866" y="334" text-anchor="middle" font-size="10.5" fill="var(--muted)">잔여위험 · 후속조건 · 이행기한 · 배포 범위</text>
+    <text x="866" y="350" text-anchor="middle" font-size="10.5" fill="var(--muted)">결재 책임자(인간)가 기록해야만 통과</text>
+
+    <!-- 적합 path to 결재 -->
+    <line x1="980" y1="140" x2="998" y2="140" stroke="none"/>
+    <path d="M 882 48 L 882 20 L 400 20" fill="none" stroke="none"/>
+    <line x1="678" y1="330" x2="742" y2="330" stroke="none"/>
+    <line x1="522" y1="240" x2="522" y2="300" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar)"/>
+    <rect x="392" y="302" width="260" height="66" rx="5" fill="var(--panel)" stroke="currentColor" stroke-width="1.3"/>
+    <text x="522" y="328" text-anchor="middle" font-size="12.5" font-weight="700" fill="currentColor">기억 원장 (memory/)</text>
+    <text x="522" y="348" text-anchor="middle" font-size="10.5" fill="var(--muted)">회차 16 · 결함 계보 4 · 자기결함 7 · 이월 11</text>
+
+    <!-- 결재선 -->
+    <rect x="20" y="404" width="960" height="46" rx="5" fill="var(--panel)" stroke="var(--ok)" stroke-width="1.4"/>
+    <text x="500" y="426" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">결재 상신 — require() 통과 시에만</text>
+    <text x="500" y="442" text-anchor="middle" font-size="10.5" fill="var(--muted)">자체검증(2선)과 상시 독립검증(3선)을 두 줄로 함께 보고 · 응답대기를 "검증 완료"로 쓰지 않는다</text>
+    <line x1="906" y1="232" x2="906" y2="404" stroke="var(--ok)" stroke-width="1.5" marker-end="url(#ar)"/>
+    <text x="914" y="392" font-size="10.5" fill="var(--ok)">적합</text>
+    <line x1="866" y1="368" x2="866" y2="404" stroke="var(--cond)" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+  </svg>
+  <figcaption>2선이 매 산출마다 <code>build_request</code>로 요청을 만들고, 3선의 응답이
+  게이트에 도달해야 <code>require()</code>가 열린다. 응답의 <code>request_id</code>가 요청과 다르면
+  이전 승인의 재사용으로 보아 부적합 처리한다. 판정·이월·자기결함은 매 회차 기억 원장에 남는다.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="no">図 2</span>하니스 내부 — AHE 계층</h2>
+  <p class="sub">Agentic Harness Engineering 원칙에 따라 프롬프트·정책·도구·미들웨어·기억을
+  파일 단위로 분리한다. 실패가 어느 컴포넌트에서 났는지 식별할 수 있어야 하고,
+  모든 변경은 <code>change_manifest</code>에 남는다.</p>
+  <figure>
+  <svg viewBox="0 0 1000 600" role="img" aria-label="검증 요청이 오케스트레이터, 실행 전 가드, 검증 실행, 산출 통제를 차례로 거쳐 보고서 팩과 응답으로 나오는 계층 구조. SSoT 정책이 실행에 공급되고 실행 결과가 기억 원장에 기록된다">
+    <defs>
+      <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+      </marker>
+      <marker id="ar2A" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/>
+      </marker>
+    </defs>
+
+    <!-- 입력 -->
+    <rect x="250" y="14" width="240" height="34" rx="17" fill="var(--panel2)" stroke="currentColor" stroke-width="1.2"/>
+    <text x="370" y="36" text-anchor="middle" font-size="12.5" font-weight="500" fill="currentColor">검증 요청 (2선 request · 사용자)</text>
+    <line x1="370" y1="48" x2="370" y2="72" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"/>
+
+    <!-- 오케스트레이터 -->
+    <rect x="60" y="74" width="620" height="92" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="78" y="99" font-size="13" font-weight="700" fill="currentColor">오케스트레이터</text>
+    <text x="78" y="116" font-size="10.5" fill="var(--muted)">6단계 루틴 · 서브에이전트 위임 (자유 대화 금지)</text>
+    <g font-size="10.5" fill="currentColor">
+      <rect x="78"  y="128" width="92" height="24" rx="3" fill="var(--panel)" stroke="var(--line)"/><text x="124" y="144" text-anchor="middle">데이터품질</text>
+      <rect x="176" y="128" width="92" height="24" rx="3" fill="var(--panel)" stroke="var(--line)"/><text x="222" y="144" text-anchor="middle">정량검증</text>
+      <rect x="274" y="128" width="92" height="24" rx="3" fill="var(--panel)" stroke="var(--line)"/><text x="320" y="144" text-anchor="middle">방법론</text>
+      <rect x="372" y="128" width="92" height="24" rx="3" fill="var(--panel)" stroke="var(--line)"/><text x="418" y="144" text-anchor="middle">규제점검</text>
+      <rect x="470" y="128" width="92" height="24" rx="3" fill="var(--panel)" stroke="var(--line)"/><text x="516" y="144" text-anchor="middle">보고서</text>
+      <rect x="568" y="128" width="92" height="24" rx="3" fill="var(--panel)" stroke="var(--line)"/><text x="614" y="144" text-anchor="middle">디버거</text>
+    </g>
+    <line x1="370" y1="166" x2="370" y2="190" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"/>
+
+    <!-- 가드 -->
+    <rect x="60" y="192" width="620" height="64" rx="5" fill="var(--panel)" stroke="currentColor" stroke-width="1.2"/>
+    <text x="78" y="216" font-size="13" font-weight="700" fill="currentColor">실행 전 가드 (middleware 9종)</text>
+    <text x="78" y="238" font-size="11" fill="var(--muted)">schema · data_safety(PII) · leakage · sample_size · permission · SoD — 위반 시 실행 차단</text>
+    <line x1="370" y1="256" x2="370" y2="280" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"/>
+
+    <!-- 실행 -->
+    <rect x="60" y="282" width="620" height="112" rx="5" fill="var(--panel)" stroke="currentColor" stroke-width="1.2"/>
+    <text x="78" y="306" font-size="13" font-weight="700" fill="currentColor">검증 실행 (tools 64종 · vta 도메인 10종)</text>
+    <text x="78" y="328" font-size="11" fill="currentColor">독립 재계산 · 변별력 KS/AUROC · PSI · 캘리브레이션 · PD 설계(TTC·PIT)</text>
+    <text x="78" y="346" font-size="11" fill="currentColor">자본 · 시장 · 유동성 · IRRBB · CVA · CCR · 집중 · ICAAP · ALM · 운영</text>
+    <text x="78" y="368" font-size="11" fill="currentColor">Golden 회귀 16 · 적대적 검증 ADV 25 · 트리거 평가 · Finding 원장</text>
+    <text x="78" y="386" font-size="10" fill="var(--muted)">plan 대 실제 실행을 run_audit이 대사 (missing 0 강제)</text>
+    <line x1="370" y1="394" x2="370" y2="418" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"/>
+
+    <!-- 산출 통제 -->
+    <rect x="60" y="420" width="620" height="64" rx="5" fill="var(--panel)" stroke="currentColor" stroke-width="1.2"/>
+    <text x="78" y="444" font-size="13" font-weight="700" fill="currentColor">산출 통제</text>
+    <text x="78" y="466" font-size="11" fill="var(--muted)">완결성(10섹션) · 수치 인용 · DRAFT 워터마크 강제 · run_logger(append-only)</text>
+    <line x1="370" y1="484" x2="370" y2="508" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"/>
+
+    <!-- 산출물 -->
+    <rect x="130" y="510" width="480" height="52" rx="5" fill="var(--panel2)" stroke="currentColor" stroke-width="1.3"/>
+    <text x="370" y="532" text-anchor="middle" font-size="12.5" font-weight="700" fill="currentColor">보고서 팩 47페이지 · response.json · 재현성 증빙(pack_verify)</text>
+    <text x="370" y="550" text-anchor="middle" font-size="10.5" fill="var(--muted)">전부 DRAFT — 의견 확정은 인간 검증자</text>
+
+    <!-- SSoT rail -->
+    <rect x="712" y="74" width="268" height="240" rx="5" fill="var(--panel)" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="6 4"/>
+    <text x="730" y="100" font-size="13" font-weight="700" fill="currentColor">SSoT (harness/)</text>
+    <g font-size="11" fill="currentColor">
+      <text x="730" y="124">정책 12 · 임계 12 (JSON 분리)</text>
+      <text x="730" y="144">규제 검증 항목 69 + 계량 임계 11</text>
+      <text x="730" y="164">도메인 요건 131 (RYNTA BRD)</text>
+      <text x="730" y="184">골든 케이스 16 · ADV 프로토콜 25</text>
+      <text x="730" y="204">SoD · 권한 매트릭스 · 변경 매니페스트</text>
+    </g>
+    <line x1="730" y1="216" x2="962" y2="216" stroke="var(--line)"/>
+    <text x="730" y="238" font-size="11" font-weight="500" fill="currentColor">근거 원문 3종 (지문 고정)</text>
+    <g font-size="10.5" fill="var(--muted)">
+      <text x="730" y="256">은행업감독규정 [2026-04-01]</text>
+      <text x="730" y="272">시행세칙 [2026-06-30]</text>
+      <text x="730" y="288">Basel 소스북 [2026-08-09 · Ch.124]</text>
+    </g>
+    <text x="730" y="306" font-size="10" fill="var(--muted)">인용은 원문에서 해석되어야 실린다</text>
+    <line x1="712" y1="330" x2="684" y2="330" stroke="var(--accent)" stroke-width="1.4" marker-end="url(#ar2A)"/>
+    <text x="846" y="336" text-anchor="middle" font-size="10.5" fill="var(--accent)">기준·임계 공급 (verify가 실재성 강제)</text>
+
+    <!-- memory rail -->
+    <rect x="712" y="420" width="268" height="142" rx="5" fill="var(--panel)" stroke="currentColor" stroke-width="1.2"/>
+    <text x="730" y="446" font-size="13" font-weight="700" fill="currentColor">기억 원장 (memory/)</text>
+    <g font-size="11" fill="currentColor">
+      <text x="730" y="470">독립검증 회차 16 · 지적 87+건</text>
+      <text x="730" y="490">결함 계보 4 (P-DOC · P-CTRL …)</text>
+      <text x="730" y="510">자기결함 SD 7 — 검증자도 검증 대상</text>
+      <text x="730" y="530">이월 CO 11 — 미확인은 통과가 아니다</text>
+    </g>
+    <text x="730" y="552" font-size="10" fill="var(--muted)">손으로 세지 않는다 — verify가 상호 대조</text>
+    <line x1="684" y1="452" x2="712" y2="452" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"/>
+  </svg>
+  <figcaption>왼쪽 세로 축이 한 번의 검증 실행이 지나는 경로, 오른쪽 레일이 실행에 공급되는
+  기준(SSoT)과 실행이 남기는 기록(기억 원장)이다. 가드와 산출 통제는 우회할 수 없고,
+  계획 대비 실제 실행은 <code>run_audit</code>이 대사한다.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="no">図 3</span>기준 스택 — 국내 우선, 모호하면 바젤</h2>
+  <p class="sub">검증 기준의 법적 근거. 지배기준은 손으로 적지 않고 근거와 모호성 표시에서
+  파생되며, 손으로 고쳐 쓰면 <code>verify</code>가 잡는다.</p>
+  <figure>
+  <svg viewBox="0 0 1000 300" role="img" aria-label="은행업감독규정, 시행세칙, Basel Framework 세 층이 우선순위를 이루고 규제 검증 항목 69건으로 전개되는 구조. 국내가 지배하는 항목 48건, 바젤로 보충 11건, 바젤 지배 10건">
+    <defs>
+      <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <!-- three sources -->
+    <rect x="24" y="30" width="292" height="96" rx="5" fill="var(--panel2)" stroke="currentColor" stroke-width="1.3"/>
+    <text x="42" y="56" font-size="13" font-weight="700" fill="currentColor">① 은행업감독규정</text>
+    <text x="42" y="76" font-size="10.5" fill="var(--muted)">국내구속 · [시행 2026-04-01]</text>
+    <text x="42" y="94" font-size="11" fill="currentColor">경영지도비율 등 임계값</text>
+    <text x="42" y="112" font-size="10.5" fill="var(--muted)">CET1 4.5 · T1 6 · 총자본 8 · LEX 25…</text>
+
+    <rect x="354" y="30" width="292" height="96" rx="5" fill="var(--panel2)" stroke="currentColor" stroke-width="1.3"/>
+    <text x="372" y="56" font-size="13" font-weight="700" fill="currentColor">② 시행세칙</text>
+    <text x="372" y="76" font-size="10.5" fill="var(--muted)">국내구속 · [시행 2026-06-30]</text>
+    <text x="372" y="94" font-size="11" fill="currentColor">산정기준 · 별표 45종</text>
+    <text x="372" y="112" font-size="10.5" fill="var(--muted)">LCR·NSFR·예대율·IRRBB·PD 5년 관측…</text>
+
+    <rect x="684" y="30" width="292" height="96" rx="5" fill="var(--panel)" stroke="currentColor" stroke-width="1.3" stroke-dasharray="6 4"/>
+    <text x="702" y="56" font-size="13" font-weight="700" fill="currentColor">③ Basel Framework</text>
+    <text x="702" y="76" font-size="10.5" fill="var(--muted)">국제권고 · [2026-08-09 · 현행 Ch.124]</text>
+    <text x="702" y="94" font-size="11" fill="currentColor">국내가 침묵하거나 모호할 때</text>
+    <text x="702" y="112" font-size="10.5" fill="var(--muted)">SA-CCR · CVA · 펀드 · 유동화 · RDARR…</text>
+
+    <line x1="316" y1="78" x2="354" y2="78" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar3)"/>
+    <line x1="646" y1="78" x2="684" y2="78" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar3)"/>
+    <text x="335" y="66" text-anchor="middle" font-size="10" fill="var(--muted)">우선</text>
+    <text x="665" y="66" text-anchor="middle" font-size="10" fill="var(--muted)">보충</text>
+
+    <!-- funnel down -->
+    <line x1="170" y1="126" x2="420" y2="176" stroke="var(--accent)" stroke-width="1.4" marker-end="url(#ar3)"/>
+    <line x1="500" y1="126" x2="500" y2="176" stroke="var(--accent)" stroke-width="1.4" marker-end="url(#ar3)"/>
+    <line x1="830" y1="126" x2="580" y2="176" stroke="var(--accent)" stroke-width="1.4" marker-end="url(#ar3)"/>
+
+    <rect x="140" y="178" width="720" height="60" rx="5" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="500" y="203" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor" font-family="IBM Plex Mono,monospace">regulatory_criteria.json — 검증 항목 69건 · 계량 임계 11건</text>
+    <text x="500" y="224" text-anchor="middle" font-size="11" fill="currentColor">지배 국내 48 · 국내+바젤보충 11 · 바젤 10 (정책에서 파생 — 손으로 적지 않는다)</text>
+
+    <text x="500" y="266" text-anchor="middle" font-size="10.5" fill="var(--muted)">verify: 원문 지문 일치 · 인용의 원문 해석 · 임계가 규정보다 느슨하면 위반(looser) · 지배기준 정책 일치</text>
+    <text x="500" y="284" text-anchor="middle" font-size="10.5" fill="var(--muted)">국내가 바젤보다 느슨해도 국내가 적용되나 그 차이는 표기한다 — 국내 준수가 국제 기준 충족을 뜻하지 않는다</text>
+  </svg>
+  <figcaption>바젤 근거는 BIS 이용조건상 Chapter 단위 색인이라 Chapter 실재·시행일까지 대조되고
+  문단 문구 대조는 하지 못한다. 도메인 업무요건 131건(RYNTA BRD v9.6.0)은 별도 원장으로 같은
+  근거 실재성 규율을 받는다.</figcaption>
+  </figure>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--ok)"></span>적합</span>
+    <span><span class="dot" style="background:var(--cond)"></span>조건부</span>
+    <span><span class="dot" style="background:var(--fail)"></span>부적합 / fail-closed</span>
+    <span><span class="dot" style="background:var(--wait)"></span>응답대기</span>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">§</span>구성 요소 수치</h2>
+  <div class="statgrid">
+    <div class="stat"><div class="n">7</div><div class="l">서브에이전트 (오케스트레이터 + 6)</div></div>
+    <div class="stat"><div class="n">9</div><div class="l">미들웨어 가드</div></div>
+    <div class="stat"><div class="n">64</div><div class="l">검증 도구 (tools/)</div></div>
+    <div class="stat"><div class="n">10</div><div class="l">리스크 도메인 (vta/domains)</div></div>
+    <div class="stat"><div class="n">12+12</div><div class="l">정책 · 임계 SSoT</div></div>
+    <div class="stat"><div class="n">69+131</div><div class="l">규제 · 도메인 검증 항목</div></div>
+    <div class="stat"><div class="n">25</div><div class="l">적대적 검증 challenge</div></div>
+    <div class="stat"><div class="n">1,417</div><div class="l">pytest (음성 통제 포함)</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="twocol">
+    <div class="card">
+      <h3>설계 규율 — 통과가 곧 구현이 아니다</h3>
+      <ul>
+        <li>자동 통제 주장에는 <span class="mono">evidence</span> 파일 실재가 필수 — verify가 강제</li>
+        <li>검증식은 실패할 수 있어야 한다 — 음성 통제를 테스트로 고정 (ADV-CALC-06)</li>
+        <li>기계로 셀 수 있는 수치는 손으로 적지 않는다 — 문서가 코드보다 낡는 P-DOC 차단</li>
+        <li>게이트는 fail-closed — 응답 없음 · ID 불일치 · 재계산 불일치 전부 차단</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>검증자도 검증 대상이다</h3>
+      <ul>
+        <li>자기결함 원장 SD-01~07 — 3선 오판을 스스로 기록 (CVA 12.5배 등)</li>
+        <li>이월 원장 CO 11건 — 미확인을 통과로 위장하지 않는다</li>
+        <li>회차 원장 16회 — 판정·게이트 상태·headline을 커밋 단위로 보존</li>
+        <li>모든 변경은 <span class="mono">change_manifest</span> proposed → 인간 promote</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  기준일 2026-08-09 · main 브랜치 통합 상태 기준 · 이 문서는 구조 참조용이며 검증 의견이 아니다.
+  근거: <span class="mono">validation-team-agent/</span> (CLAUDE.md · harness · subagents · middleware · tools · memory)
+</footer>
+</div>
