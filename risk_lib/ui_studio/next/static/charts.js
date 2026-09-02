@@ -29,7 +29,51 @@ const TF=(k,v)=>NG.TF?NG.TF(k,v):T(k).replace(/\{(\w+)\}/g,(m,n)=>n in v?(typeof
 const mk=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e};
 const sn=(p,tag,attrs,txt)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(txt!=null)e.textContent=txt;p.appendChild(e);return e};
 const tip=(e,t)=>{const x=document.createElementNS(NS,'title');x.textContent=t;e.appendChild(x);return e};
-const clip=(s,n)=>{s=String(s==null?'':s);return s.length>n?s.slice(0,Math.max(n-1,1))+'…':s};
+/* Label geometry. SVG text cannot be measured before it is in the document,
+   so widths are estimated from the 11px chart face (--fs-meta): tabular
+   digits and latin advance just under 7px, CJK is full width. Every label
+   with a slot is trimmed to that slot and every gutter is sized from the
+   labels it must hold, so nothing is painted outside the viewBox. */
+const EMW=6.8,UPW=7.8,CJKW=11,ELL='…';
+const wide=c=>c>='\u1100'&&(c<='\u115f'||(c>='\u2e80'&&c<='\ua4cf')||(c>='\uac00'&&c<='\ud7a3')||(c>='\uf900'&&c<='\ufaff')||(c>='\ufe30'&&c<='\ufe6f')||(c>='\uff00'&&c<='\uff60')||(c>='\uffe0'&&c<='\uffe6'));
+function textW(s,k){s=String(s==null?'':s);let w=0;
+  for(let i=0;i<s.length;i++){const c=s[i];w+=wide(c)?CJKW:(c>='A'&&c<='Z'?UPW:EMW)}
+  return w*(k||1)}
+function fitW(s,px,k){s=String(s==null?'':s);
+  if(textW(s,k)<=px)return s;
+  const room=px-textW(ELL,k);let w=0,i=0;
+  for(;i<s.length;i++){const d=textW(s[i],k);if(w+d>room)break;w+=d}
+  return i>0?s.slice(0,i)+ELL:''}
+/* an end label keeps its number whole; the name in front of it gives way */
+function endLabel(name,val,px){const v=String(val);
+  if(!name)return fitW(v,px);
+  const room=px-textW(v)-EMW;
+  return room<EMW*2?fitW(v,px):fitW(name,room)+' '+v}
+/* a rotated category label runs down and to the left of its anchor: no wider
+   than the room under the baseline, nor than the anchor's own offset */
+function rotCap(deg,room,lx0){const r=deg*Math.PI/180;
+  return Math.max(EMW*3,Math.min(room/Math.sin(r),lx0/Math.cos(r)))}
+/* One rule for every axis tick and value label: at most SIG significant
+   digits are painted. NG.fmt (through the caller's fmt) stays the only
+   formatter and keeps the unit and the scale, so the rule reads the number
+   it printed and hands the same fmt a value rounded at that digit. Ledger
+   cells, tooltips and the table toggle keep the caller's full precision. */
+const SIG=4,NUMRE=/(-?[0-9][0-9,]*)\.([0-9]+)/;
+function keepDec(m){const i=m[1].replace(/[^0-9]/g,'').replace(/^0+/,'');
+  return i?Math.max(0,SIG-i.length):/^0*/.exec(m[2])[0].length+SIG}
+function labelFmt(fm){return v=>{const s=fm(v);
+  if(typeof v!=='number'||!isFinite(v))return s;
+  const m=NUMRE.exec(s);if(!m)return s;
+  const k=keepDec(m);if(m[2].length<=k)return s;
+  const mant=Number(m[1].replace(/,/g,'')+'.'+m[2]);
+  const s2=mant?fm(v*(Number(mant.toFixed(k))/mant)):s,m2=NUMRE.exec(s2);
+  if(!m2||m2[2].length<=k)return s2;
+  return s2.replace(NUMRE,k?m2[1]+'.'+m2[2].slice(0,k):m2[1])}}
+/* the left gutter holds the widest tick label; gridAt trims to what it got */
+const AXPAD=8;
+function axisAt(pairs,fl,min,W){const p=pairs.map(q=>[q[0],fl(q[1])]);
+  const w=Math.max.apply(null,p.map(q=>textW(q[1])));
+  return {pairs:p,pL:Math.max(min,Math.min(Math.round(W*0.3),Math.ceil(w)+AXPAD))}}
 const num=x=>typeof x==='number'&&isFinite(x);
 const idx=f=>{const o={};f.columns.forEach((c,i)=>{o[c]=i});return o};
 const colLabel=(f,i)=>NG.frame&&NG.frame.colLabel?NG.frame.colLabel(f,i):((f.labels&&f.labels[i])||f.columns[i]);
@@ -104,7 +148,7 @@ function svgRoot(w,h,title,desc){
 function gridAt(s,x1,x2,pairs,baseY){
   pairs.forEach(([y,lab])=>{
     sn(s,'line',{x1,x2,y1:y,y2:y,class:'gridline',stroke:'var(--hairline)','stroke-width':1});
-    sn(s,'text',{x:x1-6,y:y+4,'text-anchor':'end',class:'axis'},lab)});
+    sn(s,'text',{x:x1-6,y:y+4,'text-anchor':'end',class:'axis'},fitW(lab,x1-8))});
   if(baseY!=null)sn(s,'line',{x1,x2,y1:baseY,y2:baseY,class:'base',stroke:'var(--ink)','stroke-width':1});
 }
 function simpleTable(cols,rows){
@@ -154,19 +198,21 @@ const opac=j=>[1,0.7,0.45,0.28,0.18][j%5];
 
 /* ── bars: items [{label, value, tone?, hatch?}] ─────────────────────── */
 function bars(items,o={}){
-  const n=items.length,W=680,H=230,pL=60,pB=n>7?64:34,pT=16,pR=10,fm=o.fmt||fnum;
+  const n=items.length,W=680,H=230,pB=n>7?64:34,pT=16,pR=10,fm=o.fmt||fnum,fl=labelFmt(fm);
   const max=Math.max(...items.map(x=>Math.abs(x.value)||0),0)||1,ih=H-pB-pT;
+  const A=axisAt([1/3,2/3,1].map(f=>[pT+ih*(1-f),max*f]),fl,60,W),pL=A.pL;
   const s=svgRoot(W,H,o.title||T('막대'),descOf(o,n));
-  gridAt(s,pL,W-pR,[1/3,2/3,1].map(f=>[pT+ih*(1-f),fm(max*f)]),H-pB);
-  const gap=(W-pL-pR)/(n||1),bw=gap*0.66;
+  gridAt(s,pL,W-pR,A.pairs,H-pB);
+  const gap=(W-pL-pR)/(n||1),bw=gap*0.66,rot=n>7;
+  const cap=rot?rotCap(32,pB-18,pL+gap/2):gap-4;
   items.forEach((it,i)=>{
     const h=Math.abs(it.value||0)/max*ih,x=pL+i*gap+(gap-bw)/2,y=H-pB-h;
     const r=tip(sn(s,'rect',{x,y,width:bw,height:Math.max(h,1),fill:fillOf(it)}),it.label+': '+fm(it.value));
     if(o.onBar){r.style.cursor='pointer';r.onclick=()=>o.onBar(it)}
     const lx=x+bw/2,ly=H-pB+14;
-    const lb=sn(s,'text',{x:lx,y:ly,'text-anchor':n>7?'end':'middle'},clip(it.label,n>7?16:Math.max(4,Math.floor(bw/6.5))));
-    if(n>7)lb.setAttribute('transform',`rotate(-32 ${lx} ${ly})`);
-    if(n<=14)sn(s,'text',{x:lx,y:y-3,'text-anchor':'middle',style:INK},fm(it.value))});
+    const lb=sn(s,'text',{x:lx,y:ly,'text-anchor':rot?'end':'middle'},fitW(it.label,cap));
+    if(rot)lb.setAttribute('transform',`rotate(-32 ${lx} ${ly})`);
+    if(n<=14)sn(s,'text',{x:lx,y:y-3,'text-anchor':'middle',style:INK},fl(it.value))});
   return box(s,o,{cols:[T('항목'),T('값')],rows:items.map(x=>[x.label,fm(x.value)])});
 }
 /* ── hbars: div.card with barList and srcMeta ─────────────────────────── */
@@ -196,12 +242,14 @@ function hbars(items,{title,src,money=true,fmt}={}){
 }
 /* ── stackBars: series [{name, values[]}], labels[] ─────────────────── */
 function stackBars(series,labels,o={}){
-  const n=labels.length,W=680,H=240,pL=60,pB=n>7?64:34,pT=16,pR=10,fm=o.fmt||fnum;
+  const n=labels.length,W=680,H=240,pB=n>7?64:34,pT=16,pR=10,fm=o.fmt||fnum,fl=labelFmt(fm);
   const totals=labels.map((_,i)=>series.reduce((a,se)=>a+(num(se.values[i])?se.values[i]:0),0));
   const max=Math.max(...totals,0)||1,ih=H-pB-pT;
+  const A=axisAt([1/3,2/3,1].map(f=>[pT+ih*(1-f),max*f]),fl,60,W),pL=A.pL;
   const s=svgRoot(W,H,o.title||T('막대'),descOf(o,n));
-  gridAt(s,pL,W-pR,[1/3,2/3,1].map(f=>[pT+ih*(1-f),fm(max*f)]),H-pB);
-  const gap=(W-pL-pR)/(n||1),bw=gap*0.62;
+  gridAt(s,pL,W-pR,A.pairs,H-pB);
+  const gap=(W-pL-pR)/(n||1),bw=gap*0.62,rot=n>7;
+  const cap=rot?rotCap(32,pB-18,pL+gap/2):gap-4;
   labels.forEach((lb,i)=>{
     let acc=0;
     series.forEach((se,j)=>{
@@ -210,8 +258,8 @@ function stackBars(series,labels,o={}){
       tip(sn(s,'rect',{x:pL+i*gap+(gap-bw)/2,y,width:bw,height:Math.max(h,1),fill:'var(--accent)','fill-opacity':opac(j),stroke:'var(--bg)','stroke-width':1}),lb+' · '+se.name+': '+fm(v));
       acc+=v});
     const lx=pL+i*gap+gap/2,ly=H-pB+14;
-    const t=sn(s,'text',{x:lx,y:ly,'text-anchor':n>7?'end':'middle'},clip(lb,n>7?16:Math.max(4,Math.floor(bw/6.5))));
-    if(n>7)t.setAttribute('transform',`rotate(-32 ${lx} ${ly})`)});
+    const t=sn(s,'text',{x:lx,y:ly,'text-anchor':rot?'end':'middle'},fitW(lb,cap));
+    if(rot)t.setAttribute('transform',`rotate(-32 ${lx} ${ly})`)});
   const lg=series.map((se,j)=>({name:se.name,opacity:opac(j)}));
   return box(s,o,{cols:[T('항목')].concat(series.map(se=>se.name)),rows:labels.map((lb,i)=>[lb].concat(series.map(se=>fm(se.values[i]))))},lg);
 }
@@ -231,7 +279,7 @@ function squarify(data,rect){
   return out;
 }
 function treemap(items,o={}){
-  const n=items.length,W=680,H=360,fm=o.fmt||fnum;
+  const n=items.length,W=680,H=360,fm=o.fmt||fnum,fl=labelFmt(fm);
   const s=svgRoot(W,H,o.title||T('표'),descOf(o,n));
   const total=items.reduce((t,x)=>t+(x.value>0?x.value:0),0)||1;
   const groups=[];items.forEach(x=>{const g=x.group==null?null:String(x.group);let e=groups.find(q=>q.key===g);if(!e){e={key:g,v:0,items:[]};groups.push(e)}e.v+=x.value>0?x.value:0;e.items.push(x)});
@@ -241,13 +289,13 @@ function treemap(items,o={}){
     const r=tip(sn(s,'rect',{x:c.x+1,y:c.y+1,width:Math.max(c.w-2,0.5),height:Math.max(c.h-2,0.5),fill,'fill-opacity':hi?0.72:0.36,stroke:'var(--bg)','stroke-width':1}),it.label+': '+fm(it.value)+' ('+fpct(it.value/total,1)+')');
     if(o.onCell){r.style.cursor='pointer';r.onclick=()=>o.onCell(it)}
     const st=hi?'fill:var(--on-accent)':INK;
-    if(c.w>34&&c.h>16)sn(s,'text',{x:c.x+5,y:c.y+14,style:st},clip(it.label,Math.floor((c.w-8)/6.5)));
-    if(c.w>34&&c.h>30)sn(s,'text',{x:c.x+5,y:c.y+27,style:st},clip(fm(it.value),Math.floor((c.w-8)/6.5)))};
+    if(c.w>34&&c.h>16)sn(s,'text',{x:c.x+5,y:c.y+14,style:st},fitW(it.label,c.w-10));
+    if(c.w>34&&c.h>30)sn(s,'text',{x:c.x+5,y:c.y+27,style:st},fitW(fl(it.value),c.w-10))};
   if(!two)squarify(items.map(x=>({v:x.value,it:x})),{x:0,y:0,w:W,h:H}).forEach(c=>cell(c,c.it,0));
   else squarify(groups.map(g=>({v:g.v,g})),{x:0,y:0,w:W,h:H}).forEach((gc,gi)=>{
     sn(s,'rect',{x:gc.x,y:gc.y,width:gc.w,height:gc.h,fill:'none',stroke:'var(--ink)','stroke-width':1.5});
     const head=gc.h>40?16:0;
-    if(head)sn(s,'text',{x:gc.x+4,y:gc.y+12,style:INK+';font-weight:650'},clip(gc.g.key,Math.floor(gc.w/6.5)));
+    if(head)sn(s,'text',{x:gc.x+4,y:gc.y+12,style:INK+';font-weight:650'},fitW(gc.g.key,gc.w-8));
     squarify(gc.g.items.map(x=>({v:x.value,it:x})),{x:gc.x+2,y:gc.y+head+2,w:gc.w-4,h:gc.h-head-4}).forEach(c=>cell(c,c.it,gi))});
   const lg=two?groups.map((g,gi)=>({name:g.key+' · '+fpct(g.v/total,1),opacity:gi%2===0?0.72:0.36})):null;
   const cols=two?[T('기준'),T('항목'),T('값')]:[T('항목'),T('값')];
@@ -255,44 +303,46 @@ function treemap(items,o={}){
 }
 /* ── heat: matrix[row][col] ──────────────────────────────────────────── */
 function heat(matrix,rowLabels,colLabels,o={}){
-  const nc=colLabels.length,nr=rowLabels.length,fm=o.fmt||fnum;
+  const nc=colLabels.length,nr=rowLabels.length,fm=o.fmt||fnum,fl=labelFmt(fm);
   const cw=Math.max(38,Math.min(76,560/(nc||1))),ch=22,pL=120,pT=28;
   const W=pL+cw*nc+8,H=pT+ch*nr+8;
   const flat=matrix.flat().filter(num);
   const max=Math.max(...flat,0)||1,min=Math.min(...flat,0);
   const s=svgRoot(W,H,o.title||T('표'),descOf(o,nr*nc));
-  colLabels.forEach((c,j)=>sn(s,'text',{x:pL+j*cw+cw/2,y:pT-8,'text-anchor':'middle'},clip(c,Math.floor(cw/6.5))));
+  colLabels.forEach((c,j)=>sn(s,'text',{x:pL+j*cw+cw/2,y:pT-8,'text-anchor':'middle'},fitW(c,cw-4)));
   rowLabels.forEach((r,i)=>{
-    sn(s,'text',{x:pL-6,y:pT+i*ch+15,'text-anchor':'end'},clip(r,17));
+    sn(s,'text',{x:pL-6,y:pT+i*ch+15,'text-anchor':'end'},fitW(r,pL-8));
     colLabels.forEach((c,j)=>{
       const v=matrix[i][j],t=num(v)?(max===min?0.5:(v-min)/(max-min)):0;
       tip(sn(s,'rect',{x:pL+j*cw+1,y:pT+i*ch+1,width:cw-2,height:ch-2,fill:'var(--accent)','fill-opacity':(0.08+0.82*t).toFixed(3)}),r+' × '+c+': '+fm(v));
-      if(num(v)&&cw>=48)sn(s,'text',{x:pL+j*cw+cw/2,y:pT+i*ch+15,'text-anchor':'middle',style:t>0.55?'fill:var(--on-accent)':INK},clip(fm(v),Math.floor(cw/6.5)))})});
+      if(num(v)&&cw>=48)sn(s,'text',{x:pL+j*cw+cw/2,y:pT+i*ch+15,'text-anchor':'middle',style:t>0.55?'fill:var(--on-accent)':INK},fitW(fl(v),cw-4))})});
   return box(s,o,{cols:[T('항목')].concat(colLabels),rows:rowLabels.map((r,i)=>[r].concat(colLabels.map((c,j)=>fm(matrix[i][j]))))});
 }
 /* ── waterfall: steps [{label, delta}] from start ────────────────────── */
 function waterfall(steps,start,o={}){
-  const W=680,H=240,pL=64,pB=steps.length>5?64:34,pT=16,pR=10,fm=o.fmt||fnum;
+  const W=680,H=240,pB=steps.length>5?64:34,pT=16,pR=10,fm=o.fmt||fnum,fl=labelFmt(fm);
   let acc=start;const pts=[{label:o.startLabel||T('기준'),v:start,d:null}];
   steps.forEach(st=>{acc+=st.delta;pts.push({label:st.label,v:acc,d:st.delta})});
   const n=pts.length,max=Math.max(...pts.map(p=>p.v),start,0),min=Math.min(...pts.map(p=>p.v),0),span=(max-min)||1;
   const ih=H-pB-pT,Y=v=>H-pB-((v-min)/span)*ih;
+  const A=axisAt([1/3,2/3,1].map(f=>[Y(min+span*f),min+span*f]),fl,64,W),pL=A.pL;
   const s=svgRoot(W,H,o.title||T('표'),descOf(o,n));
-  gridAt(s,pL,W-pR,[1/3,2/3,1].map(f=>[Y(min+span*f),fm(min+span*f)]),Y(0));
-  const gap=(W-pL-pR)/n,bw=gap*0.6;
+  gridAt(s,pL,W-pR,A.pairs,Y(0));
+  const gap=(W-pL-pR)/n,bw=gap*0.6,rot=n>6;
+  const cap=rot?rotCap(30,pB-18,pL+gap/2):gap-4;
   pts.forEach((p,i)=>{
     const x=pL+i*gap+(gap-bw)/2,y0=p.d==null?Y(0):Y(p.v-p.d),y1=Y(p.v);
     const tone=p.d==null?'accent':(p.d>=0?'good':'bad');
     tip(sn(s,'rect',{x,y:Math.min(y0,y1),width:bw,height:Math.max(Math.abs(y1-y0),1.5),fill:'var(--'+tone+')'}),p.label+': '+fm(p.v)+(p.d==null?'':' ('+(p.d>=0?'+':'')+fm(p.d)+')'));
     if(i<n-1)sn(s,'line',{x1:x+bw,x2:x+gap,y1,y2:y1,class:'gridline',stroke:'var(--hairline)','stroke-dasharray':'2 2'});
     const lx=x+bw/2,ly=H-pB+14;
-    const lb=sn(s,'text',{x:lx,y:ly,'text-anchor':n>6?'end':'middle'},clip(p.label,n>6?16:Math.max(4,Math.floor(bw/6.5))));
-    if(n>6)lb.setAttribute('transform',`rotate(-30 ${lx} ${ly})`)});
+    const lb=sn(s,'text',{x:lx,y:ly,'text-anchor':rot?'end':'middle'},fitW(p.label,cap));
+    if(rot)lb.setAttribute('transform',`rotate(-30 ${lx} ${ly})`)});
   return box(s,o,{cols:[T('항목'),T('값')],rows:pts.map(p=>[p.label,fm(p.v)+(p.d==null?'':' ('+(p.d>=0?'+':'')+fm(p.d)+')')])});
 }
 /* ── gauge: value against max, semantic tone only ────────────────────── */
 function gauge(value,max,o={}){
-  const W=240,H=140,cx=120,cy=118,R=92,r=64,fm=o.fmt||fnum;
+  const W=240,H=140,cx=120,cy=118,R=92,r=64,fm=o.fmt||fnum,fl=labelFmt(fm);
   const frac=Math.max(0,Math.min(1,max?value/max:0));
   const s=svgRoot(W,H,o.title||T('값'),descOf(o,1));
   const arc=(f,fill)=>{
@@ -301,8 +351,8 @@ function gauge(value,max,o={}){
     return sn(s,'path',{d:`M${x0},${y0} A${R},${R} 0 0,1 ${x1},${y1} L${x2},${y2} A${r},${r} 0 0,0 ${x3},${y3} Z`,fill})};
   arc(1,'var(--tint-ink)');
   if(frac>0)tip(arc(frac,'var(--'+(o.tone||'accent')+')'),fm(value)+' / '+fm(max));
-  sn(s,'text',{x:cx,y:cy-14,'text-anchor':'middle',style:INK+';font-size:22px;font-weight:650'},fm(value));
-  sn(s,'text',{x:cx,y:cy+2,'text-anchor':'middle'},fm(max));
+  sn(s,'text',{x:cx,y:cy-14,'text-anchor':'middle',style:INK+';font-size:22px;font-weight:650'},fitW(fl(value),W-8,2));
+  sn(s,'text',{x:cx,y:cy+2,'text-anchor':'middle'},fitW(fl(max),W-8));
   return box(s,o,{cols:[T('항목'),T('값')],rows:[[T('값'),fm(value)],[T('기준'),fm(max)]]});
 }
 /* ── kriCards: no sparkline; arrows only from x_trend flags ──────────── */
