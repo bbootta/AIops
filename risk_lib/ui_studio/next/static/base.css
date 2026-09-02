@@ -298,7 +298,7 @@ margin-top:var(--rhythm)}
 .bnum{border:1px solid var(--accent);color:var(--accent);padding:0 var(--s1);font-size:var(--fs-meta)}
 .set-runs,.set-labels,.set-formmap,.set-scenario,.set-overlay,.set-method-fund,.set-method-sec{margin:var(--s3) 0}
 /* committee board: three ruled columns, one 1000px viewport */
-.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:var(--hair);background:var(--panel);margin:var(--s3) 0}
+.board{display:grid;grid-template-columns:repeat(var(--cols,3),minmax(0,1fr));gap:0;border:var(--hair);background:var(--panel);margin:var(--s3) 0}
 .board>*{min-width:0;padding:var(--s3);border-right:var(--hair)}
 .board>*:last-child{border-right:0}
 .board h3{font-size:var(--fs-op);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 var(--s2);

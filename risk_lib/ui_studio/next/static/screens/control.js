@@ -248,7 +248,9 @@ function closeWorkflow(root,c){
 const D=c.D,xcl=D.x_close||{},tasks=xcl.tasks||[],st=xcl.statements||{},g=D.x_gate||{};
 ap(root,el('p','lead',T('마감 과업과 게이트 판정을 단계 레인으로 세운다. 판정과 사유는 게이트 원장 값이다')));
 const phases=[];tasks.forEach(t=>{if(phases.indexOf(t.phase)<0)phases.push(t.phase)});
-const board=el('div','board');board.style.gridTemplateColumns='repeat('+phases.length+',minmax(0,1fr))';
+// 열 수는 인라인 스타일이 아니라 커스텀 속성으로 준다. 인라인으로 두면
+// 좁은 화면에서 한 열로 내리는 미디어 규칙을 이겨 보드가 넘친다.
+const board=el('div','board');board.style.setProperty('--cols',String(phases.length));
 phases.forEach(p=>{
 const col=el('div'),ul=el('ul');
 const mine=tasks.filter(t=>t.phase===p),nmine=mine.length;
