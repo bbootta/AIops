@@ -267,8 +267,14 @@ def _footer(m: dict, asof: str, write_allowed: str) -> str:
 </footer>"""
 
 
-def render_next(studios: Studio | list[Studio], ledger_path=None) -> str:
-    """하나 이상의 실행 스냅샷을 한 화면으로 그린다 (실린 실행 사이 전환만)."""
+def render_next(studios: Studio | list[Studio], ledger_path=None,
+                fragment: bool = False) -> str:
+    """하나 이상의 실행 스냅샷을 한 화면으로 그린다 (실린 실행 사이 전환만).
+
+    `fragment` 는 아티팩트 배포용이다. 호스트가 문서 골격을 감싸므로 제목·
+    스타일·본문만 내보낸다. 파일로 저장하는 경로(`write_app_next`)는 기본값
+    그대로 완전한 문서를 쓴다.
+    """
     ss = [studios] if isinstance(studios, Studio) else list(studios)
     order = {c: i for i, c in enumerate(_intl.institution_codes())}
     ss = sorted(ss, key=lambda x: (order.get(x.institution_code, len(order)),
@@ -313,20 +319,30 @@ def render_next(studios: Studio | list[Studio], ledger_path=None) -> str:
         f"window.__RYNTA_INSTS__={insts_js};\n"
         f"window.__RYNTA_I18N__={_js(_i18n_payload())};\n"
         f"window.__RYNTA_NAV__={_js(nav_payload(gdoc, screens))}")
-    return (
-        f"<!doctype html>\n<html lang=\"{_i18n.DEFAULT_LANG}\"><head>"
-        f"<meta charset=\"utf-8\">\n"
-        f"<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
-        f"<title>RYNTA 게이트하우스 · {html.escape(asof)}</title>\n"
-        f"<style>{css}</style></head><body>\n{_PREPAINT}\n"
+    body = (
+        f"{_PREPAINT}\n"
         f"{_header(m, runs[asof].get('institution') or {})}\n"
         f"<div class=\"layout\">\n<nav aria-label=\"메뉴\"></nav>\n<main></main>\n</div>\n"
         f"<aside id=\"drawer\" role=\"complementary\" aria-label=\"상세\" hidden></aside>\n"
         f"<div id=\"palette\" role=\"dialog\" aria-label=\"명령 팔레트\" hidden></div>\n"
         f"{_footer(m, asof, _write_allowed(ss[0]))}\n"
         f"<script>{_esc(payload_js)}</script>\n"
-        f"<script>{_esc(engine)}</script>\n" + "\n".join(blocks) +
-        "\n</body></html>")
+        f"<script>{_esc(engine)}</script>\n" + "\n".join(blocks))
+    title = f"RYNTA 게이트하우스 · {html.escape(asof)}"
+    if fragment:
+        # 아티팩트 호스트가 doctype·html·head·body 를 자기 것으로 감싼다.
+        # 그 안에 두 번 감싸면 문서가 중첩되므로 제목·스타일·본문만 낸다.
+        # 문서 언어는 호스트가 정하므로 스크립트가 나중에 documentElement 에
+        # 적는다 (setLang 이 이미 그렇게 한다).
+        # 아티팩트 제목은 판마다 바뀌면 안 된다(같은 탭·같은 카드로 남아야
+        # 한다). 기준일은 머리말 칩에 이미 있으므로 제목은 이름만 쓴다.
+        return f"<title>RYNTA 게이트하우스</title>\n<style>{css}</style>\n{body}\n"
+    return (
+        f"<!doctype html>\n<html lang=\"{_i18n.DEFAULT_LANG}\"><head>"
+        f"<meta charset=\"utf-8\">\n"
+        f"<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
+        f"<title>{title}</title>\n"
+        f"<style>{css}</style></head><body>\n{body}\n</body></html>")
 
 
 def write_app_next(studios: Studio | list[Studio], path: str | Path,
