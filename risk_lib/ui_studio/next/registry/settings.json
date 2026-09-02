@@ -1,0 +1,77 @@
+[
+ {
+  "id": "settings",
+  "title_ko": "설정",
+  "title_en": "Settings",
+  "sub": null,
+  "legacy": [
+   "⚙ 설정"
+  ],
+  "leaf_parent": true,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "reg_form",
+   "val_independent_request"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "ta"
+ },
+ {
+  "id": "institution",
+  "title_ko": "기관 설정",
+  "title_en": "Institution setup",
+  "sub": "⚙ 설정",
+  "legacy": [
+   "기관 설정"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "inst_master",
+   "inst_profile",
+   "inst_portfolio_mix",
+   "inst_country_mix",
+   "intl_label_lexicon"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "tb"
+ },
+ {
+  "id": "methodology",
+  "title_ko": "산출 방법론",
+  "title_en": "Calculation methodology",
+  "sub": "⚙ 설정",
+  "legacy": [
+   "산출 방법론"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": true,
+  "aisum": false,
+  "tables": [
+   "rwa_fund_result",
+   "rwa_sec_result"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "tc"
+ }
+]

@@ -1,0 +1,281 @@
+[
+ {
+  "id": "validation",
+  "title_ko": "검증",
+  "title_en": "Validation",
+  "sub": null,
+  "legacy": [
+   "검증"
+  ],
+  "leaf_parent": true,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "val_check",
+   "val_independent_request",
+   "val_independent_target",
+   "gov_approval",
+   "reg_submission",
+   "opr_close_task"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "ga"
+ },
+ {
+  "id": "req-trace",
+  "title_ko": "요건 추적",
+  "title_en": "Requirement trace",
+  "sub": "검증",
+  "legacy": [
+   "요건 추적"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "req_trace"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "gb"
+ },
+ {
+  "id": "agents",
+  "title_ko": "에이전트",
+  "title_en": "Agents",
+  "sub": null,
+  "legacy": [
+   "에이전트"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "agent_registry",
+   "agent_activity",
+   "agent_killswitch"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "gc"
+ },
+ {
+  "id": "kill-guard",
+  "title_ko": "비상정지",
+  "title_en": "Emergency stop (screen guard)",
+  "sub": null,
+  "legacy": [],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "agent_killswitch"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "gd"
+ },
+ {
+  "id": "changes",
+  "title_ko": "변경",
+  "title_en": "Changes",
+  "sub": null,
+  "legacy": [
+   "변경"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "chg_change_request",
+   "chg_impact_map",
+   "chg_regression_test",
+   "rdm_canonical_map"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "ge"
+ },
+ {
+  "id": "overlay",
+  "title_ko": "오버레이",
+  "title_en": "Overlays",
+  "sub": null,
+  "legacy": [
+   "오버레이"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "aig_adjustment",
+   "gov_approval"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "gf"
+ },
+ {
+  "id": "change-control",
+  "title_ko": "변경통제",
+  "title_en": "Change control",
+  "sub": "통제",
+  "legacy": [
+   "변경통제"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "gov_change_policy",
+   "gov_change_request",
+   "gov_change_impact",
+   "gov_change_gate",
+   "gov_change_control"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "gg"
+ },
+ {
+  "id": "access-sod",
+  "title_ko": "접근통제·직무분리",
+  "title_en": "Access control and SoD",
+  "sub": "통제",
+  "legacy": [
+   "접근통제·직무분리"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "gov_user_role",
+   "gov_role_permission",
+   "gov_sod_conflict",
+   "gov_access_decision",
+   "ui_field_policy"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "gh"
+ },
+ {
+  "id": "ai-governance",
+  "title_ko": "AI 거버넌스",
+  "title_en": "AI governance",
+  "sub": "통제",
+  "legacy": [
+   "AI 거버넌스"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "aig_agent_trace",
+   "aig_redaction_rule",
+   "aig_adjustment"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "gi"
+ },
+ {
+  "id": "audit-trail",
+  "title_ko": "실행·감사추적",
+  "title_en": "Run and audit trail",
+  "sub": "통제",
+  "legacy": [
+   "실행·감사추적"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "gov_unified_run",
+   "gov_run_issue",
+   "gov_audit_chain",
+   "val_audit_ledger",
+   "int_engine_adapter",
+   "int_engine_io"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "gj"
+ },
+ {
+  "id": "query-governance",
+  "title_ko": "조회 거버넌스",
+  "title_en": "Query governance",
+  "sub": "통제",
+  "legacy": [
+   "조회 거버넌스"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "ui_view",
+   "ui_query_plan",
+   "ui_layout_proposal"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "gk"
+ }
+]

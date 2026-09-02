@@ -1,0 +1,448 @@
+[
+ {
+  "id": "credit",
+  "title_ko": "신용",
+  "title_en": "Credit",
+  "sub": null,
+  "legacy": [
+   "신용"
+  ],
+  "leaf_parent": true,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "crm_ews_signal"
+  ],
+  "products": [
+   "PRD-CRM"
+  ],
+  "domains": [
+   "pd",
+   "lgd",
+   "ead",
+   "el"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "ka"
+ },
+ {
+  "id": "ews",
+  "title_ko": "조기경보",
+  "title_en": "Early warning",
+  "sub": "신용",
+  "legacy": [
+   "조기경보"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "crm_ews_signal"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "kb"
+ },
+ {
+  "id": "credit-rwa",
+  "title_ko": "신용 RWA",
+  "title_en": "Credit RWA",
+  "sub": "신용",
+  "legacy": [
+   "신용 RWA"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "rwa_sa_bucket",
+   "rwa_irb_pool",
+   "rwa_result",
+   "rwa_output_floor"
+  ],
+  "products": [
+   "PRD-RWA"
+  ],
+  "domains": [
+   "sa",
+   "irb",
+   "rwa",
+   "output"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [
+   "rwa_final_total"
+  ],
+  "headline_figures": [
+   "rwa_final_total"
+  ],
+  "chord": "kc"
+ },
+ {
+  "id": "ecl",
+  "title_ko": "ECL",
+  "title_en": "ECL",
+  "sub": "신용",
+  "legacy": [
+   "ECL"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "ecl_result",
+   "ecl_macro_scenario",
+   "ecl_stage_transition",
+   "ecl_sicr_trigger_stat",
+   "ecl_provision_bridge",
+   "ecl_pma",
+   "ecl_gl_reconciliation"
+  ],
+  "products": [
+   "PRD-ECL"
+  ],
+  "domains": [
+   "ecl"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [
+   "ecl_total",
+   "ecl_weighted_total"
+  ],
+  "headline_figures": [
+   "ecl_total",
+   "ecl_weighted_total"
+  ],
+  "chord": "kd"
+ },
+ {
+  "id": "market",
+  "title_ko": "시장",
+  "title_en": "Market",
+  "sub": null,
+  "legacy": [
+   "시장"
+  ],
+  "leaf_parent": true,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "mkt_backtest_exception",
+   "mkt_ipv"
+  ],
+  "products": [
+   "PRD-MKT"
+  ],
+  "domains": [
+   "market"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "ke"
+ },
+ {
+  "id": "ipv",
+  "title_ko": "가격검증·IPV",
+  "title_en": "Price verification (IPV)",
+  "sub": "시장",
+  "legacy": [
+   "가격검증·IPV"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "mkt_trade",
+   "mkt_risk_factor",
+   "mkt_ipv"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "kf"
+ },
+ {
+  "id": "backtest",
+  "title_ko": "백테스팅",
+  "title_en": "Backtesting",
+  "sub": "시장",
+  "legacy": [
+   "백테스팅"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "mkt_backtest_exception"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "kg"
+ },
+ {
+  "id": "var-es",
+  "title_ko": "VaR·ES",
+  "title_en": "VaR and ES",
+  "sub": "시장",
+  "legacy": [
+   "VaR·ES"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "mkt_var_es"
+  ],
+  "products": [],
+  "domains": [
+   "market"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "kh"
+ },
+ {
+  "id": "market-rwa",
+  "title_ko": "시장 RWA",
+  "title_en": "Market RWA",
+  "sub": "시장",
+  "legacy": [
+   "시장 RWA"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "rwa_market_component",
+   "mkt_var_es"
+  ],
+  "products": [],
+  "domains": [
+   "market"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "ki"
+ },
+ {
+  "id": "market-portfolio",
+  "title_ko": "시장 포트폴리오",
+  "title_en": "Market portfolio",
+  "sub": "시장",
+  "legacy": [
+   "시장 포트폴리오"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "mkt_position",
+   "mkt_portfolio_capital",
+   "mkt_var_es_portfolio"
+  ],
+  "products": [],
+  "domains": [
+   "market"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "kj"
+ },
+ {
+  "id": "portfolio-setup",
+  "title_ko": "포트폴리오 설정",
+  "title_en": "Portfolio setup",
+  "sub": "시장",
+  "legacy": [
+   "포트폴리오 설정"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "mkt_portfolio",
+   "mkt_trade"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "kk"
+ },
+ {
+  "id": "oprisk",
+  "title_ko": "운영",
+  "title_en": "Operational",
+  "sub": null,
+  "legacy": [
+   "운영"
+  ],
+  "leaf_parent": true,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "opr_loss_event",
+   "opr_kri"
+  ],
+  "products": [
+   "PRD-OPR"
+  ],
+  "domains": [
+   "op"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "kl"
+ },
+ {
+  "id": "loss-recovery",
+  "title_ko": "손실·회수",
+  "title_en": "Losses and recoveries",
+  "sub": "운영",
+  "legacy": [
+   "손실·회수"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "opr_loss_event",
+   "opr_recovery",
+   "opr_capital"
+  ],
+  "products": [],
+  "domains": [
+   "op"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "km"
+ },
+ {
+  "id": "kri-control",
+  "title_ko": "KRI·통제",
+  "title_en": "KRI and controls",
+  "sub": "운영",
+  "legacy": [
+   "KRI·통제"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "opr_kri",
+   "opr_control",
+   "gov_alert_policy"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "kn"
+ },
+ {
+  "id": "op-rwa",
+  "title_ko": "운영 RWA",
+  "title_en": "Operational RWA",
+  "sub": "운영",
+  "legacy": [
+   "운영 RWA"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "opr_capital",
+   "rwa_operational_bi"
+  ],
+  "products": [],
+  "domains": [
+   "op"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "ko"
+ },
+ {
+  "id": "ncr",
+  "title_ko": "NCR·건전성",
+  "title_en": "NCR and prudential",
+  "sub": "건전성",
+  "legacy": [
+   "NCR·건전성"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "ncr_component",
+   "pru_balance_sheet",
+   "pru_income_statement",
+   "pru_liquidity_ratio",
+   "pru_ownership_limit",
+   "pru_camel",
+   "pru_prompt_action"
+  ],
+  "products": [],
+  "domains": [
+   "ncr",
+   "prudential",
+   "bs"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "kp"
+ }
+]

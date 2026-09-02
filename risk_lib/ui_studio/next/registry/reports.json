@@ -1,0 +1,173 @@
+[
+ {
+  "id": "exec-report",
+  "title_ko": "종합보고서",
+  "title_en": "Executive report",
+  "sub": null,
+  "legacy": [
+   "종합보고서"
+  ],
+  "leaf_parent": false,
+  "density": "committee",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "cap_stack",
+   "val_check",
+   "gov_approval",
+   "val_independent_request",
+   "st_capital_path"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 1,
+  "checks": [
+   "stress_trough_meets_requirement",
+   "bis_buffer_requirement",
+   "pillar2_requirement_evidence",
+   "large_exposure_two_sources"
+  ],
+  "recalc": [
+   "cet1_ratio",
+   "total_ratio",
+   "rwa_final_total",
+   "ecl_total",
+   "ecl_weighted_total",
+   "lcr",
+   "nsfr",
+   "stress_trough_cet1"
+  ],
+  "headline_figures": [
+   "cet1_ratio",
+   "total_ratio",
+   "rwa_final_total",
+   "ecl_total",
+   "ecl_weighted_total",
+   "lcr",
+   "nsfr",
+   "stress_trough_cet1"
+  ],
+  "chord": "ra"
+ },
+ {
+  "id": "approval-pack",
+  "title_ko": "결재 패키지",
+  "title_en": "Approval pack",
+  "sub": null,
+  "legacy": [],
+  "leaf_parent": false,
+  "density": "committee",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "val_check",
+   "val_independent_request",
+   "val_independent_target",
+   "gov_approval",
+   "reg_submission",
+   "val_audit_ledger",
+   "agent_registry"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "rb"
+ },
+ {
+  "id": "headline-trend",
+  "title_ko": "헤드라인 추이",
+  "title_en": "Headline trend",
+  "sub": null,
+  "legacy": [],
+  "leaf_parent": false,
+  "density": "committee",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "val_independent_request"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "rc"
+ },
+ {
+  "id": "capital-verdict",
+  "title_ko": "자본 판정",
+  "title_en": "Capital verdict",
+  "sub": null,
+  "legacy": [],
+  "leaf_parent": false,
+  "density": "committee",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "cap_stack",
+   "st_capital_path",
+   "val_check",
+   "val_independent_target"
+  ],
+  "products": [],
+  "domains": [
+   "bis",
+   "capital",
+   "leverage",
+   "pillar2",
+   "stress"
+  ],
+  "min_svg": 1,
+  "checks": [
+   "stress_trough_meets_requirement",
+   "bis_buffer_requirement",
+   "pillar2_requirement_evidence"
+  ],
+  "recalc": [
+   "cet1_ratio",
+   "total_ratio",
+   "leverage_ratio",
+   "stress_trough_cet1"
+  ],
+  "headline_figures": [
+   "cet1_ratio",
+   "total_ratio",
+   "leverage_ratio",
+   "stress_trough_cet1"
+  ],
+  "chord": "rd"
+ },
+ {
+  "id": "reg-forms",
+  "title_ko": "감독보고",
+  "title_en": "Supervisory forms",
+  "sub": null,
+  "legacy": [
+   "감독보고"
+  ],
+  "leaf_parent": false,
+  "density": "committee",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "reg_form",
+   "reg_form_line",
+   "reg_form_check",
+   "reg_submission",
+   "gov_approval"
+  ],
+  "products": [],
+  "domains": [
+   "doc"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "re"
+ }
+]

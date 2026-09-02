@@ -1,0 +1,228 @@
+[
+ {
+  "id": "cockpit",
+  "title_ko": "콕핏",
+  "title_en": "Cockpit",
+  "sub": null,
+  "legacy": [
+   "콕핏"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "val_check",
+   "gov_approval",
+   "gov_evidence_node",
+   "gov_evidence_edge",
+   "gov_exception_action",
+   "rdm_reconciliation",
+   "rdm_source_contract",
+   "reg_form_check",
+   "rwa_sa_bucket",
+   "st_capital_path",
+   "val_independent_request",
+   "mkt_ipv"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 1,
+  "checks": [
+   "stress_trough_meets_requirement",
+   "bis_buffer_requirement"
+  ],
+  "recalc": [
+   "cet1_ratio",
+   "stress_trough_cet1",
+   "lcr",
+   "nsfr",
+   "ecl_total",
+   "reverse_critical_severity"
+  ],
+  "headline_figures": [
+   "cet1_ratio",
+   "stress_trough_cet1",
+   "lcr",
+   "nsfr",
+   "ecl_total",
+   "reverse_critical_severity"
+  ],
+  "chord": "ca"
+ },
+ {
+  "id": "decision-queue",
+  "title_ko": "의사결정 큐",
+  "title_en": "Decision queue",
+  "sub": null,
+  "legacy": [],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "gov_approval",
+   "val_check",
+   "gov_alert_policy",
+   "gov_exception_action",
+   "reg_submission",
+   "gov_run_issue"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "cb"
+ },
+ {
+  "id": "close-workflow",
+  "title_ko": "마감 워크플로",
+  "title_en": "Close workflow",
+  "sub": null,
+  "legacy": [],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "opr_close_task",
+   "opr_close_gate",
+   "gov_run_issue",
+   "reg_submission",
+   "val_independent_request",
+   "gov_approval"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "cc"
+ },
+ {
+  "id": "simulation",
+  "title_ko": "시뮬레이션",
+  "title_en": "Capital ratio simulation",
+  "sub": null,
+  "legacy": [
+   "시뮬레이션"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": true,
+  "aisum": false,
+  "tables": [
+   "cap_stack",
+   "lim_limit_definition",
+   "alm_irrbb_result"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "cd"
+ },
+ {
+  "id": "limits",
+  "title_ko": "한도관리",
+  "title_en": "Limit management",
+  "sub": "한도·거액",
+  "legacy": [
+   "한도관리"
+  ],
+  "leaf_parent": true,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": true,
+  "tables": [
+   "lim_limit_definition",
+   "limits_full",
+   "rdm_exposure",
+   "rdm_obligor",
+   "kr_irrbb_governance",
+   "val_check",
+   "lex_aggregate"
+  ],
+  "products": [],
+  "domains": [
+   "large",
+   "limit",
+   "concentration"
+  ],
+  "min_svg": 1,
+  "checks": [
+   "large_exposure_two_sources"
+  ],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "ce"
+ },
+ {
+  "id": "lex-setting",
+  "title_ko": "거액 설정",
+  "title_en": "Large exposure settings",
+  "sub": "한도·거액",
+  "legacy": [
+   "거액 설정"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "lex_setting",
+   "lex_aggregate",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [],
+  "domains": [
+   "large",
+   "limit"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "cf"
+ },
+ {
+  "id": "lex-analysis",
+  "title_ko": "거액 분석",
+  "title_en": "Large exposure analysis",
+  "sub": "한도·거액",
+  "legacy": [
+   "거액 분석"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "lex_position",
+   "lex_aggregate",
+   "lex_setting",
+   "lex_substitution",
+   "lex_connected_group",
+   "lex_lookthrough",
+   "lex_exemption",
+   "lex_exposure_measure"
+  ],
+  "products": [],
+  "domains": [
+   "large",
+   "limit",
+   "concentration"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "cg"
+ }
+]

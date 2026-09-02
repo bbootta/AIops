@@ -1,0 +1,23 @@
+[
+ {
+  "id": "commercial",
+  "title_ko": "상업성",
+  "title_en": "Commercial case",
+  "sub": null,
+  "legacy": [
+   "상업성"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "fa"
+ }
+]

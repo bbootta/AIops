@@ -1,0 +1,102 @@
+/* RYNTA next: design tokens (design_spec 4.1 .. 4.4).
+   Three-state cascade: bare :root is light, the media block is dark unless the
+   user pinned light, the attribute block is the pinned dark. Every colour is
+   declared on bare :root; the two dark blocks only redefine. Derived tints are
+   color-mix() of a token with --bg, so they follow the palette and no literal
+   rgba() exists. Status never uses --accent; --accent never carries a verdict. */
+:root{
+  --bg:#eef1ec;
+  --panel:#f7f9f5;
+  --ink:#16211c;
+  --muted:#4f5d57;
+  --hairline:#c9d1cb;
+  --accent:#234e8f;
+  --on-accent:#ffffff;
+  --good:#1f6e4a;
+  --warn:#8a5a00;
+  --bad:#b3273a;
+  --on-bad:#ffffff;
+  --blocked:#5b2a86;
+  --not-run:#5c6866;
+  --synthetic:#7a5f14;
+  --neutral:#55645f;
+  --topbar-h:80px;
+  /* derived tints (resolved on :root, so they re-evaluate per palette) */
+  --tint-accent:color-mix(in srgb,var(--accent) 12%,var(--bg));
+  --tint-good:color-mix(in srgb,var(--good) 12%,var(--bg));
+  --tint-warn:color-mix(in srgb,var(--warn) 14%,var(--bg));
+  --tint-bad:color-mix(in srgb,var(--bad) 12%,var(--bg));
+  --tint-blocked:color-mix(in srgb,var(--blocked) 12%,var(--bg));
+  --tint-not-run:color-mix(in srgb,var(--not-run) 12%,var(--bg));
+  --tint-synthetic:color-mix(in srgb,var(--synthetic) 14%,var(--bg));
+  --tint-neutral:color-mix(in srgb,var(--neutral) 10%,var(--bg));
+  --tint-ink:color-mix(in srgb,var(--ink) 6%,var(--bg));
+  --hover:color-mix(in srgb,var(--ink) 5%,var(--panel));
+  --rule-strong:color-mix(in srgb,var(--ink) 40%,var(--bg));
+  --ink-70:color-mix(in srgb,var(--ink) 70%,var(--bg));
+  --scrim:color-mix(in srgb,var(--ink) 35%,transparent);
+  /* hatch carriers (second channel beside colour) */
+  --hatch-bad:repeating-linear-gradient(135deg,var(--tint-bad) 0 3px,color-mix(in srgb,var(--bad) 28%,var(--bg)) 3px 4px);
+  --hatch-synthetic:repeating-linear-gradient(135deg,var(--tint-synthetic) 0 3px,color-mix(in srgb,var(--synthetic) 28%,var(--bg)) 3px 4px);
+  --hatch-not-run:repeating-linear-gradient(135deg,var(--tint-not-run) 0 3px,color-mix(in srgb,var(--not-run) 28%,var(--bg)) 3px 4px);
+  /* type (4.2): system stacks only, no web font */
+  --font-text:system-ui,-apple-system,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR","Noto Sans CJK KR",sans-serif;
+  --font-num:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono","D2Coding","Noto Sans Mono CJK KR",monospace;
+  --fs-meta:11px;
+  --fs-op:12.5px;
+  --fs-body:14px;
+  --fs-h2:20px;
+  --fs-kpi:28px;
+  --lh-committee:1.45;
+  --lh-operator:1.4;
+  /* spacing and layout (4.3) */
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
+  --gutter:16px;
+  --rhythm:24px;
+  --main-max:1560px;
+  --nav-w:248px;
+  --drawer-w:400px;
+  --r-ctl:2px;
+  --hair:1px solid var(--hairline);
+  --dur:160ms;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#10181a;
+    --panel:#16211f;
+    --ink:#e6ece7;
+    --muted:#a3b0a9;
+    --hairline:#2b3835;
+    --accent:#8fb3f5;
+    --on-accent:#10181a;
+    --good:#5cc490;
+    --warn:#e0b25a;
+    --bad:#ff7b8a;
+    --on-bad:#10181a;
+    --blocked:#c39bf0;
+    --not-run:#8c9995;
+    --synthetic:#d2b46a;
+    --neutral:#98a6a0;
+    --topbar-h:80px;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10181a;
+  --panel:#16211f;
+  --ink:#e6ece7;
+  --muted:#a3b0a9;
+  --hairline:#2b3835;
+  --accent:#8fb3f5;
+  --on-accent:#10181a;
+  --good:#5cc490;
+  --warn:#e0b25a;
+  --bad:#ff7b8a;
+  --on-bad:#10181a;
+  --blocked:#c39bf0;
+  --not-run:#8c9995;
+  --synthetic:#d2b46a;
+  --neutral:#98a6a0;
+  --topbar-h:80px;
+  color-scheme:dark;
+}

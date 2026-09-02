@@ -1,0 +1,95 @@
+{
+ "groups": [
+  {
+   "order": 1,
+   "label_ko": "보고서",
+   "label_en": "Reports",
+   "slug": "reports",
+   "module": "risk_lib/ui_studio/next/static/screens/reports.js",
+   "chord": "r"
+  },
+  {
+   "order": 2,
+   "label_ko": "통제센터",
+   "label_en": "Control room",
+   "slug": "control",
+   "module": "risk_lib/ui_studio/next/static/screens/control.js",
+   "chord": "c"
+  },
+  {
+   "order": 3,
+   "label_ko": "조회·컴포저",
+   "label_en": "Query and composer",
+   "slug": "query",
+   "module": "risk_lib/ui_studio/next/static/screens/query.js",
+   "chord": "q"
+  },
+  {
+   "order": 4,
+   "label_ko": "모형",
+   "label_en": "Models",
+   "slug": "models",
+   "module": "risk_lib/ui_studio/next/static/screens/models.js",
+   "chord": "m"
+  },
+  {
+   "order": 5,
+   "label_ko": "리스크데이터",
+   "label_en": "Risk data",
+   "slug": "riskdata",
+   "module": "risk_lib/ui_studio/next/static/screens/riskdata.js",
+   "chord": "d"
+  },
+  {
+   "order": 6,
+   "label_ko": "자본·RWA",
+   "label_en": "Capital and RWA",
+   "slug": "capital",
+   "module": "risk_lib/ui_studio/next/static/screens/capital.js",
+   "chord": "k"
+  },
+  {
+   "order": 7,
+   "label_ko": "ALM·유동성",
+   "label_en": "ALM and liquidity",
+   "slug": "alm",
+   "module": "risk_lib/ui_studio/next/static/screens/alm.js",
+   "chord": "l"
+  },
+  {
+   "order": 8,
+   "label_ko": "위기상황·ICAAP",
+   "label_en": "Stress and ICAAP",
+   "slug": "stress",
+   "module": "risk_lib/ui_studio/next/static/screens/stress.js",
+   "chord": "s"
+  },
+  {
+   "order": 9,
+   "label_ko": "검증·거버넌스",
+   "label_en": "Validation and governance",
+   "slug": "governance",
+   "module": "risk_lib/ui_studio/next/static/screens/governance.js",
+   "chord": "g"
+  },
+  {
+   "order": 10,
+   "label_ko": "설정",
+   "label_en": "Settings",
+   "slug": "settings",
+   "module": "risk_lib/ui_studio/next/static/screens/settings.js",
+   "chord": "t"
+  },
+  {
+   "order": 11,
+   "label_ko": "(참고)",
+   "label_en": "Reference",
+   "slug": "reference",
+   "module": "risk_lib/ui_studio/next/static/screens/reference.js",
+   "chord": "f"
+  }
+ ],
+ "NAV_DISPLAY": {
+  "⚙ 설정": "설정"
+ }
+}

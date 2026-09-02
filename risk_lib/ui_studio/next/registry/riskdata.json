@@ -1,0 +1,348 @@
+[
+ {
+  "id": "rdm",
+  "title_ko": "RDM",
+  "title_en": "RDM",
+  "sub": null,
+  "legacy": [
+   "RDM"
+  ],
+  "leaf_parent": true,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "rdm_obligor",
+   "rdm_exposure",
+   "rdm_exposure_balance",
+   "rdm_asset_quality",
+   "rdm_delinquency",
+   "rdm_collateral",
+   "rdm_guarantee",
+   "rdm_obligor_financial",
+   "rdm_snapshot",
+   "rdm_source_contract",
+   "rdm_canonical_map",
+   "rdm_code_master",
+   "rdm_account_master",
+   "rdm_product_master",
+   "rdm_dq_rule",
+   "rdm_dq_result",
+   "rdm_reconciliation",
+   "rdm_fund_master",
+   "rdm_fund_holding",
+   "rdm_fund_mandate",
+   "rdm_derivative_master",
+   "rdm_derivative_underlying",
+   "rdm_netting_set",
+   "rdm_sec_master",
+   "rdm_sec_tranche",
+   "rdm_sec_pool",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [
+   "PRD-RDM"
+  ],
+  "domains": [
+   "intake",
+   "asof"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "da"
+ },
+ {
+  "id": "sources",
+  "title_ko": "원천·계약",
+  "title_en": "Sources and contracts",
+  "sub": "RDM",
+  "legacy": [
+   "원천·계약"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "rdm_source_contract",
+   "rdm_snapshot",
+   "rdm_canonical_map"
+  ],
+  "products": [],
+  "domains": [
+   "intake"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "db"
+ },
+ {
+  "id": "dq-recon",
+  "title_ko": "DQ·대사",
+  "title_en": "DQ and reconciliation",
+  "sub": "RDM",
+  "legacy": [
+   "DQ·대사"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "rdm_dq_rule",
+   "rdm_dq_result",
+   "rdm_reconciliation"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "dc"
+ },
+ {
+  "id": "exceptions",
+  "title_ko": "예외·조치",
+  "title_en": "Exceptions and actions",
+  "sub": "RDM",
+  "legacy": [
+   "예외·조치"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "gov_exception_action",
+   "gov_alert_policy"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "dd"
+ },
+ {
+  "id": "collateral",
+  "title_ko": "담보·보증",
+  "title_en": "Collateral and guarantees",
+  "sub": "RDM",
+  "legacy": [
+   "담보·보증"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "rdm_collateral",
+   "rdm_guarantee",
+   "rdm_obligor_financial"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "de"
+ },
+ {
+  "id": "aggregates",
+  "title_ko": "집계 원장",
+  "title_en": "Aggregate ledgers",
+  "sub": "RDM",
+  "legacy": [
+   "집계 원장"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "agg_credit_exposure",
+   "agg_market_exposure",
+   "agg_operational_loss",
+   "agg_alm_exposure",
+   "agg_stress_exposure"
+  ],
+  "products": [],
+  "domains": [
+   "xd",
+   "cross"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "df"
+ },
+ {
+  "id": "funds",
+  "title_ko": "집합투자증권",
+  "title_en": "Funds (CIU)",
+  "sub": "선행 원장",
+  "legacy": [
+   "집합투자증권"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "rdm_fund_master",
+   "rdm_fund_holding",
+   "rdm_fund_mandate",
+   "rwa_fund_result"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [
+   "rwa_fund"
+  ],
+  "headline_figures": [
+   "rwa_fund"
+  ],
+  "chord": "dg"
+ },
+ {
+  "id": "derivatives",
+  "title_ko": "파생상품",
+  "title_en": "Derivatives",
+  "sub": "선행 원장",
+  "legacy": [
+   "파생상품"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "rdm_derivative_master",
+   "rdm_derivative_underlying",
+   "rdm_netting_set",
+   "mkt_derivative_sensitivity"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "dh"
+ },
+ {
+  "id": "securitisation",
+  "title_ko": "유동화",
+  "title_en": "Securitisation",
+  "sub": "선행 원장",
+  "legacy": [
+   "유동화"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "rdm_sec_master",
+   "rdm_sec_tranche",
+   "rdm_sec_pool",
+   "rwa_sec_result"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [
+   "rwa_securitisation"
+  ],
+  "headline_figures": [
+   "rwa_securitisation"
+  ],
+  "chord": "di"
+ },
+ {
+  "id": "data-model",
+  "title_ko": "데이터모델",
+  "title_en": "Data model",
+  "sub": "카탈로그·코드",
+  "legacy": [
+   "데이터모델"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "ui_view"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "dj"
+ },
+ {
+  "id": "code-master",
+  "title_ko": "코드 마스터",
+  "title_en": "Code master",
+  "sub": "카탈로그·코드",
+  "legacy": [
+   "코드 마스터"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "rdm_code_master"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "dk"
+ },
+ {
+  "id": "code-map",
+  "title_ko": "코드 매핑",
+  "title_en": "Code mapping",
+  "sub": "카탈로그·코드",
+  "legacy": [
+   "코드 매핑"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "rdm_account_master",
+   "rdm_product_master",
+   "crm_code_scope",
+   "alm_code_scope",
+   "mkt_code_scope",
+   "opr_code_scope"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "dl"
+ }
+]

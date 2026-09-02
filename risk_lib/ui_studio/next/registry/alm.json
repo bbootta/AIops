@@ -1,0 +1,281 @@
+[
+ {
+  "id": "alm",
+  "title_ko": "ALM",
+  "title_en": "ALM",
+  "sub": null,
+  "legacy": [
+   "ALM"
+  ],
+  "leaf_parent": true,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "alm_lcr_item"
+  ],
+  "products": [
+   "PRD-ALM"
+  ],
+  "domains": [
+   "alm",
+   "lcr",
+   "nsfr",
+   "irrbb"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [
+   "lcr",
+   "nsfr"
+  ],
+  "headline_figures": [
+   "lcr",
+   "nsfr"
+  ],
+  "chord": "la"
+ },
+ {
+  "id": "irrbb",
+  "title_ko": "금리리스크",
+  "title_en": "Interest rate risk (IRRBB)",
+  "sub": "ALM",
+  "legacy": [
+   "금리리스크"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "alm_irrbb_result",
+   "alm_irrbb_bucket_pv",
+   "alm_nii_result",
+   "alm_rate_shock_param",
+   "alm_scenario_def",
+   "alm_post_shock_floor",
+   "alm_result",
+   "alm_repricing_gap"
+  ],
+  "products": [],
+  "domains": [
+   "irrbb"
+  ],
+  "min_svg": 5,
+  "checks": [],
+  "recalc": [
+   "irrbb_worst_pct_tier1",
+   "irrbb_delta_nii_parallel"
+  ],
+  "headline_figures": [
+   "irrbb_worst_pct_tier1",
+   "irrbb_delta_nii_parallel"
+  ],
+  "chord": "lb"
+ },
+ {
+  "id": "kr-irrbb",
+  "title_ko": "국내 금리리스크",
+  "title_en": "Domestic IRRBB [별표 9-1]",
+  "sub": "ALM",
+  "legacy": [
+   "국내 금리리스크"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "alm_rate_shock_param",
+   "alm_post_shock_floor",
+   "alm_time_bucket",
+   "alm_repricing_gap",
+   "alm_irrbb_result",
+   "alm_nii_result",
+   "kr_nmd_category",
+   "alm_nmd_param",
+   "kr_retail_criteria",
+   "kr_retail_behavioural_scope",
+   "kr_auto_option_param",
+   "kr_irrbb_governance",
+   "disc_irrbb_table6",
+   "disc_irrbb_table7_qualitative",
+   "disc_irrbb_table7_quantitative",
+   "alm_irrbb_bucket_pv"
+  ],
+  "products": [],
+  "domains": [
+   "irrbb",
+   "kr"
+  ],
+  "min_svg": 2,
+  "checks": [],
+  "recalc": [
+   "kr_irrbb_table6_max_delta_eve",
+   "kr_irrbb_table6_max_delta_nii"
+  ],
+  "headline_figures": [
+   "kr_irrbb_table6_max_delta_eve",
+   "kr_irrbb_table6_max_delta_nii"
+  ],
+  "chord": "lc"
+ },
+ {
+  "id": "cashflow",
+  "title_ko": "현금흐름 원장",
+  "title_en": "Cash flow ledger",
+  "sub": "ALM",
+  "legacy": [
+   "현금흐름 원장"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "alm_cashflow_bucket",
+   "alm_cashflow_contract",
+   "alm_cashflow_behavioural",
+   "alm_contract",
+   "alm_time_bucket",
+   "alm_scenario_def"
+  ],
+  "products": [],
+  "domains": [
+   "alm"
+  ],
+  "min_svg": 3,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "ld"
+ },
+ {
+  "id": "ladder",
+  "title_ko": "유동성 사다리",
+  "title_en": "Liquidity ladder",
+  "sub": "ALM",
+  "legacy": [
+   "유동성 사다리"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "alm_maturity_ladder",
+   "alm_time_bucket",
+   "alm_scenario_def"
+  ],
+  "products": [],
+  "domains": [
+   "alm"
+  ],
+  "min_svg": 3,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "le"
+ },
+ {
+  "id": "liquidity",
+  "title_ko": "유동성리스크",
+  "title_en": "Liquidity risk",
+  "sub": "ALM",
+  "legacy": [
+   "유동성리스크"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "alm_lcr_flow",
+   "alm_lcr_factor",
+   "alm_nsfr_item",
+   "alm_nsfr_factor",
+   "alm_result",
+   "alm_lcr_item"
+  ],
+  "products": [],
+  "domains": [
+   "lcr",
+   "nsfr"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [
+   "lcr",
+   "nsfr"
+  ],
+  "headline_figures": [
+   "lcr",
+   "nsfr"
+  ],
+  "chord": "lf"
+ },
+ {
+  "id": "survival",
+  "title_ko": "생존기간",
+  "title_en": "Survival horizon",
+  "sub": "ALM",
+  "legacy": [
+   "생존기간"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "alm_survival_path",
+   "alm_liquidity_stress_param"
+  ],
+  "products": [],
+  "domains": [
+   "alm"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [
+   "survival_days"
+  ],
+  "headline_figures": [
+   "survival_days"
+  ],
+  "chord": "lg"
+ },
+ {
+  "id": "alm-params",
+  "title_ko": "ALM 계수 원장",
+  "title_en": "ALM parameter ledger",
+  "sub": "ALM",
+  "legacy": [
+   "ALM 계수 원장"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "alm_time_bucket",
+   "alm_product_terms",
+   "alm_behaviour_param",
+   "alm_prepay_scurve_param",
+   "alm_behaviour_scenario_mult",
+   "alm_nmd_param",
+   "alm_rate_shock_param",
+   "alm_scenario_def",
+   "alm_post_shock_floor",
+   "alm_liquidity_stress_param"
+  ],
+  "products": [],
+  "domains": [
+   "alm"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "lh"
+ }
+]

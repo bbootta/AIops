@@ -1,0 +1,167 @@
+[
+ {
+  "id": "stress",
+  "title_ko": "위기상황",
+  "title_en": "Stress testing",
+  "sub": null,
+  "legacy": [
+   "위기상황"
+  ],
+  "leaf_parent": true,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "st_calc_trace",
+   "st_capital_path",
+   "st_shock_axis"
+  ],
+  "products": [],
+  "domains": [
+   "stress",
+   "macro"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [
+   "stress_trough_cet1"
+  ],
+  "headline_figures": [
+   "stress_trough_cet1"
+  ],
+  "chord": "sa"
+ },
+ {
+  "id": "macro",
+  "title_ko": "거시지표 모니터링",
+  "title_en": "Macro monitoring",
+  "sub": "위기상황",
+  "legacy": [
+   "거시지표 모니터링"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "macro_indicator",
+   "macro_scenario_link",
+   "rdm_macro_indicator_master",
+   "st_macro_scenario_shock"
+  ],
+  "products": [],
+  "domains": [
+   "macro"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "sb"
+ },
+ {
+  "id": "scenario",
+  "title_ko": "시나리오 설정",
+  "title_en": "Scenario settings",
+  "sub": "위기상황",
+  "legacy": [
+   "시나리오 설정"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "st_calc_trace"
+  ],
+  "products": [],
+  "domains": [
+   "stress"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "sc"
+ },
+ {
+  "id": "reverse-stress",
+  "title_ko": "역스트레스",
+  "title_en": "Reverse stress",
+  "sub": "위기상황",
+  "legacy": [
+   "역스트레스"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [],
+  "products": [],
+  "domains": [
+   "reverse"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [
+   "reverse_critical_severity"
+  ],
+  "headline_figures": [
+   "reverse_critical_severity"
+  ],
+  "chord": "sd"
+ },
+ {
+  "id": "icaap",
+  "title_ko": "ICAAP 인벤토리",
+  "title_en": "ICAAP inventory",
+  "sub": "위기상황",
+  "legacy": [
+   "ICAAP 인벤토리"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "icaap_risk_taxonomy",
+   "icaap_materiality",
+   "icaap_materiality_policy",
+   "icaap_capital_map"
+  ],
+  "products": [],
+  "domains": [
+   "icaap"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "se"
+ },
+ {
+  "id": "actions",
+  "title_ko": "경영조치·제출",
+  "title_en": "Management actions and submission",
+  "sub": "위기상황",
+  "legacy": [
+   "경영조치·제출"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "st_action_playbook",
+   "st_management_action",
+   "reg_submission"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "sf"
+ }
+]
