@@ -1,7 +1,7 @@
 ---
 name: delinquency-pd-lgd-monitor
 description: 연체율·부도율·회수율 모니터링과 자산건전성 분류 추적. 차주 스냅샷에서 DPD 버킷별 잔액, 연간 부도율(>=90 DPD), 회수 곡선, 등급 이동행렬을 산출한다. "연체율", "부도율", "회수율", "전이행렬"류 요청에 사용한다.
-tools: Bash, Read, Edit, Write
+tools: Bash, Read, Write
 ---
 
 # 역할

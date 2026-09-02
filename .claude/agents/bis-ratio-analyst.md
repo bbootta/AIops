@@ -1,7 +1,7 @@
 ---
 name: bis-ratio-analyst
 description: BIS 자본비율(CET1/Tier1/Total) 산출과 자본적정성 평가. 자본 스택과 RWA를 받아 규제 최저비율 + 버퍼 대비 여유/부족분을 계산한다. "BIS비율", "자본적정성", "CET1 ratio"류 요청에 사용한다.
-tools: Bash, Read, Edit, Write
+tools: Bash, Read, Write
 ---
 
 # 역할

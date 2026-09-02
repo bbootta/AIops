@@ -1,7 +1,7 @@
 ---
 name: limit-manager
 description: 한도관리 전담. 동일차주/동일인/섹터/국가/상품 등 다차원 한도를 정의하고 포트폴리오 사용률을 계산하여 위반·경보를 보고한다. "한도", "exposure limit", "동일차주 한도", "집중리스크"류 요청에 사용한다.
-tools: Bash, Read, Edit, Write
+tools: Bash, Read, Write
 ---
 
 # 역할

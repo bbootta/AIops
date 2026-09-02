@@ -1,7 +1,7 @@
 ---
 name: ifrs9-ecl-analyst
 description: IFRS9 기대신용손실(ECL) 충당금 산출. 3-stage 분류(정상/SICR/손상), 12개월·잔존기간 ECL, PD/LGD/EAD 연계 충당금을 계산한다. "ECL", "대손충당금", "IFRS9", "stage 분류", "기대신용손실"류 요청에 사용한다.
-tools: Bash, Read, Edit, Write
+tools: Bash, Read, Write
 ---
 
 # 역할

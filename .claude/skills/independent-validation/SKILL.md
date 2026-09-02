@@ -32,8 +32,10 @@ path = request.write()          # docs/independent_validation/<run_id>.request.j
 요청 패키지에는 다음이 들어간다. 하나라도 빠지면 3선이 재계산할 수 없다.
 
 - **재현 명령** — seed·asof·파이프라인 호출
-- **재계산 대상 10종** (`RECALC_SCOPE`) — RWA 합계, CET1/총자본비율, 레버리지,
-  ECL, LCR, NSFR, 위기상황 CET1 저점, 역스트레스 임계 심도, 대손준비금
+- **재계산 대상 21종** (`RECALC_SCOPE`, 개수는 코드가 정본): RWA 합계·펀드·
+  유동화, CET1/총자본비율, 레버리지, ECL(가중 포함), LCR, NSFR, IRRBB(ΔEVE 비율·
+  ΔNII·별표 9-1 두 값), 생존기간, 위기상황 CET1 저점, 역스트레스 임계 심도,
+  대손준비금, LGD 백테스트 두 값, CCF 실현치
 - **자체검증 결과 요약** — PASS/WARN/FAIL과 FAIL 항목명 (숨기지 않는다)
 - **우리가 아는 가정 목록** (`KNOWN_ASSUMPTIONS`) — 3선이 도전해야 할 약한 고리
 - **산출 지문·포트폴리오 지문** — 다른 실행의 응답이 승인으로 쓰이지 않게 한다
@@ -41,7 +43,11 @@ path = request.write()          # docs/independent_validation/<run_id>.request.j
 ### 2. 위임
 
 `claude/validation-team-agent-Pw9F5` 브랜치의 적합성검증 팀에이전트에 요청
-파일 경로를 전달한다. 응답은 같은 디렉터리에 `<run_id>.response.json`으로 온다.
+파일 경로를 전달한다. 전달은 `dispatch_request(request)` (또는
+`python -m risk_lib.cli validation-request --dispatch`) 로 기록한다: 요청 사본이
+`docs/independent_validation/outbox/` 에 놓이고 `<run_id>.dispatch.json` 에
+대상 브랜치·경로·인계 명령이 남는다. 이 기록이 없으면 요청은 만들어졌을 뿐
+넘어가지 않은 것이다. 응답은 같은 디렉터리에 `<run_id>.response.json`으로 온다.
 
 ### 3. 게이트 확인 — 결재 상신 직전 필수
 

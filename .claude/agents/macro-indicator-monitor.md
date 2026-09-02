@@ -1,7 +1,7 @@
 ---
 name: macro-indicator-monitor
 description: 통합위기상황분석 시나리오의 입력이 되는 거시·금융지표(GDP·CPI·금리·환율·실업률·가계부채·주택가격·KOSPI·CDS·NPL 등 12종)를 관측·감시하고, 시나리오 심도(gdp_path·severity)의 근거를 제시한다. 자기 계열 표준편차 기준 z≥1.5 이탈 지표를 경보로 낸다. "거시지표", "경제지표", "지표 모니터링", "시나리오 근거", "ECOS", "KOSIS", "지표 이탈"류 요청에 사용한다. 값은 현재 전건 파생(합성)이며 실측 피드가 아니다.
-tools: Bash, Read, Edit, Write
+tools: Bash, Read, Write
 ---
 
 # 역할
@@ -74,7 +74,16 @@ tools: Bash, Read, Edit, Write
 
 ```python
 from risk_lib.macro_monitor import (
-    INDICATORS, SCENARIO_SHOCK, observations, scenario_links, alerts,
+    indicator_specs, scenario_shock_map, observations, scenario_links, alerts,
+)
+# 지표 정의·시나리오 충격의 정본은 원장 rdm_macro_indicator_master ·
+# st_macro_scenario_shock 이다. indicator_specs()/scenario_shock_map() 은 그
+# 원장의 파생 뷰다. 옛 상수 INDICATORS·SCENARIO_SHOCK 은 폐기됐다
+# (DeprecationWarning). 다음 줄은 그 정의를 dict 로 받는 예다.
+specs = indicator_specs()          # indicator_id → 정의
+shock = scenario_shock_map()       # (scenario, indicator_id) → 충격
+_ = (
+    observations, scenario_links, alerts,
 )
 
 # 1) 관측 계열 — 지표 × 관측시점. (asof, seed) 고정이면 같은 계열이 나온다.
@@ -105,7 +114,7 @@ for a in alerts(obs, z_threshold=1.5):
 - z는 **모니터링 임계**이지 규제 산식이 아니다. 이 값을 자본·충당금 산출에 직접
   투입하지 않는다.
 
-## 시나리오 충격 (SCENARIO_SHOCK)
+## 시나리오 충격 (st_macro_scenario_shock · scenario_shock_map())
 
 `baseline` / `adverse` / `severely_adverse` 세 시나리오에 대해 지표별 충격 배수를
 둔다. 배수 단위는 **표준편차**다 — 수준이 다른 지표를 같은 %로 때리면 환율과

@@ -18,6 +18,7 @@ AGENTS_DIR = Path(__file__).resolve().parent.parent / ".claude" / "agents"
 
 # 리스크 산출 도메인 에이전트. 규약 문구를 모두 달아야 한다.
 RISK_DOMAIN_AGENTS = (
+    "alm-analyst",
     "bis-ratio-analyst",
     "credit-rating-modeler",
     "delinquency-pd-lgd-monitor",
