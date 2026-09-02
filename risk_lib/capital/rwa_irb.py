@@ -35,7 +35,7 @@ from risk_lib.references import (
 
 
 # Floors per Basel III CRE32.
-PD_FLOOR_CORPORATE = PD_FLOOR_BPS / 10_000   # 3 bp
+PD_FLOOR_CORPORATE = PD_FLOOR_BPS / 10_000   # 5 bp (references.PD_FLOOR_BPS)
 PD_FLOOR_RETAIL = PD_FLOOR_BPS / 10_000
 # LGD floors retained for documentation; the harness does not auto-floor LGD
 # (callers can do so explicitly per CRE32.42 if they want FIRB-style behaviour).

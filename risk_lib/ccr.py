@@ -16,12 +16,18 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from risk_lib.references import (
+    BA_CVA_KAPPA, CCR_BANK_RW_FLAT, SACCR_SF_CREDIT_IG_PROXY,
+)
 
-# Basel III CRE52 supervisory factors (decimal).
+
+# SA-CCR 감독계수 (CRE52.72). ir·fx·equity(단일명)·commodity 는 규정표 그대로다.
+# credit_ig 만 규정표에 없는 대표값이다. 단일명 IG 는 등급별 0.38~0.54%, 지수 IG 는
+# 0.38% 인데 상대방 등급을 쓰지 않아 구간 안의 값 하나를 놓았다 (references 참조).
 SF = {
     "ir": 0.005,        # interest rate
     "fx": 0.040,        # FX
-    "credit_ig": 0.005, # credit, IG
+    "credit_ig": SACCR_SF_CREDIT_IG_PROXY,
     "equity": 0.32,
     "commodity": 0.18,
 }
@@ -76,8 +82,12 @@ def saccr_ead(trades: pd.DataFrame) -> pd.DataFrame:
     return grouped
 
 
-def saccr_rwa(ead: pd.DataFrame, bank_rw: float = 0.50) -> pd.DataFrame:
-    """RWA = EAD × counterparty RW. Banks default to 50% (BBB) under SA."""
+def saccr_rwa(ead: pd.DataFrame, bank_rw: float = CCR_BANK_RW_FLAT) -> pd.DataFrame:
+    """RWA = EAD × 상대방 위험가중치.
+
+    CRE20.18 은 등급별(20/30/50/100/150%)이다. 이 하네스는 상대방 등급을 쓰지
+    않고 BBB 구간 50% 하나를 전 상대방에 놓는다 (내부 가정, references 참조).
+    """
     out = ead.copy()
     out["rw"] = bank_rw
     out["rwa"] = out["ead"] * bank_rw
@@ -91,7 +101,7 @@ def saccr_rwa(ead: pd.DataFrame, bank_rw: float = 0.50) -> pd.DataFrame:
 CVA_RWA_MULTIPLIER = 12.5
 
 
-def cva_capital_charge(ead: pd.DataFrame, *, kappa: float = 0.05) -> float:
+def cva_capital_charge(ead: pd.DataFrame, *, kappa: float = BA_CVA_KAPPA) -> float:
     """Simplified BA-CVA: K_BA = κ · √(Σ (S_i · EAD_i)²) — supervisory weights
     folded into κ for an MVP; ~5% of total EAD typical.
 

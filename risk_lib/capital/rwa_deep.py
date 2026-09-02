@@ -27,6 +27,11 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+
+from risk_lib.references import (
+    MR_STRESS_MULTIPLIER, MR_VOL_PRIOR, SBM_LITE_CURV_SCALE, SBM_LITE_RW_CURV,
+    SBM_LITE_RW_DELTA, SBM_LITE_RW_VEGA,
+)
 from scipy.stats import norm
 
 from risk_lib.capital.rwa_sa import (
@@ -315,17 +320,11 @@ def firb_simulation(irb_results: pd.DataFrame) -> dict[str, Any]:
 # ============================================================================
 
 
-# Annualised volatility prior per risk class — used by the parametric VaR
-# overlay.  Conservative single-point estimates, consistent with the SA risk
-# weights in market_risk.py.
-_MR_VOL_PRIOR = {
-    "interest_rate": 0.012,
-    "equity":        0.20,
-    "fx":            0.10,
-    "commodity":     0.25,
-    "credit_spread": 0.08,
-}
-_MR_STRESS_MULTIPLIER = 2.5   # SVaR / VaR uplift under MAR20.9 stressed window
+# 파라메트릭 VaR 의 변동성 사전값과 SVaR 배수. 둘 다 내부 가정이다. MAR20 에
+# SVaR 배수 규정은 없다 (SVaR 은 스트레스 관측기간으로 재산출하는 값이다).
+# 값은 references.py 내부 가정 구역에 있고 여기서는 이름만 이어 쓴다.
+_MR_VOL_PRIOR = MR_VOL_PRIOR
+_MR_STRESS_MULTIPLIER = MR_STRESS_MULTIPLIER
 
 
 def parametric_var(positions: pd.DataFrame,
@@ -387,16 +386,12 @@ def sensitivities_charge(positions: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(columns=["risk_class", "delta", "vega",
                                      "curvature", "total"])
     df = positions.copy()
-    rw_delta = {"interest_rate": 0.015, "equity": 0.25, "fx": 0.075,
-                "commodity": 0.20, "credit_spread": 0.05}
-    rw_vega  = {"interest_rate": 0.55, "equity": 0.40, "fx": 0.0,
-                "commodity": 0.45, "credit_spread": 0.20}
-    rw_curv  = {"interest_rate": 0.022, "equity": 0.35, "fx": 0.0,
-                "commodity": 0.30, "credit_spread": 0.08}
+    # SbM 대용 계수. MAR21 의 버킷·상관 구조가 아니다 (references 참조).
+    rw_delta, rw_vega, rw_curv = SBM_LITE_RW_DELTA, SBM_LITE_RW_VEGA, SBM_LITE_RW_CURV
     df["abs_position"] = df["net_position"].abs()
     df["delta"]     = df["abs_position"] * df["risk_class"].map(rw_delta).fillna(0.0)
     df["vega"]      = df["abs_position"] * df["risk_class"].map(rw_vega).fillna(0.0)
-    df["curvature"] = df["abs_position"] * df["risk_class"].map(rw_curv).fillna(0.0) * 0.5
+    df["curvature"] = df["abs_position"] * df["risk_class"].map(rw_curv).fillna(0.0) * SBM_LITE_CURV_SCALE
     by = df.groupby("risk_class").agg(
         delta=("delta", "sum"),
         vega=("vega", "sum"),

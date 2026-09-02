@@ -1,7 +1,7 @@
 """Basel III leverage ratio (LEV10 / 감독세칙 레버리지비율).
 
   LR = Tier1 capital / Total exposure measure   ≥ 3.0% (LEV10.6)
-  G-SIB add-on +0.5%–1.0% (LEV40, 50% of risk-weighted G-SIB buffer).
+  G-SIB add-on +0.5%~1.75% (버킷 1.0~3.5% 의 50%) (LEV40, 50% of risk-weighted G-SIB buffer).
 
 Exposure measure = on-balance + off-balance(with CCF, floor 10%) (LEV30.11)
                    + derivatives (SA-CCR) + securities financing transactions.

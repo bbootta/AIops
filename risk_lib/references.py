@@ -467,3 +467,55 @@ ALL_CITATIONS: list[tuple[str, Citation]] = [
     ("§16 순자본비율 (NCR)",     CITE_NCR_DEDUCTION),
     ("§16 순자본비율 (NCR)",     CITE_NCR_RISK),
 ]
+
+# ============================================================================
+# 내부 가정: 규정값이 아니다
+# ============================================================================
+#
+# 아래 상수는 바젤 조항에 값이 없거나, 조항이 요구하는 산출(스트레스 시나리오,
+# 60일 평균, 등급별 표)을 이 하네스가 아직 하지 않아 대신 놓은 값이다. 조항을
+# 붙이지 않는다. 검토자가 규정값으로 읽으면 안 되기 때문이다. 실기관 적용 시
+# 파라미터 원장으로 교체된다. 사용처가 이 이름을 그대로 쓰므로, 값을 바꾸면
+# 어디가 움직이는지 grep 한 번으로 보인다.
+
+INTERNAL_ASSUMPTION = "내부가정"
+
+# FRTB IMA. MAR33 SES 는 NMRF 팩터별 스트레스 시나리오 손실이다. 이 하네스는
+# 그 산출이 없어 팩터 1개당 고정 금액을 더한다. 통화 단위(KRW)가 박힌 값이다.
+NMRF_ADDON_PER_FACTOR_KRW = 1.0e9
+# IMA 탈락 데스크의 SA 복귀 할증. MAR33.44 의 가산은 k×(SA_G,A − SA_G) 차액형이지
+# SA 자본에 곱하는 배수가 아니다. 그 산출이 없어 배수로 대신한다.
+IMA_FALLBACK_SA_SURCHARGE = 1.30
+# RFET. MAR31.12 는 (i) 연 24건 + 90일 구간마다 4건 이상, 또는 (ii) 직전 12개월
+# 100건 중 하나다. 이 하네스는 24건 + 최대 공백 30일만 보고 (ii) 가 없다.
+# 30일은 (i) 보다 엄격해 NMRF 가 과다 판정되는 방향이다.
+RFET_MIN_OBS_PER_YEAR = 24
+RFET_MAX_GAP_DAYS = 30
+
+# 시장리스크 관리지표(규제 headline 아님). 파라메트릭 VaR 의 변동성 사전값과
+# SVaR 배수. MAR20 에 SVaR 배수 규정은 없다. SVaR 은 스트레스 관측기간으로
+# 재산출하는 값이고 이 배수는 그 대용이다.
+MR_VOL_PRIOR = {
+    "interest_rate": 0.012, "equity": 0.20, "fx": 0.10,
+    "commodity": 0.25, "credit_spread": 0.08,
+}
+MR_STRESS_MULTIPLIER = 2.5
+# 민감도기반 표준방법(SbM) 대용 위험가중치. MAR21 의 버킷·상관·3개 상관 시나리오
+# 구조가 아니라 위험군 1개당 하나의 계수이며 곡률은 델타 계수의 절반으로 대용한다.
+# 비교표에 병렬 제시될 때 "MAR40 SA" 와 같은 성격의 값으로 읽히면 안 된다.
+SBM_LITE_RW_DELTA = {"interest_rate": 0.015, "equity": 0.25, "fx": 0.075,
+                     "commodity": 0.20, "credit_spread": 0.05}
+SBM_LITE_RW_VEGA = {"interest_rate": 0.55, "equity": 0.40, "fx": 0.0,
+                    "commodity": 0.45, "credit_spread": 0.20}
+SBM_LITE_RW_CURV = {"interest_rate": 0.022, "equity": 0.35, "fx": 0.0,
+                    "commodity": 0.30, "credit_spread": 0.08}
+SBM_LITE_CURV_SCALE = 0.5
+
+# SA-CCR·CVA. CRE20.18 은행 위험가중치는 등급별(20/30/50/100/150%)인데 이 하네스는
+# 상대방 등급을 쓰지 않고 BBB 구간 50% 하나를 놓는다. BA-CVA κ 는 감독위험가중치를
+# 접어 넣은 단일 계수이며 MAR50 의 상대방 등급별 RW 표가 아니다.
+CCR_BANK_RW_FLAT = 0.50
+BA_CVA_KAPPA = 0.05
+# 신용 감독계수. CRE52.72 는 단일명 IG 0.38~0.54%, 지수 IG 0.38% 다. 0.50% 는 그
+# 구간 안의 대표값이며 규정표 어느 칸도 아니다.
+SACCR_SF_CREDIT_IG_PROXY = 0.005
