@@ -102,9 +102,13 @@ function srcMeta(f,extra){const p=[];if(f.table)p.push(T('원장')+' '+f.table);
 function input(o){o=o||{};const e=el(o.multiline?'textarea':'input','input');if(!o.multiline)e.type=o.type||'text';if(o.value!=null)e.value=o.value;if(o.placeholder)e.placeholder=o.placeholder;if(o.aria)e.setAttribute('aria-label',o.aria);['min','max','step'].forEach(k=>{if(o[k]!=null)e[k]=o[k]});if(o.onInput)e.oninput=()=>o.onInput(e.value,e);return e}
 function button(txt,o){o=o||{};const b=el('button','btn'+(o.primary?' primary':''),txt);b.type='button';if(o.onClick)b.onclick=o.onClick;if(o.disabled)b.disabled=true;if(o.title)b.title=o.title;return b}
 function select(options,onChange,cls){const s=el('select',cls||'sel');options.forEach(o=>{const x=typeof o==='string'?{value:o,label:o}:o;const op=el('option',null,x.raw?x.label:T(x.label));op.value=x.value;if(x.selected)op.selected=true;ap(s,op)});if(onChange)s.onchange=()=>onChange(s.value,s);return s}
-function chips(items,onPick){const box=el('div','chips');items.forEach(t=>{const o=typeof t==='string'?{value:t,label:t}:t;const b=el('button','chip'+(o.on?' on':''),o.raw?o.label:T(o.label));b.type='button';b.dataset.value=o.value;b.onclick=()=>{$$('.chip',box).forEach(c=>c.classList.remove('on'));b.classList.add('on');if(onPick)onPick(o.value,b)};ap(box,b)});return box}
+function chips(items,onPick){const box=el('div','chips');items.forEach(t=>{const o=typeof t==='string'?{value:t,label:t}:t;const lb=o.raw?o.label:T(o.label);const b=el('button','chip'+(o.on?' on':''),lb);b.type='button';b.dataset.value=o.value;// 칩은 한 줄로 줄여 보인다. 줄인 글은 title 로 전문을 남긴다.
+if(String(lb).length>20)b.title=String(lb);b.onclick=()=>{$$('.chip',box).forEach(c=>c.classList.remove('on'));b.classList.add('on');if(onPick)onPick(o.value,b)};ap(box,b)});return box}
 function meter(label,num,den,t){const d=el('div','meter'+(t?' '+t:''));if(t)d.dataset.tone=t;const h=el('div','meta');ap(h,el('span',null,T(label)),el('span','num',fmt.num(num)+' / '+fmt.num(den)));const b=el('div','bar'),i=el('i');i.style.width=(den?Math.min(100,Math.abs(num)/den*100):0).toFixed(1)+'%';ap(b,i);ap(d,h,b);return d}
-function dotlist(items){const u=el('ul','list dots');items.forEach(x=>{const li=el('li');const t=x.tone||'neutral';li.dataset.tone=t;ap(li,glyph(t),' ',el('span','txt',x.text),x.right!=null?el('span','right',String(x.right)):null);if(x.onClick){li.tabIndex=0;li.classList.add('click');li.onclick=x.onClick;li.onkeydown=e=>{if(e.key==='Enter')x.onClick()}}ap(u,li)});return u}
+// 숫자 칸은 자릿수를 맞추려 줄바꿈을 막는다. 지문·체크명 나열처럼 숫자가
+// 아닌 긴 값이 그 칸에 오면 잘리므로, 길이로 갈라 끊어 쓰게 한다.
+function longVal(v){const t=String(v==null?'':v);return t.length>24}
+function dotlist(items){const u=el('ul','list dots');items.forEach(x=>{const li=el('li');const t=x.tone||'neutral';li.dataset.tone=t;ap(li,glyph(t),' ',el('span','txt',x.text),x.right!=null?el('span','right'+(longVal(x.right)?' wrap':''),String(x.right)):null);if(x.onClick){li.tabIndex=0;li.classList.add('click');li.onclick=x.onClick;li.onkeydown=e=>{if(e.key==='Enter')x.onClick()}}ap(u,li)});return u}
 function explanatory(root){const r=el('div','ribbon explanatory');ap(r,glyph('explanatory'),' '+T('설명용 산술 · 승인·제출값 아님'));root.classList.add('explanatory');root.insertBefore(r,root.firstChild);return r}
 function errorCard(err){const c=el('div','card note bad error');c.dataset.tone='bad';ap(c,el('h3',null,T('화면 오류')),el('p',null,T('이 화면을 그리는 중 오류가 났다. 다른 화면은 영향이 없다.')),el('pre',null,String((err&&err.message)||err)));return c}
 function section(title,o){o=o||{};let s;const h=el('h3',null,o.raw?title:T(title));
@@ -117,7 +121,7 @@ function simpleTable(cols,rows,o){o=o||{};const w=el('div','tw'),t=el('table'),t
   const isNum=keys.map((_,i)=>o.numeric!==false&&rr.some(r=>typeof r[i]==='number'));
   labs.forEach((l,i)=>{const h=el('th',isNum[i]?'num':null,l);const c=cols[i];if(c&&c.phys)h.title=c.phys;ap(tr,h)});ap(th,tr);ap(t,th);
   const tb=el('tbody');rr.forEach((r,ri)=>{const x=el('tr');if(o.rowClass){const c=o.rowClass(rows[ri],ri);if(c)x.className=c}
-    r.forEach((v,i)=>{const td=el('td',isNum[i]?'num':null);if(v instanceof Node)ap(td,v);else td.textContent=cell(v);ap(x,td)});
+    r.forEach((v,i)=>{const td=el('td',isNum[i]?('num'+(longVal(v)?' wrap':'')):null);if(v instanceof Node)ap(td,v);else td.textContent=cell(v);ap(x,td)});
     if(o.onRow){x.tabIndex=0;x.classList.add('click');x.onclick=()=>o.onRow(rows[ri],ri);x.onkeydown=e=>{if(e.key==='Enter')o.onRow(rows[ri],ri)}}ap(tb,x)});
   ap(t,tb);ap(w,t);return w}
 const PAGE=500;
@@ -142,7 +146,7 @@ function table(f,o){o=o||{};const card=el('div','card tbl');if(!f){ap(card,note(
       const go=()=>{if(sortCol===i)sortDir=-sortDir;else{sortCol=i;sortDir=1}draw()};h.onclick=go;h.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}};ap(tr,h)});
     ap(th,tr);ap(t,th);const tb=el('tbody'),idx=view(),n=idx.length;
     idx.slice(0,limit).forEach(i=>{const r=f.rows[i],x=el('tr');if(o.rowClass){const c=o.rowClass(r,i);if(c)x.className=c}
-      r.forEach((v,k)=>{if(vis[k])ap(x,el('td',isNum[k]?'num':null,cell(v)))});
+      r.forEach((v,k)=>{if(vis[k])ap(x,el('td',isNum[k]?('num'+(longVal(v)?' wrap':'')):null,cell(v)))});
       x.tabIndex=0;const open=()=>o.onRow?o.onRow(r,i,f):drawer.row(f,i);x.onclick=open;x.onkeydown=e=>{if(e.key==='Enter')open()};ap(tb,x)});
     ap(t,tb);ap(tw,t);foot.innerHTML='';const bits=[];
     if(f.shown<f.total)bits.push(TF('미리보기 {n}행 / 전체 {N}행',{n:f.shown,N:f.total}));
