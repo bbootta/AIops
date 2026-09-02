@@ -187,6 +187,10 @@ caption,.caption{text-align:left;color:var(--muted);font-size:var(--fs-meta);pad
 .pill,.badge{display:inline-flex;align-items:center;gap:var(--s1);border:1px solid currentColor;padding:0 var(--s2);
 font-size:var(--fs-meta);line-height:1.5;color:var(--muted);white-space:nowrap;vertical-align:middle;max-width:100%}
 .badge{border-color:var(--hairline);background:var(--panel)}
+/* 원장 식별자(체크명·원장명·figure id)는 공백이 없어 줄바꿈 지점이 없다.
+   끊어 쓰지 않으면 상자 안에서 잘리고, 잘린 식별자는 다른 식별자로 읽힌다. */
+.pill{white-space:normal}
+.pill,.kpi .sub,.kpi .ln,.meta,.chip,.badge{overflow-wrap:anywhere;min-width:0}
 .pill.neutral,.badge.neutral{color:var(--neutral)}
 .note{border:var(--hair);border-left:3px solid var(--accent);background:var(--tint-accent);padding:var(--s2) var(--s3);
 margin:var(--s3) 0;color:var(--ink);font-size:var(--fs-op);overflow-wrap:anywhere}
