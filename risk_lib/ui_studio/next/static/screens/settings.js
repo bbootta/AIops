@@ -220,7 +220,7 @@ function methodCard(root,c,S){
         sub:T('원장 컬럼')+' '+S.adopted}),
       U.kpi({label:'선택 방법 위험가중자산',value:fmt.money(alt.sum),tone:tn,delta:false}),
       U.kpi({label:'차이',value:fmt.money(d),tone:tn,delta:false,
-        sub:base?fmt.pct(d/base,1)+' '+T('(채택 대비)'):null})],c.meta.density));
+        sub:base?fmt.pct(d/base,1)+' · '+T('(채택 대비)'):null})],c.meta.density));
     if(alt.skip)ap(pane,U.note(TF('산출 불가 {n}건은 채택값을 유지했다',{n:alt.skip}),'warn'));
     if(f.shown>=f.total)ap(pane,CH.bars(S.opts.map(o=>({label:T(o[1]),
       value:o[0]==='as_is'?base:total(o[0]).sum})),

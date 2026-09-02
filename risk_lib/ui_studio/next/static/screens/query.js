@@ -209,7 +209,7 @@ function blocks(box,c,pr,v){
   ap(box,grid);
   if(nHid)ap(box,maskNote(nHid));
   ap(box,MT(TF('원장 {table} · 화면 내 {n}행 / 원장 {N}행 · 정렬 {sort}',{table:fr.table,n:nRow,
-    N:fr.total,sort:numCol?lab(numCol)+' '+T('내림차순'):T('원장 순')})))}
+    N:fr.total,sort:numCol?lab(numCol)+' · '+T('내림차순'):T('원장 순')})))}
 
 function proposal(pane,c,v,text){
   const RY=eng(c);pane.innerHTML='';

@@ -118,6 +118,10 @@ color:var(--muted);font-size:var(--fs-meta);margin:0 0 var(--s1)}
 .chord{border:var(--hair);padding:0 var(--s1);font-size:var(--fs-meta);color:var(--muted);line-height:1.4}
 .badges,.badgerow{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s2);align-items:center;
 margin:0 0 var(--s3);padding:var(--s2) 0;border-top:var(--hair);border-bottom:var(--hair);font-size:var(--fs-meta)}
+/* 배지 줄은 라벨과 값이 이어 붙어 'on this screenNo second-line check' 처럼
+   읽혔다. 줄마다 flex 간격을 준다. */
+.badges .brow{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s2);align-items:center;width:100%}
+.badges .brow .lab{font-weight:650;color:var(--muted)}
 .badges .sep{color:var(--hairline)}
 .own,.owner{color:var(--muted);font-size:var(--fs-meta)}
 .ribbon,.explanatory{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin:var(--s3) 0;padding:var(--s2) var(--s3);
@@ -299,7 +303,10 @@ margin-top:var(--rhythm)}
 .board>*:last-child{border-right:0}
 .board h3{font-size:var(--fs-op);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 var(--s2);
 padding-bottom:var(--s1);border-bottom:var(--hair)}
-.board li,.board .line{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:baseline;padding:3px 0;border-bottom:var(--hair);font-size:var(--fs-op)}
+/* 목록과 같은 규칙: 글리프는 첫 줄에 붙어 있어야 판정과 문장이 한 항목으로
+   읽힌다. 줄바꿈은 본문 상자 안에서 일어난다. */
+.board li,.board .line{display:flex;gap:var(--s2);align-items:baseline;padding:3px 0;border-bottom:var(--hair);font-size:var(--fs-op)}
+.board li>.txt,.board .line>.txt{min-width:0;flex:1 1 auto;overflow-wrap:anywhere}
 .board ul{list-style:none;margin:0;padding:0}
 .board .more{font-size:var(--fs-meta);margin-top:var(--s1);display:inline-block}
 /* in-screen tabs */

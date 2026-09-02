@@ -154,7 +154,8 @@ function table(f,o){o=o||{};const card=el('div','card tbl');if(!f){ap(card,note(
     if(n>limit){const rest=n-limit;ap(foot,' ',button(TF('{n}건 더 보기',{n:rest}),{onClick:()=>{limit+=PAGE;draw()}}))}}
   draw();return card}
 function kpi(o){o=o||{};const t=o.tone||'neutral',c=el('div','card kpi '+t);c.dataset.tone=t;
-  ap(c,el('div','lab',o.raw?o.label:T(o.label)));const v=el('div','val');const vs=o.value==null?'-':String(o.value),vn=el('span','num',vs);if(vs.length>14)v.classList.add('xlong');else if(vs.length>8)v.classList.add('long');vn.title=vs;ap(v,glyph(t),vn);ap(c,v);
+  ap(c,el('div','lab',o.raw?o.label:T(o.label)));const v=el('div','val');const vs=o.value==null?'-':String(o.value),vn=el('span','num',vs);// 6자를 넘으면 28px 로는 좁은 카드(6열)에 안 들어가 낱말 가운데가 끊긴다.
+  if(vs.length>8)v.classList.add('xlong');else if(vs.length>6)v.classList.add('long');vn.title=vs;ap(v,glyph(t),vn);ap(c,v);
   if(o.sub)ap(c,el('div','sub',o.sub));
   if(o.delta!=null&&o.delta!==false)ap(c,el('div','sub delta',String(o.delta)));
   else if(o.delta!==false&&D.x_trend&&D.x_trend.single_period)ap(c,el('div','sub delta',T('단일 기간')));
@@ -178,7 +179,7 @@ function guard(fn,root,label){try{return fn()}catch(err){report(label,err,'error
 /* ---- gate strip (spec 3.2) ---- */
 function paintGate(){const g=$('#gatestrip');if(!g)return;g.innerHTML='';const x=D.x_gate;
   const seg=(cls,t,txt)=>{const b=el('button','gseg '+cls+' '+t);b.type='button';b.dataset.tone=t;ap(b,glyph(t),' '+txt);b.title=T('게이트 드로어 열기');b.onclick=()=>drawer.gate();ap(g,b);return b};
-  if(!x){seg('l3','blocked',T('상시 독립검증 (3선)')+' '+T('3선 게이트 미확인')+' · '+T('게이트 객체 없음'));g.dataset.gateStatus='3선 게이트 미확인';g.dataset.tone='blocked';return}
+  if(!x){seg('l3','blocked',T('상시 독립검증 (3선)')+' · '+T('3선 게이트 미확인')+' · '+T('게이트 객체 없음'));g.dataset.gateStatus='3선 게이트 미확인';g.dataset.tone='blocked';return}
   const s=x.self||{},i=x.independent||{},a=x.approvals||{},sub=x.submission||{},ov=x.overall||{};
   seg('l2',s.tone||'neutral',T('자체검증 (2선)')+' '+TF('PASS {pass} · WARN {warn} · FAIL {fail} · 규제미달 {blocks} · 미실행 {not_run} (항등식 {identity} 제외)',{pass:s.pass,warn:s.warn,fail:s.fail,blocks:s.blocks,not_run:s.not_run,identity:s.identity_excluded}));
   const st=i.ledger_present===false?T('3선 원장 행 없음'):(i.status||T('3선 게이트 미확인'));

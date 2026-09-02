@@ -60,7 +60,7 @@ out.push({tone:sv(nb?'BREACH':(nz(pf.warn)?'WARN':'OK')),onClick:()=>c.go('limit
 const ex=xq.exceptions||{};
 if(nz(ex.total))out.push({tone:TN('exception.severity',(ex.by_severity&&ex.by_severity[0])?ex.by_severity[0].severity:''),onClick:()=>c.go('exceptions'),text:T('예외 스트림')+' '+srv(ex.total)+' · '+(ex.by_severity||[]).map(v=>v.severity+' '+NI(v.n)).join(' · ')+' · '+(ex.by_source||[]).map(v=>v.source_ledger+' '+NI(v.n)).join(' · ')});
 const rc=(g.recalc||{}).counts||{};
-out.push({tone:TN('recalc.state',rc['불일치']?'불일치':(rc['미보고']?'미보고':'일치')),onClick:()=>c.go('validation'),text:T('재계산 커버리지')+' '+T('일치')+' '+NI(rc['일치'])+' · '+T('불일치')+' '+NI(rc['불일치'])+' · '+T('미보고')+' '+NI(rc['미보고'])});
+out.push({tone:TN('recalc.state',rc['불일치']?'불일치':(rc['미보고']?'미보고':'일치')),onClick:()=>c.go('validation'),text:T('재계산 커버리지')+' · '+T('일치')+' '+NI(rc['일치'])+' · '+T('불일치')+' '+NI(rc['불일치'])+' · '+T('미보고')+' '+NI(rc['미보고'])});
 (xq.close_blockers||[]).forEach(b=>out.push({tone:TN('close_gate.decision',b.kind),onClick:()=>c.go('close-workflow'),text:T('마감 차단 요인')+' · '+tx(b.detail)}));
 if(nz(xe.total))out.push({tone:TN('evidence_node.status',xe.complete===xe.total?'완결':'검토'),text:T('증빙 계보 완결')+' '+NI(xe.complete)+' / '+NI(xe.total)});
 return out;
@@ -119,7 +119,7 @@ const rv=D.reverse_stress;
 if(rv){
 const b=S('역스트레스'),t=rv.resilient?'good':'bad',mins=sim.minimums||{};
 ap(b,MR('임계 심도',Math.min(nz(rv.critical_severity),1),1,t));
-ap(b,MT(T('임계 심도')+' '+fmt.num(rv.critical_severity)+' · '+dv(rv.metric)+' '+T('목표')+' '+P(rv.target_ratio,2)+' · '+T('최저 기준')+' '+P(mins[rv.metric],2)+' · '+T('현행')+' '+P(rv.base_ratio,2)));
+ap(b,MT(T('임계 심도')+' '+fmt.num(rv.critical_severity)+' · '+dv(rv.metric)+' · '+T('목표')+' '+P(rv.target_ratio,2)+' · '+T('최저 기준')+' '+P(mins[rv.metric],2)+' · '+T('현행')+' '+P(rv.base_ratio,2)));
 ap(b,MT(T('함의 국내총생산 충격')+' '+P(rv.implied_gdp_shock,2)+' · '+T('함의 부도시손실률 가산')+' '+fmt.pp(nz(rv.implied_lgd_addon)*100)+' · '+T('수렴')+' '+(rv.converged?T('통과'):T('미통과'))));
 ap(b,K({label:'역스트레스 임계 심도',value:fmt.num(rv.critical_severity),tone:t,delta:false,lineage:'reverse_stress.severity'}));
 ap(two,b);
@@ -184,7 +184,7 @@ ap(box,el('h4',null,T('실행 간 대조')),runTb(c));
 function decisionQueue(root,c){
 const D=c.D,g=D.x_gate||{},xq=D.x_queue||{},xcl=D.x_close||{};
 const apv=g.approvals||{},sub=g.submission||{},holds=xq.holds||[];
-ap(root,el('p','lead',T('결재를 막는 것과 그것을 푸는 조치를 한자리에 모은다')+' '+T('건수는 서버 집계이고 아래 표본 행은 확인용이다')));
+ap(root,el('p','lead',T('결재를 막는 것과 그것을 푸는 조치를 한자리에 모은다')+'. '+T('건수는 서버 집계이고 아래 표본 행은 확인용이다')));
  /* (1) 보류 */
 const nk=holds.length;
 const hb=CD(root,'보류');
@@ -276,7 +276,7 @@ if(fr)ap(ib,TB(fr));
  /* 고정 문장 */
 const sb=CD(root,'구조적 미완');
 const sm=g.submission||{};
-if(st.cl12_structural)ap(sb,NO(T('CL-12 는 합성 파이프라인에서 구조적으로 미완이다. reg_submission.status 가 submitted 에 이르지 않는다.')+' '+T('제출 건수')+' '+NI(st.submitted_count)+' / '+srv(sm.total),'warn'));
+if(st.cl12_structural)ap(sb,NO(T('CL-12 는 합성 파이프라인에서 구조적으로 미완이다. reg_submission.status 가 submitted 에 이르지 않는다.')+' · '+T('제출 건수')+' '+NI(st.submitted_count)+' / '+srv(sm.total),'warn'));
 if(st.conditional_asymmetry)ap(sb,NO(T('조건부는 CL-10 을 완료하지만 CL-11 은 ConditionalApproval 기록이 있어야 풀린다. 어느 원장에도 그 기록은 없다.'),'warn'));
 ap(sb,MT(T('3선 게이트')+' '+dv((g.independent||{}).status)+' · '+T('결재')+' '+srv((g.approvals||{}).total)));
 
@@ -288,13 +288,13 @@ ap(sb,MT(T('3선 게이트')+' '+dv((g.independent||{}).status)+' · '+T('결재
 function linked(label,base,onChange){
 const st={delta:0,source:'비율'},wrap=el('div','row');
 const lab=SP(label);lab.style.minWidth='150px';
-const tag=U.pill(T('비율')+' '+T('입력'));
+const tag=U.pill(T('비율')+' · '+T('입력'));
 const pi=IN({type:'number',step:'0.5',value:'0',aria:label,onInput:v=>{
 st.delta=base*(parseFloat(v)||0)/100;st.source='비율';ai.value=(st.delta/EOK).toFixed(0);paint();onChange()}});
 const ai=IN({type:'number',step:'100',value:'0',aria:label,onInput:v=>{
 st.delta=(parseFloat(v)||0)*EOK;st.source='금액';pi.value=base?(st.delta/base*100).toFixed(3):'0';paint();onChange()}});
 pi.style.flex='0 0 88px';ai.style.flex='0 0 116px';
-function paint(){tag.textContent=T(st.source)+' '+T('입력');tag.className='pill'+(st.delta?' warn':'')}
+function paint(){tag.textContent=T(st.source)+' · '+T('입력');tag.className='pill'+(st.delta?' warn':'')}
 st.refresh=()=>{pi.value=base?(st.delta/base*100).toFixed(3):'0';ai.value=(st.delta/EOK).toFixed(0);paint()};
 ap(wrap,lab,pi,SP('%'),ai,SP(T('억원')),tag,SP(T('기준')+' '+M(base)));
 st.wrap=wrap;st.base=base;

@@ -79,7 +79,7 @@ const idn=vf?vf.rows.filter(r=>r[vi.is_identity]):[];
 ap(red,MT(T('항등식 (통제 아님)')+' '+NI(s.identity_excluded)+' · '+T('집계에서 제외한다')));
 if(idn.length)ap(red,ST([HL(vf,'check_name'),HL(vf,'status'),HL(vf,'detail')],
   idn.map(r=>[r[vi.check_name],r[vi.status],tx(r[vi.detail])]),{onRow:r=>c.drawer.check(r[0])}));
-ap(red,MT(T('독립 재계산 대상')+' '+T('미보고')+' '+NI((rc.counts||{})['미보고'])+' / '+NI(iv.n_recalc_targets)));
+ap(red,MT(T('독립 재계산 대상')+' · '+T('미보고')+' '+NI((rc.counts||{})['미보고'])+' / '+NI(iv.n_recalc_targets)));
 
 /* (2) 도켓: 무엇이 막고 있는가 */
 const bl=CD(root,'차단'),rp=iv.response,hk=(av.holds||[]).length;
@@ -166,7 +166,7 @@ FOLD(root,'3선이 도전해야 할 가정',box=>{
  function drawA(v){pane.innerHTML='';const kw=String(v||'').trim().toLowerCase();
   const rs=lst.filter(x=>!kw||String(x).toLowerCase().indexOf(kw)>=0),m=rs.length;
   ap(pane,MT(cnt(m)),DL(rs.map(x=>({tone:'neutral',text:tx(x)}))))}
- ap(box,MT(cnt(n)+' · '+T('원장')+' '+T('독립검증 요청 패키지')),
+ ap(box,MT(cnt(n)+' · '+T('원장')+' · '+T('독립검증 요청 패키지')),
    IN({placeholder:T('가정 검색'),aria:T('가정 검색'),onInput:drawA}),pane);
  if(!n)ap(box,NO(T('가정 목록이 비어 있다. 독립검증 요청 패키지가 만들어지지 않았다.'),'bad'));
  drawA('')});
@@ -297,7 +297,7 @@ const bb=distBars(rt,'status','회귀테스트 상태별 건수');if(bb)ap(b,bb)
 ap(b,tcard(c,'chg_regression_test'));
 const m=CD(root,'표준코드 매핑 (미매핑은 산출 누락으로 직결)');
 if(cm){const i=IX(cm);let un=0;cm.rows.forEach(r=>{if(!r[i.canonical_code])un++});
- ap(m,BG(CL(cm,'canonical_code')+' '+T('기록 없음')+' '+NI(un)+'/'+NI(cm.total),un?'warn':'good'))}
+ ap(m,BG(CL(cm,'canonical_code')+' · '+T('기록 없음')+' '+NI(un)+'/'+NI(cm.total),un?'warn':'good'))}
 ap(m,tcard(c,'rdm_canonical_map'));
 }
 

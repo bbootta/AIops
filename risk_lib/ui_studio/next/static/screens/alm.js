@@ -462,7 +462,7 @@ function ladder(root,c){
     ap(pane,U.kpiRow([
       {label:CL(f,'counterbalancing_capacity'),raw:true,value:M(cbc),
        sub:T('전 버킷 합계')+' · counterbalancing_capacity'},
-      {label:'최대 누적부족',value:M(worst),sub:CL(f,'cumulative_gap')+' '+T('최저점'),
+      {label:'최대 누적부족',value:M(worst),sub:CL(f,'cumulative_gap')+' · '+T('최저점'),
        tone:worst<0?'bad':'good'},
       {label:'차감 후 잔량',value:M(rest),tone:rest<0?'bad':'good',
        sub:T('두 원장 컬럼의 합 (소진 경로는 생존기간 화면이 낸다)')}],c.meta.density))}

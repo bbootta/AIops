@@ -64,7 +64,7 @@ function notice(root,c){const k=S('검토 안내');
   const o=((c.D.x_screens||{})[c.id]||{}).ownership,line=el('div','meta');
   if(o){line.title=T('DOMAIN_ROLE_MAP 상수로 연결했다. 도메인과 역할을 잇는 원장 컬럼은 없다.');
     ap(line,T('소관 부서')+' '+o.role_name+' · '+o.org_unit+' · '+T('소관 (UI 가정)'))}
-  else ap(line,T('소관 부서')+' '+T('소관 미확인'));
+  else ap(line,T('소관 부서')+' · '+T('소관 미확인'));
   ap(k,line,MT(T('합성데이터 · 합성 포트폴리오')+' · '+TF('시드 {seed}',{seed:c.D.meta.seed})));
   ap(root,k)}
 /* 데이터 스튜어드 처리대장: 지금 붉은 것 · 막힌 것 · 달라진 것. */
