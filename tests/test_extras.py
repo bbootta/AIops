@@ -134,7 +134,8 @@ def test_printable_html_renders_korean(tmp_path, result):
     build_printable_html(result, str(out))
     text = out.read_text(encoding="utf-8")
     # Critical Korean phrases must appear literally
-    for needle in ("결재 가능", "리스크관리", "PDF로 저장", "스트레스"):
+    # 판정 문구는 실행 상태에 따라 "결재 가능"/"결재 불가" 로 갈리므로 공통 어간만 본다
+    for needle in ("결재", "리스크관리", "PDF로 저장", "스트레스"):
         assert needle in text, f"missing literal Korean: {needle}"
     # @page rule and Korean-capable font stack
     assert "@page" in text

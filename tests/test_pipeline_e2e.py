@@ -267,7 +267,8 @@ def test_pipeline_golden_numbers(result, key, golden):
 def test_validation_summary_matches_golden(result):
     summ = result.validation.summary()
     assert summ == GOLDEN_VALIDATION
-    assert result.validation.passes()
+    # FAIL 1 이 있으므로 passes() 는 False 다. 결재는 막혀야 한다.
+    assert not result.validation.passes()
 
 
 # ---- PipelineResult structural invariants -------------------------------

@@ -233,23 +233,23 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
                   for c in check_doc_figures(doc, built, asof)]
     doc_checks += cross_form_checks(built)
     # 파이프라인 단계에는 서식이 없어 _check_doc_figures 가 '검사하지 않았다'
-    # WARN 을 남긴다. 여기서 실제 대조를 했으므로 그 자리표시를 빼고 결과를
-    # 같은 원장·같은 보고서에 합친다. 요청서에만 싣고 원장에 안 실으면 CLI
-    # 경로와 스튜디오 경로의 검증 집합이 갈라진다 (검수 F-9).
-    result.validation.checks = [c for c in result.validation.checks
-                                if c.name != "doc_figures_not_run"]
-    for c in doc_checks:
-        result.validation.add(c)
+    # WARN 을 남긴다. 여기서 실제 대조를 했으므로 val_check 원장에서 그
+    # 자리표시를 빼고 대조 결과를 싣는다. 요청서에만 싣고 원장에 안 실으면
+    # 3선이 보는 집합과 화면이 보는 집합이 갈라진다 (검수 F-9).
+    # result.validation 은 건드리지 않는다. 파이프라인 결과는 여러 조립이
+    # 공유하는 객체라, 여기서 더하면 조립할 때마다 같은 검사가 쌓여 val_check
+    # 기본키가 깨지고 파이프라인 골든이 조립 순서에 따라 움직인다.
+    _doc_names = {c.name for c in doc_checks} | {"doc_figures_not_run"}
     _vc = tables["val_check"]
-    tables["val_check"] = pd.concat([
-        _vc[_vc["check_name"] != "doc_figures_not_run"],
-        pd.DataFrame([{
+    _vc = _vc[~_vc["check_name"].isin(_doc_names)]
+    if doc_checks:
+        _vc = pd.concat([_vc, pd.DataFrame([{
             "asof": asof, "check_name": c.name, "status": c.status,
             "detail": c.detail, "domain": c.name.split("_")[0],
             "is_identity": bool(getattr(c, "is_identity", False)),
             "blocks_approval": bool(getattr(c, "blocks_approval", False)),
-        } for c in doc_checks], columns=list(_vc.columns)),
-    ], ignore_index=True) if doc_checks else _vc[_vc["check_name"] != "doc_figures_not_run"]
+        } for c in doc_checks], columns=list(_vc.columns))], ignore_index=True)
+    tables["val_check"] = _vc
 
     # ---- 상시 독립검증(3선) 위임 — 매 조립마다 요청을 만들고 게이트를 본다.
     # 요청을 "필요할 때만" 만들면 결국 만들지 않게 된다.

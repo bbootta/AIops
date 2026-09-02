@@ -423,9 +423,23 @@ def test_validation_check_names_are_unique(tables, result):
 
 
 def test_validation_table_reconciles_with_summary(tables, result):
+    """원장 = 파이프라인 검사 + 스튜디오의 서식 대조 검사 (자리표시 교체).
+
+    스튜디오는 파이프라인의 doc_figures_not_run 자리표시를 빼고 실제 대조 결과를
+    원장에 싣는다. 파이프라인 결과 객체는 건드리지 않으므로(공유 객체) 두 집계는
+    그 차이만큼만 다르고, 그 차이는 전부 이름으로 설명돼야 한다.
+    """
     v = tables["val_check"]
-    counts = v["status"].value_counts().to_dict()
-    assert counts == result.validation.summary()
+    names = {c.name for c in result.validation.checks}
+    core = v[v["check_name"].isin(names)]
+    expected = {}
+    for c in result.validation.checks:
+        if c.name != "doc_figures_not_run":
+            expected[c.status] = expected.get(c.status, 0) + 1
+    assert core["status"].value_counts().to_dict() == expected
+    extra = v[~v["check_name"].isin(names)]
+    assert len(extra) > 0, "서식 대조 검사가 원장에 실리지 않았다"
+    assert "doc_figures_not_run" not in set(v["check_name"])
 
 
 def test_audit_ledger_every_figure_has_provenance(tables):
