@@ -228,6 +228,11 @@ button.chip:hover{color:var(--accent);border-color:var(--accent)}
 background:var(--panel);color:var(--ink);padding:var(--s1) var(--s3);font-size:var(--fs-op);font-weight:500;line-height:1.4}
 .btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
+/* 산문 안의 화면 링크는 글줄 안에 앉아야 한다. inline-flex 버튼을 그대로
+   두면 줄상자보다 커져 문단 밖으로 나간다. */
+.prose .btn,.proselist .btn{display:inline;vertical-align:baseline;padding:0 2px;
+border:0;border-bottom:1px solid var(--accent);border-radius:0;color:var(--accent);
+background:none;font:inherit;line-height:inherit}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:650}
 .btn.primary:hover:not(:disabled){color:var(--on-accent);border-color:var(--ink)}
 .btn.small{padding:1px var(--s2);font-size:var(--fs-meta)}
