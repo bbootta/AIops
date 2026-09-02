@@ -41,7 +41,12 @@ BUDGETS = {
     "shell": 120_000,            # tokens.css + base.css + core.js + shared.js
     "charts.js": 60_000,
     "screens/reports.js": 42_000,
-    "screens/control.js": 48_000,
+    # 48,000 -> 50,000 (설계 리드 서면 변경, 2026-09-02). 이 모듈이 가진 화면
+    # 일곱 장 가운데 콕핏과 한도관리가 가장 복잡하고, 검수에서 나온 결함
+    # 세 가지(헤드라인 라벨 영문화, 마감 보드 반응형, 문구 구분자)를 고치며
+    # 87바이트를 넘었다. 총계는 438KB 로 경고선 540KB 와 상한 600KB 에서
+    # 각각 19% · 27% 남아 있어 상한은 건드리지 않는다.
+    "screens/control.js": 50_000,
     "screens/query.js": 26_000,
     "screens/models.js": 52_000,
     "screens/riskdata.js": 28_000,
