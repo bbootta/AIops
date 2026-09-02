@@ -23,7 +23,7 @@
    "ead",
    "el"
   ],
-  "min_svg": 0,
+  "min_svg": 1,
   "checks": [],
   "recalc": [],
   "headline_figures": [],
@@ -46,7 +46,7 @@
   ],
   "products": [],
   "domains": [],
-  "min_svg": 0,
+  "min_svg": 1,
   "checks": [],
   "recalc": [],
   "headline_figures": [],
@@ -79,7 +79,7 @@
    "rwa",
    "output"
   ],
-  "min_svg": 0,
+  "min_svg": 1,
   "checks": [],
   "recalc": [
    "rwa_final_total"
@@ -116,7 +116,7 @@
   "domains": [
    "ecl"
   ],
-  "min_svg": 0,
+  "min_svg": 1,
   "checks": [],
   "recalc": [
    "ecl_total",
@@ -300,7 +300,7 @@
   ],
   "products": [],
   "domains": [],
-  "min_svg": 0,
+  "min_svg": 1,
   "checks": [],
   "recalc": [],
   "headline_figures": [],
@@ -328,7 +328,7 @@
   "domains": [
    "op"
   ],
-  "min_svg": 0,
+  "min_svg": 1,
   "checks": [],
   "recalc": [],
   "headline_figures": [],
@@ -355,7 +355,7 @@
   "domains": [
    "op"
   ],
-  "min_svg": 0,
+  "min_svg": 1,
   "checks": [],
   "recalc": [],
   "headline_figures": [],
@@ -380,7 +380,7 @@
   ],
   "products": [],
   "domains": [],
-  "min_svg": 0,
+  "min_svg": 1,
   "checks": [],
   "recalc": [],
   "headline_figures": [],
@@ -406,7 +406,7 @@
   "domains": [
    "op"
   ],
-  "min_svg": 0,
+  "min_svg": 1,
   "checks": [],
   "recalc": [],
   "headline_figures": [],
@@ -439,7 +439,7 @@
    "prudential",
    "bs"
   ],
-  "min_svg": 0,
+  "min_svg": 1,
   "checks": [],
   "recalc": [],
   "headline_figures": [],

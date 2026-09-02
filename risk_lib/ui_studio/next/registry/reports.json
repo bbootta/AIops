@@ -20,7 +20,7 @@
   ],
   "products": [],
   "domains": [],
-  "min_svg": 1,
+  "min_svg": 2,
   "checks": [
    "stress_trough_meets_requirement",
    "bis_buffer_requirement",

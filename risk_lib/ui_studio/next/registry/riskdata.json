@@ -69,7 +69,8 @@
   "tables": [
    "rdm_source_contract",
    "rdm_snapshot",
-   "rdm_canonical_map"
+   "rdm_canonical_map",
+   "chg_change_request"
   ],
   "products": [],
   "domains": [
@@ -96,7 +97,8 @@
   "tables": [
    "rdm_dq_rule",
    "rdm_dq_result",
-   "rdm_reconciliation"
+   "rdm_reconciliation",
+   "gov_exception_action"
   ],
   "products": [],
   "domains": [],

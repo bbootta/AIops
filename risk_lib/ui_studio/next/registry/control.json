@@ -121,7 +121,7 @@
   ],
   "products": [],
   "domains": [],
-  "min_svg": 0,
+  "min_svg": 1,
   "checks": [],
   "recalc": [],
   "headline_figures": [],
@@ -154,7 +154,7 @@
    "limit",
    "concentration"
   ],
-  "min_svg": 1,
+  "min_svg": 2,
   "checks": [
    "large_exposure_two_sources"
   ],
@@ -219,7 +219,7 @@
    "limit",
    "concentration"
   ],
-  "min_svg": 1,
+  "min_svg": 3,
   "checks": [],
   "recalc": [],
   "headline_figures": [],
