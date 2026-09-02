@@ -88,7 +88,7 @@ function execBoard(root,d,E,X,g){
   cb.push({text:T('전체 판정')+' '+(ov.status||'-')+' · '+T(ov.blocks_approval?'결재 차단':'결재 차단 아님'),
     tone:ov.tone||'neutral',onClick:()=>NG.drawer.gate()});
   (q.holds||[]).forEach(h=>{const ub=h.unblock;
-    const act=ub?[ub.alert_type,ub.bound_action,ub.owner_role,ub.sla_days!=null?T('SLA (일)')+' '+F.int(ub.sla_days):null].filter(Boolean).join(' · ')
+    const act=ub?[ub.alert_type,PR(ub.bound_action),ub.owner_role,ub.sla_days!=null?T('SLA (일)')+' '+F.int(ub.sla_days):null].filter(Boolean).join(' · ')
       :T('담당 미확인, 일치하는 gov_alert_policy 행 없음');
     cb.push({text:PR(h.reason_text)+' · '+TF('{n}건',{n:h.n})+' · '+act,
       tone:NG.tone('hold.reason_kind',h.reason_kind),onClick:()=>NG.go('decision-queue')})});
@@ -104,7 +104,9 @@ function execBoard(root,d,E,X,g){
 }
 function execKpis(root,d){
   const s=sec(root,'헤드라인 지표'),items=[];
-  (d.kpis||[]).slice(0,4).forEach((k,i)=>items.push(U.kpi({label:k.label,raw:true,value:k.value,sub:k.sub,
+  const KN=(d.x_kpi&&d.x_kpi.numeric)||{};
+  (d.kpis||[]).slice(0,4).forEach((k,i)=>items.push(U.kpi({label:k.label,
+    value:(KN[i]&&KN[i].kind==='money')?F.money(KN[i].value):k.value,sub:k.sub,
     tone:k.tone||'neutral',lineage:NG.lineage.kpi(i)})));
   ap(s,U.kpiRow(items,'committee'));
   ap(s,meta(T('게이트 스트립이 2선·3선 집계를 이미 싣고 있어 검증 KPI 두 장은 카드로 되풀이하지 않고 보드 둘째 칸 첫 두 줄에 둔다')));
@@ -128,14 +130,18 @@ function execKri(root,E,d){
 }
 function execStack(root,X,d){
   const f=NG.frame.frameOf('cap_stack');let rows=X.tiers||[];
-  if(!rows.length&&f)rows=NG.frame.frameObjects(f).map(r=>({label:r.tier,amount:r.amount,ratio:r.ratio,
+  if(!rows.length&&f)rows=NG.frame.frameObjects(f).map(r=>({label:r.tier,amount:null,
+    instrument:r.tier,instrument_amount:r.amount,ratio:r.ratio,
     required:r.required,surplus:r.surplus,tone:'neutral'}));
   if(!rows.length)return;
   const s=sec(root,'자본 스택 (계층별 요구 대비 여유)');
   ap(s,C.bars(rows.map(r=>({label:r.label,value:r.ratio,tone:r.tone})),
     {title:T('자본 계층')+' · '+T('비율'),fmt:v=>F.pct(v),src:f||null,note:T('요구 대비 여유는 표에 있다')}));
-  ap(s,U.simpleTable(['계층','금액','비율','소요','잉여'],rows.map(r=>[r.label,F.money(r.amount),F.pct(r.ratio),
+  ap(s,U.simpleTable(['계층','누적 금액','구성 상품','상품 금액','비율','소요','잉여'],
+    rows.map(r=>[r.label,F.orDash(r.amount==null?null:F.money(r.amount)),r.instrument||'-',
+    F.orDash(r.instrument_amount==null?null:F.money(r.instrument_amount)),F.pct(r.ratio),
     F.pct(r.required),U.badge(F.pp(r.surplus*100,3),r.tone||'neutral')]),{}));
+  ap(s,meta(T('비율은 그 상품까지 누적한 자본의 비율이고, 상품 금액은 그 계층에 더해지는 금액이다. 누적 금액은 상품 금액을 누적한 값이다')));
   const sh=[];rows.forEach(r=>{if(r.surplus<0)sh.push(r.label)});
   if(sh.length)ap(s,U.note(T('요구 미달 계층')+': '+sh.join(' · ')+' · '+T('배당·성과급 제한 대상'),'bad'));
 }
@@ -364,10 +370,13 @@ function capHead(root,X){
 function tierTarget(l){const s=String(l);return s.indexOf('CET1')>=0?'cet1_ratio':s.indexOf('Total')>=0?'total_ratio':null}
 function capTiers(root,X){
   const s=sec(root,'자본 계층'),rows=X.tiers||[];
-  ap(s,U.simpleTable(['계층','금액','비율','소요','잉여','상태'],rows.map(r=>[r.label,F.money(r.amount),
+  ap(s,U.simpleTable(['계층','누적 금액','구성 상품','상품 금액','비율','소요','잉여','상태'],
+    rows.map(r=>[r.label,F.money(r.amount),r.instrument||'-',
+    F.orDash(r.instrument_amount==null?null:F.money(r.instrument_amount)),
     F.pct(r.ratio),F.pct(r.required),F.pp(r.surplus*100,3),U.badge(T(r.surplus<0?'부족':'잉여'),r.tone||'neutral')]),
     {onRow:r=>{const t=tierTarget(r.label),ln=t?NG.lineage.byTarget(t):null;
       if(ln)NG.drawer.lineage(ln);else NG.drawer.gate()}}));
+  ap(s,meta(T('비율은 그 상품까지 누적한 자본의 비율이고, 상품 금액은 그 계층에 더해지는 금액이다. 누적 금액은 상품 금액을 누적한 값이다')));
   ap(s,meta(TF('출처: {table}',{table:'cap_stack'})));
 }
 function capBuffers(root,X){

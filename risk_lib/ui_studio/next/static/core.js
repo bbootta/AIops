@@ -150,7 +150,7 @@ function table(f,o){o=o||{};const card=el('div','card tbl');if(!f){ap(card,note(
     if(n>limit){const rest=n-limit;ap(foot,' ',button(TF('{n}건 더 보기',{n:rest}),{onClick:()=>{limit+=PAGE;draw()}}))}}
   draw();return card}
 function kpi(o){o=o||{};const t=o.tone||'neutral',c=el('div','card kpi '+t);c.dataset.tone=t;
-  ap(c,el('div','lab',o.raw?o.label:T(o.label)));const v=el('div','val');ap(v,glyph(t),' ',o.value==null?'-':String(o.value));ap(c,v);
+  ap(c,el('div','lab',o.raw?o.label:T(o.label)));const v=el('div','val');const vs=o.value==null?'-':String(o.value),vn=el('span','num',vs);if(vs.length>14)v.classList.add('xlong');else if(vs.length>8)v.classList.add('long');vn.title=vs;ap(v,glyph(t),vn);ap(c,v);
   if(o.sub)ap(c,el('div','sub',o.sub));
   if(o.delta!=null&&o.delta!==false)ap(c,el('div','sub delta',String(o.delta)));
   else if(o.delta!==false&&D.x_trend&&D.x_trend.single_period)ap(c,el('div','sub delta',T('단일 기간')));

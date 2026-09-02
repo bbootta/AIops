@@ -24,6 +24,23 @@ _t("ng_reports",
    'CRO 액션 (즉시·단기 조치)||CRO actions (immediate and short term)',
    'KRI 스코어카드 (위험선호체계)||KRI scorecard (Risk Appetite Framework)',
    '자본 스택 (계층별 요구 대비 여유)||Capital stack (headroom against the requirement by tier)',
+   # cap_stack 은 상품 금액과 누적 비율을 한 행에 담는다. 두 열의 성질이
+   # 다르므로 표에서 이름으로 갈라 놓는다 (검수 F2 재발 방지).
+   # app._kpis 가 만드는 헤드라인 카드 라벨 여섯. 원장 값이 아니라 하니스가
+   # 쓴 문장이므로 영문 화면에서 한국어로 남으면 안 된다 (검수 F10).
+   '보통주자본비율 (CET1)||Common equity tier 1 ratio (CET1)',
+   '위기상황 CET1 저점||Stress trough CET1',
+   '기대신용손실 (ECL)||Expected credit loss (ECL)',
+   '유동성커버리지비율 (LCR)||Liquidity coverage ratio (LCR)',
+   '자체검증||Self-validation',
+   '업무보고서 대사||Supervisory form reconciliation',
+   '누적 금액||Cumulative amount',
+   '구성 상품||Instrument',
+   '상품 금액||Instrument amount',
+   ('비율은 그 상품까지 누적한 자본의 비율이고, 상품 금액은 그 계층에 더해지는 '
+    '금액이다. 누적 금액은 상품 금액을 누적한 값이다'
+    '||The ratio is cumulative through that instrument, the instrument amount is what that '
+    'layer adds, and the cumulative amount is the running total of the instrument amounts'),
    '위험가중자산 귀속 (구성요소별 비중)||Risk-weighted asset attribution (share by component)',
    '심각 시나리오 (자본 저점)||Severe scenario (capital trough)',
    '다음 화면||Next screens',

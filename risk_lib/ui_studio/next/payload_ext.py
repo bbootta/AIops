@@ -641,11 +641,24 @@ def _x_capital(studio, gate: dict, screen_gate: dict) -> dict:
     from risk_lib.capital.bis import BIS_MINIMUMS
     r, t = studio.result, studio.tables
     ss = {k: float(v) for k, v in r.bis.surplus_shortfall.items()}
-    tiers = [{"label": TIER_LABEL.get(str(x["tier"]), str(x["tier"])),
-              "source_tier": str(x["tier"]),
-              **{c: float(x[c]) for c in ("amount", "ratio", "required", "surplus")},
-              "tone": "good" if float(x["surplus"]) >= 0 else "bad"}
-             for _, x in t["cap_stack"].iterrows()]
+    # cap_stack 의 amount 는 그 계층에 **새로 더해지는 상품** 금액이고 (AT1
+    # 1,400억, T2 2,400억), ratio 는 그 상품까지 **누적한** 자본의 비율이다.
+    # 두 열의 성질이 다르므로 한 행에 나란히 두면 "Tier1 (누적) 1,400억" 처럼
+    # 읽히는데, 그것은 기본자본이 아니라 AT1 상품 금액이다 (검수 F2 의 재발).
+    # 누적 금액을 따로 세고 상품 금액은 이름을 붙여 남긴다.
+    tiers, running = [], 0.0
+    for _, x in t["cap_stack"].iterrows():
+        instrument = float(x["amount"])
+        running += instrument
+        tiers.append({
+            "label": TIER_LABEL.get(str(x["tier"]), str(x["tier"])),
+            "source_tier": str(x["tier"]),
+            # amount 는 label 과 같은 성질(누적)이다. 상품 금액은 instrument_amount.
+            "amount": running,
+            "instrument_amount": instrument,
+            "instrument": str(x["tier"]),
+            **{c: float(x[c]) for c in ("ratio", "required", "surplus")},
+            "tone": "good" if float(x["surplus"]) >= 0 else "bad"})
     path = t["st_capital_path"]
     checks = screen_gate["checks"].get("capital-verdict", gate["self"]["blocking_checks"])
     blocking = [{k: c[k] for k in ("check_name", "status", "detail")} for c in checks
@@ -879,6 +892,24 @@ def _x_ownership(studio) -> dict:
 
 # ---------------------------------------------------------------- 진입점
 
+def _x_kpi(studio) -> dict:
+    """헤드라인 카드 중 금액인 것의 **숫자**. 카드 값은 app._kpis 가 한국어
+    단위로 이미 서식한 문자열이라(예: 975억원) 영문 화면에서 그대로 나온다.
+    숫자를 함께 실어 화면이 언어에 맞춰 다시 서식하게 한다. 라벨은 닫힌
+    여섯 개라 용어집에 있고, sub 문장은 값이 섞인 산문이라 아직 한국어다.
+    """
+    from risk_lib.ui_studio import app as _app
+    numeric: dict[str, dict] = {}
+    for i, k in enumerate(_app._kpis(studio)):
+        if str(k.get("label", "")).startswith("기대신용손실"):
+            numeric[str(i)] = {"kind": "money",
+                               "value": float(studio.result.ecl["total"])}
+    return {"numeric": numeric,
+            "sub_is_korean_prose": True,
+            "note": ("app._kpis 가 만든 sub 문장은 값이 섞인 산문이라 "
+                     "용어집 대상이 아니다. 영문 화면에서 한국어로 남는다")}
+
+
 def build_ext(studio, ledger_path=None, iv_dir=None) -> dict:
     """x_ 키 전부. 게이트는 Studio.iv_gate 에서 읽기만 한다."""
     gate = _x_gate(studio, iv_dir)
@@ -898,7 +929,7 @@ def build_ext(studio, ledger_path=None, iv_dir=None) -> dict:
                        "glyphs": dict(GLYPHS)},
         "x_trend": _x_trend(studio, ledger_path),
         "x_lineage": _x_lineage(studio, gate), "x_audit": _x_audit(studio),
-        "x_ownership": ownership,
+        "x_ownership": ownership, "x_kpi": _x_kpi(studio),
     }
 
 

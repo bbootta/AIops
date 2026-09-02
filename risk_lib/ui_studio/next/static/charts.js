@@ -397,9 +397,9 @@ function multiLine(series,labels,o={}){
     if(dash)pl.setAttribute('stroke-dasharray',dash);
     let last=-1;se.values.forEach((v,k)=>{if(num(v))last=k});
     if(last>=0){sn(s,'circle',{cx:X(last),cy:Y(se.values[last]),r:3,fill:col});
-      sn(s,'text',{x:X(last)+7,y:Y(se.values[last])+4,style:'fill:'+col},clip(se.name+' '+fm(se.values[last]),18))}});
+      sn(s,'text',{x:X(last)+7,y:Y(se.values[last])+4,style:'fill:'+col},endLabel(se.name,fm(se.values[last]),pR-11))}});
   const step=Math.max(1,Math.ceil(n/8));
-  labels.forEach((lb,k)=>{if(k%step&&k!==n-1)return;sn(s,'text',{x:X(k),y:H-8,'text-anchor':'middle'},clip(lb,12))});
+  labels.forEach((lb,k)=>{if(k%step&&k!==n-1)return;sn(s,'text',{x:X(k),y:H-8,'text-anchor':'middle'},fitW(lb,gap*step))});
   const lg=series.map((se,i)=>({name:se.name,color:series2(i),dash:se.dash!=null?se.dash:(se.dotted?'2 3':DASH[i%DASH.length])}));
   return box(s,o,{cols:[T('항목')].concat(series.map(se=>se.name)),rows:labels.map((lb,k)=>[lb].concat(series.map(se=>fm(se.values[k]))))},lg);
 }
