@@ -381,11 +381,18 @@ function multiLine(series,labels,o={}){
   const n=labels.length,W=900,H=260,pL=64,pR=110,pT=16,pB=30,fm=o.fmt||fnum;
   const rules=o.rules||[],hatch=o.hatch||[];
   const all=series.flatMap(se=>se.values).filter(num).concat(rules.map(r=>r.value).filter(num));
-  const max=Math.max(...all,0),min=Math.min(...all,0),span=(max-min)||1,ih=H-pT-pB;
+  // 0 을 억지로 담으면 8~11% 대의 비율 계열이 위쪽 20% 에 뭉쳐 요구선과의 차이가
+  // 보이지 않는다. 바닥이 0 에 가까울 때만 0 을 담고, 아니면 자료 범위에 여백을
+  // 준다. 음수가 있으면 0 은 자연히 범위 안이다. (손익 차트는 0 선 자체가 판정
+  // 기준이라 그쪽은 0 을 계속 담는다.)
+  let lo=Math.min(...all),hi=Math.max(...all);
+  if(lo>0&&lo<hi*0.15)lo=0;
+  const pad=((hi-lo)||Math.abs(hi)||1)*0.08;
+  const max=hi+pad,min=lo-pad,span=(max-min)||1,ih=H-pT-pB;
   const X=k=>pL+k*(W-pL-pR)/Math.max(n-1,1),Y=v=>H-pB-((v-min)/span)*ih,gap=(W-pL-pR)/Math.max(n-1,1);
   const s=svgRoot(W,H,o.title||T('추이'),descOf(o,n));
   labels.forEach((lb,k)=>{if(!hatch[k])return;
-    tip(sn(s,'rect',{x:X(k)-gap/2,y:pT,width:gap,height:ih,fill:HATCH.bad,'fill-opacity':0.55}),String(lb)+' · '+T('미통과'))});
+    tip(sn(s,'rect',{x:X(k)-gap/2,y:pT,width:gap,height:ih,fill:HATCH.bad,'fill-opacity':0.26}),String(lb)+' · '+T('미통과'))});
   gridAt(s,pL,W-pR,[1/3,2/3,1].map(f=>[Y(min+span*f),fm(min+span*f)]),Y(min));
   rules.forEach(r=>{if(!num(r.value))return;const y=Y(r.value),col='var(--'+(r.tone||'ink')+')';
     sn(s,'line',{x1:pL,x2:W-pR,y1:y,y2:y,stroke:col,'stroke-width':1.2,'stroke-dasharray':'6 4'});

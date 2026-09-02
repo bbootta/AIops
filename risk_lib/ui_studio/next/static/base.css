@@ -11,7 +11,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* 배경을 선언하지 않은 button 은 UA 기본값 buttonface 를 쓴다. 어두운
    화면에서 그 값은 중간 회색이라 강조색 글자가 2.5:1 로 떨어진다.
    배경과 테두리는 각 클래스가 정한다. */
-button{cursor:pointer;background:none;border:0;padding:0;text-align:inherit}
+button{cursor:pointer;background:none;border:0;padding:0;text-align:inherit;
+overflow-wrap:anywhere}
 code,pre,kbd{font-family:var(--font-num)}
 pre{background:var(--panel);border:var(--hair);padding:var(--s3);overflow:auto;
 margin:var(--s2) 0;line-height:1.45;max-width:100%}
@@ -192,7 +193,9 @@ font-size:var(--fs-meta);line-height:1.5;color:var(--muted);white-space:nowrap;v
 .badge{border-color:var(--hairline);background:var(--panel)}
 /* 원장 식별자(체크명·원장명·figure id)는 공백이 없어 줄바꿈 지점이 없다.
    끊어 쓰지 않으면 상자 안에서 잘리고, 잘린 식별자는 다른 식별자로 읽힌다. */
-.pill{white-space:normal}
+/* 배지도 한 낱말만 담지 않는다. 재계산 상태처럼 문장이 오면 상자를 넘어
+   테두리 밖으로 글자가 흐른다. 알약과 같이 줄을 바꾼다. */
+.pill,.badge{white-space:normal}
 .pill,.kpi .sub,.kpi .ln,.meta,.chip,.badge{overflow-wrap:anywhere;min-width:0}
 /* 지문·해시는 64자 한 덩어리다. 표 칸에서 끊어 쓰지 않으면 잘리고, 잘린
    지문은 다른 지문으로 읽힌다. .wrap 은 프리미티브가 값 길이를 보고 단다. */

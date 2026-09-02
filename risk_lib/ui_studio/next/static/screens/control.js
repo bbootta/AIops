@@ -87,7 +87,10 @@ ap(r,el('h4',null,T('실행 간 대조')),runTb(c),MT(TF('{n}개',{n:nk})+' · '
 function cockpit(root,c){
 const D=c.D,g=D.x_gate||{},xc=D.x_capital||{},xq=D.x_queue||{},xe=D.x_evidence||{},xl=D.x_limits||{},sim=D.sim||{};
  /* (1) 여섯 수치 카드 */
-ap(root,KR((D.kpis||[]).map((k,i)=>K({label:k.label,raw:true,value:k.value,sub:tx(k.sub),tone:k.tone||'neutral',lineage:NG.lineage.kpi(i)})),c.meta.density));
+const KN=(D.x_kpi&&D.x_kpi.numeric)||{};
+ap(root,KR((D.kpis||[]).map((k,i)=>K({label:k.label,
+  value:(KN[i]&&KN[i].kind==='money')?NG.fmt.money(KN[i].value):k.value,
+  sub:tx(k.sub),tone:k.tone||'neutral',lineage:NG.lineage.kpi(i)})),c.meta.density));
  /* (2) 인사이트 리본 */
 const r1=el('div','cols2');ap(root,r1);
 const rib=S('인사이트 (한계 위반·미해소 예외·검증 상태)');ap(r1,rib);
