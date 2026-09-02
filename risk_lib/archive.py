@@ -118,7 +118,8 @@ def version_path(asof: str, run_date: str, version: int,
 
 def archive(result, portfolio, *, asof: str, root: Path | str = ARCHIVE_ROOT,
             run_date: str | None = None, seed: int = 42,
-            zip_name: str | None = None) -> VersionInfo:
+            zip_name: str | None = None,
+            require_gate: bool = False) -> VersionInfo:
     """산출물 Pack을 기준일자/수행일자·판 경로에 만들고 버전정보를 남긴다.
 
     수행일자는 벽시계다 — 폴더명은 재현 대상이 아니고 "언제 만들었나"의 기록이다.
@@ -133,7 +134,8 @@ def archive(result, portfolio, *, asof: str, root: Path | str = ARCHIVE_ROOT,
     # 이름을 준다. 고정 이름이면 v01의 ZIP을 v02가 덮어써 이력이 사라진다.
     label = f"{run_date.replace('-', '')}_v{version:02d}"
     built = build_deliverables(result, portfolio, out,
-                               zip_name=zip_name or f"{label}.zip")
+                               zip_name=zip_name or f"{label}.zip",
+                               require_gate=require_gate)
 
     # 요청서에서 식별자·지문을 읽는다 — 여기서 다시 계산하면 두 벌이 갈라진다.
     req_path = out / "07_independent_validation" / f"RUN-{asof.replace('-', '')}-{seed}.request.json"

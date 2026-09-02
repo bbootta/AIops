@@ -202,7 +202,6 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     tables["agent_killswitch"] = gov.build_killswitch(run_id)
     tables.update(gov.build_change_factory(tables))
     tables.update(gov.build_evidence_graph(tables, run_id, digest=digest))
-    tables["gov_approval"] = gov.build_approvals(tables, run_id)
     # 예외·조치 워크플로(RDM-007)와 경보·조치 정책(PLT-015) — 예외는 세
     # 원장에서 파생되고, 정책은 정적 바인딩이다.
     tables["gov_alert_policy"] = gov.build_alert_policy()
@@ -211,8 +210,6 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     # ---- 실행 통제 원장 (마감·감사체인·보존·통합 실행·AI 추적)
     # "이 실행이 무엇을 실었는가"를 입력으로 쓰므로 조립이 끝난 뒤에 만든다.
     # 앞에 두면 아직 서지 않은 원장이 빠진 채로 마감·통합 판정이 나간다.
-    from risk_lib.datamodel.materialize_ledgers import materialize_run_control
-    tables.update(materialize_run_control(result, tables, run_id=run_id))
 
     # ---- 문서 생성 구간 대조 (자체검증 2선) — 서식이 여기서야 만들어지므로
     # 파이프라인이 아니라 조립 시점에 붙인다. 문서에 손으로 적은 수치가 코드
@@ -235,6 +232,24 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     doc_checks = [c for doc in docs_for_run(_iv_run)
                   for c in check_doc_figures(doc, built, asof)]
     doc_checks += cross_form_checks(built)
+    # 파이프라인 단계에는 서식이 없어 _check_doc_figures 가 '검사하지 않았다'
+    # WARN 을 남긴다. 여기서 실제 대조를 했으므로 그 자리표시를 빼고 결과를
+    # 같은 원장·같은 보고서에 합친다. 요청서에만 싣고 원장에 안 실으면 CLI
+    # 경로와 스튜디오 경로의 검증 집합이 갈라진다 (검수 F-9).
+    result.validation.checks = [c for c in result.validation.checks
+                                if c.name != "doc_figures_not_run"]
+    for c in doc_checks:
+        result.validation.add(c)
+    _vc = tables["val_check"]
+    tables["val_check"] = pd.concat([
+        _vc[_vc["check_name"] != "doc_figures_not_run"],
+        pd.DataFrame([{
+            "asof": asof, "check_name": c.name, "status": c.status,
+            "detail": c.detail, "domain": c.name.split("_")[0],
+            "is_identity": bool(getattr(c, "is_identity", False)),
+            "blocks_approval": bool(getattr(c, "blocks_approval", False)),
+        } for c in doc_checks], columns=list(_vc.columns)),
+    ], ignore_index=True) if doc_checks else _vc[_vc["check_name"] != "doc_figures_not_run"]
 
     # ---- 상시 독립검증(3선) 위임 — 매 조립마다 요청을 만들고 게이트를 본다.
     # 요청을 "필요할 때만" 만들면 결국 만들지 않게 된다.
@@ -245,6 +260,24 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
                                extra_checks=doc_checks, built_forms=built)
     iv_gate = check_gate(iv_request)
     tables.update(request_frames(iv_request, iv_gate))
+
+    # ---- 결재. 3선 게이트와 2선 차단 사유를 읽어야 하므로 게이트 **뒤**다.
+    # 게이트가 승인이 아니면 서식 승인은 '대기' 로 남고 제출 상태는 'reviewed'
+    # 에 머문다. 이것이 결재 경로의 fail-closed 다. 그 전에는 게이트와 무관하게
+    # '승인'·'approved' 가 찍혔다 (검수 상-1).
+    tables["gov_approval"] = gov.build_approvals(tables, run_id, gate=iv_gate)
+    _hold = gov.approval_hold_reasons(tables, iv_gate)
+    if _hold and "reg_submission" in tables:
+        _sub = tables["reg_submission"].copy()
+        _sub.loc[_sub["status"] == "approved", "status"] = "reviewed"
+        tables["reg_submission"] = _sub
+
+    # ---- 실행 통제 원장 (마감·감사체인·보존·통합실행·AI 추적). 3선 요청·게이트
+    # **뒤**여야 한다. 마감 CL-09·CL-10 의 증빙이 val_independent_request 이고
+    # CL-10 은 그 status 열(게이트 상태)로 판정하므로, 앞에 두면 요청 원장이
+    # 없는 채로 판정이 나가 '미완료' 가 되고 그 뒤 단계가 전부 차단된다.
+    from risk_lib.datamodel.materialize_ledgers import materialize_run_control
+    tables.update(materialize_run_control(result, tables, run_id=run_id))
 
     # ---- 기관 축 원장. 기관 선택기와 기관 설정 화면의 연결 원장이다.
     # `tables` 와 섞지 않는다. 이 원장은 이 실행의 산출물이 아니라 전 기관을

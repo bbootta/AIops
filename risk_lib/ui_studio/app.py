@@ -8310,6 +8310,7 @@ const DETAIL_SCREENS=[
   ['실행·감사추적','GOV · 실행 식별과 감사기록 (해시체인·근거원장)',screenOf({
     lead:'실행 하나가 남기는 식별자와 그 실행의 근거다. 감사기록은 해시체인이라 중간을 고치면 뒤가 어긋난다.',
     tables:[['통합 실행 원장','gov_unified_run'],
+            ['실행 통제 이슈','gov_run_issue'],
             ['감사기록 해시체인','gov_audit_chain'],
             ['산출 근거 원장','val_audit_ledger'],
             ['계산엔진 어댑터','int_engine_adapter'],

@@ -161,6 +161,9 @@ class PipelineResult:
     # RDM 분해 결과. 파이프라인이 한 번 돌리고 실체화 엔진이 그대로 받는다.
     rdm_base: dict[str, pd.DataFrame] = field(default_factory=dict)
     icaap: Any = None
+    # 순자본비율(증권 체계). 은행 표본에서는 합성 예시다. 파이프라인이 한 번
+    # 산출해 2선 대사와 원장 실체화가 같은 객체를 읽는다.
+    ncr: Any = None
     # 한도 소진율 전량(위반 아닌 버킷 포함) — 화면용. 위반 보고서와 별개다.
     limits_full: pd.DataFrame | None = None
     raf: Any = None
@@ -1649,6 +1652,11 @@ def run_pipeline(
     corp = portfolio[portfolio["asset_class"] == "corporate"]
     backtest = pd_backtest_report(corp, grade_col="grade",
                                   pd_col="pd", default_col="default_12m")
+    # 순자본비율은 결과 객체 없이 부품으로 산출한다. 실체화가 나중에 result 로
+    # 다시 계산하면 두 벌이 되므로 result.ncr 에 실어 그쪽이 재사용한다.
+    from risk_lib.ncr import compute_ncr_from_parts
+    ncr = compute_ncr_from_parts(float(capital.total), total_ead,
+                                 float(ecl_df["ecl"].sum()), seed=seed)
     validation = run_consistency_checks(
         portfolio=portfolio,
         meta={"asof": asof.isoformat(), "asof_source": asof_source,
@@ -1674,6 +1682,7 @@ def run_pipeline(
         limit_report=limit_report,
         alm_results=alm,
         icaap_result=icaap,
+        ncr_result=ncr,
         capital_source="ledger" if capital_ledger is not None else "synthetic",
         capital_basis=capital_basis,
         capital_stack=capital,
@@ -1858,7 +1867,7 @@ def run_pipeline(
         backtest=backtest, validation=validation,
         alm=alm, alm_tables=alm["tables"],
         ledger_tables=ledgers["tables"], ledger_warnings=ledgers["warnings"],
-        rdm_base=rdm_base, icaap=icaap,
+        rdm_base=rdm_base, icaap=icaap, ncr=ncr,
         raf=raf, climate=climate_result, ccr=ccr_result,
         op_loss=op_loss_result, concentration_deep=conc_deep,
         model_cards=model_cards_real, sensitivity=sens, attribution=attr,

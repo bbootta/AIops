@@ -642,9 +642,14 @@ VALIDATION_RESULT = TableSpec(
         C("status", "string", "판정", nullable=False, allowed=VALIDATION_STATUS),
         C("detail", "text", "상세", nullable=True),
         C("domain", "string", "부문", nullable=True),
+        # 항등식은 실패할 수 없으므로 통제가 아니다. 이 열이 없으면 결재선의
+        # 'PASS N건' 이 항등식을 포함한 수가 된다.
+        C("is_identity", "bool", "항등식 여부", nullable=False),
+        # 규제 요구치 미달을 담은 WARN. FAIL 0 이어도 이것이 있으면 결재 불가.
+        C("blocks_approval", "bool", "결재 차단", nullable=False),
     ),
     primary_key=("asof", "check_name"),
-    note="FAIL 1건이라도 있으면 결재 불가 (AIMS_POLICY §2-4).",
+    note="FAIL 또는 blocks_approval 1건이라도 있으면 결재 불가 (AIMS_POLICY §2-4).",
 )
 
 AUDIT_LEDGER = TableSpec(
@@ -2496,7 +2501,7 @@ ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
 # ==================================== R13 · 상시 독립검증 (3선) 위임 원장
 # 자체검증(2선)과 독립검증(3선)은 다른 것이다. 자체검증 결과만 남기면
 # "우리 코드가 우리 코드를 통과시켰다"가 결재 근거가 된다.
-IV_STATUS = ("요청됨", "응답대기", "적합", "부적합")
+IV_STATUS = ("요청됨", "응답대기", "적합", "조건부", "부적합")
 
 INDEPENDENT_REQUEST = TableSpec(
     name="val_independent_request", korean="독립검증 요청", product="PRD-VAL",
@@ -2639,6 +2644,7 @@ from risk_lib.models.lgd_ead_backtest import (                         # noqa: E
     BACKTEST_TABLES as _BACKTEST_TABLES,
 )
 from risk_lib.market_portfolio import SPECS as _MKT_PORTFOLIO_TABLES  # noqa: E402
+from risk_lib.governance.run_issue import SPECS as _RUN_ISSUE_TABLES  # noqa: E402
 from risk_lib.product_master import SPECS as _PRODUCT_TABLES           # noqa: E402
 from risk_lib.provisioning.pma import SPECS as _PMA_TABLES             # noqa: E402
 from risk_lib.rcsa import SPECS as _RCSA_TABLES                        # noqa: E402
@@ -2663,7 +2669,7 @@ NEW_LEDGER_TABLES: tuple[TableSpec, ...] = (
     + _CR_OVERRIDE_TABLES + _CRM_ALLOC_TABLES + _LEX_TABLES
     + _BEHAV_HIST_TABLES + _BEHAV_EST_TABLES + _INVENTORY_TABLES
     + _FUNDING_TABLES + _MARGIN_TABLES + _PRODUCT_TABLES + _RCSA_TABLES
-    + _MKT_PORTFOLIO_TABLES
+    + _MKT_PORTFOLIO_TABLES + _RUN_ISSUE_TABLES
     + _FEED_TABLES + _PMA_TABLES + _MGMT_ACTION_TABLES
     + _CHANGE_TABLES + _PRICING_TABLES + _LIFECYCLE_TABLES + _RBAC_TABLES
     + _AUDIT_TABLES + _RETENTION_TABLES + _UNIFIED_TABLES + _CLOSE_TABLES

@@ -29,6 +29,10 @@ class ConsistencyCheck:
     # 아니다. 통제 건수를 셀 때 이 표시가 있는 항목을 빼야 "63건을 통과했다"가
     # 실제 통제 63건을 뜻한다.
     is_identity: bool = False
+    # 규제 요구치 미달을 담은 WARN 인가. 합성 자본 때문에 심각도는 WARN 으로
+    # 두지만, 결재는 이 표시가 하나라도 있으면 막혀야 한다. FAIL 0 만 보면
+    # 완충자본 미달 은행이 2선을 통과한다.
+    blocks_approval: bool = False
 
 
 @dataclass
@@ -52,9 +56,32 @@ class ValidationReport:
         """항등식을 뺀 검사 목록. 통제 건수는 이 길이로 센다."""
         return [c for c in self.checks if not c.is_identity]
 
+    def controls_summary(self) -> dict[str, int]:
+        """항등식을 뺀 PASS/WARN/FAIL 집계. 결재선·요청서는 이것을 쓴다."""
+        from collections import Counter
+        return dict(Counter(c.status for c in self.controls()))
+
+    def approval_blockers(self) -> list[ConsistencyCheck]:
+        """결재를 막는 항목: FAIL 전부 + 규제 미달 표시가 붙은 WARN."""
+        return [c for c in self.checks
+                if c.status == "FAIL" or c.blocks_approval]
+
+
+def _not_run(report: "ValidationReport", check: str, cond: str) -> None:
+    """입력이 없어 검사를 건너뛴 사실을 WARN 으로 남긴다.
+
+    조용히 return 하면 '검사하지 않았다' 가 '통과했다' 와 구별되지 않는다.
+    파이프라인은 입력을 전부 넘기므로 정상 실행에서는 이 행이 나오지 않고,
+    부분 실행·3선 재계산·예제 스크립트에서 빠진 검사가 그대로 보인다.
+    """
+    report.add(ConsistencyCheck(
+        f"{check}_not_run", "WARN",
+        f"입력이 없어 검사하지 않았다 ({cond}). 통과가 아니다"))
+
 
 def _check_pd_bounds(df: pd.DataFrame, report: ValidationReport) -> None:
     if "pd" not in df.columns:
+        _not_run(report, "pd_bounds", "'pd' not in df.columns")
         return
     bad = df[(df["pd"] < 0) | (df["pd"] > 1)]
     if len(bad):
@@ -84,6 +111,7 @@ def _check_pd_bounds(df: pd.DataFrame, report: ValidationReport) -> None:
 
 def _check_lgd_bounds(df: pd.DataFrame, report: ValidationReport) -> None:
     if "lgd" not in df.columns:
+        _not_run(report, "lgd_bounds", "'lgd' not in df.columns")
         return
     bad = df[(df["lgd"] < 0) | (df["lgd"] > 1)]
     if len(bad):
@@ -108,6 +136,7 @@ def _check_ead_positive(df: pd.DataFrame, report: ValidationReport,
     실패한 상황이 통과로 보일 수 있다. (_check_rwa_nonneg와 동일 규약)
     """
     if "ead" not in df.columns:
+        _not_run(report, "ead_positive", "'ead' not in df.columns")
         return
     name = f"ead_nonneg_{label}" if label else "ead_nonneg"
     bad = df[df["ead"] < 0]
@@ -126,6 +155,7 @@ def _check_ead_positive(df: pd.DataFrame, report: ValidationReport,
 
 def _check_rwa_nonneg(df: pd.DataFrame, report: ValidationReport, label: str) -> None:
     if "rwa" not in df.columns:
+        _not_run(report, "rwa_nonneg", "'rwa' not in df.columns")
         return
     bad = df[df["rwa"] < -1e-6]
     if len(bad):
@@ -143,6 +173,7 @@ def _check_rwa_nonneg(df: pd.DataFrame, report: ValidationReport, label: str) ->
 
 def _check_el_le_ead(df: pd.DataFrame, report: ValidationReport) -> None:
     if not {"ead"}.issubset(df.columns):
+        _not_run(report, "el_le_ead", "not {'ead'}.issubset(df.columns)")
         return
     if "el" in df.columns:
         bad = df[df["el"] > df["ead"] + 1e-6]
@@ -171,6 +202,7 @@ def _check_portfolio_intake(
     무효로 만들지 결재자가 판단할 여지를 남기는 종류가 아니다.
     """
     if portfolio is None or not len(portfolio):
+        _not_run(report, "portfolio_intake", "portfolio is None or not len(portfolio)")
         return
     from risk_lib.pipeline import unbooked_exposures
 
@@ -210,6 +242,7 @@ def _check_asof_provenance(meta: dict | None, report: ValidationReport) -> None:
     않되(호출부가 많다) 조용히 지나가지는 않게 한다.
     """
     if not meta:
+        _not_run(report, "asof_provenance", "not meta")
         return
     src = meta.get("asof_source")
     if src == "wall_clock":
@@ -226,8 +259,12 @@ def _check_asof_provenance(meta: dict | None, report: ValidationReport) -> None:
 def _check_sa_irb_no_overlap(
     sa_df: pd.DataFrame, irb_df: pd.DataFrame, report: ValidationReport,
 ) -> None:
-    sa_ids = set(sa_df["exposure_id"]) if "exposure_id" in sa_df.columns else set()
-    irb_ids = set(irb_df["exposure_id"]) if "exposure_id" in irb_df.columns else set()
+    if "exposure_id" not in sa_df.columns or "exposure_id" not in irb_df.columns:
+        # 컬럼이 없으면 빈 집합끼리의 교집합이 공집합이라 PASS 가 나온다.
+        # 대사한 적이 없는 PASS 다.
+        _not_run(report, "sa_irb_no_overlap", "exposure_id column missing")
+        return
+    sa_ids, irb_ids = set(sa_df["exposure_id"]), set(irb_df["exposure_id"])
     overlap = sa_ids & irb_ids
     if overlap:
         report.add(ConsistencyCheck(
@@ -244,6 +281,7 @@ def _check_sa_irb_no_overlap(
 
 def _check_bis_plausible(bis_result, report: ValidationReport) -> None:
     if bis_result is None:
+        _not_run(report, "bis_plausible", "bis_result is None")
         return
     # Each tier has its own Pillar 1 minimum (CRE10.4): CET1 4.5% / T1 6% / Total 8%.
     _MIN_KEY = {"cet1_ratio": "cet1", "tier1_ratio": "tier1", "total_ratio": "total"}
@@ -286,7 +324,10 @@ def _check_bis_plausible(bis_result, report: ValidationReport) -> None:
             "완충자본 포함 요구치 미달 — " + " · ".join(
                 f"{k} {v:+.2%} (요구 {req.get(k, 0.0):.2%})"
                 for k, v in short.items())
-            + " · 이익배당·성과급 제한 대상"))
+            + " · 이익배당·성과급 제한 대상",
+            # 계산 결함이 아니라 WARN 이지만 규제 요구치 미달이다. FAIL 0 만 보는
+            # 결재 요건을 그대로 통과하면 안 되므로 차단 표시를 붙인다.
+            blocks_approval=True))
     elif req:
         report.add(ConsistencyCheck(
             "bis_buffer_requirement", "PASS",
@@ -426,6 +467,7 @@ def _check_rwa_components(
 
 def _check_leverage(leverage_result, report: ValidationReport) -> None:
     if leverage_result is None:
+        _not_run(report, "leverage", "leverage_result is None")
         return
     lr = leverage_result.leverage_ratio
     if lr < 0 or lr > 1:
@@ -444,6 +486,7 @@ def _check_leverage(leverage_result, report: ValidationReport) -> None:
 
 def _check_output_floor(of_result, report: ValidationReport) -> None:
     if of_result is None:
+        _not_run(report, "output_floor", "of_result is None")
         return
     if of_result.rwa_final + 1e-6 < of_result.rwa_internal:
         report.add(ConsistencyCheck("output_floor_no_reduction", "FAIL",
@@ -467,6 +510,7 @@ def _check_market_op_rwa(market_rwa, op_rwa, report: ValidationReport,
     for label, val, zero_status in [("market_rwa_nonneg", market_rwa, "WARN"),
                                     ("op_rwa_nonneg", op_rwa, "FAIL")]:
         if val is None:
+            _not_run(report, "market_op_rwa", "val is None")
             continue
         if val < 0:
             report.add(ConsistencyCheck(label, "FAIL", f"{label} is negative", metric=val))
@@ -512,6 +556,7 @@ def _check_market_portfolio_split(market_positions, market_rwa,
 
 def _check_ecl(ecl_results: pd.DataFrame, report: ValidationReport) -> None:
     if ecl_results is None or "ecl" not in ecl_results.columns:
+        _not_run(report, "ecl", "ecl_results is None or 'ecl' not in ecl_results.columns")
         return
     if (ecl_results["ecl"] < -1e-6).any():
         report.add(ConsistencyCheck("ecl_nonneg", "FAIL",
@@ -533,6 +578,7 @@ def _check_ecl(ecl_results: pd.DataFrame, report: ValidationReport) -> None:
 def _check_concentration(conc_df: pd.DataFrame, report: ValidationReport,
                          threshold: float = 0.18) -> None:
     if conc_df is None or "hhi" not in conc_df.columns:
+        _not_run(report, "concentration", "conc_df is None or 'hhi' not in conc_df.columns")
         return
     breached = conc_df[conc_df["hhi"] > threshold]
     if len(breached):
@@ -547,9 +593,11 @@ def _check_concentration(conc_df: pd.DataFrame, report: ValidationReport,
 
 def _check_stress_monotone(stress_df: pd.DataFrame, report: ValidationReport) -> None:
     if stress_df is None or "scenario" not in stress_df.columns:
+        _not_run(report, "stress_monotone", "stress_df is None or 'scenario' not in stress_df.columns")
         return
     df = stress_df.set_index("scenario")
     if "baseline" not in df.index:
+        _not_run(report, "stress_monotone", "'baseline' not in df.index")
         return
     base_rwa = df.loc["baseline", "rwa_total"]
     base_cet1 = df.loc["baseline", "cet1_ratio"]
@@ -570,6 +618,7 @@ def _check_stress_monotone(stress_df: pd.DataFrame, report: ValidationReport) ->
 
 def _check_macro_ecl(macro, report: ValidationReport) -> None:
     if macro is None:
+        _not_run(report, "macro_ecl", "macro is None")
         return
     raw_prob = sum(s.probability for s in macro.scenarios)
     if abs(raw_prob - 1.0) > 1e-6:
@@ -619,10 +668,12 @@ def _check_ecl_ttc_pit_gap(macro, ecl_total: float | None,
     IFRS 9 취지와 어긋날 수 있으므로 WARN으로 올린다.
     """
     if macro is None or ecl_total is None:
+        _not_run(report, "ecl_ttc_pit_gap", "macro is None or ecl_total is None")
         return
     ttc = float(ecl_total)
     pit = float(macro.weighted_total)
     if ttc <= 0:
+        _not_run(report, "ecl_ttc_pit_gap", "ttc <= 0")
         return
     uplift = pit - ttc
     detail = (f"TTC {ttc:,.0f} · PIT {pit:,.0f} · forward-looking uplift "
@@ -638,6 +689,7 @@ def _check_ecl_ttc_pit_gap(macro, ecl_total: float | None,
 
 def _check_reverse_stress(rev, report: ValidationReport) -> None:
     if rev is None:
+        _not_run(report, "reverse_stress", "rev is None")
         return
     if rev.already_breached:
         report.add(ConsistencyCheck("reverse_base_above_target", "FAIL",
@@ -663,6 +715,7 @@ def _check_reverse_stress(rev, report: ValidationReport) -> None:
 
 def _check_stress_path(path_df: pd.DataFrame, report: ValidationReport) -> None:
     if path_df is None or "scenario" not in getattr(path_df, "columns", []):
+        _not_run(report, "stress_path", "path_df is None or 'scenario' not in getattr(path_df, 'columns', [])")
         return
     # CET1 ratio must stay within [0,1] at every projected quarter.
     if ((path_df["cet1_ratio"] < 0) | (path_df["cet1_ratio"] > 1)).any():
@@ -692,6 +745,7 @@ def _check_pd_model_quality(
     """Per-segment discrimination: Gini ≥ GINI_MIN_ACCEPTABLE (BCBS WP14)."""
     from risk_lib.references import GINI_MIN_ACCEPTABLE, GINI_MIN_GOOD
     if not pd_metrics:
+        _not_run(report, "pd_model_quality", "not pd_metrics")
         return
     for seg, m in pd_metrics.items():
         g = float(m.get("gini", 0.0))
@@ -715,6 +769,7 @@ def _check_hl_calibration(backtest: dict | None, report: ValidationReport) -> No
     """Hosmer-Lemeshow PD calibration p-value ≥ 0.05 → PASS."""
     from risk_lib.references import HL_P_VALUE_MIN
     if not backtest or "hosmer_lemeshow" not in backtest:
+        _not_run(report, "hl_calibration", "not backtest or 'hosmer_lemeshow' not in backtest")
         return
     hl = backtest["hosmer_lemeshow"]
     p = float(hl.get("p_value", 0.0))
@@ -734,6 +789,7 @@ def _check_backtest_traffic_light(
 ) -> None:
     """Per-grade binomial: zero RED zones; YELLOW count surfaced as WARN."""
     if not backtest or "per_grade" not in backtest:
+        _not_run(report, "backtest_traffic_light", "not backtest or 'per_grade' not in backtest")
         return
     z = backtest["per_grade"]["zone"].value_counts().to_dict()
     red = int(z.get("RED", 0))
@@ -827,19 +883,25 @@ def _check_large_exposure_sources(limit_report: pd.DataFrame | None,
     detail = (f"원장 은행법35조_동일차주({basis_ledger}) 위반 {n_ledger}건 · "
               f"한도엔진 동일차주({basis_engine}) 위반 "
               + ("미산출" if n_engine is None else f"{n_engine}건"))
+    any_breach = n_ledger > 0 or bool(n_engine)
     if n_engine is None or n_engine != n_ledger:
         report.add(ConsistencyCheck(
             name, "WARN",
             detail + ". 분모기준이 달라 두 산출이 어긋난다. 정본을 하나로 "
                      "정하지 않으면 어느 쪽이 결재 대상인지 산출물에서 읽히지 않는다",
-            metric=float(n_ledger)))
+            metric=float(n_ledger),
+            # 한 쪽에라도 위반이 있으면 한도 위반 상태로 결재에 올리는 것이다.
+            blocks_approval=any_breach))
     else:
-        report.add(ConsistencyCheck(name, "PASS", detail,
-                                    metric=float(n_ledger)))
+        report.add(ConsistencyCheck(
+            name, "WARN" if any_breach else "PASS",
+            detail + (". 두 산출이 일치하나 위반이 남아 있다" if any_breach else ""),
+            metric=float(n_ledger), blocks_approval=any_breach))
 
 
 def _check_macro_ecl_path(path_df: pd.DataFrame, report: ValidationReport) -> None:
     if path_df is None or "scenario" not in getattr(path_df, "columns", []):
+        _not_run(report, "macro_ecl_path", "path_df is None or 'scenario' not in getattr(path_df, 'columns', [])")
         return
     if (path_df["ecl"] < -1e-6).any():
         report.add(ConsistencyCheck("macro_path_ecl_nonneg", "FAIL",
@@ -865,6 +927,7 @@ def _check_macro_ecl_path(path_df: pd.DataFrame, report: ValidationReport) -> No
 def _check_alm(alm: dict | None, report: ValidationReport) -> None:
     """LCR/NSFR 100% 하한, IRRBB outlier test, 재무상태표-여신 정합."""
     if not alm:
+        _not_run(report, "alm", "not alm")
         return
     from risk_lib.references import (
         LCR_MIN, NSFR_MIN, IRRBB_OUTLIER_EVE_PCT_TIER1,
@@ -880,15 +943,19 @@ def _check_alm(alm: dict | None, report: ValidationReport) -> None:
             report.add(ConsistencyCheck(
                 "lcr_min_100pct", "FAIL",
                 f"LCR {lcr.lcr:.1%} < 100% (LCR20.1)", metric=lcr.lcr))
-        if lcr.inflow_capped >= 0.75 * lcr.gross_outflow - 1e-6 and \
-                lcr.inflow_capped > 0:
+        cap = 0.75 * lcr.gross_outflow
+        if lcr.inflow_capped > cap + 1e-6:
             report.add(ConsistencyCheck(
-                "lcr_inflow_cap", "PASS",
-                "inflow cap (75% of outflows) binding — applied per LCR40"))
+                "lcr_inflow_cap", "FAIL",
+                f"유입 인정액 {lcr.inflow_capped:,.0f} 이 총유출의 75% "
+                f"{cap:,.0f} 를 넘는다 (LCR40 상한 미적용)",
+                metric=lcr.inflow_capped - cap))
         else:
+            binding = abs(lcr.inflow_capped - cap) <= 1e-6 and lcr.inflow_capped > 0
             report.add(ConsistencyCheck(
                 "lcr_inflow_cap", "PASS",
-                "inflows below 75% cap"))
+                "75% 상한이 구속적으로 적용됐다" if binding
+                else "유입이 75% 상한 아래다", metric=lcr.inflow_capped))
 
     nsfr = alm.get("nsfr")
     if nsfr is not None:
@@ -1001,6 +1068,7 @@ def _check_delta_eve_recalc(alm: dict, bp: pd.DataFrame, res: pd.DataFrame,
     for (basis, sc, ccy), g in bp.groupby(["basis", "scenario", "ccy"]):
         shk = shocked.get((str(ccy), str(sc)))
         if shk is None:
+            _not_run(report, "delta_eve_recalc", "shk is None")
             continue
         t = g["t_mid"].to_numpy(dtype=float)
         per_ccy[(str(basis), str(sc), str(ccy))] = float(
@@ -1017,6 +1085,7 @@ def _check_delta_eve_recalc(alm: dict, bp: pd.DataFrame, res: pd.DataFrame,
     for k, v in want.items():
         got = recalc.get((str(k[0]), str(k[1])))
         if got is None:
+            _not_run(report, "delta_eve_recalc", "got is None")
             continue
         gap = _rel_gap(float(v), got)
         if gap > worst:
@@ -1051,6 +1120,7 @@ def _check_irrbb_single_source(alm: dict, stress_path, report: ValidationReport,
     """
     name = "alm_irrbb_engine_single_source"
     if stress_path is None or not len(stress_path):
+        _not_run(report, "irrbb_single_source", "stress_path is None or not len(stress_path)")
         return
     if "irrbb_source" not in stress_path.columns:
         report.add(ConsistencyCheck(
@@ -1074,6 +1144,11 @@ def _check_irrbb_single_source(alm: dict, stress_path, report: ValidationReport,
 def _check_alm_ledgers(alm: dict, report: ValidationReport) -> None:
     """원장 대사 3건 + 미확인 모수 사용 · 행동모형 경고 승격 2건."""
     tables = alm.get("tables") or {}
+    if not tables:
+        # 원장이 하나도 없으면 대사 3건은 통째로 사라지고 모수 검사 2건이
+        # PASS 를 낸다. '원장이 없는 실행이 모수 전부 근거 확인 상태' 로 보인다.
+        _not_run(report, "alm_ledgers", "alm['tables'] is empty")
+        return
 
     # (1) 계약현금흐름의 원금 합 = 계약원장 명목. 상환스케줄이 원금을 다
     # 갚아내지 못하면(잔액 전개 오류·버킷 절단) 여기서 갈라진다.
@@ -1135,7 +1210,7 @@ def _check_alm_ledgers(alm: dict, report: ValidationReport) -> None:
             report.add(ConsistencyCheck(
                 "alm_bucket_pv_pairs_with_irrbb_result", "PASS",
                 f"버킷 PV와 결과 원장의 (산출기준, 시나리오) 짝 {len(joined)}개 "
-                "일치", metric=worst))
+                "일치", metric=worst, is_identity=True))
 
     # (3) 사다리 = 현금흐름 원장의 **버킷별** 접기. 총합으로 대사하면 사다리가
     # 존재하는 유일한 이유(버킷 배분)를 검증하지 못한다 — 버킷 순서를 통째로
@@ -1238,6 +1313,7 @@ def _check_alm_ledgers(alm: dict, report: ValidationReport) -> None:
 def _check_icaap(icaap, report: ValidationReport) -> None:
     """내부자본: EC 통합 ≤ 가용자본, 분산효과 비음수."""
     if icaap is None:
+        _not_run(report, "icaap", "icaap is None")
         return
     if icaap.grade == "RED":
         report.add(ConsistencyCheck(
@@ -1279,26 +1355,37 @@ def _check_stress_trough_requirement(path_df, bis_result,
     견디는 것은 요구가 아니므로 FAIL로 만들면 거짓 경보가 된다.
     """
     if path_df is None or bis_result is None or "scenario" not in path_df:
+        _not_run(report, "stress_trough_requirement", "path_df is None or bis_result is None or 'scenario' not in path_df")
         return
-    required = float(getattr(bis_result, "required", {}).get("cet1", 0.0))
+    req_all = getattr(bis_result, "required", {}) or {}
+    # 세 계층 전부 본다. CET1 하나만 보면 기본자본·총자본 요구치 미달을
+    # 놓친다 (3선 지적 F-F02). 경로에 그 열이 없으면 CET1 만 보고 그 사실을 적는다.
+    tiers = [("cet1", "cet1_ratio"), ("tier1", "tier1_ratio"),
+             ("total", "total_ratio")]
+    tiers = [(k, col) for k, col in tiers
+             if col in path_df.columns and k in req_all]
     breached = []
     for sc, g in path_df.groupby("scenario", sort=False):
-        trough = g.loc[g["cet1_ratio"].idxmin()]
-        if float(trough["cet1_ratio"]) < required:
-            breached.append(
-                f"{sc}: {float(trough['cet1_ratio']):.2%} < 요구 {required:.2%}"
-                f" ({trough['quarter']}, 제약 {trough.get('binding', '—')})")
+        for k, col in tiers:
+            required = float(req_all[k])
+            trough = g.loc[g[col].idxmin()]
+            if float(trough[col]) < required:
+                breached.append(
+                    f"{sc}/{k}: {float(trough[col]):.2%} < 요구 {required:.2%}"
+                    f" ({trough['quarter']}, 제약 {trough.get('binding', '-')})")
+    seen = "·".join(k for k, _ in tiers) or "없음"
     if not breached:
         report.add(ConsistencyCheck(
             "stress_trough_meets_requirement", "PASS",
-            f"전 시나리오 CET1 저점 >= 요구 {required:.2%}"))
+            f"전 시나리오 저점 >= 요구치 (비교 계층 {seen})"))
         return
     base_breach = any(b.startswith("baseline") for b in breached)
     report.add(ConsistencyCheck(
         "stress_trough_meets_requirement", "FAIL" if base_breach else "WARN",
         ("기준 시나리오가 이미 요구치 미달 — " if base_breach
          else "위기상황 요구치 침범 (자본계획·회복계획 연계 필요) — ")
-        + "; ".join(breached)))
+        + "; ".join(breached) + f" (비교 계층 {seen})",
+        blocks_approval=True))
 
 
 RATIO_TO_EAD_BASIS = "ratio_to_ead"
@@ -1328,6 +1415,7 @@ def _check_capital_source(capital_source: str | None, capital: Any,
     적으면 그 문장이 자체검증 요약을 타고 독립검증 요청서까지 그대로 실린다.
     """
     if capital_source is None or capital is None:
+        _not_run(report, "capital_source", "capital_source is None or capital is None")
         return
     if capital_source == "ledger":
         cet1 = float(getattr(capital, "cet1", 0.0))
@@ -1355,6 +1443,7 @@ def _check_capital_source(capital_source: str | None, capital: Any,
         return
     cet1 = float(getattr(capital, "cet1", 0.0))
     if cet1 <= 0:
+        _not_run(report, "capital_source", "cet1 <= 0")
         return
     scaled = max(cet1 - PAID_IN_CAPITAL, 0.0)      # 이익잉여금 = 규모 비례분
     share = scaled / cet1
@@ -1413,6 +1502,93 @@ def _check_prudential_regime(meta: dict | None,
         "유동성비율은 이 기관의 건전성 지표가 아니라 참고치다"))
 
 
+def _check_ncr(ncr_result: Any, meta: dict | None,
+               report: ValidationReport) -> None:
+    """순자본비율 대사. 그 전에는 NCR 이 2선에 인자 자체가 없었다 (검수 중).
+
+    세 가지를 본다. (1) 구성요소 합: 영업용순자본 = 순자산 - 차감 + 가산,
+    총위험액 = 시장 + 신용 + 운영. (2) 산식: NCR = (영업용순자본 - 총위험액) /
+    필요유지자기자본, 적기시정조치 등급이 그 비율과 맞는가. (3) 최저 100%.
+
+    최저 미달의 무게는 업권에 따른다. 증권(NCR 체계) 기관이면 FAIL 이며 결재
+    차단 사유다. 은행 표본의 NCR 은 은행 북을 축소한 합성 예시라 그 기관의
+    건전성 지표가 아니므로 미달이어도 WARN(참고치) 이다. 어느 쪽인지 모르면
+    증권 쪽으로 읽지 않고 참고치로 남긴다. 은행에 증권 규정을 들이대는 것도
+    오류다.
+    """
+    from risk_lib import institutions as _inst
+    from risk_lib.ncr import prompt_action_grade
+    from risk_lib.references import NCR_MIN
+    if ncr_result is None:
+        _not_run(report, "ncr", "ncr_result is None")
+        return
+    noc, risk = ncr_result.noc, ncr_result.risk
+    tol = 1e-6 * max(1.0, abs(noc.net_operating_capital), abs(risk.total))
+    noc_expected = noc.net_worth - noc.total_deduction + noc.total_addition
+    risk_expected = risk.market_risk + risk.credit_risk + risk.operational_risk
+    bad = []
+    if abs(noc.net_operating_capital - noc_expected) > tol:
+        bad.append(f"영업용순자본 {noc.net_operating_capital:,.0f} != "
+                   f"순자산-차감+가산 {noc_expected:,.0f}")
+    if abs(risk.total - risk_expected) > tol:
+        bad.append(f"총위험액 {risk.total:,.0f} != 시장+신용+운영 {risk_expected:,.0f}")
+    if abs(noc.net_worth - (noc.total_assets - noc.total_liabilities)) > tol:
+        bad.append("순자산 != 자산총액 - 부채총액")
+    report.add(ConsistencyCheck(
+        "ncr_components_sum", "FAIL" if bad else "PASS",
+        "; ".join(bad) if bad else
+        f"영업용순자본 {noc.net_operating_capital:,.0f} · 총위험액 {risk.total:,.0f} "
+        "구성요소 합 일치"))
+
+    if ncr_result.required_capital <= 0:
+        report.add(ConsistencyCheck(
+            "ncr_identity", "FAIL",
+            f"필요유지자기자본 {ncr_result.required_capital:,.0f} <= 0: 분모가 없다"))
+    else:
+        expected = ((noc.net_operating_capital - risk.total)
+                    / ncr_result.required_capital)
+        grade = prompt_action_grade(ncr_result.ncr)
+        problems = []
+        if abs(ncr_result.ncr - expected) > 1e-9 * max(1.0, abs(expected)):
+            problems.append(f"NCR {ncr_result.ncr:.6f} != 재계산 {expected:.6f}")
+        if str(ncr_result.action) != str(grade):
+            problems.append(f"적기시정조치 등급 '{ncr_result.action}' != "
+                            f"비율에서 나온 '{grade}'")
+        report.add(ConsistencyCheck(
+            "ncr_identity", "FAIL" if problems else "PASS",
+            "; ".join(problems) if problems else
+            f"NCR {ncr_result.ncr:.4f} = (영업용순자본 - 총위험액) / 필요유지자기자본 · "
+            f"등급 {grade}", metric=float(ncr_result.ncr)))
+
+    itype = (meta or {}).get("institution_type")
+    regime = None
+    if itype:
+        try:
+            regime = _inst.prudential_regime(str(itype))
+        except ValueError:
+            regime = None
+    binding = regime == "NCR"
+    if ncr_result.ncr >= NCR_MIN:
+        report.add(ConsistencyCheck(
+            "ncr_min", "PASS",
+            f"NCR {ncr_result.ncr:.2%} >= 최저 {NCR_MIN:.0%}"
+            + ("" if binding else
+               " (은행 북을 축소한 합성 예시. 이 기관의 규제 지표가 아니라 참고치)"),
+            metric=float(ncr_result.ncr)))
+    elif binding:
+        report.add(ConsistencyCheck(
+            "ncr_min", "FAIL",
+            f"NCR {ncr_result.ncr:.2%} < 최저 {NCR_MIN:.0%}: 적기시정조치 "
+            f"{ncr_result.action} (금융투자업규정 제3-26조)",
+            metric=float(ncr_result.ncr), blocks_approval=True))
+    else:
+        report.add(ConsistencyCheck(
+            "ncr_min", "WARN",
+            f"NCR {ncr_result.ncr:.2%} < 최저 {NCR_MIN:.0%} 이나 이 산출은 "
+            f"업권 {itype or '미지정'} 의 합성 예시라 참고치다. 증권 기관이면 FAIL 이다",
+            metric=float(ncr_result.ncr)))
+
+
 def _check_pillar2_evidence(meta: dict | None,
                             report: ValidationReport) -> None:
     """P2R·P2G 가 원장에 있는가. 없으면 0 으로 산출했다는 사실을 남긴다.
@@ -1422,6 +1598,7 @@ def _check_pillar2_evidence(meta: dict | None,
     채 결재선에 오른다. 어느 쪽도 하지 않고 사실을 적는다.
     """
     if not meta or "pillar2" not in meta:
+        _not_run(report, "pillar2_evidence", "not meta or 'pillar2' not in meta")
         return
     p2 = meta["pillar2"] or {}
     missing = sorted(k for k in ("p2r", "p2g") if p2.get(k) is None)
@@ -1429,7 +1606,9 @@ def _check_pillar2_evidence(meta: dict | None,
         report.add(ConsistencyCheck(
             "pillar2_requirement_evidence", "WARN",
             f"{'·'.join(missing).upper()} 가 원장에 없어 0 으로 산출했다. "
-            "OCR·SREP 요구치가 감독 부과분만큼 과소 표시된다"))
+            "OCR·SREP 요구치가 감독 부과분만큼 과소 표시된다",
+            # 요구치 자체를 모르는 상태다. 그 상태로는 충족을 말할 수 없다.
+            blocks_approval=True))
         return
     report.add(ConsistencyCheck(
         "pillar2_requirement_evidence", "PASS",
@@ -1452,11 +1631,13 @@ def _check_doc_figures(built: list | None, asof: str | None,
     끈다. 꺼진 검사는 없는 검사다.
     """
     if not built or not asof or not doc_paths:
+        _not_run(report, "doc_figures", "not built or not asof or not doc_paths")
         return
     from risk_lib.validation.doc_figures import check_doc_figures
     from pathlib import Path
     for doc in doc_paths:
         if not Path(doc).exists():
+            _not_run(report, "doc_figures", "not Path(doc).exists()")
             continue
         for c in check_doc_figures(doc, built, asof):
             report.add(c)
@@ -1478,6 +1659,7 @@ def _check_national_irrbb_basis(ledgers: dict | None, alm: dict | None,
     무관한 값이다.
     """
     if not alm or alm.get("irrbb") is None:
+        _not_run(report, "national_irrbb_basis", "not alm or alm.get('irrbb') is None")
         return
     from risk_lib.references import IRRBB_OUTLIER_EVE_PCT_TIER1
     irrbb = alm["irrbb"]
@@ -1528,6 +1710,7 @@ def _check_limit_ledger_source(ledgers: dict | None,
     승인일은 산출과 무관한 장식이 된다.
     """
     if ledgers is None:
+        _not_run(report, "limit_ledger_source", "ledgers is None")
         return
     led = ledgers.get("lim_limit_definition")
     if not isinstance(led, pd.DataFrame):
@@ -1558,6 +1741,7 @@ def _check_macro_master_source(ledgers: dict | None,
                                report: ValidationReport) -> None:
     """거시지표와 시나리오 충격 배수가 마스터 원장에서 오는가."""
     if ledgers is None:
+        _not_run(report, "macro_master_source", "ledgers is None")
         return
     master = ledgers.get("rdm_macro_indicator_master")
     shock = ledgers.get("st_macro_scenario_shock")
@@ -1590,6 +1774,7 @@ def _check_backtest_censoring(ledgers: dict | None,
     없으면 그 편의가 얼마나 큰지 판단할 근거가 없다.
     """
     if ledgers is None:
+        _not_run(report, "backtest_censoring", "ledgers is None")
         return
     lgd = ledgers.get("crm_lgd_backtest")
     if not isinstance(lgd, pd.DataFrame) or lgd.empty:
@@ -1640,6 +1825,7 @@ def _check_irb_estimation_ledgers(ledgers: dict | None, asof: str | None,
     보고서에서 "통과했다"와 구분되지 않는다.
     """
     if ledgers is None:
+        _not_run(report, "irb_estimation_ledgers", "ledgers is None")
         return
     from risk_lib.models.estimation.discount_capm import run_capm_checks
     from risk_lib.models.estimation.plgd import run_plgd_checks
@@ -1690,6 +1876,7 @@ def run_consistency_checks(
     limit_report: pd.DataFrame | None = None,
     alm_results: dict | None = None,
     icaap_result: Any = None,
+    ncr_result: Any = None,
     capital_source: str | None = None,
     capital_basis: str | None = None,
     capital_stack: Any = None,
@@ -1714,11 +1901,14 @@ def run_consistency_checks(
                           capital_basis)
     _check_pillar2_evidence(meta, rep)
     _check_prudential_regime(meta, rep)
+    _check_ncr(ncr_result, meta, rep)
     _check_doc_figures(built_forms, asof, doc_paths, rep)
 
     if sa_results is not None:
         _check_ead_positive(sa_results, rep, "sa")
         _check_rwa_nonneg(sa_results, rep, "sa")
+    else:
+        _not_run(rep, "sa_results", "sa_results is None")
 
     if irb_results is not None:
         _check_pd_bounds(irb_results, rep)
@@ -1726,13 +1916,19 @@ def run_consistency_checks(
         _check_ead_positive(irb_results, rep, "irb")
         _check_rwa_nonneg(irb_results, rep, "irb")
         _check_el_le_ead(irb_results, rep)
+    else:
+        _not_run(rep, "irb_results", "irb_results is None")
 
     if sa_results is not None and irb_results is not None:
         _check_sa_irb_no_overlap(sa_results, irb_results, rep)
+    else:
+        _not_run(rep, "sa_irb_no_overlap", "sa_results or irb_results is None")
 
     if bis_result is not None:
         _check_bis_plausible(bis_result, rep)
         _check_rwa_aggregate(rwa_total_for_bis, bis_result, rep)
+    else:
+        _not_run(rep, "bis", "bis_result is None")
 
     _check_leverage(leverage_result, rep)
     _check_output_floor(output_floor_result, rep)
@@ -1761,6 +1957,8 @@ def run_consistency_checks(
     _check_alm(alm_results, rep)
     if alm_results:
         _check_irrbb_single_source(alm_results, stress_path_result, rep)
+    else:
+        _not_run(rep, "irrbb_single_source", "not alm_results")
     _check_icaap(icaap_result, rep)
 
     # 신규 원장 — 원장이 없으면 검사가 돌지 않는다. "돌지 않았다"와 "통과했다"가

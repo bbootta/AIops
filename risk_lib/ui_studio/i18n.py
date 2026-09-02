@@ -1553,6 +1553,10 @@ _t("settings",
    '제안 생성||Create proposal',
 )
 
+_t("runissue",
+   '실행 통제 이슈||Run control issues',
+)
+
 _t("mktpf",
    'C · 시장리스크 포트폴리오 상세 (포지션·자본·VaR 배분)||C, market risk portfolio detail (positions, capital, VaR allocation)',
    '포지션 원장을 포트폴리오 × 위험군으로 편 상세. 규제 표(위험군 집계)와 같은 원장·같은 산식에서 나오며, VaR·ES 열은 자본비중 비례배분(내부기준)이라 독립 재계산이 아니다.||Detail of the position ledger by portfolio and risk class. It comes from the same ledger and the same formula as the regulatory table (aggregated by risk class). The VaR and ES columns are allocated in proportion to capital (internal basis), not recalculated independently.',

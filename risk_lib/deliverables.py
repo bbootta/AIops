@@ -160,6 +160,7 @@ def verify_zip(zip_path: Path) -> dict:
 # ---------------------------------------------------------------- 통합 패키징
 
 def build_deliverables(result, portfolio, out_root, *, manifest=None,
+                       require_gate: bool = False,
                        adjustment_ledger=None, zip_name: str = "deliverables.zip"
                        ) -> dict:
     """10라운드 산출물 전체를 디렉터리로 구성하고 ZIP으로 묶는다."""
@@ -212,7 +213,24 @@ def build_deliverables(result, portfolio, out_root, *, manifest=None,
     wr = write_work_report(result, portfolio, tables, root / "04_work_report")
 
     # 05 · 감독보고 — 금감원 배포 기준 업무보고서
+    # 제출본을 만들기 전에 게이트를 실제로 건다. require_gate 면 3선 게이트가
+    # 승인이 아닐 때 IndependentValidationPending 으로 멈추고 (프로덕션 유일의
+    # require() 호출부), 아니면 보류 사유를 SUBMISSION_HOLD.txt 로 남기고 서식은
+    # 초안으로만 쓴다. 두 경우 모두 '승인된 제출본' 은 게이트 없이 생기지 않는다.
+    from risk_lib.ui_studio.governance import approval_hold_reasons
+    hold = approval_hold_reasons(tables, studio.iv_gate)
+    if require_gate:
+        studio.iv_gate.require()
+        if hold:
+            from risk_lib.validation.independent import IndependentValidationPending
+            raise IndependentValidationPending(
+                "결재 차단 사유가 남아 있다: " + " / ".join(hold))
     reg_dir = root / "05_regulatory"
+    if hold:
+        reg_dir.mkdir(parents=True, exist_ok=True)
+        (reg_dir / "SUBMISSION_HOLD.txt").write_text(
+            "이 디렉터리의 서식은 초안이다. 제출 승인 보류 사유:\n- "
+            + "\n- ".join(hold) + "\n", encoding="utf-8")
     xlsx = write_workbook(
         studio.built_forms, reg_dir / "업무보고서_금감원기준.xlsx",
         asof=studio.asof,

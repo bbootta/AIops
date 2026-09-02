@@ -291,6 +291,10 @@ def _cmd_validation_request(args: argparse.Namespace) -> int:
 
     studio = _build_studio(args)
     path = studio.iv_request.write(args.dir)
+    if args.dispatch:
+        from risk_lib.validation.independent import dispatch_request
+        rec = dispatch_request(studio.iv_request, args.dir)
+        print(f"독립검증 요청 발신 기록 {rec} (outbox 사본 포함)")
     gate = check_gate(studio.iv_request, args.dir)
     print(f"독립검증 요청 작성 — {path}")
     print(f"  요청 {studio.iv_request.request_id} → "
@@ -313,7 +317,8 @@ def _cmd_deliverables(args: argparse.Namespace) -> int:
     portfolio = generate_portfolio(seed=args.seed)
     result = run_pipeline(portfolio, seed=args.seed, asof=args.asof)
     info = archive(result, portfolio, asof=args.asof, root=root,
-                   run_date=args.run_date, seed=args.seed)
+                   run_date=args.run_date, seed=args.seed,
+                   require_gate=args.require_gate)
     paths = write_ledger(root)
     print(f"산출물 보관 — {root}/{info.asof}/{info.label}")
     print(f"  요청 {info.request_id} · 게이트 {info.gate_status}")
@@ -323,7 +328,8 @@ def _cmd_deliverables(args: argparse.Namespace) -> int:
           f"코드 {info.git_revision[:12]}")
     print(f"  이력 {paths['csv']} · {paths['md']}")
     # 게이트가 열리지 않았으면 종료코드로 알린다 — 결재 파이프라인이 조용히
-    # 지나가지 않게 한다.
+    # 지나가지 않게 한다. 조건부는 기록이 있어야 통과인데 이 명령은 기록을
+    # 받지 않으므로 적합만 0 이다.
     return 0 if info.gate_status == "적합" else 1
 
 
@@ -496,6 +502,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="보관 루트 (기본: 리스크관리 팀에이전트 경로)")
     dv.add_argument("--run-date", default=None,
                     help="수행일자 (기본: 오늘). 과거 판을 재구성할 때만 쓴다")
+    dv.add_argument("--require-gate", action="store_true",
+                    help="3선 게이트가 승인이 아니거나 결재 차단 사유가 남아 "
+                         "있으면 제출본을 만들지 않고 예외로 멈춘다 (결재 상신용)")
     dv.set_defaults(func=_cmd_deliverables)
 
     iv = sub.add_parser("validation-request",
@@ -504,6 +513,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="요청·응답 교환 디렉터리")
     iv.add_argument("--seed", type=int, default=42)
     iv.add_argument("--asof", default=None, help="기준일 (YYYY-MM-DD)")
+    iv.add_argument("--dispatch", action="store_true",
+                    help="요청 사본을 outbox 에 놓고 <run_id>.dispatch.json 인계 "
+                         "기록을 남긴다 (3선 위임의 발신 단계)")
     iv.set_defaults(func=_cmd_validation_request)
 
     ui = sub.add_parser("ui-studio",

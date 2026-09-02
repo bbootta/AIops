@@ -318,21 +318,58 @@ def build_evidence_graph(tables: dict[str, pd.DataFrame], run_id: str,
     return {"gov_evidence_node": node_df, "gov_evidence_edge": edge_df}
 
 
-def build_approvals(tables: dict[str, pd.DataFrame], run_id: str) -> pd.DataFrame:
-    """4-Eyes 승인 기록. 검토자 = 승인자면 직무분리 위반으로 남긴다."""
+def approval_hold_reasons(tables: dict[str, pd.DataFrame], gate=None
+                          ) -> list[str]:
+    """결재를 막는 사유. 비어 있어야 서식 승인이 '승인' 이 된다.
+
+    두 층을 본다. 3선 게이트가 승인(적합, 또는 기록 있는 조건부)이 아니면
+    막고, 2선 val_check 에 FAIL 이나 규제 미달 표시(blocks_approval)가 있으면
+    막는다. 게이트 객체가 없으면 '게이트 미확인' 으로 막는다. 모르는 상태는
+    통과가 아니다.
+    """
+    reasons: list[str] = []
+    if gate is None:
+        reasons.append("3선 게이트 미확인")
+    elif not getattr(gate, "approved", False):
+        reasons.append(f"3선 게이트 {getattr(gate, 'status', '?')}")
+    vc = tables.get("val_check")
+    if isinstance(vc, pd.DataFrame) and len(vc):
+        n_fail = int((vc["status"] == "FAIL").sum())
+        if n_fail:
+            reasons.append(f"자체검증 FAIL {n_fail}건")
+        if "blocks_approval" in vc.columns:
+            blk = vc[vc["blocks_approval"].astype(bool)]
+            if len(blk):
+                reasons.append("규제 미달 " + "·".join(map(str, blk["check_name"])))
+    return reasons
+
+
+def build_approvals(tables: dict[str, pd.DataFrame], run_id: str,
+                    gate=None) -> pd.DataFrame:
+    """4-Eyes 승인 기록. 검토자 = 승인자면 직무분리 위반으로 남긴다.
+
+    서식 승인은 서식 자체 검증(n_failed_checks)만이 아니라 3선 게이트와 2선
+    차단 사유를 함께 본다 (`approval_hold_reasons`). 그 전에는 게이트와 무관하게
+    '승인' 이 찍혔고, 마감 CL-11 이 그것을 결재 완료로 읽었다 (검수 상-1·상-2).
+    """
     rows = []
+    hold = approval_hold_reasons(tables, gate)
     subs = tables.get("reg_submission")
     if isinstance(subs, pd.DataFrame):
         for _, r in subs.iterrows():
             reviewer, approver = str(r["reviewed_by"]), str(r["approved_by"])
+            blocked = bool(int(r["n_failed_checks"])) or bool(hold)
+            why = ([f"서식검증 실패 {int(r['n_failed_checks'])}건"]
+                   if int(r["n_failed_checks"]) else []) + hold
             rows.append({
                 "approval_id": f"AP-{run_id}-{r['form_id']}",
                 "subject_type": "업무보고서 서식",
                 "subject_id": str(r["form_id"]),
                 "reviewer": reviewer, "approver": approver,
                 "segregation_ok": reviewer != approver,
-                "decision": "대기" if int(r["n_failed_checks"]) else "승인",
-                "evidence_ref": f"digest={str(r['digest'])[:12]}",
+                "decision": "대기" if blocked else "승인",
+                "evidence_ref": f"digest={str(r['digest'])[:12]}"
+                                + (" · 보류: " + " / ".join(why) if why else ""),
             })
     adj = tables.get("aig_adjustment")
     if isinstance(adj, pd.DataFrame):

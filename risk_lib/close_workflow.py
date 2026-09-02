@@ -83,9 +83,19 @@ SPECS: tuple[TableSpec, ...] = (CLOSE_TASK, CLOSE_GATE)
 # 마감 절차 정의. 이 표가 유일한 데이터 적재 지점이다.
 #
 # (작업ID, 순서, 단계, 작업명, 선행, 담당역할, 에이전트, 승인필요, 기한, 증빙원장)
+#
+# 증빙 판정은 원장 이름별로 두 유형이다 (`_EVIDENCE_KIND`).
+#   행수형   원장에 행이 있으면 완료. 산출 원장에 맞다.
+#   게이트형 원장의 status 열이 승인 상태(적합·조건부)여야 완료. CL-10 (3선
+#            게이트 확인)이 여기 해당한다. 행수로 보면
+#            응답이 없어도 요청 1행이 있어 완료가 되고, 그 완료가 결재 상신을
+#            진행가능으로 밀어 올렸다 (검수 상-2).
 _TASKS = (
+    # agent_ref 는 tests/risk_agents.py 명부의 이름이거나 사람·3선 팀이다.
+    # 명부 밖 이름(data-pipeline·credit-risk-analyst·regulatory-reporter)을
+    # 박아 두면 마감표가 존재하지 않는 담당을 가리킨다 (검수 상-3).
     ("CL-01", 1, "데이터", "원천 스냅샷 확정", (), "리스크데이터관리자",
-     "data-pipeline", False, 1, "rdm_snapshot"),
+     "risk-orchestrator", False, 1, "rdm_snapshot"),
     ("CL-02", 2, "데이터", "데이터품질 점검", ("CL-01",), "리스크데이터관리자",
      "risk-validator", False, 2, "rdm_dq_result"),
     ("CL-03", 3, "데이터", "원천 대사", ("CL-02",), "리스크데이터관리자",
@@ -95,9 +105,9 @@ _TASKS = (
     # 산출하고도 이 단계가 미완료로 남는다. 다른 산출 단계와 마찬가지로 그
     # 리스크의 주 산출 원장을 본다.
     ("CL-04", 4, "산출", "신용 RWA 산출", ("CL-03",), "신용리스크관리자",
-     "credit-risk-analyst", False, 3, "rwa_result"),
+     "rwa-calculator", False, 3, "rwa_result"),
     ("CL-05", 5, "산출", "충당금 산출", ("CL-03",), "신용리스크관리자",
-     "credit-risk-analyst", False, 3, "ecl_result"),
+     "ifrs9-ecl-analyst", False, 3, "ecl_result"),
     ("CL-06", 6, "산출", "시장·평가 산출", ("CL-03",), "시장리스크관리자",
      "market-risk-analyst", False, 3, "mkt_var_es"),
     ("CL-07", 7, "산출", "유동성·금리리스크 산출", ("CL-03",), "자금·ALM담당",
@@ -107,27 +117,63 @@ _TASKS = (
     ("CL-09", 9, "검증", "독립검증 요청 발신", ("CL-08",), "적합성검증담당",
      "validation-team-agent", False, 5, "val_independent_request"),
     ("CL-10", 10, "검증", "독립검증 게이트 확인", ("CL-09",), "적합성검증담당",
-     "validation-team-agent", True, 7, "val_independent_target"),
+     "validation-team-agent", True, 7, "val_independent_request"),
     ("CL-11", 11, "보고", "결재 상신", ("CL-10",), "최고리스크책임자",
      "사람", True, 8, "gov_approval"),
     ("CL-12", 12, "보고", "감독 업무보고서 제출", ("CL-11",), "리스크관리부장",
-     "regulatory-reporter", True, 10, "reg_submission"),
+     "risk-orchestrator", True, 10, "reg_submission"),
 )
+
+# 명부 밖이어도 되는 담당: 사람과 3선 팀에이전트(다른 브랜치의 하네스).
+NON_ROSTER_AGENT_REFS = frozenset({"사람", "validation-team-agent"})
+
+
+def task_agent_refs() -> set[str]:
+    return {t[6] for t in _TASKS}
+
+
+# 작업 ID 기준이다. CL-09(요청 발신)와 CL-10(게이트 확인)이 같은 원장을 증빙으로
+# 쓰는데, 발신은 요청 행이 있으면 끝난 것이고 게이트 확인은 승인 상태여야 한다.
+#   승인형   gov_approval 의 서식 행이 전부 '승인' 이어야 완료 (CL-11 결재 상신).
+#            '대기' 행이 있으면 상신은 됐어도 결재가 난 것이 아니다.
+#   제출형   reg_submission 의 status 가 전부 'submitted' 여야 완료 (CL-12).
+_EVIDENCE_KIND = {"CL-10": "게이트", "CL-11": "승인", "CL-12": "제출"}
+_GATE_APPROVED = ("적합", "조건부")
+
+
+def _evidence_done(task_id: str, df) -> tuple[int, bool]:
+    """(증빙 행수, 완료 여부). 유형별 판정식은 여기 한 곳에만 있다."""
+    n = int(len(df)) if isinstance(df, pd.DataFrame) else 0
+    kind = _EVIDENCE_KIND.get(task_id)
+    if kind == "게이트":
+        if n == 0 or "status" not in df.columns:
+            return n, False
+        return n, bool(df["status"].astype(str).isin(_GATE_APPROVED).all())
+    if kind == "승인":
+        if n == 0 or "decision" not in df.columns:
+            return n, False
+        forms = df[df["subject_type"] == "업무보고서 서식"] if "subject_type" in df.columns else df
+        return n, bool(len(forms)) and bool((forms["decision"].astype(str) == "승인").all())
+    if kind == "제출":
+        if n == 0 or "status" not in df.columns:
+            return n, False
+        return n, bool((df["status"].astype(str) == "submitted").all())
+    return n, n > 0
 
 
 def build_close_tasks(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    """마감 작업 원장. 상태는 증빙 원장의 행수로 판정한다."""
+    """마감 작업 원장. 상태는 증빙 유형별 판정식(`_evidence_done`)으로 정한다."""
     rows = []
     for (tid, seq, phase, name, preds, owner, agent, approval, due,
          evidence) in _TASKS:
         df = tables.get(evidence)
-        n = int(len(df)) if isinstance(df, pd.DataFrame) else 0
+        n, done = _evidence_done(tid, df)
         rows.append({
             "task_id": tid, "sequence": seq, "phase": phase, "task_name": name,
             "predecessors": ",".join(preds), "owner_role": owner,
             "agent_ref": agent, "requires_approval": bool(approval),
             "due_business_days": due, "evidence_table": evidence,
-            "status": "완료" if n > 0 else "미완료", "evidence_rows": n,
+            "status": "완료" if done else "미완료", "evidence_rows": n,
         })
     return pd.DataFrame(rows, columns=[c.name for c in CLOSE_TASK.columns])
 

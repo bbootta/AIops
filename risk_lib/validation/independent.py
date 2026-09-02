@@ -37,7 +37,7 @@ RESPONSE_SUFFIX = ".response.json"
 DEFAULT_DIR = Path("docs/independent_validation")
 
 VERDICTS = ("적합", "경부적합", "중부적합")
-STATUSES = ("요청됨", "응답대기", "적합", "부적합")
+STATUSES = ("요청됨", "응답대기", "적합", "조건부", "부적합")
 
 # 독립검증에 반드시 넘기는 재계산 대상. 여기 없는 수치는 3선이 다시 계산하지
 # 않으므로, 새 headline을 만들면 여기에도 넣어야 한다.
@@ -141,6 +141,75 @@ class ValidationRequest:
 
     def response_path(self, directory: str | Path = DEFAULT_DIR) -> Path:
         return Path(directory) / f"{self.run_id}{RESPONSE_SUFFIX}"
+
+    def dispatch_path(self, directory: str | Path = DEFAULT_DIR) -> Path:
+        return Path(directory) / f"{self.run_id}{DISPATCH_SUFFIX}"
+
+
+DISPATCH_SUFFIX = ".dispatch.json"
+OUTBOX_DIRNAME = "outbox"
+
+
+def dispatch_request(request: "ValidationRequest",
+                     directory: str | Path = DEFAULT_DIR) -> Path:
+    """요청을 3선 하네스에 넘긴 기록을 남긴다. 발신의 최소 훅이다.
+
+    요청 생성(`write`)과 게이트 판정(`check_gate`)은 코드였지만 그 사이의
+    '넘긴다'는 지침 문장만 있었다. 그래서 요청을 만들고 넘기지 않은 채 끝나도
+    아무 흔적이 없었다 (2026-09 검수). 이 함수는 두 가지를 남긴다.
+
+    - `<directory>/outbox/<run_id>.request.json`: 3선이 집어 갈 사본. 다른
+      브랜치의 하네스나 파일 감시가 이 디렉터리 하나만 보면 된다.
+    - `<run_id>.dispatch.json`: 대상 팀·브랜치·경로·인계 명령. 응답이 오기
+      전까지 "요청이 어디까지 갔나"에 답하는 유일한 기록이다.
+
+    벽시계를 적지 않는다. 같은 요청을 다시 발신하면 같은 기록이 나와야 한다.
+    """
+    d = Path(directory)
+    src = d / f"{request.run_id}.request.json"
+    if not src.exists():
+        src = request.write(d)
+    outbox = d / OUTBOX_DIRNAME
+    outbox.mkdir(parents=True, exist_ok=True)
+    copy = outbox / src.name
+    copy.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    target_path = f"{DEFAULT_DIR.as_posix()}/{src.name}"
+    record = {
+        "request_id": request.request_id,
+        "run_id": request.run_id,
+        "asof": request.asof,
+        "requested_to": VALIDATION_TEAM,
+        "branch": VALIDATION_TEAM_BRANCH,
+        "request_path": src.as_posix(),
+        "outbox_path": copy.as_posix(),
+        "response_expected_at": request.response_path(d).as_posix(),
+        "status": "발신",
+        "handover": [
+            f"git fetch origin {VALIDATION_TEAM_BRANCH}",
+            f"git checkout {VALIDATION_TEAM_BRANCH}",
+            f"cp {copy.as_posix()} {target_path}",
+            f"git add {target_path} && git commit -m "
+            f"'독립검증 요청 {request.request_id}'",
+            f"git push -u origin {VALIDATION_TEAM_BRANCH}",
+        ],
+    }
+    p = request.dispatch_path(d)
+    p.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n",
+                 encoding="utf-8")
+    return p
+
+
+def dispatched(request: "ValidationRequest",
+               directory: str | Path = DEFAULT_DIR) -> bool:
+    """이 요청의 발신 기록이 있고 같은 request_id 를 가리키는가."""
+    p = request.dispatch_path(directory)
+    if not p.exists():
+        return False
+    try:
+        rec = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return rec.get("request_id") == request.request_id
 
 
 @dataclass(frozen=True)
@@ -533,8 +602,15 @@ def build_request(result, portfolio: pd.DataFrame,
     # (독립검증 F-106 권고). FAIL이 0이어도 WARN이 규제 미달을 담을 수 있다.
     checks = tables.get("val_check") if tables else None
     if checks is not None and len(checks):
+        # 항등식은 통제가 아니다. 집계에서 뺀다. 열이 없는 구형 원장은 그대로 센다.
+        ctrl = (checks[~checks["is_identity"].astype(bool)]
+                if "is_identity" in checks.columns else checks)
         summary = {k: int(v) for k, v in
-                   checks["status"].value_counts().items()}
+                   ctrl["status"].value_counts().items()}
+        if "blocks_approval" in checks.columns:
+            n_block = int(checks["blocks_approval"].astype(bool).sum())
+            if n_block:
+                summary["규제미달"] = n_block
         failures = list(checks.loc[checks["status"] == "FAIL", "check_name"])
         warnings = [{"check": str(r["check_name"]), "detail": str(r["detail"])}
                     for _, r in checks[checks["status"] == "WARN"].iterrows()]
@@ -548,7 +624,11 @@ def build_request(result, portfolio: pd.DataFrame,
     # 조립 시점에만 가능한 체크(문서 생성 구간 대조 등)는 파이프라인 산출에
     # 들어 있지 않다. 공유 상태를 변형하는 대신 여기서 합산한다 — 3선에 넘기는
     # 자체검증 집계는 실제로 돌린 전부여야 한다.
+    already = set(checks["check_name"]) if checks is not None and len(checks) else set()
     for c in extra_checks or []:
+        if c.name in already:
+            # 스튜디오가 이미 val_check 원장에 합친 검사다. 다시 세면 이중 계상.
+            continue
         summary[c.status] = summary.get(c.status, 0) + 1
         if c.status == "FAIL":
             failures.append(c.name)

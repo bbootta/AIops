@@ -59,11 +59,14 @@ GOLDEN = {
     #   레버리지 익스포저에도 장부 익스포저 2.190조를 함께 넣는다 —
     #   RWA만 넣으면 두 비율이 서로 다른 은행을 설명하게 된다 (LEV20.1).
     #   output floor 표준 총계는 SEC-IRBA를 제외한 계층(ERBA→SA)으로 세운다.
-    "rwa_final_total": 13_478_626_877_092.645,
+    # 재고정 6: 기업 B등급 위험가중치 100% → 150% (CRE20.34 는 BB+~BB- 100%,
+    #   BB- 미만 150%. 기존 표는 국가·은행의 B 구간을 기업에 그대로 썼다).
+    #   RWA 13.479조 → 13.488조 (+0.07%), CET1 8.119% → 8.114%.
+    "rwa_final_total": 13_488_171_388_685.535,
     "rwa_sa": 1_028_895_833_988.9441,
     "rwa_irb": 6_544_287_052_378.777,
-    "cet1_ratio": 0.08119291152308737,
-    "total_ratio": 0.10938569432396912,
+    "cet1_ratio": 0.08113545772427645,
+    "total_ratio": 0.10930829072362287,
     "leverage_ratio": 0.09697351438263638,
     "ecl_total": 97_546_776_363.82495,
     "macro_weighted_total": 135_045_061_371.37775,
@@ -80,7 +83,7 @@ GOLDEN = {
     # — 함의 GDP 충격 −0.15%, 즉 경기가 조금만 나빠져도 요구치를 깬다.
     # 수치가 작아진 것이 모형이 예민해진 탓이 아니라 **자본 여유가 실제로
     # 그만큼 얇았는데 분모에서 4.13조가 빠져 있어 보이지 않았던 것**이다.
-    "reverse_critical_severity": 0.04917144775390625,
+    "reverse_critical_severity": 0.04680633544921875,
 }
 # 재고정 4 — 서식 저작 중 적대적 검토에서 드러난 CVA 기준 오류:
 #   risk_lib.ccr.cva_capital_charge는 반환값을 K_BA(소요자기자본)로 문서화하는데
@@ -213,7 +216,15 @@ GOLDEN = {
 # 동률이 되어 서열 검사가 PASS 대신 WARN 으로 내려간다 (동률이면 값을 맞바꿔도
 # 통과하므로 통제가 아니다).
 # market_portfolio_split_reconciles (일원화 대사) 가 PASS 1건을 더한다.
-GOLDEN_VALIDATION = {"PASS": 71, "WARN": 15}
+# doc_figures_not_run WARN 1건: 파이프라인 단계에는 서식이 없어 문서 대조를
+# 못 한다는 기록이다. 스튜디오가 실제 대조를 하고 이 자리표시를 대체한다.
+# FAIL 1 = stress_trough_meets_requirement. 기준 시나리오의 Tier1·총자본이
+# 이미 Pillar 2 요구(총자본 11.50%)에 미달하므로 이 표본은 결재가 막혀야 한다.
+# 이전에는 이 검사가 cet1만 보고 WARN 이었다. 결재를 막는 검사가 FAIL 로 나오는
+# 것이 시정의 목적이며, 골든이 FAIL 0 으로 돌아가면 그것이 회귀다.
+# +3 PASS: ncr_components_sum · ncr_identity · ncr_min. 순자본비율이 2선에 인자
+# 자체가 없던 것을 시정했다 (검수 6단계). 은행 표본이라 ncr_min 은 참고치다.
+GOLDEN_VALIDATION = {"PASS": 74, "FAIL": 1, "WARN": 15}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",
@@ -328,7 +339,10 @@ def test_render_markdown_has_every_section(result):
     md = render_markdown(result)
     for header in REQUIRED_HEADERS:
         assert header in md, f"missing report section: {header}"
-    assert "결재 가능 (PASS)" in md      # current verdict
+    # 표본 은행은 기준 시나리오부터 Pillar 2 요구치(총자본 11.50%)에 미달한다
+    # (stress_trough_meets_requirement FAIL). 리포트는 그 사실을 판정에 적어야
+    # 하며, '결재 가능' 으로 돌아가면 그것이 회귀다 (검수 4단계).
+    assert "결재 불가 (FAIL 존재)" in md
     assert "2028Q4" in md                  # forecast horizon
 
 
@@ -337,8 +351,11 @@ def test_render_markdown_has_every_section(result):
 def test_cli_main_writes_report(tmp_path: Path, capsys):
     out = tmp_path / "report.md"
     rc = cli_main(["run", "--report", str(out)])
-    assert rc == 0
+    # FAIL 이 있으면 종료코드 1 이다. 리포트는 그래도 쓴다: 무엇이 막았는지
+    # 읽을 수 있어야 하고, 결재 파이프라인은 종료코드로 멈춘다.
+    assert rc == 1
     assert out.exists()
+    assert "결재 불가" in out.read_text(encoding="utf-8")
     content = out.read_text(encoding="utf-8")
     assert "## 0. 종합 판정" in content
     assert "## 15. 출처 및 준거" in content
