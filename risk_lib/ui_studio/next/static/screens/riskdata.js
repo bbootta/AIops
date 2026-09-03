@@ -18,7 +18,7 @@ const SRCT=t=>TF('출처: {table}',{table:t});
 const S=t=>{const c=el('div','card sec');ap(c,el('h3',null,T(t)));return c};
 const G=(c,n)=>(c.D.data||{})[n]||null;
 const CK=n=>{const r=NG.cat(n);return (r&&r.korean)||n};
-const LEAD=(root,k)=>{ap(root,el('p','lead',T(k)))};
+const LEAD=(root,k)=>U.lead(root,k);
 const SRC=names=>MT(T('연결 원장')+' '+names.join(' · '));
 /* 표 머리글은 프레임 라벨(카탈로그 한글명)이고 툴팁이 물리 컬럼명이다. */
 function col(f,k){const i=f?f.columns.indexOf(k):-1;
@@ -29,8 +29,7 @@ function agg(f,ck,vk){const i=IX(f),m={},out=[];
   f.rows.forEach(r=>{const k=String(r[i[ck]]),v=vk==null?1:(typeof r[i[vk]]==='number'?r[i[vk]]:0);
     let e=m[k];if(!e){e=m[k]={label:k,value:0,n:0};out.push(e)}e.value+=v;e.n++});
   out.sort((a,b)=>Math.abs(b.value)-Math.abs(a.value));return out}
-function sampled(f){return MT(T('차트는 전량 프레임에서만 그린다')+' · '+
-  TF('표본 {n}/{N}행',{n:f.shown,N:f.total})+' · '+SRCT(f.table))}
+function sampled(f){return MT(TF('표본 {n}/{N}행',{n:f.shown,N:f.total})+' · '+SRCT(f.table))}
 function chart(c,n,ttl,ck,vk,money){const f=G(c,n);
   if(!f)return NL();
   if(f.shown<f.total)return sampled(f);
@@ -122,8 +121,8 @@ function sources(root,c){
       text:r[mi.domain]+' · '+code+' · '+r[mi.source_system]})});
   const box=S('표준코드 매핑');
   ap(box,items[0]?U.dotlist(items):NO(T('미매핑 코드가 없다'),'good'));
-  ap(box,MT(T('미매핑 코드는 산출 모집단에서 빠지고 대사에도 걸리지 않는다. 표준 코드가 생겨야 산출에 들어간다.')),
-    SRC(['rdm_canonical_map','chg_change_request']));
+  U.hint(box,'미매핑 코드는 산출 모집단에서 빠지고 대사에도 걸리지 않는다. 표준 코드가 생겨야 산출에 들어간다.');
+  ap(box,SRC(['rdm_canonical_map','chg_change_request']));
   ap(root,box)}
 
 /* ══════════════ DQ·대사 ═════════════════════════════════════════════ */
@@ -192,8 +191,7 @@ function exceptions(root,c){
     'due_days','finding','action'].map(k=>col(f,k)),data,{onRow:(row,i)=>{
       const k=f?f.rows.findIndex(x=>String(x[fi.exception_id])===String(ord[i].exception_id)):-1;
       if(k>=0)c.drawer.row(f,k)}}));
-  ap(qb,MT(T('심각도(색조) 다음 기한 순으로 세웠다. 원장 순서가 아니다.')+' · '+
-    SRCT('gov_exception_action')));
+  ap(qb,MT(SRCT('gov_exception_action')));
   ap(root,qb);
   const pf=G(c,'gov_alert_policy'),pi=IX(pf||{columns:[]});
   ap(root,tcard(c,'gov_alert_policy',{rowClass:r=>r[pi.blocks_submission]?'bad':null}));
@@ -261,13 +259,12 @@ function catTab(root,c){const D=c.D;
     ap(pane,U.table(catFrame(c,pick),{title:'정규 데이터모델 카탈로그',product:null}))}
   draw();
   ap(root,U.table(D.views,{title:CK('ui_view'),raw:true}));
-  ap(root,NO(T('카탈로그의 모든 테이블은 이 탭 밖에 자기 화면을 하나씩 가진다. pru_income_statement 와 pru_ownership_limit 은 NCR·건전성, st_shock_axis 는 위기상황 화면이 싣는다.'),'neutral'))}
+  }
 function useTab(root,c){const xs=c.D.x_screens||{},m={},order=[];
   Object.keys(xs).forEach(id=>{(xs[id].ledgers||[]).forEach(l=>{
     let e=m[l.table];if(!e){e=m[l.table]={t:l.table,k:l.korean,s:[],shown:l.shown,total:l.total};order.push(e)}
     if(e.s.indexOf(id)<0)e.s.push(id)})});
   const rows=order.map(e=>[e.t,e.k,e.s.join(' · '),e.shown,e.total]),n=rows.length;
-  ap(root,MT(T('어느 화면이 어느 원장을 읽는지는 화면 등록부(x_screens)에서 온다. 표시 행수는 그 화면이 실제로 실은 행수이고, 원장 행수가 전량이다.')));
   ap(root,U.table({table:null,columns:['table','korean','screens','shown','total'],
     labels:[T('테이블'),T('한글명'),T('화면'),T('표시 행수'),T('원장 행수')],
     rows:rows,shown:n,total:n},{title:'원장→화면',product:null}))}
@@ -276,7 +273,6 @@ function figTab(root,c){const fg=(c.D.x_lineage||{}).figures||{},asof=c.D.meta.a
     return [k,f.table,f.column,(f.pk||[]).map(p=>p.column+'='+(p.value==null?asof:p.value)).join(' · '),
       (f.check_names||[]).join(' · '),f.recalc_target||'-',T(f.gate_state),
       a.code_module?a.code_module+'.'+a.code_function:'-',a.citation||'-']}),n=rows.length;
-  ap(root,MT(T('수치 하나가 어느 원장의 어느 행·어느 컬럼에서 나왔고, 어느 검증 항목이 걸려 있는지의 색인이다. 값은 x_lineage 가 준다.')));
   ap(root,U.table({table:null,columns:['figure_id','table','column','pk','check_names','recalc_target','gate_state','code','citation'],
     labels:[T('수치 식별자'),T('테이블'),T('컬럼'),T('기본키'),T('검증 항목'),T('재계산 대상'),T('판정'),T('코드 모듈'),T('규정 근거')],
     rows:rows,shown:n,total:n},{title:'수치→원장',product:null}));
@@ -377,7 +373,7 @@ function matrix(root,c,mode){
     cols[8]={key:'opr_scope',label:FR.colLabel(b,bi.in_scope),raw:true,phys:'in_scope'};
     rows.forEach((o,k)=>{o.opr_scope=YN(V(bBy[String(bm.rows[k][mi[kc]])],bi,'in_scope'))})}
   ap(card,ST(cols,rows,{}));
-  ap(card,MT(T('대상여부는 특성에서 규칙으로 파생된다. 신용환산율·위험가중 범위는 산출 엔진 상수, 모집단은 익스포저 원장, 적용률은 산출 원장에서 읽는다.')));
+  U.hint(card,'대상여부는 특성에서 규칙으로 파생된다. 신용환산율·위험가중 범위는 산출 엔진 상수, 모집단은 익스포저 원장, 적용률은 산출 원장에서 읽는다.');
   ap(card,SRC(acct?['rdm_account_master','crm_code_scope','alm_code_scope']
     :['rdm_product_master','mkt_code_scope','opr_code_scope']));
   ap(root,card)}

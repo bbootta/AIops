@@ -206,10 +206,6 @@ if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)
 _AIMS = ("에이전트는 신용등급·여신승인, 가격·거래, PD·LGD·EAD 등 핵심 위험파라미터, "
          "ECL·충당금·회계전표, RWA·NCR·BIS 비율, 감독제출·공시, 경영조치, "
          "운영코드·모형 배포를 자동확정하지 않는다.")
-_ABBR = ("RDM(리스크데이터관리) · RWA(위험가중자산) · ECL(기대신용손실) · "
-         "ALM(자산부채관리) · IRRBB(은행계정 금리리스크) · LCR(유동성커버리지비율) · "
-         "NSFR(순안정자금조달비율) · IPV(독립가격검증) · SICR(신용위험 유의적 증가) · "
-         "DQ(데이터품질) · AST(구문트리) · PSMOR(운영리스크 건전관리 원칙).")
 _KILLNOTE = ("화면 전용 가드다. 이 페이지 안의 조회·제안 실행만 막고 운영 런타임에는 "
              "영향이 없으며 agent_killswitch 원장에는 쓰지 않는다.")
 _MASK_TITLE = ("마스킹은 조회 조건에는 엔진이, 출력 컬럼에는 화면만 적용한다. "
@@ -256,14 +252,12 @@ def _header(m: dict, inst: dict) -> str:
 
 def _footer(m: dict, asof: str, write_allowed: str) -> str:
     return f"""<footer>
-  <span data-i18n>엔진 산출은 결정론적이며, 에이전트는 제안만 하고 승인은 사람이 한다.</span>
   <span data-i18n>화면의 모든 값은 합성 포트폴리오에서</span> <code>run_pipeline(seed=<span
   id="foot-seed">{m['seed']}</span>,
   asof='<span id="foot-asof">{html.escape(asof)}</span>')</code><span
   data-i18n>로 산출한 것이며 실제 기관 수치가 아니다.</span>
   <span data-i18n>{_AIMS}</span>
   <span id="foot-write"><span data-i18n>운영 반영 권한(write_allowed)은 전 에이전트가 거짓이다:</span> {write_allowed}</span>
-  <br><span data-i18n>약어</span>: <span data-i18n>{_ABBR}</span>
 </footer>"""
 
 

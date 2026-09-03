@@ -24,7 +24,7 @@ const MT=t=>el('div','meta',t),MK=k=>MT(T(k));
 const CARD=t=>{const c=el('div','card');if(t)ap(c,el('h3',null,T(t)));return c};
 const G=(c,n)=>(c.D.data||{})[n]||null;
 const CK=n=>{const r=NG.cat(n);return (r&&r.korean)||n};
-const LEAD=(root,k)=>ap(root,el('p','lead',T(k)));
+const LEAD=(root,k)=>U.lead(root,k);
 // 컬럼 표시명은 카탈로그 라벨이다. raw 로 넘겨 번역을 타지 않게 하고 물리명을
 // th.title 에 남긴다.
 const CL=(f,k)=>FR.colLabel(f,IX(f)[k]);
@@ -311,7 +311,7 @@ function krRetail(root,c){
     ap(root,k)}
   const f=G(c,'kr_retail_behavioural_scope');if(!f)return;const i=IX(f);
   const k=CARD('행동옵션 표준화 적합도 판정');
-  if(f.shown<f.total){ap(k,MK('표본 프레임이라 차트를 그리지 않는다'));ap(root,k);return}
+  if(f.shown<f.total){ap(k,MT(TF('표본 {n}/{N}행',{n:f.shown,N:f.total})));ap(root,k);return}
   const m=grp(f.rows,r=>r[i.behaviour_class]+' · '+(r[i.in_scope]?T('대상'):T('제외'))+
     ' · '+OD(r[i.treatment]),r=>r[i.notional]);
   m.sort((a,b)=>b.v-a.v);

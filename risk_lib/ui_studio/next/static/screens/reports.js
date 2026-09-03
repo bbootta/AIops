@@ -53,7 +53,6 @@ function dispatchWord(i){return i.dispatched===true?T('발신'):i.dispatched===f
 // ════════════════════════════════════════════════════════════════════
 function executiveReport(root){
   const d=D(),E=A(d.executive),X=A(d.x_capital),g=A(d.x_gate);
-  ap(root,U.note(T('위원회 배포용 한 장이다. 보드는 지금 붉은 것, 막힌 것, 달라진 것만 싣고 나머지는 화면 링크로 넘긴다.'),'neutral'));
   execBoard(root,d,E,X,g);
   execKpis(root,d);
   execProse(root,E);
@@ -109,24 +108,21 @@ function execKpis(root,d){
     value:(KN[i]&&KN[i].kind==='money')?F.money(KN[i].value):k.value,sub:NG.kpiSub(i,k.sub),
     tone:k.tone||'neutral',lineage:NG.lineage.kpi(i)})));
   ap(s,U.kpiRow(items,'committee'));
-  ap(s,meta(T('게이트 스트립이 2선·3선 집계를 이미 싣고 있어 검증 KPI 두 장은 카드로 되풀이하지 않고 보드 둘째 칸 첫 두 줄에 둔다')));
 }
 function execProse(root,E){
   const br=E.briefing||[],ac=E.actions||[];
-  if(br.length){const s=sec(root,'CRO 브리핑');ap(s,proseList(br,false),
-    meta(T('결정론적 규칙 출력 · 같은 데이터면 같은 문장 · LLM 호출 없음')))}
-  if(ac.length){const s=sec(root,'CRO 액션 (즉시·단기 조치)');ap(s,proseList(ac,true),
-    meta(T('한계 위반과 자체검증 WARN·FAIL 에서 뽑았다')))}
+  if(br.length){const s=sec(root,'CRO 브리핑');ap(s,proseList(br,false))}
+  if(ac.length){const s=sec(root,'CRO 액션 (즉시·단기 조치)');ap(s,proseList(ac,true))}
 }
 function execKri(root,E,d){
   const ks=E.kris||[],nk=ks.length;if(!nk)return;
   const s=sec(root,'KRI 스코어카드 (위험선호체계)'),tr=A(d.x_trend);
-  ap(s,meta(T('RED 는 board 한계 위반, AMBER 는 management 한계, WATCH 는 operational 조기경보, GREEN 은 한계 이내다')));
+  U.hint(s,'RED 는 board 한계 위반, AMBER 는 management 한계, WATCH 는 operational 조기경보, GREEN 은 한계 이내다');
   ap(s,C.kriCards(ks,{arrows:(tr.n_periods>1)?(tr.flags||[]):null}));
   const cnt=x=>{let n=0;ks.forEach(k=>{if(k.grade===x)n++});return n};
   ap(s,meta(TF('RED {red} · AMBER {amber} · WATCH {watch} · GREEN {green} · 전체 {total}',
     {red:cnt('RED'),amber:cnt('AMBER'),watch:cnt('WATCH'),green:cnt('GREEN'),total:nk})));
-  ap(s,meta(T('임계는 RAF 원장에서 온다')));
+  U.hint(s,'임계는 RAF 원장에서 온다');
 }
 function execStack(root,X,d){
   const f=NG.frame.frameOf('cap_stack');let rows=X.tiers||[];
@@ -141,7 +137,7 @@ function execStack(root,X,d){
     rows.map(r=>[r.label,F.orDash(r.amount==null?null:F.money(r.amount)),r.instrument||'-',
     F.orDash(r.instrument_amount==null?null:F.money(r.instrument_amount)),F.pct(r.ratio),
     F.pct(r.required),U.badge(F.pp(r.surplus*100,3),r.tone||'neutral')]),{}));
-  ap(s,meta(T('비율은 그 상품까지 누적한 자본의 비율이고, 상품 금액은 그 계층에 더해지는 금액이다. 누적 금액은 상품 금액을 누적한 값이다')));
+  U.hint(s,'비율은 그 상품까지 누적한 자본의 비율이고, 상품 금액은 그 계층에 더해지는 금액이다. 누적 금액은 상품 금액을 누적한 값이다');
   const sh=[];rows.forEach(r=>{if(r.surplus<0)sh.push(r.label)});
   if(sh.length)ap(s,U.note(T('요구 미달 계층')+': '+sh.join(' · ')+' · '+T('배당·성과급 제한 대상'),'bad'));
 }
@@ -156,7 +152,6 @@ function execAttr(root,E){
     onCell:it=>NG.go(rwaScreen(it.group||it.label))}));
   const nts=[];atd.forEach(x=>{if(x.note&&nts.indexOf(x.note)<0)nts.push(x.note)});
   if(nts.length)ap(s,meta(nts.join(' / ')));
-  ap(s,meta(T('칸을 누르면 해당 RWA 화면으로 간다')));
 }
 function execSevere(root,facts,X){
   const sv=A(facts.sev),s=sec(root,'심각 시나리오 (자본 저점)');
@@ -174,7 +169,7 @@ function execLinks(root){
   const s=sec(root,'다음 화면'),r=el('div','row');
   [['결재 패키지','approval-pack'],['자본 판정','capital-verdict'],['헤드라인 추이','headline-trend'],
    ['의사결정 큐','decision-queue']].forEach(x=>ap(r,U.button(T(x[0]),{onClick:()=>NG.go(x[1])})));
-  ap(s,r,meta(T('이 보고서는 인쇄를 전제로 배치했다. 서명란과 제출 현황은 결재 패키지에 있다.')));
+  ap(s,r);
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -220,7 +215,7 @@ function packVerdict(root,self,iv,g){
   const ov=A(g.overall);
   ap(s,U.note(T(ov.blocks_approval?'결재 상신 불가':'결재 상신 가능')+' · '+T('3선이 응답대기 또는 부적합이면 이 패키지는 결재에 올릴 수 없다'),
     ov.tone||'neutral'));
-  ap(s,meta(T('게이트는 fail-closed 다. 응답이 없으면 응답대기이며 결재할 수 없다.')));
+  U.hint(s,'게이트는 fail-closed 다. 응답이 없으면 응답대기이며 결재할 수 없다.');
 }
 function packHolds(root,apv){
   const s=sec(root,'보류 사유 (중복 제거)'),hs=apv.holds||[];
@@ -235,7 +230,6 @@ function packChecks(root,self){
   ap(s,U.simpleTable(['검증 항목','상태','검증 도메인','상세','규정 근거'],bc.map(c=>[c.check_name,
     U.badge(c.status,NG.checkTone(c)),c.domain||'-',PR(c.detail),citeOf(c.check_name)]),
     {onRow:c=>NG.drawer.check(c.check_name)}));
-  ap(s,meta(T('행을 누르면 2선 원장 행이 열린다')));
 }
 function packRecalc(root,rc){
   const s=sec(root,'재계산 커버리지'),cc=A(rc.counts);
@@ -258,7 +252,7 @@ function packConditional(root,cd,iv){
   if(cd.text)ap(s,U.note(T('조건부 승인 기록 필요: ConditionalApproval 필드를 담는 카탈로그 원장이 없고, 스튜디오는 파일 기록을 읽지 않는다'),
     cd.required?'warn':'neutral'));
   ap(s,U.simpleTable(['항목','값'],CA_FIELDS.map(k=>[T(k),T('기록 없음')]),{}));
-  ap(s,meta(T('결재 책임자가 잔여위험·후속조건·이행기한·배포 범위를 기록해야 통과한다')));
+  U.hint(s,'결재 책임자가 잔여위험·후속조건·이행기한·배포 범위를 기록해야 통과한다');
   ap(s,meta(T('원장 기록 상태')+' '+(cd.ledger_record==null?T('기록 없음'):String(cd.ledger_record))
     +' · '+T(cd.file_record_read?'파일 기록을 읽었다':'파일 기록을 읽지 않는다')));
 }
@@ -291,13 +285,13 @@ function packSignature(root,sb){
     [T('작성자'),uq('prepared_by'),un()],
     [T('검토자'),uq('reviewed_by'),un()],
     [T('승인자'),uq('approved_by'),un()]],{}));
-  ap(s,meta(T('서명 없음. 결재선은 원장 값이며 화면은 서명을 만들지 않는다.')));
+  U.hint(s,'서명 없음. 결재선은 원장 값이며 화면은 서명을 만들지 않는다.');
 }
 function packAims(root){
   const s=sec(root,'AIMS §8-2 자동확정 금지 목록');
   ap(s,el('p',null,T('에이전트는 신용등급·여신승인, 가격·거래, PD·LGD·EAD 등 핵심 위험파라미터, ECL·충당금·회계전표, RWA·NCR·BIS 비율, 감독제출·공시, 경영조치, 운영코드·모형 배포를 자동확정하지 않는다.')));
-  ap(s,meta(T('내보내기는 인쇄만 가능하다. 샌드박스가 다운로드를 막는다.')));
-  ap(s,meta(T('AIMS §5 A.9.2 결재선을 그대로 옮겼고 서명은 비워 둔다')));
+  U.hint(s,'내보내기는 인쇄만 가능하다. 샌드박스가 다운로드를 막는다.');
+  U.hint(s,'AIMS §5 A.9.2 결재선을 그대로 옮겼고 서명은 비워 둔다');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -340,8 +334,8 @@ function trendSnapshot(root,g){
   const s=sec(root,'헤드라인 스냅샷 (현재 실행)');
   ap(s,U.note(T('단일 기간, 추이 없음'),'not-run'));
   ap(s,recalcTable(A(A(g.recalc).rows)||[]));
-  ap(s,meta(T('현재 실행의 헤드라인 수치다. 기간이 하나뿐이라 차트를 그리지 않는다.')));
-  ap(s,meta(T('게이트 전이 없음 (이력 미보존)')));
+  U.hint(s,'현재 실행의 헤드라인 수치다. 기간이 하나뿐이라 차트를 그리지 않는다.');
+  U.hint(s,'게이트 전이 없음 (이력 미보존)');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -365,7 +359,7 @@ function capHead(root,X){
       onClick:()=>NG.go('stress')}];
   if(X.mda_zone)items.push({text:T('MDA 구간 진입')+' · '+T('배당·성과급 제한 대상'),tone:X.tone||'bad'});
   ap(s,U.dotlist(items));
-  ap(s,meta(T('구속 계층은 잉여가 가장 작은 계층이다. 요구치는 최저 기준에 완충자본을 더한 값이다.')));
+  U.hint(s,'구속 계층은 잉여가 가장 작은 계층이다. 요구치는 최저 기준에 완충자본을 더한 값이다.');
 }
 function tierTarget(l){const s=String(l);return s.indexOf('CET1')>=0?'cet1_ratio':s.indexOf('Total')>=0?'total_ratio':null}
 function capTiers(root,X){
@@ -376,7 +370,7 @@ function capTiers(root,X){
     F.pct(r.ratio),F.pct(r.required),F.pp(r.surplus*100,3),U.badge(T(r.surplus<0?'부족':'잉여'),r.tone||'neutral')]),
     {onRow:r=>{const t=tierTarget(r.label),ln=t?NG.lineage.byTarget(t):null;
       if(ln)NG.drawer.lineage(ln);else NG.drawer.gate()}}));
-  ap(s,meta(T('비율은 그 상품까지 누적한 자본의 비율이고, 상품 금액은 그 계층에 더해지는 금액이다. 누적 금액은 상품 금액을 누적한 값이다')));
+  U.hint(s,'비율은 그 상품까지 누적한 자본의 비율이고, 상품 금액은 그 계층에 더해지는 금액이다. 누적 금액은 상품 금액을 누적한 값이다');
   ap(s,meta(TF('출처: {table}',{table:'cap_stack'})));
 }
 function capBuffers(root,X){
@@ -437,7 +431,7 @@ function capKri(root,X,E){
   (E.kris||[]).forEach(k=>{if(k.name&&k.name.indexOf('CET1')>=0)
     ap(row,el('span','meta',k.name+' '+k.actual_text+' · '+k.threshold_text))});
   ap(s,row);
-  ap(s,meta(T('임계는 RAF 원장에서 온다')));
+  U.hint(s,'임계는 RAF 원장에서 온다');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -447,7 +441,7 @@ function regForms(root){
   const d=D(),forms=d.forms||[],byf={};
   (A(A(d.x_gate).submission).by_form||[]).forEach(f=>{byf[f.form_id]=f});
   ap(root,U.note(T('금융감독원 배포 기준 업무보고서다. 라인마다 산식·규정근거·산출 모듈을 남긴다.'),'neutral'));
-  ap(root,meta(T('서식 식별자는 내부 코드이며 배포본 서식번호와의 대조가 남아 있다')));
+  
   const wrap=el('div','split'),list=el('div','list'),pane=el('div');
   const sel=A(NG.route().params).sel;let cur=null,first=null;
   forms.forEach(f=>{
@@ -466,7 +460,7 @@ function regForms(root){
 }
 function formStatus(f,row){
   const c=U.section('제출·결재 상태',{folded:true,open:true});
-  if(!row){ap(c,meta(T('이 서식의 제출·결재 원장 행이 없다')));return c}
+  if(!row){U.hint(c,'이 서식의 제출·결재 원장 행이 없다');return c}
   const r=el('div','row');
   ap(r,U.badge(row.status,NG.tone('reg_submission.status',row.status)),
     U.badge(row.decision||'-',NG.tone('gov_approval.decision',row.decision)),
@@ -483,7 +477,7 @@ function formChecks(root,d){
   if(!fc){ap(s,meta(T('원장 행 없음')));return}
   const i=NG.frame.frameIdx(fc);
   ap(s,U.table(fc,{title:null,rowClass:r=>r[i.status]==='FAIL'?'bad':null}));
-  ap(s,meta(T('FAIL 행은 붉게 칠한다. 건수는 서버 집계이고 표본 행은 확인용이다.')));
+  U.hint(s,'FAIL 행은 붉게 칠한다. 건수는 서버 집계이고 표본 행은 확인용이다.');
 }
 
 // ── registration ────────────────────────────────────────────────────

@@ -137,8 +137,7 @@ function structured(root,c){
     ap(chip,U.chips(ps.map(x=>({value:x.q,label:x.label,raw:true})),
       val=>{inp.value=val;MEM[qk(c,v)]=val;run()}));
     inp.value=keep!=null?keep:first;inp.placeholder=first;
-    ap(meta,MT(T('조회 문장은 engine.js 의 한국어 문법으로 해석한다. 이상·초과·이하·미만·그리고 같은 키워드는 화면 언어를 바꿔도 번역하지 않는다.')));
-    ap(info,viewCard(c,v),guardNote())}
+      ap(info,viewCard(c,v),guardNote())}
   function run(){planCard(pane,c,v,inp.value)}
   sync();run()}
 

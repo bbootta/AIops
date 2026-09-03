@@ -215,6 +215,8 @@ _t("ng_gate",
    '규제미달 {n}||Regulatory shortfall {n}',
    'PASS {pass} · 미실행 {not_run} · 항등식 {identity} 제외||PASS {pass} · not run {not_run} · {identity} identities excluded',
    '대기 {n}||{n} pending',
+   '값의 근거는 {mix}||Basis of the values {mix}',
+   '충격 축 {n}종||{n} shock axes',
    # 헤드라인 카드의 sub 문장. app._kpis 는 값이 섞인 한국어 산문을 만들어
    # 영문 화면에서 그대로 남았다. payload_ext 가 조각과 값을 따로 실어
    # 화면이 여기 있는 틀로 다시 쓴다.

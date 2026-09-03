@@ -22,7 +22,7 @@ const CL=(f,k)=>FR.colLabel(f,IX(f)[k]);
 const CO=(f,k)=>({key:k,label:CL(f,k),raw:true,phys:k});
 /* base.css 가 section{display:none} 이라 펼친 카드는 div 로 만든다. */
 const SQ=(k,x)=>{const c=el('div','card sec');ap(c,el('h3',null,T(k)+(x?' · '+x:'')));return c};
-const LEAD=(root,k)=>ap(root,el('p','lead',T(k)));
+const LEAD=(root,k)=>U.lead(root,k);
 function tcard(c,n,o){o=o||{};o.title=CK(n);o.raw=true;return U.table(G(c,n),o)}
 /* 단위는 추적표의 unit 컬럼 값이다. 화면이 단위를 정하지 않는다. */
 function uv(v,u){if(v==null)return '-';if(u==='KRW')return fmt.money(v);
@@ -126,9 +126,9 @@ function macroMon(root,c){
   const M=c.D.macro;
   if(!M){ap(root,NO(T('연결 원장 없음'),'warn'));return}
   const obs=M.observations,mst=M.master,oi=IX(obs);
-  ap(root,el('p','lead',TF('통합위기상황분석 시나리오의 입력이 되는 거시·금융지표 {n}종이다. 부문별 최근값과 이탈 경보, 계열 추이, 그리고 시나리오 가정값이 어느 지표의 어떤 값에서 나왔는지를 같은 원장에서 읽는다.',{n:mst.total})));
+
   const mix=Object.keys(M.basis_mix||{}).map(k=>k+' '+TF('{n}행',{n:M.basis_mix[k]})).join(' · ');
-  ap(root,MT(TF('값의 근거는 {mix} 이다. 이 환경은 외부 통계로 나가는 통신이 막혀 있어 실측 피드가 없다. 출처 기관과 통계표 코드는 실제 계열을 가리키므로, 피드가 열리면 관측치만 교체하면 된다.',{mix:mix})));
+  ap(root,MT(TF('값의 근거는 {mix}',{mix:mix})));
   const nal=M.alerts.length,nlk=M.links.length;
   const scens=[];M.links.forEach(x=>{if(scens.indexOf(x.scenario)<0)scens.push(x.scenario)});
   const nsc=scens.length;
@@ -146,7 +146,7 @@ function macroMon(root,c){
       {key:'d',label:CL(mst,'drives'),raw:true,phys:'drives'}],
     M.alerts.map(a=>({name:a.name,category:a.category,period:a.period,
       v:mfmt(a.value,a.unit),z:fmt.num(a.z),d:a.drives})),{numeric:false}));
-  ap(ac,MT(T('임계는 계열 자신의 표준편차다. 수준·단위가 지표마다 달라 절대값 임계를 두면 환율만 계속 걸린다.')));
+  U.hint(ac,'임계는 계열 자신의 표준편차다. 수준·단위가 지표마다 달라 절대값 임계를 두면 환율만 계속 걸린다.');
   ap(root,ac);
   /* 2. 부문별 최근값 */
   const tc=SQ('부문별 지표 (최근값)');
@@ -157,7 +157,7 @@ function macroMon(root,c){
     M.latest.map(x=>({name:x.name,category:x.category,v:mfmt(x.value,x.unit),
       y:x.yoy==null?'-':fmt.pct(x.yoy,2),period:x.period,freq:x.freq,source:x.source,
       source_code:x.source_code,d:x.drives})),{numeric:false}));
-  ap(tc,MT(T('전년동기대비는 1년 전 값 대비 비율 변화다. 수준이 %인 지표도 같은 기준으로 계산한다.')),U.srcMeta(obs));
+  U.hint(tc,'전년동기대비는 1년 전 값 대비 비율 변화다. 수준이 %인 지표도 같은 기준으로 계산한다.');ap(tc,U.srcMeta(obs));
   ap(root,tc);
   /* 3. 계열 추이 */
   const sc=SQ('계열 추이'),spane=el('div');
@@ -179,7 +179,7 @@ function macroMon(root,c){
   ser();ap(root,sc);
   /* 4. 시나리오 연결 */
   const lc=SQ('시나리오 연결 (가정값이 어느 지표에서 나왔나)');
-  ap(lc,MT(T('시나리오 가정값은 최근 관측값에 배수와 그 지표의 분기 변동성을 곱해 더한 값이다. 배수를 표준편차 단위로 두는 이유는, 수준이 다른 지표를 같은 비율로 때리면 환율과 실업률이 같은 충격을 받은 셈이 되기 때문이다.')));
+  U.hint(lc,'시나리오 가정값은 최근 관측값에 배수와 그 지표의 분기 변동성을 곱해 더한 값이다. 배수를 표준편차 단위로 두는 이유는, 수준이 다른 지표를 같은 비율로 때리면 환율과 실업률이 같은 충격을 받은 셈이 되기 때문이다.');
   const lk=G(c,'macro_scenario_link'),shk=G(c,'st_macro_scenario_shock');
   let scen=scens[scens.length-1];
   const lpane=el('div');
@@ -207,7 +207,7 @@ function macroMon(root,c){
   links();ap(root,lc);
   ap(root,tcard(c,'macro_scenario_link'),tcard(c,'st_macro_scenario_shock'));
   ap(root,tcard(c,'rdm_macro_indicator_master'));
-  ap(root,MT(T('지표 목록·출처 코드·움직이는 축은 마스터 원장이 정한다. 화면과 엔진이 같은 원장을 읽으므로 지표를 늘리면 두 곳이 함께 바뀐다.')));}
+  }
 
 /* ══════════════ 시나리오 설정 ═══════════════════════════════════════ */
 function scenarioSet(root,c){
@@ -223,7 +223,7 @@ function scenarioSet(root,c){
     const m=/단위충격\(([-0-9.]+)\s*([^)]+)\)/.exec(String(r[i.formula]||''));
     axes.push({step:r[i.step],unit:m?m[2]:r[i.unit],base:m?parseFloat(m[1]):null})});
   const na=axes.length;
-  ap(card,MT(TF('충격 축 {n}종의 단위충격과 심도 구조를 편집해 변경 제안서를 만든다. 화면은 재계산하지 않는다. 시나리오 파라미터는 RWA·비율·판정 전체에 전이되므로, 적용은 파이프라인 재실행과 검증 두 층을 다시 거쳐야 한다.',{n:na})));
+  ap(card,MT(TF('충격 축 {n}종',{n:na})));
   const inputs={};
   ap(card,U.simpleTable([{key:'step',label:CL(f,'step'),raw:true,phys:'step'},
       {key:'unit',label:CL(f,'unit'),raw:true,phys:'unit'},
@@ -266,7 +266,7 @@ function scenarioSet(root,c){
   if(kill)ap(card,NO(T('비상정지 (실행 차단)'),'blocked'));
   ap(root,card);
   ap(root,pathChart(c,f,null));
-  ap(root,MT(T('경로는 현행 파라미터의 산출 결과다. 제안은 이 경로를 바꾸지 않는다.')));}
+  }
 
 /* ══════════════ 역스트레스 ══════════════════════════════════════════ */
 function reverseStress(root,c){
@@ -298,7 +298,7 @@ function reverseStress(root,c){
   ap(root,U.table({table:null,columns:['item','value'],labels:[T('항목'),T('값')],
     rows:rows,shown:nr,total:nr},{title:'파열점의 산출 상태',filter:false}));
   ap(root,NO(T('심도 1.0 미만에서 임계가 뚫리면(임계 심도 < 1) 심각 시나리오보다 약한 충격에도 요구비율을 지키지 못한다는 뜻이다. 자본계획·회복계획 연계 대상.')));
-  ap(root,MT(T('역산은 자본 임계 비율을 목표로 심도를 이분 탐색해 얻는다. 파열점의 위험가중자산과 기대신용손실은 그 심도에서의 산출값이며, 함의 충격은 그 심도를 거시 축으로 환산한 값이다.')));}
+  }
 
 /* ══════════════ ICAAP 인벤토리 ══════════════════════════════════════ */
 function icaap(root,c){
@@ -310,10 +310,10 @@ function icaap(root,c){
     U.kpi({label:'내부자본 여유',value:fmt.money(ic.buffer),delta:false}),
     U.kpi({label:'내부자본 소진율',value:fmt.pct(ic.utilisation,2),delta:false})],c.meta.density));
   ap(root,CH.gauge(ic.ec,ic.available_capital,{title:T('내부자본 소진율'),fmt:x=>fmt.money(x)}));
-  ap(root,MT(T('소진율은 소요액을 가용자본으로 나눈 값이며 모형 산출이다. 이 화면은 다시 계산하지 않는다.')));
+  
   ap(root,tcard(c,'icaap_risk_taxonomy'),tcard(c,'icaap_materiality'),
     tcard(c,'icaap_materiality_policy'),tcard(c,'icaap_capital_map'));
-  ap(root,MT(T('중요성 등급은 판정 정책 원장의 축과 기준값, 그리고 중요 판정 최소 초과 축 수로 결정된다. 등급이 자본 매핑의 부과 구분을 정하고, 잠정 사유가 남은 행은 매핑이 확정되지 않은 것이다.')));}
+  }
 
 /* ══════════════ 경영조치·제출 ═══════════════════════════════════════ */
 function actions(root,c){
@@ -330,7 +330,7 @@ function actions(root,c){
   ap(bar,U.button(T('마감 워크플로'),{onClick:()=>c.go('close-workflow')}));
   ap(root,bar);
   ap(root,tcard(c,'st_action_playbook'),tcard(c,'st_management_action'),tcard(c,'reg_submission'));
-  ap(root,MT(T('발동표는 발동 지표와 임계, 승인 주체와 소요 기간을 정한다. 발동 기록은 시나리오·분기별로 임계를 미달한 사실과 그 사유를 남기며, 자본효과 가정이 없는 조치는 경로에 반영하지 않는다.')));}
+  }
 
 NG.screen('stress',{group:GRP,sub:null,title:'위기상황',build:stressMain});
 NG.screen('macro',{group:GRP,sub:SUB,title:'거시지표 모니터링',build:macroMon});

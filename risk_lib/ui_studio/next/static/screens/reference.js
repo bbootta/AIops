@@ -19,12 +19,13 @@ const TBL=[['패키지 견적 (COM-002·003·004·005)','quotes'],
 /* 차트는 전량 프레임에서만 그린다. 출처 줄은 상자 안에 직접 단다 (프레임에
    원장명이 없어 charts 의 src 경로가 원장명을 비워 찍기 때문이다). */
 const CHART=(f,make)=>{
-  if(f.shown<f.total)return U.note(T('표본 프레임이라 차트를 그리지 않는다'),'warn');
+  if(f.shown<f.total)return U.srcMeta(f);
   const node=make();if(node)ap(node,U.srcMeta(f));return node};
 
 function build(root,c){
   const C=c.D.commercial||{},dc=C.double_counting||[],q=C.quotes,r=C.roi;
-  ap(root,el('p','lead',T('사업성 산출. 규제 산출물이 아니다. 제출 지문·독립검증 대상에 넣지 않으며 모든 금액은 가정 원장에서 계산으로만 나온다. 전부 합성 가정이며 실제 견적은 계약 가정으로 교체된다.')),
+  U.lead(root,'사업성 산출. 규제 산출물이 아니다. 제출 지문·독립검증 대상에 넣지 않으며 모든 금액은 가정 원장에서 계산으로만 나온다. 전부 합성 가정이며 실제 견적은 계약 가정으로 교체된다.');
+  ap(root,
     el('p','meta',T('이 화면의 수치에는 수치 ID가 없다. 계보 드로어와 3선 재계산 범위(RECALC_SCOPE) 배지는 규제 산출물에만 붙는다.')));
   /* COM-007. 같은 가정을 두 편익이 계상하면 목록이 그대로 나온다. */
   ap(root,U.note(dc[0]?T('ROI 이중계상 발견 (COM-007)')+' '+dc.map(NG.text).join(' · ')

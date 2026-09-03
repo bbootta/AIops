@@ -29,7 +29,7 @@ const CL=(f,k)=>f?FR.colLabel(f,IX(f)[k]):k;
 const HL=(f,k)=>({label:CL(f,k),raw:true,phys:k});
 const cnt=n=>TF('{n}건',{n:n});
 const srv=n=>TF('전량 {N} (서버 집계)',{N:n});
-const LEAD=(root,k)=>ap(root,el('p','lead',T(k)));
+const LEAD=(root,k)=>U.lead(root,k);
 /* base.css 가 section{display:none} 이라 펼친 카드는 div 로 만든다. */
 function CD(root,t,o){o=o||{};const c=el('div','card sec');ap(c,el('h3',null,o.raw?t:T(t)));ap(root,c);return c}
 function FOLD(root,t,fn){const d=U.section(t,{folded:true});
@@ -45,7 +45,7 @@ function agg(f,key){const i=IX(f)[key],ks=[],m={};
   return ks.map(k=>({label:k,value:m[k]}))}
 /* 분포 막대는 전량 프레임에서만 그린다. 표본이면 이유를 적는다. */
 function distBars(f,key,title,src){if(!f)return null;
-  if(f.shown<f.total)return MT(T('차트는 전량 프레임에서만 그린다')+' · '+TF('표본 {n}/{N}행',{n:f.shown,N:f.total}));
+  if(f.shown<f.total)return MT(TF('표본 {n}/{N}행',{n:f.shown,N:f.total}));
   const it=agg(f,key);if(!it.length)return null;
   if(src)it.forEach(x=>{x.tone=TN(src,x.label)});
   return CH.bars(it,{title:T(title),src:f,fmt:NI})}
@@ -116,8 +116,8 @@ ap(gc,ST(['항목','값'],[
   [T('응답 요청 ID'),rp?dv(rp.request_id):T('응답 없음')],[T('실행 ID'),rp?dv(rp.run_id):T('응답 없음')],
   [T('판정'),rp?dv(rp.verdict):T('응답 없음')],[T('검증자'),rp?dv(rp.validated_by):T('응답 없음')],
   [T('검증 시각'),rp?dv(rp.validated_at):T('응답 없음')]]));
-ap(gc,MT(T('요청과 응답의 식별자가 다르면 이전 요청에 대한 응답이다')),
-  NO(T('이 판정은 화면을 산출한 실행 시점의 스냅샷이다. 이후 도착한 3선 응답이나 판정 변경은 이 화면에 반영되지 않는다. 현재 상태의 정본은 저장소 게이트(check_gate)다.'),'neutral'),
+U.hint(gc,'요청과 응답의 식별자가 다르면 이전 요청에 대한 응답이다');
+ap(gc,NO(T('이 판정은 화면을 산출한 실행 시점의 스냅샷이다. 이후 도착한 3선 응답이나 판정 변경은 이 화면에 반영되지 않는다. 현재 상태의 정본은 저장소 게이트(check_gate)다.'),'neutral'),
   NO(tx(dv(iv.reason))+' · '+T('게이트는 fail-closed 다. 응답이 없으면 응답대기이며 결재할 수 없다.'),iv.tone||'blocked'));
 
 /* (5) 2선 집계 */
@@ -175,7 +175,7 @@ FOLD(root,'3선이 도전해야 할 가정',box=>{
 const cc=CD(root,'조건부 승인 기록');
 ap(cc,BG(cn.required?T('조건부 승인 필요'):T('조건부 승인 불필요'),cn.required?'warn':'neutral'));
 ap(cc,cn.required?NO(T('조건부 승인 기록 필요: ConditionalApproval 필드를 담는 카탈로그 원장이 없고, 스튜디오는 파일 기록을 읽지 않는다'),'warn')
-  :MT(T('판정이 조건부일 때만 기록을 요구한다')));
+  :null);U.hint(cc,'판정이 조건부일 때만 기록을 요구한다');
 
 /* (10) 톤 매핑 */
 FOLD(root,'심각도·톤 매핑',box=>{
@@ -202,7 +202,6 @@ ap(root,U.kpiRow(st.map(k=>U.kpi({label:k,value:NI(cv[k]),delta:false,
 const c0=CD(root,'커버리지');
 ap(c0,CH.bars(st.map(k=>({label:T(k),value:cv[k]})),{title:T('커버리지'),fmt:NI,note:cnt(cv.n)}));
 ap(c0,MR('반영',cv['반영'],cv.n,TN('req_trace.status','반영')));
-ap(c0,MT(T('이 화면의 상태 어휘는 x_severity 에 없다. 색을 붙이지 않고 값만 적는다.')));
 ap(c0,MT(dv(cv.source)+' · SHA-256 '+dv(cv.source_sha256)));
 const bar=el('div','toolbar');let fSt='',fPr='',kw='';
 const areas=[];rows.forEach(r=>{const a=String(r.id).split('-')[0];if(areas.indexOf(a)<0)areas.push(a)});
@@ -234,7 +233,7 @@ if(ac){const i=IX(ac);
  let last=null;ac.rows.forEach(r=>{if(!last||r[i.seq]>last[i.seq])last=r});
  if(last)ap(b,ST([HL(ac,'seq'),HL(ac,'actor'),HL(ac,'tool'),HL(ac,'output'),HL(ac,'gate')],
    [[last[i.seq],last[i.actor],last[i.tool],tx(String(last[i.output])),BG(dv(last[i.gate]),TN('agent.gate',last[i.gate]))]]));
- ap(b,MT(T('최종 인간 게이트 행은 활동 원장의 마지막 순번이다')));
+ U.hint(b,'최종 인간 게이트 행은 활동 원장의 마지막 순번이다');
  ap(b,DL(agg(ac,'gate').map(x=>({tone:TN('agent.gate',x.label),text:x.label,right:NI(x.value)}))));
  ap(b,tcard(c,'agent_activity',{rowClass:r=>TN('agent.gate',r[i.gate])}))}
 const k=CD(root,'범위형 비상정지 이력');
@@ -257,7 +256,7 @@ ap(s0,DL([
  {tone:'neutral',text:T('발동 사유'),right:st.killReason||T('기록 없음')},
  {tone:'neutral',text:T('2차 확인자'),right:st.killConfirm||T('기록 없음')}]));
 ap(s0,NO(T('화면 전용 범위다 (AIG-009). 운영 킬스위치 원장 agent_killswitch 와는 별개다.'),'neutral'));
-ap(s0,MT(T('이 실행에서만 유지되며 원장에 기록되지 않는다')));
+U.hint(s0,'이 실행에서만 유지되며 원장에 기록되지 않는다');
 /* 발동·해제는 머리말 표시줄과 같은 상태·같은 두 칸 규칙을 쓴다. */
 const f0=CD(root,'비상정지 발동 · 해제');
 const rin=IN({placeholder:T(on?'해제 사유 (필수)':'비상정지 사유 (필수)'),aria:T('사유'),onInput:sync});
@@ -275,11 +274,11 @@ function fire(){if(go.disabled)return;
  if(r.oninput)r.oninput();if(cf.oninput)cf.oninput();
  gg.click()}
 const tb=el('div','toolbar');ap(tb,rin,cin,go);ap(f0,tb);
-ap(f0,MT(T('이 화면에서 발동·해제하면 머리말 표시줄과 같은 상태를 쓴다. 사유와 2차 확인자를 모두 채워야 한다.')));
+U.hint(f0,'이 화면에서 발동·해제하면 머리말 표시줄과 같은 상태를 쓴다. 사유와 2차 확인자를 모두 채워야 한다.');
 const kc=CD(root,'범위형 비상정지 이력');
 if(ks){const i=IX(ks);let miss=0;ks.rows.forEach(r=>{if(r[i.confirmed_by]==null)miss++});
  ap(kc,BG(T('2차 확인 미완료')+' '+NI(miss)+'/'+NI(ks.total),miss?'blocked':'good'));
- ap(kc,MT(T('두 번째 확인자가 없는 행은 2차 확인이 남아 있다')));
+ U.hint(kc,'두 번째 확인자가 없는 행은 2차 확인이 남아 있다');
  ap(kc,tcard(c,'agent_killswitch',{rowClass:r=>r[i.confirmed_by]==null?'blocked':null}))}
 }
 
@@ -346,7 +345,7 @@ const gen=BT(T('오버레이 제안 생성'),{primary:true,onClick:()=>{
    note:T('화면 값은 바뀌지 않는다.')},null,2)}});
 const bar=el('div','toolbar');ap(bar,sel,val,why,ev);
 ap(p,bar,gen,err,out);
-ap(p,MT(T('적용 경로는 원장 등재 → 4-Eyes 승인 → 파이프라인 재실행 → 2선 → 3선 재요청이다. 화면은 제안서만 만든다.')));
+U.hint(p,'적용 경로는 원장 등재 → 4-Eyes 승인 → 파이프라인 재실행 → 2선 → 3선 재요청이다. 화면은 제안서만 만든다.');
 }
 
 /* ══════════════ 통제: 변경통제 ══════════════════════════════════════ */
@@ -356,7 +355,7 @@ LEAD(root,'모형·산출 변경이 정책에서 실행까지 지나는 다섯 �
 const gt=G(c,'gov_change_gate'),gi=gt?IX(gt):{};
 tset(root,c,['gov_change_policy','gov_change_request','gov_change_impact']);
 ap(root,tcard(c,'gov_change_gate',{rowClass:r=>TN('change_gate.decision',r[gi.decision])}));
-if(gt&&gt.total===0)ap(root,MT(T('변경 배포 게이트 원장에 행이 없다. 배포 판정이 아직 없다는 뜻이다.')));
+if(gt&&gt.total===0)
 ap(root,tcard(c,'gov_change_control'));
 }
 
@@ -384,7 +383,6 @@ const tr=G(c,'aig_agent_trace'),ti=tr?IX(tr):{};
 const a=CD(root,'프롬프트·도구·출력 로그');
 const bb=distBars(tr,'phase','단계별 추적 기록 수');if(bb)ap(a,bb);
 if(tr)ap(a,DL(agg(tr,'gate').map(x=>({tone:TN('agent.gate',x.label),text:x.label,right:NI(x.value)}))));
-ap(a,MT(T('단계 값은 x_severity 에 어휘가 없어 색을 붙이지 않는다. 게이트만 톤을 받는다.')));
 ap(a,tcard(c,'aig_agent_trace',{rowClass:r=>TN('agent.gate',r[ti.gate])}));
 tset(root,c,['aig_redaction_rule','aig_adjustment']);
 ap(root,MT(T('수동조정 원장')+' · '+T('이 화면은 읽기만 한다. 제안은 오버레이 화면이 만든다.')));
@@ -403,7 +401,7 @@ ap(a,ST(['항목','값'],[
  [CL(ur,'n_tables'),NI(run.n_tables)],[CL(ur,'n_rows'),NI(run.n_rows)],
  [CL(ur,'run_fingerprint'),dv(run.run_fingerprint)],
  [CL(ur,'is_complete'),BG(String(run.is_complete),run.is_complete?'good':'blocked')]]));
-ap(a,MT(T('실행이 완결이 아니면 산출물은 부분이다. 판정은 원장 값 그대로다.')));
+U.hint(a,'실행이 완결이 아니면 산출물은 부분이다. 판정은 원장 값 그대로다.');
 ap(a,tcard(c,'gov_unified_run'));
 const b=CD(root,'감사기록 해시체인');
 const cb=el('div','trow');ap(cb,el('code',null,'chain_ok'),' ',
@@ -418,9 +416,7 @@ if(ri){const i=IX(ri);
  ap(s0,ST([HL(ri,'stage'),HL(ri,'seq'),HL(ri,'kind'),HL(ri,'detail')],
    ri.rows.map(r=>[r[i.stage],r[i.seq],r[i.kind],tx(String(r[i.detail]))])));
  if(ri.total===0)ap(s0,MT(T('이슈 없음')))}
-ap(s0,MT(T('이슈 종류는 x_severity 에 어휘가 없어 색을 붙이지 않는다.')));
 const v=CD(root,'산출 근거 원장');
-ap(v,MT(T('계보 드로어의 근거 탭이 이 원장을 읽는다.')));
 ap(v,tcard(c,'val_audit_ledger',{onRow:r=>{const ln=NG.lineage.of(String(r[0]));if(ln)c.drawer.lineage(ln)}}));
 tset(root,c,['int_engine_adapter','int_engine_io']);
 }
@@ -437,7 +433,7 @@ if(qp){const blk=qp.rows.filter(r=>r[qi.block_reason]!=null);let nb=0;blk.forEac
  ap(a,MT(CL(qp,'block_reason')+' '+NI(nb)+'/'+NI(qp.total)));
  if(blk.length)ap(a,ST([HL(qp,'plan_id'),HL(qp,'view_id'),HL(qp,'status'),HL(qp,'block_reason')],
    blk.map(r=>[r[qi.plan_id],r[qi.view_id],r[qi.status],tx(String(r[qi.block_reason]))])));
- ap(a,MT(T('조회계획 상태는 x_severity 에 어휘가 없어 색을 붙이지 않는다.')))}
+ }
 ap(a,tcard(c,'ui_query_plan'));
 const lp=G(c,'ui_layout_proposal'),li=lp?IX(lp):{};
 const b=CD(root,'비정형 레이아웃 제안');

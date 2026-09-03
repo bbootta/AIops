@@ -94,7 +94,7 @@ ap(root,KR((D.kpis||[]).map((k,i)=>K({label:k.label,
  /* (2) 인사이트 리본 */
 const r1=el('div','cols2');ap(root,r1);
 const rib=S('인사이트 (한계 위반·미해소 예외·검증 상태)');ap(r1,rib);
-ap(rib,DL(insights(c)),MT(T('결정론적 규칙 출력 · 같은 데이터면 같은 문장 · LLM 호출 없음')));
+ap(rib,DL(insights(c)));
 
  /* (3) 위기상황 자본비율 경로 */
 const sp=xc.stress_path||[];
@@ -187,7 +187,7 @@ ap(box,el('h4',null,T('실행 간 대조')),runTb(c));
 function decisionQueue(root,c){
 const D=c.D,g=D.x_gate||{},xq=D.x_queue||{},xcl=D.x_close||{};
 const apv=g.approvals||{},sub=g.submission||{},holds=xq.holds||[];
-ap(root,el('p','lead',T('결재를 막는 것과 그것을 푸는 조치를 한자리에 모은다')+'. '+T('건수는 서버 집계이고 아래 표본 행은 확인용이다')));
+U.lead(root,'결재를 막는 것과 그것을 푸는 조치를 한자리에 모은다');
  /* (1) 보류 */
 const nk=holds.length;
 const hb=CD(root,'보류');
@@ -249,7 +249,7 @@ else ap(r,NO(T('원장 행 없음'),'warn'));
 }
 function closeWorkflow(root,c){
 const D=c.D,xcl=D.x_close||{},tasks=xcl.tasks||[],st=xcl.statements||{},g=D.x_gate||{};
-ap(root,el('p','lead',T('마감 과업과 게이트 판정을 단계 레인으로 세운다. 판정과 사유는 게이트 원장 값이다')));
+U.lead(root,'마감 과업과 게이트 판정을 단계 레인으로 세운다. 판정과 사유는 게이트 원장 값이다');
 const phases=[];tasks.forEach(t=>{if(phases.indexOf(t.phase)<0)phases.push(t.phase)});
 // 열 수는 인라인 스타일이 아니라 커스텀 속성으로 준다. 인라인으로 두면
 // 좁은 화면에서 한 열로 내리는 미디어 규칙을 이겨 보드가 넘친다.
@@ -308,7 +308,7 @@ return st;
 function simulation(root,c){
 const D=c.D,Sm=D.sim;
 if(!Sm||!Sm.components){ap(root,NO(T('시뮬레이션 기준값이 payload 에 없다. 화면을 그리지 않는다.'),'bad'));return}
-ap(root,el('p','lead',T('자본비율 항등식의 설명용 산술이다. 위험가중자산과 자본을 움직여 비율 반응을 본다. 재계산이 아니며 승인·제출값 아님')));
+U.lead(root,'자본비율 항등식의 설명용 산술이다. 위험가중자산과 자본을 움직여 비율 반응을 본다. 재계산이 아니며 승인·제출값 아님');
 const comps=Sm.components,inputs={};
 let redraw=()=>{};
 const box=CD(root,'입력');
@@ -349,7 +349,7 @@ const zone=k=>s.ratios[k]>=req[k]?T('요구 충족'):(s.ratios[k]>=min[k]?T('완
 const rc=S('요구비율 층과 도달 구간');
 ap(rc,ST(['계층','조정 후 비율','최저 기준','버퍼','소요','잉여','구간'],TIERS.map(p=>[p[1],P(s.ratios[p[0]],2),P(min[p[0]],2),P(bufTotal,2),P(req[p[0]],2),fmt.pp((s.ratios[p[0]]-req[p[0]])*100),zone(p[0])])));
 ap(rc,ST(['버퍼','비율'],Object.keys(Sm.buffers||{}).map(k=>[k,P(Sm.buffers[k],2)])));
-ap(rc,MT(T('완충자본 잠식 구간은 최저비율은 넘었으나 요구비율에 못 미치며 배당·성과급이 제한된다')));
+U.hint(rc,'완충자본 잠식 구간은 최저비율은 넘었으나 요구비율에 못 미치며 배당·성과급이 제한된다');
 ap(pane,rc);
 const fc=S('산출하한 (output floor)');
 ap(fc,ST(['항목','값'],[[T('내부산출 합'),M(s.internal)],[T('표준방법 산출 합'),M(s.std)],[T('하한 비율'),P(Sm.floor_pct,1)],[T('하한 금액'),M(s.floorAmt)],[T('산출하한 가산액'),M(s.addOn)],[T('최종 위험가중자산'),M(s.rwa)],[T('하한이 무는가'),s.binding?T('구속'):T('없음')]]));
@@ -404,7 +404,7 @@ const keys=[['CET1 '+T('비율'),x=>P(x.ratios.cet1,2)],['Tier1 '+T('비율'),x=
 const cols=[{key:'k',label:'항목'}].concat(saved.map((x,i)=>({key:'c'+i,label:T('조정안')+' '+NI(i+1),raw:true})));
 const sc=S('조정안 비교');
 ap(sc,ST(cols,keys.map(p=>[p[0]].concat(saved.map(p[1])))));
-ap(sc,MT(T('이 실행에서만 유지되며 원장에 기록되지 않는다')));
+U.hint(sc,'이 실행에서만 유지되며 원장에 기록되지 않는다');
 ap(pane,sc)}
 }
 redraw=draw;draw();
@@ -427,14 +427,14 @@ return m;
 function limits(root,c){
 const D=c.D,xl=D.x_limits||{},ts=xl.two_sources||{},pop=xl.populations||{};
 const f=D.limits_full||D.limits;
-ap(root,el('p','lead',T('차주·업종·국가·자산군·등급 다차원 한도와 소진율이다. 경보 구간의 경계는 한도 엔진의 심각도 어휘가 정한다. 한도 근거와 승인 기록은 정의 원장에서 읽는다')));
+U.lead(root,'차주·업종·국가·자산군·등급 다차원 한도와 소진율이다. 경보 구간의 경계는 한도 엔진의 심각도 어휘가 정한다. 한도 근거와 승인 기록은 정의 원장에서 읽는다');
  /* (1) 동일차주 두 산출 */
 const law=ts.law||{},eng=ts.engine,ck=ts.check||{};
 const b1=CD(root,'동일차주 두 산출');
 ap(b1,ST(['출처','체계','분모 기준','위반','근거'],[[T('원장'),dv(law.framework),dv(law.basis),cnt(nz(law.n_breach)),dv(law.citation)],[T('한도엔진'),T('한도 엔진 결과'),eng?dv(eng.basis):T('미산출'),eng?cnt(nz(eng.n_breach)):T('미산출'),eng?dv(eng.source):'-']]));
 ap(b1,BG(dv(ts.state),NG.checkTone(ck)));
 if(ck.check_name)ap(b1,ST(['검증 항목','상태','상세'],[[ck.check_name,BG(dv(ck.status),NG.checkTone(ck)),tx(ck.detail)]],{onRow:()=>c.drawer.check(ck.check_name)}));
-ap(b1,MT(T('분모기준이 달라 두 산출이 어긋난다. 두 수치는 언제나 함께 적는다')));
+U.hint(b1,'분모기준이 달라 두 산출이 어긋난다. 두 수치는 언제나 함께 적는다');
 
  /* (2) 모집단 카드 */
 const pf=pop.limits_full||{},pl=pop.limits||{},nb=nz(pf.breach)+nz(pf.critical),nd=(pf.dimensions||[]).length;
@@ -460,7 +460,7 @@ ap(bh,U.truncBadge(f));
 ap(bh,CH.barList(dims.map(k=>({label:L(k),value:byDim[k].head,sub:T('버킷 수')+' '+NI(byDim[k].n)+' · '+T('최대 소진율')+' '+P(byDim[k].max,1)}))));
 ap(bh,CH.barList(f.rows.slice().sort((a,b)=>head(a)-head(b)).slice(0,14).map(r=>({
 label:L(r[i.dimension])+' · '+r[i.bucket],value:head(r),tone:sv(r[i.severity]),sub:T('소진율')+' '+P(r[i.utilisation],1)}))));
-ap(bh,MT(T('잔여한도는 한도액에서 익스포저를 뺀 값이며 음수가 위반이다. 버킷 정의가 달라 차원 간에 더하지 않는다')));
+U.hint(bh,'잔여한도는 한도액에서 익스포저를 뺀 값이며 음수가 위반이다. 버킷 정의가 달라 차원 간에 더하지 않는다');
 
  /* (5) 소진율 분포 */
 const us=f.rows.map(r=>nz(r[i.utilisation])),lo=Math.min.apply(null,us),hi=Math.max.apply(null,us);
@@ -524,7 +524,7 @@ const r=srows[pick];if(!r)return;
 const e2=nz(r[i.exposure])+add,u2=nz(r[i.threshold])?e2/nz(r[i.threshold]):0;
 ap(sout,ST(['항목','현행','조정 후'],[[T('익스포저'),M(r[i.exposure]),M(e2)],[T('한도'),M(r[i.threshold]),M(r[i.threshold])],[T('잔여'),M(head(r)),M(nz(r[i.threshold])-e2)],[T('소진율'),P(r[i.utilisation],1),P(u2,1)]]));
 if(u2>=1)ap(sout,NO(T('이 증감이면 해당 한도를 넘긴다'),'bad'));
-ap(sout,MT(T('기본자본 연동 한도는 자본이 바뀌면 한도 자체가 움직인다. 그 연동은 시뮬레이션에서 본다')));
+U.hint(sout,'기본자본 연동 한도는 자본이 바뀌면 한도 자체가 움직인다. 그 연동은 시뮬레이션에서 본다');
 }
 sim();
  /* (8) 추이 */
@@ -563,7 +563,7 @@ return out;
 }
 function lexSetting(root,c){
 const D=c.D,f=FOF('lex_setting');
-ap(root,el('p','lead',T('거액익스포져 산출의 설정 원장이다. 한도율·보고기준·판정 임계·면제정책이 체계별로 있고 항목마다 근거와 근거 판정이 붙는다')));
+U.lead(root,'거액익스포져 산출의 설정 원장이다. 한도율·보고기준·판정 임계·면제정책이 체계별로 있고 항목마다 근거와 근거 판정이 붙는다');
 const xs=(D.x_screens||{})[c.id]||{},ow=xs.ownership,own=el('div','meta own');
 if(ow){own.textContent=T('소관 (UI 가정)')+' '+ow.role_name+' · '+ow.org_unit;
 own.title=T('DOMAIN_ROLE_MAP 상수로 연결했다. 도메인과 역할을 잇는 원장 컬럼은 없다.')}
@@ -608,7 +608,7 @@ const cur=f.rows.find(r=>r[i.param_code]===code&&r[i.framework]===fw);
 props.push([fw,code,cur&&cur[i.param_value]!=null?String(cur[i.param_value]):T('값 없음'),val.trim(),why.trim(),ev.trim()]);
 ap(out,ST(['체계','설정항목','현재값','제안 값','사유','증빙'],props));
 ap(out,NO(T('이 항목을 바꾸면 한도율·소진율·보고대상·연결그룹·귀속·총액한도가 다시 산출된다. 재실행이 필요하다'),'neutral'));
-ap(out,MT(T('이 실행에서만 유지되며 원장에 기록되지 않는다')))}}));
+U.hint(out,'이 실행에서만 유지되며 원장에 기록되지 않는다')}}));
 ap(ed,eb,out);
 const ev2=el('div');
 NG.shared.almEvidence(ev2,evidenceItems('lex_setting').concat(evidenceItems('lex_aggregate')));
@@ -619,7 +619,7 @@ ap(root,ev2);
 
 function lexAnalysis(root,c){
 const D=c.D,L=D.lex,xl=D.x_limits||{},ts=xl.two_sources||{};
-ap(root,el('p','lead',T('체계별 소진과 보고대상, 대체, 연결그룹, 면제, look-through 귀속을 본다. 화면에는 표본이 실리고 순위·분포·합계는 전량 집계다')));
+U.lead(root,'체계별 소진과 보고대상, 대체, 연결그룹, 면제, look-through 귀속을 본다. 화면에는 표본이 실리고 순위·분포·합계는 전량 집계다');
 if(!L||!L.frameworks||!L.frameworks.length){ap(root,NO(T('거액익스포져 집계가 payload 에 없다'),'bad'));return}
 ap(root,MT(twoSrc(ts)+' · '+L.frameworks.map(x=>x.framework+' ('+x.denominator_basis+')').join(' · ')));
  /* 체계 대비 */
@@ -650,14 +650,14 @@ draw();
 if(L.providers&&L.providers.length){
 const pc=CD(root,'신용위험경감 대체로 익스포저를 받은 보장제공자');
 ap(pc,ST(['보장제공자','대체 유입액','연결 건수','자체 포지션 최대 소진율','한도 위반'],L.providers.map(x=>[x.provider,x.substituted_in,x.n_links,x.max_utilisation==null?T('값 없음'):P(x.max_utilisation,1),x.breach==null?'-':(x.breach?T('위반'):'')]),{rowClass:x=>x.breach?'bad':null}));
-ap(pc,MT(T('대체는 익스포저를 보장제공자로 옮긴다. 옮겨 받은 쪽의 한도 초과는 그 제공자 포지션 행에서 읽는다')));
+U.hint(pc,'대체는 익스포저를 보장제공자로 옮긴다. 옮겨 받은 쪽의 한도 초과는 그 제공자 포지션 행에서 읽는다');
 }
  /* 대체 전후 */
 const sb=FOF('lex_substitution');
 if(sb){const si=IX(sb),inel=sb.rows.filter(r=>r[si.substituted_amount]===0).length;
 const c2=CD(root,'대체 전후');
 ap(c2,TB(sb,{title:null,rowClass:r=>r[si.maturity_mismatch_eligible]?null:'warn'}));
-ap(c2,MT(T('대체가 인정되지 않은 건')+' '+cnt(inel)+' · '+T('사유는 적격 사유 컬럼에 있다')));
+ap(c2,MT(T('대체가 인정되지 않은 건')+' '+cnt(inel)));U.hint(c2,'사유는 적격 사유 컬럼에 있다');
 }
  /* 연결그룹 */
 if(L.groups&&L.groups.basis){
@@ -680,7 +680,7 @@ const exm=FOF('lex_exemption');
 if(exm){
 const c4=CD(root,'면제');
 ap(c4,ST(['면제 유형','건수','면제액','근거'],agg(exm,'exemption_type','exempt_amount','basis')));
-ap(c4,MT(T('면제액은 한도 산입에서 빠진 금액이며 측정액과 산입액의 차이다')))}
+U.hint(c4,'면제액은 한도 산입에서 빠진 금액이며 측정액과 산입액의 차이다')}
  /* 익스포저 유형별 측정액 */
 if(L.measure&&L.measure.length){
 const mc=CD(root,'익스포저 유형별 측정액');

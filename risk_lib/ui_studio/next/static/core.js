@@ -259,6 +259,16 @@ function kpiSub(i,fallback){const ks=((D.x_kpi||{}).subs||{})[String(i)];
     Object.keys(p.args||{}).forEach(k=>{const v=p.args[k];
       a[k]=(p.tr&&p.tr.indexOf(k)>=0)?T(String(v)):v});
     return TF(p.key,a)}).join(' · ')}
+/* An explanation is not content. It rides on the thing it explains as a
+   tooltip, so the surface carries values and the reasoning stays one hover
+   away for whoever needs it. Repeated calls join with a separator. */
+function hint(node,key){if(!node)return node;const t=T(key);
+  node.title=node.title?node.title+' · '+t:t;return node}
+/* A screen describing itself is not its content either. The description goes
+   on the title, where a reader who wants to know what the screen is can hover
+   it; the breadcrumb and the heading already say which screen this is. */
+function lead(root,key){const sec=root&&root.closest?root.closest('section'):null;
+  hint((sec&&sec.querySelector('h2'))||root,key);return null}
 function metaDigest(id){const sg=D.x_screen_gate||{};
   const checks=(sg.checks&&sg.checks[id])||[],targets=(sg.targets&&sg.targets[id])||[];
   const xs=(D.x_screens||{})[id],led=(xs&&xs.ledgers)||[];
@@ -296,8 +306,7 @@ function provFoot(id){const box=el('div','prov');const xs=(D.x_screens||{})[id];
   const own=el('span','own');
   if(xs&&xs.ownership){own.textContent=T('소관 (UI 가정)')+' '+xs.ownership.role_name+(xs.ownership.org_unit?' · '+xs.ownership.org_unit:'');own.title=T('DOMAIN_ROLE_MAP 상수로 연결했다. 도메인과 역할을 잇는 원장 컬럼은 없다.')}
   else own.textContent=T('소관 미확인');
-  ap(line,own,' · ',el('span','units',T('단위 범례')+': '+T('금액은 억원, 비율은 %, 변동은 %p 로 적는다')));
-  if(scope)ap(line,' · ',el('span','scope',TF('이 화면의 수치 {n}건이 RECALC_SCOPE 에 있고 {m}건은 재계산 대상 아님',{n:scope.in_scope,m:scope.out_of_scope})));
+  ap(line,own);
   ap(box,provHeader(id),line);return box}
 function openTable(name){drawer.open({title:name,tabs:[{label:'원장 표',build:r=>{const f=frame.frameOf(name);const c=cat(name);if(c)ap(r,el('div','meta',c.korean+' · '+c.product+' · '+c.grain));if(f)ap(r,table(f,{title:null}));else ap(r,note(T('원장 행 없음'),'warn'))}}]})}
 function ledgerFold(id,body){if(body&&body.querySelector('[data-ledger-fold]'))return null;
@@ -556,7 +565,7 @@ function boot(){let stored=null;try{stored=localStorage.getItem(LANG_KEY)}catch(
   const start=()=>onHash(true);if(DOC.readyState==='loading')DOC.addEventListener('DOMContentLoaded',start);else start()}
 const NG={screen:screen,registry:REG,T:T,TF:TF,text:text,fmt:fmt,frame:frame,lineage:lineage,tone:tone,glyph:glyph,glyphChar:glyphChar,checkTone:checkTone,kpiSub:kpiSub,gateBadge:gateBadge,provHeader:provHeader,state:STATE,killedFor:killedFor,
   go:go,route:route,link:link,resolveLegacy:resolveLegacy,drawer:drawer,palette:{open:palOpen,close:palClose},openTable:openTable,cat:cat,fkOf:fkOf,
-  ui:{section:section,kpi:kpi,kpiRow:kpiRow,table:table,simpleTable:simpleTable,badge:badge,pill:pill,note:note,truncBadge:truncBadge,srcMeta:srcMeta,meter:meter,dotlist:dotlist,chips:chips,select:select,input:input,button:button,explanatory:explanatory,errorCard:errorCard,tabs:tabs,el:el,ap:ap,productChip:productChip},
+  ui:{section:section,hint:hint,lead:lead,kpi:kpi,kpiRow:kpiRow,table:table,simpleTable:simpleTable,badge:badge,pill:pill,note:note,truncBadge:truncBadge,srcMeta:srcMeta,meter:meter,dotlist:dotlist,chips:chips,select:select,input:input,button:button,explanatory:explanatory,errorCard:errorCard,tabs:tabs,el:el,ap:ap,productChip:productChip},
   runKey:runKey,setInst:setInst,setRun:setRun,applyRun:applyRun,setLang:setLang,wireTheme:wireTheme,repaintAll:repaintAll,paintChips:paintChips,paintGate:paintGate,ctx:ctxFor,screenTitle:screenTitle,nav:NAV,screens:SCREENS,shared:{},
   get D(){return D},get RUNS(){return RUNS},INSTS:INSTS,get LANG(){return LANG}};
 W.NG=NG;

@@ -491,7 +491,7 @@ function defaultedLgd(root){
       ap(c,C.bars(ks.map(k=>({label:TF('{n}개월',{n:k}),value:m[k]})),{fmt:v=>F.int(v)}));
       ap(c,el('div','meta',TF('미종결 부도관측 {n}건의 부도 후 경과월 분포다.',{n:no})));
       ap(c,el('div','meta',T('산출방법')+': '+OD((f.rows[0]||[])[i.elbe_method])));
-      ap(c,U.note(T('경과월별 BEEL 곡선과 분모 두 방식 대비는 BEEL·PLGD 화면에 있다.'),'neutral'),src(ob));
+      ap(c,src(ob));
       ap(root,c)}
     put(root,'정상화(cure) 인식',
       st(['관측상태','건수','평균 실현 LGD'],

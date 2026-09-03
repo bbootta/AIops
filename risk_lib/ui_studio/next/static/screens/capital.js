@@ -17,12 +17,11 @@ const MT=t=>el('div','meta',t);
 const S=t=>{const c=el('div','card sec');ap(c,el('h3',null,T(t)));return c};
 const G=(c,n)=>(c.D.data||{})[n]||null;
 const CK=n=>{const r=NG.cat(n);return (r&&r.korean)||n};
-const LEAD=(root,k)=>{ap(root,el('p','lead',T(k)))};
+const LEAD=(root,k)=>U.lead(root,k);
 /* 컬럼 한글명은 카탈로그 라벨이다. 번역하지 않고 그대로 쓴다. */
 const CL=(f,k)=>FR.colLabel(f,IX(f)[k]);
 function tcard(c,n,o){o=o||{};o.title=CK(n);o.raw=true;return U.table(G(c,n),o)}
-function why(f){return MT(T('차트는 전량 프레임에서만 그린다')+' · '+
-  TF('표본 {n}/{N}행',{n:f.shown,N:f.total}))}
+function why(f){return MT(TF('표본 {n}/{N}행',{n:f.shown,N:f.total}))}
 /* 축 집계는 전량 프레임에서만 한다. ck 는 컬럼명 하나 또는 여럿이다. */
 function agg(f,ck,vk){const i=IX(f),ks=[].concat(ck),m={},out=[];
   f.rows.forEach(r=>{const k=ks.map(x=>String(r[i[x]])).join(' · ');
@@ -61,7 +60,6 @@ function ews(root,c,full){
 function credit(root,c){
   LEAD(root,'등급·PD/LGD/EAD·부도/회수 품질·담보배분·조기경보를 연결한다.');
   ews(root,c,false);
-  ap(root,MT(T('아래 목록은 이 부문 카탈로그 전량이다. 고른 원장의 입도·기본키·외래키·차트·미리보기를 오른쪽에 편다.')));
   NG.shared.domainBrowser(root,'PRD-CRM',{tables:c.meta.tables||[]});
 }
 function ewsScreen(root,c){
@@ -97,8 +95,7 @@ function creditRwa(root,c){
          CL(of,'uplift')+' '+fmt.money(r[i.uplift])}))}
   ap(root,tcard(c,'rwa_result'),tcard(c,'rwa_output_floor'));
   const box=S('카탈로그 귀속');
-  ap(box,MT(T('시장·운영 위험가중자산 원장(rwa_market_component · rwa_operational_bi)도 카탈로그에서는 PRD-RWA 다. 화면은 시장 RWA · 운영 RWA 에 두었고 제품 코드 칩은 카탈로그 값 그대로 붙는다.')),
-    U.productChip('rwa_market_component'),U.productChip('rwa_operational_bi'));
+  ap(box,U.productChip('rwa_market_component'),U.productChip('rwa_operational_bi'));
   ap(root,box);
   NG.shared.domainBrowser(root,'PRD-RWA',{tables:c.meta.tables||[]});
 }
@@ -250,7 +247,7 @@ function oprisk(root,c){
   ap(box,U.dotlist([{text:T('마감 과제')+' · opr_close_task · opr_close_gate',
     right:fmt.int(done)+' / '+fmt.int(nt),onClick:()=>c.go('close-workflow'),
     tone:TN('close_task.status',done<nt?'미완료':'완료')}]),
-    MT(T('과제 상태와 게이트 판정은 마감 워크플로 화면이 원장 그대로 싣는다')));
+    );
   ap(root,box);
   NG.shared.domainBrowser(root,'PRD-OPR',{tables:c.meta.tables||[]});
 }
@@ -307,8 +304,7 @@ function ncr(root,c){
       {title:TF('{cat} 구성요소 누계',{cat:c0}),startLabel:String(rs[0][i.component]),
        src:nf,fmt:fmt.money}))}
   const nc=G(c,'ncr_component');
-  if(nc)ap(root,MT(T('근거 조항은 원장 값이라 번역하지 않는다')+' · '+
-    CL(nc,'citation')));
+  if(nc)ap(root,MT(CL(nc,'citation')));
   const li=IX(G(c,'pru_liquidity_ratio')||{columns:[]});
   const oi=IX(G(c,'pru_ownership_limit')||{columns:[]});
   const pi=IX(G(c,'pru_prompt_action')||{columns:[]});
@@ -319,7 +315,6 @@ function ncr(root,c){
     tcard(c,'pru_ownership_limit',{rowClass:r=>r[oi.passes]?null:bad}),
     tcard(c,'pru_camel'),
     tcard(c,'pru_prompt_action',{rowClass:r=>r[pi.triggered]?bad:null}));
-  ap(root,MT(T('재무상태·손익·소유한도·경영실태·적기시정조치는 이 화면이 유일한 자리다. 예전에는 데이터모델 카탈로그 탭에서만 볼 수 있었다.')));
 }
 
 /* ══════════════ 등록 ════════════════════════════════════════════════ */

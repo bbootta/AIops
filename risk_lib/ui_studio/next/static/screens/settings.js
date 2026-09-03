@@ -13,7 +13,7 @@ const GRP='설정',SUB='⚙ 설정';
 /* base.css 가 section{display:none} 이라 펼친 카드는 div 로 만든다. */
 const MT=t=>el('div','meta',t);
 const CARD=(cls,ttl)=>{const c=el('div','card '+cls);ap(c,el('h3',null,T(ttl)));return c};
-const LEAD=(root,k)=>ap(root,el('p','lead',T(k)));
+const LEAD=(root,k)=>U.lead(root,k);
 const G=(c,n)=>(c.D.data||{})[n]||null;
 /* 표 제목은 카탈로그 한글명 그대로다. 원장 어휘는 번역하지 않는다. */
 const CK=n=>{const r=NG.cat(n);return (r&&r.korean)||n};
@@ -26,7 +26,7 @@ const BAD=(n,msg)=>{n.textContent='';ap(n,NG.glyph('bad'),' '+msg);n.hidden=fals
 /* 실은 실행. 기준일 전환 대상과 각 실행의 게이트 스냅샷이다. */
 function runRegistry(root,c){
   const box=CARD('set-runs','실은 실행 (기준일 전환 대상)');
-  ap(box,MT(T('기준일 전환은 미리 산출해 실은 실행 사이의 전환이다. 새 기준일은 run_pipeline 재실행으로만 생긴다. 화면이 즉석에서 만들 수 없다. 게이트 열은 각 실행을 산출한 시점의 스냅샷이며, 이후 3선 응답은 반영되지 않는다.')));
+  U.hint(box,'기준일 전환은 미리 산출해 실은 실행 사이의 전환이다. 새 기준일은 run_pipeline 재실행으로만 생긴다. 화면이 즉석에서 만들 수 없다. 게이트 열은 각 실행을 산출한 시점의 스냅샷이며, 이후 3선 응답은 반영되지 않는다.');
   const R=c.RUNS||{},ks=Object.keys(R).sort(),n=ks.length;
   const rows=ks.map(function(a){
     const p=R[a]||{},m=p.meta||{},g=p.x_gate||{},iv=g.independent||{},s=g.self||{};
@@ -46,7 +46,7 @@ function runRegistry(root,c){
 /* 컬럼 표시명 재정의. 세션 한정이며 물리명은 열 머리 툴팁으로 남는다. */
 function labelSettings(root,c){
   const box=CARD('set-labels','컬럼 표시명 매핑');
-  ap(box,MT(T('정본은 데이터모델 카탈로그(ColumnSpec.korean)다. 여기서 바꾼 표시명은 이 세션의 화면에만 적용되며, 영구 반영은 카탈로그 수정으로 한다. 물리명은 항상 열 머리글 툴팁으로 남는다.')));
+  U.hint(box,'정본은 데이터모델 카탈로그(ColumnSpec.korean)다. 여기서 바꾼 표시명은 이 세션의 화면에만 적용되며, 영구 반영은 카탈로그 수정으로 한다. 물리명은 항상 열 머리글 툴팁으로 남는다.');
   const names=Object.keys(c.D.data||{}).sort(),bar=el('div','toolbar'),pane=el('div');
   if(!names[0]){ap(box,U.note(T('원장 행 없음'),'warn'));ap(root,box);return}
   ap(bar,U.select(names.map(x=>({value:x,label:x,raw:true})),v=>draw(v)));
@@ -84,7 +84,7 @@ const formKey=s=>String(s).split(' ')[0];
 
 function formMap(root,c){
   const box=CARD('set-formmap','서식번호 매핑 (내부 코드 ↔ 금감원 배포 서식번호)');
-  ap(box,MT(T('서식번호는 제출본을 식별한다. 이 화면은 매핑 변경 제안서만 만들고, 적용은 risk_lib/regulatory/form_ids.py 반영 후 파이프라인 재실행으로 한다.')));
+  U.hint(box,'서식번호는 제출본을 식별한다. 이 화면은 매핑 변경 제안서만 만들고, 적용은 risk_lib/regulatory/form_ids.py 반영 후 파이프라인 재실행으로 한다.');
   const forms=c.D.forms||[],used={};
   forms.forEach(function(f){used[formKey(f.form_no)]=f.form_id});
   const nOff=forms.filter(f=>f.official).length,nAll=forms.length;
@@ -121,7 +121,6 @@ function settingsScreen(root,c){
   LEAD(root,'표시명·기준일 전환은 세션 안에서 즉시 적용된다(산출값 무관). 서식번호 매핑과 시나리오 파라미터는 산출물의 정체를 바꾸므로 화면에서 적용하지 않는다. 변경 제안서를 만들고, 적용은 코드 반영 + 파이프라인 재실행 + 검증 두 층(자체검증·독립검증)을 다시 거친다.');
   runRegistry(root,c);labelSettings(root,c);formMap(root,c);
   const box=CARD('set-elsewhere','다른 화면에 있는 설정');
-  ap(box,MT(T('시나리오 파라미터는 위기상황 그룹의 시나리오 설정 화면에, 시장 포트폴리오 구성은 시장 그룹의 포트폴리오 설정 화면에 있다.')));
   const bar=el('div','toolbar');
   ap(bar,U.button(T('시나리오 설정'),{onClick:()=>c.go('scenario')}),
     U.button(T('포트폴리오 설정'),{onClick:()=>c.go('portfolio-setup')}));
@@ -152,10 +151,10 @@ function institutionScreen(root,c){
   if(p)ap(cur,el('h4',null,T('기관 프로파일 (inst_profile)')),
     U.simpleTable(['항목','값'],p,{numeric:false}));
   if(!m&&!p)ap(cur,U.note(T('선택 기관의 원장 행이 payload 에 없다'),'warn'));
-  ap(cur,MT(T('데이터 출처가 합성인 기관은 실존 기관의 수치가 아니라 업권 유형의 공개된 성격을 모수로 옮긴 가상 기관이다. 국내 표본 기관의 실명과 규모 구분은 근거가 없어 채우지 않았고 근거 상태를 미확인으로 두었다.')));
+  U.hint(cur,'데이터 출처가 합성인 기관은 실존 기관의 수치가 아니라 업권 유형의 공개된 성격을 모수로 옮긴 가상 기관이다. 국내 표본 기관의 실명과 규모 구분은 근거가 없어 채우지 않았고 근거 상태를 미확인으로 두었다.');
   ap(root,cur);
   const reg=CARD('inst-runs','기관별 실린 산출');
-  ap(reg,MT(T('선택기에는 산출이 실린 기관만 올라간다. 원장에 있어도 산출이 실리지 않은 기관은 고를 수 없다. 실린 기준일은 그 기관에 실린 실행의 기준일 전량이다.')));
+  U.hint(reg,'선택기에는 산출이 실린 기관만 올라간다. 원장에 있어도 산출이 실리지 않은 기관은 고를 수 없다. 실린 기준일은 그 기관에 실린 실행의 기준일 전량이다.');
   const f=IT(c,'inst_master');
   if(f){const i=IX(f);
     ap(reg,U.simpleTable(['기관코드','기관명','권역','유형','규제체계','보고통화',
@@ -226,8 +225,7 @@ function methodCard(root,c,S){
       value:o[0]==='as_is'?base:total(o[0]).sum})),
       {title:T('위험가중자산 (세 방법·채택값)'),src:f,fmt:fmt.money,
        note:T('원장에 이미 있는 방법별 결과를 그대로 더한 값이다. 재계산이 아니다.')}));
-    else ap(pane,MT(T('차트는 전량 프레임에서만 그린다')));
-    ap(pane,U.table(f),MT(T(S.note)));
+      ap(pane,U.table(f),MT(T(S.note)));
   }
   draw('as_is');
   ap(root,box);
@@ -256,8 +254,8 @@ function methodProposal(root,c){
       procedure:[T('방법론 코드 반영'),T('파이프라인 재실행'),T('자체검증(2선) FAIL 0 확인'),
         T('상시 독립검증 (3선) 재요청'),T('게이트 통과 후 결재')],
       note:T('화면은 원장에 이미 있는 대안 값을 보여줄 뿐 산출을 바꾸지 않는다.')},null,2)}}));
-  ap(box,MT(T('방법론 변경은 산출 지문을 바꾸므로 상시 독립검증 (3선) 재요청 대상이다.')),
-    bar,err,out);
+  U.hint(box,'방법론 변경은 산출 지문을 바꾸므로 상시 독립검증 (3선) 재요청 대상이다.');
+  ap(box,bar,err,out);
   ap(root,box);
 }
 
