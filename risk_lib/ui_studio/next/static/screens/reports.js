@@ -106,7 +106,7 @@ function execKpis(root,d){
   const s=sec(root,'헤드라인 지표'),items=[];
   const KN=(d.x_kpi&&d.x_kpi.numeric)||{};
   (d.kpis||[]).slice(0,4).forEach((k,i)=>items.push(U.kpi({label:k.label,
-    value:(KN[i]&&KN[i].kind==='money')?F.money(KN[i].value):k.value,sub:k.sub,
+    value:(KN[i]&&KN[i].kind==='money')?F.money(KN[i].value):k.value,sub:NG.kpiSub(i,k.sub),
     tone:k.tone||'neutral',lineage:NG.lineage.kpi(i)})));
   ap(s,U.kpiRow(items,'committee'));
   ap(s,meta(T('게이트 스트립이 2선·3선 집계를 이미 싣고 있어 검증 KPI 두 장은 카드로 되풀이하지 않고 보드 둘째 칸 첫 두 줄에 둔다')));

@@ -560,13 +560,18 @@ def _irb_dict(s: Studio) -> dict:
     return out
 
 
-def _kpis(s: Studio) -> list[dict]:
-    r = s.result
-    t = s.tables
-    aq = t["rdm_asset_quality"]
+def _npl_ratio(s: Studio) -> float:
+    """고정이하여신비율. 차세대 UI 도 같은 값을 조각으로 실어야 해서 뺐다."""
+    aq = s.tables["rdm_asset_quality"]
     npl = float(aq[aq["classification"].isin(("고정", "회수의문", "추정손실"))]
                 ["balance"].sum())
     bal = float(aq["balance"].sum()) or 1.0
+    return npl / bal
+
+
+def _kpis(s: Studio) -> list[dict]:
+    r = s.result
+    t = s.tables
     checks = t["val_check"]
     n_fail = int((checks["status"] == "FAIL").sum())
     n_warn = int((checks["status"] == "WARN").sum())
@@ -596,7 +601,7 @@ def _kpis(s: Studio) -> list[dict]:
          "lineage": "BR-14 / 2300"},
         {"label": "기대신용손실 (ECL)",
          "value": f"{float(r.ecl['total'])/1e8:,.0f}억원",
-         "sub": f"고정이하여신비율 {npl/bal:.2%}",
+         "sub": f"고정이하여신비율 {_npl_ratio(s):.2%}",
          "tone": "neutral", "lineage": "BR-11 / 2000"},
         {"label": "유동성커버리지비율 (LCR)",
          "value": f"{float(r.alm['lcr'].lcr):.1%}",

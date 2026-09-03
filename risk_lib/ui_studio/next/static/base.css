@@ -135,7 +135,21 @@ color:var(--muted);font-size:var(--fs-meta);margin:0 0 var(--s1)}
 /* Screen meta: three quiet rows under the title (2nd line checks, 3rd line
    targets, ledgers). Labels sit in a fixed column so the eye can skip them;
    the items are text with a state glyph, not coloured boxes. */
-.smeta{margin:0 0 var(--s3);padding:var(--s2) 0;border-top:var(--hair);border-bottom:var(--hair)}
+.smeta{margin:0 0 var(--s3);border-bottom:var(--hair)}
+/* One line, closed. Opening it drops the chip bands in below without moving
+   the heading. The caret is drawn here because the UA marker is turned off. */
+.smeta>summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s1) var(--s3);
+padding:var(--s2) 0;font-size:var(--fs-meta);line-height:1.6;color:var(--muted)}
+.smeta>summary::after{content:'\25BE';margin-left:auto;color:var(--muted);
+transition:none;font-size:11px}
+.smeta[open]>summary::after{content:'\25B4'}
+.smeta>summary:hover,.smeta>summary:focus-visible{color:var(--ink)}
+.smeta>.mrows{padding:0 0 var(--s2)}
+.smeta .md{display:inline-flex;align-items:baseline;gap:4px;min-width:0}
+.smeta .md>.t{overflow-wrap:anywhere}
+.smeta .md.bad>.t{color:var(--bad)}.smeta .md.warn>.t{color:var(--warn)}
+.smeta .md.good>.t{color:var(--good)}.smeta .md.blocked>.t{color:var(--blocked)}
+.smeta .md.not-run>.t{color:var(--not-run)}
 .mrow{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s1) var(--s2);
 font-size:var(--fs-meta);line-height:1.7;padding:1px 0}
 .mrow>.lab{flex:0 0 auto;min-width:4.2em;color:var(--muted);font-weight:650;letter-spacing:.04em}
@@ -251,8 +265,14 @@ margin:var(--s3) 0;color:var(--ink);font-size:var(--fs-op);overflow-wrap:anywher
 .note.not-run{border-left-color:var(--not-run);background:var(--hatch-not-run)}
 .note.synthetic{border-left-color:var(--synthetic);background:var(--tint-synthetic)}
 .note.neutral{border-left-color:var(--neutral);background:var(--tint-neutral)}
-.meter{display:grid;grid-template-columns:minmax(80px,1fr) 2fr auto;gap:var(--s2);align-items:center;
+/* The row is a caption over a bar, not three columns: the builder puts the
+   label and the count in one .meta and the bar after it. The three-column
+   grid dropped both into the first track, so 'Reconciliation passed' and
+   '3 / 3' ran together with no space between them. */
+.meter{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;
 padding:var(--s1) 0;border-bottom:var(--hair);font-size:var(--fs-op)}
+.meter>.meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s1) var(--s2)}
+.meter>.meta>.num{margin-left:auto;font-family:var(--font-num);white-space:nowrap}
 .meter:last-child{border-bottom:0}
 .meter .bar,.bar,.viz-bar{height:8px;background:var(--tint-ink);border:var(--hair);overflow:hidden;position:relative;min-width:0}
 .bar i,.viz-bar i,.bar b{display:block;height:100%;background:var(--accent)}
@@ -311,8 +331,12 @@ border-left:2px solid transparent;background:transparent;color:var(--ink);paddin
 font-size:var(--fs-meta);font-weight:650;letter-spacing:.04em}
 /* folded ledger section */
 details.ledger,.folded,details.fold{border-top:1px solid var(--ink);margin:var(--rhythm) 0 0;padding:0}
-details.ledger>summary,.folded>summary,details.fold>summary{cursor:pointer;padding:var(--s2) 0;font-weight:650;
+details.ledger>summary,.folded>summary,details.fold>summary,
+details.sec>summary{cursor:pointer;padding:var(--s2) 0;font-weight:650;
 font-size:var(--fs-op);list-style:none;display:flex;gap:var(--s2);align-items:baseline}
+/* Without the flex above, the ::before caret sat on its own line over the
+   block h3 and the card looked empty with a stray triangle on top. */
+details.sec>summary>h3{margin:0}
 /* Chrome draws its own marker through ::marker, which the webkit rule does
    not hide, so section titles showed two triangles. One marker, ours. */
 details>summary{list-style:none}
@@ -461,8 +485,8 @@ footer code{color:var(--ink)}
   #langbtn{margin-left:0}
   .hchip{max-width:48vw}
   #drawer{width:100%;top:0;border-left:0}
-  .meter{grid-template-columns:minmax(0,1fr) auto}
-  .meter .bar{grid-column:1/-1}
+  /* already one column; the label wraps above the bar on its own */
+  .meter>.meta>.num{margin-left:0}
 }
 @media (max-width:390px){
   header{padding:var(--s2) var(--s3)}

@@ -224,7 +224,7 @@ function mitem(cls,tone,txt,title,onClick){const b=el('button','mi '+(cls||'')+'
   b.type='button';if(title)b.title=title;ap(b,glyph(tone||'neutral'),el('span','t',txt));
   if(onClick){b.onclick=onClick;b.onkeydown=e=>{if(e.key==='Enter')onClick()}}else b.disabled=true;
   return b}
-function gateBadge(id){const box=el('div','smeta');const sg=D.x_screen_gate||{};
+function gateBadge(id){const box=el('div','mrows');const sg=D.x_screen_gate||{};
   const checks=(sg.checks&&sg.checks[id])||[],targets=(sg.targets&&sg.targets[id])||[];
   // counts are named before they are formatted: A12 forbids .length inside a
   // formatter argument, because that is how a sampled frame becomes a total
@@ -245,6 +245,39 @@ function gateBadge(id){const box=el('div','smeta');const sg=D.x_screen_gate||{};
       ()=>{const ln=lineage.byTarget(t.target);if(ln)drawer.lineage(ln);else drawer.gate()})));
     ap(box,t3.row)}
   return box}
+/* The top gate strip already carries the run's verdict. Repeating it per
+   screen as three chip bands pushed the first number nine rows down the page.
+   One line states the tally; the bands are behind it for whoever wants them.
+   A7 needs the ledger marker in innerText, so the summary carries it. */
+/* app._kpis composes the card sub as Korean prose with values baked in, so an
+   English screen showed two scripts inside one card. payload_ext ships the
+   fragments and their values apart; this writes the sentence in the language
+   the reader picked. No fragments means the server had nothing to say. */
+function kpiSub(i,fallback){const ks=((D.x_kpi||{}).subs||{})[String(i)];
+  if(!ks||!ks.length)return fallback||'';
+  return ks.map(p=>{const a={};
+    Object.keys(p.args||{}).forEach(k=>{const v=p.args[k];
+      a[k]=(p.tr&&p.tr.indexOf(k)>=0)?T(String(v)):v});
+    return TF(p.key,a)}).join(' · ')}
+function metaDigest(id){const sg=D.x_screen_gate||{};
+  const checks=(sg.checks&&sg.checks[id])||[],targets=(sg.targets&&sg.targets[id])||[];
+  const xs=(D.x_screens||{})[id],led=(xs&&xs.ledgers)||[];
+  const nc=checks.length,nl=led.length;
+  const nf=checks.filter(c=>c.status==='FAIL').length,nw=checks.filter(c=>c.status==='WARN').length;
+  const nm=targets.filter(t=>t.state==='미보고').length,nx=targets.filter(t=>t.state==='불일치').length;
+  const parts=[];
+  if(!nc)parts.push({tone:'not-run',t:T('2선')+' '+T('연결된 검증 없음')});
+  else if(nf)parts.push({tone:'bad',t:T('2선')+' '+TF('FAIL {n}',{n:nf})+(nw?' · '+TF('WARN {n}',{n:nw}):'')});
+  else if(nw)parts.push({tone:'warn',t:T('2선')+' '+TF('WARN {n}',{n:nw})});
+  else parts.push({tone:'good',t:T('2선')+' '+TF('PASS {n}',{n:nc})});
+  if(nx)parts.push({tone:'bad',t:T('3선')+' '+T('불일치')+' '+fmt.int(nx)});
+  else if(nm)parts.push({tone:'blocked',t:T('3선')+' '+T('미보고')+' '+fmt.int(nm)});
+  else if(targets.length)parts.push({tone:'good',t:T('3선')+' '+T('일치')});
+  parts.push({tone:'neutral',t:T('연결 원장')+' '+(nl?TF('{n}장',{n:nl}):T('없음'))});
+  return parts}
+function sectionMeta(id){const d=el('details','smeta'),sm=el('summary');
+  metaDigest(id).forEach(p=>{const s2=el('span','md '+p.tone);ap(s2,glyph(p.tone),el('span','t',p.t));ap(sm,s2)});
+  ap(d,sm,gateBadge(id));return d}
 function provHeader(id){const xs=(D.x_screens||{})[id];const led=(xs&&xs.ledgers)||[];
   const nl=led.length;
   const r=metaRow('lg','연결 원장',nl?TF('{n}장',{n:nl}):T('없음'));
@@ -265,9 +298,10 @@ function provFoot(id){const box=el('div','prov');const xs=(D.x_screens||{})[id];
   else own.textContent=T('소관 미확인');
   ap(line,own,' · ',el('span','units',T('단위 범례')+': '+T('금액은 억원, 비율은 %, 변동은 %p 로 적는다')));
   if(scope)ap(line,' · ',el('span','scope',TF('이 화면의 수치 {n}건이 RECALC_SCOPE 에 있고 {m}건은 재계산 대상 아님',{n:scope.in_scope,m:scope.out_of_scope})));
-  ap(box,line);return box}
+  ap(box,provHeader(id),line);return box}
 function openTable(name){drawer.open({title:name,tabs:[{label:'원장 표',build:r=>{const f=frame.frameOf(name);const c=cat(name);if(c)ap(r,el('div','meta',c.korean+' · '+c.product+' · '+c.grain));if(f)ap(r,table(f,{title:null}));else ap(r,note(T('원장 행 없음'),'warn'))}}]})}
-function ledgerFold(id){const xs=(D.x_screens||{})[id];const led=((xs&&xs.ledgers)||[]).filter(l=>D.data&&D.data[l.table]);const n=led.length;if(!n)return null;
+function ledgerFold(id,body){if(body&&body.querySelector('[data-ledger-fold]'))return null;
+  const xs=(D.x_screens||{})[id];const led=((xs&&xs.ledgers)||[]).filter(l=>D.data&&D.data[l.table]);const n=led.length;if(!n)return null;
   const d=el('details','card fold ledgers'),sm=el('summary');ap(sm,el('h3',null,T('원장 표')),' ',el('span','meta',TF('{n}개',{n:n})));
   ap(d,sm,el('p','meta',T('이 화면의 원자료 원장이다. 값은 원문 그대로다.')));
   d.addEventListener('toggle',()=>{if(d.open&&!d.dataset.done){d.dataset.done='1';led.forEach(l=>guard(()=>ap(d,table(D.data[l.table],{title:l.korean||l.table,raw:true})),d,id+'#ledger:'+l.table))}});return d}
@@ -362,7 +396,7 @@ function activate(id,params,o){o=o||{};let notice=null;params=params||{};
 function ctxFor(id){const m=SCREENS[id]||{id:id};return {D:D,RUNS:RUNS,INSTS:INSTS,id:id,meta:Object.assign({ledgers:m.tables||[]},m),params:Object.assign({},CUR.params),T:T,TF:TF,text:text,fmt:fmt,frame:frame,lineage:lineage,tone:tone,glyph:glyph,gate:D.x_gate||null,state:STATE,RY:W.RY||null,LANG:LANG,ui:NG.ui,go:go,link:link,killedFor:killedFor,drawer:drawer}}
 function buildSection(s){const id=s.id,sec=s.section;sec.innerHTML='';sec.dataset.done='1';CUR.missing=false;
   const m=SCREENS[id]||{},def=REG.get(id);
-  ap(sec,crumb(id),el('h2',null,screenTitle(id)),gateBadge(id),provHeader(id));
+  ap(sec,crumb(id),el('h2',null,screenTitle(id)),sectionMeta(id));
   if(m.explanatory){const rb=el('div','ribbon explanatory');ap(rb,glyph('explanatory'),' '+T('설명용 산술 · 승인·제출값 아님'));sec.classList.add('explanatory');ap(sec,rb)}
   if(!def){CUR.missing=true;const e=new Error('module missing: '+id+' ('+(m.module||m.slug||'?')+')');report(id,e,'warn');ap(sec,errorCard(e));return}
   const ctx=ctxFor(id);
@@ -370,7 +404,7 @@ function buildSection(s){const id=s.id,sec=s.section;sec.innerHTML='';sec.datase
   const body=el('div','body');ap(sec,body);
   guard(()=>def.build(body,ctx),body,id);
   s.tabsApi=(def.tabs&&def.tabs.length)?tabs(body,def.tabs,CUR.params.tab):null;
-  ap(sec,provFoot(id),ledgerFold(id))}
+  ap(sec,provFoot(id),ledgerFold(id,body))}
 /* ---- nav (spec 3.3) ---- */
 let NAVST={},FILTER='';
 function isOpen(n){return n.header.getAttribute('aria-expanded')==='true'}
@@ -520,7 +554,7 @@ function boot(){let stored=null;try{stored=localStorage.getItem(LANG_KEY)}catch(
   DOC.addEventListener('keydown',onKey);W.addEventListener('hashchange',()=>onHash(false));
   /* first activation waits for the screens/*.js blocks that follow this one */
   const start=()=>onHash(true);if(DOC.readyState==='loading')DOC.addEventListener('DOMContentLoaded',start);else start()}
-const NG={screen:screen,registry:REG,T:T,TF:TF,text:text,fmt:fmt,frame:frame,lineage:lineage,tone:tone,glyph:glyph,glyphChar:glyphChar,checkTone:checkTone,gateBadge:gateBadge,provHeader:provHeader,state:STATE,killedFor:killedFor,
+const NG={screen:screen,registry:REG,T:T,TF:TF,text:text,fmt:fmt,frame:frame,lineage:lineage,tone:tone,glyph:glyph,glyphChar:glyphChar,checkTone:checkTone,kpiSub:kpiSub,gateBadge:gateBadge,provHeader:provHeader,state:STATE,killedFor:killedFor,
   go:go,route:route,link:link,resolveLegacy:resolveLegacy,drawer:drawer,palette:{open:palOpen,close:palClose},openTable:openTable,cat:cat,fkOf:fkOf,
   ui:{section:section,kpi:kpi,kpiRow:kpiRow,table:table,simpleTable:simpleTable,badge:badge,pill:pill,note:note,truncBadge:truncBadge,srcMeta:srcMeta,meter:meter,dotlist:dotlist,chips:chips,select:select,input:input,button:button,explanatory:explanatory,errorCard:errorCard,tabs:tabs,el:el,ap:ap,productChip:productChip},
   runKey:runKey,setInst:setInst,setRun:setRun,applyRun:applyRun,setLang:setLang,wireTheme:wireTheme,repaintAll:repaintAll,paintChips:paintChips,paintGate:paintGate,ctx:ctxFor,screenTitle:screenTitle,nav:NAV,screens:SCREENS,shared:{},

@@ -90,7 +90,7 @@ const D=c.D,g=D.x_gate||{},xc=D.x_capital||{},xq=D.x_queue||{},xe=D.x_evidence||
 const KN=(D.x_kpi||{}).numeric||{};
 ap(root,KR((D.kpis||[]).map((k,i)=>K({label:k.label,
   value:KN[i]&&KN[i].kind==='money'?fmt.money(KN[i].value):k.value,
-  sub:tx(k.sub),tone:k.tone||'neutral',lineage:NG.lineage.kpi(i)})),c.meta.density));
+  sub:NG.kpiSub(i,tx(k.sub)),tone:k.tone||'neutral',lineage:NG.lineage.kpi(i)})),c.meta.density));
  /* (2) 인사이트 리본 */
 const r1=el('div','cols2');ap(root,r1);
 const rib=S('인사이트 (한계 위반·미해소 예외·검증 상태)');ap(r1,rib);
@@ -166,7 +166,10 @@ const fl=S('증빙 계보 · 7단계 (단계를 누르면 상세)');ap(r3,fl);
 ap(fl,DL(nodes.map(n=>({tone:TN('evidence_node.status',n.status),text:n.node_id+' · '+n.stage+' · '+n.label,right:dv(n.status)+' · '+dv(n.ref),onClick:()=>evDr(c,n)}))));
 
  /* (11) 원장 표 (접힘) */
-const led=CD(root,'원장 표 (콕핏 근거)',{folded:true});
+// This screen curates its own ledger fold (row highlighting, chosen order),
+// so the shell must not append its generic one underneath: two folds with
+// near-identical titles read as a mistake.
+const led=CD(root,'원장 표 (콕핏 근거)',{folded:true});led.dataset.ledgerFold='1';
 lazy(led,box=>{
 const rc=D.reconciliation;
 if(D.evidence_edges)ap(box,TB(D.evidence_edges,tt('gov_evidence_edge')));

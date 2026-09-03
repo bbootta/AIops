@@ -896,21 +896,73 @@ def _x_ownership(studio) -> dict:
 # ---------------------------------------------------------------- 진입점
 
 def _x_kpi(studio) -> dict:
-    """헤드라인 카드 중 금액인 것의 **숫자**. 카드 값은 app._kpis 가 한국어
-    단위로 이미 서식한 문자열이라(예: 975억원) 영문 화면에서 그대로 나온다.
-    숫자를 함께 실어 화면이 언어에 맞춰 다시 서식하게 한다. 라벨은 닫힌
-    여섯 개라 용어집에 있고, sub 문장은 값이 섞인 산문이라 아직 한국어다.
+    """헤드라인 카드 중 금액인 것의 **숫자**, 그리고 sub 문장의 조각.
+
+    카드 값은 app._kpis 가 한국어 단위로 이미 서식한 문자열이라(예: 975억원)
+    영문 화면에서 그대로 나온다. 숫자를 함께 실어 화면이 언어에 맞춰 다시
+    서식하게 한다.
+
+    sub 도 같은 문제였다. app._kpis 가 요구·여유·제약을 한 줄에 이어 붙인
+    한국어 산문을 만들어 영문 화면 카드 안에서 두 문자가 섞였다.
+    여기서 조각(용어집 키)과 값을 따로 실어 화면이 자기 언어로 다시 쓴다.
+    app.py 는 건드리지 않는다. 구 UI 와 그 골든 파일이 같은 문자열을 쓴다.
     """
+    from risk_lib.alm.lcr import LCR_MIN
     from risk_lib.ui_studio import app as _app
+    r = studio.result
+    t = studio.tables
     numeric: dict[str, dict] = {}
     for i, k in enumerate(_app._kpis(studio)):
         if str(k.get("label", "")).startswith("기대신용손실"):
             numeric[str(i)] = {"kind": "money",
-                               "value": float(studio.result.ecl["total"])}
-    return {"numeric": numeric,
-            "sub_is_korean_prose": True,
-            "note": ("app._kpis 가 만든 sub 문장은 값이 섞인 산문이라 "
-                     "용어집 대상이 아니다. 영문 화면에서 한국어로 남는다")}
+                               "value": float(r.ecl["total"])}
+
+    ko_tier = {"cet1": "보통주자본", "tier1": "기본자본", "total": "총자본"}
+    short = {k: v for k, v in r.bis.surplus_shortfall.items() if v < 0}
+    bind = min(r.bis.surplus_shortfall, key=r.bis.surplus_shortfall.get)
+    n_short = int(len(short))
+
+    cap: list[dict] = [
+        {"key": "요구 {v}", "args": {"v": f"{r.bis.required['cet1']:.2%}"}},
+        {"key": "여유 {v}",
+         "args": {"v": f"{r.bis.surplus_shortfall['cet1'] * 100:+.2f}%p"}},
+    ]
+    if short:
+        cap.append({"key": "제약 {tier} {v}", "tr": ["tier"],
+                    "args": {"tier": ko_tier[bind],
+                             "v": f"{r.bis.surplus_shortfall[bind] * 100:+.2f}%p"}})
+        cap.append({"key": "완충자본 미달 {n}종, 배당·성과급 제한",
+                    "args": {"n": n_short}})
+    else:
+        cap.append({"key": "전 계층 요구 충족", "args": {}})
+
+    trough = r.stress_path_trough
+    sev = trough[trough["scenario"] == "severely_adverse"]
+    stress: list[dict] = []
+    if len(sev):
+        stress.append({"key": "심각 시나리오 {q}",
+                       "args": {"q": str(sev["trough_quarter"].iloc[0])}})
+
+    npl = float(_app._npl_ratio(studio))
+    checks = t["val_check"]
+    n_checks = int(len(checks))
+    n_forms = int(len(t["reg_form"]))
+    n_lines = int(len(t["reg_form_line"]))
+
+    subs: dict[str, list] = {
+        "0": cap,
+        "1": stress,
+        "3": [{"key": "NSFR {v}", "args": {"v": f"{float(r.alm['nsfr'].nsfr):.1%}"}},
+              {"key": "최저 {v}", "args": {"v": f"{LCR_MIN:.1%}"}}],
+        "4": [{"key": "총 {n}건", "args": {"n": n_checks}}],
+        "5": [{"key": "서식 {n}장", "args": {"n": n_forms}},
+              {"key": "라인 {n}행", "args": {"n": n_lines}}],
+    }
+    subs["2"] = [{"key": "고정이하여신비율 {v}", "args": {"v": f"{npl:.2%}"}}]
+    return {"numeric": numeric, "subs": subs,
+            "note": ("sub 는 조각(용어집 키)과 값으로 싣는다. 화면이 TF 로 "
+                     "채우므로 영문 화면에 한국어 산문이 남지 않는다. "
+                     "tr 에 적힌 인자는 화면이 T() 로 한 번 더 옮긴다")}
 
 
 def build_ext(studio, ledger_path=None, iv_dir=None) -> dict:
