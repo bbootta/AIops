@@ -391,8 +391,13 @@ function multiLine(series,labels,o={}){
   const max=hi+pad,min=lo-pad,span=(max-min)||1,ih=H-pT-pB;
   const X=k=>pL+k*(W-pL-pR)/Math.max(n-1,1),Y=v=>H-pB-((v-min)/span)*ih,gap=(W-pL-pR)/Math.max(n-1,1);
   const s=svgRoot(W,H,o.title||T('추이'),descOf(o,n));
+  // A failing quarter is marked by a band along the baseline, not by filling
+  // the whole column: when every quarter fails the full height hatch covers
+  // the plot and the series it is supposed to qualify cannot be read.
+  const HB=7;
   labels.forEach((lb,k)=>{if(!hatch[k])return;
-    tip(sn(s,'rect',{x:X(k)-gap/2,y:pT,width:gap,height:ih,fill:HATCH.bad,'fill-opacity':0.26}),String(lb)+' · '+T('미통과'))});
+    tip(sn(s,'rect',{x:X(k)-gap/2,y:H-pB-HB,width:gap,height:HB,fill:HATCH.bad}),
+      String(lb)+' · '+T('미통과'))});
   gridAt(s,pL,W-pR,[1/3,2/3,1].map(f=>[Y(min+span*f),fm(min+span*f)]),Y(min));
   rules.forEach(r=>{if(!num(r.value))return;const y=Y(r.value),col='var(--'+(r.tone||'ink')+')';
     sn(s,'line',{x1:pL,x2:W-pR,y1:y,y2:y,stroke:col,'stroke-width':1.2,'stroke-dasharray':'6 4'});

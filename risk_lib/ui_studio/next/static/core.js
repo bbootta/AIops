@@ -155,7 +155,7 @@ function table(f,o){o=o||{};const card=el('div','card tbl');if(!f){ap(card,note(
   draw();return card}
 function kpi(o){o=o||{};const t=o.tone||'neutral',c=el('div','card kpi '+t);c.dataset.tone=t;
   ap(c,el('div','lab',o.raw?o.label:T(o.label)));const v=el('div','val');const vs=o.value==null?'-':String(o.value),vn=el('span','num',vs);// 6자를 넘으면 28px 로는 좁은 카드(6열)에 안 들어가 낱말 가운데가 끊긴다.
-  if(vs.length>8)v.classList.add('xlong');else if(vs.length>6)v.classList.add('long');vn.title=vs;ap(v,glyph(t),vn);ap(c,v);
+  if(vs.length>8)v.classList.add('xlong');else if(vs.length>6)v.classList.add('long');vn.title=vs;if(t!=='neutral')ap(v,glyph(t));ap(v,vn);ap(c,v);
   if(o.sub)ap(c,el('div','sub',o.sub));
   if(o.delta!=null&&o.delta!==false)ap(c,el('div','sub delta',String(o.delta)));
   else if(o.delta!==false&&D.x_trend&&D.x_trend.single_period)ap(c,el('div','sub delta',T('단일 기간')));
@@ -177,49 +177,91 @@ function tabs(root,list,active){const bar=el('div','tabs'),pane=el('div','tabpan
 function report(id,err,level){(W.__NG_ERRORS__=W.__NG_ERRORS__||[]).push({id:id,message:String((err&&err.message)||err),stack:(err&&err.stack)||''});(console[level]||console.error)('[NG] '+id+':',err)}
 function guard(fn,root,label){try{return fn()}catch(err){report(label,err,'error');if(root)ap(root,errorCard(err));return undefined}}
 /* ---- gate strip (spec 3.2) ---- */
+/* The strip is the one thing on every screen that must read at a glance, so
+   it leads with the verdict and then gives each line its own label, value and
+   detail. It used to print four sentences of the same weight, which buried
+   the very fact it exists to carry. */
 function paintGate(){const g=$('#gatestrip');if(!g)return;g.innerHTML='';const x=D.x_gate;
-  const seg=(cls,t,txt)=>{const b=el('button','gseg '+cls+' '+t);b.type='button';b.dataset.tone=t;ap(b,glyph(t),' '+txt);b.title=T('게이트 드로어 열기');b.onclick=()=>drawer.gate();ap(g,b);return b};
-  if(!x){seg('l3','blocked',T('상시 독립검증 (3선)')+' · '+T('3선 게이트 미확인')+' · '+T('게이트 객체 없음'));g.dataset.gateStatus='3선 게이트 미확인';g.dataset.tone='blocked';return}
+  const seg=(cls,t,label,value,detail)=>{const b=el('button','gseg '+cls+' '+t);b.type='button';
+    b.dataset.tone=t;ap(b,glyph(t));
+    if(label)ap(b,el('span','gl',T(label)));
+    ap(b,el('b','gv',value));
+    if(detail)ap(b,el('span','gx',detail));
+    b.title=T('게이트 드로어 열기');b.onclick=()=>drawer.gate();ap(g,b);return b};
+  if(!x){seg('l3','blocked','3선',T('3선 게이트 미확인'),T('게이트 객체 없음'));
+    g.dataset.gateStatus='3선 게이트 미확인';g.dataset.tone='blocked';return}
   const s=x.self||{},i=x.independent||{},a=x.approvals||{},sub=x.submission||{},ov=x.overall||{};
-  seg('l2',s.tone||'neutral',T('자체검증 (2선)')+' '+TF('PASS {pass} · WARN {warn} · FAIL {fail} · 규제미달 {blocks} · 미실행 {not_run} (항등식 {identity} 제외)',{pass:s.pass,warn:s.warn,fail:s.fail,blocks:s.blocks,not_run:s.not_run,identity:s.identity_excluded}));
+  seg('vd',ov.tone||'blocked',null,T(ov.blocks_approval?'결재 차단':'결재 가능'),null);
+  const adverse=[s.fail?TF('FAIL {n}',{n:s.fail}):null,s.warn?TF('WARN {n}',{n:s.warn}):null,
+    s.blocks?TF('규제미달 {n}',{n:s.blocks}):null].filter(Boolean).join(' · ');
+  seg('l2',s.tone||'neutral','2선',adverse||TF('PASS {n}',{n:s.pass}),
+    TF('PASS {pass} · 미실행 {not_run} · 항등식 {identity} 제외',
+       {pass:s.pass,not_run:s.not_run,identity:s.identity_excluded}));
   const st=i.ledger_present===false?T('3선 원장 행 없음'):(i.status||T('3선 게이트 미확인'));
-  seg('l3',i.tone||'blocked',T('상시 독립검증 (3선)')+' '+TF('{status} ({request_id}) · {kind} · {dispatch}',{status:st,request_id:i.request_id||'-',kind:i.kind||'unknown',dispatch:dispatchWord(i)}));
-  const nh=(a.holds||[]).length,at=a['반려']>0?'bad':a['대기']>0?'blocked':'good';
-  seg('ap',at,T('결재')+' '+TF('결재 대기 {pending} · 승인 {approved} · 반려 {returned} · 보류 사유 {kinds}종 · 제출 {reviewed}/{total}',{pending:a['대기'],approved:a['승인'],returned:a['반려'],kinds:nh,reviewed:sub.reviewed,total:sub.total}));
-  if(ov.status==='조건부'||(x.conditional&&x.conditional.required))seg('cond','warn',T('조건부 승인')+' · '+((x.conditional&&x.conditional.text)||''));
-  g.dataset.gateStatus=i.ledger_present===false?'':(i.status||'3선 게이트 미확인');g.dataset.tone=ov.tone||'blocked'}
+  seg('l3',i.tone||'blocked','3선',st,
+    [i.request_id||'-',i.kind||'unknown',dispatchWord(i)].join(' · '));
+  const at=a['반려']>0?'bad':a['대기']>0?'blocked':'good';
+  seg('ap',at,'결재',TF('대기 {n}',{n:a['대기']}),
+    TF('승인 {approved} · 반려 {returned} · 보류 사유 {kinds}종 · 제출 {reviewed}/{total}',
+       {approved:a['승인'],returned:a['반려'],kinds:(a.holds||[]).length,
+        reviewed:sub.reviewed,total:sub.total}));
+  if(ov.status==='조건부'||(x.conditional&&x.conditional.required))
+    seg('cond','warn',null,T('조건부 승인'),(x.conditional&&x.conditional.text)||'');
+  g.dataset.gateStatus=i.ledger_present===false?'':(i.status||'3선 게이트 미확인');
+  g.dataset.tone=ov.tone||'blocked'}
 function dispatchWord(i){return i.dispatched===true?T('발신'):i.dispatched===false?T('미발신'):T('발신 미확인')}
 /* ---- badge row and provenance header (spec 3.4) ---- */
-function gateBadge(id){const row=el('div','badges');const sg=D.x_screen_gate||{};
-  const checks=(sg.checks&&sg.checks[id])||[],targets=(sg.targets&&sg.targets[id])||[],scope=sg.scope&&sg.scope[id];
-  const cw=el('div','brow l2');ap(cw,el('span','lab',T('이 화면의 2선 검증')));
-  const nc=checks.length;
-  if(!nc)ap(cw,el('span','meta',T('이 화면에 연결된 2선 검증이 없다')));
-  else{const nf=checks.filter(c=>c.status==='FAIL').length,nw=checks.filter(c=>c.status==='WARN').length;
-    ap(cw,el('span','meta',TF('2선 검증 {n}건 · FAIL {fail} · WARN {warn}',{n:nc,fail:nf,warn:nw})));
-    checks.forEach(c=>{const b=badge(c.check_name+' '+c.status,checkTone(c));b.tabIndex=0;b.classList.add('click');b.title=text(c.detail);b.onclick=()=>drawer.check(c.check_name);b.onkeydown=e=>{if(e.key==='Enter')drawer.check(c.check_name)};ap(cw,b)})}
-  ap(row,cw);const tw=el('div','brow l3');ap(tw,el('span','lab',T('이 화면의 3선 재계산 대상')));
-  const nt=targets.length;
-  if(!nt)ap(tw,el('span','meta',T('이 화면에 3선 재계산 대상이 없다')));
-  else{const cnt=k=>targets.filter(t=>t.state===k).length;
-    ap(tw,el('span','meta',TF('3선 대상 {n}건 · 일치 {matched} · 불일치 {mismatched} · 미보고 {unreported}',{n:nt,matched:cnt('일치'),mismatched:cnt('불일치'),unreported:cnt('미보고')})));
-    targets.forEach(t=>{const b=badge(t.target+' '+T(t.state),tone('recalc.state',t.state));b.tabIndex=0;b.classList.add('click');b.title=(t.korean||'')+(t.citation?' · '+t.citation:'');
-      const open=()=>{const ln=lineage.byTarget(t.target);if(ln)drawer.lineage(ln);else drawer.gate()};b.onclick=open;b.onkeydown=e=>{if(e.key==='Enter')open()};ap(tw,b)})}
-  ap(row,tw);
-  if(scope)ap(row,el('div','meta scope',TF('이 화면의 수치 {n}건이 RECALC_SCOPE 에 있고 {m}건은 재계산 대상 아님',{n:scope.in_scope,m:scope.out_of_scope})));
-  return row}
-function provHeader(id){const box=el('div','prov');const xs=(D.x_screens||{})[id];
-  if(!xs){ap(box,el('div','meta',T('연결 원장 없음')));return box}
-  const led=el('div','ledgers');ap(led,el('span','lab',T('연결 원장')));
-  (xs.ledgers||[]).forEach(l=>{const b=el('button','chip ledger');b.type='button';
-    ap(b,el('code',null,l.table),l.product?el('span','prod',l.product):null,el('span','cnt',l.shown<l.total?TF('표본 {n}/{N}',{n:l.shown,N:l.total}):TF('전량 {N}',{N:l.total})));
-    const pk=(l.pk||[]).join(', ');b.title=(l.korean||'')+(pk?' · pk '+pk:'');b.onclick=()=>openTable(l.table);ap(led,b)});
-  ap(box,led);const line=el('div','meta provline');
-  if(xs.synthetic)ap(line,badge(T('합성데이터 · 합성 포트폴리오')+' · '+TF('시드 {seed}',{seed:D.meta.seed}),'synthetic'),' · ');
+/* One quiet meta line under the title: what checks this screen depends on,
+   what the third line recomputed, and which ledgers feed it. These were four
+   rows of coloured chips above the content, which pushed the screen's own
+   figures below the fold and made every page look the same. The facts stay
+   visible and clickable; the boxes are gone and empty parts are not printed. */
+function metaRow(cls,label,sum){const r=el('div','mrow '+cls);
+  ap(r,el('span','lab',T(label)));
+  if(sum)ap(r,el('span','msum',sum));
+  const b=el('span','mitems');ap(r,b);return {row:r,items:b}}
+function mitem(cls,tone,txt,title,onClick){const b=el('button','mi '+(cls||'')+' '+(tone||''));
+  b.type='button';if(title)b.title=title;ap(b,glyph(tone||'neutral'),el('span','t',txt));
+  if(onClick){b.onclick=onClick;b.onkeydown=e=>{if(e.key==='Enter')onClick()}}else b.disabled=true;
+  return b}
+function gateBadge(id){const box=el('div','smeta');const sg=D.x_screen_gate||{};
+  const checks=(sg.checks&&sg.checks[id])||[],targets=(sg.targets&&sg.targets[id])||[];
+  const nf=checks.filter(c=>c.status==='FAIL').length,nw=checks.filter(c=>c.status==='WARN').length;
+  const c2=metaRow('l2','2선',checks.length
+    ? [nf?TF('FAIL {n}',{n:nf}):null,nw?TF('WARN {n}',{n:nw}):null,
+       (!nf&&!nw)?TF('PASS {n}',{n:checks.length}):null].filter(Boolean).join(' · ')
+    : T('연결된 검증 없음'));
+  checks.forEach(c=>ap(c2.items,mitem('ck',checkTone(c),c.check_name,text(c.detail),
+    ()=>drawer.check(c.check_name))));
+  ap(box,c2.row);
+  if(targets.length){const cnt=k=>targets.filter(t=>t.state===k).length;
+    const t3=metaRow('l3','3선',[['일치',cnt('일치')],['불일치',cnt('불일치')],['미보고',cnt('미보고')]]
+      .filter(x=>x[1]).map(x=>T(x[0])+' '+fmt.int(x[1])).join(' · '));
+    targets.forEach(t=>ap(t3.items,mitem('tg',tone('recalc.state',t.state),t.target,
+      T(t.state)+((t.korean?' · '+t.korean:''))+(t.citation?' · '+t.citation:''),
+      ()=>{const ln=lineage.byTarget(t.target);if(ln)drawer.lineage(ln);else drawer.gate()})));
+    ap(box,t3.row)}
+  return box}
+function provHeader(id){const xs=(D.x_screens||{})[id];const led=(xs&&xs.ledgers)||[];
+  const r=metaRow('lg','연결 원장',led.length?TF('{n}장',{n:led.length}):T('없음'));
+  led.forEach(l=>{const b=el('button','mi lk');b.type='button';
+    ap(b,el('code',null,l.table),l.product?el('span','prod',l.product):null,
+      el('span','cnt',l.shown<l.total?TF('표본 {n}/{N}',{n:l.shown,N:l.total}):TF('전량 {N}',{N:l.total})));
+    const pk=(l.pk||[]).join(', ');b.title=(l.korean||'')+(pk?' · pk '+pk:'');
+    b.onclick=()=>openTable(l.table);ap(r.items,b)});
+  return r.row}
+/* Ownership, units, synthetic origin and recalculation scope are provenance,
+   not headline: they sit under the screen, not on top of it. */
+function provFoot(id){const box=el('div','prov');const xs=(D.x_screens||{})[id];
+  const sg=D.x_screen_gate||{},scope=sg.scope&&sg.scope[id];
+  const line=el('div','meta provline');
+  if(xs&&xs.synthetic)ap(line,badge(T('합성데이터 · 합성 포트폴리오')+' · '+TF('시드 {seed}',{seed:D.meta.seed}),'synthetic'),' · ');
   const own=el('span','own');
-  if(xs.ownership){own.textContent=T('소관 (UI 가정)')+' '+xs.ownership.role_name+(xs.ownership.org_unit?' · '+xs.ownership.org_unit:'');own.title=T('DOMAIN_ROLE_MAP 상수로 연결했다. 도메인과 역할을 잇는 원장 컬럼은 없다.')}
+  if(xs&&xs.ownership){own.textContent=T('소관 (UI 가정)')+' '+xs.ownership.role_name+(xs.ownership.org_unit?' · '+xs.ownership.org_unit:'');own.title=T('DOMAIN_ROLE_MAP 상수로 연결했다. 도메인과 역할을 잇는 원장 컬럼은 없다.')}
   else own.textContent=T('소관 미확인');
-  ap(line,own,' · ',el('span','units',T('단위 범례')+': '+T('금액은 억원, 비율은 %, 변동은 %p 로 적는다')));ap(box,line);return box}
+  ap(line,own,' · ',el('span','units',T('단위 범례')+': '+T('금액은 억원, 비율은 %, 변동은 %p 로 적는다')));
+  if(scope)ap(line,' · ',el('span','scope',TF('이 화면의 수치 {n}건이 RECALC_SCOPE 에 있고 {m}건은 재계산 대상 아님',{n:scope.in_scope,m:scope.out_of_scope})));
+  ap(box,line);return box}
 function openTable(name){drawer.open({title:name,tabs:[{label:'원장 표',build:r=>{const f=frame.frameOf(name);const c=cat(name);if(c)ap(r,el('div','meta',c.korean+' · '+c.product+' · '+c.grain));if(f)ap(r,table(f,{title:null}));else ap(r,note(T('원장 행 없음'),'warn'))}}]})}
 function ledgerFold(id){const xs=(D.x_screens||{})[id];const led=((xs&&xs.ledgers)||[]).filter(l=>D.data&&D.data[l.table]);const n=led.length;if(!n)return null;
   const d=el('details','card fold ledgers'),sm=el('summary');ap(sm,el('h3',null,T('원장 표')),' ',el('span','meta',TF('{n}개',{n:n})));
@@ -324,7 +366,7 @@ function buildSection(s){const id=s.id,sec=s.section;sec.innerHTML='';sec.datase
   const body=el('div','body');ap(sec,body);
   guard(()=>def.build(body,ctx),body,id);
   s.tabsApi=(def.tabs&&def.tabs.length)?tabs(body,def.tabs,CUR.params.tab):null;
-  ap(sec,ledgerFold(id))}
+  ap(sec,provFoot(id),ledgerFold(id))}
 /* ---- nav (spec 3.3) ---- */
 let NAVST={},FILTER='';
 function isOpen(n){return n.header.getAttribute('aria-expanded')==='true'}

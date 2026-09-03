@@ -18,8 +18,8 @@ pre{background:var(--panel);border:var(--hair);padding:var(--s3);overflow:auto;
 margin:var(--s2) 0;line-height:1.45;max-width:100%}
 kbd{border:var(--hair);padding:0 var(--s1);background:var(--panel);font-size:var(--fs-meta)}
 h1,h2,h3,h4{font-weight:650;letter-spacing:-.01em;margin:0}
-h2{font-size:var(--fs-h2);line-height:1.2;margin:var(--s1) 0 var(--s2)}
-h3{font-size:var(--fs-body);line-height:1.3}
+h2{font-size:var(--fs-h2);line-height:1.2;margin:var(--s1) 0 var(--s2);letter-spacing:-.015em}
+h3{font-size:var(--fs-h3);line-height:1.3;letter-spacing:-.008em}
 h4{font-size:var(--fs-op)}
 p{margin:0 0 var(--s2)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -39,6 +39,11 @@ padding:var(--s2) var(--s4);min-height:44px;font-size:var(--fs-meta)}
 padding:2px var(--s2);color:var(--muted);white-space:nowrap;max-width:100%;
 overflow:hidden;text-overflow:ellipsis;line-height:1.4}
 label.hchip{padding:1px var(--s1) 1px var(--s2)}
+/* Only the two selectors are operated. The run identity beside them is read,
+   so it loses its box and becomes a quiet line: eight identical outlined
+   chips gave the header no order at all. */
+span.hchip{border:0;padding:2px 0;margin-right:var(--s2)}
+span.hchip+span.hchip{border-left:var(--hair);padding-left:var(--s2)}
 .hchip .sel{border:0;padding:1px var(--s1);background:transparent;color:var(--ink)}
 .instsel{max-width:26ch}
 #langbtn{margin-left:auto}
@@ -64,9 +69,20 @@ padding:var(--s1) var(--s3)}
 #gatestrip{display:flex;flex-wrap:wrap;border-top:var(--hair);background:var(--bg);
 font-size:var(--fs-meta);min-height:24px;line-height:1.3}
 #gatestrip:empty{display:none}
-#gatestrip>button,#gatestrip .seg{flex:1 1 auto;min-width:0;display:inline-flex;
-align-items:center;gap:var(--s2);border:0;border-right:var(--hair);border-left:3px solid var(--neutral);
-background:transparent;text-align:left;padding:3px var(--s3);color:var(--ink);overflow-wrap:anywhere}
+#gatestrip>button,#gatestrip .seg{flex:0 1 auto;min-width:0;display:inline-flex;
+align-items:baseline;gap:var(--s2);border:0;border-right:var(--hair);
+background:transparent;text-align:left;padding:4px var(--s3);color:var(--ink);overflow-wrap:anywhere}
+/* label, value, detail: three weights so the verdict reads first */
+#gatestrip .gl{flex:0 0 auto;color:var(--muted);font-family:var(--font-text);
+text-transform:uppercase;letter-spacing:.06em;font-weight:650}
+#gatestrip .gv{flex:0 0 auto;font-size:var(--fs-op);font-weight:650}
+#gatestrip .gx{min-width:0;color:var(--muted)}
+#gatestrip .gseg.vd{flex:0 0 auto;background:var(--tint-ink)}
+#gatestrip .gseg.vd .gv{font-size:var(--fs-body);letter-spacing:-.01em}
+#gatestrip .gseg.good .gv{color:var(--good)}
+#gatestrip .gseg.warn .gv{color:var(--warn)}
+#gatestrip .gseg.bad .gv{color:var(--bad)}
+#gatestrip .gseg.blocked .gv{color:var(--blocked)}
 #gatestrip>button:last-child,#gatestrip .seg:last-child{border-right:0}
 #gatestrip>button:hover,#gatestrip .seg:hover{background:var(--hover)}
 #gatestrip .seg b,#gatestrip>button b{font-weight:650}
@@ -116,14 +132,28 @@ color:var(--muted);font-size:var(--fs-meta);margin:0 0 var(--s1)}
 .crumb a,.breadcrumb a{color:var(--muted)}
 .crumb .sep,.breadcrumb .sep{color:var(--hairline)}
 .chord{border:var(--hair);padding:0 var(--s1);font-size:var(--fs-meta);color:var(--muted);line-height:1.4}
-.badges,.badgerow{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s2);align-items:center;
-margin:0 0 var(--s3);padding:var(--s2) 0;border-top:var(--hair);border-bottom:var(--hair);font-size:var(--fs-meta)}
-/* 배지 줄은 라벨과 값이 이어 붙어 'on this screenNo second-line check' 처럼
-   읽혔다. 줄마다 flex 간격을 준다. */
-.badges .brow{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s2);align-items:center;width:100%}
-.badges .brow .lab{font-weight:650;color:var(--muted)}
-.badges .sep{color:var(--hairline)}
+/* Screen meta: three quiet rows under the title (2nd line checks, 3rd line
+   targets, ledgers). Labels sit in a fixed column so the eye can skip them;
+   the items are text with a state glyph, not coloured boxes. */
+.smeta{margin:0 0 var(--s3);padding:var(--s2) 0;border-top:var(--hair);border-bottom:var(--hair)}
+.mrow{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s1) var(--s2);
+font-size:var(--fs-meta);line-height:1.7;padding:1px 0}
+.mrow>.lab{flex:0 0 auto;min-width:4.2em;color:var(--muted);font-weight:650;letter-spacing:.04em}
+.mrow>.msum{flex:0 0 auto;color:var(--ink);font-family:var(--font-num)}
+.mrow>.mitems{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s2);min-width:0;flex:1 1 auto}
+.mi{display:inline-flex;align-items:baseline;gap:4px;color:var(--muted);
+font-family:var(--font-num);border-bottom:1px solid transparent;overflow-wrap:anywhere}
+.mi:not(:disabled){cursor:pointer}
+.mi:not(:disabled):hover,.mi:not(:disabled):focus-visible{color:var(--ink);border-bottom-color:var(--hairline)}
+.mi>.glyph{font-family:var(--font-text)}
+.mi.bad>.t{color:var(--bad)}.mi.warn>.t{color:var(--warn)}.mi.good>.t{color:var(--good)}
+.mi.blocked>.t{color:var(--blocked)}.mi.not-run>.t{color:var(--not-run)}
+.mi.lk>code{font-family:var(--font-num);color:var(--ink)}
+.mi.lk>.prod{color:var(--muted)}
+.mi.lk>.cnt{color:var(--muted)}
 .own,.owner{color:var(--muted);font-size:var(--fs-meta)}
+.prov{margin:var(--rhythm) 0 0;padding-top:var(--s2);border-top:var(--hair)}
+.prov .provline{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s2);align-items:baseline;color:var(--muted)}
 .ribbon,.explanatory{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin:var(--s3) 0;padding:var(--s2) var(--s3);
 border:1px dotted var(--ink-70);color:var(--muted);font-size:var(--fs-meta);background:var(--tint-ink)}
 .ribbon>*,.explanatory>*{min-width:0}
@@ -136,15 +166,18 @@ border:1px dotted var(--ink-70);color:var(--muted);font-size:var(--fs-meta);back
 padding:var(--s2) 0;border-bottom:var(--hair)}
 .toc a{color:var(--muted)}
 /* summary strip */
-.aisum{display:flex;gap:var(--s2);align-items:baseline;margin:0 0 var(--s3);padding:var(--s2) var(--s3);
-border:var(--hair);border-left:3px solid var(--neutral);background:var(--panel);font-size:var(--fs-op)}
-.aisum.good{border-left-color:var(--good)}
-.aisum.warn{border-left-color:var(--warn)}
-.aisum.bad{border-left-color:var(--bad)}
+/* The rule based summary restates what the cards below already show, so it
+   sits under the lead as a quiet line rather than a bordered banner. */
+.aisum{display:flex;gap:var(--s2);align-items:baseline;margin:0 0 var(--s3);padding:var(--s1) 0;
+border-bottom:var(--hair);font-size:var(--fs-op);color:var(--muted)}
+.aisum .aisum-tag{color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:var(--fs-meta);font-weight:650}
+.aisum.good{border-bottom-color:var(--good)}
+.aisum.warn{border-bottom-color:var(--warn)}
+.aisum.bad{border-bottom-color:var(--bad)}
 .aisum.blocked{border-left-color:var(--blocked)}
 .aisum-tag{flex:none;font-size:var(--fs-meta);font-weight:650;letter-spacing:.06em;color:var(--muted)}
 /* ── cards, ruled sections, KPI (5) ────────────────────────────── */
-.card{background:var(--panel);border:var(--hair);padding:var(--s3);margin:var(--s3) 0;min-width:0}
+.card{margin-bottom:var(--rhythm);background:var(--panel);border:var(--hair);padding:var(--s3);margin:var(--s3) 0;min-width:0}
 .card .card{margin:var(--s2) 0;background:var(--bg)}
 .card>h3,.card .ttl{font-size:var(--fs-op);margin:0 0 var(--s2);padding-bottom:var(--s1);border-bottom:var(--hair);
 display:flex;flex-wrap:wrap;gap:var(--s1) var(--s2);align-items:baseline}
@@ -280,10 +313,16 @@ font-size:var(--fs-meta);font-weight:650;letter-spacing:.04em}
 details.ledger,.folded,details.fold{border-top:1px solid var(--ink);margin:var(--rhythm) 0 0;padding:0}
 details.ledger>summary,.folded>summary,details.fold>summary{cursor:pointer;padding:var(--s2) 0;font-weight:650;
 font-size:var(--fs-op);list-style:none;display:flex;gap:var(--s2);align-items:baseline}
+/* Chrome draws its own marker through ::marker, which the webkit rule does
+   not hide, so section titles showed two triangles. One marker, ours. */
+details>summary{list-style:none}
+details>summary::marker{content:""}
 details>summary::-webkit-details-marker{display:none}
 details:not([open])>:not(summary){display:none}
-details.ledger>summary::before,.folded>summary::before,details.fold>summary::before{content:"\25B8";color:var(--muted)}
-details[open]>summary::before{content:"\25BE";color:var(--accent)}
+details.ledger>summary::before,.folded>summary::before,details.fold>summary::before,
+details.sec>summary::before{content:"\25B8";color:var(--muted)}
+details.ledger[open]>summary::before,.folded[open]>summary::before,
+details.fold[open]>summary::before,details.sec[open]>summary::before{content:"\25BE";color:var(--accent)}
 details>summary small{color:var(--muted);font-weight:400;font-size:var(--fs-meta);margin-left:auto}
 /* blocks (legacy names kept) */
 .blocks{display:grid;gap:var(--gutter);grid-template-columns:repeat(2,minmax(0,1fr));margin:var(--s3) 0;align-items:start}
@@ -307,6 +346,7 @@ padding-bottom:var(--s1);border-bottom:var(--hair)}
    읽힌다. 줄바꿈은 본문 상자 안에서 일어난다. */
 .board li,.board .line{display:flex;gap:var(--s2);align-items:baseline;padding:3px 0;border-bottom:var(--hair);font-size:var(--fs-op)}
 .board li>.txt,.board .line>.txt{min-width:0;flex:1 1 auto;overflow-wrap:anywhere}
+.board li>.right,.board .line>.right{flex:0 0 auto;margin-left:auto;padding-left:var(--s2);color:var(--muted)}
 .board ul{list-style:none;margin:0;padding:0}
 .board .more{font-size:var(--fs-meta);margin-top:var(--s1);display:inline-block}
 /* in-screen tabs */
@@ -452,3 +492,14 @@ footer code{color:var(--ink)}
   .kpi .val{font-size:22px}
   h2{font-size:18px}
 }
+
+/* ---- restraint pass (after the tone rules, so these win) ----------------
+   A card should read as one figure with its context, not as a stack of
+   coloured boxes. The recalculation state and the board overflow link are
+   provenance and navigation; they carry a glyph and a word, nothing else. */
+.kpi .badge,.kpi .badge.good,.kpi .badge.warn,.kpi .badge.bad,
+.kpi .badge.blocked,.kpi .badge.not-run,.kpi .badge.neutral,.kpi .badge.synthetic{
+border:0;background:none;padding:0;color:var(--muted);line-height:1.4}
+.board .more,.more{border:0;background:none;padding:0;color:var(--accent);
+font-size:var(--fs-meta);border-bottom:1px solid var(--hairline)}
+.board .more:hover,.more:hover{border-bottom-color:var(--accent)}

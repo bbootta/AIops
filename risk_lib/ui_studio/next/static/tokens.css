@@ -23,12 +23,12 @@
   --topbar-h:80px;
   /* derived tints (resolved on :root, so they re-evaluate per palette) */
   --tint-accent:color-mix(in srgb,var(--accent) 12%,var(--bg));
-  --tint-good:color-mix(in srgb,var(--good) 12%,var(--bg));
-  --tint-warn:color-mix(in srgb,var(--warn) 14%,var(--bg));
-  --tint-bad:color-mix(in srgb,var(--bad) 12%,var(--bg));
-  --tint-blocked:color-mix(in srgb,var(--blocked) 12%,var(--bg));
-  --tint-not-run:color-mix(in srgb,var(--not-run) 12%,var(--bg));
-  --tint-synthetic:color-mix(in srgb,var(--synthetic) 14%,var(--bg));
+  --tint-good:color-mix(in srgb,var(--good) 8%,var(--bg));
+  --tint-warn:color-mix(in srgb,var(--warn) 9%,var(--bg));
+  --tint-bad:color-mix(in srgb,var(--bad) 8%,var(--bg));
+  --tint-blocked:color-mix(in srgb,var(--blocked) 8%,var(--bg));
+  --tint-not-run:color-mix(in srgb,var(--not-run) 8%,var(--bg));
+  --tint-synthetic:color-mix(in srgb,var(--synthetic) 9%,var(--bg));
   --tint-neutral:color-mix(in srgb,var(--neutral) 10%,var(--bg));
   --tint-ink:color-mix(in srgb,var(--ink) 6%,var(--bg));
   --hover:color-mix(in srgb,var(--ink) 5%,var(--panel));
@@ -45,7 +45,8 @@
   --fs-meta:11px;
   --fs-op:12.5px;
   --fs-body:14px;
-  --fs-h2:20px;
+  --fs-h3:15px;
+  --fs-h2:22px;
   --fs-kpi:28px;
   --lh-committee:1.45;
   --lh-operator:1.4;
