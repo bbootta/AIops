@@ -75,7 +75,7 @@ background:transparent;text-align:left;padding:4px var(--s3);color:var(--ink);ov
 /* label, value, detail: three weights so the verdict reads first */
 #gatestrip .gl{flex:0 0 auto;color:var(--muted);font-family:var(--font-text);
 text-transform:uppercase;letter-spacing:.06em;font-weight:650}
-#gatestrip .gv{flex:0 0 auto;font-size:var(--fs-op);font-weight:650}
+#gatestrip .gv{flex:0 1 auto;min-width:0;font-size:var(--fs-op);font-weight:650;overflow-wrap:anywhere}
 #gatestrip .gx{min-width:0;color:var(--muted)}
 #gatestrip .gseg.vd{flex:0 0 auto;background:var(--tint-ink)}
 #gatestrip .gseg.vd .gv{font-size:var(--fs-body);letter-spacing:-.01em}
@@ -390,7 +390,7 @@ color:var(--ink);font-size:var(--fs-op)}
 .operator{font-size:var(--fs-op);line-height:var(--lh-operator)}
 .operator .note,.operator .aisum,.operator .kpi .lab{font-size:var(--fs-meta)}
 /* ── drawer and palette (3.8): hairline elevation, no shadow ───── */
-#drawer{position:fixed;top:var(--topbar-h);right:0;bottom:0;width:var(--drawer-w);max-width:100vw;z-index:40;
+#drawer{position:fixed;top:var(--topbar-h);right:0;bottom:0;width:var(--drawer-w);max-width:100%;z-index:40;
 overflow:auto;background:var(--panel);border-left:1px solid var(--rule-strong);padding:var(--s3) var(--s4) var(--s5);
 font-size:var(--fs-op);transition:transform var(--dur) ease}
 #drawer .dhead{display:flex;align-items:baseline;gap:var(--s2);border-bottom:1px solid var(--ink);padding-bottom:var(--s2);margin-bottom:var(--s2)}
@@ -401,7 +401,7 @@ font-size:var(--fs-op);transition:transform var(--dur) ease}
 #drawer dt{color:var(--muted);font-size:var(--fs-meta)}
 #drawer dd{margin:0;overflow-wrap:anywhere;font-family:var(--font-num);font-size:var(--fs-op)}
 body.drawer-open main{padding-right:calc(var(--drawer-w) + var(--s5))}
-#palette{position:fixed;top:calc(var(--topbar-h) + var(--s5));left:50%;transform:translateX(-50%);width:min(640px,calc(100vw - var(--s6)));
+#palette{position:fixed;top:calc(var(--topbar-h) + var(--s5));left:50%;transform:translateX(-50%);width:min(640px,calc(100% - var(--s6)));
 max-height:min(70vh,560px);z-index:50;display:flex;flex-direction:column;background:var(--panel);
 border:1px solid var(--rule-strong);font-size:var(--fs-op)}
 #palette input{border:0;border-bottom:1px solid var(--ink);background:transparent;padding:var(--s3) var(--s4);font-size:var(--fs-body);width:100%}
@@ -438,6 +438,13 @@ footer code{color:var(--ink)}
   header{gap:var(--s1) var(--s2)}
   #chip-rows,#chip-seed{display:none}
 }
+/* Below this width a strip segment cannot hold its label and value on one
+   line, and a segment that will not shrink pushes the page sideways. Each
+   segment takes its own row instead. */
+@media (max-width:760px){
+  #gatestrip>button,#gatestrip .seg{flex:1 1 100%;border-right:0;border-bottom:var(--hair)}
+  #gatestrip>button:last-child,#gatestrip .seg:last-child{border-bottom:0}
+}
 @media (max-width:900px){
   .layout{grid-template-columns:1fr}
   nav{position:static;max-height:none;flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:var(--hair);padding:var(--s2) var(--s2)}
@@ -453,7 +460,7 @@ footer code{color:var(--ink)}
   #gatestrip>button,#gatestrip .seg{flex:1 1 50%}
   #langbtn{margin-left:0}
   .hchip{max-width:48vw}
-  #drawer{width:100vw;top:0;border-left:0}
+  #drawer{width:100%;top:0;border-left:0}
   .meter{grid-template-columns:minmax(0,1fr) auto}
   .meter .bar{grid-column:1/-1}
 }
@@ -467,7 +474,7 @@ footer code{color:var(--ink)}
   #gatestrip>button,#gatestrip .seg{flex:1 1 100%;border-right:0;border-bottom:var(--hair)}
   .tw{max-height:none}
   .tw table{min-width:0}
-  #palette{width:100vw;top:0;max-height:100vh}
+  #palette{width:100%;top:0;max-height:100vh}
   footer{padding:var(--s3)}
 }
 /* ── motion and print (4.6) ─────────────────────────────────────── */

@@ -203,7 +203,7 @@ function paintGate(){const g=$('#gatestrip');if(!g)return;g.innerHTML='';const x
   const at=a['반려']>0?'bad':a['대기']>0?'blocked':'good';
   seg('ap',at,'결재',TF('대기 {n}',{n:a['대기']}),
     TF('승인 {approved} · 반려 {returned} · 보류 사유 {kinds}종 · 제출 {reviewed}/{total}',
-       {approved:a['승인'],returned:a['반려'],kinds:(a.holds||[]).length,
+       {approved:a['승인'],returned:a['반려'],kinds:a.n_hold_kinds,
         reviewed:sub.reviewed,total:sub.total}));
   if(ov.status==='조건부'||(x.conditional&&x.conditional.required))
     seg('cond','warn',null,T('조건부 승인'),(x.conditional&&x.conditional.text)||'');
@@ -226,15 +226,18 @@ function mitem(cls,tone,txt,title,onClick){const b=el('button','mi '+(cls||'')+'
   return b}
 function gateBadge(id){const box=el('div','smeta');const sg=D.x_screen_gate||{};
   const checks=(sg.checks&&sg.checks[id])||[],targets=(sg.targets&&sg.targets[id])||[];
+  // counts are named before they are formatted: A12 forbids .length inside a
+  // formatter argument, because that is how a sampled frame becomes a total
+  const nc=checks.length,nt=targets.length;
   const nf=checks.filter(c=>c.status==='FAIL').length,nw=checks.filter(c=>c.status==='WARN').length;
-  const c2=metaRow('l2','2선',checks.length
+  const c2=metaRow('l2','2선',nc
     ? [nf?TF('FAIL {n}',{n:nf}):null,nw?TF('WARN {n}',{n:nw}):null,
-       (!nf&&!nw)?TF('PASS {n}',{n:checks.length}):null].filter(Boolean).join(' · ')
+       (!nf&&!nw)?TF('PASS {n}',{n:nc}):null].filter(Boolean).join(' · ')
     : T('연결된 검증 없음'));
   checks.forEach(c=>ap(c2.items,mitem('ck',checkTone(c),c.check_name,text(c.detail),
     ()=>drawer.check(c.check_name))));
   ap(box,c2.row);
-  if(targets.length){const cnt=k=>targets.filter(t=>t.state===k).length;
+  if(nt){const cnt=k=>targets.filter(t=>t.state===k).length;
     const t3=metaRow('l3','3선',[['일치',cnt('일치')],['불일치',cnt('불일치')],['미보고',cnt('미보고')]]
       .filter(x=>x[1]).map(x=>T(x[0])+' '+fmt.int(x[1])).join(' · '));
     targets.forEach(t=>ap(t3.items,mitem('tg',tone('recalc.state',t.state),t.target,
@@ -243,7 +246,8 @@ function gateBadge(id){const box=el('div','smeta');const sg=D.x_screen_gate||{};
     ap(box,t3.row)}
   return box}
 function provHeader(id){const xs=(D.x_screens||{})[id];const led=(xs&&xs.ledgers)||[];
-  const r=metaRow('lg','연결 원장',led.length?TF('{n}장',{n:led.length}):T('없음'));
+  const nl=led.length;
+  const r=metaRow('lg','연결 원장',nl?TF('{n}장',{n:nl}):T('없음'));
   led.forEach(l=>{const b=el('button','mi lk');b.type='button';
     ap(b,el('code',null,l.table),l.product?el('span','prod',l.product):null,
       el('span','cnt',l.shown<l.total?TF('표본 {n}/{N}',{n:l.shown,N:l.total}):TF('전량 {N}',{N:l.total})));

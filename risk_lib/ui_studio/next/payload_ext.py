@@ -437,6 +437,9 @@ def _approvals(ga: pd.DataFrame) -> dict:
         **_counts(ga["decision"], ("대기", "승인", "반려")), "total": int(len(ga)),
         "holds": [{**h, "subject_types": sorted(h["subject_types"])}
                   for _, h in sorted(holds.items())],
+        # 보류 사유의 가짓수. 화면이 holds 를 세면 브라우저가 총계를 만드는
+        # 셈이라 A12 가 막는다. 세는 일은 여기서 한 번만 한다.
+        "n_hold_kinds": int(len(holds)),
         "segregation_violations": int((~ga["segregation_ok"].astype(bool)).sum()),
         "by_subject_type": {str(k): int(v) for k, v in sorted(
             ga["subject_type"].astype(str).value_counts().items())},
