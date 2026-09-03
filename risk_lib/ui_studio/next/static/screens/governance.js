@@ -240,7 +240,7 @@ const k=CD(root,'범위형 비상정지 이력');
 if(ks){const i=IX(ks);let miss=0;ks.rows.forEach(r=>{if(r[i.confirmed_by]==null)miss++});
  ap(k,BG(T('2차 확인 미완료')+' '+NI(miss)+'/'+NI(ks.total),miss?'blocked':'good'));
  ap(k,tcard(c,'agent_killswitch',{rowClass:r=>r[i.confirmed_by]==null?'blocked':null}))}
-ap(k,NO(T('안전중지는 진행 중 결정론적 계산을 마치고 신규 도구 호출을 차단한다. 중요 범위는 독립된 2차 확인이 필요하다.'),'neutral'));
+U.hint(k,'안전중지는 진행 중 결정론적 계산을 마치고 신규 도구 호출을 차단한다. 중요 범위는 독립된 2차 확인이 필요하다.');
 ap(k,BT(T('비상정지'),{onClick:()=>c.go('kill-guard')}));
 }
 

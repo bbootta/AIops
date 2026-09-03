@@ -440,7 +440,7 @@ function capKri(root,X,E){
 function regForms(root){
   const d=D(),forms=d.forms||[],byf={};
   (A(A(d.x_gate).submission).by_form||[]).forEach(f=>{byf[f.form_id]=f});
-  ap(root,U.note(T('금융감독원 배포 기준 업무보고서다. 라인마다 산식·규정근거·산출 모듈을 남긴다.'),'neutral'));
+  U.lead(root,'금융감독원 배포 기준 업무보고서다. 라인마다 산식·규정근거·산출 모듈을 남긴다.');
   
   const wrap=el('div','split'),list=el('div','list'),pane=el('div');
   const sel=A(NG.route().params).sel;let cur=null,first=null;

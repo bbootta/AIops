@@ -115,7 +115,7 @@ function stressMain(root,c){
     const nb=blocks.length,ns=steps.length;
     ap(pane,MT(TF('블록 {n}개 · 단계 {m}개',{n:nb,m:ns})));}
   draw();
-  ap(root,NO(T('자본은 세후이익 변화로 롤포워드되며(증분 ECL은 이미 이익에 반영돼 있다), 산출하한 분모도 함께 충격받는다. 추적표의 값은 스트레스 경로 결과와 정확히 일치한다.')));
+  U.lead(root,'자본은 세후이익 변화로 롤포워드되며(증분 ECL은 이미 이익에 반영돼 있다), 산출하한 분모도 함께 충격받는다. 추적표의 값은 스트레스 경로 결과와 정확히 일치한다.');
   const cp=G(c,'st_capital_path');
   if(cp){const ci=IX(cp);ap(root,tcard(c,'st_capital_path',{rowClass:r=>r[ci.passes]?null:'bad'}))}}
 
@@ -297,7 +297,7 @@ function reverseStress(root,c){
   const nr=rows.length;
   ap(root,U.table({table:null,columns:['item','value'],labels:[T('항목'),T('값')],
     rows:rows,shown:nr,total:nr},{title:'파열점의 산출 상태',filter:false}));
-  ap(root,NO(T('심도 1.0 미만에서 임계가 뚫리면(임계 심도 < 1) 심각 시나리오보다 약한 충격에도 요구비율을 지키지 못한다는 뜻이다. 자본계획·회복계획 연계 대상.')));
+  U.lead(root,'심도 1.0 미만에서 임계가 뚫리면(임계 심도 < 1) 심각 시나리오보다 약한 충격에도 요구비율을 지키지 못한다는 뜻이다. 자본계획·회복계획 연계 대상.');
   }
 
 /* ══════════════ ICAAP 인벤토리 ══════════════════════════════════════ */
