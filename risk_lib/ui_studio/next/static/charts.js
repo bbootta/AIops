@@ -34,7 +34,11 @@ const tip=(e,t)=>{const x=document.createElementNS(NS,'title');x.textContent=t;e
    digits and latin advance just under 7px, CJK is full width. Every label
    with a slot is trimmed to that slot and every gutter is sized from the
    labels it must hold, so nothing is painted outside the viewBox. */
-const EMW=6.8,UPW=7.8,CJKW=11,ELL='…';
+// Advance widths for the SVG label face at --fs-op (12.5px). They were
+// calibrated at 11px; the labels then overran every fitW budget by about
+// a seventh and eight of them clipped. Keep these in step with the token,
+// and rounded up: fitting must err towards an ellipsis, never an overflow.
+const EMW=7.9,UPW=9.1,CJKW=13,ELL='…';
 const wide=c=>c>='\u1100'&&(c<='\u115f'||(c>='\u2e80'&&c<='\ua4cf')||(c>='\uac00'&&c<='\ud7a3')||(c>='\uf900'&&c<='\ufaff')||(c>='\ufe30'&&c<='\ufe6f')||(c>='\uff00'&&c<='\uff60')||(c>='\uffe0'&&c<='\uffe6'));
 function textW(s,k){s=String(s==null?'':s);let w=0;
   for(let i=0;i<s.length;i++){const c=s[i];w+=wide(c)?CJKW:(c>='A'&&c<='Z'?UPW:EMW)}
@@ -133,6 +137,11 @@ function descOf(o,n){
     return T('원장')+' '+f.table+' · '+part}
   return (o&&o.desc)||TF('{n}건',{n:n||0});
 }
+/* Label size is in viewBox units, so a chart drawn 900 wide and laid out in a
+   540px column renders its 11px labels at 6.6px: blurred and unreadable. The
+   fix is geometry, not type. Keep the logical width near the narrowest slot a
+   chart lands in (a two-column card), so the shrink is slight and the wide
+   slot caps at the natural size instead of stretching. */
 function svgRoot(w,h,title,desc){
   ensureDefs();
   const s=document.createElementNS(NS,'svg');
@@ -378,7 +387,7 @@ function kriCards(kris,{arrows=null}={}){
 }
 /* ── multiLine: category or date axis, rules, hatch bands, end labels ── */
 function multiLine(series,labels,o={}){
-  const n=labels.length,W=900,H=260,pL=64,pR=110,pT=16,pB=30,fm=o.fmt||fnum;
+  const n=labels.length,W=640,H=250,pL=56,pR=112,pT=14,pB=30,fm=o.fmt||fnum;
   const rules=o.rules||[],hatch=o.hatch||[];
   const all=series.flatMap(se=>se.values).filter(num).concat(rules.map(r=>r.value).filter(num));
   // 0 을 억지로 담으면 8~11% 대의 비율 계열이 위쪽 20% 에 뭉쳐 요구선과의 차이가
@@ -399,9 +408,13 @@ function multiLine(series,labels,o={}){
     tip(sn(s,'rect',{x:X(k)-gap/2,y:H-pB-HB,width:gap,height:HB,fill:HATCH.bad}),
       String(lb)+' · '+T('미통과'))});
   gridAt(s,pL,W-pR,[1/3,2/3,1].map(f=>[Y(min+span*f),fm(min+span*f)]),Y(min));
+  // The rule lines go under the series; their labels go over it. A halo alone
+  // would not help: a series drawn later paints straight through the glyphs,
+  // and a requirement line usually sits within a hair of the series it binds.
+  const ruleLabels=[];
   rules.forEach(r=>{if(!num(r.value))return;const y=Y(r.value),col='var(--'+(r.tone||'ink')+')';
     sn(s,'line',{x1:pL,x2:W-pR,y1:y,y2:y,stroke:col,'stroke-width':1.2,'stroke-dasharray':'6 4'});
-    sn(s,'text',{x:pL+4,y:y-4,style:'fill:'+col},(r.label||'')+' '+fm(r.value))});
+    ruleLabels.push({y:y,col:col,t:(r.label||'')+' '+fm(r.value)})});
   series.forEach((se,i)=>{
     const col=series2(i),dash=se.dash!=null?se.dash:(se.dotted?'2 3':DASH[i%DASH.length]);
     const pts=se.values.map((v,k)=>num(v)?X(k).toFixed(1)+','+Y(v).toFixed(1):null).filter(Boolean).join(' ');
@@ -410,6 +423,7 @@ function multiLine(series,labels,o={}){
     let last=-1;se.values.forEach((v,k)=>{if(num(v))last=k});
     if(last>=0){sn(s,'circle',{cx:X(last),cy:Y(se.values[last]),r:3,fill:col});
       sn(s,'text',{x:X(last)+7,y:Y(se.values[last])+4,style:'fill:'+col},endLabel(se.name,fm(se.values[last]),pR-11))}});
+  ruleLabels.forEach(r=>sn(s,'text',{x:pL+4,y:r.y-6,class:'halo',style:'fill:'+r.col},r.t));
   const step=Math.max(1,Math.ceil(n/8));
   labels.forEach((lb,k)=>{if(k%step&&k!==n-1)return;sn(s,'text',{x:X(k),y:H-8,'text-anchor':'middle'},fitW(lb,gap*step))});
   const lg=series.map((se,i)=>({name:se.name,color:series2(i),dash:se.dash!=null?se.dash:(se.dotted?'2 3':DASH[i%DASH.length])}));
@@ -417,7 +431,7 @@ function multiLine(series,labels,o={}){
 }
 /* ── areaLine: one series with area fill ─────────────────────────────── */
 function areaLine(values,o={}){
-  const n=values.length,W=920,H=o.height||190,pL=60,pR=90,pT=14,pB=22,fm=o.fmt||fmoney;
+  const n=values.length,W=640,H=o.height||186,pL=54,pR=80,pT=14,pB=22,fm=o.fmt||fmoney;
   const vs=values.filter(num),max=Math.max(...vs,0),min=Math.min(...vs,0),span=(max-min)||1,ih=H-pT-pB;
   const X=k=>pL+k*(W-pL-pR)/Math.max(n-1,1),Y=v=>H-pB-((v-min)/span)*ih;
   const s=svgRoot(W,H,o.title||o.label||T('추이'),descOf(o,n));
@@ -428,7 +442,8 @@ function areaLine(values,o={}){
     sn(s,'polyline',{points:pts.join(' '),fill:'none',stroke:'var(--accent)','stroke-width':2});
     let last=-1;values.forEach((v,k)=>{if(num(v))last=k});
     sn(s,'circle',{cx:X(last),cy:Y(values[last]),r:4,fill:'var(--accent)'});
-    sn(s,'text',{x:X(last)+8,y:Y(values[last])+4,style:INK+';font-weight:650'},(o.label?o.label+' ':'')+fm(values[last]))}
+    sn(s,'text',{x:X(last)+8,y:Y(values[last])+4,style:INK+';font-weight:650'},
+      endLabel(o.label||'',fm(values[last]),pR-12))}
   const d=o.dates||[];
   [0,Math.floor((n-1)/2),n-1].forEach(k=>{if(k>=0&&d[k]!=null)sn(s,'text',{x:X(k),y:H-6,'text-anchor':k===0?'start':k===n-1?'end':'middle'},String(d[k]))});
   return box(s,o,{cols:[T('기간'),o.label||T('값')],rows:values.map((v,k)=>[d[k]!=null?d[k]:k+1,fm(v)])});
@@ -442,7 +457,8 @@ function scatterXY(points,o={}){
   const fx=o.fmtX||fnum,fy=o.fmtY||fnum;
   const s=svgRoot(W,H,o.title||((o.yLabel||'y')+' · '+(o.xLabel||'x')),descOf(o,n));
   gridAt(s,pL,W-pR,[1/3,2/3,1].map(f=>[sy(y0+(y1-y0)*f),fy(y0+(y1-y0)*f)]),sy(y0));
-  [0,1/3,2/3,1].forEach(f=>{const xv=x0+(x1-x0)*f;sn(s,'text',{x:sx(xv),y:H-pB+14,'text-anchor':'middle'},fx(xv))});
+  [0,1/3,2/3,1].forEach(f=>{const xv=x0+(x1-x0)*f;
+    sn(s,'text',{x:sx(xv),y:H-pB+14,'text-anchor':f===0?'start':f===1?'end':'middle'},fx(xv))});
   points.forEach(p=>tip(sn(s,'circle',{cx:sx(p.x),cy:sy(p.y),r:3,fill:'var(--'+(p.tone||'accent')+')','fill-opacity':0.6}),(p.label?p.label+' · ':'')+fx(p.x)+' → '+fy(p.y)));
   const fit=o.fit;
   if(fit&&num(fit.slope)&&num(fit.intercept))
@@ -457,7 +473,8 @@ function scatter45(points,o={}){
   const X=v=>pad+Math.max(0,Math.min(1,v))*(W-pad-14),Y=v=>H-pad-Math.max(0,Math.min(1,v))*(H-pad-pT);
   const s=svgRoot(W,H,o.title||((o.yLabel||'y')+' · '+(o.xLabel||'x')),descOf(o,n));
   gridAt(s,X(0),X(1),[1/3,2/3,1].map(f=>[Y(f),fpct(f,0)]),Y(0));
-  [0,1/3,2/3,1].forEach(f=>sn(s,'text',{x:X(f),y:H-pad+14,'text-anchor':'middle'},fpct(f,0)));
+  [0,1/3,2/3,1].forEach(f=>sn(s,'text',{x:X(f),y:H-pad+14,
+    'text-anchor':f===0?'start':f===1?'end':'middle'},fpct(f,0)));
   sn(s,'line',{x1:X(0),y1:Y(0),x2:X(1),y2:Y(1),stroke:'var(--ink-70)','stroke-width':1,'stroke-dasharray':'5 4'});
   points.forEach(p=>tip(sn(s,'circle',{cx:X(p.x),cy:Y(p.y),r:2.8,fill:'var(--'+(p.tone||'accent')+')','fill-opacity':0.62}),(p.label?p.label+' · ':'')+fpct(p.x,1)+' → '+fpct(p.y,1)));
   if(o.xLabel)sn(s,'text',{x:W/2,y:H-6,'text-anchor':'middle'},o.xLabel);
@@ -468,7 +485,7 @@ function scatter45(points,o={}){
 function pnlChart(f){
   if(!f||f.shown<f.total)return null;
   const i=idx(f),rows=f.rows.slice().sort((a,b)=>String(a[i.obs_date]).localeCompare(String(b[i.obs_date])));
-  const n=rows.length,W=920,H=220,pL=70,pR=14,pT=14,pB=24;
+  const n=rows.length,W=640,H=214,pL=62,pR=14,pT=14,pB=24;
   const pnl=rows.map(r=>r[i.pnl]),neg=rows.map(r=>-r[i.var_99]),all=pnl.concat(neg).filter(num);
   const max=Math.max(...all,0),min=Math.min(...all,0),span=(max-min)||1,ih=H-pT-pB;
   const X=k=>pL+k*(W-pL-pR)/Math.max(n-1,1),Y=v=>H-pB-((v-min)/span)*ih;

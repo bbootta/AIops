@@ -380,9 +380,13 @@ padding:var(--s1) var(--s3);font-size:var(--fs-op);font-weight:500}
 .tabs button:hover{color:var(--ink)}
 .tabs button.on,.tabs [aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent);font-weight:650}
 /* charts (chart roots are inline svg; text colours from tokens) */
-svg[role=img]{display:block;max-width:100%;height:auto;font-family:var(--font-num);
+svg[role=img]{display:block;max-width:100%;height:auto;margin-inline:auto;font-family:var(--font-num);
 font-variant-numeric:tabular-nums slashed-zero}
-svg[role=img] text{fill:var(--muted);font-size:var(--fs-meta)}
+svg[role=img] text{fill:var(--muted);font-size:var(--fs-op)}
+/* A requirement line and a series often carry the same value, and the label
+   then reads as struck through. The halo is painted under the glyphs. */
+svg[role=img] text.halo{paint-order:stroke;stroke:var(--panel);stroke-width:3px;
+stroke-linejoin:round}
 svg[role=img] .base{stroke:var(--ink)}
 svg[role=img] .gridline{stroke:var(--hairline)}
 .legend{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s3);font-size:var(--fs-meta);color:var(--muted);margin:var(--s1) 0}
