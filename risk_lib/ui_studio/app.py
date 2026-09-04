@@ -2633,10 +2633,6 @@ function stressDeepDive(root){
       pane.appendChild(c);
     });
 
-    const note=el('div','note',
-      '자본은 세후이익 변화로 롤포워드되며(증분 ECL은 이미 이익에 반영돼 있다), '+
-      '산출하한 분모도 함께 충격받는다. 추적표의 값은 스트레스 경로 결과와 정확히 일치한다.');
-    pane.appendChild(note);
   }
   draw();
 }
@@ -2826,8 +2822,7 @@ function renderForm(pane,f){
   const c=el('div','card');
   c.appendChild(el('h3',null,`[${f.form_no}] ${f.form_name}`));
   c.appendChild(rawEl('div','meta',`${f.section} · ${T('내부 ID')} ${f.form_id} · ${T('제출주기')} ${f.frequency} · ${T('근거')} ${f.citation}`));
-  if(!f.official)c.appendChild(el('div','note',
-    '서식번호는 내부 배정 코드다. 금감원 배포본 서식번호 확보 후 대조가 필요하다.'));
+
   const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
   ['라인','항목명','단위','값','산식','규정 근거'].forEach(x=>tr.appendChild(el('th',null,x)));
   th.appendChild(tr);t.appendChild(th);
@@ -2986,10 +2981,6 @@ function validation(root){
     c.appendChild(el('div','val '+(t||''),String(v)));
     kg.appendChild(c)});
   g.appendChild(kg);
-  g.appendChild(el('div','note',
-    '이 판정은 화면을 산출한 실행 시점의 스냅샷이다. 이후 도착한 3선 응답이나 '+
-    '판정 변경은 이 화면에 반영되지 않는다. 현재 상태의 정본은 저장소 게이트'+
-    '(check_gate)다.'));
   g.appendChild(el('div','note',iv.reason+
     '. 게이트는 fail-closed다. 응답이 없으면 상태가 응답대기로 남고 결재 상신이 막힌다.'+
     '판정이 경부적합이면 상태는 조건부이며, 결재 책임자가 잔여위험·후속조건·이행기한·'+
@@ -3016,8 +3007,6 @@ function agents(root){
   b.appendChild(table(D.activity));root.appendChild(b);
   const k=el('div','card');k.appendChild(el('h3',null,'범위형 비상정지 이력'));
   k.appendChild(table(D.killswitch));
-  k.appendChild(el('div','note',
-    '안전중지는 진행 중 결정론적 계산을 마치고 신규 도구 호출을 차단한다. 중요 범위는 독립된 2차 확인이 필요하다.'));
   root.appendChild(k);
 }
 function changes(root){
@@ -3863,9 +3852,6 @@ function reverseStress(root){
     ['파열점 기대신용손실',fmtMoney(r.ecl_at_break)],
     ['함의 LGD 가산',(r.implied_lgd_addon*100).toFixed(2)+'%p'],
   ],total:5,shown:5},{numeric:false}));
-  c.appendChild(el('div','note',
-    '심도 1.0 미만에서 임계가 뚫리면(임계 심도 < 1) 심각 시나리오보다 약한 '+
-    '충격에도 요구비율을 지키지 못한다는 뜻이다. 자본계획·회복계획 연계 대상.'));
   root.appendChild(c);
 }
 
@@ -5610,8 +5596,6 @@ function defaultedLgdScreen(root){
       c.appendChild(rawEl('div','meta',
         T('산출방법')+': '+
         (f.rows.length?f.rows[0][i.elbe_method]:T('(원장 없음)'))));
-      c.appendChild(el('div','note',
-        '경과월별 BEEL 곡선과 분모 두 방식 대비는 BEEL·PLGD 화면에 있다.'));
       root.appendChild(c)}
     const cure=obs.rows.filter(r=>String(r[oi.censoring_status]).indexOf('정상화')>=0);
     root.appendChild(cardOf('정상화(cure) 인식',
@@ -6318,9 +6302,6 @@ function nmdCoreScreen(root){
           r[ni.n_repricing_contracts],r[ni.n_excluded_contracts],
           r[ni.excluded_notional],pctv(r[ni.excluded_notional_ratio],2),
           r[ni.balance_sheet_assumption],r[ni.margin_treatment]])));
-    c.appendChild(el('div','note',
-      '원장은 현재 실행의 제외 규모만 담는다. 전가율 도입 전후를 비교하려면 '+
-      '두 실행이 필요하며, 이 화면은 한 실행의 값만 싣는다.'));
     root.appendChild(c)}
 }
 
@@ -6470,9 +6451,6 @@ function lexSettingScreen(root){
   /* 값을 바꾸면 무엇이 다시 산출되는지. 화면은 제안만 만들고 값을 바꾸지 않는다. */
   const edit=el('div','card');
   edit.appendChild(el('h3',null,'설정 변경 제안'));
-  edit.appendChild(el('div','note',
-    '설정 변경은 승인 대상이다. 이 화면은 제안서만 만들고 값을 바꾸지 않는다. '+
-    '적용은 원장 등재와 승인, 파이프라인 재실행, 검증 두 층을 거친다.'));
   const eb=el('div','toolbar');
   const codes=[...new Set(f.rows.map(r=>r[i.param_code]))];
   const csel=almSelect(eb,'항목',codes,codes[0]);
@@ -6499,10 +6477,6 @@ function lexSettingScreen(root){
       cur&&cur[i.param_value]!=null?String(cur[i.param_value]):'(비어 있음)',
       inp.value.trim(),why.value.trim()]);
     out.appendChild(simpleTable(['체계','항목','현재값','제안값','사유'],props));
-    out.appendChild(el('div','note',
-      '이 항목을 바꾸면 다시 산출되는 것: 포지션 한도율과 소진율, 보고대상 '+
-      '판정, 연결그룹 판정, look-through 귀속, 총액한도 소진율. 화면에는 '+
-      '반영되지 않으며 재실행이 필요하다.'));
   };
   root.appendChild(edit);
   root.appendChild(almEvidence(['lex_setting']));
@@ -6527,9 +6501,6 @@ function lexAnalysisScreen(root){
         x.limit_amount,x.n_positions,x.n_reportable,x.n_breach,
         x.sum_included,x.sum_exempt,x.limit_citation]),
       {numeric:false,rowClass:r=>r[8]>0?'bad':null}));
-  cmp.appendChild(el('div','note',
-    '분모가 기본자본인 체계와 자기자본인 체계는 같은 익스포저에서 다른 비율을 '+
-    '낸다. 두 비율을 더하거나 비교하지 않는다.'));
   root.appendChild(cmp);
 
   const ag=almF('lex_aggregate');
@@ -6900,10 +6871,6 @@ function simulation(root){
         ((af-b4)*100).toFixed(2)+'%p','원장 alm_irrbb_result'])}
     const rc=cardOf('파급효과',
       simpleTable(['연동 항목','현행','조정 후','변화','출처'],rip));
-    rc.appendChild(el('div','note',
-      '내부자본 소요액은 모형 산출이라 위험가중자산 조정으로 다시 계산되지 '+
-      '않는다. 금리리스크 아웃라이어 판정은 원장 컬럼이며 이 화면이 다시 '+
-      '판정하지 않는다. 위기 경로·유동성·손익의 2차 효과는 재실행으로만 본다.'));
     pane.appendChild(rc);
 
     /* 목표 역산. 항등식이라 닫힌 해가 있고, 하한이 무는 구간에서 꺾인다. */
@@ -7144,9 +7111,7 @@ function limitsScreen(root){
   const dc=cardOf('차원별 드릴다운',null);
   dc.appendChild(bar);dc.appendChild(pane);
   root.appendChild(dc);
-  if(dims.indexOf('obligor_id')<0)root.appendChild(el('div','note',
-    '동일차주 축은 한도 소진 원장에 없다. 차주 단위 한도는 거액익스포져 화면에서 '+
-    '체계별로 본다.'));
+
 
   /* --- 한도 시뮬레이션 --- */
   const sim=el('div','card');
@@ -7179,9 +7144,7 @@ function limitsScreen(root){
 
     if(u2>=1)sout.appendChild(el('div','note bad',
       '이 증감이면 해당 한도를 넘긴다.'));
-    if(D.sim&&D.sim.single_obligor)sout.appendChild(el('div','note',
-      '기본자본 연동 한도(동일차주)는 자본이 바뀌면 한도 자체가 움직인다. '+
-      '그 연동은 시뮬레이션 화면에서 본다.'));
+
   }
   ssel.onchange=simDraw;amt.oninput=simDraw;simDraw();
   root.appendChild(sim);
