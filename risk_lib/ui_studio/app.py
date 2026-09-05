@@ -981,6 +981,16 @@ border-left-color:var(--muted)}
 nav button.on{background:var(--accent);color:var(--on-accent);
 border-left-color:var(--accent);font-weight:750}
 nav button[hidden]{display:none}
+nav .fhide{display:none}
+.navtools{display:flex;flex-direction:column;gap:6px;padding:0 2px 8px}
+.navq{width:100%;background:var(--panel);color:var(--text);border:1px solid var(--line);
+border-radius:8px;padding:6px 9px;font-family:inherit;font-size:11.5px}
+.navq:focus{outline:none;border-color:var(--accent)}
+.roles{display:flex;flex-wrap:wrap;gap:4px}
+.rchip{font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 8px;border-radius:6px;
+border:1px solid var(--line);color:var(--muted);cursor:pointer;user-select:none}
+.rchip:hover{color:var(--text);border-color:var(--accent)}
+.rchip.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 .navgroup.sub{margin-left:11px;margin-top:4px;font-size:10px;
 background:transparent;border:none;border-left:2px solid var(--line);
 border-radius:0;color:var(--muted);padding:5px 8px}
@@ -1022,7 +1032,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 tr.sub td{background:var(--panel2);font-weight:650}
 .pill{display:inline-block;padding:2px 9px;border-radius:7px;font-size:10px;
 font-weight:750;letter-spacing:.04em;border:1px solid var(--line);
-background:var(--chip)}
+background:var(--chip);white-space:nowrap}
 .pill.good{border-color:var(--good);color:var(--good)}
 .pill.warn{border-color:var(--warn);color:var(--warn)}
 .pill.bad{border-color:var(--bad);color:var(--bad)}
@@ -1177,9 +1187,10 @@ color:var(--muted);font-variant-numeric:tabular-nums}
 .ticker b{color:var(--text);font-weight:700;margin-left:6px}
 .ticker .mono{color:var(--lineage)}
 /* 결재 문서 (종합보고서) */
-.doc{display:grid;gap:22px;grid-template-columns:196px minmax(0,1fr);align-items:start}
+.doc{display:grid;gap:22px;grid-template-columns:184px minmax(0,1fr);align-items:start;
+max-width:1460px}
 .dochead{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;
-border-bottom:2px solid var(--text);padding:0 0 12px;margin:0 0 6px}
+border-bottom:2px solid var(--text);padding:0 0 12px;margin:0 0 6px;max-width:1460px}
 .dochead .ttl{font-size:20px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
 .dochead .sub{color:var(--muted);font-size:11px;margin-top:4px}
 .signoff{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
@@ -1198,27 +1209,31 @@ cursor:pointer;font-family:inherit;font-size:12px;font-weight:650;border-radius:
 .toc button .no{font-size:11px;color:var(--muted);
 min-width:14px;font-variant-numeric:tabular-nums}
 .toc button .st{margin-left:auto;font-size:9.5px;font-weight:750;letter-spacing:.04em;white-space:nowrap}
-.docsec{display:grid;gap:20px;grid-template-columns:minmax(240px,1fr) minmax(0,1.7fr);
-padding:16px 0 12px;border-top:1px solid var(--line);align-items:start}
-.docsec:first-of-type{border-top:none}
-.docsec .prose{font-size:12.5px;line-height:1.75;color:var(--text)}
-.docsec .prose h3{font-size:15px;margin:0 0 8px}
-.docsec .prose h3 .no{color:var(--muted);margin-right:8px}
-.docsec .prose p{margin:0 0 8px}
-.docsec .prose sup{color:var(--accent);font-size:9px;margin-left:1px}
-.docsec .fig{min-width:0}
-.docsec .fig .card{margin:0 0 10px;box-shadow:none;background:var(--panel)}
-.figcap{font-size:10.5px;color:var(--muted);margin:4px 0 10px;
+.docsec{padding:14px 0 10px;border-top:1px solid var(--line)}
+.docsec:first-of-type{border-top:none;padding-top:0}
+.docsec .dhead{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+.docsec .dhead h3{font-size:15px;margin:0;letter-spacing:-.01em}
+.docsec .dhead .no{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.docsec .dhead sup{color:var(--accent);font-size:9px}
+.docsec .dhead .st{margin-left:auto;font-size:10px;font-weight:750;letter-spacing:.04em}
+.bul{margin:0 0 10px 18px;padding:0;font-size:12.5px;line-height:1.6}
+.bul li{margin:0 0 3px}
+.bul li.links{list-style:none;margin-left:-18px;display:flex;gap:12px;flex-wrap:wrap;
+font-size:11.5px}
+.figs{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}
+.figs .card{margin:0}
+.figs .wide{grid-column:1/-1}
+.figcap{font-size:10.5px;color:var(--muted);margin:6px 0 0;
 font-variant-numeric:tabular-nums}
-.figcap b{color:var(--text)}
-.footnotes{border-top:1px solid var(--line);padding:12px 0 0;margin:8px 0 0;
-font-size:10.5px;color:var(--muted);line-height:1.6;columns:2;column-gap:28px}
+.footnotes{border-top:1px solid var(--line);padding:12px 0 0;margin:14px 0 0;
+font-size:10.5px;color:var(--muted);line-height:1.6;columns:2;column-gap:28px;max-width:1460px}
 .footnotes div{break-inside:avoid;margin:0 0 4px}
 .footnotes .no{color:var(--accent);font-weight:700;margin-right:5px}
 .bullet{display:grid;grid-template-columns:minmax(120px,.9fr) minmax(0,2fr) auto;gap:10px;
 align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:11.5px}
 .bullet:last-child{border-bottom:none}
 .bullet .bl{font-weight:650}
+.bullet .bl small{display:block;color:var(--muted);font-weight:400;font-size:10.5px}
 .bullet .bv{font-variant-numeric:tabular-nums;text-align:right;min-width:9ch;font-weight:700}
 .bullet svg{display:block;width:100%;height:22px}
 /* 콘솔 (한도관리) */
@@ -1300,8 +1315,11 @@ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px}
 .dag .dn.bad{border-color:var(--bad)}
 .dag .edge{color:var(--muted);font-size:14px}
 /* 칸반 (모형 인벤토리) */
-.kanban{display:grid;gap:10px;grid-template-columns:repeat(4,minmax(0,1fr));align-items:start;
+.kanban{display:grid;gap:10px;grid-template-columns:repeat(5,minmax(0,1fr));align-items:start;
 margin:10px 0}
+.kcol.wide{grid-column:span 2}
+.kcol.wide .kgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.kcol.wide .kgrid .kcard{margin:0}
 @media(max-width:1100px){.kanban{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .kcol{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px}
 .kcol .kh{display:flex;justify-content:space-between;font-size:11px;font-weight:750;
@@ -2660,21 +2678,23 @@ function utilRow(label,u,tone,sev){
 }
 /* 역스트레스 심도 미터. 0~1(심각) 눈금 위에 임계 심도를 찍는다. */
 function severityMeter(rv){
-  const W=560,H=54,padL=8,padR=8;
-  const s=svgEl(W,H,'역스트레스 임계 심도');s.style.maxWidth='none';
-  const x=v=>padL+Math.max(0,Math.min(1,v))*(W-padL-padR);
-  svgNode(s,'rect',{x:padL,y:22,width:W-padL-padR,height:8,rx:2,fill:'var(--chip)'});
-  const cv=Math.min(rv.critical_severity,1);
-  svgNode(s,'rect',{x:padL,y:22,width:Math.max(0,x(cv)-padL),height:8,rx:2,
-    fill:rv.critical_severity<1?'var(--bad)':'var(--good)'});
-  [0,0.25,0.5,0.75,1].forEach(t=>{
-    svgNode(s,'line',{x1:x(t),x2:x(t),y1:30,y2:36,stroke:'var(--muted)','stroke-width':1});
-    svgNode(s,'text',{x:x(t),y:48,'text-anchor':'middle','font-size':9,fill:'var(--muted)'},
-      t===1?'severe 1.0':t.toFixed(2))});
-  svgNode(s,'line',{x1:x(cv),x2:x(cv),y1:12,y2:34,stroke:'var(--text)','stroke-width':2});
-  svgNode(s,'text',{x:x(cv),y:9,'text-anchor':cv<0.5?'start':'end','font-size':11,
-    'font-weight':700,fill:'var(--text)'},T('임계')+' '+rv.critical_severity.toFixed(4));
-  const box=el('div');box.appendChild(s);return box;
+  return fluidChart((W,H)=>{
+    const padL=8,padR=8;
+    const s=svgEl(W,H,'역스트레스 임계 심도');s.style.maxWidth='none';
+    const x=v=>padL+Math.max(0,Math.min(1,v))*(W-padL-padR);
+    svgNode(s,'rect',{x:padL,y:22,width:W-padL-padR,height:8,rx:2,fill:'var(--chip)'});
+    const cv=Math.min(rv.critical_severity,1);
+    svgNode(s,'rect',{x:padL,y:22,width:Math.max(0,x(cv)-padL),height:8,rx:2,
+      fill:rv.critical_severity<1?'var(--bad)':'var(--good)'});
+    [0,0.25,0.5,0.75,1].forEach(t=>{
+      svgNode(s,'line',{x1:x(t),x2:x(t),y1:30,y2:36,stroke:'var(--muted)','stroke-width':1});
+      svgNode(s,'text',{x:x(t),y:48,'text-anchor':t===1?'end':t===0?'start':'middle','font-size':10,
+        fill:'var(--muted)'},t===1?'severe 1.0':t.toFixed(2))});
+    svgNode(s,'line',{x1:x(cv),x2:x(cv),y1:12,y2:34,stroke:'var(--text)','stroke-width':2});
+    svgNode(s,'text',{x:x(cv)+(cv<0.5?4:-4),y:10,'text-anchor':cv<0.5?'start':'end','font-size':11,
+      'font-weight':700,fill:'var(--text)'},T('임계')+' '+rv.critical_severity.toFixed(4));
+    return s;
+  },{ratio:54/560,minH:54,maxH:54,seed:560});
 }
 
 /* ---- 정형 조회 스튜디오 (라이브) ---- */
@@ -3304,7 +3324,7 @@ function multiLineSvg(series, labels, threshold, w, h){
     l.setAttribute('stroke','currentColor');l.setAttribute('stroke-dasharray','4 3');
     l.setAttribute('opacity','.5');svg.appendChild(l);
     const t=document.createElementNS(ns,'text');
-    t.setAttribute('x',padL+4);t.setAttribute('y',y(threshold)-4);
+    t.setAttribute('x',padL+4);t.setAttribute('y',y(threshold)+12);
     t.setAttribute('fill','currentColor');t.setAttribute('font-size','10');
     t.setAttribute('opacity','.7');
     t.textContent=`${T('요구')} ${(threshold*100).toFixed(2)}%`;svg.appendChild(t);
@@ -3343,7 +3363,7 @@ function multiLineSvg(series, labels, threshold, w, h){
 
 /* ---- 부문 뷰 ---- */
 function domain(root, product, title, lead){
-  root.appendChild(el('p','lead',lead));
+  if(lead)root.appendChild(el('p','lead',lead));
   /* 캡처(v9.5.0)식 분석 모듈 (이 부문 원장이 payload에 있으면 그린다) */
   if(DOMAIN_CHARTS[product])DOMAIN_CHARTS[product](root);
   const wrap=el('div','split');
@@ -3682,7 +3702,7 @@ function validation(root){
   const o2=rawEl('div','dn'+(G.ok?'':' bad'),iv.request_id);o2.appendChild(rawEl('small',null,T('독립검증 요청')+' · '+T(iv.status)));
   col3.appendChild(o1);col3.appendChild(o2);dag.appendChild(col3);
   dc.appendChild(dag);
-  dc.appendChild(el('div','meta','화살표는 원장 이름이 아니라 코드 경로다. 같은 코드·같은 가정으로 검사하므로 2선은 독립검증이 아니다.'));
+
   two.appendChild(dc);
   root.appendChild(two);
 
@@ -3700,21 +3720,19 @@ function validation(root){
     c.appendChild(el('div','val '+(t||''),String(val)));
     kg.appendChild(c)});
   g.appendChild(kg);
-  g.appendChild(el('div','note',iv.reason+
-    '. 게이트는 fail-closed다. 응답이 없으면 상태가 응답대기로 남고 결재 상신이 막힌다.'+
-    '판정이 경부적합이면 상태는 조건부이며, 결재 책임자가 잔여위험·후속조건·이행기한·'+
-    '배포 범위를 기록해야만 통과한다. 조건부는 후속조건 이행을 전제로 한 상태이며 적합 판정과 구분한다.'));
+  const gl=el('ul','bul');
+  [rawEl('li',null,iv.reason),
+   el('li',null,'게이트 fail-closed · 응답 없음 = 응답대기 · 결재 상신 차단'),
+   el('li',null,'경부적합 = 조건부 · 잔여위험·후속조건·이행기한·배포 범위 기록 후 통과'),
+   el('li',null,'조건부 ≠ 적합 · 후속조건 이행 전제')].forEach(x=>gl.appendChild(x));
+  g.appendChild(gl);
   g.appendChild(el('h3',null,'독립 재계산 대상'));
-  /* 재계산 대상은 보고값·재계산값·일치 여부를 한 줄씩 보인다. 표만 두면
-     불일치 한 건이 스무 줄에 묻힌다. */
   const it=D.independent_targets,ii=frameIdx(it);
   if(it&&ii.matched!==undefined){
     const mis=it.rows.filter(r=>r[ii.matched]===false);
     g.appendChild(rawEl('div','meta',`${T('대상')} ${it.total} · ${T('불일치')} ${mis.length}`));
-    g.appendChild(dotlist(it.rows.map(r=>({label:r[ii.korean]+' ('+r[ii.target]+')',
-      right:fmtNum(r[ii.reported])+' → '+fmtNum(r[ii.recomputed]),
-      tone:r[ii.matched]===false?'bad':'good'}))))}
-  g.appendChild(table(D.independent_targets));
+    g.appendChild(table(D.independent_targets,{rowClass:r=>r[ii.matched]===false?'bad':null}))}
+  else g.appendChild(table(D.independent_targets));
   g.appendChild(el('h3',null,
     `3선이 도전해야 할 가정 (${iv.assumptions.length}건)`));
   g.appendChild(iv.assumptions.length
@@ -4067,7 +4085,7 @@ function executiveReport(root){
     g.appendChild(c)});
   root.appendChild(g);
 
-  /* --- 본문: 목차 + 절. 절마다 왼쪽 서술, 오른쪽 도표. --- */
+  /* --- 본문: 목차 + 절. 절은 제목 → 개조식 요점 → 도표 순으로 쌓인다. --- */
   const doc=el('div','doc');
   const toc=el('div','toc');
   const body=el('div');
@@ -4083,34 +4101,47 @@ function executiveReport(root){
     let k=notes.findIndex(n=>n.id===figureId);
     if(k<0){notes.push({id:figureId,label:r[ali.label],cit:r[ali.citation],
       value:r[ali.value]});k=notes.length-1}
-    const sup=rawEl('sup',null,String(k+1));sup.title=r[ali.citation];
-    return sup;
+    return {n:k+1,title:r[ali.citation]};
   }
-  /* 브리핑 문장은 엔진이 만든 것이라 문장을 고치지 않고 절에 배정만 한다. */
+  /* 브리핑 문장은 엔진이 만든다. 수치는 손대지 않고 문장 단위로 잘라 개조식으로
+     놓는다. 앞머리 주제어와 긴 대시는 떼고, 링크는 마지막 항목에 모은다. */
   const brief=(E.briefing||[]).slice();
   const take=re=>{const out=[];for(let k=brief.length-1;k>=0;k--){
     if(re.test(brief[k].replace(/<[^>]+>/g,'')))out.unshift(brief.splice(k,1)[0])}
     return out};
-  /* 구체적인 주제부터 떼어낸다. 자본 문장은 CET1 을 다른 절도 언급하므로
-     마지막에 남은 것을 가져간다. */
   const B={stress:take(/스트레스 회복력|역스트레스/),liq:take(/^유동성|LCR|NSFR/),
     ecl:take(/충당금|ECL/),conc:take(/집중리스크|HHI/),model:take(/모형|RAF|AMBER|RED/),
     cap:take(/자본|CET1|RWA/)};
+  function bullets(items){
+    const ul=el('ul','bul');
+    const links=[];
+    items.forEach(html=>{
+      const tmp=document.createElement('div');tmp.innerHTML=html;
+      tmp.querySelectorAll('a').forEach(a2=>{links.push(a2.cloneNode(true));a2.remove()});
+      let t=tmp.innerHTML.replace(/^\s*(<b>[^<]*<\/b>)\s*\u2014\s*/,'')
+        .replace(/\s+\u2014\s+/g,'. ').replace(/\s*·\s*$/,'').trim();
+      t.split(/\.\s+(?=<b>|\[|[가-힣A-Za-z0-9])/).map(x=>x.replace(/\.\s*$/,'').trim())
+        .filter(Boolean).forEach(x=>{const li=el('li');li.innerHTML=x;ul.appendChild(li)})});
+    if(links.length){const li=el('li','links');links.forEach(a2=>li.appendChild(a2));ul.appendChild(li)}
+    return ul.children.length?ul:null;
+  }
   const secs=[];
-  function section(no,title,tone,proseHtml,figs,fids){
+  function section(no,title,tone,items,figs,fids){
     const sec=el('div','docsec');sec.id='doc-'+no;
-    const pr=el('div','prose');
-    const h=el('h3');h.appendChild(rawEl('span','no',String(no)));
-    h.appendChild(document.createTextNode(T(title)));
+    const hd=el('div','dhead');
+    hd.appendChild(rawEl('span','no',String(no)));
+    const h=el('h3',null,title);
     const sups=(fids||[]).map(fn).filter(Boolean);
-    if(sups.length){const sp=rawEl('sup',null,sups.map(x=>x.textContent).join('·'));
+    if(sups.length){const sp=rawEl('sup',null,sups.map(x=>x.n).join('·'));
       sp.title=sups.map(x=>x.title).join(' / ');h.appendChild(sp)}
-    pr.appendChild(h);
-    proseHtml.forEach(t=>{const q=el('p');q.innerHTML=t;pr.appendChild(q)});
-    sec.appendChild(pr);
-    const fg=el('div','fig');
-    figs.forEach(x=>{if(x)fg.appendChild(x)});
-    sec.appendChild(fg);
+    hd.appendChild(h);
+    hd.appendChild(rawEl('span','st '+(tone||''),T(tone==='bad'?'위반':tone==='warn'?'주의':'양호')));
+    sec.appendChild(hd);
+    const ul=bullets(items||[]);if(ul)sec.appendChild(ul);
+    const fg=el('div','figs');
+    (figs||[]).forEach(x=>{if(!x)return;const [node,wide]=Array.isArray(x)?x:[x,true];
+      if(wide)node.classList.add('wide');fg.appendChild(node)});
+    if(fg.children.length)sec.appendChild(fg);
     body.appendChild(sec);
     const tb=rawEl('button');tb.type='button';
     tb.appendChild(rawEl('span','no',String(no)));
@@ -4121,13 +4152,14 @@ function executiveReport(root){
     toc.appendChild(tb);secs.push(tb);
     return sec;
   }
+  const cap=(no,title,src)=>rawEl('div','figcap',`${T('그림')} ${no} · ${T(title)} · ${T('원장')} ${src}`);
 
   /* 1 자본 */
   const cs=D.data&&D.data['cap_stack'];
   const kris=E.kris||[];
   const kriBy=n=>kris.find(k=>k.name===n);
-  const bullets=el('div','card');
-  bullets.appendChild(el('h3',null,'규제 요구 대비 자본비율'));
+  const bullets1=el('div','card');bullets1.id='sec-capital-stack';
+  bullets1.appendChild(el('h3',null,'규제 요구 대비 자본비율'));
   let capTone='good';
   if(cs&&cs.rows.length){const i=frameIdx(cs);
     const nm={CET1:'CET1 비율',AT1:'Tier1 비율',T2:'총자본 비율'};
@@ -4137,24 +4169,14 @@ function executiveReport(root){
       if(k&&k.board!=null)marks.push({v:k.board,label:'board',kind:'board'});
       if(k&&k.management!=null)marks.push({v:k.management,label:'mgmt',kind:'mgmt'});
       const tone=r[i.surplus]<0?'bad':'good';if(tone==='bad')capTone='bad';
-      bullets.appendChild(bulletRow(nm[r[i.tier]]||r[i.tier],r[i.ratio],marks,
-        {fmt:v=>pctv(v,2),tone,delta:pp(r[i.surplus]*100)}))});
-    bullets.appendChild(srcMeta(cs))}
-  const stack=(cs&&cs.rows.length)?(()=>{const i=frameIdx(cs);
-    const c=hbars(cs.rows.map(r=>({
-      label:r[i.tier],value:r[i.amount],
-      sub:`비율 ${(r[i.ratio]*100).toFixed(2)}% · 요구 ${(r[i.required]*100).toFixed(2)}%`+
-          ` · ${r[i.surplus]>=0?'여유':'부족'} ${(Math.abs(r[i.surplus])*100).toFixed(3)}%p`,
-      tone:r[i.surplus]<0?'bad':'good'})),
-      {title:'계층별 자본과 규제 요구',src:srcMeta(cs)});
-    c.id='sec-capital-stack';
+      bullets1.appendChild(bulletRow(nm[r[i.tier]]||r[i.tier],r[i.ratio],marks,
+        {fmt:v=>pctv(v,2),tone,delta:pp(r[i.surplus]*100),
+         sub:fmtMoney(r[i.amount])}))});
     const short=cs.rows.filter(r=>r[i.surplus]<0).map(r=>r[i.tier]);
-    if(short.length)c.appendChild(el('div','meta bad',
-      `요구 미달 계층. ${short.join(' · ')}. 배당·성과급 제한 대상.`));
-    return c})():null;
-  section(1,'자본',capTone,B.cap,[bullets,stack,
-    rawEl('div','figcap',T('그림')+' 1 · '+T('규제 요구 대비 자본비율')+' · '+T('원장')+' cap_stack')],
-    ['bis.cet1','bis.tier1','bis.total']);
+    if(short.length)bullets1.appendChild(rawEl('div','meta bad',
+      T('요구 미달')+' · '+short.join(' · ')+' · '+T('배당·성과급 제한')));
+    bullets1.appendChild(cap(1,'규제 요구 대비 자본비율','cap_stack'))}
+  section(1,'자본',capTone,B.cap,[bullets1],['bis.cet1','bis.tier1','bis.total']);
 
   /* 2 유동성·금리 */
   const alm=D.data['alm_result'];
@@ -4168,7 +4190,8 @@ function executiveReport(root){
       if(k&&k.management!=null)marks.push({v:k.management,label:'mgmt',kind:'mgmt'});
       const tone=r[i.value]<r[i.minimum]?'bad':'good';if(tone==='bad')liqTone='bad';
       liq.appendChild(bulletRow(r[i.metric],r[i.value],marks,
-        {fmt:v=>pctv(v,2),tone,delta:pp((r[i.value]-r[i.minimum])*100)}))});
+        {fmt:v=>pctv(v,2),tone,delta:pp((r[i.value]-r[i.minimum])*100),
+         sub:fmtMoney(r[i.numerator])+' / '+fmtMoney(r[i.denominator])}))});
     const ir=alm.rows.find(r=>r[i.metric]==='IRRBB_EVE');
     const kk=kriBy('IRRBB ΔEVE/Tier1');
     if(ir&&kk){const marks=[];
@@ -4176,10 +4199,8 @@ function executiveReport(root){
       if(kk.board!=null)marks.push({v:kk.board,label:'board',kind:'req'});
       liq.appendChild(bulletRow('IRRBB ΔEVE/Tier1',Math.abs(ir[i.value]),marks,
         {fmt:v=>pctv(v,2),tone:kk.grade==='RED'?'bad':kk.grade==='AMBER'?'warn':'good'}))}
-    liq.appendChild(srcMeta(alm))}
-  section(2,'유동성·금리',liqTone,B.liq,[liq,
-    rawEl('div','figcap',T('그림')+' 2 · '+T('유동성 비율과 최저 기준')+' · '+T('원장')+' alm_result')],
-    ['alm.lcr','alm.nsfr','alm.irrbb_worst_pct_tier1']);
+    liq.appendChild(cap(2,'유동성 비율과 최저 기준','alm_result'))}
+  section(2,'유동성·금리',liqTone,B.liq,[liq],['alm.lcr','alm.nsfr','alm.irrbb_worst_pct_tier1']);
 
   /* 3 신용·충당금 */
   const ecl=D.data['ecl_result'];
@@ -4189,10 +4210,9 @@ function executiveReport(root){
       label:`Stage ${x.key}${x.key===2?' (SICR 전이)':x.key===3?' (손상)':''}`,
       value:x.sum,sub:`${x.n.toLocaleString()}건`,
       tone:x.key===3?'bad':x.key===2?'warn':undefined})),
-      {title:'기대신용손실 구성 (단계별)',src:srcMeta(ecl)})}
-  section(3,'신용·충당금',F.gap_pct>0?'warn':'good',B.ecl,[eclFig,
-    eclFig?rawEl('div','figcap',T('그림')+' 3 · '+T('기대신용손실 구성 (단계별)')+' · '+T('원장')+' ecl_result'):null],
-    ['ecl.ttc_total','ecl.pit_weighted']);
+      {title:'기대신용손실 구성 (단계별)'});
+    eclFig.appendChild(cap(3,'기대신용손실 구성 (단계별)','ecl_result'))}
+  section(3,'신용·충당금',F.gap_pct>0?'warn':'good',B.ecl,[eclFig],['ecl.ttc_total','ecl.pit_weighted']);
 
   /* 4 위기상황 */
   const cp=D.data['st_capital_path'];
@@ -4206,7 +4226,7 @@ function executiveReport(root){
     pathFig=el('div','card');
     pathFig.appendChild(el('h3',null,'위기상황 보통주자본비율 경로 (3시나리오)'));
     pathFig.appendChild(multiLine(series,quarters,0.08));
-    pathFig.appendChild(srcMeta(cp))}
+    pathFig.appendChild(cap(4,'위기상황 보통주자본비율 경로 (3시나리오)','st_capital_path'))}
   const sevBox=F.sev?(()=>{const c=el('div','card');
     c.appendChild(el('h3',null,'심각 시나리오 (자본 저점)'));
     c.appendChild(dotlist([
@@ -4217,24 +4237,22 @@ function executiveReport(root){
         ? '최초 침범 '+F.sev.first_breach+' (침범 비율 '+(F.sev.breach_ratio||'-')+')'
         : '요구 비율 침범 없음',
        tone:F.sev.first_breach?'bad':'good'},
+      {label:T('역스트레스 임계 심도')+' '+F.rev_severity.toFixed(4),tone:F.rev_severity<1?'bad':'good'},
     ]));return c})():null;
-  section(4,'위기상황',(F.sev&&F.sev.first_breach)||F.rev_severity<1?'bad':'good',
-    B.stress,[pathFig,sevBox,
-    pathFig?rawEl('div','figcap',T('그림')+' 4 · '+T('위기상황 보통주자본비율 경로 (3시나리오)')+' · '+T('원장')+' st_capital_path'):null],
-    ['stress.trough_cet1','reverse_stress.severity']);
+  const s4=section(4,'위기상황',(F.sev&&F.sev.first_breach)||F.rev_severity<1?'bad':'good',
+    B.stress,[[pathFig,false],[sevBox,false]],['stress.trough_cet1','reverse_stress.severity']);
+  const fg4=s4.querySelector('.figs');if(fg4)fg4.style.gridTemplateColumns='minmax(0,2fr) minmax(300px,1fr)';
 
   /* 5 한도·집중 */
   const lm=D.limits_full||D.limits,li=frameIdx(lm);
   const lc=el('div','card');
   lc.appendChild(el('h3',null,'한도 소진 상위'));
   const brc=lm.rows.filter(r=>limitBreached(r[li.severity])).length;
-  lm.rows.slice().sort((a,b)=>b[li.utilisation]-a[li.utilisation]).slice(0,6)
+  lm.rows.slice().sort((a2,b2)=>b2[li.utilisation]-a2[li.utilisation]).slice(0,6)
     .forEach(r=>lc.appendChild(utilRow(r[li.limit]+' · '+r[li.bucket],
       r[li.utilisation],limitTone(r[li.severity]),r[li.severity])));
-  lc.appendChild(srcMeta(lm));
-  section(5,'한도·집중',brc?'bad':'good',B.conc,[lc,
-    rawEl('div','figcap',T('그림')+' 5 · '+T('한도 소진 상위')+' · '+T('한도')+' '+lm.total+T('건'))],
-    ['concentration.worst_hhi']);
+  lc.appendChild(cap(5,'한도 소진 상위',(lm.table||'limits')+' · '+lm.total+T('건')));
+  section(5,'한도·집중',brc?'bad':'good',B.conc,[lc],['concentration.worst_hhi']);
 
   /* 6 RWA 귀속 */
   const at=E.attribution,atd=E.attribution_detail;
@@ -4247,31 +4265,27 @@ function executiveReport(root){
     rwaFig.appendChild(donut(src.map(x=>({group:x.group,label:x.label,
       value:x.value}))))}
   const sank=capitalSankey();
+  if(sank)sank.appendChild(cap(6,'자본 지도 (자본 스택 → 최종 위험가중자산 → 구성요소)','cap_stack · rwa'));
   section(6,'위험가중자산 귀속','good',[],[sank,rwaFig],['rwa.final_total']);
 
-  /* 7 KRI 스코어카드 (전폭) */
+  /* 7 KRI 스코어카드 */
   if(kris.length){
-    const sec=section(7,'KRI 스코어카드',F.raf_red.length?'bad':F.raf_amber.length?'warn':'good',
-      B.model,[],[]);
-    sec.style.gridTemplateColumns='1fr';
     const c=el('div','card');c.id='sec-raf';
     c.appendChild(el('h3',null,'KRI 스코어카드 (Risk Appetite Framework)'));
     c.appendChild(kriCards(kris));
     const n=gd=>kris.filter(k=>k.grade===gd).length;
-    c.appendChild(el('div','meta',
-      `RED ${n('RED')} · AMBER ${n('AMBER')} · WATCH ${n('WATCH')} · `+
-      `GREEN ${n('GREEN')} · 전체 ${kris.length} (임계는 RAF 원장에서 온다)`));
-    sec.querySelector('.fig').appendChild(c);
+    c.appendChild(rawEl('div','figcap',
+      `RED ${n('RED')} · AMBER ${n('AMBER')} · WATCH ${n('WATCH')} · GREEN ${n('GREEN')} · ${T('전체')} ${kris.length} · ${T('원장')} raf`));
+    section(7,'KRI 스코어카드',F.raf_red.length?'bad':F.raf_amber.length?'warn':'good',B.model,[c],[]);
   }
 
-  /* 8 CRO 액션 + 남은 브리핑 */
-  if((E.actions&&E.actions.length)||brief.length){
+  /* 8 CRO 액션 + 남은 브리핑. 액션 문장의 긴 대시는 콜론으로 바꿔 개조식으로. */
+  const acts=(E.actions||[]).map(t=>t.replace(/\s+\u2014\s+/g,': '));
+  if(acts.length||brief.length){
     const sec=section(8,'CRO 액션 (즉시·단기 조치)','warn',brief,[],[]);
-    if(E.actions&&E.actions.length){
-      const c=el('div','card');
-      const ul=el('ul');ul.style.cssText='margin:6px 0 0 18px;font-size:12px';
-      E.actions.forEach(t=>{const li2=el('li');li2.innerHTML=t;ul.appendChild(li2)});
-      c.appendChild(ul);sec.querySelector('.fig').appendChild(c)}
+    if(acts.length){const ul=el('ul','bul');
+      acts.forEach(t=>{const li2=el('li');li2.innerHTML=t;ul.appendChild(li2)});
+      sec.appendChild(ul)}
   }
   if(secs.length)secs[0].classList.add('on');
 
@@ -4288,9 +4302,11 @@ function executiveReport(root){
 }
 /* 불릿 차트 한 줄. 실제값 막대 위에 요구·이사회·경영 눈금선을 세운다.
    척도는 그 줄의 최대값(값·눈금 중 큰 것)의 1.15배다. */
-function bulletRow(label,value,marks,{fmt,tone,delta}={}){
+function bulletRow(label,value,marks,{fmt,tone,delta,sub}={}){
   const row=el('div','bullet');
-  row.appendChild(rawEl('span','bl',label));
+  const bl=rawEl('span','bl',label);
+  if(sub)bl.appendChild(rawEl('small',null,sub));
+  row.appendChild(bl);
   const W=300,H=22;
   const s=svgEl(W,H,label);s.style.maxWidth='none';
   const top=Math.max(value,...marks.map(m=>m.v))*1.15||1;
@@ -4375,9 +4391,8 @@ function capitalSankey(){
     svgNode(s,'text',{x:xR+nodeW/2,y:H-2,'text-anchor':'middle','font-size':10,fill:'var(--muted)'},
       T('구성요소 합')+' '+fmtMoney(rwaTot)+(S.binding?' · '+T('하한 구속'):' · '+T('하한 미구속')));
     return s;
-  },{ratio:0.58,minH:340,maxH:520,seed:900,title:'자본 지도 (자본 스택 → 최종 위험가중자산 → 구성요소)'});
+  },{ratio:0.42,minH:320,maxH:420,seed:900,title:'자본 지도 (자본 스택 → 최종 위험가중자산 → 구성요소)'});
   const c=el('div','card');c.appendChild(box);
-  c.appendChild(el('div','meta','띠 두께는 금액에 비례하고 양변의 척도가 같다. 왼쪽 자본이 오른쪽 위험가중자산에 비해 얇은 만큼이 자본비율이다.'));
   return c;
 }
 
@@ -7781,9 +7796,7 @@ function simulation(root){
        ['보완자본',fmtMoney(S.capital.t2),'자본 스택'],
        ['레버리지 익스포저 측정치',fmtMoney(S.leverage.exposure_measure),
         '파이프라인 leverage']]),
-    '구성요소 합이 내부산출 합과 같은지는 tests/test_ui_interactive.py 가 고정한다. '+
-    '거래상대방과 유동화는 원장에서 별도 구성요소이고, 신용 표준방법·내부등급법에 '+
-    '섞여 있지 않다.'));
+    null));
 
   const saved=[];
 
@@ -8049,6 +8062,8 @@ function limitsScreen(root){
     return box};
   left.appendChild(cbar);
   const gridBox=el('div','cgrid');left.appendChild(gridBox);
+  const below=el('div');below.style.cssText='display:grid;gap:12px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)';
+  left.appendChild(below);
   con.appendChild(left);
   const drawer=el('div','drawer');con.appendChild(drawer);
   root.appendChild(con);
@@ -8139,10 +8154,15 @@ function limitsScreen(root){
         kv2.appendChild(rawEl('span',(k==='근거 판정'&&v!=='원문확인')?'warn':'',String(v)))});
       c2.appendChild(kv2);
       c2.appendChild(rawEl('div','meta',def[di.citation]));
-      if(!def[di.approved_on])c2.appendChild(el('div','note warn',
-        '내부한도는 승인기구 의결이 효력 요건이므로, 승인 기록 없이는 이 한도로 낸 위반 판정을 결재에 올릴 수 없다.'));
     }else c2.appendChild(el('div','note','이 한도의 정의 행이 정의 원장에 없다.'));
     drawer.appendChild(c2);
+    const act=el('div','toolbar');
+    const b1=el('button','btn','예외 신청 (결재 필요)');b1.type='button';
+    const b2=el('button','btn','한도 재산출 제안');b2.type='button';
+    act.appendChild(b1);act.appendChild(b2);
+    b1.onclick=b2.onclick=()=>{gotoScreen('예외·조치')};
+    drawer.appendChild(act);
+    below.innerHTML='';
     /* 버킷을 채우는 차주. 차원마다 축이 다르므로 원장을 골라 잇는다. */
     if(ex){const xi=frameIdx(ex);
       const dcode=r[i.dimension],bkt=r[i.bucket];
@@ -8165,9 +8185,8 @@ function limitsScreen(root){
         const tot=rows.reduce((a,x)=>a+(x[xi.ead]||0),0);
         c3.appendChild(barList(top.map(([k,v])=>({label:k,value:v.ead,
           sub:v.rating+' · '+pctv(tot?v.ead/tot:0,1)}))));
-        c3.appendChild(srcMeta(ex));
-        c3.appendChild(rawEl('div','meta',T('버킷 내 익스포저')+' '+TC(rows.length,'건')+' · EAD '+fmtMoney(tot)))}
-      drawer.appendChild(c3)}
+        c3.appendChild(rawEl('div','meta',`${T('원장')} rdm_exposure · ${T('버킷 내 익스포저')} ${TC(rows.length,'건')} · EAD ${fmtMoney(tot)}`))}
+      below.appendChild(c3)}
     /* 차원 × 상태 건수 */
     const c4=el('div','card');
     c4.appendChild(el('h3',null,'차원 × 상태'));
@@ -8184,14 +8203,7 @@ function limitsScreen(root){
         cell.onclick=()=>{st.dim=dm;st.sev=sv;draw()};cell.style.cursor='pointer';
         hm.appendChild(cell)})});
     c4.appendChild(hm);
-    drawer.appendChild(c4);
-    const act=el('div','toolbar');
-    const b1=el('button','btn','예외 신청 (결재 필요)');b1.type='button';
-    const b2=el('button','btn','한도 재산출 제안');b2.type='button';
-    act.appendChild(b1);act.appendChild(b2);
-    b1.onclick=b2.onclick=()=>{gotoScreen('예외·조치')};
-    drawer.appendChild(act);
-    drawer.appendChild(el('div','meta','화면은 제안서만 만든다. 한도 변경과 예외 종결은 사람이 결재한다.'));
+    below.appendChild(c4);
   }
   /* 키보드. J/K 로 행을 오가고 Enter 는 상세(서랍)로 초점을 옮긴다. */
   gridBox.tabIndex=0;
@@ -8216,9 +8228,8 @@ function limitsScreen(root){
           r[di.citation],r[di.evidence_status]]),
         {numeric:false,rowClass:r=>r[BS]==='규정'?null:'warn'}));
     const noap=d.rows.filter(r=>!r[di.approved_on]).length;
-    if(noap)c.appendChild(el('div','note warn',
-      '승인일이 비어 있는 한도 '+noap+'건. 내부한도는 승인기구 의결이 효력 '+
-      '요건이므로, 승인 기록 없이는 이 한도로 낸 위반 판정을 결재에 올릴 수 없다.'));
+    if(noap)c.appendChild(rawEl('div','note warn',
+      T('승인일 공란')+' '+TC(noap,'건')+' · '+T('내부한도 효력 요건은 승인기구 의결')+' · '+T('승인 기록 없는 위반 판정은 결재 불가')));
     c.appendChild(srcMeta(d));
     root.appendChild(c)}
   else root.appendChild(el('div','note bad',
@@ -8237,8 +8248,7 @@ function limitsScreen(root){
     simpleTable(['차원','버킷 수','익스포저 합','한도 합','잔여 합','최대 소진율'],
       Object.keys(byDimH).map(k=>[lab(k),byDimH[k].n,byDimH[k].exp,
         byDimH[k].th,byDimH[k].head,pctv(byDimH[k].max,1)]),{numeric:true}),
-    '잔여한도는 한도액에서 익스포저를 뺀 값이다. 음수가 위반이다. '+
-    '차원마다 버킷 정의가 달라 잔여 합을 차원 간에 더하지 않는다.'));
+    '잔여 = 한도액 - 익스포저 · 음수는 위반 · 차원 간 합산 없음'));
 
   /* --- 소진율 분포 --- */
   const edges=[0,0.25,0.5,0.75,0.9,1.0];
@@ -8247,12 +8257,13 @@ function limitsScreen(root){
     return {lo:lo,hi:hi,n:f.rows.filter(r=>{
       const u=r[i.utilisation]||0;
       return u>=lo&&(hi==null||u<hi)}).length}});
-  root.appendChild(cardOf('소진율 분포',
+  const distCard=cardOf('소진율 분포',
     bars(hist.map(h=>({label:(h.lo*100).toFixed(0)+(h.hi==null?'% 이상':
         '~'+(h.hi*100).toFixed(0)+'%'),value:h.n,
       tone:h.lo>=1?'bad':(h.lo>=0.9?'warn':undefined)})),
-      {fmt:v=>fmtNum(v)}),
-    '마지막 칸이 한도를 넘긴 버킷이다. 전량 '+f.total.toLocaleString()+'행 기준.'));
+      {fmt:v=>fmtNum(v)}),null);
+  distCard.appendChild(rawEl('div','meta',T('마지막 칸 = 한도 초과 버킷')+' · '+T('전량')+' '+TC(f.total,'행')));
+  root.appendChild(distCard);
 
   /* --- 한도 시뮬레이션 --- */
   const sim=el('div','card');
@@ -8283,8 +8294,7 @@ function limitsScreen(root){
     const hits=f.rows.filter(x=>x[i.bucket]===r[i.bucket]&&
       x[i.dimension]!==r[i.dimension]);
 
-    if(u2>=1)sout.appendChild(el('div','note bad',
-      '이 증감이면 해당 한도를 넘긴다.'));
+    if(u2>=1)sout.appendChild(el('div','note bad','조정 후 한도 초과'));
 
   }
   ssel.onchange=simDraw;amt.oninput=simDraw;simDraw();
@@ -8295,9 +8305,8 @@ function limitsScreen(root){
   const tc=el('div','card');
   tc.appendChild(el('h3',null,'소진율 추이'));
   if(asofs.length<2){
-    tc.appendChild(el('div','note',
-      '실린 실행이 기준일 '+asofs.join(' · ')+' 한 건이다. 추이를 그리려면 '+
-      '기준일이 둘 이상이어야 하므로 그리지 않는다.'));
+    tc.appendChild(rawEl('div','note',
+      T('실린 기준일')+' '+asofs.join(' · ')+' · '+T('추이는 기준일 2건 이상에서 표시')));
   }else{
     const keys=[...new Set(f.rows.map(r=>r[i.limit]+' · '+r[i.bucket]))];
     const tsel=almSelect(tc,'한도 · 버킷',keys,keys[0]);
@@ -8455,7 +8464,7 @@ function timelineLanes(opts={}){
       svgNode(s,'rect',{x:x(0),y:y(req),width:x(quarters.length-1)-x(0),height:Math.max(0,yb-y(req)),
         fill:'var(--bad)','fill-opacity':0.08});
       svgNode(s,'line',{x1:x(0),x2:x(quarters.length-1),y1:y(req),y2:y(req),stroke:'var(--bad)','stroke-dasharray':'4 3'});
-      svgNode(s,'text',{x:x(quarters.length-1)+6,y:y(req)+3,'font-size':9,fill:'var(--bad)'},T('요구')+' '+pctv(req,2));
+      svgNode(s,'text',{x:x(0)+6,y:y(req)+11,'font-size':9,fill:'var(--bad)'},T('요구')+' '+pctv(req,2));
       scenarios.forEach((sc,si)=>{
         const pts=quarters.map((q,k)=>{const r=cp.rows.find(z=>z[i.scenario]===sc&&z[i.quarter]===q);
           return r?[x(k),y(r[i.cet1_ratio]),r[i.cet1_ratio]]:null}).filter(Boolean);
@@ -8480,7 +8489,7 @@ function timelineLanes(opts={}){
       svgNode(s,'text',{x:padL-140,y:ya+22,'font-size':9,fill:'var(--muted)'},T('정점')+' '+mx.toFixed(2));
       if(rv){const yc=y(Math.min(rv.critical_severity,mx));
         svgNode(s,'line',{x1:x(0),x2:x(quarters.length-1),y1:yc,y2:yc,stroke:'var(--text)','stroke-dasharray':'2 3'});
-        svgNode(s,'text',{x:x(quarters.length-1)+6,y:yc+3,'font-size':9,fill:'var(--text)'},T('임계')+' '+rv.critical_severity.toFixed(3))}
+        svgNode(s,'text',{x:padL-140,y:ya+34,'font-size':9,fill:'var(--text)'},T('임계')+' '+rv.critical_severity.toFixed(3))}
     });
     /* 3 거시 PD 승수 */
     lane('거시 PD 승수',2,(ya,yb)=>{
@@ -8519,28 +8528,13 @@ function timelineLanes(opts={}){
     return s;
   },{ratio:0.62,minH:420,maxH:640,seed:900,title:opts.title,note:opts.note});
   const c=el('div','card');c.appendChild(box);
-  c.appendChild(el('div','meta','선은 위기상황 경로(st_capital_path), 막대는 시나리오 심도, 승수는 ecl_macro_scenario, 간트는 crm_model 의 최근 검증일에서 차기 기한까지다.'));
+  c.appendChild(rawEl('div','meta',T('원장')+' st_capital_path · ecl_macro_scenario · crm_model'));
   return c;
 }
 
 function scenarioScreen(root){
   const tl=timelineLanes({title:'시간축 · 자본 경로 · 심도 · 거시 승수 · 모형 검증 기한'});
   if(tl)root.appendChild(tl);
-  /* 분기 심도 경로 (추적표에서 그대로) */
-  const T=traceRows();
-  if(T){
-    const {f,i}=T;
-    const scenarios=[...new Set(f.rows.map(r=>r[i.scenario]))];
-    const quarters=[...new Set(f.rows.map(r=>r[i.quarter]))];
-    const series=scenarios.map(sc=>({name:sc,
-      values:quarters.map(q=>{const r=f.rows.find(x=>x[i.scenario]===sc&&
-        x[i.quarter]===q&&/심도/.test(x[i.step]));return r?r[i.value]:null})}));
-    const c=el('div','card');
-    c.appendChild(el('h3',null,'시나리오별 분기 심도 경로 (정점까지 선형 상승)'));
-    c.appendChild(multiLine(series,quarters,null));
-    c.appendChild(srcMeta(f));
-    root.appendChild(c);
-  }
   scenarioSettings(root);
   /* 신규 시나리오 제안 */
   const c2=el('div','card set-newscen');
@@ -8626,11 +8620,13 @@ function modelInventory(root){
     kb.innerHTML='';
     const rows=f.rows.filter(r=>!dsel.value||r[i.domain]===dsel.value);
     COLS.forEach(([key,nm])=>{
-      const col=el('div','kcol');
       const mine=rows.filter(r=>colOf(r)===key);
+      const col=el('div','kcol'+(mine.length>4?' wide':''));
       const kh=el('div','kh');kh.appendChild(rawEl('span',null,T(nm)));
       kh.appendChild(rawEl('span',null,String(mine.length)));col.appendChild(kh);
       if(!mine.length)col.appendChild(el('div','kempty','해당 모형 없음'));
+      const host=mine.length>4?el('div','kgrid'):col;
+      if(host!==col)col.appendChild(host);
       mine.forEach(r=>{
         const c=el('div','kcard'+(r===selected?' on':''));
         c.appendChild(rawEl('div','kid',r[i.model_id]+' · Tier '+r[i.tier]));
@@ -8641,7 +8637,7 @@ function modelInventory(root){
           T('차기 기한')+' '+r[i.next_due]+(r[i.is_overdue]?' · '+T('초과')+' '+TC(r[i.days_overdue],'일')
             :' · '+TC(d,'일')+' '+T('남음'))));
         c.onclick=()=>{selected=r;drawKanban();drawSide()};
-        col.appendChild(c)});
+        host.appendChild(c)});
       kb.appendChild(col)});
   }
   function drawSide(){
@@ -9175,7 +9171,7 @@ function autoCharts(root,specs){
 }
 function screenOf(defs){
   return root=>{
-    root.appendChild(el('p','lead',defs.lead));
+    if(defs.lead)root.appendChild(el('p','lead',defs.lead));
     if(defs.charts)defs.charts(root);
     autoCharts(root,defs.autochart);
     (defs.forms||[]).forEach(fid=>{
@@ -9282,7 +9278,7 @@ function ledgerFirst(tables,initial){
        ['기준일',D.meta.asof],['테이블',D.meta.n_tables+T('장')]].forEach(([k,v])=>{
         kv.appendChild(rawEl('b',null,T(k)));kv.appendChild(rawEl('span','mono',v))});
       c2.appendChild(kv);
-      c2.appendChild(el('div','meta','같은 seed·같은 기준일이면 두 번 렌더가 바이트 동일하다.'));
+
       prov.appendChild(c2);
       const gs=gateState();
       const c3=el('div','card');
@@ -9528,9 +9524,9 @@ const DETAIL_SCREENS=[
    말한다. 부문 개요는 2레벨 리프-부모, 마커 없던 세부화면은 3레벨이다. */
 const NAVGROUPS=[
   /* 보고서가 통제센터 위다. 경영진이 먼저 보는 것이 위에 있어야 한다.
-     콕핏은 실무 운영 화면이고 이쪽은 결재선·이사회로 나가는 산출물이다. */
-  ['보고서',['종합보고서']],
-  ['통제센터',['콕핏','시뮬레이션','한도관리']],
+     콕핏은 실무 운영 화면이고 이쪽은 결재선·이사회·감독당국으로 나가는 산출물이다. */
+  ['보고서',['종합보고서','감독보고','NCR·건전성']],
+  ['통제센터',['콕핏','시뮬레이션','한도관리','예외·조치']],
   ['조회·컴포저',['정형 조회','비정형 UI']],
   /* 모형은 신용에만 있지 않다. 도메인 축으로 따로 세운다(사용자 지적).
      원장이 crm_ 스키마에 산다는 것과 신용 모형이라는 것은 다른 말이다. */
@@ -9545,7 +9541,7 @@ const NAVGROUPS=[
     ['고객행동모형',['행동모형 추정','비만기성예금 코어','행동모형 백테스트']],
   ]],
   ['리스크데이터',[
-    ['RDM',['원천·계약','DQ·대사','예외·조치','담보·보증','집계 원장']],
+    ['RDM',['원천·계약','DQ·대사','담보·보증','집계 원장']],
     ['선행 원장',['집합투자증권','파생상품','유동화']],
   ]],
   ['위험가중자산(RWA)',[
@@ -9562,8 +9558,6 @@ const NAVGROUPS=[
     ['위기상황',['거시지표 모니터링','시나리오 설정','역스트레스',
               'ICAAP 인벤토리','경영조치·제출']],
   ]],
-  ['증권 건전성',['NCR·건전성']],
-  ['보고',['감독보고']],
   ['검증·거버넌스',[
     ['검증',['요건 추적']],
     '에이전트','변경','오버레이',
@@ -9573,10 +9567,32 @@ const NAVGROUPS=[
   ['데이터·설정',[
     '데이터모델',
     ['⚙ 설정',['기관 설정','포트폴리오 설정','코드 마스터','코드 매핑','산출 방법론']],
+    /* 사업성은 규제 산출물이 아니다. 제출 지문·독립검증 대상이 아니므로
+       메뉴 맨 끝에 둔다. */
+    '상업성',
   ]],
-  /* 사업성은 규제 산출물이 아니다. 제출 지문·독립검증 대상이 아니므로
-     메뉴에서도 맨 끝에 두고 이름으로 성격을 밝힌다. */
-  ['(참고)',['상업성']],
+];
+/* 역할별 메뉴. 역할 칩을 고르면 그 역할이 쓰는 화면만 남고 나머지는 접힌다.
+   기본은 전체다. 화면을 지우는 것이 아니라 보이는 범위를 좁힐 뿐이다. */
+function navLeaves(name){
+  const out=[];
+  const walk=items=>items.forEach(it=>{
+    if(typeof it==='string')out.push(it);
+    else{out.push(it[0]);walk(it[1])}});
+  NAVGROUPS.forEach(([g,items])=>{if(!name||g===name)walk(items)});
+  return out;
+}
+const NAV_ROLES=[
+  ['','전체',()=>null],
+  ['exec','경영진',()=>['종합보고서','감독보고','NCR·건전성','콕핏','한도관리','예외·조치',
+     '역스트레스','거시지표 모니터링','경영조치·제출','검증','KRI·통제']],
+  ['ops','실무',()=>navLeaves('통제센터').concat(navLeaves('조회·컴포저'),navLeaves('리스크데이터'),
+     navLeaves('위험가중자산(RWA)'),navLeaves('ALM·위기상황'),
+     ['감독보고','NCR·건전성','데이터모델','코드 마스터','코드 매핑'])],
+  ['model','모형검증',()=>navLeaves('모형').concat(['검증','오버레이','변경','모형 수명주기',
+     '산출 방법론','행동모형 백테스트'])],
+  ['audit','감사',()=>navLeaves('검증·거버넌스').concat(['데이터모델','기관 설정','감독보고',
+     '종합보고서'])],
 ];
 
 const TABS=[
@@ -9588,19 +9604,19 @@ const TABS=[
      이 화면의 수치가 원장 그대로라서, 실적 수치로 오인될 여지가 가장 크다. */
   ['RDM','A · 리스크데이터 (유연집계·가공·정합성·계보)',
    r=>{reviewNotice(r,'RDM');
-       domain(r,'PRD-RDM',null,'원천계약부터 표준 매핑, 버전형 가공, 다차원 집계, DQ·대사, 승인 스냅샷까지 통제한다.')}],
+       domain(r,'PRD-RDM',null,null)}],
   ['신용','B · 신용리스크 (모형·파라미터·회수·경보)',
-   r=>domain(r,'PRD-CRM',null,'등급·PD/LGD/EAD·부도/회수 품질·담보배분·조기경보를 연결한다.')],
+   r=>domain(r,'PRD-CRM',null,null)],
   ['신용 RWA','B · 신용리스크 위험가중자산',
-   r=>domain(r,'PRD-RWA',null,'표준방법 구간별·내부등급법 PD 구간별로 분해해 업무보고서 라인과 같은 입도로 둔다.')],
+   r=>domain(r,'PRD-RWA',null,null)],
   ['ECL','B · 기대신용손실',
-   r=>domain(r,'PRD-ECL',null,'Stage 전이·SICR 트리거·충당금 증감 브리지를 분해한다.')],
+   r=>domain(r,'PRD-ECL',null,null)],
   ['시장','C · 시장리스크 (가격평가·위험요소·ES·백테스팅)',
-   r=>domain(r,'PRD-MKT',null,'벤치마크 가격·시장데이터 계보·위험요소·ES·백테스팅을 연결한다.')],
+   r=>domain(r,'PRD-MKT',null,null)],
   ['운영','D · 운영리스크 (손실데이터·PSMOR)',
-   r=>domain(r,'PRD-OPR',null,'내·외부 사건·회수·KRI·PSMOR 원칙 매핑을 연결한다. 매핑이며 준수 인증이 아니다.')],
+   r=>domain(r,'PRD-OPR',null,null)],
   ['ALM','E · ALM (IRRBB·LCR·NSFR)',
-   r=>domain(r,'PRD-ALM',null,'항목별 잔액·적용률·가중 후 금액까지 분해해 규제 비율의 원인을 추적한다.')],
+   r=>domain(r,'PRD-ALM',null,null)],
   ['위기상황','E · 통합위기상황분석 (심각도별 전 단계 산출과정)',stressDeepDive],
   ['감독보고','R · 금감원 업무보고서',regulatory],
   ['검증','F · 검증 두 층, 자체검증(2선)과 상시 독립검증(3선)',validation],
@@ -9615,6 +9631,7 @@ const TABS=[
 ];
 
 let repaintAll=()=>{};                   /* boot에서 실체가 채워진다 */
+let paintNavTools=()=>{};                /* 메뉴 도구(검색·역할 칩)의 표시 문자열 */
 
 /* 승인·이력은 **실행에 속한다**. proposal_id는 (view, 프롬프트)의 해시라
    실행이 바뀌어도 같으므로, 그대로 두면 이전 실행 데이터로 받은 승인이 새
@@ -9767,6 +9784,7 @@ function paintStatic(){
   if(rin){if(rin.dataset.ko===undefined)rin.dataset.ko=rin.value;
     if(!rin.dataset.touched)rin.value=T(rin.dataset.ko)}
   const nv=$('nav');if(nv)nv.setAttribute('aria-label',T('메뉴'));
+  paintNavTools();
   const tb=$('#themebtn');if(tb)paintThemeButton(tb);
   const lb=$('#langbtn');
   if(lb){lb.textContent=(LANG==='en'?T('한국어'):'English');
@@ -9865,6 +9883,7 @@ function boot(){
     const gh=el('div','navgroup'+(depth?' sub lvl'+depth:''),gname);
     gh.dataset.ko=gname;
     const under=[];                      /* 이 그룹 아래 전부 (접기 대상) */
+    gh._under=under;                     /* 역할·검색 필터가 그룹 표시를 정할 때 쓴다 */
     gh.onclick=()=>{gh.classList.toggle('closed');
       const closed=gh.classList.contains('closed');
       under.forEach(x=>{x.hidden=closed;
@@ -9886,6 +9905,38 @@ function boot(){
     });
   }
   NAVGROUPS.forEach(([gname,items])=>addGroup(gname,items,0));
+  /* 메뉴 도구. 검색과 역할 칩은 버튼이 아니다(nav button 은 화면 목록이다). */
+  const tools=el('div','navtools');
+  const q=rawEl('input','navq');q.type='search';q.id='navq';
+  const roles=el('div','roles');
+  NAV_ROLES.forEach(([key,label])=>{const c=rawEl('span','rchip'+(key===''?' on':''));
+    c.dataset.role=key;c.dataset.ko=label;c.tabIndex=0;c.textContent=T(label);
+    const pick=()=>{[...roles.children].forEach(x=>x.classList.remove('on'));c.classList.add('on');
+      STATE.navRole=key;applyNavFilter()};
+    c.onclick=pick;c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick()}};
+    roles.appendChild(c)});
+  tools.appendChild(q);tools.appendChild(roles);
+  nav.insertBefore(tools,nav.firstChild);
+  q.oninput=()=>{STATE.navQuery=q.value.trim().toLowerCase();applyNavFilter()};
+  function applyNavFilter(){
+    const role=NAV_ROLES.find(r=>r[0]===(STATE.navRole||''));
+    const allow=role?role[2]():null;
+    const allowSet=allow?new Set(allow):null;
+    const kw=STATE.navQuery||'';
+    [...nav.querySelectorAll('button')].forEach(b=>{
+      const ko=b.dataset.ko||'';
+      const ok=(!allowSet||allowSet.has(ko))&&
+        (!kw||ko.toLowerCase().includes(kw)||T(ko).toLowerCase().includes(kw));
+      b.classList.toggle('fhide',!ok)});
+    [...nav.querySelectorAll('.navgroup')].forEach(g=>{
+      const vis=(g._under||[]).some(x=>x.tagName==='BUTTON'&&!x.classList.contains('fhide'));
+      g.classList.toggle('fhide',!vis)});
+  }
+  paintNavTools=()=>{
+    q.placeholder=T('화면 검색');
+    [...roles.children].forEach(c=>{c.textContent=T(c.dataset.ko)});
+  };
+  paintNavTools();
   if(first)first.onclick();
   /* 사유 입력은 **화면 안**에서 받는다. prompt()는 샌드박스 iframe(임베드·
      아티팩트)에서 차단되어 null을 돌려주고, 그러면 통제가 아무 반응 없이
