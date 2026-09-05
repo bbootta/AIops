@@ -1658,6 +1658,197 @@ function donutSvg(items,W,H,{title,note,fmt}={}){
   });
   return s;
 }
+/* ── 3D (SVG 투영) ─────────────────────────────────────────────────────
+   두 범주 축과 크기 하나를 가진 행렬은 평면 히트맵보다 높이로 읽는 편이
+   빠르다. 외부 라이브러리 없이 점을 직접 투영해 SVG 로 그린다. 카메라는
+   방위각과 고도각 둘이고 끌면 돈다. 초기 각도는 상수라 두 번 그려도 같다.
+   가림은 화가 알고리즘이다. 카메라에서 먼 것부터 그리고, 기둥의 뒷면은
+   투영된 다각형의 회전 방향으로 걸러낸다. */
+function cam3(az,elv){
+  const ca=Math.cos(az),sa=Math.sin(az),ce=Math.cos(elv),se=Math.sin(elv);
+  return {
+    /* x 오른쪽, y 안쪽(깊이), z 높이. 화면 y 는 아래가 양이라 높이는 뺀다. */
+    p:(x,y,z)=>{const xr=x*ca-y*sa,yr=x*sa+y*ca;return [xr,-(z*ce+yr*se)]},
+    depth:(x,y,z)=>{const yr=x*sa+y*ca;return yr*ce-z*se}   /* 클수록 멀다 */
+  };
+}
+/* 상자 여덟 모서리를 투영해 W×H 에 맞추는 변환을 돌려준다. */
+function fit3(cam,nx,ny,z0,z1,W,H,pad){
+  const cs=[];
+  [0,nx].forEach(x=>[0,ny].forEach(y=>[z0,z1].forEach(z=>cs.push(cam.p(x,y,z)))));
+  const xs=cs.map(c=>c[0]),ys=cs.map(c=>c[1]);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const k=Math.min((W-2*pad)/((x1-x0)||1),(H-2*pad)/((y1-y0)||1));
+  const ox=(W-(x1-x0)*k)/2-x0*k,oy=(H-(y1-y0)*k)/2-y0*k;
+  return (x,y,z)=>{const q=cam.p(x,y,z);return [q[0]*k+ox,q[1]*k+oy]};
+}
+const area2=pts=>{let a=0;for(let i=0;i<pts.length;i++){
+  const p=pts[i],q=pts[(i+1)%pts.length];a+=p[0]*q[1]-q[0]*p[1]}return a};
+const ptsAttr=pts=>pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+/* 끌어서 돌리는 3D 상자. 폭은 상자에 맞추고(fluidChart 와 같은 규칙), 각도는
+   닫힌 상태로 들고 있다가 포인터를 끌면 바꾼다. 이벤트는 바뀌지 않는 겉상자에
+   달아야 한다. svg 를 매번 새로 그리므로 svg 에 달면 첫 움직임에서 끊긴다. */
+function view3d(drawFn,{ratio=0.56,minH=260,maxH=560,az=-0.62,el:elv=0.50,title,note}={}){
+  const st={az:az,el:elv};
+  const box=el('div'),hold=el('div');
+  if(title)box.appendChild(el('div','meta',title));
+  box.appendChild(hold);
+  if(note)box.appendChild(el('div','meta',note));
+  let W=0,H=0;
+  const paint=()=>{hold.textContent='';hold.appendChild(drawFn(W,H,cam3(st.az,st.el)))};
+  const size=w=>{w=Math.max(320,Math.round(w));if(w===W)return;
+    W=w;H=Math.max(minH,Math.min(maxH,Math.round(w*ratio)));paint()};
+  hold.style.cssText='cursor:grab;touch-action:none;user-select:none';
+  let drag=null;
+  hold.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,az:st.az,el:st.el};
+    hold.setPointerCapture(e.pointerId);hold.style.cursor='grabbing'});
+  hold.addEventListener('pointermove',e=>{if(!drag)return;
+    st.az=drag.az+(e.clientX-drag.x)*0.01;
+    st.el=Math.max(0.12,Math.min(1.35,drag.el+(e.clientY-drag.y)*0.01));paint()});
+  const stop=()=>{drag=null;hold.style.cursor='grab'};
+  hold.addEventListener('pointerup',stop);hold.addEventListener('pointercancel',stop);
+  size(680);
+  if(typeof ResizeObserver==='function')
+    new ResizeObserver(es=>{const w=es[0]&&es[0].contentRect.width;if(w>0)size(w)})
+      .observe(hold);
+  return box;
+}
+/* 바닥 격자와 축 라벨. 열 라벨은 앞 모서리, 행 라벨은 오른 모서리, 높이 축은
+   뒤 왼쪽 모서리에 선다. 열 라벨이 겹치면 건너뛰어 찍는다. */
+function floor3(s,P,nx,ny,rowLabels,colLabels,zAxis,lz=0){
+  for(let x=0;x<=nx;x++)svgNode(s,'polyline',{points:ptsAttr([P(x,0,0),P(x,ny,0)]),
+    fill:'none',stroke:'var(--line)','stroke-width':x===0||x===nx?1:0.5});
+  for(let y=0;y<=ny;y++)svgNode(s,'polyline',{points:ptsAttr([P(0,y,0),P(nx,y,0)]),
+    fill:'none',stroke:'var(--line)','stroke-width':y===0||y===ny?1:0.5});
+  /* 라벨 높이 lz 는 보통 바닥이지만, 기둥이 아래로 내려가는 자료에서는 가장
+     낮은 점이다. 바닥에 두면 글자가 기둥 옆면 위에 얹힌다. */
+  const a=P(0.5,-0.4,lz),b=P(1.5,-0.4,lz),gap=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  const step=Math.max(1,Math.ceil(34/Math.max(gap,1)));
+  colLabels.forEach((c,x)=>{if(x%step&&x!==nx-1)return;const q=P(x+0.5,-0.4,lz);
+    svgNode(s,'text',{x:q[0],y:q[1]+4,'text-anchor':'middle','font-size':9,
+      fill:'var(--muted)'},String(c).slice(0,13))});
+  const ra=P(nx+0.3,0.5,lz),rb=P(nx+0.3,1.5,lz),rgap=Math.hypot(rb[0]-ra[0],rb[1]-ra[1]);
+  const rstep=Math.max(1,Math.ceil(11/Math.max(rgap,1)));
+  rowLabels.forEach((r,y)=>{if(y%rstep&&y!==ny-1)return;const q=P(nx+0.3,y+0.5,lz);
+    svgNode(s,'text',{x:q[0],y:q[1]+4,'text-anchor':'start','font-size':9,
+      fill:'var(--muted)'},String(r).slice(0,12))});
+  /* 높이 축은 위로 서면 뒤 왼쪽, 아래로 내려가면 앞 왼쪽 모서리에 둔다. 아래로
+     내려간 기둥은 뒤 모서리의 축을 가린다. */
+  const ay=zAxis&&zAxis.h<0?0:ny;
+  if(zAxis){const z0=P(0,ay,0),z1=P(0,ay,zAxis.h);
+    svgNode(s,'polyline',{points:ptsAttr([z0,z1]),fill:'none',stroke:'var(--muted)','stroke-width':1});
+    svgNode(s,'text',{x:z1[0]-5,y:z1[1]+3,'text-anchor':'end','font-size':9,
+      fill:'var(--muted)'},zAxis.label)}
+}
+/* 3D 기둥. matrix[row][col] 의 행이 깊이, 열이 가로다. 음수는 바닥 아래로
+   내린다. tone(v) 가 있으면 색 변수를, 없으면 강조색을 쓴다. */
+function bars3d(matrix,rowLabels,colLabels,opts={}){
+  const fmt=opts.fmt||fmtNum;
+  return view3d((W,H,cam)=>{
+    const ny=matrix.length||1,nx=(matrix[0]||[]).length||1;
+    const vals=matrix.flat().filter(v=>typeof v==='number'&&isFinite(v));
+    const amax=Math.max(...vals.map(Math.abs),0)||1;
+    const zs=0.55*Math.max(nx,ny);
+    const hz=v=>v/amax*zs;
+    const zlo=Math.min(0,...vals.map(hz)),zhi=Math.max(0,...vals.map(hz));
+    const s=svgEl(W,H,opts.title||'3D 기둥');s.style.maxWidth='none';
+    const P=fit3(cam,nx,ny,zlo,zhi,W,H,44);
+    const front=Math.sign(area2([P(0,0,0),P(nx,0,0),P(nx,ny,0),P(0,ny,0)]))||1;
+    /* 높이 축은 절대값이 큰 쪽으로 세운다. 손실만 있는 자료면 아래로 선다. */
+    const vmax=Math.max(...vals),vmin=Math.min(...vals);
+    const ax=!vals.length?null:(zhi>=-zlo?{h:zhi,label:fmt(vmax)}:{h:zlo,label:fmt(vmin)});
+    floor3(s,P,nx,ny,rowLabels,colLabels,ax,zlo);
+    const cols=[];
+    matrix.forEach((row,y)=>row.forEach((v,x)=>{
+      if(typeof v!=='number'||!isFinite(v)||v===0)return;
+      cols.push({x,y,v,d:cam.depth(x+0.5,y+0.5,0)})}));
+    cols.sort((a,b)=>b.d-a.d);
+    cols.forEach(c=>{
+      const x0=c.x+0.16,x1=c.x+0.84,y0=c.y+0.16,y1=c.y+0.84;
+      const h=hz(c.v),z0=Math.min(0,h),z1=Math.max(0,h);
+      const col='var('+((opts.tone&&opts.tone(c.v))||'--accent')+')';
+      const faces=[
+        {v:[[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]],op:0.95},   /* 윗면 */
+        {v:[[x0,y0,z0],[x0,y1,z0],[x1,y1,z0],[x1,y0,z0]],op:0.95},   /* 밑면 */
+        {v:[[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1]],op:0.72},   /* 앞 */
+        {v:[[x1,y0,z0],[x1,y1,z0],[x1,y1,z1],[x1,y0,z1]],op:0.56},   /* 오른 */
+        {v:[[x1,y1,z0],[x0,y1,z0],[x0,y1,z1],[x1,y1,z1]],op:0.72},   /* 뒤 */
+        {v:[[x0,y1,z0],[x0,y0,z0],[x0,y0,z1],[x0,y1,z1]],op:0.56}];  /* 왼 */
+      const g=svgNode(s,'g',{});
+      g.appendChild(document.createElementNS(s.namespaceURI,'title')).textContent=
+        `${rowLabels[c.y]} × ${colLabels[c.x]}: ${fmt(c.v)}`;
+      faces.map(f=>{const pts=f.v.map(q=>P(q[0],q[1],q[2]));
+          return {pts,op:f.op,a:area2(pts),
+            d:f.v.reduce((acc,q)=>acc+cam.depth(q[0],q[1],q[2]),0)/4}})
+        .filter(f=>Math.sign(f.a)===front)
+        .sort((a,b)=>b.d-a.d)
+        .forEach(f=>svgNode(g,'polygon',{points:ptsAttr(f.pts),fill:col,
+          'fill-opacity':f.op,stroke:'var(--bg)','stroke-width':0.6}));
+    });
+    return s;
+  },{ratio:0.56,minH:260,maxH:560,title:opts.title,note:opts.note});
+}
+/* 3D 표면. z[row][col] 을 격자로 이어 칸마다 사각형을 그린다. tone(v) 가 있으면
+   칸 색을 판정으로, 없으면 높이로 칠한다. plane 은 기준 높이의 점선 테두리다. */
+function surface3d(z,rowLabels,colLabels,opts={}){
+  const fmt=opts.fmt||fmtNum;
+  return view3d((W,H,cam)=>{
+    const ny=z.length,nx=(z[0]||[]).length;
+    const vals=z.flat().filter(v=>typeof v==='number'&&isFinite(v));
+    const lo=Math.min(...vals,opts.plane!=null?opts.plane:Infinity);
+    const hi=Math.max(...vals,opts.plane!=null?opts.plane:-Infinity);
+    /* 기복은 바닥 한 변의 0.45 배. 더 세우면 단조로운 표면이 시선과 나란해져
+       종이처럼 얇게 보인다. 고도각도 그래서 기둥보다 높다. */
+    const span=(hi-lo)||1,zs=0.45*Math.max(nx-1,ny-1,1);
+    const hz=v=>(v-lo)/span*zs;
+    const s=svgEl(W,H,opts.title||'3D 표면');s.style.maxWidth='none';
+    const P=fit3(cam,nx-1,ny-1,0,zs,W,H,44);
+    floor3(s,P,nx-1,ny-1,[],[],null);
+    /* 격자 라벨은 점 위치라 반 칸 밀지 않는다 */
+    colLabels.forEach((c,x)=>{const q=P(x,-0.4,0);
+      svgNode(s,'text',{x:q[0],y:q[1]+4,'text-anchor':'middle','font-size':9,
+        fill:'var(--muted)'},String(c).slice(0,10))});
+    rowLabels.forEach((r,y)=>{const q=P(nx-1+0.3,y,0);
+      svgNode(s,'text',{x:q[0],y:q[1]+4,'text-anchor':'start','font-size':9,
+        fill:'var(--muted)'},String(r).slice(0,12))});
+    const quads=[];
+    for(let y=0;y<ny-1;y++)for(let x=0;x<nx-1;x++){
+      const c=[z[y][x],z[y][x+1],z[y+1][x+1],z[y+1][x]];
+      if(c.some(v=>typeof v!=='number'||!isFinite(v)))continue;
+      const m=(c[0]+c[1]+c[2]+c[3])/4;
+      quads.push({x,y,c,m,d:cam.depth(x+0.5,y+0.5,hz(m))})}
+    quads.sort((a,b)=>b.d-a.d);
+    const paintQuad=q=>{
+      const pts=[P(q.x,q.y,hz(q.c[0])),P(q.x+1,q.y,hz(q.c[1])),
+        P(q.x+1,q.y+1,hz(q.c[2])),P(q.x,q.y+1,hz(q.c[3]))];
+      const t=(q.m-lo)/span;
+      const col=opts.tone?'var('+opts.tone(q.m)+')':'var(--accent)';
+      const g=svgNode(s,'g',{});
+      g.appendChild(document.createElementNS(s.namespaceURI,'title')).textContent=
+        `${rowLabels[q.y]}~${rowLabels[q.y+1]} × ${colLabels[q.x]}~${colLabels[q.x+1]}: ${fmt(q.m)}`;
+      svgNode(g,'polygon',{points:ptsAttr(pts),fill:col,
+        'fill-opacity':opts.tone?0.62:(0.22+0.7*t).toFixed(3),
+        stroke:'var(--panel)','stroke-width':0.8})};
+    /* 기준 평면은 표면을 가른다. 평면 아래 칸을 먼저, 평면, 그 위 칸을 그려야
+       내려간 구역이 평면에 가려 보인다. 평면을 먼저 다 그리면 전부 위에 뜬다. */
+    const hp=opts.plane!=null?hz(opts.plane):null;
+    quads.filter(q=>hp==null||q.m<opts.plane).forEach(paintQuad);
+    if(hp!=null){
+      const ring=[P(0,0,hp),P(nx-1,0,hp),P(nx-1,ny-1,hp),P(0,ny-1,hp)];
+      svgNode(s,'polygon',{points:ptsAttr(ring),fill:'var(--bad)','fill-opacity':0.10,
+        stroke:'var(--bad)','stroke-width':1,'stroke-dasharray':'5 3'});
+      const q=P(0,0,hp);
+      svgNode(s,'text',{x:q[0]-6,y:q[1]+3,'text-anchor':'end','font-size':9,
+        fill:'var(--bad)'},(opts.planeLabel||'')+' '+fmt(opts.plane));
+      quads.filter(q=>q.m>=opts.plane).forEach(paintQuad)}
+    /* 점 값 라벨은 모서리 넷만. 전부 찍으면 표면이 글자에 묻힌다. */
+    [[0,0],[nx-1,0],[0,ny-1],[nx-1,ny-1]].forEach(([x,y])=>{const v=z[y][x];
+      if(typeof v!=='number')return;const q=P(x,y,hz(v));
+      svgNode(s,'text',{x:q[0],y:q[1]-5,'text-anchor':'middle','font-size':9,
+        fill:'var(--text)','font-weight':700},fmt(v))});
+    return s;
+  },{ratio:0.56,minH:280,maxH:560,el:0.78,title:opts.title,note:opts.note});
+}
 /* 히트맵 (heatmap 대응. rows/cols 라벨 + 값 행렬) */
 function heat(matrix,rowLabels,colLabels,opts={}){
   /* 높이는 행 수가 정하므로 폭만 상자에 맞춘다. */
@@ -4315,7 +4506,7 @@ function almIrrbbCharts(root){
     const r=f.rows.find(x=>x[i.basis]===b&&x[i.scenario]===sc);
     return r?r[i.delta_eve_to_tier1]:null}));
   const hc=almCard('계약기준 대 행동조정 (기본자본 대비 ΔEVE)',
-    heat(mat,bases,scen,{fmt:v=>(v*100).toFixed(2)+'%'}),srcMeta(f));
+    bars3d(mat,bases,scen,{fmt:v=>(v*100).toFixed(2)+'%'}),srcMeta(f));
   root.appendChild(hc);
 
   const bar=el('div','toolbar');root.appendChild(bar);
@@ -4473,6 +4664,11 @@ function almLadderCharts(root){
               tone:(r&&r[i.net_gap]<0)?'bad':'good'}}),
       {title:'버킷별 순갭 (유입 − 유출)',fmt:fmtMoney}));
     c1.appendChild(srcMeta(f));pane.appendChild(c1);
+    /* 위 두 그림은 고른 시나리오 하나다. 시나리오를 깊이 축에 세워 한 번에 본다. */
+    const gapM=scens.map(sc=>bks.map(k=>{const r=f.rows.find(x=>x[i.scenario]===sc&&
+      x[i.basis]===sb.value&&x[i.bucket]===k);return r?r[i.net_gap]:null}));
+    pane.appendChild(almCard('시나리오 × 버킷 순갭 ('+sb.value+' 기준)',
+      bars3d(gapM,scens,bks,{fmt:fmtMoney,tone:v=>v<0?'--bad':'--good'}),srcMeta(f)));
     const c2=almCard('누적갭 (계약기준 대 행동조정)',
       multiLine(bases.map(b=>({name:b,values:bks.map(k=>{
         const r=at(b,k);return r?r[i.cumulative_gap]:null})})),bks,null),
@@ -5343,7 +5539,7 @@ function pdEstimateScreen(root){
       const matrix=grades.map(gr=>years.map(yr=>{
         const r=sub.find(x=>x[yi.grade]===gr&&x[yi.cohort_year]===yr);
         return r?r[yi.default_rate]:null}));
-      pane.appendChild(heat(matrix,grades,years,
+      pane.appendChild(bars3d(matrix,grades,years,
         {title:'등급 × 코호트연도 실적 부도율',
          fmt:v=>pctv(v,2)}));
       const out=sub.filter(r=>r[yi.in_estimation_sample]===false);
@@ -6918,10 +7114,23 @@ function simulation(root){
         tone:v>=S.required.cet1?'good':(v>=S.minimums.cet1?'warn':'bad'),
         title:'위험가중자산 '+(dr*100).toFixed(0)+'% · 보통주자본 '+
           (dc*100).toFixed(0)+'% · 최종 RWA '+fmtMoney(rwa2)}}));
-    const sc=cardOf('2축 민감도 (보통주자본비율)',
-      gridTable(rSteps.map(x=>'RWA '+(x>=0?'+':'')+(x*100).toFixed(0)+'%'),
+    /* 같은 산술을 더 잘게 잘라 표면으로도 그린다. 요구비율 평면 아래로
+       가라앉는 구역이 격자보다 한눈에 들어온다. 격자는 정확한 값 때문에 남긴다. */
+    const fSteps=[-0.10,-0.075,-0.05,-0.025,0,0.025,0.05,0.075,0.10];
+    const dlab=(p,x)=>p+' '+(x>=0?'+':'')+(x*100).toFixed(1).replace(/\.0$/,'')+'%';
+    const surf=fSteps.map(dr=>fSteps.map(dc=>{
+      const internal2=st.internal*(1+dr);
+      const rwa2=internal2+Math.max(0,st.floorAmt-internal2);
+      return st.cet1*(1+dc)/rwa2}));
+    const both=el('div');
+    both.appendChild(surface3d(surf,fSteps.map(x=>dlab('RWA',x)),
+      fSteps.map(x=>dlab('CET1',x)),
+      {fmt:v=>pctv(v,2),plane:S.required.cet1,planeLabel:'요구비율',
+       tone:v=>v>=S.required.cet1?'--good':(v>=S.minimums.cet1?'--warn':'--bad')}));
+    both.appendChild(gridTable(rSteps.map(x=>'RWA '+(x>=0?'+':'')+(x*100).toFixed(0)+'%'),
         cSteps.map(x=>'CET1 '+(x>=0?'+':'')+(x*100).toFixed(0)+'%'),cells,
         'Δ'));
+    const sc=cardOf('2축 민감도 (보통주자본비율)',both);
     pane.appendChild(sc);
 
     if(saved.length){
@@ -7777,6 +7986,10 @@ function migrationPivot(root){
     rows.forEach(r=>{
       const k=r[i.from_grade]+'>'+r[i.to_grade];
       cell[k]=(cell[k]||0)+r[i.share];mx=Math.max(mx,cell[k])});
+    /* 대각선이 능선으로 서고 등급 하락은 그 오른쪽 비탈로 흘러 보인다 */
+    pane.appendChild(bars3d(grades.map(fr=>grades.map(to=>cell[fr+'>'+to])),
+      grades,grades,{title:'전이 확률 (시작 등급 × 도착 등급)',
+        fmt:v=>(v*100).toFixed(1)+'%'}));
     const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
     tr.appendChild(el('th',null,'시작 \\ 도착'));
     grades.forEach(g=>tr.appendChild(el('th','num',g)));
