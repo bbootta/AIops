@@ -1187,10 +1187,9 @@ color:var(--muted);font-variant-numeric:tabular-nums}
 .ticker b{color:var(--text);font-weight:700;margin-left:6px}
 .ticker .mono{color:var(--lineage)}
 /* 결재 문서 (종합보고서) */
-.doc{display:grid;gap:22px;grid-template-columns:184px minmax(0,1fr);align-items:start;
-max-width:1460px}
+.doc{display:grid;gap:22px;grid-template-columns:184px minmax(0,1fr);align-items:start}
 .dochead{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;
-border-bottom:2px solid var(--text);padding:0 0 12px;margin:0 0 6px;max-width:1460px}
+border-bottom:2px solid var(--text);padding:0 0 12px;margin:0 0 6px}
 .dochead .ttl{font-size:20px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
 .dochead .sub{color:var(--muted);font-size:11px;margin-top:4px}
 .signoff{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
@@ -1226,7 +1225,7 @@ font-size:11.5px}
 .figcap{font-size:10.5px;color:var(--muted);margin:6px 0 0;
 font-variant-numeric:tabular-nums}
 .footnotes{border-top:1px solid var(--line);padding:12px 0 0;margin:14px 0 0;
-font-size:10.5px;color:var(--muted);line-height:1.6;columns:2;column-gap:28px;max-width:1460px}
+font-size:10.5px;color:var(--muted);line-height:1.6;columns:2;column-gap:28px}
 .footnotes div{break-inside:avoid;margin:0 0 4px}
 .footnotes .no{color:var(--accent);font-weight:700;margin-right:5px}
 .bullet{display:grid;grid-template-columns:minmax(120px,.9fr) minmax(0,2fr) auto;gap:10px;
@@ -1235,7 +1234,40 @@ align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:1
 .bullet .bl{font-weight:650}
 .bullet .bl small{display:block;color:var(--muted);font-weight:400;font-size:10.5px}
 .bullet .bv{font-variant-numeric:tabular-nums;text-align:right;min-width:9ch;font-weight:700}
-.bullet svg{display:block;width:100%;height:22px}
+.bullet svg{display:block;width:100%;height:26px}
+/* 추이 행 (KRI 12개월 스파크) */
+.trow{display:grid;grid-template-columns:minmax(120px,.9fr) minmax(0,2fr) auto;gap:10px;
+align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:11.5px}
+.trow:last-of-type{border-bottom:none}
+.trow .tl{font-weight:650;min-width:0}
+.trow .tl small{display:block;color:var(--muted);font-weight:400;font-size:10.5px;white-space:nowrap;
+overflow:hidden;text-overflow:ellipsis}
+.trow .tv{font-variant-numeric:tabular-nums;text-align:right;min-width:9ch;font-weight:700}
+.trow .tv small{display:block;font-weight:600;font-size:10px}
+/* 항목이 적은 차트: 폭을 줄인 도표 + 값 표 */
+.chartrow{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.chartrow>.cbox{min-width:0;max-width:100%}
+.chartrow>.tw{flex:1 1 200px;margin:0}
+.agrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));margin:0 0 10px}
+.agrid .card{margin:0}
+/* 통계 타일 (항목 넷 이하) */
+.stats{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:6px 0 2px}
+.stat{background:var(--chip);border:1px solid var(--line);border-radius:8px;padding:9px 11px;min-width:0}
+.stat .sl{font-size:10.5px;color:var(--muted);font-weight:650;letter-spacing:.02em;white-space:nowrap;
+overflow:hidden;text-overflow:ellipsis}
+.stat .sv{font-size:19px;font-weight:700;letter-spacing:-.01em;margin:3px 0 6px;
+font-variant-numeric:tabular-nums}
+.stat .sv.bad{color:var(--bad)}.stat .sv.warn{color:var(--warn)}.stat .sv.good{color:var(--good)}
+.stat .bar{height:6px}
+.stat .ss{font-size:10.5px;color:var(--muted);margin-top:5px;font-variant-numeric:tabular-nums}
+/* 100% 누적 띠 */
+.strips .srow{display:grid;grid-template-columns:minmax(80px,140px) minmax(0,1fr) auto;gap:10px;
+align-items:center;padding:5px 0;font-size:11.5px}
+.sbar{display:flex;height:14px;border-radius:5px;overflow:hidden;background:var(--chip)}
+.sbar i{display:block;height:100%;min-width:1px}
+.slegend{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:6px;font-size:11px;color:var(--muted)}
+.slegend .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;
+vertical-align:-1px}
 /* 콘솔 (한도관리) */
 .console{display:grid;gap:12px;grid-template-columns:minmax(0,1fr) minmax(300px,380px);
 align-items:start}
@@ -1542,12 +1574,76 @@ function barList(items,{money=true}={}){
     b.appendChild(f);line.appendChild(b);w.appendChild(line)});
   return w;
 }
-function hbars(items,{title,src,money=true}={}){
+function hbars(items,{title,src,money=true,share=false,fmt}={}){
   const c=el('div','card');
   if(title)c.appendChild(el('h3',null,title));
-  c.appendChild(barList(items,{money}));
+  c.appendChild(items.length&&items.length<=4
+    ?statTiles(items,{money,share,fmt}):barList(items,{money}));
   if(src)c.appendChild(src);
   return c;
+}
+/* 항목이 넷 이하면 막대 목록 대신 통계 타일. 한 줄짜리 막대가 화면 폭을
+   가로지르면 값 하나가 빈 판을 차지한다. 타일은 값을 크게, 상대 크기는 짧은
+   막대로 보인다. share 는 합산 가능한 금액·건수에서만 켠다. Gini·경과일처럼
+   더할 수 없는 값에 켜면 없는 구성비를 만든다. */
+function statTiles(items,{money=true,share=false,fmt}={}){
+  const g=el('div','stats');
+  g.style.maxWidth=(items.length*280)+'px';
+  const max=Math.max(...items.map(x=>Math.abs(x.value)))||1;
+  const tot=items.reduce((a,x)=>a+Math.abs(x.value),0)||1;
+  const f=v=>fmt?fmt(v):(money?fmtMoney(v):fmtNum(v));
+  items.forEach((x,k)=>{
+    const t=el('div','stat');
+    const lab=rawEl('div','sl',String(x.label));if(x.phys)lab.title=x.phys;
+    t.appendChild(lab);
+    t.appendChild(rawEl('div','sv '+(x.tone||''),f(x.value)));
+    const b=el('div','bar'),i=el('i');
+    i.style.width=(Math.abs(x.value)/max*100).toFixed(1)+'%';
+    i.style.background='var('+(x.tone?'--'+x.tone:CHART_PALETTE[k%CHART_PALETTE.length])+')';
+    b.appendChild(i);t.appendChild(b);
+    const sub=[];
+    if(share)sub.push((Math.abs(x.value)/tot*100).toFixed(1)+'%');
+    if(x.sub)sub.push(x.sub);
+    if(sub.length)t.appendChild(rawEl('div','ss',sub.join(' · ')));
+    g.appendChild(t)});
+  return g;
+}
+/* 100% 누적 띠. rows=[{label,items:[{label,value,tone}]}]. 범주 색을 줄마다
+   같은 순서로 쓰므로 줄 사이 구성 비교가 된다. */
+function shareStrips(rows,{fmt}={}){
+  const w=el('div','strips');
+  const f=v=>fmt?fmt(v):fmtNum(v);
+  const col=(x,k)=>'var('+(x.tone?'--'+x.tone:CHART_PALETTE[k%CHART_PALETTE.length])+')';
+  rows.forEach(r=>{
+    const tot=r.items.reduce((a,x)=>a+Math.abs(x.value),0)||1;
+    const line=el('div','srow');
+    const lab=rawEl('span',null,String(r.label));lab.style.fontWeight='650';
+    line.appendChild(lab);
+    const bar=el('div','sbar');
+    r.items.forEach((x,k)=>{const i=el('i');
+      i.style.width=(Math.abs(x.value)/tot*100).toFixed(2)+'%';
+      i.style.background=col(x,k);
+      i.title=`${x.label}: ${f(x.value)} (${(Math.abs(x.value)/tot*100).toFixed(1)}%)`;
+      bar.appendChild(i)});
+    line.appendChild(bar);
+    line.appendChild(rawEl('span','mono',f(tot)));
+    w.appendChild(line)});
+  const lg=el('div','slegend');
+  (rows[0]?rows[0].items:[]).forEach((x,k)=>{const sp=rawEl('span');
+    const sw=el('i','sw');sw.style.background=col(x,k);
+    sp.appendChild(sw);sp.appendChild(document.createTextNode(String(x.label)));
+    lg.appendChild(sp)});
+  w.appendChild(lg);
+  return w;
+}
+/* 항목이 적은 도표는 폭을 항목 수에 맞춰 줄이고 남는 자리에 값 표를 둔다.
+   셋짜리 막대를 화면 폭으로 늘리면 그림은 커지고 정보는 그대로다. */
+function withTable(box,cols,rows,maxW){
+  const row=el('div','chartrow');
+  box.classList.add('cbox');box.style.flex='0 1 '+maxW+'px';
+  row.appendChild(box);
+  row.appendChild(simpleTable(cols,rows));
+  return row;
 }
 
 /* 영역 곡선. 비정형 '추이' 블록용. 스파크보다 큰 캔버스, 기준선·격자·
@@ -1634,7 +1730,7 @@ function chartBox(svg,title,note){
    늘리면 막대와 함께 9px 라벨까지 같은 배율로 커져 글자가 부풀고, 자연 폭에
    상한을 두면 넓은 창에서 오른쪽이 빈 채로 남는다. 정사각형에 가까운 그림
    (게이지·산점도)은 늘리면 왜곡되므로 그대로 둔다. */
-function fluidChart(draw,{ratio=0.31,minH=170,maxH=420,seed=680,title,note}={}){
+function fluidChart(draw,{ratio=0.31,minH=170,maxH=420,seed=680,title,note,maxW=0}={}){
   const box=el('div'),hold=el('div');
   if(title)box.appendChild(el('div','meta',title));
   box.appendChild(hold);
@@ -1642,10 +1738,12 @@ function fluidChart(draw,{ratio=0.31,minH=170,maxH=420,seed=680,title,note}={}){
   let last=0;
   const run=w=>{
     w=Math.max(320,Math.round(w));
+    if(maxW)w=Math.min(w,maxW);
     if(w===last)return;
     last=w;
     const h=Math.max(minH,Math.min(maxH,Math.round(w*ratio)));
-    hold.textContent='';hold.appendChild(draw(w,h));
+    hold.textContent='';const node=draw(w,h);hold.appendChild(node);
+    if(maxW&&node.style)node.style.maxWidth=w+'px';
   };
   run(seed);                       /* 붙기 전에는 폭이 0이라 한 번 기본값으로 */
   if(typeof ResizeObserver==='function')
@@ -1655,6 +1753,14 @@ function fluidChart(draw,{ratio=0.31,minH=170,maxH=420,seed=680,title,note}={}){
 }
 /* 세로 막대 (보고서의 bar_chart 대응. items=[{label,value,tone}]) */
 function bars(items,opts={}){
+  const n=items.length||1;
+  if(n<=4){
+    const maxW=70+n*150;
+    const box=fluidChart((W,H)=>barsSvg(items,W,H,opts),
+      {ratio:210/680,minH:190,maxH:250,seed:maxW,title:opts.title,note:opts.note,maxW});
+    const f=v=>opts.fmt?opts.fmt(v):fmtNum(v);
+    return withTable(box,['항목','값'],items.map(x=>[String(x.label),f(x.value)]),maxW);
+  }
   return fluidChart((W,H)=>barsSvg(items,W,H,opts),
     {ratio:210/680,minH:190,maxH:300,title:opts.title,note:opts.note});
 }
@@ -1671,7 +1777,7 @@ function barsSvg(items,W,H,{title,note,fmt}={}){
     svgNode(s,'line',{x1:padL,y1:y,x2:W-6,y2:y,stroke:'var(--line)',
       'stroke-width':0.5,'stroke-dasharray':'3 3'});
     svgNode(s,'text',{x:padL-6,y:y+3,'text-anchor':'end','font-size':9,
-      fill:'var(--muted)'},fmt?fmt(max*f):fmtNum(Math.round(max*f)))});
+      fill:'var(--muted)'},fmt?fmt(max*f):fmtNum(max>=10?Math.round(max*f):+(max*f).toFixed(2)))});
   items.forEach((it,i)=>{
     const h=Math.abs(it.value)/max*(H-padB-padT);
     const x=padL+i*gap+(gap-bw)/2;
@@ -1821,23 +1927,34 @@ function donut(items,opts={}){
   if(opts.title)box.appendChild(el('div','meta',opts.title));
   box.appendChild(hold);
   if(opts.note)box.appendChild(el('div','meta',opts.note));
+  /* 항목이 넷 이하면 큰 판이 빈다. 폭을 줄이고 옆에 값 표를 둔다. */
+  const few=items.length<=4,capW=480;
   let lastW=0;
   const draw=w=>{
-    w=Math.max(360,Math.round(w));
+    w=Math.max(few?300:360,Math.round(w));
+    if(few)w=Math.min(w,capW);
     if(w===lastW)return;
     lastW=w;
-    const h=Math.max(360,Math.min(620,Math.round(w*0.44)));
+    const h=few?Math.max(220,Math.min(300,Math.round(w*0.5)))
+               :Math.max(360,Math.min(620,Math.round(w*0.44)));
     hold.textContent='';
-    hold.appendChild(donutSvg(items,w,h,opts));
+    const sv=donutSvg(items,w,h,opts);
+    if(few)sv.style.maxWidth=w+'px';
+    hold.appendChild(sv);
   };
   /* 붙기 전에는 폭이 0이라 한 번은 기본 폭으로 그려 둔다. */
-  draw(1180);
+  draw(few?capW:1180);
   if(typeof ResizeObserver==='function'){
     const ro=new ResizeObserver(es=>{const w=es[0]&&es[0].contentRect.width;
       if(w>0)draw(w)});
     ro.observe(hold);
   }
-  return box;
+  if(!few)return box;
+  const tot=items.reduce((a,x)=>a+Math.abs(x.value),0)||1;
+  const f=v=>opts.fmt?opts.fmt(v):fmtNum(v);
+  const rows=items.slice().sort((a,b)=>Math.abs(b.value)-Math.abs(a.value)).map(x=>[
+    (x.group!=null?x.group+' > ':'')+x.label,f(x.value),(Math.abs(x.value)/tot*100).toFixed(1)+'%']);
+  return withTable(box,['항목','값','비중'],rows,capW);
 }
 function donutSvg(items,W,H,{title,note,fmt}={}){
   const HDR=26;
@@ -2122,6 +2239,17 @@ function heatSvg(matrix,rowLabels,colLabels,AW,{title,note,fmt}={}){
 }
 /* 폭포 (waterfall 대응. steps=[{label,delta}] + 시작값) */
 function waterfall(steps,start,opts={}){
+  const n=steps.length+1;
+  if(n<=5){
+    const maxW=80+n*140;
+    const box=fluidChart((W,H)=>waterfallSvg(steps,start,W,H,opts),
+      {ratio:220/680,minH:200,maxH:250,seed:maxW,title:opts.title,note:opts.note,maxW});
+    const f=v=>opts.fmt?opts.fmt(v):fmtNum(v);
+    let acc=start;const rows=[[T('시작'),'',f(start)]];
+    steps.forEach(s0=>{acc+=s0.delta;
+      rows.push([String(s0.label),(s0.delta>=0?'+':'')+f(s0.delta),f(acc)])});
+    return withTable(box,['단계','증감','누계'],rows,maxW);
+  }
   return fluidChart((W,H)=>waterfallSvg(steps,start,W,H,opts),
     {ratio:220/680,minH:200,maxH:320,title:opts.title,note:opts.note});
 }
@@ -2150,27 +2278,50 @@ function waterfallSvg(steps,start,W,H,{title,note,fmt}={}){
     if(n>6)lab.setAttribute('transform',`rotate(-30 ${x+bw/2} ${H-padB+14})`)});
   return s;
 }
-/* 게이지 (gauge 대응) */
+/* 게이지 눈금 상한. 값·요구 중 큰 쪽의 1.2배를 1·1.2·1.5·2·2.5·3·4·5·6·8 계열의
+   깔끔한 수로 올린다. 상한을 값에서 그대로 만들면 채움이 늘 같은 각도에 서서
+   값이 바뀌어도 그림이 같아 보인다(실제로 그랬다). */
+function niceTop(v){
+  if(!(v>0))return 1;
+  const e=Math.pow(10,Math.floor(Math.log10(v))),m=v/e;
+  const k=[1,1.2,1.5,2,2.5,3,4,5,6,8,10].find(x=>x>=m-1e-9)||10;
+  return k*e;
+}
+function gaugeTop(v,min){return niceTop(Math.max(v||0,min||0)*1.2)}
+/* 게이지 (gauge 대응). 바깥 띠는 요구선 아래(위반)·위(양호) 구간, 안쪽 호는
+   값, 굵은 눈금이 요구선이다. 양끝에 0 과 상한을 적는다. */
 function gauge(value,max,{title,note,tone,fmt,min}={}){
-  const W=240,H=140,cx=120,cy=118,R=92,r=64;
-  const frac=Math.max(0,Math.min(1,max?value/max:0));
+  const W=240,H=150,cx=120,cy=124,R=90,r=64;
+  const top=max||1;
+  const fr=v=>Math.max(0,Math.min(1,v/top));
   const s=svgEl(W,H,title||'게이지');
-  const arc=(f,col,op)=>{
-    const a0=Math.PI,a1=Math.PI+f*Math.PI;
-    const p=(ra,an)=>[cx+ra*Math.cos(an),cy+ra*Math.sin(an)];
-    const [x0,y0]=p(R,a0),[x1,y1]=p(R,a1),[x2,y2]=p(r,a1),[x3,y3]=p(r,a0);
-    svgNode(s,'path',{d:`M${x0},${y0} A${R},${R} 0 ${f>0.5?1:0},1 ${x1},${y1} `+
-      `L${x2},${y2} A${r},${r} 0 ${f>0.5?1:0},0 ${x3},${y3} Z`,
-      fill:col,'fill-opacity':op||1})};
-  arc(1,'var(--line)',1);
-  if(frac>0)arc(frac,'var(--'+(tone||'accent')+')',1);
-  /* 최저선 눈금. 요구·최저비율이 있으면 그 자리에 바늘 하나를 세운다. */
-  if(min!=null&&max){const fm=Math.max(0,Math.min(1,min/max)),an=Math.PI+fm*Math.PI;
-    svgNode(s,'line',{x1:cx+(r-6)*Math.cos(an),y1:cy+(r-6)*Math.sin(an),
-      x2:cx+(R+6)*Math.cos(an),y2:cy+(R+6)*Math.sin(an),stroke:'var(--text)',
-      'stroke-width':2})}
+  const P=(ra,an)=>[cx+ra*Math.cos(an),cy+ra*Math.sin(an)];
+  const band=(f0,f1,ro,ri,col,op)=>{
+    if(f1<=f0)return;
+    const a0=Math.PI+f0*Math.PI,a1=Math.PI+f1*Math.PI,lg=(f1-f0)>0.5?1:0;
+    const [x0,y0]=P(ro,a0),[x1,y1]=P(ro,a1),[x2,y2]=P(ri,a1),[x3,y3]=P(ri,a0);
+    svgNode(s,'path',{d:`M${x0},${y0} A${ro},${ro} 0 ${lg},1 ${x1},${y1} `+
+      `L${x2},${y2} A${ri},${ri} 0 ${lg},0 ${x3},${y3} Z`,
+      fill:col,'fill-opacity':op==null?1:op})};
+  const fv=v=>fmt?fmt(v):fmtNum(v);
+  if(min!=null){
+    band(0,fr(min),R+9,R+4,'var(--bad)',0.55);
+    band(fr(min),1,R+9,R+4,'var(--good)',0.55);
+  }
+  band(0,1,R,r,'var(--line)',1);
+  if(value>0)band(0,fr(value),R,r,'var(--'+(tone||'accent')+')',1);
+  if(min!=null){
+    const an=Math.PI+fr(min)*Math.PI;
+    const [ax,ay]=P(r-4,an),[bx,by]=P(R+12,an),[tx,ty]=P(R+18,an);
+    svgNode(s,'line',{x1:ax,y1:ay,x2:bx,y2:by,stroke:'var(--text)','stroke-width':2});
+    const left=fr(min)<0.5;
+    svgNode(s,'text',{x:Math.max(2,Math.min(W-2,tx)),y:ty+3,'text-anchor':left?'end':'start',
+      'font-size':9,'font-weight':700,fill:'var(--text)'},fv(min));
+  }
+  svgNode(s,'text',{x:cx-R-4,y:cy+14,'text-anchor':'start','font-size':9,fill:'var(--muted)'},fv(0));
+  svgNode(s,'text',{x:cx+R+4,y:cy+14,'text-anchor':'end','font-size':9,fill:'var(--muted)'},fv(top));
   svgNode(s,'text',{x:cx,y:cy-14,'text-anchor':'middle','font-size':22,
-    'font-weight':700,fill:'var(--text)'},fmt?fmt(value):fmtNum(value));
+    'font-weight':700,fill:'var(--text)'},fv(value));
   return chartBox(s,title,note);
 }
 /* KRI 카드 격자 (viz_advanced.kri_scorecard 대응. 스파크라인·등급 배지 포함) */
@@ -2323,6 +2474,22 @@ function groupSum(f,keyCol,valCol){
 
 /* ---- 부문별 분석 차트 (원장이 있는 부문에만 그린다) ---- */
 const DOMAIN_CHARTS={
+  'PRD-RDM':root=>{
+    /* 전량이 실린 프레임만 그린다. DQ 판정 원장은 표본이라 분포를 말하지 못한다. */
+    const g=el('div','agrid');
+    const sc=D.data['rdm_source_contract'];
+    if(sc&&sc.shown>=sc.total){const i=frameIdx(sc);
+      const bad=new Set(sc.rows.filter(r=>r[i.status]!=='PASS').map(r=>r[i.source_system]));
+      g.appendChild(hbars(groupSum(sc,'source_system','actual_rows').map(x=>({
+        label:String(x.key),value:x.sum,sub:TC(x.n,'건'),tone:bad.has(x.key)?'bad':undefined})),
+        {title:'원천 시스템별 수신 행수',money:false,share:true,src:srcMeta(sc)}))}
+    const cm=D.data['rdm_canonical_map'];
+    if(cm&&cm.shown>=cm.total){
+      g.appendChild(hbars(groupSum(cm,'status',null).map(x=>({label:String(x.key),value:x.n,
+        tone:x.key==='mapped'?'good':'bad'})),
+        {title:'표준코드 매핑 상태',money:false,share:true,src:srcMeta(cm)}))}
+    if(g.children.length)root.appendChild(g);
+  },
   'PRD-RWA':root=>{
     const sk=capitalSankey();if(sk)root.appendChild(sk);
     const sa=D.data['rwa_sa_bucket'];
@@ -2361,7 +2528,7 @@ const DOMAIN_CHARTS={
       label:`Stage ${x.key}${x.key===2?' (SICR 전이)':x.key===3?' (손상)':''}`,
       value:x.sum,sub:`${x.n.toLocaleString()}건`,
       tone:x.key===3?'bad':x.key===2?'warn':undefined})),
-      {title:'기대신용손실 구성 (단계별)',src:srcMeta(f)}));
+      {title:'기대신용손실 구성 (단계별)',share:true,src:srcMeta(f)}));
   },
   'PRD-CRM':root=>{
     const f=D.data['crm_ews_signal'];
@@ -2370,7 +2537,7 @@ const DOMAIN_CHARTS={
     root.appendChild(hbars(g.map(x=>({
       label:`조기경보 ${x.key}`,value:x.sum,sub:`${x.n.toLocaleString()}건`,
       tone:x.key==='경보'?'bad':x.key==='주의'?'warn':undefined})),
-      {title:'조기경보 단계별 익스포저(EAD)',src:srcMeta(f)}));
+      {title:'조기경보 단계별 익스포저(EAD)',share:true,src:srcMeta(f)}));
   },
   'PRD-ALM':root=>{
     const f=D.data['alm_lcr_item'];
@@ -2388,7 +2555,7 @@ const DOMAIN_CHARTS={
     if(f){const g=groupSum(f,'event_type','net_loss');
       root.appendChild(hbars(g.map(x=>({label:x.key,value:x.sum,
         sub:`${x.n.toLocaleString()}건`})),
-        {title:'운영손실 순손실 구성 (사건유형별)',src:srcMeta(f)}))}
+        {title:'운영손실 순손실 구성 (사건유형별)',share:true,src:srcMeta(f)}))}
     const k=D.data['opr_kri'];
     if(k){const i=frameIdx(k);
       const c=el('div','card');
@@ -2531,25 +2698,22 @@ function cockpit(root){
       const r=alm.rows.find(x=>x[ai.metric]===m);if(!r)return;
       const v=r[ai.value],mn=r[ai.minimum];
       const c=el('div','card');
-      c.appendChild(gauge(v,Math.max(v,mn||0)*1.25,{title:m,min:mn,
+      c.appendChild(gauge(v,gaugeTop(v,mn),{title:m,min:mn,
         tone:mn!=null&&v<mn?'bad':'good',fmt:x=>pctv(x,1)}));
-      c.appendChild(rawEl('div','meta',T('최저')+' '+(mn!=null?pctv(mn,0):'-')));
       gz.appendChild(c)})}
   const cs=D.data['cap_stack'];
   if(cs){const ci=frameIdx(cs);
     const r=cs.rows.find(x=>x[ci.tier]==='CET1');
     if(r){const v=r[ci.ratio],rq=r[ci.required];
       const c=el('div','card');
-      c.appendChild(gauge(v,Math.max(v,rq)*1.25,{title:'CET1',min:rq,
+      c.appendChild(gauge(v,gaugeTop(v,rq),{title:'CET1',min:rq,
         tone:v<rq?'bad':'good',fmt:x=>pctv(x,2)}));
-      c.appendChild(rawEl('div','meta',T('요구')+' '+pctv(rq,2)));
       gz.appendChild(c)}}
   const S=D.sim;
   if(S&&S.leverage){const v=S.leverage.ratio,rq=S.leverage.required;
     const c=el('div','card');
-    c.appendChild(gauge(v,Math.max(v,rq)*1.25,{title:'레버리지',min:rq,
+    c.appendChild(gauge(v,gaugeTop(v,rq),{title:'레버리지',min:rq,
       tone:v<rq?'bad':'good',fmt:x=>pctv(x,2)}));
-    c.appendChild(rawEl('div','meta',T('요구')+' '+pctv(rq,2)));
     gz.appendChild(c)}
   right.appendChild(gz);
   const lm=D.limits_full||D.limits,li2=frameIdx(lm);
@@ -3473,6 +3637,22 @@ function renderTable(pane,r){
 
 /* ---- 감독보고 ---- */
 function regulatory(root){
+  /* 서식 검증 요약. 실패가 있으면 그 부문만 띠로 보인다. */
+  if(D.forms.length){const c=el('div','card');
+    c.appendChild(el('h3',null,'서식 검증 상태'));
+    const fails=D.forms.filter(f=>f.n_failed>0);
+    const sum=k=>D.forms.reduce((a,f)=>a+(f[k]||0),0);
+    c.appendChild(statTiles([
+      {label:T('서식'),value:D.forms.length},
+      {label:T('검증 통과 서식'),value:D.forms.length-fails.length,tone:'good'},
+      {label:T('검증 실패 서식'),value:fails.length,tone:fails.length?'bad':'good'},
+      {label:T('검증 항목'),value:sum('n_checks'),sub:T('실패')+' '+sum('n_failed')}],{money:false}));
+    const secs=[...new Set(fails.map(f=>f.section))];
+    if(secs.length)c.appendChild(shareStrips(secs.map(sc=>{const fs=D.forms.filter(f=>f.section===sc);
+      return {label:sc,items:[
+        {label:T('통과'),value:fs.filter(f=>!f.n_failed).length,tone:'good'},
+        {label:T('실패'),value:fs.filter(f=>f.n_failed>0).length,tone:'bad'}]}})));
+    root.appendChild(c)}
   const wrap=el('div','split');
   const list=el('div','list');const pane=el('div');
   let sec=null;
@@ -4140,7 +4320,7 @@ function executiveReport(root){
     const ul=bullets(items||[]);if(ul)sec.appendChild(ul);
     const fg=el('div','figs');
     (figs||[]).forEach(x=>{if(!x)return;const [node,wide]=Array.isArray(x)?x:[x,true];
-      if(wide)node.classList.add('wide');fg.appendChild(node)});
+      if(!node)return;if(wide)node.classList.add('wide');fg.appendChild(node)});
     if(fg.children.length)sec.appendChild(fg);
     body.appendChild(sec);
     const tb=rawEl('button');tb.type='button';
@@ -4153,11 +4333,22 @@ function executiveReport(root){
     return sec;
   }
   const cap=(no,title,src)=>rawEl('div','figcap',`${T('그림')} ${no} · ${T(title)} · ${T('원장')} ${src}`);
-
-  /* 1 자본 */
-  const cs=D.data&&D.data['cap_stack'];
   const kris=E.kris||[];
   const kriBy=n=>kris.find(k=>k.name===n);
+
+  /* 1 KRI 스코어카드. 경영진이 먼저 보는 판이라 맨 위에 둔다. */
+  if(kris.length){
+    const c=el('div','card');c.id='sec-raf';
+    c.appendChild(el('h3',null,'KRI 스코어카드 (Risk Appetite Framework)'));
+    c.appendChild(kriCards(kris));
+    const n=gd=>kris.filter(k=>k.grade===gd).length;
+    c.appendChild(rawEl('div','figcap',
+      `RED ${n('RED')} · AMBER ${n('AMBER')} · WATCH ${n('WATCH')} · GREEN ${n('GREEN')} · ${T('전체')} ${kris.length} · ${T('원장')} raf`));
+    section(1,'KRI 스코어카드',F.raf_red.length?'bad':F.raf_amber.length?'warn':'good',B.model,[c],[]);
+  }
+
+  /* 2 자본. 요구 대비 비율(불릿)과 12개월 추이(RAF 스파크)를 나란히 둔다. */
+  const cs=D.data&&D.data['cap_stack'];
   const bullets1=el('div','card');bullets1.id='sec-capital-stack';
   bullets1.appendChild(el('h3',null,'규제 요구 대비 자본비율'));
   let capTone='good';
@@ -4175,10 +4366,14 @@ function executiveReport(root){
     const short=cs.rows.filter(r=>r[i.surplus]<0).map(r=>r[i.tier]);
     if(short.length)bullets1.appendChild(rawEl('div','meta bad',
       T('요구 미달')+' · '+short.join(' · ')+' · '+T('배당·성과급 제한')));
-    bullets1.appendChild(cap(1,'규제 요구 대비 자본비율','cap_stack'))}
-  section(1,'자본',capTone,B.cap,[bullets1],['bis.cet1','bis.tier1','bis.total']);
+    bullets1.appendChild(cap('2a','규제 요구 대비 자본비율','cap_stack'))}
+  const capTrend=trendCard('자본비율 12M 추이',
+    ['CET1 비율','Tier1 비율','총자본 비율','레버리지 비율'],kris);
+  if(capTrend)capTrend.appendChild(cap('2b','자본비율 12M 추이','raf'));
+  section(2,'자본',capTone,B.cap,[[bullets1,false],[capTrend,false]],
+    ['bis.cet1','bis.tier1','bis.total']);
 
-  /* 2 유동성·금리 */
+  /* 3 유동성·금리 */
   const alm=D.data['alm_result'];
   const liq=el('div','card');
   liq.appendChild(el('h3',null,'유동성 비율과 최저 기준'));
@@ -4198,23 +4393,47 @@ function executiveReport(root){
       if(kk.management!=null)marks.push({v:kk.management,label:'mgmt',kind:'mgmt'});
       if(kk.board!=null)marks.push({v:kk.board,label:'board',kind:'req'});
       liq.appendChild(bulletRow('IRRBB ΔEVE/Tier1',Math.abs(ir[i.value]),marks,
-        {fmt:v=>pctv(v,2),tone:kk.grade==='RED'?'bad':kk.grade==='AMBER'?'warn':'good'}))}
-    liq.appendChild(cap(2,'유동성 비율과 최저 기준','alm_result'))}
-  section(2,'유동성·금리',liqTone,B.liq,[liq],['alm.lcr','alm.nsfr','alm.irrbb_worst_pct_tier1']);
+        {fmt:v=>pctv(v,2),upper:true,
+         tone:kk.grade==='RED'?'bad':kk.grade==='AMBER'?'warn':'good'}))}
+    liq.appendChild(cap('3a','유동성 비율과 최저 기준','alm_result'))}
+  const liqTrend=trendCard('유동성·금리 12M 추이',['LCR','NSFR','IRRBB ΔEVE/Tier1'],kris);
+  if(liqTrend)liqTrend.appendChild(cap('3b','유동성·금리 12M 추이','raf'));
+  section(3,'유동성·금리',liqTone,B.liq,[[liq,false],[liqTrend,false]],
+    ['alm.lcr','alm.nsfr','alm.irrbb_worst_pct_tier1']);
 
-  /* 3 신용·충당금 */
+  /* 4 신용·충당금. 단계별 EAD 대 ECL 구성(100% 띠)과 단계 전이. */
   const ecl=D.data['ecl_result'];
   let eclFig=null;
-  if(ecl){const gg=groupSum(ecl,'stage','ecl');
-    eclFig=hbars(gg.map(x=>({
-      label:`Stage ${x.key}${x.key===2?' (SICR 전이)':x.key===3?' (손상)':''}`,
-      value:x.sum,sub:`${x.n.toLocaleString()}건`,
-      tone:x.key===3?'bad':x.key===2?'warn':undefined})),
-      {title:'기대신용손실 구성 (단계별)'});
-    eclFig.appendChild(cap(3,'기대신용손실 구성 (단계별)','ecl_result'))}
-  section(3,'신용·충당금',F.gap_pct>0?'warn':'good',B.ecl,[eclFig],['ecl.ttc_total','ecl.pit_weighted']);
+  if(ecl){
+    const gE=groupSum(ecl,'stage','ecl'),gA=groupSum(ecl,'stage','ead');
+    const stages=[1,2,3].filter(st=>gE.some(x=>x.key===st));
+    const nm=st=>`Stage ${st}${st===2?' (SICR)':st===3?' (손상)':''}`;
+    const tn=st=>st===3?'bad':st===2?'warn':'accent';
+    const pick=(g,st)=>(g.find(x=>x.key===st)||{sum:0,n:0});
+    eclFig=el('div','card');
+    eclFig.appendChild(el('h3',null,'기대신용손실 구성 (단계별)'));
+    eclFig.appendChild(shareStrips([
+      {label:'EAD',items:stages.map(st=>({label:nm(st),value:pick(gA,st).sum,tone:tn(st)}))},
+      {label:'ECL',items:stages.map(st=>({label:nm(st),value:pick(gE,st).sum,tone:tn(st)}))}],
+      {fmt:fmtMoney}));
+    eclFig.appendChild(simpleTable(['단계','건수','EAD','ECL','커버리지'],stages.map(st=>{
+      const a2=pick(gA,st),e2=pick(gE,st);
+      return [nm(st),a2.n.toLocaleString(),fmtMoney(a2.sum),fmtMoney(e2.sum),
+        a2.sum?(e2.sum/a2.sum*100).toFixed(2)+'%':'-']})));
+    eclFig.appendChild(cap('4a','기대신용손실 구성 (단계별)','ecl_result'))}
+  const trf=D.data['ecl_stage_transition'];
+  let trFig=null;
+  if(trf&&trf.rows.length){const i=frameIdx(trf);
+    trFig=el('div','card');
+    trFig.appendChild(el('h3',null,'단계 전이 (기준일)'));
+    trFig.appendChild(simpleTable(['전이','건수','EAD','ECL 증감'],trf.rows.map(r=>[
+      `Stage ${r[i.from_stage]} → Stage ${r[i.to_stage]}`,(r[i.n_exposures]||0).toLocaleString(),
+      fmtMoney(r[i.ead]),fmtMoney(r[i.ecl_delta])])));
+    trFig.appendChild(cap('4b','단계 전이 (기준일)','ecl_stage_transition'))}
+  section(4,'신용·충당금',F.gap_pct>0?'warn':'good',B.ecl,[[eclFig,false],[trFig,false]],
+    ['ecl.ttc_total','ecl.pit_weighted']);
 
-  /* 4 위기상황 */
+  /* 5 위기상황 */
   const cp=D.data['st_capital_path'];
   let pathFig=null;
   if(cp){const i=frameIdx(cp);
@@ -4226,7 +4445,7 @@ function executiveReport(root){
     pathFig=el('div','card');
     pathFig.appendChild(el('h3',null,'위기상황 보통주자본비율 경로 (3시나리오)'));
     pathFig.appendChild(multiLine(series,quarters,0.08));
-    pathFig.appendChild(cap(4,'위기상황 보통주자본비율 경로 (3시나리오)','st_capital_path'))}
+    pathFig.appendChild(cap(5,'위기상황 보통주자본비율 경로 (3시나리오)','st_capital_path'))}
   const sevBox=F.sev?(()=>{const c=el('div','card');
     c.appendChild(el('h3',null,'심각 시나리오 (자본 저점)'));
     c.appendChild(dotlist([
@@ -4239,11 +4458,11 @@ function executiveReport(root){
        tone:F.sev.first_breach?'bad':'good'},
       {label:T('역스트레스 임계 심도')+' '+F.rev_severity.toFixed(4),tone:F.rev_severity<1?'bad':'good'},
     ]));return c})():null;
-  const s4=section(4,'위기상황',(F.sev&&F.sev.first_breach)||F.rev_severity<1?'bad':'good',
+  const s5=section(5,'위기상황',(F.sev&&F.sev.first_breach)||F.rev_severity<1?'bad':'good',
     B.stress,[[pathFig,false],[sevBox,false]],['stress.trough_cet1','reverse_stress.severity']);
-  const fg4=s4.querySelector('.figs');if(fg4)fg4.style.gridTemplateColumns='minmax(0,2fr) minmax(300px,1fr)';
+  const fg5=s5.querySelector('.figs');if(fg5)fg5.style.gridTemplateColumns='minmax(0,2fr) minmax(300px,1fr)';
 
-  /* 5 한도·집중 */
+  /* 6 한도·집중. 소진 상위와 차원별 상태 건수. */
   const lm=D.limits_full||D.limits,li=frameIdx(lm);
   const lc=el('div','card');
   lc.appendChild(el('h3',null,'한도 소진 상위'));
@@ -4251,10 +4470,18 @@ function executiveReport(root){
   lm.rows.slice().sort((a2,b2)=>b2[li.utilisation]-a2[li.utilisation]).slice(0,6)
     .forEach(r=>lc.appendChild(utilRow(r[li.limit]+' · '+r[li.bucket],
       r[li.utilisation],limitTone(r[li.severity]),r[li.severity])));
-  lc.appendChild(cap(5,'한도 소진 상위',(lm.table||'limits')+' · '+lm.total+T('건')));
-  section(5,'한도·집중',brc?'bad':'good',B.conc,[lc],['concentration.worst_hhi']);
+  lc.appendChild(cap('6a','한도 소진 상위',(lm.table||'limits')+' · '+lm.total+T('건')));
+  const dims=[...new Set(lm.rows.map(r=>r[li.dimension]))];
+  const sevs=['CRITICAL','BREACH','WARN','OK'].filter(sv=>lm.rows.some(r=>r[li.severity]===sv));
+  const dimFig=el('div','card');
+  dimFig.appendChild(el('h3',null,'차원별 한도 상태 (건수)'));
+  dimFig.appendChild(shareStrips(dims.map(d=>({label:d,items:sevs.map(sv=>({label:sv,
+    value:lm.rows.filter(r=>r[li.dimension]===d&&r[li.severity]===sv).length,
+    tone:limitTone(sv)}))}))));
+  dimFig.appendChild(cap('6b','차원별 한도 상태 (건수)',lm.table||'limits'));
+  section(6,'한도·집중',brc?'bad':'good',B.conc,[[lc,false],[dimFig,false]],['concentration.worst_hhi']);
 
-  /* 6 RWA 귀속 */
+  /* 7 위험가중자산 귀속 */
   const at=E.attribution,atd=E.attribution_detail;
   let rwaFig=null;
   if(at&&at.length){
@@ -4263,21 +4490,12 @@ function executiveReport(root){
     const src=(atd&&atd.length)?atd
       :at.map(x=>({group:x.component,label:x.component,value:x.rwa,note:''}));
     rwaFig.appendChild(donut(src.map(x=>({group:x.group,label:x.label,
-      value:x.value}))))}
+      value:x.value}))));
+    rwaFig.appendChild(cap('7b','위험가중자산 귀속 (구성요소별 비중)','rwa'))}
   const sank=capitalSankey();
-  if(sank)sank.appendChild(cap(6,'자본 지도 (자본 스택 → 최종 위험가중자산 → 구성요소)','cap_stack · rwa'));
-  section(6,'위험가중자산 귀속','good',[],[sank,rwaFig],['rwa.final_total']);
-
-  /* 7 KRI 스코어카드 */
-  if(kris.length){
-    const c=el('div','card');c.id='sec-raf';
-    c.appendChild(el('h3',null,'KRI 스코어카드 (Risk Appetite Framework)'));
-    c.appendChild(kriCards(kris));
-    const n=gd=>kris.filter(k=>k.grade===gd).length;
-    c.appendChild(rawEl('div','figcap',
-      `RED ${n('RED')} · AMBER ${n('AMBER')} · WATCH ${n('WATCH')} · GREEN ${n('GREEN')} · ${T('전체')} ${kris.length} · ${T('원장')} raf`));
-    section(7,'KRI 스코어카드',F.raf_red.length?'bad':F.raf_amber.length?'warn':'good',B.model,[c],[]);
-  }
+  if(sank)sank.appendChild(cap('7a','자본 지도 (자본 스택 → 최종 위험가중자산 → 구성요소)','cap_stack · rwa'));
+  const s7=section(7,'위험가중자산 귀속','good',[],[[sank,false],[rwaFig,false]],['rwa.final_total']);
+  const fg7=s7.querySelector('.figs');if(fg7)fg7.style.gridTemplateColumns='minmax(0,3fr) minmax(0,2fr)';
 
   /* 8 CRO 액션 + 남은 브리핑. 액션 문장의 긴 대시는 콜론으로 바꿔 개조식으로. */
   const acts=(E.actions||[]).map(t=>t.replace(/\s+\u2014\s+/g,': '));
@@ -4302,29 +4520,83 @@ function executiveReport(root){
 }
 /* 불릿 차트 한 줄. 실제값 막대 위에 요구·이사회·경영 눈금선을 세운다.
    척도는 그 줄의 최대값(값·눈금 중 큰 것)의 1.15배다. */
-function bulletRow(label,value,marks,{fmt,tone,delta,sub}={}){
+function bulletRow(label,value,marks,{fmt,tone,delta,sub,upper=false}={}){
   const row=el('div','bullet');
   const bl=rawEl('span','bl',label);
   if(sub)bl.appendChild(rawEl('small',null,sub));
   row.appendChild(bl);
-  const W=300,H=22;
+  const W=300,H=26;
   const s=svgEl(W,H,label);s.style.maxWidth='none';
   const top=Math.max(value,...marks.map(m=>m.v))*1.15||1;
   const x=v=>Math.max(0,Math.min(1,v/top))*W;
-  svgNode(s,'rect',{x:0,y:7,width:W,height:8,rx:2,fill:'var(--chip)'});
-  svgNode(s,'rect',{x:0,y:7,width:x(value),height:8,rx:2,
+  /* 요구선 좌우 구간 띠. 하한 기준은 왼쪽이 위반, 상한(upper) 기준은 오른쪽이 위반. */
+  const req=marks.find(m=>m.kind==='req');
+  if(req){const xr=x(req.v);
+    svgNode(s,'rect',{x:0,y:5,width:xr,height:16,rx:2,
+      fill:upper?'var(--good)':'var(--bad)','fill-opacity':0.10});
+    svgNode(s,'rect',{x:xr,y:5,width:W-xr,height:16,rx:2,
+      fill:upper?'var(--bad)':'var(--good)','fill-opacity':0.10})}
+  svgNode(s,'rect',{x:0,y:9,width:W,height:8,rx:2,fill:'var(--chip)'});
+  svgNode(s,'rect',{x:0,y:9,width:x(value),height:8,rx:2,
     fill:tone==='bad'?'var(--bad)':tone==='warn'?'var(--warn)':'var(--accent)'});
   marks.forEach(m=>{
     const g=svgNode(s,'g',{});
     g.appendChild(document.createElementNS(s.namespaceURI,'title')).textContent=
       m.label+' '+(fmt?fmt(m.v):fmtNum(m.v));
-    svgNode(g,'line',{x1:x(m.v),x2:x(m.v),y1:m.kind==='req'?1:4,y2:m.kind==='req'?21:18,
+    svgNode(g,'line',{x1:x(m.v),x2:x(m.v),y1:m.kind==='req'?2:6,y2:m.kind==='req'?24:20,
       stroke:'var(--text)','stroke-width':m.kind==='req'?2:1.2,
       'stroke-dasharray':m.kind==='mgmt'?'2 2':m.kind==='board'?'4 2':'none'})});
   row.appendChild(s);
   row.appendChild(rawEl('span','bv '+(tone||''),(fmt?fmt(value):fmtNum(value))+
     (delta?' ('+delta+')':'')));
   return row;
+}
+/* 폭을 재서 그리는 작은 칸. fluidChart 는 320px 아래로 줄지 않아 표 안의
+   스파크 칸에는 맞지 않는다. */
+function fluidCell(draw,H,seed){
+  const hold=el('div');hold.style.cssText='min-width:0;height:'+H+'px';
+  let last=0;
+  const run=w=>{w=Math.max(60,Math.round(w));if(w===last)return;last=w;
+    hold.textContent='';hold.appendChild(draw(w,H))};
+  run(seed||240);
+  if(typeof ResizeObserver==='function')
+    new ResizeObserver(es=>{const w=es[0]&&es[0].contentRect.width;if(w>0)run(w)})
+      .observe(hold);
+  return hold;
+}
+/* KRI 12개월 추이 행. 이름·임계, 추이선, 현재값·방향. 값은 RAF 원장의 스파크
+   배열 그대로다. */
+function trendCard(title,names,kris){
+  const rows=names.map(n=>kris.find(k=>k.name===n))
+    .filter(k=>k&&k.spark&&k.spark.length>=3);
+  if(!rows.length)return null;
+  const c=el('div','card');
+  c.appendChild(el('h3',null,title));
+  const tones={RED:'bad',AMBER:'warn',WATCH:'accent',GREEN:'good'};
+  rows.forEach(k=>{
+    const t=tones[k.grade]||'muted';
+    const row=el('div','trow');
+    const lab=rawEl('span','tl',k.name);
+    lab.appendChild(rawEl('small',null,k.threshold_text));
+    row.appendChild(lab);
+    row.appendChild(fluidCell((W,H)=>{
+      const sp=svgEl(W,H,k.name+' 12M');sp.style.maxWidth='none';
+      const mx=Math.max(...k.spark),mn=Math.min(...k.spark),sn=(mx-mn)||1;
+      const X=i=>4+i*(W-8)/Math.max(k.spark.length-1,1),Y=v=>H-5-((v-mn)/sn)*(H-10);
+      const pts=k.spark.map((v,i)=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`);
+      svgNode(sp,'polygon',{points:`${X(0).toFixed(1)},${H-4} `+pts.join(' ')+
+        ` ${X(k.spark.length-1).toFixed(1)},${H-4}`,fill:'var(--'+t+')','fill-opacity':0.12});
+      svgNode(sp,'polyline',{points:pts.join(' '),fill:'none',stroke:'var(--'+t+')',
+        'stroke-width':1.6});
+      svgNode(sp,'circle',{cx:X(k.spark.length-1),cy:Y(k.spark[k.spark.length-1]),r:2.8,
+        fill:'var(--'+t+')'});
+      return sp},34));
+    const v=rawEl('span','tv '+(t==='accent'||t==='muted'?'':t),k.actual_text);
+    if(k.trend)v.appendChild(rawEl('small','meta '+(k.trend==='악화'?'bad':'good'),
+      '12M '+(k.trend==='악화'?'↘':'↗')+' '+T(k.trend)));
+    row.appendChild(v);
+    c.appendChild(row)});
+  return c;
 }
 /* 자본 지도. 왼쪽 자본 스택 세 층이 최종 위험가중자산 허브로 모이고, 허브에서
    오른쪽 구성요소로 갈라진다. 띠 두께는 금액에 비례하고 두 변의 척도는 같다.
@@ -8806,18 +9078,15 @@ function modelCalibration(root){
   if(!f){root.appendChild(el('div','note','보정 원장이 없다'));return}
   const i=frameIdx(f);
   const bad=f.rows.filter(r=>!r[i.within_tolerance]).length;
-  const c0=el('div','card');
-  c0.appendChild(el('h3',null,'보정 상태'));
-  c0.appendChild(meter('허용범위 내 등급',f.rows.length-bad,f.rows.length,
-    bad?'warn':undefined));
-  c0.appendChild(el('div','meta',
-    `허용범위 밖 ${bad}건 (예측 PD 와 실측 부도율의 괴리가 기준을 넘은 등급)`));
-  root.appendChild(c0);
-  root.appendChild(hbars(f.rows.slice(0,12).map(r=>({
+  const hc=hbars(f.rows.slice(0,12).map(r=>({
     label:`${r[i.segment]} · ${r[i.grade]}`, value:r[i.oe_ratio]||0,
     sub:`예측 ${((r[i.pd_predicted]||0)*100).toFixed(2)}% · 실측 ${((r[i.dr_observed]||0)*100).toFixed(2)}%`,
     tone:r[i.within_tolerance]?undefined:'bad'})),
-    {title:'등급별 O/E 비율 (1.0 이 완전 일치)',money:false,src:srcMeta(f)}));
+    {title:'등급별 O/E 비율 (1.0 이 완전 일치)',money:false,src:srcMeta(f)});
+  const mt=meter('허용범위 내 등급',f.rows.length-bad,f.rows.length,bad?'warn':undefined);
+  hc.insertBefore(mt,hc.children[1]);
+  hc.insertBefore(rawEl('div','meta',T('허용범위 밖')+' '+TC(bad,'건')),hc.children[2]);
+  root.appendChild(hc);
   const c=el('div','card');
   c.appendChild(el('h3',null,'보정 원장'));
   c.appendChild(table(f));root.appendChild(c);
@@ -9157,8 +9426,11 @@ function migrationPivot(root){
 }
 
 function autoCharts(root,specs){
+  const cards=[];
   (specs||[]).forEach(([title,tab,labCols,valCol,opt])=>{
-    const f=D.data[tab];if(!f)return;
+    const f=D.data[tab];
+    /* 표본(shown<total)으로 분포를 그리면 원장을 잘못 말한다. autoChart 와 같은 규칙. */
+    if(!f||f.shown<f.total)return;
     const i=frameIdx(f);
     const g=new Map();
     f.rows.forEach(r=>{
@@ -9166,8 +9438,12 @@ function autoCharts(root,specs){
       g.set(k,(g.get(k)||0)+(valCol?(r[i[valCol]]||0):1))});
     const items=[...g.entries()].map(([k,v])=>({label:k,value:v}))
       .sort((a,b)=>b.value-a.value).slice(0,10);
-    root.appendChild(hbars(items,{title,money:opt?.money!==false,
+    cards.push(hbars(items,{title,money:opt?.money!==false,share:opt?.share!==false,
       src:srcMeta(f)}))});
+  /* 자동차트가 둘 이상이면 격자로 나눠 붙인다. 항목 적은 카드가 화면 폭을
+     통째로 쓰면 빈 판이 된다. */
+  if(cards.length>1){const g=el('div','agrid');cards.forEach(c=>g.appendChild(c));root.appendChild(g)}
+  else cards.forEach(c=>root.appendChild(c));
 }
 function screenOf(defs){
   return root=>{
@@ -9300,7 +9576,7 @@ function exceptionQueue(root){
   root.appendChild(hbars(g.map(x=>({label:'상태 '+x.key,value:x.n,
     sub:null,tone:x.key==='접수'?'warn':x.key==='조치중'?'bad':undefined})),
     {title:'예외 상태 분포 (자동상계 금지, 종결은 사람 승인 후)',
-     money:false,src:srcMeta(f)}));
+     money:false,share:true,src:srcMeta(f)}));
 }
 
 function commercial(root){
@@ -9331,8 +9607,7 @@ const DETAIL_SCREENS=[
             ['수신 스냅샷 원장','rdm_snapshot'],
             ['표준코드 매핑','rdm_canonical_map']]})],
   ['DQ·대사','A · 데이터품질 (규칙·판정·대사)',screenOf({
-    autochart:[['판정 심각도별 건수','rdm_dq_result',['severity'],null,{money:false}],
-               ['DQ 규칙 유형 분포','rdm_dq_rule',['rule_type'],null,{money:false}]],
+    autochart:[['대사 축별 원천 합계','rdm_reconciliation',['axis','status'],'source_total',{share:false}]],
     tables:[['DQ 규칙 원장','rdm_dq_rule'],['DQ 판정 결과','rdm_dq_result'],
             ['집계·대사','rdm_reconciliation']]})],
   ['예외·조치','A · 예외·조치 워크플로 (접수→조치→종결)',screenOf({
@@ -9385,6 +9660,8 @@ const DETAIL_SCREENS=[
             ['유동성 비율','pru_liquidity_ratio'],['경영실태평가(CAMEL)','pru_camel'],
             ['적기시정조치','pru_prompt_action']]})],
   ['시장 RWA','C · 시장리스크 위험가중자산 (소요자기자본 서식·VaR/ES 원장)',screenOf({
+    autochart:[['위험군별 위험가중자산','rwa_market_component',['risk_class'],'rwa'],
+               ['위험군별 소요자기자본','rwa_market_component',['risk_class'],'capital']],
     forms:['BR-05'],
     tables:[['VaR·ES 원장','mkt_var_es']]})],
   ['시장 포트폴리오','C · 시장리스크 포트폴리오 상세 (포지션·자본·VaR 배분)',screenOf({
@@ -9482,10 +9759,14 @@ const DETAIL_SCREENS=[
             ['변경 배포 게이트','gov_change_gate'],
             ['변경통제 실행기록','gov_change_control']]})],
   ['모형 수명주기','GOV · 모형 단계 (정의·현재상태·전이)',screenOf({
+    autochart:[['현재 단계별 모형 수','gov_model_state',['current_stage'],null,{money:false}],
+               ['통제 상태별 모형 수','gov_model_state',['control_status'],null,{money:false}]],
     tables:[['모형 단계 정의','gov_model_stage'],
             ['모형 현재 단계','gov_model_state'],
             ['모형 단계 전이','gov_model_transition']]})],
   ['접근통제·직무분리','GOV · 접근통제 (역할·권한·직무분리·필드정책)',screenOf({
+    autochart:[['접근 판정 결과','gov_access_decision',['decision'],null,{money:false}],
+               ['직무분리 상충 심각도','gov_sod_conflict',['severity'],null,{money:false}]],
     tables:[['사용자 역할 배정','gov_user_role'],
             ['역할 권한 원장','gov_role_permission'],
             ['직무분리 상충 역할','gov_sod_conflict'],
@@ -9503,11 +9784,15 @@ const DETAIL_SCREENS=[
     ['계산엔진 어댑터','int_engine_adapter'],
     ['엔진 입출력 선언','int_engine_io']],'val_audit_ledger')],
   ['ICAAP 인벤토리','ICP · 리스크 인벤토리와 중요성 (분류·판정·자본매핑)',screenOf({
+    autochart:[['리스크별 내부자본 (EC)','icaap_capital_map',['capital_pillar','risk_id'],'ec_amount'],
+               ['중요성 등급별 리스크 수','icaap_materiality',['grade'],null,{money:false}]],
     tables:[['리스크 인벤토리','icaap_risk_taxonomy'],
             ['리스크 중요성 평가','icaap_materiality'],
             ['중요성 판정 정책','icaap_materiality_policy'],
             ['리스크·내부자본 매핑','icaap_capital_map']]})],
   ['경영조치·제출','ST · 경영조치 발동과 제출 이력',screenOf({
+    autochart:[['시나리오별 경영조치 발동 건수','st_management_action',['scenario','status'],null,{money:false}],
+               ['제출 상태별 서식 수','reg_submission',['status'],null,{money:false}]],
     tables:[['경영조치 발동표','st_action_playbook'],
             ['경영조치 발동 기록','st_management_action'],
             ['업무보고서 제출 이력','reg_submission']]})],
@@ -9721,12 +10006,6 @@ function paintChips(){
   set('#chip-rows',LANG==='ko'
     ? `테이블 ${D.meta.n_tables}장 · ${D.meta.n_rows.toLocaleString()}행`
     : `${D.meta.n_tables} tables · ${D.meta.n_rows.toLocaleString()} rows`);
-  /* 기관 칩. 권역·유형은 원장 값이라 옮기지 않고, 합성 표기는 어느 화면에
-     있어도 보이게 둔다. 이 값이 실적 수치로 오인될 여지를 줄이는 표시다. */
-  const ir=(D.institution&&D.institution.master_row)||{};
-  const bits=[ir.region,ir.institution_type,ir.data_origin]
-    .filter(x=>x!=null&&x!=='');
-  set('#chip-inst',bits.join(' · '));
   /* 기관 선택기 옵션 표기는 언어에 따라 어느 이름 컬럼을 보일지가 달라진다 */
   const isel=$('#instsel');
   if(isel){[...isel.options].forEach(o=>{
@@ -10057,7 +10336,6 @@ if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)
     <select id="instsel" class="sel instsel"></select></label>
   <label class="hchip" for="asofsel"><span data-i18n>기준일</span>
     <select id="asofsel" class="sel asofsel"></select></label>
-  <span class="hchip" id="chip-inst"></span>
   <span class="gate" id="gate-2"></span>
   <span class="gate" id="gate-3"></span>
   <span class="gate" id="gate-ok"></span>

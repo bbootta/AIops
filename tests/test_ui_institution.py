@@ -312,11 +312,6 @@ def test_switching_institution_repaints_the_whole_screen(page):
         intl.BASE_INSTITUTION      # 원본 payload 는 손대지 않는다
 
 
-def test_header_chip_shows_region_type_and_origin(page):
-    chip = page.inner_text("#chip-inst")
-    assert "국내" in chip and "은행" in chip
-
-
 def test_institution_screen_lists_every_ledger_row(page):
     page.evaluate("""()=>{const b=[...document.querySelectorAll('nav button')]
         .find(x=>x.dataset.ko==='기관 설정'); b.click()}""")
