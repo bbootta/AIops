@@ -930,6 +930,7 @@ display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 padding:4px 9px;font-size:10.5px;font-weight:650;letter-spacing:.03em;
 color:var(--muted)}
 label.hchip{display:inline-flex;align-items:center;gap:5px}
+.footchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
 .asofsel,.instsel{padding:1px 5px;font-size:11px;border-radius:5px}
 .instsel{max-width:26ch}
 /* 화면 밝기 토글은 비상정지 버튼 왼쪽에 붙는다. 오른쪽 끝 여백을 이 버튼이
@@ -8733,11 +8734,6 @@ if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)
   <label class="hchip" for="asofsel"><span data-i18n>기준일</span>
     <select id="asofsel" class="sel asofsel"></select></label>
   <span class="hchip" id="chip-inst"></span>
-  <span class="hchip" id="chip-run">{html.escape(m['run_id'])}</span>
-  <span class="hchip" id="chip-digest">지문 {html.escape(m['digest'][:12])}</span>
-  <span class="hchip" id="chip-seed">시드 {m['seed']}</span>
-  <span class="hchip" id="chip-rows">테이블 {m['n_tables']}장 · {m['n_rows']:,}행</span>
-  <span class="hchip">Read-only · PII Mask</span>
   <button class="theme" id="langbtn" type="button">English</button>
   <button class="theme" id="themebtn" type="button" aria-pressed="false"
           title="밝은 화면과 어두운 화면을 전환한다">화면 밝기</button>
@@ -8759,6 +8755,13 @@ if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)
 <main></main>
 </div>
 <footer>
+  <div class="footchips">
+    <span class="hchip" id="chip-run">{html.escape(m['run_id'])}</span>
+    <span class="hchip" id="chip-digest">지문 {html.escape(m['digest'][:12])}</span>
+    <span class="hchip" id="chip-seed">시드 {m['seed']}</span>
+    <span class="hchip" id="chip-rows">테이블 {m['n_tables']}장 · {m['n_rows']:,}행</span>
+    <span class="hchip">Read-only · PII Mask</span>
+  </div>
   <span data-i18n>엔진 산출은 결정론적이며, 에이전트는 제안만 하고 승인은 사람이 한다.</span>
   <span data-i18n>화면의 모든 값은 합성 포트폴리오에서</span> <code>run_pipeline(seed=<span
   id="foot-seed">{m['seed']}</span>,
