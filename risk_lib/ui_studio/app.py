@@ -1250,6 +1250,12 @@ overflow:hidden;text-overflow:ellipsis}
 .chartrow>.tw{flex:1 1 200px;margin:0}
 .agrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));margin:0 0 10px}
 .agrid .card{margin:0}
+.gsplit{position:absolute;top:0;bottom:0;width:12px;margin-left:-6px;cursor:col-resize;z-index:2;
+touch-action:none;user-select:none}
+.gsplit::after{content:'';position:absolute;left:5px;top:50%;height:40px;width:2px;margin-top:-20px;
+background:var(--line);border-radius:1px}
+.gsplit:hover::after,.gsplit:active::after{background:var(--accent)}
+.gsplit[hidden]{display:none}
 /* 통계 타일 (항목 넷 이하) */
 .stats{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:6px 0 2px}
 .stat{background:var(--chip);border:1px solid var(--line);border-radius:8px;padding:9px 11px;min-width:0}
@@ -1582,6 +1588,37 @@ function hbars(items,{title,src,money=true,share=false,fmt}={}){
   if(src)c.appendChild(src);
   return c;
 }
+/* 두 칸 격자의 폭 조절 손잡이. 두 칸 사이를 끌면 왼쪽이 넓어진 만큼 오른쪽이
+   좁아진다(합은 그대로). 폭이 좁아 한 칸으로 접힌 격자에서는 손잡이를 감춘다.
+   비율은 화면 안에서만 살고 저장하지 않는다. 두 번 누르면 원래 비율로 돌아간다. */
+function splitGrid(g,{min=0.2,max=0.8}={}){
+  if(!g||g.children.length!==2)return g;
+  const a=g.children[0],b=g.children[1];
+  const base=g.style.gridTemplateColumns||'';
+  const h=rawEl('div','gsplit');h.title=T('끌어서 폭 조절 · 두 번 누르면 원래대로');
+  g.style.position='relative';g.appendChild(h);
+  let ratio=null,drag=false;
+  const place=()=>{
+    const gr=g.getBoundingClientRect();
+    if(ratio!=null&&gr.width>=760)
+      g.style.gridTemplateColumns=`minmax(0,${ratio}fr) minmax(0,${1-ratio}fr)`;
+    else g.style.gridTemplateColumns=base;
+    const ar=a.getBoundingClientRect(),br=b.getBoundingClientRect();
+    const two=gr.width>=760&&Math.abs(ar.top-br.top)<2&&br.left>ar.right;
+    h.hidden=!two;
+    if(two)h.style.left=((ar.right+br.left)/2-gr.left)+'px';
+  };
+  h.addEventListener('pointerdown',e=>{drag=true;h.setPointerCapture(e.pointerId);e.preventDefault()});
+  h.addEventListener('pointermove',e=>{if(!drag)return;const gr=g.getBoundingClientRect();
+    if(gr.width<=0)return;
+    ratio=Math.max(min,Math.min(max,(e.clientX-gr.left)/gr.width));place()});
+  const stop=()=>{drag=false};
+  h.addEventListener('pointerup',stop);h.addEventListener('pointercancel',stop);
+  h.addEventListener('dblclick',()=>{ratio=null;place()});
+  if(typeof ResizeObserver==='function')new ResizeObserver(place).observe(g);
+  place();
+  return g;
+}
 /* 항목이 넷 이하면 막대 목록 대신 통계 타일. 한 줄짜리 막대가 화면 폭을
    가로지르면 값 하나가 빈 판을 차지한다. 타일은 값을 크게, 상대 크기는 짧은
    막대로 보인다. share 는 합산 가능한 금액·건수에서만 켠다. Gini·경과일처럼
@@ -1730,14 +1767,16 @@ function chartBox(svg,title,note){
    늘리면 막대와 함께 9px 라벨까지 같은 배율로 커져 글자가 부풀고, 자연 폭에
    상한을 두면 넓은 창에서 오른쪽이 빈 채로 남는다. 정사각형에 가까운 그림
    (게이지·산점도)은 늘리면 왜곡되므로 그대로 둔다. */
-function fluidChart(draw,{ratio=0.31,minH=170,maxH=420,seed=680,title,note,maxW=0}={}){
+function fluidChart(draw,{ratio=0.31,minH=170,maxH=420,seed=680,title,note,maxW=0,minW=320}={}){
   const box=el('div'),hold=el('div');
   if(title)box.appendChild(el('div','meta',title));
   box.appendChild(hold);
   if(note)box.appendChild(el('div','meta',note));
   let last=0;
   const run=w=>{
-    w=Math.max(320,Math.round(w));
+    /* minW 보다 좁은 상자에서는 자연 폭으로 그리고 svg 가 축소된다. 배치가 고정된
+       그림(자본 지도)을 좁은 폭으로 다시 그리면 라벨이 겹친다. */
+    w=Math.max(minW,Math.round(w));
     if(maxW)w=Math.min(w,maxW);
     if(w===last)return;
     last=w;
@@ -1753,16 +1792,13 @@ function fluidChart(draw,{ratio=0.31,minH=170,maxH=420,seed=680,title,note,maxW=
 }
 /* 세로 막대 (보고서의 bar_chart 대응. items=[{label,value,tone}]) */
 function bars(items,opts={}){
-  const n=items.length||1;
-  if(n<=4){
-    const maxW=70+n*150;
-    const box=fluidChart((W,H)=>barsSvg(items,W,H,opts),
-      {ratio:210/680,minH:190,maxH:250,seed:maxW,title:opts.title,note:opts.note,maxW});
-    const f=v=>opts.fmt?opts.fmt(v):fmtNum(v);
-    return withTable(box,['항목','값'],items.map(x=>[String(x.label),f(x.value)]),maxW);
-  }
-  return fluidChart((W,H)=>barsSvg(items,W,H,opts),
-    {ratio:210/680,minH:190,maxH:300,title:opts.title,note:opts.note});
+  const n=items.length||1,maxW=60+n*120;
+  const box=fluidChart((W,H)=>barsSvg(items,W,H,opts),
+    {ratio:210/680,minH:190,maxH:n<=4?260:300,seed:Math.min(680,maxW),
+     title:opts.title,note:opts.note,maxW});
+  if(n>4)return box;
+  const f=v=>opts.fmt?opts.fmt(v):fmtNum(v);
+  return withTable(box,['항목','값'],items.map(x=>[String(x.label),f(x.value)]),maxW);
 }
 function barsSvg(items,W,H,{title,note,fmt}={}){
   const n=items.length||1,padL=48,padB=46,padT=12;
@@ -2291,37 +2327,38 @@ function gaugeTop(v,min){return niceTop(Math.max(v||0,min||0)*1.2)}
 /* 게이지 (gauge 대응). 바깥 띠는 요구선 아래(위반)·위(양호) 구간, 안쪽 호는
    값, 굵은 눈금이 요구선이다. 양끝에 0 과 상한을 적는다. */
 function gauge(value,max,{title,note,tone,fmt,min}={}){
-  const W=240,H=150,cx=120,cy=124,R=90,r=64;
+  const W=240,H=158,cx=120,cy=112,R=94,r=68;
   const top=max||1;
-  const fr=v=>Math.max(0,Math.min(1,v/top));
+  const f=v=>Math.max(0,Math.min(1,v/top));
   const s=svgEl(W,H,title||'게이지');
   const P=(ra,an)=>[cx+ra*Math.cos(an),cy+ra*Math.sin(an)];
-  const band=(f0,f1,ro,ri,col,op)=>{
-    if(f1<=f0)return;
-    const a0=Math.PI+f0*Math.PI,a1=Math.PI+f1*Math.PI,lg=(f1-f0)>0.5?1:0;
-    const [x0,y0]=P(ro,a0),[x1,y1]=P(ro,a1),[x2,y2]=P(ri,a1),[x3,y3]=P(ri,a0);
-    svgNode(s,'path',{d:`M${x0},${y0} A${ro},${ro} 0 ${lg},1 ${x1},${y1} `+
-      `L${x2},${y2} A${ri},${ri} 0 ${lg},0 ${x3},${y3} Z`,
-      fill:col,'fill-opacity':op==null?1:op})};
-  const fv=v=>fmt?fmt(v):fmtNum(v);
-  if(min!=null){
-    band(0,fr(min),R+9,R+4,'var(--bad)',0.55);
-    band(fr(min),1,R+9,R+4,'var(--good)',0.55);
-  }
-  band(0,1,R,r,'var(--line)',1);
-  if(value>0)band(0,fr(value),R,r,'var(--'+(tone||'accent')+')',1);
-  if(min!=null){
-    const an=Math.PI+fr(min)*Math.PI;
-    const [ax,ay]=P(r-4,an),[bx,by]=P(R+12,an),[tx,ty]=P(R+18,an);
+  const A=fr=>Math.PI+fr*Math.PI;
+  const band=(f0,f1,col,op)=>{
+    if(f1-f0<=0)return;
+    const a0=A(f0),a1=A(f1),large=(f1-f0)>0.5?1:0;
+    const [x0,y0]=P(R,a0),[x1,y1]=P(R,a1),[x2,y2]=P(r,a1),[x3,y3]=P(r,a0);
+    svgNode(s,'path',{d:`M${x0},${y0} A${R},${R} 0 ${large},1 ${x1},${y1} `+
+      `L${x2},${y2} A${r},${r} 0 ${large},0 ${x3},${y3} Z`,fill:col,'fill-opacity':op==null?1:op})};
+  /* 띠: 요구선 아래는 위반 구간, 위는 양호 구간. 요구선이 없으면 한 띠다. */
+  if(min!=null){band(0,f(min),'var(--bad)',0.32);band(f(min),1,'var(--good)',0.32)}
+  else band(0,1,'var(--line)',1);
+  [0,0.25,0.5,0.75,1].forEach(t=>{const an=A(t),[ax,ay]=P(r-2,an),[bx,by]=P(r-7,an);
+    svgNode(s,'line',{x1:ax,y1:ay,x2:bx,y2:by,stroke:'var(--muted)','stroke-width':1})});
+  if(min!=null){const fm=f(min),an=A(fm),[ax,ay]=P(r-8,an),[bx,by]=P(R+5,an);
     svgNode(s,'line',{x1:ax,y1:ay,x2:bx,y2:by,stroke:'var(--text)','stroke-width':2});
-    const left=fr(min)<0.5;
-    svgNode(s,'text',{x:Math.max(2,Math.min(W-2,tx)),y:ty+3,'text-anchor':left?'end':'start',
-      'font-size':9,'font-weight':700,fill:'var(--text)'},fv(min));
-  }
-  svgNode(s,'text',{x:cx-R-4,y:cy+14,'text-anchor':'start','font-size':9,fill:'var(--muted)'},fv(0));
-  svgNode(s,'text',{x:cx+R+4,y:cy+14,'text-anchor':'end','font-size':9,fill:'var(--muted)'},fv(top));
-  svgNode(s,'text',{x:cx,y:cy-14,'text-anchor':'middle','font-size':22,
-    'font-weight':700,fill:'var(--text)'},fv(value));
+    const [tx,ty]=P(R+12,an);
+    svgNode(s,'text',{x:Math.max(4,Math.min(W-4,tx)),y:ty+(fm>0.2&&fm<0.8?-2:4),
+      'text-anchor':fm<0.35?'end':fm>0.65?'start':'middle','font-size':9,fill:'var(--muted)'},
+      fmt?fmt(min):fmtNum(min))}
+  /* 바늘 */
+  const col='var(--'+(tone||'accent')+')';
+  const [nx,ny]=P(R-2,A(f(value)));
+  svgNode(s,'line',{x1:cx,y1:cy,x2:nx,y2:ny,stroke:col,'stroke-width':3,'stroke-linecap':'round'});
+  svgNode(s,'circle',{cx:cx,cy:cy,r:5,fill:col});
+  svgNode(s,'text',{x:cx,y:cy+34,'text-anchor':'middle','font-size':22,'font-weight':700,
+    fill:'var(--text)'},fmt?fmt(value):fmtNum(value));
+  svgNode(s,'text',{x:cx-R,y:cy+14,'text-anchor':'start','font-size':9,fill:'var(--muted)'},fmt?fmt(0):'0');
+  svgNode(s,'text',{x:cx+R,y:cy+14,'text-anchor':'end','font-size':9,fill:'var(--muted)'},fmt?fmt(top):fmtNum(top));
   return chartBox(s,title,note);
 }
 /* KRI 카드 격자 (viz_advanced.kri_scorecard 대응. 스파크라인·등급 배지 포함) */
@@ -2488,7 +2525,7 @@ const DOMAIN_CHARTS={
       g.appendChild(hbars(groupSum(cm,'status',null).map(x=>({label:String(x.key),value:x.n,
         tone:x.key==='mapped'?'good':'bad'})),
         {title:'표준코드 매핑 상태',money:false,share:true,src:srcMeta(cm)}))}
-    if(g.children.length)root.appendChild(g);
+    if(g.children.length){splitGrid(g);root.appendChild(g)}
   },
   'PRD-RWA':root=>{
     const sk=capitalSankey();if(sk)root.appendChild(sk);
@@ -3541,7 +3578,7 @@ function domain(root, product, title, lead){
     list.appendChild(b);
     if(i===0){b.classList.add('on');renderTable(pane,r)}
   });
-  wrap.appendChild(list);wrap.appendChild(pane);root.appendChild(wrap);
+  wrap.appendChild(list);wrap.appendChild(pane);splitGrid(wrap);root.appendChild(wrap);
 }
 /* 원장 하나를 그림으로도 말한다. 실무진 보고서가 그리는 것을 화면도 그린다.
    부문별 전용 차트(DOMAIN_CHARTS)는 그 부문의 헤드라인을 다루고, 여기는 **선택한
@@ -3665,7 +3702,7 @@ function regulatory(root){
     list.appendChild(b);
     if(i===0){b.classList.add('on');renderForm(pane,f)}
   });
-  wrap.appendChild(list);wrap.appendChild(pane);root.appendChild(wrap);
+  wrap.appendChild(list);wrap.appendChild(pane);splitGrid(wrap);root.appendChild(wrap);
   const c=el('div','card');c.appendChild(el('h3',null,'서식 자체 대사'));
   c.appendChild(table(D.form_checks,{rowClass:r=>r[6]==='FAIL'?'bad':null}));
   root.appendChild(c);
@@ -4306,7 +4343,7 @@ function executiveReport(root){
     return ul.children.length?ul:null;
   }
   const secs=[];
-  function section(no,title,tone,items,figs,fids){
+  function section(no,title,tone,items,figs,fids,cols){
     const sec=el('div','docsec');sec.id='doc-'+no;
     const hd=el('div','dhead');
     hd.appendChild(rawEl('span','no',String(no)));
@@ -4321,7 +4358,9 @@ function executiveReport(root){
     const fg=el('div','figs');
     (figs||[]).forEach(x=>{if(!x)return;const [node,wide]=Array.isArray(x)?x:[x,true];
       if(!node)return;if(wide)node.classList.add('wide');fg.appendChild(node)});
+    if(cols)fg.style.gridTemplateColumns=cols;
     if(fg.children.length)sec.appendChild(fg);
+    if(fg.children.length===2&&![...fg.children].some(x=>x.classList.contains('wide')))splitGrid(fg);
     body.appendChild(sec);
     const tb=rawEl('button');tb.type='button';
     tb.appendChild(rawEl('span','no',String(no)));
@@ -4458,9 +4497,9 @@ function executiveReport(root){
        tone:F.sev.first_breach?'bad':'good'},
       {label:T('역스트레스 임계 심도')+' '+F.rev_severity.toFixed(4),tone:F.rev_severity<1?'bad':'good'},
     ]));return c})():null;
-  const s5=section(5,'위기상황',(F.sev&&F.sev.first_breach)||F.rev_severity<1?'bad':'good',
-    B.stress,[[pathFig,false],[sevBox,false]],['stress.trough_cet1','reverse_stress.severity']);
-  const fg5=s5.querySelector('.figs');if(fg5)fg5.style.gridTemplateColumns='minmax(0,2fr) minmax(300px,1fr)';
+  section(5,'위기상황',(F.sev&&F.sev.first_breach)||F.rev_severity<1?'bad':'good',
+    B.stress,[[pathFig,false],[sevBox,false]],['stress.trough_cet1','reverse_stress.severity'],
+    'minmax(0,2fr) minmax(300px,1fr)');
 
   /* 6 한도·집중. 소진 상위와 차원별 상태 건수. */
   const lm=D.limits_full||D.limits,li=frameIdx(lm);
@@ -4494,8 +4533,8 @@ function executiveReport(root){
     rwaFig.appendChild(cap('7b','위험가중자산 귀속 (구성요소별 비중)','rwa'))}
   const sank=capitalSankey();
   if(sank)sank.appendChild(cap('7a','자본 지도 (자본 스택 → 최종 위험가중자산 → 구성요소)','cap_stack · rwa'));
-  const s7=section(7,'위험가중자산 귀속','good',[],[[sank,false],[rwaFig,false]],['rwa.final_total']);
-  const fg7=s7.querySelector('.figs');if(fg7)fg7.style.gridTemplateColumns='minmax(0,3fr) minmax(0,2fr)';
+  section(7,'위험가중자산 귀속','good',[],[[sank,false],[rwaFig,false]],['rwa.final_total'],
+    'minmax(0,3fr) minmax(0,2fr)');
 
   /* 8 CRO 액션 + 남은 브리핑. 액션 문장의 긴 대시는 콜론으로 바꿔 개조식으로. */
   const acts=(E.actions||[]).map(t=>t.replace(/\s+\u2014\s+/g,': '));
@@ -4663,7 +4702,7 @@ function capitalSankey(){
     svgNode(s,'text',{x:xR+nodeW/2,y:H-2,'text-anchor':'middle','font-size':10,fill:'var(--muted)'},
       T('구성요소 합')+' '+fmtMoney(rwaTot)+(S.binding?' · '+T('하한 구속'):' · '+T('하한 미구속')));
     return s;
-  },{ratio:0.42,minH:320,maxH:420,seed:900,title:'자본 지도 (자본 스택 → 최종 위험가중자산 → 구성요소)'});
+  },{ratio:0.42,minH:320,maxH:420,seed:900,minW:620,title:'자본 지도 (자본 스택 → 최종 위험가중자산 → 구성요소)'});
   const c=el('div','card');c.appendChild(box);
   return c;
 }
@@ -8337,7 +8376,7 @@ function limitsScreen(root){
   const below=el('div');below.style.cssText='display:grid;gap:12px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)';
   left.appendChild(below);
   con.appendChild(left);
-  const drawer=el('div','drawer');con.appendChild(drawer);
+  const drawer=el('div','drawer');con.appendChild(drawer);splitGrid(con);
   root.appendChild(con);
 
   function visible(){
@@ -8535,7 +8574,7 @@ function limitsScreen(root){
       tone:h.lo>=1?'bad':(h.lo>=0.9?'warn':undefined)})),
       {fmt:v=>fmtNum(v)}),null);
   distCard.appendChild(rawEl('div','meta',T('마지막 칸 = 한도 초과 버킷')+' · '+T('전량')+' '+TC(f.total,'행')));
-  root.appendChild(distCard);
+  const two=el('div','agrid');two.appendChild(distCard);root.appendChild(two);
 
   /* --- 한도 시뮬레이션 --- */
   const sim=el('div','card');
@@ -8570,7 +8609,7 @@ function limitsScreen(root){
 
   }
   ssel.onchange=simDraw;amt.oninput=simDraw;simDraw();
-  root.appendChild(sim);
+  two.appendChild(sim);splitGrid(two);
 
   /* --- 추이 --- */
   const asofs=Object.keys(RUNS).sort();
@@ -9442,7 +9481,7 @@ function autoCharts(root,specs){
       src:srcMeta(f)}))});
   /* 자동차트가 둘 이상이면 격자로 나눠 붙인다. 항목 적은 카드가 화면 폭을
      통째로 쓰면 빈 판이 된다. */
-  if(cards.length>1){const g=el('div','agrid');cards.forEach(c=>g.appendChild(c));root.appendChild(g)}
+  if(cards.length>1){const g=el('div','agrid');cards.forEach(c=>g.appendChild(c));splitGrid(g);root.appendChild(g)}
   else cards.forEach(c=>root.appendChild(c));
 }
 function screenOf(defs){

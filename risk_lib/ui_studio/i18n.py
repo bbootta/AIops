@@ -1866,4 +1866,5 @@ _t("charts3",
    '검증 실패 서식||Forms with failed checks',
    '검증 항목||Checks',
    '대사 축별 원천 합계||Source totals by reconciliation axis',
+   '끌어서 폭 조절 · 두 번 누르면 원래대로||Drag to resize · double-click to reset',
 )
