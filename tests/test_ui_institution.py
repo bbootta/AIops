@@ -62,10 +62,9 @@ def _runs(h: str) -> dict:
 
 def _blob_text(h: str) -> str:
     """압축을 풀기만 한 payload 원문 (중복 제거 전 구조 검사용)."""
-    import base64, gzip
-    m = re.search(r'<script id="rynta-blob" type="application/gzip\+base64">([^<]*)</script>', h)
-    assert m, "압축 payload 를 찾지 못했다"
-    return gzip.decompress(base64.b64decode(m.group(1))).decode("utf-8")
+    import gzip
+    from risk_lib.ui_studio.app import _b85_decode, _blob_text
+    return gzip.decompress(_b85_decode(_blob_text(h))).decode("utf-8")
 
 
 # ----- 실행 식별자 ------------------------------------------------------------

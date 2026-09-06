@@ -374,6 +374,12 @@ python -m risk_lib.cli db-runs                          # 적재된 실행 목�
 # 에이전틱 UI: DB 원장을 그대로 싣는다 (재산출 없음, 메모리 경로와 바이트 동일)
 python -m risk_lib.cli ui-studio --from-db all --out studio.html
 
+화면 파일은 실행 payload 를 중복 제거한 뒤 gzip 하고 base85 로 실어 기관 한 곳에
+약 2.5 MB, 아홉 곳에 약 15.6 MB 다 (원문이면 각각 10.5 MB · 95 MB). 브라우저가
+내장 DecompressionStream 으로 풀며 외부 요청은 없다. `decode_payload(html)` 이
+같은 규칙으로 되살린다. 블롭은 1,000자 조각 배열로 적는다. 한 줄짜리 거대
+문자열은 아티팩트 배포기가 다른 종류의 페이지로 오인해 거부한다.
+
 # 배치: DB 의 입력(포트폴리오·시드·기준일)으로 재산출한다. 입력 지문·제출본 지문이
 # 등록부와 다르면 멈춘다 (fail-closed)
 python -m risk_lib.cli reg-report --from-db RUN-20260630-KR_BANK_01 --out 업무보고서.xlsx

@@ -346,7 +346,8 @@ def _cmd_ui_studio(args: argparse.Namespace) -> int:
     s = sorted(studios, key=lambda x: x.asof)[-1]
     n_rows = sum(len(df) for df in s.tables.values())
     print(f"에이전틱 UI 작성 완료 — {out} ({os.path.getsize(out)/1024:.1f} KB)")
-    print(f"  기준일 {len(studios)}종 · 테이블 {len(cat.ALL_TABLES)}장 · "
+    print(f"  기관 {len({s.institution_code for s in studios})}곳 · "
+          f"기준일 {len({s.asof for s in studios})}종 · 테이블 {len(cat.ALL_TABLES)}장 · "
           f"행 {n_rows:,} (최신 기준) · 조회계획 "
           f"{len(s.sections['plans']) if s.sections else len(s.plans)}건")
     return 0

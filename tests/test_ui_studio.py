@@ -273,7 +273,7 @@ def test_render_is_self_contained(studio):
         assert url.startswith("http://www.w3.org/"), url
     # payload 는 gzip+base64 로 실린다. 실행 JSON 이 원문으로 박히면 기관 한
     # 곳에 10 MB 가 넘어 아티팩트 상한(16 MB)에 걸린다.
-    assert '<script id="rynta-blob" type="application/gzip+base64">' in h
+    assert "<script>window.__RYNTA_BLOB__=[" in h
     assert "window.__RYNTA_RUNS__={" not in h
 
 
