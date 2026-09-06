@@ -87,6 +87,12 @@ class Studio:
     # 귀속·DQ·마감 판정이 이 원장까지 세게 되고, 실제로 기관코드 도장을
     # 찍는 검사가 전 기관이 든 프로파일 원장에서 걸렸다.
     inst_tables: dict[str, pd.DataFrame] = field(default_factory=dict)
+    # 실행 시드. 페이로드 meta 가 result 없이도 적을 수 있게 따로 든다.
+    seed: int = 42
+    # 화면 부문 JSON (app.SECTION_KEYS). 메모리 조립에서는 None 이고 페이로드
+    # 조립 때 result 에서 계산한다. DB 에서 되읽은 스튜디오는 result 가 없으므로
+    # 적재 시점에 계산해 둔 것을 여기 싣고, 페이로드는 그것을 그대로 쓴다.
+    sections: dict | None = None
 
     def view_fields(self, view_id: str) -> pd.DataFrame:
         p = self.tables["ui_field_policy"]
@@ -290,7 +296,7 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
                     iv_request=iv_request, iv_gate=iv_gate,
                     institution_code=inst_code,
                     institution_source=inst_source,
-                    inst_tables=_intl.build_all())
+                    inst_tables=_intl.build_all(), seed=_seed)
 
     # ---- 조회계획 컴파일 + 실행
     plans, plan_results = [], {}

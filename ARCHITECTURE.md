@@ -292,6 +292,36 @@ PLGD 신뢰수준 `confidence_q`는 승인 전이라 `crm_plgd.plgd`가 비어 �
 
 불변식: **어떤 에이전트도 `write_allowed=True`가 아니다** (NO AUTONOMOUS WRITE).
 
+## 저장소 (db/) : PostgreSQL 이 배치와 화면의 읽기 원천이다
+
+```
+db/config.py   RYNTA_PG_DSN · RYNTA_PG_SCHEMA. 연결 문자열은 코드에 없다.
+db/schema.py   catalog.ALL_TABLES(271) + 기관 축 원장 5장 → 테이블. 스펙이 곧 물리 스키마.
+db/store.py    store_run(studio, portfolio): 한 트랜잭션에 원장 전량(COPY)·입력 포트폴리오·
+               한도 프레임·화면 부문 JSON·독립검증 요청·프레임 명세·등록부.
+db/load.py     load_studio(run_id) 화면용 (재산출 없음) · result_from_db(run_id) 배치용 (재산출).
+```
+
+원칙 셋.
+
+1. **원장 테이블은 실행 단위로 쌓인다.** 모든 원장 테이블은 `_run_id`·`_row` 두 열이
+   앞에 붙고 기본키는 그 둘이다. 카탈로그 자연키는 `(_run_id, 자연키)` 유일 인덱스로
+   걸어 중복이 적재 시점에 드러난다. 허용값·범위 CHECK 와 외래키는 걸지 않는다.
+   위반은 rdm_dq_result 원장이 기록해야 할 사실이고, DB 가 거부하면 그 사실이 사라진다.
+2. **화면은 DB 를 그대로 읽는다.** `load_studio` 는 원장·기관 축·부문 JSON 을 읽어
+   `Studio` 를 만들고 `render()` 는 그것을 메모리 스튜디오와 구분하지 않는다. 되읽은
+   DataFrame 은 컬럼 순서·dtype 까지 같아야 하므로 `run_frame_column` 에 명세를 남기고,
+   부문 본문은 키 순서를 지키는 JSON 으로 둔다. `tests/test_db_store.py` 가 렌더 바이트
+   동일을 고정한다.
+3. **결과 객체는 DB 에 넣지 않는다.** 보고서·서식처럼 `PipelineResult` 가 필요한 배치는
+   DB 의 입력(x_portfolio · 시드 · 기준일 · 기관)으로 파이프라인을 다시 돌린다. 산출은
+   입력과 코드에서 재현되어야 하고, 포트폴리오 지문이나 제출본 지문이 등록부와 다르면
+   멈춘다. 코드 리비전이 바뀌면 `db-load` 로 다시 적재한다.
+
+`_payload` 의 부문 계산은 `app._sections` 로 갈라져 있다 (`SECTION_KEYS`). 메모리
+경로는 result 에서 계산하고, DB 경로는 적재 때 계산해 둔 `Studio.sections` 를 쓴다.
+여기 없는 페이로드 키는 전부 원장 프레임과 정적 카탈로그에서 나온다.
+
 ## 테스트
 
 - `tests/conftest.py`: session-scoped `portfolio`/`result` 공유 픽스처

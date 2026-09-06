@@ -619,57 +619,16 @@ def _kpis(s: Studio) -> list[dict]:
     ]
 
 
-def _payload(s: Studio) -> dict:
+# result 에서만 계산되는 부문. DB 에서 되읽은 스튜디오는 result 가 없으므로
+# 적재 시점에 계산한 값(Studio.sections)을 그대로 쓴다. 여기 없는 키는 전부
+# 원장 프레임(s.tables·s.inst_tables)과 정적 카탈로그에서 나온다.
+SECTION_KEYS = ("kpis", "executive", "plans", "proposals", "forms", "independent",
+                "adjustments", "limits", "limits_full", "reverse_stress", "macro",
+                "alm", "sim", "lex", "irb")
+
+
+def _sections(s: Studio) -> dict:
     t = s.tables
-    spec_by_name = {sp.name: sp for sp in cat.ALL_TABLES}
-
-    catalog_rows = []
-    for sp in cat.ALL_TABLES:
-        df = t.get(sp.name)
-        catalog_rows.append({
-            "name": sp.name, "korean": sp.korean, "product": sp.product,
-            "grain": sp.grain, "columns": len(sp.columns),
-            "pk": ", ".join(sp.primary_key) or "-",
-            "fk": len(sp.foreign_keys),
-            "rows": int(len(df)) if isinstance(df, pd.DataFrame) else 0,
-            "materialised": isinstance(df, pd.DataFrame),
-        })
-
-    previews = {name: _frame(df, table=name) for name, df in t.items()
-                if isinstance(df, pd.DataFrame) and name in spec_by_name}
-
-    # ---- 브라우저에서 실제로 조회·필터가 돌아가려면 데이터가 화면 안에
-    # 있어야 한다. 전량을 실으면 파일이 감당이 안 되므로 상한을 두되,
-    # **모집단 건수를 함께 남겨** 잘린 사실이 화면에 드러나게 한다.
-    views_meta, data = {}, {}
-    fp = t["ui_field_policy"]
-    policy_by_view: dict[str, list[dict]] = {}
-    for _, r in fp.iterrows():
-        policy_by_view.setdefault(str(r["view_id"]), []).append({
-            "field_name": str(r["field_name"]), "korean": str(r["korean"]),
-            "permitted": bool(r["permitted"]), "masking": str(r["masking"]),
-            "min_aggregation": int(r["min_aggregation"]),
-        })
-    for _, v in t["ui_view"].iterrows():
-        vid = str(v["view_id"])
-        tref = v["table_ref"]
-        if not isinstance(tref, str) or tref not in t:
-            continue
-        df = t[tref]
-        budget = (INTERACTIVE_ROWS_DEMO
-                  if tref in DEMO_TABLES or tref in ALM_FULL_TABLES
-                  or tref in NEW_SCREEN_FULL_TABLES
-                  else INTERACTIVE_ROWS)
-        views_meta[vid] = {
-            "view_id": vid, "view_name": str(v["view_name"]),
-            "domain": str(v["domain"]), "table_ref": tref,
-            "row_limit": int(v["row_limit"]),
-            "fields": policy_by_view.get(vid, []),
-            "total_rows": int(len(df)), "embedded_rows": int(min(len(df), budget)),
-        }
-        if tref not in data:
-            data[tref] = _frame(df, budget, table=tref)
-
     plans = []
     for p in s.plans:
         res = s.plan_results.get(p.plan_id, pd.DataFrame())
@@ -745,20 +704,121 @@ def _payload(s: Studio) -> dict:
     } for b in s.built_forms]
 
     return {
+        "kpis": _kpis(s),
+        "executive": _executive_dict(s),
+        "plans": plans,
+        "proposals": proposals,
+        "forms": forms,
+        "independent": {
+            "status": str(t["val_independent_request"]["status"].iloc[0]),
+            "reason": str(t["val_independent_request"]["reason"].iloc[0]),
+            "request_id": str(t["val_independent_request"]["request_id"].iloc[0]),
+            "requested_to": str(t["val_independent_request"]["requested_to"].iloc[0]),
+            "branch": str(t["val_independent_request"]["branch"].iloc[0]),
+            "n_targets": int(t["val_independent_request"]["n_recalc_targets"].iloc[0]),
+            "self_validation": " · ".join(
+                f"{k} {v}" for k, v in sorted(
+                    (s.iv_request.self_validation if s.iv_request else {}).items())),
+            "assumptions": list(s.iv_request.known_assumptions) if s.iv_request else [],
+        },
+        "adjustments": _frame(_adj_frame(s), 100, labels={
+            "adjustment_id": "조정 식별자", "figure_id": "대상 수치",
+            "label": "항목", "base_value": "엔진 산출값",
+            "adjusted_value": "조정 후 값", "delta": "조정폭",
+            "reason": "사유", "evidence_ref": "증빙 참조",
+            "requester": "요청자", "approver": "승인자",
+            "expires_on": "만료일", "status": "상태"}),
+        "limits": _frame(s.result.limits, 200, labels={
+            "limit": "한도명", "dimension": "차원", "bucket": "구간",
+            "exposure": "익스포저", "threshold": "한도액",
+            "utilisation": "소진율", "severity": "심각도"}),
+        "limits_full": _frame(
+            s.result.limits_full if s.result.limits_full is not None
+            else s.result.limits, 60, labels={
+                "limit": "한도명", "dimension": "차원", "bucket": "구간",
+                "exposure": "익스포저", "threshold": "한도액",
+                "utilisation": "소진율", "severity": "심각도"}),
+        "reverse_stress": _reverse_dict(s),
+        "macro": _macro_dict(s),
+        "alm": _alm_dict(s),
+        "sim": _sim_dict(s),
+        "lex": _lex_dict(s),
+        "irb": _irb_dict(s),
+    }
+
+
+def sections_for(s: Studio) -> dict:
+    """DB 적재기가 부른다. 되읽은 스튜디오가 다시 계산할 수 없는 부문 전부."""
+    return _sections(s)
+
+
+def _payload(s: Studio) -> dict:
+    t = s.tables
+    spec_by_name = {sp.name: sp for sp in cat.ALL_TABLES}
+    secs = s.sections if s.sections is not None else _sections(s)
+
+    catalog_rows = []
+    for sp in cat.ALL_TABLES:
+        df = t.get(sp.name)
+        catalog_rows.append({
+            "name": sp.name, "korean": sp.korean, "product": sp.product,
+            "grain": sp.grain, "columns": len(sp.columns),
+            "pk": ", ".join(sp.primary_key) or "-",
+            "fk": len(sp.foreign_keys),
+            "rows": int(len(df)) if isinstance(df, pd.DataFrame) else 0,
+            "materialised": isinstance(df, pd.DataFrame),
+        })
+
+    previews = {name: _frame(df, table=name) for name, df in t.items()
+                if isinstance(df, pd.DataFrame) and name in spec_by_name}
+
+    # ---- 브라우저에서 실제로 조회·필터가 돌아가려면 데이터가 화면 안에
+    # 있어야 한다. 전량을 실으면 파일이 감당이 안 되므로 상한을 두되,
+    # **모집단 건수를 함께 남겨** 잘린 사실이 화면에 드러나게 한다.
+    views_meta, data = {}, {}
+    fp = t["ui_field_policy"]
+    policy_by_view: dict[str, list[dict]] = {}
+    for _, r in fp.iterrows():
+        policy_by_view.setdefault(str(r["view_id"]), []).append({
+            "field_name": str(r["field_name"]), "korean": str(r["korean"]),
+            "permitted": bool(r["permitted"]), "masking": str(r["masking"]),
+            "min_aggregation": int(r["min_aggregation"]),
+        })
+    for _, v in t["ui_view"].iterrows():
+        vid = str(v["view_id"])
+        tref = v["table_ref"]
+        if not isinstance(tref, str) or tref not in t:
+            continue
+        df = t[tref]
+        budget = (INTERACTIVE_ROWS_DEMO
+                  if tref in DEMO_TABLES or tref in ALM_FULL_TABLES
+                  or tref in NEW_SCREEN_FULL_TABLES
+                  else INTERACTIVE_ROWS)
+        views_meta[vid] = {
+            "view_id": vid, "view_name": str(v["view_name"]),
+            "domain": str(v["domain"]), "table_ref": tref,
+            "row_limit": int(v["row_limit"]),
+            "fields": policy_by_view.get(vid, []),
+            "total_rows": int(len(df)), "embedded_rows": int(min(len(df), budget)),
+        }
+        if tref not in data:
+            data[tref] = _frame(df, budget, table=tref)
+
+    return {
         "meta": {
             "asof": s.asof, "run_id": s.run_id, "digest": s.digest,
             "institution_code": s.institution_code,
-            "seed": s.result.meta.get("seed", 42),
+            "seed": s.seed,
             "n_tables": len(cat.ALL_TABLES),
             "n_columns": sum(len(sp.columns) for sp in cat.ALL_TABLES),
             "n_rows": int(sum(len(df) for df in t.values()
                               if isinstance(df, pd.DataFrame))),
         },
-        "kpis": _kpis(s),
+        "kpis": secs["kpis"],
         # 기관 축 원장. 선택기와 기관 설정 화면의 연결 원장이다.
         "institution": _institution(s),
         # 경영진 요약. html_exec와 같은 생성기에서 나온다 (02_reports/executive.html).
-        "executive": _executive_dict(s),
+        "executive": secs["executive"],
         "catalog": catalog_rows,
         "previews": previews,
         "views": _frame(t["ui_view"], 10_000, table="ui_view"),
@@ -773,9 +833,9 @@ def _payload(s: Studio) -> dict:
             {"view_id": v, "prompt": q}
             for v, q in DEMO_PROMPTS if v in views_meta
         ],
-        "plans": plans,
-        "proposals": proposals,
-        "forms": forms,
+        "plans": secs["plans"],
+        "proposals": secs["proposals"],
+        "forms": secs["forms"],
         "form_checks": _frame(t["reg_form_check"], 200, table="reg_form_check"),
         "agents": _frame(t["agent_registry"], 100, table="agent_registry"),
         "activity": _frame(t["agent_activity"], 100, table="agent_activity"),
@@ -790,18 +850,7 @@ def _payload(s: Studio) -> dict:
         "contracts": _frame(t["rdm_source_contract"], 50, table="rdm_source_contract"),
         "canonical_map": _frame(t["rdm_canonical_map"], 200, table="rdm_canonical_map"),
         "validation": _frame(t["val_check"], 400, table="val_check"),
-        "independent": {
-            "status": str(t["val_independent_request"]["status"].iloc[0]),
-            "reason": str(t["val_independent_request"]["reason"].iloc[0]),
-            "request_id": str(t["val_independent_request"]["request_id"].iloc[0]),
-            "requested_to": str(t["val_independent_request"]["requested_to"].iloc[0]),
-            "branch": str(t["val_independent_request"]["branch"].iloc[0]),
-            "n_targets": int(t["val_independent_request"]["n_recalc_targets"].iloc[0]),
-            "self_validation": " · ".join(
-                f"{k} {v}" for k, v in sorted(
-                    (s.iv_request.self_validation if s.iv_request else {}).items())),
-            "assumptions": list(s.iv_request.known_assumptions) if s.iv_request else [],
-        },
+        "independent": secs["independent"],
         "independent_targets": _frame(t["val_independent_target"], 50, table="val_independent_target"),
         # v9.6.0 업무요건 추적. 증빙 참조는 tests/test_req_trace.py 가 실재를
         # 검증한다. 여기 실리는 것은 주장 목록이 아니라 검사를 통과한 목록이다.
@@ -809,37 +858,15 @@ def _payload(s: Studio) -> dict:
         # 오버레이(수동조정) 원장. DAT-006. 엔진 산출값을 사람이 덮어쓴
         # 기록이다. 기록 없는 조정은 재현 불가의 시작이므로 전 건이 사유·증빙·
         # 승인·만료를 갖는다.
-        "adjustments": _frame(_adj_frame(s), 100, labels={
-            "adjustment_id": "조정 식별자", "figure_id": "대상 수치",
-            "label": "항목", "base_value": "엔진 산출값",
-            "adjusted_value": "조정 후 값", "delta": "조정폭",
-            "reason": "사유", "evidence_ref": "증빙 참조",
-            "requester": "요청자", "approver": "승인자",
-            "expires_on": "만료일", "status": "상태"}),
-        # 한도·소진. 다차원 한도 엔진 산출.
-        "limits": _frame(s.result.limits, 200, labels={
-            "limit": "한도명", "dimension": "차원", "bucket": "구간",
-            "exposure": "익스포저", "threshold": "한도액",
-            "utilisation": "소진율", "severity": "심각도"}),
-        # 한도 소진율 전량. 위반 아닌 버킷까지. 화면이 분포를 보여야 한다.
-        "limits_full": _frame(
-            s.result.limits_full if s.result.limits_full is not None
-            else s.result.limits, 60, labels={
-                "limit": "한도명", "dimension": "차원", "bucket": "구간",
-                "exposure": "익스포저", "threshold": "한도액",
-                "utilisation": "소진율", "severity": "심각도"}),
-        # 역스트레스. 자본 임계를 뚫는 심도를 푼다 (BNK-ST-006).
-        "reverse_stress": _reverse_dict(s),
-        # 거시·금융지표. 시나리오 심도의 입력 원장.
-        "macro": _macro_dict(s),
-        # ALM. 화면에 전량을 실을 수 없는 행동조정 현금흐름의 축소 집계.
-        "alm": _alm_dict(s),
-        # 자본비율 시뮬레이션 기준값. RWA 구성·자본계층·버퍼·레버리지·연동 한도.
-        "sim": _sim_dict(s),
-        # 거액익스포져. 포지션 원장 전량 집계 (화면 탑재분은 표본이다).
-        "lex": _lex_dict(s),
-        # 내부등급법 추정. 회수이력 전량에서 낸 회수곡선과 관측중단 집계.
-        "irb": _irb_dict(s),
+        "adjustments": secs["adjustments"],
+        "limits": secs["limits"],
+        "limits_full": secs["limits_full"],
+        "reverse_stress": secs["reverse_stress"],
+        "macro": secs["macro"],
+        "alm": secs["alm"],
+        "sim": secs["sim"],
+        "lex": secs["lex"],
+        "irb": secs["irb"],
         # 사업성(COM). 규제 산출물이 아니다. 제출 지문·독립검증 대상에 넣지
         # 않으며, 전 수치가 가정 원장에서 계산으로만 나온다.
         "commercial": {

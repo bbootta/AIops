@@ -357,6 +357,37 @@ pytest -q
 
 CLI는 검증에서 FAIL이 하나라도 있으면 종료코드 1을 반환한다(결재 불가 게이트).
 
+## PostgreSQL 저장소 (배치·에이전틱 UI 의 읽기 원천)
+
+산출 원장 271장과 기관 축 원장 5장은 PostgreSQL 에 실행(run_id) 단위로 쌓인다.
+배치와 에이전틱 UI 는 그 DB 에서 읽는다. 연결은 환경변수 둘로 정한다.
+
+```bash
+export RYNTA_PG_DSN=postgresql://rynta:rynta@localhost:5432/rynta   # 기본값
+export RYNTA_PG_SCHEMA=rynta                                        # 기본값
+pip install -e '.[db]'                                              # psycopg 3
+
+python -m risk_lib.cli db-init                          # 스키마·등록부·원장 테이블 276장 (멱등)
+python -m risk_lib.cli db-load --asof 2026-06-30        # 파이프라인 실행 → 적재 (기관·기준일 콤마 목록 가능)
+python -m risk_lib.cli db-runs                          # 적재된 실행 목록
+
+# 에이전틱 UI: DB 원장을 그대로 싣는다 (재산출 없음, 메모리 경로와 바이트 동일)
+python -m risk_lib.cli ui-studio --from-db all --out studio.html
+
+# 배치: DB 의 입력(포트폴리오·시드·기준일)으로 재산출한다. 입력 지문·제출본 지문이
+# 등록부와 다르면 멈춘다 (fail-closed)
+python -m risk_lib.cli reg-report --from-db RUN-20260630-KR_BANK_01 --out 업무보고서.xlsx
+python -m risk_lib.cli validation-request --from-db RUN-20260630-KR_BANK_01
+python -m risk_lib.cli run --from-db RUN-20260630-KR_BANK_01 --report report.md
+```
+
+`--from-db` 는 run · report-set · notify · serve · export-json · printable · dispatch ·
+reg-report · deliverables · validation-request · ui-studio 가 받는다. 테이블 배치는
+`risk_lib/db/schema.py` 가 카탈로그 스펙에서 만든다 (테이블마다 `_run_id`·`_row`
+접두, 자연키는 실행 안에서 유일 인덱스). 화면 부문 JSON 과 독립검증 요청은
+`run_section` 에, 프레임의 컬럼 순서·dtype 명세는 `run_frame_column` 에 남아
+되읽은 DataFrame 이 메모리의 것과 같다.
+
 ## 에이전트 사용
 
 Claude Code에서:

@@ -12,6 +12,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
+db = ["psycopg[binary]>=3.1"]
 
 [project.scripts]
 risk-harness = "risk_lib.cli:main"
