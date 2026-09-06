@@ -27,6 +27,7 @@ from risk_lib import data_gen_intl as intl
 from risk_lib.ui_studio import app as uiapp
 from risk_lib.ui_studio import i18n
 from risk_lib.ui_studio import studio as st
+from risk_lib.ui_studio.app import decode_payload
 from risk_lib.ui_studio.app import render, write_app
 from risk_lib.ui_studio.studio import build_studio
 
@@ -56,16 +57,15 @@ def two(studio):
 
 
 def _runs(h: str) -> dict:
-    m = re.search(r"window\.__RYNTA_RUNS__=(\{.*\});\nwindow\.__RYNTA__", h, re.S)
-    assert m, "실행 payload 를 찾지 못했다"
-    return json.loads(m.group(1))
+    return decode_payload(h)["runs"]
 
 
-def _insts_src(h: str) -> str:
-    m = re.search(r"window\.__RYNTA_INSTS__=(.*);\nwindow\.__RYNTA_I18N__",
-                  h, re.S)
-    assert m, "기관 payload 를 찾지 못했다"
-    return m.group(1)
+def _blob_text(h: str) -> str:
+    """압축을 풀기만 한 payload 원문 (중복 제거 전 구조 검사용)."""
+    import base64, gzip
+    m = re.search(r'<script id="rynta-blob" type="application/gzip\+base64">([^<]*)</script>', h)
+    assert m, "압축 payload 를 찾지 못했다"
+    return gzip.decompress(base64.b64decode(m.group(1))).decode("utf-8")
 
 
 # ----- 실행 식별자 ------------------------------------------------------------
@@ -168,9 +168,9 @@ def test_institution_selector_sits_left_of_the_asof_selector(studio):
 
 def test_render_splits_runs_by_institution(two, studio):
     h = render(two)
-    src = _insts_src(h)
-    assert f'"{intl.BASE_INSTITUTION}":' in src
-    assert f'"{_OTHER}":' in src
+    insts = decode_payload(h)["insts"]
+    assert intl.BASE_INSTITUTION in insts
+    assert _OTHER in insts
     # 기본 화면은 기관 원장 순서의 첫 기관이다.
     assert _runs(h)[studio.asof]["meta"]["institution_code"] == \
         intl.BASE_INSTITUTION
@@ -178,8 +178,14 @@ def test_render_splits_runs_by_institution(two, studio):
 
 def test_primary_institution_payload_is_not_duplicated(two):
     """같은 payload 를 두 벌 실으면 파일이 그만큼 커지고 한쪽만 고쳐질 수 있다."""
-    src = _insts_src(render(two))
-    assert f'"{intl.BASE_INSTITUTION}":window.__RYNTA_RUNS__' in src
+    h = render(two)
+    raw = _blob_text(h)
+    assert raw.count(f'"run_id":"{two[0].run_id}"') == 1
+    assert raw.count('"run_id":"RUN-EU"') == 1
+    # 두 기관이 같은 원장(코드 마스터 등)을 나눠 쓰면 풀에 한 번만 실린다.
+    d = decode_payload(h)
+    assert set(d["insts"]) == {intl.BASE_INSTITUTION, _OTHER}
+    assert d["primary_inst"] == intl.BASE_INSTITUTION
 
 
 def test_switching_run_keys_state_by_institution_and_asof():

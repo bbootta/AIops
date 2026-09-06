@@ -17,6 +17,7 @@ int64 와 Int64, bool 과 boolean, str 과 object 는 DB 타입만으로는 구�
 
 from __future__ import annotations
 
+import sys
 import hashlib
 import json
 import math
@@ -29,7 +30,7 @@ import pandas as pd
 
 from .config import connect, schema_name
 from .schema import (EXTRA_FRAMES, ROW_COL, RUN_COL, existing_columns,
-                     frame_table_ddl, q, qt, spec_by_name)
+                     frame_table_ddl, pg_type_for_dtype, q, qt, spec_by_name)
 
 
 def pyval(v):
@@ -122,17 +123,23 @@ def _manifest(cur, run_id: str, name: str, kind: str, df: pd.DataFrame,
 
 
 def _ensure_extra_table(cur, name: str, df: pd.DataFrame, schema: str) -> None:
-    """스펙 없는 프레임의 테이블. 있으면 컬럼이 맞는지 보고, 없으면 만든다."""
+    """스펙 없는 프레임의 테이블. 없으면 만들고, 있으면 모자란 컬럼을 더한다.
+
+    스펙 없는 프레임(입력 포트폴리오 등)은 기관 생성기마다 모양이 다르다. 국내
+    표본에는 없는 라벨 컬럼이 해외 합성 기관에는 있다. 그래서 테이블은 실린
+    프레임들의 합집합이고, 없는 컬럼은 NULL 이다. 더한 컬럼은 로그로 남긴다.
+    스펙 있는 원장은 이 길을 타지 않는다. 그쪽 컬럼은 카탈로그가 정한다.
+    """
     have = existing_columns(cur.connection, name, schema)
     if not have:
         cur.execute(frame_table_ddl(name, df, schema))
         return
-    want = [RUN_COL, ROW_COL] + [str(c) for c in df.columns]
-    missing = [c for c in want if c not in have]
-    if missing:
-        raise RuntimeError(
-            f"{schema}.{name} 에 컬럼 {missing} 이 없다. 프레임 모양이 바뀌었으면 "
-            f"테이블을 지우고 다시 적재한다 (조용히 열을 더하지 않는다).")
+    added = [str(c) for c in df.columns if str(c) not in have]
+    for c in added:
+        cur.execute(f"ALTER TABLE {qt(name, schema)} ADD COLUMN {q(c)} "
+                    f"{pg_type_for_dtype(df[c].dtype)}")
+    if added:
+        print(f"  {schema}.{name} 컬럼 추가 {added}", file=sys.stderr)
 
 
 def _delete_run(cur, run_id: str, schema: str, tables: list[str]) -> None:

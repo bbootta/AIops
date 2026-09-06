@@ -19,6 +19,7 @@ import pytest
 from risk_lib.datamodel import catalog as cat
 from risk_lib.ui_studio import governance as gov
 from risk_lib.ui_studio import layout as lay
+from risk_lib.ui_studio.app import decode_payload
 from risk_lib.ui_studio.app import render
 from risk_lib.ui_studio.nl_query import compile_query, execute
 from risk_lib.ui_studio.studio import build_studio
@@ -270,19 +271,18 @@ def test_render_is_self_contained(studio):
     assert not re.search(r"\bfetch\s*\(|XMLHttpRequest|new WebSocket", h)
     for url in re.findall(r"https?://[^\s\"'`)]+", h):
         assert url.startswith("http://www.w3.org/"), url
-    assert "<script>window.__RYNTA_RUNS__=" in h
+    # payload 는 gzip+base64 로 실린다. 실행 JSON 이 원문으로 박히면 기관 한
+    # 곳에 10 MB 가 넘어 아티팩트 상한(16 MB)에 걸린다.
+    assert '<script id="rynta-blob" type="application/gzip+base64">' in h
+    assert "window.__RYNTA_RUNS__={" not in h
 
 
 def _runs(h: str) -> dict:
-    m = re.search(r"window\.__RYNTA_RUNS__=(\{.*\});\nwindow\.__RYNTA__", h, re.S)
-    assert m, "실행 payload 를 찾지 못했다"
-    return json.loads(m.group(1))
+    return decode_payload(h)["runs"]
 
 
 def _primary(h: str) -> str:
-    m = re.search(r'window\.__RYNTA__=window\.__RYNTA_RUNS__\[("[-\d]+")\];', h)
-    assert m, "기본 실행 지정을 찾지 못했다"
-    return json.loads(m.group(1))
+    return decode_payload(h)["primary"]
 
 
 def test_render_embeds_a_parseable_payload(studio):
@@ -629,7 +629,7 @@ def test_executive_screen_uses_the_same_engine_as_the_html_report(studio):
 
     # 화면에 실제로 실렸는가 — payload를 만들어도 렌더에 안 들어가면 소용없다.
     src = render(studio)
-    assert '"executive"' in src or "'executive'" in src
+    assert "executive" in decode_payload(src)["runs"][studio.asof]
 
 
 def test_chart_primitives_cover_what_the_ops_reports_draw(studio):

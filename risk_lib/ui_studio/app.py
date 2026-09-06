@@ -7,9 +7,13 @@ JSON으로 인라인하고, 화면은 그 JSON만 읽는다. 화면과 원장이
 
 from __future__ import annotations
 
+import base64
+import gzip
+import hashlib
 import html
 import json
 import math
+import re
 import warnings
 from pathlib import Path
 
@@ -10353,6 +10357,223 @@ boot();
 """
 
 
+_BLOB_MIN = 240          # 이보다 짧은 값은 풀에 넣지 않는다 (참조 표기가 더 길다)
+
+
+def _ser(v) -> str:
+    return json.dumps(v, ensure_ascii=False, default=str, separators=(",", ":"))
+
+
+def _pack_blob(insts: dict[str, dict[str, dict]], primary_inst: str,
+               primary: str) -> str:
+    """실행 payload 들을 한 덩어리로 묶어 gzip 하고 base64 로 돌려준다.
+
+    한 파일에 기관 아홉 곳을 실으려면 실행마다 10 MB 가 넘는 JSON 을 그대로
+    박을 수 없다. 두 단계로 줄인다.
+
+    1. 중복 제거. 기관이 달라도 같은 값(코드 마스터·요건 등록부·서식 정의·
+       화면 메타)은 한 번만 싣고 `{"$ref": 해시}` 로 가리킨다. 원장 미리보기가
+       전량 원장의 앞머리와 같으면 `{"$head": 원장명, "shown": n}` 으로 적고,
+       업무보고서 서식은 라인 정의(`$form`)와 값(`v`)을 가른다.
+    2. gzip (mtime 0, 결정론) + base64. 브라우저는 내장 DecompressionStream
+       으로 푼다. 외부 라이브러리가 없어 폐쇄망과 아티팩트 CSP 에 맞는다.
+
+    복원은 부트스트랩(`_BOOT_JS`)과 `decode_payload` 가 같은 규칙으로 한다.
+    """
+    counts: dict[str, int] = {}
+    store: dict[str, object] = {}
+
+    def hid(v) -> str | None:
+        t = _ser(v)
+        if len(t) < _BLOB_MIN:
+            return None
+        return hashlib.sha1(t.encode("utf-8")).hexdigest()[:16]
+
+    def key(v) -> str | None:
+        h = hid(v)
+        if h is not None:
+            store.setdefault(h, v)
+            counts[h] = counts.get(h, 0) + 1
+        return h
+
+    def form_parts(f: dict) -> tuple[dict, dict, list]:
+        lines = f.get("lines") or []
+        static = {"lines": [{k: v for k, v in ln.items() if k != "value"}
+                            for ln in lines]}
+        meta = {k: v for k, v in f.items() if k != "lines"}
+        return static, meta, [ln.get("value") for ln in lines]
+
+    def head_of(pv: dict, d: dict | None) -> bool:
+        return (isinstance(d, dict) and pv.get("table") == d.get("table")
+                and pv.get("columns") == d.get("columns")
+                and pv.get("labels") == d.get("labels")
+                and pv.get("total") == d.get("total")
+                and pv.get("rows") == (d.get("rows") or [])[:pv.get("shown", 0)])
+
+    SKIP = {"meta", "data", "previews", "forms", "institution"}
+    runs = [r for rr in insts.values() for r in rr.values()]
+    # 1차: 후보마다 몇 번 나오는지 센다
+    for r in runs:
+        for k, v in r.items():
+            if k not in SKIP:
+                key(v)
+        for fr in (r.get("data") or {}).values():
+            key(fr)
+        for name, pv in (r.get("previews") or {}).items():
+            if not head_of(pv, (r.get("data") or {}).get(name)):
+                key(pv)
+        for fr in ((r.get("institution") or {}).get("tables") or {}).values():
+            key(fr)
+        for f in r.get("forms") or []:
+            key(form_parts(f)[0])
+
+    def ref(v):
+        h = hid(v)
+        if h is not None and counts.get(h, 0) >= 2:
+            return {"$ref": h}
+        return v
+
+    # 2차: 두 번 이상 나온 값만 풀로 보내고 나머지는 그대로 둔다
+    packed: dict[str, dict[str, dict]] = {}
+    used: set[str] = set()
+
+    def ref2(v):
+        out = ref(v)
+        if isinstance(out, dict) and "$ref" in out:
+            used.add(out["$ref"])
+        return out
+
+    for code, rr in insts.items():
+        packed[code] = {}
+        for asof, r in rr.items():
+            q: dict = {}
+            for k, v in r.items():
+                if k in SKIP:
+                    q[k] = v
+                else:
+                    q[k] = ref2(v)
+            data = r.get("data") or {}
+            q["data"] = {n: ref2(fr) for n, fr in data.items()}
+            q["previews"] = {
+                n: ({"$head": n, "shown": pv.get("shown", 0)}
+                    if head_of(pv, data.get(n)) else ref2(pv))
+                for n, pv in (r.get("previews") or {}).items()}
+            inst = dict(r.get("institution") or {})
+            if inst.get("tables"):
+                inst["tables"] = {n: ref2(fr) for n, fr in inst["tables"].items()}
+            q["institution"] = inst
+            q["forms"] = []
+            for f in r.get("forms") or []:
+                static, meta, vals = form_parts(f)
+                q["forms"].append({"$form": ref2(static), "m": meta, "v": vals})
+            packed[code][asof] = q
+    pool = {h: store[h] for h in sorted(used)}
+    blob = {"v": 1, "primary": primary, "primary_inst": primary_inst,
+            "pool": pool, "insts": packed, "i18n": _i18n.payload()}
+    raw = _ser(blob).encode("utf-8")
+    return base64.b64encode(gzip.compress(raw, compresslevel=9, mtime=0)).decode("ascii")
+
+
+def _hydrate(blob: dict) -> dict:
+    """`_pack_blob` 의 역. 부트스트랩 JS 와 같은 규칙으로 실행 payload 를 되살린다."""
+    pool = blob.get("pool") or {}
+
+    def R(v):
+        if isinstance(v, dict) and "$ref" in v:
+            return pool[v["$ref"]]
+        return v
+
+    insts: dict[str, dict[str, dict]] = {}
+    for code, rr in blob["insts"].items():
+        insts[code] = {}
+        for asof, q in rr.items():
+            r = {k: R(v) for k, v in q.items()}
+            r["data"] = {n: R(fr) for n, fr in (q.get("data") or {}).items()}
+            pv_out = {}
+            for n, pv in (q.get("previews") or {}).items():
+                pv = R(pv)
+                if isinstance(pv, dict) and "$head" in pv:
+                    d = r["data"][pv["$head"]]
+                    pv = {"table": d["table"], "columns": d["columns"],
+                          "labels": d["labels"], "rows": d["rows"][:pv["shown"]],
+                          "total": d["total"], "shown": pv["shown"]}
+                pv_out[n] = pv
+            r["previews"] = pv_out
+            inst = dict(q.get("institution") or {})
+            if inst.get("tables"):
+                inst["tables"] = {n: R(fr) for n, fr in inst["tables"].items()}
+            r["institution"] = inst
+            forms = []
+            for f in q.get("forms") or []:
+                if isinstance(f, dict) and "$form" in f:
+                    st = R(f["$form"])
+                    o = dict(f["m"])
+                    o["lines"] = [dict(ln, value=f["v"][i])
+                                  for i, ln in enumerate(st["lines"])]
+                    forms.append(o)
+                else:
+                    forms.append(f)
+            r["forms"] = forms
+            insts[code][asof] = r
+    runs = insts[blob["primary_inst"]]
+    return {"insts": insts, "runs": runs, "primary": blob["primary"],
+            "primary_inst": blob["primary_inst"], "i18n": blob.get("i18n")}
+
+
+_BLOB_RE = re.compile(r'<script id="rynta-blob" type="application/gzip\+base64">([^<]*)</script>')
+
+
+def decode_payload(page: str) -> dict:
+    """렌더된 HTML 에서 실행 payload 를 꺼낸다 (검사·도구용).
+
+    돌려주는 것: ``insts`` (기관 → 기준일 → payload), ``runs`` (기본 기관의
+    기준일 축), ``primary`` (기본 기준일), ``primary_inst``, ``i18n``.
+    브라우저가 부트스트랩에서 만드는 ``window.__RYNTA_INSTS__`` 등과 같다.
+    """
+    m = _BLOB_RE.search(page)
+    if not m:
+        raise ValueError("압축 payload(rynta-blob)를 찾지 못했다")
+    raw = gzip.decompress(base64.b64decode(m.group(1)))
+    return _hydrate(json.loads(raw.decode("utf-8")))
+
+
+_BOOT_JS = r"""/* 압축 payload 복원. base64 → gzip → JSON, 그다음 풀 참조를 되살린다.
+   화면 JS 는 이 약속(__RYNTA_READY__)이 끝난 뒤에 돈다. 외부 요청은 없다. */
+window.__RYNTA_READY__=(async function(){
+  var b64=document.getElementById('rynta-blob').textContent;
+  var bin=atob(b64),u8=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+  if(typeof DecompressionStream!=='function'){
+    var m=document.querySelector('main');
+    if(m)m.textContent='이 브라우저는 압축 해제(DecompressionStream)를 지원하지 않는다. 최신 Chrome·Edge·Firefox·Safari 로 연다.';
+    throw new Error('DecompressionStream unavailable')}
+  var txt=await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  var P=JSON.parse(txt),pool=P.pool||{};
+  var R=function(x){return (x&&typeof x==='object'&&'$ref' in x)?pool[x.$ref]:x};
+  for(var code in P.insts){for(var asof in P.insts[code]){
+    var run=P.insts[code][asof],k;
+    for(k in run)run[k]=R(run[k]);
+    var data=run.data||{};for(k in data)data[k]=R(data[k]);
+    if(run.institution&&run.institution.tables){var tb=run.institution.tables;for(k in tb)tb[k]=R(tb[k])}
+    var pv=run.previews||{};
+    for(k in pv){var p=R(pv[k]);
+      if(p&&typeof p==='object'&&'$head' in p){var d=data[p.$head];
+        p={table:d.table,columns:d.columns,labels:d.labels,rows:d.rows.slice(0,p.shown),total:d.total,shown:p.shown}}
+      pv[k]=p}
+    run.forms=(run.forms||[]).map(function(f){
+      if(!(f&&typeof f==='object'&&'$form' in f))return f;
+      var st=R(f.$form),o=Object.assign({},f.m);
+      o.lines=st.lines.map(function(ln,i){return Object.assign({},ln,{value:f.v[i]})});
+      return o});
+  }}
+  window.__RYNTA_INSTS__=P.insts;
+  window.__RYNTA_RUNS__=P.insts[P.primary_inst];
+  window.__RYNTA__=window.__RYNTA_RUNS__[P.primary];
+  window.__RYNTA_I18N__=P.i18n;
+})();
+"""
+
+
 def render(studios: Studio | list[Studio]) -> str:
     """한 개 이상의 실행 스냅샷을 한 화면으로 그린다.
 
@@ -10378,12 +10599,7 @@ def render(studios: Studio | list[Studio]) -> str:
     m = runs[primary]["meta"]
     # 기본 기관의 실행은 두 번 싣지 않는다. 같은 payload 를 복제하면 파일이
     # 그만큼 커지고, 두 벌 중 한쪽만 고쳐질 여지가 생긴다.
-    insts_js = "{" + ",".join(
-        f"{json.dumps(code)}:" + (
-            "window.__RYNTA_RUNS__" if code == primary_inst
-            else json.dumps(rr, ensure_ascii=False, default=str,
-                            separators=(",", ":")))
-        for code, rr in insts.items()) + "}"
+    b64 = _pack_blob(insts, primary_inst, primary)
     return f"""<!doctype html>
 <html lang="{_i18n.DEFAULT_LANG}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -10441,14 +10657,12 @@ if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)
   <span data-i18n>에이전트는 신용등급·여신승인, PD·LGD·EAD 등 핵심 위험파라미터, ECL·충당금, RWA·BIS 비율, 감독제출·공시, 경영조치를 자동확정하지 않는다.</span>
   <br><span data-i18n>약어</span>: <span data-i18n>RDM(리스크데이터관리) · RWA(위험가중자산) · ECL(기대신용손실) · ALM(자산부채관리) · IRRBB(은행계정 금리리스크) · LCR(유동성커버리지비율) · NSFR(순안정자금조달비율) · IPV(독립가격검증) · SICR(신용위험 유의적 증가) · DQ(데이터품질) · AST(구문트리) · PSMOR(운영리스크 건전관리 원칙).</span>
 </footer>
-<script>window.__RYNTA_RUNS__={json.dumps(runs, ensure_ascii=False, default=str,
-                                          separators=(",", ":"))};
-window.__RYNTA__=window.__RYNTA_RUNS__[{json.dumps(primary)}];
-window.__RYNTA_INSTS__={insts_js};
-window.__RYNTA_I18N__={json.dumps(_i18n.payload(), ensure_ascii=False,
-                                  separators=(",", ":"))};</script>
+<script id="rynta-blob" type="application/gzip+base64">{b64}</script>
+<script>{_BOOT_JS}</script>
 <script>{_ENGINE_JS}</script>
-<script>{_JS}</script>
+<script>window.__RYNTA_READY__.then(function(){{
+{_JS}
+}});</script>
 </body></html>"""
 
 
