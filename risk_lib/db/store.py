@@ -186,6 +186,15 @@ def store_run(studio, portfolio: pd.DataFrame | None = None, *,
         if isinstance(getattr(res, "limits_full", None), pd.DataFrame):
             extra.append(("x_limits_full", res.limits_full))
 
+    # 자연키 중복은 거부하지 않고 센다. 적재 요약이 이 수를 보인다.
+    dups: dict[str, int] = {}
+    for name, kind, df in frames:
+        pk = [k for k in (specs[name].primary_key or []) if k in df.columns]
+        if pk and len(df):
+            n_dup = int(df.duplicated(subset=pk).sum())
+            if n_dup:
+                dups[name] = n_dup
+
     n_rows = 0
     try:
         with conn.cursor() as cur:
@@ -231,4 +240,4 @@ def store_run(studio, portfolio: pd.DataFrame | None = None, *,
             conn.close()
     return {"run_id": run_id, "schema": schema, "n_tables": len(frames),
             "n_rows": n_rows, "n_sections": len(sections) + (1 if iv_json else 0),
-            "extra": [n for n, _ in extra], "skipped": skipped}
+            "extra": [n for n, _ in extra], "skipped": skipped, "dups": dups}

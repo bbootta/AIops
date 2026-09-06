@@ -7,8 +7,8 @@
     _row     실행 안의 행 순서. 원장은 순서가 뜻을 갖는 곳이 있어(경로·사다리)
              적재 순서를 그대로 되돌릴 수 있어야 한다.
 
-기본키는 (_run_id, _row) 이고, 카탈로그의 자연키는 (_run_id, 자연키) 유일 인덱스로
-건다. 자연키 중복은 적재 시점에 실패로 드러난다 (조용히 덮어쓰지 않는다).
+기본키는 (_run_id, _row) 이고, 카탈로그의 자연키는 (_run_id, 자연키) 조회 인덱스로
+건다. 유일 제약은 없다. 자연키 중복은 적재 요약에 건수로 드러나며 DQ 원장의 몫이다.
 
 타입은 스펙 논리 타입에서 나온다. 문자열은 길이 제한 없는 TEXT 다. 스펙의
 VARCHAR(64)·(256) 을 그대로 쓰면 실제 원장 11개 컬럼이 잘린다. 허용값·범위
@@ -84,7 +84,11 @@ def table_ddl(spec: TableSpec, schema: str | None = None) -> list[str]:
     out = [f"CREATE TABLE IF NOT EXISTS {t} (\n  " + ",\n  ".join(cols) + "\n)"]
     if spec.primary_key:
         keys = ", ".join([q(RUN_COL)] + [q(k) for k in spec.primary_key])
-        out.append(f"CREATE UNIQUE INDEX IF NOT EXISTS {q('ux_' + spec.name)} "
+        # 유일 제약은 걸지 않는다. 자연키 중복은 DQ 원장이 기록해야 할 사실이며
+        # DB 가 거부하면 그 사실이 사라진다 (증권사 서식 원장의 라인코드 중복이
+        # 실제로 있었다). 예전의 유일 인덱스는 지우고 조회용 인덱스로 바꾼다.
+        out.append(f"DROP INDEX IF EXISTS {qt('ux_' + spec.name, schema)}")
+        out.append(f"CREATE INDEX IF NOT EXISTS {q('ix_' + spec.name)} "
                    f"ON {t} ({keys})")
     out.append(f"COMMENT ON TABLE {t} IS "
                + _lit(f"{spec.korean} · 입도: {spec.grain} · {spec.product}"))

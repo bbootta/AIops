@@ -483,6 +483,13 @@ def _cmd_db_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _print_dups(info: dict) -> None:
+    """자연키 중복 원장을 적재 요약 아래 한 줄로 보인다. DB 는 거부하지 않는다."""
+    dups = info.get("dups") or {}
+    if dups:
+        print("  자연키 중복 · " + " · ".join(f"{k} {v:,}행" for k, v in dups.items()))
+
+
 def _cmd_db_load(args: argparse.Namespace) -> int:
     """파이프라인을 돌려 실행을 DB 에 적재한다. 인자는 ui-studio 와 같다."""
     from risk_lib.data_gen import generate_portfolio
@@ -511,6 +518,7 @@ def _cmd_db_load(args: argparse.Namespace) -> int:
                     n += 1
                     print(f"  적재 {info['run_id']} · 원장 {info['n_tables']}장 · "
                           f"{info['n_rows']:,}행 · 부문 {info['n_sections']}")
+                    _print_dups(info)
         else:
             portfolio = generate_portfolio(seed=args.seed)
             for a in asofs:
@@ -519,6 +527,7 @@ def _cmd_db_load(args: argparse.Namespace) -> int:
                 n += 1
                 print(f"  적재 {info['run_id']} · 원장 {info['n_tables']}장 · "
                       f"{info['n_rows']:,}행 · 부문 {info['n_sections']}")
+                _print_dups(info)
     print(f"DB 적재 완료 — 실행 {n}건")
     return 0
 

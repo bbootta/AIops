@@ -384,7 +384,7 @@ python -m risk_lib.cli run --from-db RUN-20260630-KR_BANK_01 --report report.md
 `--from-db` 는 run · report-set · notify · serve · export-json · printable · dispatch ·
 reg-report · deliverables · validation-request · ui-studio 가 받는다. 테이블 배치는
 `risk_lib/db/schema.py` 가 카탈로그 스펙에서 만든다 (테이블마다 `_run_id`·`_row`
-접두, 자연키는 실행 안에서 유일 인덱스). 화면 부문 JSON 과 독립검증 요청은
+접두, 자연키는 조회 인덱스이며 유일 제약 없음). 화면 부문 JSON 과 독립검증 요청은
 `run_section` 에, 프레임의 컬럼 순서·dtype 명세는 `run_frame_column` 에 남아
 되읽은 DataFrame 이 메모리의 것과 같다.
 
