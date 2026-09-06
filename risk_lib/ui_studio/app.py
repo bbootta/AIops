@@ -1443,6 +1443,50 @@ font-family:inherit;font-size:11.5px}
 .regtree button:hover{color:var(--text);background:var(--chip)}
 .regtree button.on{color:var(--text);border-left-color:var(--accent)}
 .regtree button .cnt{margin-left:auto;font-variant-numeric:tabular-nums;font-size:10.5px}
+/* ── 좁은 화면 (폰·작은 태블릿) ──
+   격자·플렉스 항목의 자동 최소폭(min-width:auto)이 표·SVG 의 내용 폭으로 커져 페이지가
+   옆으로 넘쳤다. 좁은 폭에서는 0 으로 두고, 옆으로 긴 것은 카드 안에서 굴린다. */
+.navbtn{display:none}
+.cgrid{overflow:auto}
+@media(max-width:900px){
+  main *{min-width:0}
+  table{min-width:520px}     /* 표는 줄이지 않고 .tw·카드 안에서 옆으로 굴린다 */
+  .navbtn{display:inline-flex}
+  nav{display:none;position:static;max-height:none;border-right:none;
+  border-bottom:1px solid var(--line);flex-direction:column}
+  body.navopen nav{display:flex}
+  .ctl{grid-template-columns:1fr}
+  .doc{grid-template-columns:1fr;gap:12px}
+  .toc{position:static;flex-direction:row;flex-wrap:wrap;gap:4px;border-right:none;padding:0}
+  .toc button{border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:11px}
+  .toc button.on{border-color:var(--accent)}
+  .toc button .st{margin-left:6px}
+  .dochead{flex-direction:column;align-items:stretch}
+  .signoff{min-width:0}
+}
+@media(max-width:760px){
+  .figs,.agrid{grid-template-columns:1fr !important}
+  .chartrow>.cbox{flex-basis:100% !important}
+}
+@media(max-width:700px){
+  .topbar{position:static}
+  header{padding:8px 12px;gap:8px}
+  .brand{font-size:13px}
+  .instsel{max-width:38vw}
+  #langbtn{margin-left:0}
+  main{padding:12px;overflow-wrap:anywhere}
+  h2{font-size:19px}
+  .card{padding:12px;overflow-x:auto;border-radius:12px}
+  .bullet,.trow{grid-template-columns:minmax(0,1fr) auto;gap:4px 10px}
+  .bullet svg,.bullet .ubar,.trow>div{grid-column:1/-1;width:100%}
+  .stepper{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dag{grid-template-columns:1fr}.dag .edge{display:none}
+  .kanban{grid-template-columns:1fr}.kcol.wide{grid-column:auto}
+  .qbox{flex-wrap:wrap}.qbox .input,.toolbar .input{min-width:0}
+  .gauges{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stats{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+  footer{padding:14px 12px}
+}
 """
 
 _JS = r"""
@@ -10254,6 +10298,11 @@ function boot(){
     });
   }
   NAVGROUPS.forEach(([gname,items])=>addGroup(gname,items,0));
+  /* 좁은 화면의 메뉴 토글. 화면을 고르면 접는다. */
+  const nb=$('#navbtn');
+  if(nb)nb.onclick=()=>document.body.classList.toggle('navopen');
+  nav.addEventListener('click',e=>{const b=e.target.closest('button');
+    if(b&&nav.contains(b)&&!b.classList.contains('navgroup'))document.body.classList.remove('navopen')});
   /* 메뉴 도구. 검색과 역할 칩은 버튼이 아니다(nav button 은 화면 목록이다). */
   const tools=el('div','navtools');
   const q=rawEl('input','navq');q.type='search';q.id='navq';
@@ -10670,6 +10719,7 @@ if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)
 }}catch(e){{}}}})();</script>
 <div class="topbar">
 <header>
+  <button class="theme navbtn" id="navbtn" type="button" data-i18n>메뉴</button>
   <div class="brand">RYNTA <span>·</span> <b data-i18n>에이전틱 UI 스튜디오</b></div>
   <label class="hchip" for="instsel"><span data-i18n>기관</span>
     <select id="instsel" class="sel instsel"></select></label>
