@@ -388,6 +388,21 @@ CRITERIA_PD: tuple[tuple, ...] = (
 )
 
 
+# 기후리스크: 국내 구속 근거는 규정 제30조(리스크관리체제)와 세칙 별표 19(위기상황분석)
+# 뿐이며, 기후 고유 기준(BCBS 2022 원칙·NGFS·PCAF·IFRS S2)은 국제 권고·민간 표준이다.
+# 요건 전개는 harness/climate_requirement_criteria.json 이 맡는다.
+CRITERIA_CLIMATE: tuple[tuple, ...] = (
+    ("규정", "제30조", "07", ("내부통제", "방법론"),
+     "기후리스크(물리적·전환)가 리스크관리체제의 인식·측정·통제 대상에 포함되고 중요성이 확인된 포트폴리오가 여신·한도·내부자본 관리로 연결되는가",
+     "automated", ("harness/climate_requirement_criteria.json", "tools/climate_criteria.py"),
+     "기후리스크 요건 72건의 기준 원장이 규정 제30조를 S01 로 인용한다. 중요성 평가 자체는 수동 항목(CLR-02-02)"),
+    ("세칙", "별표 19", "07", ("방법론", "내부통제"),
+     "기후 위기상황분석(CST)이 별표 19 의 분석주기·분석기간·보고·내부감사·독립검증 요건 안에서 수행되고 반기 통합 분석과 별도 공동 CST 일정이 구분 관리되는가",
+     "automated", ("harness/climate_requirement_criteria.json", "tools/climate_recalc.py"),
+     "국내 기준은 기후 CST 의 시나리오·방법을 따로 정하지 않아 바젤·BCBS 기후원칙으로 보충한다. 공식 CST 배포본은 미수령이며 내부 합성시험만 재계산한다"),
+)
+
+
 # 계량 임계: 규정 값과 하니스 임계 파일을 기계가 대조한다.
 #
 # (근거, 인용, 키, 한글명, 규정값, 방향, 원문 발췌, 하니스 파일, JSON 경로)
@@ -555,7 +570,7 @@ def build() -> dict:
     digests = {k: hashlib.sha256(source_path(k).read_bytes()).hexdigest() for k in SOURCES}
 
     items, unresolved = [], []
-    for idx, row in enumerate(CRITERIA + CRITERIA_REG + CRITERIA_PD + CRITERIA_BASEL, 1):
+    for idx, row in enumerate(CRITERIA + CRITERIA_REG + CRITERIA_PD + CRITERIA_CLIMATE + CRITERIA_BASEL, 1):
         src, cite, section, lenses, criterion, automation, evidence, note = row
         ln = resolve(cite, lines[src])
         if ln is None:
