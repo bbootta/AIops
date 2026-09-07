@@ -36,7 +36,7 @@ NON_CATALOG_TABLES = frozenset(_app._INST_TABLES) | {"limits_full", "req_trace"}
 
 # sec11.md 의 기존 nav 리프 수. 흡수 라벨이 이 수와 다르면 화면이 사라졌거나
 # 두 번 흡수된 것이다.
-LEGACY_LABEL_COUNT = 83
+LEGACY_LABEL_COUNT = 87
 
 _ID_RE = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 

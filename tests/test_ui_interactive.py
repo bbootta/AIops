@@ -705,6 +705,28 @@ def test_req_trace_tab_switches_to_the_climate_register(page):
     assert page.errors == []
 
 
+# ----- 기타리스크 · 기후리스크 ---------------------------------------------------
+
+def test_climate_screens_draw_from_the_climate_section(page):
+    """네 화면이 payload 의 climate 부문을 그리고, 시나리오 선택이 부문 분해를 바꾼다."""
+    C = page.evaluate("window.__RYNTA__.climate")
+    assert len(C["transition"]) == 6 and len(C["physical"]) == 3
+    assert C["capital"]["path"]["total"] == 21
+    _tab_named(page, "기후 개요")
+    txt = _text(page)
+    assert "clr_*" in txt and "72" in txt
+    _tab_named(page, "전환위험")
+    page.select_option("section.on select.sel", "transition_orderly_2030")
+    page.wait_for_timeout(300)
+    assert "2030" in _text(page)
+    _tab_named(page, "물리적 위험")
+    assert "real_estate" in _text(page)
+    _tab_named(page, "기후 자본 경로")
+    txt = _text(page)
+    assert "2060" in txt and "요구" in txt
+    assert page.errors == []
+
+
 # ----- 범위형 비상정지 · 세부화면 -----------------------------------------------
 
 def test_scoped_kill_only_stops_its_domain(page):

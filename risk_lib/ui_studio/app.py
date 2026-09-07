@@ -222,6 +222,66 @@ def _reverse_dict(s: Studio) -> dict:
     }
 
 
+def _climate_dict(s: Studio) -> dict | None:
+    """기후리스크 화면(기타리스크 · 기후리스크)의 데이터.
+
+    엔진 둘이 낸 것을 그대로 싣는다. risk_lib.climate 는 부문 계수(탄소가격당
+    PD 상승, 재해강도당 LGD 상승)로 시나리오별 ECL 상승분을 내고,
+    risk_lib.stress.climate_capital 은 NGFS 탄소가격·재해 경로로 2030~2060
+    CET1 경로를 낸다. 상세설계(2026-09-06)의 clr_* 원장은 아직 없으므로
+    차주·자산·보험 단위 값은 여기 없다. 화면이 그 사실을 적는다.
+    """
+    r = s.result
+    rep = getattr(r, "climate", None)
+    cc = (getattr(r, "stress_deep", None) or {}).get("climate_capital")
+    if rep is None or cc is None:
+        return None
+    from risk_lib import scenario_library as sl
+    from risk_lib.stress import climate_capital as ccm
+
+    sec_labels = {"sector": "부문", "ead": "EAD", "delta_pd": "PD 상승",
+                  "delta_lgd": "LGD 상승", "uplift_ecl": "ECL 상승", "share": "EAD 비중"}
+
+    def leg(x) -> dict:
+        return {"scenario": x.scenario, "narrative": x.narrative,
+                "total_ear": float(x.total_ear), "base_ecl": float(x.base_ecl),
+                "climate_ecl": float(x.climate_ecl), "uplift": float(x.uplift),
+                "by_sector": _frame(x.by_sector, 20, labels=sec_labels)}
+
+    path = cc.path.drop(columns=["narrative"])
+    path["year"] = path["year"].astype(str)      # 연도는 수가 아니라 라벨이다
+    worst = cc.worst_point
+    return {
+        "transition": [leg(x) for x in rep.transition],
+        "physical": [leg(x) for x in rep.physical],
+        "worst_transition": rep.worst_transition,
+        "worst_physical": rep.worst_physical,
+        "capital": {
+            "path": _frame(path, 30, labels={
+                "scenario": "시나리오", "year": "연도", "co2_price": "CO2 가격 ($/t)",
+                "hazard_intensity": "재해강도", "rwa_total": "RWA 합계", "ecl": "ECL",
+                "incremental_ecl": "ECL 증분", "cet1_ratio": "보통주자본비율",
+                "tier1_ratio": "기본자본비율", "total_ratio": "총자본비율",
+                "delta_cet1_pp": "CET1 변화(%p)"}),
+            "binding_year": {k: int(v) for k, v in cc.binding_year.items()},
+            "worst": {"scenario": str(worst["scenario"]), "year": int(worst["year"]),
+                      "cet1_ratio": float(worst["cet1_ratio"]),
+                      "delta_cet1_pp": float(worst["delta_cet1_pp"])},
+            "base_cet1": float(r.bis.cet1_ratio),
+            "required_cet1": float(r.bis.required["cet1"]),
+            "horizon": [int(y) for y in ccm.HORIZON_YEARS],
+            "co2_paths": {k: [float(v) for v in vs] for k, vs in ccm.NGFS_CO2_PATHS.items()},
+            "hazard_paths": {k: [float(v) for v in vs] for k, vs in ccm.NGFS_HAZARD_PATHS.items()},
+        },
+        "scenarios": [{
+            "short": e.short, "name": e.name, "horizon_years": float(e.horizon_years),
+            "narrative": e.narrative, "citation": e.citation, "severity": float(e.severity),
+            "co2_price": float(e.shocks.co2_price), "gdp_growth": float(e.shocks.gdp_growth),
+            "hpi_korea": float(e.shocks.hpi_korea),
+        } for e in sl.by_family("climate")],
+    }
+
+
 def _executive_dict(s: Studio) -> dict:
     """경영진 요약 화면의 데이터. `02_reports/executive.html`과 **같은 엔진**.
 
@@ -630,7 +690,7 @@ def _kpis(s: Studio) -> list[dict]:
 # 원장 프레임(s.tables·s.inst_tables)과 정적 카탈로그에서 나온다.
 SECTION_KEYS = ("kpis", "executive", "plans", "proposals", "forms", "independent",
                 "adjustments", "limits", "limits_full", "reverse_stress", "macro",
-                "alm", "sim", "lex", "irb")
+                "alm", "sim", "lex", "irb", "climate")
 
 
 def _sections(s: Studio) -> dict:
@@ -750,6 +810,7 @@ def _sections(s: Studio) -> dict:
         "sim": _sim_dict(s),
         "lex": _lex_dict(s),
         "irb": _irb_dict(s),
+        "climate": _climate_dict(s),
     }
 
 
@@ -875,6 +936,9 @@ def _payload(s: Studio) -> dict:
         "sim": secs["sim"],
         "lex": secs["lex"],
         "irb": secs["irb"],
+        # 기후리스크(기타리스크). 이 키가 생기기 전에 적재한 DB 실행에는 없다.
+        # 그때는 화면이 "적재되지 않았다"고 적는다.
+        "climate": secs.get("climate"),
         # 사업성(COM). 규제 산출물이 아니다. 제출 지문·독립검증 대상에 넣지
         # 않으며, 전 수치가 가정 원장에서 계산으로만 나온다.
         "commercial": {
@@ -4300,6 +4364,161 @@ function scenarioSettings(root){
 }
 
 /* ---- 요건 추적 (v9.6.0 BRD 131건 · 기후리스크 72건 대비 구현 재고조사) ---- */
+/* ---- 기타리스크 · 기후리스크 (개요 · 전환위험 · 물리적 위험 · 자본 경로) ----
+   엔진은 둘이다. risk_lib.climate 가 부문 계수로 ECL 상승분을 내고,
+   risk_lib.stress.climate_capital 이 NGFS 탄소가격·재해 경로로 CET1 경로를 낸다.
+   상세설계(2026-09-06)의 clr_* 원장 36장은 아직 카탈로그에 없으므로 차주·자산·
+   보험 단위 화면(F01~F08)은 만들지 않는다. 없는 것은 없다고 적는다. */
+const CLR_SCEN_KO={orderly:'질서있는 전환',disorderly:'무질서한 전환',hot_house:'온난화 지속',
+  current:'현행 경로',moderate:'중간 경로',severe:'심각 경로'};
+function clrName(k){return T(CLR_SCEN_KO[k]||k)}
+/* transition_orderly_2030 → 질서있는 전환 · 2030, physical_severe → 심각 경로.
+   막대 축 라벨은 12자에서 잘리므로 짧은 꼴(질서 · 2030)을 따로 둔다. */
+const CLR_SCEN_SHORT={orderly:'질서',disorderly:'무질서',hot_house:'온난화',current:'현행',moderate:'중간',severe:'심각'};
+function clrParts(l){
+  const p=l.scenario.split('_'),last=p[p.length-1],hasYear=/^\d{4}$/.test(last);
+  return [p.slice(1,hasYear?p.length-1:p.length).join('_'),hasYear?last:'']}
+function clrLegLabel(l){const [k,y]=clrParts(l);return clrName(k)+(y?' · '+y:'')}
+function clrShort(l){const [k,y]=clrParts(l);return T(CLR_SCEN_SHORT[k]||k)+(y?' · '+y:'')}
+function clrGate(root){
+  if(D.climate)return true;
+  root.appendChild(el('div','note bad','이 실행에는 기후 부문이 실려 있지 않다. DB 적재본이면 db-load 로 다시 적재해야 한다.'));
+  return false}
+function clrLevelNote(){
+  return el('div','note','산출 수준: 부문 계수(탄소가격당 PD 상승, 재해강도당 LGD 상승)로 ECL 상승분을 낸다. 차주·자산·보험 단위 전이와 clr_* 원장은 없다. 참고 계산이며 승인된 수치가 아니다.')}
+function clrLegSummary(l){
+  return hbars([{label:T('위험 노출 EAD'),value:l.total_ear},{label:T('기준 ECL'),value:l.base_ecl},
+    {label:T('기후 ECL'),value:l.climate_ecl},{label:T('ECL 상승분'),value:l.uplift,tone:'warn'}],
+    {title:'선택 시나리오 요약'})}
+function clrSectorCard(l){
+  const f=l.by_sector,i=frameIdx(f);
+  const c=el('div','card');c.appendChild(el('h3',null,'부문별 ECL 상승분'));
+  const items=f.rows.filter(r=>r[i.uplift_ecl]>0).map(r=>({label:r[i.sector],value:r[i.uplift_ecl]}));
+  if(items.length)c.appendChild(bars(items,{fmt:fmtMoney,note:T('상승분이 0 인 부문은 계수가 0 이라 그래프에서 뺐다')}));
+  c.appendChild(table(f));
+  return c}
+function clrSelectPane(root,legs,initial){
+  const bar=el('div','toolbar');
+  const sel=almSelect(bar,'시나리오',legs.map(l=>l.scenario),initial);
+  root.appendChild(bar);
+  const pane=el('div');root.appendChild(pane);
+  function draw(){pane.innerHTML='';
+    const l=legs.find(x=>x.scenario===sel.value);
+    pane.appendChild(rawEl('div','meta',clrLegLabel(l)+' · '+l.narrative));
+    pane.appendChild(clrLegSummary(l));
+    pane.appendChild(clrSectorCard(l))}
+  sel.onchange=draw;draw()}
+function clrPathTable(K,key,title,fmt){
+  const c=el('div','card');c.appendChild(el('h3',null,title));
+  const scen=Object.keys(K[key]);
+  c.appendChild(simpleTable([T('연도')].concat(scen.map(clrName)),
+    K.horizon.map((y,k)=>[String(y)].concat(scen.map(sc=>fmt(K[key][sc][k]))))));
+  return c}
+
+function climateOverview(root){
+  if(!clrGate(root))return;
+  const C=D.climate,K=C.capital,Q=D.req_trace_clr.coverage;
+  root.appendChild(el('p','lead','기후리스크를 이 하네스가 지금 어디까지 산출하는지 한 화면에 모은다. 전환·물리 ECL 상승분, NGFS 자본 경로, 시나리오 카탈로그, ICAAP 인벤토리의 기후 항목, 요건 커버리지다.'));
+  root.appendChild(clrLevelNote());
+  const wt=C.transition.find(l=>l.scenario===C.worst_transition);
+  const wp=C.physical.find(l=>l.scenario===C.worst_physical);
+  const g=el('div','grid');
+  const tile=(lab,val,sub,tone)=>{const c=el('div','card kpi');
+    c.appendChild(el('div','lab',lab));c.appendChild(rawEl('div','val '+(tone||''),val));
+    if(sub)c.appendChild(rawEl('div','sub',sub));g.appendChild(c)};
+  tile('전환위험 최대 ECL 상승',fmtMoney(wt.uplift),clrLegLabel(wt),'warn');
+  tile('물리적 위험 최대 ECL 상승',fmtMoney(wp.uplift),clrLegLabel(wp),'warn');
+  tile('NGFS 경로 최저 보통주자본비율',pctv(K.worst.cet1_ratio,2),
+    clrName(K.worst.scenario)+' · '+K.worst.year+' · '+T('요구')+' '+pctv(K.required_cet1,1),
+    K.worst.cet1_ratio<K.required_cet1?'bad':'good');
+  tile('기후 요건 커버리지',TC(Q['부분'],'건')+' / '+TC(Q.n,'건'),
+    T('부분')+' '+Q['부분']+' · '+T('미반영')+' '+Q['미반영'],Q['반영']?'good':'warn');
+  root.appendChild(g);
+
+  const ag=el('div','agrid');
+  const c1=el('div','card');c1.appendChild(el('h3',null,'시나리오별 ECL 상승분 (전환 6 · 물리 3)'));
+  c1.appendChild(bars(C.transition.concat(C.physical).map(l=>({label:clrShort(l),value:l.uplift})),{fmt:fmtMoney}));
+  ag.appendChild(c1);
+  const tx=D.data['icaap_risk_taxonomy'];
+  const c2=el('div','card');c2.appendChild(el('h3',null,'ICAAP 인벤토리의 기후 항목'));
+  if(tx){const i=frameIdx(tx);
+    const rows=tx.rows.filter(r=>/CLM|기후/.test(String(r[i.risk_id])+String(r[i.risk_name])));
+    c2.appendChild(table({columns:tx.columns,labels:tx.labels,rows:rows,total:rows.length,shown:rows.length}));
+    c2.appendChild(srcMeta(tx))}
+  else c2.appendChild(el('div','note','원장 icaap_risk_taxonomy 이 payload에 없다'));
+  ag.appendChild(c2);
+  root.appendChild(ag);
+
+  const sc=el('div','card');sc.appendChild(el('h3',null,'기후 시나리오 카탈로그 (scenario_library · climate 계열)'));
+  sc.appendChild(simpleTable(['코드','이름','시계(년)','CO2 가격 ($/t)','GDP 성장 충격','주택가격 충격','심각도','인용'],
+    C.scenarios.map(x=>[x.short,x.name,x.horizon_years,x.co2_price,pctv(x.gdp_growth,1),
+      pctv(x.hpi_korea,1),x.severity,x.citation])));
+  sc.appendChild(el('div','meta','승인 상태·버전·출처 등급 컬럼은 없다 (CLR-06-01 부분). 등록만 있고 승인 흐름은 없다.'));
+  root.appendChild(sc);
+
+  /* 요건 커버리지를 장별 100% 띠로. 레지스터는 요건 추적 화면과 같은 payload 다. */
+  const rq=el('div','card');rq.appendChild(el('h3',null,'기후 요건 72건 · 장별 커버리지'));
+  const rows=Q.chapters.map(ch=>{const pre='CLR-'+ch.no+'-';
+    const n=st=>D.req_trace_clr.rows.filter(r=>r.id.startsWith(pre)&&r.status===st).length;
+    return {label:ch.no+' · '+ch.title,items:[{label:T('반영'),value:n('반영'),tone:'good'},
+      {label:T('부분'),value:n('부분'),tone:'warn'},{label:T('미반영'),value:n('미반영'),tone:'bad'}]}});
+  rq.appendChild(shareStrips(rows,{}));
+  rq.appendChild(el('div','meta','상세설계 화면 F01(작업함)·F02(품질·예외)·F03(시나리오·모형 등록)·F04(실행·모니터)·F05(차주·담보·손실)·F06(검증·모형대사)·F07(승인·반려)·F08(보고·제출·정정)은 clr_* 원장이 생기기 전에는 만들지 않는다. 요건별 판정은 요건 추적 화면의 기후리스크 레지스터에 있다.'));
+  root.appendChild(rq);
+}
+
+function climateTransition(root){
+  if(!clrGate(root))return;
+  const C=D.climate,K=C.capital;
+  root.appendChild(el('p','lead','탄소가격이 부문별 PD 를 올리고 그만큼 ECL 이 오른다. 시나리오 셋 × 시계 둘(2030·2050)의 상승분, 고른 시나리오의 부문 분해, NGFS 탄소가격 경로를 본다.'));
+  root.appendChild(clrLevelNote());
+  const c1=el('div','card');c1.appendChild(el('h3',null,'시나리오·시계별 ECL 상승분'));
+  c1.appendChild(bars(C.transition.map(l=>({label:clrShort(l),value:l.uplift})),{fmt:fmtMoney}));
+  root.appendChild(c1);
+  clrSelectPane(root,C.transition,C.worst_transition);
+  root.appendChild(clrPathTable(K,'co2_paths','NGFS 탄소가격 경로 ($/tCO2 · 5년 간격)',v=>fmtNum(v)));
+}
+
+function climatePhysical(root){
+  if(!clrGate(root))return;
+  const C=D.climate,K=C.capital;
+  root.appendChild(el('p','lead','재해강도가 부문별 LGD 를 올리고 그만큼 ECL 이 오른다. 경로 셋의 상승분, 고른 경로의 부문 분해, NGFS 재해강도 경로를 본다. 보험 회수와 적응효과는 아직 반영하지 않는다.'));
+  root.appendChild(clrLevelNote());
+  const c1=el('div','card');c1.appendChild(el('h3',null,'경로별 ECL 상승분'));
+  c1.appendChild(hbars(C.physical.map(l=>({label:clrLegLabel(l),value:l.uplift,sub:l.narrative})),{}));
+  root.appendChild(c1);
+  clrSelectPane(root,C.physical,C.worst_physical);
+  const c3=el('div','card');c3.appendChild(el('h3',null,'NGFS 재해강도 경로 (누적, 5년 간격)'));
+  c3.appendChild(multiLine(Object.keys(K.hazard_paths).map(k=>({name:clrName(k),values:K.hazard_paths[k]})),
+    K.horizon.map(String),null));
+  root.appendChild(c3);
+}
+
+function climateCapital(root){
+  if(!clrGate(root))return;
+  const K=D.climate.capital,f=K.path,i=frameIdx(f);
+  root.appendChild(el('p','lead','NGFS 시나리오 셋을 2030년부터 2060년까지 5년 간격으로 밀어 보통주자본비율 경로를 그린다. 탄소가격이 PD 를, 재해강도가 LGD 를 올려 ECL 증분만큼 자본이 줄고 RWA 가 는다. 요구선은 최저비율에 버퍼를 더한 값이다.'));
+  root.appendChild(clrLevelNote());
+  const scen=[...new Set(f.rows.map(r=>r[i.scenario]))];
+  const years=[...new Set(f.rows.map(r=>r[i.year]))];
+  const at=(sc,y)=>f.rows.find(r=>r[i.scenario]===sc&&r[i.year]===y);
+  const c1=el('div','card');c1.appendChild(el('h3',null,'보통주자본비율 경로 · NGFS 3시나리오'));
+  c1.appendChild(multiLine(scen.map(sc=>({name:clrName(sc),
+    values:years.map(y=>{const r=at(sc,y);return r?r[i.cet1_ratio]:null})})),years.map(String),K.required_cet1));
+  c1.appendChild(rawEl('div','meta',TP('기준 보통주자본비율',pctv(K.base_cet1,2))+' · '+TP('요구',pctv(K.required_cet1,2))));
+  root.appendChild(c1);
+  const c2=el('div','card');c2.appendChild(el('h3',null,'시나리오별 최저점'));
+  c2.appendChild(statTiles(scen.map(sc=>{const y=K.binding_year[sc],r=at(sc,String(y));
+    return {label:clrName(sc),value:r?r[i.cet1_ratio]:0,
+      sub:TP('최저 연도',y)+' · '+r[i.delta_cet1_pp].toFixed(2)+'%p',
+      tone:r&&r[i.cet1_ratio]<K.required_cet1?'bad':'good'}}),{money:false,fmt:v=>pctv(v,2)}));
+  root.appendChild(c2);
+  const c3=el('div','card');c3.appendChild(el('h3',null,'경로 원표 (시나리오 × 연도)'));
+  c3.appendChild(table(f));
+  c3.appendChild(el('div','meta','산출: risk_lib.stress.climate_capital.run_climate_capital. 운영 보고서 50번과 같은 값이다.'));
+  root.appendChild(c3);
+}
+
 /* 경영진 요약. 02_reports/executive.html 과 **같은 생성기**(risk_lib.html_exec)
    에서 나온 값을 그린다. 화면이 따로 계산하지 않으므로 두 산출물의 수치가
    갈라질 자리가 없다. 서식이 달라도 같은 생성기의 산출값을 쓴다. */
@@ -5557,6 +5776,13 @@ const SUMMARIES={
   '상업성':()=>{const q=D.commercial.quotes,i=frameIdx(q);
     const best=q.rows.reduce((a,r)=>r[i.payback_years]<a[i.payback_years]?r:a,q.rows[0]);
     return {t:`회수기간 최단 ${best[i.name]} ${best[i.payback_years]}년 (전 수치 가정 원장 파생·이중계상 검증 통과)`,tone:'good'}},
+  '기후 개요':()=>{const C=D.climate;if(!C)return null;
+    const K=C.capital,w=C.transition.find(l=>l.scenario===C.worst_transition);
+    return {t:`전환 최대 ECL 상승 ${fmtMoney(w.uplift)} (${clrLegLabel(w)}) · NGFS 최저 CET1 ${pctv(K.worst.cet1_ratio,2)} (${clrName(K.worst.scenario)} ${K.worst.year}, 요구 ${pctv(K.required_cet1,1)}) · 부문 계수 수준, clr_* 원장 없음`,
+      tone:K.worst.cet1_ratio<K.required_cet1?'bad':'warn'}},
+  '기후 자본 경로':()=>{const C=D.climate;if(!C)return null;const K=C.capital;
+    return {t:`3시나리오 × ${K.horizon.length}시점 · 최저 ${pctv(K.worst.cet1_ratio,2)} (${clrName(K.worst.scenario)} ${K.worst.year}) · 기준 ${pctv(K.base_cet1,2)} · 요구 ${pctv(K.required_cet1,2)}`,
+      tone:K.worst.cet1_ratio<K.required_cet1?'bad':'good'}},
   '요건 추적':()=>{const c=D.req_trace.coverage;
     const k=D.req_trace_clr.coverage;
     return {t:`131건 중 반영 ${c['반영']} · 부분 ${c['부분']} · 미반영 ${c['미반영']} (증빙 ${c.n_evidence}건 전부 기계 검증) · 기후 ${k.n}건 중 부분 ${k['부분']} · 미반영 ${k['미반영']}`,tone:'good'}},
@@ -9958,6 +10184,11 @@ const DETAIL_SCREENS=[
     tables:[['승인 View 마스터','ui_view'],
             ['자연어 조회계획','ui_query_plan'],
             ['비정형 레이아웃 제안','ui_layout_proposal']]})],
+  /* 기타리스크 · 기후리스크. 상세설계(2026-09-06) 요건 대비 엔진 산출 수준까지. */
+  ['기후 개요','CLR · 기후리스크 개요 (전환·물리 ECL 상승, NGFS 자본 경로, 시나리오, 요건 커버리지)',climateOverview],
+  ['전환위험','CLR · 전환위험 (탄소가격 → 부문 PD 상승 → ECL 상승)',climateTransition],
+  ['물리적 위험','CLR · 물리적 위험 (재해강도 → 부문 LGD 상승 → ECL 상승)',climatePhysical],
+  ['기후 자본 경로','CLR · 기후 자본 경로 (NGFS 3시나리오 × 2030~2060 보통주자본비율)',climateCapital],
 ];
 
 /* 메뉴 트리. 그룹은 시각적 계층이고, 리프 순서가 화면 목록의 순서를 정한다.
@@ -10001,6 +10232,11 @@ const NAVGROUPS=[
     ['위기상황',['거시지표 모니터링','시나리오 설정','역스트레스',
               'ICAAP 인벤토리','경영조치·제출']],
   ]],
+  /* 기타리스크. 신용·시장·운영·ALM 어느 축에도 속하지 않는 Pillar 2 리스크.
+     지금은 기후리스크만 있다. 화면은 엔진 산출 수준(부문 계수·NGFS 경로)까지다. */
+  ['기타리스크',[
+    ['기후리스크',['기후 개요','전환위험','물리적 위험','기후 자본 경로']],
+  ]],
   ['검증·거버넌스',[
     ['검증',['요건 추적']],
     '에이전트','변경','오버레이',
@@ -10028,9 +10264,9 @@ function navLeaves(name){
 const NAV_ROLES=[
   ['','전체',()=>null],
   ['exec','경영진',()=>['종합보고서','감독보고','NCR·건전성','콕핏','한도관리','예외·조치',
-     '역스트레스','거시지표 모니터링','경영조치·제출','검증','KRI·통제']],
+     '역스트레스','거시지표 모니터링','경영조치·제출','검증','KRI·통제','기후 개요']],
   ['ops','실무',()=>navLeaves('통제센터').concat(navLeaves('조회·컴포저'),navLeaves('리스크데이터'),
-     navLeaves('위험가중자산(RWA)'),navLeaves('ALM·위기상황'),
+     navLeaves('위험가중자산(RWA)'),navLeaves('ALM·위기상황'),navLeaves('기타리스크'),
      ['감독보고','NCR·건전성','데이터모델','코드 마스터','코드 매핑'])],
   ['model','모형검증',()=>navLeaves('모형').concat(['검증','오버레이','변경','모형 수명주기',
      '산출 방법론','행동모형 백테스트'])],

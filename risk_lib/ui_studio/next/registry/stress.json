@@ -90,7 +90,11 @@
   "title_en": "Reverse stress",
   "sub": "위기상황",
   "legacy": [
-   "역스트레스"
+   "역스트레스",
+   "기후 개요",
+   "전환위험",
+   "물리적 위험",
+   "기후 자본 경로"
   ],
   "leaf_parent": false,
   "density": "operator",
