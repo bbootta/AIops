@@ -2399,42 +2399,50 @@ function niceTop(v){
   return k*e;
 }
 function gaugeTop(v,min){return niceTop(Math.max(v||0,min||0)*1.2)}
-/* 게이지 (gauge 대응). 바깥 띠는 요구선 아래(위반)·위(양호) 구간, 안쪽 호는
-   값, 굵은 눈금이 요구선이다. 양끝에 0 과 상한을 적는다. */
+/* 게이지 (gauge 대응) */
 function gauge(value,max,{title,note,tone,fmt,min}={}){
-  const W=240,H=158,cx=120,cy=112,R=94,r=68;
-  const top=max||1;
-  const f=v=>Math.max(0,Math.min(1,v/top));
+  /* 규제 비율 계기판. 눈금은 요구선의 절반에서 시작해 요구선이 왼쪽 1/3 에 서고,
+     띠는 요구 미달(위반)·요구선부터 10% 여유까지(조기경보)·그 위(양호) 셋이다.
+     값은 바늘이 가리키고 숫자는 가운데 크게 적는다. 요구선이 없으면 회색 띠 하나다. */
+  const W=260,H=168,cx=130,cy=126,R=104,r=78;
+  const lo=min!=null?min*0.5:0,hi=Math.max(max||0,value,min!=null?min*1.5:0)||1;
+  const f=v=>Math.max(0,Math.min(1,(v-lo)/((hi-lo)||1)));
   const s=svgEl(W,H,title||'게이지');
   const P=(ra,an)=>[cx+ra*Math.cos(an),cy+ra*Math.sin(an)];
   const A=fr=>Math.PI+fr*Math.PI;
   const band=(f0,f1,col,op)=>{
-    if(f1-f0<=0)return;
-    const a0=A(f0),a1=A(f1),large=(f1-f0)>0.5?1:0;
+    if(f1-f0<=0.0005)return;
+    /* 부동소수 오차로 반원(0.5)이 0.5000…01 이 되면 large-arc 가 뒤집혀 띠가 깨진다. */
+    const a0=A(f0),a1=A(f1),large=(f1-f0)>0.5+1e-6?1:0;
     const [x0,y0]=P(R,a0),[x1,y1]=P(R,a1),[x2,y2]=P(r,a1),[x3,y3]=P(r,a0);
     svgNode(s,'path',{d:`M${x0},${y0} A${R},${R} 0 ${large},1 ${x1},${y1} `+
       `L${x2},${y2} A${r},${r} 0 ${large},0 ${x3},${y3} Z`,fill:col,'fill-opacity':op==null?1:op})};
-  /* 띠: 요구선 아래는 위반 구간, 위는 양호 구간. 요구선이 없으면 한 띠다. */
-  if(min!=null){band(0,f(min),'var(--bad)',0.32);band(f(min),1,'var(--good)',0.32)}
+  const fm=min!=null?f(min):null,fw=min!=null?f(min*1.1):null;
+  if(min!=null){band(0,fm,'var(--bad)',0.55);band(fm,fw,'var(--warn)',0.55);band(fw,1,'var(--good)',0.55)}
   else band(0,1,'var(--line)',1);
-  [0,0.25,0.5,0.75,1].forEach(t=>{const an=A(t),[ax,ay]=P(r-2,an),[bx,by]=P(r-7,an);
+  /* 띠 경계선과 눈금 */
+  [0,0.25,0.5,0.75,1].forEach(t=>{const an=A(t),[ax,ay]=P(r-3,an),[bx,by]=P(r-9,an);
     svgNode(s,'line',{x1:ax,y1:ay,x2:bx,y2:by,stroke:'var(--muted)','stroke-width':1})});
-  if(min!=null){const fm=f(min),an=A(fm),[ax,ay]=P(r-8,an),[bx,by]=P(R+5,an);
-    svgNode(s,'line',{x1:ax,y1:ay,x2:bx,y2:by,stroke:'var(--text)','stroke-width':2});
-    const [tx,ty]=P(R+12,an);
-    svgNode(s,'text',{x:Math.max(4,Math.min(W-4,tx)),y:ty+(fm>0.2&&fm<0.8?-2:4),
-      'text-anchor':fm<0.35?'end':fm>0.65?'start':'middle','font-size':9,fill:'var(--muted)'},
-      fmt?fmt(min):fmtNum(min))}
+  const lab=(fr,txt,dy)=>{const an=A(fr),[tx,ty]=P(R+13,an);
+    svgNode(s,'text',{x:Math.max(4,Math.min(W-4,tx)),y:ty+(dy||0),
+      'text-anchor':fr<0.35?'end':fr>0.65?'start':'middle','font-size':9.5,'font-weight':700,
+      fill:'var(--text)'},txt)};
+  if(min!=null){const an=A(fm),[ax,ay]=P(r-10,an),[bx,by]=P(R+6,an);
+    svgNode(s,'line',{x1:ax,y1:ay,x2:bx,y2:by,stroke:'var(--text)','stroke-width':2.5});
+    lab(fm,(fmt?fmt(min):fmtNum(min)),fm>0.2&&fm<0.8?-3:4)}
   /* 바늘 */
   const col='var(--'+(tone||'accent')+')';
-  const [nx,ny]=P(R-2,A(f(value)));
-  svgNode(s,'line',{x1:cx,y1:cy,x2:nx,y2:ny,stroke:col,'stroke-width':3,'stroke-linecap':'round'});
-  svgNode(s,'circle',{cx:cx,cy:cy,r:5,fill:col});
-  svgNode(s,'text',{x:cx,y:cy+34,'text-anchor':'middle','font-size':22,'font-weight':700,
+  const [nx,ny]=P(R-4,A(f(value)));
+  svgNode(s,'line',{x1:cx,y1:cy,x2:nx,y2:ny,stroke:col,'stroke-width':4,'stroke-linecap':'round'});
+  svgNode(s,'circle',{cx:cx,cy:cy,r:6,fill:col});
+  svgNode(s,'text',{x:cx,y:cy+36,'text-anchor':'middle','font-size':24,'font-weight':800,
     fill:'var(--text)'},fmt?fmt(value):fmtNum(value));
-  svgNode(s,'text',{x:cx-R,y:cy+14,'text-anchor':'start','font-size':9,fill:'var(--muted)'},fmt?fmt(0):'0');
-  svgNode(s,'text',{x:cx+R,y:cy+14,'text-anchor':'end','font-size':9,fill:'var(--muted)'},fmt?fmt(top):fmtNum(top));
-  return chartBox(s,title,note);
+  svgNode(s,'text',{x:cx-R,y:cy+16,'text-anchor':'start','font-size':9,fill:'var(--muted)'},fmt?fmt(lo):fmtNum(lo));
+  svgNode(s,'text',{x:cx+R,y:cy+16,'text-anchor':'end','font-size':9,fill:'var(--muted)'},fmt?fmt(hi):fmtNum(hi));
+  const box=chartBox(s,title,note);
+  if(min!=null)box.appendChild(rawEl('div','meta',
+    `${T('위반')} < ${fmt?fmt(min):fmtNum(min)} · ${T('조기경보')} < ${fmt?fmt(min*1.1):fmtNum(min*1.1)} · ${T('양호')}`));
+  return box;
 }
 /* KRI 카드 격자 (viz_advanced.kri_scorecard 대응. 스파크라인·등급 배지 포함) */
 function kriCards(kris){
