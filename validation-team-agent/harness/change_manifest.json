@@ -2535,6 +2535,51 @@
       "rollback_rule": "테스트 파일을 제거하면 문서는 다시 손 갱신 대상이 된다.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0170",
+      "timestamp": "2026-09-07 16:00:00",
+      "component": "harness/reference/climate_risk_{requirements,overview}_20260906.html + tools/gen_climate_criteria.py + harness/climate_requirement_criteria.json + tools/climate_criteria.py + tests/test_climate_criteria.py + CLAUDE.md §2 (부문 09) + README + cli_index · vta climate",
+      "change_type": "create",
+      "evidence": "사용자 요청: 기후리스크 관리 업무요건정의서(개요·실무진 해설서, 설계 1.0.0 · 2026.09.06)의 요건에 대한 적합성검증 반영. 실측: 하니스에 기후리스크 개념이 정책·도구·기준 항목 어디에도 없었다. 문서는 요건 72건(18장×4, 전부 P0)·인수시험 72·운영 전 결정 20·근거 자료 13을 담는다.",
+      "root_cause": "검증 범위가 요건정의 마스터 8부문에 고정돼 있어 기후리스크(물리적·전환) 요건이 기준 항목으로 존재하지 않았다.",
+      "targeted_fix": "원문 2종을 지문과 함께 보관하고, 요건·인수시험·결정·근거를 원문에서 파싱하는 생성기로 부문 09 기후리스크 기준 원장을 만들었다. 검증 기준 문장·자동화·근거만 생성기가 정한다. automated 33(기존 통제 + climate_recalc)·manual 31·out_of_scope 8(시스템 구현 계약). verify 가 지문·요건 ID·제목·인수시험 ID·결정 건수·근거 실재성을 강제한다.",
+      "expected_benefit": "기후 요건 72건이 검증 기준으로 추적되고, 원문이 바뀌면 원장이 낡았다는 사실이 드러난다. 어떤 요건에 통제가 없는지(수동 31건)가 명시된다.",
+      "expected_regression_risk": "automated 판정은 일반 통제가 기후 요건에도 적용된다는 뜻이며 기후 특유 검사가 있다는 뜻이 아니다: note 가 경계를 적는다. 원문 HTML 1.3MB 가 저장소에 들어간다. 파서는 이 문서의 마크업(article.requirement · source-item · 추적표 표)에 의존하므로 문서 서식이 바뀌면 생성기를 손봐야 한다.",
+      "validation_method": "tests/test_climate_criteria.py 12건 (원장==생성물, 위반 0, 72/72, 음성 통제 3건: 근거 파일 부재·지문 불일치·제목 변경·요건 누락). climate_criteria verify 통과 (근거 44개 파일 실재).",
+      "rollback_rule": "원문 2종·생성기·원장·도구·테스트·등록·CLAUDE.md 부문 09 문단을 함께 제거.",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0171",
+      "timestamp": "2026-09-07 16:20:00",
+      "component": "tools/climate_recalc.py + tests/test_climate_recalc.py + cli_index · vta climate-recalc",
+      "change_type": "create",
+      "evidence": "요건 CLR-18-02(공통 합성자료와 독립 재계산)는 부록 fixture·기대값으로 손실·PD·EAD·ECL·RWA·비율을 단계별 대사하되 문서 계산기와 엔진이 같은 모듈을 공유한 결과를 독립검증으로 치지 말라고 한다. 문서 계산기는 Decimal 기반 27건 자기시험을 통과했다고 적혀 있으나 3선이 다시 계산한 적이 없었다.",
+      "root_cause": "기후 손실 전이 산식(손상·적응·보험·영업중단·탄소·로짓 PD·EAD·기간구조 ECL·가중합·자본 전개)의 독립 구현이 하니스에 없었다.",
+      "targeted_fix": "문서 계산기와 코드를 공유하지 않는 유리수(Fraction) 구현을 신설. 최종 금액만 ROUND_HALF_UP 원단위(CLR-04-03). 문서 공표값 금액 18건·비율 3건과 대조하는 self-test 와 임의 fixture·주장값 대사 run 을 제공. 계약 위반(Stage 3·가중치 합·경계 PD·범위 밖 비율·비SAMPLE 프로파일)은 거부한다.",
+      "expected_benefit": "공표값 21건 전부 일치 확인. 이후 은행이 같은 fixture 계약으로 산출한 값을 단계별로 대사할 수 있다.",
+      "expected_regression_risk": "SAMPLE_ONLY 합성 사례의 수식 계약 재계산이며 모형 적합성 승인이 아니다(DEC-20). 로짓 변환은 부동소수라 비율 허용오차 1e-9 를 쓴다. 복수 보험계약 순차 배분·공급망 중복 제거·Stage 3 은 범위 밖이다.",
+      "validation_method": "tests/test_climate_recalc.py 24건: 공표값 재현, 재현성, Stage 1/2·복합손상·보험 계약, 보험 무효 연쇄(잔여피해 15억·PD·ECL 상승), 계약 위반 거부 10건, 대사 불일치 탐지, 자본 전개가 ECL 을 빼지 않음, CLI exit 코드.",
+      "rollback_rule": "독립 컴포넌트다. climate_recalc.py 와 테스트, climate 기준 원장의 근거 참조(_RECALC)를 함께 제거.",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0172",
+      "timestamp": "2026-09-07 16:40:00",
+      "component": "tools/gen_regulatory_criteria.py (CRITERIA_CLIMATE 2건) + harness/regulatory_criteria.json + docs/criteria_layers.md §3 + tests/test_criteria_layers_doc.py",
+      "change_type": "modify",
+      "evidence": "기후 층의 국내 구속 근거는 규정 제30조(리스크관리체제)와 세칙 별표 19(위기상황분석: 분석주기·기간·보고·내부감사·독립검증)뿐이며 규제 층에 기후 항목이 없었다. 문서 §근거 자료가 S01·S02 로 이 둘을 인용한다.",
+      "root_cause": "규제 기준 검증 항목이 기후리스크를 주제로 다루지 않아 기후 층이 규제 층 아래에 걸려 있지 않았다.",
+      "targeted_fix": "규정 제30조·세칙 별표 19 를 인용하는 기후 항목 2건 추가(부문 07, 근거 climate 원장·재계산기). 별표 19 는 기존 정책대로 국내+바젤보충. 문서 집계를 72건·자동 48 로 갱신하고 기후 층 §3 을 추가했으며 문서 숫자 대조 테스트에 기후 집계를 더했다.",
+      "expected_benefit": "기후 요건이 국내 규정 인용과 함께 규제 층에서 추적된다.",
+      "expected_regression_risk": "BCBS 기후원칙(2022)은 Basel Framework Chapter 가 아니라 소스북에 없다. 보충 근거로 SRP30 을 쓰며 기후원칙 원문 대조는 못 한다.",
+      "validation_method": "regulatory_criteria verify 통과(72건·지배기준 정책 일치). tests/test_criteria_layers_doc.py 4건.",
+      "rollback_rule": "CRITERIA_CLIMATE 와 문서 §3·테스트를 제거하고 재생성.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

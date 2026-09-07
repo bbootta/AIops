@@ -11,6 +11,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from tools import climate_criteria as ccr
 from tools import domain_criteria as dcr
 from tools import regulatory_criteria as rc
 
@@ -44,6 +45,16 @@ def test_domain_totals_in_the_doc_match_the_catalog():
     auto = Counter(c["automation"] for c in items)
     assert (f"총 {len(items)}건 · 자동 {auto['automated']} · 수동 {auto['manual']} "
             f"· 범위밖 {auto['out_of_scope']}") in _doc()
+
+
+def test_climate_totals_in_the_doc_match_the_catalog():
+    cat = ccr.load()
+    items = cat["criteria"]
+    auto = Counter(c["automation"] for c in items)
+    text = _doc()
+    assert (f"총 {len(items)}건 · 자동 {auto['automated']} · 수동 {auto['manual']} "
+            f"· 범위밖 {auto['out_of_scope']}") in text
+    assert f"{len(items)}건 (자동 {auto['automated']} · 수동 {auto['manual']} · 범위밖 {auto['out_of_scope']}) + 인수시험 {len(cat['acceptance_tests'])} · 결정 {len(cat['decisions'])}" in text
 
 
 def test_threshold_count_in_the_doc_matches_everywhere_it_is_written():

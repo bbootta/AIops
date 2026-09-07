@@ -44,6 +44,8 @@ _DISPATCH = {
     ("criteria",): "tools.domain_criteria",
     ("standards",): "tools.regulatory_criteria",
     ("pd-design",): "tools.pd_cyclicality",
+    ("climate",): "tools.climate_criteria",
+    ("climate-recalc",): "tools.climate_recalc",
     ("trigger",): "tools.validation_trigger",
     ("finding",): "tools.validation_finding",
     ("recalc",): "tools.independent_recalc",
