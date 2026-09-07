@@ -26,6 +26,8 @@ from risk_lib import data_gen_intl as _intl
 from risk_lib.ui_studio import i18n as _i18n
 from risk_lib.ui_studio.req_trace import build_trace as _req_rows
 from risk_lib.ui_studio.req_trace import coverage as _req_coverage
+from risk_lib.ui_studio.req_trace_clr import build_trace as _clr_rows
+from risk_lib.ui_studio.req_trace_clr import coverage as _clr_coverage
 from risk_lib.ui_studio.studio import DEMO_PROMPTS, DEMO_QUERIES, Studio
 
 PREVIEW_ROWS = 12
@@ -859,6 +861,8 @@ def _payload(s: Studio) -> dict:
         # v9.6.0 업무요건 추적. 증빙 참조는 tests/test_req_trace.py 가 실재를
         # 검증한다. 여기 실리는 것은 주장 목록이 아니라 검사를 통과한 목록이다.
         "req_trace": {"coverage": _req_coverage(), "rows": _req_rows()},
+        # 기후리스크 요건 72건. 같은 계약, 검증은 tests/test_req_trace_clr.py.
+        "req_trace_clr": {"coverage": _clr_coverage(), "rows": _clr_rows()},
         # 오버레이(수동조정) 원장. DAT-006. 엔진 산출값을 사람이 덮어쓴
         # 기록이다. 기록 없는 조정은 재현 불가의 시작이므로 전 건이 사유·증빙·
         # 승인·만료를 갖는다.
@@ -4295,7 +4299,7 @@ function scenarioSettings(root){
   root.appendChild(c);
 }
 
-/* ---- 요건 추적 (v9.6.0 BRD 131건 대비 구현 재고조사) ---- */
+/* ---- 요건 추적 (v9.6.0 BRD 131건 · 기후리스크 72건 대비 구현 재고조사) ---- */
 /* 경영진 요약. 02_reports/executive.html 과 **같은 생성기**(risk_lib.html_exec)
    에서 나온 값을 그린다. 화면이 따로 계산하지 않으므로 두 산출물의 수치가
    갈라질 자리가 없다. 서식이 달라도 같은 생성기의 산출값을 쓴다. */
@@ -4797,10 +4801,27 @@ function capitalSankey(){
 }
 
 function reqTrace(root){
-  const R=D.req_trace;
+  /* 레지스터 둘: v9.6.0 BRD 131건과 기후리스크 요건 72건. 계약(상태·증빙·비고)이
+     같아 한 화면이 그린다. 영역 축만 다르다. v9.6.0 은 접두(AIG·BNK-CRE …),
+     기후는 장(CLR-06 …)이다. */
+  const REGS=[['v960',D.req_trace,'v9.6.0 업무요건'],['clr',D.req_trace_clr,'기후리스크 요건']];
+  const sw=el('div','toolbar'),body=el('div');
+  let cur='v960';
+  const btns=REGS.map(([k,R,lab])=>{
+    const b=el('button','btn'+(k===cur?' primary':''),lab);b.type='button';
+    b.appendChild(rawEl('span',null,' '+TC(R.coverage.n,'건')));
+    b.onclick=()=>{cur=k;btns.forEach(x=>x.classList.toggle('primary',x===b));
+      body.innerHTML='';reqRegister(body,R,k)};
+    sw.appendChild(b);return b});
+  root.appendChild(sw);root.appendChild(body);
+  reqRegister(body,D.req_trace,'v960');
+}
+function reqRegister(root,R,kind){
+  const areaOf=r=>kind==='clr'?r.id.slice(0,6):r.id.split('-')[0];
+  const chap={};(R.coverage.chapters||[]).forEach(c=>{chap['CLR-'+c.no]=c.title});
 
   const c0=el('div','card');
-  c0.appendChild(el('h3',null,'커버리지 '+R.coverage.source));
+  c0.appendChild(rawEl('h3',null,TP('커버리지',R.coverage.source)));
   const g=el('div','grid');
   [['반영',R.coverage['반영'],'good'],['부분',R.coverage['부분'],'warn'],
    ['미반영',R.coverage['미반영'],'bad'],
@@ -4813,8 +4834,16 @@ function reqTrace(root){
     g.appendChild(c)});
   c0.appendChild(g);
   c0.appendChild(meter('반영(부분 포함 안 함)',R.coverage['반영'],R.coverage.n));
-  c0.appendChild(el('div','meta','원문 SHA-256 '+R.coverage.source_sha256.slice(0,16)+
-    '… (레지스터는 tools/gen_requirements.py 가 원문에서 생성한다)'));
+  if(R.coverage.sources){
+    /* 기후 레지스터는 문서 두 장(개요·상세설계)에서 나온다. 둘 다 지문을 남긴다. */
+    R.coverage.sources.forEach(s=>c0.appendChild(rawEl('div','meta',
+      s.role+' · '+s.title+' · SHA-256 '+s.sha256.slice(0,16)+'…')));
+    c0.appendChild(rawEl('div','meta',T('레지스터는 원문에서 생성한다')+' · tools/gen_climate_requirements.py'));
+    c0.appendChild(rawEl('div','meta',TP('상세설계 표준 원장',TC(R.coverage.n_tables,'장'))+' · '+
+      TP('카탈로그 등재',TC(R.coverage.n_tables_registered,'장'))));
+  }else
+    c0.appendChild(el('div','meta','원문 SHA-256 '+R.coverage.source_sha256.slice(0,16)+
+      '… (레지스터는 tools/gen_requirements.py 가 원문에서 생성한다)'));
   root.appendChild(c0);
 
   const bar=el('div','toolbar');
@@ -4822,7 +4851,7 @@ function reqTrace(root){
   ['전체 상태','반영','부분','미반영'].forEach(x=>{const o=el('option');
     o.value=x==='전체 상태'?'':x;o.textContent=x;fSt.appendChild(o)});
   const fPr=el('select','sel');
-  const areas=[...new Set(R.rows.map(r=>r.id.split('-')[0]))].sort();
+  const areas=[...new Set(R.rows.map(areaOf))].sort();
   ['전체 영역'].concat(areas)
     .forEach(x=>{const o=el('option');o.value=x==='전체 영역'?'':x;
       o.textContent=x;fPr.appendChild(o)});
@@ -4843,7 +4872,7 @@ function reqTrace(root){
     [['',T('전체 영역')]].concat(areas.map(a=>[a,a])).forEach(([a,lab])=>{
       const b=rawEl('button');b.type='button';
       b.classList.toggle('on',fPr.value===a);
-      b.appendChild(rawEl('span',null,lab));
+      b.appendChild(rawEl('span',null,chap[a]?a.slice(4)+' · '+chap[a]:lab));
       const bad=cntOf(a,'미반영'),part=cntOf(a,'부분');
       b.appendChild(rawEl('span','cnt '+(bad?'bad':part?'warn':'good'),
         cntOf(a,'')+(bad?' · '+T('미반영')+' '+bad:part?' · '+T('부분')+' '+part:'')));
@@ -5529,7 +5558,8 @@ const SUMMARIES={
     const best=q.rows.reduce((a,r)=>r[i.payback_years]<a[i.payback_years]?r:a,q.rows[0]);
     return {t:`회수기간 최단 ${best[i.name]} ${best[i.payback_years]}년 (전 수치 가정 원장 파생·이중계상 검증 통과)`,tone:'good'}},
   '요건 추적':()=>{const c=D.req_trace.coverage;
-    return {t:`131건 중 반영 ${c['반영']} · 부분 ${c['부분']} · 미반영 ${c['미반영']} (증빙 ${c.n_evidence}건 전부 기계 검증)`,tone:'good'}},
+    const k=D.req_trace_clr.coverage;
+    return {t:`131건 중 반영 ${c['반영']} · 부분 ${c['부분']} · 미반영 ${c['미반영']} (증빙 ${c.n_evidence}건 전부 기계 검증) · 기후 ${k.n}건 중 부분 ${k['부분']} · 미반영 ${k['미반영']}`,tone:'good'}},
   '감독보고':()=>({t:`서식 ${D.forms.length}장 · 검증 ${D.form_checks.total.toLocaleString()}건 실패 ${D.forms.reduce((a,f)=>a+f.n_failed,0)} (편제·라인·인용 기준선 고정)`,tone:'good'}),
   '검증':()=>({t:`2선 ${D.independent.self_validation} · 3선 게이트 ${D.independent.status} (게이트는 fail-closed)`,
     tone:D.independent.status==='적합'?'good':'warn'}),
@@ -10036,7 +10066,7 @@ const TABS=[
   ['에이전트','G · 에이전트 운영 · 권한 · Kill Switch',agents],
   ['변경','Δ · 리스크 변경 팩토리',changes],
   ['데이터모델','정규 데이터모델 카탈로그',catalogView],
-  ['요건 추적','REQ · v9.6.0 업무요건 추적 (131건 대비 구현 재고조사)',reqTrace],
+  ['요건 추적','REQ · 업무요건 추적 (v9.6.0 131건 · 기후리스크 72건 대비 구현 재고조사)',reqTrace],
   ...DETAIL_SCREENS.map(([lab,title,fn])=>[lab,title,fn]),
   ['⚙ 설정','⚙ · 설정 (기준일 · 표시명 · 코드 매핑 · 시나리오)',settings],
   ['기관 설정','⚙ · 기관 설정 (권역 · 유형 · 규제체계 · 데이터 출처)',

@@ -1474,7 +1474,12 @@ _t("val",
 )
 
 _t("req",
-   'RYNTA v9.6.0 업무요건정의서 Level 1 요건 131건을 이 하네스의 실재 증빙(모듈·원장·화면·테스트)에 대조한다. 증빙 참조는 tests/test_req_trace.py 가 실재를 검증한 것만 싣는다. 미반영 요건도 그대로 표시한다.||The 131 level 1 requirements of the RYNTA v9.6.0 business requirements document checked against the evidence that actually exists in this harness (modules, ledgers, screens, tests). Only evidence references verified as real by tests/test_req_trace.py are carried. Requirements that are not implemented are shown as such.',
+   'RYNTA v9.6.0 업무요건정의서 Level 1 요건 131건과 기후리스크 관리 업무요건 72건을 이 하네스의 실재 증빙(모듈·원장·화면·테스트)에 대조한다. 증빙 참조는 tests/test_req_trace.py · tests/test_req_trace_clr.py 가 실재를 검증한 것만 싣는다. 미반영 요건도 그대로 표시한다.||The 131 level 1 requirements of the RYNTA v9.6.0 business requirements document and the 72 climate risk management requirements checked against the evidence that actually exists in this harness (modules, ledgers, screens, tests). Only evidence references verified as real by tests/test_req_trace.py and tests/test_req_trace_clr.py are carried. Requirements that are not implemented are shown as such.',
+   'v9.6.0 업무요건||v9.6.0 requirements',
+   '기후리스크 요건||Climate risk requirements',
+   '레지스터는 원문에서 생성한다||The register is generated from the source document',
+   '상세설계 표준 원장||Standard ledgers in the detailed design',
+   '카탈로그 등재||Registered in the catalog',
    '커버리지||Coverage',
    '반영||Implemented',
    '부분||Partial',

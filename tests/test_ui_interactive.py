@@ -688,6 +688,23 @@ def test_req_trace_tab_matches_the_register(page):
     assert page.errors == []
 
 
+def test_req_trace_tab_switches_to_the_climate_register(page):
+    """기후리스크 레지스터(72건)로 바꾸면 커버리지·영역 축(장)·표가 그 레지스터로 간다."""
+    _tab_named(page, "요건 추적")
+    page.evaluate("""() => [...document.querySelectorAll('section.on .btn')]
+        .find(b => b.textContent.includes('72')).click()""")
+    page.wait_for_timeout(300)
+    cov = page.evaluate("window.__RYNTA__.req_trace_clr.coverage")
+    assert cov["반영"] + cov["부분"] + cov["미반영"] == cov["n"] == 72
+    txt = _text(page)
+    assert "CLR-06" in txt and "72" in txt
+    assert "tools/gen_climate_requirements.py" in txt
+    page.select_option("section.on select.sel", "부분")
+    page.wait_for_timeout(300)
+    assert f"요건 {cov['부분']}건" in _text(page)
+    assert page.errors == []
+
+
 # ----- 범위형 비상정지 · 세부화면 -----------------------------------------------
 
 def test_scoped_kill_only_stops_its_domain(page):
