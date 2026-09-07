@@ -2405,8 +2405,13 @@ function gauge(value,max,{title,note,tone,fmt,min}={}){
      띠는 요구 미달(위반)·요구선부터 10% 여유까지(조기경보)·그 위(양호) 셋이다.
      값은 바늘이 가리키고 숫자는 가운데 크게 적는다. 요구선이 없으면 회색 띠 하나다. */
   const W=260,H=168,cx=130,cy=126,R=104,r=78;
+  /* 요구선은 언제나 가운데다. 왼쪽 반은 요구선의 절반부터 요구선까지, 오른쪽 반은
+     요구선부터 상한까지를 각각 선형으로 편다. 레버리지처럼 값이 요구선의 몇 배인
+     지표는 상한이 커지지만 요구선 자리는 움직이지 않는다. 요구선이 없으면 한 척도다. */
   const lo=min!=null?min*0.5:0,hi=Math.max(max||0,value,min!=null?min*1.5:0)||1;
-  const f=v=>Math.max(0,Math.min(1,(v-lo)/((hi-lo)||1)));
+  const f=min==null?(v=>Math.max(0,Math.min(1,(v-lo)/((hi-lo)||1))))
+    :(v=>v<=min?0.5*Math.max(0,(v-lo)/((min-lo)||1))
+                :0.5+0.5*Math.min(1,(v-min)/((hi-min)||1)));
   const s=svgEl(W,H,title||'게이지');
   const P=(ra,an)=>[cx+ra*Math.cos(an),cy+ra*Math.sin(an)];
   const A=fr=>Math.PI+fr*Math.PI;
@@ -2425,7 +2430,8 @@ function gauge(value,max,{title,note,tone,fmt,min}={}){
     svgNode(s,'line',{x1:ax,y1:ay,x2:bx,y2:by,stroke:'var(--muted)','stroke-width':1})});
   const lab=(fr,txt,dy)=>{const an=A(fr),[tx,ty]=P(R+13,an);
     svgNode(s,'text',{x:Math.max(4,Math.min(W-4,tx)),y:ty+(dy||0),
-      'text-anchor':fr<0.35?'end':fr>0.65?'start':'middle','font-size':9.5,'font-weight':700,
+      'text-anchor':tx<44?'start':tx>W-44?'end':fr<0.35?'end':fr>0.65?'start':'middle',
+      'font-size':9.5,'font-weight':700,
       fill:'var(--text)'},txt)};
   if(min!=null){const an=A(fm),[ax,ay]=P(r-10,an),[bx,by]=P(R+6,an);
     svgNode(s,'line',{x1:ax,y1:ay,x2:bx,y2:by,stroke:'var(--text)','stroke-width':2.5});
