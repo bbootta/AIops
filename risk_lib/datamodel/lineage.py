@@ -699,8 +699,8 @@ SCREENS_WITHOUT_LEDGER: dict[str, str] = {
     "역스트레스": "역스트레스 결과를 원장으로 만들지 않았다. 화면은 "
                   "PipelineResult.reverse_stress 객체를 payload 로 받아 그린다. "
                   "원장이 없어 정형 조회·감독서식에서 이 결과를 쓸 수 없다",
-    "요건 추적": "요건 추적표는 원장이 아니라 코드 선언(req_trace.TRACE)이다. "
-                 "증빙 실재는 tests/test_req_trace.py 가 검증한다",
+    "요건 추적": "요건 추적표는 원장이 아니라 코드 선언(req_trace · req_trace_clr · "
+                 "req_trace_air 의 TRACE)이다. 증빙 실재는 tests/test_req_trace*.py 가 검증한다",
     "전환위험": "기후 전환위험 결과를 원장으로 만들지 않았다. 화면은 "
                 "PipelineResult.climate(risk_lib.climate) 의 부문 계수 산출을 payload 로 "
                 "받아 그린다. 상세설계의 clr_* 원장이 등재되면 이 줄을 뺀다",

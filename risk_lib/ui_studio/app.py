@@ -28,6 +28,8 @@ from risk_lib.ui_studio.req_trace import build_trace as _req_rows
 from risk_lib.ui_studio.req_trace import coverage as _req_coverage
 from risk_lib.ui_studio.req_trace_clr import build_trace as _clr_rows
 from risk_lib.ui_studio.req_trace_clr import coverage as _clr_coverage
+from risk_lib.ui_studio.req_trace_air import build_trace as _air_rows
+from risk_lib.ui_studio.req_trace_air import coverage as _air_coverage
 from risk_lib.ui_studio.studio import DEMO_PROMPTS, DEMO_QUERIES, Studio
 
 PREVIEW_ROWS = 12
@@ -924,6 +926,8 @@ def _payload(s: Studio) -> dict:
         "req_trace": {"coverage": _req_coverage(), "rows": _req_rows()},
         # 기후리스크 요건 72건. 같은 계약, 검증은 tests/test_req_trace_clr.py.
         "req_trace_clr": {"coverage": _clr_coverage(), "rows": _clr_rows()},
+        # AI 리스크관리 요건 76건. 같은 계약, 검증은 tests/test_req_trace_air.py.
+        "req_trace_air": {"coverage": _air_coverage(), "rows": _air_rows()},
         # 오버레이(수동조정) 원장. DAT-006. 엔진 산출값을 사람이 덮어쓴
         # 기록이다. 기록 없는 조정은 재현 불가의 시작이므로 전 건이 사유·증빙·
         # 승인·만료를 갖는다.
@@ -4363,7 +4367,7 @@ function scenarioSettings(root){
   root.appendChild(c);
 }
 
-/* ---- 요건 추적 (v9.6.0 BRD 131건 · 기후리스크 72건 대비 구현 재고조사) ---- */
+/* ---- 요건 추적 (v9.6.0 BRD 131건 · 기후리스크 72건 · AI리스크 76건 대비 구현 재고조사) ---- */
 /* ---- 기타리스크 · 기후리스크 (개요 · 전환위험 · 물리적 위험 · 자본 경로) ----
    엔진은 둘이다. risk_lib.climate 가 부문 계수로 ECL 상승분을 내고,
    risk_lib.stress.climate_capital 이 NGFS 탄소가격·재해 경로로 CET1 경로를 낸다.
@@ -5020,10 +5024,11 @@ function capitalSankey(){
 }
 
 function reqTrace(root){
-  /* 레지스터 둘: v9.6.0 BRD 131건과 기후리스크 요건 72건. 계약(상태·증빙·비고)이
-     같아 한 화면이 그린다. 영역 축만 다르다. v9.6.0 은 접두(AIG·BNK-CRE …),
-     기후는 장(CLR-06 …)이다. */
-  const REGS=[['v960',D.req_trace,'v9.6.0 업무요건'],['clr',D.req_trace_clr,'기후리스크 요건']];
+  /* 레지스터 셋: v9.6.0 BRD 131건, 기후리스크 요건 72건, AI리스크 요건 76건.
+     계약(상태·증빙·비고)이 같아 한 화면이 그린다. 영역 축만 다르다. v9.6.0 은
+     접두(AIG·BNK-CRE …), 기후는 장(CLR-06 …), AI 는 행이 가진 장 번호(area)다. */
+  const REGS=[['v960',D.req_trace,'v9.6.0 업무요건'],['clr',D.req_trace_clr,'기후리스크 요건'],
+    ['air',D.req_trace_air,'AI리스크 요건']];
   const sw=el('div','toolbar'),body=el('div');
   let cur='v960';
   const btns=REGS.map(([k,R,lab])=>{
@@ -5036,8 +5041,8 @@ function reqTrace(root){
   reqRegister(body,D.req_trace,'v960');
 }
 function reqRegister(root,R,kind){
-  const areaOf=r=>kind==='clr'?r.id.slice(0,6):r.id.split('-')[0];
-  const chap={};(R.coverage.chapters||[]).forEach(c=>{chap['CLR-'+c.no]=c.title});
+  const areaOf=r=>r.area||(kind==='clr'?r.id.slice(0,6):r.id.split('-')[0]);
+  const chap={};(R.coverage.chapters||[]).forEach(c=>{chap[(kind==='clr'?'CLR-':'')+c.no]=c.title});
 
   const c0=el('div','card');
   c0.appendChild(rawEl('h3',null,TP('커버리지',R.coverage.source)));
@@ -5057,8 +5062,8 @@ function reqRegister(root,R,kind){
     /* 기후 레지스터는 문서 두 장(개요·상세설계)에서 나온다. 둘 다 지문을 남긴다. */
     R.coverage.sources.forEach(s=>c0.appendChild(rawEl('div','meta',
       s.role+' · '+s.title+' · SHA-256 '+s.sha256.slice(0,16)+'…')));
-    c0.appendChild(rawEl('div','meta',T('레지스터는 원문에서 생성한다')+' · tools/gen_climate_requirements.py'));
-    c0.appendChild(rawEl('div','meta',TP('상세설계 표준 원장',TC(R.coverage.n_tables,'장'))+' · '+
+    c0.appendChild(rawEl('div','meta',T('레지스터는 원문에서 생성한다')+' · '+R.coverage.generator));
+    c0.appendChild(rawEl('div','meta',TP(R.coverage.tables_label,TC(R.coverage.n_tables,'장'))+' · '+
       TP('카탈로그 등재',TC(R.coverage.n_tables_registered,'장'))));
   }else
     c0.appendChild(el('div','meta','원문 SHA-256 '+R.coverage.source_sha256.slice(0,16)+
@@ -5085,13 +5090,13 @@ function reqRegister(root,R,kind){
   const right=el('div');
   idx.appendChild(tree);idx.appendChild(right);
   root.appendChild(idx);
-  const cntOf=(a,st)=>R.rows.filter(r=>(!a||r.id.startsWith(a+'-'))&&(!st||r.status===st)).length;
+  const cntOf=(a,st)=>R.rows.filter(r=>(!a||areaOf(r)===a)&&(!st||r.status===st)).length;
   function drawTree(){
     tree.innerHTML='';
     [['',T('전체 영역')]].concat(areas.map(a=>[a,a])).forEach(([a,lab])=>{
       const b=rawEl('button');b.type='button';
       b.classList.toggle('on',fPr.value===a);
-      b.appendChild(rawEl('span',null,chap[a]?a.slice(4)+' · '+chap[a]:lab));
+      b.appendChild(rawEl('span',null,chap[a]?(kind==='clr'?a.slice(4):a)+' · '+chap[a]:lab));
       const bad=cntOf(a,'미반영'),part=cntOf(a,'부분');
       b.appendChild(rawEl('span','cnt '+(bad?'bad':part?'warn':'good'),
         cntOf(a,'')+(bad?' · '+T('미반영')+' '+bad:part?' · '+T('부분')+' '+part:'')));
@@ -5119,7 +5124,7 @@ function reqRegister(root,R,kind){
     const kw=q.value.trim().toLowerCase();
     const rows=R.rows.filter(r=>
       (!fSt.value||r.status===fSt.value)&&
-      (!fPr.value||r.id.startsWith(fPr.value+'-'))&&
+      (!fPr.value||areaOf(r)===fPr.value)&&
       (!kw||(r.id+' '+r.title).toLowerCase().includes(kw)));
     pane.appendChild(rawEl('h3',null,TP('요건',TC(rows.length,'건'))));
     const w=el('div','tw'),t=el('table'),th=el('thead'),tr=el('tr');
@@ -5784,8 +5789,8 @@ const SUMMARIES={
     return {t:`3시나리오 × ${K.horizon.length}시점 · 최저 ${pctv(K.worst.cet1_ratio,2)} (${clrName(K.worst.scenario)} ${K.worst.year}) · 기준 ${pctv(K.base_cet1,2)} · 요구 ${pctv(K.required_cet1,2)}`,
       tone:K.worst.cet1_ratio<K.required_cet1?'bad':'good'}},
   '요건 추적':()=>{const c=D.req_trace.coverage;
-    const k=D.req_trace_clr.coverage;
-    return {t:`131건 중 반영 ${c['반영']} · 부분 ${c['부분']} · 미반영 ${c['미반영']} (증빙 ${c.n_evidence}건 전부 기계 검증) · 기후 ${k.n}건 중 부분 ${k['부분']} · 미반영 ${k['미반영']}`,tone:'good'}},
+    const k=D.req_trace_clr.coverage,a=D.req_trace_air.coverage;
+    return {t:`131건 중 반영 ${c['반영']} · 부분 ${c['부분']} · 미반영 ${c['미반영']} (증빙 ${c.n_evidence}건 전부 기계 검증) · 기후 ${k.n}건 중 부분 ${k['부분']} · 미반영 ${k['미반영']} · AI ${a.n}건 중 반영 ${a['반영']} · 부분 ${a['부분']} · 미반영 ${a['미반영']}`,tone:'good'}},
   '감독보고':()=>({t:`서식 ${D.forms.length}장 · 검증 ${D.form_checks.total.toLocaleString()}건 실패 ${D.forms.reduce((a,f)=>a+f.n_failed,0)} (편제·라인·인용 기준선 고정)`,tone:'good'}),
   '검증':()=>({t:`2선 ${D.independent.self_validation} · 3선 게이트 ${D.independent.status} (게이트는 fail-closed)`,
     tone:D.independent.status==='적합'?'good':'warn'}),
@@ -10302,7 +10307,7 @@ const TABS=[
   ['에이전트','G · 에이전트 운영 · 권한 · Kill Switch',agents],
   ['변경','Δ · 리스크 변경 팩토리',changes],
   ['데이터모델','정규 데이터모델 카탈로그',catalogView],
-  ['요건 추적','REQ · 업무요건 추적 (v9.6.0 131건 · 기후리스크 72건 대비 구현 재고조사)',reqTrace],
+  ['요건 추적','REQ · 업무요건 추적 (v9.6.0 131건 · 기후리스크 72건 · AI리스크 76건 대비 구현 재고조사)',reqTrace],
   ...DETAIL_SCREENS.map(([lab,title,fn])=>[lab,title,fn]),
   ['⚙ 설정','⚙ · 설정 (기준일 · 표시명 · 코드 매핑 · 시나리오)',settings],
   ['기관 설정','⚙ · 기관 설정 (권역 · 유형 · 규제체계 · 데이터 출처)',

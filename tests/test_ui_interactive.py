@@ -705,6 +705,23 @@ def test_req_trace_tab_switches_to_the_climate_register(page):
     assert page.errors == []
 
 
+def test_req_trace_tab_switches_to_the_ai_risk_register(page):
+    """AI리스크 레지스터(76건)는 요건 ID 에 장이 없어 행의 area 로 영역을 나눈다."""
+    _tab_named(page, "요건 추적")
+    page.evaluate("""() => [...document.querySelectorAll('section.on .btn')]
+        .find(b => b.textContent.includes('76')).click()""")
+    page.wait_for_timeout(300)
+    cov = page.evaluate("window.__RYNTA__.req_trace_air.coverage")
+    assert cov["반영"] + cov["부분"] + cov["미반영"] == cov["n"] == 76
+    txt = _text(page)
+    assert "BR-061" in txt and "tools/gen_ai_risk_requirements.py" in txt
+    # 장 09(승인과 실행)로 좁히면 그 장의 요건 4건만 남는다
+    page.select_option("section.on select.sel >> nth=1", "09")
+    page.wait_for_timeout(300)
+    assert "요건 4건" in _text(page)
+    assert page.errors == []
+
+
 # ----- 기타리스크 · 기후리스크 ---------------------------------------------------
 
 def test_climate_screens_draw_from_the_climate_section(page):

@@ -143,6 +143,8 @@ def coverage() -> dict:
     return {
         "source": SOURCE, "source_sha256": SOURCE_SHA256,
         "sources": [{"role": r, "title": t, "sha256": h} for r, t, h in SOURCES],
+        "generator": "tools/gen_climate_requirements.py",
+        "tables_label": "상세설계 표준 원장",
         "n": len(rows), **by,
         "n_evidence": sum(len(r["evidence"]) for r in rows),
         "chapters": [{"no": no, "title": t} for no, t in CHAPTERS],

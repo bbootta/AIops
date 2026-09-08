@@ -311,6 +311,7 @@ risk_lib/                        # Python 계산 라이브러리
     excel.py                     ── 표지·목차·서식·검증·산출근거 .xlsx
     requirements_v960.py         ── v9.6.0 BRD 요건 131건 레지스터 (tools/gen_requirements.py 생성)
     requirements_clr.py          ── 기후리스크 요건 72건 레지스터 (tools/gen_climate_requirements.py 생성)
+    requirements_air.py          ── AI 리스크관리 요건 76건 레지스터 (tools/gen_ai_risk_requirements.py 생성)
   ui_studio/
     nl_query.py                  ── 자연어 → Filter AST → 정책검증 → 실행
     layout.py                    ── 프롬프트 → 레이아웃 제안 → 3중 검증 → 승인
