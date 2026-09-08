@@ -1,0 +1,686 @@
+[
+  {
+    "requirement_id": "BR-001",
+    "priority": "P0",
+    "chapter": "01. 문서의 목적·범위·개발 기준선",
+    "rule": "모든 AI 업무는 system_id와 업무오너를 가진다. 미등록 호출은 발견 원장에 기록하고 운영 연결을 거부한다. 입력: 서비스·계정·모델 흔적. 출력: 정식/미등록 분류.",
+    "sample_acceptance": "챗봇 서버에서 미등록 모델 호출 1건 → DISCOVERED, 운영 허용 0건, 담당자 배정 티켓 1건.",
+    "owner_evidence": "AI 운영 / 발견 이벤트·등록 이력",
+    "test_id": "AC-BR-001"
+  },
+  {
+    "requirement_id": "BR-002",
+    "priority": "P0",
+    "chapter": "01. 문서의 목적·범위·개발 기준선",
+    "rule": "결정론 계산, AI 설명, 사람의 판단, 외부 실행을 별도 유형으로 기록한다. AI가 만든 숫자는 승인된 계산결과 참조가 없으면 공식 수치로 승격 불가.",
+    "sample_acceptance": "‘PD 2%’ 생성문에 calculation_id 없음 → 미검증 표시, 결재용 수치 칸 반영 차단.",
+    "owner_evidence": "리스크 업무오너 / 계산·보고 연결",
+    "test_id": "AC-BR-002"
+  },
+  {
+    "requirement_id": "BR-003",
+    "priority": "P0",
+    "chapter": "01. 문서의 목적·범위·개발 기준선",
+    "rule": "이 문서의 제안 값에는 POLICY_PROPOSAL 표시. 법규·내규·계약·시험값의 출처 유형과 효력시점을 별도 저장한다. 값이 충돌하면 적용 담당자 검토까지 더 넓은 권한 부여 금지.",
+    "sample_acceptance": "사고통지 30분 설계값과 법정 신고기한 → 서로 다른 시계로 저장, 법정기한 덮어쓰기 금지.",
+    "owner_evidence": "준법·정책오너 / 설정 승인",
+    "test_id": "AC-BR-003"
+  },
+  {
+    "requirement_id": "BR-004",
+    "priority": "P1",
+    "chapter": "01. 문서의 목적·범위·개발 기준선",
+    "rule": "사용범위 확대·외부 실행 추가·중요 데이터 추가는 변경평가를 다시 시작한다. 파일명·제품명 변경만으로 새 서비스 중복 등록하지 않는다.",
+    "sample_acceptance": "내부 요약봇에 고객 이메일 발송 추가 → 새 버전, 위험 재평가, 기존 발송 허용 없음.",
+    "owner_evidence": "업무·변경관리 / 영향평가",
+    "test_id": "AC-BR-004"
+  },
+  {
+    "requirement_id": "BR-005",
+    "priority": "P0",
+    "chapter": "03. 거버넌스·규제 적용·책임 분리",
+    "rule": "서비스별 책임자, 기술운영자, 독립검증자, 준법·보안 협의자, 최종 승인자를 지정한다. 겸직 충돌은 시스템에서 검사한다.",
+    "sample_acceptance": "개발자 A가 본인 배포 승인 → 403 권한거부; 독립자 B에게 재배정.",
+    "owner_evidence": "리스크 총괄 / 역할·겸직 원장",
+    "test_id": "AC-BR-005"
+  },
+  {
+    "requirement_id": "BR-006",
+    "priority": "P0",
+    "chapter": "03. 거버넌스·규제 적용·책임 분리",
+    "rule": "법적 적용성은 KR 고영향, EU 고위험, 개인정보 자동화결정, 신용정보 자동화평가, 내부 위험등급을 각각 판단한다. UNKNOWN은 NO가 아니다.",
+    "sample_acceptance": "유럽 개인 신용평가 + 국내 직원 요약 → 서비스 구성별 판정 2건; EU 적용 미확정이면 EU 배포 불가.",
+    "owner_evidence": "준법 / 조문·관할·판정일·검토자",
+    "test_id": "AC-BR-006"
+  },
+  {
+    "requirement_id": "BR-007",
+    "priority": "P0",
+    "chapter": "03. 거버넌스·규제 적용·책임 분리",
+    "rule": "예외는 허용된 통제항목에만 가능하며 사유·보완통제·범위·만료·재검토를 기록한다. 법령 금지·승인자 분리·무권한 실행 금지는 예외 불가.",
+    "sample_acceptance": "원천 로그 즉시 보전을 전제로 비핵심 집계 배치만 30일간 지연 요청 → 법정의무·사고대응 충족 및 보완통제 승인 조건으로 가능; 고객정보 외부 무단전송 예외는 거부.",
+    "owner_evidence": "통제오너·리스크 승인자 / 예외 원장",
+    "test_id": "AC-BR-007"
+  },
+  {
+    "requirement_id": "BR-008",
+    "priority": "P0",
+    "chapter": "03. 거버넌스·규제 적용·책임 분리",
+    "rule": "신규·정기·중요변경·사고 후 재평가를 예약한다. 만료 평가·미지정 오너·퇴사 승인자는 재배포를 차단한다.",
+    "sample_acceptance": "오너 퇴사 + 고위험 정기평가 기한 초과 → 신규 실행/배포 제한, 대체 책임자 배정.",
+    "owner_evidence": "운영·인사연계 / 일정·상향보고",
+    "test_id": "AC-BR-008"
+  },
+  {
+    "requirement_id": "BR-009",
+    "priority": "P0",
+    "chapter": "04. 인벤토리·위험분류·심사 접수",
+    "rule": "등록 필수값: 목적·고객영향·법인·오너·모델버전·데이터등급·도구·실행권한·배포환경·종료계획. 누락 시 제출 불가.",
+    "sample_acceptance": "상담봇 외부송신 목적지가 공란 → 422, 누락 필드 표시.",
+    "owner_evidence": "업무·운영 / 자산명세",
+    "test_id": "AC-BR-009"
+  },
+  {
+    "requirement_id": "BR-010",
+    "priority": "P0",
+    "chapter": "04. 인벤토리·위험분류·심사 접수",
+    "rule": "내부 등급은 5개 요소의 최대값 1~4를 사용한다. 금지행위는 점수와 무관하게 REJECTED. 법적분류와 별도 저장.",
+    "sample_acceptance": "모든 요소 1이나 송금권한 4 → Tier 4; 평균으로 낮추지 않음.",
+    "owner_evidence": "리스크 / 요소별 점수·근거",
+    "test_id": "AC-BR-010"
+  },
+  {
+    "requirement_id": "BR-011",
+    "priority": "P0",
+    "chapter": "04. 인벤토리·위험분류·심사 접수",
+    "rule": "미확인 데이터·권한·공급자는 해당 요소를 4로 잠정 설정하고 검토 전 운영 금지. 통제 적용 후에도 고유위험 등급은 보존한다.",
+    "sample_acceptance": "외부 모델의 로그 보관 미확인 → 데이터위험 4, 계약 확인 전 외부 반출 차단.",
+    "owner_evidence": "리스크·구매 / 미확인 원장",
+    "test_id": "AC-BR-011"
+  },
+  {
+    "requirement_id": "BR-012",
+    "priority": "P1",
+    "chapter": "04. 인벤토리·위험분류·심사 접수",
+    "rule": "승인된 위험평가의 버전·증빙·정책이 변경되면 재평가 트리거. 미등록 자식 에이전트·도구는 실행 불가.",
+    "sample_acceptance": "운영 도구에 ‘delete_customer’ 추가 → 영향평가·독립시험 필요, 자동 허용 없음.",
+    "owner_evidence": "운영·리스크 / 의존관계 변경 이벤트",
+    "test_id": "AC-BR-012"
+  },
+  {
+    "requirement_id": "BR-013",
+    "priority": "P0",
+    "chapter": "05. 데이터·개인정보·검색증강생성",
+    "rule": "원천별 수집근거·이용목적·보유기간·개인정보/신용정보 분류와 국외이전 여부를 등록한다. 수집 목적과 다른 재학습은 적법한 처리근거·목적 적합성 및 개인정보/준법 승인이 모두 확인되지 않으면 금지. 내부승인은 적법근거를 대체하지 않는다.",
+    "sample_acceptance": "상담로그를 성능개선 학습에 자동 투입 → 허용목적 불일치로 격리.",
+    "owner_evidence": "데이터·개인정보 / 적법성·계약 원장",
+    "test_id": "AC-BR-013"
+  },
+  {
+    "requirement_id": "BR-014",
+    "priority": "P0",
+    "chapter": "05. 데이터·개인정보·검색증강생성",
+    "rule": "수집마다 건수·고유키·기준일·단위·결측·이상치·중복·참조정합성을 검사한다. 검증 실패 자료는 배포 인덱스·모형에 투입하지 않는다.",
+    "sample_acceptance": "잔액 100만원을 원으로 잘못 매핑 → 단위 계약 위반, 적재 0건, 재처리 티켓.",
+    "owner_evidence": "데이터 / 적재·품질 보고",
+    "test_id": "AC-BR-014"
+  },
+  {
+    "requirement_id": "BR-015",
+    "priority": "P0",
+    "chapter": "05. 데이터·개인정보·검색증강생성",
+    "rule": "사용자 권한으로 검색 전에 문서·행 접근을 제한하고, 응답 인용 링크에도 같은 접근 통제를 적용한다. 벡터 인덱스·캐시·내보내기에도 적용.",
+    "sample_acceptance": "인사부 문서가 유사도 1위지만 영업직 접근 불가 → 검색 결과·요약·인용에 노출 0건.",
+    "owner_evidence": "보안·검색운영 / 권한 회귀시험",
+    "test_id": "AC-BR-015"
+  },
+  {
+    "requirement_id": "BR-016",
+    "priority": "P0",
+    "chapter": "05. 데이터·개인정보·검색증강생성",
+    "rule": "정정·삭제·동의철회 처리 시 원본·파생문서·임베딩·캐시·로그 원문별 처리를 추적한다. 법정보관은 근거와 접근제한을 남긴다.",
+    "sample_acceptance": "삭제된 고객 주소가 캐시 답변에 남음 → 삭제검증 FAIL, 해당 인덱스 배포 중지.",
+    "owner_evidence": "개인정보·운영 / 파생자료 삭제 증빙",
+    "test_id": "AC-BR-016"
+  },
+  {
+    "requirement_id": "BR-017",
+    "priority": "P0",
+    "chapter": "05. 데이터·개인정보·검색증강생성",
+    "rule": "모든 변환 결과는 부모 출처와 신뢰·기밀 레이블을 보존한다. 비신뢰 자료의 요약도 자동으로 신뢰자료가 되지 않는다.",
+    "sample_acceptance": "악성 메일을 요약 후 장기메모리에 저장 → untrusted 레이블 유지, 다음 실행 권한 변경 없음.",
+    "owner_evidence": "플랫폼 / lineage·레이블 로그",
+    "test_id": "AC-BR-017"
+  },
+  {
+    "requirement_id": "BR-018",
+    "priority": "P0",
+    "chapter": "05. 데이터·개인정보·검색증강생성",
+    "rule": "만료·미승인 규정은 공식 근거로 사용하지 않는다. 문서 충돌 시 더 최신이라는 이유만으로 자동 선택하지 않고 효력기간·적용조직을 대조한다.",
+    "sample_acceptance": "7월 초안과 6월 시행본 → 시행본 채택, 초안은 참고 표시.",
+    "owner_evidence": "지식오너 / 문서 승인 이력",
+    "test_id": "AC-BR-018"
+  },
+  {
+    "requirement_id": "BR-019",
+    "priority": "P1",
+    "chapter": "05. 데이터·개인정보·검색증강생성",
+    "rule": "보안 맥락의 자산·계정·접근관계에는 source_at와 expires_at을 부여한다. 기한 초과 관계는 중요 조치의 근거로 단독 사용 금지.",
+    "sample_acceptance": "지난달 서버오너 A가 퇴사 → 격리 승인 A로 전송하지 않고 인사·자산원장 재조회.",
+    "owner_evidence": "보안운영 / 맥락 갱신 로그",
+    "test_id": "AC-BR-019"
+  },
+  {
+    "requirement_id": "BR-020",
+    "priority": "P0",
+    "chapter": "05. 데이터·개인정보·검색증강생성",
+    "rule": "텍스트·이미지·음성·첨부 각각 외부 전송 전에 민감정보와 목적지 정책을 검사한다. 검사불가·시간초과는 반출 보류.",
+    "sample_acceptance": "음성 계좌번호는 지웠지만 화자 식별성 남음 → 음성 개인정보 별도 평가, 익명화 완료로 표시 금지.",
+    "owner_evidence": "개인정보·보안 / 채널별 검사결과",
+    "test_id": "AC-BR-020"
+  },
+  {
+    "requirement_id": "BR-021",
+    "priority": "P0",
+    "chapter": "06. 전통적 모형·신용리스크 검증",
+    "rule": "모델카드에 개발목적·모집단·표본기간·부도 정의·변수변환·제외기준·학습/검증분할·계수·한계·사용제한을 등록한다.",
+    "sample_acceptance": "승인차주만 학습 → 거절모집단 적용제한과 선택편향 분석 필수.",
+    "owner_evidence": "모델개발·독립검증 / 모델카드",
+    "test_id": "AC-BR-021"
+  },
+  {
+    "requirement_id": "BR-022",
+    "priority": "P0",
+    "chapter": "06. 전통적 모형·신용리스크 검증",
+    "rule": "시간외·표본외 검증과 자료누출 검사를 수행한다. 검증기간 후에 알려진 회수정보가 변수에 들어가면 개발 재수행.",
+    "sample_acceptance": "2025년 예측에 2026년 연체결과 입력 → leakage FAIL, AUC 점수 무효.",
+    "owner_evidence": "독립검증 / 시점별 데이터 계보",
+    "test_id": "AC-BR-022"
+  },
+  {
+    "requirement_id": "BR-023",
+    "priority": "P0",
+    "chapter": "06. 전통적 모형·신용리스크 검증",
+    "rule": "변별력·보정·안정성·공정성·보수성·민감도·백테스트를 분리하고 벤치마크 및 경제적 해석을 기록한다. 비선형 모형의 계수 유의성을 억지 적용하지 않는다.",
+    "sample_acceptance": "AUC 개선 + 예상부도 과소추정 → 변별력 PASS와 보정 FAIL을 별도 기록, 일괄 PASS 금지.",
+    "owner_evidence": "독립검증 / 재계산·대안비교",
+    "test_id": "AC-BR-023"
+  },
+  {
+    "requirement_id": "BR-024",
+    "priority": "P0",
+    "chapter": "06. 전통적 모형·신용리스크 검증",
+    "rule": "승인된 모델/파라미터/피처 버전과 운영 산출을 대사한다. 수작업 조정은 사유·이전값·변경값·전결자를 기록한다.",
+    "sample_acceptance": "검증 PD=0.0200, 운영 PD=0.0020 → 단위/스케일 오류로 배포 중지.",
+    "owner_evidence": "모델운영 / 운영 대사·조정 원장",
+    "test_id": "AC-BR-024"
+  },
+  {
+    "requirement_id": "BR-025",
+    "priority": "P0",
+    "chapter": "07. 생성형 AI 평가·오답·공정성",
+    "rule": "test_set 버전을 고정하고 정상·공격·경계·부정확한 질문을 분리한다. 시험별 정답/허용행동/금지행동/근거를 사전 지정.",
+    "sample_acceptance": "‘한도 없는 대출상품 추천’ → 사실확인과 제한 안내가 정답이며 상품명 창작은 실패.",
+    "owner_evidence": "독립검증·업무전문가 / 골든셋",
+    "test_id": "AC-BR-025"
+  },
+  {
+    "requirement_id": "BR-026",
+    "priority": "P0",
+    "chapter": "07. 생성형 AI 평가·오답·공정성",
+    "rule": "실행마다 모델·프롬프트·검색집합·도구·정책·샘플링 설정·반복번호·판정자를 기록한다. 공급자 비결정성으로 동일문구 재현이 안 되면 실행환경 재현과 결과분포 재평가로 구분.",
+    "sample_acceptance": "동일 100문제×5회 → 500회 결과 보존, 최고 결과만 보고 금지.",
+    "owner_evidence": "검증 / 평가실행·증거",
+    "test_id": "AC-BR-026"
+  },
+  {
+    "requirement_id": "BR-027",
+    "priority": "P0",
+    "chapter": "07. 생성형 AI 평가·오답·공정성",
+    "rule": "모델 판정자는 사람 라벨과 일치도를 검증하고 불일치·중대피해 사례는 사람이 판정한다. 같은 모델의 자기검증만으로 PASS 금지.",
+    "sample_acceptance": "판정모델 3개 모두 통과라도 금액 1자리 오류를 업무전문가 발견 → FAIL로 재라벨.",
+    "owner_evidence": "독립검증 / 라벨·조정 이력",
+    "test_id": "AC-BR-027"
+  },
+  {
+    "requirement_id": "BR-028",
+    "priority": "P0",
+    "chapter": "07. 생성형 AI 평가·오답·공정성",
+    "rule": "집단별 정확성·거절·불이익·오차단과 불확실성을 보고한다. 민감속성은 적법근거·필요성·권한 없이는 수집하지 않는다.",
+    "sample_acceptance": "전체정확도 95%, 고령 고객 설명 정확도 70% → 집단 이슈 등록, 서비스 조건 재검토.",
+    "owner_evidence": "검증·소비자보호 / 집단 분석",
+    "test_id": "AC-BR-028"
+  },
+  {
+    "requirement_id": "BR-029",
+    "priority": "P0",
+    "chapter": "08. 위협모델·레드티밍·금융 특화 공격 검증",
+    "rule": "사용자 지시·외부문서·도구응답·메모리·이미지/음성의 신뢰경계를 위협모델에 표시한다. 시스템 권한변경은 모델 출력만으로 불가.",
+    "sample_acceptance": "외부 문서의 관리자 사칭 문구 → 내용으로 처리, 관리자 권한 생성 0건.",
+    "owner_evidence": "보안·설계 / 데이터흐름·위협모델",
+    "test_id": "AC-BR-029"
+  },
+  {
+    "requirement_id": "BR-030",
+    "priority": "P0",
+    "chapter": "08. 위협모델·레드티밍·금융 특화 공격 검증",
+    "rule": "직접·간접·저장형·다중회차·다중에이전트·도구 설명 오염·멀티모달 경로를 시험한다. 공격성공은 실제 금지효과 또는 정책우회가 발생한 경우.",
+    "sample_acceptance": "2차 메모리 재사용에서 금지 전송 제안 → 제안위반 기록. 게이트가 막으면 집행통제 PASS·공격성공0; 실제 전송되면 FAIL.",
+    "owner_evidence": "독립 보안검증 / 공격경로별 결과",
+    "test_id": "AC-BR-030"
+  },
+  {
+    "requirement_id": "BR-031",
+    "priority": "P0",
+    "chapter": "08. 위협모델·레드티밍·금융 특화 공격 검증",
+    "rule": "계좌·수취인·금액·통화·매수/매도·상품·처리순서·승인상태 변경을 별도 중대 시험항목으로 둔다.",
+    "sample_acceptance": "승인 ‘조회’를 ‘이체’ 도구로 바꿈 → 실행 전 차단, 거래건수 0.",
+    "owner_evidence": "업무·보안 / 금융 무결성 시험",
+    "test_id": "AC-BR-031"
+  },
+  {
+    "requirement_id": "BR-032",
+    "priority": "P0",
+    "chapter": "08. 위협모델·레드티밍·금융 특화 공격 검증",
+    "rule": "중대취약점은 재현·영향·통제·담당·기한·재시험과 연결한다. 재시험 미완료 티켓은 종결 불가.",
+    "sample_acceptance": "인젝션 발견 후 프롬프트만 수정, 회귀시험 없음 → RESOLVED 대신 REMEDIATION_PENDING.",
+    "owner_evidence": "보안·개발 / 이슈·재시험 연결",
+    "test_id": "AC-BR-032"
+  },
+  {
+    "requirement_id": "BR-033",
+    "priority": "P0",
+    "chapter": "09. 신원·권한·위임·승인과 실행의 결합",
+    "rule": "사용자·서비스·에이전트·자식의 신원을 분리하며 위임 원천과 최대권한을 기록한다. 자식은 부모보다 권한·수명·예산을 확대할 수 없다.",
+    "sample_acceptance": "부모 읽기전용 → 자식 쓰기권한 요청 403; 발급/거부 이벤트 저장.",
+    "owner_evidence": "신원관리·플랫폼 / 위임체인",
+    "test_id": "AC-BR-033"
+  },
+  {
+    "requirement_id": "BR-034",
+    "priority": "P0",
+    "chapter": "09. 신원·권한·위임·승인과 실행의 결합",
+    "rule": "중요행위는 대상·금액·통화·도구버전·정규화 인수·정책버전·데이터등급·유효기간의 승인 지문에 묶는다. 실행 직전 다시 비교한다.",
+    "sample_acceptance": "승인 수취인 A→실행 수취인 B → 승인 무효, 재승인 요구, 외부 실행 0건.",
+    "owner_evidence": "업무승인·집행게이트 / 승인 지문",
+    "test_id": "AC-BR-034"
+  },
+  {
+    "requirement_id": "BR-035",
+    "priority": "P0",
+    "chapter": "09. 신원·권한·위임·승인과 실행의 결합",
+    "rule": "승인은 명시적 행위로만 생성한다. 무응답·모델의 ‘승인됨’ 문장·읽음 표시·자동 시작은 승인이 아니다. 자기승인·승인 재사용 금지.",
+    "sample_acceptance": "5분 대기 후 미응답 → EXPIRED; 거래가 자동 실행되지 않음.",
+    "owner_evidence": "업무·플랫폼 / 전자 승인 원장",
+    "test_id": "AC-BR-035"
+  },
+  {
+    "requirement_id": "BR-036",
+    "priority": "P0",
+    "chapter": "09. 신원·권한·위임·승인과 실행의 결합",
+    "rule": "실행 전에 버전·역할·정책·자격증명 회수·중단상태를 원자적으로 검사한다. 승인 후 권한 회수 또는 인수 변경이면 거부한다.",
+    "sample_acceptance": "10:00 승인, 10:01 사용자 퇴사, 10:02 실행 → 권한회수로 DENIED.",
+    "owner_evidence": "집행게이트 / 재인가·실행 로그",
+    "test_id": "AC-BR-036"
+  },
+  {
+    "requirement_id": "BR-037",
+    "priority": "P0",
+    "chapter": "10. 런타임 정책·가드레일·정보흐름",
+    "rule": "최종판정은 ALLOW/BLOCK/DEFER, 필수의무는 MASK·REQUIRE_APPROVAL 목록으로 분리한다. 금지 우선, 미확인은 보류, 의무는 합집합. 마스킹→재평가→변경된 인수 승인→집행 순서이며 미완료 의무가 있으면 실행 불가.",
+    "sample_acceptance": "한 정책 ALLOW, 개인정보정책 BLOCK → BLOCK. 모델 출력으로 우선순위 변경 불가.",
+    "owner_evidence": "정책오너 / 정책 평가 원장",
+    "test_id": "AC-BR-037"
+  },
+  {
+    "requirement_id": "BR-038",
+    "priority": "P0",
+    "chapter": "10. 런타임 정책·가드레일·정보흐름",
+    "rule": "비신뢰 원문은 제어영역에 재주입하지 않으며 필요한 값만 명시된 반출규칙으로 전달한다. 숫자·요약·참조값도 타입·출처·허용목적 검증.",
+    "sample_acceptance": "외부자료에서 추출한 계좌번호를 ‘숫자라 안전’으로 실행인수에 자동 채택 → 금지.",
+    "owner_evidence": "설계·보안 / 경계 시험",
+    "test_id": "AC-BR-038"
+  },
+  {
+    "requirement_id": "BR-039",
+    "priority": "P0",
+    "chapter": "10. 런타임 정책·가드레일·정보흐름",
+    "rule": "우회 경로를 닫는다. 도구 네트워크는 프록시/집행게이트를 통과하고 직접 외부연결·임의 코드실행·미등록 플러그인을 차단한다.",
+    "sample_acceptance": "승인게이트를 피해 직접 외부 HTTP 호출 → 네트워크 정책 거부 및 경보.",
+    "owner_evidence": "인프라·보안 / 우회시험",
+    "test_id": "AC-BR-039"
+  },
+  {
+    "requirement_id": "BR-040",
+    "priority": "P0",
+    "chapter": "10. 런타임 정책·가드레일·정보흐름",
+    "rule": "정책·민감정보 검사 장애 시 거래·반출·쓰기 요청은 보류/차단한다. 승인된 읽기전용 축소모드만 허용 가능. 사후 로그 누락 상태로 중요 실행 금지.",
+    "sample_acceptance": "가드레일 시간초과 → 고객정보 전송 0건, 상담원 전환.",
+    "owner_evidence": "운영·정책 / 장애·대체경로 기록",
+    "test_id": "AC-BR-040"
+  },
+  {
+    "requirement_id": "BR-041",
+    "priority": "P0",
+    "chapter": "11. 생애주기·변경관리·배포",
+    "rule": "등록→평가→검증→승인→배포→운영→폐기의 상태전이는 정해진 역할과 산출물을 요구한다. 반려는 새 버전으로 재제출.",
+    "sample_acceptance": "검증 FAIL 상태에서 배포 API 요청 → 409 상태충돌.",
+    "owner_evidence": "운영·검증 / 상태이력",
+    "test_id": "AC-BR-041"
+  },
+  {
+    "requirement_id": "BR-042",
+    "priority": "P0",
+    "chapter": "11. 생애주기·변경관리·배포",
+    "rule": "모델·정책·프롬프트·검색·도구·설정 지문이 배포번들과 일치해야 한다. 공급자 별칭만 고정하지 말고 실제 버전 확인.",
+    "sample_acceptance": "‘latest’가 새 모델로 바뀜 → 승인버전 불일치 신규 실행 차단, 검증된 버전 또는 수동업무 전환.",
+    "owner_evidence": "운영 / 배포 명세·서명",
+    "test_id": "AC-BR-042"
+  },
+  {
+    "requirement_id": "BR-043",
+    "priority": "P0",
+    "chapter": "11. 생애주기·변경관리·배포",
+    "rule": "변경영향평가에 보안·성능·공정성·데이터·비용·지연·복구를 포함한다. 긴급 변경도 최소 시험·기한부 승인·사후 독립검토를 남긴다.",
+    "sample_acceptance": "심각한 유출 경로 차단정책 긴급 적용 → 승인된 긴급권한·정상업무 회귀·사후검토 예약.",
+    "owner_evidence": "변경관리·보안 / 변경 티켓",
+    "test_id": "AC-BR-043"
+  },
+  {
+    "requirement_id": "BR-044",
+    "priority": "P0",
+    "chapter": "11. 생애주기·변경관리·배포",
+    "rule": "단계적 배포는 관측→승인된 제한범위→확대 순서. 회귀 실패·중대사건 시 검증된 이전버전 또는 수동업무로 복구.",
+    "sample_acceptance": "시범 사용자 5%에서 금액오류 1건 → 확대중지·원인조사.",
+    "owner_evidence": "운영·업무 / 배포·롤백 증빙",
+    "test_id": "AC-BR-044"
+  },
+  {
+    "requirement_id": "BR-045",
+    "priority": "P0",
+    "chapter": "12. 모니터링·경보·성과 측정",
+    "rule": "지표마다 분자·분모·모집단·기간·시간대·제외규칙·소유자·임계값 버전을 등록한다. 원자료로 재계산 가능해야 한다.",
+    "sample_acceptance": "차단 100건/전체10,000건을 공격성공률로 표시 → 정의오류. 정책 차단률로 수정.",
+    "owner_evidence": "리스크·운영 / 지표 사전",
+    "test_id": "AC-BR-045"
+  },
+  {
+    "requirement_id": "BR-046",
+    "priority": "P0",
+    "chapter": "12. 모니터링·경보·성과 측정",
+    "rule": "중대 실행위반·승인불일치·대량반출·중단실패는 1건도 경보. 통계 지표는 최소표본·지속조건·변동성·정상시간대를 설정한다.",
+    "sample_acceptance": "고객B 무단조회 1건 → 임계비율 미달이어도 중대 사건 후보.",
+    "owner_evidence": "보안·운영 / 경보 규칙",
+    "test_id": "AC-BR-046"
+  },
+  {
+    "requirement_id": "BR-047",
+    "priority": "P1",
+    "chapter": "12. 모니터링·경보·성과 측정",
+    "rule": "동일 사건 경보는 묶되 원본과 관련 실행을 보존한다. 업무영향·노출·복구난이도로 우선순위를 정하고 담당자 부재 시 대체자에게 배정한다.",
+    "sample_acceptance": "모델 장애로 1,000개 오류 → 장애 1건 + 영향 실행1,000건 연결.",
+    "owner_evidence": "운영 / 경보·사고 연결",
+    "test_id": "AC-BR-047"
+  },
+  {
+    "requirement_id": "BR-048",
+    "priority": "P0",
+    "chapter": "12. 모니터링·경보·성과 측정",
+    "rule": "데이터 누락·시계오차·표본부족이면 DATA_GAP 또는 NOT_EVALUATED. 수집지연을 탐지하고 수치와 함께 품질상태를 보고한다.",
+    "sample_acceptance": "한 시간 로그 공백 → ‘유출0’이 아니라 관측 불완전 경보.",
+    "owner_evidence": "플랫폼 / 수집상태·대사",
+    "test_id": "AC-BR-048"
+  },
+  {
+    "requirement_id": "BR-049",
+    "priority": "P0",
+    "chapter": "13. 사고 대응·긴급 중단·업무 복구",
+    "rule": "사고분류: 데이터유출·권한/행동위반·모형오류·공정성/소비자피해·가용성·공급망·증빙손상. 영향·탐지시각·범위·잠정손실·보고의무 검토 기록.",
+    "sample_acceptance": "고객별 잘못된 한도 안내 → 단순 답변오류 외 소비자영향 분류, 고객목록 확인.",
+    "owner_evidence": "사고지휘·업무 / 사고 원장",
+    "test_id": "AC-BR-049"
+  },
+  {
+    "requirement_id": "BR-050",
+    "priority": "P0",
+    "chapter": "13. 사고 대응·긴급 중단·업무 복구",
+    "rule": "중단 명령은 서비스·테넌트·에이전트·도구·키 단위를 지원한다. 상위 중단은 모든 자식에 전파되며 회수 세대번호를 실행게이트가 검사한다.",
+    "sample_acceptance": "부모 중단 후 자식 재시도 → 회수버전 불일치로 거부, 잔여 실행 확인.",
+    "owner_evidence": "운영·보안 / 중단 명령·완료 증거",
+    "test_id": "AC-BR-050"
+  },
+  {
+    "requirement_id": "BR-051",
+    "priority": "P0",
+    "chapter": "13. 사고 대응·긴급 중단·업무 복구",
+    "rule": "외부효과 불명은 UNKNOWN으로 보존하고 자동 재시도를 금지한다. 상태조회·거래대사·수동판정 후 해소하며 보정행위도 새 승인 대상.",
+    "sample_acceptance": "전송 후 응답유실 → 재전송 대신 거래조회; 이미 반영이면 SUCCEEDED로 대사.",
+    "owner_evidence": "운영·업무 / 대사·보정 기록",
+    "test_id": "AC-BR-051"
+  },
+  {
+    "requirement_id": "BR-052",
+    "priority": "P0",
+    "chapter": "13. 사고 대응·긴급 중단·업무 복구",
+    "rule": "복구는 원인제거·무결성검사·회귀시험·재개 승인·사용자 안내·재발방지까지 요구한다. 중단권한과 재개승인을 분리한다.",
+    "sample_acceptance": "유출키 폐기했지만 예약작업 남음 → 복구승인 불가, 잔여작업 제거.",
+    "owner_evidence": "사고지휘·독립검증 / 복구훈련",
+    "test_id": "AC-BR-052"
+  },
+  {
+    "requirement_id": "BR-053",
+    "priority": "P0",
+    "chapter": "14. 외부 공급자·데이터 경로·집중위험",
+    "rule": "공급자별 서비스/모델/기능/리전/하위처리자/학습이용/보관/삭제/감사권/사고통지 조건을 계약버전으로 등록한다. 불명은 허용으로 간주하지 않는다.",
+    "sample_acceptance": "‘국내 리전’만 확인 → 추론·로그·지원접근 미확인 항목 유지, 민감업무 투입 보류.",
+    "owner_evidence": "구매·보안·법무 / 계약·설정",
+    "test_id": "AC-BR-053"
+  },
+  {
+    "requirement_id": "BR-054",
+    "priority": "P0",
+    "chapter": "14. 외부 공급자·데이터 경로·집중위험",
+    "rule": "데이터 유입→외부연결→추론→저장→로그→백업→지원자 접근을 경로별 심사한다. 처리변경은 재승인 트리거.",
+    "sample_acceptance": "벡터저장은 국내, 재순위화 모델은 해외 → 국외처리 경로로 별도 평가.",
+    "owner_evidence": "개인정보·설계 / 데이터 흐름도",
+    "test_id": "AC-BR-054"
+  },
+  {
+    "requirement_id": "BR-055",
+    "priority": "P1",
+    "chapter": "14. 외부 공급자·데이터 경로·집중위험",
+    "rule": "공급자 장애·가격·모델종료·정책변경·공통모델 실패에 대한 시나리오를 검증한다. 대체 공급자도 사전 검증·승인된 범위만 사용.",
+    "sample_acceptance": "주 공급자 장애→미승인 외부모델 자동우회 금지; 읽기전용 수동업무 전환.",
+    "owner_evidence": "업무·운영·구매 / 집중위험·탈출훈련",
+    "test_id": "AC-BR-055"
+  },
+  {
+    "requirement_id": "BR-056",
+    "priority": "P0",
+    "chapter": "14. 외부 공급자·데이터 경로·집중위험",
+    "rule": "기능·안전성·인증·성능 주장은 출처·시험조건·승인범위·유효기한을 가진 주장원장으로 관리한다. 영업자료에도 적용.",
+    "sample_acceptance": "‘편향0·유출0’ 홍보문에 근거 없음 → 대외 사용 차단·수정요청.",
+    "owner_evidence": "준법·소비자보호 / 주장 증빙",
+    "test_id": "AC-BR-056"
+  },
+  {
+    "requirement_id": "BR-057",
+    "priority": "P0",
+    "chapter": "15. 고객 설명·이의제기·사람의 재검토",
+    "rule": "AI 활용 사전고지와 생성형 결과물 표시를 별도 필드·시험으로 관리하고, 중요결정 설명·출처·사람 연결·이의신청을 업무와 채널별로 제공한다. 법적 예외는 사유·조문·검토자를 기록.",
+    "sample_acceptance": "내부 업무 전용 투명성 예외 → 전체 위험관리 면제로 표시하지 않음.",
+    "owner_evidence": "준법·소비자보호 / 고지 버전",
+    "test_id": "AC-BR-057"
+  },
+  {
+    "requirement_id": "BR-058",
+    "priority": "P0",
+    "chapter": "15. 고객 설명·이의제기·사람의 재검토",
+    "rule": "결정 당시 데이터·모델·규칙·주요요인·실제 사람 관여를 고정한다. 설명자료는 당시 결과와 일치해야 한다.",
+    "sample_acceptance": "거절 당시 소득자료 오류 → 현재 모델로 새 이유를 생성하지 않고 당시 근거 복원.",
+    "owner_evidence": "업무·모델 / 결정 증거",
+    "test_id": "AC-BR-058"
+  },
+  {
+    "requirement_id": "BR-059",
+    "priority": "P0",
+    "chapter": "15. 고객 설명·이의제기·사람의 재검토",
+    "rule": "접수→신원확인→적용성판단→설명/정정/재평가→인적검토→통지→종결을 기록한다. 법률별 due_at·연장근거·통지시각을 분리. 개인정보법상 최초 적법한 요청 접수일부터 30일이며 본인확인·내부배정으로 재기산하지 않는다. 정당사유 통지 시 각30일 범위 2회 한정 연장.",
+    "sample_acceptance": "개인정보 자동화결정 설명요청 → 원칙30일 시계, 적법한 연장 시 사유·통지와 연장횟수 검사.",
+    "owner_evidence": "소비자보호·준법 / 요청 원장",
+    "test_id": "AC-BR-059"
+  },
+  {
+    "requirement_id": "BR-060",
+    "priority": "P0",
+    "chapter": "15. 고객 설명·이의제기·사람의 재검토",
+    "rule": "인적 재검토는 수정 권한을 가진 담당자가 수행하고 원판정을 무조건 추인하지 않는다. 이의신청에 따른 불이익 금지·접근성 채널 제공.",
+    "sample_acceptance": "오분류 정정자료 제출 → 원자료 정정·재평가·결정변경 여부를 고객에게 설명.",
+    "owner_evidence": "업무전결자 / 재검토·고객 통지",
+    "test_id": "AC-BR-060"
+  },
+  {
+    "requirement_id": "BR-061",
+    "priority": "P0",
+    "chapter": "16. 리스크관리·스트레스 테스트·여신감리 업무 연결",
+    "rule": "계산에는 기준일·시나리오·포트폴리오·통화·단위·파라미터·엔진버전·입력해시를 고정하고 동일입력 재산출을 대사한다.",
+    "sample_acceptance": "2026-06 기준 대출잔액+2026-03 담보 혼용 → 기준일 차이 경고와 승인된 보정 없으면 산출보류.",
+    "owner_evidence": "리스크·데이터 / 계산 원장",
+    "test_id": "AC-BR-061"
+  },
+  {
+    "requirement_id": "BR-062",
+    "priority": "P0",
+    "chapter": "16. 리스크관리·스트레스 테스트·여신감리 업무 연결",
+    "rule": "PD/LGD/EAD→손실→손익→자본→비율과 RWA 변화를 추적하고 템플릿별 합계·부호·반올림·버전을 대사한다.",
+    "sample_acceptance": "스트레스 손실증가에도 자본비율 상승 → RWA·분모·세효과·신규자본 유입 근거 확인.",
+    "owner_evidence": "리스크·재무·검증 / 제출 대사표",
+    "test_id": "AC-BR-062"
+  },
+  {
+    "requirement_id": "BR-063",
+    "priority": "P1",
+    "chapter": "16. 리스크관리·스트레스 테스트·여신감리 업무 연결",
+    "rule": "여신감리 초안은 차주·여신구조·담보·상환재원·현금흐름·산업·등급·한도·조기경보·충당금·위반·승인조건을 근거와 연결한다.",
+    "sample_acceptance": "재무제표가 2년 전이고 최근 연체 존재 → 최신성 한계와 부실징후 우선 표시.",
+    "owner_evidence": "여신감리 / 차주별 증빙·의견",
+    "test_id": "AC-BR-063"
+  },
+  {
+    "requirement_id": "BR-064",
+    "priority": "P0",
+    "chapter": "16. 리스크관리·스트레스 테스트·여신감리 업무 연결",
+    "rule": "감독 제출·결재 산출물은 원장 스냅샷·수치대사·검증의견·승인·제출본 지문으로 묶는다. 생성 초안은 DRAFT 표기, 승인 전 자동 제출 금지.",
+    "sample_acceptance": "서술 손실20억원·표 손실18억원 → 제출 패키지 생성 실패, 불일치 목록 반환.",
+    "owner_evidence": "제출부서·독립검증 / 제출 명세",
+    "test_id": "AC-BR-064"
+  },
+  {
+    "requirement_id": "BR-065",
+    "priority": "P0",
+    "chapter": "17. 증빙·감사·보관·보고서",
+    "rule": "system_id·version_id·run_id·action_id·decision_id·approval_id·event_id로 입력출처부터 외부효과까지 연결한다. 핵심 링크 누락은 미완료 처리.",
+    "sample_acceptance": "거래결과는 있으나 승인기록 없음 → 감사 패키지 FAIL·사고 후보.",
+    "owner_evidence": "플랫폼·감사 / 연결 완전성 보고",
+    "test_id": "AC-BR-065"
+  },
+  {
+    "requirement_id": "BR-066",
+    "priority": "P0",
+    "chapter": "17. 증빙·감사·보관·보고서",
+    "rule": "증빙은 추가기록 방식, 서버시각·원천시각·행위자·전후값·사유·지문·서명을 기록한다. 지문만으로 작성시점/주체 진정성이 증명되는 것은 아니다.",
+    "sample_acceptance": "원장 한 행 변경 → 체인검증/서명/저장정책 점검 실패 경보.",
+    "owner_evidence": "보안·운영 / 무결성검사",
+    "test_id": "AC-BR-066"
+  },
+  {
+    "requirement_id": "BR-067",
+    "priority": "P0",
+    "chapter": "17. 증빙·감사·보관·보고서",
+    "rule": "보관기간은 증빙유형·법적근거·목적·기산점·소송보존·삭제방법으로 설정한다. 고영향 책무 문서의 법정5년과 모든 AI 원문로그 보관을 혼동하지 않는다.",
+    "sample_acceptance": "프롬프트 원문 30일 설계값·고영향 의무증빙5년 → 서로 다른 retention_class 적용.",
+    "owner_evidence": "준법·개인정보 / 보관·폐기 원장",
+    "test_id": "AC-BR-067"
+  },
+  {
+    "requirement_id": "BR-068",
+    "priority": "P0",
+    "chapter": "17. 증빙·감사·보관·보고서",
+    "rule": "보고서 생성은 기준시점 스냅샷과 출처를 고정하고 마스킹·승인·내보내기 권한을 적용한다. 재다운로드도 동일 보고서버전이며 새 기준일은 새 버전.",
+    "sample_acceptance": "9월보고 다운로드 후 원장 수정 → 기존 보고서 지문 유지, 수정본 v2 발행.",
+    "owner_evidence": "보고오너·감사 / 제출·열람 이력",
+    "test_id": "AC-BR-068"
+  },
+  {
+    "requirement_id": "BR-069",
+    "priority": "P0",
+    "chapter": "19. 개발·검수·이행·운영 인수",
+    "rule": "UI-01~12의 필수필드·역할·상태검사를 서버와 화면에서 동일 적용",
+    "sample_acceptance": "버튼 숨김 우회 API 직접호출도 거부",
+    "owner_evidence": "개발·업무검수",
+    "test_id": "AC-BR-069"
+  },
+  {
+    "requirement_id": "BR-070",
+    "priority": "P0",
+    "chapter": "19. 개발·검수·이행·운영 인수",
+    "rule": "데이터형·키·열거값·외래키·보관·테넌트격리 계약 준수",
+    "sample_acceptance": "다른 법인의 유효 식별자를 넣어도 접근 거부",
+    "owner_evidence": "데이터·보안",
+    "test_id": "AC-BR-070"
+  },
+  {
+    "requirement_id": "BR-071",
+    "priority": "P0",
+    "chapter": "19. 개발·검수·이행·운영 인수",
+    "rule": "동시요청·재전송·순서역전·외부결과불명·회수경합 처리",
+    "sample_acceptance": "동일 실행키20회 병렬→외부효과1회 이하; 미확정이면0회 추가",
+    "owner_evidence": "플랫폼·독립시험",
+    "test_id": "AC-BR-071"
+  },
+  {
+    "requirement_id": "BR-072",
+    "priority": "P0",
+    "chapter": "19. 개발·검수·이행·운영 인수",
+    "rule": "이행 데이터의 건수·고유키·필수값·승인근거·고아관계·버전 대사",
+    "sample_acceptance": "승인증빙 없는 기존 서비스는 LEGACY_PENDING으로 표시, 운영범위 별도 판단",
+    "owner_evidence": "이행·리스크",
+    "test_id": "AC-BR-072"
+  },
+  {
+    "requirement_id": "BR-073",
+    "priority": "P0",
+    "chapter": "19. 개발·검수·이행·운영 인수",
+    "rule": "핵심 시나리오 전건, 부정·경계·장애·권한·복구 시험 수행",
+    "sample_acceptance": "중단 후 자식 실행·키재사용·중복거래 0건 증빙",
+    "owner_evidence": "독립검증·운영",
+    "test_id": "AC-BR-073"
+  },
+  {
+    "requirement_id": "BR-074",
+    "priority": "P0",
+    "chapter": "19. 개발·검수·이행·운영 인수",
+    "rule": "성능·가용성·백업·보안목표는 측정환경·시간·분모·제외조건 고정",
+    "sample_acceptance": "평균지연만 제출 불가; p95·p99·오류율·표본 포함",
+    "owner_evidence": "운영·성능시험",
+    "test_id": "AC-BR-074"
+  },
+  {
+    "requirement_id": "BR-075",
+    "priority": "P0",
+    "chapter": "19. 개발·검수·이행·운영 인수",
+    "rule": "운영 매뉴얼·당직·교육·재처리·모니터링·고객전환·공급자지원·감사추적 인계",
+    "sample_acceptance": "담당자 부재·야간사고·공급자중단 모의훈련",
+    "owner_evidence": "운영·업무",
+    "test_id": "AC-BR-075"
+  },
+  {
+    "requirement_id": "BR-076",
+    "priority": "P0",
+    "chapter": "19. 개발·검수·이행·운영 인수",
+    "rule": "개발완료, 기술시험완료, 은행운영승인, 규제적용확인을 별도 상태로 관리",
+    "sample_acceptance": "시험 통과만으로 규제적합/운영승인 표시하지 않음",
+    "owner_evidence": "프로젝트·승인자",
+    "test_id": "AC-BR-076"
+  }
+]

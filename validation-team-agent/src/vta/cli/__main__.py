@@ -46,6 +46,7 @@ _DISPATCH = {
     ("pd-design",): "tools.pd_cyclicality",
     ("climate",): "tools.climate_criteria",
     ("climate-recalc",): "tools.climate_recalc",
+    ("ai-risk",): "tools.ai_risk_criteria",
     ("trigger",): "tools.validation_trigger",
     ("finding",): "tools.validation_finding",
     ("recalc",): "tools.independent_recalc",

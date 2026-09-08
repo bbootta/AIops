@@ -2580,6 +2580,36 @@
       "rollback_rule": "CRITERIA_CLIMATE 와 문서 §3·테스트를 제거하고 재생성.",
       "human_approval_required": true,
       "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0173",
+      "timestamp": "2026-09-08 09:00:00",
+      "component": "harness/reference/ai_risk_*_20260908.* (4종) + tools/gen_ai_risk_criteria.py + harness/ai_risk_requirement_criteria.json + tools/ai_risk_criteria.py + tests/test_ai_risk_criteria.py + CLAUDE.md §2 (부문 10) + README + cli_index · vta ai-risk",
+      "change_type": "create",
+      "evidence": "사용자 요청: AI 리스크관리 업무요건 문서 세트(v1.0 · 2026-09-08, zip)의 요건에 대한 적합성검증 반영. 실측: 하니스의 AI 관련 기준은 도메인 층 AIG-001~012(RYNTA) 12건뿐이었고, 문서 세트의 요건 76건(BR)·근거원장 27건은 어디에도 없었다.",
+      "root_cause": "검증 범위가 요건정의 마스터 8부문 + 기후에 고정돼 있어 AI 시스템(예측모형·생성형·에이전트) 요건이 기준 항목으로 존재하지 않았다.",
+      "targeted_fix": "원문 4종(해설서·개요·requirements.json·문서 manifest)을 지문과 함께 보관하고 보관본 지문을 문서 세트 manifest 와 대조하는 생성기로 부문 10 AI리스크 기준 원장을 만들었다. 요건·인수조건·챕터·근거원장은 파싱, 검증 기준 문장·자동화·근거만 생성기가 정한다. automated 42(일반 통제 + 재계산기, 덮는 범위는 note)·manual 29·out_of_scope 5. 국내 구속 근거 4건(인공지능기본법·시행령·개인정보보호법·신용정보법)만 binding. 문서 세트가 밝힌 미수행 검증을 원장에 그대로 실었다.",
+      "expected_benefit": "AI 요건 76건이 검증 기준으로 추적되고 어떤 요건에 통제가 없는지(수동 29건: 생성형 시험셋·판정자·공정성·주입 시험·집행게이트·공급자)가 명시된다. 원문이 바뀌면 지문이 어긋나 드러난다.",
+      "expected_regression_risk": "automated 판정은 일반 통제가 AI 요건에도 적용된다는 뜻이며 생성형 AI 특유 검사가 있다는 뜻이 아니다. 파서는 requirements.json 필드와 해설서 마크업(section.chapter · article.source-card)에 의존한다.",
+      "validation_method": "tests/test_ai_risk_criteria.py 13건 (원장==생성물, 위반 0, 76/76·AC-ID 1:1, 문서 미수행 검증 보존, 음성 통제 3건: 근거 파일 부재·지문 불일치·규칙 변경·요건 누락, 보관본 지문==문서 manifest). ai_risk_criteria verify 통과 (근거 54개 파일 실재).",
+      "rollback_rule": "원문 4종·생성기·원장·도구·테스트·등록·CLAUDE.md 부문 10 문단을 함께 제거.",
+      "human_approval_required": true,
+      "status": "proposed"
+    },
+    {
+      "change_id": "CHG-0174",
+      "timestamp": "2026-09-08 09:30:00",
+      "component": "docs/validation_team.architecture.json + docs/validation_team_architecture.html (Archify 재생성) + tools/gen_regulatory_criteria.py (규정 제30조 AI 항목) + harness/regulatory_criteria.json + docs/criteria_layers.md §4 + tests/test_criteria_layers_doc.py",
+      "change_type": "modify",
+      "evidence": "사용자 요청: 기후리스크 반영을 아키텍처 다이어그램에도 업데이트. 실측: 다이어그램의 SSoT 노드가 '기준 69+131', 근거 원문 노드가 '3종'으로 기후·AI 층 추가 전 상태였다. 규제 층에도 AI 를 주제로 한 항목이 없었다.",
+      "root_cause": "다이어그램 IR 이 기준 층 확장을 따라가지 않았고, AI 층이 규제 층 아래에 걸려 있지 않았다.",
+      "targeted_fix": "IR 을 기준 4층(규제 73 · 도메인 131 · 기후 72 · AI 76)·근거 원문 7종·기후 사례 재계산으로 갱신하고 Archify validate(showcase) 통과 후 deliver 로 HTML 재생성. 규정 제30조를 인용하는 AI 항목 1건 추가(규제 73건·자동 49). 문서 집계 갱신과 AI 집계 대조 테스트 추가.",
+      "expected_benefit": "다이어그램과 문서가 현재 기준 층 구성을 반영한다.",
+      "expected_regression_risk": "Archify 는 외부 스킬(tt-a1i/archify)이라 컨테이너 재시작 시 재설치가 필요하다. 노드 문구 길이는 desktop-readability 검사에 걸리므로 sublabel 을 짧게 유지해야 한다.",
+      "validation_method": "Archify validate 9/9 검사 통과·deliver 성공. regulatory_criteria verify 통과. tests/test_criteria_layers_doc.py 5건.",
+      "rollback_rule": "IR 의 세 노드 문구를 이전 값으로 되돌리고 deliver 재실행. CRITERIA_CLIMATE 의 AI 항목과 문서 §4·테스트 제거 후 재생성.",
+      "human_approval_required": true,
+      "status": "proposed"
     }
   ]
 }

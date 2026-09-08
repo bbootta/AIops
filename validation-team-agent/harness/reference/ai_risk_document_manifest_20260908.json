@@ -1,0 +1,77 @@
+{
+  "version": "1.0",
+  "as_of": "2026-09-08",
+  "requirements": 76,
+  "glossary": 140,
+  "outputs": [
+    {
+      "filename": "AI_Risk_Requirements_Overview.html",
+      "bytes": 77868,
+      "chapters": 9
+    },
+    {
+      "filename": "AI_Risk_Practitioner_Manual.html",
+      "bytes": 1337085,
+      "chapters": 23
+    }
+  ],
+  "api_paths": 32,
+  "notes": "Development baseline. Bank-specific deployment settings require confirmation. No live implementation is claimed.",
+  "entity_tables": 43,
+  "core_api_operations": 35,
+  "verification": {
+    "document_structure": "PASS",
+    "requirements_76_complete": "PASS",
+    "internal_links": "PASS",
+    "embedded_contracts_match": "PASS",
+    "javascript_syntax": "PASS",
+    "search_reset_download_logic_mock": "PASS",
+    "sample_math": "PASS",
+    "browser_visual_review": "NOT_RUN_LOCAL_URL_POLICY",
+    "database_runtime": "NOT_RUN",
+    "openapi_metaschema": "NOT_RUN",
+    "bank_production_acceptance": "NOT_RUN"
+  },
+  "files": [
+    {
+      "file": "AI_Risk_Practitioner_Manual.html",
+      "bytes": 1337085,
+      "sha256": "45d5d194884622285e459bb518e8b95eecdb276f58eabcae1c89fd95b4f24853"
+    },
+    {
+      "file": "AI_Risk_Requirements_Overview.html",
+      "bytes": 77868,
+      "sha256": "2bad5db3bf3b4ad9a5a8bbd9e81c61e68cdfac34fa180db04d441d010794d14f"
+    },
+    {
+      "file": "ai_risk_extensions.sql",
+      "bytes": 36101,
+      "sha256": "89b3ca51d4ae0ad3cc804771dfa7e8357cbaa746b3ebcd362fa04a4978dd987a"
+    },
+    {
+      "file": "ai_risk_openapi.json",
+      "bytes": 270081,
+      "sha256": "19a7010b50f48516cac7e9f2880ac1c8623daaa2021a03ae408d3fc057fe0d7a"
+    },
+    {
+      "file": "ai_risk_schema.sql",
+      "bytes": 29453,
+      "sha256": "52081611cdc5e6614400b25924618f1fb740f9ee778ab033c89c0447b528d910"
+    },
+    {
+      "file": "requirements.json",
+      "bytes": 40697,
+      "sha256": "601a0b4a228ac46459f6cb1be97d19c50079d497ef0a3006b62f83bad7c597bd"
+    },
+    {
+      "file": "requirements_traceability.csv",
+      "bytes": 30059,
+      "sha256": "9b98f90b086f6dd6f6f1d62db77fa64047f6845b28bfd3ef71632b7a6b65ebe8"
+    },
+    {
+      "file": "읽기안내.txt",
+      "bytes": 2017,
+      "sha256": "d7afc64e1bec732a04d7ce6490100a985b4f4eec38b671ad9014f34d992b4fe8"
+    }
+  ]
+}
