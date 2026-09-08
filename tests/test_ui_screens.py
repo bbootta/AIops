@@ -151,6 +151,16 @@ def test_new_screens_are_registered_in_menu_and_tab_list():
         assert f"'{lab}'" in nav, f"{lab} 이 메뉴 트리에 없다"
 
 
+def test_climate_screens_sit_under_the_other_risks_group():
+    """기타리스크 › 기후리스크 그룹의 리프 넷이 화면 목록에도 있다."""
+    detail = _JS[_JS.index("const DETAIL_SCREENS=["):_JS.index("const NAVGROUPS=[")]
+    nav = _JS[_JS.index("const NAVGROUPS=["):_JS.index("const TABS=[")]
+    assert "['기타리스크',[" in nav
+    assert "['기후리스크',['기후 개요','전환위험','물리적 위험','기후 자본 경로']]" in nav
+    for lab in ("기후 개요", "전환위험", "물리적 위험", "기후 자본 경로"):
+        assert f"['{lab}','CLR · " in detail, f"{lab} 이 화면 목록에 없다"
+
+
 def test_new_screens_reference_the_full_load_budget_tables():
     """집계해서 그리는 원장은 전량 실려야 한다. 표본으로 그리면 축이 잘린다."""
     for name in ("alm_repricing_gap", "crm_pd_estimate", "lex_setting",
