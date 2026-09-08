@@ -27,7 +27,7 @@ CCF_TYPES = ("unconditionally_cancellable", "short_term_trade",
 COLLATERAL_TYPES = ("cash", "gold", "sovereign_aaa_le1y", "sovereign_aaa_gt1y",
                     "corporate_bond_ig", "equity_main_index", "real_estate")
 SOURCE_SYSTEMS = ("core_banking", "loan_origination", "collateral_mgmt",
-                  "general_ledger", "market_data", "synthetic")
+                  "general_ledger", "market_data", "synthetic", "external_data")
 
 # ---------------------------------------------------------------- R1 · RDM 코어
 
@@ -2661,6 +2661,74 @@ KR_IRRBB_NATIONAL_TABLES: tuple[TableSpec, ...] = (
     _KR_RETAIL_CRITERIA, _KR_NMD_CATEGORY, _KR_BEHAV_SCOPE,
     _KR_AUTO_OPTION_PARAM, _KR_GOVERNANCE)
 
+# ---------------------------------------------------------------- 외부 데이터 (RDM 인터페이스)
+# 기후 지구본이 쓰는 외부 자료는 화면이 파일을 직접 읽지 않고 RDM 을 거친다.
+# 원천 파일은 rdm_ext_source 에 지문·저작권과 함께 등록되고, 국가 마스터와
+# 국가별 지표는 원장이 되며, rdm_source_contract·rdm_snapshot 에 external_data
+# 원천으로 계약·스냅샷 행이 선다. 합성 지표(위도 기반 기온·강수)는 kind=합성이다.
+EXT_KINDS = ("실측", "합성", "기하")
+EXT_INDICATORS = ("tas_synthetic", "pr_synthetic", "co2_per_capita", "co2",
+                  "total_ghg", "fossil_share")
+
+_EXT_SOURCE = TableSpec(
+    name="rdm_ext_source", korean="외부 원천 파일 등록", product="PRD-RDM",
+    grain="외부 원천 파일 1건당 1행",
+    columns=(
+        C("file_id", "string", "파일 식별자", nullable=False),
+        C("provider", "string", "제공자", nullable=False),
+        C("dataset", "text", "데이터셋", nullable=False),
+        C("licence", "string", "저작권·이용허락", nullable=False),
+        C("file_name", "text", "파일명", nullable=False),
+        C("sha256", "text", "SHA-256 지문", nullable=False,
+          citation="DAT-004 · A.7.2 데이터 출처"),
+        C("row_count", "int", "행 수", nullable=False, min_value=0),
+        C("received_asof", "date", "수신 기준일", nullable=False),
+        C("kind", "string", "성격", nullable=False, allowed=EXT_KINDS),
+        C("note", "text", "비고", nullable=True),
+    ),
+    primary_key=("file_id",),
+    note="외부 자료는 여기 등록된 파일에서만 나온다. 지문이 바뀌면 지표 원장이 바뀐다.",
+)
+
+_EXT_COUNTRY = TableSpec(
+    name="rdm_ext_country", korean="외부 국가 마스터", product="PRD-RDM",
+    grain="국가 1개당 1행 (Natural Earth 1:110m 기준)",
+    columns=(
+        C("iso3", "string", "ISO3 코드", nullable=False),
+        C("iso2", "string", "ISO2 코드", nullable=True),
+        C("name", "text", "국가명(영문)", nullable=False),
+        C("continent", "string", "대륙", nullable=False),
+        C("centroid_lon", "float", "중심 경도", nullable=False, unit="degree",
+          min_value=-180, max_value=180),
+        C("centroid_lat", "float", "중심 위도", nullable=False, unit="degree",
+          min_value=-90, max_value=90),
+        C("file_id", "string", "원천 파일", nullable=False),
+    ),
+    primary_key=("iso3",),
+    note="ISO 코드가 없는 지역(북키프로스·소말릴란드)은 Natural Earth 의 ADM0_A3 를 쓴다.",
+)
+
+_EXT_INDICATOR = TableSpec(
+    name="rdm_ext_climate_indicator", korean="국가별 기후 지표", product="PRD-RDM",
+    grain="국가 × 지표 1행",
+    columns=(
+        C("iso3", "string", "ISO3 코드", nullable=False),
+        C("indicator", "string", "지표", nullable=False, allowed=EXT_INDICATORS),
+        C("value", "float", "값", nullable=False, unit="가변",
+          note="단위는 같은 행의 unit 열에 있다 (°C · mm/년 · tCO2/인 · MtCO2 · MtCO2e · %)"),
+        C("unit", "string", "단위", nullable=False),
+        C("year", "int", "관측 연도", nullable=True,
+          note="합성 지표는 연도가 없다"),
+        C("kind", "string", "성격", nullable=False, allowed=EXT_KINDS,
+          note="합성은 위도 기반 근사장이며 실측 기후 자료가 아니다"),
+        C("file_id", "string", "원천 파일", nullable=True),
+    ),
+    primary_key=("iso3", "indicator"),
+    note="지구본 히트맵의 값. 실측(OWID CO2·에너지)과 합성(기온·강수)이 섞여 있어 kind 로 구분한다.",
+)
+
+_EXT_TABLES = (_EXT_SOURCE, _EXT_COUNTRY, _EXT_INDICATOR)
+
 NEW_LEDGER_TABLES: tuple[TableSpec, ...] = (
     _MACRO_TABLES + _LIMIT_TABLES
     + KR_IRRBB_NATIONAL_TABLES + _IRRBB_DISC_TABLES
@@ -2674,7 +2742,7 @@ NEW_LEDGER_TABLES: tuple[TableSpec, ...] = (
     + _CHANGE_TABLES + _PRICING_TABLES + _LIFECYCLE_TABLES + _RBAC_TABLES
     + _AUDIT_TABLES + _RETENTION_TABLES + _UNIFIED_TABLES + _CLOSE_TABLES
     + _CONNECTOR_TABLES + _INBOUND_TABLES + _ADAPTER_TABLES
-    + _RESILIENCE_TABLES + _AIG_TABLES)
+    + _RESILIENCE_TABLES + _AIG_TABLES + _EXT_TABLES)
 
 ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
               + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES

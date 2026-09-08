@@ -30,6 +30,7 @@ from risk_lib.ui_studio.req_trace_clr import build_trace as _clr_rows
 from risk_lib.ui_studio.req_trace_clr import coverage as _clr_coverage
 from risk_lib.ui_studio.req_trace_air import build_trace as _air_rows
 from risk_lib.ui_studio.req_trace_air import coverage as _air_coverage
+from risk_lib import climate_geo as _geo
 from risk_lib.ui_studio.studio import DEMO_PROMPTS, DEMO_QUERIES, Studio
 
 PREVIEW_ROWS = 12
@@ -224,6 +225,15 @@ def _reverse_dict(s: Studio) -> dict:
         "implied_gdp_shock": r.implied_gdp_shock,
         "implied_lgd_addon": r.implied_lgd_addon,
     }
+
+
+def _country_mix_rows(s: Studio) -> list[tuple[str, float]]:
+    """이 기관의 국가별 익스포저 비중 (inst_country_mix). 원장이 없으면 빈 목록."""
+    df = (getattr(s, "inst_tables", None) or {}).get("inst_country_mix")
+    if df is None or "institution_code" not in df.columns:
+        return []
+    hit = df[df["institution_code"] == s.institution_code]
+    return [(str(r["country"]), float(r["weight"])) for _, r in hit.iterrows()]
 
 
 def _climate_dict(s: Studio) -> dict | None:
@@ -945,6 +955,10 @@ def _payload(s: Studio) -> dict:
         # 기후리스크(기타리스크). 이 키가 생기기 전에 적재한 DB 실행에는 없다.
         # 그때는 화면이 "적재되지 않았다"고 적는다.
         "climate": secs.get("climate"),
+        # 세계지도(지구본 히트맵). geo 는 실행과 무관해 전 기관에 같은 객체가 실리고
+        # 임베드 풀이 한 번만 담는다. 익스포저 층만 실행마다 다르다.
+        "geo": _geo.payload_from_tables(s.tables),
+        "geo_exposure": _geo.exposure_layer(_country_mix_rows(s)),
         # 사업성(COM). 규제 산출물이 아니다. 제출 지문·독립검증 대상에 넣지
         # 않으며, 전 수치가 가정 원장에서 계산으로만 나온다.
         "commercial": {
@@ -1507,6 +1521,17 @@ font-size:11px}
 .chain .plink{width:2px;height:12px;background:var(--line);margin-left:16px}
 /* 시간축 레인 */
 .lanes svg{display:block;width:100%;height:auto}
+/* 세계 지구본 히트맵 (기후 개요) */
+.globe{position:relative;max-width:820px}
+.globe canvas{display:block;width:100%;height:auto;border-radius:12px;background:var(--panel2);
+cursor:grab;touch-action:none;user-select:none}
+.globe canvas:active{cursor:grabbing}
+.globe .gl{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:8px 0 0;font-size:11px;
+color:var(--muted);font-variant-numeric:tabular-nums}
+.globe .gl .bar{width:180px;height:10px;border-radius:3px;border:1px solid var(--line)}
+.globe .gl .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.globe .readout{min-height:1.6em;font-size:12px;margin:6px 0 0;font-variant-numeric:tabular-nums}
+.globe .readout b{margin-right:8px}
 /* 규정 인덱스 */
 .regidx{display:grid;gap:12px;grid-template-columns:minmax(220px,260px) minmax(0,1fr);align-items:start}
 @media(max-width:1100px){.regidx{grid-template-columns:1fr}}
@@ -4421,11 +4446,159 @@ function clrPathTable(K,key,title,fmt){
     K.horizon.map((y,k)=>[String(y)].concat(scen.map(sc=>fmt(K[key][sc][k]))))));
   return c}
 
+/* ---- 세계 지구본 히트맵 ----
+   외부 타일·라이브러리 없이 canvas 로 그린다. 국경은 Natural Earth 1:110m(공개 저작권),
+   나라 색은 D.geo.layers 와 실행별 익스포저 층의 값이다. 정사영(지구본)과 등장방형(평면)
+   두 투영, 드래그 회전(이동)·휠 확대·클릭 확대(누른 지점을 가운데로). 화소마다 역투영해
+   0.5도 국가 격자를 찾아보므로 다각형 판정이 없다. 난수·시각을 쓰지 않는다. */
+const GLOBE_PAL={
+  temp:[[44,95,168],[158,202,225],[255,245,204],[244,162,97],[192,57,43]],
+  precip:[[247,251,255],[158,202,225],[49,130,189],[8,48,107]],
+  heat:[[255,247,236],[253,187,132],[215,48,31],[127,0,0]],
+  accent:[[232,242,251],[66,169,255],[11,61,145]]};
+function cssRgb(name,fallback){
+  const v=getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const m=/^#([0-9a-f]{6})$/i.exec(v);
+  if(m)return [parseInt(m[1].slice(0,2),16),parseInt(m[1].slice(2,4),16),parseInt(m[1].slice(4,6),16)];
+  return fallback}
+function palColor(pal,t){
+  const n=pal.length-1,x=Math.max(0,Math.min(1,t))*n,i=Math.min(n-1,Math.floor(x)),f=x-i;
+  return [pal[i][0]+(pal[i+1][0]-pal[i][0])*f,pal[i][1]+(pal[i+1][1]-pal[i][1])*f,pal[i][2]+(pal[i+1][2]-pal[i][2])*f]}
+function worldGlobe(root,layers){
+  const G=D.geo,R=G.raster,C=G.countries,DEG=Math.PI/180;
+  const grid=new Uint16Array(R.w*R.h);
+  R.rle.forEach((row,y)=>{let x=0;for(let k=0;k<row.length;k+=2){const v=row[k],n=row[k+1];
+    for(let j=0;j<n;j++)grid[y*R.w+x+j]=v;x+=n}});
+  const SZ=600;
+  /* 처음은 한국 중심, 지구본 */
+  const st={lon:127,lat:36,zoom:1,mode:'globe',layer:layers[0].key,draws:0};
+  window.__GLOBE__=st;
+  const wrap=el('div','globe');
+  const bar=el('div','toolbar');
+  const selL=el('select','sel');
+  layers.forEach(l=>{const o=rawEl('option');o.value=l.key;o.textContent=T(l.label)+' · '+T(l.kind);selL.appendChild(o)});
+  const selM=el('select','sel');
+  [['globe','지구본'],['flat','평면']].forEach(([v,lab])=>{const o=rawEl('option');o.value=v;o.textContent=T(lab);selM.appendChild(o)});
+  const btn=(lab,fn)=>{const b=el('button','btn',lab);b.type='button';b.onclick=fn;bar.appendChild(b);return b};
+  bar.appendChild(selL);bar.appendChild(selM);
+  btn('확대',()=>{st.zoom=Math.min(16,st.zoom*1.5);draw()});
+  btn('축소',()=>{st.zoom=Math.max(0.6,st.zoom/1.5);draw()});
+  btn('처음으로',()=>{st.lon=127;st.lat=36;st.zoom=1;draw()});
+  wrap.appendChild(bar);
+  const cv=rawEl('canvas');cv.width=SZ;cv.height=SZ;wrap.appendChild(cv);
+  const legend=el('div','gl');wrap.appendChild(legend);
+  const readout=rawEl('div','readout');wrap.appendChild(readout);
+  const ctx=cv.getContext('2d');
+  const ocean=cssRgb('--panel2',[13,33,52]),nodata=cssRgb('--line',[120,120,120]);
+  let layer=layers[0],vals=null;
+  function setLayer(k){
+    layer=layers.find(l=>l.key===k)||layers[0];st.layer=layer.key;
+    vals=new Float32Array(C.length+1).fill(NaN);
+    C.forEach((c,i)=>{const v=layer.values[c.iso3];if(v!=null)vals[i+1]=layer.log?Math.log10(Math.max(v,1e-9)):v});
+    const [lo,hi]=layer.log?[Math.log10(Math.max(layer.domain[0],1e-9)),Math.log10(Math.max(layer.domain[1],1e-9))]:layer.domain;
+    layer._lo=lo;layer._hi=(hi-lo)||1;
+    legend.innerHTML='';
+    const b=rawEl('span','bar');const pal=GLOBE_PAL[layer.palette]||GLOBE_PAL.heat;
+    b.style.background='linear-gradient(90deg,'+pal.map(c=>'rgb('+c.map(Math.round).join(',')+')').join(',')+')';
+    legend.appendChild(rawEl('span',null,fmtNum(layer.domain[0])+(layer.log?' ':'')));legend.appendChild(b);
+    legend.appendChild(rawEl('span',null,fmtNum(layer.domain[1])+' '+layer.unit+(layer.log?' ('+T('로그 눈금')+')':'')));
+    legend.appendChild(rawEl('span',null,T('자료')+' '+TC(Object.keys(layer.values).length,'개국')+(layer.year?' · '+layer.year:'')));
+    const s=rawEl('span',null,T(layer.kind)+' · '+layer.source);s.style.flexBasis='100%';legend.appendChild(s);
+    if(layer.unmatched&&layer.unmatched.length)legend.appendChild(rawEl('span',null,T('지도에 없는 지역')+' '+layer.unmatched.join(', ')));
+  }
+  function colorOf(ci){
+    const v=vals[ci];if(isNaN(v))return nodata;
+    return palColor(GLOBE_PAL[layer.palette]||GLOBE_PAL.heat,(v-layer._lo)/layer._hi)}
+  /* 화면 좌표 → 경위도. 지구본 밖이면 null */
+  function invert(x,y){
+    if(st.mode==='flat'){const k=SZ/360*st.zoom,cx=SZ/2,cy=SZ/4;
+      const lat=st.lat-(y-cy)/k;if(lat>90||lat<-90)return null;
+      let lon=st.lon+(x-cx)/k;lon=((lon+540)%360)-180;return [lon,lat]}
+    const Rg=SZ/2*0.96*st.zoom,X=(x-SZ/2)/Rg,Y=-(y-SZ/2)/Rg,r2=X*X+Y*Y;if(r2>1)return null;
+    const rho=Math.sqrt(r2),c=Math.asin(rho),sc=Math.sin(c),cc=Math.cos(c),la0=st.lat*DEG,lo0=st.lon*DEG;
+    const lat=rho===0?la0:Math.asin(cc*Math.sin(la0)+Y*sc*Math.cos(la0)/rho);
+    const lon=lo0+Math.atan2(X*sc,rho*cc*Math.cos(la0)-Y*sc*Math.sin(la0));
+    return [((lon/DEG+540)%360)-180,lat/DEG]}
+  /* 경위도 → 화면 좌표. 보이지 않는 반구면 null */
+  function project(lon,lat){
+    if(st.mode==='flat'){const k=SZ/360*st.zoom;let dl=((lon-st.lon+540)%360)-180;
+      return [SZ/2+dl*k,SZ/4-(lat-st.lat)*k]}
+    const Rg=SZ/2*0.96*st.zoom,la=lat*DEG,lo=(lon-st.lon)*DEG,la0=st.lat*DEG;
+    const cosc=Math.sin(la0)*Math.sin(la)+Math.cos(la0)*Math.cos(la)*Math.cos(lo);if(cosc<0)return null;
+    return [SZ/2+Rg*Math.cos(la)*Math.sin(lo),SZ/2-Rg*(Math.cos(la0)*Math.sin(la)-Math.sin(la0)*Math.cos(la)*Math.cos(lo))]}
+  function cellAt(lon,lat){const gx=Math.min(R.w-1,Math.floor((lon+180)/R.deg)),gy=Math.min(R.h-1,Math.max(0,Math.floor((90-lat)/R.deg)));return grid[gy*R.w+gx]}
+  function draw(){
+    const H=st.mode==='flat'?SZ/2:SZ;if(cv.height!==H)cv.height=H;
+    const img=ctx.createImageData(SZ,H),d=img.data;
+    const flat=st.mode==='flat',Rg=SZ/2*0.96*st.zoom,k=SZ/360*st.zoom;
+    const la0=st.lat*DEG,lo0=st.lon*DEG,sla=Math.sin(la0),cla=Math.cos(la0);
+    for(let y=0;y<H;y++)for(let x=0;x<SZ;x++){
+      let lon,lat,sh=1;
+      if(flat){lat=st.lat-(y-SZ/4)/k;if(lat>90||lat<-90)continue;lon=((st.lon+(x-SZ/2)/k+540)%360)-180}
+      else{const X=(x-SZ/2)/Rg,Y=-(y-SZ/2)/Rg,r2=X*X+Y*Y;if(r2>1)continue;
+        const rho=Math.sqrt(r2),c=Math.asin(rho),sc=Math.sin(c),cc=Math.cos(c);
+        lat=(rho===0?la0:Math.asin(cc*sla+Y*sc*cla/rho))/DEG;
+        lon=((lo0+Math.atan2(X*sc,rho*cc*cla-Y*sc*sla))/DEG+540)%360-180;sh=0.72+0.28*cc}
+      const ci=cellAt(lon,lat),o=(y*SZ+x)*4,col=ci?colorOf(ci):ocean;
+      d[o]=col[0]*sh;d[o+1]=col[1]*sh;d[o+2]=col[2]*sh;d[o+3]=255}
+    ctx.putImageData(img,0,0);
+    ctx.beginPath();ctx.lineWidth=Math.min(1.6,0.6+0.25*st.zoom);ctx.strokeStyle='rgba(20,20,30,.55)';
+    C.forEach(c=>c.rings.forEach(ring=>{let pen=false,px=0;ring.forEach(([lo,la])=>{const p=project(lo,la);
+      if(!p||(flat&&pen&&Math.abs(p[0]-px)>SZ/2)){pen=false;return}
+      if(!pen){ctx.moveTo(p[0],p[1]);pen=true}else ctx.lineTo(p[0],p[1]);px=p[0]})}));
+    ctx.stroke();
+    if(!flat){ctx.beginPath();ctx.arc(SZ/2,SZ/2,Rg,0,2*Math.PI);ctx.strokeStyle='rgba(120,160,200,.5)';ctx.lineWidth=1;ctx.stroke()}
+    st.draws++;
+  }
+  function describe(lon,lat){
+    const ci=cellAt(lon,lat);
+    readout.innerHTML='';
+    readout.appendChild(rawEl('b',null,lon.toFixed(1)+'°, '+lat.toFixed(1)+'°'));
+    if(!ci){readout.appendChild(rawEl('span',null,T('바다')));return}
+    const c=C[ci-1];readout.appendChild(rawEl('b',null,c.name+' ('+c.iso3+')'));
+    layers.forEach(l=>{const v=l.values[c.iso3];if(v==null)return;
+      const s=rawEl('span',null,T(l.label)+' '+fmtNum(v)+' '+l.unit+'  ');s.style.marginRight='8px';readout.appendChild(s)});
+  }
+  const pos=e=>{const b=cv.getBoundingClientRect();return [(e.clientX-b.left)*SZ/b.width,(e.clientY-b.top)*SZ/b.width]};
+  let dragging=null;
+  cv.addEventListener('pointerdown',e=>{dragging={x:e.clientX,y:e.clientY,lon:st.lon,lat:st.lat,moved:false};cv.setPointerCapture(e.pointerId)});
+  cv.addEventListener('pointermove',e=>{
+    const [x,y]=pos(e);
+    if(dragging){const dx=e.clientX-dragging.x,dy=e.clientY-dragging.y;
+      if(Math.abs(dx)+Math.abs(dy)>4)dragging.moved=true;
+      const b=cv.getBoundingClientRect(),s=SZ/b.width;
+      const per=st.mode==='flat'?1/(SZ/360*st.zoom):1/(SZ/2*0.96*st.zoom)/DEG;
+      st.lon=((dragging.lon-dx*s*per+540)%360)-180;st.lat=Math.max(-85,Math.min(85,dragging.lat+dy*s*per));
+      draw();return}
+    const ll=invert(x,y);if(ll)describe(ll[0],ll[1])});
+  const up=e=>{if(!dragging)return;const d=dragging;dragging=null;
+    if(!d.moved){const [x,y]=pos(e),ll=invert(x,y);
+      if(ll){st.lon=ll[0];st.lat=Math.max(-85,Math.min(85,ll[1]));st.zoom=Math.min(16,st.zoom*1.5);draw();describe(ll[0],ll[1])}}};
+  cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',()=>{dragging=null});
+  cv.addEventListener('wheel',e=>{e.preventDefault();st.zoom=Math.max(0.6,Math.min(16,st.zoom*(e.deltaY<0?1.2:1/1.2)));draw()},{passive:false});
+  selL.onchange=()=>{setLayer(selL.value);draw()};
+  selM.onchange=()=>{st.mode=selM.value;draw()};
+  setLayer(st.layer);draw();
+  root.appendChild(wrap);
+  return wrap;
+}
+
 function climateOverview(root){
   if(!clrGate(root))return;
   const C=D.climate,K=C.capital,Q=D.req_trace_clr.coverage;
   root.appendChild(el('p','lead','기후리스크를 이 하네스가 지금 어디까지 산출하는지 한 화면에 모은다. 전환·물리 ECL 상승분, NGFS 자본 경로, 시나리오 카탈로그, ICAAP 인벤토리의 기후 항목, 요건 커버리지다.'));
   root.appendChild(clrLevelNote());
+  if(D.geo){
+    const gc=el('div','card');gc.appendChild(el('h3',null,'세계 기후리스크 지도 (지구본 히트맵)'));
+    gc.appendChild(el('div','meta','드래그로 돌리고, 휠로 확대·축소하고, 누르면 그 지점을 가운데로 확대한다. 기온·강수량은 위도 기반 합성장이고 CO2·에너지는 Our World in Data 실측, 익스포저는 이 기관의 국가 구성이다.'));
+    worldGlobe(gc,D.geo.layers.concat(D.geo_exposure&&Object.keys(D.geo_exposure.values).length?[D.geo_exposure]:[]));
+    gc.appendChild(rawEl('div','meta',D.geo.licences.map(l=>T(l.item)+': '+l.text).join(' · ')));
+    root.appendChild(gc);
+    /* 외부 자료는 RDM 을 거친다. 원천 파일 등록과 지표 원장을 그대로 보인다. */
+    [['외부 원천 파일 등록 (RDM 인터페이스)','rdm_ext_source'],['국가별 기후 지표 원장','rdm_ext_climate_indicator']].forEach(([t,key])=>{
+      const f=D.data[key];if(!f)return;const c=el('div','card');c.appendChild(el('h3',null,t));
+      c.appendChild(table(f));c.appendChild(srcMeta(f));root.appendChild(c)})}
+  else root.appendChild(el('div','note bad','RDM 원장에 외부 기후 자료(rdm_ext_*)가 없다. DB 적재본이면 db-init 뒤 db-load 로 다시 적재해야 한다.'));
   const wt=C.transition.find(l=>l.scenario===C.worst_transition);
   const wp=C.physical.find(l=>l.scenario===C.worst_physical);
   const g=el('div','grid');
@@ -10330,11 +10503,8 @@ const NAVGROUPS=[
     ['위기상황',['거시지표 모니터링','시나리오 설정','역스트레스',
               'ICAAP 인벤토리','경영조치·제출']],
   ]],
-  /* 기타리스크. 신용·시장·운영·ALM 어느 축에도 속하지 않는 Pillar 2 리스크.
-     지금은 기후리스크만 있다. 화면은 엔진 산출 수준(부문 계수·NGFS 경로)까지다. */
-  ['기타리스크',[
-    ['기후리스크',['기후 개요','전환위험','물리적 위험','기후 자본 경로']],
-  ]],
+  /* 기후리스크. 화면은 엔진 산출 수준(부문 계수·NGFS 경로)까지이고 개요에 지구본 히트맵이 있다. */
+  ['기후리스크',['기후 개요','전환위험','물리적 위험','기후 자본 경로']],
   /* AI리스크. 해설서(2026-09-08) UI-01~12 를 따르되 원장이 실재하는 화면만 둔다.
      에이전트 운영과 추적 화면은 검증·거버넌스에서 이리로 옮겼다. */
   ['AI리스크',[
@@ -10370,7 +10540,7 @@ const NAV_ROLES=[
   ['exec','경영진',()=>['종합보고서','감독보고','NCR·건전성','콕핏','한도관리','예외·조치',
      '역스트레스','거시지표 모니터링','경영조치·제출','검증','KRI·통제','기후 개요','AI 리스크 개요']],
   ['ops','실무',()=>navLeaves('통제센터').concat(navLeaves('조회·컴포저'),navLeaves('리스크데이터'),
-     navLeaves('위험가중자산(RWA)'),navLeaves('ALM·위기상황'),navLeaves('기타리스크'),navLeaves('AI리스크'),
+     navLeaves('위험가중자산(RWA)'),navLeaves('ALM·위기상황'),navLeaves('기후리스크'),navLeaves('AI리스크'),
      ['감독보고','NCR·건전성','데이터모델','코드 마스터','코드 매핑'])],
   ['model','모형검증',()=>navLeaves('모형').concat(['검증','오버레이','변경','모형 수명주기',
      '산출 방법론','행동모형 백테스트'])],

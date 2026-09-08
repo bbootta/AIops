@@ -705,6 +705,26 @@ def test_req_trace_tab_switches_to_the_climate_register(page):
     assert page.errors == []
 
 
+def test_climate_overview_globe_zooms_on_click_and_switches_layers(page):
+    """지구본은 클릭하면 그 지점으로 확대되고, 지표를 바꾸면 범례가 그 층을 따른다."""
+    _tab_named(page, "기후 개요")
+    assert page.locator("section.on .globe canvas").count() == 1
+    z0 = page.evaluate("window.__GLOBE__.zoom")
+    box = page.locator("section.on .globe canvas").bounding_box()
+    page.mouse.click(box["x"] + box["width"] * 0.5, box["y"] + box["height"] * 0.45)
+    page.wait_for_timeout(200)
+    st = page.evaluate("window.__GLOBE__")
+    assert st["zoom"] > z0 and st["draws"] >= 2
+    page.select_option("section.on .globe select.sel >> nth=0", "co2_per_capita")
+    page.wait_for_timeout(300)
+    assert page.evaluate("window.__GLOBE__.layer") == "co2_per_capita"
+    assert "tCO2" in _text(page)
+    page.select_option("section.on .globe select.sel >> nth=1", "flat")
+    page.wait_for_timeout(300)
+    assert page.evaluate("window.__GLOBE__.mode") == "flat"
+    assert page.errors == []
+
+
 def test_ai_risk_overview_renders_from_the_governance_ledgers(page):
     """AI 리스크 개요는 레지스트리·승인·비상정지 원장에서 값을 세고, 요건 76건과
     해설서 화면 12종 대응표를 붙인다. 운영 반영 권한이 있는 에이전트는 0건이다."""

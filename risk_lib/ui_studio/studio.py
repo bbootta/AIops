@@ -151,6 +151,10 @@ def build_studio(result, portfolio, *, institution: str = "(기관명)") -> Stud
     # 코드 마스터 — 정렬·표시의 정본. 카탈로그 스펙에서 생성한다.
     tables["rdm_code_master"] = build_code_master()
     tables.update(materialize_detail(result, portfolio, tables))
+    # 외부 데이터(국경·CO2·에너지·합성 기후장)는 RDM 인터페이스를 거친다. 계약·
+    # 스냅샷 행을 덧붙이므로 detail(원천 계약 생성) 뒤여야 한다.
+    from risk_lib import climate_geo as _geo
+    tables.update(_geo.materialize_external(asof, tables))
     # 계정·상품 코드 스코프 — 반드시 detail **이후**다. LCR 적용률·거래
     # 건수를 산출 원장에서 실측 조인하는데, 그 원장들(alm_lcr_item·mkt_trade)
     # 이 detail 단계에서 생긴다. 앞에 두면 조인이 조용히 NaN이 된다 —
