@@ -1439,6 +1439,30 @@
     },
     {
       "rule_id": "KR-062",
+      "source_key": "규정",
+      "basis_level": "국내구속",
+      "citation": "제30조",
+      "source_heading": "제30조(리스크관리체제 등)",
+      "source_line": 930,
+      "basel_ref": "SRP30",
+      "ambiguous_domestic": false,
+      "governing": "국내",
+      "section": "08",
+      "section_name": "리스크 적합성검증",
+      "lens": [
+        "내부통제",
+        "방법론"
+      ],
+      "criterion": "AI 시스템(예측모형·생성형·에이전트)이 리스크관리체제의 인식·측정·통제 대상에 포함되고 AI 가 만든 수치가 승인된 계산결과 참조 없이 공식 수치로 승격되지 않으며 승인이 사람의 명시적 행위로만 생성되는가",
+      "automation": "automated",
+      "evidence": [
+        "harness/ai_risk_requirement_criteria.json",
+        "tools/ai_risk_criteria.py"
+      ],
+      "note": "AI 리스크 요건 76건의 기준 원장이 규정 제30조 아래에 걸린다. 국내 구속 근거(인공지능기본법·개인정보보호법·신용정보법)는 감독규정 밖이라 원장의 norms 로만 실린다"
+    },
+    {
+      "rule_id": "KR-063",
       "source_key": "세칙",
       "basis_level": "국내구속",
       "citation": "별표 19",
@@ -1462,7 +1486,7 @@
       "note": "국내 기준은 기후 CST 의 시나리오·방법을 따로 정하지 않아 바젤·BCBS 기후원칙으로 보충한다. 공식 CST 배포본은 미수령이며 내부 합성시험만 재계산한다"
     },
     {
-      "rule_id": "BIS-063",
+      "rule_id": "BIS-064",
       "source_key": "바젤",
       "basis_level": "국제권고",
       "citation": "CRE52",
@@ -1485,7 +1509,7 @@
       "note": "국내 세칙은 CCR 산출을 별표 3 체계 안에서 다루며 SA-CCR 전용 기준을 따로 두지 않는다"
     },
     {
-      "rule_id": "BIS-064",
+      "rule_id": "BIS-065",
       "source_key": "바젤",
       "basis_level": "국제권고",
       "citation": "MAR50",
@@ -1508,7 +1532,7 @@
       "note": "국내 기준에 CVA 전용 산출 체계가 별도로 없다"
     },
     {
-      "rule_id": "BIS-065",
+      "rule_id": "BIS-066",
       "source_key": "바젤",
       "basis_level": "국제권고",
       "citation": "CRE60",
@@ -1530,7 +1554,7 @@
       "note": "국내 기준에 펀드 익스포저 전용 산출 계층이 별도로 없다"
     },
     {
-      "rule_id": "BIS-066",
+      "rule_id": "BIS-067",
       "source_key": "바젤",
       "basis_level": "국제권고",
       "citation": "CRE40",
@@ -1552,7 +1576,7 @@
       "note": "국내 기준에 유동화 접근법 계층 전용 규정이 별도로 없다"
     },
     {
-      "rule_id": "BIS-067",
+      "rule_id": "BIS-068",
       "source_key": "바젤",
       "basis_level": "국제권고",
       "citation": "MAR32",
@@ -1575,7 +1599,7 @@
       "note": "국내는 표준·간편법 중심이라 IMA 백테스팅 기준을 별도로 두지 않는다"
     },
     {
-      "rule_id": "BIS-068",
+      "rule_id": "BIS-069",
       "source_key": "바젤",
       "basis_level": "국제권고",
       "citation": "CRE35",
@@ -1597,7 +1621,7 @@
       "note": ""
     },
     {
-      "rule_id": "BIS-069",
+      "rule_id": "BIS-070",
       "source_key": "바젤",
       "basis_level": "국제권고",
       "citation": "DIS20",
@@ -1617,7 +1641,7 @@
       "note": "하니스는 공시 서식을 만들지 않는다: 대외 확정은 인간 권한"
     },
     {
-      "rule_id": "BIS-070",
+      "rule_id": "BIS-071",
       "source_key": "바젤",
       "basis_level": "국제권고",
       "citation": "SCO60",
@@ -1638,7 +1662,7 @@
       "note": "하니스에 가상자산 익스포저 경로가 없다. 국내 기준에도 대응 조항이 없어 바젤이 지배한다"
     },
     {
-      "rule_id": "BIS-071",
+      "rule_id": "BIS-072",
       "source_key": "바젤",
       "basis_level": "국제권고",
       "citation": "MGN20",
@@ -1658,7 +1682,7 @@
       "note": "하니스에 증거금 요건 검증이 없다"
     },
     {
-      "rule_id": "BIS-072",
+      "rule_id": "BIS-073",
       "source_key": "바젤",
       "basis_level": "국제권고",
       "citation": "SRP36",

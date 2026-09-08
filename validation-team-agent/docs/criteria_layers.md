@@ -5,11 +5,12 @@
 
 | 층 | SSoT | 근거 | 항목 수 |
 |---|---|---|---|
-| **규제 기준** | `harness/regulatory_criteria.json` | 은행업감독**규정** [2026. 4. 1.] → 시행**세칙** [2026. 6. 30.] → **Basel Framework** [2026. 8. 9.]: 원문 3종 보관 | 72건 (자동 48 · 수동 24) + 계량 임계 13건 |
+| **규제 기준** | `harness/regulatory_criteria.json` | 은행업감독**규정** [2026. 4. 1.] → 시행**세칙** [2026. 6. 30.] → **Basel Framework** [2026. 8. 9.]: 원문 3종 보관 | 73건 (자동 49 · 수동 24) + 계량 임계 13건 |
 | 도메인 업무요건 | `harness/domain_requirement_criteria.json` | RYNTA BRD Level 1 v9.6.0 | 131건 (자동 69 · 수동 12 · 범위밖 50) |
 | 기후리스크 업무요건 | `harness/climate_requirement_criteria.json` | 기후리스크 관리 업무요건정의서 설계 1.0.0 [2026. 9. 6.]: 원문 2종 보관 | 72건 (자동 33 · 수동 31 · 범위밖 8) + 인수시험 72 · 결정 20 |
+| AI리스크 업무요건 | `harness/ai_risk_requirement_criteria.json` | AI 리스크관리 업무요건 문서 세트 v1.0 [2026. 9. 8.]: 원문 4종 보관, 문서 manifest 대조 | 76건 (자동 42 · 수동 29 · 범위밖 5) + 근거원장 27 (구속 4) |
 
-규제 층이 **법적 근거**, 도메인·기후 층이 **업무 요건**이다. 규제 층이 상위다:
+규제 층이 **법적 근거**, 도메인·기후·AI 층이 **업무 요건**이다. 규제 층이 상위다:
 업무요건이 규제 기준을 덮지 못하면 그것이 곧 공백이다.
 
 ## 기준 스택: 국내 우선, 모호하면 바젤
@@ -17,7 +18,7 @@
 ```
 규정(국내구속) → 세칙(국내구속) → 바젤(국제권고)
 
-① 국내 구속 기준이 그 주제를 정하면 국내가 적용된다.               지배 국내        50건
+① 국내 구속 기준이 그 주제를 정하면 국내가 적용된다.               지배 국내        51건
 ② 국내가 정하지 않으면 바젤을 따른다.                             지배 바젤        10건
 ③ 국내가 있으나 해석이 모호하면 바젤로 보충한다.                    지배 국내+바젤보충  12건
 ④ 국내가 바젤보다 느슨해도 국내가 적용되나 그 차이를 표기한다.
@@ -97,7 +98,7 @@ $ python -m vta standards thresholds
 ## 부문별
 
 ```
-총 72건 · 자동 48 · 수동 24      (규정 15 · 세칙 47 · 바젤 10)
+총 73건 · 자동 49 · 수동 24      (규정 16 · 세칙 47 · 바젤 10)
 ```
 
 바젤이 지배하는 10건은 국내 기준이 그 주제를 정하지 않는 것들이다: SA-CCR
@@ -167,7 +168,7 @@ RYNTA BRD Level 1 도메인 업무요건 **131건 전부**를 적합성검증 �
 | `harness/reference/bank_supervision_regulation_20260401.md` | 국내 근거 원문: 은행업감독규정 전문 (지문 고정) |
 | `harness/reference/bank_supervision_rules_20260630.md` | 국내 근거 원문: 시행세칙 전문 (지문 고정) |
 | `harness/reference/basel_framework_sourcebook_20260809.md` | 국제 근거: Basel Framework Chapter 소스북 (지문 고정) |
-| `harness/regulatory_criteria.json` | SSoT: 규제 검증 항목 72건 + 계량 임계 13건 (생성물) |
+| `harness/regulatory_criteria.json` | SSoT: 규제 검증 항목 73건 + 계량 임계 13건 (생성물) |
 | `tools/gen_regulatory_criteria.py` | 생성기: 인용 해석 + 지배기준 파생 |
 | `tools/regulatory_criteria.py` | `list` / `report` / `precedence` / `thresholds` / `cite-check` / `verify` |
 | `tests/test_regulatory_criteria.py` | 25건: 인용 해석·임계 대조·기준 스택 + 음성 통제 8건 |
@@ -185,6 +186,11 @@ RYNTA BRD Level 1 도메인 업무요건 **131건 전부**를 적합성검증 �
 | `tools/climate_recalc.py` | 합성 사례 독립 재계산 (`self-test` / `run`): 공표값 21건 대조, SAMPLE_ONLY |
 | `tests/test_climate_criteria.py` | 12건: 원문 파싱·지문·근거 실재성 + 음성 통제 3건 |
 | `tests/test_climate_recalc.py` | 24건: 공표값 재현 + 계약 위반 거부 10건 + 대사 불일치 탐지 |
+| `harness/reference/ai_risk_*_20260908.*` | AI 근거 원문 4종: 해설서·개요·requirements.json·문서 manifest (지문 고정) |
+| `harness/ai_risk_requirement_criteria.json` | SSoT: AI 요건 76건 + 근거원장 27 + 문서 세트 검증 상태 (생성물) |
+| `tools/gen_ai_risk_criteria.py` | 생성기: 요건·챕터·근거원장을 원문에서 파싱, 보관본 지문을 문서 manifest 와 대조 |
+| `tools/ai_risk_criteria.py` | `list` / `report` / `norms` / `verify` |
+| `tests/test_ai_risk_criteria.py` | 13건: 원문 파싱·지문·근거 실재성 + 음성 통제 3건 |
 
 ## 사용
 
@@ -197,9 +203,10 @@ python -m vta criteria verify        # 도메인 요건 근거 실재성
 python -m vta criteria report
 python -m vta climate verify         # 기후 요건 원장: 원문 지문·요건·인수시험·결정 대조 + 근거 실재성
 python -m vta climate-recalc self-test   # 합성 사례 21건 공표값 대조 (SAMPLE_ONLY)
+python -m vta ai-risk verify         # AI 요건 원장: 원문 지문(문서 manifest 대조)·요건·규칙·근거원장 + 근거 실재성
 ```
 
-세 `verify`는 `pytest`에도 걸려 있어 근거 파일이 사라지거나 임계가 규정보다
+네 `verify`는 `pytest`에도 걸려 있어 근거 파일이 사라지거나 임계가 규정보다
 느슨해지면 테스트가 깨진다.
 
 ## 알려진 한계
@@ -290,3 +297,56 @@ BCBS 기후원칙(2022)·NGFS·PCAF·IFRS S2·BCBS 자발적 기후공시는 국
   기후 요건에도 적용된다는 뜻이지 기후 특유의 검사(손상함수 단조성·공간 조인·
   사건 귀속)가 있다는 뜻이 아니다. note 가 그 경계를 적는다.
 - 인수시험 72건은 구축 시점의 명세다. 원장에 실었다고 수행됐다는 뜻이 아니다.
+
+---
+
+# 4. AI리스크 업무요건 전개
+
+## 무엇인가
+
+AI 리스크관리 업무요건 문서 세트(v1.0 · 2026. 9. 8.: 개요, 실무진 해설서 23장,
+구조화 요건 원장 requirements.json, 문서 manifest)의 요건 **76건 전부**(P0 70 ·
+P1 6)를 부문 10 AI리스크로 전개했다. 요건·인수조건·챕터·근거원장 27건은 원문에서
+**파싱**하며, 보관본 4종의 지문은 문서 세트 자신의 manifest 와 대조된다. 생성기가
+정하는 것은 검증 기준 문장·자동화 상태·근거 파일뿐이다.
+
+- `automated` 42건: 직무분리·변경 매니페스트·권한 매트릭스·누수 가드·재현성·
+  Finding 계보·조건부 승인·워터마크·규제 원장(효력·유효일자)·지표 정책 같은 일반
+  통제와 독립 재계산기가 AI 요건에도 적용된다. **덮는 범위는 항목별 note 에 적는다.**
+- `manual` 29건: 법적 적용성 판정·생성형 시험셋·LLM 판정자 일치도·공정성·프롬프트
+  주입 시험·집행게이트·중단 명령·공급자 계약·이의제기 기한처럼 하니스에 통제가 없는 것.
+  이 하니스 자신이 LLM 에이전트이므로 "같은 모델의 자기검증만으로 PASS 금지"(BR-027)
+  는 2선·3선 분리 원칙과 같은 뜻이다.
+- `out_of_scope` 5건: 네트워크 우회 차단·화면·스키마·동시성·비기능 목표 등 시스템
+  구현 계약.
+
+## 현재 집계
+
+```
+총 76건 · 자동 42 · 수동 29 · 범위밖 5
+
+01 목적·범위·기준선        4건 (자동 4)     수치 승격 금지·POLICY_PROPOSAL·변경평가
+06 전통적 모형 검증         4건 (자동 4)     모델카드·누출·변별/보정/안정성·운영 대사
+11 생애주기·변경관리·배포    4건 (자동 4)     상태전이·배포 지문·영향평가·롤백
+17 증빙·감사·보관·보고서     4건 (자동 4)     ID 연결·추가기록·보관기간·보고서 버전
+07 생성형 AI 평가·공정성     4건 (수동 4)     시험셋·실행 기록·판정자·집단 분석
+13·14 사고·공급자           8건 (자동 2 · 수동 6)
+19 개발·검수·이행·인수       8건 (자동 2 · 수동 2 · 범위밖 4)
+```
+
+## 근거의 효력
+
+국내 구속 근거는 인공지능기본법·시행령·개인정보 보호법·신용정보법 4건이다. 이들은
+은행업감독규정·세칙 밖의 법령이므로 규제 층의 원문 스택에는 없고, 원장의 `norms`
+에 원문의 효력 구분 그대로 실린다. NIST AI RMF·ISO/IEC 42001·EU AI Act·SR 26-2·
+FSB·BCBS 문헌과 SEC·FTC 제재 사례는 참고 근거다. 규제 층에는 규정 제30조
+(리스크관리체제)를 인용하는 AI 항목 1건을 두어 AI 층을 규제 층 아래에 걸었다.
+
+## 알려진 한계
+
+- 문서 세트 자신이 밝힌 미수행 검증(브라우저 시각 검수·DB 실행·OpenAPI 메타스키마·
+  은행 운영 인수)을 `document_verification` 에 그대로 실었다. 문서가 PASS 라고 적은
+  항목도 문서 저자의 자체 점검이지 3선 검증이 아니다.
+- 인수시험 18건(종단간)은 해설서 20장의 명세이며 requirements.json 의 `test_id`
+  (AC-BR-NNN)와 1:1 이다. 원장에 실었다고 수행됐다는 뜻이 아니다.
+- 생성형 AI 의 평가·공정성·레드티밍은 하니스에 도구가 없다. 자동으로 주장하지 않는다.
