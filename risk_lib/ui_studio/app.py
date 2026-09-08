@@ -77,6 +77,8 @@ ALM_FULL_TABLES = (
 # **집계해서 그리는** 원장. 200행 상한에 걸리면 등급·범주 축이 잘려 없는 등급이
 # 생기고, 잘렸다는 사실은 집계 결과에 남지 않는다. 여기 적힌 것만 전량 싣는다.
 NEW_SCREEN_FULL_TABLES = (
+    # AI리스크 · 실행승인·게이트 (승인 결정 × 직무분리 분포)
+    "gov_approval",
     # 별표 9-1 국내 금리리스크
     "alm_repricing_gap", "kr_nmd_category", "kr_retail_criteria",
     "kr_retail_behavioural_scope", "kr_irrbb_governance", "kr_auto_option_param",
@@ -4523,6 +4525,69 @@ function climateCapital(root){
   root.appendChild(c3);
 }
 
+/* ---- AI리스크 · 개요 (해설서 UI-01 현황판에 해당) ----
+   이 하네스는 언어모형을 호출하지 않는 결정론 산출 라이브러리다. AI 리스크 통제로
+   실재하는 것은 에이전트 레지스트리·활동·추적 사슬·마스킹 규칙·범위형 비상정지·
+   4-Eyes 승인·접근 판정 원장이다. 해설서의 엔티티 테이블 43장은 카탈로그에 없고,
+   UI-01~12 가운데 원장이 없는 화면(고객권리 등)은 만들지 않는다. */
+const AI_UI_MAP=[
+  ['UI-01','현황판','BR-001 · 045~048','AI 리스크 개요'],
+  ['UI-02','자산등록','BR-009~012','AI 인벤토리·위험분류'],
+  ['UI-03','적용성·위험','BR-006 · 010','AI 인벤토리·위험분류 (법적 적용성 판정 없음)'],
+  ['UI-04','데이터·공급망','BR-013~020 · 053~055','정보흐름·마스킹 (공급자 계약 원장 없음)'],
+  ['UI-05','검증계획/결과','BR-021~032','모형 인벤토리 · 검증 일정 (생성형 AI 평가 없음)'],
+  ['UI-06','실행승인','BR-033~036','실행승인·게이트'],
+  ['UI-07','정책·배포','BR-037~044','변경통제 · 모형 수명주기'],
+  ['UI-08','실행 추적','BR-065~066','AI 거버넌스 · 실행·감사추적'],
+  ['UI-09','사고·중단','BR-049~052','사고·경보·중단'],
+  ['UI-10','고객권리','BR-057~060','없음 (요청 원장·통지 없음)'],
+  ['UI-11','감사·보고','BR-061~068','실행·감사추적 · 감독보고'],
+  ['UI-12','설정·예외','BR-003 · 007~008','예외·조치 (통제 예외 원장 없음)']];
+function aiOverview(root){
+  const reg=D.data['agent_registry'],act=D.data['agent_activity'],ks=D.data['agent_killswitch'],
+        ap=D.data['gov_approval'],tr=D.data['aig_agent_trace'],rules=D.data['aig_redaction_rule'],
+        Q=D.req_trace_air.coverage;
+  root.appendChild(el('p','lead','AI 리스크 통제가 이 하네스에서 어디까지 실재하는지 한 화면에 모은다. 에이전트 인벤토리와 권한, 활동과 게이트, 비상정지, 4-Eyes 승인, 마스킹 적중, 요건 76건 커버리지, 해설서 화면 12종과의 대응이다.'));
+  root.appendChild(el('div','note','이 하네스는 언어모형을 호출하지 않는 결정론 산출 라이브러리다. 여기 보이는 통제는 에이전트 레지스트리·활동·추적 사슬·마스킹·비상정지·승인 원장이며, 해설서의 엔티티 테이블 43장은 카탈로그에 없다. 원장이 없는 화면은 만들지 않았다.'));
+  const full=f=>f&&f.shown>=f.total;
+  const cnt=(f,col,pred)=>{if(!f)return 0;const i=frameIdx(f);return f.rows.filter(r=>pred(r[i[col]])).length};
+  const g=el('div','grid');
+  const tile=(lab,val,sub,tone)=>{const c=el('div','card kpi');
+    c.appendChild(el('div','lab',lab));c.appendChild(rawEl('div','val '+(tone||''),val));
+    if(sub)c.appendChild(rawEl('div','sub',sub));g.appendChild(c)};
+  if(reg){const w=cnt(reg,'write_allowed',v=>v===true);
+    tile('등록 에이전트',String(reg.total),T('운영 반영 권한')+' '+TC(w,'건'),w?'bad':'good');
+    tile('위험등급 상',String(cnt(reg,'risk_tier',v=>v==='상')),T('규제 산출 담당')+' · '+T('제안 전용'),'warn')}
+  if(act)tile('활동 기록',String(act.total),T('게이트 대기')+' '+TC(cnt(act,'gate',v=>v==='대기'),'건'),'');
+  if(ks)tile('비상정지 이력',String(ks.total),T('2차 확인 없음')+' '+TC(cnt(ks,'confirmed_by',v=>v==null||v===''),'건'),ks.total?'warn':'good');
+  if(ap)tile('4-Eyes 승인',String(ap.total),T('직무분리 충족')+' '+TC(cnt(ap,'segregation_ok',v=>v===true),'건'),'good');
+  if(full(tr)){const i=frameIdx(tr);const hits=tr.rows.reduce((a,r)=>a+(r[i.redaction_hits]||0),0);
+    tile('마스킹 적중',String(hits),T('규칙')+' '+TC(rules?rules.total:0,'건')+' · '+T('추적 행')+' '+TC(tr.total,'건'),hits?'warn':'good')}
+  root.appendChild(g);
+
+  if(full(reg)){const i=frameIdx(reg);
+    const by=col=>{const m=new Map();reg.rows.forEach(r=>{const k=r[i[col]];m.set(k,(m.get(k)||0)+1)});
+      return [...m.entries()].map(([k,v])=>({label:k,value:v})).sort((a,b)=>b.value-a.value)};
+    const ag=el('div','agrid');
+    ag.appendChild(hbars(by('domain').slice(0,10),{title:'도메인별 에이전트 수',money:false,src:srcMeta(reg)}));
+    ag.appendChild(hbars(by('mode'),{title:'모드별 에이전트 수 (조회전용·제안전용)',money:false,src:srcMeta(reg)}));
+    splitGrid(ag);root.appendChild(ag)}
+
+  const rq=el('div','card');rq.appendChild(el('h3',null,'AI리스크 요건 76건 · 장별 커버리지'));
+  rq.appendChild(shareStrips(Q.chapters.map(ch=>{
+    const n=st=>D.req_trace_air.rows.filter(r=>r.area===ch.no&&r.status===st).length;
+    return {label:ch.no+' · '+ch.title,items:[{label:T('반영'),value:n('반영'),tone:'good'},
+      {label:T('부분'),value:n('부분'),tone:'warn'},{label:T('미반영'),value:n('미반영'),tone:'bad'}]}}),{}));
+  rq.appendChild(rawEl('div','meta',T('반영')+' '+Q['반영']+' · '+T('부분')+' '+Q['부분']+' · '+T('미반영')+' '+Q['미반영']+
+    ' · '+TP('해설서 엔티티 테이블',TC(Q.n_tables,'장'))+' · '+TP('카탈로그 등재',TC(Q.n_tables_registered,'장'))));
+  root.appendChild(rq);
+
+  const um=el('div','card');um.appendChild(el('h3',null,'해설서 화면 UI-01~12 와 이 하네스 화면의 대응'));
+  um.appendChild(simpleTable(['해설서 화면','이름','요건','이 하네스의 화면'],AI_UI_MAP.map(r=>r.slice())));
+  um.appendChild(el('div','meta','요건별 판정은 요건 추적 화면의 AI리스크 레지스터에 있다. 대응 화면이 없는 것은 없다고 적었다.'));
+  root.appendChild(um);
+}
+
 /* 경영진 요약. 02_reports/executive.html 과 **같은 생성기**(risk_lib.html_exec)
    에서 나온 값을 그린다. 화면이 따로 계산하지 않으므로 두 산출물의 수치가
    갈라질 자리가 없다. 서식이 달라도 같은 생성기의 산출값을 쓴다. */
@@ -5781,6 +5846,9 @@ const SUMMARIES={
   '상업성':()=>{const q=D.commercial.quotes,i=frameIdx(q);
     const best=q.rows.reduce((a,r)=>r[i.payback_years]<a[i.payback_years]?r:a,q.rows[0]);
     return {t:`회수기간 최단 ${best[i.name]} ${best[i.payback_years]}년 (전 수치 가정 원장 파생·이중계상 검증 통과)`,tone:'good'}},
+  'AI 리스크 개요':()=>{const reg=D.data['agent_registry'],ks=D.data['agent_killswitch'],Q=D.req_trace_air.coverage;if(!reg)return null;
+    const i=frameIdx(reg),w=reg.rows.filter(r=>r[i.write_allowed]===true).length;
+    return {t:`에이전트 ${reg.total}건 · 운영 반영 권한 ${w}건 · 비상정지 ${ks?ks.total:0}건 · 요건 76건 중 반영 ${Q['반영']} · 부분 ${Q['부분']} · 미반영 ${Q['미반영']} (언어모형 미호출, 엔티티 테이블 43장 미등재)`,tone:w?'bad':'warn'}},
   '기후 개요':()=>{const C=D.climate;if(!C)return null;
     const K=C.capital,w=C.transition.find(l=>l.scenario===C.worst_transition);
     return {t:`전환 최대 ECL 상승 ${fmtMoney(w.uplift)} (${clrLegLabel(w)}) · NGFS 최저 CET1 ${pctv(K.worst.cet1_ratio,2)} (${clrName(K.worst.scenario)} ${K.worst.year}, 요구 ${pctv(K.required_cet1,1)}) · 부문 계수 수준, clr_* 원장 없음`,
@@ -10194,6 +10262,31 @@ const DETAIL_SCREENS=[
   ['전환위험','CLR · 전환위험 (탄소가격 → 부문 PD 상승 → ECL 상승)',climateTransition],
   ['물리적 위험','CLR · 물리적 위험 (재해강도 → 부문 LGD 상승 → ECL 상승)',climatePhysical],
   ['기후 자본 경로','CLR · 기후 자본 경로 (NGFS 3시나리오 × 2030~2060 보통주자본비율)',climateCapital],
+  /* AI리스크. 해설서(2026-09-08) UI-01~12 가운데 원장이 실재하는 화면만 만든다. */
+  ['AI 리스크 개요','AIR · AI 리스크 개요 (인벤토리·게이트·비상정지·마스킹·요건 커버리지·화면 대응)',aiOverview],
+  ['AI 인벤토리·위험분류','AIR · AI 인벤토리와 위험분류 (에이전트·모드·위험등급·도구·권한)',screenOf({
+    lead:'해설서 UI-02·03 에 해당한다. 등록 필드는 이름·모드·위험등급·도구·범위·쓰기권한·오너·도메인이고, 위험등급은 상·중·하 규칙 분류다. 목적·고객영향·법인·모델버전·종료계획 필드와 5요소 최대값 등급, 법적 적용성 판정은 없다.',
+    autochart:[['위험등급 × 모드별 에이전트 수','agent_registry',['risk_tier','mode'],null,{money:false}],
+               ['도메인별 에이전트 수','agent_registry',['domain'],null,{money:false}]],
+    tables:[['에이전트 레지스트리','agent_registry']]})],
+  ['실행승인·게이트','AIR · 실행승인과 게이트 (4-Eyes·접근 판정·직무분리·비상정지)',screenOf({
+    lead:'해설서 UI-06 에 해당한다. 승인은 검토자와 승인자를 나누고 직무분리 여부를 기록하며, 접근은 역할 권한 행이 있어야 허용된다. 금액·통화·인수까지 묶는 승인 지문과 실행 직전 재인가는 없다.',
+    autochart:[['승인 결정 × 직무분리 충족','gov_approval',['decision','segregation_ok'],null,{money:false}],
+               ['접근 판정 결과','gov_access_decision',['decision'],null,{money:false}]],
+    tables:[['4-Eyes 승인 기록','gov_approval'],['접근 판정','gov_access_decision'],
+            ['직무분리 충돌표','gov_sod_conflict'],['범위형 비상정지 이력','agent_killswitch']]})],
+  ['정보흐름·마스킹','AIR · 정보흐름과 마스킹 (전송 규칙·적중·필드정책·승인 View)',screenOf({
+    lead:'해설서 UI-04 의 데이터 부분에 해당한다. 외부 전송 전 마스킹·차단 규칙과 추적 구간별 적중, 조회 필드의 마스킹·집계최소단위 정책, 읽기전용 승인 View 다. 이미지·음성·첨부 검사, 공급자 계약, RAG 인덱스 통제는 없다.',
+    autochart:[['마스킹 규칙 × 조치','aig_redaction_rule',['action','applies_to'],null,{money:false}],
+               ['추적 구간별 마스킹 적중','aig_agent_trace',['phase'],'redaction_hits',{money:false}]],
+    tables:[['전송 마스킹 규칙','aig_redaction_rule'],['에이전트 추적 사슬','aig_agent_trace'],
+            ['필드 정책 (마스킹·집계최소단위)','ui_field_policy'],['승인 View','ui_view']]})],
+  ['사고·경보·중단','AIR · 사고·경보·중단 (실행 통제 이슈·경보 정책·예외 조치·비상정지)',screenOf({
+    lead:'해설서 UI-09 에 해당한다. 실행 통제 이슈, 경보 정책과 제출 차단, 예외·조치 큐, 범위형 비상정지 이력이다. 7종 사고분류, 자식 전파와 회수 세대번호, 재개 승인 절차는 없다.',
+    autochart:[['실행 통제 이슈 (단계 × 종류)','gov_run_issue',['stage','kind'],null,{money:false}],
+               ['경보 정책 × 제출 차단','gov_alert_policy',['alert_type','blocks_submission'],null,{money:false}]],
+    tables:[['실행 통제 이슈','gov_run_issue'],['경보 정책','gov_alert_policy'],
+            ['예외·조치 큐','gov_exception_action'],['범위형 비상정지 이력','agent_killswitch']]})],
 ];
 
 /* 메뉴 트리. 그룹은 시각적 계층이고, 리프 순서가 화면 목록의 순서를 정한다.
@@ -10242,10 +10335,16 @@ const NAVGROUPS=[
   ['기타리스크',[
     ['기후리스크',['기후 개요','전환위험','물리적 위험','기후 자본 경로']],
   ]],
+  /* AI리스크. 해설서(2026-09-08) UI-01~12 를 따르되 원장이 실재하는 화면만 둔다.
+     에이전트 운영과 추적 화면은 검증·거버넌스에서 이리로 옮겼다. */
+  ['AI리스크',[
+    'AI 리스크 개요','AI 인벤토리·위험분류','실행승인·게이트','정보흐름·마스킹','사고·경보·중단',
+    ['운영·추적',['에이전트','AI 거버넌스']],
+  ]],
   ['검증·거버넌스',[
     ['검증',['요건 추적']],
-    '에이전트','변경','오버레이',
-    ['통제',['변경통제','모형 수명주기','접근통제·직무분리','AI 거버넌스',
+    '변경','오버레이',
+    ['통제',['변경통제','모형 수명주기','접근통제·직무분리',
              '실행·감사추적','조회 거버넌스']],
   ]],
   ['데이터·설정',[
@@ -10269,13 +10368,13 @@ function navLeaves(name){
 const NAV_ROLES=[
   ['','전체',()=>null],
   ['exec','경영진',()=>['종합보고서','감독보고','NCR·건전성','콕핏','한도관리','예외·조치',
-     '역스트레스','거시지표 모니터링','경영조치·제출','검증','KRI·통제','기후 개요']],
+     '역스트레스','거시지표 모니터링','경영조치·제출','검증','KRI·통제','기후 개요','AI 리스크 개요']],
   ['ops','실무',()=>navLeaves('통제센터').concat(navLeaves('조회·컴포저'),navLeaves('리스크데이터'),
-     navLeaves('위험가중자산(RWA)'),navLeaves('ALM·위기상황'),navLeaves('기타리스크'),
+     navLeaves('위험가중자산(RWA)'),navLeaves('ALM·위기상황'),navLeaves('기타리스크'),navLeaves('AI리스크'),
      ['감독보고','NCR·건전성','데이터모델','코드 마스터','코드 매핑'])],
   ['model','모형검증',()=>navLeaves('모형').concat(['검증','오버레이','변경','모형 수명주기',
      '산출 방법론','행동모형 백테스트'])],
-  ['audit','감사',()=>navLeaves('검증·거버넌스').concat(['데이터모델','기관 설정','감독보고',
+  ['audit','감사',()=>navLeaves('검증·거버넌스').concat(navLeaves('AI리스크'),['데이터모델','기관 설정','감독보고',
      '종합보고서'])],
 ];
 

@@ -161,6 +161,20 @@ def test_climate_screens_sit_under_the_other_risks_group():
         assert f"['{lab}','CLR · " in detail, f"{lab} 이 화면 목록에 없다"
 
 
+def test_ai_risk_screens_are_registered_in_menu_and_tab_list():
+    """AI리스크 그룹의 화면 다섯과 옮겨 온 화면 둘이 메뉴와 화면 목록에 다 있다."""
+    labels = ["AI 리스크 개요", "AI 인벤토리·위험분류", "실행승인·게이트",
+              "정보흐름·마스킹", "사고·경보·중단", "에이전트", "AI 거버넌스"]
+    detail = _JS[_JS.index("const DETAIL_SCREENS=["):_JS.index("const TABS=[")]
+    nav = _JS[_JS.index("const NAVGROUPS=["):_JS.index("const TABS=[")]
+    group = nav[nav.index("['AI리스크',["):nav.index("['검증·거버넌스',[")]
+    for lab in labels:
+        assert f"'{lab}'" in detail, f"{lab} 이 화면 목록에 없다"
+        assert f"'{lab}'" in group, f"{lab} 이 AI리스크 그룹에 없다"
+    # 승인 분포는 전량이어야 그려진다 (표본이면 자동차트가 빠진다)
+    assert "gov_approval" in uiapp.NEW_SCREEN_FULL_TABLES
+
+
 def test_new_screens_reference_the_full_load_budget_tables():
     """집계해서 그리는 원장은 전량 실려야 한다. 표본으로 그리면 축이 잘린다."""
     for name in ("alm_repricing_gap", "crm_pd_estimate", "lex_setting",

@@ -705,6 +705,22 @@ def test_req_trace_tab_switches_to_the_climate_register(page):
     assert page.errors == []
 
 
+def test_ai_risk_overview_renders_from_the_governance_ledgers(page):
+    """AI 리스크 개요는 레지스트리·승인·비상정지 원장에서 값을 세고, 요건 76건과
+    해설서 화면 12종 대응표를 붙인다. 운영 반영 권한이 있는 에이전트는 0건이다."""
+    _tab_named(page, "AI 리스크 개요")
+    txt = _text(page)
+    reg = page.evaluate("window.__RYNTA__.data['agent_registry']")
+    assert str(reg["total"]) in txt
+    assert "운영 반영 권한 0건" in txt
+    assert "UI-10" in txt and "UI-06" in txt
+    assert "76" in txt
+    for lab in ("AI 인벤토리·위험분류", "실행승인·게이트", "정보흐름·마스킹", "사고·경보·중단"):
+        _tab_named(page, lab)
+        assert len(_text(page)) > 400, lab
+    assert page.errors == []
+
+
 def test_req_trace_tab_switches_to_the_ai_risk_register(page):
     """AI리스크 레지스터(76건)는 요건 ID 에 장이 없어 행의 area 로 영역을 나눈다."""
     _tab_named(page, "요건 추적")

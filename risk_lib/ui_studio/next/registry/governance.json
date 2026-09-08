@@ -206,7 +206,12 @@
   "title_en": "AI governance",
   "sub": "통제",
   "legacy": [
-   "AI 거버넌스"
+   "AI 거버넌스",
+   "AI 리스크 개요",
+   "AI 인벤토리·위험분류",
+   "실행승인·게이트",
+   "정보흐름·마스킹",
+   "사고·경보·중단"
   ],
   "leaf_parent": false,
   "density": "operator",

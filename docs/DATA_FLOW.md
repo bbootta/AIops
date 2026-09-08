@@ -30,7 +30,7 @@ python -m risk_lib.datamodel.lineage
 |---|---|
 | 카탈로그 원장 | 271장 |
 | 실체화된 원장 | 271 |
-| 전용 화면 | 83장 (범용 조회기 4장 별도) |
+| 전용 화면 | 88장 (범용 조회기 4장 별도) |
 | 감독서식 모듈 | 23개 |
 | 전용 화면이 그리는 원장 | 262장 |
 | 감독서식이 읽는 원장 | 38장 |
@@ -2238,6 +2238,8 @@ flowchart LR
   subgraph V["화면·서식"]
   direction TB
     VAIx20xac70xbc84xb10cxc2a4["AI 거버넌스"]
+    VAIx20xb9acxc2a4xd06cx20xac1cxc694["AI 리스크 개요"]
+    VAIx20xc778xbca4xd1a0xb9acxb7xc704xd5d8xbd84xb958["AI 인벤토리·위험분류"]
     VBEELxb7PLGD["BEEL·PLGD"]
     VCCFx20xcd94xc815["CCF 추정"]
     VKRIxb7xd1b5xc81c["KRI·통제"]
@@ -2254,11 +2256,14 @@ flowchart LR
     Vxbcc0xacbdxd1b5xc81c["변경통제"]
     Vxbd80xb3c4xc790xc0b0x20LGD["부도자산 LGD"]
     Vxbe44xb9ccxae30xc131xc608xae08x20xcf54xc5b4["비만기성예금 코어"]
+    Vxc0acxace0xb7xacbdxbcf4xb7xc911xb2e8["사고·경보·중단"]
     Vxc2dcxb098xb9acxc624x20xc124xc815["시나리오 설정"]
     Vxc2e4xd589xb7xac10xc0acxcd94xc801["실행·감사추적"]
+    Vxc2e4xd589xc2b9xc778xb7xac8cxc774xd2b8["실행승인·게이트"]
     Vxc5d0xc774xc804xd2b8["에이전트"]
     Vxc608xc678xb7xc870xce58["예외·조치"]
     Vxc811xadfcxd1b5xc81cxb7xc9c1xbb34xbd84xb9ac["접근통제·직무분리"]
+    Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9["정보흐름·마스킹"]
     Vxc870xd68cx20xac70xbc84xb10cxc2a4["조회 거버넌스"]
     Vxc885xd569xbcf4xace0xc11c["종합보고서"]
     Vxcf55xd54f["콕핏"]
@@ -2269,6 +2274,13 @@ flowchart LR
   Taig_adjustment --> VAIx20xac70xbc84xb10cxc2a4
   Taig_agent_trace --> VAIx20xac70xbc84xb10cxc2a4
   Taig_redaction_rule --> VAIx20xac70xbc84xb10cxc2a4
+  Tagent_activity --> VAIx20xb9acxc2a4xd06cx20xac1cxc694
+  Tagent_killswitch --> VAIx20xb9acxc2a4xd06cx20xac1cxc694
+  Tagent_registry --> VAIx20xb9acxc2a4xd06cx20xac1cxc694
+  Taig_agent_trace --> VAIx20xb9acxc2a4xd06cx20xac1cxc694
+  Taig_redaction_rule --> VAIx20xb9acxc2a4xd06cx20xac1cxc694
+  Tgov_approval --> VAIx20xb9acxc2a4xd06cx20xac1cxc694
+  Tagent_registry --> VAIx20xc778xbca4xd1a0xb9acxb7xc704xd5d8xbd84xb958
   Tgov_role --> VBEELxb7PLGD
   Tgov_run_domain --> VBEELxb7PLGD
   Tgov_role --> VCCFx20xcd94xc815
@@ -2317,6 +2329,10 @@ flowchart LR
   Tgov_run_domain --> Vxbd80xb3c4xc790xc0b0x20LGD
   Tgov_role --> Vxbe44xb9ccxae30xc131xc608xae08x20xcf54xc5b4
   Tgov_run_domain --> Vxbe44xb9ccxae30xc131xc608xae08x20xcf54xc5b4
+  Tagent_killswitch --> Vxc0acxace0xb7xacbdxbcf4xb7xc911xb2e8
+  Tgov_alert_policy --> Vxc0acxace0xb7xacbdxbcf4xb7xc911xb2e8
+  Tgov_exception_action --> Vxc0acxace0xb7xacbdxbcf4xb7xc911xb2e8
+  Tgov_run_issue --> Vxc0acxace0xb7xacbdxbcf4xb7xc911xb2e8
   Tchg_change_request --> Vxc2dcxb098xb9acxc624x20xc124xc815
   Tchg_impact_map --> Vxc2dcxb098xb9acxc624x20xc124xc815
   Tchg_regression_test --> Vxc2dcxb098xb9acxc624x20xc124xc815
@@ -2329,6 +2345,10 @@ flowchart LR
   Tval_audit_ledger --> Vxc2e4xd589xb7xac10xc0acxcd94xc801
   Tval_check --> Vxc2e4xd589xb7xac10xc0acxcd94xc801
   Tval_independent_target --> Vxc2e4xd589xb7xac10xc0acxcd94xc801
+  Tagent_killswitch --> Vxc2e4xd589xc2b9xc778xb7xac8cxc774xd2b8
+  Tgov_access_decision --> Vxc2e4xd589xc2b9xc778xb7xac8cxc774xd2b8
+  Tgov_approval --> Vxc2e4xd589xc2b9xc778xb7xac8cxc774xd2b8
+  Tgov_sod_conflict --> Vxc2e4xd589xc2b9xc778xb7xac8cxc774xd2b8
   Tagent_activity --> Vxc5d0xc774xc804xd2b8
   Tagent_killswitch --> Vxc5d0xc774xc804xd2b8
   Tagent_registry --> Vxc5d0xc774xc804xd2b8
@@ -2339,6 +2359,10 @@ flowchart LR
   Tgov_sod_conflict --> Vxc811xadfcxd1b5xc81cxb7xc9c1xbb34xbd84xb9ac
   Tgov_user_role --> Vxc811xadfcxd1b5xc81cxb7xc9c1xbb34xbd84xb9ac
   Tui_field_policy --> Vxc811xadfcxd1b5xc81cxb7xc9c1xbb34xbd84xb9ac
+  Taig_agent_trace --> Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9
+  Taig_redaction_rule --> Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9
+  Tui_field_policy --> Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9
+  Tui_view --> Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9
   Tui_layout_proposal --> Vxc870xd68cx20xac70xbc84xb10cxc2a4
   Tui_query_plan --> Vxc870xd68cx20xac70xbc84xb10cxc2a4
   Tui_view --> Vxc870xd68cx20xac70xbc84xb10cxc2a4
@@ -2420,6 +2444,8 @@ flowchart RL
   B7["규제서식"]
   B8["거버넌스·통제"]
   VAIx20xac70xbc84xb10cxc2a4("AI 거버넌스")
+  VAIx20xb9acxc2a4xd06cx20xac1cxc694("AI 리스크 개요")
+  VAIx20xc778xbca4xd1a0xb9acxb7xc704xd5d8xbd84xb958("AI 인벤토리·위험분류")
   VALM("ALM")
   VALMx20xacc4xc218x20xc6d0xc7a5("ALM 계수 원장")
   VBEELxb7PLGD("BEEL·PLGD")
@@ -2457,6 +2483,7 @@ flowchart RL
   Vxbcc0xbcc4xb825xb7xc548xc815xc131("변별력·안정성")
   Vxbd80xb3c4xc790xc0b0x20LGD("부도자산 LGD")
   Vxbe44xb9ccxae30xc131xc608xae08x20xcf54xc5b4("비만기성예금 코어")
+  Vxc0acxace0xb7xacbdxbcf4xb7xc911xb2e8("사고·경보·중단")
   Vxc0b0xcd9cx20xbc29xbc95xb860("산출 방법론")
   Vxc0ddxc874xae30xac04("생존기간")
   Vxc190xc2e4xb7xd68cxc218("손실·회수")
@@ -2467,6 +2494,7 @@ flowchart RL
   Vxc2e0xc6a9("신용")
   Vxc2e0xc6a9x20RWA("신용 RWA")
   Vxc2e4xd589xb7xac10xc0acxcd94xc801("실행·감사추적")
+  Vxc2e4xd589xc2b9xc778xb7xac8cxc774xd2b8("실행승인·게이트")
   Vxc5d0xc774xc804xd2b8("에이전트")
   Vxc608xc678xb7xc870xce58("예외·조치")
   Vxc6b4xc601("운영")
@@ -2477,6 +2505,7 @@ flowchart RL
   Vxc720xb3d9xc131xb9acxc2a4xd06c("유동성리스크")
   Vxc720xb3d9xd654("유동화")
   Vxc811xadfcxd1b5xc81cxb7xc9c1xbb34xbd84xb9ac("접근통제·직무분리")
+  Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9("정보흐름·마스킹")
   Vxc870xae30xacbdxbcf4("조기경보")
   Vxc870xd68cx20xac70xbc84xb10cxc2a4("조회 거버넌스")
   Vxc885xd569xbcf4xace0xc11c("종합보고서")
@@ -2493,6 +2522,8 @@ flowchart RL
   Vxd604xae08xd750xb984x20xc6d0xc7a5("현금흐름 원장")
   Vxd68cxc218x20xd560xc778xc728("회수 할인율")
   VAIx20xac70xbc84xb10cxc2a4 -.->|3| B8
+  VAIx20xb9acxc2a4xd06cx20xac1cxc694 -.->|6| B8
+  VAIx20xc778xbca4xd1a0xb9acxb7xc704xd5d8xbd84xb958 -.->|1| B8
   VALM -.->|47| B5
   VALMx20xacc4xc218x20xc6d0xc7a5 -.->|10| B5
   VBEELxb7PLGD -.->|2| B8
@@ -2548,6 +2579,7 @@ flowchart RL
   Vxbd80xb3c4xc790xc0b0x20LGD -.->|3| B2
   Vxbe44xb9ccxae30xc131xc608xae08x20xcf54xc5b4 -.->|5| B5
   Vxbe44xb9ccxae30xc131xc608xae08x20xcf54xc5b4 -.->|2| B8
+  Vxc0acxace0xb7xacbdxbcf4xb7xc911xb2e8 -.->|4| B8
   Vxc0b0xcd9cx20xbc29xbc95xb860 -.->|2| B2
   Vxc0ddxc874xae30xac04 -.->|2| B5
   Vxc190xc2e4xb7xd68cxc218 -.->|3| B4
@@ -2565,6 +2597,7 @@ flowchart RL
   Vxc2e4xd589xb7xac10xc0acxcd94xc801 -.->|1| B7
   Vxc2e4xd589xb7xac10xc0acxcd94xc801 -.->|3| B2
   Vxc2e4xd589xb7xac10xc0acxcd94xc801 -.->|1| B6
+  Vxc2e4xd589xc2b9xc778xb7xac8cxc774xd2b8 -.->|4| B8
   Vxc5d0xc774xc804xd2b8 -.->|3| B8
   Vxc608xc678xb7xc870xce58 -.->|2| B8
   Vxc6b4xc601 -.->|13| B4
@@ -2576,6 +2609,7 @@ flowchart RL
   Vxc720xb3d9xd654 -.->|1| B2
   Vxc720xb3d9xd654 -.->|3| B1
   Vxc811xadfcxd1b5xc81cxb7xc9c1xbb34xbd84xb9ac -.->|5| B8
+  Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9 -.->|4| B8
   Vxc870xae30xacbdxbcf4 -.->|1| B2
   Vxc870xd68cx20xac70xbc84xb10cxc2a4 -.->|3| B8
   Vxc885xd569xbcf4xace0xc11c -.->|47| B5
@@ -2625,6 +2659,8 @@ flowchart RL
 | 화면 | 원장 수 | 원장 |
 |---|---|---|
 | AI 거버넌스 | 3 | aig_adjustment, aig_agent_trace, aig_redaction_rule |
+| AI 리스크 개요 | 6 | agent_activity, agent_killswitch, agent_registry, aig_agent_trace, aig_redaction_rule, gov_approval |
+| AI 인벤토리·위험분류 | 1 | agent_registry |
 | ALM | 47 | agg_alm_exposure, alm_behaviour_backtest, alm_behaviour_model, alm_behaviour_param, alm_behaviour_scenario_mult, alm_cashflow_behavioural, alm_cashflow_bucket, alm_cashflow_contract, alm_code_scope, alm_contract, alm_early_redemption_observation, alm_irrbb_bucket_pv, alm_irrbb_result, alm_irrbb_shock, alm_lcr_factor, alm_lcr_flow, alm_lcr_item, alm_liquidity_stress_param, alm_maturity_ladder, alm_nii_result, alm_nmd_balance_history, alm_nmd_core_method_compare, alm_nmd_param, alm_nsfr_factor, alm_nsfr_item, alm_post_shock_floor, alm_prepay_observation, alm_prepay_scurve_param, alm_product_terms, alm_rate_shock_param, alm_repricing_gap, alm_result, alm_scenario_def, alm_survival_path, alm_time_bucket, disc_irrbb_table6, disc_irrbb_table7_qualitative, disc_irrbb_table7_quantitative, kr_auto_option_param, kr_irrbb_governance, kr_nmd_category, kr_retail_behavioural_scope, kr_retail_criteria, liq_funding_concentration, liq_funding_ladder, liq_funding_limit, liq_funding_trade |
 | ALM 계수 원장 | 10 | alm_behaviour_param, alm_behaviour_scenario_mult, alm_liquidity_stress_param, alm_nmd_param, alm_post_shock_floor, alm_prepay_scurve_param, alm_product_terms, alm_rate_shock_param, alm_scenario_def, alm_time_bucket |
 | BEEL·PLGD | 7 | crm_beel_curve, crm_defaulted_lgd, crm_lgd_discount_rate, crm_plgd, crm_plgd_sensitivity, gov_role, gov_run_domain |
@@ -2666,6 +2702,7 @@ flowchart RL
 | 변별력·안정성 | 1 | crm_performance |
 | 부도자산 LGD | 5 | crm_default_observation, crm_defaulted_lgd, crm_recovery_history, gov_role, gov_run_domain |
 | 비만기성예금 코어 | 7 | alm_nii_result, alm_nmd_balance_history, alm_nmd_core_method_compare, alm_nmd_param, gov_role, gov_run_domain, kr_nmd_category |
+| 사고·경보·중단 | 4 | agent_killswitch, gov_alert_policy, gov_exception_action, gov_run_issue |
 | 산출 방법론 | 2 | rwa_fund_result, rwa_sec_result |
 | 상업성 | 0 | (없음) |
 | 생존기간 | 2 | alm_liquidity_stress_param, alm_survival_path |
@@ -2678,6 +2715,7 @@ flowchart RL
 | 신용 | 29 | agg_credit_exposure, crm_backtest_criteria, crm_ccf_backtest, crm_code_scope, crm_default_observation, crm_dev_sample, crm_ews_signal, crm_lgd_backtest, crm_lgd_component, crm_lifecycle_compliance, crm_lifecycle_event, crm_model, crm_obligor_axis_score, crm_obligor_score, crm_override, crm_override_performance, crm_override_reason, crm_pd_calibration, crm_performance, crm_qualitative_assessment, crm_qualitative_item, crm_rating, crm_rating_migration, crm_rating_requirement, crm_sample_representativeness, crm_scorecard_axis, crm_scorecard_bin, crm_scorecard_factor, crm_scorecard_param |
 | 신용 RWA | 36 | crm_allocation, crm_backtest_result, crm_beel_curve, crm_capm_estimate, crm_capm_observation, crm_ccf_estimate, crm_collateral_link, crm_collateral_terms, crm_default_history, crm_defaulted_lgd, crm_estimation_param, crm_estimation_run, crm_exposure_terms, crm_facility_drawdown_history, crm_input_floor, crm_irb_scope, crm_lgd_discount_rate, crm_lgd_estimate, crm_mitigation_param, crm_moc_component, crm_model_governance, crm_pd_estimate, crm_pd_yearly_dr, crm_plgd, crm_plgd_sensitivity, crm_recovery_history, crm_representativeness, rwa_crm_allocation, rwa_fund_result, rwa_irb_pool, rwa_market_component, rwa_operational_bi, rwa_output_floor, rwa_result, rwa_sa_bucket, rwa_sec_result |
 | 실행·감사추적 | 15 | alm_result, cap_stack, crm_model, ecl_result, gov_audit_chain, gov_exception_action, gov_run_issue, gov_unified_run, int_engine_adapter, int_engine_io, reg_form_check, rwa_result, val_audit_ledger, val_check, val_independent_target |
+| 실행승인·게이트 | 4 | agent_killswitch, gov_access_decision, gov_approval, gov_sod_conflict |
 | 에이전트 | 3 | agent_activity, agent_killswitch, agent_registry |
 | 역스트레스 | 0 | (없음) |
 | 예외·조치 | 2 | gov_alert_policy, gov_exception_action |
@@ -2692,6 +2730,7 @@ flowchart RL
 | 유동화 | 4 | rdm_sec_master, rdm_sec_pool, rdm_sec_tranche, rwa_sec_result |
 | 전환위험 | 0 | (없음) |
 | 접근통제·직무분리 | 5 | gov_access_decision, gov_role_permission, gov_sod_conflict, gov_user_role, ui_field_policy |
+| 정보흐름·마스킹 | 4 | aig_agent_trace, aig_redaction_rule, ui_field_policy, ui_view |
 | 조기경보 | 1 | crm_ews_signal |
 | 조회 거버넌스 | 3 | ui_layout_proposal, ui_query_plan, ui_view |
 | 종합보고서 | 262 | agent_activity, agent_killswitch, agent_registry, agg_alm_exposure, agg_credit_exposure, agg_market_exposure, agg_operational_loss, agg_stress_exposure, aig_adjustment, aig_agent_trace, aig_redaction_rule, alm_behaviour_backtest, alm_behaviour_model, alm_behaviour_param, alm_behaviour_scenario_mult, alm_cashflow_behavioural, alm_cashflow_bucket, alm_cashflow_contract, alm_code_scope, alm_contract, alm_early_redemption_observation, alm_irrbb_bucket_pv, alm_irrbb_result, alm_irrbb_shock, alm_lcr_factor, alm_lcr_flow, alm_lcr_item, alm_liquidity_stress_param, alm_maturity_ladder, alm_nii_result, alm_nmd_balance_history, alm_nmd_core_method_compare, alm_nmd_param, alm_nsfr_factor, alm_nsfr_item, alm_post_shock_floor, alm_prepay_observation, alm_prepay_scurve_param, alm_product_terms, alm_rate_shock_param, alm_repricing_gap, alm_result, alm_scenario_def, alm_survival_path, alm_time_bucket, cap_stack, ccr_collateral_position, ccr_csa_term, ccr_margin_call, ccr_margin_dispute, chg_change_request, chg_impact_map, chg_regression_test, crm_allocation, crm_backtest_criteria, crm_backtest_result, crm_beel_curve, crm_capm_estimate, crm_capm_observation, crm_ccf_backtest, crm_ccf_estimate, crm_code_scope, crm_collateral_link, crm_collateral_terms, crm_default_history, crm_default_observation, crm_defaulted_lgd, crm_dev_sample, crm_estimation_param, crm_estimation_run, crm_ews_signal, crm_exposure_terms, crm_facility_drawdown_history, crm_input_floor, crm_irb_scope, crm_lgd_backtest, crm_lgd_component, crm_lgd_discount_rate, crm_lgd_estimate, crm_lifecycle_compliance, crm_lifecycle_event, crm_mitigation_param, crm_moc_component, crm_model, crm_model_governance, crm_obligor_axis_score, crm_obligor_score, crm_override, crm_override_performance, crm_override_reason, crm_pd_calibration, crm_pd_estimate, crm_pd_yearly_dr, crm_performance, crm_plgd, crm_plgd_sensitivity, crm_qualitative_assessment, crm_qualitative_item, crm_rating, crm_rating_migration, crm_rating_requirement, crm_recovery_history, crm_representativeness, crm_sample_representativeness, crm_scorecard_axis, crm_scorecard_bin, crm_scorecard_factor, crm_scorecard_param, dat_mart_load, dat_retention_action, dat_retention_policy, disc_irrbb_table6, disc_irrbb_table7_qualitative, disc_irrbb_table7_quantitative, ecl_gl_reconciliation, ecl_macro_scenario, ecl_pma, ecl_provision_bridge, ecl_result, ecl_sicr_trigger_stat, ecl_stage_transition, gov_access_decision, gov_alert_policy, gov_approval, gov_audit_chain, gov_change_control, gov_change_gate, gov_change_impact, gov_change_policy, gov_change_request, gov_evidence_edge, gov_evidence_node, gov_exception_action, gov_model_stage, gov_model_state, gov_model_transition, gov_price_source_rank, gov_pricing_control, gov_pricing_gap, gov_pricing_result, gov_role, gov_role_permission, gov_run_domain, gov_run_issue, gov_sod_conflict, gov_unified_run, gov_user_role, icaap_capital_map, icaap_materiality, icaap_materiality_policy, icaap_risk_taxonomy, int_connector, int_connector_operation, int_connector_violation, int_delivery_attempt, int_engine_adapter, int_engine_io, int_feed_field_map, int_feed_health, int_inbound_contract, int_inbound_delivery, int_market_feed, int_quarantine, int_retry_policy, kr_auto_option_param, kr_irrbb_governance, kr_nmd_category, kr_retail_behavioural_scope, kr_retail_criteria, lex_aggregate, lex_connected_group, lex_exemption, lex_exposure_measure, lex_lookthrough, lex_position, lex_setting, lex_substitution, lim_limit_definition, liq_funding_concentration, liq_funding_ladder, liq_funding_limit, liq_funding_trade, mkt_backtest_exception, mkt_code_scope, mkt_derivative_sensitivity, mkt_ipv, mkt_portfolio, mkt_portfolio_capital, mkt_position, mkt_pricing_model, mkt_product, mkt_product_model_map, mkt_risk_factor, mkt_trade, mkt_var_es, mkt_var_es_portfolio, ncr_component, opr_capital, opr_close_gate, opr_close_task, opr_code_scope, opr_control, opr_kri, opr_loss_event, opr_rcsa_action, opr_rcsa_assessment, opr_rcsa_control, opr_rcsa_scale, opr_recovery, pru_balance_sheet, pru_camel, pru_liquidity_ratio, pru_prompt_action, rdm_account_master, rdm_asset_quality, rdm_canonical_map, rdm_code_master, rdm_collateral, rdm_delinquency, rdm_derivative_master, rdm_derivative_underlying, rdm_dq_result, rdm_dq_rule, rdm_exposure, rdm_exposure_balance, rdm_fund_holding, rdm_fund_mandate, rdm_fund_master, rdm_guarantee, rdm_macro_indicator_master, rdm_netting_set, rdm_obligor, rdm_obligor_financial, rdm_product_master, rdm_reconciliation, rdm_sec_master, rdm_sec_pool, rdm_sec_tranche, rdm_snapshot, rdm_source_contract, reg_form_check, reg_submission, rwa_crm_allocation, rwa_fund_result, rwa_irb_pool, rwa_market_component, rwa_operational_bi, rwa_output_floor, rwa_result, rwa_sa_bucket, rwa_sec_result, st_action_playbook, st_calc_trace, st_capital_path, st_management_action, ui_field_policy, ui_layout_proposal, ui_query_plan, ui_view, val_audit_ledger, val_check, val_independent_target |
