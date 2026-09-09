@@ -1632,11 +1632,11 @@ function hasv(v,ko){const t=String(v==null?'':v);return t.indexOf(ko)>=0||(DV[ko
    export_en 과 같은 규칙(사전 전체 일치 → 낱말 사전 → 숫자+단위·제N조; 하나라도 모르면 원문)으로
    옮긴다. 사전이 비어 있으면(국문 빌드) 아무것도 하지 않는다. */
 const DV_ON=Object.keys(DV).length>0;
-const DV_UNIT={'건':'','종':' types','장':' tables','행':' rows','개':'','명':' people','년':'','월':'','일':'','개월':' months','분기':' quarters','회':' times','차':'','호':'','단계':' stages','등급':' grades','층':' layers','곳':'','배':'x','인':' persons','개사':' firms','개국':' countries','좌':' accounts','매':'','점':' points','원':' KRW','억원':'00m KRW','억':'00m','조원':'tn KRW','조':'tn','만원':'0k KRW','만':'0k','천만원':'0m KRW','천만':'0m','천원':'k KRW','천':'k','백만원':'m KRW','백만':'m','십억원':'bn KRW','십억':'bn'};
+const DV_UNIT={'건':'','종':' types','장':' tables','행':' rows','열':' columns','칸':' cells','쌍':' pairs','구간':' buckets','개':'','명':' people','년':'','월':'','일':'','개월':' months','분기':' quarters','회':' times','차':'','호':'','단계':' stages','등급':' grades','층':' layers','곳':'','배':'x','인':' persons','개사':' firms','개국':' countries','좌':' accounts','매':'','점':' points','원':' KRW','억원':'00m KRW','억':'00m','조원':'tn KRW','조':'tn','만원':'0k KRW','만':'0k','천만원':'0m KRW','천만':'0m','천원':'k KRW','천':'k','백만원':'m KRW','백만':'m','십억원':'bn KRW','십억':'bn'};
 const DV_LAW={'조':'Article','항':'Paragraph','편':'Part','절':'Section','호':'Item','관':'Subsection','장':'Chapter'};
 const DV_SPLIT=/([·,;:()\[\]{}\/+×→←↔≥≤=<>|~%&"'*#@!?…、。_\n\t]+|\s*-\s+|\s+-\s*|(?<=[가-힣])-|-(?=[가-힣]))/;
 const DV_END=/(다\.|다$|이다|한다|없다|않는다|된다|있다|였다|합니다|니다)/,DV_PART=/[가-힣][은는이가을를에로]\s+[가-힣]/;
-const DV_UNIT_RE=/^([\d,.]+)(건|종|장|행|개|명|년|월|일|개월|분기|회|차|호|단계|등급|층|곳|배|인|개사|개국|좌|매|점|원|억원|억|조원|조|만원|만|천만원|천만|천원|천|백만원|백만|십억원|십억)$/;
+const DV_UNIT_RE=/^([\d,.]+)(건|종|장|행|열|칸|쌍|구간|개|명|년|월|일|개월|분기|회|차|호|단계|등급|층|곳|배|인|개사|개국|좌|매|점|원|억원|억|조원|조|만원|만|천만원|천만|천원|천|백만원|백만|십억원|십억)$/;
 function dvWord(w){if(DV[w]!==undefined)return DV[w];let u=DV_UNIT_RE.exec(w);if(u)return u[1]+DV_UNIT[u[2]];
   u=/^제(\d+)(조|항|편|절|호|관|장)(?:의(\d+))?$/.exec(w);if(u)return DV_LAW[u[2]]+' '+u[1]+(u[3]?'-'+u[3]:'');
   u=/^([가-힣A-Za-z0-9]+)(의|와|과)$/.exec(w);if(u&&DV[u[1]]!==undefined)return DV[u[1]]+(u[2]==='의'?'':' and');return null}
@@ -1646,14 +1646,18 @@ function dvSeg(seg){if(DV[seg]!==undefined)return DV[seg];const words=seg.split(
     if(hit===null){const w=words[i];if(HANGUL.test(w)){hit=dvWord(w);if(hit===null)return null}else hit=w;i++}
     out.push(hit)}
   return out.join(' ')}
-function dvText(s){if(!HANGUL.test(s))return s;if(DV[s]!==undefined)return DV[s];if(DV_END.test(s)||DV_PART.test(s))return null;
+const DVF=window.__DVF__||{},DV_NUM=/[\d][\d,.\-%]*/g;
+function dvFamily(s){const nums=s.match(DV_NUM);if(!nums)return null;const en=DVF[s.replace(DV_NUM,'#')];if(en===undefined)return null;
+  let i=0;return en.replace(/#(\d)?/g,(m,d)=>d&&+d<=nums.length?nums[+d-1]:(i<nums.length?nums[i++]:'#'))}
+function dvText(s){if(!HANGUL.test(s))return s;if(DV[s]!==undefined)return DV[s];const fm=dvFamily(s);if(fm!==null)return fm;if(DV_END.test(s)||DV_PART.test(s))return null;
   const parts=s.split(DV_SPLIT),out=[];
   for(const p of parts){if(p===undefined||p==='')continue;
     if(HANGUL.test(p)){const core=p.trim(),t=dvSeg(core);if(t===null)return null;
       out.push(p.slice(0,p.length-p.trimStart().length)+t+p.slice(p.trimEnd().length))}
     else out.push(p)}
   return out.join('').replace(/ {2,}/g,' ')}
-function translateDom(root){if(!DV_ON||!root)return;
+function dvActive(){return DV_ON&&LANG==='en'&&!(D&&D.meta&&String(D.meta.institution_code||'').startsWith('KR'))}
+function translateDom(root){if(!dvActive()||!root)return;
   const tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];let n;
   while((n=tw.nextNode())){if(HANGUL.test(n.data)&&n.parentNode&&!/^(SCRIPT|STYLE)$/.test(n.parentNode.tagName))nodes.push(n)}
   nodes.forEach(nd=>{const v=nd.data,core=v.trim(),t=dvText(core);
@@ -11270,6 +11274,7 @@ function boot(){
   paintNavTools();
   if(DV_ON){
     new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(nd=>{
+      if(!dvActive())return;
       if(nd.nodeType===1)translateDom(nd);
       else if(nd.nodeType===3&&HANGUL.test(nd.data)){const t=dvText(nd.data.trim());if(t!==null)nd.data=t}})))
       .observe(main,{childList:true,subtree:true});
@@ -11387,7 +11392,8 @@ def _ser(v) -> str:
 
 
 def _pack_blob(insts: dict[str, dict[str, dict]], primary_inst: str,
-               primary: str, values: dict[str, str] | None = None) -> str:
+               primary: str, values: dict[str, str] | None = None,
+               families: dict[str, str] | None = None) -> str:
     """실행 payload 들을 한 덩어리로 묶어 gzip 하고 base64 로 돌려준다.
 
     한 파일에 기관 아홉 곳을 실으려면 실행마다 10 MB 가 넘는 JSON 을 그대로
@@ -11492,6 +11498,7 @@ def _pack_blob(insts: dict[str, dict[str, dict]], primary_inst: str,
     pool = {h: store[h] for h in sorted(used)}
     blob = {"v": 1, "primary": primary, "primary_inst": primary_inst,
             "values": values or {},
+            "families": families or {},
             "pool": pool, "insts": packed, "i18n": _i18n.payload()}
     raw = _ser(blob).encode("utf-8")
     return _b85_encode(gzip.compress(raw, compresslevel=9, mtime=0))
@@ -11614,6 +11621,7 @@ window.__RYNTA_READY__=(async function(){
   }}
   window.__RYNTA_INSTS__=P.insts;
   window.__DV__=P.values||{};
+  window.__DVF__=P.families||{};
   window.__RYNTA_RUNS__=P.insts[P.primary_inst];
   window.__RYNTA__=window.__RYNTA_RUNS__[P.primary];
   window.__RYNTA_I18N__=P.i18n;
@@ -11625,8 +11633,9 @@ def render(studios: Studio | list[Studio], *, lang: str | None = None,
            primary_inst: str | None = None, public: bool = False) -> str:
     """한 개 이상의 실행 스냅샷을 한 화면으로 그린다.
 
-    lang="en" 이면 원장 값까지 영어로 옮긴 공개 배포용 빌드다 (export_en). 언어
-    전환 버튼은 감춘다. primary_inst 는 첫 화면의 기관, public 은 SHA-256 지문 제거다.
+    lang="en" 이면 공개 배포용 영문 빌드다 (export_en): 국내(KR_*) 기관의 원장 값은
+    한국어 그대로 싣고, 그 밖의 기관은 영어로 옮겨 싣는다. 화면 언어 전환은 그대로 둔다.
+    primary_inst 는 첫 화면의 기관, public 은 SHA-256 지문 제거다.
 
     기준일 전환은 **미리 산출해 실은 실행 사이의 전환**이다. 화면은 계산기가
     아니므로 새 기준일을 즉석에서 만들 수 없다. 만들 수 있는 것처럼 보이면
@@ -11650,7 +11659,7 @@ def render(studios: Studio | list[Studio], *, lang: str | None = None,
         pl = _payload(s)
         if public:
             pl = _ex_scrub(pl)
-        if tr is not None:
+        if tr is not None and not s.institution_code.startswith("KR"):
             pl = tr.walk(pl)
         insts.setdefault(s.institution_code, {})[s.asof] = pl
     if primary_inst is None:
@@ -11663,10 +11672,10 @@ def render(studios: Studio | list[Studio], *, lang: str | None = None,
     # 기본 기관의 실행은 두 번 싣지 않는다. 같은 payload 를 복제하면 파일이
     # 그만큼 커지고, 두 벌 중 한쪽만 고쳐질 여지가 생긴다.
     b64 = _blob_literal(_pack_blob(insts, primary_inst, primary,
-                                   values=tr.m if tr is not None else None))
+                                   values=tr.m if tr is not None else None,
+                                   families=tr.fam if tr is not None else None))
     title = "RYNTA Agentic UI Studio" if lang == "en" else "RYNTA 에이전틱 UI 스튜디오"
-    lang_btn = ("" if lang == "en" else
-                '<button class="theme" id="langbtn" type="button">English</button>')
+    lang_btn = '<button class="theme" id="langbtn" type="button">English</button>'
     digest_chip = ("" if public else
                    f'<span class="hchip" id="chip-digest">지문 {html.escape(m["digest"][:12])}</span>')
     return f"""<!doctype html>

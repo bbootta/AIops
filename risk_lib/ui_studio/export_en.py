@@ -23,10 +23,13 @@ from risk_lib.datamodel import catalog as cat
 from risk_lib.ui_studio import i18n as _i18n
 
 DICT_PATH = Path(__file__).parent / "data" / "en_dictionary.json"
+SENT_PATH = Path(__file__).parent / "data" / "en_sentences.json"     # 문장 통째 (정확히 일치)
+FAM_PATH = Path(__file__).parent / "data" / "en_families.json"       # 숫자를 # 으로 바꾼 틀
+_NUMTOK = re.compile(r"[\d][\d,.\-%]*")
 HANGUL = re.compile(r"[가-힣]")
 _SPLIT = re.compile(r"([·,;:()\[\]{}/+×→←↔≥≤=<>|~%&\"'*#@!?…、。_\n\t]+|\s*[-]\s+|\s+[-]\s*|(?<=[가-힣])-|-(?=[가-힣]))")
-_UNIT = re.compile(r"^([\d,.]+)(건|종|장|행|개|명|년|월|일|개월|분기|회|차|호|단계|등급|층|곳|배|인|개사|개국|좌|매|점|원|억원|억|조원|조|만원|만|천만원|천만|천원|천|백만원|백만|십억원|십억)$")
-_UNIT_EN = {"건": "", "종": " types", "장": " tables", "행": " rows", "개": "", "명": " people",
+_UNIT = re.compile(r"^([\d,.]+)(건|종|장|행|열|칸|쌍|구간|개|명|년|월|일|개월|분기|회|차|호|단계|등급|층|곳|배|인|개사|개국|좌|매|점|원|억원|억|조원|조|만원|만|천만원|천만|천원|천|백만원|백만|십억원|십억)$")
+_UNIT_EN = {"건": "", "종": " types", "장": " tables", "행": " rows", "열": " columns", "칸": " cells", "쌍": " pairs", "구간": " buckets", "개": "", "명": " people",
             "년": "", "월": "", "일": "", "개월": " months", "분기": " quarters", "회": " times",
             "차": "", "호": "", "단계": " stages", "등급": " grades", "층": " layers", "곳": "", "배": "x",
             "인": " persons", "개사": " firms", "개국": " countries", "좌": " accounts", "매": "", "점": " points",
@@ -55,6 +58,10 @@ def load_dictionary() -> dict[str, str]:
     return {}
 
 
+def load_json(path: Path) -> dict[str, str]:
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
 def build_map() -> dict[str, str]:
     m: dict[str, str] = {}
     for t in cat.ALL_TABLES:
@@ -65,6 +72,7 @@ def build_map() -> dict[str, str]:
                 m.setdefault(c.korean, _humanize(c.name))
     m.update(_i18n.ko_to_en())
     m.update(load_dictionary())
+    m.update(load_json(SENT_PATH))
     return m
 
 
@@ -92,7 +100,22 @@ class Translator:
 
     def __init__(self, mapping: dict[str, str] | None = None):
         self.m = mapping if mapping is not None else build_map()
+        self.fam = load_json(FAM_PATH)
         self.cache: dict[str, str] = {}
+
+    def family(self, s: str) -> str | None:
+        """숫자·코드 번호를 # 으로 바꾼 틀이 사전에 있으면 영어 틀에 숫자를 차례로 되돌려 넣는다."""
+        nums = _NUMTOK.findall(s)
+        if not nums:
+            return None
+        key = _NUMTOK.sub("#", s)
+        en = self.fam.get(key)
+        if en is None:
+            return None
+        it = iter(nums)
+        # 영어 틀의 # 은 순서대로, #1·#2 는 그 번호의 숫자로 (어순이 바뀌는 틀)
+        return re.sub(r"#(\d)?", lambda m: (nums[int(m.group(1)) - 1] if m.group(1) and int(m.group(1)) <= len(nums)
+                                             else next(it, "#")), en)
 
     def word(self, w: str) -> str | None:
         if w in self.m:
@@ -157,6 +180,8 @@ class Translator:
         if s in self.cache:
             return self.cache[s]
         t = self.templates(s)
+        if t is None:
+            t = self.family(s)
         if t is not None:
             r = t
         elif s in self.m:

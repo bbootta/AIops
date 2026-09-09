@@ -55,3 +55,30 @@ def test_dictionary_file_is_clean():
     assert all(ex.HANGUL.search(k) for k in d)
     assert not any(ex.HANGUL.search(v) for v in d.values())
     assert not any("—" in v or "–" in v for v in d.values())
+
+
+def test_family_template_refills_numbers_in_order_or_by_index():
+    t = ex.Translator({"위반": "Breach"})
+    t.fam = {"위반 #건 · 한도 #": "# breaches · limit #", "#에서 #까지": "from #2 to #1"}
+    assert t.text("위반 3건 · 한도 12.5%") == "3 breaches · limit 12.5%"
+    assert t.text("2024에서 2026까지") == "from 2026 to 2024"
+    assert t.text("위반 3건 · 기타 1건") == "위반 3건 · 기타 1건"     # 틀에 없으면 원문
+
+
+def test_count_units_including_rows_and_columns():
+    t = ex.Translator({})
+    assert t.text("rdm_obligor · 3행 · 4열") == "rdm_obligor · 3 rows · 4 columns"
+    assert t.text("공란 2칸") == "공란 2칸"                          # 낱말 하나라도 모르면 원문
+
+
+def test_sentence_and_family_files_are_clean():
+    for path, floor in ((ex.SENT_PATH, 1000), (ex.FAM_PATH, 900)):
+        d = ex.load_json(path)
+        assert len(d) >= floor
+        assert all(ex.HANGUL.search(k) for k in d)
+        assert not any(ex.HANGUL.search(v) for v in d.values())
+        assert not any("—" in v or "–" in v for v in d.values())
+    fam = ex.load_json(ex.FAM_PATH)
+    assert all("#" in k for k in fam)
+    # 틀의 # 개수는 원문과 같거나, #1 처럼 번호로 가리킨다
+    assert all(k.count("#") == v.count("#") or any(f"#{d}" in v for d in "123456789") for k, v in fam.items())
