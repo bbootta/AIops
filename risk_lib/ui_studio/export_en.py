@@ -69,7 +69,8 @@ def build_map() -> dict[str, str]:
 
 
 _ENDING = re.compile(r"(다\.|다$|이다|한다|없다|않는다|된다|있다|였다|합니다|니다)")
-_PARTICLE = re.compile(r"[가-힣][은는이가을를의에로]\s+[가-힣]")
+_PARTICLE = re.compile(r"[가-힣][은는이가을를에로]\s+[가-힣]")
+_POSS = re.compile(r"^([가-힣A-Za-z0-9]+)(의|와|과)$")
 
 
 class _Sentence:
@@ -108,6 +109,9 @@ class Translator:
         u = _NAME.match(w)
         if u:
             return _NAME_EN[u.group(1)] + " OO"
+        u = _POSS.match(w)                       # 유가증권의 → Securities · 차주재무와 → Borrower financials and
+        if u and u.group(1) in self.m:
+            return self.m[u.group(1)] + ("" if u.group(2) == "의" else " and")
         return None
 
     def segment(self, seg: str) -> str | None:

@@ -1627,6 +1627,37 @@ let RUNS = window.__RYNTA_RUNS__;
 const DV=window.__DV__||{};
 function eqv(v,ko){return v===ko||(DV[ko]!==undefined&&v===DV[ko])}
 function hasv(v,ko){const t=String(v==null?'':v);return t.indexOf(ko)>=0||(DV[ko]!==undefined&&t.indexOf(DV[ko])>=0)}
+/* 공개 영문 빌드의 마지막 안전망. 화면 코드가 rawEl·템플릿 문자열로 직접 박은 한글(KPI 라벨·
+   요약 리본·값 서식)은 el() 의 i18n 게이트를 지나지 않는다. 화면이 그려진 뒤 텍스트 노드를 훑어
+   export_en 과 같은 규칙(사전 전체 일치 → 낱말 사전 → 숫자+단위·제N조; 하나라도 모르면 원문)으로
+   옮긴다. 사전이 비어 있으면(국문 빌드) 아무것도 하지 않는다. */
+const DV_ON=Object.keys(DV).length>0;
+const DV_UNIT={'건':'','종':' types','장':' tables','행':' rows','개':'','명':' people','년':'','월':'','일':'','개월':' months','분기':' quarters','회':' times','차':'','호':'','단계':' stages','등급':' grades','층':' layers','곳':'','배':'x','인':' persons','개사':' firms','개국':' countries','좌':' accounts','매':'','점':' points','원':' KRW','억원':'00m KRW','억':'00m','조원':'tn KRW','조':'tn','만원':'0k KRW','만':'0k','천만원':'0m KRW','천만':'0m','천원':'k KRW','천':'k','백만원':'m KRW','백만':'m','십억원':'bn KRW','십억':'bn'};
+const DV_LAW={'조':'Article','항':'Paragraph','편':'Part','절':'Section','호':'Item','관':'Subsection','장':'Chapter'};
+const DV_SPLIT=/([·,;:()\[\]{}\/+×→←↔≥≤=<>|~%&"'*#@!?…、。_\n\t]+|\s*-\s+|\s+-\s*|(?<=[가-힣])-|-(?=[가-힣]))/;
+const DV_END=/(다\.|다$|이다|한다|없다|않는다|된다|있다|였다|합니다|니다)/,DV_PART=/[가-힣][은는이가을를에로]\s+[가-힣]/;
+const DV_UNIT_RE=/^([\d,.]+)(건|종|장|행|개|명|년|월|일|개월|분기|회|차|호|단계|등급|층|곳|배|인|개사|개국|좌|매|점|원|억원|억|조원|조|만원|만|천만원|천만|천원|천|백만원|백만|십억원|십억)$/;
+function dvWord(w){if(DV[w]!==undefined)return DV[w];let u=DV_UNIT_RE.exec(w);if(u)return u[1]+DV_UNIT[u[2]];
+  u=/^제(\d+)(조|항|편|절|호|관|장)(?:의(\d+))?$/.exec(w);if(u)return DV_LAW[u[2]]+' '+u[1]+(u[3]?'-'+u[3]:'');
+  u=/^([가-힣A-Za-z0-9]+)(의|와|과)$/.exec(w);if(u&&DV[u[1]]!==undefined)return DV[u[1]]+(u[2]==='의'?'':' and');return null}
+function dvSeg(seg){if(DV[seg]!==undefined)return DV[seg];const words=seg.split(' '),out=[];let i=0;
+  while(i<words.length){let hit=null;
+    for(let j=words.length;j>i;j--){const ph=words.slice(i,j).join(' ');if(DV[ph]!==undefined){hit=DV[ph];i=j;break}}
+    if(hit===null){const w=words[i];if(HANGUL.test(w)){hit=dvWord(w);if(hit===null)return null}else hit=w;i++}
+    out.push(hit)}
+  return out.join(' ')}
+function dvText(s){if(!HANGUL.test(s))return s;if(DV[s]!==undefined)return DV[s];if(DV_END.test(s)||DV_PART.test(s))return null;
+  const parts=s.split(DV_SPLIT),out=[];
+  for(const p of parts){if(p===undefined||p==='')continue;
+    if(HANGUL.test(p)){const core=p.trim(),t=dvSeg(core);if(t===null)return null;
+      out.push(p.slice(0,p.length-p.trimStart().length)+t+p.slice(p.trimEnd().length))}
+    else out.push(p)}
+  return out.join('').replace(/ {2,}/g,' ')}
+function translateDom(root){if(!DV_ON||!root)return;
+  const tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];let n;
+  while((n=tw.nextNode())){if(HANGUL.test(n.data)&&n.parentNode&&!/^(SCRIPT|STYLE)$/.test(n.parentNode.tagName))nodes.push(n)}
+  nodes.forEach(nd=>{const v=nd.data,core=v.trim(),t=dvText(core);
+    if(t!==null&&t!==core)nd.data=v.slice(0,v.length-v.trimStart().length)+t+v.slice(v.trimEnd().length)})}
 const INSTS = window.__RYNTA_INSTS__ || {};
 let D = window.__RYNTA__;               /* 활성 실행 (기준일 전환 시 재지정) */
 const $ = (s,r=document)=>r.querySelector(s);
@@ -11156,6 +11187,7 @@ function boot(){
       b.classList.add('on');s.classList.add('on');
       if(!s.dataset.done){const h=el('h2',null,title);s.appendChild(h);fn(s);
         insertSummary(label,s);
+        translateDom(s);
         s.dataset.done='1'}
       window.scrollTo({top:0});
     };
@@ -11236,6 +11268,12 @@ function boot(){
     [...roles.children].forEach(c=>{c.textContent=T(c.dataset.ko)});
   };
   paintNavTools();
+  if(DV_ON){
+    new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(nd=>{
+      if(nd.nodeType===1)translateDom(nd);
+      else if(nd.nodeType===3&&HANGUL.test(nd.data)){const t=dvText(nd.data.trim());if(t!==null)nd.data=t}})))
+      .observe(main,{childList:true,subtree:true});
+    translateDom(document.body)}
   if(first)first.onclick();
   /* 사유 입력은 **화면 안**에서 받는다. prompt()는 샌드박스 iframe(임베드·
      아티팩트)에서 차단되어 null을 돌려주고, 그러면 통제가 아무 반응 없이
