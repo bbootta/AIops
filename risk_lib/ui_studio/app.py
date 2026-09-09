@@ -10293,7 +10293,17 @@ function institutions(root){
    모르는 라벨은 무시하고 저장 목록에 없는 항목은 원래 자리 뒤에 붙는다. */
 const NAV_KEY='rynta-nav';
 function navPrefs(){let p=null;try{p=JSON.parse(localStorage.getItem(NAV_KEY)||'null')}catch(e){}
-  return (p&&typeof p==='object')?{order:p.order||{},hidden:Array.isArray(p.hidden)?p.hidden:[]}:{order:{},hidden:[]}}
+  const r=(p&&typeof p==='object')?{order:p.order||{},hidden:Array.isArray(p.hidden)?p.hidden:[]}:{order:{},hidden:[]};
+  /* 데모 빌드: 데모 목록 밖의 화면과 비어 버린 그룹을 메뉴에서 감춘다. 화면 자체는 만들어지므로
+     화면 안 링크로는 여전히 열린다. */
+  const demo=window.__DEMO__;
+  if(Array.isArray(demo)&&demo.length){const keep=new Set(demo),hide=new Set(r.hidden);
+    const walk=items=>{let any=false;items.forEach(it=>{
+      if(typeof it==='string'){if(keep.has(it))any=true;else hide.add(it)}
+      else{const sub=walk(it[1]);const self=keep.has(it[0]),leaf=TABS.some(t=>t[0]===it[0]);
+        if(!self&&(leaf||!sub))hide.add(it[0]);if(self||sub)any=true}});return any};   /* 화면을 여는 부모 항목은 목록에 없으면 감춘다 */
+    walk(NAVGROUPS);r.demoHidden=[...hide].filter(x=>r.hidden.indexOf(x)<0);r.hidden=[...hide]}
+  return r}
 function navSavePrefs(p){try{localStorage.setItem(NAV_KEY,JSON.stringify(p))}catch(e){}}
 function navTree(){
   const p=navPrefs();
@@ -11053,7 +11063,7 @@ function paintChips(){
                        institution_code:o.value});
     o.textContent=(nm&&nm!==o.value)?(nm+' · '+o.value):o.value})}
   paintGates();
-  document.title='RYNTA '+T('에이전틱 UI 스튜디오')+' · '+D.meta.asof;
+  document.title='RYNTA '+T('에이전틱 UI 스튜디오')+(window.__DEMO__?' (Demo)':'')+' · '+D.meta.asof;
 }
 /* 결재 게이트 두 층을 머리말에 상시 둔다. 2선은 val_check 의 상태 건수, 3선은
    독립검증 요청의 게이트 상태다. 둘을 한 칩에 합치지 않는다. 3선이 적합이
@@ -11178,7 +11188,7 @@ function boot(){
   wireTheme();
   const byLabel={};TABS.forEach(t=>{byLabel[t[0]]=t});
   let first=null,idx=0;
-  let navHidden=new Set(navPrefs().hidden);
+  let navHidden=new Set(navPrefs().hidden),demoHidden=new Set(navPrefs().demoHidden||[]);
   const leafBtn={};                      /* 라벨 → 버튼. 메뉴를 다시 짤 때 버튼과 화면은 그대로 쓴다 */
   function addLeaf(label,depth,collect,hid){
     const t=byLabel[label];
@@ -11224,7 +11234,7 @@ function boot(){
       else{const [sub,subItems]=item;
         if(byLabel[sub]){
           /* 리프-부모 (화면을 여는 항목이면서 자식(3레벨)을 거느린다) */
-          const subHidden=hidden||navHidden.has(sub);
+          const subHidden=hidden||(navHidden.has(sub)&&!demoHidden.has(sub));   /* 데모가 감춘 부모는 자식에 번지지 않는다 */
           addLeaf(sub,depth+1,under,hidden);
           subItems.forEach(ch=>addLeaf(ch,depth+2,under,subHidden));
         } else {
@@ -11237,7 +11247,7 @@ function boot(){
   let tools=null;
   /* 메뉴를 (다시) 짠다. 메뉴 구조 설정이 바뀌면 새로고침 없이 이것만 다시 돈다. */
   function buildNav(){
-    navHidden=new Set(navPrefs().hidden);
+    const np=navPrefs();navHidden=new Set(np.hidden);demoHidden=new Set(np.demoHidden||[]);
     [...nav.children].forEach(x=>{if(x!==tools)x.remove()});
     navTree().forEach(([gname,items])=>addGroup(gname,items,0,false));
   }
@@ -11403,7 +11413,8 @@ def _ser(v) -> str:
 def _pack_blob(insts: dict[str, dict[str, dict]], primary_inst: str,
                primary: str, values: dict[str, str] | None = None,
                families: dict[str, str] | None = None,
-               ui_keys: list[str] | None = None) -> str:
+               ui_keys: list[str] | None = None,
+               demo: list[str] | None = None) -> str:
     """실행 payload 들을 한 덩어리로 묶어 gzip 하고 base64 로 돌려준다.
 
     한 파일에 기관 아홉 곳을 실으려면 실행마다 10 MB 가 넘는 JSON 을 그대로
@@ -11510,6 +11521,7 @@ def _pack_blob(insts: dict[str, dict[str, dict]], primary_inst: str,
             "values": values or {},
             "families": families or {},
             "ui_keys": ui_keys or [],
+            "demo": list(demo) if demo else None,
             "pool": pool, "insts": packed, "i18n": _i18n.payload()}
     raw = _ser(blob).encode("utf-8")
     return _b85_encode(gzip.compress(raw, compresslevel=9, mtime=0))
@@ -11634,6 +11646,7 @@ window.__RYNTA_READY__=(async function(){
   window.__DV__=P.values||{};
   window.__DVF__=P.families||{};
   window.__DVU__=P.ui_keys||[];
+  window.__DEMO__=P.demo||null;
   window.__RYNTA_RUNS__=P.insts[P.primary_inst];
   window.__RYNTA__=window.__RYNTA_RUNS__[P.primary];
   window.__RYNTA_I18N__=P.i18n;
@@ -11641,8 +11654,26 @@ window.__RYNTA_READY__=(async function(){
 """
 
 
+# 데모 빌드가 메뉴에 남기는 주요 화면. 그룹마다 대표 화면 한둘씩이다. 나머지 화면은 만들어지되
+# 메뉴에서 감춰지고, 화면 안 링크(종합보고서의 참조 링크 등)로는 열린다.
+DEMO_SCREENS = [
+    "종합보고서", "감독보고",
+    "콕핏", "시뮬레이션", "한도관리",
+    "정형 조회",
+    "모형 인벤토리",
+    "DQ·대사",
+    "신용 RWA", "ECL", "시장 RWA",
+    "금리리스크", "유동성리스크", "시나리오 설정", "역스트레스",
+    "기후 개요", "기후 자본 경로",
+    "AI 리스크 개요", "에이전트",
+    "요건 추적", "실행·감사추적",
+    "데이터모델",
+]
+
+
 def render(studios: Studio | list[Studio], *, lang: str | None = None,
-           primary_inst: str | None = None, public: bool = False) -> str:
+           primary_inst: str | None = None, public: bool = False,
+           demo: list[str] | None = None) -> str:
     """한 개 이상의 실행 스냅샷을 한 화면으로 그린다.
 
     lang="en" 이면 공개 배포용 영문 빌드다 (export_en): 국내(KR_*) 기관의 원장 값은
@@ -11686,8 +11717,14 @@ def render(studios: Studio | list[Studio], *, lang: str | None = None,
     b64 = _blob_literal(_pack_blob(insts, primary_inst, primary,
                                    values=tr.m if tr is not None else None,
                                    families=tr.fam if tr is not None else None,
-                                   ui_keys=_ex.ui_keys(_JS) if tr is not None else None))
+                                   ui_keys=_ex.ui_keys(_JS) if tr is not None else None,
+                                   demo=demo))
     title = "RYNTA Agentic UI Studio" if lang == "en" else "RYNTA 에이전틱 UI 스튜디오"
+    if demo:
+        missing = [x for x in demo if f"'{x}'" not in _JS]
+        if missing:
+            raise ValueError(f"데모 화면 목록에 없는 화면: {missing}")
+        title += " (Demo)" if lang == "en" else " (데모)"
     lang_btn = '<button class="theme" id="langbtn" type="button">English</button>'
     digest_chip = ("" if public else
                    f'<span class="hchip" id="chip-digest">지문 {html.escape(m["digest"][:12])}</span>')

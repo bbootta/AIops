@@ -1080,3 +1080,34 @@ def test_every_model_screen_carries_a_summary_line(page):
         assert sm is not None, label
         assert len(sm.inner_text().replace("요약", "").strip()) > 10, label
     assert page.errors == []
+
+
+@pytest.fixture(scope="module")
+def demo_page_path(studio, tmp_path_factory):
+    """데모 빌드: 주요 화면만 메뉴에 남긴다 (app.DEMO_SCREENS)."""
+    from risk_lib.ui_studio.app import DEMO_SCREENS, write_app
+    out = tmp_path_factory.mktemp("ui") / "demo.html"
+    return write_app(studio, out, demo=DEMO_SCREENS)
+
+
+def test_demo_build_keeps_only_headline_screens_in_menu(browser, demo_page_path):
+    from risk_lib.ui_studio.app import DEMO_SCREENS
+    pg = browser.new_page(viewport={"width": 1400, "height": 1000})
+    errors: list[str] = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.goto(f"file://{demo_page_path}")
+    pg.wait_for_timeout(800)
+    visible = pg.evaluate("Array.from(document.querySelectorAll('nav button'))"
+                          ".filter(b=>!b.classList.contains('uhide')).map(b=>b.dataset.ko)")
+    assert sorted(visible) == sorted(DEMO_SCREENS)          # 목록 밖 화면(부모 항목 포함)은 메뉴에서 감춘다
+    # 감춰진 화면도 만들어져 있어 화면 안 링크로 열린다
+    total = pg.evaluate("document.querySelectorAll('nav button').length")
+    assert total > len(DEMO_SCREENS)
+    assert "(Demo)" in pg.title() or "(데모)" in pg.title()
+    # 첫 화면은 보이는 화면 중 첫 번째다
+    assert pg.evaluate("document.querySelector('nav button.on').dataset.ko") == DEMO_SCREENS[0]
+    # 보이는 화면 전부 열어도 오류가 없다
+    pg.evaluate("document.querySelectorAll('nav button').forEach(b=>{if(!b.classList.contains('uhide'))b.click()})")
+    pg.wait_for_timeout(1500)
+    assert errors == []
+    pg.close()

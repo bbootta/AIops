@@ -295,8 +295,8 @@ def _cmd_ui_studio(args: argparse.Namespace) -> int:
 
     # 행 예산을 낮추는 것은 사람이 정하는 일이다 (app.py 의 상한 경고 참조).
     # 낮추면 그 사실을 출력에 적어 조용히 줄지 않게 한다.
+    from risk_lib.ui_studio import app as _app
     if args.rows or args.rows_demo:
-        from risk_lib.ui_studio import app as _app
         if args.rows:
             print(f"  행 예산 조정 · 일반 {_app.INTERACTIVE_ROWS} -> {args.rows}")
             _app.INTERACTIVE_ROWS = args.rows
@@ -341,7 +341,8 @@ def _cmd_ui_studio(args: argparse.Namespace) -> int:
             studios.append(build_studio(result, portfolio))
             print(f"  산출 {studios[-1].run_id} · 지문 {studios[-1].digest[:16]}")
     out = write_app(studios if len(studios) > 1 else studios[0], args.out,
-                    lang=args.lang, primary_inst=args.default_inst, public=args.public)
+                    lang=args.lang, primary_inst=args.default_inst, public=args.public,
+                    demo=_app.DEMO_SCREENS if args.demo else None)
     if args.lang == "en":
         from risk_lib.ui_studio import export_en as _ex
         left = sum(_ex.MISSES.values())
@@ -705,6 +706,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="첫 화면의 기관코드 (기본은 기관 원장 순서의 첫 기관)")
     ui.add_argument("--public", action="store_true",
                     help="SHA-256 지문·스키마 해시를 지운 공개용 빌드")
+    ui.add_argument("--demo", action="store_true",
+                    help="주요 화면만 메뉴에 남긴 데모 빌드 (app.DEMO_SCREENS)")
     ui.add_argument("--institutions", default=None,
                     help="기관코드 (콤마로 여러 개, all 은 등록 기관 전부). "
                          "생략하면 국내 표본 한 곳만 산출한다")
