@@ -28,11 +28,11 @@ python -m risk_lib.datamodel.lineage
 
 | 항목 | 수 |
 |---|---|
-| 카탈로그 원장 | 274장 |
-| 실체화된 원장 | 274 |
-| 전용 화면 | 88장 (범용 조회기 4장 별도) |
+| 카탈로그 원장 | 275장 |
+| 실체화된 원장 | 275 |
+| 전용 화면 | 89장 (범용 조회기 4장 별도) |
 | 감독서식 모듈 | 23개 |
-| 전용 화면이 그리는 원장 | 265장 |
+| 전용 화면이 그리는 원장 | 266장 |
 | 감독서식이 읽는 원장 | 38장 |
 | 미배선 원장 (화면·서식 둘 다 없음) | 6장 |
 | 그중 하류 원장도 없는 것 | 3장 |
@@ -43,7 +43,7 @@ python -m risk_lib.datamodel.lineage
 
 ```mermaid
 flowchart LR
-  B1["원천·리스크데이터 · 원장 42장"]
+  B1["원천·리스크데이터 · 원장 43장"]
   B2["신용 · 원장 72장"]
   B3["시장 · 원장 27장"]
   B4["운영 · 원장 13장"]
@@ -89,7 +89,7 @@ flowchart LR
 
 블록마다 두 장이다. 앞장은 산출 모듈이 원장을 만드는 경로와 원장 간 의존(점선), 뒷장은 그 원장을 쓰는 화면·서식이다. 한 장에 다 넣으면 한 블록이 100노드를 넘어 읽히지 않는다.
 
-### 2.1 원천·리스크데이터 · 원장 42장
+### 2.1 원천·리스크데이터 · 원장 43장
 
 산출 모듈 → 원장 (미배선 0장 포함)
 
@@ -111,9 +111,9 @@ flowchart LR
     Prisk_libx2fpipelinex2epy["risk_lib/pipeline.py"]
     Prisk_libx2fui_studiox2fstudiox2epy["risk_lib/ui_studio/studio.py"]
   end
-  subgraph G["원천·리스크데이터 원장 42장"]
+  subgraph G["원천·리스크데이터 원장 43장"]
   direction TB
-    Tdat_mart_load["dat_mart_load (264행)"]
+    Tdat_mart_load["dat_mart_load (265행)"]
     Tdat_retention_action["dat_retention_action (3행)"]
     Tdat_retention_policy["dat_retention_policy (6행)"]
     Tint_connector["int_connector (5행)"]
@@ -128,18 +128,19 @@ flowchart LR
     Trdm_account_master["rdm_account_master (20행)"]
     Trdm_asset_quality["rdm_asset_quality (2,980행)"]
     Trdm_canonical_map["rdm_canonical_map (30행)"]
-    Trdm_code_master["rdm_code_master (1,983행)"]
+    Trdm_code_master["rdm_code_master (1,995행)"]
     Trdm_collateral["rdm_collateral (2,900행)"]
     Trdm_delinquency["rdm_delinquency (2,980행)"]
     Trdm_derivative_master["rdm_derivative_master (84행)"]
     Trdm_derivative_underlying["rdm_derivative_underlying (123행)"]
-    Trdm_dq_result["rdm_dq_result (6,202행)"]
-    Trdm_dq_rule["rdm_dq_rule (3,852행)"]
+    Trdm_dq_result["rdm_dq_result (6,221행)"]
+    Trdm_dq_rule["rdm_dq_rule (3,863행)"]
     Trdm_exposure["rdm_exposure (2,980행)"]
     Trdm_exposure_balance["rdm_exposure_balance (2,980행)"]
-    Trdm_ext_climate_indicator["rdm_ext_climate_indicator (1,060행)"]
+    Trdm_ext_climate_indicator["rdm_ext_climate_indicator (1,920행)"]
+    Trdm_ext_climate_series["rdm_ext_climate_series (2,492행)"]
     Trdm_ext_country["rdm_ext_country (177행)"]
-    Trdm_ext_source["rdm_ext_source (4행)"]
+    Trdm_ext_source["rdm_ext_source (11행)"]
     Trdm_fund_holding["rdm_fund_holding (153행)"]
     Trdm_fund_mandate["rdm_fund_mandate (36행)"]
     Trdm_fund_master["rdm_fund_master (12행)"]
@@ -153,10 +154,11 @@ flowchart LR
     Trdm_sec_master["rdm_sec_master (8행)"]
     Trdm_sec_pool["rdm_sec_pool (21행)"]
     Trdm_sec_tranche["rdm_sec_tranche (27행)"]
-    Trdm_snapshot["rdm_snapshot (7행)"]
-    Trdm_source_contract["rdm_source_contract (7행)"]
+    Trdm_snapshot["rdm_snapshot (8행)"]
+    Trdm_source_contract["rdm_source_contract (8행)"]
   end
   Prisk_libx2fclimate_geox2epy --> Trdm_ext_climate_indicator
+  Prisk_libx2fclimate_geox2epy --> Trdm_ext_climate_series
   Prisk_libx2fclimate_geox2epy --> Trdm_ext_country
   Prisk_libx2fclimate_geox2epy --> Trdm_ext_source
   Prisk_libx2fclimate_geox2epy --> Trdm_snapshot
@@ -226,13 +228,13 @@ flowchart LR
   Trdm_obligor -.-> Trdm_obligor_financial
 ```
 
-원장 → 화면·서식 (쓰이는 42장만)
+원장 → 화면·서식 (쓰이는 43장만)
 
 ```mermaid
 flowchart LR
   subgraph G["원천·리스크데이터 원장"]
   direction TB
-    Tdat_mart_load["dat_mart_load (264행)"]
+    Tdat_mart_load["dat_mart_load (265행)"]
     Tdat_retention_action["dat_retention_action (3행)"]
     Tdat_retention_policy["dat_retention_policy (6행)"]
     Tint_connector["int_connector (5행)"]
@@ -247,18 +249,19 @@ flowchart LR
     Trdm_account_master["rdm_account_master (20행)"]
     Trdm_asset_quality["rdm_asset_quality (2,980행)"]
     Trdm_canonical_map["rdm_canonical_map (30행)"]
-    Trdm_code_master["rdm_code_master (1,983행)"]
+    Trdm_code_master["rdm_code_master (1,995행)"]
     Trdm_collateral["rdm_collateral (2,900행)"]
     Trdm_delinquency["rdm_delinquency (2,980행)"]
     Trdm_derivative_master["rdm_derivative_master (84행)"]
     Trdm_derivative_underlying["rdm_derivative_underlying (123행)"]
-    Trdm_dq_result["rdm_dq_result (6,202행)"]
-    Trdm_dq_rule["rdm_dq_rule (3,852행)"]
+    Trdm_dq_result["rdm_dq_result (6,221행)"]
+    Trdm_dq_rule["rdm_dq_rule (3,863행)"]
     Trdm_exposure["rdm_exposure (2,980행)"]
     Trdm_exposure_balance["rdm_exposure_balance (2,980행)"]
-    Trdm_ext_climate_indicator["rdm_ext_climate_indicator (1,060행)"]
+    Trdm_ext_climate_indicator["rdm_ext_climate_indicator (1,920행)"]
+    Trdm_ext_climate_series["rdm_ext_climate_series (2,492행)"]
     Trdm_ext_country["rdm_ext_country (177행)"]
-    Trdm_ext_source["rdm_ext_source (4행)"]
+    Trdm_ext_source["rdm_ext_source (11행)"]
     Trdm_fund_holding["rdm_fund_holding (153행)"]
     Trdm_fund_mandate["rdm_fund_mandate (36행)"]
     Trdm_fund_master["rdm_fund_master (12행)"]
@@ -272,8 +275,8 @@ flowchart LR
     Trdm_sec_master["rdm_sec_master (8행)"]
     Trdm_sec_pool["rdm_sec_pool (21행)"]
     Trdm_sec_tranche["rdm_sec_tranche (27행)"]
-    Trdm_snapshot["rdm_snapshot (7행)"]
-    Trdm_source_contract["rdm_source_contract (7행)"]
+    Trdm_snapshot["rdm_snapshot (8행)"]
+    Trdm_source_contract["rdm_source_contract (8행)"]
   end
   subgraph V["화면·서식"]
   direction TB
@@ -323,6 +326,7 @@ flowchart LR
   Trdm_exposure --> VRDM
   Trdm_exposure_balance --> VRDM
   Trdm_ext_climate_indicator --> VRDM
+  Trdm_ext_climate_series --> VRDM
   Trdm_ext_country --> VRDM
   Trdm_ext_source --> VRDM
   Trdm_fund_holding --> VRDM
@@ -341,6 +345,7 @@ flowchart LR
   Trdm_snapshot --> VRDM
   Trdm_source_contract --> VRDM
   Trdm_ext_climate_indicator --> Vxae30xd6c4x20xac1cxc694
+  Trdm_ext_climate_series --> Vxae30xd6c4x20xac1cxc694
   Trdm_ext_source --> Vxae30xd6c4x20xac1cxc694
   Trdm_collateral --> Vxb2f4xbcf4xb7xbcf4xc99d
   Trdm_guarantee --> Vxb2f4xbcf4xb7xbcf4xc99d
@@ -379,6 +384,7 @@ flowchart LR
   Trdm_exposure --> Vxc885xd569xbcf4xace0xc11c
   Trdm_exposure_balance --> Vxc885xd569xbcf4xace0xc11c
   Trdm_ext_climate_indicator --> Vxc885xd569xbcf4xace0xc11c
+  Trdm_ext_climate_series --> Vxc885xd569xbcf4xace0xc11c
   Trdm_ext_country --> Vxc885xd569xbcf4xace0xc11c
   Trdm_ext_source --> Vxc885xd569xbcf4xace0xc11c
   Trdm_fund_holding --> Vxc885xd569xbcf4xace0xc11c
@@ -2112,10 +2118,10 @@ flowchart LR
     Tlex_position["lex_position (8,739행)"]
     Tlex_setting["lex_setting (25행)"]
     Tlex_substitution["lex_substitution (300행)"]
-    Tui_field_policy["ui_field_policy (2,882행)"]
+    Tui_field_policy["ui_field_policy (2,889행)"]
     Tui_layout_proposal["ui_layout_proposal (3행)"]
     Tui_query_plan["ui_query_plan (6행)"]
-    Tui_view["ui_view (346행)"]
+    Tui_view["ui_view (347행)"]
     Tval_audit_ledger["val_audit_ledger (23행)"]
     Tval_check["val_check (98행)"]
     Tval_independent_request["val_independent_request (1행)"]
@@ -2248,10 +2254,10 @@ flowchart LR
     Tlex_position["lex_position (8,739행)"]
     Tlex_setting["lex_setting (25행)"]
     Tlex_substitution["lex_substitution (300행)"]
-    Tui_field_policy["ui_field_policy (2,882행)"]
+    Tui_field_policy["ui_field_policy (2,889행)"]
     Tui_layout_proposal["ui_layout_proposal (3행)"]
     Tui_query_plan["ui_query_plan (6행)"]
-    Tui_view["ui_view (346행)"]
+    Tui_view["ui_view (347행)"]
     Tval_audit_ledger["val_audit_ledger (23행)"]
     Tval_check["val_check (98행)"]
     Tval_independent_target["val_independent_target (21행)"]
@@ -2565,7 +2571,7 @@ flowchart RL
   VPDx20xcd94xc815 -.->|2| B8
   VPDx20xcd94xc815 -.->|8| B2
   VRDM -.->|2| B8
-  VRDM -.->|42| B1
+  VRDM -.->|43| B1
   VVaRxb7ES -.->|1| B3
   Vxac00xaca9xac80xc99dxb7IPV -.->|3| B3
   Vxac10xb3c5xbcf4xace0 -.->|1| B7
@@ -2581,7 +2587,7 @@ flowchart RL
   Vxacbdxc601xc870xce58xb7xc81cxcd9c -.->|2| B6
   Vxad6dxb0b4x20xae08xb9acxb9acxc2a4xd06c -.->|16| B5
   Vxae08xb9acxb9acxc2a4xd06c -.->|8| B5
-  Vxae30xd6c4x20xac1cxc694 -.->|2| B1
+  Vxae30xd6c4x20xac1cxc694 -.->|3| B1
   Vxae30xd6c4x20xac1cxc694 -.->|1| B6
   Vxb2f4xbcf4xb7xbcf4xc99d -.->|3| B1
   Vxb4f1xae09x20xbcf4xc815 -.->|1| B2
@@ -2640,7 +2646,7 @@ flowchart RL
   Vxc885xd569xbcf4xace0xc11c -.->|27| B3
   Vxc885xd569xbcf4xace0xc11c -.->|72| B2
   Vxc885xd569xbcf4xace0xc11c -.->|13| B4
-  Vxc885xd569xbcf4xace0xc11c -.->|42| B1
+  Vxc885xd569xbcf4xace0xc11c -.->|43| B1
   Vxc885xd569xbcf4xace0xc11c -.->|10| B6
   Vxc9d1xacc4x20xc6d0xc7a5 -.->|1| B5
   Vxc9d1xacc4x20xc6d0xc7a5 -.->|1| B3
@@ -2695,7 +2701,7 @@ flowchart RL
 | LGD·EAD 실측검증 | 6 | crm_backtest_criteria, crm_ccf_backtest, crm_default_observation, crm_lgd_backtest, gov_role, gov_run_domain |
 | NCR·건전성 | 5 | ncr_component, pru_balance_sheet, pru_camel, pru_liquidity_ratio, pru_prompt_action |
 | PD 추정 | 10 | crm_dev_sample, crm_estimation_param, crm_estimation_run, crm_input_floor, crm_irb_scope, crm_moc_component, crm_pd_estimate, crm_pd_yearly_dr, gov_role, gov_run_domain |
-| RDM | 44 | dat_mart_load, dat_retention_action, dat_retention_policy, gov_role, gov_run_domain, int_connector, int_connector_operation, int_connector_violation, int_delivery_attempt, int_inbound_contract, int_inbound_delivery, int_quarantine, int_retry_policy, lim_limit_definition, rdm_account_master, rdm_asset_quality, rdm_canonical_map, rdm_code_master, rdm_collateral, rdm_delinquency, rdm_derivative_master, rdm_derivative_underlying, rdm_dq_result, rdm_dq_rule, rdm_exposure, rdm_exposure_balance, rdm_ext_climate_indicator, rdm_ext_country, rdm_ext_source, rdm_fund_holding, rdm_fund_mandate, rdm_fund_master, rdm_guarantee, rdm_macro_indicator_master, rdm_netting_set, rdm_obligor, rdm_obligor_financial, rdm_product_master, rdm_reconciliation, rdm_sec_master, rdm_sec_pool, rdm_sec_tranche, rdm_snapshot, rdm_source_contract |
+| RDM | 45 | dat_mart_load, dat_retention_action, dat_retention_policy, gov_role, gov_run_domain, int_connector, int_connector_operation, int_connector_violation, int_delivery_attempt, int_inbound_contract, int_inbound_delivery, int_quarantine, int_retry_policy, lim_limit_definition, rdm_account_master, rdm_asset_quality, rdm_canonical_map, rdm_code_master, rdm_collateral, rdm_delinquency, rdm_derivative_master, rdm_derivative_underlying, rdm_dq_result, rdm_dq_rule, rdm_exposure, rdm_exposure_balance, rdm_ext_climate_indicator, rdm_ext_climate_series, rdm_ext_country, rdm_ext_source, rdm_fund_holding, rdm_fund_mandate, rdm_fund_master, rdm_guarantee, rdm_macro_indicator_master, rdm_netting_set, rdm_obligor, rdm_obligor_financial, rdm_product_master, rdm_reconciliation, rdm_sec_master, rdm_sec_pool, rdm_sec_tranche, rdm_snapshot, rdm_source_contract |
 | VaR·ES | 1 | mkt_var_es |
 | 가격검증·IPV | 3 | mkt_ipv, mkt_risk_factor, mkt_trade |
 | 감독보고 | 1 | reg_form_check |
@@ -2708,11 +2714,12 @@ flowchart RL
 | 국내 금리리스크 | 16 | alm_irrbb_bucket_pv, alm_irrbb_result, alm_nii_result, alm_nmd_param, alm_post_shock_floor, alm_rate_shock_param, alm_repricing_gap, alm_time_bucket, disc_irrbb_table6, disc_irrbb_table7_qualitative, disc_irrbb_table7_quantitative, kr_auto_option_param, kr_irrbb_governance, kr_nmd_category, kr_retail_behavioural_scope, kr_retail_criteria |
 | 금리리스크 | 8 | alm_irrbb_bucket_pv, alm_irrbb_result, alm_nii_result, alm_post_shock_floor, alm_rate_shock_param, alm_repricing_gap, alm_result, alm_scenario_def |
 | 기관 설정 | 0 | (없음) |
-| 기후 개요 | 3 | icaap_risk_taxonomy, rdm_ext_climate_indicator, rdm_ext_source |
+| 기후 개요 | 4 | icaap_risk_taxonomy, rdm_ext_climate_indicator, rdm_ext_climate_series, rdm_ext_source |
 | 기후 자본 경로 | 0 | (없음) |
 | 담보·보증 | 3 | rdm_collateral, rdm_guarantee, rdm_obligor_financial |
 | 등급 보정 | 1 | crm_pd_calibration |
 | 등급 전이 | 5 | crm_lgd_component, crm_pd_calibration, crm_performance, crm_rating_migration, rdm_code_master |
+| 메뉴 구조 | 0 | (없음) |
 | 모형 거버넌스 | 9 | crm_backtest_criteria, crm_backtest_result, crm_ccf_backtest, crm_lgd_backtest, crm_model_governance, crm_representativeness, crm_sample_representativeness, gov_role, gov_run_domain |
 | 모형 수명주기 | 3 | gov_model_stage, gov_model_state, gov_model_transition |
 | 모형 인벤토리 | 3 | crm_model, crm_pd_calibration, crm_performance |
@@ -2755,7 +2762,7 @@ flowchart RL
 | 정보흐름·마스킹 | 4 | aig_agent_trace, aig_redaction_rule, ui_field_policy, ui_view |
 | 조기경보 | 1 | crm_ews_signal |
 | 조회 거버넌스 | 3 | ui_layout_proposal, ui_query_plan, ui_view |
-| 종합보고서 | 265 | agent_activity, agent_killswitch, agent_registry, agg_alm_exposure, agg_credit_exposure, agg_market_exposure, agg_operational_loss, agg_stress_exposure, aig_adjustment, aig_agent_trace, aig_redaction_rule, alm_behaviour_backtest, alm_behaviour_model, alm_behaviour_param, alm_behaviour_scenario_mult, alm_cashflow_behavioural, alm_cashflow_bucket, alm_cashflow_contract, alm_code_scope, alm_contract, alm_early_redemption_observation, alm_irrbb_bucket_pv, alm_irrbb_result, alm_irrbb_shock, alm_lcr_factor, alm_lcr_flow, alm_lcr_item, alm_liquidity_stress_param, alm_maturity_ladder, alm_nii_result, alm_nmd_balance_history, alm_nmd_core_method_compare, alm_nmd_param, alm_nsfr_factor, alm_nsfr_item, alm_post_shock_floor, alm_prepay_observation, alm_prepay_scurve_param, alm_product_terms, alm_rate_shock_param, alm_repricing_gap, alm_result, alm_scenario_def, alm_survival_path, alm_time_bucket, cap_stack, ccr_collateral_position, ccr_csa_term, ccr_margin_call, ccr_margin_dispute, chg_change_request, chg_impact_map, chg_regression_test, crm_allocation, crm_backtest_criteria, crm_backtest_result, crm_beel_curve, crm_capm_estimate, crm_capm_observation, crm_ccf_backtest, crm_ccf_estimate, crm_code_scope, crm_collateral_link, crm_collateral_terms, crm_default_history, crm_default_observation, crm_defaulted_lgd, crm_dev_sample, crm_estimation_param, crm_estimation_run, crm_ews_signal, crm_exposure_terms, crm_facility_drawdown_history, crm_input_floor, crm_irb_scope, crm_lgd_backtest, crm_lgd_component, crm_lgd_discount_rate, crm_lgd_estimate, crm_lifecycle_compliance, crm_lifecycle_event, crm_mitigation_param, crm_moc_component, crm_model, crm_model_governance, crm_obligor_axis_score, crm_obligor_score, crm_override, crm_override_performance, crm_override_reason, crm_pd_calibration, crm_pd_estimate, crm_pd_yearly_dr, crm_performance, crm_plgd, crm_plgd_sensitivity, crm_qualitative_assessment, crm_qualitative_item, crm_rating, crm_rating_migration, crm_rating_requirement, crm_recovery_history, crm_representativeness, crm_sample_representativeness, crm_scorecard_axis, crm_scorecard_bin, crm_scorecard_factor, crm_scorecard_param, dat_mart_load, dat_retention_action, dat_retention_policy, disc_irrbb_table6, disc_irrbb_table7_qualitative, disc_irrbb_table7_quantitative, ecl_gl_reconciliation, ecl_macro_scenario, ecl_pma, ecl_provision_bridge, ecl_result, ecl_sicr_trigger_stat, ecl_stage_transition, gov_access_decision, gov_alert_policy, gov_approval, gov_audit_chain, gov_change_control, gov_change_gate, gov_change_impact, gov_change_policy, gov_change_request, gov_evidence_edge, gov_evidence_node, gov_exception_action, gov_model_stage, gov_model_state, gov_model_transition, gov_price_source_rank, gov_pricing_control, gov_pricing_gap, gov_pricing_result, gov_role, gov_role_permission, gov_run_domain, gov_run_issue, gov_sod_conflict, gov_unified_run, gov_user_role, icaap_capital_map, icaap_materiality, icaap_materiality_policy, icaap_risk_taxonomy, int_connector, int_connector_operation, int_connector_violation, int_delivery_attempt, int_engine_adapter, int_engine_io, int_feed_field_map, int_feed_health, int_inbound_contract, int_inbound_delivery, int_market_feed, int_quarantine, int_retry_policy, kr_auto_option_param, kr_irrbb_governance, kr_nmd_category, kr_retail_behavioural_scope, kr_retail_criteria, lex_aggregate, lex_connected_group, lex_exemption, lex_exposure_measure, lex_lookthrough, lex_position, lex_setting, lex_substitution, lim_limit_definition, liq_funding_concentration, liq_funding_ladder, liq_funding_limit, liq_funding_trade, mkt_backtest_exception, mkt_code_scope, mkt_derivative_sensitivity, mkt_ipv, mkt_portfolio, mkt_portfolio_capital, mkt_position, mkt_pricing_model, mkt_product, mkt_product_model_map, mkt_risk_factor, mkt_trade, mkt_var_es, mkt_var_es_portfolio, ncr_component, opr_capital, opr_close_gate, opr_close_task, opr_code_scope, opr_control, opr_kri, opr_loss_event, opr_rcsa_action, opr_rcsa_assessment, opr_rcsa_control, opr_rcsa_scale, opr_recovery, pru_balance_sheet, pru_camel, pru_liquidity_ratio, pru_prompt_action, rdm_account_master, rdm_asset_quality, rdm_canonical_map, rdm_code_master, rdm_collateral, rdm_delinquency, rdm_derivative_master, rdm_derivative_underlying, rdm_dq_result, rdm_dq_rule, rdm_exposure, rdm_exposure_balance, rdm_ext_climate_indicator, rdm_ext_country, rdm_ext_source, rdm_fund_holding, rdm_fund_mandate, rdm_fund_master, rdm_guarantee, rdm_macro_indicator_master, rdm_netting_set, rdm_obligor, rdm_obligor_financial, rdm_product_master, rdm_reconciliation, rdm_sec_master, rdm_sec_pool, rdm_sec_tranche, rdm_snapshot, rdm_source_contract, reg_form_check, reg_submission, rwa_crm_allocation, rwa_fund_result, rwa_irb_pool, rwa_market_component, rwa_operational_bi, rwa_output_floor, rwa_result, rwa_sa_bucket, rwa_sec_result, st_action_playbook, st_calc_trace, st_capital_path, st_management_action, ui_field_policy, ui_layout_proposal, ui_query_plan, ui_view, val_audit_ledger, val_check, val_independent_target |
+| 종합보고서 | 266 | agent_activity, agent_killswitch, agent_registry, agg_alm_exposure, agg_credit_exposure, agg_market_exposure, agg_operational_loss, agg_stress_exposure, aig_adjustment, aig_agent_trace, aig_redaction_rule, alm_behaviour_backtest, alm_behaviour_model, alm_behaviour_param, alm_behaviour_scenario_mult, alm_cashflow_behavioural, alm_cashflow_bucket, alm_cashflow_contract, alm_code_scope, alm_contract, alm_early_redemption_observation, alm_irrbb_bucket_pv, alm_irrbb_result, alm_irrbb_shock, alm_lcr_factor, alm_lcr_flow, alm_lcr_item, alm_liquidity_stress_param, alm_maturity_ladder, alm_nii_result, alm_nmd_balance_history, alm_nmd_core_method_compare, alm_nmd_param, alm_nsfr_factor, alm_nsfr_item, alm_post_shock_floor, alm_prepay_observation, alm_prepay_scurve_param, alm_product_terms, alm_rate_shock_param, alm_repricing_gap, alm_result, alm_scenario_def, alm_survival_path, alm_time_bucket, cap_stack, ccr_collateral_position, ccr_csa_term, ccr_margin_call, ccr_margin_dispute, chg_change_request, chg_impact_map, chg_regression_test, crm_allocation, crm_backtest_criteria, crm_backtest_result, crm_beel_curve, crm_capm_estimate, crm_capm_observation, crm_ccf_backtest, crm_ccf_estimate, crm_code_scope, crm_collateral_link, crm_collateral_terms, crm_default_history, crm_default_observation, crm_defaulted_lgd, crm_dev_sample, crm_estimation_param, crm_estimation_run, crm_ews_signal, crm_exposure_terms, crm_facility_drawdown_history, crm_input_floor, crm_irb_scope, crm_lgd_backtest, crm_lgd_component, crm_lgd_discount_rate, crm_lgd_estimate, crm_lifecycle_compliance, crm_lifecycle_event, crm_mitigation_param, crm_moc_component, crm_model, crm_model_governance, crm_obligor_axis_score, crm_obligor_score, crm_override, crm_override_performance, crm_override_reason, crm_pd_calibration, crm_pd_estimate, crm_pd_yearly_dr, crm_performance, crm_plgd, crm_plgd_sensitivity, crm_qualitative_assessment, crm_qualitative_item, crm_rating, crm_rating_migration, crm_rating_requirement, crm_recovery_history, crm_representativeness, crm_sample_representativeness, crm_scorecard_axis, crm_scorecard_bin, crm_scorecard_factor, crm_scorecard_param, dat_mart_load, dat_retention_action, dat_retention_policy, disc_irrbb_table6, disc_irrbb_table7_qualitative, disc_irrbb_table7_quantitative, ecl_gl_reconciliation, ecl_macro_scenario, ecl_pma, ecl_provision_bridge, ecl_result, ecl_sicr_trigger_stat, ecl_stage_transition, gov_access_decision, gov_alert_policy, gov_approval, gov_audit_chain, gov_change_control, gov_change_gate, gov_change_impact, gov_change_policy, gov_change_request, gov_evidence_edge, gov_evidence_node, gov_exception_action, gov_model_stage, gov_model_state, gov_model_transition, gov_price_source_rank, gov_pricing_control, gov_pricing_gap, gov_pricing_result, gov_role, gov_role_permission, gov_run_domain, gov_run_issue, gov_sod_conflict, gov_unified_run, gov_user_role, icaap_capital_map, icaap_materiality, icaap_materiality_policy, icaap_risk_taxonomy, int_connector, int_connector_operation, int_connector_violation, int_delivery_attempt, int_engine_adapter, int_engine_io, int_feed_field_map, int_feed_health, int_inbound_contract, int_inbound_delivery, int_market_feed, int_quarantine, int_retry_policy, kr_auto_option_param, kr_irrbb_governance, kr_nmd_category, kr_retail_behavioural_scope, kr_retail_criteria, lex_aggregate, lex_connected_group, lex_exemption, lex_exposure_measure, lex_lookthrough, lex_position, lex_setting, lex_substitution, lim_limit_definition, liq_funding_concentration, liq_funding_ladder, liq_funding_limit, liq_funding_trade, mkt_backtest_exception, mkt_code_scope, mkt_derivative_sensitivity, mkt_ipv, mkt_portfolio, mkt_portfolio_capital, mkt_position, mkt_pricing_model, mkt_product, mkt_product_model_map, mkt_risk_factor, mkt_trade, mkt_var_es, mkt_var_es_portfolio, ncr_component, opr_capital, opr_close_gate, opr_close_task, opr_code_scope, opr_control, opr_kri, opr_loss_event, opr_rcsa_action, opr_rcsa_assessment, opr_rcsa_control, opr_rcsa_scale, opr_recovery, pru_balance_sheet, pru_camel, pru_liquidity_ratio, pru_prompt_action, rdm_account_master, rdm_asset_quality, rdm_canonical_map, rdm_code_master, rdm_collateral, rdm_delinquency, rdm_derivative_master, rdm_derivative_underlying, rdm_dq_result, rdm_dq_rule, rdm_exposure, rdm_exposure_balance, rdm_ext_climate_indicator, rdm_ext_climate_series, rdm_ext_country, rdm_ext_source, rdm_fund_holding, rdm_fund_mandate, rdm_fund_master, rdm_guarantee, rdm_macro_indicator_master, rdm_netting_set, rdm_obligor, rdm_obligor_financial, rdm_product_master, rdm_reconciliation, rdm_sec_master, rdm_sec_pool, rdm_sec_tranche, rdm_snapshot, rdm_source_contract, reg_form_check, reg_submission, rwa_crm_allocation, rwa_fund_result, rwa_irb_pool, rwa_market_component, rwa_operational_bi, rwa_output_floor, rwa_result, rwa_sa_bucket, rwa_sec_result, st_action_playbook, st_calc_trace, st_capital_path, st_management_action, ui_field_policy, ui_layout_proposal, ui_query_plan, ui_view, val_audit_ledger, val_check, val_independent_target |
 | 집계 원장 | 5 | agg_alm_exposure, agg_credit_exposure, agg_market_exposure, agg_operational_loss, agg_stress_exposure |
 | 집합투자증권 | 4 | rdm_fund_holding, rdm_fund_mandate, rdm_fund_master, rwa_fund_result |
 | 코드 마스터 | 1 | rdm_code_master |
@@ -2832,6 +2839,7 @@ flowchart RL
 | 거시지표 모니터링 | 사유 미기재 |
 | 기관 설정 | 연결 원장은 있다. inst_master·inst_profile·inst_portfolio_mix·inst_country_mix·intl_label_lexicon 이며 data_gen_intl.build_all() 이 만든다. 다만 그 다섯 장이 아직 ALL_TABLES 밖이라 이 계보 그래프의 원장 집합에 없다. 카탈로그에 등재되면 이 줄을 뺀다 |
 | 기후 자본 경로 | NGFS 자본 경로(risk_lib.stress.climate_capital)를 원장으로 만들지 않았다. 화면은 PipelineResult.stress_deep['climate_capital'] 을 payload 로 받아 그린다. 운영 보고서 50번과 같은 값이다 |
+| 메뉴 구조 | 화면 메뉴 트리(NAVGROUPS)의 순서·숨김을 이 브라우저(localStorage)에만 저장하는 설정 화면. 원장·산출값을 그리지 않는다 |
 | 물리적 위험 | 기후 물리적 위험 결과를 원장으로 만들지 않았다. 화면은 PipelineResult.climate(risk_lib.climate) 의 부문 계수 산출을 payload 로 받아 그린다. clr_* 원장이 등재되면 이 줄을 뺀다 |
 | 상업성 | 사업성 산출. 규제 산출물이 아니고 원장 카탈로그에 넣지 않았다. 수치는 risk_lib/commercial.py 의 가정 프레임에서 온다 |
 | 시뮬레이션 | 사유 미기재 |

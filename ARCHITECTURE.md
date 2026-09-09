@@ -21,7 +21,7 @@ Reports (표현 계층)      html_report(빌드 오케스트레이터), report_c
                         page_registry
   ↓
 Canonical data model    datamodel/ (spec·catalog·decompose·materialize·
-                        materialize_detail·materialize_ledgers) — 274 테이블 / 2882 컬럼
+                        materialize_detail·materialize_ledgers): 275 테이블 / 2889 컬럼
   ↓
 Orchestration           pipeline.run_pipeline → PipelineResult
   ↓
@@ -86,7 +86,7 @@ out/
 
 ## 정규 데이터모델 (datamodel/)
 
-`catalog.ALL_TABLES`가 단일 소스다 — 테이블 274장 / 컬럼 2882개. 각 컬럼은 타입·
+`catalog.ALL_TABLES`가 단일 소스다: 테이블 275장 / 컬럼 2889개. 각 컬럼은 타입·
 단위·허용값·범위·규정 근거를 스펙으로 선언하고, DDL·검증·DQ 규칙이 모두 여기서
 파생된다.
 
@@ -296,7 +296,7 @@ PLGD 신뢰수준 `confidence_q`는 승인 전이라 `crm_plgd.plgd`가 비어 �
 
 ```
 db/config.py   RYNTA_PG_DSN · RYNTA_PG_SCHEMA. 연결 문자열은 코드에 없다.
-db/schema.py   catalog.ALL_TABLES(274) + 기관 축 원장 5장 → 테이블. 스펙이 곧 물리 스키마.
+db/schema.py   catalog.ALL_TABLES(275) + 기관 축 원장 5장 → 테이블. 스펙이 곧 물리 스키마.
 db/store.py    store_run(studio, portfolio): 한 트랜잭션에 원장 전량(COPY)·입력 포트폴리오·
                한도 프레임·화면 부문 JSON·독립검증 요청·프레임 명세·등록부.
 db/load.py     load_studio(run_id) 화면용 (재산출 없음) · result_from_db(run_id) 배치용 (재산출).

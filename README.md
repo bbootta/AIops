@@ -312,9 +312,10 @@ risk_lib/                        # Python 계산 라이브러리
     requirements_v960.py         ── v9.6.0 BRD 요건 131건 레지스터 (tools/gen_requirements.py 생성)
     requirements_clr.py          ── 기후리스크 요건 72건 레지스터 (tools/gen_climate_requirements.py 생성)
     requirements_air.py          ── AI 리스크관리 요건 76건 레지스터 (tools/gen_ai_risk_requirements.py 생성)
-  climate_geo.py                 ── 기후 지구본 히트맵 데이터 (국경·국가 격자·지표 층)
+  climate_geo.py                 ── 기후 지구본 히트맵 데이터 (국경·국가 격자·실측 지표 층·시계열, RDM 원장 경유)
   data/world_geo.json            ── Natural Earth 1:110m 국경 (public domain, tools/gen_world_geo.py 생성)
   data/climate_country.json      ── Our World in Data CO2·에너지 국가값 (CC-BY 4.0, tools/gen_climate_country.py 생성)
+  data/climate_observed.json     ── 실측 기후 자료: Berkeley Earth 기온, WDI 강수·물리위험, EM-DAT 재해 (tools/gen_climate_observed.py 생성)
   ui_studio/
     nl_query.py                  ── 자연어 → Filter AST → 정책검증 → 실행
     layout.py                    ── 프롬프트 → 레이아웃 제안 → 3중 검증 → 승인
@@ -365,7 +366,7 @@ CLI는 검증에서 FAIL이 하나라도 있으면 종료코드 1을 반환한�
 
 ## PostgreSQL 저장소 (배치·에이전틱 UI 의 읽기 원천)
 
-산출 원장 274장과 기관 축 원장 5장은 PostgreSQL 에 실행(run_id) 단위로 쌓인다.
+산출 원장 275장과 기관 축 원장 5장은 PostgreSQL 에 실행(run_id) 단위로 쌓인다.
 배치와 에이전틱 UI 는 그 DB 에서 읽는다. 연결은 환경변수 둘로 정한다.
 
 ```bash

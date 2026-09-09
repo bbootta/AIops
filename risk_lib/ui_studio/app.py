@@ -1521,17 +1521,45 @@ font-size:11px}
 .chain .plink{width:2px;height:12px;background:var(--line);margin-left:16px}
 /* 시간축 레인 */
 .lanes svg{display:block;width:100%;height:auto}
-/* 세계 지구본 히트맵 (기후 개요) */
-.globe{position:relative;max-width:820px}
-.globe canvas{display:block;width:100%;height:auto;border-radius:12px;background:var(--panel2);
-cursor:grab;touch-action:none;user-select:none}
+/* 세계 지구본 히트맵 (기후 개요). 왼쪽 지구본, 오른쪽 패널 */
+.geo2{display:grid;gap:12px;grid-template-columns:minmax(0,1.1fr) minmax(300px,1fr);align-items:start;margin:0 0 10px}
+.geo2>.card{margin:0}
+@media(max-width:1100px){.geo2{grid-template-columns:1fr}}
+.gpanel{display:flex;flex-direction:column;gap:12px}
+.gpanel .card{margin:0}
+.globe{position:relative}
+.globe .gtb{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.globe .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.globe .seg button{border:none;background:transparent;color:var(--muted);padding:5px 11px;font-size:12px;cursor:pointer}
+.globe .seg button.on{background:var(--accent);color:#fff}
+.globe .stage{position:relative;border-radius:14px;overflow:hidden;
+background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--accent) 10%,var(--panel2)),var(--panel2) 62%);
+border:1px solid var(--line)}
+.globe canvas{display:block;width:100%;height:auto;cursor:grab;touch-action:none;user-select:none}
 .globe canvas:active{cursor:grabbing}
-.globe .gl{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:8px 0 0;font-size:11px;
-color:var(--muted);font-variant-numeric:tabular-nums}
-.globe .gl .bar{width:180px;height:10px;border-radius:3px;border:1px solid var(--line)}
-.globe .gl .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
-.globe .readout{min-height:1.6em;font-size:12px;margin:6px 0 0;font-variant-numeric:tabular-nums}
-.globe .readout b{margin-right:8px}
+.globe .readout{position:absolute;left:10px;bottom:10px;right:10px;font-size:11px;line-height:1.5;
+padding:6px 10px;border-radius:8px;background:color-mix(in srgb,var(--panel) 82%,transparent);
+backdrop-filter:blur(3px);font-variant-numeric:tabular-nums;pointer-events:none;
+display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline}
+.globe .readout b{font-size:12px}
+.globe.flat .readout{position:static;background:transparent;backdrop-filter:none;padding:6px 4px 2px}
+.globe .readout i{font-style:normal;color:var(--muted);margin-right:3px}
+.globe .gl{margin:10px 0 0;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.globe .gl .ghead{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 6px}
+.globe .gl .ghead b{color:var(--text);font-size:12px}
+.globe .gl .bar{height:9px;border-radius:5px;border:1px solid var(--line)}
+.globe .gl .ticks{display:flex;justify-content:space-between;margin:3px 0 0}
+.globe .gl .src{margin:6px 0 0;line-height:1.45}
+.lgd{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11px;color:var(--muted);margin:2px 0 0}
+.lgd i{display:inline-block;width:10px;height:3px;border-radius:2px;margin:0 5px 3px 0;vertical-align:middle}
+/* 메뉴 구조 설정 */
+nav .uhide{display:none}
+.navedit .nrow{display:flex;gap:6px;align-items:center;padding:3px 0;border-bottom:1px solid var(--line)}
+.navedit .nlab{flex:1;font-size:12px}
+.navedit .nlab.grp{font-weight:700}
+.navedit .nlab.off{opacity:.45;text-decoration:line-through}
+.navedit .btn{padding:2px 8px;font-size:11px}
+.navedit .btn:disabled{opacity:.35}
 /* 규정 인덱스 */
 .regidx{display:grid;gap:12px;grid-template-columns:minmax(220px,260px) minmax(0,1fr);align-items:start}
 @media(max-width:1100px){.regidx{grid-template-columns:1fr}}
@@ -4448,14 +4476,17 @@ function clrPathTable(K,key,title,fmt){
 
 /* ---- 세계 지구본 히트맵 ----
    외부 타일·라이브러리 없이 canvas 로 그린다. 국경은 Natural Earth 1:110m(공개 저작권),
-   나라 색은 D.geo.layers 와 실행별 익스포저 층의 값이다. 정사영(지구본)과 등장방형(평면)
-   두 투영, 드래그 회전(이동)·휠 확대·클릭 확대(누른 지점을 가운데로). 화소마다 역투영해
-   0.5도 국가 격자를 찾아보므로 다각형 판정이 없다. 난수·시각을 쓰지 않는다. */
+   나라 색은 D.geo.layers(전부 실측)와 실행별 익스포저 층의 값이다. 정사영(지구본)과
+   등장방형(평면) 두 투영, 드래그 회전(이동)·휠 확대·클릭 확대(누른 지점을 가운데로).
+   나라는 국경 다각형을 벡터로 채우므로 어느 배율에서도 해안선이 매끈하다. 마우스가 가리키는
+   나라는 0.5도 국가 격자에서 역투영으로 찾는다(다각형 판정 없음). 난수·시각을 쓰지 않는다. */
 const GLOBE_PAL={
-  temp:[[44,95,168],[158,202,225],[255,245,204],[244,162,97],[192,57,43]],
-  precip:[[247,251,255],[158,202,225],[49,130,189],[8,48,107]],
-  heat:[[255,247,236],[253,187,132],[215,48,31],[127,0,0]],
-  accent:[[232,242,251],[66,169,255],[11,61,145]]};
+  temp:[[37,52,148],[44,127,184],[127,205,187],[237,248,177],[254,204,92],[240,59,32],[128,0,38]],
+  warm:[[255,247,236],[253,212,158],[252,141,89],[215,48,31],[127,0,0]],
+  precip:[[255,255,217],[199,233,180],[65,182,196],[34,94,168],[8,29,88]],
+  heat:[[255,247,188],[254,196,79],[236,112,20],[153,52,4],[80,20,40]],
+  green:[[247,252,185],[173,221,142],[65,171,93],[0,104,55]],
+  accent:[[226,238,250],[102,177,255],[13,71,161]]};
 function cssRgb(name,fallback){
   const v=getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   const m=/^#([0-9a-f]{6})$/i.exec(v);
@@ -4464,47 +4495,72 @@ function cssRgb(name,fallback){
 function palColor(pal,t){
   const n=pal.length-1,x=Math.max(0,Math.min(1,t))*n,i=Math.min(n-1,Math.floor(x)),f=x-i;
   return [pal[i][0]+(pal[i+1][0]-pal[i][0])*f,pal[i][1]+(pal[i+1][1]-pal[i][1])*f,pal[i][2]+(pal[i+1][2]-pal[i][2])*f]}
-function worldGlobe(root,layers){
+function worldGlobe(root,layers,opts){
+  opts=opts||{};
   const G=D.geo,R=G.raster,C=G.countries,DEG=Math.PI/180;
   const grid=new Uint16Array(R.w*R.h);
   R.rle.forEach((row,y)=>{let x=0;for(let k=0;k<row.length;k+=2){const v=row[k],n=row[k+1];
     for(let j=0;j<n;j++)grid[y*R.w+x+j]=v;x+=n}});
-  const SZ=600;
+  const idxOf={};C.forEach((c,i)=>{idxOf[c.iso3]=i+1});
+  const SZ=640;
   /* 처음은 한국 중심, 지구본 */
-  const st={lon:127,lat:36,zoom:1,mode:'globe',layer:layers[0].key,draws:0};
+  const st={lon:127,lat:36,zoom:1,mode:'globe',layer:layers[0].key,draws:0,selected:null,hover:0};
   window.__GLOBE__=st;
   const wrap=el('div','globe');
-  const bar=el('div','toolbar');
+  const bar=el('div','gtb');
   const selL=el('select','sel');
   layers.forEach(l=>{const o=rawEl('option');o.value=l.key;o.textContent=T(l.label)+' · '+T(l.kind);selL.appendChild(o)});
-  const selM=el('select','sel');
-  [['globe','지구본'],['flat','평면']].forEach(([v,lab])=>{const o=rawEl('option');o.value=v;o.textContent=T(lab);selM.appendChild(o)});
+  bar.appendChild(selL);
+  const seg=rawEl('div','seg');
+  const segBtn={};
+  [['globe','지구본'],['flat','평면']].forEach(([v,lab])=>{const b=el('button',null,lab);b.type='button';
+    b.onclick=()=>{st.mode=v;Object.values(segBtn).forEach(x=>x.classList.remove('on'));b.classList.add('on');draw()};
+    segBtn[v]=b;seg.appendChild(b)});
+  segBtn.globe.classList.add('on');bar.appendChild(seg);
   const btn=(lab,fn)=>{const b=el('button','btn',lab);b.type='button';b.onclick=fn;bar.appendChild(b);return b};
-  bar.appendChild(selL);bar.appendChild(selM);
   btn('확대',()=>{st.zoom=Math.min(16,st.zoom*1.5);draw()});
   btn('축소',()=>{st.zoom=Math.max(0.6,st.zoom/1.5);draw()});
   btn('처음으로',()=>{st.lon=127;st.lat=36;st.zoom=1;draw()});
   wrap.appendChild(bar);
-  const cv=rawEl('canvas');cv.width=SZ;cv.height=SZ;wrap.appendChild(cv);
+  const stage=rawEl('div','stage');
+  const cv=rawEl('canvas');cv.width=SZ;cv.height=SZ;stage.appendChild(cv);
+  const readout=rawEl('div','readout');stage.appendChild(readout);
+  wrap.appendChild(stage);
   const legend=el('div','gl');wrap.appendChild(legend);
-  const readout=rawEl('div','readout');wrap.appendChild(readout);
   const ctx=cv.getContext('2d');
-  const ocean=cssRgb('--panel2',[13,33,52]),nodata=cssRgb('--line',[120,120,120]);
+  const bg=cssRgb('--bg',[11,18,32]),dark=(bg[0]*0.299+bg[1]*0.587+bg[2]*0.114)<128;
+  const panel=cssRgb('--panel2',dark?[13,33,52]:[232,238,246]);
+  const deep=dark?[14,34,66]:[198,216,236];
+  const ocean=[0,1,2].map(k=>panel[k]*0.45+deep[k]*0.55);
+  const nodata=dark?[58,66,80]:[196,200,208];
+  const acc=cssRgb('--accent',[66,169,255]);
+  const ink=dark?'rgba(255,255,255,':'rgba(24,32,48,';
   let layer=layers[0],vals=null;
   function setLayer(k){
     layer=layers.find(l=>l.key===k)||layers[0];st.layer=layer.key;
+    if(selL.value!==layer.key)selL.value=layer.key;
     vals=new Float32Array(C.length+1).fill(NaN);
     C.forEach((c,i)=>{const v=layer.values[c.iso3];if(v!=null)vals[i+1]=layer.log?Math.log10(Math.max(v,1e-9)):v});
     const [lo,hi]=layer.log?[Math.log10(Math.max(layer.domain[0],1e-9)),Math.log10(Math.max(layer.domain[1],1e-9))]:layer.domain;
     layer._lo=lo;layer._hi=(hi-lo)||1;
     legend.innerHTML='';
-    const b=rawEl('span','bar');const pal=GLOBE_PAL[layer.palette]||GLOBE_PAL.heat;
+    const pal=GLOBE_PAL[layer.palette]||GLOBE_PAL.heat;
+    const head=rawEl('div','ghead');
+    head.appendChild(rawEl('b',null,T(layer.label)));
+    head.appendChild(rawEl('span','pill',T(layer.kind)));
+    if(layer.year)head.appendChild(rawEl('span',null,String(layer.year)));
+    head.appendChild(rawEl('span',null,TC(Object.keys(layer.values).length,'개국')));
+    legend.appendChild(head);
+    const b=rawEl('div','bar');
     b.style.background='linear-gradient(90deg,'+pal.map(c=>'rgb('+c.map(Math.round).join(',')+')').join(',')+')';
-    legend.appendChild(rawEl('span',null,fmtNum(layer.domain[0])+(layer.log?' ':'')));legend.appendChild(b);
-    legend.appendChild(rawEl('span',null,fmtNum(layer.domain[1])+' '+layer.unit+(layer.log?' ('+T('로그 눈금')+')':'')));
-    legend.appendChild(rawEl('span',null,T('자료')+' '+TC(Object.keys(layer.values).length,'개국')+(layer.year?' · '+layer.year:'')));
-    const s=rawEl('span',null,T(layer.kind)+' · '+layer.source);s.style.flexBasis='100%';legend.appendChild(s);
-    if(layer.unmatched&&layer.unmatched.length)legend.appendChild(rawEl('span',null,T('지도에 없는 지역')+' '+layer.unmatched.join(', ')));
+    legend.appendChild(b);
+    const ticks=rawEl('div','ticks');
+    const mid=layer.log?Math.sqrt(layer.domain[0]*layer.domain[1]):(layer.domain[0]+layer.domain[1])/2;
+    [layer.domain[0],mid,layer.domain[1]].forEach(v=>ticks.appendChild(rawEl('span',null,fmtNum(v))));
+    legend.appendChild(ticks);
+    legend.appendChild(rawEl('div','src',layer.unit+(layer.log?' · '+T('로그 눈금'):'')+' · '+layer.source+
+      (layer.unmatched&&layer.unmatched.length?' · '+T('지도에 없는 지역')+' '+layer.unmatched.join(', '):'')));
+    if(opts.onLayer)opts.onLayer(layer);
   }
   function colorOf(ci){
     const v=vals[ci];if(isNaN(v))return nodata;
@@ -4514,7 +4570,7 @@ function worldGlobe(root,layers){
     if(st.mode==='flat'){const k=SZ/360*st.zoom,cx=SZ/2,cy=SZ/4;
       const lat=st.lat-(y-cy)/k;if(lat>90||lat<-90)return null;
       let lon=st.lon+(x-cx)/k;lon=((lon+540)%360)-180;return [lon,lat]}
-    const Rg=SZ/2*0.96*st.zoom,X=(x-SZ/2)/Rg,Y=-(y-SZ/2)/Rg,r2=X*X+Y*Y;if(r2>1)return null;
+    const Rg=SZ/2*0.94*st.zoom,X=(x-SZ/2)/Rg,Y=-(y-SZ/2)/Rg,r2=X*X+Y*Y;if(r2>1)return null;
     const rho=Math.sqrt(r2),c=Math.asin(rho),sc=Math.sin(c),cc=Math.cos(c),la0=st.lat*DEG,lo0=st.lon*DEG;
     const lat=rho===0?la0:Math.asin(cc*Math.sin(la0)+Y*sc*Math.cos(la0)/rho);
     const lon=lo0+Math.atan2(X*sc,rho*cc*Math.cos(la0)-Y*sc*Math.sin(la0));
@@ -4523,41 +4579,105 @@ function worldGlobe(root,layers){
   function project(lon,lat){
     if(st.mode==='flat'){const k=SZ/360*st.zoom;let dl=((lon-st.lon+540)%360)-180;
       return [SZ/2+dl*k,SZ/4-(lat-st.lat)*k]}
-    const Rg=SZ/2*0.96*st.zoom,la=lat*DEG,lo=(lon-st.lon)*DEG,la0=st.lat*DEG;
+    const Rg=SZ/2*0.94*st.zoom,la=lat*DEG,lo=(lon-st.lon)*DEG,la0=st.lat*DEG;
     const cosc=Math.sin(la0)*Math.sin(la)+Math.cos(la0)*Math.cos(la)*Math.cos(lo);if(cosc<0)return null;
     return [SZ/2+Rg*Math.cos(la)*Math.sin(lo),SZ/2-Rg*(Math.cos(la0)*Math.sin(la)-Math.sin(la0)*Math.cos(la)*Math.cos(lo))]}
   function cellAt(lon,lat){const gx=Math.min(R.w-1,Math.floor((lon+180)/R.deg)),gy=Math.min(R.h-1,Math.max(0,Math.floor((90-lat)/R.deg)));return grid[gy*R.w+gx]}
-  function draw(){
-    const H=st.mode==='flat'?SZ/2:SZ;if(cv.height!==H)cv.height=H;
-    const img=ctx.createImageData(SZ,H),d=img.data;
-    const flat=st.mode==='flat',Rg=SZ/2*0.96*st.zoom,k=SZ/360*st.zoom;
-    const la0=st.lat*DEG,lo0=st.lon*DEG,sla=Math.sin(la0),cla=Math.cos(la0);
-    for(let y=0;y<H;y++)for(let x=0;x<SZ;x++){
-      let lon,lat,sh=1;
-      if(flat){lat=st.lat-(y-SZ/4)/k;if(lat>90||lat<-90)continue;lon=((st.lon+(x-SZ/2)/k+540)%360)-180}
-      else{const X=(x-SZ/2)/Rg,Y=-(y-SZ/2)/Rg,r2=X*X+Y*Y;if(r2>1)continue;
-        const rho=Math.sqrt(r2),c=Math.asin(rho),sc=Math.sin(c),cc=Math.cos(c);
-        lat=(rho===0?la0:Math.asin(cc*sla+Y*sc*cla/rho))/DEG;
-        lon=((lo0+Math.atan2(X*sc,rho*cc*cla-Y*sc*sla))/DEG+540)%360-180;sh=0.72+0.28*cc}
-      const ci=cellAt(lon,lat),o=(y*SZ+x)*4,col=ci?colorOf(ci):ocean;
-      d[o]=col[0]*sh;d[o+1]=col[1]*sh;d[o+2]=col[2]*sh;d[o+3]=255}
-    ctx.putImageData(img,0,0);
-    ctx.beginPath();ctx.lineWidth=Math.min(1.6,0.6+0.25*st.zoom);ctx.strokeStyle='rgba(20,20,30,.55)';
-    C.forEach(c=>c.rings.forEach(ring=>{let pen=false,px=0;ring.forEach(([lo,la])=>{const p=project(lo,la);
+  /* 경위도 점열을 선으로. 뒷면·평면 이음매에서 펜을 뗀다 */
+  function trace(pts){
+    const flat=st.mode==='flat';let pen=false,px=0;
+    pts.forEach(([lo,la])=>{const p=project(lo,la);
       if(!p||(flat&&pen&&Math.abs(p[0]-px)>SZ/2)){pen=false;return}
-      if(!pen){ctx.moveTo(p[0],p[1]);pen=true}else ctx.lineTo(p[0],p[1]);px=p[0]})}));
+      if(!pen){ctx.moveTo(p[0],p[1]);pen=true}else ctx.lineTo(p[0],p[1]);px=p[0]})}
+  function outline(ci,color,width){
+    const c=C[ci-1];if(!c)return;
+    ctx.beginPath();ctx.lineWidth=width;ctx.strokeStyle=color;ctx.lineJoin='round';
+    c.rings.forEach(trace);ctx.stroke()}
+  /* 경위도 → 화면 좌표, 뒷면 점은 가장자리 원 위로 눌러 붙인다 (채우기용) */
+  function projClamp(lon,lat,Rg){
+    const la=lat*DEG,lo=(lon-st.lon)*DEG,la0=st.lat*DEG;
+    const cosc=Math.sin(la0)*Math.sin(la)+Math.cos(la0)*Math.cos(la)*Math.cos(lo);
+    let x=Rg*Math.cos(la)*Math.sin(lo),y=-Rg*(Math.cos(la0)*Math.sin(la)-Math.sin(la0)*Math.cos(la)*Math.cos(lo));
+    if(cosc<0){const r=Math.hypot(x,y)||1;x=x/r*Rg;y=y/r*Rg}
+    return [SZ/2+x,SZ/2+y]}
+  function ringPath(ring,flat,Rg,k){
+    if(!flat){ring.forEach(([lo,la],j)=>{const p=projClamp(lo,la,Rg);if(j)ctx.lineTo(p[0],p[1]);else ctx.moveTo(p[0],p[1])});ctx.closePath();return}
+    /* 평면: 경도를 이어 붙여 이음매를 없애고, 좌우 한 바퀴씩 더 그려 잘린 나라를 채운다 */
+    let prev=null;const pts=[];
+    ring.forEach(([lo,la])=>{let dl=((lo-st.lon+540)%360)-180;
+      if(prev!=null){if(dl-prev>180)dl-=360;else if(prev-dl>180)dl+=360}prev=dl;pts.push([dl,la])});
+    [-360,0,360].forEach(off=>{pts.forEach(([dl,la],j)=>{const x=SZ/2+(dl+off)*k,y=SZ/4-(la-st.lat)*k;
+      if(j)ctx.lineTo(x,y);else ctx.moveTo(x,y)});ctx.closePath()})}
+  const rgb=c=>'rgb('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+')';
+  function paint(){
+    const flat=st.mode==='flat',H=flat?SZ/2:SZ;if(cv.height!==H)cv.height=H;
+    wrap.classList.toggle('flat',flat);
+    const Rg=SZ/2*0.94*st.zoom,k=SZ/360*st.zoom,cx=SZ/2,cy=SZ/2,ac='rgba('+acc.join(',')+',';
+    ctx.clearRect(0,0,SZ,H);
+    ctx.save();
+    if(flat){ctx.fillStyle=rgb(ocean);ctx.fillRect(0,0,SZ,H)}
+    else{ctx.beginPath();ctx.arc(cx,cy,Rg,0,2*Math.PI);ctx.clip();
+      const og=ctx.createRadialGradient(cx-Rg*0.3,cy-Rg*0.3,Rg*0.1,cx,cy,Rg);
+      og.addColorStop(0,rgb(ocean.map(v=>v*1.25+(dark?18:0))));og.addColorStop(1,rgb(ocean.map(v=>v*0.7)));
+      ctx.fillStyle=og;ctx.fillRect(0,0,SZ,H)}
+    /* 나라 채우기 (벡터) */
+    C.forEach((c,i)=>{ctx.fillStyle=rgb(colorOf(i+1));ctx.beginPath();c.rings.forEach(r=>ringPath(r,flat,Rg,k));ctx.fill('evenodd')});
+    /* 구면 음영: 가장자리 어둡게, 왼쪽 위 하이라이트 */
+    if(!flat){
+      let g=ctx.createRadialGradient(cx,cy,Rg*0.5,cx,cy,Rg);
+      g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(0.8,'rgba(0,0,0,.14)');g.addColorStop(1,'rgba(0,0,0,.5)');
+      ctx.fillStyle=g;ctx.fillRect(0,0,SZ,H);
+      g=ctx.createRadialGradient(cx-Rg*0.38,cy-Rg*0.42,0,cx-Rg*0.38,cy-Rg*0.42,Rg*0.9);
+      g.addColorStop(0,'rgba(255,255,255,.13)');g.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=g;ctx.fillRect(0,0,SZ,H)}
+    ctx.restore();
+    /* 경위선 30도 */
+    ctx.beginPath();ctx.lineWidth=0.7;ctx.strokeStyle=ink+(dark?'.10)':'.12)');
+    for(let lo=-180;lo<180;lo+=30){const pts=[];for(let la=-90;la<=90;la+=3)pts.push([lo,la]);trace(pts)}
+    for(let la=-60;la<=60;la+=30){const pts=[];for(let lo=-180;lo<=180;lo+=3)pts.push([lo,la]);trace(pts)}
     ctx.stroke();
-    if(!flat){ctx.beginPath();ctx.arc(SZ/2,SZ/2,Rg,0,2*Math.PI);ctx.strokeStyle='rgba(120,160,200,.5)';ctx.lineWidth=1;ctx.stroke()}
+    /* 국경 */
+    ctx.beginPath();ctx.lineWidth=Math.min(1.3,0.45+0.18*st.zoom);ctx.strokeStyle=ink+(dark?'.34)':'.42)');ctx.lineJoin='round';
+    C.forEach(c=>c.rings.forEach(trace));ctx.stroke();
+    if(!flat){
+      /* 대기 테두리: 안쪽 림과 바깥 글로우 */
+      let g=ctx.createRadialGradient(cx,cy,Rg*0.86,cx,cy,Rg);
+      g.addColorStop(0,ac+'0)');g.addColorStop(1,ac+(dark?'.28)':'.18)'));
+      ctx.save();ctx.beginPath();ctx.arc(cx,cy,Rg,0,2*Math.PI);ctx.clip();ctx.fillStyle=g;ctx.fillRect(0,0,SZ,SZ);ctx.restore();
+      g=ctx.createRadialGradient(cx,cy,Rg,cx,cy,Rg*1.08);
+      g.addColorStop(0,ac+(dark?'.55)':'.35)'));g.addColorStop(1,ac+'0)');
+      ctx.save();ctx.beginPath();ctx.arc(cx,cy,Rg*1.08,0,2*Math.PI);ctx.arc(cx,cy,Rg,0,2*Math.PI,true);ctx.clip();
+      ctx.fillStyle=g;ctx.fillRect(0,0,SZ,SZ);ctx.restore();
+      ctx.beginPath();ctx.arc(cx,cy,Rg,0,2*Math.PI);ctx.strokeStyle=ac+'.6)';ctx.lineWidth=1;ctx.stroke()}
+    /* 선택·강조 국가 */
+    const selI=st.selected?idxOf[st.selected]:0;
+    if(selI)outline(selI,'rgba('+acc.join(',')+',.95)',2.2);
+    if(st.hover&&st.hover!==selI)outline(st.hover,ink+'.9)',1.6);
+    /* 확대하면 나라 이름. 중심점이 그 나라 격자 위에 있을 때만 (군도는 바다 위에 찍힌다) */
+    if(st.zoom>=2.2){
+      ctx.font='600 11px system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillStyle=ink+'.92)';ctx.shadowColor=dark?'rgba(0,0,0,.8)':'rgba(255,255,255,.9)';ctx.shadowBlur=3;
+      C.forEach((c,i)=>{if(cellAt(c.c[0],c.c[1])!==i+1)return;const p=project(c.c[0],c.c[1]);
+        if(!p||p[0]<0||p[0]>SZ||p[1]<0||p[1]>cv.height)return;ctx.fillText(c.name,p[0],p[1])});
+      ctx.shadowBlur=0}
     st.draws++;
   }
-  function describe(lon,lat){
-    const ci=cellAt(lon,lat);
+  function draw(){paint()}
+  function describe(ci,lon,lat){
     readout.innerHTML='';
-    readout.appendChild(rawEl('b',null,lon.toFixed(1)+'°, '+lat.toFixed(1)+'°'));
-    if(!ci){readout.appendChild(rawEl('span',null,T('바다')));return}
-    const c=C[ci-1];readout.appendChild(rawEl('b',null,c.name+' ('+c.iso3+')'));
-    layers.forEach(l=>{const v=l.values[c.iso3];if(v==null)return;
-      const s=rawEl('span',null,T(l.label)+' '+fmtNum(v)+' '+l.unit+'  ');s.style.marginRight='8px';readout.appendChild(s)});
+    if(!ci){readout.appendChild(rawEl('b',null,lon!=null?lon.toFixed(1)+'°, '+lat.toFixed(1)+'°':''));
+      readout.appendChild(rawEl('span',null,T('바다')));return}
+    const c=C[ci-1];
+    readout.appendChild(rawEl('b',null,c.name+' · '+c.iso3));
+    [layer].concat(layers.slice(0,4).filter(l=>l!==layer)).forEach(l=>{const v=l.values[c.iso3];if(v==null)return;
+      const s=rawEl('span',null);s.appendChild(rawEl('i',null,T(l.label)));
+      s.appendChild(document.createTextNode(' '+fmtNum(v)+' '+l.unit));readout.appendChild(s)});
+  }
+  function select(iso3){
+    st.selected=iso3;paint();
+    const c=C.find(x=>x.iso3===iso3)||null;
+    if(opts.onSelect)opts.onSelect(c);
+    if(c)describe(idxOf[iso3]);
   }
   const pos=e=>{const b=cv.getBoundingClientRect();return [(e.clientX-b.left)*SZ/b.width,(e.clientY-b.top)*SZ/b.width]};
   let dragging=null;
@@ -4567,20 +4687,115 @@ function worldGlobe(root,layers){
     if(dragging){const dx=e.clientX-dragging.x,dy=e.clientY-dragging.y;
       if(Math.abs(dx)+Math.abs(dy)>4)dragging.moved=true;
       const b=cv.getBoundingClientRect(),s=SZ/b.width;
-      const per=st.mode==='flat'?1/(SZ/360*st.zoom):1/(SZ/2*0.96*st.zoom)/DEG;
+      const per=st.mode==='flat'?1/(SZ/360*st.zoom):1/(SZ/2*0.94*st.zoom)/DEG;
       st.lon=((dragging.lon-dx*s*per+540)%360)-180;st.lat=Math.max(-85,Math.min(85,dragging.lat+dy*s*per));
       draw();return}
-    const ll=invert(x,y);if(ll)describe(ll[0],ll[1])});
+    const ll=invert(x,y);const ci=ll?cellAt(ll[0],ll[1]):0;
+    if(ci!==st.hover){st.hover=ci;paint()}
+    if(ll)describe(ci,ll[0],ll[1]);else if(st.selected)describe(idxOf[st.selected])});
+  cv.addEventListener('pointerleave',()=>{if(st.hover){st.hover=0;paint()}if(st.selected)describe(idxOf[st.selected])});
   const up=e=>{if(!dragging)return;const d=dragging;dragging=null;
     if(!d.moved){const [x,y]=pos(e),ll=invert(x,y);
-      if(ll){st.lon=ll[0];st.lat=Math.max(-85,Math.min(85,ll[1]));st.zoom=Math.min(16,st.zoom*1.5);draw();describe(ll[0],ll[1])}}};
+      if(ll){st.lon=ll[0];st.lat=Math.max(-85,Math.min(85,ll[1]));st.zoom=Math.min(16,st.zoom*1.5);
+        const ci=cellAt(ll[0],ll[1]);st.selected=ci?C[ci-1].iso3:st.selected;draw();
+        if(ci){select(C[ci-1].iso3)}}}};
   cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',()=>{dragging=null});
   cv.addEventListener('wheel',e=>{e.preventDefault();st.zoom=Math.max(0.6,Math.min(16,st.zoom*(e.deltaY<0?1.2:1/1.2)));draw()},{passive:false});
   selL.onchange=()=>{setLayer(selL.value);draw()};
-  selM.onchange=()=>{st.mode=selM.value;draw()};
   setLayer(st.layer);draw();
   root.appendChild(wrap);
-  return wrap;
+  const api={wrap,state:st,setLayer:k=>{setLayer(k);draw()},select,layerOf:()=>layer,countries:C};
+  if(opts.select){st.selected=opts.select;paint();const c=C.find(x=>x.iso3===opts.select);if(c){describe(idxOf[opts.select]);if(opts.onSelect)opts.onSelect(c)}}
+  return api;
+}
+
+/* 값 단위가 자유로운 선 그래프 (multiLine 은 비율 전용이다). series=[{name,values}],
+   labels 는 x 눈금. fmt 가 y 눈금 서식, every 개마다 x 라벨. 0 선은 값 범위에 0 이 들면 긋는다. */
+function lineChart(series,labels,{fmt,every=10,title,note,minH=200,maxH=300}={}){
+  fmt=fmt||fmtNum;
+  const many=series.length>1;
+  const box=fluidChart((w,h)=>{
+    const padL=54,padR=many?16:84,padT=10,padB=24;
+    const all=series.flatMap(s=>s.values).filter(v=>v!=null);
+    const max=Math.max(...all),min=Math.min(...all),span=(max-min)||1;
+    const x=k=>padL+k*(w-padL-padR)/Math.max(labels.length-1,1);
+    const y=v=>h-padB-((v-min)/span)*(h-padT-padB);
+    const s=svgEl(w,h,title||'');s.style.maxWidth='none';
+    [0,1/3,2/3,1].forEach(t=>{const v=min+span*t;
+      svgNode(s,'line',{x1:padL,x2:w-padR,y1:y(v),y2:y(v),stroke:'currentColor',opacity:.08});
+      svgNode(s,'text',{x:padL-6,y:y(v)+3,'text-anchor':'end','font-size':10,fill:'currentColor',opacity:.6},fmt(v))});
+    if(min<0&&max>0)svgNode(s,'line',{x1:padL,x2:w-padR,y1:y(0),y2:y(0),stroke:'currentColor',opacity:.35,'stroke-dasharray':'4 3'});
+    series.forEach((sr,si)=>{
+      const col='var('+CHART_PALETTE[si%CHART_PALETTE.length]+')';
+      const pts=sr.values.map((v,k)=>v==null?null:x(k)+','+y(v)).filter(Boolean).join(' ');
+      svgNode(s,'polyline',{points:pts,fill:'none',stroke:col,'stroke-width':sr.width||1.8,'stroke-linejoin':'round'});
+      let lk=-1;sr.values.forEach((v,k)=>{if(v!=null)lk=k});
+      if(lk>=0){svgNode(s,'circle',{cx:x(lk),cy:y(sr.values[lk]),r:3,fill:col});
+        if(!many)svgNode(s,'text',{x:x(lk)+6,y:y(sr.values[lk])+3,'font-size':10,fill:col},sr.name)}});
+    labels.forEach((lb,k)=>{if(k%every)return;
+      svgNode(s,'text',{x:x(k),y:h-7,'text-anchor':'middle','font-size':10,fill:'currentColor',opacity:.6},lb)});
+    return s},{ratio:0.42,minH,maxH,seed:640,title:null,note});
+  if(many){const lg=rawEl('div','lgd');
+    series.forEach((sr,si)=>{const it=rawEl('span');const dot=rawEl('i');dot.style.background='var('+CHART_PALETTE[si%CHART_PALETTE.length]+')';
+      it.appendChild(dot);it.appendChild(document.createTextNode(sr.name));lg.appendChild(it)});
+    box.appendChild(lg)}
+  return box;
+}
+
+/* 기후 개요의 오른쪽 패널. 지구본이 고른 층·국가에 따라 다시 그린다. */
+function geoPanel(root,layers,exposure){
+  const G=D.geo,S=G.series||{},C=G.countries,byIso={};C.forEach(c=>{byIso[c.iso3]=c});
+  const wrap=rawEl('div','gpanel');root.appendChild(wrap);
+  const topCard=el('div','card'),expCard=el('div','card'),warmCard=el('div','card');
+  wrap.appendChild(topCard);
+  if(exposure&&Object.keys(exposure.values).length)wrap.appendChild(expCard);
+  if(S.global_temp_anomaly){
+    const c=el('div','card');c.appendChild(el('h3',null,'지구 평균 기온 편차 (1850년~, 1951~1980 기준)'));
+    const g=S.global_temp_anomaly;
+    c.appendChild(lineChart([{name:T('세계'),values:g.values}],g.years.map(String),{fmt:v=>v.toFixed(1)+'°C',every:25}));
+    c.appendChild(rawEl('div','meta',T('마지막 연도')+' '+g.years[g.years.length-1]+' · '+fmtNum(g.values[g.values.length-1])+'°C · Berkeley Earth Land+Ocean · '+T('원장')+' rdm_ext_climate_series'));
+    wrap.appendChild(c)}
+  if(S.country_warming)wrap.appendChild(warmCard);
+  if(S.disaster_global){
+    const c=el('div','card');c.appendChild(el('h3',null,'세계 재해 피해 인구 (연도별 · 홍수·폭풍·가뭄·극한기온)'));
+    const g=S.disaster_global,nm={flood:'홍수',storm:'폭풍',drought:'가뭄',extreme_temperature:'극한기온'};
+    c.appendChild(lineChart(Object.keys(nm).map(k=>({name:T(nm[k]),values:g.values[k].map(v=>v==null?null:v/1e6)})),
+      g.years.map(String),{fmt:v=>Math.round(v)+'M',every:10}));
+    c.appendChild(rawEl('div','meta',T('단위 백만 명')+' · EM-DAT (CRED) · Gapminder · '+T('원장')+' rdm_ext_climate_series'));
+    wrap.appendChild(c)}
+  function onLayer(layer){
+    topCard.innerHTML='';
+    topCard.appendChild(el('h3',null,'선택 층 상위 12개국'));
+    const items=Object.entries(layer.values).map(([iso,v])=>({iso,value:v})).sort((a,b)=>b.value-a.value).slice(0,12)
+      .map(x=>{const ex=exposure&&exposure.values[x.iso];
+        return {label:(byIso[x.iso]?byIso[x.iso].name:x.iso)+(ex?' ● '+T('익스포저')+' '+fmtNum(ex)+'%':''),value:x.value}});
+    topCard.appendChild(barList(items,{money:false}));
+    topCard.appendChild(rawEl('div','meta',T(layer.label)+' · '+layer.unit+(layer.year?' · '+layer.year:'')+' · ● '+T('이 기관의 익스포저 국가')));
+    if(exposure&&Object.keys(exposure.values).length){
+      expCard.innerHTML='';
+      expCard.appendChild(el('h3',null,'익스포저 가중 기후 노출 (이 기관의 국가 구성 기준)'));
+      const rows=[];
+      layers.filter(l=>l.key!=='exposure').forEach(l=>{
+        let sw=0,sv=0;Object.entries(exposure.values).forEach(([iso,w])=>{const v=l.values[iso];if(v!=null){sw+=w;sv+=w*v}});
+        if(!sw)return;
+        const xs=Object.values(l.values).sort((a,b)=>a-b),med=xs[Math.floor(xs.length/2)];
+        const wa=sv/sw,ratio=med?wa/med:null;
+        const r2=v=>Math.abs(v)>=100?Math.round(v):+v.toFixed(2);
+        rows.push([T(l.label),fmtNum(r2(wa))+' '+l.unit,fmtNum(r2(med))+' '+l.unit,ratio==null?'-':ratio.toFixed(2)+'x',fmtNum(r2(sw))+'%'])});
+      expCard.appendChild(simpleTable(['지표','익스포저 가중 평균','세계 중앙값','배율','매칭 익스포저'],rows));
+      expCard.appendChild(el('div','meta','가중치는 inst_country_mix 의 국가 비중이고, 지도에 없는 지역은 빠진다. 배율이 1 을 넘으면 이 기관의 국가 구성이 세계 중앙값보다 그 지표에 더 노출돼 있다.'))}
+  }
+  function onSelect(c){
+    if(!S.country_warming)return;
+    warmCard.innerHTML='';
+    const cw=S.country_warming,vals=c?cw.values[c.iso3]:null;
+    warmCard.appendChild(el('h3',null,'선택 국가의 온난화 경로 (10년 평균 기온 편차)'));
+    if(!vals){warmCard.appendChild(el('div','note','지구본에서 나라를 누르면 그 나라의 1900년대 이후 10년 평균 기온 편차가 나온다. 이 나라는 Berkeley Earth 지표 기온 자료가 없다.'));return}
+    warmCard.appendChild(rawEl('div','meta',c.name+' · '+c.iso3+' · '+T('1951~1980 기준')));
+    warmCard.appendChild(bars(cw.years.map((y,k)=>({label:y+'s',value:vals[k]==null?0:vals[k],tone:vals[k]>0?'bad':'accent'})),{fmt:v=>v.toFixed(2)+'°C'}));
+    warmCard.appendChild(rawEl('div','meta','Berkeley Earth · '+T('원장')+' rdm_ext_climate_series'));
+  }
+  return {onLayer,onSelect};
 }
 
 function climateOverview(root){
@@ -4589,13 +4804,19 @@ function climateOverview(root){
   root.appendChild(el('p','lead','기후리스크를 이 하네스가 지금 어디까지 산출하는지 한 화면에 모은다. 전환·물리 ECL 상승분, NGFS 자본 경로, 시나리오 카탈로그, ICAAP 인벤토리의 기후 항목, 요건 커버리지다.'));
   root.appendChild(clrLevelNote());
   if(D.geo){
+    const two=rawEl('div','geo2');
     const gc=el('div','card');gc.appendChild(el('h3',null,'세계 기후리스크 지도 (지구본 히트맵)'));
-    gc.appendChild(el('div','meta','드래그로 돌리고, 휠로 확대·축소하고, 누르면 그 지점을 가운데로 확대한다. 기온·강수량은 위도 기반 합성장이고 CO2·에너지는 Our World in Data 실측, 익스포저는 이 기관의 국가 구성이다.'));
-    worldGlobe(gc,D.geo.layers.concat(D.geo_exposure&&Object.keys(D.geo_exposure.values).length?[D.geo_exposure]:[]));
+    gc.appendChild(el('div','meta','드래그로 돌리고, 휠로 확대·축소하고, 누르면 그 나라를 골라 가운데로 확대한다. 층은 전부 실측이다: 기온은 Berkeley Earth, 강수·물리위험은 World Bank WDI, 재해는 EM-DAT, CO2·에너지는 Our World in Data, 익스포저는 이 기관의 국가 구성이다.'));
+    const exposure=D.geo_exposure&&Object.keys(D.geo_exposure.values).length?D.geo_exposure:null;
+    const layers=D.geo.layers.concat(exposure?[exposure]:[]);
+    two.appendChild(gc);
+    const panel=geoPanel(two,layers,exposure);
+    worldGlobe(gc,layers,{onLayer:panel.onLayer,onSelect:panel.onSelect,select:'KOR'});
     gc.appendChild(rawEl('div','meta',D.geo.licences.map(l=>T(l.item)+': '+l.text).join(' · ')));
-    root.appendChild(gc);
-    /* 외부 자료는 RDM 을 거친다. 원천 파일 등록과 지표 원장을 그대로 보인다. */
-    [['외부 원천 파일 등록 (RDM 인터페이스)','rdm_ext_source'],['국가별 기후 지표 원장','rdm_ext_climate_indicator']].forEach(([t,key])=>{
+    root.appendChild(two);
+    /* 외부 자료는 RDM 을 거친다. 원천 파일 등록과 지표·시계열 원장을 그대로 보인다. */
+    [['외부 원천 파일 등록 (RDM 인터페이스)','rdm_ext_source'],['국가별 기후 지표 원장','rdm_ext_climate_indicator'],
+     ['기후 시계열 원장 (세계·국가)','rdm_ext_climate_series']].forEach(([t,key])=>{
       const f=D.data[key];if(!f)return;const c=el('div','card');c.appendChild(el('h3',null,t));
       c.appendChild(table(f));c.appendChild(srcMeta(f));root.appendChild(c)})}
   else root.appendChild(el('div','note bad','RDM 원장에 외부 기후 자료(rdm_ext_*)가 없다. DB 적재본이면 db-init 뒤 db-load 로 다시 적재해야 한다.'));
@@ -5090,10 +5311,61 @@ function executiveReport(root){
   section(7,'위험가중자산 귀속','good',[],[[sank,false],[rwaFig,false]],['rwa.final_total'],
     'minmax(0,3fr) minmax(0,2fr)');
 
-  /* 8 CRO 액션 + 남은 브리핑. 액션 문장의 긴 대시는 콜론으로 바꿔 개조식으로. */
+  /* 8 기후리스크. 기후 개요 화면과 같은 payload(D.climate)이고, 지구 기온 편차는 RDM 시계열 원장이다. */
+  if(D.climate&&D.req_trace_clr){
+    const Cc=D.climate,Kc=Cc.capital,Qc=D.req_trace_clr.coverage;
+    const wt=Cc.transition.find(l=>l.scenario===Cc.worst_transition),wp=Cc.physical.find(l=>l.scenario===Cc.worst_physical);
+    const items=[
+      T('전환위험 최대 ECL 상승')+' '+fmtMoney(wt.uplift)+' ('+clrLegLabel(wt)+')',
+      T('물리적 위험 최대 ECL 상승')+' '+fmtMoney(wp.uplift)+' ('+clrLegLabel(wp)+')',
+      T('NGFS 경로 최저 보통주자본비율')+' '+pctv(Kc.worst.cet1_ratio,2)+' ('+clrName(Kc.worst.scenario)+' '+Kc.worst.year+', '+T('요구')+' '+pctv(Kc.required_cet1,1)+')',
+      T('기후 요건 72건 커버리지')+': '+T('반영')+' '+Qc['반영']+' · '+T('부분')+' '+Qc['부분']+' · '+T('미반영')+' '+Qc['미반영']];
+    const gt=D.geo&&D.geo.series&&D.geo.series.global_temp_anomaly;
+    if(gt)items.push(T('지구 평균 기온 편차')+' '+gt.values[gt.values.length-1].toFixed(2)+'°C ('+gt.years[gt.years.length-1]+', Berkeley Earth, 1951~1980 '+T('기준')+')');
+    const c1=el('div','card');c1.appendChild(el('h3',null,'시나리오별 ECL 상승분 (전환 6 · 물리 3)'));
+    c1.appendChild(bars(Cc.transition.concat(Cc.physical).map(l=>({label:clrShort(l),value:l.uplift})),{fmt:fmtMoney}));
+    c1.appendChild(cap('8a','시나리오별 ECL 상승분 (전환 6 · 물리 3)','risk_lib.climate (부문 계수)'));
+    const pf=Kc.path,pi=frameIdx(pf);
+    const scen=[...new Set(pf.rows.map(r=>r[pi.scenario]))],years=[...new Set(pf.rows.map(r=>r[pi.year]))];
+    const c2=el('div','card');c2.appendChild(el('h3',null,'보통주자본비율 경로 · NGFS 3시나리오'));
+    c2.appendChild(multiLine(scen.map(sc=>({name:clrName(sc),values:years.map(y=>{const r=pf.rows.find(x=>x[pi.scenario]===sc&&x[pi.year]===y);return r?r[pi.cet1_ratio]:null})})),years.map(String),Kc.required_cet1));
+    c2.appendChild(cap('8b','보통주자본비율 경로 · NGFS 3시나리오',pf.table||'climate_capital'));
+    section(8,'기후리스크',Kc.worst.cet1_ratio<Kc.required_cet1?'bad':'warn',items,[[c1,false],[c2,false]],[]);
+  }
+
+  /* 9 AI리스크. AI 리스크 개요 화면과 같은 원장(에이전트·활동·비상정지·승인·추적)이다. */
+  if(D.req_trace_air){
+    const reg=D.data['agent_registry'],act=D.data['agent_activity'],ks=D.data['agent_killswitch'],
+          ap=D.data['gov_approval'],tr=D.data['aig_agent_trace'],rules=D.data['aig_redaction_rule'],Qa=D.req_trace_air.coverage;
+    const cnt=(f,col,pred)=>{if(!f)return 0;const i=frameIdx(f);return f.rows.filter(r=>pred(r[i[col]])).length};
+    const items=[];let tone='good';
+    if(reg){const w=cnt(reg,'write_allowed',v=>v===true);if(w)tone='bad';
+      items.push(T('등록 에이전트')+' '+TC(reg.total,'건')+' ('+T('운영 반영 권한')+' '+TC(w,'건')+', '+T('위험등급 상')+' '+TC(cnt(reg,'risk_tier',v=>v==='상'),'건')+')')}
+    if(act)items.push(T('활동 기록')+' '+TC(act.total,'건')+' ('+T('게이트 대기')+' '+TC(cnt(act,'gate',v=>v==='대기'),'건')+')');
+    if(ks){const u=cnt(ks,'confirmed_by',v=>v==null||v==='');if(u&&tone==='good')tone='warn';
+      items.push(T('비상정지 이력')+' '+TC(ks.total,'건')+' ('+T('2차 확인 없음')+' '+TC(u,'건')+')')}
+    if(ap)items.push(T('4-Eyes 승인')+' '+TC(ap.total,'건')+' ('+T('직무분리 충족')+' '+TC(cnt(ap,'segregation_ok',v=>v===true),'건')+')');
+    if(tr&&tr.shown>=tr.total){const i=frameIdx(tr);const hits=tr.rows.reduce((a,r)=>a+(r[i.redaction_hits]||0),0);
+      items.push(T('마스킹 적중')+' '+TC(hits,'건')+' ('+T('규칙')+' '+TC(rules?rules.total:0,'건')+')')}
+    items.push(T('AI리스크 요건 76건 커버리지')+': '+T('반영')+' '+Qa['반영']+' · '+T('부분')+' '+Qa['부분']+' · '+T('미반영')+' '+Qa['미반영']);
+    const c1=el('div','card');c1.appendChild(el('h3',null,'AI리스크 요건 76건 · 장별 커버리지'));
+    c1.appendChild(shareStrips(Qa.chapters.map(ch=>{
+      const n=st=>D.req_trace_air.rows.filter(r=>r.area===ch.no&&r.status===st).length;
+      return {label:ch.no+' · '+ch.title,items:[{label:T('반영'),value:n('반영'),tone:'good'},
+        {label:T('부분'),value:n('부분'),tone:'warn'},{label:T('미반영'),value:n('미반영'),tone:'bad'}]}}),{}));
+    c1.appendChild(cap('9a','AI리스크 요건 76건 · 장별 커버리지','req_trace_air (코드 선언)'));
+    let c2=null;
+    if(reg&&reg.shown>=reg.total){const i=frameIdx(reg);const m=new Map();
+      reg.rows.forEach(r=>{const k=r[i.domain];m.set(k,(m.get(k)||0)+1)});
+      c2=hbars([...m.entries()].map(([k,v])=>({label:k,value:v})).sort((a,b)=>b.value-a.value).slice(0,10),{title:'도메인별 에이전트 수',money:false});
+      c2.appendChild(cap('9b','도메인별 에이전트 수','agent_registry'))}
+    section(9,'AI리스크',tone,items,[[c1,false],[c2,false]],[]);
+  }
+
+  /* 10 CRO 액션 + 남은 브리핑. 액션 문장의 긴 대시는 콜론으로 바꿔 개조식으로. */
   const acts=(E.actions||[]).map(t=>t.replace(/\s+\u2014\s+/g,': '));
   if(acts.length||brief.length){
-    const sec=section(8,'CRO 액션 (즉시·단기 조치)','warn',brief,[],[]);
+    const sec=section(10,'CRO 액션 (즉시·단기 조치)','warn',brief,[],[]);
     if(acts.length){const ul=el('ul','bul');
       acts.forEach(t=>{const li2=el('li');li2.innerHTML=t;ul.appendChild(li2)});
       sec.appendChild(ul)}
@@ -9964,6 +10236,52 @@ function institutions(root){
     root.appendChild(c)});
 }
 
+/* ---- 화면 메뉴 구조 설정 ----
+   NAVGROUPS 는 코드의 기본 트리다. 사용자가 순서를 바꾸거나 숨긴 것은 이 브라우저의
+   localStorage 에만 남고(키 rynta-nav), 실행·원장·다른 사용자에게는 아무 영향이 없다.
+   모르는 라벨은 무시하고 저장 목록에 없는 항목은 원래 자리 뒤에 붙는다. */
+const NAV_KEY='rynta-nav';
+function navPrefs(){let p=null;try{p=JSON.parse(localStorage.getItem(NAV_KEY)||'null')}catch(e){}
+  return (p&&typeof p==='object')?{order:p.order||{},hidden:Array.isArray(p.hidden)?p.hidden:[]}:{order:{},hidden:[]}}
+function navSavePrefs(p){try{localStorage.setItem(NAV_KEY,JSON.stringify(p))}catch(e){}}
+function navTree(){
+  const p=navPrefs();
+  const sortBy=(items,key)=>{const ord=p.order[key];if(!Array.isArray(ord))return items;
+    const rank=x=>{const i=ord.indexOf(typeof x==='string'?x:x[0]);return i<0?ord.length:i};
+    return items.map((it,k)=>[it,k]).sort((a,b)=>rank(a[0])-rank(b[0])||a[1]-b[1]).map(x=>x[0])};
+  const walk=(items,key)=>sortBy(items,key).map(it=>typeof it==='string'?it:[it[0],walk(it[1],it[0])]);
+  return sortBy(NAVGROUPS,'').map(([g,items])=>[g,walk(items,g)]);
+}
+function navSettings(root){
+  root.appendChild(el('p','lead','화면 메뉴 트리의 그룹·화면 순서를 바꾸고 안 쓰는 항목을 숨긴다. 바꾸면 왼쪽 메뉴에 바로 반영된다. 설정은 이 브라우저(localStorage)에만 남고 실행·원장·다른 사용자에게는 영향이 없다.'));
+  const p=navPrefs(),hidden=new Set(p.hidden);
+  const c=el('div','card');c.appendChild(el('h3',null,'메뉴 트리 (위·아래로 옮기고 숨김을 켜고 끈다)'));
+  const bar=el('div','toolbar');
+  const reset=el('button','btn','기본 메뉴로 되돌리기');reset.type='button';
+  reset.onclick=()=>{try{localStorage.removeItem(NAV_KEY)}catch(e){}p.order={};hidden.clear();rebuildNav();render()};
+  bar.appendChild(reset);c.appendChild(bar);
+  const box=rawEl('div','navedit');c.appendChild(box);
+  root.appendChild(c);
+  const n=el('div','card');n.appendChild(el('h3',null,'저장된 설정'));
+  n.appendChild(el('div','meta','저장 키 rynta-nav · 숨긴 항목과 그룹별 순서. 역할 칩과 화면 검색은 이 설정 위에서 다시 거른다.'));
+  const pre=rawEl('pre','mono');n.appendChild(pre);root.appendChild(n);
+  const save=()=>{p.hidden=[...hidden];navSavePrefs(p);rebuildNav();render()};
+  function move(key,items,k,dir){const labels=items.map(it=>typeof it==='string'?it:it[0]);const j=k+dir;
+    if(j<0||j>=labels.length)return;[labels[k],labels[j]]=[labels[j],labels[k]];p.order[key]=labels;save()}
+  function rows(items,key,depth){
+    items.forEach((it,k)=>{const isGroup=typeof it!=='string',label=isGroup?it[0]:it;
+      const r=rawEl('div','nrow');r.style.paddingLeft=(depth*18)+'px';
+      r.appendChild(rawEl('span','nlab'+(isGroup?' grp':'')+(hidden.has(label)?' off':''),T(label)));
+      const up=rawEl('button','btn');up.type='button';up.textContent='▲';up.title=T('위로');up.disabled=k===0;up.onclick=()=>move(key,items,k,-1);
+      const dn=rawEl('button','btn');dn.type='button';dn.textContent='▼';dn.title=T('아래로');dn.disabled=k===items.length-1;dn.onclick=()=>move(key,items,k,1);
+      const hb=el('button','btn',hidden.has(label)?'표시':'숨김');hb.type='button';
+      hb.onclick=()=>{if(hidden.has(label))hidden.delete(label);else hidden.add(label);save()};
+      r.appendChild(up);r.appendChild(dn);r.appendChild(hb);box.appendChild(r);
+      if(isGroup)rows(it[1],label,depth+1)})}
+  function render(){box.innerHTML='';rows(navTree(),'',0);pre.textContent=JSON.stringify(navPrefs(),null,1)}
+  render();
+}
+
 function settings(root){
   runRegistry(root);
   labelSettings(root);
@@ -10519,7 +10837,7 @@ const NAVGROUPS=[
   ]],
   ['데이터·설정',[
     '데이터모델',
-    ['⚙ 설정',['기관 설정','포트폴리오 설정','코드 마스터','코드 매핑','산출 방법론']],
+    ['⚙ 설정',['기관 설정','포트폴리오 설정','코드 마스터','코드 매핑','산출 방법론','메뉴 구조']],
     /* 사업성은 규제 산출물이 아니다. 제출 지문·독립검증 대상이 아니므로
        메뉴 맨 끝에 둔다. */
     '상업성',
@@ -10581,10 +10899,12 @@ const TABS=[
   ['⚙ 설정','⚙ · 설정 (기준일 · 표시명 · 코드 매핑 · 시나리오)',settings],
   ['기관 설정','⚙ · 기관 설정 (권역 · 유형 · 규제체계 · 데이터 출처)',
    institutions],
+  ['메뉴 구조','⚙ · 화면 메뉴 구조 설정 (그룹·순서·숨김 · 이 브라우저에만 저장)',navSettings],
 ];
 
 let repaintAll=()=>{};                   /* boot에서 실체가 채워진다 */
 let paintNavTools=()=>{};                /* 메뉴 도구(검색·역할 칩)의 표시 문자열 */
+let rebuildNav=()=>{};                   /* 메뉴 구조 설정이 바뀌면 메뉴를 다시 짠다 */
 
 /* 승인·이력은 **실행에 속한다**. proposal_id는 (view, 프롬프트)의 해시라
    실행이 바뀌어도 같으므로, 그대로 두면 이전 실행 데이터로 받은 승인이 새
@@ -10807,11 +11127,19 @@ function boot(){
   wireTheme();
   const byLabel={};TABS.forEach(t=>{byLabel[t[0]]=t});
   let first=null,idx=0;
-  function addLeaf(label,depth,collect){
+  let navHidden=new Set(navPrefs().hidden);
+  const leafBtn={};                      /* 라벨 → 버튼. 메뉴를 다시 짤 때 버튼과 화면은 그대로 쓴다 */
+  function addLeaf(label,depth,collect,hid){
     const t=byLabel[label];
     if(!t)return;
+    const hidden=!!hid||navHidden.has(label);
+    let b=leafBtn[label];
+    if(b){const on=b.classList.contains('on');b.className='lvl'+depth;
+      if(hidden)b.classList.add('uhide');if(on)b.classList.add('on');
+      collect.push(b);nav.appendChild(b);return}
     const [,title,fn]=t;
-    const b=el('button','lvl'+depth,label);
+    b=el('button','lvl'+depth,label);leafBtn[label]=b;
+    if(hidden)b.classList.add('uhide');
     b.dataset.ko=label;                  /* 언어 전환 때 원문으로 되돌아간다 */
     const s=el('section');s.id='tab'+(idx++);
     b.onclick=()=>{
@@ -10824,10 +11152,12 @@ function boot(){
       window.scrollTo({top:0});
     };
     collect.push(b);nav.appendChild(b);main.appendChild(s);
-    if(!first)first=b;
+    if(!first&&!hidden)first=b;
   }
-  function addGroup(gname,items,depth){
+  function addGroup(gname,items,depth,hid){
     const gh=el('div','navgroup'+(depth?' sub lvl'+depth:''),gname);
+    const hidden=!!hid||navHidden.has(gname);
+    if(hidden)gh.classList.add('uhide');
     gh.dataset.ko=gname;
     const under=[];                      /* 이 그룹 아래 전부 (접기 대상) */
     gh._under=under;                     /* 역할·검색 필터가 그룹 표시를 정할 때 쓴다 */
@@ -10838,27 +11168,35 @@ function boot(){
           x.classList.toggle('closed',closed)})};
     nav.appendChild(gh);
     items.forEach(item=>{
-      if(typeof item==='string'){addLeaf(item,depth+1,under)}
+      if(typeof item==='string'){addLeaf(item,depth+1,under,hidden)}
       else{const [sub,subItems]=item;
         if(byLabel[sub]){
           /* 리프-부모 (화면을 여는 항목이면서 자식(3레벨)을 거느린다) */
-          addLeaf(sub,depth+1,under);
-          subItems.forEach(ch=>addLeaf(ch,depth+2,under));
+          const subHidden=hidden||navHidden.has(sub);
+          addLeaf(sub,depth+1,under,hidden);
+          subItems.forEach(ch=>addLeaf(ch,depth+2,under,subHidden));
         } else {
           const before=nav.children.length;
-          addGroup(sub,subItems,depth+1);
+          addGroup(sub,subItems,depth+1,hidden);
           for(let k=before;k<nav.children.length;k++)under.push(nav.children[k]);
         }}
     });
   }
-  NAVGROUPS.forEach(([gname,items])=>addGroup(gname,items,0));
+  let tools=null;
+  /* 메뉴를 (다시) 짠다. 메뉴 구조 설정이 바뀌면 새로고침 없이 이것만 다시 돈다. */
+  function buildNav(){
+    navHidden=new Set(navPrefs().hidden);
+    [...nav.children].forEach(x=>{if(x!==tools)x.remove()});
+    navTree().forEach(([gname,items])=>addGroup(gname,items,0,false));
+  }
+  buildNav();
   /* 좁은 화면의 메뉴 토글. 화면을 고르면 접는다. */
   const nb=$('#navbtn');
   if(nb)nb.onclick=()=>document.body.classList.toggle('navopen');
   nav.addEventListener('click',e=>{const b=e.target.closest('button');
     if(b&&nav.contains(b)&&!b.classList.contains('navgroup'))document.body.classList.remove('navopen')});
   /* 메뉴 도구. 검색과 역할 칩은 버튼이 아니다(nav button 은 화면 목록이다). */
-  const tools=el('div','navtools');
+  tools=el('div','navtools');
   const q=rawEl('input','navq');q.type='search';q.id='navq';
   const roles=el('div','roles');
   NAV_ROLES.forEach(([key,label])=>{const c=rawEl('span','rchip'+(key===''?' on':''));
@@ -10884,6 +11222,7 @@ function boot(){
       const vis=(g._under||[]).some(x=>x.tagName==='BUTTON'&&!x.classList.contains('fhide'));
       g.classList.toggle('fhide',!vis)});
   }
+  rebuildNav=()=>{buildNav();applyNavFilter()};
   paintNavTools=()=>{
     q.placeholder=T('화면 검색');
     [...roles.children].forEach(c=>{c.textContent=T(c.dataset.ko)});

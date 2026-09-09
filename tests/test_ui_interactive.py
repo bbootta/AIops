@@ -719,9 +719,35 @@ def test_climate_overview_globe_zooms_on_click_and_switches_layers(page):
     page.wait_for_timeout(300)
     assert page.evaluate("window.__GLOBE__.layer") == "co2_per_capita"
     assert "tCO2" in _text(page)
-    page.select_option("section.on .globe select.sel >> nth=1", "flat")
+    page.click("section.on .globe .seg button >> nth=1")
     page.wait_for_timeout(300)
     assert page.evaluate("window.__GLOBE__.mode") == "flat"
+    assert page.locator("section.on .gpanel .card").count() >= 4
+    assert "rdm_ext_climate_series" in _text(page)
+    assert page.errors == []
+
+
+def test_menu_structure_screen_reorders_and_hides_without_reload(page):
+    """메뉴 구조 화면에서 그룹을 올리거나 항목을 숨기면 왼쪽 메뉴가 새로고침 없이 바로
+    다시 짜이고, 설정은 localStorage(rynta-nav)에 남는다. 되돌리기는 기본 트리로 돌아간다."""
+    _tab_named(page, "메뉴 구조")
+    assert page.locator("section.on .navedit .nrow").count() > 80
+    page.evaluate("""()=>{const rows=[...document.querySelectorAll('section.on .navedit .nrow')];
+      const r=rows.find(x=>x.querySelector('.nlab').textContent==='통제센터');r.querySelectorAll('button')[0].click()}""")
+    page.evaluate("""()=>{const rows=[...document.querySelectorAll('section.on .navedit .nrow')];
+      const r=rows.find(x=>x.querySelector('.nlab').textContent==='상업성');r.querySelectorAll('button')[2].click()}""")
+    page.wait_for_timeout(200)
+    groups = page.evaluate("[...document.querySelectorAll('nav .navgroup')].map(x=>x.dataset.ko)")
+    assert groups[:2] == ["통제센터", "보고서"]
+    assert "uhide" in page.evaluate(
+        "[...document.querySelectorAll('nav button')].find(b=>b.dataset.ko==='상업성').className")
+    saved = page.evaluate("JSON.parse(localStorage.getItem('rynta-nav'))")
+    assert saved["hidden"] == ["상업성"] and saved["order"][""][0] == "통제센터"
+    page.click("section.on .toolbar .btn")           # 기본 메뉴로 되돌리기
+    page.wait_for_timeout(200)
+    groups = page.evaluate("[...document.querySelectorAll('nav .navgroup')].map(x=>x.dataset.ko)")
+    assert groups[:2] == ["보고서", "통제센터"]
+    assert page.evaluate("localStorage.getItem('rynta-nav')") is None
     assert page.errors == []
 
 

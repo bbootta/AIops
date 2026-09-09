@@ -2664,11 +2664,14 @@ KR_IRRBB_NATIONAL_TABLES: tuple[TableSpec, ...] = (
 # ---------------------------------------------------------------- 외부 데이터 (RDM 인터페이스)
 # 기후 지구본이 쓰는 외부 자료는 화면이 파일을 직접 읽지 않고 RDM 을 거친다.
 # 원천 파일은 rdm_ext_source 에 지문·저작권과 함께 등록되고, 국가 마스터와
-# 국가별 지표는 원장이 되며, rdm_source_contract·rdm_snapshot 에 external_data
-# 원천으로 계약·스냅샷 행이 선다. 합성 지표(위도 기반 기온·강수)는 kind=합성이다.
-EXT_KINDS = ("실측", "합성", "기하")
-EXT_INDICATORS = ("tas_synthetic", "pr_synthetic", "co2_per_capita", "co2",
-                  "total_ghg", "fossil_share")
+# 국가별 지표·시계열은 원장이 되며, rdm_source_contract·rdm_snapshot 에 external_data
+# 원천으로 계약·스냅샷 행이 선다. 지표는 전부 실측(관측·집계)이고 합성값은 없다.
+EXT_KINDS = ("실측", "기하")
+EXT_INDICATORS = ("tas_obs", "tas_warming", "pr_obs", "disaster_affected", "pop_el5m",
+                  "water_stress", "clim_affected_share", "co2_per_capita", "co2",
+                  "total_ghg", "fossil_share", "renew_share")
+EXT_SERIES = ("global_temp_anomaly", "disaster_flood", "disaster_storm", "disaster_drought",
+              "disaster_extreme_temperature", "country_warming")
 
 _EXT_SOURCE = TableSpec(
     name="rdm_ext_source", korean="외부 원천 파일 등록", product="PRD-RDM",
@@ -2715,19 +2718,36 @@ _EXT_INDICATOR = TableSpec(
         C("iso3", "string", "ISO3 코드", nullable=False),
         C("indicator", "string", "지표", nullable=False, allowed=EXT_INDICATORS),
         C("value", "float", "값", nullable=False, unit="가변",
-          note="단위는 같은 행의 unit 열에 있다 (°C · mm/년 · tCO2/인 · MtCO2 · MtCO2e · %)"),
+          note="단위는 같은 행의 unit 열에 있다 (°C · mm/년 · 명 · tCO2/인 · MtCO2 · MtCO2e · %)"),
         C("unit", "string", "단위", nullable=False),
-        C("year", "int", "관측 연도", nullable=True,
-          note="합성 지표는 연도가 없다"),
-        C("kind", "string", "성격", nullable=False, allowed=EXT_KINDS,
-          note="합성은 위도 기반 근사장이며 실측 기후 자료가 아니다"),
+        C("year", "int", "관측 연도", nullable=False,
+          note="원천 파일에서 그 국가의 최신 연도 (또는 평균 창의 마지막 연도)"),
+        C("kind", "string", "성격", nullable=False, allowed=EXT_KINDS),
         C("file_id", "string", "원천 파일", nullable=True),
     ),
     primary_key=("iso3", "indicator"),
-    note="지구본 히트맵의 값. 실측(OWID CO2·에너지)과 합성(기온·강수)이 섞여 있어 kind 로 구분한다.",
+    note="지구본 히트맵의 값. Berkeley Earth 기온, WDI 강수·물리위험, EM-DAT 재해, OWID CO2·에너지. 전부 실측이다.",
 )
 
-_EXT_TABLES = (_EXT_SOURCE, _EXT_COUNTRY, _EXT_INDICATOR)
+_EXT_SERIES = TableSpec(
+    name="rdm_ext_climate_series", korean="기후 시계열 (세계·국가)", product="PRD-RDM",
+    grain="시계열 × 지역 × 연도 1행",
+    columns=(
+        C("series", "string", "시계열", nullable=False, allowed=EXT_SERIES),
+        C("iso3", "string", "ISO3 코드", nullable=False,
+          note="세계 시계열은 WLD"),
+        C("year", "int", "연도", nullable=False, min_value=1800, max_value=2100),
+        C("value", "float", "값", nullable=False, unit="가변",
+          note="단위는 같은 행의 unit 열에 있다 (°C 편차 · 명)"),
+        C("unit", "string", "단위", nullable=False),
+        C("kind", "string", "성격", nullable=False, allowed=EXT_KINDS),
+        C("file_id", "string", "원천 파일", nullable=True),
+    ),
+    primary_key=("series", "iso3", "year"),
+    note="기후 개요 오른쪽 패널의 추이 그래프. 지구 평균 기온 편차(1850~), 세계 재해 피해 인구(1970~), 국가별 10년 기온 편차(1900년대~).",
+)
+
+_EXT_TABLES = (_EXT_SOURCE, _EXT_COUNTRY, _EXT_INDICATOR, _EXT_SERIES)
 
 NEW_LEDGER_TABLES: tuple[TableSpec, ...] = (
     _MACRO_TABLES + _LIMIT_TABLES

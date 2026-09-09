@@ -1,18 +1,19 @@
-"""기후리스크 세계지도(지구본 히트맵)의 데이터.
+"""기후리스크 세계지도(지구본 히트맵)와 기후 개요 오른쪽 패널의 데이터.
 
 화면은 외부 타일·라이브러리 없이 canvas 로 그리므로 여기서 국가 경계, 국가 인덱스
-래스터, 국가별 지표 층을 payload 로 만든다. 세 종류의 값이 섞여 있고 층마다
-kind 로 구분해 화면이 그 사실을 적는다.
+래스터, 국가별 지표 층, 시계열을 payload 로 만든다. 값은 전부 실측(관측·집계)이며
+합성값은 없다. 층마다 kind 와 원천이 붙는다.
 
-  실측   Our World in Data CO2·에너지 (risk_lib/data/climate_country.json, CC-BY 4.0)
-  합성   연평균 기온·강수량. 기후 포털(World Bank CCKP 등)이 이 환경에서 닿지 않아
-         위도 기반 근사장을 국가 격자에 평균한 값이다. 실측 기후 자료가 아니다.
+  실측   Berkeley Earth 국가별 기온 (최근 10년 평균, 1951~1980 대비 상승폭)
+         World Bank WDI 연강수량·해발 5m 이하 인구·물 스트레스·재해 피해 인구 비중·재생에너지
+         EM-DAT(Gapminder) 재해 피해 인구, Our World in Data CO2·에너지
+         (risk_lib/data/climate_observed.json · climate_country.json)
   실행별 기관별 국가 익스포저 비중 (inst_country_mix 원장, 실행마다 다르다)
 
 외부 자료는 화면이 파일을 직접 읽지 않는다. materialize_external 이 RDM 원장
-(rdm_ext_source · rdm_ext_country · rdm_ext_climate_indicator)으로 세우고, 계약·
-스냅샷 행을 남기며, payload_from_tables 가 그 원장에서 화면 데이터를 만든다.
-국경·격자 렌더 자산(world_geo.json)은 rdm_ext_source 의 지문으로 원장과 묶인다.
+(rdm_ext_source · rdm_ext_country · rdm_ext_climate_indicator · rdm_ext_climate_series)
+으로 세우고, 계약·스냅샷 행을 남기며, payload_from_tables 가 그 원장에서 화면 데이터를
+만든다. 국경·격자 렌더 자산(world_geo.json)은 rdm_ext_source 의 지문으로 원장과 묶인다.
 """
 
 from __future__ import annotations
@@ -24,17 +25,6 @@ from pathlib import Path
 
 _DATA = Path(__file__).parent / "data"
 
-# 합성 기후장. 위도(도)만의 함수다. 등온선이 위도선과 나란한 근사이며 해류·고도·
-# 대륙성은 없다. 값은 국가 격자 셀에 면적 가중(cos lat) 평균한다.
-def synthetic_temperature(lat_deg: float) -> float:
-    return 28.0 - 0.0068 * lat_deg * lat_deg
-
-
-def synthetic_precipitation(lat_deg: float) -> float:
-    a = abs(lat_deg)
-    return 150.0 + 1900.0 * math.exp(-(lat_deg / 10.0) ** 2) + 650.0 * math.exp(-((a - 48.0) / 14.0) ** 2)
-
-
 @lru_cache(maxsize=1)
 def world_geo() -> dict:
     return json.loads((_DATA / "world_geo.json").read_text(encoding="utf-8"))
@@ -45,34 +35,9 @@ def climate_country() -> dict:
     return json.loads((_DATA / "climate_country.json").read_text(encoding="utf-8"))
 
 
-def _cells_by_country(geo: dict) -> dict[int, list[float]]:
-    """국가 인덱스 → 그 국가 셀들의 위도 목록 (래스터 런렝스에서 복원)."""
-    r = geo["raster"]
-    out: dict[int, list[float]] = {}
-    for y, row in enumerate(r["rle"]):
-        lat = 90.0 - (y + 0.5) * r["deg"]
-        for k in range(0, len(row), 2):
-            v, n = row[k], row[k + 1]
-            if v:
-                out.setdefault(v, []).extend([lat] * n)
-    return out
-
-
 @lru_cache(maxsize=1)
-def _synthetic_layers() -> dict[str, dict[str, float]]:
-    geo = world_geo()
-    cells = _cells_by_country(geo)
-    tas: dict[str, float] = {}
-    pr: dict[str, float] = {}
-    for k, c in enumerate(geo["countries"], 1):
-        lats = cells.get(k)
-        if not lats:
-            lats = [c["c"][1]]                      # 격자보다 작은 나라는 중심 위도
-        w = [math.cos(math.radians(la)) for la in lats]
-        tw = sum(w) or 1.0
-        tas[c["iso3"]] = round(sum(synthetic_temperature(la) * wi for la, wi in zip(lats, w)) / tw, 1)
-        pr[c["iso3"]] = round(sum(synthetic_precipitation(la) * wi for la, wi in zip(lats, w)) / tw)
-    return {"tas": tas, "pr": pr}
+def climate_observed() -> dict:
+    return json.loads((_DATA / "climate_observed.json").read_text(encoding="utf-8"))
 
 
 def _domain(values: dict[str, float], log: bool = False) -> list[float]:
@@ -85,20 +50,18 @@ def _domain(values: dict[str, float], log: bool = False) -> list[float]:
     return [float(lo), float(hi)]
 
 
-def _observed(field: str) -> tuple[dict[str, float], int | None]:
-    vals, years = {}, []
-    for iso, d in climate_country()["values"].items():
-        if field in d:
-            vals[iso] = d[field][0]
-            years.append(d[field][1])
-    return vals, (max(years) if years else None)
-
-
+_BE = "Berkeley Earth 지표 기온 (출처 표기 조건)"
+_WDI = "World Bank WDI (CC BY 4.0)"
 LAYER_META = {
-    "tas_synthetic": {"label": "연평균 기온 (합성)", "palette": "temp", "log": False,
-                      "source": "위도 기반 근사장을 국가 격자에 면적 평균 · 실측 기후 자료 아님"},
-    "pr_synthetic": {"label": "연강수량 (합성)", "palette": "precip", "log": False,
-                     "source": "위도 기반 근사장(적도 수렴대·중위도 폭풍대) · 실측 기후 자료 아님"},
+    "tas_obs": {"label": "연평균 기온 (최근 10년)", "palette": "temp", "log": False, "source": _BE},
+    "tas_warming": {"label": "기온 상승폭 (1951~1980 대비)", "palette": "warm", "log": False, "source": _BE},
+    "pr_obs": {"label": "연강수량", "palette": "precip", "log": False, "source": _WDI + " · FAO AQUASTAT"},
+    "disaster_affected": {"label": "연평균 재해 피해 인구 (2000~2023)", "palette": "heat", "log": True,
+                          "source": "EM-DAT (CRED) · Gapminder Systema Globalis (CC BY 4.0)"},
+    "pop_el5m": {"label": "해발 5m 이하 거주 인구 비중", "palette": "precip", "log": False, "source": _WDI},
+    "water_stress": {"label": "물 스트레스 (취수/가용량)", "palette": "heat", "log": True, "source": _WDI},
+    "clim_affected_share": {"label": "가뭄·홍수·극한기온 피해 인구 비중", "palette": "heat", "log": False,
+                            "source": _WDI + " · 1990~2009 평균"},
     "co2_per_capita": {"label": "1인당 CO2 배출", "palette": "heat", "log": False,
                        "source": "Our World in Data co2-data (CC-BY 4.0)"},
     "co2": {"label": "CO2 배출 총량", "palette": "heat", "log": True,
@@ -107,11 +70,18 @@ LAYER_META = {
                   "source": "Our World in Data co2-data (CC-BY 4.0)"},
     "fossil_share": {"label": "화석연료 비중 (1차 에너지)", "palette": "heat", "log": False,
                      "source": "Our World in Data energy-data (CC-BY 4.0)"},
+    "renew_share": {"label": "재생에너지 비중 (최종 에너지)", "palette": "green", "log": False, "source": _WDI},
 }
-_UNITS = {"tas_synthetic": "°C", "pr_synthetic": "mm/년", "co2_per_capita": "tCO2/인",
-          "co2": "MtCO2", "total_ghg": "MtCO2e", "fossil_share": "%"}
-_OWID_FIELD_FILE = {"co2_per_capita": "OWID_CO2", "co2": "OWID_CO2",
-                    "total_ghg": "OWID_CO2", "fossil_share": "OWID_ENERGY"}
+_UNITS = {"tas_obs": "°C", "tas_warming": "°C", "pr_obs": "mm/년", "disaster_affected": "명",
+          "pop_el5m": "%", "water_stress": "%", "clim_affected_share": "%", "co2_per_capita": "tCO2/인",
+          "co2": "MtCO2", "total_ghg": "MtCO2e", "fossil_share": "%", "renew_share": "%"}
+_FILE = {"tas_obs": "BE_TAVG", "tas_warming": "BE_TAVG", "pr_obs": "WDI_PRCP", "disaster_affected": "SG_EMDAT",
+         "pop_el5m": "WDI_EL5M", "water_stress": "WDI_FWST", "clim_affected_share": "WDI_MDAT",
+         "co2_per_capita": "OWID_CO2", "co2": "OWID_CO2", "total_ghg": "OWID_CO2", "fossil_share": "OWID_ENERGY",
+         "renew_share": "WDI_RNEW"}
+_OWID_KEYS = ("co2_per_capita", "co2", "total_ghg", "fossil_share")
+# 화면의 시계열 이름 → 원장의 series 코드. 재해는 재난 종류마다 한 시계열이다.
+_HAZARDS = ("flood", "storm", "drought", "extreme_temperature")
 
 
 def materialize_external(asof: str, tables: dict) -> dict:
@@ -119,7 +89,8 @@ def materialize_external(asof: str, tables: dict) -> dict:
 
     rdm_ext_source            원천 파일 등록 (지문·저작권·행수)
     rdm_ext_country           국가 마스터 (Natural Earth)
-    rdm_ext_climate_indicator 국가 × 지표 (실측 OWID + 합성 기온·강수)
+    rdm_ext_climate_indicator 국가 × 지표 (실측: Berkeley Earth·WDI·EM-DAT·OWID)
+    rdm_ext_climate_series    세계·국가 시계열 (지구 기온 편차 · 재해 피해 인구 · 국가 10년 기온 편차)
     그리고 rdm_source_contract·rdm_snapshot 에 external_data 원천의 계약·스냅샷 행을
     덧붙인다. 함수는 순수하다: 같은 파일이면 같은 원장이 나온다.
     """
@@ -127,8 +98,7 @@ def materialize_external(asof: str, tables: dict) -> dict:
     import pandas as pd
     from risk_lib.datamodel.decompose import _fingerprint
 
-    geo, cc = world_geo(), climate_country()
-    syn = _synthetic_layers()
+    geo, cc, ob = world_geo(), climate_country(), climate_observed()
     src_rows = [
         {"file_id": "NE_110M", "provider": "Natural Earth", "dataset": "1:110m Admin 0 Countries",
          "licence": "public domain", "file_name": "world_geo.json", "sha256": geo["source_sha256"],
@@ -141,11 +111,11 @@ def materialize_external(asof: str, tables: dict) -> dict:
                          "licence": meta["licence"], "file_name": meta["file"], "sha256": meta["sha256"],
                          "row_count": len(cc["values"]), "received_asof": asof, "kind": "실측",
                          "note": "국가별 최신 연도 값만 원장에 싣는다"})
-    src_rows.append({"file_id": "SYNTH_LAT", "provider": "risk_lib.climate_geo", "dataset": "위도 기반 합성 기후장",
-                     "licence": "내부 산출", "file_name": "(파일 없음)", "sha256": hashlib.sha256(
-                         b"synthetic_temperature=28-0.0068*lat^2;synthetic_precipitation=itcz+storm").hexdigest(),
-                     "row_count": len(geo["countries"]), "received_asof": asof, "kind": "합성",
-                     "note": "실측 기후 포털이 닿지 않아 둔 근사장. 실측 자료가 오면 이 행이 교체된다"})
+    for m in ob["sources"]:
+        src_rows.append({"file_id": m["file_id"], "provider": m["provider"], "dataset": m["dataset"],
+                         "licence": m["licence"], "file_name": m["file"], "sha256": m["sha256"],
+                         "row_count": int(m["row_count"]), "received_asof": asof, "kind": "실측",
+                         "note": m["note"]})
     ext_source = pd.DataFrame(src_rows)
 
     country = pd.DataFrame([{
@@ -153,21 +123,46 @@ def materialize_external(asof: str, tables: dict) -> dict:
         "centroid_lon": float(c["c"][0]), "centroid_lat": float(c["c"][1]), "file_id": "NE_110M",
     } for c in geo["countries"]])
 
-    rows = []
     iso_on_map = {c["iso3"] for c in geo["countries"]}
-    for key, vals in (("tas_synthetic", syn["tas"]), ("pr_synthetic", syn["pr"])):
-        for iso, v in vals.items():
+    rows = []
+    for iso, d in ob["country"].items():
+        if iso not in iso_on_map:
+            continue
+        for key, (v, y) in d.items():
             rows.append({"iso3": iso, "indicator": key, "value": float(v), "unit": _UNITS[key],
-                         "year": None, "kind": "합성", "file_id": "SYNTH_LAT"})
+                         "year": int(y), "kind": "실측", "file_id": _FILE[key]})
     for iso, d in cc["values"].items():
-        for key in ("co2_per_capita", "co2", "total_ghg", "fossil_share"):
+        if iso not in iso_on_map:
+            continue
+        for key in _OWID_KEYS:
             if key in d:
                 rows.append({"iso3": iso, "indicator": key, "value": float(d[key][0]), "unit": _UNITS[key],
-                             "year": int(d[key][1]), "kind": "실측", "file_id": _OWID_FIELD_FILE[key]})
+                             "year": int(d[key][1]), "kind": "실측", "file_id": _FILE[key]})
     ind = pd.DataFrame(rows).sort_values(["indicator", "iso3"]).reset_index(drop=True)
-    ind["year"] = ind["year"].astype("Int64")
 
-    out = {"rdm_ext_source": ext_source, "rdm_ext_country": country, "rdm_ext_climate_indicator": ind}
+    S = ob["series"]
+    srows = []
+    g = S["global_temp_anomaly"]
+    for y, v in zip(g["years"], g["values"]):
+        srows.append({"series": "global_temp_anomaly", "iso3": "WLD", "year": int(y), "value": float(v),
+                      "unit": g["unit"], "kind": "실측", "file_id": g["file_id"]})
+    dg = S["disaster_global"]
+    for hz in _HAZARDS:
+        for y, v in zip(dg["years"], dg["values"][hz]):
+            srows.append({"series": "disaster_" + hz, "iso3": "WLD", "year": int(y), "value": float(v),
+                          "unit": dg["unit"], "kind": "실측", "file_id": dg["file_id"]})
+    cw = S["country_warming"]
+    for iso, vals in cw["values"].items():
+        if iso not in iso_on_map:
+            continue
+        for y, v in zip(cw["years"], vals):
+            if v is not None:
+                srows.append({"series": "country_warming", "iso3": iso, "year": int(y), "value": float(v),
+                              "unit": cw["unit"], "kind": "실측", "file_id": cw["file_id"]})
+    series = pd.DataFrame(srows).sort_values(["series", "iso3", "year"]).reset_index(drop=True)
+
+    out = {"rdm_ext_source": ext_source, "rdm_ext_country": country,
+           "rdm_ext_climate_indicator": ind, "rdm_ext_climate_series": series}
     contracts, snaps = [], []
     for name, df in out.items():
         contracts.append({"source_system": "external_data", "table_name": name, "asof": asof,
@@ -216,14 +211,48 @@ def payload_from_tables(tables: dict) -> dict | None:
                        "year": max(years) if years else None, "source": meta["source"],
                        "values": vals, "domain": _domain(vals, meta["log"])})
     return {
+        "series": _series_payload(tables.get("rdm_ext_climate_series")),
         "source": geo["source"], "source_sha256": geo["source_sha256"],
         "countries": countries,
         "raster": {k: geo["raster"][k] for k in ("w", "h", "deg", "rle")},
         "layers": layers,
         "sources": [{k: (None if _isna(v) else v) for k, v in row.items()} for row in src.to_dict("records")],
         "licences": [{"item": "국경", "text": "Natural Earth 1:110m, public domain"},
+                     {"item": "기온", "text": "Berkeley Earth (출처 표기)"},
+                     {"item": "강수·물리위험", "text": "World Bank WDI, CC BY 4.0"},
+                     {"item": "재해", "text": "EM-DAT via Gapminder, CC BY 4.0"},
                      {"item": "CO2·에너지", "text": "Our World in Data, CC-BY 4.0"}],
     }
+
+
+def _series_payload(ser) -> dict:
+    """시계열 원장 → {이름: {years, values}}. 국가 시계열은 values 가 {iso3: [..]} 이고
+    없는 10년은 None 이다."""
+    if ser is None or len(ser) == 0:
+        return {}
+    out: dict = {}
+    g = ser[ser["series"] == "global_temp_anomaly"].sort_values("year")
+    if len(g):
+        out["global_temp_anomaly"] = {"years": [int(y) for y in g["year"]], "values": [float(v) for v in g["value"]],
+                                      "unit": str(g["unit"].iloc[0])}
+    dz = ser[ser["series"].str.startswith("disaster_")]
+    if len(dz):
+        years = sorted({int(y) for y in dz["year"]})
+        vals = {}
+        for hz in _HAZARDS:
+            part = dz[dz["series"] == "disaster_" + hz]
+            by = {int(r["year"]): float(r["value"]) for _, r in part.iterrows()}
+            vals[hz] = [by.get(y) for y in years]
+        out["disaster_global"] = {"years": years, "values": vals, "unit": str(dz["unit"].iloc[0])}
+    cw = ser[ser["series"] == "country_warming"]
+    if len(cw):
+        years = sorted({int(y) for y in cw["year"]})
+        vals = {}
+        for iso, part in cw.groupby("iso3"):
+            by = {int(r["year"]): float(r["value"]) for _, r in part.iterrows()}
+            vals[str(iso)] = [by.get(y) for y in years]
+        out["country_warming"] = {"years": years, "values": vals, "unit": str(cw["unit"].iloc[0])}
+    return out
 
 
 def exposure_layer(country_mix_rows) -> dict:
