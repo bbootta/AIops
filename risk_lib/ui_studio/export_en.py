@@ -25,6 +25,9 @@ from risk_lib.ui_studio import i18n as _i18n
 DICT_PATH = Path(__file__).parent / "data" / "en_dictionary.json"
 SENT_PATH = Path(__file__).parent / "data" / "en_sentences.json"     # 문장 통째 (정확히 일치)
 FAM_PATH = Path(__file__).parent / "data" / "en_families.json"       # 숫자를 # 으로 바꾼 틀
+UI_KEYS_PATH = Path(__file__).parent / "data" / "en_ui_keys.json"    # 화면 안에서 조합되는 UI 문자열 (원장 값 아님)
+_JS_LIT = (re.compile(r"'((?:[^'\\\n]|\\.)*[가-힣](?:[^'\\\n]|\\.)*)'"),
+           re.compile(r'"((?:[^"\\\n]|\\.)*[가-힣](?:[^"\\\n]|\\.)*)"'))
 _NUMTOK = re.compile(r"[\d][\d,.\-%]*")
 HANGUL = re.compile(r"[가-힣]")
 _SPLIT = re.compile(r"([·,;:()\[\]{}/+×→←↔≥≤=<>|~%&\"'*#@!?…、。_\n\t]+|\s*[-]\s+|\s+[-]\s*|(?<=[가-힣])-|-(?=[가-힣]))")
@@ -60,6 +63,33 @@ def load_dictionary() -> dict[str, str]:
 
 def load_json(path: Path) -> dict[str, str]:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def js_literals(src: str) -> set[str]:
+    """JS 원문에서 한글이 든 문자열 리터럴을 모은다 (화면이 즉석에서 조합하는 UI 문자열의 목록)."""
+    out: set[str] = set()
+    for rx in _JS_LIT:
+        out.update(m.group(1) for m in rx.finditer(src))
+    for m in re.finditer(r"`((?:[^`\\]|\\.)*?)`", src):
+        for part in re.split(r"\$\{[^}]*\}", m.group(1)):
+            if HANGUL.search(part):
+                out.add(part.strip())
+    return out
+
+
+def ui_keys(js_src: str) -> list[str]:
+    """국내(KR) 기관을 볼 때도 영어로 바꿔도 되는 키: 화면 문자열이지 원장 값이 아닌 것.
+
+    i18n 등록 문자열, JS 리터럴, 카탈로그 컬럼·테이블 이름, 화면 조사에서 모은 즉석 조합 문자열.
+    """
+    keys: set[str] = set(_i18n.ko_to_en())
+    keys |= js_literals(js_src)
+    for t in cat.ALL_TABLES:
+        keys.add(t.korean)
+        for c in t.columns:
+            keys.add(c.korean)
+    keys |= set(load_json(UI_KEYS_PATH))
+    return sorted(k for k in keys if HANGUL.search(k))
 
 
 def build_map() -> dict[str, str]:

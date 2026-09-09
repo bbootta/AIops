@@ -1637,31 +1637,39 @@ const DV_LAW={'조':'Article','항':'Paragraph','편':'Part','절':'Section','�
 const DV_SPLIT=/([·,;:()\[\]{}\/+×→←↔≥≤=<>|~%&"'*#@!?…、。_\n\t]+|\s*-\s+|\s+-\s*|(?<=[가-힣])-|-(?=[가-힣]))/;
 const DV_END=/(다\.|다$|이다|한다|없다|않는다|된다|있다|였다|합니다|니다)/,DV_PART=/[가-힣][은는이가을를에로]\s+[가-힣]/;
 const DV_UNIT_RE=/^([\d,.]+)(건|종|장|행|열|칸|쌍|구간|개|명|년|월|일|개월|분기|회|차|호|단계|등급|층|곳|배|인|개사|개국|좌|매|점|원|억원|억|조원|조|만원|만|천만원|천만|천원|천|백만원|백만|십억원|십억)$/;
-function dvWord(w){if(DV[w]!==undefined)return DV[w];let u=DV_UNIT_RE.exec(w);if(u)return u[1]+DV_UNIT[u[2]];
+const DVU=new Set(window.__DVU__||[]);
+function dvKR(){return !!(D&&D.meta&&String(D.meta.institution_code||'').startsWith('KR'))}
+/* 국내 기관을 보는 동안은 원장 값을 건드리지 않는다: 화면 문자열 목록(DVU)에 있는 키만 바꾼다 */
+function dvOk(k){return !dvKR()||DVU.has(k)}
+function dvWord(w){if(DV[w]!==undefined&&dvOk(w))return DV[w];let u=DV_UNIT_RE.exec(w);if(u)return u[1]+DV_UNIT[u[2]];
   u=/^제(\d+)(조|항|편|절|호|관|장)(?:의(\d+))?$/.exec(w);if(u)return DV_LAW[u[2]]+' '+u[1]+(u[3]?'-'+u[3]:'');
-  u=/^([가-힣A-Za-z0-9]+)(의|와|과)$/.exec(w);if(u&&DV[u[1]]!==undefined)return DV[u[1]]+(u[2]==='의'?'':' and');return null}
-function dvSeg(seg){if(DV[seg]!==undefined)return DV[seg];const words=seg.split(' '),out=[];let i=0;
+  u=/^([가-힣A-Za-z0-9]+)(의|와|과)$/.exec(w);if(u&&DV[u[1]]!==undefined&&dvOk(u[1]))return DV[u[1]]+(u[2]==='의'?'':' and');return null}
+function dvSeg(seg){if(DV[seg]!==undefined&&dvOk(seg))return DV[seg];const words=seg.split(' '),out=[];let i=0;
   while(i<words.length){let hit=null;
-    for(let j=words.length;j>i;j--){const ph=words.slice(i,j).join(' ');if(DV[ph]!==undefined){hit=DV[ph];i=j;break}}
+    for(let j=words.length;j>i;j--){const ph=words.slice(i,j).join(' ');if(DV[ph]!==undefined&&dvOk(ph)){hit=DV[ph];i=j;break}}
     if(hit===null){const w=words[i];if(HANGUL.test(w)){hit=dvWord(w);if(hit===null)return null}else hit=w;i++}
     out.push(hit)}
   return out.join(' ')}
 const DVF=window.__DVF__||{},DV_NUM=/[\d][\d,.\-%]*/g;
-function dvFamily(s){const nums=s.match(DV_NUM);if(!nums)return null;const en=DVF[s.replace(DV_NUM,'#')];if(en===undefined)return null;
+function dvFamily(s){const nums=s.match(DV_NUM);if(!nums)return null;const key=s.replace(DV_NUM,'#'),en=DVF[key];if(en===undefined||!dvOk(key))return null;
   let i=0;return en.replace(/#(\d)?/g,(m,d)=>d&&+d<=nums.length?nums[+d-1]:(i<nums.length?nums[i++]:'#'))}
-function dvText(s){if(!HANGUL.test(s))return s;if(DV[s]!==undefined)return DV[s];const fm=dvFamily(s);if(fm!==null)return fm;if(DV_END.test(s)||DV_PART.test(s))return null;
+function dvText(s){if(!HANGUL.test(s))return s;if(DV[s]!==undefined&&dvOk(s))return DV[s];const fm=dvFamily(s);if(fm!==null)return fm;if(DV_END.test(s)||DV_PART.test(s))return null;
   const parts=s.split(DV_SPLIT),out=[];
   for(const p of parts){if(p===undefined||p==='')continue;
     if(HANGUL.test(p)){const core=p.trim(),t=dvSeg(core);if(t===null)return null;
       out.push(p.slice(0,p.length-p.trimStart().length)+t+p.slice(p.trimEnd().length))}
     else out.push(p)}
   return out.join('').replace(/ {2,}/g,' ')}
-function dvActive(){return DV_ON&&LANG==='en'&&!(D&&D.meta&&String(D.meta.institution_code||'').startsWith('KR'))}
+function dvActive(){return DV_ON&&LANG==='en'}
+const DV_ATTRS=['title','placeholder','aria-label'];
+function dvAttrs(el){if(!el||el.nodeType!==1)return;const els=[el,...el.querySelectorAll('[title],[placeholder],[aria-label]')];
+  els.forEach(e=>DV_ATTRS.forEach(a=>{const v=e.getAttribute(a);if(v&&HANGUL.test(v)){const t=dvText(v.trim());if(t!==null&&t!==v)e.setAttribute(a,t)}}))}
 function translateDom(root){if(!dvActive()||!root)return;
   const tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];let n;
   while((n=tw.nextNode())){if(HANGUL.test(n.data)&&n.parentNode&&!/^(SCRIPT|STYLE)$/.test(n.parentNode.tagName))nodes.push(n)}
   nodes.forEach(nd=>{const v=nd.data,core=v.trim(),t=dvText(core);
-    if(t!==null&&t!==core)nd.data=v.slice(0,v.length-v.trimStart().length)+t+v.slice(v.trimEnd().length)})}
+    if(t!==null&&t!==core)nd.data=v.slice(0,v.length-v.trimStart().length)+t+v.slice(v.trimEnd().length)});
+  dvAttrs(root)}
 const INSTS = window.__RYNTA_INSTS__ || {};
 let D = window.__RYNTA__;               /* 활성 실행 (기준일 전환 시 재지정) */
 const $ = (s,r=document)=>r.querySelector(s);
@@ -4543,7 +4551,7 @@ function worldGlobe(root,layers,opts){
   const idxOf={};C.forEach((c,i)=>{idxOf[c.iso3]=i+1});
   const SZ=960,K=SZ/640;           /* 640 기준 선 굵기·글자 배율 */
   /* 처음은 한국 중심, 지구본 */
-  const st={lon:127,lat:36,zoom:1,mode:'globe',layer:layers[0].key,draws:0,selected:null,hover:0};
+  const st={lon:127,lat:36,zoom:0.8,mode:'globe',layer:layers[0].key,draws:0,selected:null,hover:0};
   window.__GLOBE__=st;
   const wrap=el('div','globe');
   const bar=el('div','gtb');
@@ -4559,7 +4567,7 @@ function worldGlobe(root,layers,opts){
   const btn=(lab,fn)=>{const b=el('button','btn',lab);b.type='button';b.onclick=fn;bar.appendChild(b);return b};
   btn('확대',()=>{st.zoom=Math.min(16,st.zoom*1.5);draw()});
   btn('축소',()=>{st.zoom=Math.max(0.6,st.zoom/1.5);draw()});
-  btn('처음으로',()=>{st.lon=127;st.lat=36;st.zoom=1;draw()});
+  btn('처음으로',()=>{st.lon=127;st.lat=36;st.zoom=0.8;draw()});
   wrap.appendChild(bar);
   const stage=rawEl('div','stage');
   const cv=rawEl('canvas');cv.width=SZ;cv.height=SZ;stage.appendChild(cv);
@@ -11273,11 +11281,12 @@ function boot(){
   };
   paintNavTools();
   if(DV_ON){
-    new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(nd=>{
-      if(!dvActive())return;
+    new MutationObserver(ms=>ms.forEach(m=>{if(!dvActive())return;
+      if(m.type==='attributes'){dvAttrs(m.target);return}
+      m.addedNodes.forEach(nd=>{
       if(nd.nodeType===1)translateDom(nd);
-      else if(nd.nodeType===3&&HANGUL.test(nd.data)){const t=dvText(nd.data.trim());if(t!==null)nd.data=t}})))
-      .observe(main,{childList:true,subtree:true});
+      else if(nd.nodeType===3&&HANGUL.test(nd.data)){const t=dvText(nd.data.trim());if(t!==null)nd.data=t}})}))
+      .observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:DV_ATTRS});
     translateDom(document.body)}
   if(first)first.onclick();
   /* 사유 입력은 **화면 안**에서 받는다. prompt()는 샌드박스 iframe(임베드·
@@ -11393,7 +11402,8 @@ def _ser(v) -> str:
 
 def _pack_blob(insts: dict[str, dict[str, dict]], primary_inst: str,
                primary: str, values: dict[str, str] | None = None,
-               families: dict[str, str] | None = None) -> str:
+               families: dict[str, str] | None = None,
+               ui_keys: list[str] | None = None) -> str:
     """실행 payload 들을 한 덩어리로 묶어 gzip 하고 base64 로 돌려준다.
 
     한 파일에 기관 아홉 곳을 실으려면 실행마다 10 MB 가 넘는 JSON 을 그대로
@@ -11499,6 +11509,7 @@ def _pack_blob(insts: dict[str, dict[str, dict]], primary_inst: str,
     blob = {"v": 1, "primary": primary, "primary_inst": primary_inst,
             "values": values or {},
             "families": families or {},
+            "ui_keys": ui_keys or [],
             "pool": pool, "insts": packed, "i18n": _i18n.payload()}
     raw = _ser(blob).encode("utf-8")
     return _b85_encode(gzip.compress(raw, compresslevel=9, mtime=0))
@@ -11622,6 +11633,7 @@ window.__RYNTA_READY__=(async function(){
   window.__RYNTA_INSTS__=P.insts;
   window.__DV__=P.values||{};
   window.__DVF__=P.families||{};
+  window.__DVU__=P.ui_keys||[];
   window.__RYNTA_RUNS__=P.insts[P.primary_inst];
   window.__RYNTA__=window.__RYNTA_RUNS__[P.primary];
   window.__RYNTA_I18N__=P.i18n;
@@ -11673,7 +11685,8 @@ def render(studios: Studio | list[Studio], *, lang: str | None = None,
     # 그만큼 커지고, 두 벌 중 한쪽만 고쳐질 여지가 생긴다.
     b64 = _blob_literal(_pack_blob(insts, primary_inst, primary,
                                    values=tr.m if tr is not None else None,
-                                   families=tr.fam if tr is not None else None))
+                                   families=tr.fam if tr is not None else None,
+                                   ui_keys=_ex.ui_keys(_JS) if tr is not None else None))
     title = "RYNTA Agentic UI Studio" if lang == "en" else "RYNTA 에이전틱 UI 스튜디오"
     lang_btn = '<button class="theme" id="langbtn" type="button">English</button>'
     digest_chip = ("" if public else

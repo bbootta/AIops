@@ -998,5 +998,17 @@
 "-# (채택 대비)": "-# (vs adopted)",
 "원장 채택값 (CRE# 계층)": "Ledger adopted value (CRE# hierarchy)",
 "회수기간 최단 Securities NCR Package #년 (전 수치 가정 원장 파생·이중계상 검증 통과)": "Shortest payback Securities NCR Package # years (all figures derived from the assumption ledger; double-counting check passed)",
-"ROI 이중계상 검증 통과. 편익 항목마다 출처 가정이 하나씩이다 (COM-#)": "ROI double-counting check passed. Each benefit item has exactly one source assumption (COM-#)"
+"ROI 이중계상 검증 통과. 편익 항목마다 출처 가정이 하나씩이다 (COM-#)": "ROI double-counting check passed. Each benefit item has exactly one source assumption (COM-#)",
+"자체검증 PASS # · WARN # · FAIL #": "Self-validation PASS # · WARN # · FAIL #",
+"# · 손익 -#m · VaR #bn": "# · P&L -#m · VaR #bn",
+"# · 손익 #m · VaR #bn": "# · P&L #m · VaR #bn",
+"예) 자산군별 기여도를 막대차트로 보여주고 아래에 EAD·위험가중치 검토 표를 배치해줘. 상위 #건.": "e.g. Show the contribution by asset class as a bar chart with a review table of EAD and risk weight below it. Top #.",
+"가정 검색 (예: 합성 · 레버리지 · F-#)": "Search assumptions (e.g. synthetic · leverage · F-#)",
+"보통주자본 (CET#) 변화액 (억원)": "Common equity Tier 1 (CET#) change (100m KRW)",
+"기타기본자본 (AT#) 변화액 (억원)": "Additional Tier 1 (AT#) change (100m KRW)",
+"보완자본 (T#) 변화액 (억원)": "Tier 2 (T#) change (100m KRW)",
+"보통주자본비율 (CET#) # (요구 # · 여유 +#p · 제약 총자본 -#p (완충자본 미달 #종, 배당·성과급 제한))": "CET1 ratio (CET#) # (required # · headroom +#p · binding total capital -#p (# buffer shortfalls, dividend and bonus restrictions))",
+"위기 위기상황 저점 # (요구비율 침범, 자본계획·회복계획 연계 대상)": "Stress trough # (breaches the required ratio; subject to capital plan and recovery plan linkage)",
+"stress.trough_cet# · 스트레스 경로 최저 CET# (severely_adverse, #Q#) · BCBS Stress testing principles (#) / Pillar #": "stress.trough_cet# · lowest CET# on the stress path (severely_adverse, #Q#) · BCBS Stress testing principles (#) / Pillar #",
+"# · 외부 공급자·데이터 경로·집중위험": "# · external providers, data paths and concentration risk"
 }
