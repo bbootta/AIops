@@ -4601,7 +4601,12 @@ function worldGlobe(root,layers,opts){
     if(cosc<0){const r=Math.hypot(x,y)||1;x=x/r*Rg;y=y/r*Rg}
     return [SZ/2+x,SZ/2+y]}
   function ringPath(ring,flat,Rg,k){
-    if(!flat){ring.forEach(([lo,la],j)=>{const p=projClamp(lo,la,Rg);if(j)ctx.lineTo(p[0],p[1]);else ctx.moveTo(p[0],p[1])});ctx.closePath();return}
+    if(!flat){
+      /* 전부 뒷면인 고리는 그리지 않는다. 가장자리 원에 눌러 붙인 점들이 원판을 채워
+         돌릴 때마다 번쩍인다. 일부만 보이는 고리는 뒷면 점을 가장자리로 눌러 실루엣이 된다. */
+      const la0=st.lat*DEG,sla=Math.sin(la0),cla=Math.cos(la0);
+      if(!ring.some(([lo,la])=>sla*Math.sin(la*DEG)+cla*Math.cos(la*DEG)*Math.cos((lo-st.lon)*DEG)>=0))return;
+      ring.forEach(([lo,la],j)=>{const p=projClamp(lo,la,Rg);if(j)ctx.lineTo(p[0],p[1]);else ctx.moveTo(p[0],p[1])});ctx.closePath();return}
     /* 평면: 경도를 이어 붙여 이음매를 없애고, 좌우 한 바퀴씩 더 그려 잘린 나라를 채운다 */
     let prev=null;const pts=[];
     ring.forEach(([lo,la])=>{let dl=((lo-st.lon+540)%360)-180;
@@ -4662,7 +4667,9 @@ function worldGlobe(root,layers,opts){
       ctx.shadowBlur=0}
     st.draws++;
   }
-  function draw(){paint()}
+  /* 그리기는 프레임마다 한 번. 드래그 중 포인터 이벤트마다 그리면 프레임이 밀려 번쩍인다. */
+  let pending=false;
+  function draw(){if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;paint()})}
   function describe(ci,lon,lat){
     readout.innerHTML='';
     if(!ci){readout.appendChild(rawEl('b',null,lon!=null?lon.toFixed(1)+'°, '+lat.toFixed(1)+'°':''));
@@ -4674,7 +4681,7 @@ function worldGlobe(root,layers,opts){
       s.appendChild(document.createTextNode(' '+fmtNum(v)+' '+l.unit));readout.appendChild(s)});
   }
   function select(iso3){
-    st.selected=iso3;paint();
+    st.selected=iso3;draw();
     const c=C.find(x=>x.iso3===iso3)||null;
     if(opts.onSelect)opts.onSelect(c);
     if(c)describe(idxOf[iso3]);
@@ -4691,9 +4698,9 @@ function worldGlobe(root,layers,opts){
       st.lon=((dragging.lon-dx*s*per+540)%360)-180;st.lat=Math.max(-85,Math.min(85,dragging.lat+dy*s*per));
       draw();return}
     const ll=invert(x,y);const ci=ll?cellAt(ll[0],ll[1]):0;
-    if(ci!==st.hover){st.hover=ci;paint()}
+    if(ci!==st.hover){st.hover=ci;draw()}
     if(ll)describe(ci,ll[0],ll[1]);else if(st.selected)describe(idxOf[st.selected])});
-  cv.addEventListener('pointerleave',()=>{if(st.hover){st.hover=0;paint()}if(st.selected)describe(idxOf[st.selected])});
+  cv.addEventListener('pointerleave',()=>{if(st.hover){st.hover=0;draw()}if(st.selected)describe(idxOf[st.selected])});
   const up=e=>{if(!dragging)return;const d=dragging;dragging=null;
     if(!d.moved){const [x,y]=pos(e),ll=invert(x,y);
       if(ll){st.lon=ll[0];st.lat=Math.max(-85,Math.min(85,ll[1]));st.zoom=Math.min(16,st.zoom*1.5);
@@ -4705,7 +4712,7 @@ function worldGlobe(root,layers,opts){
   setLayer(st.layer);draw();
   root.appendChild(wrap);
   const api={wrap,state:st,setLayer:k=>{setLayer(k);draw()},select,layerOf:()=>layer,countries:C};
-  if(opts.select){st.selected=opts.select;paint();const c=C.find(x=>x.iso3===opts.select);if(c){describe(idxOf[opts.select]);if(opts.onSelect)opts.onSelect(c)}}
+  if(opts.select){st.selected=opts.select;draw();const c=C.find(x=>x.iso3===opts.select);if(c){describe(idxOf[opts.select]);if(opts.onSelect)opts.onSelect(c)}}
   return api;
 }
 
