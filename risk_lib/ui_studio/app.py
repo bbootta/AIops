@@ -1622,6 +1622,11 @@ _JS = r"""
    축으로 통째로 바뀐다. 두 선택기 모두 미리 산출해 실은 실행 사이를 오갈
    뿐이며 화면은 새 산출을 만들지 못한다. */
 let RUNS = window.__RYNTA_RUNS__;
+/* 원장 값 비교. 공개 영문 빌드는 원장 값을 영어로 옮겨 싣고 그 사전을 __DV__ 로 준다.
+   화면의 판정(상태·등급 문자열 비교)은 원문과 옮긴 값 어느 쪽이든 맞아야 한다. */
+const DV=window.__DV__||{};
+function eqv(v,ko){return v===ko||(DV[ko]!==undefined&&v===DV[ko])}
+function hasv(v,ko){const t=String(v==null?'':v);return t.indexOf(ko)>=0||(DV[ko]!==undefined&&t.indexOf(DV[ko])>=0)}
 const INSTS = window.__RYNTA_INSTS__ || {};
 let D = window.__RYNTA__;               /* 활성 실행 (기준일 전환 시 재지정) */
 const $ = (s,r=document)=>r.querySelector(s);
@@ -2616,8 +2621,8 @@ function kriCards(kris){
     c.appendChild(row);
     const ft=el('div');ft.style.cssText='display:flex;gap:6px;margin-top:3px';
     const th=rawEl('span','meta',k.threshold_text);th.style.flex='1';ft.appendChild(th);
-    if(k.trend)ft.appendChild(el('span','meta '+(k.trend==='악화'?'bad':'good'),
-      '12M '+(k.trend==='악화'?'↘':'↗')+' '+k.trend));
+    if(k.trend)ft.appendChild(el('span','meta '+(eqv(k.trend,'악화')?'bad':'good'),
+      '12M '+(eqv(k.trend,'악화')?'↘':'↗')+' '+k.trend));
     c.appendChild(ft);
     g.appendChild(c)});
   return g;
@@ -2789,7 +2794,7 @@ const DOMAIN_CHARTS={
     const i=frameIdx(f),g=groupSum(f,'level','ead');
     root.appendChild(hbars(g.map(x=>({
       label:`조기경보 ${x.key}`,value:x.sum,sub:`${x.n.toLocaleString()}건`,
-      tone:x.key==='경보'?'bad':x.key==='주의'?'warn':undefined})),
+      tone:eqv(x.key,'경보')?'bad':eqv(x.key,'주의')?'warn':undefined})),
       {title:'조기경보 단계별 익스포저(EAD)',share:true,src:srcMeta(f)}));
   },
   'PRD-ALM':root=>{
@@ -2900,7 +2905,7 @@ function cockpit(root){
     const f2=el('div','feed');
     exq.rows.slice(0,6).forEach(r=>{
       const it=el('div','feeditem');
-      const tone=r[xi.severity]==='중대'?'bad':'warn';
+      const tone=eqv(r[xi.severity],'중대')?'bad':'warn';
       it.appendChild(rawEl('span','sev '+tone,r[xi.severity]));
       const body=el('div');
       body.appendChild(rawEl('div',null,r[xi.exception_id]+' · '+r[xi.finding]));
@@ -3009,7 +3014,7 @@ function cockpit(root){
   ctlc.appendChild(el('h3',null,'통제 진행 (증빙·대사·검증)'));
   const ev=D.evidence_nodes,evi=frameIdx(ev);
   ctlc.appendChild(meter('증빙 계보 완결',
-    ev.rows.filter(r=>r[evi.status]==='완결').length,ev.rows.length));
+    ev.rows.filter(r=>eqv(r[evi.status],'완결')).length,ev.rows.length));
   const rc=D.reconciliation,rci=frameIdx(rc);
   ctlc.appendChild(meter('집계·대사 통과',
     rc.rows.filter(r=>r[rci.status]==='PASS').length,rc.rows.length));
@@ -3019,12 +3024,12 @@ function cockpit(root){
     vl.rows.filter(r=>r[vli.status]==='PASS').length,vl.rows.length,
     nfail?'bad':undefined));
   const ap=D.approvals,api=frameIdx(ap);
-  const pend=ap.rows.filter(r=>r[api.decision]!=='승인');
+  const pend=ap.rows.filter(r=>!eqv(r[api.decision],'승인'));
   ctlc.appendChild(el('h3',null,'의사결정 큐'));
   ctlc.appendChild(dotlist((pend.length?pend:ap.rows).slice(0,6).map(r=>({
     label:`${r[api.subject_type]} · ${r[api.subject_id]}`,
     right:r[api.decision],
-    tone:r[api.decision]==='승인'?'good':r[api.decision]==='반려'?'bad':'warn'}))));
+    tone:eqv(r[api.decision],'승인')?'good':eqv(r[api.decision],'반려')?'bad':'warn'}))));
   if(ap.shown<ap.total)ctlc.appendChild(el('div','meta',
     `표시 범위 (승인 원장 ${ap.total.toLocaleString()}건 중 ${ap.shown.toLocaleString()}건)`));
   two.appendChild(ctlc);
@@ -3039,7 +3044,7 @@ function cockpit(root){
     n.appendChild(el('b',null,`0${i+1} ${stage}`));
     n.appendChild(el('div',null,label));
     const s=el('div');s.appendChild(pill(status,
-      status==='완결'?'good':status==='검토'?'warn':'bad'));
+      eqv(status,'완결')?'good':eqv(status,'검토')?'warn':'bad'));
     n.appendChild(s);flow.appendChild(n);
     n.onclick=()=>{
       drill.innerHTML='';
@@ -3600,7 +3605,7 @@ function stressDeepDive(root){
   function troughQuarter(sc){
     let best=null,bv=Infinity;
     f.rows.forEach(r=>{
-      if(r[i.scenario]===sc&&r[i.step]==='보통주자본비율'&&r[i.value]<bv){
+      if(r[i.scenario]===sc&&eqv(r[i.step],'보통주자본비율')&&r[i.value]<bv){
         bv=r[i.value];best=r[i.quarter]}});
     return best;
   }
@@ -4142,7 +4147,7 @@ function validation(root){
   /* --- 3선 게이트 --- */
   const g=el('div','card');
   g.appendChild(el('h3',null,'상시 독립검증 (3선) 게이트'));
-  const tone=iv.status==='적합'?'good':iv.status==='부적합'?'bad':'warn';
+  const tone=eqv(iv.status,'적합')?'good':eqv(iv.status,'부적합')?'bad':'warn';
   const kg=el('div','grid');
   [['게이트 상태',iv.status,tone],['요청 식별자',iv.request_id,''],
    ['수신 팀',iv.requested_to,''],['수신 브랜치',iv.branch,''],
@@ -4357,7 +4362,7 @@ function scenarioSettings(root){
      추적표가 정본이고, 여기 따로 적으면 두 벌이 갈라진다. */
   const axes=[];const seen=new Set();
   f.rows.forEach(r=>{
-    if(r[i.block]!=='충격축'||seen.has(r[i.step]))return;
+    if(!eqv(r[i.block],'충격축')||seen.has(r[i.step]))return;
     seen.add(r[i.step]);
     const m=/단위충격\(([-\d.]+)\s*(\S+)\)/.exec(r[i.formula]||'');
     axes.push({step:r[i.step],unit:m?m[2]:r[i.unit],base:m?parseFloat(m[1]):null})});
@@ -4443,8 +4448,6 @@ function clrGate(root){
   if(D.climate)return true;
   root.appendChild(el('div','note bad','이 실행에는 기후 부문이 실려 있지 않다. DB 적재본이면 db-load 로 다시 적재해야 한다.'));
   return false}
-function clrLevelNote(){
-  return el('div','note','산출 수준: 부문 계수(탄소가격당 PD 상승, 재해강도당 LGD 상승)로 ECL 상승분을 낸다. 차주·자산·보험 단위 전이와 clr_* 원장은 없다. 참고 계산이며 승인된 수치가 아니다.')}
 function clrLegSummary(l){
   return hbars([{label:T('위험 노출 EAD'),value:l.total_ear},{label:T('기준 ECL'),value:l.base_ecl},
     {label:T('기후 ECL'),value:l.climate_ecl},{label:T('ECL 상승분'),value:l.uplift,tone:'warn'}],
@@ -4453,7 +4456,7 @@ function clrSectorCard(l){
   const f=l.by_sector,i=frameIdx(f);
   const c=el('div','card');c.appendChild(el('h3',null,'부문별 ECL 상승분'));
   const items=f.rows.filter(r=>r[i.uplift_ecl]>0).map(r=>({label:r[i.sector],value:r[i.uplift_ecl]}));
-  if(items.length)c.appendChild(bars(items,{fmt:fmtMoney,note:T('상승분이 0 인 부문은 계수가 0 이라 그래프에서 뺐다')}));
+  if(items.length)c.appendChild(bars(items,{fmt:fmtMoney}));
   c.appendChild(table(f));
   return c}
 function clrSelectPane(root,legs,initial){
@@ -4480,12 +4483,13 @@ function clrPathTable(K,key,title,fmt){
    등장방형(평면) 두 투영, 드래그 회전(이동)·휠 확대·클릭 확대(누른 지점을 가운데로).
    나라는 국경 다각형을 벡터로 채우므로 어느 배율에서도 해안선이 매끈하다. 마우스가 가리키는
    나라는 0.5도 국가 격자에서 역투영으로 찾는다(다각형 판정 없음). 난수·시각을 쓰지 않는다. */
+/* 채도를 낮춘 팔레트. 원색 채우기는 구면 음영과 싸워 값싸 보인다. */
 const GLOBE_PAL={
-  temp:[[37,52,148],[44,127,184],[127,205,187],[237,248,177],[254,204,92],[240,59,32],[128,0,38]],
-  warm:[[255,247,236],[253,212,158],[252,141,89],[215,48,31],[127,0,0]],
-  precip:[[255,255,217],[199,233,180],[65,182,196],[34,94,168],[8,29,88]],
-  heat:[[255,247,188],[254,196,79],[236,112,20],[153,52,4],[80,20,40]],
-  green:[[247,252,185],[173,221,142],[65,171,93],[0,104,55]],
+  temp:[[52,74,128],[78,132,178],[150,196,204],[234,226,190],[230,166,104],[196,88,70],[118,38,48]],
+  warm:[[250,236,216],[240,196,152],[224,142,106],[188,82,72],[118,36,46]],
+  precip:[[242,245,230],[188,220,194],[112,180,188],[56,120,160],[26,62,102]],
+  heat:[[250,240,204],[242,196,112],[222,132,74],[160,72,62],[82,32,52]],
+  green:[[238,244,214],[178,212,150],[100,168,112],[34,110,72]],
   accent:[[226,238,250],[102,177,255],[13,71,161]]};
 function cssRgb(name,fallback){
   const v=getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -4502,7 +4506,7 @@ function worldGlobe(root,layers,opts){
   R.rle.forEach((row,y)=>{let x=0;for(let k=0;k<row.length;k+=2){const v=row[k],n=row[k+1];
     for(let j=0;j<n;j++)grid[y*R.w+x+j]=v;x+=n}});
   const idxOf={};C.forEach((c,i)=>{idxOf[c.iso3]=i+1});
-  const SZ=640;
+  const SZ=960,K=SZ/640;           /* 640 기준 선 굵기·글자 배율 */
   /* 처음은 한국 중심, 지구본 */
   const st={lon:127,lat:36,zoom:1,mode:'globe',layer:layers[0].key,draws:0,selected:null,hover:0};
   window.__GLOBE__=st;
@@ -4621,47 +4625,54 @@ function worldGlobe(root,layers,opts){
     ctx.clearRect(0,0,SZ,H);
     ctx.save();
     if(flat){ctx.fillStyle=rgb(ocean);ctx.fillRect(0,0,SZ,H)}
-    else{ctx.beginPath();ctx.arc(cx,cy,Rg,0,2*Math.PI);ctx.clip();
-      const og=ctx.createRadialGradient(cx-Rg*0.3,cy-Rg*0.3,Rg*0.1,cx,cy,Rg);
-      og.addColorStop(0,rgb(ocean.map(v=>v*1.25+(dark?18:0))));og.addColorStop(1,rgb(ocean.map(v=>v*0.7)));
+    else{
+      /* 바깥 글로우와 그림자를 먼저 깔고 원판을 오린다 */
+      ctx.restore();ctx.save();
+      let g=ctx.createRadialGradient(cx,cy,Rg*0.98,cx,cy,Rg*1.16);
+      g.addColorStop(0,ac+(dark?'.42)':'.30)'));g.addColorStop(0.45,ac+(dark?'.12)':'.08)'));g.addColorStop(1,ac+'0)');
+      ctx.fillStyle=g;ctx.fillRect(0,0,SZ,H);
+      ctx.beginPath();ctx.arc(cx,cy,Rg,0,2*Math.PI);ctx.clip();
+      const og=ctx.createRadialGradient(cx-Rg*0.35,cy-Rg*0.35,Rg*0.05,cx,cy,Rg*1.05);
+      og.addColorStop(0,rgb(ocean.map(v=>v*1.35+(dark?22:8))));og.addColorStop(0.6,rgb(ocean));og.addColorStop(1,rgb(ocean.map(v=>v*0.55)));
       ctx.fillStyle=og;ctx.fillRect(0,0,SZ,H)}
     /* 나라 채우기 (벡터) */
     C.forEach((c,i)=>{ctx.fillStyle=rgb(colorOf(i+1));ctx.beginPath();c.rings.forEach(r=>ringPath(r,flat,Rg,k));ctx.fill('evenodd')});
+    /* 해안선 밝은 띠: 땅과 바다의 경계가 부드럽게 빛난다 */
+    ctx.beginPath();ctx.lineWidth=2.4*K;ctx.strokeStyle=(dark?'rgba(255,255,255,':'rgba(255,255,255,')+(dark?'.10)':'.55)');ctx.lineJoin='round';
+    C.forEach(c=>c.rings.forEach(trace));ctx.stroke();
     /* 구면 음영: 가장자리 어둡게, 왼쪽 위 하이라이트 */
     if(!flat){
-      let g=ctx.createRadialGradient(cx,cy,Rg*0.5,cx,cy,Rg);
-      g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(0.8,'rgba(0,0,0,.14)');g.addColorStop(1,'rgba(0,0,0,.5)');
+      let g=ctx.createRadialGradient(cx,cy,Rg*0.45,cx,cy,Rg);
+      g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(0.75,'rgba(0,0,0,.16)');g.addColorStop(0.94,'rgba(0,0,0,.42)');g.addColorStop(1,'rgba(0,0,0,.62)');
       ctx.fillStyle=g;ctx.fillRect(0,0,SZ,H);
-      g=ctx.createRadialGradient(cx-Rg*0.38,cy-Rg*0.42,0,cx-Rg*0.38,cy-Rg*0.42,Rg*0.9);
-      g.addColorStop(0,'rgba(255,255,255,.13)');g.addColorStop(1,'rgba(255,255,255,0)');
+      g=ctx.createRadialGradient(cx-Rg*0.4,cy-Rg*0.45,0,cx-Rg*0.4,cy-Rg*0.45,Rg*0.95);
+      g.addColorStop(0,'rgba(255,255,255,.16)');g.addColorStop(1,'rgba(255,255,255,0)');
       ctx.fillStyle=g;ctx.fillRect(0,0,SZ,H)}
     ctx.restore();
     /* 경위선 30도 */
-    ctx.beginPath();ctx.lineWidth=0.7;ctx.strokeStyle=ink+(dark?'.10)':'.12)');
+    ctx.beginPath();ctx.lineWidth=0.7*K;ctx.strokeStyle=ink+(dark?'.09)':'.10)');
     for(let lo=-180;lo<180;lo+=30){const pts=[];for(let la=-90;la<=90;la+=3)pts.push([lo,la]);trace(pts)}
     for(let la=-60;la<=60;la+=30){const pts=[];for(let lo=-180;lo<=180;lo+=3)pts.push([lo,la]);trace(pts)}
     ctx.stroke();
-    /* 국경 */
-    ctx.beginPath();ctx.lineWidth=Math.min(1.3,0.45+0.18*st.zoom);ctx.strokeStyle=ink+(dark?'.34)':'.42)');ctx.lineJoin='round';
+    /* 국경: 가늘게 */
+    ctx.beginPath();ctx.lineWidth=Math.min(1.2,0.4+0.16*st.zoom)*K;ctx.strokeStyle=ink+(dark?'.30)':'.38)');ctx.lineJoin='round';
     C.forEach(c=>c.rings.forEach(trace));ctx.stroke();
     if(!flat){
-      /* 대기 테두리: 안쪽 림과 바깥 글로우 */
-      let g=ctx.createRadialGradient(cx,cy,Rg*0.86,cx,cy,Rg);
-      g.addColorStop(0,ac+'0)');g.addColorStop(1,ac+(dark?'.28)':'.18)'));
+      /* 대기: 안쪽 림 */
+      let g=ctx.createRadialGradient(cx,cy,Rg*0.84,cx,cy,Rg);
+      g.addColorStop(0,ac+'0)');g.addColorStop(0.85,ac+(dark?'.16)':'.10)'));g.addColorStop(1,ac+(dark?'.5)':'.3)'));
       ctx.save();ctx.beginPath();ctx.arc(cx,cy,Rg,0,2*Math.PI);ctx.clip();ctx.fillStyle=g;ctx.fillRect(0,0,SZ,SZ);ctx.restore();
-      g=ctx.createRadialGradient(cx,cy,Rg,cx,cy,Rg*1.08);
-      g.addColorStop(0,ac+(dark?'.55)':'.35)'));g.addColorStop(1,ac+'0)');
-      ctx.save();ctx.beginPath();ctx.arc(cx,cy,Rg*1.08,0,2*Math.PI);ctx.arc(cx,cy,Rg,0,2*Math.PI,true);ctx.clip();
-      ctx.fillStyle=g;ctx.fillRect(0,0,SZ,SZ);ctx.restore();
-      ctx.beginPath();ctx.arc(cx,cy,Rg,0,2*Math.PI);ctx.strokeStyle=ac+'.6)';ctx.lineWidth=1;ctx.stroke()}
-    /* 선택·강조 국가 */
+      ctx.beginPath();ctx.arc(cx,cy,Rg,0,2*Math.PI);ctx.strokeStyle=ac+(dark?'.7)':'.45)');ctx.lineWidth=1.2*K;ctx.stroke()}
+    /* 선택·강조 국가: 은은한 빛 테두리 */
     const selI=st.selected?idxOf[st.selected]:0;
-    if(selI)outline(selI,'rgba('+acc.join(',')+',.95)',2.2);
-    if(st.hover&&st.hover!==selI)outline(st.hover,ink+'.9)',1.6);
+    ctx.save();ctx.shadowColor='rgba('+acc.join(',')+',.9)';ctx.shadowBlur=10*K;
+    if(selI)outline(selI,'rgba('+acc.join(',')+',.95)',2.2*K);
+    ctx.restore();
+    if(st.hover&&st.hover!==selI)outline(st.hover,ink+'.85)',1.5*K);
     /* 확대하면 나라 이름. 중심점이 그 나라 격자 위에 있을 때만 (군도는 바다 위에 찍힌다) */
     if(st.zoom>=2.2){
-      ctx.font='600 11px system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillStyle=ink+'.92)';ctx.shadowColor=dark?'rgba(0,0,0,.8)':'rgba(255,255,255,.9)';ctx.shadowBlur=3;
+      ctx.font='600 '+Math.round(11*K)+'px system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillStyle=ink+'.92)';ctx.shadowColor=dark?'rgba(0,0,0,.8)':'rgba(255,255,255,.9)';ctx.shadowBlur=3*K;
       C.forEach((c,i)=>{if(cellAt(c.c[0],c.c[1])!==i+1)return;const p=project(c.c[0],c.c[1]);
         if(!p||p[0]<0||p[0]>SZ||p[1]<0||p[1]>cv.height)return;ctx.fillText(c.name,p[0],p[1])});
       ctx.shadowBlur=0}
@@ -4789,8 +4800,7 @@ function geoPanel(root,layers,exposure){
         const wa=sv/sw,ratio=med?wa/med:null;
         const r2=v=>Math.abs(v)>=100?Math.round(v):+v.toFixed(2);
         rows.push([T(l.label),fmtNum(r2(wa))+' '+l.unit,fmtNum(r2(med))+' '+l.unit,ratio==null?'-':ratio.toFixed(2)+'x',fmtNum(r2(sw))+'%'])});
-      expCard.appendChild(simpleTable(['지표','익스포저 가중 평균','세계 중앙값','배율','매칭 익스포저'],rows));
-      expCard.appendChild(el('div','meta','가중치는 inst_country_mix 의 국가 비중이고, 지도에 없는 지역은 빠진다. 배율이 1 을 넘으면 이 기관의 국가 구성이 세계 중앙값보다 그 지표에 더 노출돼 있다.'))}
+      expCard.appendChild(simpleTable(['지표','익스포저 가중 평균','세계 중앙값','배율','매칭 익스포저'],rows))}
   }
   function onSelect(c){
     if(!S.country_warming)return;
@@ -4808,8 +4818,7 @@ function geoPanel(root,layers,exposure){
 function climateOverview(root){
   if(!clrGate(root))return;
   const C=D.climate,K=C.capital,Q=D.req_trace_clr.coverage;
-  root.appendChild(el('p','lead','기후리스크를 이 하네스가 지금 어디까지 산출하는지 한 화면에 모은다. 전환·물리 ECL 상승분, NGFS 자본 경로, 시나리오 카탈로그, ICAAP 인벤토리의 기후 항목, 요건 커버리지다.'));
-  root.appendChild(clrLevelNote());
+  root.appendChild(el('p','lead','전환·물리적 위험의 ECL 상승분, NGFS 자본 경로, 시나리오 카탈로그, ICAAP 인벤토리의 기후 항목, 요건 커버리지를 한 화면에서 본다.'));
   if(D.geo){
     const two=rawEl('div','geo2');
     const gc=el('div','card');gc.appendChild(el('h3',null,'세계 기후리스크 지도 (지구본 히트맵)'));
@@ -4860,7 +4869,6 @@ function climateOverview(root){
   sc.appendChild(simpleTable(['코드','이름','시계(년)','CO2 가격 ($/t)','GDP 성장 충격','주택가격 충격','심각도','인용'],
     C.scenarios.map(x=>[x.short,x.name,x.horizon_years,x.co2_price,pctv(x.gdp_growth,1),
       pctv(x.hpi_korea,1),x.severity,x.citation])));
-  sc.appendChild(el('div','meta','승인 상태·버전·출처 등급 컬럼은 없다 (CLR-06-01 부분). 등록만 있고 승인 흐름은 없다.'));
   root.appendChild(sc);
 
   /* 요건 커버리지를 장별 100% 띠로. 레지스터는 요건 추적 화면과 같은 payload 다. */
@@ -4870,7 +4878,6 @@ function climateOverview(root){
     return {label:ch.no+' · '+ch.title,items:[{label:T('반영'),value:n('반영'),tone:'good'},
       {label:T('부분'),value:n('부분'),tone:'warn'},{label:T('미반영'),value:n('미반영'),tone:'bad'}]}});
   rq.appendChild(shareStrips(rows,{}));
-  rq.appendChild(el('div','meta','상세설계 화면 F01(작업함)·F02(품질·예외)·F03(시나리오·모형 등록)·F04(실행·모니터)·F05(차주·담보·손실)·F06(검증·모형대사)·F07(승인·반려)·F08(보고·제출·정정)은 clr_* 원장이 생기기 전에는 만들지 않는다. 요건별 판정은 요건 추적 화면의 기후리스크 레지스터에 있다.'));
   root.appendChild(rq);
 }
 
@@ -4878,7 +4885,6 @@ function climateTransition(root){
   if(!clrGate(root))return;
   const C=D.climate,K=C.capital;
   root.appendChild(el('p','lead','탄소가격이 부문별 PD 를 올리고 그만큼 ECL 이 오른다. 시나리오 셋 × 시계 둘(2030·2050)의 상승분, 고른 시나리오의 부문 분해, NGFS 탄소가격 경로를 본다.'));
-  root.appendChild(clrLevelNote());
   const c1=el('div','card');c1.appendChild(el('h3',null,'시나리오·시계별 ECL 상승분'));
   c1.appendChild(bars(C.transition.map(l=>({label:clrShort(l),value:l.uplift})),{fmt:fmtMoney}));
   root.appendChild(c1);
@@ -4889,8 +4895,7 @@ function climateTransition(root){
 function climatePhysical(root){
   if(!clrGate(root))return;
   const C=D.climate,K=C.capital;
-  root.appendChild(el('p','lead','재해강도가 부문별 LGD 를 올리고 그만큼 ECL 이 오른다. 경로 셋의 상승분, 고른 경로의 부문 분해, NGFS 재해강도 경로를 본다. 보험 회수와 적응효과는 아직 반영하지 않는다.'));
-  root.appendChild(clrLevelNote());
+  root.appendChild(el('p','lead','재해강도가 부문별 LGD 를 올리고 그만큼 ECL 이 오른다. 경로 셋의 상승분, 고른 경로의 부문 분해, NGFS 재해강도 경로를 본다.'));
   const c1=el('div','card');c1.appendChild(el('h3',null,'경로별 ECL 상승분'));
   c1.appendChild(hbars(C.physical.map(l=>({label:clrLegLabel(l),value:l.uplift,sub:l.narrative})),{}));
   root.appendChild(c1);
@@ -4905,7 +4910,6 @@ function climateCapital(root){
   if(!clrGate(root))return;
   const K=D.climate.capital,f=K.path,i=frameIdx(f);
   root.appendChild(el('p','lead','NGFS 시나리오 셋을 2030년부터 2060년까지 5년 간격으로 밀어 보통주자본비율 경로를 그린다. 탄소가격이 PD 를, 재해강도가 LGD 를 올려 ECL 증분만큼 자본이 줄고 RWA 가 는다. 요구선은 최저비율에 버퍼를 더한 값이다.'));
-  root.appendChild(clrLevelNote());
   const scen=[...new Set(f.rows.map(r=>r[i.scenario]))];
   const years=[...new Set(f.rows.map(r=>r[i.year]))];
   const at=(sc,y)=>f.rows.find(r=>r[i.scenario]===sc&&r[i.year]===y);
@@ -4922,7 +4926,6 @@ function climateCapital(root){
   root.appendChild(c2);
   const c3=el('div','card');c3.appendChild(el('h3',null,'경로 원표 (시나리오 × 연도)'));
   c3.appendChild(table(f));
-  c3.appendChild(el('div','meta','산출: risk_lib.stress.climate_capital.run_climate_capital. 운영 보고서 50번과 같은 값이다.'));
   root.appendChild(c3);
 }
 
@@ -4948,8 +4951,7 @@ function aiOverview(root){
   const reg=D.data['agent_registry'],act=D.data['agent_activity'],ks=D.data['agent_killswitch'],
         ap=D.data['gov_approval'],tr=D.data['aig_agent_trace'],rules=D.data['aig_redaction_rule'],
         Q=D.req_trace_air.coverage;
-  root.appendChild(el('p','lead','AI 리스크 통제가 이 하네스에서 어디까지 실재하는지 한 화면에 모은다. 에이전트 인벤토리와 권한, 활동과 게이트, 비상정지, 4-Eyes 승인, 마스킹 적중, 요건 76건 커버리지, 해설서 화면 12종과의 대응이다.'));
-  root.appendChild(el('div','note','이 하네스는 언어모형을 호출하지 않는 결정론 산출 라이브러리다. 여기 보이는 통제는 에이전트 레지스트리·활동·추적 사슬·마스킹·비상정지·승인 원장이며, 해설서의 엔티티 테이블 43장은 카탈로그에 없다. 원장이 없는 화면은 만들지 않았다.'));
+  root.appendChild(el('p','lead','에이전트 인벤토리와 권한, 활동과 게이트, 비상정지, 4-Eyes 승인, 마스킹 적중, 요건 76건 커버리지, 해설서 화면 12종과의 대응을 한 화면에서 본다.'));
   const full=f=>f&&f.shown>=f.total;
   const cnt=(f,col,pred)=>{if(!f)return 0;const i=frameIdx(f);return f.rows.filter(r=>pred(r[i[col]])).length};
   const g=el('div','grid');
@@ -4958,8 +4960,8 @@ function aiOverview(root){
     if(sub)c.appendChild(rawEl('div','sub',sub));g.appendChild(c)};
   if(reg){const w=cnt(reg,'write_allowed',v=>v===true);
     tile('등록 에이전트',String(reg.total),T('운영 반영 권한')+' '+TC(w,'건'),w?'bad':'good');
-    tile('위험등급 상',String(cnt(reg,'risk_tier',v=>v==='상')),T('규제 산출 담당')+' · '+T('제안 전용'),'warn')}
-  if(act)tile('활동 기록',String(act.total),T('게이트 대기')+' '+TC(cnt(act,'gate',v=>v==='대기'),'건'),'');
+    tile('위험등급 상',String(cnt(reg,'risk_tier',v=>eqv(v,'상'))),T('규제 산출 담당')+' · '+T('제안 전용'),'warn')}
+  if(act)tile('활동 기록',String(act.total),T('게이트 대기')+' '+TC(cnt(act,'gate',v=>eqv(v,'대기')),'건'),'');
   if(ks)tile('비상정지 이력',String(ks.total),T('2차 확인 없음')+' '+TC(cnt(ks,'confirmed_by',v=>v==null||v===''),'건'),ks.total?'warn':'good');
   if(ap)tile('4-Eyes 승인',String(ap.total),T('직무분리 충족')+' '+TC(cnt(ap,'segregation_ok',v=>v===true),'건'),'good');
   if(full(tr)){const i=frameIdx(tr);const hits=tr.rows.reduce((a,r)=>a+(r[i.redaction_hits]||0),0);
@@ -4985,7 +4987,6 @@ function aiOverview(root){
 
   const um=el('div','card');um.appendChild(el('h3',null,'해설서 화면 UI-01~12 와 이 하네스 화면의 대응'));
   um.appendChild(simpleTable(['해설서 화면','이름','요건','이 하네스의 화면'],AI_UI_MAP.map(r=>r.slice())));
-  um.appendChild(el('div','meta','요건별 판정은 요건 추적 화면의 AI리스크 레지스터에 있다. 대응 화면이 없는 것은 없다고 적었다.'));
   root.appendChild(um);
 }
 
@@ -5347,8 +5348,8 @@ function executiveReport(root){
     const cnt=(f,col,pred)=>{if(!f)return 0;const i=frameIdx(f);return f.rows.filter(r=>pred(r[i[col]])).length};
     const items=[];let tone='good';
     if(reg){const w=cnt(reg,'write_allowed',v=>v===true);if(w)tone='bad';
-      items.push(T('등록 에이전트')+' '+TC(reg.total,'건')+' ('+T('운영 반영 권한')+' '+TC(w,'건')+', '+T('위험등급 상')+' '+TC(cnt(reg,'risk_tier',v=>v==='상'),'건')+')')}
-    if(act)items.push(T('활동 기록')+' '+TC(act.total,'건')+' ('+T('게이트 대기')+' '+TC(cnt(act,'gate',v=>v==='대기'),'건')+')');
+      items.push(T('등록 에이전트')+' '+TC(reg.total,'건')+' ('+T('운영 반영 권한')+' '+TC(w,'건')+', '+T('위험등급 상')+' '+TC(cnt(reg,'risk_tier',v=>eqv(v,'상')),'건')+')')}
+    if(act)items.push(T('활동 기록')+' '+TC(act.total,'건')+' ('+T('게이트 대기')+' '+TC(cnt(act,'gate',v=>eqv(v,'대기')),'건')+')');
     if(ks){const u=cnt(ks,'confirmed_by',v=>v==null||v==='');if(u&&tone==='good')tone='warn';
       items.push(T('비상정지 이력')+' '+TC(ks.total,'건')+' ('+T('2차 확인 없음')+' '+TC(u,'건')+')')}
     if(ap)items.push(T('4-Eyes 승인')+' '+TC(ap.total,'건')+' ('+T('직무분리 충족')+' '+TC(cnt(ap,'segregation_ok',v=>v===true),'건')+')');
@@ -5464,8 +5465,8 @@ function trendCard(title,names,kris){
         fill:'var(--'+t+')'});
       return sp},34));
     const v=rawEl('span','tv '+(t==='accent'||t==='muted'?'':t),k.actual_text);
-    if(k.trend)v.appendChild(rawEl('small','meta '+(k.trend==='악화'?'bad':'good'),
-      '12M '+(k.trend==='악화'?'↘':'↗')+' '+T(k.trend)));
+    if(k.trend)v.appendChild(rawEl('small','meta '+(eqv(k.trend,'악화')?'bad':'good'),
+      '12M '+(eqv(k.trend,'악화')?'↘':'↗')+' '+T(k.trend)));
     row.appendChild(v);
     c.appendChild(row)});
   return c;
@@ -5570,7 +5571,7 @@ function reqRegister(root,R,kind){
     const c=el('div','card kpi');
     c.appendChild(el('div','lab',k));
     c.appendChild(el('div','val '+t,String(v)));
-    if(k!=='검증된 증빙 참조')
+    if(!eqv(k,'검증된 증빙 참조'))
       c.appendChild(el('div','sub',(v/R.coverage.n*100).toFixed(0)+'% / '+R.coverage.n+'건'));
     g.appendChild(c)});
   c0.appendChild(g);
@@ -5590,11 +5591,11 @@ function reqRegister(root,R,kind){
   const bar=el('div','toolbar');
   const fSt=el('select','sel');
   ['전체 상태','반영','부분','미반영'].forEach(x=>{const o=el('option');
-    o.value=x==='전체 상태'?'':x;o.textContent=x;fSt.appendChild(o)});
+    o.value=eqv(x,'전체 상태')?'':x;o.textContent=x;fSt.appendChild(o)});
   const fPr=el('select','sel');
   const areas=[...new Set(R.rows.map(areaOf))].sort();
   ['전체 영역'].concat(areas)
-    .forEach(x=>{const o=el('option');o.value=x==='전체 영역'?'':x;
+    .forEach(x=>{const o=el('option');o.value=eqv(x,'전체 영역')?'':x;
       o.textContent=x;fPr.appendChild(o)});
   const q=el('input','input');q.type='text';q.placeholder='ID·제목 검색';
   bar.appendChild(fSt);bar.appendChild(fPr);bar.appendChild(q);
@@ -5628,7 +5629,7 @@ function reqRegister(root,R,kind){
   areas.forEach(a=>{hm.appendChild(rawEl('span','hr',a));
     ['반영','부분','미반영'].forEach(st=>{const n=cntOf(a,st);
       const cell=rawEl('span','hc',String(n));cell.style.cursor='pointer';
-      if(n&&st!=='반영')cell.style.background='color-mix(in srgb, var(--'+(st==='미반영'?'bad':'warn')+') 22%, transparent)';
+      if(n&&!eqv(st,'반영'))cell.style.background='color-mix(in srgb, var(--'+(eqv(st,'미반영')?'bad':'warn')+') 22%, transparent)';
       cell.onclick=()=>{fPr.value=a;fSt.value=st;draw()};
       hm.appendChild(cell)})});
   mx.appendChild(hm);
@@ -5656,7 +5657,7 @@ function reqRegister(root,R,kind){
       x.appendChild(el('td',null,r.sector));
       x.appendChild(el('td',null,r.priority));
       const td3=el('td');td3.appendChild(pill(r.status,
-        r.status==='반영'?'good':r.status==='부분'?'warn':'bad'));
+        eqv(r.status,'반영')?'good':eqv(r.status,'부분')?'warn':'bad'));
       x.appendChild(td3);
       const td4=el('td');
       r.evidence.forEach(e=>{
@@ -5702,7 +5703,7 @@ function overlay(root){
   const out=el('pre','mono');out.style.whiteSpace='pre-wrap';c.appendChild(out);
   gen.onclick=()=>{
     err.hidden=true;out.textContent='';
-    if(STATE.killed&&STATE.killScope==='전사'){
+    if(STATE.killed&&eqv(STATE.killScope,'전사')){
       err.textContent='비상정지 중. 제안을 만들지 않는다.';err.hidden=false;return}
     if(!why.value.trim()||!ev.value.trim()){
       err.textContent='사유와 증빙 참조는 필수다.';
@@ -5837,8 +5838,8 @@ function codeMasterAdmin(root){
    쓴다. 화면은 고르고 그릴 뿐 다시 집계하지 않는다. */
 function macroFmt(v,u){
   if(v===null||v===undefined)return '-';
-  if(u==='원')return fmtNum(Math.round(v))+'원';
-  if(u==='지수')return v.toFixed(1);
+  if(eqv(u,'원'))return fmtNum(Math.round(v))+'원';
+  if(eqv(u,'지수'))return v.toFixed(1);
   if(u==='bp')return v.toFixed(1)+'bp';
   return v.toFixed(2)+u;                 /* % · %p */
 }
@@ -6182,7 +6183,7 @@ function cockpitInsights(){
     const cap=D.kpis[0];
     if(cap&&cap.tone==='bad')
       out.push({t:`${cap.label} ${cap.value} (${cap.sub})`,tone:'bad'});
-    const sev=D.kpis.find(k=>k.label.includes('위기상황'));
+    const sev=D.kpis.find(k=>hasv(k.label,'위기상황'));
     if(sev&&sev.tone==='warn')out.push({t:`위기 ${sev.label.replace(' CET1 저점','')} 저점 ${sev.value} (요구비율 침범, 자본계획·회복계획 연계 대상)`,tone:'bad'});
     const rv=D.reverse_stress;
     if(rv&&rv.critical_severity<1)out.push({t:`역스트레스 임계 심도 ${rv.critical_severity.toFixed(2)} (심각(1.0)보다 약한 충격에 임계 붕괴)`,tone:'bad'});
@@ -6197,7 +6198,7 @@ function cockpitInsights(){
     }
     const ex=D.data['gov_exception_action'];
     if(ex){const xi=frameIdx(ex);
-      const grave=ex.rows.filter(r=>r[xi.severity]==='중대').length;
+      const grave=ex.rows.filter(r=>eqv(r[xi.severity],'중대')).length;
       if(grave)out.push({t:`미해소 예외 ${ex.total}건 중 중대 ${grave}건 (예외·조치 화면에서 기한 추적)`,tone:'warn'})}
     const ipv=D.data['mkt_ipv'];
     if(ipv){const ii=frameIdx(ipv);
@@ -6226,7 +6227,7 @@ const SUMMARIES={
     return {t:`수동조정 ${f.total}건 (미승인 ${pend}건 · 전 건 사유·증빙·만료 보유)`,
       tone:pend?'warn':'good'}},
   '예외·조치':()=>{const f=D.data['gov_exception_action'],i=frameIdx(f);
-    const g=f.rows.filter(r=>r[i.severity]==='중대').length;
+    const g=f.rows.filter(r=>eqv(r[i.severity],'중대')).length;
     return {t:`예외 ${f.total}건 (중대 ${g}). 자동상계 금지, 종결은 사람 승인 후`,
       tone:g?'warn':'good'}},
   '백테스팅':()=>{const f=D.data['mkt_backtest_exception'],i=frameIdx(f);
@@ -6313,7 +6314,7 @@ const SUMMARIES={
     return {t:`131건 중 반영 ${c['반영']} · 부분 ${c['부분']} · 미반영 ${c['미반영']} (증빙 ${c.n_evidence}건 전부 기계 검증) · 기후 ${k.n}건 중 부분 ${k['부분']} · 미반영 ${k['미반영']} · AI ${a.n}건 중 반영 ${a['반영']} · 부분 ${a['부분']} · 미반영 ${a['미반영']}`,tone:'good'}},
   '감독보고':()=>({t:`서식 ${D.forms.length}장 · 검증 ${D.form_checks.total.toLocaleString()}건 실패 ${D.forms.reduce((a,f)=>a+f.n_failed,0)} (편제·라인·인용 기준선 고정)`,tone:'good'}),
   '검증':()=>({t:`2선 ${D.independent.self_validation} · 3선 게이트 ${D.independent.status} (게이트는 fail-closed)`,
-    tone:D.independent.status==='적합'?'good':'warn'}),
+    tone:eqv(D.independent.status,'적합')?'good':'warn'}),
 };
 function insertSummary(label,section){
   const f=SUMMARIES[label];
@@ -6357,7 +6358,7 @@ function almSources(names,note){
             f?(f.shown>=f.total?'전량':'표본 '+f.shown.toLocaleString()+'행'):'-']});
   c.appendChild(table({columns:cols,rows:rows,
     total:rows.length,shown:rows.length},
-    {numeric:false,rowClass:r=>r[POP]==='미탑재'?'bad':null}));
+    {numeric:false,rowClass:r=>eqv(r[POP],'미탑재')?'bad':null}));
   if(note)c.appendChild(el('div','note',note));
   return c;
 }
@@ -6385,7 +6386,7 @@ function almEvidence(names){
   const cols=['원장','근거 판정','행수'],EV=cols.indexOf('근거 판정');
   c.appendChild(table({columns:cols,rows:rows,
     total:rows.length,shown:rows.length},
-    {rowClass:r=>r[EV]==='미확인'?'bad':null}));
+    {rowClass:r=>eqv(r[EV],'미확인')?'bad':null}));
   return c;
 }
 /* 시나리오 순서는 정의 원장이 정한다. 화면에서 다시 적으면 원장에 시나리오가
@@ -6461,8 +6462,8 @@ function almShockDisclosure(root){
   /* 공란은 두 종류다. 폐지된 계정에는 충격표가 존재하지 않아 비어 있고,
      그 외의 공란은 1차자료를 확인하지 못한 것이다. 두 사유를 구분해 적는다. */
   const empty=p.rows.filter(r=>r[i.shock_bp]==null);
-  const dead=empty.filter(r=>r[i.status]==='폐지');
-  const unknown=empty.filter(r=>r[i.status]!=='폐지');
+  const dead=empty.filter(r=>eqv(r[i.status],'폐지'));
+  const unknown=empty.filter(r=>!eqv(r[i.status],'폐지'));
   if(dead.length){const n=el('div','note');
     n.textContent='폐지 계정 '+[...new Set(dead.map(r=>r[i.framework_version]))]
       .join(' · ')+' 의 충격폭 '+dead.length+'칸이 비어 있다. 그 체계에는 '+
@@ -6502,7 +6503,7 @@ function almOutlierCard(root){
     r[i.outlier_test_pass]?'통과':'미통과']);
   c.appendChild(table({columns:cols,
     rows:rows,total:rows.length,shown:rows.length},
-    {rowClass:r=>r[V]==='미통과'?'bad':null}));
+    {rowClass:r=>eqv(r[V],'미통과')?'bad':null}));
   const duty=f.rows.filter(r=>r[i.outlier_duty]!=null);
   if(duty.length)c.appendChild(el('div','meta','초과 시 의무: '+
     duty[0][i.outlier_duty]));
@@ -6730,7 +6731,7 @@ function almLcrDetail(root){
   const EV=cols.indexOf('근거 판정');
   const c=almCard('유동성커버리지비율 (항목별 잔액 × 계수 = 가중액)',
     table({columns:cols,rows:rows,total:rows.length,shown:rows.length},
-      {rowClass:r=>r[EV]==='미확인'?'bad':null}),srcMeta(f));
+      {rowClass:r=>eqv(r[EV],'미확인')?'bad':null}),srcMeta(f));
   const secs=[...new Set(f.rows.map(r=>r[i.section]))];
   const wsum=rs=>rs.reduce((a,r)=>a+(r[i.weighted]||0),0);
   const rec=secs.map(s=>['구분 소계 · '+s,
@@ -6775,7 +6776,7 @@ function almLcrCaps(root){
   const JD=cols.indexOf('판정');
   const c=almCard('상한 (어느 상한이 물었는가)',
     table({columns:cols,rows:rows,total:rows.length,shown:rows.length},
-      {numeric:false,rowClass:r=>r[JD]==='구속'?'bad':null}),srcMeta(k));
+      {numeric:false,rowClass:r=>eqv(r[JD],'구속')?'bad':null}),srcMeta(k));
   if(unknown.length)c.appendChild(el('div','note',
     '대조 규칙이 없는 상한 '+unknown.join(' · ')+'. 원장에는 있으나 화면이 '+
     '대상 집계를 정하지 못한다.'));
@@ -6797,7 +6798,7 @@ function almNotComputed(root){
   const EV=cols.indexOf('근거 판정');
   const c=almCard('계수 원장에 등재됐으나 산출에 들어가지 않은 항목',
     table({columns:cols,rows:rows,total:rows.length,shown:rows.length},
-      {rowClass:r=>r[EV]==='미확인'?'bad':null}),srcMeta(k));
+      {rowClass:r=>eqv(r[EV],'미확인')?'bad':null}),srcMeta(k));
   root.appendChild(c);
 }
 function almNsfrDetail(root){
@@ -6815,7 +6816,7 @@ function almNsfrDetail(root){
     rows:f.rows.map(r=>[r[i.section],r[i.category],r[i.amount],r[i.factor],
       r[i.weighted],r[i.maturity_band],r[i.evidence_status],r[i.citation]]),
     total:f.rows.length,shown:f.rows.length},
-    {rowClass:r=>r[EV]==='미확인'?'bad':null}));
+    {rowClass:r=>eqv(r[EV],'미확인')?'bad':null}));
   const a=almF('alm_result');
   if(a){const ai=frameIdx(a);
     const row=a.rows.find(r=>r[ai.metric]==='NSFR');
@@ -6975,7 +6976,7 @@ Object.assign(SUMMARIES,{
        세면 요약이 근거 없는 산출을 한 것처럼 읽힌다. 폐지분은 뺀다. */
     const p=almF('alm_rate_shock_param');
     const pi=p?frameIdx(p):null;
-    const un=p?p.rows.filter(r=>r[pi.shock_bp]==null&&r[pi.status]!=='폐지').length
+    const un=p?p.rows.filter(r=>r[pi.shock_bp]==null&&!eqv(r[pi.status],'폐지')).length
              :null;
     const fail=f.rows.filter(r=>r[i.outlier_test_pass]===false).length;
     return {t:'최악 '+w[i.scenario]+' ('+b+' 기준). ΔEVE '+fmtMoney(w[i.delta_eve])+
@@ -7017,7 +7018,7 @@ Object.assign(SUMMARIES,{
     ALM_PARAM_TABLES.forEach(n=>{const f=almF(n);if(!f)return;
       const i=frameIdx(f);if(i.evidence_status===undefined)return;
       tot+=f.rows.length;
-      un+=f.rows.filter(r=>r[i.evidence_status]==='미확인').length});
+      un+=f.rows.filter(r=>eqv(r[i.evidence_status],'미확인')).length});
     return {t:'계수 원장 '+tot+'행 중 근거 미확인 '+un+'행. 미확인 값은 '+
       '채우지 않는다',tone:un?'warn':'good'}},
 });
@@ -7042,7 +7043,7 @@ function cardOf(title,child,note){
 function judgeCell(flag,status){
   if(flag===null||flag===undefined)return status||'미판정';
   return flag?'통과':'미통과'}
-function judgeTone(v){return v==='미통과'?'bad':(v==='통과'?null:'warn')}
+function judgeTone(v){return eqv(v,'미통과')?'bad':(eqv(v,'통과')?null:'warn')}
 function pctv(v,d){
   return (v===null||v===undefined)?'-':(v*100).toFixed(d===undefined?2:d)+'%'}
 function numOrDash(v,d){
@@ -7149,8 +7150,8 @@ function krFrameworkTable(root){
     pane.appendChild(simpleTable(
       ['계정','상태','시행','종료','대체 계정','평행','단기','장기',
        '충격후 하한','하한 근거','충격폭 근거'],rows,
-      {numeric:false,rowClass:r=>r[ST]==='폐지'?'bad':(r[ST]==='현행'?null:'warn')}));
-    const dead=p.rows.filter(r=>r[i.status]==='폐지'&&r[i.ccy]===sel.value);
+      {numeric:false,rowClass:r=>eqv(r[ST],'폐지')?'bad':(eqv(r[ST],'현행')?null:'warn')}));
+    const dead=p.rows.filter(r=>eqv(r[i.status],'폐지')&&r[i.ccy]===sel.value);
     if(dead.length){
       const n=el('div','note');
       n.textContent='폐지 계정의 근거: '+dead[0][i.source_ref];
@@ -7191,7 +7192,7 @@ function krOutlierCard(root){
   const PASS=6;
   const c2=cardOf('아웃라이어 판정 (원장 컬럼 그대로)',
     simpleTable(['기준','시나리오','ΔEVE','기본자본 대비','ΔNII','최대','판정'],
-      rows,{numeric:true,rowClass:r=>r[PASS]==='미통과'?'bad':null}));
+      rows,{numeric:true,rowClass:r=>eqv(r[PASS],'미통과')?'bad':null}));
   const duty=f.rows.filter(r=>r[i.outlier_duty]!=null);
   if(duty.length){
     const n=el('div','note bad');
@@ -7326,7 +7327,7 @@ function krGovernanceCard(root){
   const c=cardOf('관리체계 이행 (제15항~제20항)',
     simpleTable(['요건','조문','내용','책임주체','주기','최소횟수','기간내 횟수',
                  '최근 이행','판정','사유'],rows,
-      {numeric:false,rowClass:r=>r[V]==='미이행'?'bad':(r[V]==='미판정'?'warn':null)}));
+      {numeric:false,rowClass:r=>eqv(r[V],'미이행')?'bad':(eqv(r[V],'미판정')?'warn':null)}));
   c.appendChild(srcMeta(f));
   root.appendChild(c);
 }
@@ -7359,7 +7360,7 @@ function krDisclosureCard(root){
     const c=cardOf('<표7> 정성공시 8항목',
       simpleTable(['번호','항목','구분','작성','입력자','승인자','승인일','승인'],
         rows,{numeric:false,
-          rowClass:r=>(r[D2]==='미작성'||r[A]==='미승인')?'warn':null}));
+          rowClass:r=>(eqv(r[D2],'미작성')||eqv(r[A],'미승인'))?'warn':null}));
     c.appendChild(srcMeta(q));
     root.appendChild(c)}
   const qn=almF('disc_irrbb_table7_quantitative');
@@ -7422,8 +7423,8 @@ function irbRunCard(root,param){
         r[i.moc_status]||'-',
         r[i.floor_applied]?('적용 · 건 '+numOrDash(r[i.n_floor_binding])):'미적용',
         r[i.unresolved_inputs]||'-',r[i.next_review_due]||'-',r[i.status]]),
-      {numeric:false,rowClass:r=>r[MEET]==='미달'?'bad':
-        (r[MEET]==='미판정'?'warn':null)}));
+      {numeric:false,rowClass:r=>eqv(r[MEET],'미달')?'bad':
+        (eqv(r[MEET],'미판정')?'warn':null)}));
   c.appendChild(el('div','meta',
     '부도 정의 '+(rows[0][i.default_definition]||'-')+
     ' · 모집단 정합 '+(rows[0][i.population_alignment]||'-')+
@@ -7445,7 +7446,7 @@ function irbFloorCard(root,param){
         r[i.collateral_type]||'-',
         r[i.floor_value]==null?'(비어 있음)':pctv(r[i.floor_value],3),
         r[i.floor_status],r[i.evidence_status],r[i.note]||'']),
-      {numeric:false,rowClass:r=>r[ST]==='미확인'?'warn':null}));
+      {numeric:false,rowClass:r=>eqv(r[ST],'미확인')?'warn':null}));
   c.appendChild(srcMeta(f));
   root.appendChild(c);
 }
@@ -7498,7 +7499,7 @@ function irbMocCard(root,param){
       rows.map(r=>[r[i.segment],r[i.grade]||'-',r[i.moc_driver],
         numOrDash(r[i.point_estimate],5),numOrDash(r[i.moc_amount],5),
         r[i.moc_formula]||'-',r[i.param_available]?'확보':'미확보']),
-      {numeric:false,rowClass:r=>r[AV]==='미확보'?'warn':null}));
+      {numeric:false,rowClass:r=>eqv(r[AV],'미확보')?'warn':null}));
   c.appendChild(srcMeta(f));
   root.appendChild(c);
 }
@@ -7534,7 +7535,7 @@ function pdEstimateScreen(root){
         r[i.floor_binding]?'적용':'',
         numOrDash(r[i.moc_amount],5),pctv(r[i.final_applied],3),
         r[i.exposure_amount]]),
-      {numeric:false,rowClass:r=>r[8]==='적용'?'warn':null}));
+      {numeric:false,rowClass:r=>eqv(r[8],'적용')?'warn':null}));
   c1.appendChild(srcMeta(f));
   root.appendChild(c1);
 
@@ -7588,7 +7589,7 @@ function pdEstimateScreen(root){
           r[di.meets_minimum]?'충족':'미달',r[di.n_obs],r[di.n_default],
           pctv(r[di.default_rate],2),r[di.target_definition],
           r[di.evidence_status]]),
-        {numeric:false,rowClass:r=>r[M]==='미달'?'bad':null}),
+        {numeric:false,rowClass:r=>eqv(r[M],'미달')?'bad':null}),
       '최소 관측기간 요건은 원장 컬럼이며 개정 전 판본 값이라는 사실이 '+
       '근거 판정에 실려 있다.'));
   }
@@ -7715,7 +7716,7 @@ function ccfEstimateScreen(root){
         r[i.floor_binding]?'적용':'',numOrDash(r[i.moc_amount],4),
         pctv(r[i.final_applied],2),numOrDash(r[i.pd_ead_correlation],3),
         r[i.extra_conservatism_required]?'필요':'불필요']),
-      {numeric:false,rowClass:r=>r[14]==='필요'?'warn':null}));
+      {numeric:false,rowClass:r=>eqv(r[14],'필요')?'warn':null}));
   c1.appendChild(el('div','meta',
     '분모 0 건 '+f.rows.reduce((a,r)=>a+(r[i.n_zero_denominator]||0),0)+
     ' · 분모 음수 건 '+f.rows.reduce((a,r)=>a+(r[i.n_negative_denominator]||0),0)+
@@ -7788,7 +7789,7 @@ function defaultedLgdScreen(root){
         (r[i.specific_provision]||0)+(r[i.partial_writeoff]||0),
         r[i.shortfall],r[i.justification_required]?'필요':'불필요',
         r[i.justification_ref]||'(없음)',r[i.elbe_method],r[i.status]]),
-      {numeric:false,rowClass:r=>r[J]==='필요'?'bad':null}));
+      {numeric:false,rowClass:r=>eqv(r[J],'필요')?'bad':null}));
   c1.appendChild(srcMeta(f));
   root.appendChild(c1);
   const obs=almF('crm_default_observation');
@@ -7813,7 +7814,7 @@ function defaultedLgdScreen(root){
         T('산출방법')+': '+
         (f.rows.length?f.rows[0][i.elbe_method]:T('(원장 없음)'))));
       root.appendChild(c)}
-    const cure=obs.rows.filter(r=>String(r[oi.censoring_status]).indexOf('정상화')>=0);
+    const cure=obs.rows.filter(r=>hasv(r[oi.censoring_status],'정상화'));
     root.appendChild(cardOf('정상화(cure) 인식',
       simpleTable(['관측상태','건수','평균 실현 LGD'],
         [...new Set(obs.rows.map(r=>r[oi.censoring_status]))].map(st=>{
@@ -7927,7 +7928,7 @@ function capmDiscountScreen(root){
         pctv(x[di.discount_rate],4),x[di.basis],x[di.evidence_status],
         x[di.input_source],x[di.approved_by]||'(미승인)',
         x[di.approval_date]||'-']),
-      {numeric:false,rowClass:x=>String(x[AP]).indexOf('미승인')>=0?'warn':null}));
+      {numeric:false,rowClass:x=>hasv(x[AP],'미승인')?'warn':null}));
   c4.appendChild(srcMeta(d));
   root.appendChild(c4);
 
@@ -7952,7 +7953,7 @@ function capmDiscountScreen(root){
       simpleTable(['세그먼트','적용 할인율','할인율 상태','원시 추정','산출 상태'],
         L.rows.map(x=>[x[li.segment],pctv(x[li.discount_rate],4),
           x[li.discount_rate_status],pctv(x[li.raw_estimate],2),x[li.status]]),
-        {numeric:false,rowClass:x=>x[ST]==='산출불가'?'bad':null}),
+        {numeric:false,rowClass:x=>eqv(x[ST],'산출불가')?'bad':null}),
       '할인율이 비어 있으면 그 세그먼트 LGD 산출을 건너뛰고 산출불가로 남긴다. '+
       '엔진이 조용히 기본값을 쓰지 않는다.'))}
 
@@ -8057,7 +8058,7 @@ function beelPlgdScreen(root){
         x[ci.monotonicity_verdict],numOrDash(x[ci.monotonicity_rho],4),
         numOrDash(x[ci.monotonicity_pvalue],4),pctv(x[ci.beel_mean],2)]),
       {numeric:false,
-       rowClass:x=>x[VD]==='단조증가아님'?'warn':(x[AP]==='적용'?'good':null)}),
+       rowClass:x=>eqv(x[VD],'단조증가아님')?'warn':(eqv(x[AP],'적용')?'good':null)}),
     '분모를 부도시 익스포저로 두면 할인 되감기 항이 사라져 곡선이 경과월에 '+
     '따라 올라간다. 잔여익스포저로 두면 분모도 함께 줄어 곡선이 무너지는 '+
     '세그먼트가 생긴다. 판정은 순위상관 부호이며 원장 컬럼이다.');
@@ -8099,7 +8100,7 @@ function beelPlgdScreen(root){
         x[pi.dsf_form]||'-',numOrDash(x[pi.capital_requirement_k],4),
         x[pi.status]]),
       {numeric:false,
-       rowClass:x=>String(x[SS]).indexOf('산출불가')>=0?'warn':null}));
+       rowClass:x=>hasv(x[SS],'산출불가')?'warn':null}));
   c4.appendChild(rawEl('div','meta',
     T('부도자산 LGD 의 근거')+': '+
     String((p0&&p0[pi.lgd_in_default_basis])||'-')));
@@ -8122,8 +8123,8 @@ function beelPlgdScreen(root){
         x[pi.justification_required]==null?'미판정'
           :(x[pi.justification_required]?'필요':'불필요'),
         x[pi.justification_ref]||'(없음)']),
-      {numeric:false,rowClass:x=>x[JR]==='필요'?'bad':
-        (x[JR]==='미판정'?'warn':null)}),
+      {numeric:false,rowClass:x=>eqv(x[JR],'필요')?'bad':
+        (eqv(x[JR],'미판정')?'warn':null)}),
     '최적추정치가 개별충당금과 부분상각 합계보다 작으면 그 정당성을 입증해야 '+
     '한다 ([별표 3] 185.바). 반대 방향은 입증 대상이 아니다. 충당금 자료가 '+
     '원장에 없으면 판정하지 않고 미판정으로 둔다.');
@@ -8171,7 +8172,7 @@ function irbGovernanceScreen(root){
           numOrDash(r[i.range_lower],5),numOrDash(r[i.range_upper],5),
           r[i.test_method],numOrDash(r[i.significance_level],3),
           judgeCell(r[i.test_pass],r[i.judgment_status])]),
-        {numeric:false,rowClass:r=>r[IN]==='밖'?'bad':(r[IN]==='안'?null:'warn')}));
+        {numeric:false,rowClass:r=>eqv(r[IN],'밖')?'bad':(eqv(r[IN],'안')?null:'warn')}));
     c.appendChild(srcMeta(b));
     root.appendChild(c);
     const pd=b.rows.filter(r=>r[i.parameter]==='PD'&&r[i.grade]);
@@ -8209,7 +8210,7 @@ function irbGovernanceScreen(root){
           r[i.psi]==null?(r[i.judgment_status]||'미판정'):r[i.judgment],
           r[i.evidence]||'-']),
         {numeric:false,
-         rowClass:r=>r[8]==='미판정'||r[8]==='기준미승인'?'warn':null})))}
+         rowClass:r=>eqv(r[8],'미판정')||eqv(r[8],'기준미승인')?'warn':null})))}
   const gv=almF('crm_model_governance');
   if(gv){
     const i=frameIdx(gv);
@@ -8223,7 +8224,7 @@ function irbGovernanceScreen(root){
           r[i.last_review_date]||'-',r[i.review_overdue]?'초과':'',
           r[i.next_review_due]||'-',numOrDash(r[i.review_interval_months]),
           r[i.last_backtest_date]||'-',numOrDash(r[i.n_reviews]),r[i.status]]),
-        {numeric:false,rowClass:r=>r[7]==='초과'?'bad':null}),
+        {numeric:false,rowClass:r=>eqv(r[7],'초과')?'bad':null}),
       gv.rows[0][i.citation]||''))}
 }
 
@@ -8258,7 +8259,7 @@ function lgdEadBacktestScreen(root){
     root.appendChild(cardOf('추정 LGD 대 실현 LGD (부도건별)',
       scatter45(pts.map(r=>({x:r[oi.lgd_estimated],y:r[oi.lgd_realized],
         label:r[oi.exposure_id]+' · '+(r[oi.collateral_type]||'무담보'),
-        tone:r[oi.censoring_status]&&r[oi.censoring_status]!=='종결'
+        tone:r[oi.censoring_status]&&!eqv(r[oi.censoring_status],'종결')
           ?'warn':undefined}))),
       '가로가 추정, 세로가 실현이다. 대각선 위쪽 점이 과소추정 건이고, '+
       '주황 점은 워크아웃이 끝나지 않은 관측이다. 관측 '+pts.length+'건.'))}
@@ -8365,7 +8366,7 @@ function bhvModelScreen(root){
         numOrDash(r[i.r_squared],4),r[i.fit_status],
         r[i.headline_estimate]?'채택':'',r[i.params_json]||'(비어 있음)',
         r[i.message]||'',r[i.approved_by]||'(미승인)',r[i.evidence_status]]),
-      {numeric:false,rowClass:r=>r[CV]==='실패'?'bad':(r[CV]==='미판정'?'warn':null)}));
+      {numeric:false,rowClass:r=>eqv(r[CV],'실패')?'bad':(eqv(r[CV],'미판정')?'warn':null)}));
   c1.appendChild(srcMeta(f));
   root.appendChild(c1);
 
@@ -8454,7 +8455,7 @@ function nmdCoreScreen(root){
         numOrDash(r[i.achieved_avg_maturity_years],2),
         r[i.core_amount],r[i.n_obs]]),
       {numeric:false,
-       rowClass:r=>(r[9]==='적용'||r[12]==='적용')?'warn':null}));
+       rowClass:r=>(eqv(r[9],'적용')||eqv(r[12],'적용'))?'warn':null}));
   c1.appendChild(srcMeta(f));
   root.appendChild(c1);
 
@@ -8530,7 +8531,7 @@ function bhvBacktestScreen(root){
   const f=almF('alm_behaviour_backtest'),i=frameIdx(f);
   const g=el('div','grid');
   const oot=f.rows.filter(r=>r[i.is_out_of_time]).length;
-  const bad=f.rows.filter(r=>r[i.judgement]==='미통과').length;
+  const bad=f.rows.filter(r=>eqv(r[i.judgement],'미통과')).length;
   [['검증 대상',String(f.rows.length),''],
    ['표본외 검증',String(oot),''],
    ['미통과',String(bad),bad?'bad':'good'],
@@ -8553,8 +8554,8 @@ function bhvBacktestScreen(root){
         numOrDash(r[i.in_sample_mae_pp],3),numOrDash(r[i.threshold_mae_pp],3),
         r[i.threshold_basis]||'-',r[i.approved_by]||'(미승인)',
         r[i.approved_on]||'-',r[i.evidence_status]]),
-      {numeric:false,rowClass:r=>r[J]==='미통과'?'bad':
-        (r[J]==='미판정'?'warn':null)}));
+      {numeric:false,rowClass:r=>eqv(r[J],'미통과')?'bad':
+        (eqv(r[J],'미판정')?'warn':null)}));
   c1.appendChild(el('div','note warn',
     '합격 임계(MAE)는 내부기준이다. 원장의 threshold_basis 컬럼이 그 근거를 '+
     '담으며, 임계가 비어 있으면 판정하지 않는다.'));
@@ -8646,15 +8647,15 @@ function lexSettingScreen(root){
         r[i.param_unit],r[i.denominator_basis],r[i.evidence_status],
         r[i.is_overridden]?'재정의':'',r[i.citation],r[i.input_by]||'-',
         r[i.approved_by]||'(미승인)',r[i.approved_at]||'-',r[i.note]||'']),
-      {numeric:false,rowClass:r=>r[EV]==='미확인'?'bad':
-        (r[EV]==='재량·미규정'?'warn':null)}));
+      {numeric:false,rowClass:r=>eqv(r[EV],'미확인')?'bad':
+        (eqv(r[EV],'재량·미규정')?'warn':null)}));
     const blank=sub.filter(r=>r[i.param_value]==null);
     if(blank.length)pane.appendChild(el('div','note warn',
       '값이 비어 있는 항목 '+blank.length+'개 ('+
       blank.map(r=>r[i.param_code]).join(' · ')+'). 1차자료를 확인하지 못했거나 '+
       '규정이 값을 주지 않는 항목이며, 그 항목은 산출되지 않는다.'));
     const unapproved=sub.filter(r=>!r[i.approved_by]||
-      String(r[i.approved_by]).indexOf('미승인')>=0);
+      hasv(r[i.approved_by],'미승인'));
     if(unapproved.length)pane.appendChild(el('div','note',
       '승인란이 채워지지 않은 항목 '+unapproved.length+'개. 승인 전에는 이 '+
       '설정으로 낸 산출을 결재에 올릴 수 없다.'));
@@ -8733,7 +8734,7 @@ function lexAnalysisScreen(root){
           moneyOrDash(r[i.aggregate_limit_amount]),
           r[i.aggregate_utilisation]==null?'-':pctv(r[i.aggregate_utilisation],1),
           r[i.breach]?'위반':'',r[i.citation]]),
-        {numeric:false,rowClass:r=>r[10]==='위반'?'bad':null}));
+        {numeric:false,rowClass:r=>eqv(r[10],'위반')?'bad':null}));
     c.appendChild(srcMeta(ag));
     root.appendChild(c)}
 
@@ -8765,7 +8766,7 @@ function lexAnalysisScreen(root){
           r[ti.reportable]?'대상':'',r[ti.limit_amount],
           pctv(r[ti.utilisation],1),r[ti.headroom],r[ti.breach]?'위반':'',
           r[ti.measure_evidence_status]]),
-        {numeric:false,rowClass:r=>r[12]==='위반'?'bad':(r[RP]==='대상'?'warn':null)}));
+        {numeric:false,rowClass:r=>eqv(r[12],'위반')?'bad':(eqv(r[RP],'대상')?'warn':null)}));
     }
     pane.appendChild(bars(meta.histogram.map(h=>({
       label:(h.lower*100).toFixed(0)+'%'+(h.upper==null?' 이상':' ~ '+
@@ -8788,7 +8789,7 @@ function lexAnalysisScreen(root){
         L.providers.map(x=>[x.provider,x.substituted_in,x.n_links,
           x.max_utilisation==null?'(포지션 없음)':pctv(x.max_utilisation,1),
           x.breach===null?'-':(x.breach?'위반':'')]),
-        {numeric:false,rowClass:r=>r[4]==='위반'?'bad':null}));
+        {numeric:false,rowClass:r=>eqv(r[4],'위반')?'bad':null}));
     root.appendChild(cc)}
 
   const sub=almF('lex_substitution');
@@ -8803,7 +8804,7 @@ function lexAnalysisScreen(root){
           r[si.exposure_before],r[si.covered_amount],r[si.substituted_amount],
           r[si.exposure_after],r[si.maturity_mismatch_eligible]?'적격':'부적격',
           r[si.cds_exception_applied]?'적용':'',r[si.eligibility_reason]]),
-        {numeric:false,rowClass:r=>r[7]==='부적격'?'warn':null}));
+        {numeric:false,rowClass:r=>eqv(r[7],'부적격')?'warn':null}));
     c2.appendChild(el('div','meta','대체가 인정되지 않은 건 '+inel.length+
       ' / 전체 '+sub.rows.length+'. 사유는 적격 사유 컬럼에 있다.'));
     c2.appendChild(srcMeta(sub));
@@ -8829,7 +8830,7 @@ function lexAnalysisScreen(root){
     const c3=cardOf('look-through 귀속',
       simpleTable(['귀속 유형','건수','귀속액'],
         [...m.entries()].map(([k,v])=>[k,v.n,v.amt]),{numeric:true}));
-    const unknown=lt.rows.filter(r=>r[li.attribution_type]==='무명고객');
+    const unknown=lt.rows.filter(r=>eqv(r[li.attribution_type],'무명고객'));
     if(unknown.length)c3.appendChild(el('div','note warn',
       '기초자산을 식별하지 못한 잔여는 무명고객 버킷으로 귀속된다. '+
       unknown.length+'건 · '+fmtMoney(unknown.reduce((a,r)=>
@@ -9071,8 +9072,8 @@ function simulation(root){
     const bc=cardOf('요구비율 층과 도달 구간',
       simpleTable(['계층','조정 후 비율','최저비율','완충자본 합','요구비율',
                    '여유','구간'],bufferRows(st),
-        {numeric:false,rowClass:r=>r[Z]==='최저비율 미달'?'bad':
-          (r[Z]==='완충자본 잠식'?'warn':null)}));
+        {numeric:false,rowClass:r=>eqv(r[Z],'최저비율 미달')?'bad':
+          (eqv(r[Z],'완충자본 잠식')?'warn':null)}));
     bc.appendChild(simpleTable(['완충자본','비율'],
       Object.keys(S.buffers).map(k=>[k,pctv(S.buffers[k],2)])));
     pane.appendChild(bc);
@@ -9332,7 +9333,7 @@ function limitsScreen(root){
        ['산식',def[di.threshold_formula]],['승인기구',def[di.approval_body]||'-'],
        ['승인일',def[di.approved_on]||'(미승인)'],['근거 판정',def[di.evidence_status]]]
       .forEach(([k,v])=>{kv2.appendChild(rawEl('b',null,T(k)));
-        kv2.appendChild(rawEl('span',(k==='근거 판정'&&v!=='원문확인')?'warn':'',String(v)))});
+        kv2.appendChild(rawEl('span',(eqv(k,'근거 판정')&&!eqv(v,'원문확인'))?'warn':'',String(v)))});
       c2.appendChild(kv2);
       c2.appendChild(rawEl('div','meta',def[di.citation]));
     }else c2.appendChild(el('div','note','이 한도의 정의 행이 정의 원장에 없다.'));
@@ -9407,7 +9408,7 @@ function limitsScreen(root){
           r[di.threshold_unit],r[di.threshold_formula],
           r[di.approval_body]||'-',r[di.approved_on]||'(미승인)',
           r[di.citation],r[di.evidence_status]]),
-        {numeric:false,rowClass:r=>r[BS]==='규정'?null:'warn'}));
+        {numeric:false,rowClass:r=>eqv(r[BS],'규정')?null:'warn'}));
     const noap=d.rows.filter(r=>!r[di.approved_on]).length;
     if(noap)c.appendChild(rawEl('div','note warn',
       T('승인일 공란')+' '+TC(noap,'건')+' · '+T('내부한도 효력 요건은 승인기구 의결')+' · '+T('승인 기록 없는 위반 판정은 결재 불가')));
@@ -9512,7 +9513,7 @@ function limitsScreen(root){
   const gv=almF('kr_irrbb_governance');
   let duty=null;
   if(gv){const gi=frameIdx(gv);
-    const row=gv.rows.find(r=>String(r[gi.requirement]).indexOf('한도 초과')>=0);
+    const row=gv.rows.find(r=>hasv(r[gi.requirement],'한도 초과'));
     if(row)duty={clause:row[gi.clause],text:row[gi.requirement],
       body:row[gi.responsible_body],cite:row[gi.citation]}}
   const act=almF('lim_breach_action');
@@ -9583,7 +9584,7 @@ Object.assign(SUMMARIES,{
     const i=frameIdx(f);
     const blank=f.rows.filter(r=>r[i.discount_rate]==null).length;
     const prov=f.rows.filter(r=>r[i.discount_rate]!=null&&
-      String(r[i.approved_by]||'').indexOf('미승인')>=0).length;
+      hasv(r[i.approved_by]||'','미승인')).length;
     const e=almF('crm_capm_estimate');
     const ke=(e&&e.rows.length)?String(e.rows[0][frameIdx(e).ke_status]):'-';
     return {t:'할인율 '+f.rows.length+'행 · 값 공란 '+blank+'행 · 잠정 준용 '+
@@ -9593,7 +9594,7 @@ Object.assign(SUMMARIES,{
     const i=frameIdx(f);
     const den=f.rows.filter(r=>r[i.is_applied_denominator]);
     const brk=[...new Set(f.rows.filter(r=>r[i.is_applied_denominator]&&
-      r[i.monotonicity_verdict]==='단조증가아님').map(r=>r[i.segment]))].length;
+      eqv(r[i.monotonicity_verdict],'단조증가아님')).map(r=>r[i.segment]))].length;
     const p=almF('crm_plgd');
     const open=p?p.rows.filter(r=>r[frameIdx(p).plgd]==null).length:0;
     return {t:'곡선 '+f.rows.length+'행 (적용 분모 '+
@@ -9730,7 +9731,7 @@ function scenarioScreen(root){
   const out=el('pre','mono');out.style.whiteSpace='pre-wrap';c2.appendChild(out);
   gen.onclick=()=>{
     err.hidden=true;out.textContent='';
-    if(STATE.killed&&STATE.killScope==='전사'){
+    if(STATE.killed&&eqv(STATE.killScope,'전사')){
       err.textContent='비상정지 중. 제안을 만들지 않는다.';err.hidden=false;return}
     if(!nm.value.trim()){err.textContent='시나리오 이름이 비어 있다.';err.hidden=false;return}
     if(!/^\d+(\.\d+)?$/.test(sv.value.trim())){
@@ -9788,7 +9789,7 @@ function modelInventory(root){
   const bar=el('div','toolbar');
   const dsel=el('select','sel');
   ['전체 도메인'].concat(Object.keys(byDom).sort()).forEach(d=>{
-    const o=el('option');o.value=d==='전체 도메인'?'':d;o.textContent=d;
+    const o=el('option');o.value=eqv(d,'전체 도메인')?'':d;o.textContent=d;
     dsel.appendChild(o)});
   bar.appendChild(dsel);root.appendChild(bar);
   const wrap=el('div','kb2');
@@ -10158,7 +10159,7 @@ function methodology(root){
   const out=el('pre','mono');out.style.whiteSpace='pre-wrap';c3.appendChild(out);
   gen.onclick=()=>{
     err.hidden=true;out.textContent='';
-    if(STATE.killed&&STATE.killScope==='전사'){
+    if(STATE.killed&&eqv(STATE.killScope,'전사')){
       err.textContent='비상정지 중. 제안을 만들지 않는다.';err.hidden=false;return}
     if(!why.value.trim()){err.textContent='사유는 필수다.';err.hidden=false;return}
     const path={'집합투자증권':'risk_lib/datamodel/funds.py (approach 결정 규칙)',
@@ -10199,7 +10200,7 @@ function institutions(root){
   bar.appendChild(rawEl('span','pill',code));
   const mr=(D.institution&&D.institution.master_row)||{};
   if(mr.data_origin)bar.appendChild(rawEl('span','pill'+
-    (mr.data_origin==='합성'?' warn':''),mr.data_origin));
+    (eqv(mr.data_origin,'합성')?' warn':''),mr.data_origin));
   if(mr.evidence_status)bar.appendChild(rawEl('span','pill',mr.evidence_status));
   cur.appendChild(bar);
   const m=instRowPairs('inst_master',code);
@@ -10298,7 +10299,7 @@ function settings(root){
 
 /* ---- 범위형 비상정지 (PLT-016) (부문 단위로 조회를 세운다) ---- */
 function killedFor(domain){
-  return STATE.killed&&(STATE.killScope==='전사'||domain===STATE.killScope);
+  return STATE.killed&&(eqv(STATE.killScope,'전사')||domain===STATE.killScope);
 }
 
 /* ---- 도메인 세부화면 (원장 나열 + 부문 차트. 전 값이 payload 원장이다) ---- */
@@ -10529,7 +10530,7 @@ function exceptionQueue(root){
   const i=frameIdx(f);
   const g=groupSum(f,'status','due_days');
   root.appendChild(hbars(g.map(x=>({label:'상태 '+x.key,value:x.n,
-    sub:null,tone:x.key==='접수'?'warn':x.key==='조치중'?'bad':undefined})),
+    sub:null,tone:eqv(x.key,'접수')?'warn':eqv(x.key,'조치중')?'bad':undefined})),
     {title:'예외 상태 분포 (자동상계 금지, 종결은 사람 승인 후)',
      money:false,share:true,src:srcMeta(f)}));
 }
@@ -10763,24 +10764,24 @@ const DETAIL_SCREENS=[
   /* AI리스크. 해설서(2026-09-08) UI-01~12 가운데 원장이 실재하는 화면만 만든다. */
   ['AI 리스크 개요','AIR · AI 리스크 개요 (인벤토리·게이트·비상정지·마스킹·요건 커버리지·화면 대응)',aiOverview],
   ['AI 인벤토리·위험분류','AIR · AI 인벤토리와 위험분류 (에이전트·모드·위험등급·도구·권한)',screenOf({
-    lead:'해설서 UI-02·03 에 해당한다. 등록 필드는 이름·모드·위험등급·도구·범위·쓰기권한·오너·도메인이고, 위험등급은 상·중·하 규칙 분류다. 목적·고객영향·법인·모델버전·종료계획 필드와 5요소 최대값 등급, 법적 적용성 판정은 없다.',
+    lead:'등록 필드는 이름·모드·위험등급·도구·범위·쓰기권한·오너·도메인이고, 위험등급은 상·중·하 규칙 분류다.',
     autochart:[['위험등급 × 모드별 에이전트 수','agent_registry',['risk_tier','mode'],null,{money:false}],
                ['도메인별 에이전트 수','agent_registry',['domain'],null,{money:false}]],
     tables:[['에이전트 레지스트리','agent_registry']]})],
   ['실행승인·게이트','AIR · 실행승인과 게이트 (4-Eyes·접근 판정·직무분리·비상정지)',screenOf({
-    lead:'해설서 UI-06 에 해당한다. 승인은 검토자와 승인자를 나누고 직무분리 여부를 기록하며, 접근은 역할 권한 행이 있어야 허용된다. 금액·통화·인수까지 묶는 승인 지문과 실행 직전 재인가는 없다.',
+    lead:'승인은 검토자와 승인자를 나누고 직무분리 여부를 기록하며, 접근은 역할 권한 행이 있어야 허용된다.',
     autochart:[['승인 결정 × 직무분리 충족','gov_approval',['decision','segregation_ok'],null,{money:false}],
                ['접근 판정 결과','gov_access_decision',['decision'],null,{money:false}]],
     tables:[['4-Eyes 승인 기록','gov_approval'],['접근 판정','gov_access_decision'],
             ['직무분리 충돌표','gov_sod_conflict'],['범위형 비상정지 이력','agent_killswitch']]})],
   ['정보흐름·마스킹','AIR · 정보흐름과 마스킹 (전송 규칙·적중·필드정책·승인 View)',screenOf({
-    lead:'해설서 UI-04 의 데이터 부분에 해당한다. 외부 전송 전 마스킹·차단 규칙과 추적 구간별 적중, 조회 필드의 마스킹·집계최소단위 정책, 읽기전용 승인 View 다. 이미지·음성·첨부 검사, 공급자 계약, RAG 인덱스 통제는 없다.',
+    lead:'외부 전송 전 마스킹·차단 규칙과 추적 구간별 적중, 조회 필드의 마스킹·집계최소단위 정책, 읽기전용 승인 View 다.',
     autochart:[['마스킹 규칙 × 조치','aig_redaction_rule',['action','applies_to'],null,{money:false}],
                ['추적 구간별 마스킹 적중','aig_agent_trace',['phase'],'redaction_hits',{money:false}]],
     tables:[['전송 마스킹 규칙','aig_redaction_rule'],['에이전트 추적 사슬','aig_agent_trace'],
             ['필드 정책 (마스킹·집계최소단위)','ui_field_policy'],['승인 View','ui_view']]})],
   ['사고·경보·중단','AIR · 사고·경보·중단 (실행 통제 이슈·경보 정책·예외 조치·비상정지)',screenOf({
-    lead:'해설서 UI-09 에 해당한다. 실행 통제 이슈, 경보 정책과 제출 차단, 예외·조치 큐, 범위형 비상정지 이력이다. 7종 사고분류, 자식 전파와 회수 세대번호, 재개 승인 절차는 없다.',
+    lead:'실행 통제 이슈, 경보 정책과 제출 차단, 예외·조치 큐, 범위형 비상정지 이력이다.',
     autochart:[['실행 통제 이슈 (단계 × 종류)','gov_run_issue',['stage','kind'],null,{money:false}],
                ['경보 정책 × 제출 차단','gov_alert_policy',['alert_type','blocks_submission'],null,{money:false}]],
     tables:[['실행 통제 이슈','gov_run_issue'],['경보 정책','gov_alert_policy'],
@@ -11020,8 +11021,8 @@ function gateState(){
   const n={PASS:0,WARN:0,FAIL:0};
   v.rows.forEach(r=>{const k=r[vi.status];n[k]=(n[k]||0)+1});
   const iv=D.independent||{status:'-'};
-  const ok=n.FAIL===0&&iv.status==='적합';
-  const cond=n.FAIL===0&&iv.status==='조건부';
+  const ok=n.FAIL===0&&eqv(iv.status,'적합');
+  const cond=n.FAIL===0&&eqv(iv.status,'조건부');
   return {n,iv,ok,cond};
 }
 function paintGates(){
@@ -11032,7 +11033,7 @@ function paintGates(){
     g.n.FAIL?'bad':g.n.WARN?'warn':'good');
   const e2=$('#gate-2');if(e2)e2.title=`${T('자체검증')} PASS ${g.n.PASS} · WARN ${g.n.WARN} · FAIL ${g.n.FAIL}`;
   set('#gate-3',T('3선')+' '+T(g.iv.status),
-    g.iv.status==='적합'?'good':g.iv.status==='조건부'?'warn':g.iv.status==='응답대기'?'warn':'bad');
+    eqv(g.iv.status,'적합')?'good':eqv(g.iv.status,'조건부')?'warn':eqv(g.iv.status,'응답대기')?'warn':'bad');
   set('#gate-ok',T(g.ok?'결재 가능':g.cond?'결재 조건부':'결재 불가'),
     g.ok?'good':g.cond?'warn':'hard');
   const e=$('#gate-ok');if(e)e.title=T('게이트는 fail-closed 다. 3선 판정이 적합이 아니면 결재 상신이 막힌다.');
@@ -11277,7 +11278,7 @@ function boot(){
     if(!reason){rin.focus();return;}        /* 사유 없는 정지는 없다 */
     STATE.killed=true;STATE.killReason=reason;
     STATE.killScope=ksc.value||'전사';       /* 범위형 정지 (PLT-016) */
-    kb.textContent=T('Kill Switch 해제')+(STATE.killScope==='전사'?''
+    kb.textContent=T('Kill Switch 해제')+(eqv(STATE.killScope,'전사')?''
       :' · '+T(STATE.killScope));
     kb.classList.add('on');
     bar.hidden=true;repaint();
@@ -11348,7 +11349,7 @@ def _ser(v) -> str:
 
 
 def _pack_blob(insts: dict[str, dict[str, dict]], primary_inst: str,
-               primary: str) -> str:
+               primary: str, values: dict[str, str] | None = None) -> str:
     """실행 payload 들을 한 덩어리로 묶어 gzip 하고 base64 로 돌려준다.
 
     한 파일에 기관 아홉 곳을 실으려면 실행마다 10 MB 가 넘는 JSON 을 그대로
@@ -11452,6 +11453,7 @@ def _pack_blob(insts: dict[str, dict[str, dict]], primary_inst: str,
             packed[code][asof] = q
     pool = {h: store[h] for h in sorted(used)}
     blob = {"v": 1, "primary": primary, "primary_inst": primary_inst,
+            "values": values or {},
             "pool": pool, "insts": packed, "i18n": _i18n.payload()}
     raw = _ser(blob).encode("utf-8")
     return _b85_encode(gzip.compress(raw, compresslevel=9, mtime=0))
@@ -11573,6 +11575,7 @@ window.__RYNTA_READY__=(async function(){
       return o});
   }}
   window.__RYNTA_INSTS__=P.insts;
+  window.__DV__=P.values||{};
   window.__RYNTA_RUNS__=P.insts[P.primary_inst];
   window.__RYNTA__=window.__RYNTA_RUNS__[P.primary];
   window.__RYNTA_I18N__=P.i18n;
@@ -11580,8 +11583,12 @@ window.__RYNTA_READY__=(async function(){
 """
 
 
-def render(studios: Studio | list[Studio]) -> str:
+def render(studios: Studio | list[Studio], *, lang: str | None = None,
+           primary_inst: str | None = None, public: bool = False) -> str:
     """한 개 이상의 실행 스냅샷을 한 화면으로 그린다.
+
+    lang="en" 이면 원장 값까지 영어로 옮긴 공개 배포용 빌드다 (export_en). 언어
+    전환 버튼은 감춘다. primary_inst 는 첫 화면의 기관, public 은 SHA-256 지문 제거다.
 
     기준일 전환은 **미리 산출해 실은 실행 사이의 전환**이다. 화면은 계산기가
     아니므로 새 기준일을 즉석에서 만들 수 없다. 만들 수 있는 것처럼 보이면
@@ -11597,19 +11604,37 @@ def render(studios: Studio | list[Studio]) -> str:
     ss = sorted(ss, key=lambda x: (_order.get(x.institution_code, len(_order)),
                                    x.asof))
     insts: dict[str, dict[str, dict]] = {}
+    tr = None
+    if lang == "en":
+        from risk_lib.ui_studio import export_en as _ex
+        tr = _ex.Translator()
     for s in ss:
-        insts.setdefault(s.institution_code, {})[s.asof] = _payload(s)
-    primary_inst = ss[0].institution_code    # 원장 순서의 첫 기관이 기본 화면
+        pl = _payload(s)
+        if public:
+            pl = _ex_scrub(pl)
+        if tr is not None:
+            pl = tr.walk(pl)
+        insts.setdefault(s.institution_code, {})[s.asof] = pl
+    if primary_inst is None:
+        primary_inst = ss[0].institution_code    # 원장 순서의 첫 기관이 기본 화면
+    if primary_inst not in insts:
+        raise ValueError(f"기본 기관 {primary_inst} 의 실행이 없다: {sorted(insts)}")
     runs = insts[primary_inst]
     primary = sorted(runs)[-1]               # 최신 기준일이 기본 화면
     m = runs[primary]["meta"]
     # 기본 기관의 실행은 두 번 싣지 않는다. 같은 payload 를 복제하면 파일이
     # 그만큼 커지고, 두 벌 중 한쪽만 고쳐질 여지가 생긴다.
-    b64 = _blob_literal(_pack_blob(insts, primary_inst, primary))
+    b64 = _blob_literal(_pack_blob(insts, primary_inst, primary,
+                                   values=tr.m if tr is not None else None))
+    title = "RYNTA Agentic UI Studio" if lang == "en" else "RYNTA 에이전틱 UI 스튜디오"
+    lang_btn = ("" if lang == "en" else
+                '<button class="theme" id="langbtn" type="button">English</button>')
+    digest_chip = ("" if public else
+                   f'<span class="hchip" id="chip-digest">지문 {html.escape(m["digest"][:12])}</span>')
     return f"""<!doctype html>
 <html lang="{_i18n.DEFAULT_LANG}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RYNTA 에이전틱 UI 스튜디오 · {html.escape(primary)}</title>
+<title>{title} · {html.escape(primary)}</title>
 <style>{_CSS}</style></head><body>
 <script>/* 저장된 선택을 그리기 전에 적용한다. 뒤에서 적용하면 첫 페인트가
   시스템 설정으로 나갔다가 바뀌어 화면이 한 번 번쩍인다. 외부 리소스를 부르지
@@ -11628,7 +11653,7 @@ if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)
   <span class="gate" id="gate-2"></span>
   <span class="gate" id="gate-3"></span>
   <span class="gate" id="gate-ok"></span>
-  <button class="theme" id="langbtn" type="button">English</button>
+  {lang_btn}
   <button class="theme" id="themebtn" type="button" aria-pressed="false"
           title="밝은 화면과 어두운 화면을 전환한다">화면 밝기</button>
   <button class="kill" data-i18n>Kill Switch</button>
@@ -11651,7 +11676,7 @@ if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)
 <footer>
   <div class="footchips">
     <span class="hchip" id="chip-run">{html.escape(m['run_id'])}</span>
-    <span class="hchip" id="chip-digest">지문 {html.escape(m['digest'][:12])}</span>
+    {digest_chip}
     <span class="hchip" id="chip-seed">시드 {m['seed']}</span>
     <span class="hchip" id="chip-rows">테이블 {m['n_tables']}장 · {m['n_rows']:,}행</span>
     <span class="hchip">Read-only · PII Mask</span>
@@ -11673,10 +11698,15 @@ if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)
 </body></html>"""
 
 
-def write_app(s: Studio | list[Studio], path: str | Path) -> Path:
+def _ex_scrub(pl: dict) -> dict:
+    from risk_lib.ui_studio import export_en as _ex
+    return _ex.scrub_hashes(pl)
+
+
+def write_app(s: Studio | list[Studio], path: str | Path, **opts) -> Path:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(render(s), encoding="utf-8")
+    p.write_text(render(s, **opts), encoding="utf-8")
     n = p.stat().st_size
     if n > DEPLOY_SIZE_LIMIT:
         # 자르지 않는다. 화면이 조용히 줄어들면 "전량"이라 적힌 표가 실제로는

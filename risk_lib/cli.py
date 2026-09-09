@@ -340,7 +340,12 @@ def _cmd_ui_studio(args: argparse.Namespace) -> int:
             result = run_pipeline(portfolio, seed=args.seed, asof=a)
             studios.append(build_studio(result, portfolio))
             print(f"  산출 {studios[-1].run_id} · 지문 {studios[-1].digest[:16]}")
-    out = write_app(studios if len(studios) > 1 else studios[0], args.out)
+    out = write_app(studios if len(studios) > 1 else studios[0], args.out,
+                    lang=args.lang, primary_inst=args.default_inst, public=args.public)
+    if args.lang == "en":
+        from risk_lib.ui_studio import export_en as _ex
+        left = sum(_ex.MISSES.values())
+        print(f"  영문 빌드 · 사전 미수록 원장 값 {len(_ex.MISSES):,}종 ({left:,}회) 은 원문 그대로 실렸다")
     # 요약의 "최신 기준"은 화면의 기본 실행과 같아야 한다 — 입력 순서가 아니라
     # 기준일 정렬의 마지막이다 (render 가 그렇게 고른다).
     s = sorted(studios, key=lambda x: x.asof)[-1]
@@ -694,6 +699,12 @@ def main(argv: list[str] | None = None) -> int:
                          "실으면 파일이 그만큼 커지므로 낮춰야 할 수 있다")
     ui.add_argument("--rows-demo", type=int, default=None,
                     help="상세 원장의 임베드 행 상한 (기본 3000)")
+    ui.add_argument("--lang", default=None, choices=["en"],
+                    help="en: 공개 배포용 영문 빌드 (원장 값까지 영어로 옮기고 언어 전환은 감춘다)")
+    ui.add_argument("--default-inst", default=None, metavar="CODE",
+                    help="첫 화면의 기관코드 (기본은 기관 원장 순서의 첫 기관)")
+    ui.add_argument("--public", action="store_true",
+                    help="SHA-256 지문·스키마 해시를 지운 공개용 빌드")
     ui.add_argument("--institutions", default=None,
                     help="기관코드 (콤마로 여러 개, all 은 등록 기관 전부). "
                          "생략하면 국내 표본 한 곳만 산출한다")
