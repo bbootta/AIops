@@ -4228,6 +4228,7 @@ function validation(root){
   root.appendChild(c);
 }
 function agents(root){
+  aiAgentCharts(root);
   const a=el('div','card');a.appendChild(el('h3',null,'에이전트 레지스트리 · 최소 권한'));
   a.appendChild(table(D.agents));root.appendChild(a);
   const b=el('div','card');b.appendChild(el('h3',null,'활동 원장 (주체·도구·출력·게이트)'));
@@ -4990,6 +4991,182 @@ const AI_UI_MAP=[
   ['UI-10','고객권리','BR-057~060','없음 (요청 원장·통지 없음)'],
   ['UI-11','감사·보고','BR-061~068','실행·감사추적 · 감독보고'],
   ['UI-12','설정·예외','BR-003 · 007~008','예외·조치 (통제 예외 원장 없음)']];
+/* ---- AI리스크 시각화. 3D 기둥은 원장 두 축의 교차 집계, 2D 는 열지도·누적선·타일이다.
+   전부 payload 원장에서 센 값이고 화면이 새 수치를 만들지 않는다. 원장이 전량 실리지 않은
+   표(shown < total)는 집계하지 않고 건너뛴다. 조용히 일부만 세면 표와 그림이 어긋난다. ---- */
+function aiFull(key){const f=D.data[key];return (f&&f.shown>=f.total)?f:null}
+const AI_SEP=' ⟂ ';
+/* 두 열의 교차 집계. split 이 있으면 열 값을 그 구분자로 쪼개 여러 칸에 센다(도구 목록).
+   val 이 있으면 건수 대신 그 열의 합이다. rankRow/rankCol 은 라벨 정렬 함수다. */
+function aiCross(f,rowCol,colCol,{val,split,rankCol,rankRow,topRows,topCols}={}){
+  const i=frameIdx(f);const R=new Map(),C=new Map(),M=new Map();
+  f.rows.forEach(r=>{const rk=String(r[i[rowCol]]==null?'-':r[i[rowCol]]);
+    const raw=r[i[colCol]];
+    const cs=split?String(raw||'').split(split).map(x=>x.trim()).filter(Boolean):[String(raw==null?'-':raw)];
+    const w=val?(+r[i[val]]||0):1;
+    cs.forEach(ck=>{R.set(rk,(R.get(rk)||0)+w);C.set(ck,(C.get(ck)||0)+w);
+      const k=rk+AI_SEP+ck;M.set(k,(M.get(k)||0)+w)})});
+  let rows=[...R.keys()].sort((a,b)=>R.get(b)-R.get(a)),cols=[...C.keys()].sort((a,b)=>C.get(b)-C.get(a));
+  if(rankRow)rows.sort((a,b)=>rankRow(a)-rankRow(b));
+  if(rankCol)cols.sort((a,b)=>rankCol(a)-rankCol(b));
+  if(topRows)rows=rows.slice(0,topRows);if(topCols)cols=cols.slice(0,topCols);
+  return {rows,cols,matrix:rows.map(r=>cols.map(c=>M.get(r+AI_SEP+c)||0)),rowTot:R,colTot:C};
+}
+/* 2D 열지도. 값이 클수록 진하고, tone(v,row,col) 이 있으면 그 색 변수로 칠한다. 라벨은
+   원장 값이라 T() 를 거치지 않는다(영문 빌드는 즉석 변환기가 옮긴다). */
+function heatGrid(rows,cols,matrix,{fmt,tone}={}){
+  const f=fmt||fmtNum;const max=Math.max(...matrix.flat().map(Math.abs))||1;
+  const hm=el('div','hm');hm.style.gridTemplateColumns='auto repeat('+cols.length+',minmax(0,1fr))';
+  hm.appendChild(rawEl('span','hh',''));
+  cols.forEach(c=>{const h=rawEl('span','hh',String(c).slice(0,14));h.title=String(c);hm.appendChild(h)});
+  rows.forEach((r,y)=>{const h=rawEl('span','hr',String(r).slice(0,22));h.title=String(r);hm.appendChild(h);
+    cols.forEach((c,x)=>{const v=matrix[y][x];const cell=rawEl('span','hc',v?f(v):'·');
+      cell.title=r+' × '+c+': '+f(v);
+      if(v){const pct=Math.round(Math.abs(v)/max*55)+12;
+        cell.style.background='color-mix(in srgb, var(--'+((tone&&tone(v,r,c))||'accent')+') '+pct+'%, transparent)'}
+      hm.appendChild(cell)})});
+  return hm;
+}
+function aiCard(title,child,f){const c=cardOf(title,child);if(f)c.appendChild(srcMeta(f));return c}
+/* 칸이 적은 3D 기둥은 폭을 줄인다. 2×3 격자를 화면 폭으로 늘리면 기둥만 커지고 정보는 그대로다. */
+function ai3d(matrix,rows,cols,opts){const b=bars3d(matrix,rows,cols,opts);const n=matrix.length*((matrix[0]||[]).length);
+  b.style.maxWidth=n<=12?'640px':n<=40?'860px':'none';return b}
+/* 행위자 열을 에이전트 레지스트리와 이어 도메인·위험등급 열을 덧붙인 프레임. 추적·활동 원장은
+   행위자마다 행 수가 같아 행위자 축 자체로는 기복이 없다. 레지스트리의 도메인 축으로 접어야 분포가 보인다. */
+function aiWithAgentMeta(f,actorCol){
+  const reg=aiFull('agent_registry');if(!reg||!f)return null;
+  const ri=frameIdx(reg),fi=frameIdx(f);const meta=new Map();
+  reg.rows.forEach(r=>{meta.set(String(r[ri.agent_name]),[r[ri.domain],r[ri.risk_tier]]);meta.set(String(r[ri.agent_id]),[r[ri.domain],r[ri.risk_tier]])});
+  const rows=f.rows.map(r=>{const m=meta.get(String(r[fi[actorCol]]))||['-','-'];return r.concat(m)});
+  return {columns:f.columns.concat(['agent_domain','agent_tier']),rows,total:f.total,shown:f.shown};
+}
+function aiPair(a,b){const g=el('div','agrid');g.appendChild(a);g.appendChild(b);splitGrid(g);return g}
+const AI_TIER_RANK=v=>eqv(v,'상')?0:eqv(v,'중')?1:eqv(v,'하')?2:3;
+const AI_SEV_RANK=v=>eqv(v,'중대')?0:eqv(v,'상')?1:eqv(v,'중')?2:3;
+const AI_ST_RANK=v=>eqv(v,'반영')?0:eqv(v,'부분')?1:2;
+/* 에이전트 인벤토리: 도메인 × 위험등급 3D, 모드 × 위험등급 열지도, 도구별 보유 수, 도구 × 도메인 3D */
+function aiInventoryCharts(root){
+  const reg=aiFull('agent_registry');if(!reg)return;
+  const dt=aiCross(reg,'domain','risk_tier',{rankCol:AI_TIER_RANK});
+  root.appendChild(aiCard('도메인 × 위험등급 에이전트 수 (3D)',
+    ai3d(dt.matrix,dt.rows,dt.cols,{fmt:fmtNum}),reg));
+  const mt=aiCross(reg,'mode','risk_tier',{rankCol:AI_TIER_RANK});
+  const left=aiCard('모드 × 위험등급 에이전트 수',heatGrid(mt.rows,mt.cols,mt.matrix,
+    {tone:(v,r,c)=>eqv(c,'상')?'bad':eqv(c,'중')?'warn':'good'}),reg);
+  const tl=aiCross(reg,'domain','tools',{split:',',topCols:10});
+  const items=tl.cols.map(t=>({label:t,value:tl.colTot.get(t)}));
+  root.appendChild(aiPair(left,hbars(items,{title:'도구별 보유 에이전트 수',money:false,src:srcMeta(reg)})));
+  const tx=aiCross(reg,'domain','tools',{split:',',topCols:8});
+  root.appendChild(aiCard('도구 × 도메인 에이전트 수 (3D)',
+    ai3d(tx.cols.map((t,x)=>tx.rows.map((d,y)=>tx.matrix[y][x])),tx.cols,tx.rows,{fmt:fmtNum}),reg));
+}
+/* 실행승인·게이트: 승인 대상 × 결정 3D, 승인 깔때기, 자원 × 접근 판정, 직무분리 충돌 */
+function aiApprovalCharts(root){
+  const ap=aiFull('gov_approval');
+  if(ap){const i=frameIdx(ap);
+    const sd=aiCross(ap,'subject_type','decision');
+    root.appendChild(aiCard('승인 대상 × 결정 (3D)',ai3d(sd.matrix,sd.rows,sd.cols,{fmt:fmtNum}),ap));
+    const n=pred=>ap.rows.filter(pred).length;
+    const tiles=statTiles([
+      {label:T('승인 기록'),value:ap.total,tone:'accent'},
+      {label:T('직무분리 충족'),value:n(r=>r[i.segregation_ok]===true),tone:'good'},
+      {label:T('결정 승인'),value:n(r=>eqv(r[i.decision],'승인')),tone:'good'},
+      {label:T('결정 대기'),value:n(r=>eqv(r[i.decision],'대기')),tone:'warn'}],{money:false,share:true});
+    root.appendChild(aiCard('승인 깔때기',tiles,ap))}
+  const ac=aiFull('gov_access_decision'),sod=aiFull('gov_sod_conflict');
+  const cards=[];
+  if(ac){const rd=aiCross(ac,'resource_kind','decision');
+    cards.push(aiCard('자원 종류 × 접근 판정',heatGrid(rd.rows,rd.cols,rd.matrix,
+      {tone:(v,r,c)=>eqv(c,'허용')?'good':'bad'}),ac))}
+  if(sod){const i=frameIdx(sod);const roles=[...new Set(sod.rows.flatMap(r=>[r[i.role_a],r[i.role_b]]))].sort();
+    const sev=new Map();sod.rows.forEach(r=>{sev.set(r[i.role_a]+AI_SEP+r[i.role_b],r[i.severity]);sev.set(r[i.role_b]+AI_SEP+r[i.role_a],r[i.severity])});
+    const m=roles.map(a=>roles.map(b=>{const v=sev.get(a+AI_SEP+b);return v==null?0:(eqv(v,'중대')?2:1)}));
+    cards.push(aiCard('직무분리 충돌 (역할 × 역할, 중대는 붉게)',heatGrid(roles,roles,m,
+      {fmt:v=>v===2?T('중대'):v===1?T('충돌'):'·',tone:v=>v===2?'bad':'warn'}),sod))}
+  if(cards.length===2)root.appendChild(aiPair(cards[0],cards[1]));else cards.forEach(c=>root.appendChild(c));
+}
+/* 정보흐름·마스킹: 행위자 × 구간 적중 3D, 누적 적중선, 게이트 × 구간 */
+function aiFlowCharts(root){
+  const tr=aiFull('aig_agent_trace');if(!tr)return;
+  const i=frameIdx(tr);
+  const trm=aiWithAgentMeta(tr,'actor')||tr;
+  const at=aiCross(trm,trm.columns.indexOf('agent_domain')>=0?'agent_domain':'actor','tool');
+  root.appendChild(aiCard('도메인 × 도구 추적 건수 (3D)',ai3d(at.matrix,at.rows,at.cols,{fmt:fmtNum}),tr));
+  const hits=tr.rows.reduce((a,r)=>a+(+r[i.redaction_hits]||0),0);
+  let left;
+  if(hits){
+    const seq=tr.rows.slice().sort((a,b)=>(a[i.seq]||0)-(b[i.seq]||0));
+    let acc=0;const cum=seq.map(r=>{acc+=(+r[i.redaction_hits]||0);return acc});
+    const labels=seq.map(r=>String(r[i.seq]));
+    left=aiCard('추적 순서에 따른 누적 마스킹 적중',
+      lineChart([{name:T('누적 적중'),values:cum}],labels,{fmt:fmtNum,every:Math.max(1,Math.ceil(labels.length/12))}),tr);
+  } else {
+    /* 적중이 없으면 빈 선을 그리지 않는다. 0 만 있는 누적선은 축 눈금만 남아 그림이 아니라 잡음이다. */
+    const ah=aiCross(tr,'actor','phase',{val:'redaction_hits'});
+    left=aiCard('추적 순서에 따른 누적 마스킹 적중',el('div','note','마스킹 적중 0건. 이 실행은 언어모형을 호출하지 않아 외부로 나간 본문이 없고, 규칙은 등록만 되어 있다.'),tr)}
+  const tp=aiCross(tr,'tool','phase');
+  const heat=aiCard('도구 × 추적 구간 건수',heatGrid(tp.rows,tp.cols,tp.matrix,{}),tr);
+  root.appendChild(aiPair(left,heat));
+}
+/* 사고·경보·중단: 심각도 × 상태 3D, 원천 원장 × 심각도, 기한 분포 */
+function aiIncidentCharts(root){
+  const ex=aiFull('gov_exception_action');if(!ex)return;
+  const i=frameIdx(ex);
+  const ss=aiCross(ex,'severity','status',{rankRow:AI_SEV_RANK});
+  root.appendChild(aiCard('심각도 × 상태 예외 건수 (3D)',ai3d(ss.matrix,ss.rows,ss.cols,{fmt:fmtNum}),ex));
+  const ls=aiCross(ex,'source_ledger','severity',{rankCol:AI_SEV_RANK});
+  const heat=aiCard('원천 원장 × 심각도',heatGrid(ls.rows,ls.cols,ls.matrix,
+    {tone:(v,r,c)=>eqv(c,'중대')?'bad':'warn'}),ex);
+  const dd=ex.rows.map(r=>+r[i.due_days]||0);
+  const bucket=[{label:T('3일 이내'),value:dd.filter(d=>d<=3).length,tone:'bad'},
+                {label:T('4~7일'),value:dd.filter(d=>d>3&&d<=7).length,tone:'warn'},
+                {label:T('8일 이상'),value:dd.filter(d=>d>7).length,tone:'good'}];
+  root.appendChild(aiPair(heat,aiCard('기한 분포 (일)',statTiles(bucket,{money:false,share:true}),ex)));
+}
+/* 에이전트 운영: 행위자 × 게이트 3D, 도구 × 게이트, 도구별 활동 */
+function aiAgentCharts(root){
+  const act=aiFull('agent_activity');if(!act)return;
+  const am=aiWithAgentMeta(act,'actor')||act,dk=am.columns.indexOf('agent_domain')>=0?'agent_domain':'actor';
+  const ag=aiCross(am,dk,'tool');
+  root.appendChild(aiCard('도메인 × 도구 활동 건수 (3D)',ai3d(ag.matrix,ag.rows,ag.cols,{fmt:fmtNum}),act));
+  const dg=aiCross(am,dk,'gate');
+  const heat=aiCard('도메인 × 게이트 건수',heatGrid(dg.rows,dg.cols,dg.matrix,
+    {tone:(v,r,c)=>eqv(c,'대기')?'warn':eqv(c,'차단')?'bad':'good'}),act);
+  const tg=aiCross(act,'tool','gate');
+  const items=tg.rows.map(t=>({label:t,value:tg.rowTot.get(t)}));
+  root.appendChild(aiPair(heat,hbars(items,{title:'도구별 활동 건수',money:false,src:srcMeta(act)})));
+}
+/* AI 거버넌스: 도구 × 구간 추적량 3D, 수동조정 증감, 규칙 근거 상태 × 조치 */
+function aiGovCharts(root){
+  const tr=aiFull('aig_agent_trace');
+  if(tr){const trm=aiWithAgentMeta(tr,'actor')||tr,tk=trm.columns.indexOf('agent_tier')>=0?'agent_tier':'actor';
+    const tp=aiCross(trm,tk,'tool',{rankRow:AI_TIER_RANK});
+    root.appendChild(aiCard('위험등급 × 도구 추적 건수 (3D)',ai3d(tp.matrix,tp.rows,tp.cols,{fmt:fmtNum}),tr))}
+  const adj=aiFull('aig_adjustment'),rules=aiFull('aig_redaction_rule');
+  const cards=[];
+  if(adj){const i=frameIdx(adj);
+    const items=adj.rows.map(r=>({label:String(r[i.figure_id]),value:+r[i.delta]||0,tone:(+r[i.delta]||0)<0?'bad':'good'}));
+    cards.push(hbars(items,{title:'수동조정 증감 (조정 후 - 기준)',money:true,src:srcMeta(adj)}))}
+  if(rules){const ea=aiCross(rules,'evidence_status','action');
+    cards.push(aiCard('마스킹 규칙 근거 상태 × 조치',heatGrid(ea.rows,ea.cols,ea.matrix,
+      {tone:(v,r,c)=>eqv(c,'차단')?'bad':'warn'}),rules))}
+  if(cards.length===2)root.appendChild(aiPair(cards[0],cards[1]));else cards.forEach(c=>root.appendChild(c));
+}
+/* AI 리스크 개요: 도메인 × 위험등급 3D 와 요건 우선순위 × 반영 상태 열지도 */
+function aiOverviewCharts(root){
+  const reg=aiFull('agent_registry');
+  const cards=[];
+  if(reg){const dt=aiCross(reg,'domain','risk_tier',{rankCol:AI_TIER_RANK});
+    cards.push(aiCard('도메인 × 위험등급 에이전트 수 (3D)',ai3d(dt.matrix,dt.rows,dt.cols,{fmt:fmtNum}),reg))}
+  const R=D.req_trace_air&&D.req_trace_air.rows;
+  if(R&&R.length){const pr=[...new Set(R.map(r=>r.priority))].sort(),st=[...new Set(R.map(r=>r.status))].sort((a,b)=>AI_ST_RANK(a)-AI_ST_RANK(b));
+    const m=pr.map(p=>st.map(x=>R.filter(r=>r.priority===p&&r.status===x).length));
+    const c=cardOf('요건 우선순위 × 반영 상태',heatGrid(pr,st,m,
+      {tone:(v,r,c)=>eqv(c,'반영')?'good':eqv(c,'부분')?'warn':'bad'}));
+    c.appendChild(rawEl('div','meta',T('요건')+' '+TC(R.length,'건')));cards.push(c)}
+  cards.forEach(c=>root.appendChild(c));
+}
+
 function aiOverview(root){
   const reg=D.data['agent_registry'],act=D.data['agent_activity'],ks=D.data['agent_killswitch'],
         ap=D.data['gov_approval'],tr=D.data['aig_agent_trace'],rules=D.data['aig_redaction_rule'],
@@ -5010,6 +5187,7 @@ function aiOverview(root){
   if(full(tr)){const i=frameIdx(tr);const hits=tr.rows.reduce((a,r)=>a+(r[i.redaction_hits]||0),0);
     tile('마스킹 적중',String(hits),T('규칙')+' '+TC(rules?rules.total:0,'건')+' · '+T('추적 행')+' '+TC(tr.total,'건'),hits?'warn':'good')}
   root.appendChild(g);
+  aiOverviewCharts(root);
 
   if(full(reg)){const i=frameIdx(reg);
     const by=col=>{const m=new Map();reg.rows.forEach(r=>{const k=r[i[col]];m.set(k,(m.get(k)||0)+1)});
@@ -10782,6 +10960,7 @@ const DETAIL_SCREENS=[
             ['접근 판정 원장','gov_access_decision'],
             ['필드 권한·마스킹 정책','ui_field_policy']]})],
   ['AI 거버넌스','AIG · 에이전트 추적 (프롬프트·마스킹·수동조정)',screenOf({
+    charts:aiGovCharts,
     tables:[['프롬프트·도구·출력 로그','aig_agent_trace'],
             ['전송 마스킹 규칙','aig_redaction_rule'],
             ['수동조정 원장','aig_adjustment']]})],
@@ -10818,23 +10997,27 @@ const DETAIL_SCREENS=[
   ['AI 리스크 개요','AIR · AI 리스크 개요 (인벤토리·게이트·비상정지·마스킹·요건 커버리지·화면 대응)',aiOverview],
   ['AI 인벤토리·위험분류','AIR · AI 인벤토리와 위험분류 (에이전트·모드·위험등급·도구·권한)',screenOf({
     lead:'등록 필드는 이름·모드·위험등급·도구·범위·쓰기권한·오너·도메인이고, 위험등급은 상·중·하 규칙 분류다.',
+    charts:aiInventoryCharts,
     autochart:[['위험등급 × 모드별 에이전트 수','agent_registry',['risk_tier','mode'],null,{money:false}],
                ['도메인별 에이전트 수','agent_registry',['domain'],null,{money:false}]],
     tables:[['에이전트 레지스트리','agent_registry']]})],
   ['실행승인·게이트','AIR · 실행승인과 게이트 (4-Eyes·접근 판정·직무분리·비상정지)',screenOf({
     lead:'승인은 검토자와 승인자를 나누고 직무분리 여부를 기록하며, 접근은 역할 권한 행이 있어야 허용된다.',
+    charts:aiApprovalCharts,
     autochart:[['승인 결정 × 직무분리 충족','gov_approval',['decision','segregation_ok'],null,{money:false}],
                ['접근 판정 결과','gov_access_decision',['decision'],null,{money:false}]],
     tables:[['4-Eyes 승인 기록','gov_approval'],['접근 판정','gov_access_decision'],
             ['직무분리 충돌표','gov_sod_conflict'],['범위형 비상정지 이력','agent_killswitch']]})],
   ['정보흐름·마스킹','AIR · 정보흐름과 마스킹 (전송 규칙·적중·필드정책·승인 View)',screenOf({
     lead:'외부 전송 전 마스킹·차단 규칙과 추적 구간별 적중, 조회 필드의 마스킹·집계최소단위 정책, 읽기전용 승인 View 다.',
+    charts:aiFlowCharts,
     autochart:[['마스킹 규칙 × 조치','aig_redaction_rule',['action','applies_to'],null,{money:false}],
                ['추적 구간별 마스킹 적중','aig_agent_trace',['phase'],'redaction_hits',{money:false}]],
     tables:[['전송 마스킹 규칙','aig_redaction_rule'],['에이전트 추적 사슬','aig_agent_trace'],
             ['필드 정책 (마스킹·집계최소단위)','ui_field_policy'],['승인 View','ui_view']]})],
   ['사고·경보·중단','AIR · 사고·경보·중단 (실행 통제 이슈·경보 정책·예외 조치·비상정지)',screenOf({
     lead:'실행 통제 이슈, 경보 정책과 제출 차단, 예외·조치 큐, 범위형 비상정지 이력이다.',
+    charts:aiIncidentCharts,
     autochart:[['실행 통제 이슈 (단계 × 종류)','gov_run_issue',['stage','kind'],null,{money:false}],
                ['경보 정책 × 제출 차단','gov_alert_policy',['alert_type','blocks_submission'],null,{money:false}]],
     tables:[['실행 통제 이슈','gov_run_issue'],['경보 정책','gov_alert_policy'],

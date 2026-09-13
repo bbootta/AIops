@@ -1111,3 +1111,20 @@ def test_demo_build_keeps_only_headline_screens_in_menu(browser, demo_page_path)
     pg.wait_for_timeout(1500)
     assert errors == []
     pg.close()
+
+
+def test_ai_risk_screens_carry_3d_and_2d_analysis(page):
+    """AI리스크 화면 7종: 3D 기둥(svg) 한 개 이상과 2D 열지도(.hm) 한 개 이상, 오류 없음, 원장 출처 표기."""
+    names = ['AI 리스크 개요', 'AI 인벤토리·위험분류', '실행승인·게이트', '정보흐름·마스킹',
+             '사고·경보·중단', '에이전트', 'AI 거버넌스']
+    for name in names:
+        page.evaluate("a=>{const b=[...document.querySelectorAll('nav button')].find(x=>x.dataset.ko===a);b.click()}", name)
+        page.wait_for_timeout(400)
+        n_svg = page.evaluate("document.querySelectorAll('section.on svg polygon').length")
+        n_hm = page.evaluate("document.querySelectorAll('section.on .hm').length")
+        assert n_svg > 0, name           # 3D 기둥은 polygon 면으로 그린다
+        assert n_hm >= 1, name
+        text = page.evaluate("document.querySelector('section.on').innerText")
+        assert '[object' not in text, name
+        assert '원장 ' in text, name       # 출처 줄이 그림마다 붙는다
+    assert page.errors == []
