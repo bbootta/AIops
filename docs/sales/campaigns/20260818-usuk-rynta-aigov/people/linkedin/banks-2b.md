@@ -146,7 +146,7 @@ Hi Nicole, your remit at Associated Banc-Corp touches what we work on: auditable
 - 확인 근거: 검색 결과 스니펫 제목 "Alex Bush - EVP, Chief Data Officer at Associated Bank". 직함·회사 일치. 동명이인(Foley 소속 alexander-bush-a668a01a9)은 헤드라인 불일치로 배제. 프로필 표시명이 "Alex Bush"이므로 노트도 Alex로 호칭.
 - 확인일: 2026-09-14
 
-(b) 커넥션 노트 (251자):
+(b) 커넥션 노트 (253자):
 
 ```
 Hi Alex, your remit at Associated Banc-Corp touches what we work on: auditable AI governance and continuous model validation. We co-developed a financial language model with the Korea Exchange (ACL 2025). No pitch, just adjacent worlds. Glad to connect.
