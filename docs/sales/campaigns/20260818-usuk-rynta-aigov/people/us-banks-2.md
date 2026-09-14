@@ -88,7 +88,7 @@
 - EDJ-P1 메모: 공식 사이트 리더십 소개에서 AI와 Data를 직무 범위로 명시. "자체 시스템 AI 내재화" 시그널(Q1 2026 업데이트)의 조직 소유자. 챔피언 겸 기술 구매자 성격.
 - EDJ-P2 메모: LaQuinta 산하 기술 총괄로 보도(출처 간 직함 표기가 CIO와 Head of Technology로 혼재). 발송 전 직함 재확인 권고.
 - 미확인 (1): Chief Risk Officer. 전임 Christopher Van Buren이 2024-06 은퇴한 사실만 확인되고(출처: https://www.fundfornj.org/about/leadership-staff/christopher-van-buren 확인일 2026-09-14) 후임 공개 발표를 찾지 못했다. 비상장 파트너십이라 공개 정보 밀도가 낮다. SalesNav 쿼리: `Current company: "Edward Jones" AND Title: ("Chief Risk Officer" OR "Enterprise Risk") AND Seniority: CXO OR Partner`
-- 미확인 (2): 브로커딜러 Chief Compliance Officer 미탐색. SalesNav 쿼리: `Current company: "Edward Jones" AND Title: ("Chief Compliance Officer") `
+- 미확인 (2): 브로커딜러 Chief Compliance Officer 미탐색. SalesNav 쿼리: `Current company: "Edward Jones" AND Title: ("Chief Compliance Officer")`
 
 ## 7. U.S. Bancorp (US-B12, 좁은 접근 전제)
 
@@ -99,7 +99,7 @@
 
 - USB-P1 메모: 직무 범위에 model risk가 명시된 CRO(공식 블로그 소개). "전 사업 라인 AI 에이전트 배포"(2026-05 AWS 발표)와 SR 26-2 별도 거버넌스 공백을 잇는 EB. 좁은 접근 전제에서는 산하 모델리스크 기능이 1차 접점.
 - USB-P2 메모: 전사 AI 전략, 실행 총괄. 전 Allstate AI CoE 총괄. 페르소나 (d) Chief AI Officer에 정확히 부합하나 공식 리더십 페이지 확인은 미완이라 적합도 중, 발송 전 재확인 권고.
-- 미확인 (1): Head of Model Risk 실명 미확인. SalesNav 쿼리: `Current company: "U.S. Bank" AND Title: ("Model Risk" OR "Model Validation" OR "Chief Model Risk Officer") AND Seniority: SVP+`
+- 미확인: Head of Model Risk 실명 미확인. SalesNav 쿼리: `Current company: "U.S. Bank" AND Title: ("Model Risk" OR "Model Validation" OR "Chief Model Risk Officer") AND Seniority: SVP+`
 - 재확인 필요: Chief Digital Officer는 Dominic Venturo로 알려져 있으나 이번 세션에서 1차 출처 확인을 마치지 못해 표에 넣지 않았다(검색 도구 예산 소진). PO 재확인 항목.
 
 ## 8. Western Alliance Bancorporation (US-B15)
@@ -134,12 +134,17 @@
 
 | 항목 | 수치 |
 |---|---|
-| 특정 완료 인물 (표 기재) | 22명 (기관당 2~3명, 9개 기관 전부 최소 2명 충족) |
+| 특정 완료 인물 (표 기재) | 22명 (9개 기관 전부 최소 2명, 기관당 2~3명 목표 충족) |
 | 적합도 강 | 17명 |
 | 적합도 중 | 4명 (FCB-P3, SCHW-P3, EDJ-P2, USB-P2) |
 | 적합도 후보 | 1명 (WAL-P3) |
-| 미확인 직책 | 10건: 모델리스크 리더 7건 (Truist, PNC, First Citizens, Old National, Schwab, U.S. Bancorp, Western Alliance, First Horizon 중 Schwab 포함 시 8건에서 PNC는 CMRO로 계상, 정확히는 TRU/PNC/FCB/ONB/SCHW/USB/WAL/FHN 8건), Edward Jones CRO 1건, 브로커딜러 CCO 2건 (Schwab, Edward Jones; SCHW는 모델리스크와 합산 중복 없음) |
-| 미확인 총계 (직책 기준) | 모델리스크 8건 + Edward Jones CRO 1건 + CCO 2건 = 11건 (전건 SalesNav 쿼리 기재) |
+| 미확인 직책 합계 | 11건 (전건 SalesNav 쿼리 기재) |
+
+미확인 직책 내역:
+
+- Model Risk 리더 8건: Truist, PNC(Chief Model Risk Officer), First Citizens, Old National, Schwab, U.S. Bancorp, Western Alliance, First Horizon
+- Chief Risk Officer 1건: Edward Jones (전임 Van Buren 2024-06 은퇴, 후임 공개 발표 미발견)
+- 브로커딜러 Chief Compliance Officer 2건: Schwab, Edward Jones
 
 재확인 필요 항목 (PO 또는 차기 세션):
 
