@@ -5262,10 +5262,60 @@ function dkModel(){
   const cov=[];let acc=0;R.slice().sort((a,b)=>String(a.id).localeCompare(String(b.id))).forEach(r=>{acc+=eqv(r.status,'반영')?1:eqv(r.status,'부분')?0.5:0;cov.push({id:r.id,v:acc})});
   return {reg,act,tr,ap,ks,ex,agents,byName,domains,dcol,tierTone,events,hand,approvals,cov,seed:dkSeed(D.meta.run_id||'rynta')};
 }
+/* 관계 그래프 시뮬레이션. 에이전트·도구·도메인을 힘 기반으로 배치하고, 에너지가 잦아들 때까지 움직인다.
+   씨앗은 실행 식별자라 같은 실행이면 같은 그림이다. 마우스를 올린 노드는 이름과 이웃 간선이 밝아진다. */
+function dkGraph(card,M){
+  const wrap=rawEl('div','dk-two');const gs=rawEl('div','dk-stats');const gh=el('div');wrap.appendChild(gs);wrap.appendChild(gh);card.appendChild(wrap);
+  const graph=dkCanvas(gh,0.42,240,380);
+  const kv=(k,v)=>{gs.appendChild(rawEl('span',null,T(k)));gs.appendChild(rawEl('b',null,String(v)))};
+  const rnd=dkRand(M.seed);
+  const tools=[...new Set(M.agents.flatMap(a=>a.tools))].sort();
+  const nodes=[],edges=[],idx=new Map();
+  const addN=(id,kind,col,r,label)=>{idx.set(id,nodes.length);nodes.push({id,kind,col,r,label,x:(rnd()-0.5)*400,y:(rnd()-0.5)*200,vx:0,vy:0,deg:0})};
+  M.domains.forEach(d=>addN('D:'+d,'domain',M.dcol(d),9,d.replace(/^[A-Z] · /,'')));
+  tools.forEach(t=>addN('T:'+t,'tool','var(--muted)',6,t));
+  M.agents.forEach(a=>{addN('A:'+a.id,'agent',M.dcol(a.domain),3+(eqv(a.tier,'상')?2:0),a.name);
+    edges.push([idx.get('A:'+a.id),idx.get('D:'+a.domain),0.9]);
+    a.tools.forEach(t=>{if(idx.has('T:'+t))edges.push([idx.get('A:'+a.id),idx.get('T:'+t),0.35])})});
+  edges.forEach(([i,j])=>{nodes[i].deg++;nodes[j].deg++});
+  kv('노드',nodes.length);kv('간선',edges.length);const conv=rawEl('b',null,'0%');gs.appendChild(rawEl('span',null,T('수렴')));gs.appendChild(conv);
+  kv('에이전트',M.agents.length);kv('도구',tools.length);kv('제안 전용 비율',(M.agents.filter(a=>eqv(a.mode,'제안전용')).length/Math.max(1,M.agents.length)*100).toFixed(0)+'%');
+  const hov=rawEl('b',null,'-');gs.appendChild(rawEl('span',null,T('선택')));gs.appendChild(hov);
+  const lg=rawEl('div','dk-legend');M.domains.forEach(d=>{const sp=rawEl('span');const i=rawEl('i');i.style.background=M.dcol(d);sp.appendChild(i);sp.appendChild(document.createTextNode(d));lg.appendChild(sp)});
+  const sp2=rawEl('span');const i2=rawEl('i');i2.style.background='var(--muted)';sp2.appendChild(i2);sp2.appendChild(document.createTextNode(T('도구')));lg.appendChild(sp2);card.appendChild(lg);
+  let energy=1,frame=0,hover=-1,X=x=>x,Y=y=>y;
+  function step(){const k=0.02,rep=1400,damp=0.86;let ke=0;
+    for(let i=0;i<nodes.length;i++){const a=nodes[i];let fx=-a.x*0.004,fy=-a.y*0.004;
+      for(let j=0;j<nodes.length;j++){if(i===j)continue;const b=nodes[j];let dx=a.x-b.x,dy=a.y-b.y;const d2=dx*dx+dy*dy+40;const f=rep/d2;fx+=dx*f/Math.sqrt(d2);fy+=dy*f/Math.sqrt(d2)}
+      a.fx=fx;a.fy=fy}
+    edges.forEach(([i,j,w])=>{const a=nodes[i],b=nodes[j];const dx=b.x-a.x,dy=b.y-a.y;const d=Math.sqrt(dx*dx+dy*dy)+0.01;const f=(d-60)*k*w;
+      a.fx+=dx/d*f;a.fy+=dy/d*f;b.fx-=dx/d*f;b.fy-=dy/d*f});
+    nodes.forEach(n=>{n.vx=(n.vx+n.fx)*damp;n.vy=(n.vy+n.fy)*damp;n.x+=n.vx;n.y+=n.vy;ke+=n.vx*n.vx+n.vy*n.vy});
+    energy=ke/nodes.length}
+  function draw(){const c=graph.ctx(),W=graph.st.w,H=graph.st.h;c.clearRect(0,0,W,H);
+    const xs=nodes.map(n=>n.x),ys=nodes.map(n=>n.y);const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+    const sc=Math.min((W-40)/Math.max(1,x1-x0),(H-40)/Math.max(1,y1-y0));X=x=>20+(x-x0)*sc;Y=y=>20+(y-y0)*sc;
+    const col=n=>n.col.startsWith('var(')?dkCss(n.col.slice(4,-1)):n.col;
+    c.lineWidth=0.7;c.strokeStyle=dkCss('--line');
+    edges.forEach(([i,j])=>{const on=hover>=0&&(i===hover||j===hover);if(on)return;
+      c.beginPath();c.moveTo(X(nodes[i].x),Y(nodes[i].y));c.lineTo(X(nodes[j].x),Y(nodes[j].y));c.stroke()});
+    if(hover>=0){c.lineWidth=1.6;c.strokeStyle=dkCss('--accent');
+      edges.forEach(([i,j])=>{if(i!==hover&&j!==hover)return;c.beginPath();c.moveTo(X(nodes[i].x),Y(nodes[i].y));c.lineTo(X(nodes[j].x),Y(nodes[j].y));c.stroke()})}
+    nodes.forEach((n,k)=>{c.beginPath();c.arc(X(n.x),Y(n.y),k===hover?n.r+3:n.r,0,Math.PI*2);c.fillStyle=col(n);c.fill();
+      if(k===hover){c.lineWidth=2;c.strokeStyle=dkCss('--text');c.stroke()}
+      if(n.kind!=='agent'||k===hover){c.fillStyle=dkCss('--text');c.font=(k===hover?'bold ':'')+'9px ui-monospace,monospace';c.fillText(n.label.slice(0,22),X(n.x)+n.r+4,Y(n.y)+3)}});
+    conv.textContent=Math.max(0,Math.min(100,Math.round(100-energy*40)))+'%'}
+  graph.cv.addEventListener('pointermove',e=>{const r=graph.cv.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;
+    let best=-1,bd=14;nodes.forEach((n,k)=>{const d=Math.hypot(X(n.x)-mx,Y(n.y)-my);if(d<bd){bd=d;best=k}});
+    if(best!==hover){hover=best;const n=best>=0?nodes[best]:null;hov.textContent=n?n.label.slice(0,26)+' · '+n.deg:'-'}});
+  graph.cv.addEventListener('pointerleave',()=>{hover=-1;hov.textContent='-'});
+  const alive=()=>{const sec=card.closest('section');return sec&&sec.classList.contains('on')&&!document.hidden};
+  (function loop(){frame++;if(alive()){if(energy>0.002||frame<600)step();draw()}requestAnimationFrame(loop)})();
+  return {nodes,edges};
+}
 function aiDesk(root){
   const M=dkModel();
   if(!M){root.appendChild(el('div','note','원장 agent_registry 가 payload 에 없다'));return}
-  root.appendChild(el('p','lead','에이전트 활동·추적·승인·요건 원장을 한 화면에서 본다. 로그가 흐르고 선이 그려지고 격자가 돌지만 숫자는 전부 원장 집계이며, 화면이 새 값을 만들지 않는다.'));
   const grid=el('div','desk');root.appendChild(grid);
   const card=(cls,lab,right)=>{const c=el('div','card '+cls);const h=rawEl('div','dk-lab');
     h.appendChild(rawEl('span',null,T(lab)));if(right!==undefined)h.appendChild(typeof right==='string'?rawEl('b',null,right):right);
@@ -5318,10 +5368,7 @@ function aiDesk(root){
   const lg=rawEl('div','dk-legend');AX.forEach(([n],k)=>{const sp=rawEl('span',null,'d'+(k+1)+' '+T(n));lg.appendChild(sp)});c9.appendChild(lg);
   /* 5. 관계 그래프 시뮬레이션 */
   const c10=card('c12','관계 그래프 시뮬레이션 (에이전트 · 도구 · 도메인)',T('결정론 씨앗')+' '+M.seed.toString(16));
-  const gWrap=rawEl('div','dk-two');const gs=rawEl('div','dk-stats');const gh=el('div');gWrap.appendChild(gs);gWrap.appendChild(gh);c10.appendChild(gWrap);
-  const graph=dkCanvas(gh,0.42,240,380);
-  const glg=rawEl('div','dk-legend');M.domains.forEach(d=>{const sp=rawEl('span');const i=rawEl('i');i.style.background=M.dcol(d);sp.appendChild(i);sp.appendChild(document.createTextNode(d));glg.appendChild(sp)});
-  const sp2=rawEl('span');const i2=rawEl('i');i2.style.background='var(--muted)';sp2.appendChild(i2);sp2.appendChild(document.createTextNode(T('도구')));glg.appendChild(sp2);c10.appendChild(glg);
+  dkGraph(c10,M);
   /* 6. 에이전트 카드 열 */
   const c11=card('c12','에이전트',TC(M.agents.length,'건'));const row=rawEl('div','dk-agents');c11.appendChild(row);
   const cards=new Map();
@@ -5332,7 +5379,6 @@ function aiDesk(root){
     row.appendChild(c);cards.set(a.name,c)});
 
   /* ---- 움직임 ---- */
-  const rnd=dkRand(M.seed);
   /* 로그: 이벤트를 순서대로 흘리고 끝나면 처음부터 다시 */
   let li=0,lastRow=null;
   const pushLog=()=>{if(!alive()||!M.events.length)return;const e=M.events[li%M.events.length];li++;
@@ -5346,33 +5392,6 @@ function aiDesk(root){
   for(let k=0;k<8;k++)pushLog();timers.push(setInterval(pushLog,900));
   /* 인계 현재 항목 */
   let hi=0;timers.push(setInterval(()=>{if(!alive()||!M.hand.length)return;hi=(hi+1)%M.hand.length;const h=M.hand[hi];cur.textContent=dkCode(h.from)+' → '+dkCode(h.to)},1400));
-  /* 그래프 노드·간선 */
-  const tools=[...new Set(M.agents.flatMap(a=>a.tools))].sort();
-  const nodes=[],edges=[],idx=new Map();
-  const addN=(id,kind,col,r,label)=>{idx.set(id,nodes.length);nodes.push({id,kind,col,r,label,x:(rnd()-0.5)*400,y:(rnd()-0.5)*200,vx:0,vy:0})};
-  M.domains.forEach(d=>addN('D:'+d,'domain',M.dcol(d),9,d.replace(/^[A-Z] · /,'')));
-  tools.forEach(t=>addN('T:'+t,'tool','var(--muted)',6,t));
-  M.agents.forEach(a=>{addN('A:'+a.id,'agent',M.dcol(a.domain),3+(eqv(a.tier,'상')?2:0),a.name);
-    edges.push([idx.get('A:'+a.id),idx.get('D:'+a.domain),0.9]);
-    a.tools.forEach(t=>{if(idx.has('T:'+t))edges.push([idx.get('A:'+a.id),idx.get('T:'+t),0.35])})});
-  kv(gs,'노드',nodes.length);kv(gs,'간선',edges.length);const conv=rawEl('b',null,'0%');gs.appendChild(rawEl('span',null,T('수렴')));gs.appendChild(conv);
-  kv(gs,'에이전트',M.agents.length);kv(gs,'도구',tools.length);kv(gs,'제안 전용 비율',(M.agents.filter(a=>eqv(a.mode,'제안전용')).length/Math.max(1,M.agents.length)*100).toFixed(0)+'%');
-  let energy=1,frame=0;
-  function stepGraph(){const k=0.02,rep=1400,damp=0.86;let ke=0;
-    for(let i=0;i<nodes.length;i++){const a=nodes[i];let fx=-a.x*0.004,fy=-a.y*0.004;
-      for(let j=0;j<nodes.length;j++){if(i===j)continue;const b=nodes[j];let dx=a.x-b.x,dy=a.y-b.y;const d2=dx*dx+dy*dy+40;const f=rep/d2;fx+=dx*f/Math.sqrt(d2);fy+=dy*f/Math.sqrt(d2)}
-      a.fx=fx;a.fy=fy}
-    edges.forEach(([i,j,w])=>{const a=nodes[i],b=nodes[j];const dx=b.x-a.x,dy=b.y-a.y;const d=Math.sqrt(dx*dx+dy*dy)+0.01;const f=(d-60)*k*w;
-      a.fx+=dx/d*f;a.fy+=dy/d*f;b.fx-=dx/d*f;b.fy-=dy/d*f});
-    nodes.forEach(n=>{n.vx=(n.vx+n.fx)*damp;n.vy=(n.vy+n.fy)*damp;n.x+=n.vx;n.y+=n.vy;ke+=n.vx*n.vx+n.vy*n.vy});
-    energy=ke/nodes.length}
-  function drawGraph(){const c=graph.ctx(),W=graph.st.w,H=graph.st.h;c.clearRect(0,0,W,H);
-    const xs=nodes.map(n=>n.x),ys=nodes.map(n=>n.y);const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
-    const sc=Math.min((W-40)/Math.max(1,x1-x0),(H-40)/Math.max(1,y1-y0));const X=x=>20+(x-x0)*sc,Y=y=>20+(y-y0)*sc;
-    c.lineWidth=0.7;c.strokeStyle=dkCss('--line');edges.forEach(([i,j])=>{c.beginPath();c.moveTo(X(nodes[i].x),Y(nodes[i].y));c.lineTo(X(nodes[j].x),Y(nodes[j].y));c.stroke()});
-    nodes.forEach(n=>{c.beginPath();c.arc(X(n.x),Y(n.y),n.r,0,Math.PI*2);c.fillStyle=n.col.startsWith('var(')?dkCss(n.col.slice(4,-1)):n.col;c.fill();
-      if(n.kind!=='agent'){c.fillStyle=dkCss('--text');c.font='9px ui-monospace,monospace';c.fillText(n.label.slice(0,14),X(n.x)+n.r+3,Y(n.y)+3)}});
-    conv.textContent=Math.max(0,Math.min(100,Math.round(100-energy*40)))+'%'}
   /* 능선: 도메인별 이벤트 밀도(추적 순서 축, 가우스 평활). 한 도메인이 한 능선이다. */
   const NB=48,dens=M.domains.map(d=>{const v=new Array(NB).fill(0);const n=Math.max(1,M.events.length);
     M.events.forEach((e,k)=>{if(e.domain!==d)return;const c=k/n*NB;for(let b=0;b<NB;b++){const z=(b-c)/2.2;v[b]+=Math.exp(-z*z/2)}});return v});
@@ -5437,9 +5456,8 @@ function aiDesk(root){
       c.beginPath();c.arc(x,y,r*(0.7+d*0.6),0,Math.PI*2);c.fillStyle=n?dkCss(k&2?'--bad':k&1?'--warn':'--good'):dkCss('--muted');c.globalAlpha=n?0.9:0.5;c.fill();c.globalAlpha=1;
       if(n>=3){c.fillStyle=dkCss('--text');c.font='9px ui-monospace,monospace';c.fillText(String(n),x+r+2,y+3)}})}
   /* 프레임 루프. 화면이 보이지 않으면 아무것도 그리지 않는다. */
-  function loop(t){frame++;if(alive()){if(energy>0.002||frame<600)stepGraph();drawGraph();drawRidge(t);drawHist();drawChord();drawLattice(t)}requestAnimationFrame(loop)}
+  function loop(t){if(alive()){drawRidge(t);drawHist();drawChord();drawLattice(t)}requestAnimationFrame(loop)}
   requestAnimationFrame(loop);
-  root.appendChild(rawEl('div','meta',T('원장')+' agent_registry · '+(M.tr?'aig_agent_trace':'agent_activity')+' · agent_activity · gov_approval · agent_killswitch · req_trace_air. '+T('움직임은 표현이고 값은 원장 집계다. 화면이 보이지 않으면 멈춘다.')));
 }
 function aiOverview(root){
   const reg=D.data['agent_registry'],act=D.data['agent_activity'],ks=D.data['agent_killswitch'],
@@ -5862,7 +5880,10 @@ function executiveReport(root){
       reg.rows.forEach(r=>{const k=r[i.domain];m.set(k,(m.get(k)||0)+1)});
       c2=hbars([...m.entries()].map(([k,v])=>({label:k,value:v})).sort((a,b)=>b.value-a.value).slice(0,10),{title:'도메인별 에이전트 수',money:false});
       c2.appendChild(cap('9b','도메인별 에이전트 수','agent_registry'))}
-    section(9,'AI리스크',tone,items,[[c1,false],[c2,false]],[]);
+    let c3=null;const MD=dkModel();
+    if(MD){c3=el('div','card');c3.appendChild(el('h3',null,'관계 그래프 시뮬레이션 (에이전트 · 도구 · 도메인)'));
+      dkGraph(c3,MD);c3.appendChild(cap('9c','관계 그래프 시뮬레이션 (에이전트 · 도구 · 도메인)','agent_registry'))}
+    section(9,'AI리스크',tone,items,[[c1,false],[c2,false],[c3,true]],[]);
   }
 
   /* 10 CRO 액션 + 남은 브리핑. 액션 문장의 긴 대시는 콜론으로 바꿔 개조식으로. */
