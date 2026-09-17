@@ -5287,7 +5287,7 @@ function aiDesk(root){
   const seg=rawEl('div','dk-seg');const N=20;for(let k=0;k<N;k++){const i=rawEl('i');
     const okN=Math.round(M.approvals.ok/Math.max(1,M.approvals.total)*N),noN=Math.round(M.approvals.no/Math.max(1,M.approvals.total)*N);
     if(k<okN)i.className='on';else if(k>=N-noN)i.className='bad';else i.className='warn';seg.appendChild(i)}
-  c4.appendChild(seg);c4.appendChild(rawEl('div','dk-sub',T('승인')+' '+M.approvals.ok+' · '+T('대기')+' '+M.approvals.wait+' · '+T('반려')+' '+M.approvals.no+' · '+T('비상정지')+' '+TC(M.ks?M.ks.total:0,'건')));
+  c4.appendChild(seg);c4.appendChild(rawEl('div','dk-sub',T('승인')+' '+M.approvals.ok+' · '+T('대기')+' '+M.approvals.wait+' · '+T('반려')+' '+M.approvals.no+' · '+T('비상정지 이력')+' '+TC(M.ks?M.ks.total:0,'건')));
   /* 2. 요건 커버리지 경로 (선이 자라난다) + 활동 로그 (흐른다) */
   const c5=card('c7','요건 커버리지 경로',T('요건')+' '+TC(M.cov.length,'건'));
   const hist=dkCanvas(c5,0.40,180,300);
