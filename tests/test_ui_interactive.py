@@ -1128,3 +1128,18 @@ def test_ai_risk_screens_carry_3d_and_2d_analysis(page):
         assert '[object' not in text, name
         assert '원장 ' in text, name       # 출처 줄이 그림마다 붙는다
     assert page.errors == []
+
+
+def test_ai_desk_animates_from_ledgers_without_errors(page):
+    """AI 관제 데스크: 캔버스 5개(경로·능선·인계 현·격자·그래프), 흐르는 로그, 에이전트 카드, 오류 없음."""
+    page.evaluate("()=>{const b=[...document.querySelectorAll('nav button')].find(x=>x.dataset.ko==='AI 관제 데스크');b.click()}")
+    page.wait_for_timeout(1500)
+    assert page.evaluate("document.querySelectorAll('section.on canvas').length") == 5
+    n0 = page.evaluate("document.querySelectorAll('section.on .dk-log .row').length")
+    assert n0 >= 8
+    last = page.evaluate("document.querySelector('section.on .dk-log .row:last-child .t').textContent")
+    page.wait_for_timeout(2000)
+    assert page.evaluate("document.querySelector('section.on .dk-log .row:last-child .t').textContent") != last   # 로그가 흐른다
+    assert page.evaluate("document.querySelectorAll('section.on .dk-agent').length") >= 10
+    assert page.evaluate("document.querySelectorAll('section.on .dk-agent.on').length") == 1
+    assert page.errors == []

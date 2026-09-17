@@ -1570,6 +1570,51 @@ font-family:inherit;font-size:11.5px}
 .regtree button:hover{color:var(--text);background:var(--chip)}
 .regtree button.on{color:var(--text);border-left-color:var(--accent)}
 .regtree button .cnt{margin-left:auto;font-variant-numeric:tabular-nums;font-size:10.5px}
+
+/* AI 관제 데스크. 모노 라벨·촘촘한 격자·살아 움직이는 패널. 값은 전부 원장이고 움직임은 표현이다. */
+.desk{display:grid;gap:10px;grid-template-columns:repeat(12,minmax(0,1fr))}
+.desk>.card{margin:0;min-width:0}
+.desk .c3{grid-column:span 3}.desk .c4{grid-column:span 4}.desk .c5{grid-column:span 5}
+.desk .c6{grid-column:span 6}.desk .c7{grid-column:span 7}.desk .c8{grid-column:span 8}.desk .c12{grid-column:span 12}
+@media(max-width:1100px){.desk .c3,.desk .c4,.desk .c5,.desk .c6,.desk .c7,.desk .c8{grid-column:span 12}}
+.dk-lab{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:9.5px;letter-spacing:.09em;
+text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;gap:8px;margin:0 0 6px}
+.dk-lab b{color:var(--text);font-weight:750}
+.dk-val{font-size:26px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
+.dk-sub{font-size:10.5px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+.dk-live{display:inline-flex;align-items:center;gap:6px;background:var(--good);color:#04111b;border-radius:7px;
+padding:3px 9px;font-size:10px;font-weight:800;letter-spacing:.08em}
+.dk-live::before{content:'';width:7px;height:7px;border-radius:50%;background:#04111b;animation:dkblink 1.2s infinite}
+@keyframes dkblink{50%{opacity:.25}}
+.dk-seg{display:flex;gap:3px;margin-top:8px}
+.dk-seg i{flex:1;height:8px;border-radius:2px;background:var(--chip)}
+.dk-seg i.on{background:var(--good)}.dk-seg i.warn{background:var(--warn)}.dk-seg i.bad{background:var(--bad)}
+.dk-canvas{display:block;width:100%;height:auto}
+.dk-log{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10.5px;line-height:1.55;
+height:250px;overflow:hidden;position:relative}
+.dk-log .row{display:grid;grid-template-columns:44px 52px minmax(0,1fr);gap:8px;padding:1px 0;
+white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.8}
+.dk-log .row.new{opacity:1;color:var(--text);background:color-mix(in srgb,var(--accent) 12%,transparent);border-radius:4px}
+.dk-log .row .t{color:var(--muted)}.dk-log .row .a{color:var(--accent);font-weight:700}
+.dk-log .row.gate-bad .a{color:var(--bad)}.dk-log .row.gate-ok .a{color:var(--good)}
+.dk-stats{display:grid;grid-template-columns:auto auto;gap:3px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+font-size:10.5px;align-content:start}
+.dk-stats span{color:var(--muted);letter-spacing:.05em;text-transform:uppercase;font-size:9.5px}
+.dk-stats b{text-align:right;font-variant-numeric:tabular-nums;font-weight:750}
+.dk-two{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;align-items:start}
+@media(max-width:700px){.dk-two{grid-template-columns:1fr}}
+.dk-agents{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 8px;scroll-behavior:smooth}
+.dk-agent{flex:0 0 96px;border:1px solid var(--line);border-radius:10px;padding:8px 6px;text-align:center;
+background:var(--chip);transition:transform .25s,border-color .25s,box-shadow .25s}
+.dk-agent.on{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 30%,transparent)}
+.dk-agent .av{width:40px;height:40px;border-radius:50%;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;
+font-weight:800;font-size:12px;color:#04111b;letter-spacing:.02em}
+.dk-agent .nm{font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-agent .rl{font-size:9px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-agent .tier{font-size:9px;font-weight:800;margin-top:3px}
+.dk-agent .tier.bad{color:var(--bad)}.dk-agent .tier.warn{color:var(--warn)}.dk-agent .tier.good{color:var(--good)}
+.dk-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10px;color:var(--muted);margin-top:4px}
+.dk-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:-1px}
 /* ── 좁은 화면 (폰·작은 태블릿) ──
    격자·플렉스 항목의 자동 최소폭(min-width:auto)이 표·SVG 의 내용 폭으로 커져 페이지가
    옆으로 넘쳤다. 좁은 폭에서는 0 으로 두고, 옆으로 긴 것은 카드 안에서 굴린다. */
@@ -5167,6 +5212,235 @@ function aiOverviewCharts(root){
   cards.forEach(c=>root.appendChild(c));
 }
 
+/* ---- AI 관제 데스크. 활동·추적·승인·요건 원장을 한 화면에서 살아 움직이는 패널로 본다.
+   숫자는 전부 원장 집계이고, 움직임(로그 흐름·선 그리기·회전·역학 시뮬레이션)은 표현이다.
+   난수는 실행 식별자에서 씨앗을 뽑은 결정론 생성기만 쓴다. 화면이 보이지 않으면 멈춘다. ---- */
+function dkRand(seed){let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296}}
+function dkSeed(str){let h=2166136261;for(const ch of String(str)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function dkCode(name){const w=String(name).replace(/[^A-Za-z0-9가-힣]+/g,' ').trim().split(' ');
+  const c=(w.length>=2?w[0].slice(0,2)+w[1].slice(0,2):w[0].slice(0,4));return c.toUpperCase()}
+const DK_DOM_COL=['--accent','--agent','--lineage','--human','--good','--warn','--bad'];
+function dkCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()||'#888'}
+function dkCanvas(host,ratio,minH,maxH){
+  const cv=rawEl('canvas','dk-canvas');host.appendChild(cv);
+  const st={w:0,h:0,dpr:Math.min(2,window.devicePixelRatio||1)};
+  const size=w=>{w=Math.max(280,Math.round(w));const h=Math.max(minH,Math.min(maxH,Math.round(w*ratio)));
+    if(w===st.w&&h===st.h)return;st.w=w;st.h=h;cv.width=Math.round(w*st.dpr);cv.height=Math.round(h*st.dpr);
+    cv.style.height=h+'px'};
+  size(host.clientWidth||640);
+  if(typeof ResizeObserver==='function')new ResizeObserver(es=>{const w=es[0]&&es[0].contentRect.width;if(w>0)size(w)}).observe(host);
+  return {cv,st,ctx:()=>{const c=cv.getContext('2d');c.setTransform(st.dpr,0,0,st.dpr,0,0);return c}};
+}
+/* 원장을 데스크가 쓰는 모양으로 편다. 도메인·등급은 레지스트리에서, 순서는 활동·추적 seq 에서 온다. */
+function dkModel(){
+  const reg=aiFull('agent_registry'),act=aiFull('agent_activity'),tr=aiFull('aig_agent_trace'),
+        ap=aiFull('gov_approval'),ks=D.data['agent_killswitch'],ex=aiFull('gov_exception_action');
+  if(!reg)return null;
+  const ri=frameIdx(reg);
+  const agents=reg.rows.map(r=>({id:String(r[ri.agent_id]),name:String(r[ri.agent_name]),mode:r[ri.mode],tier:r[ri.risk_tier],
+    tools:String(r[ri.tools]||'').split(',').map(x=>x.trim()).filter(Boolean),write:r[ri.write_allowed]===true,domain:String(r[ri.domain]||'-')}));
+  const byName=new Map();agents.forEach(a=>{byName.set(a.name,a);byName.set(a.id,a)});
+  const domains=[...new Set(agents.map(a=>a.domain))].sort();
+  const dcol=d=>'var('+DK_DOM_COL[Math.max(0,domains.indexOf(d))%DK_DOM_COL.length]+')';
+  const tierTone=t=>eqv(t,'상')?'bad':eqv(t,'중')?'warn':'good';
+  let events=[];
+  if(tr){const i=frameIdx(tr);events=tr.rows.map(r=>({seq:+r[i.seq]||0,actor:String(r[i.actor]),phase:String(r[i.phase]),tool:String(r[i.tool]||'-'),
+      gate:r[i.gate],hits:+r[i.redaction_hits]||0,asof:String(r[i.asof]||'')})).sort((a,b)=>a.seq-b.seq)}
+  else if(act){const i=frameIdx(act);events=act.rows.map(r=>({seq:+r[i.seq]||0,actor:String(r[i.actor]),phase:'activity',tool:String(r[i.tool]||'-'),
+      gate:r[i.gate],hits:0,asof:''})).sort((a,b)=>a.seq-b.seq)}
+  events.forEach(e=>{const a=byName.get(e.actor);e.domain=a?a.domain:'-';e.code=dkCode(e.actor)});
+  /* 인계: 활동 순서에서 연속한 두 행위자. 같은 행위자가 이어지면 인계가 아니다. */
+  let hand=[];
+  if(act){const i=frameIdx(act);const seq=act.rows.slice().sort((a,b)=>(+a[i.seq]||0)-(+b[i.seq]||0));
+    for(let k=1;k<seq.length;k++){const a=String(seq[k-1][i.actor]),b=String(seq[k][i.actor]);if(a===b)continue;
+      const A=byName.get(a),B=byName.get(b);hand.push({from:a,to:b,fd:A?A.domain:'-',td:B?B.domain:'-',gate:seq[k][i.gate]})}}
+  const approvals={total:0,ok:0,wait:0,no:0,byType:new Map()};
+  if(ap){const i=frameIdx(ap);ap.rows.forEach(r=>{approvals.total++;const d=r[i.decision];
+    if(eqv(d,'승인'))approvals.ok++;else if(eqv(d,'대기'))approvals.wait++;else approvals.no++;
+    const t=String(r[i.subject_type]);approvals.byType.set(t,(approvals.byType.get(t)||0)+1)})}
+  const R=(D.req_trace_air&&D.req_trace_air.rows)||[];
+  const cov=[];let acc=0;R.slice().sort((a,b)=>String(a.id).localeCompare(String(b.id))).forEach(r=>{acc+=eqv(r.status,'반영')?1:eqv(r.status,'부분')?0.5:0;cov.push({id:r.id,v:acc})});
+  return {reg,act,tr,ap,ks,ex,agents,byName,domains,dcol,tierTone,events,hand,approvals,cov,seed:dkSeed(D.meta.run_id||'rynta')};
+}
+function aiDesk(root){
+  const M=dkModel();
+  if(!M){root.appendChild(el('div','note','원장 agent_registry 가 payload 에 없다'));return}
+  root.appendChild(el('p','lead','에이전트 활동·추적·승인·요건 원장을 한 화면에서 본다. 로그가 흐르고 선이 그려지고 격자가 돌지만 숫자는 전부 원장 집계이며, 화면이 새 값을 만들지 않는다.'));
+  const grid=el('div','desk');root.appendChild(grid);
+  const card=(cls,lab,right)=>{const c=el('div','card '+cls);const h=rawEl('div','dk-lab');
+    h.appendChild(rawEl('span',null,T(lab)));if(right!==undefined)h.appendChild(typeof right==='string'?rawEl('b',null,right):right);
+    c.appendChild(h);grid.appendChild(c);return c};
+  const timers=[];const alive=()=>root.closest('section')&&root.closest('section').classList.contains('on')&&!document.hidden;
+  /* 1. 상단 계기판 */
+  const c1=card('c3','등록 에이전트',T('전량'));c1.appendChild(rawEl('div','dk-val',String(M.agents.length)));
+  c1.appendChild(rawEl('div','dk-sub',T('운영 반영 권한')+' '+TC(M.agents.filter(a=>a.write).length,'건')+' · '+T('위험등급 상')+' '+TC(M.agents.filter(a=>eqv(a.tier,'상')).length,'건')));
+  const c2=card('c3','활동·추적 이벤트',M.tr?'aig_agent_trace':'agent_activity');c2.appendChild(rawEl('div','dk-val',String(M.events.length)));
+  c2.appendChild(rawEl('div','dk-sub',T('인계')+' '+TC(M.hand.length,'건')+' · '+T('마스킹 적중')+' '+TC(M.events.reduce((a,e)=>a+e.hits,0),'건')));
+  const live=rawEl('span','dk-live','LIVE');
+  const c3=card('c3','세션 시계',live);const clk=rawEl('div','dk-val','00:00:00');c3.appendChild(clk);
+  c3.appendChild(rawEl('div','dk-sub',T('기준일')+' '+D.meta.asof+' · '+T('실행')+' '+(D.meta.run_id||'-')));
+  const t0=Date.now();timers.push(setInterval(()=>{if(!alive())return;const s=Math.floor((Date.now()-t0)/1000);
+    clk.textContent=[s/3600,(s/60)%60,s%60].map(x=>String(Math.floor(x)).padStart(2,'0')).join(':')},1000));
+  const gateTone=M.approvals.ok===M.approvals.total?'good':M.approvals.no?'bad':'warn';
+  const c4=card('c3','승인 게이트',rawEl('b',null,M.approvals.total?T(M.approvals.ok===M.approvals.total?'통과':'대기'):'-'));
+  c4.appendChild(rawEl('div','dk-val '+gateTone,M.approvals.total?fmtNum(M.approvals.ok)+' / '+fmtNum(M.approvals.total):'-'));
+  const seg=rawEl('div','dk-seg');const N=20;for(let k=0;k<N;k++){const i=rawEl('i');
+    const okN=Math.round(M.approvals.ok/Math.max(1,M.approvals.total)*N),noN=Math.round(M.approvals.no/Math.max(1,M.approvals.total)*N);
+    if(k<okN)i.className='on';else if(k>=N-noN)i.className='bad';else i.className='warn';seg.appendChild(i)}
+  c4.appendChild(seg);c4.appendChild(rawEl('div','dk-sub',T('승인')+' '+M.approvals.ok+' · '+T('대기')+' '+M.approvals.wait+' · '+T('반려')+' '+M.approvals.no+' · '+T('비상정지')+' '+TC(M.ks?M.ks.total:0,'건')));
+  /* 2. 요건 커버리지 경로 (선이 자라난다) + 활동 로그 (흐른다) */
+  const c5=card('c7','요건 커버리지 경로',T('요건')+' '+TC(M.cov.length,'건'));
+  const hist=dkCanvas(c5,0.40,180,300);
+  const c6=card('c5','활동 로그',TC(M.events.length,'건'));const log=rawEl('div','dk-log');c6.appendChild(log);
+  /* 3. 도메인 활동 능선 */
+  const c7=card('c12','도메인 활동 능선',T('추적 순서 축')+' · '+T('도메인')+' '+TC(M.domains.length,'종'));
+  const ridgeWrap=rawEl('div','dk-two');const rs=rawEl('div','dk-stats');ridgeWrap.appendChild(rs);const rh=el('div');ridgeWrap.appendChild(rh);c7.appendChild(ridgeWrap);
+  const ridge=dkCanvas(rh,0.30,170,260);
+  const kv=(box,k,v)=>{box.appendChild(rawEl('span',null,T(k)));box.appendChild(rawEl('b',null,String(v)))};
+  const topDom=M.domains.map(d=>[d,M.events.filter(e=>e.domain===d).length]).sort((a,b)=>b[1]-a[1])[0];
+  kv(rs,'이벤트',M.events.length);kv(rs,'도메인',M.domains.length);kv(rs,'최다 도메인',topDom?topDom[0].split(' ')[0]:'-');
+  kv(rs,'최다 건수',topDom?topDom[1]:0);kv(rs,'게이트 대기',M.events.filter(e=>eqv(e.gate,'대기')).length);
+  /* 4. 인계 현 + 5D 속성 격자 */
+  const c8=card('c6','인계 현 (도메인 → 도메인)',TC(M.hand.length,'건'));
+  const chordWrap=rawEl('div','dk-two');const cs=rawEl('div','dk-stats');const ch=el('div');chordWrap.appendChild(cs);chordWrap.appendChild(ch);c8.appendChild(chordWrap);
+  const chord=dkCanvas(ch,0.62,220,340);
+  kv(cs,'인계',M.hand.length);kv(cs,'차단',M.hand.filter(h=>eqv(h.gate,'차단')).length);kv(cs,'도메인 간',M.hand.filter(h=>h.fd!==h.td).length);
+  kv(cs,'도메인 내',M.hand.filter(h=>h.fd===h.td).length);const cur=rawEl('b',null,'-');cs.appendChild(rawEl('span',null,T('현재')));cs.appendChild(cur);
+  const c9=card('c6','5차원 속성 격자 (펜터랙트)',T('꼭짓점')+' 32 · '+T('모서리')+' 80');
+  const latWrap=rawEl('div','dk-two');const ls=rawEl('div','dk-stats');const lh=el('div');latWrap.appendChild(ls);latWrap.appendChild(lh);c9.appendChild(latWrap);
+  const lat=dkCanvas(lh,0.62,220,340);
+  /* 축 다섯: 운영 반영 권한, 위험등급 상, 제안 전용, Bash 보유, Write 보유. 에이전트마다 꼭짓점 하나. */
+  const AX=[['운영 반영 권한',a=>a.write],['위험등급 상',a=>eqv(a.tier,'상')],['제안 전용',a=>eqv(a.mode,'제안전용')],
+            ['Bash 보유',a=>a.tools.indexOf('Bash')>=0],['Write 보유',a=>a.tools.indexOf('Write')>=0]];
+  const occ=new Map();M.agents.forEach(a=>{let v=0;AX.forEach(([,f],k)=>{if(f(a))v|=(1<<k)});occ.set(v,(occ.get(v)||0)+1)});
+  kv(ls,'차원',AX.length+' / 5');kv(ls,'점유 꼭짓점',occ.size+' / 32');kv(ls,'에이전트',M.agents.length);
+  const rot=rawEl('b',null,'0°');ls.appendChild(rawEl('span',null,T('회전')));ls.appendChild(rot);
+  const lg=rawEl('div','dk-legend');AX.forEach(([n],k)=>{const sp=rawEl('span',null,'d'+(k+1)+' '+T(n));lg.appendChild(sp)});c9.appendChild(lg);
+  /* 5. 관계 그래프 시뮬레이션 */
+  const c10=card('c12','관계 그래프 시뮬레이션 (에이전트 · 도구 · 도메인)',T('결정론 씨앗')+' '+M.seed.toString(16));
+  const gWrap=rawEl('div','dk-two');const gs=rawEl('div','dk-stats');const gh=el('div');gWrap.appendChild(gs);gWrap.appendChild(gh);c10.appendChild(gWrap);
+  const graph=dkCanvas(gh,0.42,240,380);
+  const glg=rawEl('div','dk-legend');M.domains.forEach(d=>{const sp=rawEl('span');const i=rawEl('i');i.style.background=M.dcol(d);sp.appendChild(i);sp.appendChild(document.createTextNode(d));glg.appendChild(sp)});
+  const sp2=rawEl('span');const i2=rawEl('i');i2.style.background='var(--muted)';sp2.appendChild(i2);sp2.appendChild(document.createTextNode(T('도구')));glg.appendChild(sp2);c10.appendChild(glg);
+  /* 6. 에이전트 카드 열 */
+  const c11=card('c12','에이전트',TC(M.agents.length,'건'));const row=rawEl('div','dk-agents');c11.appendChild(row);
+  const cards=new Map();
+  M.agents.forEach(a=>{const c=rawEl('div','dk-agent');const av=rawEl('div','av',dkCode(a.name).slice(0,3));av.style.background=M.dcol(a.domain);
+    c.appendChild(av);const nm=rawEl('div','nm',a.name);nm.title=a.name;c.appendChild(nm);
+    const rl=rawEl('div','rl',a.domain.replace(/^[A-Z] · /,''));c.appendChild(rl);
+    c.appendChild(rawEl('div','tier '+M.tierTone(a.tier),T(String(a.mode))+' · '+T(String(a.tier))));
+    row.appendChild(c);cards.set(a.name,c)});
+
+  /* ---- 움직임 ---- */
+  const rnd=dkRand(M.seed);
+  /* 로그: 이벤트를 순서대로 흘리고 끝나면 처음부터 다시 */
+  let li=0,lastRow=null;
+  const pushLog=()=>{if(!alive()||!M.events.length)return;const e=M.events[li%M.events.length];li++;
+    const r=rawEl('div','row new'+(eqv(e.gate,'차단')?' gate-bad':eqv(e.gate,'승인')?' gate-ok':''));
+    r.appendChild(rawEl('span','t',String(e.seq).padStart(3,'0')));r.appendChild(rawEl('span','a',e.code));
+    r.appendChild(rawEl('span',null,e.phase+' / '+e.tool+(e.hits?' / '+T('마스킹')+' '+e.hits:'')+' / '+(e.domain||'-')));
+    if(lastRow)lastRow.classList.remove('new');lastRow=r;log.appendChild(r);
+    while(log.children.length>14)log.removeChild(log.firstChild);
+    cards.forEach(c=>c.classList.remove('on'));const c=cards.get(e.actor);if(c){c.classList.add('on');
+      const x=c.offsetLeft-row.clientWidth/2+c.clientWidth/2;row.scrollTo({left:Math.max(0,x),behavior:'smooth'})}};
+  for(let k=0;k<8;k++)pushLog();timers.push(setInterval(pushLog,900));
+  /* 인계 현재 항목 */
+  let hi=0;timers.push(setInterval(()=>{if(!alive()||!M.hand.length)return;hi=(hi+1)%M.hand.length;const h=M.hand[hi];cur.textContent=dkCode(h.from)+' → '+dkCode(h.to)},1400));
+  /* 그래프 노드·간선 */
+  const tools=[...new Set(M.agents.flatMap(a=>a.tools))].sort();
+  const nodes=[],edges=[],idx=new Map();
+  const addN=(id,kind,col,r,label)=>{idx.set(id,nodes.length);nodes.push({id,kind,col,r,label,x:(rnd()-0.5)*400,y:(rnd()-0.5)*200,vx:0,vy:0})};
+  M.domains.forEach(d=>addN('D:'+d,'domain',M.dcol(d),9,d.replace(/^[A-Z] · /,'')));
+  tools.forEach(t=>addN('T:'+t,'tool','var(--muted)',6,t));
+  M.agents.forEach(a=>{addN('A:'+a.id,'agent',M.dcol(a.domain),3+(eqv(a.tier,'상')?2:0),a.name);
+    edges.push([idx.get('A:'+a.id),idx.get('D:'+a.domain),0.9]);
+    a.tools.forEach(t=>{if(idx.has('T:'+t))edges.push([idx.get('A:'+a.id),idx.get('T:'+t),0.35])})});
+  kv(gs,'노드',nodes.length);kv(gs,'간선',edges.length);const conv=rawEl('b',null,'0%');gs.appendChild(rawEl('span',null,T('수렴')));gs.appendChild(conv);
+  kv(gs,'에이전트',M.agents.length);kv(gs,'도구',tools.length);kv(gs,'제안 전용 비율',(M.agents.filter(a=>eqv(a.mode,'제안전용')).length/Math.max(1,M.agents.length)*100).toFixed(0)+'%');
+  let energy=1,frame=0;
+  function stepGraph(){const k=0.02,rep=1400,damp=0.86;let ke=0;
+    for(let i=0;i<nodes.length;i++){const a=nodes[i];let fx=-a.x*0.004,fy=-a.y*0.004;
+      for(let j=0;j<nodes.length;j++){if(i===j)continue;const b=nodes[j];let dx=a.x-b.x,dy=a.y-b.y;const d2=dx*dx+dy*dy+40;const f=rep/d2;fx+=dx*f/Math.sqrt(d2);fy+=dy*f/Math.sqrt(d2)}
+      a.fx=fx;a.fy=fy}
+    edges.forEach(([i,j,w])=>{const a=nodes[i],b=nodes[j];const dx=b.x-a.x,dy=b.y-a.y;const d=Math.sqrt(dx*dx+dy*dy)+0.01;const f=(d-60)*k*w;
+      a.fx+=dx/d*f;a.fy+=dy/d*f;b.fx-=dx/d*f;b.fy-=dy/d*f});
+    nodes.forEach(n=>{n.vx=(n.vx+n.fx)*damp;n.vy=(n.vy+n.fy)*damp;n.x+=n.vx;n.y+=n.vy;ke+=n.vx*n.vx+n.vy*n.vy});
+    energy=ke/nodes.length}
+  function drawGraph(){const c=graph.ctx(),W=graph.st.w,H=graph.st.h;c.clearRect(0,0,W,H);
+    const xs=nodes.map(n=>n.x),ys=nodes.map(n=>n.y);const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+    const sc=Math.min((W-40)/Math.max(1,x1-x0),(H-40)/Math.max(1,y1-y0));const X=x=>20+(x-x0)*sc,Y=y=>20+(y-y0)*sc;
+    c.lineWidth=0.7;c.strokeStyle=dkCss('--line');edges.forEach(([i,j])=>{c.beginPath();c.moveTo(X(nodes[i].x),Y(nodes[i].y));c.lineTo(X(nodes[j].x),Y(nodes[j].y));c.stroke()});
+    nodes.forEach(n=>{c.beginPath();c.arc(X(n.x),Y(n.y),n.r,0,Math.PI*2);c.fillStyle=n.col.startsWith('var(')?dkCss(n.col.slice(4,-1)):n.col;c.fill();
+      if(n.kind!=='agent'){c.fillStyle=dkCss('--text');c.font='9px ui-monospace,monospace';c.fillText(n.label.slice(0,14),X(n.x)+n.r+3,Y(n.y)+3)}});
+    conv.textContent=Math.max(0,Math.min(100,Math.round(100-energy*40)))+'%'}
+  /* 능선: 도메인별 이벤트 밀도(추적 순서 축, 가우스 평활). 한 도메인이 한 능선이다. */
+  const NB=48,dens=M.domains.map(d=>{const v=new Array(NB).fill(0);const n=Math.max(1,M.events.length);
+    M.events.forEach((e,k)=>{if(e.domain!==d)return;const c=k/n*NB;for(let b=0;b<NB;b++){const z=(b-c)/2.2;v[b]+=Math.exp(-z*z/2)}});return v});
+  /* 능선마다 제 최댓값으로 정규화한다. 한 도메인이 전체의 대부분이면 다른 능선이 납작해져 시간 분포가 안 보인다.
+     건수는 라벨에 적는다. */
+  const dmaxs=dens.map(v=>Math.max(0.01,...v));const dcnt=M.domains.map(d=>M.events.filter(e=>e.domain===d).length);
+  function drawRidge(t){const c=ridge.ctx(),W=ridge.st.w,H=ridge.st.h;c.clearRect(0,0,W,H);const n=M.domains.length;
+    const padL=8,padR=8,gap=(H-30)/Math.max(1,n),amp=gap*1.6;
+    M.domains.forEach((d,r)=>{const base=22+gap*(r+1);const col=dkCss(DK_DOM_COL[r%DK_DOM_COL.length]);
+      c.beginPath();c.moveTo(padL,base);
+      for(let b=0;b<NB;b++){const x=padL+b/(NB-1)*(W-padL-padR);const wob=1+0.06*Math.sin(t/900+b*0.35+r);const y=base-dens[r][b]/dmaxs[r]*amp*wob;c.lineTo(x,y)}
+      c.lineTo(W-padR,base);c.closePath();c.fillStyle=col;c.globalAlpha=0.16;c.fill();c.globalAlpha=1;c.strokeStyle=col;c.lineWidth=1.3;c.stroke();
+      c.fillStyle=dkCss('--muted');c.font='9px ui-monospace,monospace';c.textAlign='right';c.fillText(d.replace(/^[A-Z] · /,'').slice(0,12)+' '+dcnt[r],W-padR,base-3);c.textAlign='left'});
+    const cx=padL+((li%Math.max(1,M.events.length))/Math.max(1,M.events.length))*(W-padL-padR);
+    c.strokeStyle=dkCss('--accent');c.setLineDash([3,3]);c.beginPath();c.moveTo(cx,10);c.lineTo(cx,H-4);c.stroke();c.setLineDash([])}
+  /* 커버리지 경로: 요건 번호 순으로 누적 (반영 1 · 부분 0.5). 선이 처음부터 자라난다. */
+  let drawn=0;
+  function drawHist(){const c=hist.ctx(),W=hist.st.w,H=hist.st.h;c.clearRect(0,0,W,H);const n=M.cov.length;if(!n)return;
+    const padL=34,padR=54,padT=14,padB=22;const mx=Math.max(1,M.cov[n-1].v,n);const X=k=>padL+k/(n-1)*(W-padL-padR),Y=v=>H-padB-v/mx*(H-padT-padB);
+    c.strokeStyle=dkCss('--line');c.lineWidth=0.6;[0,0.5,1].forEach(f=>{c.beginPath();c.moveTo(padL,Y(mx*f));c.lineTo(W-padR,Y(mx*f));c.stroke();
+      c.fillStyle=dkCss('--muted');c.font='9px ui-monospace,monospace';c.fillText(String(Math.round(mx*f)),4,Y(mx*f)+3)});
+    /* 전부 반영이면 닿는 상한선 */
+    c.setLineDash([4,3]);c.strokeStyle=dkCss('--muted');c.beginPath();c.moveTo(padL,Y(0));c.lineTo(W-padR,Y(n));c.stroke();c.setLineDash([]);
+    const upto=Math.min(n,Math.max(2,Math.floor(drawn)));
+    c.beginPath();c.moveTo(X(0),Y(0));for(let k=0;k<upto;k++)c.lineTo(X(k),Y(M.cov[k].v));
+    const grad=c.createLinearGradient(0,padT,0,H-padB);grad.addColorStop(0,dkCss('--accent'));grad.addColorStop(1,'rgba(0,0,0,0)');
+    c.lineTo(X(upto-1),Y(0));c.closePath();c.fillStyle=grad;c.globalAlpha=0.18;c.fill();c.globalAlpha=1;
+    c.beginPath();c.moveTo(X(0),Y(0));for(let k=0;k<upto;k++)c.lineTo(X(k),Y(M.cov[k].v));c.strokeStyle=dkCss('--text');c.lineWidth=1.6;c.stroke();
+    const last=M.cov[upto-1];c.fillStyle=dkCss('--accent');c.beginPath();c.arc(X(upto-1),Y(last.v),3.2,0,Math.PI*2);c.fill();
+    c.fillStyle=dkCss('--bad');c.font='bold 10px ui-monospace,monospace';c.fillText(last.v.toFixed(1),X(upto-1)+7,Y(last.v)-6);
+    c.fillStyle=dkCss('--muted');c.font='9px ui-monospace,monospace';c.fillText(String(M.cov[0].id),padL,H-7);c.textAlign='right';c.fillText(String(M.cov[n-1].id),W-padR,H-7);c.textAlign='left';
+    if(drawn<n)drawn+=n/240;else if(drawn<n+600)drawn+=1;else drawn=0}
+  /* 인계 현: 도메인을 원둘레에 놓고 인계를 이차 베지어로 잇는다. 현재 인계가 밝게 빛난다. */
+  const dpos=new Map();
+  function drawChord(){const c=chord.ctx(),W=chord.st.w,H=chord.st.h;c.clearRect(0,0,W,H);const n=M.domains.length;if(!n)return;
+    const cx=W/2,cy=H/2,R=Math.min(W,H)/2-34;
+    M.domains.forEach((d,k)=>{const a=-Math.PI/2+k/n*Math.PI*2;dpos.set(d,[cx+Math.cos(a)*R,cy+Math.sin(a)*R,a])});
+    const cnt=new Map();M.hand.forEach(h=>{const k=h.fd+'>'+h.td;cnt.set(k,(cnt.get(k)||0)+1)});
+    const curH=M.hand.length?M.hand[hi]:null;
+    M.hand.forEach((h,k)=>{const A=dpos.get(h.fd),B=dpos.get(h.td);if(!A||!B)return;const on=curH&&h===curH;
+      c.beginPath();c.moveTo(A[0],A[1]);c.quadraticCurveTo(cx,cy,B[0],B[1]);
+      c.strokeStyle=on?dkCss('--accent'):dkCss(DK_DOM_COL[M.domains.indexOf(h.fd)%DK_DOM_COL.length]);c.globalAlpha=on?1:0.18;c.lineWidth=on?2.4:0.9;c.stroke();c.globalAlpha=1});
+    M.domains.forEach((d,k)=>{const [x,y,a]=dpos.get(d);const col=dkCss(DK_DOM_COL[k%DK_DOM_COL.length]);
+      const deg=M.hand.filter(h=>h.fd===d||h.td===d).length;
+      c.beginPath();c.lineWidth=5;c.strokeStyle=col;c.arc(cx,cy,R+8,a-0.22,a+0.22);c.stroke();
+      c.fillStyle=dkCss('--text');c.font='bold 9px ui-monospace,monospace';c.textAlign=Math.cos(a)>0.2?'left':Math.cos(a)<-0.2?'right':'center';
+      c.fillText(d.replace(/^[A-Z] · /,'').slice(0,10)+' '+deg,x+Math.cos(a)*22,y+Math.sin(a)*22+3)});c.textAlign='left'}
+  /* 펜터랙트: 5차원 초입방체를 두 평면에서 돌려 2D 로 투영. 점유 꼭짓점은 에이전트 수만큼 크다. */
+  const verts=[];for(let v=0;v<32;v++)verts.push([0,1,2,3,4].map(k=>(v>>k)&1?1:-1));
+  const ledges=[];for(let v=0;v<32;v++)for(let k=0;k<5;k++){const u=v^(1<<k);if(u>v)ledges.push([v,u])}
+  function drawLattice(t){const c=lat.ctx(),W=lat.st.w,H=lat.st.h;c.clearRect(0,0,W,H);
+    const a1=t/2600,a2=t/4100,a3=t/6300;rot.textContent=Math.round((a1*180/Math.PI)%360)+'°';
+    const P=v=>{let [x,y,z,w,q]=v;
+      let x1=x*Math.cos(a1)-w*Math.sin(a1),w1=x*Math.sin(a1)+w*Math.cos(a1);x=x1;w=w1;
+      let y1=y*Math.cos(a2)-q*Math.sin(a2),q1=y*Math.sin(a2)+q*Math.cos(a2);y=y1;q=q1;
+      let z1=z*Math.cos(a3)-x*Math.sin(a3),x2=z*Math.sin(a3)+x*Math.cos(a3);z=z1;x=x2;
+      const d4=1/(3.2-w*0.7-q*0.55),sc=Math.min(W,H)*1.15*d4;return [W/2+x*sc+z*sc*0.25,H/2+y*sc-z*sc*0.2,d4]};
+    const pts=verts.map(P);
+    ledges.forEach(([a,b])=>{c.beginPath();c.moveTo(pts[a][0],pts[a][1]);c.lineTo(pts[b][0],pts[b][1]);
+      c.strokeStyle=dkCss('--agent');c.globalAlpha=0.25+0.35*Math.min(pts[a][2],pts[b][2]);c.lineWidth=0.8;c.stroke()});c.globalAlpha=1;
+    verts.forEach((v,k)=>{const n=occ.get(k)||0;const [x,y,d]=pts[k];const r=n?3+Math.sqrt(n)*2.2:1.4;
+      c.beginPath();c.arc(x,y,r*(0.7+d*0.6),0,Math.PI*2);c.fillStyle=n?dkCss(k&2?'--bad':k&1?'--warn':'--good'):dkCss('--muted');c.globalAlpha=n?0.9:0.5;c.fill();c.globalAlpha=1;
+      if(n>=3){c.fillStyle=dkCss('--text');c.font='9px ui-monospace,monospace';c.fillText(String(n),x+r+2,y+3)}})}
+  /* 프레임 루프. 화면이 보이지 않으면 아무것도 그리지 않는다. */
+  function loop(t){frame++;if(alive()){if(energy>0.002||frame<600)stepGraph();drawGraph();drawRidge(t);drawHist();drawChord();drawLattice(t)}requestAnimationFrame(loop)}
+  requestAnimationFrame(loop);
+  root.appendChild(rawEl('div','meta',T('원장')+' agent_registry · '+(M.tr?'aig_agent_trace':'agent_activity')+' · agent_activity · gov_approval · agent_killswitch · req_trace_air. '+T('움직임은 표현이고 값은 원장 집계다. 화면이 보이지 않으면 멈춘다.')));
+}
 function aiOverview(root){
   const reg=D.data['agent_registry'],act=D.data['agent_activity'],ks=D.data['agent_killswitch'],
         ap=D.data['gov_approval'],tr=D.data['aig_agent_trace'],rules=D.data['aig_redaction_rule'],
@@ -10994,6 +11268,7 @@ const DETAIL_SCREENS=[
   ['물리적 위험','CLR · 물리적 위험 (재해강도 → 부문 LGD 상승 → ECL 상승)',climatePhysical],
   ['기후 자본 경로','CLR · 기후 자본 경로 (NGFS 3시나리오 × 2030~2060 보통주자본비율)',climateCapital],
   /* AI리스크. 해설서(2026-09-08) UI-01~12 가운데 원장이 실재하는 화면만 만든다. */
+  ['AI 관제 데스크','AIR · AI 관제 데스크 (활동 로그 · 커버리지 경로 · 도메인 능선 · 인계 현 · 5차원 격자 · 관계 그래프)',aiDesk],
   ['AI 리스크 개요','AIR · AI 리스크 개요 (인벤토리·게이트·비상정지·마스킹·요건 커버리지·화면 대응)',aiOverview],
   ['AI 인벤토리·위험분류','AIR · AI 인벤토리와 위험분류 (에이전트·모드·위험등급·도구·권한)',screenOf({
     lead:'등록 필드는 이름·모드·위험등급·도구·범위·쓰기권한·오너·도메인이고, 위험등급은 상·중·하 규칙 분류다.',
@@ -11070,7 +11345,7 @@ const NAVGROUPS=[
   /* AI리스크. 해설서(2026-09-08) UI-01~12 를 따르되 원장이 실재하는 화면만 둔다.
      에이전트 운영과 추적 화면은 검증·거버넌스에서 이리로 옮겼다. */
   ['AI리스크',[
-    'AI 리스크 개요','AI 인벤토리·위험분류','실행승인·게이트','정보흐름·마스킹','사고·경보·중단',
+    'AI 관제 데스크','AI 리스크 개요','AI 인벤토리·위험분류','실행승인·게이트','정보흐름·마스킹','사고·경보·중단',
     ['운영·추적',['에이전트','AI 거버넌스']],
   ]],
   ['검증·거버넌스',[
@@ -11848,7 +12123,7 @@ DEMO_SCREENS = [
     "신용 RWA", "ECL", "시장 RWA",
     "금리리스크", "유동성리스크", "시나리오 설정", "역스트레스",
     "기후 개요", "기후 자본 경로",
-    "AI 리스크 개요", "에이전트",
+    "AI 관제 데스크", "AI 리스크 개요", "에이전트",
     "요건 추적", "실행·감사추적",
     "데이터모델",
 ]
