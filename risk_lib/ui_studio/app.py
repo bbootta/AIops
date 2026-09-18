@@ -1592,6 +1592,7 @@ padding:3px 9px;font-size:10px;font-weight:800;letter-spacing:.08em}
 .dk-canvas{display:block;width:100%;height:auto}
 .dk-log{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10.5px;line-height:1.55;
 height:250px;overflow:hidden;position:relative}
+.dk-log.short{height:152px}
 .dk-log .row{display:grid;grid-template-columns:44px 52px minmax(0,1fr);gap:8px;padding:1px 0;
 white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.8}
 .dk-log .row.new{opacity:1;color:var(--text);background:color-mix(in srgb,var(--accent) 12%,transparent);border-radius:4px}
@@ -3072,6 +3073,12 @@ function cockpit(root){
   right.appendChild(lc);
   ctl.appendChild(right);
   root.appendChild(ctl);
+
+  /* --- AI 에이전트 활동 로그 (관제 데스크와 같은 패널) --- */
+  const MD=dkModel();
+  if(MD&&MD.events.length){const lc2=el('div','card');const lh=rawEl('div','dk-lab');
+    lh.appendChild(rawEl('span',null,T('AI 에이전트 활동 로그')+' · '+TC(MD.events.length,'건')));lh.appendChild(rawEl('span','dk-live','LIVE'));lc2.appendChild(lh);
+    root.appendChild(lc2);dkLiveLog(lc2,MD,{rows:8,short:true});lc2.appendChild(screenLink('AI 관제 데스크'))}
 
   /* --- 감사원장 티커 (headline 값과 근거) --- */
   const al=D.data['val_audit_ledger'];
@@ -5313,6 +5320,22 @@ function dkGraph(card,M){
   (function loop(){frame++;if(alive()){if(energy>0.002||frame<600)step();draw()}requestAnimationFrame(loop)})();
   return {nodes,edges};
 }
+/* 흐르는 활동 로그. 추적 원장을 순서대로 한 줄씩 더하고 끝나면 처음으로 돈다. 데스크와 콕핏이 같이 쓴다. */
+function dkLiveLog(host,M,{rows=14,short=false,onEvent}={}){
+  const log=rawEl('div','dk-log'+(short?' short':''));host.appendChild(log);
+  const st={li:0};let last=null;
+  const alive=()=>{const sec=host.closest('section');return sec&&sec.classList.contains('on')&&!document.hidden};
+  const push=()=>{if(!alive()||!M.events.length)return;const e=M.events[st.li%M.events.length];st.li++;
+    const r=rawEl('div','row new'+(eqv(e.gate,'차단')?' gate-bad':eqv(e.gate,'승인')?' gate-ok':''));
+    r.appendChild(rawEl('span','t',String(e.seq).padStart(3,'0')));r.appendChild(rawEl('span','a',e.code));
+    r.appendChild(rawEl('span',null,e.phase+' / '+e.tool+(e.hits?' / '+T('마스킹')+' '+e.hits:'')+' / '+(e.domain||'-')));
+    if(last)last.classList.remove('new');last=r;log.appendChild(r);
+    while(log.children.length>rows)log.removeChild(log.firstChild);
+    if(onEvent)onEvent(e)};
+  for(let k=0;k<Math.min(8,rows);k++)push();
+  setInterval(push,900);
+  return st;
+}
 function aiDesk(root){
   const M=dkModel();
   if(!M){root.appendChild(el('div','note','원장 agent_registry 가 payload 에 없다'));return}
@@ -5341,7 +5364,7 @@ function aiDesk(root){
   /* 2. 요건 커버리지 경로 (선이 자라난다) + 활동 로그 (흐른다) */
   const c5=card('c7','요건 커버리지 경로',T('요건')+' '+TC(M.cov.length,'건'));
   const hist=dkCanvas(c5,0.40,180,300);
-  const c6=card('c5','활동 로그',TC(M.events.length,'건'));const log=rawEl('div','dk-log');c6.appendChild(log);
+  const c6=card('c5','활동 로그',TC(M.events.length,'건'));
   /* 3. 도메인 활동 능선 */
   const c7=card('c12','도메인 활동 능선',T('추적 순서 축')+' · '+T('도메인')+' '+TC(M.domains.length,'종'));
   const ridgeWrap=rawEl('div','dk-two');const rs=rawEl('div','dk-stats');ridgeWrap.appendChild(rs);const rh=el('div');ridgeWrap.appendChild(rh);c7.appendChild(ridgeWrap);
@@ -5379,17 +5402,9 @@ function aiDesk(root){
     row.appendChild(c);cards.set(a.name,c)});
 
   /* ---- 움직임 ---- */
-  /* 로그: 이벤트를 순서대로 흘리고 끝나면 처음부터 다시 */
-  let li=0,lastRow=null;
-  const pushLog=()=>{if(!alive()||!M.events.length)return;const e=M.events[li%M.events.length];li++;
-    const r=rawEl('div','row new'+(eqv(e.gate,'차단')?' gate-bad':eqv(e.gate,'승인')?' gate-ok':''));
-    r.appendChild(rawEl('span','t',String(e.seq).padStart(3,'0')));r.appendChild(rawEl('span','a',e.code));
-    r.appendChild(rawEl('span',null,e.phase+' / '+e.tool+(e.hits?' / '+T('마스킹')+' '+e.hits:'')+' / '+(e.domain||'-')));
-    if(lastRow)lastRow.classList.remove('new');lastRow=r;log.appendChild(r);
-    while(log.children.length>14)log.removeChild(log.firstChild);
-    cards.forEach(c=>c.classList.remove('on'));const c=cards.get(e.actor);if(c){c.classList.add('on');
-      const x=c.offsetLeft-row.clientWidth/2+c.clientWidth/2;row.scrollTo({left:Math.max(0,x),behavior:'smooth'})}};
-  for(let k=0;k<8;k++)pushLog();timers.push(setInterval(pushLog,900));
+  /* 로그: 현재 행위자의 카드가 떠오르고 카드 열이 그리로 미끄러진다 */
+  const lst=dkLiveLog(c6,M,{rows:14,onEvent:e=>{cards.forEach(c=>c.classList.remove('on'));const c=cards.get(e.actor);if(c){c.classList.add('on');
+      const x=c.offsetLeft-row.clientWidth/2+c.clientWidth/2;row.scrollTo({left:Math.max(0,x),behavior:'smooth'})}}});
   /* 인계 현재 항목 */
   let hi=0;timers.push(setInterval(()=>{if(!alive()||!M.hand.length)return;hi=(hi+1)%M.hand.length;const h=M.hand[hi];cur.textContent=dkCode(h.from)+' → '+dkCode(h.to)},1400));
   /* 능선: 도메인별 이벤트 밀도(추적 순서 축, 가우스 평활). 한 도메인이 한 능선이다. */
@@ -5405,7 +5420,7 @@ function aiDesk(root){
       for(let b=0;b<NB;b++){const x=padL+b/(NB-1)*(W-padL-padR);const wob=1+0.06*Math.sin(t/900+b*0.35+r);const y=base-dens[r][b]/dmaxs[r]*amp*wob;c.lineTo(x,y)}
       c.lineTo(W-padR,base);c.closePath();c.fillStyle=col;c.globalAlpha=0.16;c.fill();c.globalAlpha=1;c.strokeStyle=col;c.lineWidth=1.3;c.stroke();
       c.fillStyle=dkCss('--muted');c.font='9px ui-monospace,monospace';c.textAlign='right';c.fillText(d.replace(/^[A-Z] · /,'').slice(0,12)+' '+dcnt[r],W-padR,base-3);c.textAlign='left'});
-    const cx=padL+((li%Math.max(1,M.events.length))/Math.max(1,M.events.length))*(W-padL-padR);
+    const cx=padL+((lst.li%Math.max(1,M.events.length))/Math.max(1,M.events.length))*(W-padL-padR);
     c.strokeStyle=dkCss('--accent');c.setLineDash([3,3]);c.beginPath();c.moveTo(cx,10);c.lineTo(cx,H-4);c.stroke();c.setLineDash([])}
   /* 커버리지 경로: 요건 번호 순으로 누적 (반영 1 · 부분 0.5). 선이 처음부터 자라난다. */
   let drawn=0;
