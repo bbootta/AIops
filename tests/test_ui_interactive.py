@@ -1143,3 +1143,29 @@ def test_ai_desk_animates_from_ledgers_without_errors(page):
     assert page.evaluate("document.querySelectorAll('section.on .dk-agent').length") >= 10
     assert page.evaluate("document.querySelectorAll('section.on .dk-agent.on').length") == 1
     assert page.errors == []
+
+
+def test_ai_desk_graph_nodes_drag_under_tension(page):
+    """관계 그래프: 노드 위에서 커서가 grab, 끌면 grabbing, 끌린 노드는 포인터를 따라오고 이웃이 움직여 수렴이 떨어진다."""
+    page.evaluate("()=>{const b=[...document.querySelectorAll('nav button')].find(x=>x.dataset.ko==='AI 관제 데스크');b.click()}")
+    page.wait_for_timeout(1500)
+    page.evaluate("()=>{const cs=[...document.querySelectorAll('section.on canvas')];cs[cs.length-1].scrollIntoView({block:'center'})}")
+    page.wait_for_timeout(300)
+    box = page.evaluate("()=>{const cs=[...document.querySelectorAll('section.on canvas')];const r=cs[cs.length-1].getBoundingClientRect();return [r.left,r.top]}")
+    p0 = page.evaluate("()=>{const cs=[...document.querySelectorAll('section.on canvas')];return cs[cs.length-1].dkNode(0)}")   # 첫 노드 = 도메인
+    x, y = box[0] + p0[0], box[1] + p0[1]
+    page.mouse.move(x, y); page.wait_for_timeout(100)
+    cursor = lambda: page.evaluate("()=>{const cs=[...document.querySelectorAll('section.on canvas')];return cs[cs.length-1].style.cursor}")
+    assert cursor() == "grab"
+    conv = lambda: int(page.evaluate("()=>[...document.querySelectorAll('section.on .dk-stats')].pop().querySelectorAll('b')[2].textContent").rstrip("%"))
+    page.mouse.down()
+    for k in range(1, 16):
+        page.mouse.move(x + k * 8, y + k * 4); page.wait_for_timeout(16)
+    assert cursor() == "grabbing"
+    p1 = page.evaluate("()=>{const cs=[...document.querySelectorAll('section.on canvas')];return cs[cs.length-1].dkNode(0)}")
+    assert abs(box[0] + p1[0] - (x + 120)) < 3 and abs(box[1] + p1[1] - (y + 60)) < 3   # 끌린 노드는 포인터 위치
+    assert conv() < 100   # 이웃이 장력으로 움직여 운동에너지가 생겼다
+    page.mouse.up(); page.wait_for_timeout(1500)
+    assert cursor() in ("grab", "")
+    assert conv() >= 95   # 놓으면 다시 잦아든다
+    assert page.errors == []

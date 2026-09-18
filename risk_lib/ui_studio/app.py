@@ -1576,7 +1576,8 @@ font-family:inherit;font-size:11.5px}
 .desk>.card{margin:0;min-width:0}
 .desk .c3{grid-column:span 3}.desk .c4{grid-column:span 4}.desk .c5{grid-column:span 5}
 .desk .c6{grid-column:span 6}.desk .c7{grid-column:span 7}.desk .c8{grid-column:span 8}.desk .c12{grid-column:span 12}
-@media(max-width:1100px){.desk .c3,.desk .c4,.desk .c5,.desk .c6,.desk .c7,.desk .c8{grid-column:span 12}}
+@media(max-width:1100px){.desk .c3{grid-column:span 6}.desk .c4,.desk .c5,.desk .c6,.desk .c7,.desk .c8{grid-column:span 12}}
+@media(max-width:700px){.desk .c3{grid-column:span 12}}
 .dk-lab{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:9.5px;letter-spacing:.09em;
 text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;gap:8px;margin:0 0 6px}
 .dk-lab b{color:var(--text);font-weight:750}
@@ -1602,7 +1603,8 @@ white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.8}
 font-size:10.5px;align-content:start}
 .dk-stats span{color:var(--muted);letter-spacing:.05em;text-transform:uppercase;font-size:9.5px}
 .dk-stats b{text-align:right;font-variant-numeric:tabular-nums;font-weight:750}
-.dk-two{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;align-items:start}
+.dk-two{display:grid;grid-template-columns:168px minmax(0,1fr);gap:12px;align-items:start}
+.dk-stats b.dk-wide{grid-column:1/-1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:700px){.dk-two{grid-template-columns:1fr}}
 .dk-agents{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 8px;scroll-behavior:smooth}
 .dk-agent{flex:0 0 96px;border:1px solid var(--line);border-radius:10px;padding:8px 6px;text-align:center;
@@ -1616,6 +1618,7 @@ font-weight:800;font-size:12px;color:#04111b;letter-spacing:.02em}
 .dk-agent .tier.bad{color:var(--bad)}.dk-agent .tier.warn{color:var(--warn)}.dk-agent .tier.good{color:var(--good)}
 .dk-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10px;color:var(--muted);margin-top:4px}
 .dk-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+.dk-legend .dk-hint{margin-left:auto;font-style:italic}
 /* ── 좁은 화면 (폰·작은 태블릿) ──
    격자·플렉스 항목의 자동 최소폭(min-width:auto)이 표·SVG 의 내용 폭으로 커져 페이지가
    옆으로 넘쳤다. 좁은 폭에서는 0 으로 두고, 옆으로 긴 것은 카드 안에서 굴린다. */
@@ -5269,11 +5272,11 @@ function dkModel(){
   const cov=[];let acc=0;R.slice().sort((a,b)=>String(a.id).localeCompare(String(b.id))).forEach(r=>{acc+=eqv(r.status,'반영')?1:eqv(r.status,'부분')?0.5:0;cov.push({id:r.id,v:acc})});
   return {reg,act,tr,ap,ks,ex,agents,byName,domains,dcol,tierTone,events,hand,approvals,cov,seed:dkSeed(D.meta.run_id||'rynta')};
 }
-/* 관계 그래프 시뮬레이션. 에이전트·도구·도메인을 힘 기반으로 배치하고, 에너지가 잦아들 때까지 움직인다.
-   씨앗은 실행 식별자라 같은 실행이면 같은 그림이다. 마우스를 올린 노드는 이름과 이웃 간선이 밝아진다. */
+/* 관계 그래프 시뮬레이션. 에이전트·도구·도메인을 힘 기반으로 배치한다. 화면이 보이는 동안 계속 돌고,
+   노드를 끌면 간선의 장력이 이웃을 함께 끌어온다. 씨앗은 실행 식별자라 같은 실행이면 같은 첫 그림이다. */
 function dkGraph(card,M){
   const wrap=rawEl('div','dk-two');const gs=rawEl('div','dk-stats');const gh=el('div');wrap.appendChild(gs);wrap.appendChild(gh);card.appendChild(wrap);
-  const graph=dkCanvas(gh,0.42,240,380);
+  const graph=dkCanvas(gh,0.42,300,380);
   const kv=(k,v)=>{gs.appendChild(rawEl('span',null,T(k)));gs.appendChild(rawEl('b',null,String(v)))};
   const rnd=dkRand(M.seed);
   const tools=[...new Set(M.agents.flatMap(a=>a.tools))].sort();
@@ -5287,38 +5290,54 @@ function dkGraph(card,M){
   edges.forEach(([i,j])=>{nodes[i].deg++;nodes[j].deg++});
   kv('노드',nodes.length);kv('간선',edges.length);const conv=rawEl('b',null,'0%');gs.appendChild(rawEl('span',null,T('수렴')));gs.appendChild(conv);
   kv('에이전트',M.agents.length);kv('도구',tools.length);kv('제안 전용 비율',(M.agents.filter(a=>eqv(a.mode,'제안전용')).length/Math.max(1,M.agents.length)*100).toFixed(0)+'%');
-  const hov=rawEl('b',null,'-');gs.appendChild(rawEl('span',null,T('선택')));gs.appendChild(hov);
+  gs.appendChild(rawEl('span',null,T('선택')));gs.appendChild(rawEl('b'));const hov=rawEl('b','dk-wide','-');gs.appendChild(hov);
   const lg=rawEl('div','dk-legend');M.domains.forEach(d=>{const sp=rawEl('span');const i=rawEl('i');i.style.background=M.dcol(d);sp.appendChild(i);sp.appendChild(document.createTextNode(d));lg.appendChild(sp)});
-  const sp2=rawEl('span');const i2=rawEl('i');i2.style.background='var(--muted)';sp2.appendChild(i2);sp2.appendChild(document.createTextNode(T('도구')));lg.appendChild(sp2);card.appendChild(lg);
-  let energy=1,frame=0,hover=-1,X=x=>x,Y=y=>y;
+  const sp2=rawEl('span');const i2=rawEl('i');i2.style.background='var(--muted)';sp2.appendChild(i2);sp2.appendChild(document.createTextNode(T('도구')));lg.appendChild(sp2);
+  lg.appendChild(rawEl('span','dk-hint',T('노드를 끌면 이웃이 장력으로 따라온다')));card.appendChild(lg);
+  let energy=1,hover=-1,drag=-1,view=null;
+  const X=x=>view.ox+x*view.sc,Y=y=>view.oy+y*view.sc,IX=px=>(px-view.ox)/view.sc,IY=py=>(py-view.oy)/view.sc;
   function step(){const k=0.02,rep=1400,damp=0.86;let ke=0;
     for(let i=0;i<nodes.length;i++){const a=nodes[i];let fx=-a.x*0.004,fy=-a.y*0.004;
       for(let j=0;j<nodes.length;j++){if(i===j)continue;const b=nodes[j];let dx=a.x-b.x,dy=a.y-b.y;const d2=dx*dx+dy*dy+40;const f=rep/d2;fx+=dx*f/Math.sqrt(d2);fy+=dy*f/Math.sqrt(d2)}
       a.fx=fx;a.fy=fy}
     edges.forEach(([i,j,w])=>{const a=nodes[i],b=nodes[j];const dx=b.x-a.x,dy=b.y-a.y;const d=Math.sqrt(dx*dx+dy*dy)+0.01;const f=(d-60)*k*w;
       a.fx+=dx/d*f;a.fy+=dy/d*f;b.fx-=dx/d*f;b.fy-=dy/d*f});
-    nodes.forEach(n=>{n.vx=(n.vx+n.fx)*damp;n.vy=(n.vy+n.fy)*damp;n.x+=n.vx;n.y+=n.vy;ke+=n.vx*n.vx+n.vy*n.vy});
+    nodes.forEach((n,i)=>{if(i===drag){n.vx=0;n.vy=0;return}n.vx=(n.vx+n.fx)*damp;n.vy=(n.vy+n.fy)*damp;n.x+=n.vx;n.y+=n.vy;ke+=n.vx*n.vx+n.vy*n.vy});
     energy=ke/nodes.length}
-  function draw(){const c=graph.ctx(),W=graph.st.w,H=graph.st.h;c.clearRect(0,0,W,H);
+  /* 화면 맞춤: 끌고 있는 동안은 고정하고, 놓으면 새 경계상자로 부드럽게 돌아간다 */
+  function fit(){const W=graph.st.w,H=graph.st.h;
     const xs=nodes.map(n=>n.x),ys=nodes.map(n=>n.y);const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
-    const sc=Math.min((W-40)/Math.max(1,x1-x0),(H-40)/Math.max(1,y1-y0));X=x=>20+(x-x0)*sc;Y=y=>20+(y-y0)*sc;
-    const col=n=>n.col.startsWith('var(')?dkCss(n.col.slice(4,-1)):n.col;
+    const sc=Math.min(3,(W-48)/Math.max(1,x1-x0),(H-40)/Math.max(1,y1-y0));
+    const t={sc,ox:W/2-(x0+x1)/2*sc,oy:H/2-(y0+y1)/2*sc};
+    if(!view){view=t;return}
+    if(drag>=0)return;
+    const f=energy>0.5?0.25:0.06;view.sc+=(t.sc-view.sc)*f;view.ox+=(t.ox-view.ox)*f;view.oy+=(t.oy-view.oy)*f}
+  function draw(){const c=graph.ctx(),W=graph.st.w,H=graph.st.h;c.clearRect(0,0,W,H);
+    const col=n=>n.col.startsWith('var(')?dkCss(n.col.slice(4,-1)):n.col;const on=drag>=0?drag:hover;
     c.lineWidth=0.7;c.strokeStyle=dkCss('--line');
-    edges.forEach(([i,j])=>{const on=hover>=0&&(i===hover||j===hover);if(on)return;
+    edges.forEach(([i,j])=>{if(on>=0&&(i===on||j===on))return;
       c.beginPath();c.moveTo(X(nodes[i].x),Y(nodes[i].y));c.lineTo(X(nodes[j].x),Y(nodes[j].y));c.stroke()});
-    if(hover>=0){c.lineWidth=1.6;c.strokeStyle=dkCss('--accent');
-      edges.forEach(([i,j])=>{if(i!==hover&&j!==hover)return;c.beginPath();c.moveTo(X(nodes[i].x),Y(nodes[i].y));c.lineTo(X(nodes[j].x),Y(nodes[j].y));c.stroke()})}
-    nodes.forEach((n,k)=>{c.beginPath();c.arc(X(n.x),Y(n.y),k===hover?n.r+3:n.r,0,Math.PI*2);c.fillStyle=col(n);c.fill();
-      if(k===hover){c.lineWidth=2;c.strokeStyle=dkCss('--text');c.stroke()}
-      if(n.kind!=='agent'||k===hover){c.fillStyle=dkCss('--text');c.font=(k===hover?'bold ':'')+'9px ui-monospace,monospace';c.fillText(n.label.slice(0,22),X(n.x)+n.r+4,Y(n.y)+3)}});
+    if(on>=0){c.lineWidth=1.6;c.strokeStyle=dkCss('--accent');
+      edges.forEach(([i,j])=>{if(i!==on&&j!==on)return;c.beginPath();c.moveTo(X(nodes[i].x),Y(nodes[i].y));c.lineTo(X(nodes[j].x),Y(nodes[j].y));c.stroke()})}
+    nodes.forEach((n,k)=>{c.beginPath();c.arc(X(n.x),Y(n.y),k===on?n.r+3:n.r,0,Math.PI*2);c.fillStyle=col(n);c.fill();
+      if(k===on){c.lineWidth=2;c.strokeStyle=dkCss('--text');c.stroke()}
+      if(n.kind!=='agent'||k===on){c.fillStyle=dkCss('--text');c.font=(k===on?'bold ':'')+'9px ui-monospace,monospace';c.fillText(n.label.slice(0,22),X(n.x)+n.r+4,Y(n.y)+3)}});
     conv.textContent=Math.max(0,Math.min(100,Math.round(100-energy*40)))+'%'}
-  graph.cv.addEventListener('pointermove',e=>{const r=graph.cv.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;
-    let best=-1,bd=14;nodes.forEach((n,k)=>{const d=Math.hypot(X(n.x)-mx,Y(n.y)-my);if(d<bd){bd=d;best=k}});
-    if(best!==hover){hover=best;const n=best>=0?nodes[best]:null;hov.textContent=n?n.label.slice(0,26)+' · '+n.deg:'-'}});
-  graph.cv.addEventListener('pointerleave',()=>{hover=-1;hov.textContent='-'});
+  const pos=e=>{const r=graph.cv.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top]};
+  const pick=(mx,my)=>{let best=-1,bd=14;nodes.forEach((n,k)=>{const d=Math.hypot(X(n.x)-mx,Y(n.y)-my);if(d<bd){bd=d;best=k}});return best};
+  const setHover=k=>{if(k===hover)return;hover=k;const n=k>=0?nodes[k]:null;hov.textContent=n?n.label.slice(0,26)+' · '+n.deg:'-';graph.cv.style.cursor=k>=0?'grab':''};
+  graph.cv.style.touchAction='none';graph.cv.dkNode=k=>view?[X(nodes[k].x),Y(nodes[k].y),nodes[k].label]:null;
+  graph.cv.addEventListener('pointerdown',e=>{if(!view)return;const [mx,my]=pos(e);const k=pick(mx,my);if(k<0)return;
+    drag=k;setHover(k);graph.cv.style.cursor='grabbing';graph.cv.setPointerCapture(e.pointerId);e.preventDefault()});
+  graph.cv.addEventListener('pointermove',e=>{if(!view)return;const [mx,my]=pos(e);
+    if(drag>=0){const n=nodes[drag];n.x=IX(mx);n.y=IY(my);n.vx=0;n.vy=0;return}
+    setHover(pick(mx,my))});
+  const drop=()=>{if(drag<0)return;drag=-1;graph.cv.style.cursor=hover>=0?'grab':''};
+  graph.cv.addEventListener('pointerup',drop);graph.cv.addEventListener('pointercancel',drop);
+  graph.cv.addEventListener('pointerleave',()=>{if(drag<0)setHover(-1)});
   const alive=()=>{const sec=card.closest('section');return sec&&sec.classList.contains('on')&&!document.hidden};
-  (function loop(){frame++;if(alive()){if(energy>0.002||frame<600)step();draw()}requestAnimationFrame(loop)})();
-  return {nodes,edges};
+  (function loop(){if(alive()){step();fit();draw()}requestAnimationFrame(loop)})();
+  return {nodes,edges,drag:k=>{drag=k}};
 }
 /* 흐르는 활동 로그. 추적 원장을 순서대로 한 줄씩 더하고 끝나면 처음으로 돈다. 데스크와 콕핏이 같이 쓴다. */
 function dkLiveLog(host,M,{rows=14,short=false,onEvent}={}){
@@ -5368,7 +5387,7 @@ function aiDesk(root){
   /* 3. 도메인 활동 능선 */
   const c7=card('c12','도메인 활동 능선',T('추적 순서 축')+' · '+T('도메인')+' '+TC(M.domains.length,'종'));
   const ridgeWrap=rawEl('div','dk-two');const rs=rawEl('div','dk-stats');ridgeWrap.appendChild(rs);const rh=el('div');ridgeWrap.appendChild(rh);c7.appendChild(ridgeWrap);
-  const ridge=dkCanvas(rh,0.30,170,260);
+  const ridge=dkCanvas(rh,0.32,220,280);
   const kv=(box,k,v)=>{box.appendChild(rawEl('span',null,T(k)));box.appendChild(rawEl('b',null,String(v)))};
   const topDom=M.domains.map(d=>[d,M.events.filter(e=>e.domain===d).length]).sort((a,b)=>b[1]-a[1])[0];
   kv(rs,'이벤트',M.events.length);kv(rs,'도메인',M.domains.length);kv(rs,'최다 도메인',topDom?topDom[0].split(' ')[0]:'-');
@@ -5378,7 +5397,7 @@ function aiDesk(root){
   const chordWrap=rawEl('div','dk-two');const cs=rawEl('div','dk-stats');const ch=el('div');chordWrap.appendChild(cs);chordWrap.appendChild(ch);c8.appendChild(chordWrap);
   const chord=dkCanvas(ch,0.62,220,340);
   kv(cs,'인계',M.hand.length);kv(cs,'차단',M.hand.filter(h=>eqv(h.gate,'차단')).length);kv(cs,'도메인 간',M.hand.filter(h=>h.fd!==h.td).length);
-  kv(cs,'도메인 내',M.hand.filter(h=>h.fd===h.td).length);const cur=rawEl('b',null,'-');cs.appendChild(rawEl('span',null,T('현재')));cs.appendChild(cur);
+  kv(cs,'도메인 내',M.hand.filter(h=>h.fd===h.td).length);cs.appendChild(rawEl('span',null,T('현재')));cs.appendChild(rawEl('b'));const cur=rawEl('b','dk-wide','-');cs.appendChild(cur);
   const c9=card('c6','5차원 속성 격자 (펜터랙트)',T('꼭짓점')+' 32 · '+T('모서리')+' 80');
   const latWrap=rawEl('div','dk-two');const ls=rawEl('div','dk-stats');const lh=el('div');latWrap.appendChild(ls);latWrap.appendChild(lh);c9.appendChild(latWrap);
   const lat=dkCanvas(lh,0.62,220,340);
@@ -5418,8 +5437,9 @@ function aiDesk(root){
     M.domains.forEach((d,r)=>{const base=22+gap*(r+1);const col=dkCss(DK_DOM_COL[r%DK_DOM_COL.length]);
       c.beginPath();c.moveTo(padL,base);
       for(let b=0;b<NB;b++){const x=padL+b/(NB-1)*(W-padL-padR);const wob=1+0.06*Math.sin(t/900+b*0.35+r);const y=base-dens[r][b]/dmaxs[r]*amp*wob;c.lineTo(x,y)}
-      c.lineTo(W-padR,base);c.closePath();c.fillStyle=col;c.globalAlpha=0.16;c.fill();c.globalAlpha=1;c.strokeStyle=col;c.lineWidth=1.3;c.stroke();
-      c.fillStyle=dkCss('--muted');c.font='9px ui-monospace,monospace';c.textAlign='right';c.fillText(d.replace(/^[A-Z] · /,'').slice(0,12)+' '+dcnt[r],W-padR,base-3);c.textAlign='left'});
+      c.lineTo(W-padR,base);c.closePath();c.fillStyle=col;c.globalAlpha=0.16;c.fill();c.globalAlpha=1;c.strokeStyle=col;c.lineWidth=1.3;c.stroke()});
+    M.domains.forEach((d,r)=>{const base=22+gap*(r+1);c.fillStyle=dkCss('--text');c.font='9px ui-monospace,monospace';c.textAlign='right';
+      c.fillText(d.replace(/^[A-Z] · /,'').slice(0,12)+' '+dcnt[r],W-padR,base-4);c.textAlign='left'});
     const cx=padL+((lst.li%Math.max(1,M.events.length))/Math.max(1,M.events.length))*(W-padL-padR);
     c.strokeStyle=dkCss('--accent');c.setLineDash([3,3]);c.beginPath();c.moveTo(cx,10);c.lineTo(cx,H-4);c.stroke();c.setLineDash([])}
   /* 커버리지 경로: 요건 번호 순으로 누적 (반영 1 · 부분 0.5). 선이 처음부터 자라난다. */
@@ -5884,21 +5904,15 @@ function executiveReport(root){
     if(tr&&tr.shown>=tr.total){const i=frameIdx(tr);const hits=tr.rows.reduce((a,r)=>a+(r[i.redaction_hits]||0),0);
       items.push(T('마스킹 적중')+' '+TC(hits,'건')+' ('+T('규칙')+' '+TC(rules?rules.total:0,'건')+')')}
     items.push(T('AI리스크 요건 76건 커버리지')+': '+T('반영')+' '+Qa['반영']+' · '+T('부분')+' '+Qa['부분']+' · '+T('미반영')+' '+Qa['미반영']);
-    const c1=el('div','card');c1.appendChild(el('h3',null,'AI리스크 요건 76건 · 장별 커버리지'));
-    c1.appendChild(shareStrips(Qa.chapters.map(ch=>{
-      const n=st=>D.req_trace_air.rows.filter(r=>r.area===ch.no&&r.status===st).length;
-      return {label:ch.no+' · '+ch.title,items:[{label:T('반영'),value:n('반영'),tone:'good'},
-        {label:T('부분'),value:n('부분'),tone:'warn'},{label:T('미반영'),value:n('미반영'),tone:'bad'}]}}),{}));
-    c1.appendChild(cap('9a','AI리스크 요건 76건 · 장별 커버리지','req_trace_air (코드 선언)'));
     let c2=null;
     if(reg&&reg.shown>=reg.total){const i=frameIdx(reg);const m=new Map();
       reg.rows.forEach(r=>{const k=r[i.domain];m.set(k,(m.get(k)||0)+1)});
       c2=hbars([...m.entries()].map(([k,v])=>({label:k,value:v})).sort((a,b)=>b.value-a.value).slice(0,10),{title:'도메인별 에이전트 수',money:false});
-      c2.appendChild(cap('9b','도메인별 에이전트 수','agent_registry'))}
+      c2.appendChild(cap('9a','도메인별 에이전트 수','agent_registry'))}
     let c3=null;const MD=dkModel();
     if(MD){c3=el('div','card');c3.appendChild(el('h3',null,'관계 그래프 시뮬레이션 (에이전트 · 도구 · 도메인)'));
-      dkGraph(c3,MD);c3.appendChild(cap('9c','관계 그래프 시뮬레이션 (에이전트 · 도구 · 도메인)','agent_registry'))}
-    section(9,'AI리스크',tone,items,[[c1,false],[c2,false],[c3,true]],[]);
+      dkGraph(c3,MD);c3.appendChild(cap('9b','관계 그래프 시뮬레이션 (에이전트 · 도구 · 도메인)','agent_registry'))}
+    section(9,'AI리스크',tone,items,[[c2,false],[c3,true]],[]);
   }
 
   /* 10 CRO 액션 + 남은 브리핑. 액션 문장의 긴 대시는 콜론으로 바꿔 개조식으로. */
