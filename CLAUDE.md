@@ -1,8 +1,23 @@
 # CLAUDE.md
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+Behavioral guidelines to reduce common LLM coding mistakes, plus this repository's working conventions.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+## 0. This Repository
+
+**Read `HANDOVER.md` first.** It carries the current state: what lives on which branch, what's in progress, what the next steps are, and what not to touch.
+
+Structure in one line: `main` is an intentionally empty hub (`CLAUDE.md`, `HANDOVER.md`, `.claude/settings.json`, `.gitkeep`); every project lives on its own unmerged feature branch.
+
+Conventions that follow from that:
+
+- **One branch = one project.** Check out the branch you're working on. Don't start work on `main`, and don't pull files from a branch into `main` — `main` being empty is deliberate (commit `ebb9e8a`).
+- **Don't merge PRs on your own.** 43 PRs are open and merge strategy is an open decision (see `HANDOVER.md` §6.2).
+- **`claude/stoic-ride-*` PRs are review reports, not code.** Never merge them, never delete their branches — they are the delta baseline for the daily review series.
+- **The latest `CODE_REVIEW_*.md` is the single source of truth for open defects.** Read it before claiming something is or isn't a known issue.
+- **Never weaken a safety gate to make something pass** — `risk_lib` CLI exit codes, `independent.py` fail-closed delegation, `stock_trading`'s dual execution gate. Fix the cause instead.
+- Each project branch carries its own `CLAUDE.md` and `README.md`. Those take precedence within that branch's directory.
 
 ## 1. Think Before Coding
 
