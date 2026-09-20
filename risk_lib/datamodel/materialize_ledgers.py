@@ -134,22 +134,30 @@ def materialize_run_control(result, tables: dict[str, pd.DataFrame], *,
     # 사건으로 모으므로 뒤에 두면 그 사건이 빠진 체인이 나간다.
     out.update(build_rbac(asof=asof))
 
-    close_t, _issues = build_close_workflow(tables, asof=asof)
+    close_t, close_issues = build_close_workflow(tables, asof=asof)
     out.update(close_t)
 
-    chain, _notes = build_audit_chain({**tables, **out}, asof=asof)
+    chain, chain_notes = build_audit_chain({**tables, **out}, asof=asof)
     out["gov_audit_chain"] = chain
 
-    ret_t, _skipped = build_retention({**tables, **out}, run_id=run_id,
-                                      asof=asof)
+    ret_t, ret_skipped = build_retention({**tables, **out}, run_id=run_id,
+                                         asof=asof)
     out.update(ret_t)
 
     # 코드 판은 저장소의 사실이다. 읽지 못하면 지어내지 않고 '미확인'을 적는다.
     from risk_lib.repro import _git_commit
-    run_t, _problems = build_unified_run(
+    run_t, run_problems = build_unified_run(
         {**tables, **out}, run_id=run_id, asof=asof, seed=seed,
         code_revision=_git_commit() or "미확인")
     out.update(run_t)
+
+    # 네 빌더의 두 번째 반환값. 전부 버려지고 있었다 (검수 상-3). 차단·순서위반이
+    # 계산만 되고 산출물에 남지 않으면 마감 게이트는 통제가 아니다.
+    from risk_lib.governance.run_issue import build_run_issue
+    out["gov_run_issue"] = build_run_issue(
+        asof=asof, run_id=run_id, close_issues=close_issues,
+        chain_notes=chain_notes, retention_skipped=ret_skipped,
+        run_problems=run_problems)
 
     rules = build_redaction_rules()
     out["aig_redaction_rule"] = rules

@@ -26,8 +26,38 @@ from risk_lib.pipeline import run_pipeline
 from risk_lib.report import render_markdown
 
 
+def _from_db(args: argparse.Namespace):
+    """DB 에 적재된 실행의 입력(포트폴리오·시드·기준일·기관)으로 파이프라인을
+    다시 돌린다. 결과 객체는 DB 에 없다. 입력이 DB 에 있고 산출이 결정론이므로
+    같은 결과가 나오며, 포트폴리오 지문이 등록부와 다르면 멈춘다.
+
+    --seed / --asof 인자는 등록부 값으로 덮인다. 명령줄 값이 이기면 "DB 의
+    실행"이 아닌 다른 실행을 그 이름으로 낸다."""
+    from risk_lib.db import result_from_db
+    result, portfolio, rec = result_from_db(args.from_db)
+    args.seed = int(rec["seed"])
+    if hasattr(args, "asof"):
+        args.asof = rec["asof"]
+    print(f"  DB 실행 {rec['run_id']} · 기준일 {rec['asof']} · seed {rec['seed']} · "
+          f"입력 지문 확인 · 재산출")
+    return result, portfolio, rec
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     portfolio = None
+    if getattr(args, "from_db", None):
+        result, portfolio, _ = _from_db(args)
+        md = render_markdown(result)
+        if args.report:
+            with open(args.report, "w", encoding="utf-8") as fh:
+                fh.write(md)
+            print(f"리포트 작성 완료: {args.report}")
+        else:
+            print(md)
+        if not result.validation.passes():
+            print("\n[검증 실패] FAIL 체크가 존재하여 결재 불가.", file=sys.stderr)
+            return 1
+        return 0
     if args.data:
         portfolio = pd.read_csv(args.data)
 
@@ -67,17 +97,19 @@ def _cmd_report_set(args: argparse.Namespace) -> int:
     from risk_lib.html_report import build_full_report_package
     from risk_lib.repro import build_manifest, now_utc
 
-    if args.portfolio:
-        portfolio = pd.read_csv(args.portfolio)
-    else:
-        portfolio = generate_portfolio(seed=args.seed)
-
     buffers = {"capital_conservation": args.ccb,
                "countercyclical": args.ccyb, "dsib": args.dsib}
     start = now_utc()
-    result = run_pipeline(portfolio, seed=args.seed,
-                          hurdle_rate=args.hurdle, output_floor=args.floor,
-                          buffers=buffers, years_ahead=args.years_ahead)
+    if getattr(args, "from_db", None):
+        result, portfolio, _ = _from_db(args)
+    else:
+        if args.portfolio:
+            portfolio = pd.read_csv(args.portfolio)
+        else:
+            portfolio = generate_portfolio(seed=args.seed)
+        result = run_pipeline(portfolio, seed=args.seed,
+                              hurdle_rate=args.hurdle, output_floor=args.floor,
+                              buffers=buffers, years_ahead=args.years_ahead)
     end = now_utc()
     manifest = build_manifest(
         portfolio=portfolio,
@@ -103,9 +135,12 @@ def _cmd_notify(args: argparse.Namespace) -> int:
     from risk_lib.notifications import collect_alerts, write_bundle
     from risk_lib.repro import build_manifest, now_utc
 
-    portfolio = generate_portfolio(seed=args.seed)
     start = now_utc()
-    result = run_pipeline(portfolio, seed=args.seed)
+    if getattr(args, "from_db", None):
+        result, portfolio, _ = _from_db(args)
+    else:
+        portfolio = generate_portfolio(seed=args.seed)
+        result = run_pipeline(portfolio, seed=args.seed)
     end = now_utc()
     manifest = build_manifest(portfolio=portfolio, parameters={"seed": args.seed},
                               result=result, start_utc=start, end_utc=end)
@@ -126,9 +161,12 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     from risk_lib.repro import build_manifest, now_utc
     from risk_lib.api import serve
 
-    portfolio = generate_portfolio(seed=args.seed)
     start = now_utc()
-    result = run_pipeline(portfolio, seed=args.seed)
+    if getattr(args, "from_db", None):
+        result, portfolio, _ = _from_db(args)
+    else:
+        portfolio = generate_portfolio(seed=args.seed)
+        result = run_pipeline(portfolio, seed=args.seed)
     end = now_utc()
     manifest = build_manifest(portfolio=portfolio, parameters={"seed": args.seed},
                               result=result, start_utc=start, end_utc=end)
@@ -143,8 +181,11 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
     """Send alert payload to a webhook."""
     from risk_lib.data_gen import generate_portfolio
     from risk_lib.integrations import dispatch_alerts
-    portfolio = generate_portfolio(seed=args.seed)
-    result = run_pipeline(portfolio, seed=args.seed)
+    if getattr(args, "from_db", None):
+        result, portfolio, _ = _from_db(args)
+    else:
+        portfolio = generate_portfolio(seed=args.seed)
+        result = run_pipeline(portfolio, seed=args.seed)
     r = dispatch_alerts(result, args.url, kind=args.kind, dry_run=args.dry_run)
     if args.dry_run:
         print(f"[dry-run] POST {r.request.url}")
@@ -171,9 +212,12 @@ def _cmd_export_json(args: argparse.Namespace) -> int:
     from risk_lib.repro import build_manifest, now_utc
     from risk_lib.api import export_json
 
-    portfolio = generate_portfolio(seed=args.seed)
     start = now_utc()
-    result = run_pipeline(portfolio, seed=args.seed)
+    if getattr(args, "from_db", None):
+        result, portfolio, _ = _from_db(args)
+    else:
+        portfolio = generate_portfolio(seed=args.seed)
+        result = run_pipeline(portfolio, seed=args.seed)
     end = now_utc()
     manifest = build_manifest(portfolio=portfolio, parameters={"seed": args.seed},
                               result=result, start_utc=start, end_utc=end)
@@ -188,6 +232,17 @@ def _build_studio(args: argparse.Namespace):
     from risk_lib.data_gen import generate_portfolio
     from risk_lib.ui_studio.studio import build_studio
 
+    if getattr(args, "from_db", None):
+        result, portfolio, rec = _from_db(args)
+        studio = build_studio(result, portfolio,
+                              institution=getattr(args, "institution", "(기관명)"))
+        # 재산출한 제출본 지문이 등록부와 다르면 DB 의 실행이 아니다. 멈춘다.
+        if studio.digest != rec["digest"]:
+            raise SystemExit(
+                f"DB 실행 {rec['run_id']} 의 지문 {rec['digest'][:16]} 과 재산출 지문 "
+                f"{studio.digest[:16]} 이 다르다. 코드 리비전이 바뀌었으면 db-load 로 "
+                f"다시 적재한다.")
+        return studio
     portfolio = generate_portfolio(seed=args.seed)
     result = run_pipeline(portfolio, seed=args.seed, asof=args.asof)
     return build_studio(result, portfolio,
@@ -240,8 +295,8 @@ def _cmd_ui_studio(args: argparse.Namespace) -> int:
 
     # 행 예산을 낮추는 것은 사람이 정하는 일이다 (app.py 의 상한 경고 참조).
     # 낮추면 그 사실을 출력에 적어 조용히 줄지 않게 한다.
+    from risk_lib.ui_studio import app as _app
     if args.rows or args.rows_demo:
-        from risk_lib.ui_studio import app as _app
         if args.rows:
             print(f"  행 예산 조정 · 일반 {_app.INTERACTIVE_ROWS} -> {args.rows}")
             _app.INTERACTIVE_ROWS = args.rows
@@ -251,7 +306,18 @@ def _cmd_ui_studio(args: argparse.Namespace) -> int:
             _app.INTERACTIVE_ROWS_DEMO = args.rows_demo
 
     studios = []
-    if codes:
+    if getattr(args, "from_db", None):
+        from risk_lib.db import list_runs, load_studio
+        want = [x.strip() for x in args.from_db.split(",") if x.strip()]
+        runs = list_runs()
+        ids = [r["run_id"] for r in runs] if want == ["all"] else want
+        if not ids:
+            raise SystemExit("DB 에 적재된 실행이 없다. 먼저 db-load 를 돌린다.")
+        for rid in ids:
+            studios.append(load_studio(rid))
+            print(f"  DB 실행 {rid} · 지문 {studios[-1].digest[:16]} · "
+                  f"원장 {len(studios[-1].tables)}장 (재산출 없음)")
+    elif codes:
         # 기관을 지정하면 기관별 포트폴리오·시드·프로파일로 각각 돌린다.
         # 국내 표본만 돌리는 아래 경로와 달리 원장에서 기관 모수를 읽는다.
         from risk_lib.pipeline import run_multi_institution
@@ -274,14 +340,22 @@ def _cmd_ui_studio(args: argparse.Namespace) -> int:
             result = run_pipeline(portfolio, seed=args.seed, asof=a)
             studios.append(build_studio(result, portfolio))
             print(f"  산출 {studios[-1].run_id} · 지문 {studios[-1].digest[:16]}")
-    out = write_app(studios if len(studios) > 1 else studios[0], args.out)
+    out = write_app(studios if len(studios) > 1 else studios[0], args.out,
+                    lang=args.lang, primary_inst=args.default_inst, public=args.public,
+                    demo=_app.DEMO_SCREENS if args.demo else None)
+    if args.lang == "en":
+        from risk_lib.ui_studio import export_en as _ex
+        left = sum(_ex.MISSES.values())
+        print(f"  영문 빌드 · 사전 미수록 원장 값 {len(_ex.MISSES):,}종 ({left:,}회) 은 원문 그대로 실렸다")
     # 요약의 "최신 기준"은 화면의 기본 실행과 같아야 한다 — 입력 순서가 아니라
     # 기준일 정렬의 마지막이다 (render 가 그렇게 고른다).
     s = sorted(studios, key=lambda x: x.asof)[-1]
     n_rows = sum(len(df) for df in s.tables.values())
     print(f"에이전틱 UI 작성 완료 — {out} ({os.path.getsize(out)/1024:.1f} KB)")
-    print(f"  기준일 {len(studios)}종 · 테이블 {len(cat.ALL_TABLES)}장 · "
-          f"행 {n_rows:,} (최신 기준) · 조회계획 {len(s.plans)}건")
+    print(f"  기관 {len({s.institution_code for s in studios})}곳 · "
+          f"기준일 {len({s.asof for s in studios})}종 · 테이블 {len(cat.ALL_TABLES)}장 · "
+          f"행 {n_rows:,} (최신 기준) · 조회계획 "
+          f"{len(s.sections['plans']) if s.sections else len(s.plans)}건")
     return 0
 
 
@@ -291,6 +365,10 @@ def _cmd_validation_request(args: argparse.Namespace) -> int:
 
     studio = _build_studio(args)
     path = studio.iv_request.write(args.dir)
+    if args.dispatch:
+        from risk_lib.validation.independent import dispatch_request
+        rec = dispatch_request(studio.iv_request, args.dir)
+        print(f"독립검증 요청 발신 기록 {rec} (outbox 사본 포함)")
     gate = check_gate(studio.iv_request, args.dir)
     print(f"독립검증 요청 작성 — {path}")
     print(f"  요청 {studio.iv_request.request_id} → "
@@ -310,10 +388,14 @@ def _cmd_deliverables(args: argparse.Namespace) -> int:
     from risk_lib.data_gen import generate_portfolio
 
     root = args.root or ARCHIVE_ROOT
-    portfolio = generate_portfolio(seed=args.seed)
-    result = run_pipeline(portfolio, seed=args.seed, asof=args.asof)
+    if getattr(args, "from_db", None):
+        result, portfolio, _ = _from_db(args)
+    else:
+        portfolio = generate_portfolio(seed=args.seed)
+        result = run_pipeline(portfolio, seed=args.seed, asof=args.asof)
     info = archive(result, portfolio, asof=args.asof, root=root,
-                   run_date=args.run_date, seed=args.seed)
+                   run_date=args.run_date, seed=args.seed,
+                   require_gate=args.require_gate)
     paths = write_ledger(root)
     print(f"산출물 보관 — {root}/{info.asof}/{info.label}")
     print(f"  요청 {info.request_id} · 게이트 {info.gate_status}")
@@ -323,7 +405,8 @@ def _cmd_deliverables(args: argparse.Namespace) -> int:
           f"코드 {info.git_revision[:12]}")
     print(f"  이력 {paths['csv']} · {paths['md']}")
     # 게이트가 열리지 않았으면 종료코드로 알린다 — 결재 파이프라인이 조용히
-    # 지나가지 않게 한다.
+    # 지나가지 않게 한다. 조건부는 기록이 있어야 통과인데 이 명령은 기록을
+    # 받지 않으므로 적합만 0 이다.
     return 0 if info.gate_status == "적합" else 1
 
 
@@ -334,9 +417,12 @@ def _cmd_printable(args: argparse.Namespace) -> int:
     from risk_lib.repro import build_manifest, now_utc
     from risk_lib.printable import build_printable_html
 
-    portfolio = generate_portfolio(seed=args.seed)
     start = now_utc()
-    result = run_pipeline(portfolio, seed=args.seed)
+    if getattr(args, "from_db", None):
+        result, portfolio, _ = _from_db(args)
+    else:
+        portfolio = generate_portfolio(seed=args.seed)
+        result = run_pipeline(portfolio, seed=args.seed)
     end = now_utc()
     manifest = build_manifest(portfolio=portfolio, parameters={"seed": args.seed},
                               result=result, start_utc=start, end_utc=end)
@@ -393,6 +479,79 @@ def _cmd_reproduce(args: argparse.Namespace) -> int:
     return 2
 
 
+def _cmd_db_init(args: argparse.Namespace) -> int:
+    """PostgreSQL 스키마·등록부·원장 테이블 생성 (멱등)."""
+    from risk_lib.db import connect, init_schema, schema_name
+    with connect() as conn:
+        n = init_schema(conn)
+    from risk_lib.db.schema import all_specs
+    print(f"DB 스키마 준비 — {schema_name()} · 원장 테이블 {len(all_specs())}장 · "
+          f"문장 {n}개")
+    return 0
+
+
+def _print_dups(info: dict) -> None:
+    """자연키 중복 원장을 적재 요약 아래 한 줄로 보인다. DB 는 거부하지 않는다."""
+    dups = info.get("dups") or {}
+    if dups:
+        print("  자연키 중복 · " + " · ".join(f"{k} {v:,}행" for k, v in dups.items()))
+
+
+def _cmd_db_load(args: argparse.Namespace) -> int:
+    """파이프라인을 돌려 실행을 DB 에 적재한다. 인자는 ui-studio 와 같다."""
+    from risk_lib.data_gen import generate_portfolio
+    from risk_lib.db import connect, init_schema, store_run
+    from risk_lib.ui_studio.studio import build_studio
+
+    asofs = list(dict.fromkeys(
+        a.strip() for a in (args.asof or "").split(",") if a.strip())) or [None]
+    codes = list(dict.fromkeys(
+        c.strip() for c in (args.institutions or "").split(",") if c.strip()))
+    with connect() as conn:
+        init_schema(conn)
+        n = 0
+        if codes:
+            from risk_lib.pipeline import run_multi_institution
+            if codes == ["all"]:
+                from risk_lib import data_gen_intl as _intl
+                codes = list(_intl.build_inst_master_intl()["institution_code"])
+            for a in asofs:
+                multi = run_multi_institution(codes, seed=args.seed,
+                                              asof=a or "2025-12-31")
+                for code in codes:
+                    run = multi.runs[code]
+                    info = store_run(build_studio(run.result, run.portfolio),
+                                     run.portfolio, conn=conn)
+                    n += 1
+                    print(f"  적재 {info['run_id']} · 원장 {info['n_tables']}장 · "
+                          f"{info['n_rows']:,}행 · 부문 {info['n_sections']}")
+                    _print_dups(info)
+        else:
+            portfolio = generate_portfolio(seed=args.seed)
+            for a in asofs:
+                result = run_pipeline(portfolio, seed=args.seed, asof=a)
+                info = store_run(build_studio(result, portfolio), portfolio, conn=conn)
+                n += 1
+                print(f"  적재 {info['run_id']} · 원장 {info['n_tables']}장 · "
+                      f"{info['n_rows']:,}행 · 부문 {info['n_sections']}")
+                _print_dups(info)
+    print(f"DB 적재 완료 — 실행 {n}건")
+    return 0
+
+
+def _cmd_db_runs(args: argparse.Namespace) -> int:
+    from risk_lib.db import list_runs, schema_name
+    runs = list_runs()
+    if not runs:
+        print(f"{schema_name()}.run_registry 가 비어 있다.")
+        return 1
+    for r in runs:
+        print(f"{r['run_id']}  {r['institution_code']}  {r['asof']}  seed {r['seed']}  "
+              f"원장 {r['n_tables']}장 {r['n_rows']:,}행  지문 {r['digest'][:16]}  "
+              f"{r['created_at']:%Y-%m-%d %H:%M}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="risk_lib", description="리스크관리 하네스 러너")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -411,6 +570,8 @@ def main(argv: list[str] | None = None) -> int:
                        help="D-SIB 가산자본 (default 1.0%%)")
     run_p.add_argument("--years-ahead", type=int, default=2,
                        help="분기 스트레스/ECL 경로 지평(연도)")
+    run_p.add_argument("--from-db", default=None, metavar="RUN_ID",
+                     help="DB 에 적재된 실행의 입력으로 재산출한다 (RYNTA_PG_DSN)")
     run_p.set_defaults(func=_cmd_run)
 
     # report-set
@@ -425,6 +586,8 @@ def main(argv: list[str] | None = None) -> int:
     rs.add_argument("--dsib", type=float, default=0.01)
     rs.add_argument("--years-ahead", type=int, default=2)
     rs.add_argument("--notes", default="", help="manifest에 기록할 메모")
+    rs.add_argument("--from-db", default=None, metavar="RUN_ID",
+                     help="DB 에 적재된 실행의 입력으로 재산출한다 (RYNTA_PG_DSN)")
     rs.set_defaults(func=_cmd_report_set)
 
     # reproduce
@@ -437,6 +600,8 @@ def main(argv: list[str] | None = None) -> int:
     nf = sub.add_parser("notify", help="Slack/이메일/Markdown 알림 페이로드 생성")
     nf.add_argument("--out", required=True, help="출력 디렉터리")
     nf.add_argument("--seed", type=int, default=42)
+    nf.add_argument("--from-db", default=None, metavar="RUN_ID",
+                     help="DB 에 적재된 실행의 입력으로 재산출한다 (RYNTA_PG_DSN)")
     nf.set_defaults(func=_cmd_notify)
 
     # serve
@@ -444,12 +609,16 @@ def main(argv: list[str] | None = None) -> int:
     sv.add_argument("--host", default="127.0.0.1")
     sv.add_argument("--port", type=int, default=8765)
     sv.add_argument("--seed", type=int, default=42)
+    sv.add_argument("--from-db", default=None, metavar="RUN_ID",
+                     help="DB 에 적재된 실행의 입력으로 재산출한다 (RYNTA_PG_DSN)")
     sv.set_defaults(func=_cmd_serve)
 
     # export-json
     ej = sub.add_parser("export-json", help="모든 headline·deep-dive 표 JSON 저장")
     ej.add_argument("--out", required=True, help="출력 디렉터리")
     ej.add_argument("--seed", type=int, default=42)
+    ej.add_argument("--from-db", default=None, metavar="RUN_ID",
+                     help="DB 에 적재된 실행의 입력으로 재산출한다 (RYNTA_PG_DSN)")
     ej.set_defaults(func=_cmd_export_json)
 
     # printable (browser Print-to-PDF source)
@@ -457,6 +626,8 @@ def main(argv: list[str] | None = None) -> int:
                          help="경영진 1-pager 인쇄용 HTML (브라우저 'Print to PDF'로 PDF 생성)")
     pp.add_argument("--out", required=True, help="HTML 출력 경로")
     pp.add_argument("--seed", type=int, default=42)
+    pp.add_argument("--from-db", default=None, metavar="RUN_ID",
+                     help="DB 에 적재된 실행의 입력으로 재산출한다 (RYNTA_PG_DSN)")
     pp.set_defaults(func=_cmd_printable)
 
     # compare
@@ -473,6 +644,8 @@ def main(argv: list[str] | None = None) -> int:
                     choices=["slack", "teams", "pagerduty", "generic"])
     dp.add_argument("--dry-run", action="store_true",
                     help="발송하지 않고 요청만 출력")
+    dp.add_argument("--from-db", default=None, metavar="RUN_ID",
+                     help="DB 에 적재된 실행의 입력으로 재산출한다 (RYNTA_PG_DSN)")
     dp.set_defaults(func=_cmd_dispatch)
 
     ap = sub.add_parser("api-spec", help="OpenAPI + GraphQL 스키마 생성")
@@ -485,6 +658,8 @@ def main(argv: list[str] | None = None) -> int:
     rg.add_argument("--seed", type=int, default=42)
     rg.add_argument("--asof", default=None, help="기준일 (YYYY-MM-DD)")
     rg.add_argument("--institution", default="(기관명)")
+    rg.add_argument("--from-db", default=None, metavar="RUN_ID",
+                     help="DB 에 적재된 실행의 입력으로 재산출한다 (RYNTA_PG_DSN)")
     rg.set_defaults(func=_cmd_reg_report)
 
     dv = sub.add_parser(
@@ -496,6 +671,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="보관 루트 (기본: 리스크관리 팀에이전트 경로)")
     dv.add_argument("--run-date", default=None,
                     help="수행일자 (기본: 오늘). 과거 판을 재구성할 때만 쓴다")
+    dv.add_argument("--require-gate", action="store_true",
+                    help="3선 게이트가 승인이 아니거나 결재 차단 사유가 남아 "
+                         "있으면 제출본을 만들지 않고 예외로 멈춘다 (결재 상신용)")
+    dv.add_argument("--from-db", default=None, metavar="RUN_ID",
+                     help="DB 에 적재된 실행의 입력으로 재산출한다 (RYNTA_PG_DSN)")
     dv.set_defaults(func=_cmd_deliverables)
 
     iv = sub.add_parser("validation-request",
@@ -504,6 +684,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="요청·응답 교환 디렉터리")
     iv.add_argument("--seed", type=int, default=42)
     iv.add_argument("--asof", default=None, help="기준일 (YYYY-MM-DD)")
+    iv.add_argument("--dispatch", action="store_true",
+                    help="요청 사본을 outbox 에 놓고 <run_id>.dispatch.json 인계 "
+                         "기록을 남긴다 (3선 위임의 발신 단계)")
+    iv.add_argument("--from-db", default=None, metavar="RUN_ID",
+                     help="DB 에 적재된 실행의 입력으로 재산출한다 (RYNTA_PG_DSN)")
     iv.set_defaults(func=_cmd_validation_request)
 
     ui = sub.add_parser("ui-studio",
@@ -515,12 +700,35 @@ def main(argv: list[str] | None = None) -> int:
                          "실으면 파일이 그만큼 커지므로 낮춰야 할 수 있다")
     ui.add_argument("--rows-demo", type=int, default=None,
                     help="상세 원장의 임베드 행 상한 (기본 3000)")
+    ui.add_argument("--lang", default=None, choices=["en"],
+                    help="en: 공개 배포용 영문 빌드 (원장 값까지 영어로 옮기고 언어 전환은 감춘다)")
+    ui.add_argument("--default-inst", default=None, metavar="CODE",
+                    help="첫 화면의 기관코드 (기본은 기관 원장 순서의 첫 기관)")
+    ui.add_argument("--public", action="store_true",
+                    help="SHA-256 지문·스키마 해시를 지운 공개용 빌드")
+    ui.add_argument("--demo", action="store_true",
+                    help="주요 화면만 메뉴에 남긴 데모 빌드 (app.DEMO_SCREENS)")
     ui.add_argument("--institutions", default=None,
                     help="기관코드 (콤마로 여러 개, all 은 등록 기관 전부). "
                          "생략하면 국내 표본 한 곳만 산출한다")
     ui.add_argument("--asof", default=None,
                     help="기준일 (YYYY-MM-DD, 콤마로 여러 개 — 전부 산출해 싣는다)")
+    ui.add_argument("--from-db", default=None, metavar="RUN_ID[,RUN_ID]|all",
+                    help="DB 에 적재된 실행을 그대로 싣는다 (재산출 없음)")
     ui.set_defaults(func=_cmd_ui_studio)
+
+    db_i = sub.add_parser("db-init", help="PostgreSQL 스키마·원장 테이블 생성")
+    db_i.set_defaults(func=_cmd_db_init)
+    db_l = sub.add_parser("db-load",
+                          help="파이프라인을 돌려 실행을 PostgreSQL 에 적재")
+    db_l.add_argument("--seed", type=int, default=42)
+    db_l.add_argument("--institutions", default=None,
+                      help="기관코드 (콤마로 여러 개, all 은 등록 기관 전부)")
+    db_l.add_argument("--asof", default=None,
+                      help="기준일 (YYYY-MM-DD, 콤마로 여러 개)")
+    db_l.set_defaults(func=_cmd_db_load)
+    db_r = sub.add_parser("db-runs", help="PostgreSQL 에 적재된 실행 목록")
+    db_r.set_defaults(func=_cmd_db_runs)
 
     args = parser.parse_args(argv)
     return args.func(args)

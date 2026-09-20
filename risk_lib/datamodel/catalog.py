@@ -27,7 +27,7 @@ CCF_TYPES = ("unconditionally_cancellable", "short_term_trade",
 COLLATERAL_TYPES = ("cash", "gold", "sovereign_aaa_le1y", "sovereign_aaa_gt1y",
                     "corporate_bond_ig", "equity_main_index", "real_estate")
 SOURCE_SYSTEMS = ("core_banking", "loan_origination", "collateral_mgmt",
-                  "general_ledger", "market_data", "synthetic")
+                  "general_ledger", "market_data", "synthetic", "external_data")
 
 # ---------------------------------------------------------------- R1 · RDM 코어
 
@@ -642,9 +642,14 @@ VALIDATION_RESULT = TableSpec(
         C("status", "string", "판정", nullable=False, allowed=VALIDATION_STATUS),
         C("detail", "text", "상세", nullable=True),
         C("domain", "string", "부문", nullable=True),
+        # 항등식은 실패할 수 없으므로 통제가 아니다. 이 열이 없으면 결재선의
+        # 'PASS N건' 이 항등식을 포함한 수가 된다.
+        C("is_identity", "bool", "항등식 여부", nullable=False),
+        # 규제 요구치 미달을 담은 WARN. FAIL 0 이어도 이것이 있으면 결재 불가.
+        C("blocks_approval", "bool", "결재 차단", nullable=False),
     ),
     primary_key=("asof", "check_name"),
-    note="FAIL 1건이라도 있으면 결재 불가 (AIMS_POLICY §2-4).",
+    note="FAIL 또는 blocks_approval 1건이라도 있으면 결재 불가 (AIMS_POLICY §2-4).",
 )
 
 AUDIT_LEDGER = TableSpec(
@@ -2496,7 +2501,7 @@ ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
 # ==================================== R13 · 상시 독립검증 (3선) 위임 원장
 # 자체검증(2선)과 독립검증(3선)은 다른 것이다. 자체검증 결과만 남기면
 # "우리 코드가 우리 코드를 통과시켰다"가 결재 근거가 된다.
-IV_STATUS = ("요청됨", "응답대기", "적합", "부적합")
+IV_STATUS = ("요청됨", "응답대기", "적합", "조건부", "부적합")
 
 INDEPENDENT_REQUEST = TableSpec(
     name="val_independent_request", korean="독립검증 요청", product="PRD-VAL",
@@ -2639,6 +2644,7 @@ from risk_lib.models.lgd_ead_backtest import (                         # noqa: E
     BACKTEST_TABLES as _BACKTEST_TABLES,
 )
 from risk_lib.market_portfolio import SPECS as _MKT_PORTFOLIO_TABLES  # noqa: E402
+from risk_lib.governance.run_issue import SPECS as _RUN_ISSUE_TABLES  # noqa: E402
 from risk_lib.product_master import SPECS as _PRODUCT_TABLES           # noqa: E402
 from risk_lib.provisioning.pma import SPECS as _PMA_TABLES             # noqa: E402
 from risk_lib.rcsa import SPECS as _RCSA_TABLES                        # noqa: E402
@@ -2655,6 +2661,94 @@ KR_IRRBB_NATIONAL_TABLES: tuple[TableSpec, ...] = (
     _KR_RETAIL_CRITERIA, _KR_NMD_CATEGORY, _KR_BEHAV_SCOPE,
     _KR_AUTO_OPTION_PARAM, _KR_GOVERNANCE)
 
+# ---------------------------------------------------------------- 외부 데이터 (RDM 인터페이스)
+# 기후 지구본이 쓰는 외부 자료는 화면이 파일을 직접 읽지 않고 RDM 을 거친다.
+# 원천 파일은 rdm_ext_source 에 지문·저작권과 함께 등록되고, 국가 마스터와
+# 국가별 지표·시계열은 원장이 되며, rdm_source_contract·rdm_snapshot 에 external_data
+# 원천으로 계약·스냅샷 행이 선다. 지표는 전부 실측(관측·집계)이고 합성값은 없다.
+EXT_KINDS = ("실측", "기하")
+EXT_INDICATORS = ("tas_obs", "tas_warming", "pr_obs", "disaster_affected", "pop_el5m",
+                  "water_stress", "clim_affected_share", "co2_per_capita", "co2",
+                  "total_ghg", "fossil_share", "renew_share")
+EXT_SERIES = ("global_temp_anomaly", "disaster_flood", "disaster_storm", "disaster_drought",
+              "disaster_extreme_temperature", "country_warming")
+
+_EXT_SOURCE = TableSpec(
+    name="rdm_ext_source", korean="외부 원천 파일 등록", product="PRD-RDM",
+    grain="외부 원천 파일 1건당 1행",
+    columns=(
+        C("file_id", "string", "파일 식별자", nullable=False),
+        C("provider", "string", "제공자", nullable=False),
+        C("dataset", "text", "데이터셋", nullable=False),
+        C("licence", "string", "저작권·이용허락", nullable=False),
+        C("file_name", "text", "파일명", nullable=False),
+        C("sha256", "text", "SHA-256 지문", nullable=False,
+          citation="DAT-004 · A.7.2 데이터 출처"),
+        C("row_count", "int", "행 수", nullable=False, min_value=0),
+        C("received_asof", "date", "수신 기준일", nullable=False),
+        C("kind", "string", "성격", nullable=False, allowed=EXT_KINDS),
+        C("note", "text", "비고", nullable=True),
+    ),
+    primary_key=("file_id",),
+    note="외부 자료는 여기 등록된 파일에서만 나온다. 지문이 바뀌면 지표 원장이 바뀐다.",
+)
+
+_EXT_COUNTRY = TableSpec(
+    name="rdm_ext_country", korean="외부 국가 마스터", product="PRD-RDM",
+    grain="국가 1개당 1행 (Natural Earth 1:110m 기준)",
+    columns=(
+        C("iso3", "string", "ISO3 코드", nullable=False),
+        C("iso2", "string", "ISO2 코드", nullable=True),
+        C("name", "text", "국가명(영문)", nullable=False),
+        C("continent", "string", "대륙", nullable=False),
+        C("centroid_lon", "float", "중심 경도", nullable=False, unit="degree",
+          min_value=-180, max_value=180),
+        C("centroid_lat", "float", "중심 위도", nullable=False, unit="degree",
+          min_value=-90, max_value=90),
+        C("file_id", "string", "원천 파일", nullable=False),
+    ),
+    primary_key=("iso3",),
+    note="ISO 코드가 없는 지역(북키프로스·소말릴란드)은 Natural Earth 의 ADM0_A3 를 쓴다.",
+)
+
+_EXT_INDICATOR = TableSpec(
+    name="rdm_ext_climate_indicator", korean="국가별 기후 지표", product="PRD-RDM",
+    grain="국가 × 지표 1행",
+    columns=(
+        C("iso3", "string", "ISO3 코드", nullable=False),
+        C("indicator", "string", "지표", nullable=False, allowed=EXT_INDICATORS),
+        C("value", "float", "값", nullable=False, unit="가변",
+          note="단위는 같은 행의 unit 열에 있다 (°C · mm/년 · 명 · tCO2/인 · MtCO2 · MtCO2e · %)"),
+        C("unit", "string", "단위", nullable=False),
+        C("year", "int", "관측 연도", nullable=False,
+          note="원천 파일에서 그 국가의 최신 연도 (또는 평균 창의 마지막 연도)"),
+        C("kind", "string", "성격", nullable=False, allowed=EXT_KINDS),
+        C("file_id", "string", "원천 파일", nullable=True),
+    ),
+    primary_key=("iso3", "indicator"),
+    note="지구본 히트맵의 값. Berkeley Earth 기온, WDI 강수·물리위험, EM-DAT 재해, OWID CO2·에너지. 전부 실측이다.",
+)
+
+_EXT_SERIES = TableSpec(
+    name="rdm_ext_climate_series", korean="기후 시계열 (세계·국가)", product="PRD-RDM",
+    grain="시계열 × 지역 × 연도 1행",
+    columns=(
+        C("series", "string", "시계열", nullable=False, allowed=EXT_SERIES),
+        C("iso3", "string", "ISO3 코드", nullable=False,
+          note="세계 시계열은 WLD"),
+        C("year", "int", "연도", nullable=False, min_value=1800, max_value=2100),
+        C("value", "float", "값", nullable=False, unit="가변",
+          note="단위는 같은 행의 unit 열에 있다 (°C 편차 · 명)"),
+        C("unit", "string", "단위", nullable=False),
+        C("kind", "string", "성격", nullable=False, allowed=EXT_KINDS),
+        C("file_id", "string", "원천 파일", nullable=True),
+    ),
+    primary_key=("series", "iso3", "year"),
+    note="기후 개요 오른쪽 패널의 추이 그래프. 지구 평균 기온 편차(1850~), 세계 재해 피해 인구(1970~), 국가별 10년 기온 편차(1900년대~).",
+)
+
+_EXT_TABLES = (_EXT_SOURCE, _EXT_COUNTRY, _EXT_INDICATOR, _EXT_SERIES)
+
 NEW_LEDGER_TABLES: tuple[TableSpec, ...] = (
     _MACRO_TABLES + _LIMIT_TABLES
     + KR_IRRBB_NATIONAL_TABLES + _IRRBB_DISC_TABLES
@@ -2663,12 +2757,12 @@ NEW_LEDGER_TABLES: tuple[TableSpec, ...] = (
     + _CR_OVERRIDE_TABLES + _CRM_ALLOC_TABLES + _LEX_TABLES
     + _BEHAV_HIST_TABLES + _BEHAV_EST_TABLES + _INVENTORY_TABLES
     + _FUNDING_TABLES + _MARGIN_TABLES + _PRODUCT_TABLES + _RCSA_TABLES
-    + _MKT_PORTFOLIO_TABLES
+    + _MKT_PORTFOLIO_TABLES + _RUN_ISSUE_TABLES
     + _FEED_TABLES + _PMA_TABLES + _MGMT_ACTION_TABLES
     + _CHANGE_TABLES + _PRICING_TABLES + _LIFECYCLE_TABLES + _RBAC_TABLES
     + _AUDIT_TABLES + _RETENTION_TABLES + _UNIFIED_TABLES + _CLOSE_TABLES
     + _CONNECTOR_TABLES + _INBOUND_TABLES + _ADAPTER_TABLES
-    + _RESILIENCE_TABLES + _AIG_TABLES)
+    + _RESILIENCE_TABLES + _AIG_TABLES + _EXT_TABLES)
 
 ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
               + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES

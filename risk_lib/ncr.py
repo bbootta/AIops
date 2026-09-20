@@ -231,14 +231,26 @@ def synthesise_securities_firm(result, *, seed: int = 42) -> dict:
     자산 규모를 축소 스케일링해 증권사 형태로 변환한다. 실제 증권사 재무제표가
     아니며 규제 제출용으로 쓸 수 없다.
     """
-    rng = np.random.default_rng(seed)
     cap = result.meta["capital"]
-    ead = float(result.portfolio_summary["ead"].sum())
+    return synthesise_securities_firm_from_parts(
+        float(cap.total), float(result.portfolio_summary["ead"].sum()),
+        float(result.ecl["total"]), seed=seed)
+
+
+def synthesise_securities_firm_from_parts(total_capital: float, total_ead: float,
+                                          ecl_total: float, *,
+                                          seed: int = 42) -> dict:
+    """`synthesise_securities_firm` 의 부품 버전. 파이프라인이 결과 객체를 다
+    조립하기 전에 같은 입력으로 부른다. 두 함수가 다른 수를 내면 화면과 2선이
+    갈라지므로, 위 함수는 이쪽으로 위임만 한다.
+    """
+    rng = np.random.default_rng(seed)
+    ead = float(total_ead)
 
     # 증권사 규모로 축소 (은행 북 대비 약 12%) — 예시 스케일.
     scale = 0.12
     total_assets = ead * scale
-    equity = float(cap.total) * scale
+    equity = float(total_capital) * scale
     total_liabilities = total_assets - equity
 
     # 차감항목 — 자기자본 대비 관행적 비중 범위에서 결정론적으로 배분.
@@ -246,7 +258,7 @@ def synthesise_securities_firm(result, *, seed: int = 42) -> dict:
                  "선급금·선급비용": 0.01, "이연법인세자산": 0.02, "무형자산": 0.02}
     deductions = {k: equity * v for k, v in ded_share.items()}
     additions = {"후순위차입금": equity * 0.10,
-                 "대손충당금": float(result.ecl["total"]) * scale,
+                 "대손충당금": float(ecl_total) * scale,
                  "자산평가이익": equity * 0.01}
 
     # 위험액 — 시장은 트레이딩 자산 기준, 신용은 EAD 기준, 운영은 영업규모 기준.
@@ -271,8 +283,26 @@ def synthesise_securities_firm(result, *, seed: int = 42) -> dict:
 
 
 def compute_ncr_from_result(result, *, seed: int = 42) -> NCRResult:
-    """PipelineResult에서 합성 증권사 NCR 산출 (예시 — 규제 제출용 아님)."""
+    """PipelineResult에서 합성 증권사 NCR 산출 (예시, 규제 제출용 아님).
+
+    파이프라인이 이미 산출해 `result.ncr` 에 실었으면 그것을 돌려준다. 다시
+    계산하면 2선이 본 값과 화면이 본 값이 두 벌이 된다.
+    """
+    cached = getattr(result, "ncr", None)
+    if cached is not None:
+        return cached
     inputs = synthesise_securities_firm(result, seed=seed)
+    return _compute_from_inputs(inputs)
+
+
+def compute_ncr_from_parts(total_capital: float, total_ead: float,
+                           ecl_total: float, *, seed: int = 42) -> NCRResult:
+    """파이프라인용. 결과 객체 없이 같은 합성 입력으로 NCR 을 산출한다."""
+    return _compute_from_inputs(synthesise_securities_firm_from_parts(
+        total_capital, total_ead, ecl_total, seed=seed))
+
+
+def _compute_from_inputs(inputs: dict) -> NCRResult:
     return compute_ncr(
         inputs["total_assets"], inputs["total_liabilities"],
         market_risk=inputs["market_risk"],

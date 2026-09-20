@@ -489,6 +489,8 @@ def materialize_governance(result, portfolio, base) -> dict[str, pd.DataFrame]:
     checks = pd.DataFrame([{
         "asof": asof, "check_name": c.name, "status": c.status,
         "detail": c.detail, "domain": c.name.split("_")[0],
+        "is_identity": bool(getattr(c, "is_identity", False)),
+        "blocks_approval": bool(getattr(c, "blocks_approval", False)),
     } for c in result.validation.checks],
         columns=cat.VALIDATION_RESULT.column_names)
 

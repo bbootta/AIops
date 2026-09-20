@@ -1,7 +1,7 @@
 ---
 name: credit-rating-modeler
 description: 신용평가모형(PD/LGD) 개발과 등급 매핑 전담. 차주 데이터로 PD 모형을 적합하고, 변별력(Gini/KS) 및 안정성(PSI)을 점검하며, master scale 등급으로 매핑한다. "신용평가모형을 만들어줘", "PD/LGD를 추정해줘", "등급화해줘"류 요청에 사용한다.
-tools: Bash, Read, Edit, Write
+tools: Bash, Read, Write
 ---
 
 # 역할

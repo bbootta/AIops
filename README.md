@@ -309,6 +309,13 @@ risk_lib/                        # Python 계산 라이브러리
     forms_ext.py                 ── 확장 서식 빌더
     form_ids.py                  ── 서식번호 매핑 (내부 BA#### ↔ 배포본 공식번호)
     excel.py                     ── 표지·목차·서식·검증·산출근거 .xlsx
+    requirements_v960.py         ── v9.6.0 BRD 요건 131건 레지스터 (tools/gen_requirements.py 생성)
+    requirements_clr.py          ── 기후리스크 요건 72건 레지스터 (tools/gen_climate_requirements.py 생성)
+    requirements_air.py          ── AI 리스크관리 요건 76건 레지스터 (tools/gen_ai_risk_requirements.py 생성)
+  climate_geo.py                 ── 기후 지구본 히트맵 데이터 (국경·국가 격자·실측 지표 층·시계열, RDM 원장 경유)
+  data/world_geo.json            ── Natural Earth 1:110m 국경 (public domain, tools/gen_world_geo.py 생성)
+  data/climate_country.json      ── Our World in Data CO2·에너지 국가값 (CC-BY 4.0, tools/gen_climate_country.py 생성)
+  data/climate_observed.json     ── 실측 기후 자료: Berkeley Earth 기온, WDI 강수·물리위험, EM-DAT 재해 (tools/gen_climate_observed.py 생성)
   ui_studio/
     nl_query.py                  ── 자연어 → Filter AST → 정책검증 → 실행
     layout.py                    ── 프롬프트 → 레이아웃 제안 → 3중 검증 → 승인
@@ -356,6 +363,43 @@ pytest -q
 `reg-report`는 서식 자체대사에서 실패가 있으면 종료코드 1을 반환한다(제출 불가 게이트).
 
 CLI는 검증에서 FAIL이 하나라도 있으면 종료코드 1을 반환한다(결재 불가 게이트).
+
+## PostgreSQL 저장소 (배치·에이전틱 UI 의 읽기 원천)
+
+산출 원장 275장과 기관 축 원장 5장은 PostgreSQL 에 실행(run_id) 단위로 쌓인다.
+배치와 에이전틱 UI 는 그 DB 에서 읽는다. 연결은 환경변수 둘로 정한다.
+
+```bash
+export RYNTA_PG_DSN=postgresql://rynta:rynta@localhost:5432/rynta   # 기본값
+export RYNTA_PG_SCHEMA=rynta                                        # 기본값
+pip install -e '.[db]'                                              # psycopg 3
+
+python -m risk_lib.cli db-init                          # 스키마·등록부·원장 테이블 276장 (멱등)
+python -m risk_lib.cli db-load --asof 2026-06-30        # 파이프라인 실행 → 적재 (기관·기준일 콤마 목록 가능)
+python -m risk_lib.cli db-runs                          # 적재된 실행 목록
+
+# 에이전틱 UI: DB 원장을 그대로 싣는다 (재산출 없음, 메모리 경로와 바이트 동일)
+python -m risk_lib.cli ui-studio --from-db all --out studio.html
+
+화면 파일은 실행 payload 를 중복 제거한 뒤 gzip 하고 base85 로 실어 기관 한 곳에
+약 2.5 MB, 아홉 곳에 약 15.6 MB 다 (원문이면 각각 10.5 MB · 95 MB). 브라우저가
+내장 DecompressionStream 으로 풀며 외부 요청은 없다. `decode_payload(html)` 이
+같은 규칙으로 되살린다. 블롭은 1,000자 조각 배열로 적는다. 한 줄짜리 거대
+문자열은 아티팩트 배포기가 다른 종류의 페이지로 오인해 거부한다.
+
+# 배치: DB 의 입력(포트폴리오·시드·기준일)으로 재산출한다. 입력 지문·제출본 지문이
+# 등록부와 다르면 멈춘다 (fail-closed)
+python -m risk_lib.cli reg-report --from-db RUN-20260630-KR_BANK_01 --out 업무보고서.xlsx
+python -m risk_lib.cli validation-request --from-db RUN-20260630-KR_BANK_01
+python -m risk_lib.cli run --from-db RUN-20260630-KR_BANK_01 --report report.md
+```
+
+`--from-db` 는 run · report-set · notify · serve · export-json · printable · dispatch ·
+reg-report · deliverables · validation-request · ui-studio 가 받는다. 테이블 배치는
+`risk_lib/db/schema.py` 가 카탈로그 스펙에서 만든다 (테이블마다 `_run_id`·`_row`
+접두, 자연키는 조회 인덱스이며 유일 제약 없음). 화면 부문 JSON 과 독립검증 요청은
+`run_section` 에, 프레임의 컬럼 순서·dtype 명세는 `run_frame_column` 에 남아
+되읽은 DataFrame 이 메모리의 것과 같다.
 
 ## 에이전트 사용
 

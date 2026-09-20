@@ -413,7 +413,7 @@ def provenance_sentence(stats: dict) -> str:
                        for b, d in stats["by_basis"].items())
     return (f"산출 근거 분류(실행 시점 생성): 산출한 서식 {stats['n_forms']:,}건 · 전체 "
             f"{stats['n_lines']:,}라인 기준 {parts}. 이 수치는 문서에 손으로 적지 "
-            f"않고 provenance_stats가 만든다 — 라인별 근거와 원장별 해소 경로는 "
+            f"않고 provenance_stats가 만든다. 라인별 근거와 원장별 해소 경로는 "
             f"risk_lib.regulatory.provenance가 산출한다 "
             f"(산출물 Pack 05_regulatory/산출근거_라인별.csv · 지적 F-501).")
 

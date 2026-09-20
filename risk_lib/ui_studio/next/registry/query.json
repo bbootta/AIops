@@ -1,0 +1,50 @@
+[
+ {
+  "id": "structured-query",
+  "title_ko": "정형 조회",
+  "title_en": "Structured query",
+  "sub": null,
+  "legacy": [
+   "정형 조회"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "ui_view",
+   "ui_field_policy"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "qa"
+ },
+ {
+  "id": "adaptive-ui",
+  "title_ko": "비정형 UI",
+  "title_en": "Adaptive layout",
+  "sub": null,
+  "legacy": [
+   "비정형 UI"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "ui_view",
+   "ui_field_policy"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "qb"
+ }
+]

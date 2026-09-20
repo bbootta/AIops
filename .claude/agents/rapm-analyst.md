@@ -1,7 +1,7 @@
 ---
 name: rapm-analyst
 description: 위험조정 성과지표(RAPM/RAROC) 분석. 거래/포트폴리오의 수익, 비용, EL, 경제자본을 종합하여 RAROC을 산출하고 hurdle rate 대비 가치창출 여부를 평가한다. "RAROC", "RAPM", "수익성", "경제자본"류 요청에 사용한다.
-tools: Bash, Read, Edit, Write
+tools: Bash, Read, Write
 ---
 
 # 역할

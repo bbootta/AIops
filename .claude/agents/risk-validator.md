@@ -52,14 +52,16 @@ bt = pd_backtest_report(obligors_with_grade_and_default)
 | 체크 | 기준 | FAIL 시 조치 |
 |---|---|---|
 | `pd_in_[0,1]` | 모든 PD ∈ [0,1] | 입력 데이터 수정 |
-| `pd_floor_3bp` | PD ≥ 0.03% (Basel floor) | WARN — IRB에서 자동 floor |
+| `pd_floor_5bp` | PD ≥ 0.05% (Basel III 최종안 CRE32.42, `references.PD_FLOOR_BPS`) | WARN, IRB에서 자동 floor |
 | `lgd_in_[0,1]` | 모든 LGD ∈ [0,1] | LGD 모형 출력 클리핑 확인 |
 | `ead_nonneg` | EAD ≥ 0 | 입력 데이터 수정 |
 | `sa_rwa_nonneg`, `irb_rwa_nonneg` | RWA ≥ 0 | 공식 구현 점검 |
 | `el_le_ead` | EL ≤ EAD | PD·LGD·EAD 단위 확인 |
 | `sa_irb_no_overlap` | 동일 exposure_id가 SA·IRB에 중복 산출되지 않음 | 자산 분류 매핑 수정 |
 | `bis_*_plausible` | 0 ≤ ratio ≤ 100% | 자본/RWA 단위 일치 확인 |
-| `bis_cet1_min` | CET1 ≥ 4.5% (Pillar 1) | 자본 증액 권고 |
+| `bis_cet1_ratio_min`, `bis_tier1_ratio_min`, `bis_total_ratio_min` | CET1 ≥ 4.5% · Tier1 ≥ 6% · 총자본 ≥ 8% (Pillar 1) | FAIL, 자본 증액 권고 |
+| `bis_buffer_requirement`, `stress_trough_meets_requirement`, `pillar2_requirement_evidence`, `large_exposure_two_sources` | 완충자본 포함 요구치·위기 저점·P2R 근거·거액익스포저 | `blocks_approval`: 결재 차단 사유로 gov_approval 에 오른다 |
+| `ncr_min`, `ncr_identity`, `ncr_components_sum` | 순자본비율 ≥ 100% · 산식 재계산 · 구성요소 합 | 증권 업권이면 FAIL·차단, 은행 표본이면 참고치 WARN |
 | `bis_ratio_ordering` | Total ≥ Tier1 ≥ CET1 | 자본 스택 입력 오류 |
 | `rwa_matches_bis_input` | sum(RWA) == BIS의 RWA 입력 | 합산 누락 검토 |
 | `leverage_min_3pct` | 레버리지비율 ≥ 3% (+버퍼) | 자본 증액 / 익스포저 축소 |

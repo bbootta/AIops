@@ -1,0 +1,546 @@
+[
+ {
+  "id": "model-inventory",
+  "title_ko": "모형 인벤토리",
+  "title_en": "Model inventory",
+  "sub": null,
+  "legacy": [
+   "모형 인벤토리"
+  ],
+  "leaf_parent": true,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": true,
+  "tables": [
+   "crm_model"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "ma"
+ },
+ {
+  "id": "validation-schedule",
+  "title_ko": "검증 일정",
+  "title_en": "Validation schedule",
+  "sub": "모형 인벤토리",
+  "legacy": [
+   "검증 일정"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": true,
+  "tables": [
+   "crm_model"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "mb"
+ },
+ {
+  "id": "model-risk",
+  "title_ko": "모형리스크",
+  "title_en": "Model risk",
+  "sub": "모형 인벤토리",
+  "legacy": [
+   "모형리스크"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": true,
+  "tables": [
+   "crm_model"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "mc"
+ },
+ {
+  "id": "model-lifecycle",
+  "title_ko": "모형 수명주기",
+  "title_en": "Model lifecycle",
+  "sub": "모형 인벤토리",
+  "legacy": [
+   "모형 수명주기"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "gov_model_stage",
+   "gov_model_state",
+   "gov_model_transition"
+  ],
+  "products": [],
+  "domains": [],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "md"
+ },
+ {
+  "id": "performance",
+  "title_ko": "변별력·안정성",
+  "title_en": "Discrimination and stability",
+  "sub": "신용모형",
+  "legacy": [
+   "변별력·안정성"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": true,
+  "tables": [
+   "crm_performance"
+  ],
+  "products": [],
+  "domains": [
+   "pd"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "me"
+ },
+ {
+  "id": "calibration",
+  "title_ko": "등급 보정",
+  "title_en": "Grade calibration",
+  "sub": "신용모형",
+  "legacy": [
+   "등급 보정"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": true,
+  "tables": [
+   "crm_pd_calibration"
+  ],
+  "products": [],
+  "domains": [
+   "pd"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "mf"
+ },
+ {
+  "id": "migration",
+  "title_ko": "등급 전이",
+  "title_en": "Grade migration",
+  "sub": "신용모형",
+  "legacy": [
+   "등급 전이"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": true,
+  "tables": [
+   "crm_rating_migration",
+   "crm_pd_calibration",
+   "crm_performance",
+   "crm_lgd_component",
+   "rdm_code_master"
+  ],
+  "products": [],
+  "domains": [
+   "pd"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "mg"
+ },
+ {
+  "id": "pd-estimate",
+  "title_ko": "PD 추정",
+  "title_en": "PD estimation",
+  "sub": "내부등급법 추정",
+  "legacy": [
+   "PD 추정"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "crm_pd_estimate",
+   "crm_pd_yearly_dr",
+   "crm_estimation_run",
+   "crm_estimation_param",
+   "crm_input_floor",
+   "crm_moc_component",
+   "crm_irb_scope",
+   "crm_dev_sample",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [],
+  "domains": [
+   "pd",
+   "irb"
+  ],
+  "min_svg": 2,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "mh"
+ },
+ {
+  "id": "lgd-estimate",
+  "title_ko": "LGD 추정",
+  "title_en": "LGD estimation",
+  "sub": "내부등급법 추정",
+  "legacy": [
+   "LGD 추정"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "crm_lgd_estimate",
+   "crm_lgd_discount_rate",
+   "crm_recovery_history",
+   "crm_default_observation",
+   "crm_estimation_run",
+   "crm_estimation_param",
+   "crm_input_floor",
+   "crm_moc_component",
+   "crm_irb_scope",
+   "crm_dev_sample",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [],
+  "domains": [
+   "lgd",
+   "irb"
+  ],
+  "min_svg": 2,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "mi"
+ },
+ {
+  "id": "ccf-estimate",
+  "title_ko": "CCF 추정",
+  "title_en": "CCF estimation",
+  "sub": "내부등급법 추정",
+  "legacy": [
+   "CCF 추정"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "crm_ccf_estimate",
+   "crm_ccf_backtest",
+   "crm_facility_drawdown_history",
+   "crm_estimation_run",
+   "crm_estimation_param",
+   "crm_input_floor",
+   "crm_moc_component",
+   "crm_irb_scope",
+   "crm_dev_sample",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [],
+  "domains": [
+   "ead",
+   "irb"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [
+   "ccf_realised_mean"
+  ],
+  "headline_figures": [
+   "ccf_realised_mean"
+  ],
+  "chord": "mj"
+ },
+ {
+  "id": "capm-discount",
+  "title_ko": "회수 할인율",
+  "title_en": "Recovery discount rate",
+  "sub": "내부등급법 추정",
+  "legacy": [
+   "회수 할인율"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "crm_capm_observation",
+   "crm_capm_estimate",
+   "crm_lgd_discount_rate",
+   "crm_lgd_estimate",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [],
+  "domains": [
+   "CAPM 재계산",
+   "CAPM 회수유형 할인율 서열",
+   "CAPM 할인율 승인기록",
+   "CAPM 근거 표시",
+   "CAPM 할인율 LGD 민감도"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "mk"
+ },
+ {
+  "id": "defaulted-lgd",
+  "title_ko": "부도자산 LGD",
+  "title_en": "Defaulted asset LGD",
+  "sub": "내부등급법 추정",
+  "legacy": [
+   "부도자산 LGD"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "crm_defaulted_lgd",
+   "crm_default_observation",
+   "crm_recovery_history",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [],
+  "domains": [
+   "lgd"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "ml"
+ },
+ {
+  "id": "beel-plgd",
+  "title_ko": "BEEL·PLGD",
+  "title_en": "BEEL and PLGD",
+  "sub": "내부등급법 추정",
+  "legacy": [
+   "BEEL·PLGD"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "crm_beel_curve",
+   "crm_plgd",
+   "crm_plgd_sensitivity",
+   "crm_defaulted_lgd",
+   "crm_lgd_discount_rate",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [],
+  "domains": [
+   "BEEL 곡선 단조성",
+   "PLGD 예상외손실 추가분 부호",
+   "PLGD 부도자산 ELBE 대 충당금"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "mm"
+ },
+ {
+  "id": "irb-governance",
+  "title_ko": "모형 거버넌스",
+  "title_en": "IRB model governance",
+  "sub": "내부등급법 추정",
+  "legacy": [
+   "모형 거버넌스"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "crm_model_governance",
+   "crm_backtest_result",
+   "crm_backtest_criteria",
+   "crm_representativeness",
+   "crm_lgd_backtest",
+   "crm_ccf_backtest",
+   "crm_sample_representativeness",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [],
+  "domains": [
+   "irb"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "mn"
+ },
+ {
+  "id": "lgd-ead-backtest",
+  "title_ko": "LGD·EAD 실측검증",
+  "title_en": "LGD and EAD backtest",
+  "sub": "내부등급법 추정",
+  "legacy": [
+   "LGD·EAD 실측검증"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "crm_lgd_backtest",
+   "crm_ccf_backtest",
+   "crm_default_observation",
+   "crm_backtest_criteria",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [],
+  "domains": [
+   "lgd",
+   "ead"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [
+   "lgd_backtest_bias",
+   "lgd_backtest_n_censored"
+  ],
+  "headline_figures": [
+   "lgd_backtest_bias",
+   "lgd_backtest_n_censored"
+  ],
+  "chord": "mo"
+ },
+ {
+  "id": "behaviour-model",
+  "title_ko": "행동모형 추정",
+  "title_en": "Behaviour model estimation",
+  "sub": "고객행동모형",
+  "legacy": [
+   "행동모형 추정"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "alm_behaviour_model",
+   "alm_behaviour_backtest",
+   "alm_prepay_observation",
+   "alm_early_redemption_observation",
+   "alm_prepay_scurve_param",
+   "alm_behaviour_param",
+   "alm_behaviour_scenario_mult",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [],
+  "domains": [
+   "alm"
+  ],
+  "min_svg": 3,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "mp"
+ },
+ {
+  "id": "nmd-core",
+  "title_ko": "비만기성예금 코어",
+  "title_en": "NMD core deposits",
+  "sub": "고객행동모형",
+  "legacy": [
+   "비만기성예금 코어"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "alm_nmd_core_method_compare",
+   "alm_nmd_param",
+   "alm_nmd_balance_history",
+   "kr_nmd_category",
+   "alm_nii_result",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [],
+  "domains": [
+   "alm"
+  ],
+  "min_svg": 3,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "mq"
+ },
+ {
+  "id": "behaviour-backtest",
+  "title_ko": "행동모형 백테스트",
+  "title_en": "Behaviour model backtest",
+  "sub": "고객행동모형",
+  "legacy": [
+   "행동모형 백테스트"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "alm_behaviour_backtest",
+   "alm_behaviour_model",
+   "alm_behaviour_param",
+   "gov_role",
+   "gov_run_domain"
+  ],
+  "products": [],
+  "domains": [
+   "alm"
+  ],
+  "min_svg": 0,
+  "checks": [],
+  "recalc": [],
+  "headline_figures": [],
+  "chord": "mr"
+ }
+]

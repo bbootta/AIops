@@ -688,6 +688,124 @@ def test_req_trace_tab_matches_the_register(page):
     assert page.errors == []
 
 
+def test_req_trace_tab_switches_to_the_climate_register(page):
+    """기후리스크 레지스터(72건)로 바꾸면 커버리지·영역 축(장)·표가 그 레지스터로 간다."""
+    _tab_named(page, "요건 추적")
+    page.evaluate("""() => [...document.querySelectorAll('section.on .btn')]
+        .find(b => b.textContent.includes('72')).click()""")
+    page.wait_for_timeout(300)
+    cov = page.evaluate("window.__RYNTA__.req_trace_clr.coverage")
+    assert cov["반영"] + cov["부분"] + cov["미반영"] == cov["n"] == 72
+    txt = _text(page)
+    assert "CLR-06" in txt and "72" in txt
+    assert "tools/gen_climate_requirements.py" in txt
+    page.select_option("section.on select.sel", "부분")
+    page.wait_for_timeout(300)
+    assert f"요건 {cov['부분']}건" in _text(page)
+    assert page.errors == []
+
+
+def test_climate_overview_globe_zooms_on_click_and_switches_layers(page):
+    """지구본은 클릭하면 그 지점으로 확대되고, 지표를 바꾸면 범례가 그 층을 따른다."""
+    _tab_named(page, "기후 개요")
+    assert page.locator("section.on .globe canvas").count() == 1
+    z0 = page.evaluate("window.__GLOBE__.zoom")
+    box = page.locator("section.on .globe canvas").bounding_box()
+    page.mouse.click(box["x"] + box["width"] * 0.5, box["y"] + box["height"] * 0.45)
+    page.wait_for_timeout(200)
+    st = page.evaluate("window.__GLOBE__")
+    assert st["zoom"] > z0 and st["draws"] >= 2
+    page.select_option("section.on .globe select.sel >> nth=0", "co2_per_capita")
+    page.wait_for_timeout(300)
+    assert page.evaluate("window.__GLOBE__.layer") == "co2_per_capita"
+    assert "tCO2" in _text(page)
+    page.click("section.on .globe .seg button >> nth=1")
+    page.wait_for_timeout(300)
+    assert page.evaluate("window.__GLOBE__.mode") == "flat"
+    assert page.locator("section.on .gpanel .card").count() >= 4
+    assert "rdm_ext_climate_series" in _text(page)
+    assert page.errors == []
+
+
+def test_menu_structure_screen_reorders_and_hides_without_reload(page):
+    """메뉴 구조 화면에서 그룹을 올리거나 항목을 숨기면 왼쪽 메뉴가 새로고침 없이 바로
+    다시 짜이고, 설정은 localStorage(rynta-nav)에 남는다. 되돌리기는 기본 트리로 돌아간다."""
+    _tab_named(page, "메뉴 구조")
+    assert page.locator("section.on .navedit .nrow").count() > 80
+    page.evaluate("""()=>{const rows=[...document.querySelectorAll('section.on .navedit .nrow')];
+      const r=rows.find(x=>x.querySelector('.nlab').textContent==='통제센터');r.querySelectorAll('button')[0].click()}""")
+    page.evaluate("""()=>{const rows=[...document.querySelectorAll('section.on .navedit .nrow')];
+      const r=rows.find(x=>x.querySelector('.nlab').textContent==='상업성');r.querySelectorAll('button')[2].click()}""")
+    page.wait_for_timeout(200)
+    groups = page.evaluate("[...document.querySelectorAll('nav .navgroup')].map(x=>x.dataset.ko)")
+    assert groups[:2] == ["통제센터", "보고서"]
+    assert "uhide" in page.evaluate(
+        "[...document.querySelectorAll('nav button')].find(b=>b.dataset.ko==='상업성').className")
+    saved = page.evaluate("JSON.parse(localStorage.getItem('rynta-nav'))")
+    assert saved["hidden"] == ["상업성"] and saved["order"][""][0] == "통제센터"
+    page.click("section.on .toolbar .btn")           # 기본 메뉴로 되돌리기
+    page.wait_for_timeout(200)
+    groups = page.evaluate("[...document.querySelectorAll('nav .navgroup')].map(x=>x.dataset.ko)")
+    assert groups[:2] == ["보고서", "통제센터"]
+    assert page.evaluate("localStorage.getItem('rynta-nav')") is None
+    assert page.errors == []
+
+
+def test_ai_risk_overview_renders_from_the_governance_ledgers(page):
+    """AI 리스크 개요는 레지스트리·승인·비상정지 원장에서 값을 세고, 요건 76건과
+    해설서 화면 12종 대응표를 붙인다. 운영 반영 권한이 있는 에이전트는 0건이다."""
+    _tab_named(page, "AI 리스크 개요")
+    txt = _text(page)
+    reg = page.evaluate("window.__RYNTA__.data['agent_registry']")
+    assert str(reg["total"]) in txt
+    assert "운영 반영 권한 0건" in txt
+    assert "UI-10" in txt and "UI-06" in txt
+    assert "76" in txt
+    for lab in ("AI 인벤토리·위험분류", "실행승인·게이트", "정보흐름·마스킹", "사고·경보·중단"):
+        _tab_named(page, lab)
+        assert len(_text(page)) > 400, lab
+    assert page.errors == []
+
+
+def test_req_trace_tab_switches_to_the_ai_risk_register(page):
+    """AI리스크 레지스터(76건)는 요건 ID 에 장이 없어 행의 area 로 영역을 나눈다."""
+    _tab_named(page, "요건 추적")
+    page.evaluate("""() => [...document.querySelectorAll('section.on .btn')]
+        .find(b => b.textContent.includes('76')).click()""")
+    page.wait_for_timeout(300)
+    cov = page.evaluate("window.__RYNTA__.req_trace_air.coverage")
+    assert cov["반영"] + cov["부분"] + cov["미반영"] == cov["n"] == 76
+    txt = _text(page)
+    assert "BR-061" in txt and "tools/gen_ai_risk_requirements.py" in txt
+    # 장 09(승인과 실행)로 좁히면 그 장의 요건 4건만 남는다
+    page.select_option("section.on select.sel >> nth=1", "09")
+    page.wait_for_timeout(300)
+    assert "요건 4건" in _text(page)
+    assert page.errors == []
+
+
+# ----- 기타리스크 · 기후리스크 ---------------------------------------------------
+
+def test_climate_screens_draw_from_the_climate_section(page):
+    """네 화면이 payload 의 climate 부문을 그리고, 시나리오 선택이 부문 분해를 바꾼다."""
+    C = page.evaluate("window.__RYNTA__.climate")
+    assert len(C["transition"]) == 6 and len(C["physical"]) == 3
+    assert C["capital"]["path"]["total"] == 21
+    _tab_named(page, "기후 개요")
+    txt = _text(page)
+    assert "clr_*" in txt and "72" in txt
+    _tab_named(page, "전환위험")
+    page.select_option("section.on select.sel", "transition_orderly_2030")
+    page.wait_for_timeout(300)
+    assert "2030" in _text(page)
+    _tab_named(page, "물리적 위험")
+    assert "real_estate" in _text(page)
+    _tab_named(page, "기후 자본 경로")
+    txt = _text(page)
+    assert "2060" in txt and "요구" in txt
+    assert page.errors == []
+
+
 # ----- 범위형 비상정지 · 세부화면 -----------------------------------------------
 
 def test_scoped_kill_only_stops_its_domain(page):
@@ -961,4 +1079,93 @@ def test_every_model_screen_carries_a_summary_line(page):
         sm = page.query_selector("section.on .aisum")
         assert sm is not None, label
         assert len(sm.inner_text().replace("요약", "").strip()) > 10, label
+    assert page.errors == []
+
+
+@pytest.fixture(scope="module")
+def demo_page_path(studio, tmp_path_factory):
+    """데모 빌드: 주요 화면만 메뉴에 남긴다 (app.DEMO_SCREENS)."""
+    from risk_lib.ui_studio.app import DEMO_SCREENS, write_app
+    out = tmp_path_factory.mktemp("ui") / "demo.html"
+    return write_app(studio, out, demo=DEMO_SCREENS)
+
+
+def test_demo_build_keeps_only_headline_screens_in_menu(browser, demo_page_path):
+    from risk_lib.ui_studio.app import DEMO_SCREENS
+    pg = browser.new_page(viewport={"width": 1400, "height": 1000})
+    errors: list[str] = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.goto(f"file://{demo_page_path}")
+    pg.wait_for_timeout(800)
+    visible = pg.evaluate("Array.from(document.querySelectorAll('nav button'))"
+                          ".filter(b=>!b.classList.contains('uhide')).map(b=>b.dataset.ko)")
+    assert sorted(visible) == sorted(DEMO_SCREENS)          # 목록 밖 화면(부모 항목 포함)은 메뉴에서 감춘다
+    # 감춰진 화면도 만들어져 있어 화면 안 링크로 열린다
+    total = pg.evaluate("document.querySelectorAll('nav button').length")
+    assert total > len(DEMO_SCREENS)
+    assert "(Demo)" in pg.title() or "(데모)" in pg.title()
+    # 첫 화면은 보이는 화면 중 첫 번째다
+    assert pg.evaluate("document.querySelector('nav button.on').dataset.ko") == DEMO_SCREENS[0]
+    # 보이는 화면 전부 열어도 오류가 없다
+    pg.evaluate("document.querySelectorAll('nav button').forEach(b=>{if(!b.classList.contains('uhide'))b.click()})")
+    pg.wait_for_timeout(1500)
+    assert errors == []
+    pg.close()
+
+
+def test_ai_risk_screens_carry_3d_and_2d_analysis(page):
+    """AI리스크 화면 7종: 3D 기둥(svg) 한 개 이상과 2D 열지도(.hm) 한 개 이상, 오류 없음, 원장 출처 표기."""
+    names = ['AI 리스크 개요', 'AI 인벤토리·위험분류', '실행승인·게이트', '정보흐름·마스킹',
+             '사고·경보·중단', '에이전트', 'AI 거버넌스']
+    for name in names:
+        page.evaluate("a=>{const b=[...document.querySelectorAll('nav button')].find(x=>x.dataset.ko===a);b.click()}", name)
+        page.wait_for_timeout(400)
+        n_svg = page.evaluate("document.querySelectorAll('section.on svg polygon').length")
+        n_hm = page.evaluate("document.querySelectorAll('section.on .hm').length")
+        assert n_svg > 0, name           # 3D 기둥은 polygon 면으로 그린다
+        assert n_hm >= 1, name
+        text = page.evaluate("document.querySelector('section.on').innerText")
+        assert '[object' not in text, name
+        assert '원장 ' in text, name       # 출처 줄이 그림마다 붙는다
+    assert page.errors == []
+
+
+def test_ai_desk_animates_from_ledgers_without_errors(page):
+    """AI 관제 데스크: 캔버스 5개(경로·능선·인계 현·격자·그래프), 흐르는 로그, 에이전트 카드, 오류 없음."""
+    page.evaluate("()=>{const b=[...document.querySelectorAll('nav button')].find(x=>x.dataset.ko==='AI 관제 데스크');b.click()}")
+    page.wait_for_timeout(1500)
+    assert page.evaluate("document.querySelectorAll('section.on canvas').length") == 5
+    n0 = page.evaluate("document.querySelectorAll('section.on .dk-log .row').length")
+    assert n0 >= 8
+    last = page.evaluate("document.querySelector('section.on .dk-log .row:last-child .t').textContent")
+    page.wait_for_timeout(2000)
+    assert page.evaluate("document.querySelector('section.on .dk-log .row:last-child .t').textContent") != last   # 로그가 흐른다
+    assert page.evaluate("document.querySelectorAll('section.on .dk-agent').length") >= 10
+    assert page.evaluate("document.querySelectorAll('section.on .dk-agent.on').length") == 1
+    assert page.errors == []
+
+
+def test_ai_desk_graph_nodes_drag_under_tension(page):
+    """관계 그래프: 노드 위에서 커서가 grab, 끌면 grabbing, 끌린 노드는 포인터를 따라오고 이웃이 움직여 수렴이 떨어진다."""
+    page.evaluate("()=>{const b=[...document.querySelectorAll('nav button')].find(x=>x.dataset.ko==='AI 관제 데스크');b.click()}")
+    page.wait_for_timeout(1500)
+    page.evaluate("()=>{const cs=[...document.querySelectorAll('section.on canvas')];cs[cs.length-1].scrollIntoView({block:'center'})}")
+    page.wait_for_timeout(300)
+    box = page.evaluate("()=>{const cs=[...document.querySelectorAll('section.on canvas')];const r=cs[cs.length-1].getBoundingClientRect();return [r.left,r.top]}")
+    p0 = page.evaluate("()=>{const cs=[...document.querySelectorAll('section.on canvas')];return cs[cs.length-1].dkNode(0)}")   # 첫 노드 = 도메인
+    x, y = box[0] + p0[0], box[1] + p0[1]
+    page.mouse.move(x, y); page.wait_for_timeout(100)
+    cursor = lambda: page.evaluate("()=>{const cs=[...document.querySelectorAll('section.on canvas')];return cs[cs.length-1].style.cursor}")
+    assert cursor() == "grab"
+    conv = lambda: int(page.evaluate("()=>[...document.querySelectorAll('section.on .dk-stats')].pop().querySelectorAll('b')[2].textContent").rstrip("%"))
+    page.mouse.down()
+    for k in range(1, 16):
+        page.mouse.move(x + k * 8, y + k * 4); page.wait_for_timeout(16)
+    assert cursor() == "grabbing"
+    p1 = page.evaluate("()=>{const cs=[...document.querySelectorAll('section.on canvas')];return cs[cs.length-1].dkNode(0)}")
+    assert abs(box[0] + p1[0] - (x + 120)) < 3 and abs(box[1] + p1[1] - (y + 60)) < 3   # 끌린 노드는 포인터 위치
+    assert conv() < 100   # 이웃이 장력으로 움직여 운동에너지가 생겼다
+    page.mouse.up(); page.wait_for_timeout(1500)
+    assert cursor() in ("grab", "")
+    assert conv() >= 95   # 놓으면 다시 잦아든다
     assert page.errors == []

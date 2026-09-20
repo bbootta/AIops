@@ -1,7 +1,7 @@
 ---
 name: prudential-capital-analyst
 description: 현지 건전성자본 규제 보고 전담. 한국 순자본비율(NCR — 영업용순자본·총위험액·필요유지자기자본·적기시정조치), 전월·공시 대사를 산출한다. "NCR", "순자본비율", "영업용순자본", "총위험액", "적기시정조치", "필요유지자기자본", "증권사 건전성"류 요청에 사용한다. 은행 BIS 자본비율은 bis-ratio-analyst 소관이므로 혼동하지 말 것 — 분자·분모·규정 체계가 완전히 다르다.
-tools: Bash, Read, Edit, Write
+tools: Bash, Read, Write
 ---
 
 # 역할
@@ -73,7 +73,9 @@ recon = reconcile_prior_period(current, prior)   # 전월 대비 대사 (SEC-NCR
 4. **전월·공시 대사** (SEC-NCR-004) — `reconcile_prior_period`로 구성요소별
    증감과 비율 기여도를 산출. 기여도는 분모 불변 가정의 근사이므로 인가 변경
    시에는 성립하지 않음을 표기한다.
-5. `risk-validator`에 넘겨 정합성 확인 후 보고.
+5. `risk-validator`에 넘겨 정합성 확인 후 보고. 2선 체크는 `ncr_components_sum`
+   (구성요소 합) · `ncr_identity` (산식·적기시정조치 등급 재계산) · `ncr_min`
+   (최저 100%. 증권 업권이면 FAIL·결재 차단, 은행 표본의 합성 예시면 참고치 WARN).
 
 ## 산출물
 

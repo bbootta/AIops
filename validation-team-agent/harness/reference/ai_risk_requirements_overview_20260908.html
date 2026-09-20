@@ -1,0 +1,287 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="은행 AI 리스크관리 업무요건·실무 해설·개발 계약"><title>AI 리스크관리 업무요건정의서 · 개요 · v1.0</title><style>:root{--ink:#132b37;--muted:#526a74;--teal:#006d6c;--line:#ccd9de;--paper:#fff;--canvas:#eff3f3;--nav:#0d2b38;--gold:#d9b46d}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0;background:var(--canvas);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:16px;line-height:1.8;word-break:keep-all;overflow-wrap:anywhere}a{color:#006869;text-underline-offset:3px}a:hover{color:#00484b}button,input{font:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #edb755;outline-offset:3px}.skip{position:fixed;top:-100px;z-index:100;background:white;padding:12px}.skip:focus{top:0}.sidebar{position:fixed;inset:0 auto 0 0;width:278px;background:var(--nav);color:#d6e6e8;overflow:auto;padding:30px 24px;z-index:20}.brand{font-size:12px;letter-spacing:3px;color:#88c2bd;font-weight:700}.sidebar h2{font-size:22px;color:#fff;margin:12px 0}.edition{font-size:12px;color:#a4bfc7;border-bottom:1px solid #31505d;padding-bottom:20px}.sidebar nav a{display:block;color:#d2e0e4;font-size:13px;text-decoration:none;line-height:1.55;padding:9px 10px;border-radius:6px;margin:2px 0}.sidebar nav a.active,.sidebar nav a:hover{background:#254553;color:#fff}.sidebar .switch{display:block;border:1px solid #68848b;padding:8px 10px;margin:15px 0;color:white;border-radius:6px;text-decoration:none;font-size:13px}.workspace{margin-left:278px}.toolbar{position:sticky;top:0;z-index:15;background:#f7faf9ed;backdrop-filter:blur(10px);display:flex;align-items:center;gap:10px;padding:12px 32px;border-bottom:1px solid var(--line)}.toolbar input{width:min(420px,55%);border:1px solid #a5bac2;border-radius:6px;background:white;padding:8px 12px;line-height:1.4}.toolbar button,.button{display:inline-block;background:white;border:1px solid #9bb2ba;border-radius:6px;padding:8px 13px;line-height:1.4;color:#173c49;text-decoration:none;font-size:13px}.toolbar #matchCount{font-size:12px;color:#405962}.toolbar .menu{display:none}.progress{position:absolute;bottom:-1px;left:0;height:3px;width:0;background:#008f8a}.content{max-width:1260px;margin:0 auto;padding:34px 38px 70px}.hero{background:var(--nav);color:#fff;padding:46px 44px;border-radius:14px;position:relative;overflow:hidden}.hero:after{content:"";position:absolute;right:-100px;top:-140px;width:420px;height:420px;border:1px solid #386471;border-radius:50%;box-shadow:0 0 0 70px #173d4933,0 0 0 140px #173d4922;pointer-events:none}.eyebrow{font-size:12px;letter-spacing:3px;color:#92d0c7;font-weight:700}.hero h1{font-size:clamp(30px,3.2vw,48px);line-height:1.3;letter-spacing:-1.5px;margin:19px 0}.hero p{max-width:760px;color:#d4e3e5;margin:18px 0 0;font-size:17px}.hero .meta{font-size:12px;color:#a8c5cd;margin-top:24px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0}.stat{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 20px}.stat b{display:block;font-size:25px;color:#00686b;line-height:1.3}.stat span{font-size:13px;color:var(--muted)}.reader-note{padding:18px 22px;background:#f9f1df;border-left:4px solid #bb9348;border-radius:4px;margin:24px 0;font-size:14px}.chapter{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:34px;margin:26px 0;scroll-margin-top:90px}.chapter-kicker{font-size:10px;letter-spacing:2px;color:var(--teal);font-weight:800;margin-bottom:10px}h2{font-size:27px;line-height:1.4;margin:0 0 24px;letter-spacing:-.6px}h3{font-size:20px;line-height:1.5;margin:30px 0 14px}h4{font-size:17px;margin:24px 0 12px}p{margin:16px 0}strong{font-weight:750}table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.7;margin:16px 0}th{text-align:left;background:#e8f0f2;color:#1e454f;font-weight:750;padding:13px 12px;border:1px solid #cad9de;vertical-align:top}td{padding:13px 12px;border:1px solid #d7e1e5;vertical-align:top}tbody tr:nth-child(even){background:#f7fafb}td:first-child{font-weight:600}tr[id]{scroll-margin-top:100px}tr:target{background:#fff0c1!important;outline:2px solid #ae802f}.table-wrap{overflow:auto;width:100%;overscroll-behavior-x:contain}table th:first-child{min-width:115px}table td{min-width:140px}table td:first-child{min-width:110px}.source-card{padding:22px;border:1px solid #cbdadd;border-radius:8px;margin:20px 0;background:#fcfdfc}.source-card h3{margin:8px 0;font-size:18px}.source-card p{font-size:14px}.tag{font-size:11px;color:#55717b;letter-spacing:.7px}.case{padding:14px 16px;background:#edf6f2;border-left:3px solid #168075;border-radius:2px}.limitation{color:#5c6269}.sources-inline{font-size:12px!important;line-height:1.7;color:#526b76;padding:12px 15px;background:#f2f6f7;border-radius:5px}.sources-inline span{display:block;color:#6c6251;margin-top:4px}.sources-inline b{margin-right:5px}.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.flow>div{padding:16px;background:#e8f4f0;border:1px solid #acd2c9;border-radius:7px;color:#0e514e;font-weight:bold}.flow small{display:block;font-weight:400;font-size:12px;margin-top:7px}.architecture{display:grid;gap:10px}.architecture>div{border:1px solid #b6cbd2;border-left:5px solid var(--teal);padding:16px;background:#f2f8f8}.architecture b{display:block}.architecture span{font-size:14px;color:#506975}blockquote{margin:20px 0;padding:18px 22px;background:#f0f6f8;border-left:4px solid #5b8a97;font-size:15px}blockquote p{margin:0}pre{background:#122c3a;color:#e5f2f4;padding:22px;border-radius:7px;overflow:auto;font-size:12px;line-height:1.65;white-space:pre;word-break:normal}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em;word-break:break-word;background:#edf1f4;padding:2px 4px;border-radius:3px}pre code{background:none;padding:0;color:inherit;font-size:inherit;word-break:normal}abbr{text-decoration:none;border-bottom:1px dotted #63908d;cursor:help}.downloads{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}.hidden{display:none!important}mark{background:#fff0ad;color:inherit}.footer{font-size:12px;color:var(--muted);padding:20px 4px}.empty{display:none;padding:30px;background:white;border:1px solid var(--line)}.mobile-logo{display:none}details{margin:20px 0;border:1px solid var(--line);border-radius:6px;padding:12px 16px}summary{cursor:pointer;font-weight:700;color:#075e60}details[open] summary{margin-bottom:14px}.source-card:target{outline:2px solid #d0a24f}.legend{display:flex;gap:8px;flex-wrap:wrap;font-size:11px}.legend span{padding:3px 9px;border:1px solid #cadbdc;background:#f6fbfa;border-radius:20px}.backtop{position:fixed;bottom:22px;right:22px;padding:10px 15px;background:#0d4652;color:white;border-radius:30px;text-decoration:none;font-size:12px;z-index:30}.backtop:hover{color:white;background:#00656b}@media(max-width:1100px){.sidebar{width:238px;padding:25px 18px}.workspace{margin-left:238px}.content{padding:24px}.chapter{padding:25px}.hero{padding:34px}.toolbar{padding:10px 24px}.stats{gap:8px}.stat{padding:15px 12px}.flow{grid-template-columns:repeat(2,1fr)}}@media(max-width:760px){body{font-size:15px}.sidebar{display:none;width:270px;box-shadow:0 0 0 100vmax #0008}.sidebar.open{display:block}.workspace{margin-left:0}.toolbar{padding:10px 12px;gap:7px}.toolbar .menu{display:block}.toolbar input{width:45%;font-size:13px}.toolbar #matchCount{display:none}.content{padding:18px 12px 50px}.hero{padding:28px 24px}.hero h1{font-size:31px}.hero p{font-size:15px}.chapter{padding:23px 18px}.stats{grid-template-columns:repeat(2,1fr)}h2{font-size:23px}table{min-width:680px}.flow{grid-template-columns:1fr}.toolbar button{padding:8px}.source-card{padding:17px}}@media print{.raw-contract{display:none!important}@page{size:A4 landscape;margin:13mm}body{background:white;font-size:10pt;line-height:1.6}.sidebar,.toolbar,.backtop,.downloads,.reader-note .button{display:none!important}.workspace{margin:0}.content{max-width:none;padding:0}.hero{background:white!important;color:#153746;border:0;padding:12px 0}.hero:after{display:none}.hero h1{font-size:30pt}.hero p,.hero .meta{color:#435862}.chapter{border:0;border-radius:0;padding:12px 0;margin:15px 0;break-before:page}.chapter h2{font-size:21pt}h2,h3,h4{break-after:avoid}table{font-size:8pt;min-width:0!important}tr{break-inside:avoid}thead{display:table-header-group}.table-wrap{overflow:visible}th,td{padding:6px;min-width:0!important}.source-card{break-inside:avoid}.hidden{display:block!important}.source-card p{font-size:9pt}.stats{max-width:800px}.stat b{font-size:20pt}.hero .eyebrow{color:#006b69}a{color:#006064;text-decoration:none}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f6f7;color:#132d39;font-size:7pt;break-inside:auto}abbr{border:0}.reader-note{font-size:10pt}details{display:block}summary{display:none}.chapter-kicker{font-size:8pt}.flow,.architecture{break-inside:avoid}}</style></head><body><a class="skip" href="#main">본문 바로가기</a><aside class="sidebar"><div class="brand">BANK AI RISK</div><h2>업무요건정의서 · 개요</h2><div class="edition">2026.09.08 · v1.0<br>개발·검증 기준선 / 은행 적용안</div><a class="switch" href="AI_Risk_Practitioner_Manual.html">실무진 해설서 열기 →</a><nav aria-label="문서 목차"><a href="#ov-01">01. 핵심 판단과 문서 사용법</a><a href="#ov-02">02. 컨퍼런스에서 시스템으로 옮길 여섯 가지</a><a href="#ov-03">03. 최신 근거와 적용상 차이</a><a href="#ov-04">04. 목표 업무흐름과 승인 단계</a><a href="#ov-05">05. 시스템 구성과 부서별 운영</a><a href="#ov-06">06. 반드시 검수할 핵심 통제</a><a href="#ov-07">07. 도입 순서·개발 인도물·결정 필요사항</a><a href="#ov-08">08. 승인·감사 관점의 한계</a><a href="#glossary">09. 약어·용어와 샘플</a></nav></aside><div class="workspace"><div class="toolbar"><button class="menu" id="menu" aria-label="목차 열기">목차</button><input id="search" aria-label="문서 챕터 검색" type="search" placeholder="요건 번호·약어·키워드로 챕터 검색"><button id="clear">초기화</button><button id="print">인쇄</button><span id="matchCount" aria-live="polite"></span><div class="progress"></div></div><main class="content" id="main"><header class="hero" id="top"><div class="eyebrow">AI RISK MANAGEMENT · BUSINESS REQUIREMENTS</div><h1>AI 리스크관리<br>업무요건정의서 · 개요</h1><p>컨퍼런스의 논의를 은행의 관리체계로.<br>데이터·모형·권한·실행·고객영향을 하나의 업무로 연결합니다.</p><div class="meta">국내 은행 기준 · 예측모형 / 생성형 AI / 에이전트 · 검토일 2026.09.08</div></header><div class="stats"><div class="stat"><b>6</b><span>컨퍼런스 발표</span></div><div class="stat"><b>76</b><span>상세 업무요건</span></div><div class="stat"><b>8</b><span>핵심 연계</span></div><div class="stat"><b>2026.09.08</b><span>검토 기준일</span></div></div><div class="reader-note"><b>읽기 안내</b>　이 문서는 의사결정용 개요입니다. 개발사는 연결된 실무진 해설서의 상세 계약과 샘플을 함께 사용해야 합니다.<br>숫자·기한·정책은 <b>법령/근거 사실</b>과 <b>은행 설계 제안</b>을 구분합니다. 실제 은행의 전결·계약·접속·운영설정은 배포 전에 확정합니다.</div><div class="legend"><span>공식 원문 확인</span><span>컨퍼런스 발표·정정</span><span>은행 설계 제안</span><span>가상 샘플</span><span>미확인 범위 명시</span></div><div class="empty" role="status">일치하는 챕터가 없습니다. 다른 키워드를 입력하거나 초기화하세요.</div><section class="chapter" id="ov-01"><div class="chapter-kicker">OVERVIEW · 01</div><h2>01. 핵심 판단과 문서 사용법</h2><p>은행 AI 리스크관리의 관리 단위는 <strong>모델 점수에서 데이터·권한·실행·승인·증빙이 연결된 업무 전체</strong>로 확장해야 한다. 본 문서는 AI(Artificial Intelligence, 인공지능)를 전수 등록하고, 목적과 영향에 따라 심사하며, 검증된 범위만 운영에 배포하고, 실제 행동과 고객영향을 지속 확인하는 시스템을 정의한다.</p>
+<p><strong>개요문서</strong>는 경영진·승인자·사업관리자를 위한 범위와 핵심 통제의 요약이다. <strong>실무진 해설서</strong>는 업무요건, 입력·처리·예외·검수, 화면, 데이터, 인터페이스, 상태전이와 샘플을 포함하는 개발 기준선이다. 기술계약과 법령 적용조건까지 해설서를 함께 읽어야 구현할 수 있다.</p>
+<p><strong>기준일:</strong> 2026년 9월 8일. <strong>대상:</strong> 국내 은행의 예측모형·생성형 AI·도구 사용 에이전트·외부 AI 서비스. <strong>가정:</strong> 실제 조직·전결·계약·원천주소는 미제공이므로 합성 사례와 설정값으로 개발·시험하며 운영 전 확정한다. 이 문서는 실제 시스템 구현이나 운영 인수시험이 완료됐다는 뜻이 아니다.</p>
+<p class="case"><strong>샘플 케이스:</strong> 여신심사 AI가 재무자료를 읽고 심사보고서를 작성하더라도, 근거 없이 신용등급을 수정하거나 대출을 실행해서는 안 된다. 계산은 승인된 엔진, 설명은 AI, 판단은 전결권자, 실행은 승인범위를 검증하는 업무시스템에 연결한다.</p>
+</section>
+<section class="chapter" id="ov-02"><div class="chapter-kicker">OVERVIEW · 02</div><h2>02. 컨퍼런스에서 시스템으로 옮길 여섯 가지</h2><p>2026년 9월 7일 컨퍼런스의 여섯 발표는 다음 업무요건으로 연결된다. 이는 발표 내용을 은행 업무로 재구성한 설계안이며 연사의 공동 합의나 감독당국의 확정 체크리스트가 아니다.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>발표</th>
+<th>업무요건</th>
+<th>샘플 케이스</th>
+<th>해설서</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>이병영 · 문맥/정보흐름</td>
+<td>외부문서·메일·도구 응답을 지시와 구분하고 실행권한과 분리</td>
+<td>문서에 숨은 ‘고객명단 전송’이 명령으로 승격되지 않음</td>
+<td>05·08·10장</td>
+</tr>
+<tr>
+<td>김성웅 · 금융 대응체계</td>
+<td>독립검증·책임·생애주기·위험별 조치·복원력</td>
+<td>계정계 격리는 업무영향·승인·복구를 함께 검토</td>
+<td>03·04·11·13장</td>
+</tr>
+<tr>
+<td>최대선 · 권한과 중단</td>
+<td>위임체계·행동기록·잔여작업·키 회수</td>
+<td>부모 작업 중단 후 자식 에이전트의 예약작업까지 확인</td>
+<td>09·13·17장</td>
+</tr>
+<tr>
+<td>박하언 · 공격과 방어</td>
+<td>공격 발견을 정책 변경·집행·재시험으로 연결</td>
+<td>가드레일 수정 후 정상요청 오차단도 다시 평가</td>
+<td>07·08·10장</td>
+</tr>
+<tr>
+<td>장광운 · 보안 맥락</td>
+<td>자산·계정·접근관계의 최신성, 검증된 조치 완료</td>
+<td>오래된 서버오너 정보를 재확인한 뒤 조치 승인</td>
+<td>05·12·18장</td>
+</tr>
+<tr>
+<td>Wana Tun · 증빙과 결정권</td>
+<td>승인 범위·외부효과·데이터처리 경로·배포 검증</td>
+<td>국내 저장 여부와 해외 추론·로그 처리를 별도 심사</td>
+<td>09·14·17장</td>
+</tr>
+</tbody></table></div>
+<p>컨퍼런스 자체 성능수치·제품 실적·향후 계획은 적용 조건을 보존한다. DualView의 0% 공격성공은 시험범위 내 관측값이고, 정상 과제성공률은 자료 정정에 따라 81.6%로 읽는다. 2027년 점검 확대는 발표 당시 계획이며 확정 감독기준으로 쓰지 않는다. 2부 패널 발언은 확보되지 않아 추가하지 않았다.</p>
+</section>
+<section class="chapter" id="ov-03"><div class="chapter-kicker">OVERVIEW · 03</div><h2>03. 최신 근거와 적용상 차이</h2><p class="sources-inline"><b>근거·설계 연결</b> <a href="https://www.fsc.go.kr/no010101/87142" target="_blank" rel="noopener">K01 금융분야 인공지능 가이드라인 2026 개정 및 금융권 AX 간담회</a> · <a href="https://www.law.go.kr/LSW/lsSideInfoP.do?docCls=jo&amp;joBrNo=00&amp;joNo=0027&amp;lsiSeq=288781&amp;urlMode=lsScJoRltInfoR" target="_blank" rel="noopener">K03 인공지능기본법 시행령 제23조·제27조</a> · <a href="https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10" target="_blank" rel="noopener">G01 NIST AI 100-1: Artificial Intelligence Risk Management Framework (AI RMF 1.0)</a> · <a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=OJ:L_202601744" target="_blank" rel="noopener">G06 Regulation (EU) 2026/1744</a> · <a href="https://www.federalreserve.gov/supervisionreg/srletters/SR2602.htm" target="_blank" rel="noopener">G07 SR 26-2</a> · <a href="https://www.fsb.org/2026/06/sound-practices-for-responsible-adoption-of-artificial-intelligence-ai-consultation-report/" target="_blank" rel="noopener">G13 Sound Practices for Responsible Adoption of Artificial Intelligence (AI): Consultation report</a><span>아래 업무규칙·임계값·가상 사례는 은행 설계안입니다.</span></p><div class="table-wrap"><table>
+<thead>
+<tr>
+<th>근거</th>
+<th>채택한 의미·현행성</th>
+<th>은행 적용 샘플</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>국내 금융 AI 가이드라인</td>
+<td>금융위 2026-06-18 발표, 06-22 시행 안내의 자율규제. 7원칙과 법령상 의무를 구분</td>
+<td>내부 요약도 등록하고 책임·검증·사용범위를 관리</td>
+</tr>
+<tr>
+<td>AI기본법·시행령</td>
+<td>고영향/생성형, 역할, 고지/표시, 책무·증빙을 구분. 시행령상 고영향 책무 문서5년은 원시 개인정보 전체 보관명령이 아님</td>
+<td>고영향 증빙과 프롬프트 원문에 서로 다른 보관정책 적용</td>
+</tr>
+<tr>
+<td>NIST AI RMF·생성형 프로파일</td>
+<td>미국 국립표준기술연구소의 자율적 위험관리 틀과 생성형 위험 참고</td>
+<td>등록→맥락→측정→대응과 근거·인용검증 연결</td>
+</tr>
+<tr>
+<td>ISO/IEC 42001·23894</td>
+<td>국제표준화기구/국제전기기술위원회의 AI 경영시스템·위험관리 표준. 공개 개요 검토</td>
+<td>정책·책임·개선조치·경영검토의 운영 증빙. 인증 보장 아님</td>
+</tr>
+<tr>
+<td>EU AI Act·2026/1744 개정</td>
+<td>유럽연합 고위험 의무 중 관련 Chapter III Sections1~3은 Annex III 2027-12-02, Annex I 2028-08-02 적용으로 변경. 기존 투명성·금지행위 일정과 분리</td>
+<td>EU 개인 신용평가의 역할·해당성·조문별 효력 관리</td>
+</tr>
+<tr>
+<td>미국 SR 26-2</td>
+<td>2026-04-17 SR 11-7 대체. 생성형·에이전트형은 명시적 범위 밖</td>
+<td>예측모형 검증과 생성형 실행통제를 구분해 둘 다 관리</td>
+</tr>
+<tr>
+<td>FSB·BCBS</td>
+<td>금융안정위원회·바젤은행감독위원회의 금융안정·운영복원력 관점. FSB 2026 실무관행은 확인본상 협의안</td>
+<td>동일 공급자 의존·사람역량·복구·업무중단 시나리오 관리</td>
+</tr>
+</tbody></table></div>
+<p>원문 링크·발행일·적용성·샘플·미확인 범위는 해설서 근거원장에 있다. 금융감독원 최종 위험관리 프레임워크와 금융보안원 안내서의 일부 첨부 전문, ISO 유료 조항은 전량 확인하지 못했다. 이를 근거로 세부 점수·인증·규제적합성을 단정하지 않는다.</p>
+</section>
+<section class="chapter" id="ov-04"><div class="chapter-kicker">OVERVIEW · 04</div><h2>04. 목표 업무흐름과 승인 단계</h2><div class="flow"><div>1. 전수등록<small>업무·모델·데이터·도구</small></div><div>2. 적용·위험평가<small>법적분류와 내부등급 분리</small></div><div>3. 독립검증<small>정상·공격·경계·복구</small></div><div>4. 승인·배포<small>범위·버전·기한 고정</small></div><div>5. 실행통제<small>재인가·정책·승인 일치</small></div><div>6. 관측·개선<small>사고·재시험·감사</small></div></div>
+
+<p><strong>승인자 관점에서 핵심 쟁점은</strong> 누가 무엇을 책임지고, 어떤 데이터와 도구를 어디까지 사용할 수 있으며, 무엇을 근거로 승인하고, 언제 멈추며, 어떻게 고객피해와 외부효과를 확인할 것인지다.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>승인 지점</th>
+<th>필수 증빙</th>
+<th>미충족 시</th>
+<th>샘플</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>도입심사</td>
+<td>목적·오너·데이터·법적 적용성·위험평가</td>
+<td>운영 도입 보류</td>
+<td>법상 고영향 미확정이면 NO로 자동입력 금지</td>
+</tr>
+<tr>
+<td>검증완료</td>
+<td>버전고정·시험결과·한계·개선·독립성</td>
+<td>필수 실패/미평가 범위 배포 불가</td>
+<td>공격0/0은 미평가</td>
+</tr>
+<tr>
+<td>운영배포</td>
+<td>승인번들·운영/복구·계약·권한</td>
+<td>버전불일치 차단</td>
+<td>모델 ‘latest’ 자동변경 시 신규실행 차단</td>
+</tr>
+<tr>
+<td>중요행위</td>
+<td>대상·금액·통화·인수·기한·정책·전결</td>
+<td>만료·변경·회수 시 재승인</td>
+<td>100만원 승인으로 1,000만원 실행 불가</td>
+</tr>
+<tr>
+<td>복구·종결</td>
+<td>잔여작업·키회수·외부대사·재시험</td>
+<td>복구/사고종결 보류</td>
+<td>화면 취소 뒤 외부거래가 남으면 대사 필요</td>
+</tr>
+</tbody></table></div>
+</section>
+<section class="chapter" id="ov-05"><div class="chapter-kicker">OVERVIEW · 05</div><h2>05. 시스템 구성과 부서별 운영</h2><div class="architecture"><div><b>업무·승인 포털</b><span>등록 / 평가 / 검증 / 승인 / 사고 / 고객권리 / 보고</span></div><div><b>업무관리 계층</b><span>생애주기 · 규정/정책 · 역할/권한 · 일정/예외 · 증빙</span></div><div><b>실행 통제 계층</b><span>데이터 경계 → 정책판정 → 명시적 승인 → 재인가 → 도구집행</span></div><div><b>원장·연계 계층</b><span>기존 자산·신원·모형·계산·거래·민원·보안관제 + 감사 저장소</span></div></div>
+
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>부서·역할</th>
+<th>수행업무</th>
+<th>산출물</th>
+<th>샘플</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>업무부서</td>
+<td>목적·사용범위·고객영향·1차 검토</td>
+<td>등록·업무시험·수동전환</td>
+<td>여신요약 AI의 신용등급 수정권한 제외</td>
+</tr>
+<tr>
+<td>리스크/독립검증</td>
+<td>위험등급·모형·생성형·통제검증</td>
+<td>검증의견·제한조건</td>
+<td>정확도 우수해도 승인우회 발견 시 반려</td>
+</tr>
+<tr>
+<td>보안·개인정보·준법</td>
+<td>권한·반출·규제·고객권리·위탁 검토</td>
+<td>적용성·정책·계약·법정기한</td>
+<td>SaaS 예외와 고객정보 반출 적법성 별도 확인</td>
+</tr>
+<tr>
+<td>운영·개발</td>
+<td>시스템·게이트·배치·변경·복구</td>
+<td>배포명세·실행·오류·대사</td>
+<td>결과불명 거래를 자동 재실행하지 않음</td>
+</tr>
+<tr>
+<td>최종 승인자</td>
+<td>중요 위험수용·배포·행위·복구 판단</td>
+<td>범위·버전·기한을 가진 승인</td>
+<td>자기승인·무응답승인 금지</td>
+</tr>
+<tr>
+<td>내부감사</td>
+<td>독립적 체계점검·추적검증</td>
+<td>감사의견·개선권고</td>
+<td>현재값보다 당시 승인·데이터 복원</td>
+</tr>
+</tbody></table></div>
+</section>
+<section class="chapter" id="ov-06"><div class="chapter-kicker">OVERVIEW · 06</div><h2>06. 반드시 검수할 핵심 통제</h2><div class="table-wrap"><table>
+<thead>
+<tr>
+<th>통제</th>
+<th>합격 판정</th>
+<th>샘플 실패</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>전수 식별·최소권한</td>
+<td>미등록 도구·자식·회수계정 실행0</td>
+<td>읽기용 자식이 쓰기권한 획득</td>
+</tr>
+<tr>
+<td>데이터·지시 분리</td>
+<td>외부문서가 정책·권한을 바꾸지 못함</td>
+<td>저장된 요약이 다음 실행을 오염</td>
+</tr>
+<tr>
+<td>승인과 실제 실행 결합</td>
+<td>인수·대상·버전·유효기간 일치</td>
+<td>수취인 변경 후 기존 승인 재사용</td>
+</tr>
+<tr>
+<td>중복·불명 결과 처리</td>
+<td>재전송의 추가효과0, UNKNOWN 조회대사</td>
+<td>응답유실을 실패로 보고 재송금</td>
+</tr>
+<tr>
+<td>평가 적정성</td>
+<td>성능·공정성·보안·업무영향 별도판정</td>
+<td>금액오류가 종합점수에 묻힘</td>
+</tr>
+<tr>
+<td>장애 시 안전동작</td>
+<td>검사불가 반출/거래 보류, 수동전환</td>
+<td>로그장애를 사고0으로 보고</td>
+</tr>
+<tr>
+<td>중단·복구</td>
+<td>자식·예약·토큰·외부효과 확인</td>
+<td>화면취소만 완료 처리</td>
+</tr>
+<tr>
+<td>증빙·고객권리</td>
+<td>당시 근거 재현·접근제한·적법한 보관/삭제</td>
+<td>현재모델로 과거 거절이유 새로 작성</td>
+</tr>
+</tbody></table></div>
+<p class="case"><strong>샘플 계산:</strong> 정상100건 중 정답90건, 그중 금지된 조회3건이면 통제준수 성공률은87%다. 공격성공률0%와 정상 오차단률8%는 서로 다른 위험이다. 수치에는 분모·표본기간·모델/정책버전·판정자·미평가 범위를 함께 기록한다.</p>
+</section>
+<section class="chapter" id="ov-07"><div class="chapter-kicker">OVERVIEW · 07</div><h2>07. 도입 순서·개발 인도물·결정 필요사항</h2><div class="table-wrap"><table>
+<thead>
+<tr>
+<th>순서</th>
+<th>우선 구축</th>
+<th>종료기준</th>
+<th>샘플</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>인벤토리·규정·역할·위험평가·증빙</td>
+<td>기존 서비스·오너·연계 식별과 승인근거 확인</td>
+<td>미확인 기존서비스 별도 분류</td>
+</tr>
+<tr>
+<td>2</td>
+<td>검증·정책·중요행위 승인·게이트</td>
+<td>버전/인수 일치·금지실행·재전송 검수</td>
+<td>외부효과 불명 자동재시도0</td>
+</tr>
+<tr>
+<td>3</td>
+<td>모니터링·사고·중단·복구·고객권리</td>
+<td>장애·회수·민원·복구 전 과정 실증</td>
+<td>야간 중단 후 예약작업 확인</td>
+</tr>
+<tr>
+<td>4</td>
+<td>공급자·스트레스·경영보고·감사</td>
+<td>대사·재현·원천연결·전결 인계</td>
+<td>보고 손실과 계산원장 일치</td>
+</tr>
+</tbody></table></div>
+<p>해설서에는 <strong>76개 업무요건, 12개 화면, 8개 연계, 7개 배치, 18개 종단간 시험</strong>과 데이터·API(Application Programming Interface, 응용프로그램 인터페이스) 기술계약을 제공한다. 각 설명과 요건에는 가상 사례를 연결했다. ID(Identifier, 식별자)로 요건→설계→시험→증빙을 추적한다.</p>
+<p>실제 운영 전에 확정할 항목은 전결·위임, 법적 적용성과 개별 특례조건, 데이터 사전, 계약·처리지역, 실제 접속·어댑터, 보관·삭제, 처리량·복구 목표, 고객권리 기한, 감독 제출서식이다. 개발용 기본값은 해설서에 명시되어 있으며 미확정 상태가 운영허용으로 바뀌지 않도록 설계한다.</p>
+</section>
+<section class="chapter" id="ov-08"><div class="chapter-kicker">OVERVIEW · 08</div><h2>08. 승인·감사 관점의 한계</h2><p><strong>누락 가능 항목:</strong> 실제 은행의 내부규정·조직·원천정보·공급자 계약·최종 감독첨부·개별 지정조건은 현장 확인이 필요하다. 2부 패널 발언과 일부 발표수치의 시험조건은 확보되지 않았다.</p>
+<p><strong>반대 시각 또는 보수적 해석:</strong> 높은 통제강도는 승인대기·오차단·비용을 늘릴 수 있다. 위험별 범위를 좁히고 수동전환·측정·단계적 확대를 운영하되, 법적 의무와 핵심 실행 통제를 점수로 면제하지 않는다. 중앙 통제계층의 장애·권한집중도 관리해야 한다.</p>
+<p><strong>추가 검증 필요사항:</strong> 실제 은행환경에서 데이터정합성·우회경로·동시실행·중단·외부거래 대사·복구·고객영향을 독립 검수해야 한다. 본 문서의 예시 성능·기한·위험등급은 별도 법령 표시가 없는 한 은행 설계 제안이다.</p>
+<p class="case"><strong>샘플 승인문안:</strong> “본 요건을 개발 기준선으로 채택하되, 운영배포는 은행별 설정·적용법·외부연계 계약의 확정 및 필수 인수시험 통과를 조건으로 한다. 기능범위 축소 시 별도 승인번들을 생성하고 해당 범위의 검증·전결을 다시 수행한다.”</p>
+</section>
+<section class="chapter" id="glossary"><h2>09. 약어·용어와 샘플</h2><p>약어는 영문 전체명·한국어 의미·업무 예시를 함께 제공합니다. 본문에서 밑줄 약어에 포인터를 놓으면 뜻을 확인할 수 있습니다. 코드의 상태값은 21장 상태표·22장 코드 설명을 참고합니다.</p><div class="table-wrap"><div class="table-wrap"><table><thead><tr><th>약어</th><th>영문 전체명</th><th>설명</th><th>샘플 케이스</th></tr></thead><tbody><tr><td><strong>AI</strong></td><td>Artificial Intelligence</td><td>인공지능; 예측·생성·행동 기술을 포함한다.</td><td>여신요약 모델과 이체도구 에이전트 모두 등록한다.</td></tr><tr><td><strong>LLM</strong></td><td>Large Language Model</td><td>대규모 언어모델; 문맥에 따라 문장을 생성한다.</td><td>규정 인용의 사실성을 별도 대조한다.</td></tr><tr><td><strong>GenAI</strong></td><td>Generative Artificial Intelligence</td><td>생성형 인공지능.</td><td>상담답변을 만들되 가짜 금리조건은 실패로 판정한다.</td></tr><tr><td><strong>RAG</strong></td><td>Retrieval-Augmented Generation</td><td>검색증강생성; 자료를 검색해 답변 근거로 제공한다.</td><td>검색 전 고객별 문서권한을 적용한다.</td></tr><tr><td><strong>VLM</strong></td><td>Vision-Language Model</td><td>시각 언어모델; 이미지와 텍스트를 처리한다.</td><td>계좌번호가 담긴 이미지도 반출검사한다.</td></tr><tr><td><strong>SLM</strong></td><td>Small Language Model</td><td>소형 언어모델; 상대적으로 작은 모델.</td><td>소형 가드레일도 오탐·미탐을 시험한다.</td></tr><tr><td><strong>MCP</strong></td><td>Model Context Protocol</td><td>모델과 외부 도구·자료를 연결하는 프로토콜.</td><td>새 MCP 도구 등록 시 권한·스키마를 심사한다.</td></tr><tr><td><strong>IFC</strong></td><td>Information Flow Control</td><td>정보흐름 통제; 출처·등급·허용경로를 관리한다.</td><td>비신뢰 문서 요약에도 출처 레이블을 유지한다.</td></tr><tr><td><strong>HITL</strong></td><td>Human-in-the-Loop</td><td>사람이 검토·승인에 개입하는 통제 방식.</td><td>대외 발송 전에 담당자가 실제 수신자를 확인한다.</td></tr><tr><td><strong>4-Eyes</strong></td><td>Four-eyes principle</td><td>수행자와 다른 사람의 검토·승인 원칙.</td><td>개발자가 자신의 배포를 최종 승인할 수 없다.</td></tr><tr><td><strong>MRM</strong></td><td>Model Risk Management</td><td>모형리스크관리.</td><td>변별력 외 보정·안정성·운영사용을 검증한다.</td></tr><tr><td><strong>RMF</strong></td><td>Risk Management Framework</td><td>위험관리 프레임워크; 기관별 내용과 버전이 다르다.</td><td>금감원 문서와 NIST 문서를 동일 규정으로 취급하지 않는다.</td></tr><tr><td><strong>NIST</strong></td><td>National Institute of Standards and Technology</td><td>미국 국립표준기술연구소.</td><td>AI RMF를 내부 통제 설계 참고로 사용한다.</td></tr><tr><td><strong>ISO</strong></td><td>International Organization for Standardization</td><td>국제표준화기구.</td><td>ISO42001 공개 개요와 유료 조항 검토를 구분한다.</td></tr><tr><td><strong>IEC</strong></td><td>International Electrotechnical Commission</td><td>국제전기기술위원회.</td><td>ISO/IEC 공동표준의 버전을 기록한다.</td></tr><tr><td><strong>EU</strong></td><td>European Union</td><td>유럽연합.</td><td>EU 고객 대상 신용평가의 법적 적용을 따로 판단한다.</td></tr><tr><td><strong>GPAI</strong></td><td>General-Purpose Artificial Intelligence</td><td>범용 인공지능.</td><td>기반모델 제공자와 은행 이용자의 의무를 구분한다.</td></tr><tr><td><strong>FRIA</strong></td><td>Fundamental Rights Impact Assessment</td><td>기본권 영향평가.</td><td>EU 고위험 이용자 의무의 해당성을 검토한다.</td></tr><tr><td><strong>FSB</strong></td><td>Financial Stability Board</td><td>금융안정위원회.</td><td>동일 AI 공급자에 대한 공통 의존을 점검한다.</td></tr><tr><td><strong>BCBS</strong></td><td>Basel Committee on Banking Supervision</td><td>바젤은행감독위원회.</td><td>중요업무 중단과 복원력을 평가한다.</td></tr><tr><td><strong>BIS</strong></td><td>Bank for International Settlements</td><td>국제결제은행.</td><td>연구의 분석결과와 감독규정을 구분한다.</td></tr><tr><td><strong>SR</strong></td><td>Supervision and Regulation letter</td><td>미국 연준의 감독·규제 서한 식별 접두어.</td><td>SR26-2와 대체된 SR11-7의 효력을 나눈다.</td></tr><tr><td><strong>PRA</strong></td><td>Prudential Regulation Authority</td><td>영국 건전성감독청.</td><td>SS1/23 적용대상 기관 여부를 먼저 확인한다.</td></tr><tr><td><strong>SS</strong></td><td>Supervisory Statement</td><td>영국 감독정책 설명문.</td><td>SS1/23을 국내 직접 법률로 기록하지 않는다.</td></tr><tr><td><strong>MAS</strong></td><td>Monetary Authority of Singapore</td><td>싱가포르 통화청.</td><td>FEAT 원칙을 공정성·책임 검토에 참고한다.</td></tr><tr><td><strong>FEAT</strong></td><td>Fairness, Ethics, Accountability, Transparency</td><td>공정성·윤리·책임성·투명성 원칙.</td><td>고객 신용평가 이의제기와 설명 절차를 설계한다.</td></tr><tr><td><strong>SEC</strong></td><td>Securities and Exchange Commission</td><td>미국 증권거래위원회.</td><td>AI 기능 과장홍보 사례를 주장 증빙통제에 반영한다.</td></tr><tr><td><strong>FTC</strong></td><td>Federal Trade Commission</td><td>미국 연방거래위원회.</td><td>얼굴인식 오탐에 따른 고객 불이익 사례를 검토한다.</td></tr><tr><td><strong>OWASP</strong></td><td>Open Worldwide Application Security Project</td><td>오픈소스 애플리케이션 보안 국제 프로젝트.</td><td>최신 LLM 위협분류를 버전 고정해 시험에 연결한다.</td></tr><tr><td><strong>ID</strong></td><td>Identifier</td><td>식별자; 개체를 고유하게 구분하는 값.</td><td>실행ID 하나로 승인·결과·로그를 연결한다.</td></tr><tr><td><strong>UUID</strong></td><td>Universally Unique Identifier</td><td>범용 고유 식별자.</td><td>다른 테넌트의 유효 UUID도 권한 없이 조회 불가다.</td></tr><tr><td><strong>API</strong></td><td>Application Programming Interface</td><td>응용프로그램 인터페이스; 시스템 간 요청·응답 계약.</td><td>배포 API가 검증실패 버전을 거부한다.</td></tr><tr><td><strong>REST</strong></td><td>Representational State Transfer</td><td>자원 중심 웹 인터페이스 설계 방식.</td><td>실행요청 자원을 생성하고 상태를 조회한다.</td></tr><tr><td><strong>HTTP</strong></td><td>Hypertext Transfer Protocol</td><td>웹 요청·응답 통신 규약.</td><td>상태충돌은409, 필드오류는422로 구분한다.</td></tr><tr><td><strong>HTTPS</strong></td><td>HTTP over TLS</td><td>전송 암호화가 적용된 HTTP.</td><td>게이트 통신의 암호화와 상대 인증을 검사한다.</td></tr><tr><td><strong>JSON</strong></td><td>JavaScript Object Notation</td><td>이름·값으로 구조화한 데이터 표기법.</td><td>금액은10진 문자열로 전송한다.</td></tr><tr><td><strong>YAML</strong></td><td>YAML Ain't Markup Language</td><td>설정·구조화 데이터 표현 형식.</td><td>인터페이스 명세를 기계로 읽을 수 있게 제공한다.</td></tr><tr><td><strong>SQL</strong></td><td>Structured Query Language</td><td>관계형 데이터베이스 질의 언어.</td><td>승인원장을 직접수정하는 운영계정 권한은 제한한다.</td></tr><tr><td><strong>DDL</strong></td><td>Data Definition Language</td><td>테이블·형식·키를 정의하는 데이터 구조 정의문.</td><td>외래키로 다른 버전 승인 연결을 검증한다.</td></tr><tr><td><strong>DB</strong></td><td>Database</td><td>데이터베이스.</td><td>업무갱신과 감사이벤트 저장을 한 거래로 묶는다.</td></tr><tr><td><strong>PK</strong></td><td>Primary Key</td><td>기본키; 행의 고유 식별 기준.</td><td>테넌트ID와 객체ID로 행을 고유 구분한다.</td></tr><tr><td><strong>FK</strong></td><td>Foreign Key</td><td>외래키; 다른 행 참조의 정합성을 보장한다.</td><td>존재하지 않는 승인을 실행에 연결하지 못한다.</td></tr><tr><td><strong>RLS</strong></td><td>Row-Level Security</td><td>행 수준 보안; 조회·변경 가능한 행을 제한한다.</td><td>법인A 계정이 법인B 원장을 읽지 못한다.</td></tr><tr><td><strong>RBAC</strong></td><td>Role-Based Access Control</td><td>역할 기반 접근통제.</td><td>검증자는 검증결과 확인권한을 가진다.</td></tr><tr><td><strong>ABAC</strong></td><td>Attribute-Based Access Control</td><td>속성 기반 접근통제.</td><td>사용자부서·데이터등급·목적지로 반출을 제한한다.</td></tr><tr><td><strong>IAM</strong></td><td>Identity and Access Management</td><td>신원·접근관리.</td><td>퇴사 이벤트로 에이전트 위임권한을 회수한다.</td></tr><tr><td><strong>OIDC</strong></td><td>OpenID Connect</td><td>사용자 인증 정보를 전달하는 표준 계층.</td><td>은행 로그인 주체와 시스템 principal을 연결한다.</td></tr><tr><td><strong>OAuth</strong></td><td>OAuth authorization framework</td><td>위임 인가 프레임워크의 고유명.</td><td>토큰 범위를 사용자의 권한 이내로 제한한다.</td></tr><tr><td><strong>JWT</strong></td><td>JSON Web Token</td><td>서명 가능한 JSON 토큰 형식.</td><td>발급자·수신자·만료·회수버전을 모두 검증한다.</td></tr><tr><td><strong>jti</strong></td><td>JWT ID</td><td>토큰 고유 식별 클레임.</td><td>일회성 실행토큰의 중복 소비를 차단한다.</td></tr><tr><td><strong>aud</strong></td><td>Audience</td><td>토큰의 수신 대상 클레임.</td><td>보고서 도구 토큰을 이체도구에서 거부한다.</td></tr><tr><td><strong>iss</strong></td><td>Issuer</td><td>토큰 발급자 클레임.</td><td>신뢰된 은행 발급자 외 토큰을 거부한다.</td></tr><tr><td><strong>exp</strong></td><td>Expiration Time</td><td>토큰 만료시각 클레임.</td><td>만료시각 이상이면 실행 불가다.</td></tr><tr><td><strong>nbf</strong></td><td>Not Before</td><td>토큰 사용 가능 시작시각.</td><td>시작시각 이전 사용을 거부한다.</td></tr><tr><td><strong>TLS</strong></td><td>Transport Layer Security</td><td>전송계층 보안 규약.</td><td>통신내용 보호와 인증서 검증을 적용한다.</td></tr><tr><td><strong>mTLS</strong></td><td>Mutual Transport Layer Security</td><td>상호 인증을 하는 TLS.</td><td>게이트와 커넥터가 서로 인증한다.</td></tr><tr><td><strong>KMS</strong></td><td>Key Management Service</td><td>암호키 관리 서비스.</td><td>로그에 키 원문 대신 키 식별자만 기록한다.</td></tr><tr><td><strong>HSM</strong></td><td>Hardware Security Module</td><td>하드웨어 보안 모듈.</td><td>중요 서명키 보호에 사용하도록 설계할 수 있다.</td></tr><tr><td><strong>SHA-256</strong></td><td>Secure Hash Algorithm 256-bit</td><td>256비트 암호학적 해시.</td><td>배포번들 변경 여부를 비교한다.</td></tr><tr><td><strong>JCS</strong></td><td>JSON Canonicalization Scheme</td><td>JSON 정규 직렬화 방식.</td><td>필드 순서가 다른 동등 승인객체의 해시를 일관되게 계산한다.</td></tr><tr><td><strong>RFC</strong></td><td>Request for Comments</td><td>인터넷 기술명세 문서 계열.</td><td>RFC8785로 JCS 직렬화 규칙을 고정한다.</td></tr><tr><td><strong>ETag</strong></td><td>Entity Tag</td><td>자원의 버전 표지.</td><td>승인화면을 연 뒤 변경된 자료를 오래된 버전으로 승인하지 않는다.</td></tr><tr><td><strong>URL</strong></td><td>Uniform Resource Locator</td><td>자원의 위치를 나타내는 주소.</td><td>승인된 목적지 주소만 외부 연결에 사용한다.</td></tr><tr><td><strong>URI</strong></td><td>Uniform Resource Identifier</td><td>자원을 식별하는 문자열.</td><td>증빙URI는 허용된 저장소만 참조한다.</td></tr><tr><td><strong>UTC</strong></td><td>Coordinated Universal Time</td><td>협정세계시.</td><td>원장은 UTC로, 화면은 한국시간으로 표시한다.</td></tr><tr><td><strong>KST</strong></td><td>Korea Standard Time</td><td>한국표준시; UTC보다9시간 빠르다.</td><td>일간 집계의 날짜경계는 한국시간 기준이다.</td></tr><tr><td><strong>PII</strong></td><td>Personally Identifiable Information</td><td>개인 식별정보.</td><td>고객 이름·계좌 원문을 일반로그에 넣지 않는다.</td></tr><tr><td><strong>DLP</strong></td><td>Data Loss Prevention</td><td>정보유출 방지.</td><td>텍스트 외 이미지·음성 반출도 검사한다.</td></tr><tr><td><strong>SIEM</strong></td><td>Security Information and Event Management</td><td>보안정보·이벤트 통합관리.</td><td>금지 실행 경보를 보안관제와 연결한다.</td></tr><tr><td><strong>SOC</strong></td><td>Security Operations Center</td><td>보안관제센터.</td><td>야간 이상행위를 당직자가 확인한다.</td></tr><tr><td><strong>CISO</strong></td><td>Chief Information Security Officer</td><td>정보보호 최고책임자.</td><td>핵심 시스템 격리 승인·사고체계에 참여한다.</td></tr><tr><td><strong>CPO</strong></td><td>Chief Privacy Officer</td><td>개인정보보호 책임자.</td><td>고객원문 보관·삭제와 처리근거를 검토한다.</td></tr><tr><td><strong>CRO</strong></td><td>Chief Risk Officer</td><td>최고위험관리책임자.</td><td>고위험 AI 위험수용과 관리체계를 감독한다.</td></tr><tr><td><strong>SaaS</strong></td><td>Software as a Service</td><td>서비스형 소프트웨어.</td><td>문서협업 승인과 새 AI기능 승인을 구분한다.</td></tr><tr><td><strong>SLA</strong></td><td>Service Level Agreement</td><td>서비스 수준 협약.</td><td>공급자 사고통지·복구 조건을 계약으로 확인한다.</td></tr><tr><td><strong>SLO</strong></td><td>Service Level Objective</td><td>서비스 수준 목표.</td><td>중단 p95 목표를 합성시험에서 측정한다.</td></tr><tr><td><strong>RTO</strong></td><td>Recovery Time Objective</td><td>목표복구시간.</td><td>관리포털4시간 복구는 설계 목표로 검증한다.</td></tr><tr><td><strong>RPO</strong></td><td>Recovery Point Objective</td><td>복구시점목표; 허용 데이터손실 범위.</td><td>커밋 승인기록 손실0 목표를 장애영역과 함께 시험한다.</td></tr><tr><td><strong>BCP</strong></td><td>Business Continuity Plan</td><td>업무연속성계획.</td><td>AI 장애 시 수동상담과 대체업무를 가동한다.</td></tr><tr><td><strong>DR</strong></td><td>Disaster Recovery</td><td>재해복구.</td><td>백업을 실제 복원하고 승인·실행을 대사한다.</td></tr><tr><td><strong>UAT</strong></td><td>User Acceptance Testing</td><td>사용자 인수시험.</td><td>업무담당자가 기대결과·오류·예외를 검수한다.</td></tr><tr><td><strong>E2E</strong></td><td>End-to-End</td><td>종단간; 입력부터 최종 외부효과까지.</td><td>승인화면뿐 아니라 실제거래 원장까지 검사한다.</td></tr><tr><td><strong>CI/CD</strong></td><td>Continuous Integration / Continuous Delivery</td><td>지속적 통합·전달.</td><td>시험 자동시작과 운영승인을 구분한다.</td></tr><tr><td><strong>TOCTOU</strong></td><td>Time of Check to Time of Use</td><td>검사시점과 사용시점 사이 상태변경 문제.</td><td>승인 후 회수된 권한을 실행 직전 다시 확인한다.</td></tr><tr><td><strong>TP</strong></td><td>True Positive</td><td>실제 공격을 공격으로 맞게 탐지한 건수.</td><td>공격100건 중95건을 잡으면 TP95다.</td></tr><tr><td><strong>FP</strong></td><td>False Positive</td><td>정상 요청을 공격으로 오탐한 건수.</td><td>정상1000건 중20건 잘못 차단이면 FP20이다.</td></tr><tr><td><strong>TN</strong></td><td>True Negative</td><td>정상 요청을 정상으로 판정한 건수.</td><td>정상1000건에서 오탐20이면 TN980이다.</td></tr><tr><td><strong>FN</strong></td><td>False Negative</td><td>실제 공격을 놓친 건수.</td><td>공격100건 중95건 탐지이면 FN5이다.</td></tr><tr><td><strong>TPR</strong></td><td>True Positive Rate</td><td>공격 탐지율; TP/(TP+FN).</td><td>95/100=95%다.</td></tr><tr><td><strong>FPR</strong></td><td>False Positive Rate</td><td>정상 오탐률; FP/(FP+TN).</td><td>20/1000=2%다.</td></tr><tr><td><strong>ASR</strong></td><td>Attack Success Rate</td><td>공격 성공률; 성공 공격/유효 공격.</td><td>차단된 시도는 실제 금지효과 성공으로 세지 않는다.</td></tr><tr><td><strong>AUC</strong></td><td>Area Under ROC Curve</td><td>판별곡선 아래 면적; 서열화 능력 지표.</td><td>AUC가 높아도 PD 보정오류는 별도다.</td></tr><tr><td><strong>ROC</strong></td><td>Receiver Operating Characteristic</td><td>참양성률과 거짓양성률의 관계 곡선.</td><td>분류 임계값에 따른 판별 성능을 비교한다.</td></tr><tr><td><strong>PSI</strong></td><td>Population Stability Index</td><td>모집단 안정성 지수.</td><td>기준구간·0비중처리·모집단 변경을 기록한다.</td></tr><tr><td><strong>PD</strong></td><td>Probability of Default</td><td>부도확률.</td><td>1년2%를 월간2%로 오매핑하지 않는다.</td></tr><tr><td><strong>LGD</strong></td><td>Loss Given Default</td><td>부도 시 손실률.</td><td>회수비용·할인·담보가치 영향을 반영한다.</td></tr><tr><td><strong>EAD</strong></td><td>Exposure at Default</td><td>부도 시 익스포저.</td><td>현재사용액과 미인출약정의 전환을 구분한다.</td></tr><tr><td><strong>CCF</strong></td><td>Credit Conversion Factor</td><td>신용환산율.</td><td>미인출2억원×50%=추가노출1억원이다.</td></tr><tr><td><strong>EL</strong></td><td>Expected Loss</td><td>기대손실.</td><td>단순 PD×LGD×EAD를 회계손실과 혼동하지 않는다.</td></tr><tr><td><strong>UL</strong></td><td>Unexpected Loss</td><td>예상외손실.</td><td>손실분포·상관·신뢰수준을 별도 정의한다.</td></tr><tr><td><strong>RWA</strong></td><td>Risk-Weighted Assets</td><td>위험가중자산.</td><td>적용방식별 승인된 규제 계산엔진을 사용한다.</td></tr><tr><td><strong>O/E</strong></td><td>Observed / Expected</td><td>관측값 대비 예상값 비율.</td><td>실제부도30/예측부도20=1.5다.</td></tr><tr><td><strong>KRW</strong></td><td>Korean Won</td><td>대한민국 원 통화코드.</td><td>100만원의 원단위 금액은1000000이다.</td></tr><tr><td><strong>p50/p95/p99</strong></td><td>50th/95th/99th percentile</td><td>50·95·99백분위수.</td><td>평균이 좋아도 p99에서 긴 대기 위험을 확인한다.</td></tr><tr><td><strong>ms</strong></td><td>Millisecond</td><td>밀리초; 1초의1000분의1.</td><td>200ms=0.2초다.</td></tr><tr><td><strong>TTL</strong></td><td>Time to Live</td><td>유효 수명.</td><td>실행권의 TTL60초가 지나면 재인가한다.</td></tr><tr><td><strong>QPS</strong></td><td>Queries per Second</td><td>초당 질의/요청 건수.</td><td>100QPS 부하와 응답분포를 함께 기록한다.</td></tr><tr><td><strong>TPS</strong></td><td>Transactions per Second</td><td>초당 처리 거래 건수.</td><td>외부효과 있는 거래부하를 조회부하와 분리한다.</td></tr><tr><td><strong>CSV</strong></td><td>Comma-Separated Values</td><td>쉼표로 구분하는 표 데이터 형식.</td><td>요구사항 추적표를 내려받아 검수원장에 연계한다.</td></tr><tr><td><strong>HTML</strong></td><td>HyperText Markup Language</td><td>웹 문서 구조화 언어.</td><td>이 문서는 인터넷 없이 본문을 읽을 수 있다.</td></tr><tr><td><strong>PDF</strong></td><td>Portable Document Format</td><td>문서의 배치를 보존하는 형식.</td><td>컨퍼런스183쪽 PDF와98쪽 전자책 쪽수를 구분한다.</td></tr><tr><td><strong>BR</strong></td><td>Business Requirement</td><td>업무요건 식별 접두어.</td><td>BR-034를 승인변조 시험에 연결한다.</td></tr><tr><td><strong>AC</strong></td><td>Acceptance Criterion</td><td>인수조건 식별 접두어.</td><td>AC-BR-034는 승인 인수 변경의 기대결과다.</td></tr><tr><td><strong>UI</strong></td><td>User Interface</td><td>사용자 화면.</td><td>UI-06은 실행승인 화면이다.</td></tr><tr><td><strong>IF</strong></td><td>Interface</td><td>시스템 연계 식별 접두어.</td><td>IF-08은 외부행위 어댑터 계약이다.</td></tr><tr><td><strong>JOB</strong></td><td>Scheduled Job</td><td>정기·이벤트 작업 식별 접두어.</td><td>JOB-05는 증빙 대사 배치다.</td></tr><tr><td><strong>AX</strong></td><td>AI Transformation</td><td>인공지능 전환.</td><td>업무 효율화와 책임·통제체계 변화를 함께 관리한다.</td></tr><tr><td><strong>DNS</strong></td><td>Domain Name System</td><td>도메인 이름을 네트워크 주소로 변환하는 체계.</td><td>허용 도메인의 주소 변경·재해석도 반출정책에서 검사한다.</td></tr><tr><td><strong>DSL</strong></td><td>Domain-Specific Language</td><td>특정 업무에 맞춘 규칙 표현 언어.</td><td>정책초안을 실행 가능한 제한된 규칙으로 검증한다.</td></tr><tr><td><strong>FAQ</strong></td><td>Frequently Asked Questions</td><td>자주 묻는 질문.</td><td>공식 FAQ와 법령의 효력을 구분한다.</td></tr><tr><td><strong>SSO</strong></td><td>Single Sign-On</td><td>통합 로그인.</td><td>로그인 성공 이후에도 자원별 권한을 검사한다.</td></tr><tr><td><strong>NASA</strong></td><td>National Aeronautics and Space Administration</td><td>미국 항공우주국.</td><td>컨퍼런스 사례는 탐사선 관련 챗봇과 비행제어를 구분한다.</td></tr><tr><td><strong>CI</strong></td><td>Confidence Interval / Continuous Integration</td><td>신뢰구간 / 지속적 통합; 통계와 개발 맥락을 구분한다.</td><td>지표의95% CI는 불확실성 범위, CI/CD는 개발 절차다.</td></tr><tr><td><strong>KR/US</strong></td><td>Republic of Korea / United States</td><td>대한민국 / 미국 관할 코드.</td><td>규정원장에 KR과 US 적용 판단을 별도 기록한다.</td></tr><tr><td><strong>AI RMF</strong></td><td>Artificial Intelligence Risk Management Framework</td><td>인공지능 리스크관리 프레임워크.</td><td>신규 AI 등록부터 평가·통제·모니터링 증거를 연결한다.</td></tr><tr><td><strong>AIMS</strong></td><td>Artificial Intelligence Management System</td><td>인공지능 경영시스템.</td><td>반복 오답을 개별 수정과 경영진 개선조치에 함께 반영한다.</td></tr><tr><td><strong>CGRM</strong></td><td>Consultative Group on Risk Management</td><td>위험관리협의그룹.</td><td>기관의 거버넌스 연구를 참고하되 은행 내규 적용 여부를 별도 결정한다.</td></tr><tr><td><strong>FDIC</strong></td><td>Federal Deposit Insurance Corporation</td><td>미국 연방예금보험공사.</td><td>공동 모델리스크 지침의 대상기관·규모와 국내 적용안을 구분한다.</td></tr><tr><td><strong>FSI</strong></td><td>Financial Stability Institute</td><td>금융안정연구소.</td><td>데이터 품질 감독동향을 출처·기준시점 관리에 연결한다.</td></tr><tr><td><strong>OCC</strong></td><td>Office of the Comptroller of the Currency</td><td>미국 통화감독청.</td><td>공동 지침의 현행버전을 확인하고 대체된 문서를 역사자료로 표시한다.</td></tr><tr><td><strong>TPSP</strong></td><td>Third-Party Service Provider</td><td>제3자 서비스 제공자.</td><td>모델 공급자와 재위탁자의 처리지역·사고통지·종료계약을 확인한다.</td></tr><tr><td><strong>SoD</strong></td><td>Segregation of Duties</td><td>직무분리</td><td>개발과 자기검증·승인 겸직을 검사한다.</td></tr><tr><td><strong>MiB</strong></td><td>Mebibyte</td><td>1,048,576바이트</td><td>API 본문 한도를 바이트로 검사한다.</td></tr><tr><td><strong>NFR</strong></td><td>Non-Functional Requirement</td><td>비기능 요건</td><td>NFR-01은 통제 계층 지연 목표다.</td></tr><tr><td><strong>SEC-시험</strong></td><td>Security Test</td><td>보안시험 식별 접두어(기관 SEC와 다름)</td><td>SEC-005는 승인 인수 변경시험이다.</td></tr><tr><td><strong>S3</strong></td><td>Simple Storage Service</td><td>객체저장 서비스의 고유명/호환 인터페이스</td><td>증빙 저장소 주소와 키·보존 설정을 고정한다.</td></tr><tr><td><strong>ACL</strong></td><td>Access Control List</td><td>접근제어목록</td><td>검색 결과 문서의 허용 사용자 목록을 검사한다.</td></tr><tr><td><strong>WORM</strong></td><td>Write Once Read Many</td><td>일회 기록·반복 읽기 보존 방식</td><td>감사증빙의 임의 변경을 제한한다.</td></tr><tr><td><strong>IT</strong></td><td>Information Technology</td><td>정보기술</td><td>운영부서가 배포와 복구를 수행한다.</td></tr><tr><td><strong>SDLC</strong></td><td>Software Development Life Cycle</td><td>소프트웨어 개발 생애주기</td><td>개발·시험·배포의 승인과 증거를 연결한다.</td></tr></tbody></table></div></div></section><footer class="footer">AI 리스크관리 문서 세트 · v1.0 · 2026-09-08<br>외부 자바스크립트·글꼴·통신 없이 본문·표·검색을 사용할 수 있습니다. 근거 링크 열기는 인터넷 연결이 필요합니다.<br>검수: 문서 구조·요건/식별자·내장 계약 참조·샘플 산식 점검. 화면 시각 검토는 로컬 URL 정책 제한으로 미수행. 실제 시스템·데이터베이스 운영 검증 결과가 아닙니다.</footer></main></div><a class="backtop" href="#top">맨 위로 ↑</a><script type="application/json" id="glossary-data">[["AI","Artificial Intelligence","인공지능; 예측·생성·행동 기술을 포함한다.","여신요약 모델과 이체도구 에이전트 모두 등록한다."],["LLM","Large Language Model","대규모 언어모델; 문맥에 따라 문장을 생성한다.","규정 인용의 사실성을 별도 대조한다."],["GenAI","Generative Artificial Intelligence","생성형 인공지능.","상담답변을 만들되 가짜 금리조건은 실패로 판정한다."],["RAG","Retrieval-Augmented Generation","검색증강생성; 자료를 검색해 답변 근거로 제공한다.","검색 전 고객별 문서권한을 적용한다."],["VLM","Vision-Language Model","시각 언어모델; 이미지와 텍스트를 처리한다.","계좌번호가 담긴 이미지도 반출검사한다."],["SLM","Small Language Model","소형 언어모델; 상대적으로 작은 모델.","소형 가드레일도 오탐·미탐을 시험한다."],["MCP","Model Context Protocol","모델과 외부 도구·자료를 연결하는 프로토콜.","새 MCP 도구 등록 시 권한·스키마를 심사한다."],["IFC","Information Flow Control","정보흐름 통제; 출처·등급·허용경로를 관리한다.","비신뢰 문서 요약에도 출처 레이블을 유지한다."],["HITL","Human-in-the-Loop","사람이 검토·승인에 개입하는 통제 방식.","대외 발송 전에 담당자가 실제 수신자를 확인한다."],["4-Eyes","Four-eyes principle","수행자와 다른 사람의 검토·승인 원칙.","개발자가 자신의 배포를 최종 승인할 수 없다."],["MRM","Model Risk Management","모형리스크관리.","변별력 외 보정·안정성·운영사용을 검증한다."],["RMF","Risk Management Framework","위험관리 프레임워크; 기관별 내용과 버전이 다르다.","금감원 문서와 NIST 문서를 동일 규정으로 취급하지 않는다."],["NIST","National Institute of Standards and Technology","미국 국립표준기술연구소.","AI RMF를 내부 통제 설계 참고로 사용한다."],["ISO","International Organization for Standardization","국제표준화기구.","ISO42001 공개 개요와 유료 조항 검토를 구분한다."],["IEC","International Electrotechnical Commission","국제전기기술위원회.","ISO/IEC 공동표준의 버전을 기록한다."],["EU","European Union","유럽연합.","EU 고객 대상 신용평가의 법적 적용을 따로 판단한다."],["GPAI","General-Purpose Artificial Intelligence","범용 인공지능.","기반모델 제공자와 은행 이용자의 의무를 구분한다."],["FRIA","Fundamental Rights Impact Assessment","기본권 영향평가.","EU 고위험 이용자 의무의 해당성을 검토한다."],["FSB","Financial Stability Board","금융안정위원회.","동일 AI 공급자에 대한 공통 의존을 점검한다."],["BCBS","Basel Committee on Banking Supervision","바젤은행감독위원회.","중요업무 중단과 복원력을 평가한다."],["BIS","Bank for International Settlements","국제결제은행.","연구의 분석결과와 감독규정을 구분한다."],["SR","Supervision and Regulation letter","미국 연준의 감독·규제 서한 식별 접두어.","SR26-2와 대체된 SR11-7의 효력을 나눈다."],["PRA","Prudential Regulation Authority","영국 건전성감독청.","SS1/23 적용대상 기관 여부를 먼저 확인한다."],["SS","Supervisory Statement","영국 감독정책 설명문.","SS1/23을 국내 직접 법률로 기록하지 않는다."],["MAS","Monetary Authority of Singapore","싱가포르 통화청.","FEAT 원칙을 공정성·책임 검토에 참고한다."],["FEAT","Fairness, Ethics, Accountability, Transparency","공정성·윤리·책임성·투명성 원칙.","고객 신용평가 이의제기와 설명 절차를 설계한다."],["SEC","Securities and Exchange Commission","미국 증권거래위원회.","AI 기능 과장홍보 사례를 주장 증빙통제에 반영한다."],["FTC","Federal Trade Commission","미국 연방거래위원회.","얼굴인식 오탐에 따른 고객 불이익 사례를 검토한다."],["OWASP","Open Worldwide Application Security Project","오픈소스 애플리케이션 보안 국제 프로젝트.","최신 LLM 위협분류를 버전 고정해 시험에 연결한다."],["ID","Identifier","식별자; 개체를 고유하게 구분하는 값.","실행ID 하나로 승인·결과·로그를 연결한다."],["UUID","Universally Unique Identifier","범용 고유 식별자.","다른 테넌트의 유효 UUID도 권한 없이 조회 불가다."],["API","Application Programming Interface","응용프로그램 인터페이스; 시스템 간 요청·응답 계약.","배포 API가 검증실패 버전을 거부한다."],["REST","Representational State Transfer","자원 중심 웹 인터페이스 설계 방식.","실행요청 자원을 생성하고 상태를 조회한다."],["HTTP","Hypertext Transfer Protocol","웹 요청·응답 통신 규약.","상태충돌은409, 필드오류는422로 구분한다."],["HTTPS","HTTP over TLS","전송 암호화가 적용된 HTTP.","게이트 통신의 암호화와 상대 인증을 검사한다."],["JSON","JavaScript Object Notation","이름·값으로 구조화한 데이터 표기법.","금액은10진 문자열로 전송한다."],["YAML","YAML Ain't Markup Language","설정·구조화 데이터 표현 형식.","인터페이스 명세를 기계로 읽을 수 있게 제공한다."],["SQL","Structured Query Language","관계형 데이터베이스 질의 언어.","승인원장을 직접수정하는 운영계정 권한은 제한한다."],["DDL","Data Definition Language","테이블·형식·키를 정의하는 데이터 구조 정의문.","외래키로 다른 버전 승인 연결을 검증한다."],["DB","Database","데이터베이스.","업무갱신과 감사이벤트 저장을 한 거래로 묶는다."],["PK","Primary Key","기본키; 행의 고유 식별 기준.","테넌트ID와 객체ID로 행을 고유 구분한다."],["FK","Foreign Key","외래키; 다른 행 참조의 정합성을 보장한다.","존재하지 않는 승인을 실행에 연결하지 못한다."],["RLS","Row-Level Security","행 수준 보안; 조회·변경 가능한 행을 제한한다.","법인A 계정이 법인B 원장을 읽지 못한다."],["RBAC","Role-Based Access Control","역할 기반 접근통제.","검증자는 검증결과 확인권한을 가진다."],["ABAC","Attribute-Based Access Control","속성 기반 접근통제.","사용자부서·데이터등급·목적지로 반출을 제한한다."],["IAM","Identity and Access Management","신원·접근관리.","퇴사 이벤트로 에이전트 위임권한을 회수한다."],["OIDC","OpenID Connect","사용자 인증 정보를 전달하는 표준 계층.","은행 로그인 주체와 시스템 principal을 연결한다."],["OAuth","OAuth authorization framework","위임 인가 프레임워크의 고유명.","토큰 범위를 사용자의 권한 이내로 제한한다."],["JWT","JSON Web Token","서명 가능한 JSON 토큰 형식.","발급자·수신자·만료·회수버전을 모두 검증한다."],["jti","JWT ID","토큰 고유 식별 클레임.","일회성 실행토큰의 중복 소비를 차단한다."],["aud","Audience","토큰의 수신 대상 클레임.","보고서 도구 토큰을 이체도구에서 거부한다."],["iss","Issuer","토큰 발급자 클레임.","신뢰된 은행 발급자 외 토큰을 거부한다."],["exp","Expiration Time","토큰 만료시각 클레임.","만료시각 이상이면 실행 불가다."],["nbf","Not Before","토큰 사용 가능 시작시각.","시작시각 이전 사용을 거부한다."],["TLS","Transport Layer Security","전송계층 보안 규약.","통신내용 보호와 인증서 검증을 적용한다."],["mTLS","Mutual Transport Layer Security","상호 인증을 하는 TLS.","게이트와 커넥터가 서로 인증한다."],["KMS","Key Management Service","암호키 관리 서비스.","로그에 키 원문 대신 키 식별자만 기록한다."],["HSM","Hardware Security Module","하드웨어 보안 모듈.","중요 서명키 보호에 사용하도록 설계할 수 있다."],["SHA-256","Secure Hash Algorithm 256-bit","256비트 암호학적 해시.","배포번들 변경 여부를 비교한다."],["JCS","JSON Canonicalization Scheme","JSON 정규 직렬화 방식.","필드 순서가 다른 동등 승인객체의 해시를 일관되게 계산한다."],["RFC","Request for Comments","인터넷 기술명세 문서 계열.","RFC8785로 JCS 직렬화 규칙을 고정한다."],["ETag","Entity Tag","자원의 버전 표지.","승인화면을 연 뒤 변경된 자료를 오래된 버전으로 승인하지 않는다."],["URL","Uniform Resource Locator","자원의 위치를 나타내는 주소.","승인된 목적지 주소만 외부 연결에 사용한다."],["URI","Uniform Resource Identifier","자원을 식별하는 문자열.","증빙URI는 허용된 저장소만 참조한다."],["UTC","Coordinated Universal Time","협정세계시.","원장은 UTC로, 화면은 한국시간으로 표시한다."],["KST","Korea Standard Time","한국표준시; UTC보다9시간 빠르다.","일간 집계의 날짜경계는 한국시간 기준이다."],["PII","Personally Identifiable Information","개인 식별정보.","고객 이름·계좌 원문을 일반로그에 넣지 않는다."],["DLP","Data Loss Prevention","정보유출 방지.","텍스트 외 이미지·음성 반출도 검사한다."],["SIEM","Security Information and Event Management","보안정보·이벤트 통합관리.","금지 실행 경보를 보안관제와 연결한다."],["SOC","Security Operations Center","보안관제센터.","야간 이상행위를 당직자가 확인한다."],["CISO","Chief Information Security Officer","정보보호 최고책임자.","핵심 시스템 격리 승인·사고체계에 참여한다."],["CPO","Chief Privacy Officer","개인정보보호 책임자.","고객원문 보관·삭제와 처리근거를 검토한다."],["CRO","Chief Risk Officer","최고위험관리책임자.","고위험 AI 위험수용과 관리체계를 감독한다."],["SaaS","Software as a Service","서비스형 소프트웨어.","문서협업 승인과 새 AI기능 승인을 구분한다."],["SLA","Service Level Agreement","서비스 수준 협약.","공급자 사고통지·복구 조건을 계약으로 확인한다."],["SLO","Service Level Objective","서비스 수준 목표.","중단 p95 목표를 합성시험에서 측정한다."],["RTO","Recovery Time Objective","목표복구시간.","관리포털4시간 복구는 설계 목표로 검증한다."],["RPO","Recovery Point Objective","복구시점목표; 허용 데이터손실 범위.","커밋 승인기록 손실0 목표를 장애영역과 함께 시험한다."],["BCP","Business Continuity Plan","업무연속성계획.","AI 장애 시 수동상담과 대체업무를 가동한다."],["DR","Disaster Recovery","재해복구.","백업을 실제 복원하고 승인·실행을 대사한다."],["UAT","User Acceptance Testing","사용자 인수시험.","업무담당자가 기대결과·오류·예외를 검수한다."],["E2E","End-to-End","종단간; 입력부터 최종 외부효과까지.","승인화면뿐 아니라 실제거래 원장까지 검사한다."],["CI/CD","Continuous Integration / Continuous Delivery","지속적 통합·전달.","시험 자동시작과 운영승인을 구분한다."],["TOCTOU","Time of Check to Time of Use","검사시점과 사용시점 사이 상태변경 문제.","승인 후 회수된 권한을 실행 직전 다시 확인한다."],["TP","True Positive","실제 공격을 공격으로 맞게 탐지한 건수.","공격100건 중95건을 잡으면 TP95다."],["FP","False Positive","정상 요청을 공격으로 오탐한 건수.","정상1000건 중20건 잘못 차단이면 FP20이다."],["TN","True Negative","정상 요청을 정상으로 판정한 건수.","정상1000건에서 오탐20이면 TN980이다."],["FN","False Negative","실제 공격을 놓친 건수.","공격100건 중95건 탐지이면 FN5이다."],["TPR","True Positive Rate","공격 탐지율; TP/(TP+FN).","95/100=95%다."],["FPR","False Positive Rate","정상 오탐률; FP/(FP+TN).","20/1000=2%다."],["ASR","Attack Success Rate","공격 성공률; 성공 공격/유효 공격.","차단된 시도는 실제 금지효과 성공으로 세지 않는다."],["AUC","Area Under ROC Curve","판별곡선 아래 면적; 서열화 능력 지표.","AUC가 높아도 PD 보정오류는 별도다."],["ROC","Receiver Operating Characteristic","참양성률과 거짓양성률의 관계 곡선.","분류 임계값에 따른 판별 성능을 비교한다."],["PSI","Population Stability Index","모집단 안정성 지수.","기준구간·0비중처리·모집단 변경을 기록한다."],["PD","Probability of Default","부도확률.","1년2%를 월간2%로 오매핑하지 않는다."],["LGD","Loss Given Default","부도 시 손실률.","회수비용·할인·담보가치 영향을 반영한다."],["EAD","Exposure at Default","부도 시 익스포저.","현재사용액과 미인출약정의 전환을 구분한다."],["CCF","Credit Conversion Factor","신용환산율.","미인출2억원×50%=추가노출1억원이다."],["EL","Expected Loss","기대손실.","단순 PD×LGD×EAD를 회계손실과 혼동하지 않는다."],["UL","Unexpected Loss","예상외손실.","손실분포·상관·신뢰수준을 별도 정의한다."],["RWA","Risk-Weighted Assets","위험가중자산.","적용방식별 승인된 규제 계산엔진을 사용한다."],["O/E","Observed / Expected","관측값 대비 예상값 비율.","실제부도30/예측부도20=1.5다."],["KRW","Korean Won","대한민국 원 통화코드.","100만원의 원단위 금액은1000000이다."],["p50/p95/p99","50th/95th/99th percentile","50·95·99백분위수.","평균이 좋아도 p99에서 긴 대기 위험을 확인한다."],["ms","Millisecond","밀리초; 1초의1000분의1.","200ms=0.2초다."],["TTL","Time to Live","유효 수명.","실행권의 TTL60초가 지나면 재인가한다."],["QPS","Queries per Second","초당 질의/요청 건수.","100QPS 부하와 응답분포를 함께 기록한다."],["TPS","Transactions per Second","초당 처리 거래 건수.","외부효과 있는 거래부하를 조회부하와 분리한다."],["CSV","Comma-Separated Values","쉼표로 구분하는 표 데이터 형식.","요구사항 추적표를 내려받아 검수원장에 연계한다."],["HTML","HyperText Markup Language","웹 문서 구조화 언어.","이 문서는 인터넷 없이 본문을 읽을 수 있다."],["PDF","Portable Document Format","문서의 배치를 보존하는 형식.","컨퍼런스183쪽 PDF와98쪽 전자책 쪽수를 구분한다."],["BR","Business Requirement","업무요건 식별 접두어.","BR-034를 승인변조 시험에 연결한다."],["AC","Acceptance Criterion","인수조건 식별 접두어.","AC-BR-034는 승인 인수 변경의 기대결과다."],["UI","User Interface","사용자 화면.","UI-06은 실행승인 화면이다."],["IF","Interface","시스템 연계 식별 접두어.","IF-08은 외부행위 어댑터 계약이다."],["JOB","Scheduled Job","정기·이벤트 작업 식별 접두어.","JOB-05는 증빙 대사 배치다."],["AX","AI Transformation","인공지능 전환.","업무 효율화와 책임·통제체계 변화를 함께 관리한다."],["DNS","Domain Name System","도메인 이름을 네트워크 주소로 변환하는 체계.","허용 도메인의 주소 변경·재해석도 반출정책에서 검사한다."],["DSL","Domain-Specific Language","특정 업무에 맞춘 규칙 표현 언어.","정책초안을 실행 가능한 제한된 규칙으로 검증한다."],["FAQ","Frequently Asked Questions","자주 묻는 질문.","공식 FAQ와 법령의 효력을 구분한다."],["SSO","Single Sign-On","통합 로그인.","로그인 성공 이후에도 자원별 권한을 검사한다."],["NASA","National Aeronautics and Space Administration","미국 항공우주국.","컨퍼런스 사례는 탐사선 관련 챗봇과 비행제어를 구분한다."],["CI","Confidence Interval / Continuous Integration","신뢰구간 / 지속적 통합; 통계와 개발 맥락을 구분한다.","지표의95% CI는 불확실성 범위, CI/CD는 개발 절차다."],["KR/US","Republic of Korea / United States","대한민국 / 미국 관할 코드.","규정원장에 KR과 US 적용 판단을 별도 기록한다."],["AI RMF","Artificial Intelligence Risk Management Framework","인공지능 리스크관리 프레임워크.","신규 AI 등록부터 평가·통제·모니터링 증거를 연결한다."],["AIMS","Artificial Intelligence Management System","인공지능 경영시스템.","반복 오답을 개별 수정과 경영진 개선조치에 함께 반영한다."],["CGRM","Consultative Group on Risk Management","위험관리협의그룹.","기관의 거버넌스 연구를 참고하되 은행 내규 적용 여부를 별도 결정한다."],["FDIC","Federal Deposit Insurance Corporation","미국 연방예금보험공사.","공동 모델리스크 지침의 대상기관·규모와 국내 적용안을 구분한다."],["FSI","Financial Stability Institute","금융안정연구소.","데이터 품질 감독동향을 출처·기준시점 관리에 연결한다."],["OCC","Office of the Comptroller of the Currency","미국 통화감독청.","공동 지침의 현행버전을 확인하고 대체된 문서를 역사자료로 표시한다."],["TPSP","Third-Party Service Provider","제3자 서비스 제공자.","모델 공급자와 재위탁자의 처리지역·사고통지·종료계약을 확인한다."],["SoD","Segregation of Duties","직무분리","개발과 자기검증·승인 겸직을 검사한다."],["MiB","Mebibyte","1,048,576바이트","API 본문 한도를 바이트로 검사한다."],["NFR","Non-Functional Requirement","비기능 요건","NFR-01은 통제 계층 지연 목표다."],["SEC-시험","Security Test","보안시험 식별 접두어(기관 SEC와 다름)","SEC-005는 승인 인수 변경시험이다."],["S3","Simple Storage Service","객체저장 서비스의 고유명/호환 인터페이스","증빙 저장소 주소와 키·보존 설정을 고정한다."],["ACL","Access Control List","접근제어목록","검색 결과 문서의 허용 사용자 목록을 검사한다."],["WORM","Write Once Read Many","일회 기록·반복 읽기 보존 방식","감사증빙의 임의 변경을 제한한다."],["IT","Information Technology","정보기술","운영부서가 배포와 복구를 수행한다."],["SDLC","Software Development Life Cycle","소프트웨어 개발 생애주기","개발·시험·배포의 승인과 증거를 연결한다."]]</script><script type="application/json" id="embedded-files">{}</script><script>const qs=s=>document.querySelector(s);const sections=[...document.querySelectorAll('.chapter')];const input=qs('#search');input.addEventListener('input',()=>{const q=input.value.trim().toLowerCase();let count=0;sections.forEach(s=>{const yes=!q||s.textContent.toLowerCase().includes(q);s.classList.toggle('hidden',!yes);if(yes)count++;});qs('#matchCount').textContent=q?count+'개 장 일치':'';qs('.empty').style.display=count?'none':'block';document.querySelectorAll('.sidebar nav a').forEach(a=>a.classList.toggle('hidden',!!q&&!qs(a.getAttribute('href'))?.textContent.toLowerCase().includes(q)));});qs('#clear').onclick=()=>{input.value='';input.dispatchEvent(new Event('input'));};qs('#print').onclick=()=>{input.value='';input.dispatchEvent(new Event('input'));document.querySelectorAll('details').forEach(d=>d.open=true);window.print();};qs('#menu').onclick=()=>qs('.sidebar').classList.toggle('open');document.querySelectorAll('.sidebar a').forEach(a=>a.addEventListener('click',()=>qs('.sidebar').classList.remove('open')));function reveal(){if(location.hash){input.value='';input.dispatchEvent(new Event('input'));let el=document.getElementById(decodeURIComponent(location.hash.slice(1)));if(el){for(let p=el;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;setTimeout(()=>el.scrollIntoView(),30);}}}window.addEventListener('hashchange',reveal);window.addEventListener('beforeprint',()=>document.querySelectorAll('details').forEach(d=>d.open=true));const obs=new IntersectionObserver(es=>{for(const e of es)if(e.isIntersecting){document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('active',a.hash==='#'+e.target.id));}},{rootMargin:'-15% 0px -70% 0px'});sections.forEach(s=>obs.observe(s));window.addEventListener('scroll',()=>{qs('.progress').style.width=(scrollY/(document.documentElement.scrollHeight-innerHeight)*100)+'%';});const dict=JSON.parse(qs('#glossary-data').textContent);const entries=dict.filter(x=>/^[A-Za-z][A-Za-z0-9/-]*$/.test(x[0])).sort((a,b)=>b[0].length-a[0].length);const map=new Map(entries.map(x=>[x[0],x]));const pattern=new RegExp('(?<![A-Za-z0-9_])('+entries.map(x=>x[0]).join('|')+')(?![A-Za-z0-9_])','g');const walker=document.createTreeWalker(qs('main'),NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement.closest('pre,code,a,abbr,script,#glossary,.tag,h1,h2,h3,h4')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);nodes.forEach(n=>{const text=n.textContent;pattern.lastIndex=0;if(!pattern.test(text))return;pattern.lastIndex=0;const frag=document.createDocumentFragment();let pos=0;for(const m of text.matchAll(pattern)){frag.append(text.slice(pos,m.index));const ab=document.createElement('abbr');const row=map.get(m[0]);ab.title=row[1]+' · '+row[2];ab.textContent=m[0];frag.append(ab);pos=m.index+m[0].length;}frag.append(text.slice(pos));n.replaceWith(frag);});document.querySelectorAll('button[data-download]').forEach(b=>b.onclick=()=>{const d=JSON.parse(qs('#embedded-files').textContent)[b.dataset.download];const a=document.createElement('a');const u=URL.createObjectURL(new Blob([d.content],{type:d.type}));a.href=u;a.download=b.dataset.download;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);});reveal();</script></body></html>

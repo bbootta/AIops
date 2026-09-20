@@ -411,7 +411,9 @@ def test_cli_report_set_command(tmp_path):
     from risk_lib.cli import main
     out = tmp_path / "cro"
     rc = main(["report-set", "--out", str(out), "--seed", "42"])
-    assert rc == 0
+    # 표본은 2선 FAIL 1건(위기 저점 요구치 미달)을 안고 있어 종료코드 1 이다.
+    # 보고서는 그래도 만들어진다: 무엇이 막았는지 읽어야 한다.
+    assert rc == 1
     assert (out / "executive.html").exists()
     assert (out / "manifest.json").exists()
     assert (out / "ops" / "index.html").exists()

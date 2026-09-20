@@ -210,7 +210,7 @@ def test_close_gate_blocks_a_step_whose_predecessor_is_incomplete():
 def test_out_of_order_completion_is_reported_separately():
     """선행이 미완인데 완료된 단계는 차단이 아니라 순서위반이다."""
     tables, _ = cw.build_close_workflow(
-        {"gov_approval": pd.DataFrame({"a": [1]})}, asof=ASOF)
+        {"gov_approval": pd.DataFrame({"subject_type": ["업무보고서 서식"], "decision": ["승인"]})}, asof=ASOF)
     gates = tables["opr_close_gate"]
     assert gates[gates["task_id"] == "CL-11"].iloc[0]["decision"] == "순서위반"
 
@@ -234,6 +234,8 @@ def test_an_upstream_violation_reaches_the_approval_step():
     one = pd.DataFrame({"a": [1]})
     # CL-02 의 증빙만 비운다. 나머지는 전부 완료다.
     tables = {t: one for t in cw.build_close_tasks({})["evidence_table"]}
+    tables["gov_approval"] = pd.DataFrame({"subject_type": ["업무보고서 서식"], "decision": ["승인"]})
+    tables["reg_submission"] = pd.DataFrame({"status": ["submitted"]})
     del tables["rdm_dq_result"]
     led, issues = cw.build_close_workflow(tables, asof=ASOF)
     g = led["opr_close_gate"].set_index("task_id")
@@ -247,9 +249,14 @@ def test_an_upstream_violation_reaches_the_approval_step():
 
 
 def test_a_clean_run_has_no_gate_violation():
-    """모든 증빙이 있으면 이행폐포로 봐도 전부 진행가능이다."""
+    """모든 증빙이 있고 3선 게이트가 승인이면 이행폐포로 봐도 전부 진행가능이다."""
     one = pd.DataFrame({"a": [1]})
     tables = {t: one for t in cw.build_close_tasks({})["evidence_table"]}
+    # CL-10 은 행수가 아니라 게이트 상태로 판정한다 (검수 2단계)
+    tables["val_independent_request"] = pd.DataFrame({"status": ["적합"]})
+    # 결재·제출도 승인·제출 상태여야 완료다 (검수 1단계)
+    tables["gov_approval"] = pd.DataFrame({"subject_type": ["업무보고서 서식"], "decision": ["승인"]})
+    tables["reg_submission"] = pd.DataFrame({"status": ["submitted"]})
     led, issues = cw.build_close_workflow(tables, asof=ASOF)
     assert set(led["opr_close_gate"]["decision"]) == {"진행가능"}
     assert not issues

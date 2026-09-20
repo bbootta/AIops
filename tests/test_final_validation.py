@@ -209,11 +209,19 @@ def test_pipeline_includes_cross_domain_checks(pipeline_result):
 
 
 def test_pipeline_passes_overall(pipeline_result):
-    """All real-data cross-domain checks should pass on the canonical seed."""
+    """All real-data cross-domain checks pass on the canonical seed.
+
+    The one expected FAIL is stress_trough_meets_requirement: the sample bank
+    is below its Pillar 2 total-capital requirement already in the baseline
+    path, and since the 2026-09 remediation that check compares every tier and
+    blocks approval. Any other FAIL is a regression.
+    """
     v = pipeline_result.validation
-    assert v.passes(), [
-        (c.name, c.status, c.detail) for c in v.checks if c.status == "FAIL"
-    ]
+    fails = [(c.name, c.status, c.detail) for c in v.checks if c.status == "FAIL"]
+    assert [f[0] for f in fails] == ["stress_trough_meets_requirement"], fails
+    assert not v.passes()
+    assert not [c for c in v.checks
+                if c.name.startswith("xd_") and c.status == "FAIL"]
 
 
 def test_pipeline_reproducibility_bit_for_bit():

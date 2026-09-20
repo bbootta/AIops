@@ -175,8 +175,13 @@ CRITERIA: tuple[tuple, ...] = (
      ""),
     ("세칙", "제17조", "01", ("데이터", "내부통제"),
      "산정 시점이 지표별로 구분되는가: 자기자본비중·단순기본자본비율·NSFR·거액익스포져비율은 가결산일·결산일 현재, LCR·원화예대율은 매월 평잔 (제17조제2항)",
+     "automated", ("harness/liquidity_risk_thresholds.json", "src/vta/domains/liquidity.py",
+                   "src/vta/domains/alm.py"),
+     "check_lcr·check_won_loan_to_deposit 이 basis 를 받아 월평잔 여부를 대조한다. 호출자가 기준을 밝히지 않으면 판단하지 않고 미확인으로 남긴다"),
+    ("세칙", "제17조", "01", ("데이터", "내부통제"),
+     "산정 시점 기준을 밝히지 않았거나 밝힌 기준이 실제와 같은지 사람이 확인하는가: LCR·원화예대율 (제17조제2항)",
      "manual", (),
-     "하니스는 LCR·원화예대율을 시점값 하나로 받는다. 월평잔 여부를 판별할 입력이 없어 사람 확인 항목으로 남긴다: 시점값을 평잔으로 보고하면 잡지 못한다"),
+     "하니스는 basis 를 받아 대조하고 미제공이면 미확인으로 표시할 뿐이다. 시점값을 월평잔이라 표기해 보내면 잡지 못한다: 입력 표기의 진위는 사람 확인 사항이다"),
     ("세칙", "제17조", "01", ("내부통제",),
      "완충자본 포함 자본비율 미달이 예상될 때 배당·자사주매입·성과연동상여 제한과 자본계획 승인 절차로 연결되는가 (제17조제3항)",
      "automated", ("harness/capital_adequacy_thresholds.json", "src/vta/domains/capital.py"),
@@ -237,8 +242,8 @@ CRITERIA: tuple[tuple, ...] = (
      "automated", ("harness/liquidity_risk_thresholds.json", "src/vta/domains/liquidity.py"), ""),
     ("세칙", "별표 3의7", "05", ("산식", "데이터"),
      "원화예대율이 월평잔 기준으로 산출되고 양도성예금증서·커버드본드 산입 한도(원화예수금의 1/100·합산 2/100)가 적용되는가",
-     "manual", (),
-     "하니스에 원화예대율 산출·한도 적용이 없다. ALM 도메인의 예대율은 잔액 기준 관리지표이며 이 기준과 다르다"),
+     "automated", ("harness/alm_thresholds.json", "src/vta/domains/alm.py"),
+     "check_won_loan_to_deposit 이 커버드본드·CD 한도와 지역별 가감을 적용한다. CD 한도와 가감의 적용 순서는 규정 문언이 정하지 않아 한도를 마지막에 둔다"),
     ("세칙", "별표 3의10", "05", ("산식",),
      "순안정자금조달비율이 국내 산출기준(ASF·RSF 계수)으로 재계산되는가",
      "automated", ("harness/liquidity_risk_thresholds.json", "src/vta/domains/liquidity.py"), ""),
@@ -320,7 +325,8 @@ CRITERIA_REG: tuple[tuple, ...] = (
                    "harness/concentration_thresholds.json"), ""),
     ("규정", "제26조", "05", ("내부통제",),
      "원화예대율이 적용 제외 대상인지 판정되는가: 직전분기말월 원화대출금 4조원 미만 은행은 적용하지 않는다 (제26조제1항 단서)",
-     "manual", (), "하니스에 원화예대율 자체가 없어 적용 대상 판정도 없다"),
+     "automated", ("harness/alm_thresholds.json", "src/vta/domains/alm.py"),
+     "직전분기말월 원화대출금을 주지 않으면 적용 대상으로 간주하고 그 사실을 남긴다"),
     ("규정", "제26조의2", "01", ("내부통제",),
      "금융체계상 중요한 은행 추가자본이 자본요구에 반영되고, 선정 외은지점의 LCR 100% 유지 의무가 구분되는가",
      "automated", ("harness/capital_adequacy_thresholds.json",), ""),
@@ -382,6 +388,25 @@ CRITERIA_PD: tuple[tuple, ...] = (
 )
 
 
+# 기후리스크: 국내 구속 근거는 규정 제30조(리스크관리체제)와 세칙 별표 19(위기상황분석)
+# 뿐이며, 기후 고유 기준(BCBS 2022 원칙·NGFS·PCAF·IFRS S2)은 국제 권고·민간 표준이다.
+# 요건 전개는 harness/climate_requirement_criteria.json 이 맡는다.
+CRITERIA_CLIMATE: tuple[tuple, ...] = (
+    ("규정", "제30조", "07", ("내부통제", "방법론"),
+     "기후리스크(물리적·전환)가 리스크관리체제의 인식·측정·통제 대상에 포함되고 중요성이 확인된 포트폴리오가 여신·한도·내부자본 관리로 연결되는가",
+     "automated", ("harness/climate_requirement_criteria.json", "tools/climate_criteria.py"),
+     "기후리스크 요건 72건의 기준 원장이 규정 제30조를 S01 로 인용한다. 중요성 평가 자체는 수동 항목(CLR-02-02)"),
+    ("규정", "제30조", "08", ("내부통제", "방법론"),
+     "AI 시스템(예측모형·생성형·에이전트)이 리스크관리체제의 인식·측정·통제 대상에 포함되고 AI 가 만든 수치가 승인된 계산결과 참조 없이 공식 수치로 승격되지 않으며 승인이 사람의 명시적 행위로만 생성되는가",
+     "automated", ("harness/ai_risk_requirement_criteria.json", "tools/ai_risk_criteria.py"),
+     "AI 리스크 요건 76건의 기준 원장이 규정 제30조 아래에 걸린다. 국내 구속 근거(인공지능기본법·개인정보보호법·신용정보법)는 감독규정 밖이라 원장의 norms 로만 실린다"),
+    ("세칙", "별표 19", "07", ("방법론", "내부통제"),
+     "기후 위기상황분석(CST)이 별표 19 의 분석주기·분석기간·보고·내부감사·독립검증 요건 안에서 수행되고 반기 통합 분석과 별도 공동 CST 일정이 구분 관리되는가",
+     "automated", ("harness/climate_requirement_criteria.json", "tools/climate_recalc.py"),
+     "국내 기준은 기후 CST 의 시나리오·방법을 따로 정하지 않아 바젤·BCBS 기후원칙으로 보충한다. 공식 CST 배포본은 미수령이며 내부 합성시험만 재계산한다"),
+)
+
+
 # 계량 임계: 규정 값과 하니스 임계 파일을 기계가 대조한다.
 #
 # (근거, 인용, 키, 한글명, 규정값, 방향, 원문 발췌, 하니스 파일, JSON 경로)
@@ -408,6 +433,12 @@ THRESHOLDS: tuple[tuple, ...] = (
     ("규정", "제26조", "leverage_ratio_min", "단순기본자본비율 최소", 0.03, "min",
      "단순기본자본비율\"이라 한다) : 100분의 3 이상",
      "harness/capital_adequacy_thresholds.json", ("leverage_ratio_min",)),
+    ("규정", "제26조", "won_ltd_max", "원화예대율 최대", 1.00, "max",
+     "기업자금대출은 100분의 15를 가산한다. : 100분의 100 이하",
+     "harness/alm_thresholds.json", ("won_ltd", "max")),
+    ("규정", "제26조", "won_ltd_exemption_loans", "원화예대율 적용제외 원화대출금 기준(원)", 4_000_000_000_000, "max",
+     "직전분기말월의 원화대출금이 4조원 미만인 은행의 경우에는 적용하지 아니한다",
+     "harness/alm_thresholds.json", ("won_ltd", "exemption_prior_quarter_won_loans_below")),
     ("규정", "제26조", "single_counterparty_limit", "거액익스포져비율 한도", 0.25, "max",
      "거액익스포져비율\"이라 한다) : 100분의 25 이하",
      "harness/concentration_thresholds.json", ("single_counterparty_limit_pct_tier1",)),
@@ -543,7 +574,7 @@ def build() -> dict:
     digests = {k: hashlib.sha256(source_path(k).read_bytes()).hexdigest() for k in SOURCES}
 
     items, unresolved = [], []
-    for idx, row in enumerate(CRITERIA + CRITERIA_REG + CRITERIA_PD + CRITERIA_BASEL, 1):
+    for idx, row in enumerate(CRITERIA + CRITERIA_REG + CRITERIA_PD + CRITERIA_CLIMATE + CRITERIA_BASEL, 1):
         src, cite, section, lenses, criterion, automation, evidence, note = row
         ln = resolve(cite, lines[src])
         if ln is None:

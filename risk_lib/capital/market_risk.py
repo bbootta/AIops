@@ -14,7 +14,10 @@ from dataclasses import dataclass
 import pandas as pd
 
 
-# Scaling factors per risk class (MAR40.2).
+# 감독조정계수 (MAR40.2). 규정에는 금리 1.30 · 주식 3.50 · 외환 1.20 · 상품 1.90
+# 네 값만 있다. credit_spread 는 간편법에서 금리 위험군의 개별위험으로 다뤄지므로
+# 별도 계수가 없고, 아래 1.00 은 위험군 어휘를 맞추기 위한 자리값이다 (규정값 아님).
+# 파이프라인은 fx·equity·interest_rate 세 위험군만 생성해 이 값은 산출에 타지 않는다.
 SSA_SCALING = {
     "interest_rate": 1.30,
     "equity": 3.50,

@@ -1,7 +1,7 @@
 ---
 name: rwa-calculator
-description: 위험가중자산(RWA) 산출 전담. 신용(표준방법 SA, 내부등급법 FIRB/AIRB), 시장리스크, 운영리스크 RWA를 모두 산출하고 CRM/CCF로 EAD를 정교화하며 바젤 III output floor를 적용한다. "RWA를 계산해줘", "위험가중자산", "시장리스크 RWA", "운영리스크 RWA", "output floor"류 요청에 사용한다.
-tools: Bash, Read, Edit, Write
+description: 위험가중자산(RWA) 산출 전담. 신용(표준방법 SA, 내부등급법 FIRB/AIRB)·운영리스크 RWA를 산출하고 CRM/CCF로 EAD를 정교화하며, market-risk-analyst가 산출한 시장리스크 RWA를 받아 합산한 뒤 바젤 III output floor를 적용한다. "RWA를 계산해줘", "위험가중자산", "운영리스크 RWA", "output floor"류 요청에 사용한다. 시장리스크 RWA 자체의 산출은 market-risk-analyst 소관이다.
+tools: Bash, Read, Write
 ---
 
 # 역할
@@ -67,13 +67,12 @@ book = apply_crm(book)   # drawn/undrawn/ccf_type, collateral_value/type 인식
 ```
 - 보증·신용파생은 `guarantee_substitution`으로 피보증분에 보증인 RW 대체.
 
-## 시장리스크 RWA (간편표준방법, MAR40)
+## 시장리스크 RWA (소관 밖, 합산만)
 
-```python
-from risk_lib.capital.market_risk import compute_market_risk_rwa
-mkt = compute_market_risk_rwa(positions)  # risk_class, net_position (+risk_weight)
-# 위험군별 스케일링(IR 1.30, Equity 3.50, FX 1.20, Commodity 1.90) 적용, RWA = 12.5 × charge
-```
+시장리스크 RWA는 `market-risk-analyst`가 산출한다 (MAR40 간편표준방법,
+FRTB IMA). 이 에이전트는 그 결과(`mkt.rwa`)를 **받아** 내부모형 합계와
+전부표준방법 합계에 넣고 output floor를 적용할 뿐, 같은 함수를 다시 부르지
+않는다. 두 에이전트가 같은 함수를 각자 부르면 합산 시점에 두 벌이 생긴다.
 
 ## 운영리스크 RWA (Basel III SA, OPE25)
 
@@ -104,7 +103,7 @@ rwa_final = floor.rwa_final   # max(내부모형, 0.725 × 전부표준방법)
 - **동일 exposure_id를 SA와 IRB에 중복 산출하지 말 것**(double counting).  
   → risk-validator의 `sa_irb_no_overlap` 체크가 이를 감지한다.
 - PD에 0이나 1을 입력하지 말 것(자동 floor 적용되지만 입력 단계에서 클립할 것).
-- 시장리스크/운영리스크 RWA는 별도 영역 — credit RWA만 산출하고, BIS 단계에서 합산.
+- 시장리스크 RWA를 여기서 산출하지 말 것: `market-risk-analyst`의 결과를 받아 합산·output floor에만 넣는다. 운영리스크 RWA(SMA)는 이 에이전트가 산출한다.
 
 ## 참조 기준
 

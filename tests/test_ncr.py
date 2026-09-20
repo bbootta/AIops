@@ -227,3 +227,65 @@ def test_no_scoped_requirement_is_unowned():
     scoped = df[df["status"] != "platform"]
     orphans = list(scoped[scoped["owner"] == ""]["id"])
     assert not orphans, f"미배정 요건: {orphans}"
+
+
+# ----- 2선 대사 (검수 6단계: NCR 이 run_consistency_checks 에 인자 자체가 없었다) ----
+
+def _ncr_for_check():
+    # 원 단위 규모. 필요유지자기자본이 인가 단위 최저자본(수백억 원)이라 작은
+    # 수로 만들면 비율이 0 에 붙어 검사가 무엇을 보는지 드러나지 않는다.
+    return compute_ncr(
+        1.0e12, 7.0e11, market_risk=6.0e10, credit_risk=4.0e10,
+        operational_risk=2.0e10, licenses=["투자매매업(인수)"],
+        deductions={"고정자산": 3.0e10}, additions={"후순위차입금": 1.0e10})
+
+
+def _run(ncr, itype):
+    from risk_lib.validation import consistency as C
+    rep = C.ValidationReport()
+    C._check_ncr(ncr, {"institution_type": itype}, rep)
+    return {c.name: c for c in rep.checks}
+
+
+def test_ncr_check_passes_on_a_consistent_result():
+    out = _run(_ncr_for_check(), "은행")
+    assert out["ncr_components_sum"].status == "PASS"
+    assert out["ncr_identity"].status == "PASS"
+    assert out["ncr_min"].status == "PASS" and "참고치" in out["ncr_min"].detail
+
+
+def test_ncr_check_recomputes_the_ratio_and_the_grade():
+    n = _ncr_for_check()
+    n.ncr = n.ncr * 1.10               # 산식과 어긋난 비율을 심는다
+    out = _run(n, "증권")
+    assert out["ncr_identity"].status == "FAIL"
+    assert "재계산" in out["ncr_identity"].detail
+
+
+def test_ncr_check_catches_a_component_sum_break():
+    n = _ncr_for_check()
+    n.risk.total = n.risk.total + 5.0e9
+    out = _run(n, "증권")
+    assert out["ncr_components_sum"].status == "FAIL"
+    assert "총위험액" in out["ncr_components_sum"].detail
+
+
+def test_ncr_shortfall_blocks_approval_only_under_the_ncr_regime():
+    n = compute_ncr(
+        1.0e12, 9.5e11, market_risk=6.0e10, credit_risk=4.0e10,
+        operational_risk=2.0e10, licenses=["투자매매업(인수)"])
+    assert n.ncr < NCR_MIN
+    sec = _run(n, "증권")["ncr_min"]
+    assert sec.status == "FAIL" and sec.blocks_approval
+    bank = _run(n, "은행")["ncr_min"]
+    assert bank.status == "WARN" and not bank.blocks_approval
+    unknown = _run(n, None)["ncr_min"]
+    assert unknown.status == "WARN" and not unknown.blocks_approval
+
+
+def test_ncr_check_records_that_it_did_not_run_without_input():
+    from risk_lib.validation import consistency as C
+    rep = C.ValidationReport()
+    C._check_ncr(None, {}, rep)
+    assert [c.name for c in rep.checks] == ["ncr_not_run"]
+    assert rep.checks[0].status == "WARN"

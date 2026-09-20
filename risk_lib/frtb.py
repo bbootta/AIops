@@ -36,6 +36,11 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from risk_lib.references import (
+    IMA_FALLBACK_SA_SURCHARGE, NMRF_ADDON_PER_FACTOR_KRW, RFET_MAX_GAP_DAYS,
+    RFET_MIN_OBS_PER_YEAR,
+)
+
 
 # ----- PLAT ---------------------------------------------------------------
 
@@ -112,11 +117,13 @@ class RFETResult:
 
 
 def rfet_test(price_history: pd.DataFrame, *,
-              min_obs_per_year: int = 24,
-              max_gap_days: int = 30) -> RFETResult:
+              min_obs_per_year: int = RFET_MIN_OBS_PER_YEAR,
+              max_gap_days: int = RFET_MAX_GAP_DAYS) -> RFETResult:
     """For each risk factor (column), count observations and max gap.
 
-    Eligible (modellable) if obs ≥ 24/yr and max_gap ≤ 30 days.
+    적격(모형화 가능) 판정은 관측 24건 이상 + 최대 공백 30일 이하다. 이것은
+    MAR31.12 의 두 기준 중 (i) 를 엄격하게 대용한 내부 가정이고 (ii) 연 100건
+    기준은 없다. 값은 references.py 내부 가정 구역에 있다.
     """
     rows = []
     for col in price_history.columns:
@@ -137,8 +144,9 @@ def rfet_test(price_history: pd.DataFrame, *,
 
     n_mod = int(df["modellable"].sum())
     n_nmrf = len(df) - n_mod
-    # Simplified NMRF add-on: 10% capital adder per NMRF factor
-    addon = float(n_nmrf * 1e9)
+    # NMRF 가산. MAR33 SES(팩터별 스트레스 손실)의 대용으로 팩터 1개당 고정
+    # 금액을 더한다. 값과 그 사정은 references.NMRF_ADDON_PER_FACTOR_KRW 에 있다.
+    addon = float(n_nmrf * NMRF_ADDON_PER_FACTOR_KRW)
     return RFETResult(
         n_factors=len(df), n_modellable=n_mod, n_nmrf=n_nmrf,
         nmrf_capital_addon=addon, factors=df,
@@ -203,9 +211,12 @@ def compute_ima_capital(
     backtest: BacktestResult,
     *, sa_charge: float = 0.0,
 ) -> IMACapital:
-    """Final IMA charge = max(ES_today, multiplier · ES_avg_60d) + NMRF SES.
+    """IMA 자본 = ES97.5 × 백테스트 승수 + NMRF 가산.
 
-    PLAT red OR backtest red → desk forced onto SA (with surcharge).
+    MAR33.4 의 max(ES_today, m·ES_avg_60d) 와 IMCC 부분ES 집계·DRC 는 없다.
+    60일 평균을 만들 시계열이 이 하네스에 없어 당일 ES 하나에 승수를 곱한다.
+    PLAT red 또는 백테스트 red 면 데스크는 IMA 를 잃고 SA 로 복귀하며, 그때의
+    할증은 references.IMA_FALLBACK_SA_SURCHARGE (내부 가정, MAR33.44 차액형 아님).
     """
     if plat.overall_zone == "red" or backtest.failed:
         # Desk loses IMA, falls back to SA with surcharge
@@ -215,7 +226,7 @@ def compute_ima_capital(
             ima_capital=0.0,
             pla_zone=plat.overall_zone,
             pla_status="forced_SA",
-            sa_capital_fallback=sa_charge * 1.30,
+            sa_capital_fallback=sa_charge * IMA_FALLBACK_SA_SURCHARGE,
         )
     cap = es_97_5 * backtest.multiplier + rfet.nmrf_capital_addon
     status = "active" if plat.overall_zone == "green" else "under_review"

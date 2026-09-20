@@ -87,8 +87,14 @@ def test_request_does_not_hide_self_validation_failures(result, portfolio,
     """자체검증 FAIL을 숨기고 넘기면 독립검증이 출발점을 잃는다."""
     req = build_request(result, portfolio, studio.tables)
     checks = studio.tables["val_check"]
-    assert req.self_validation == {
-        k: int(v) for k, v in checks["status"].value_counts().items()}
+    # 항등식(is_identity) 행은 통제가 아니므로 집계에서 빼고, 결재 차단
+    # 표시(blocks_approval)는 '규제미달' 로 따로 센다 (검수 3·4단계).
+    ctrl = checks[~checks["is_identity"].astype(bool)]
+    expected = {k: int(v) for k, v in ctrl["status"].value_counts().items()}
+    n_block = int(ctrl["blocks_approval"].astype(bool).sum())
+    if n_block:
+        expected["규제미달"] = n_block
+    assert req.self_validation == expected
     assert set(req.self_validation_failures) == set(
         checks.loc[checks["status"] == "FAIL", "check_name"])
 
@@ -495,8 +501,18 @@ def test_studio_gate_is_pending_by_default(studio, tmp_path, monkeypatch):
 
 
 def test_self_validation_pass_does_not_approve_the_gate(studio, tmp_path):
-    """2선 PASS만으로 3선 게이트가 열리면 위임이 형식이 된다."""
-    assert studio.iv_request.self_validation.get("FAIL", 0) == 0
+    """2선 PASS만으로 3선 게이트가 열리면 위임이 형식이 된다.
+
+    표본 실행은 이제 2선 FAIL 1건(위기 저점 요구치 미달)을 안고 있으므로,
+    '2선 전부 PASS' 인 요청을 따로 만들어 그래도 게이트가 열리지 않음을 본다.
+    """
+    import dataclasses
+    clean = dataclasses.replace(
+        studio.iv_request,
+        self_validation={"PASS": sum(studio.iv_request.self_validation.values())},
+        self_validation_failures=())
+    assert clean.self_validation.get("FAIL", 0) == 0
+    assert check_gate(clean, tmp_path).status != "적합"
     assert check_gate(studio.iv_request, tmp_path).status != "적합"
 
 

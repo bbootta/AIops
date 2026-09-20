@@ -200,7 +200,9 @@ def test_numbers_are_unchanged_between_languages(page):
             """(lab)=>{const b=[...document.querySelectorAll('nav button')]
                  .find(x=>x.dataset.ko===lab); if(b)b.click()}""", screen)
         page.wait_for_timeout(200)
-        return re.findall(r"\d[\d,]*\.?\d*", page.inner_text("main table"))
+        # 첫 표는 지금 켜진 화면의 것이어야 한다. 부트 화면(종합보고서)에도
+        # 표가 있으므로 main 전체에서 첫 표를 잡으면 다른 화면의 표를 읽는다.
+        return re.findall(r"\d[\d,]*\.?\d*", page.inner_text("section.on table"))
 
     en = digits_of("신용 RWA")
     page.click("#langbtn")

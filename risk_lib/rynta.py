@@ -398,7 +398,7 @@ AGENT_OWNER: dict[str, str] = {
     "PRD-AIG": "aims-compliance-auditor",
     "PRD-RDM": "risk-orchestrator",
     "PRD-OPR": "risk-orchestrator",
-    "PRD-ALM": "stress-test-engineer",
+    "PRD-ALM": "alm-analyst",
     "PRD-NCR": "prudential-capital-analyst",
 }
 

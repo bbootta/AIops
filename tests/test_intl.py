@@ -604,7 +604,10 @@ def test_structured_rwa_scales_with_the_profile_ledger():
     # 국내 표본 배수는 1.0 이므로 기관 축을 붙이기 전 값과 같아야 한다.
     assert gi.structured_scale_for(gi.BASE_INSTITUTION) == {
         "fund_scale": 1.0, "sec_scale": 1.0}
-    assert base.rwa_internal == pytest.approx(4128332776117.6333, rel=0, abs=1.0)
+    # 재고정: 기업 B등급 RW 100% -> 150% (CRE20.34). 펀드 look-through 의 기업
+    # B등급 지분이 움직여 4,128.3십억 -> 4,137.9십억. 총 RWA 증분 9.54십억이
+    # 전부 여기서 나왔다 (직접 보유 기업 익스포저에는 B등급이 없다).
+    assert base.rwa_internal == pytest.approx(4137877287710.5225, rel=0, abs=1.0)
 
 
 def test_structured_rwa_in_the_headline_comes_from_the_institution_scale(
