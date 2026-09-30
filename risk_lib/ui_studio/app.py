@@ -4865,7 +4865,6 @@ function geoPanel(root,layers,exposure){
   const wrap=rawEl('div','gpanel');root.appendChild(wrap);
   const topCard=el('div','card'),expCard=el('div','card'),warmCard=el('div','card');
   wrap.appendChild(topCard);
-  if(exposure&&Object.keys(exposure.values).length)wrap.appendChild(expCard);
   if(S.global_temp_anomaly){
     const c=el('div','card');c.appendChild(el('h3',null,'지구 평균 기온 편차 (1850년~, 1951~1980 기준)'));
     const g=S.global_temp_anomaly;
@@ -4911,7 +4910,7 @@ function geoPanel(root,layers,exposure){
     warmCard.appendChild(bars(cw.years.map((y,k)=>({label:y+'s',value:vals[k]==null?0:vals[k],tone:vals[k]>0?'bad':'accent'})),{fmt:v=>v.toFixed(2)+'°C'}));
     warmCard.appendChild(rawEl('div','meta','Berkeley Earth · '+T('원장')+' rdm_ext_climate_series'));
   }
-  return {onLayer,onSelect};
+  return {onLayer,onSelect,expCard:exposure&&Object.keys(exposure.values).length?expCard:null};
 }
 
 function climateOverview(root){
@@ -4929,6 +4928,7 @@ function climateOverview(root){
     worldGlobe(gc,layers,{onLayer:panel.onLayer,onSelect:panel.onSelect,select:'KOR'});
     gc.appendChild(rawEl('div','meta',D.geo.licences.map(l=>T(l.item)+': '+l.text).join(' · ')));
     root.appendChild(two);
+    if(panel.expCard)root.appendChild(panel.expCard);
     /* 외부 자료는 RDM 을 거친다. 원천 파일 등록과 지표·시계열 원장을 그대로 보인다. */
     [['외부 원천 파일 등록 (RDM 인터페이스)','rdm_ext_source'],['국가별 기후 지표 원장','rdm_ext_climate_indicator'],
      ['기후 시계열 원장 (세계·국가)','rdm_ext_climate_series']].forEach(([t,key])=>{

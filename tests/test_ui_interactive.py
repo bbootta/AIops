@@ -727,6 +727,34 @@ def test_climate_overview_globe_zooms_on_click_and_switches_layers(page):
     assert page.errors == []
 
 
+def test_climate_exposure_grid_sits_above_rdm_register_at_full_width(browser, page_path):
+    """익스포저 가중 기후 노출 표는 지구본 옆 패널이 아니라 지구본 아래 전체 폭에 놓이고,
+    외부 원천 파일 등록(RDM) 표 바로 위에 같은 너비로 선다. 표본 기관은 해외 익스포저가
+    없으므로 층을 주입해 연다."""
+    pg = browser.new_page(viewport={"width": 1600, "height": 1000})
+    errors = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    pg.add_init_script("localStorage.setItem('rynta-lang','ko')")
+    pg.goto(page_path.as_uri())
+    pg.wait_for_timeout(800)
+    pg.evaluate("""()=>{window.__RYNTA__.geo_exposure={key:'exposure',label:'기관 국가별 익스포저 비중',unit:'%',
+      kind:'실행별',palette:'accent',source:'test',values:{USA:60,CAN:25,GBR:15},domain:[0,60],unmatched:[]}}""")
+    _tab_named(pg, "기후 개요")
+    pg.wait_for_timeout(700)
+    geo = pg.evaluate("""()=>{const cards=[...document.querySelectorAll('section.on .card')];
+      const find=(ko,en)=>cards.findIndex(c=>{const h=c.querySelector('h3');const t=h?h.textContent.trim():'';return t.startsWith(ko)||t.startsWith(en)});
+      const e=find('익스포저 가중 기후 노출','Exposure-weighted climate exposure'),r=find('외부 원천 파일 등록','External source file register');
+      const box=i=>{const b=cards[i].getBoundingClientRect();return [Math.round(b.left),Math.round(b.width),Math.round(b.top)]};
+      return {e,r,inPanel:e>=0&&!!cards[e].closest('.gpanel'),eb:e>=0?box(e):null,rb:r>=0?box(r):null}}""")
+    assert geo["e"] >= 0 and geo["r"] >= 0
+    assert not geo["inPanel"]
+    assert geo["e"] < geo["r"]
+    assert geo["eb"][0] == geo["rb"][0] and geo["eb"][1] == geo["rb"][1]
+    assert geo["eb"][2] < geo["rb"][2]
+    assert errors == []
+    pg.close()
+
+
 def test_menu_structure_screen_reorders_and_hides_without_reload(page):
     """메뉴 구조 화면에서 그룹을 올리거나 항목을 숨기면 왼쪽 메뉴가 새로고침 없이 바로
     다시 짜이고, 설정은 localStorage(rynta-nav)에 남는다. 되돌리기는 기본 트리로 돌아간다."""
