@@ -1193,7 +1193,9 @@ def test_ai_desk_graph_nodes_drag_under_tension(page):
     p1 = page.evaluate("()=>{const cs=[...document.querySelectorAll('section.on canvas')];return cs[cs.length-1].dkNode(0)}")
     assert abs(box[0] + p1[0] - (x + 120)) < 3 and abs(box[1] + p1[1] - (y + 60)) < 3   # 끌린 노드는 포인터 위치
     assert conv() < 100   # 이웃이 장력으로 움직여 운동에너지가 생겼다
-    page.mouse.up(); page.wait_for_timeout(1500)
+    page.mouse.up(); page.wait_for_timeout(300)
     assert cursor() in ("grab", "")
-    assert conv() >= 95   # 놓으면 다시 잦아든다
+    # 놓으면 다시 잦아든다. 잦아드는 시간은 프레임 속도에 따라 달라서 고정 대기 대신 기다린다.
+    page.wait_for_function("()=>parseInt([...document.querySelectorAll('section.on .dk-stats')].pop().querySelectorAll('b')[2].textContent)>=95", timeout=8000)
+    assert conv() >= 95
     assert page.errors == []
