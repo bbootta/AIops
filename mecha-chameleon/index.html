@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>메카 카멜레온</title>
+<style>
+  :root {
+    --ground: #070b09;
+    --panel: #101a14;
+    --steel: #1c2a22;
+    --lime: #8cff4f;
+    --lime-dim: #4cb82e;
+    --pink: #ff4d7a;
+    --red: #ff5340;
+    --cyan: #3ee6d8;
+    --text: #cfe8d6;
+    --text-dim: #6f8a78;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 12px;
+  }
+  #wrap {
+    position: relative;
+    width: min(96vw, calc((100vh - 24px) * 1.6), 1100px);
+    aspect-ratio: 960 / 600;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #0a100d;
+    border: 1px solid #223429;
+    border-radius: 6px;
+    cursor: crosshair;
+  }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: rgba(7, 11, 9, 0.86);
+    border-radius: 6px;
+    text-align: center;
+    padding: 24px;
+  }
+  #overlay.hidden { display: none; }
+  .eyebrow {
+    color: var(--cyan);
+    font-size: 11px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(28px, 5vw, 52px);
+    letter-spacing: 0.12em;
+    color: var(--lime);
+    text-shadow: 0 0 24px rgba(140, 255, 79, 0.35);
+    text-wrap: balance;
+  }
+  .sub { margin: 0; color: var(--text-dim); font-size: 13px; max-width: 46ch; line-height: 1.7; }
+  .sub b { color: var(--text); font-weight: 600; }
+  .controls {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 6px 16px;
+    font-size: 12px;
+    text-align: left;
+  }
+  .controls .k {
+    color: var(--lime);
+    text-align: right;
+    letter-spacing: 0.06em;
+  }
+  #startBtn {
+    font: inherit;
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    padding: 12px 34px;
+    background: var(--lime);
+    color: #06110a;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+  #startBtn:hover { background: #a5ff75; }
+  #startBtn:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+  #finalScore { color: var(--cyan); font-size: 15px; letter-spacing: 0.1em; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="960" height="600"></canvas>
+  <div id="overlay">
+    <div class="eyebrow">Unit CHM-05 · Combat Camouflage Frame</div>
+    <h1 id="title">메카 카멜레온</h1>
+    <p class="sub" id="desc">
+      위장 상태에서는 헌터 드론이 당신을 조준하지 못하고 <b>실드를 내립니다</b>.
+      은신한 채 접근해 혀로 잡아먹으세요. 혀를 쏘는 순간 위장이 풀립니다.
+      떠다니는 벌레봇을 먹으면 에너지가 회복됩니다.
+    </p>
+    <div id="finalScore" hidden></div>
+    <div class="controls">
+      <span class="k">A / D · ← →</span><span>이동</span>
+      <span class="k">SPACE / W</span><span>점프</span>
+      <span class="k">마우스 클릭</span><span>혀 발사</span>
+      <span class="k">SHIFT (홀드)</span><span>위장 — 에너지 소모</span>
+    </div>
+    <button id="startBtn">출격</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const W = 960, H = 600;
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const overlay = document.getElementById('overlay');
+const startBtn = document.getElementById('startBtn');
+const titleEl = document.getElementById('title');
+const descEl = document.getElementById('desc');
+const finalScoreEl = document.getElementById('finalScore');
+
+const COL = {
+  lime: '#8cff4f', limeDim: '#4cb82e', pink: '#ff4d7a', red: '#ff5340',
+  cyan: '#3ee6d8', steel: '#1c2a22', amber: '#ffb020',
+};
+
+// ---------- audio (tiny synth) ----------
+let actx = null;
+function beep(freq, dur, type, vol, slide) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(freq, actx.currentTime);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), actx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.04, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur);
+  } catch (e) { /* audio unavailable */ }
+}
+const sfx = {
+  tongue: () => beep(520, 0.09, 'square', 0.03, 300),
+  eat: () => beep(220, 0.16, 'triangle', 0.06, 240),
+  eatBig: () => { beep(160, 0.2, 'triangle', 0.07, 120); beep(320, 0.25, 'square', 0.03, 200); },
+  clank: () => beep(140, 0.1, 'sawtooth', 0.05, -60),
+  laser: () => beep(880, 0.08, 'sawtooth', 0.025, -500),
+  hit: () => beep(90, 0.25, 'sawtooth', 0.08, -40),
+  wave: () => beep(440, 0.3, 'square', 0.03, 220),
+  die: () => beep(200, 0.7, 'sawtooth', 0.08, -160),
+};
+
+// ---------- input ----------
+const keys = new Set();
+const mouse = { x: W / 2, y: H / 2, down: false };
+window.addEventListener('keydown', (e) => {
+  if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
+  keys.add(e.code);
+  if (e.code === 'KeyR' && state === 'over') restart();
+});
+window.addEventListener('keyup', (e) => keys.delete(e.code));
+canvas.addEventListener('mousemove', (e) => {
+  const r = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - r.left) * (W / r.width);
+  mouse.y = (e.clientY - r.top) * (H / r.height);
+});
+canvas.addEventListener('mousedown', () => { mouse.down = true; fireTongue(); });
+window.addEventListener('mouseup', () => { mouse.down = false; });
+startBtn.addEventListener('click', () => restart());
+
+// ---------- level ----------
+const GROUND_Y = 552;
+const platforms = [
+  { x: 0, y: GROUND_Y, w: W, h: 48 },
+  { x: 110, y: 432, w: 210, h: 14 },
+  { x: 640, y: 432, w: 210, h: 14 },
+  { x: 380, y: 328, w: 200, h: 14 },
+  { x: 60, y: 224, w: 180, h: 14 },
+  { x: 720, y: 224, w: 180, h: 14 },
+];
+
+// ---------- state ----------
+let state = 'menu'; // menu | play | over
+let score = 0, wave = 0;
+let bannerTimer = 0, waveDelay = 0;
+let shake = 0;
+let timeAlive = 0;
+
+const player = {};
+let bugs = [], hunters = [], lasers = [], particles = [];
+
+const tongue = { phase: 'idle', tipX: 0, tipY: 0, dx: 0, dy: 0, target: null };
+
+function resetPlayer() {
+  Object.assign(player, {
+    x: W / 2, y: GROUND_Y - 14, vx: 0, vy: 0, w: 46, h: 26,
+    facing: 1, onGround: false, coyote: 0,
+    hp: 100, energy: 100, camo: false, reveal: 0, invuln: 0,
+  });
+}
+
+function restart() {
+  resetPlayer();
+  bugs = []; hunters = []; lasers = []; particles = [];
+  tongue.phase = 'idle'; tongue.target = null;
+  score = 0; wave = 0; waveDelay = 0.5; bannerTimer = 0; shake = 0; timeAlive = 0;
+  state = 'play';
+  overlay.classList.add('hidden');
+}
+
+function gameOver() {
+  state = 'over';
+  sfx.die();
+  titleEl.textContent = '기체 파괴됨';
+  descEl.innerHTML = '헌터 드론에게 격추당했습니다. 다음 출격에서는 <b>위장</b>을 더 아껴 쓰세요.';
+  finalScoreEl.hidden = false;
+  finalScoreEl.textContent = 'SCORE ' + score + ' · WAVE ' + wave;
+  startBtn.textContent = '재출격 (R)';
+  overlay.classList.remove('hidden');
+}
+
+// ---------- spawning ----------
+function spawnBug() {
+  bugs.push({
+    x: 60 + Math.random() * (W - 120),
+    y: 80 + Math.random() * 380,
+    vx: 0, vy: 0, t: Math.random() * 10, retarget: 0,
+  });
+}
+function spawnHunter(i) {
+  hunters.push({
+    x: i % 2 === 0 ? -30 : W + 30,
+    y: 60 + Math.random() * 140,
+    vx: 0, vy: 0,
+    px: 100 + Math.random() * (W - 200), py: 90 + Math.random() * 260,
+    patrol: 0, cool: 1.2 + Math.random() * 1.2,
+    alert: 0, t: Math.random() * 10,
+  });
+}
+function nextWave() {
+  wave++;
+  const n = Math.min(1 + wave, 7);
+  for (let i = 0; i < n; i++) spawnHunter(i);
+  bannerTimer = 2.2;
+  sfx.wave();
+  player.hp = Math.min(100, player.hp + 12);
+}
+
+function burst(x, y, color, n, speed) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = (0.3 + Math.random() * 0.7) * speed;
+    particles.push({
+      x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 40,
+      life: 0.4 + Math.random() * 0.5, maxLife: 0.9, color,
+      size: 1.5 + Math.random() * 2.5,
+    });
+  }
+}
+
+// ---------- tongue ----------
+function headPos() {
+  return { x: player.x + player.facing * 20, y: player.y - 4 };
+}
+function fireTongue() {
+  if (state !== 'play' || tongue.phase !== 'idle') return;
+  const h = headPos();
+  const dx = mouse.x - h.x, dy = mouse.y - h.y;
+  const d = Math.hypot(dx, dy) || 1;
+  tongue.dx = dx / d; tongue.dy = dy / d;
+  tongue.tipX = h.x; tongue.tipY = h.y;
+  tongue.phase = 'extend';
+  tongue.target = null;
+  player.facing = dx >= 0 ? 1 : -1;
+  player.reveal = 0.9; // firing breaks camouflage
+  sfx.tongue();
+}
+function updateTongue(dt) {
+  if (tongue.phase === 'idle') return;
+  const h = headPos();
+  if (tongue.phase === 'extend') {
+    tongue.tipX += tongue.dx * 1500 * dt;
+    tongue.tipY += tongue.dy * 1500 * dt;
+    const len = Math.hypot(tongue.tipX - h.x, tongue.tipY - h.y);
+    // bug catch
+    for (const b of bugs) {
+      if (Math.hypot(b.x - tongue.tipX, b.y - tongue.tipY) < 16) {
+        tongue.target = { kind: 'bug', ref: b };
+        tongue.phase = 'retract';
+        return;
+      }
+    }
+    // hunter catch — only when its shield is down
+    for (const hu of hunters) {
+      if (Math.hypot(hu.x - tongue.tipX, hu.y - tongue.tipY) < 22) {
+        if (hu.alert > 0.5) {
+          // shield deflects the tongue
+          burst(tongue.tipX, tongue.tipY, COL.cyan, 10, 160);
+          sfx.clank();
+          hu.cool = Math.min(hu.cool, 0.25); // it retaliates fast
+          tongue.phase = 'retract';
+          return;
+        }
+        tongue.target = { kind: 'hunter', ref: hu };
+        tongue.phase = 'retract';
+        return;
+      }
+    }
+    if (len >= 360 || tongue.tipX < 0 || tongue.tipX > W || tongue.tipY < 0 || tongue.tipY > H) {
+      tongue.phase = 'retract';
+    }
+  } else if (tongue.phase === 'retract') {
+    const dx = h.x - tongue.tipX, dy = h.y - tongue.tipY;
+    const d = Math.hypot(dx, dy);
+    const step = 1900 * dt;
+    if (d <= step + 14) {
+      if (tongue.target) consume(tongue.target);
+      tongue.phase = 'idle';
+      tongue.target = null;
+    } else {
+      tongue.tipX += (dx / d) * step;
+      tongue.tipY += (dy / d) * step;
+      if (tongue.target) { tongue.target.ref.x = tongue.tipX; tongue.target.ref.y = tongue.tipY; }
+    }
+  }
+}
+function consume(t) {
+  if (t.kind === 'bug') {
+    bugs = bugs.filter((b) => b !== t.ref);
+    score += 40;
+    player.energy = Math.min(100, player.energy + 26);
+    player.hp = Math.min(100, player.hp + 3);
+    burst(headPos().x, headPos().y, COL.lime, 12, 140);
+    sfx.eat();
+  } else {
+    hunters = hunters.filter((h) => h !== t.ref);
+    score += 150;
+    player.energy = Math.min(100, player.energy + 12);
+    burst(headPos().x, headPos().y, COL.red, 18, 220);
+    burst(headPos().x, headPos().y, COL.amber, 10, 180);
+    sfx.eatBig();
+    shake = Math.max(shake, 5);
+  }
+}
+
+// ---------- update ----------
+function update(dt) {
+  timeAlive += dt;
+
+  // --- player movement ---
+  const left = keys.has('KeyA') || keys.has('ArrowLeft');
+  const right = keys.has('KeyD') || keys.has('ArrowRight');
+  const jump = keys.has('Space') || keys.has('KeyW') || keys.has('ArrowUp');
+  const wantCamo = keys.has('ShiftLeft') || keys.has('ShiftRight');
+
+  const accel = 2000, maxSpd = 260;
+  if (left && !right) { player.vx = Math.max(player.vx - accel * dt, -maxSpd); player.facing = -1; }
+  else if (right && !left) { player.vx = Math.min(player.vx + accel * dt, maxSpd); player.facing = 1; }
+  else player.vx *= Math.pow(0.0001, dt);
+
+  player.vy += 1400 * dt;
+  if (jump && player.coyote > 0) {
+    player.vy = -540;
+    player.coyote = 0;
+    burst(player.x, player.y + 12, COL.cyan, 5, 80);
+  }
+
+  const prevBottom = player.y + player.h / 2;
+  player.x += player.vx * dt;
+  player.y += player.vy * dt;
+  player.x = Math.max(24, Math.min(W - 24, player.x));
+
+  player.onGround = false;
+  const bottom = player.y + player.h / 2;
+  for (const p of platforms) {
+    if (player.vy >= 0 && prevBottom <= p.y + 1 && bottom >= p.y &&
+        player.x + 14 > p.x && player.x - 14 < p.x + p.w) {
+      player.y = p.y - player.h / 2;
+      player.vy = 0;
+      player.onGround = true;
+    }
+  }
+  if (player.y > H + 60) { player.y = 0; player.hp -= 10; } // safety net
+  player.coyote = player.onGround ? 0.12 : Math.max(0, player.coyote - dt);
+
+  // --- camouflage & energy ---
+  player.reveal = Math.max(0, player.reveal - dt);
+  player.invuln = Math.max(0, player.invuln - dt);
+  player.camo = wantCamo && player.energy > 0;
+  if (player.camo) player.energy = Math.max(0, player.energy - 22 * dt);
+  else player.energy = Math.min(100, player.energy + 6 * dt);
+  const hidden = player.camo && player.reveal <= 0;
+
+  updateTongue(dt);
+
+  // --- bugs ---
+  while (bugs.length < 4) spawnBug();
+  for (const b of bugs) {
+    b.t += dt;
+    b.retarget -= dt;
+    if (b.retarget <= 0) {
+      b.retarget = 1.5 + Math.random() * 1.5;
+      b.vx = (Math.random() - 0.5) * 90;
+      b.vy = (Math.random() - 0.5) * 60;
+    }
+    b.x += b.vx * dt;
+    b.y += b.vy * dt + Math.sin(b.t * 5) * 18 * dt;
+    b.x = Math.max(40, Math.min(W - 40, b.x));
+    b.y = Math.max(60, Math.min(GROUND_Y - 40, b.y));
+  }
+
+  // --- hunters ---
+  for (const hu of hunters) {
+    hu.t += dt;
+    const dToP = Math.hypot(player.x - hu.x, player.y - hu.y);
+    const sees = !hidden;
+    hu.alert += ((sees ? 1 : 0) - hu.alert) * Math.min(1, dt * 5);
+
+    let tx, ty;
+    if (sees) {
+      // keep a firing distance, strafe around the player
+      const a = Math.atan2(hu.y - player.y, hu.x - player.x) + Math.sin(hu.t * 0.9) * 0.7;
+      tx = player.x + Math.cos(a) * 230;
+      ty = Math.min(480, Math.max(70, player.y + Math.sin(a) * 160 - 40));
+    } else {
+      hu.patrol -= dt;
+      if (hu.patrol <= 0) {
+        hu.patrol = 2 + Math.random() * 2;
+        hu.px = 80 + Math.random() * (W - 160);
+        hu.py = 80 + Math.random() * 300;
+      }
+      tx = hu.px; ty = hu.py;
+    }
+    hu.vx += (tx - hu.x) * 1.6 * dt;
+    hu.vy += (ty - hu.y) * 1.6 * dt;
+    hu.vx *= Math.pow(0.25, dt); hu.vy *= Math.pow(0.25, dt);
+    hu.x += hu.vx * dt; hu.y += hu.vy * dt;
+
+    hu.cool -= dt;
+    if (sees && hu.cool <= 0 && dToP < 560) {
+      hu.cool = Math.max(0.9, 1.8 - wave * 0.08) + Math.random() * 0.7;
+      const spread = (Math.random() - 0.5) * 30;
+      const dx = player.x + spread - hu.x, dy = player.y + spread * 0.4 - hu.y;
+      const d = Math.hypot(dx, dy) || 1;
+      lasers.push({ x: hu.x, y: hu.y, vx: (dx / d) * 350, vy: (dy / d) * 350, life: 3 });
+      sfx.laser();
+    }
+  }
+
+  // --- lasers ---
+  for (const l of lasers) {
+    l.x += l.vx * dt; l.y += l.vy * dt; l.life -= dt;
+    if (player.invuln <= 0 &&
+        Math.abs(l.x - player.x) < player.w / 2 && Math.abs(l.y - player.y) < player.h / 2 + 6) {
+      l.life = 0;
+      player.hp -= 12;
+      player.invuln = 0.7;
+      player.reveal = Math.max(player.reveal, 0.4);
+      shake = 8;
+      burst(player.x, player.y, COL.red, 12, 180);
+      sfx.hit();
+    }
+  }
+  lasers = lasers.filter((l) => l.life > 0 && l.x > -40 && l.x < W + 40 && l.y > -40 && l.y < H + 40);
+
+  // --- particles ---
+  for (const p of particles) {
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vy += 300 * dt;
+    p.life -= dt;
+  }
+  particles = particles.filter((p) => p.life > 0);
+
+  // --- waves ---
+  bannerTimer = Math.max(0, bannerTimer - dt);
+  if (hunters.length === 0) {
+    waveDelay -= dt;
+    if (waveDelay <= 0) { nextWave(); waveDelay = 2.5; }
+  } else waveDelay = 2.5;
+
+  shake = Math.max(0, shake - 30 * dt);
+  if (player.hp <= 0) gameOver();
+}
+
+// ---------- drawing ----------
+function drawBackground() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#0c1712');
+  g.addColorStop(0.6, '#0a100d');
+  g.addColorStop(1, '#081009');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // faint hex-ish grid
+  ctx.strokeStyle = 'rgba(62, 230, 216, 0.045)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 48) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y <= H; y += 48) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // distant tech-vines
+  ctx.strokeStyle = 'rgba(140, 255, 79, 0.06)';
+  ctx.lineWidth = 3;
+  for (let i = 0; i < 6; i++) {
+    const bx = 90 + i * 160;
+    ctx.beginPath();
+    ctx.moveTo(bx, H);
+    ctx.bezierCurveTo(bx - 40, H - 200, bx + 50, H - 320, bx - 10, H - 520);
+    ctx.stroke();
+  }
+}
+function drawPlatforms() {
+  for (const p of platforms) {
+    ctx.fillStyle = COL.steel;
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = '#2f4438';
+    ctx.fillRect(p.x, p.y, p.w, 3);
+    ctx.fillStyle = 'rgba(140, 255, 79, 0.25)';
+    ctx.fillRect(p.x, p.y, p.w, 1);
+    // rivets
+    ctx.fillStyle = 'rgba(207, 232, 214, 0.18)';
+    for (let x = p.x + 12; x < p.x + p.w - 6; x += 42) {
+      ctx.fillRect(x, p.y + p.h / 2 - 1, 2, 2);
+    }
+  }
+}
+function drawBug(b) {
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  const wing = Math.sin(b.t * 30) * 0.6;
+  ctx.strokeStyle = 'rgba(62, 230, 216, 0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.ellipse(-4, -5, 6, 3, -0.6 + wing, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(4, -5, 6, 3, 0.6 - wing, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = COL.cyan;
+  ctx.beginPath(); ctx.ellipse(0, 0, 7, 5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0a100d';
+  ctx.fillRect(-1, -4, 2, 8);
+  ctx.fillStyle = COL.amber;
+  ctx.beginPath(); ctx.arc(0, 0, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function drawHunter(hu) {
+  ctx.save();
+  ctx.translate(hu.x, hu.y);
+  const hover = Math.sin(hu.t * 4) * 3;
+  ctx.translate(0, hover);
+  // rotor glow
+  ctx.fillStyle = 'rgba(255, 83, 64, 0.15)';
+  ctx.beginPath(); ctx.ellipse(0, -14, 20, 4, 0, 0, Math.PI * 2); ctx.fill();
+  // body
+  ctx.fillStyle = '#2a1e1c';
+  ctx.beginPath();
+  ctx.moveTo(-16, 0); ctx.lineTo(-8, -12); ctx.lineTo(8, -12);
+  ctx.lineTo(16, 0); ctx.lineTo(8, 12); ctx.lineTo(-8, 12);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#4a322d';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  // eye
+  const ang = Math.atan2(player.y - hu.y, player.x - hu.x);
+  ctx.fillStyle = COL.red;
+  ctx.beginPath(); ctx.arc(Math.cos(ang) * 4, Math.sin(ang) * 4, 4.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(Math.cos(ang) * 5.5, Math.sin(ang) * 5.5, 1.5, 0, Math.PI * 2); ctx.fill();
+  // shield (alert)
+  if (hu.alert > 0.15) {
+    ctx.strokeStyle = 'rgba(62, 230, 216, ' + (0.55 * hu.alert) + ')';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i <= 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + hu.t * 1.2;
+      const px = Math.cos(a) * 26, py = Math.sin(a) * 26;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawTongue() {
+  if (tongue.phase === 'idle') return;
+  const h = headPos();
+  ctx.strokeStyle = COL.pink;
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(h.x, h.y);
+  ctx.lineTo(tongue.tipX, tongue.tipY);
+  ctx.stroke();
+  ctx.fillStyle = COL.pink;
+  ctx.beginPath(); ctx.arc(tongue.tipX, tongue.tipY, 6, 0, Math.PI * 2); ctx.fill();
+}
+function drawChameleon() {
+  const hidden = player.camo && player.reveal <= 0;
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  if (player.invuln > 0 && Math.floor(player.invuln * 14) % 2 === 0) ctx.globalAlpha = 0.35;
+  if (hidden) ctx.globalAlpha = 0.22;
+  else if (player.camo) ctx.globalAlpha = 0.6;
+  ctx.scale(player.facing, 1);
+
+  const body = hidden ? '#3d5a45' : COL.lime;
+  const bodyDark = hidden ? '#2a4032' : COL.limeDim;
+
+  // curled mech tail
+  ctx.strokeStyle = bodyDark;
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(-26, -2, 10, -0.5, Math.PI * 1.4);
+  ctx.stroke();
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.arc(-26, -2, 4, 0, Math.PI * 1.6);
+  ctx.stroke();
+
+  // legs
+  ctx.strokeStyle = bodyDark;
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(-10, 8); ctx.lineTo(-13, 14); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8, 8); ctx.lineTo(11, 14); ctx.stroke();
+
+  // body
+  ctx.fillStyle = body;
+  ctx.beginPath(); ctx.ellipse(-2, 0, 22, 12, 0, 0, Math.PI * 2); ctx.fill();
+  // dorsal crest
+  ctx.fillStyle = bodyDark;
+  ctx.beginPath();
+  ctx.moveTo(-18, -8);
+  for (let i = 0; i < 5; i++) {
+    ctx.lineTo(-14 + i * 7, -15);
+    ctx.lineTo(-11 + i * 7, -8);
+  }
+  ctx.closePath(); ctx.fill();
+  // mecha panel seams
+  ctx.strokeStyle = 'rgba(6, 17, 10, 0.55)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(-14, -6); ctx.lineTo(-14, 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-4, -9); ctx.lineTo(-4, 9); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6, -8); ctx.lineTo(6, 8); ctx.stroke();
+  // glow seam
+  ctx.strokeStyle = hidden ? 'rgba(62,230,216,0.4)' : COL.cyan;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(-18, 2); ctx.lineTo(12, 2); ctx.stroke();
+
+  // head
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.moveTo(12, -10);
+  ctx.lineTo(26, -6);
+  ctx.lineTo(28, 0);
+  ctx.lineTo(24, 6);
+  ctx.lineTo(12, 9);
+  ctx.closePath(); ctx.fill();
+  // casque crest
+  ctx.fillStyle = bodyDark;
+  ctx.beginPath(); ctx.moveTo(12, -10); ctx.lineTo(17, -16); ctx.lineTo(21, -8); ctx.closePath(); ctx.fill();
+  // eye turret — pupil tracks the cursor
+  const h = headPos();
+  const ea = Math.atan2(mouse.y - h.y, (mouse.x - h.x) * player.facing);
+  ctx.fillStyle = '#0a100d';
+  ctx.beginPath(); ctx.arc(17, -3, 5.5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = bodyDark;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = COL.amber;
+  ctx.beginPath();
+  ctx.arc(17 + Math.cos(ea) * 2.5, -3 + Math.sin(ea) * 2.5, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+  // antenna
+  ctx.strokeStyle = bodyDark;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(22, -8); ctx.lineTo(25, -14); ctx.stroke();
+  ctx.fillStyle = player.camo ? COL.cyan : COL.red;
+  ctx.beginPath(); ctx.arc(25, -15, 1.8, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
+
+  // camo shimmer ring
+  if (hidden) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(62, 230, 216, 0.35)';
+    ctx.setLineDash([4, 6]);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(player.x, player.y - 2, 34, 22, 0, timeAlive * 2, timeAlive * 2 + Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+function drawHUD() {
+  ctx.save();
+  ctx.font = '11px ui-monospace, Menlo, Consolas, monospace';
+  ctx.textBaseline = 'middle';
+
+  // HP
+  ctx.fillStyle = 'rgba(16, 26, 20, 0.85)';
+  ctx.fillRect(16, 14, 190, 40);
+  ctx.strokeStyle = '#2f4438';
+  ctx.strokeRect(16.5, 14.5, 189, 39);
+  ctx.fillStyle = '#6f8a78';
+  ctx.fillText('HULL', 26, 25);
+  ctx.fillStyle = '#0a100d';
+  ctx.fillRect(66, 20, 130, 9);
+  ctx.fillStyle = player.hp > 35 ? COL.lime : COL.red;
+  ctx.fillRect(66, 20, 130 * Math.max(0, player.hp) / 100, 9);
+  // Energy
+  ctx.fillStyle = '#6f8a78';
+  ctx.fillText('CAMO', 26, 43);
+  ctx.fillStyle = '#0a100d';
+  ctx.fillRect(66, 38, 130, 9);
+  ctx.fillStyle = COL.cyan;
+  ctx.fillRect(66, 38, 130 * player.energy / 100, 9);
+
+  // score / wave
+  ctx.textAlign = 'right';
+  ctx.fillStyle = COL.cyan;
+  ctx.font = '13px ui-monospace, Menlo, Consolas, monospace';
+  ctx.fillText('SCORE ' + score, W - 20, 24);
+  ctx.fillStyle = '#6f8a78';
+  ctx.fillText('WAVE ' + wave, W - 20, 44);
+  ctx.textAlign = 'left';
+
+  // camo state chip
+  if (player.camo && player.reveal <= 0) {
+    ctx.fillStyle = 'rgba(62, 230, 216, 0.9)';
+    ctx.font = '11px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillText('◈ 위장 중 — 드론 실드 다운', 216, 25);
+  } else if (player.reveal > 0) {
+    ctx.fillStyle = COL.amber;
+    ctx.fillText('▲ 노출됨', 216, 25);
+  }
+
+  if (bannerTimer > 0) {
+    ctx.globalAlpha = Math.min(1, bannerTimer);
+    ctx.fillStyle = COL.lime;
+    ctx.font = '700 30px ui-monospace, Menlo, Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('WAVE ' + wave, W / 2, 130);
+    ctx.font = '12px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillStyle = '#6f8a78';
+    ctx.fillText('헌터 드론 ' + hunters.length + '기 접근 중', W / 2, 156);
+    ctx.textAlign = 'left';
+  }
+  ctx.restore();
+}
+function draw() {
+  ctx.save();
+  if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+  drawBackground();
+  drawPlatforms();
+  for (const b of bugs) drawBug(b);
+  for (const hu of hunters) drawHunter(hu);
+  // lasers
+  for (const l of lasers) {
+    ctx.strokeStyle = COL.red;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(l.x, l.y);
+    ctx.lineTo(l.x - l.vx * 0.04, l.y - l.vy * 0.04);
+    ctx.stroke();
+  }
+  drawTongue();
+  drawChameleon();
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+  drawHUD();
+  ctx.restore();
+
+  // vignette
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, H * 0.95);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, 'rgba(0,0,0,0.4)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// ---------- main loop ----------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.033, (now - last) / 1000);
+  last = now;
+  if (state === 'play') update(dt);
+  if (state === 'menu') {
+    drawBackground();
+    drawPlatforms();
+  } else {
+    draw();
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
