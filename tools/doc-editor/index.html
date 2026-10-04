@@ -1251,7 +1251,7 @@ const MD = (() => {
     return '';
   }
   function render(src, opts = {}) {
-    const lines = src.replace(/\r\n?/g, '\n').replace(/\u0000/g, '�').split('\n');
+    const lines = src.replace(/\r\n?/g, '\n').replace(/\u0000/g, '\uFFFD').split('\n');
     const refs = Object.create(null);
     const blocks = parseBlocks(lines, 0, refs);
     const ctx = { refs, slugs: Object.create(null), lines: opts.lines !== false };
