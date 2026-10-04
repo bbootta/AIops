@@ -2111,17 +2111,18 @@ function startMission(G) {
   const def = MISSION[G.kind];
   mission = { G, kind: G.kind, def, lv: save.lv[G.id] || 0, reward: payOf(G), extra: [], hold: false };
   mission.time = def.limit(mission); def.start(mission);
-  giverIcons(); $('mis').hidden = false; sfx('ding');
+  giverIcons(); $('mis').hidden = false; hudObjT = 0; sfx('ding');
 }
 function endMission(ok, why = '') {
   const m = mission; if (!m) return; mission = null;
   m.def.end(m, ok);
   if (ok) { player.money += m.reward; save.rep++; save.lv[m.G.id] = m.lv + 1; toast('의뢰 완료!', `${m.G.name} · +$${m.reward.toLocaleString()} · 평판 ${save.rep}`); sfx('fanfare'); }
   else { toast('의뢰 실패', why); sfx('fail'); }
-  $('mis').hidden = true; $('wp').hidden = true; giverIcons(); writeSave();
+  $('mis').hidden = true; $('wp').hidden = true; hudObjT = 0; giverIcons(); writeSave();
 }
 function updateMission(dt) {
-  for (const G of GIVERS) if (G.icon.visible) G.icon.position.y = 2.6 + Math.sin(time * 3 + G.pos.x) * 0.12;
+  const pp = player.car ? player.car.pos : player.pos;
+  for (const G of GIVERS) if (G.icon.visible) { G.icon.position.y = 2.6 + Math.sin(time * 3 + G.pos.x) * 0.12; G.pillar.material.opacity = clamp((Math.hypot(G.pos.x - pp.x, G.pos.z - pp.z) - 8) / 30, 0.06, 1); }
   SHOP.icon.position.y = 2.6 + Math.sin(time * 3) * 0.12;
   const m = mission; if (!m) return;
   if (!m.hold) { m.time -= dt; if (m.time <= 0) { m.time = 0; if (m.def.timeout) m.def.timeout(m); else endMission(false, '제한 시간이 지났습니다'); return; } }
@@ -2246,7 +2247,7 @@ const heli = { active: false, down: false, hp: 200, pos: V3(), vel: V3(), ang: 0
   lamp(-1.5, 0, 0.4, new THREE.Color(4, 0.2, 0.2)); lamp(1.5, 0, 0.4, new THREE.Color(0.2, 4, 0.4)); heli.strobe = lamp(0, -1.3, -2.4, new THREE.Color(5, 5, 5));
   const cg = new THREE.ConeGeometry(1, 1, 24, 1, true); cg.translate(0, -0.5, 0);
   heli.cone = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 0.5, 0.42), transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-  heli.spot = new THREE.Mesh(poolGeo, new THREE.MeshBasicMaterial({ map: TX.pool, color: new THREE.Color(1.6, 1.6, 1.4), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  heli.spot = new THREE.Mesh(poolGeo, new THREE.MeshBasicMaterial({ map: TX.pool, color: new THREE.Color(1.15, 1.15, 1.0), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
   heli.cone.renderOrder = 8; heli.spot.renderOrder = 1;
   g.visible = heli.cone.visible = heli.spot.visible = false; heli.g = g; scene.add(g, heli.cone, heli.spot);
 }
@@ -2280,8 +2281,9 @@ function updateHeli(dt, pp) {
   H.g.position.copy(H.pos); H.g.rotation.y = H.g.rotation.y + angDiff(Math.atan2(pp.x - H.pos.x, pp.z - H.pos.z), H.g.rotation.y) * Math.min(1, dt * 2); H.g.rotation.x = clamp(Math.hypot(H.vel.x, H.vel.z) * 0.015, 0, 0.3);
   const sy = player.car ? groundY(pp.x, pp.z) : surfaceY(pp.x, pp.z, player.pos.y + 0.2), tgt = V3(pp.x + Math.sin(time * 0.9) * 2, sy, pp.z + Math.cos(time * 0.7) * 2);
   const d = _v.subVectors(tgt, H.pos), len = d.length();
-  H.cone.position.copy(H.pos).add(V3(0, -1, 0)); H.cone.quaternion.setFromUnitVectors(V3(0, -1, 0), d.normalize()); H.cone.scale.set(len * 0.11, len, len * 0.11);
-  H.spot.position.set(tgt.x, sy + 0.08, tgt.z); H.spot.scale.set(len * 0.24, 1, len * 0.24);
+  const rs = clamp(len * 0.05, 2.5, 5);
+  H.cone.position.copy(H.pos).add(V3(0, -1, 0)); H.cone.quaternion.setFromUnitVectors(V3(0, -1, 0), d.normalize()); H.cone.scale.set(rs, len, rs);
+  H.spot.position.set(tgt.x, sy + 0.08, tgt.z); H.spot.scale.set(rs * 2.4, 1, rs * 2.4);
   H.shot -= dt;
   if (!leaving && H.shot <= 0 && H.pos.distanceTo(pp) < 120) { H.shot = R(2.4, 3.4); const from = H.pos.clone().add(V3(0, -1.4, 0)); for (let k = 0; k < 3; k++) { const aim = V3(pp.x + R(-1.5, 1.5), pp.y + 1, pp.z + R(-1.5, 1.5)); projectile('stun', from, aim.sub(from).normalize(), 48, H); } sfxAt('stun', from, 0.7); }
 }
