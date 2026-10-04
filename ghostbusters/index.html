@@ -70,7 +70,7 @@ html,body{height:100%;margin:0;background:var(--ink);color:var(--text);font-fami
 #vig{background:radial-gradient(ellipse at center,transparent 45%,rgba(255,20,50,.55) 100%)}
 #slime{background:radial-gradient(circle at 30% 35%,rgba(120,255,80,.55) 0 9%,transparent 16%),radial-gradient(circle at 70% 60%,rgba(120,255,80,.5) 0 12%,transparent 20%),radial-gradient(circle at 48% 82%,rgba(120,255,80,.45) 0 7%,transparent 13%),radial-gradient(ellipse at center,transparent 40%,rgba(80,220,60,.45) 100%)}
 #flash{background:#fff}
-.screen{position:fixed;inset:0;display:grid;align-content:center;padding-inline:max(16px,6vw);padding-block:24px;background:linear-gradient(100deg,rgba(8,5,20,.94) 0%,rgba(8,5,20,.78) 45%,rgba(8,5,20,.15) 100%);overflow:auto}
+.screen{position:fixed;inset:0;display:grid;align-content:center;align-content:safe center;padding-inline:max(16px,6vw);padding-block:24px;background:linear-gradient(100deg,rgba(8,5,20,.94) 0%,rgba(8,5,20,.78) 45%,rgba(8,5,20,.15) 100%);overflow:auto}
 .screen .in{max-width:560px;display:grid;gap:18px}
 .eyebrow{font-family:var(--mono);font-size:13px;letter-spacing:.18em;color:var(--spec);text-transform:uppercase}
 h1{font-family:var(--display);font-weight:400;font-size:clamp(40px,8vw,78px);line-height:.95;margin:0;color:#fff4ea;text-shadow:0 0 22px rgba(255,106,43,.75),0 0 60px rgba(255,60,20,.45);text-wrap:balance}
@@ -92,13 +92,19 @@ h1 span{display:block;color:var(--proton)}
 .tb.on{background:rgba(255,255,255,.3)}
 body.touch .wpn{right:auto;left:50%;transform:translateX(-50%);bottom:calc(8px + env(safe-area-inset-bottom,0px));width:min(300px,56vw)}
 body.touch .slot{padding:4px 6px;font-size:10.5px}
-body.touch .bl{bottom:auto;top:calc(100px + env(safe-area-inset-top,0px));width:180px}
+body.touch .bl{left:calc(14px + env(safe-area-inset-left,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));width:min(190px,calc(100vw - 262px))}
+body.touch #spd{font-size:22px}
+body.touch .slot .k{display:none}
 body.touch #minimap{width:120px;height:120px}
 body.touch .pke{top:auto;bottom:calc(120px + env(safe-area-inset-bottom,0px));font-size:12px}
 body.touch #hint{bottom:calc(170px + env(safe-area-inset-bottom,0px))}
 body.touch .desk{display:none}
 body:not(.touch) .mob{display:none}
-@media (max-width:640px){ .tl{max-width:48vw} .obj{font-size:11.5px} .money{font-size:19px} }
+@media (max-width:640px){ .tl{max-width:48vw} .obj{font-size:11.5px} .money{font-size:19px}
+  body.touch .wpn{left:calc(14px + env(safe-area-inset-left,0px));right:auto;transform:none;bottom:calc(56px + env(safe-area-inset-bottom,0px));width:calc(100vw - 262px)}
+  body.touch .slots{grid-template-columns:1fr} body.touch .slot:not(.on){display:none}
+  body.touch .pke{left:calc(14px + env(safe-area-inset-left,0px));transform:none;bottom:calc(160px + env(safe-area-inset-bottom,0px));gap:6px;padding:4px 10px}
+  body.touch #hint{bottom:calc(236px + env(safe-area-inset-bottom,0px));max-width:calc(100vw - 32px);white-space:normal;text-align:center} }
 @media (prefers-reduced-motion:reduce){ #toast,#hint,.meter i{transition:none} }
 .rep{font-family:var(--mono);font-size:12.5px;color:var(--dim);text-shadow:0 1px 2px #000,0 0 6px rgba(0,0,0,.7)}
 .rep b{color:var(--gold);font-weight:400}
@@ -118,15 +124,15 @@ body:not(.touch) .mob{display:none}
 #wp{position:absolute;left:0;top:0;display:grid;justify-items:center;gap:1px;font-family:var(--mono);font-size:13px;color:var(--gold);text-shadow:0 1px 2px #000;will-change:transform}
 #wp svg{width:24px;height:24px;fill:var(--gold);filter:drop-shadow(0 0 6px rgba(255,209,102,.85))}
 .modal{position:fixed;inset:0;display:grid;place-items:center;padding:16px;background:rgba(6,4,14,.6);backdrop-filter:blur(3px)}
-.card{width:min(540px,100%);max-height:calc(100dvh - 32px);overflow:auto;background:linear-gradient(180deg,#1b1332,#0f0a1e);border:1px solid var(--line);border-radius:14px;padding:20px 22px;display:grid;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.card{box-sizing:border-box;width:min(540px,100%);max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;background:linear-gradient(180deg,#1b1332,#0f0a1e);border:1px solid var(--line);border-radius:14px;padding:18px 20px;display:grid;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 .who{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .who b{font-family:var(--display);font-weight:400;font-size:24px;color:var(--c,var(--gold))}
 .who span{font-size:13px;color:var(--dim)}
 .card p{margin:0;font-size:15px;line-height:1.7}
 .reward{font-family:var(--mono);font-size:14px;color:var(--gold)}
 .btn small{font-family:var(--mono);font-size:12px;opacity:.7}
-.ups{display:grid;gap:8px}
-.up{display:grid;grid-template-columns:1fr auto;gap:3px 12px;align-items:center;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.ups{display:grid;gap:6px}
+.up{display:grid;grid-template-columns:1fr auto;gap:3px 12px;align-items:center;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:7px 12px}
 .up b{font-size:14.5px}
 .up .pips{font-family:var(--mono);font-size:12px;color:var(--gold);letter-spacing:.12em;margin-left:6px}
 .up small{font-size:12.5px;color:var(--dim);line-height:1.4}
@@ -1643,8 +1649,8 @@ function updatePlayer(dt) {
     c.input.t = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + (tk ? -touch.y : 0);
     c.input.s = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + (tk ? touch.x : 0);
     c.input.t = clamp(c.input.t, -1, 1); c.input.s = clamp(c.input.s, -1, 1); c.input.hb = !!keys.Space || touch.jump; jumpQ = false;
-    // nitro (wagon tuning 2): Shift while accelerating
-    c.boost = c === wagon && upg('wagon') >= 2 && (keys.ShiftLeft || keys.ShiftRight) && c.input.t > 0 && player.nitro > 0 ? 1 : 0;
+    // nitro (wagon tuning 2): Shift while accelerating, or the touch stick pushed to its edge
+    c.boost = c === wagon && upg('wagon') >= 2 && (keys.ShiftLeft || keys.ShiftRight || (tk && Math.hypot(touch.x, touch.y) > 0.92)) && c.input.t > 0 && player.nitro > 0 ? 1 : 0;
     if (c.boost) { player.nitro = Math.max(0, player.nitro - dt * 22); const s = Math.sin(c.h), co = Math.cos(c.h); for (const k of [-0.5, 0.5]) FX.add(c.pos.x - s * 3 + co * k, 0.6, c.pos.z - co * 3 - s * k, -s * 6 + R(-1, 1), R(0, 1), -co * 6 + R(-1, 1), 0.8, 1.4, 4, 0.25, 0.5, 0.1, 0, 2); }
     else player.nitro = Math.min(100, player.nitro + dt * 7);
     player.pos.set(c.pos.x, groundY(c.pos.x, c.pos.z), c.pos.z);
@@ -1843,7 +1849,10 @@ function toggleSound() { AU.on = !AU.on; if (AU.master) AU.master.gain.value = A
 // ============================================================ HUD
 const bars = $('bars'); for (let i = 0; i < 10; i++) { const b = document.createElement('i'); b.style.height = (5 + i * 1.4) + 'px'; bars.appendChild(b); }
 let toastT = 0;
-function toast(a, b = '') { const el = $('toast'); el.innerHTML = ''; el.append(a); if (b) { const s = document.createElement('small'); s.textContent = b; el.append(s); } el.style.opacity = 1; toastT = 2.6; }
+// on touch, prompts name the on-screen buttons instead of keyboard keys
+const keyText = s => !isTouch ? s : s.replace(/\(G\)/g, '').replace('G 회수', '트랩 버튼으로 회수').replace('E를 누르세요', '행동 버튼을 누르세요')
+  .replace('Space 핸드브레이크', '점프 버튼으로 핸드브레이크').replace('Space를', '점프 버튼을').replace('운전 중 Shift', '운전 중 스틱 끝까지').replace(/H 사이렌( · )?/, '').replace(/ · G?$/, '');
+function toast(a, b = '') { const el = $('toast'); el.innerHTML = ''; el.append(a); if (b) { const s = document.createElement('small'); s.textContent = keyText(b); el.append(s); } el.style.opacity = 1; toastT = 2.6; }
 const mm = $('minimap'), mctx = mm.getContext('2d'), MS = 0.55, MOFF = HALF + ROAD;
 const mapImg = mkCanvas(Math.ceil(MOFF * 2 * MS), Math.ceil(MOFF * 2 * MS));
 {
@@ -1881,23 +1890,25 @@ function drawMinimap() {
   mctx.fillStyle = '#62e6ff'; mctx.beginPath(); mctx.moveTo(C, C - 10); mctx.lineTo(C + 7, C + 8); mctx.lineTo(C, C + 4); mctx.lineTo(C - 7, C + 8); mctx.closePath(); mctx.fill();
   mctx.restore();
 }
-let lastMoney = -1, hudObjT = 0;
+let lastMoney = -1, hudObjT = 0, hudSig = '';
 function updateHUD(dt) {
   $('hpFill').style.width = (player.hp / player.maxHp * 100) + '%';
   const hf = $('heatFill'); hf.style.width = player.heat + '%'; hf.classList.toggle('hot', player.overheated);
   if (player.money !== lastMoney) { lastMoney = player.money; $('money').textContent = '$' + player.money.toLocaleString(); }
+  const sig = `${wanted}${player.car ? 1 : 0}${player.climb ? 1 : 0}${player.zip ? 1 : 0}${mission ? mission.kind + (mission.k || 0) + (mission.phase || '') + (mission.ghost ? mission.ghost.state : '') : ''}`;
+  if (sig !== hudSig) { hudSig = sig; hudObjT = 0; }
   hudObjT -= dt;
   if (hudObjT <= 0) {
     hudObjT = 0.25;
     const toBoss = Math.max(0, nextBossAt - captureCount), stunned = ghosts.some(g => g.state === 'stunned');
     $('obj').hidden = !!mission;
     if (mission) {
-      const m = mission, b = m.def.bar(m); $('misT').textContent = '의뢰 · ' + m.def.title; $('misO').textContent = m.def.obj(m);
+      const m = mission, b = m.def.bar(m); $('misT').textContent = '의뢰 · ' + m.def.title; $('misO').textContent = keyText(m.def.obj(m));
       $('misM').hidden = $('misL').hidden = !b; if (b) { $('misL').textContent = b[0]; $('misBar').style.width = clamp(b[1], 0, 1) * 100 + '%'; }
-    } else $('obj').innerHTML = bossActive ? `<b>보스 출현!</b> 네온 거신을 약화시킨 뒤 트랩(G)으로 가두세요` : stunned ? `<b>기절한 유령이 있습니다.</b> 가까이에 트랩(G)을 던지세요` : wanted ? `<b>수배 ${wanted}단계</b> · 경찰 시야에서 벗어나거나 본부로 숨으세요` : `<b>유령 포획 ${player.captures}마리</b> · 보스까지 ${toBoss}마리 · PKE 신호나 ! 표시 의뢰인을 찾아가세요`;
+    } else $('obj').innerHTML = keyText(bossActive ? `<b>보스 출현!</b> 네온 거신을 약화시킨 뒤 트랩(G)으로 가두세요` : stunned ? `<b>기절한 유령이 있습니다.</b> 가까이에 트랩(G)을 던지세요` : wanted ? `<b>수배 ${wanted}단계</b> · 경찰 시야에서 벗어나거나 본부로 숨으세요` : `<b>유령 포획 ${player.captures}마리</b> · 보스까지 ${toBoss}마리 · PKE 신호나 ! 표시 의뢰인을 찾아가세요`);
     $('rep').innerHTML = `평판 <b>${save.rep}</b> · 옥상 샘플 <b>${samples.filter(s => s.got).length}/${samples.length}</b>` + (player.car === wagon && upg('wagon') >= 2 ? ` · 니트로 <b>${Math.round(player.nitro)}%</b>` : '');
     $('stars').hidden = !wanted; [...$('stars').children].forEach((s, i) => s.classList.toggle('on', i < wanted)); $('stars').classList.toggle('cool', time - lastSeen > 1.5);
-    $('trapSt').textContent = trap.state === 'held' ? '트랩 준비됨 · G' : trap.state === 'armed' ? '트랩 설치됨 · 기절한 유령을 끌어오세요 (G 회수)' : trap.state === 'capturing' ? '포획 중…' : trap.state === 'closing' ? '트랩 봉인 중…' : '트랩 투척 중';
+    $('trapSt').textContent = keyText(trap.state === 'held' ? '트랩 준비됨 · G' : trap.state === 'armed' ? '트랩 설치됨 · 기절한 유령을 끌어오세요 (G 회수)' : trap.state === 'capturing' ? '포획 중…' : trap.state === 'closing' ? '트랩 봉인 중…' : '트랩 투척 중');
     $('trapSt').classList.toggle('armed', trap.state !== 'held');
     // hint
     let hint = ''; const it = findInteract();
@@ -1906,7 +1917,7 @@ function updateHUD(dt) {
     else if (player.zip) hint = '<kbd>Space</kbd>손 놓기';
     else if (!player.car && !player.dead && player.pos.y < 2) { for (const c of cars) if (!c.wrecked && !c.possessed && Math.hypot(c.pos.x - player.pos.x, c.pos.z - player.pos.z) < 4.8) { hint = c.type === 'police' ? '<kbd>F</kbd>경찰차 탈취 (수배)' : c.ai ? '<kbd>F</kbd>차량 탈취' : c === wagon ? '<kbd>F</kbd>고스트 왜건 탑승' : '<kbd>F</kbd>차량 탑승'; break; } }
     else if (player.car) hint = '<kbd>F</kbd>하차' + (player.car.barR ? ' · <kbd>H</kbd>사이렌' : '') + (player.car === wagon && upg('wagon') >= 2 ? ' · <kbd>Shift</kbd>니트로' : '');
-    if (isTouch) hint = hint.replace(/<kbd>F<\/kbd>/, '<kbd>탑승</kbd>').replace(/<kbd>E<\/kbd>/, '<kbd>행동</kbd>').replace(/<kbd>W S<\/kbd>/, '<kbd>스틱</kbd>').replace(/<kbd>Space<\/kbd>/, '<kbd>점프</kbd>').replace(/ · <kbd>H<\/kbd>사이렌/, '').replace(/ · <kbd>Shift<\/kbd>니트로/, '');
+    if (isTouch) hint = hint.replace(/<kbd>F<\/kbd>/, '<kbd>탑승</kbd>').replace(/<kbd>E<\/kbd>/, '<kbd>행동</kbd>').replace(/<kbd>W S<\/kbd>/, '<kbd>스틱</kbd>').replace(/<kbd>Space<\/kbd>/, '<kbd>점프</kbd>').replace(/ · <kbd>H<\/kbd>사이렌/, '').replace(/<kbd>Shift<\/kbd>니트로/, '<kbd>스틱 끝까지</kbd>니트로');
     $('hint').innerHTML = hint; $('hint').style.opacity = hint ? 1 : 0; $('actBtn').hidden = !it;
   }
   // PKE
@@ -2246,8 +2257,8 @@ const heli = { active: false, down: false, hp: 200, pos: V3(), vel: V3(), ang: 0
   const lamp = (x, y, z, c) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), new THREE.MeshBasicMaterial({ color: c })); m.position.set(x, y, z); g.add(m); return m; };
   lamp(-1.5, 0, 0.4, new THREE.Color(4, 0.2, 0.2)); lamp(1.5, 0, 0.4, new THREE.Color(0.2, 4, 0.4)); heli.strobe = lamp(0, -1.3, -2.4, new THREE.Color(5, 5, 5));
   const cg = new THREE.ConeGeometry(1, 1, 24, 1, true); cg.translate(0, -0.5, 0);
-  heli.cone = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 0.5, 0.42), transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-  heli.spot = new THREE.Mesh(poolGeo, new THREE.MeshBasicMaterial({ map: TX.pool, color: new THREE.Color(1.15, 1.15, 1.0), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  heli.cone = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 0.5, 0.42), transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  heli.spot = new THREE.Mesh(poolGeo, new THREE.MeshBasicMaterial({ map: TX.pool, color: new THREE.Color(0.8, 0.8, 0.7), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
   heli.cone.renderOrder = 8; heli.spot.renderOrder = 1;
   g.visible = heli.cone.visible = heli.spot.visible = false; heli.g = g; scene.add(g, heli.cone, heli.spot);
 }
@@ -2282,7 +2293,7 @@ function updateHeli(dt, pp) {
   const sy = player.car ? groundY(pp.x, pp.z) : surfaceY(pp.x, pp.z, player.pos.y + 0.2), tgt = V3(pp.x + Math.sin(time * 0.9) * 2, sy, pp.z + Math.cos(time * 0.7) * 2);
   const d = _v.subVectors(tgt, H.pos), len = d.length();
   const rs = clamp(len * 0.05, 2.5, 5);
-  H.cone.position.copy(H.pos).add(V3(0, -1, 0)); H.cone.quaternion.setFromUnitVectors(V3(0, -1, 0), d.normalize()); H.cone.scale.set(rs, len, rs);
+  H.cone.position.copy(H.pos).add(V3(0, -1, 0)); H.cone.quaternion.setFromUnitVectors(V3(0, -1, 0), d.normalize()); const cl = Math.max(4, len - 8); H.cone.scale.set(rs * cl / len, cl, rs * cl / len);
   H.spot.position.set(tgt.x, sy + 0.08, tgt.z); H.spot.scale.set(rs * 2.4, 1, rs * 2.4);
   H.shot -= dt;
   if (!leaving && H.shot <= 0 && H.pos.distanceTo(pp) < 120) { H.shot = R(2.4, 3.4); const from = H.pos.clone().add(V3(0, -1.4, 0)); for (let k = 0; k < 3; k++) { const aim = V3(pp.x + R(-1.5, 1.5), pp.y + 1, pp.z + R(-1.5, 1.5)); projectile('stun', from, aim.sub(from).normalize(), 48, H); } sfxAt('stun', from, 0.7); }
@@ -2367,7 +2378,7 @@ function renderShop() {
   const box = $('ups'); box.innerHTML = '';
   for (const u of UPG) {
     const lv = upg(u.id), max = u.cost.length, el = document.createElement('div'), head = document.createElement('div'), b = document.createElement('b'), pips = document.createElement('span'), d = document.createElement('small'), btn = document.createElement('button');
-    el.className = 'up'; b.textContent = u.name; pips.className = 'pips'; pips.textContent = '●'.repeat(lv) + '○'.repeat(max - lv); head.append(b, pips); d.textContent = u.desc; btn.dataset.id = u.id;
+    el.className = 'up'; b.textContent = u.name; pips.className = 'pips'; pips.textContent = '●'.repeat(lv) + '○'.repeat(max - lv); head.append(b, pips); d.textContent = keyText(u.desc); btn.dataset.id = u.id;
     if (lv >= max) { btn.textContent = '완료'; btn.disabled = true; }
     else if (save.rep < u.rep[lv]) { btn.textContent = `평판 ${u.rep[lv]} 필요`; btn.disabled = true; }
     else { btn.textContent = '$' + u.cost[lv].toLocaleString(); btn.disabled = player.money < u.cost[lv]; btn.addEventListener('click', () => buy(u)); }

@@ -125,15 +125,15 @@ const errors = [];
 
   // 의뢰 2: 귀신 들린 택시. 퇴마 게이지가 차면 귀신이 튀어나오고, 실패하면 깨끗이 정리된다
   await step('possessed', async () => {
-    const pz = await ev(() => { const G = window.__game; G.startMission(G.givers.find(x => x.kind === 'possessed')); const c = G.mission.car; G.player.pos.set(c.pos.x + 7, 0.15, c.pos.z + 7); G.player.yaw = Math.atan2(-7, -7); window.__taxi = c; return { possessed: !!c.possessed, top: c.T.top }; });
-    check(pz.possessed && pz.top > 33, 'possessed taxi was not set up');
+    const pz = await ev(() => { const G = window.__game; G.startMission(G.givers.find(x => x.kind === 'possessed')); const c = G.mission.car; G.player.pos.set(c.pos.x + 7, 0.15, c.pos.z + 7); G.player.yaw = Math.atan2(-7, -7); window.__taxi = c; const base = (G.cars.find(o => o.type === c.type && o !== c) || c).T.top; return { possessed: !!c.possessed, top: c.T.top, base }; });
+    check(pz.possessed && pz.top > pz.base, 'possessed taxi was not set up: ' + JSON.stringify(pz));
     await ev(() => window.__game.mission.car.damage(200));
     if (!check(await until(() => { const m = window.__game.mission; return m && m.ghost && m.ghost.state === 'stunned' && m.ghost.name === '택시 귀신'; }), 'possessed taxi did not release its ghost')) return;
     await until(() => document.getElementById('misO').textContent.includes('택시 귀신'), 60000);
     await shot('8-possessed');
     await ev(() => { window.__ghost = window.__game.mission.ghost; window.__game.endMission(false, 'test'); });
     const pz2 = await ev(() => ({ gone: !window.__game.ghosts.includes(window.__ghost), calm: !window.__taxi.possessed, top: window.__taxi.T.top }));
-    check(pz2.gone && pz2.calm && pz2.top === 33, 'failed taxi mission did not clean up: ' + JSON.stringify(pz2));
+    check(pz2.gone && pz2.calm && pz2.top === pz.base, 'failed taxi mission did not clean up: ' + JSON.stringify(pz2));
   });
 
   // 의뢰 3: 편의점 사수. 습격 유령이 오고, 시간을 버티면 성공
