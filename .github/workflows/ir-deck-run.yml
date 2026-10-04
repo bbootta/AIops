@@ -1,0 +1,46 @@
+name: ir-deck run
+
+# 디캠프 9기 IR 채널(C0BK4SCJUBV)의 업로드·명령을 처리한다.
+# 필요한 저장소 설정: Secret SLACK_BOT_TOKEN (Slack 앱 봇 토큰, docs: tools/ir_deck/README.md)
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: ir-deck-run
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    if: ${{ vars.IR_DECK_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install LibreOffice and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libreoffice-impress fonts-noto-cjk
+          curl -fsSL -o /tmp/pretendard.zip https://github.com/orioncactus/pretendard/releases/download/v1.3.9/Pretendard-1.3.9.zip
+          mkdir -p ~/.fonts && unzip -q -o /tmp/pretendard.zip 'public/static/*.otf' -d /tmp/pretendard
+          cp /tmp/pretendard/public/static/*.otf ~/.fonts/ && fc-cache -f
+      - run: pip install -r tools/ir_deck/requirements.txt
+      - name: Process channel
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          IR_CHANNEL: C0BK4SCJUBV
+          IR_MAIN_CANVAS: F0C6JDHTUJJ
+          IR_REGISTRY: deliverables/ir_deck/dcamp9/registry.json
+        run: python tools/ir_deck/run.py
+      - name: Commit registry
+        run: |
+          git config user.name "ir-deck-bot"
+          git config user.email "ir-deck-bot@users.noreply.github.com"
+          git add deliverables/ir_deck/dcamp9/registry.json
+          git diff --cached --quiet || (git commit -m "IR 덱 레지스트리 갱신" && git push)
