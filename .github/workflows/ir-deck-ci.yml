@@ -1,0 +1,28 @@
+name: ir-deck CI
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "tools/ir_deck/**"
+      - ".github/workflows/ir-deck-*.yml"
+  pull_request:
+    paths:
+      - "tools/ir_deck/**"
+      - ".github/workflows/ir-deck-*.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install LibreOffice
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-impress poppler-utils
+      - run: pip install -r tools/ir_deck/requirements.txt pytest
+      - name: Test (PDF 변환 포함)
+        env:
+          IR_REQUIRE_PDF: "1"
+        run: python -m pytest tools/ir_deck -q --noconftest -p no:cacheprovider
