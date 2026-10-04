@@ -606,7 +606,7 @@ dialog::backdrop{background:var(--scrim)}
       <button type="button" role="tab" data-tool="redact"><svg class="i"><use href="#i-redact"/></svg>가리기</button>
       <button type="button" role="tab" data-tool="export"><svg class="i"><use href="#i-format"/></svg>저장 형식</button>
     </nav>
-    <div class="ied-view" id="iedView" tabindex="-1" autofocus>
+    <div class="ied-view" id="iedView" tabindex="-1">
       <div class="ied-wrap" id="iedWrap">
         <canvas id="iedCv"></canvas>
         <canvas id="iedOv"></canvas>
@@ -1628,28 +1628,29 @@ function hookPreviewDoc(d) {
   d.addEventListener('drop', e => { e.preventDefault(); handleDroppedFiles([...(e.dataTransfer?.files || [])]); });
   d.addEventListener('keydown', e => onGlobalKey(e));
 }
+const mdShell = body => `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><base target="_blank"><style>${DOC_CSS}</style></head><body><main class="md" id="md">${body}</main></body></html>`;
 async function renderPreview() {
   const seq = ++previewSeq;
   if (D.kind === 'md') {
-    if (previewKind !== 'md') {
-      await loadFrame(el.pre, `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><base target="_blank"><style>${DOC_CSS}</style></head><body><main class="md" id="md"></main></body></html>`);
-      if (seq !== previewSeq) return;
-      previewKind = 'md';
-      hookPreviewDoc(el.pre.contentDocument);
-    }
     const src = el.src.value.replace(TOKEN_RE, (m, id) => 'lt-img:' + id);
     const html = MD.render(src).replace(/((?:src|href)=")lt-img:(\d+)"/g, (m, a, id) => a + (IMG.byId.get(+id) ?? '') + '"');
-    const box = el.pre.contentDocument.getElementById('md');
+    if (previewKind !== 'md') {
+      await loadFrame(el.pre, mdShell(''));
+      if (seq !== previewSeq) return;
+      previewKind = 'md';
+      if (el.pre.contentDocument) hookPreviewDoc(el.pre.contentDocument);
+    }
+    const box = el.pre.contentDocument && el.pre.contentDocument.getElementById('md');
     if (box) box.innerHTML = html;
+    else await loadFrame(el.pre, mdShell(html));   // 미리보기 문서에 접근할 수 없는 환경: 통째로 다시 그린다
     syncScroll();
   } else {
-    const w = el.pre.contentWindow;
-    const y = previewKind === 'html' && w ? w.scrollY : 0;
+    let y = 0;
+    try { if (previewKind === 'html') y = el.pre.contentWindow.scrollY; } catch { /* 접근 불가 */ }
     await loadFrame(el.pre, unfold(el.src.value));
     if (seq !== previewSeq) return;
     previewKind = 'html';
-    hookPreviewDoc(el.pre.contentDocument);
-    el.pre.contentWindow.scrollTo(0, y);
+    try { hookPreviewDoc(el.pre.contentDocument); el.pre.contentWindow.scrollTo(0, y); } catch { /* 접근 불가 */ }
   }
 }
 const schedulePreview = debounce(() => renderPreview(), 160);
@@ -3379,6 +3380,7 @@ async function openImageEditor(src, opts = {}) {
   prevCache = null;
   syncEditorControls();
   $('#ied').showModal();
+  $('#iedView').focus({ preventScroll: true });
   if (/gif/.test(E.origMime)) toast('편집하면 GIF 움직임은 첫 장면만 남습니다.');
   if (/svg/.test(E.origMime)) toast('SVG는 편집하면 PNG 같은 그림 파일로 바뀝니다.');
   setTool(opts.tool || 'crop', true);
