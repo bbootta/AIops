@@ -100,6 +100,40 @@ body.touch .desk{display:none}
 body:not(.touch) .mob{display:none}
 @media (max-width:640px){ .tl{max-width:48vw} .obj{font-size:11.5px} .money{font-size:19px} }
 @media (prefers-reduced-motion:reduce){ #toast,#hint,.meter i{transition:none} }
+.rep{font-family:var(--mono);font-size:12.5px;color:var(--dim);text-shadow:0 1px 2px #000,0 0 6px rgba(0,0,0,.7)}
+.rep b{color:var(--gold);font-weight:400}
+.mis{display:grid;gap:5px;background:linear-gradient(180deg,rgba(46,30,8,.84),rgba(22,14,4,.8));border:1px solid rgba(255,209,102,.45);border-radius:8px;padding:8px 11px;font-size:13px;line-height:1.45;color:#f3e6c8}
+.mis .mt{display:flex;justify-content:space-between;gap:10px}
+.mis .mt b{color:var(--gold);font-weight:900}
+.mis .mt span{font-family:var(--mono);color:#fff;font-variant-numeric:tabular-nums}
+.mis .mt span.low{color:var(--warn)}
+.mis .meter{height:8px}
+#misBar{background:linear-gradient(90deg,#ffd166,#ff8a3b)}
+#misL{font-size:11.5px;color:#cdb98f}
+#stars{position:absolute;right:calc(16px + env(safe-area-inset-right,0px));top:calc(194px + env(safe-area-inset-top,0px));width:172px;display:flex;justify-content:center;gap:4px;font-size:21px;line-height:1;color:rgba(255,255,255,.13);text-shadow:0 1px 0 #000}
+#stars i{font-style:normal}
+#stars i.on{color:var(--gold);text-shadow:0 0 10px rgba(255,209,102,.85),0 1px 0 #000}
+#stars.cool i.on{animation:blink .7s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+#wp{position:absolute;left:0;top:0;display:grid;justify-items:center;gap:1px;font-family:var(--mono);font-size:13px;color:var(--gold);text-shadow:0 1px 2px #000;will-change:transform}
+#wp svg{width:24px;height:24px;fill:var(--gold);filter:drop-shadow(0 0 6px rgba(255,209,102,.85))}
+.modal{position:fixed;inset:0;display:grid;place-items:center;padding:16px;background:rgba(6,4,14,.6);backdrop-filter:blur(3px)}
+.card{width:min(540px,100%);max-height:calc(100dvh - 32px);overflow:auto;background:linear-gradient(180deg,#1b1332,#0f0a1e);border:1px solid var(--line);border-radius:14px;padding:20px 22px;display:grid;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.who{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.who b{font-family:var(--display);font-weight:400;font-size:24px;color:var(--c,var(--gold))}
+.who span{font-size:13px;color:var(--dim)}
+.card p{margin:0;font-size:15px;line-height:1.7}
+.reward{font-family:var(--mono);font-size:14px;color:var(--gold)}
+.btn small{font-family:var(--mono);font-size:12px;opacity:.7}
+.ups{display:grid;gap:8px}
+.up{display:grid;grid-template-columns:1fr auto;gap:3px 12px;align-items:center;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.up b{font-size:14.5px}
+.up .pips{font-family:var(--mono);font-size:12px;color:var(--gold);letter-spacing:.12em;margin-left:6px}
+.up small{font-size:12.5px;color:var(--dim);line-height:1.4}
+.up button{grid-column:2;grid-row:1/span 2;font-family:var(--mono);font-size:14px;color:#1a0b04;background:linear-gradient(180deg,#ffe08a,#ffb347);border:0;border-radius:8px;padding:8px 12px;cursor:pointer;min-width:96px}
+.up button:disabled{background:#2b2342;color:#8d83ad;cursor:default}
+.tb.act{position:absolute;right:0;bottom:calc(100% + 12px);height:46px;padding:0 20px;border-radius:23px;background:rgba(255,209,102,.32);border-color:var(--gold);font-size:15px}
+body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;font-size:16px}
 </style>
 </head>
 <body>
@@ -108,10 +142,14 @@ body:not(.touch) .mob{display:none}
 <div class="hud" id="hud" hidden>
   <div class="tl">
     <div class="obj" id="obj"></div>
+    <div class="mis" id="mis" hidden><div class="mt"><b id="misT"></b><span id="misTime"></span></div><div id="misO"></div><div id="misL"></div><div class="meter" id="misM"><i id="misBar"></i></div></div>
     <div class="money" id="money">$0</div>
+    <div class="rep" id="rep"></div>
   </div>
   <div class="pke"><span class="lbl">PKE</span><div class="bars" id="bars"></div><div id="pkeArrow"><svg viewBox="0 0 16 16"><path d="M8 1 L14 14 L8 10.5 L2 14 Z"/></svg></div><span id="pkeDist">--</span></div>
   <canvas id="minimap" width="344" height="344"></canvas>
+  <div id="stars" hidden><i>★</i><i>★</i><i>★</i><i>★</i><i>★</i></div>
+  <div id="wp" hidden><span id="wpD"></span><svg viewBox="0 0 24 24" id="wpI"><path d="M12 23 L4.5 10 A8.6 8.6 0 1 1 19.5 10 Z"/></svg></div>
   <div id="boss" hidden><div class="nm" id="bossName">네온 거신</div><div class="meter"><i id="bossFill"></i></div></div>
   <div id="cross"><i></i><i></i><i></i><i></i></div>
   <div class="bl">
@@ -137,6 +175,7 @@ body:not(.touch) .mob{display:none}
 <div id="touch" hidden>
   <div id="stick"><div id="knob"></div></div>
   <div class="tbtns">
+    <button class="tb act" data-k="act" id="actBtn" hidden>행동</button>
     <button class="tb" data-k="weapon">무기</button>
     <button class="tb" data-k="trap">트랩</button>
     <button class="tb fire" data-k="fire">발사</button>
@@ -149,21 +188,24 @@ body:not(.touch) .mob{display:none}
   <div class="in">
     <div class="eyebrow">고스트버스터즈 팬메이드 · 네온 시티의 밤</div>
     <h1>Ghost <span>Patrol</span></h1>
-    <p class="lead">밤이 되자 도시 전체에 유령이 쏟아졌습니다. 양성자 빔으로 유령을 붙잡아 기력을 빼고, 트랩을 던져 가둬 넣으세요. 길가의 차는 무엇이든 빼앗아 탈 수 있습니다.</p>
+    <p class="lead">밤이 되자 도시 전체에 유령이 쏟아졌습니다. 양성자 빔으로 유령을 붙잡아 기력을 빼고, 트랩을 던져 가둬 넣으세요. 머리 위에 ! 표시가 뜬 시민의 의뢰를 해결하고, 번 돈으로 본부의 오 박사에게 장비를 개조하세요. 차를 빼앗거나 사고를 내면 경찰이 쫓아옵니다.</p>
     <div class="keys desk">
       <kbd>W A S D</kbd><span>이동 · Shift 달리기 · Space 점프</span>
       <kbd>마우스</kbd><span>조준 · 왼쪽 버튼 발사 · 오른쪽 버튼 정밀 조준</span>
       <kbd>1 2 3 / 휠</kbd><span>양성자 빔 · 슬라임 블래스터 · 보손 다트</span>
       <kbd>G</kbd><span>트랩 던지기 (다시 누르면 회수)</span>
       <kbd>F</kbd><span>차량 탑승 · 탈취 · 하차 (운전 중 Space 핸드브레이크, H 사이렌)</span>
+      <kbd>E</kbd><span>의뢰인 대화 · 사다리 · 짚라인 · 오 박사 연구실</span>
       <kbd>R · M · Esc</kbd><span>비 켜고 끄기 · 소리 · 일시정지</span>
     </div>
     <div class="keys mob">
       <kbd>왼쪽 드래그</kbd><span>이동 (끝까지 밀면 달리기)</span>
       <kbd>오른쪽 드래그</kbd><span>시점 회전</span>
       <kbd>버튼</kbd><span>발사 · 무기 · 트랩 · 점프 · 차량 탑승</span>
+      <kbd>행동</kbd><span>의뢰인 대화 · 사다리 · 짚라인 · 연구실 (가까이 가면 나타남)</span>
     </div>
     <button class="btn" id="go">출동하기</button>
+    <p class="fine" id="saveInfo" hidden></p>
     <p class="fine">팬이 만든 비공식 게임입니다. 공식 로고·음악·인물은 쓰지 않았고 모든 모델과 효과는 코드로 생성했습니다.</p>
   </div>
 </div>
@@ -176,8 +218,27 @@ body:not(.touch) .mob{display:none}
       <button class="btn ghost" id="optRain">비: 켜짐</button>
       <button class="btn ghost" id="optSound">소리: 켜짐</button>
       <button class="btn ghost" id="optQ">그래픽: 자동</button>
+      <button class="btn ghost" id="optReset">기록 초기화</button>
     </div>
     <button class="btn" id="resume">계속하기</button>
+  </div>
+</div>
+
+<div class="modal" id="dlg" hidden>
+  <div class="card">
+    <div class="who"><b id="dlgName"></b><span id="dlgPlace"></span></div>
+    <p id="dlgText"></p>
+    <div class="reward" id="dlgReward"></div>
+    <div class="opts"><button class="btn" id="dlgOk">수락 <small class="desk">E</small></button><button class="btn ghost" id="dlgNo">거절 <small class="desk">X</small></button></div>
+  </div>
+</div>
+
+<div class="modal" id="shop" hidden>
+  <div class="card">
+    <div class="who" style="--c:var(--spec)"><b>오 박사의 연구실</b><span id="shopMoney"></span></div>
+    <p>장비를 개조해 드리죠. 평판이 오르면 더 위험한 물건도 만들어 드립니다.</p>
+    <div class="ups" id="ups"></div>
+    <button class="btn ghost" id="shopClose">나가기 <small class="desk">E</small></button>
   </div>
 </div>
 
@@ -211,6 +272,16 @@ const damp = (a, b, k, dt) => lerp(a, b, 1 - Math.exp(-k * dt));
 function angDiff(a, b) { let d = a - b; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; }
 const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const UP = V3(0, 1, 0), ZAX = V3(0, 0, 1), _v2 = new THREE.Vector2();
+
+// ============================================================ save (money, reputation, mission levels, upgrades, rooftop samples)
+const SAVE_KEY = 'ghost-patrol-save-v1';
+const save = { money: 0, rep: 0, lv: {}, up: {}, samples: [] };
+try {
+  const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+  if (s && typeof s === 'object') { save.money = Math.max(0, +s.money || 0); save.rep = Math.max(0, +s.rep || 0); save.lv = s.lv && typeof s.lv === 'object' ? s.lv : {}; save.up = s.up && typeof s.up === 'object' ? s.up : {}; save.samples = Array.isArray(s.samples) ? s.samples : []; }
+} catch (_) {}
+function writeSave() { save.money = Math.max(0, Math.floor(player.money)); try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (_) {} }
+const upg = id => save.up[id] || 0;
 
 // ============================================================ renderer
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -472,7 +543,7 @@ function pushOut(pos, rad) {
   const L = lotAt(pos.x, pos.z) || lotAt(pos.x + rad, pos.z) || lotAt(pos.x - rad, pos.z) || lotAt(pos.x, pos.z + rad) || lotAt(pos.x, pos.z - rad);
   let hit = null; if (!L) return hit;
   for (const b of L.boxes) {
-    if (pos.y > b.h) continue;
+    if (pos.y >= b.h - 0.05) continue;
     const cx = clamp(pos.x, b.x0, b.x1), cz = clamp(pos.z, b.z0, b.z1), dx = pos.x - cx, dz = pos.z - cz, d2 = dx * dx + dz * dz;
     if (d2 < rad * rad) {
       if (d2 > 1e-6) { const d = Math.sqrt(d2), k = (rad - d) / d; pos.x += dx * k; pos.z += dz * k; hit = { nx: dx / d, nz: dz / d }; }
@@ -482,11 +553,14 @@ function pushOut(pos, rad) {
   }
   return hit;
 }
+// highest walkable surface under (x,z) that a body at height y can stand on (roofs count once you are on or just above them)
+function surfaceY(x, z, y) { let s = groundY(x, z); const L = lotAt(x, z); if (L) for (const b of L.boxes) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && b.h <= y + 0.6 && b.h > s) s = b.h; return s; }
+function topY(x, z) { let s = groundY(x, z); const L = lotAt(x, z); if (L) for (const b of L.boxes) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && b.h > s) s = b.h; return s; }
 
 const FAC = [0, 1, 2].map(s => { const t = makeFacade(s); return new THREE.MeshStandardMaterial({ map: t.map, emissiveMap: t.emissive, emissive: 0xffffff, emissiveIntensity: 1.3, roughness: s === 0 ? 0.25 : 0.88, metalness: s === 0 ? 0.3 : 0, envMapIntensity: s === 0 ? 1.4 : 0.35 }); });
 const facGB = [new GB(), new GB(), new GB()], roofGB = new GB(), swGB = new GB(), grassGB = new GB();
 const roofParts = [];
-const lamps = [], treeSpots = [], antennas = [], signs = [];
+const lamps = [], treeSpots = [], antennas = [], signs = [], blds = [];
 
 function addBuilding(L, x0, x1, z0, z1, h, style) {
   const uo = Math.floor(rr(0, 8)) / 8, rc = new THREE.Color().setHSL(0.7, 0.05, rr(0.1, 0.17)), pc = new THREE.Color().setHSL(0.7, 0.06, rr(0.16, 0.24));
@@ -498,6 +572,7 @@ function addBuilding(L, x0, x1, z0, z1, h, style) {
     roofGB.top(x0, x1, h, z0, z1, 6, rc);
     tx0 = x0 + ins; tx1 = x1 - ins; tz0 = z0 + ins; tz1 = z1 - ins; top = h + h2;
     facGB[style].sides(tx0, tx1, h, top, tz0, tz1, uo + 0.25, 32);
+    if (L) L.boxes.push({ x0: tx0, x1: tx1, z0: tz0, z1: tz1, h: top });
   }
   roofGB.top(tx0, tx1, top, tz0, tz1, 6, rc);
   const pw = 0.35, ph = 1.0;
@@ -511,6 +586,7 @@ function addBuilding(L, x0, x1, z0, z1, h, style) {
     roofParts.push(part(CYL, tc, ax, top + 4.8, az, 1.9, 3.4, 1.9), part(CONE, tc, ax, top + 7.2, az, 2.0, 1.4, 2.0));
   }
   if (top > 60) { const ax = (tx0 + tx1) / 2, az = (tz0 + tz1) / 2, mh = rr(6, 18); roofParts.push(part(CYL, 0x44424a, ax, top + mh / 2, az, 0.18, mh, 0.18)); antennas.push(V3(ax, top + mh + 0.3, az)); }
+  if (L) blds.push({ L, x0, x1, z0, z1, h, top, tx0, tx1, tz0, tz1 });
   return top;
 }
 
@@ -661,6 +737,80 @@ const fountainPos = V3(lots[4][5].cx, 0.2, lots[4][5].cz);
   water.rotation.x = -Math.PI / 2; water.position.set(f.x, 0.8, f.z); scene.add(water);
   lots[4][5].boxes.push({ x0: f.x - 6.8, x1: f.x + 6.8, z0: f.z - 6.8, z1: f.z + 6.8, h: 0.9 }, { x0: f.x - 0.6, x1: f.x + 0.6, z0: f.z - 0.6, z1: f.z + 0.6, h: 9.5 });
 }
+// ============================================================ rooftop access: ladders, ziplines, PKE samples
+const BEAM_TEX = (() => { const c = mkCanvas(4, 128), g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.7, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,.9)'); g.fillStyle = gr; g.fillRect(0, 0, 4, 128); return tex(c, true, false); })();
+const BEAM_GEO = new THREE.CylinderGeometry(1, 1, 40, 14, 1, true);
+const beamMat = (col, k) => new THREE.MeshBasicMaterial({ map: BEAM_TEX, color: new THREE.Color(col).multiplyScalar(k), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+const ladders = [], zips = [], samples = [];
+let zipLampMesh = null;
+{
+  const A = LOT / 2 - SW, railGB = new GB(), rungGB = new GB(), zparts = [], zipLamp = [];
+  const busy = new Set(['2,3', '6,5', '3,6', '5,3']); // mission givers stand on the south side of these lots
+  const onEdge = (b, nx, nz) => nx > 0 ? Math.abs(b.x1 - b.L.cx - A) < 0.01 : nx < 0 ? Math.abs(b.L.cx - b.x0 - A) < 0.01 : nz > 0 ? Math.abs(b.z1 - b.L.cz - A) < 0.01 && !busy.has(b.L.i + ',' + b.L.j) : Math.abs(b.L.cz - b.z0 - A) < 0.01;
+  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]], withLadder = new Set();
+  const addLadder = (b, nx, nz) => {
+    const lo = (nx ? b.z0 : b.x0) + 3, hi = (nx ? b.z1 : b.x1) - 3; if (hi <= lo) return false;
+    const s = rr(lo, hi), wx = nx ? (nx > 0 ? b.x1 : b.x0) : s, wz = nz ? (nz > 0 ? b.z1 : b.z0) : s;
+    const L = { x: wx + nx * 0.42, z: wz + nz * 0.42, nx, nz, h: b.h }; ladders.push(L); b.ladder = L;
+    const lx = nz, lz = -nx, cx = wx + nx * 0.3, cz = wz + nz * 0.3, rep = (b.h - 0.15) / 0.42;
+    rungGB.quad([[cx - lx * 0.3, 0.15, cz - lz * 0.3], [cx + lx * 0.3, 0.15, cz + lz * 0.3], [cx + lx * 0.3, b.h, cz + lz * 0.3], [cx - lx * 0.3, b.h, cz - lz * 0.3]], [nx, 0, nz], [[0, 0], [1, 0], [1, rep], [0, rep]], WHITE);
+    for (const k of [-1, 1]) { const px = cx + lx * 0.32 * k, pz = cz + lz * 0.32 * k; railGB.box(px - 0.045, px + 0.045, 0.15, b.h + 1.1, pz - 0.045, pz + 0.045, 1); }
+    return true;
+  };
+  for (const b of blds) {
+    if (b.L.type !== 'city' || b.h < 8 || b.h > 72 || withLadder.has(b.L) || rnd() < 0.4) continue;
+    const f = DIRS.filter(([nx, nz]) => onEdge(b, nx, nz)); if (!f.length) continue;
+    const [nx, nz] = f[(rnd() * f.length) | 0]; if (addLadder(b, nx, nz)) withLadder.add(b.L);
+  }
+  // ziplines run downhill from a ladder roof to a lower roof across the street
+  const tower = (b, x, z) => b.top > b.h && x > b.tx0 - 0.8 && x < b.tx1 + 0.8 && z > b.tz0 - 0.8 && z < b.tz1 + 0.8;
+  for (const b of blds) {
+    if (!b.ladder || zips.length >= 16) continue;
+    for (const [di, dj] of DIRS) {
+      const i = b.L.i + di, j = b.L.j + dj; if (i < 0 || j < 0 || i >= N || j >= N || lots[i][j].type !== 'city' || !onEdge(b, di, dj)) continue;
+      const c = blds.find(o => o.L === lots[i][j] && o.h >= 8 && b.h - o.h >= 6 && onEdge(o, -di, -dj) && (di ? Math.min(b.z1, o.z1) - Math.max(b.z0, o.z0) : Math.min(b.x1, o.x1) - Math.max(b.x0, o.x0)) > 6);
+      if (!c) continue;
+      let ax, az, bx, bz;
+      if (di) { az = bz = (Math.max(b.z0, c.z0) + Math.min(b.z1, c.z1)) / 2; ax = (di > 0 ? b.x1 : b.x0) - di * 1.8; bx = (di > 0 ? c.x0 : c.x1) + di * 1.8; }
+      else { ax = bx = (Math.max(b.x0, c.x0) + Math.min(b.x1, c.x1)) / 2; az = (dj > 0 ? b.z1 : b.z0) - dj * 1.8; bz = (dj > 0 ? c.z0 : c.z1) + dj * 1.8; }
+      if (tower(b, ax, az) || tower(c, bx, bz)) continue;
+      const a = V3(ax, b.h + 3.1, az), e = V3(bx, c.h + 3.1, bz), d = V3().subVectors(e, a), len = d.length(), dir = d.clone().normalize();
+      zips.push({ a, b: e, dir, len, drop: b.h - c.h, p0: V3(ax, b.h, az), hA: b.h }); c.zipEnd = { nx: -di, nz: -dj };
+      for (const [x, y, z] of [[ax, b.h, az], [bx, c.h, bz]]) zparts.push(part(CYL, 0x3a3d44, x, y + 1.6, z, 0.09, 3.2, 0.09), part(BOX, 0x3a3d44, x, y + 3.15, z, 0.5, 0.12, 0.5));
+      const eu = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromUnitVectors(UP, dir)), mid = V3().addVectors(a, e).multiplyScalar(0.5);
+      zparts.push(part(CYL, 0x9aa0aa, mid.x, mid.y, mid.z, 0.035, len, 0.035, eu.x, eu.y, eu.z));
+      zipLamp.push(V3(ax, b.h + 3.45, az));
+      break;
+    }
+  }
+  // every zipline landing gets its own way down, away from the landing pole when possible
+  for (const b of blds) {
+    if (!b.zipEnd || b.ladder) continue;
+    const f = DIRS.filter(([nx, nz]) => onEdge(b, nx, nz) && !(nx === b.zipEnd.nx && nz === b.zipEnd.nz)); f.push([b.zipEnd.nx, b.zipEnd.nz]);
+    for (const [nx, nz] of f) if (addLadder(b, nx, nz)) break;
+  }
+  const metal = new THREE.MeshStandardMaterial({ color: 0x4a4e57, roughness: 0.45, metalness: 0.75 });
+  scene.add(new THREE.Mesh(railGB.geo(), metal));
+  const rc = mkCanvas(32, 32), rg = rc.getContext('2d'); rg.fillStyle = '#fff'; rg.fillRect(0, 13, 32, 6);
+  scene.add(new THREE.Mesh(rungGB.geo(), new THREE.MeshStandardMaterial({ map: tex(rc), color: 0x8c9099, roughness: 0.5, metalness: 0.6, alphaTest: 0.5, side: THREE.DoubleSide })));
+  if (zparts.length) scene.add(new THREE.Mesh(merge(zparts), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.7 })));
+  zipLampMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.4, 3.2, 1.4) }), Math.max(1, zipLamp.length));
+  zipLamp.forEach((p, i) => { _m4.makeTranslation(p.x, p.y, p.z); zipLampMesh.setMatrixAt(i, _m4); }); zipLampMesh.count = zipLamp.length; scene.add(zipLampMesh);
+  // PKE samples sit on roofs you can actually reach (ladder roofs and zipline landings)
+  const pool = blds.filter(b => b.ladder || b.zipEnd);
+  for (let k = pool.length - 1; k > 0; k--) { const r = (rnd() * (k + 1)) | 0; [pool[k], pool[r]] = [pool[r], pool[k]]; }
+  pool.slice(0, 12).forEach((b, id) => {
+    let x = (b.x0 + b.x1) / 2, z = (b.z0 + b.z1) / 2;
+    if (b.top > b.h) { const g = [[b.tx0 - b.x0, (b.x0 + b.tx0) / 2, z], [b.x1 - b.tx1, (b.tx1 + b.x1) / 2, z], [b.tz0 - b.z0, x, (b.z0 + b.tz0) / 2], [b.z1 - b.tz1, x, (b.tz1 + b.z1) / 2]].sort((p, q) => q[0] - p[0])[0]; x = g[1]; z = g[2]; }
+    samples.push({ id, pos: V3(x, b.h, z), got: save.samples.includes(id) });
+  });
+  const coreGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.62, 12), ringGeo = new THREE.TorusGeometry(0.48, 0.035, 6, 28), coreMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 2.6, 3.2) }), sbeam = beamMat(0x62e6ff, 0.9);
+  for (const s of samples) {
+    const g = new THREE.Group(), core = new THREE.Mesh(coreGeo, coreMat), ring = new THREE.Mesh(ringGeo, coreMat), beam = new THREE.Mesh(BEAM_GEO, sbeam);
+    ring.rotation.x = Math.PI / 2; core.add(ring); core.position.y = 0.7; beam.scale.set(0.35, 0.75, 0.35); beam.position.y = 15;
+    g.add(core, beam); g.position.copy(s.pos); g.visible = !s.got; s.g = g; s.core = core; scene.add(g);
+  }
+}
 
 // ============================================================ particles & fx
 const P_VS = `attribute vec3 aColor; attribute float aSize; attribute float aAlpha; uniform float uScale; varying vec3 vC; varying float vA;
@@ -780,12 +930,21 @@ function initAudio() {
   const hum = ctx.createGain(); hum.gain.value = 0.05; const hl = ctx.createBiquadFilter(); hl.type = 'lowpass'; hl.frequency.value = 180; noiseSrc().connect(hl); hl.connect(hum); hum.connect(AU.master);
   // pack hum
   AU.pack = ctx.createGain(); AU.pack.gain.value = 0.03; const po = ctx.createOscillator(); po.type = 'sine'; po.frequency.value = 72; po.connect(AU.pack); AU.pack.connect(AU.master); po.start();
+  // police siren, helicopter rotor chop, zipline whine
+  AU.psir = ctx.createGain(); AU.psir.gain.value = 0; AU.psir.connect(AU.master);
+  AU.psirO = ctx.createOscillator(); AU.psirO.type = 'sawtooth'; AU.psirO.frequency.value = 900; const pf = ctx.createBiquadFilter(); pf.type = 'lowpass'; pf.frequency.value = 2400; AU.psirO.connect(pf); pf.connect(AU.psir); AU.psirO.start();
+  AU.heli = ctx.createGain(); AU.heli.gain.value = 0; AU.heli.connect(AU.master);
+  const hf = ctx.createBiquadFilter(); hf.type = 'lowpass'; hf.frequency.value = 240; const hm = ctx.createGain(); hm.gain.value = 1; noiseSrc().connect(hf); hf.connect(hm); hm.connect(AU.heli);
+  const hlo = ctx.createOscillator(); hlo.type = 'square'; hlo.frequency.value = 15; const hlg = ctx.createGain(); hlg.gain.value = 0.85; hlo.connect(hlg); hlg.connect(hm.gain); hlo.start();
+  AU.zip = ctx.createGain(); AU.zip.gain.value = 0; AU.zip.connect(AU.master);
+  const zf = ctx.createBiquadFilter(); zf.type = 'bandpass'; zf.frequency.value = 2600; zf.Q.value = 4; noiseSrc().connect(zf); zf.connect(AU.zip);
 }
 function env(g, t, a, peak, dec) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec); }
 function sfx(kind, vol = 1) {
   const ctx = AU.ctx; if (!ctx || !AU.on || vol < 0.02) return; const t = ctx.currentTime, out = ctx.createGain(); out.gain.value = vol; out.connect(AU.master);
   const osc = (type, f0, f1, dur, peak = 0.5, a = 0.005) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur); env(g, t, a, peak, dur); o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + a + 0.05); };
   const noise = (dur, f, q = 1, peak = 0.6, type = 'lowpass', a = 0.003) => { const s = ctx.createBufferSource(); s.buffer = AU.noise; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = ctx.createGain(); env(g, t, a, peak, dur); s.connect(fl); fl.connect(g); g.connect(out); s.start(t, Math.random()); s.stop(t + dur + 0.1); };
+  const tone = (f, at, dur, type = 'triangle', peak = 0.3) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.value = f; env(g, t + at, 0.01, peak, dur); o.connect(g); g.connect(out); o.start(t + at); o.stop(t + at + dur + 0.06); };
   switch (kind) {
     case 'boom': noise(1.4, 700, 0.7, 1.0); osc('sine', 110, 28, 1.0, 0.9); noise(0.25, 3000, 0.5, 0.4, 'highpass'); break;
     case 'boson': osc('sawtooth', 1400, 180, 0.25, 0.35); noise(0.2, 2500, 2, 0.35, 'bandpass'); osc('sine', 220, 60, 0.3, 0.4); break;
@@ -805,6 +964,15 @@ function sfx(kind, vol = 1) {
     case 'click': osc('square', 1500, 1400, 0.04, 0.15); break;
     case 'door': noise(0.18, 900, 1, 0.5); osc('square', 140, 80, 0.12, 0.2); break;
     case 'trap': osc('square', 300, 1200, 0.25, 0.15); break;
+    case 'fanfare': tone(523, 0, 0.16); tone(659, 0.11, 0.16); tone(784, 0.22, 0.16); tone(1047, 0.33, 0.55, 'square', 0.16); tone(1319, 0.33, 0.55, 'triangle', 0.22); break;
+    case 'fail': tone(392, 0, 0.22, 'sawtooth', 0.14); tone(311, 0.18, 0.22, 'sawtooth', 0.14); tone(233, 0.36, 0.6, 'sawtooth', 0.16); break;
+    case 'ding': tone(1318, 0, 0.22, 'sine', 0.35); tone(1760, 0.08, 0.4, 'sine', 0.25); break;
+    case 'stun': osc('square', 2400, 300, 0.18, 0.2); noise(0.12, 4000, 2, 0.3, 'bandpass'); break;
+    case 'chirp': tone(1568, 0, 0.08, 'square', 0.14); tone(2093, 0.07, 0.1, 'square', 0.14); tone(2637, 0.14, 0.25, 'sine', 0.22); break;
+    case 'buy': tone(1046, 0, 0.08, 'square', 0.16); tone(1568, 0.07, 0.3, 'triangle', 0.3); noise(0.08, 6000, 1, 0.2, 'highpass'); break;
+    case 'busted': osc('sawtooth', 220, 110, 0.9, 0.26); tone(147, 0.1, 0.9, 'square', 0.14); break;
+    case 'star': tone(988, 0, 0.09, 'square', 0.14); tone(988, 0.13, 0.09, 'square', 0.14); break;
+    case 'jet': noise(0.35, 900, 1.2, 0.5, 'bandpass'); osc('sine', 180, 90, 0.3, 0.3); break;
   }
 }
 function sfxAt(kind, p, vol = 1) { const d = p.distanceTo(camera.position); sfx(kind, vol * clamp(1 - d / 110, 0, 1)); }
@@ -818,7 +986,8 @@ const SHADOW_GEO = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), SHADOW_M
 function blob(s) { const m = new THREE.Mesh(SHADOW_GEO, SHADOW_MAT); m.scale.set(s, 1, s); m.renderOrder = 1; return m; }
 
 // ---- player
-const player = { pos: V3(), vel: V3(), yaw: 0, pitch: -0.08, facing: 0, onGround: true, hp: 100, lastHit: -99, car: null, weapon: 0, heat: 0, overheated: false, fireCd: 0, dead: false, deadT: 0, money: 0, captures: 0, walk: 0, aim: false };
+const player = { pos: V3(), vel: V3(), yaw: 0, pitch: -0.08, facing: 0, onGround: true, hp: 100, maxHp: 100, lastHit: -99, car: null, weapon: 0, heat: 0, overheated: false, fireCd: 0, dead: false, deadT: 0, money: 0, captures: 0, walk: 0, aim: false,
+  climb: null, zip: null, busted: false, bustT: 0, stunT: 0, jumps: 0, airMax: 0, nitro: 100 };
 const P = {};
 {
   const g = new THREE.Group(), suit = 0x9c8e6f, suitD = 0x7d7058, dark = 0x2a2b30, metal = 0x55585f;
@@ -852,22 +1021,24 @@ const P = {};
 // ---- pedestrians
 const peds = [];
 class Ped {
-  constructor() {
-    const shirt = new THREE.Color().setHSL(Math.random(), R(0.3, 0.7), R(0.25, 0.55)), skin = pick(skinCols), hair = pick([0x1a1410, 0x3a2418, 0x6b4a2a, 0xc9b28a, 0x222222]);
-    this.g = new THREE.Group();
-    this.body = new THREE.Mesh(merge([part(BOX, shirt, 0, 1.2, 0, 0.44, 0.6, 0.24), part(SPH, skin, 0, 1.66, 0, 0.13, 0.15, 0.14), part(SPH, hair, 0, 1.72, -0.02, 0.14, 0.1, 0.145), part(BOX, shirt, -0.28, 1.2, 0, 0.11, 0.55, 0.12, 0, 0, 0.08), part(BOX, shirt, 0.28, 1.2, 0, 0.11, 0.55, 0.12, 0, 0, -0.08), part(SPH, skin, -0.31, 0.9, 0, 0.06, 0.06, 0.06), part(SPH, skin, 0.31, 0.9, 0, 0.06, 0.06, 0.06)]), charMat);
-    const lm = pick(legMats); this.legL = new THREE.Mesh(LEG_GEO, lm); this.legR = new THREE.Mesh(LEG_GEO, lm); this.legL.position.set(-0.11, 0.92, 0); this.legR.position.set(0.11, 0.92, 0);
+  constructor(cop = false) {
+    const shirt = cop ? new THREE.Color(0x1f2d52) : new THREE.Color().setHSL(Math.random(), R(0.3, 0.7), R(0.25, 0.55)), skin = pick(skinCols), hair = pick([0x1a1410, 0x3a2418, 0x6b4a2a, 0xc9b28a, 0x222222]);
+    this.g = new THREE.Group(); this.cop = cop;
+    const parts = [part(BOX, shirt, 0, 1.2, 0, 0.44, 0.6, 0.24), part(SPH, skin, 0, 1.66, 0, 0.13, 0.15, 0.14), part(SPH, hair, 0, 1.72, -0.02, 0.14, 0.1, 0.145), part(BOX, shirt, -0.28, 1.2, 0, 0.11, 0.55, 0.12, 0, 0, 0.08), part(BOX, shirt, 0.28, 1.2, 0, 0.11, 0.55, 0.12, 0, 0, -0.08), part(SPH, skin, -0.31, 0.9, 0, 0.06, 0.06, 0.06), part(SPH, skin, 0.31, 0.9, 0, 0.06, 0.06, 0.06)];
+    if (cop) parts.push(part(CYL, 0x141c33, 0, 1.8, 0, 0.15, 0.09, 0.15), part(BOX, 0x141c33, 0, 1.765, 0.11, 0.2, 0.025, 0.12), part(BOX, 0xffd166, -0.12, 1.34, 0.125, 0.07, 0.08, 0.01), part(BOX, 0x9fd0ff, 0, 0.93, 0, 0.46, 0.06, 0.26));
+    this.body = new THREE.Mesh(merge(parts), charMat);
+    const lm = cop ? legMats[3] : pick(legMats); this.legL = new THREE.Mesh(LEG_GEO, lm); this.legR = new THREE.Mesh(LEG_GEO, lm); this.legL.position.set(-0.11, 0.92, 0); this.legR.position.set(0.11, 0.92, 0);
     this.inner = new THREE.Group(); this.inner.add(this.body, this.legL, this.legR); this.g.add(this.inner, blob(1.1));
     scene.add(this.g);
     this.pos = V3(); this.vel = V3(); this.state = 'walk'; this.t = 0; this.phase = Math.random() * 6; this.rot = 0; this.from = V3();
-    this.place();
+    if (cop) { this.state = 'cop'; this.shot = R(1, 2); } else this.place();
   }
   place() {
     let L; do { L = lots[(Math.random() * N) | 0][(Math.random() * N) | 0]; } while (L.type === 'hq');
     this.L = L; this.s = Math.random() * 1000; this.dir = Math.random() < 0.5 ? 1 : -1; this.speed = R(1.2, 1.8); this.state = 'walk';
     const q = perim(L, this.s); this.pos.set(q[0], 0.15, q[1]);
   }
-  scare(from, t = R(4, 7)) { if (this.state === 'knock' || this.state === 'down') return; if (this.state !== 'flee' && Math.random() < 0.35) sfxAt('scream', this.pos, 0.6); this.state = 'flee'; this.t = t; this.from.copy(from); }
+  scare(from, t = R(4, 7)) { if (this.cop || this.state === 'knock' || this.state === 'down') return; if (this.state !== 'flee' && Math.random() < 0.35) sfxAt('scream', this.pos, 0.6); this.state = 'flee'; this.t = t; this.from.copy(from); }
   knock(vx, vy, vz) { this.state = 'knock'; this.vel.set(vx, vy, vz); this.t = 0; this.spin = R(-8, 8); if (Math.random() < 0.5) sfxAt('scream', this.pos, 0.7); }
   update(dt) {
     const p = this.pos; let moving = 0;
@@ -887,7 +1058,8 @@ class Ped {
         const gy = groundY(p.x, p.z); if (p.y <= gy && this.vel.y < 0) { p.y = gy; this.state = 'down'; this.t = R(1.8, 3); this.inner.rotation.x = -Math.PI / 2; this.inner.position.y = 0.2; }
         break;
       }
-      case 'down': this.t -= dt; if (this.t <= 0) { this.inner.rotation.x = 0; this.inner.position.y = 0; this.state = 'flee'; this.t = 5; this.from.copy(player.pos); } break;
+      case 'down': this.t -= dt; if (this.t <= 0) { this.inner.rotation.x = 0; this.inner.position.y = 0; this.state = this.cop ? 'cop' : 'flee'; this.t = 5; this.from.copy(player.pos); } break;
+      case 'cop': moving = copUpdate(this, dt); break;
     }
     this.phase += dt * moving * 3.2; const sw = Math.sin(this.phase) * Math.min(0.9, moving * 0.18);
     this.legL.rotation.x = sw; this.legR.rotation.x = -sw; if (this.state !== 'knock' && this.state !== 'down') this.inner.position.y = Math.abs(Math.cos(this.phase)) * 0.04 * moving * 0.3;
@@ -908,7 +1080,7 @@ for (let i = 0; i < 30; i++) peds.push(new Ped());
 function scareNear(p, r, t) { for (const q of peds) if (q.pos.distanceToSquared(p) < r * r) q.scare(p, t); }
 
 // ============================================================ cars
-const CAR_T = { sedan: { L: 4.6, W: 1.86, top: 34, acc: 15 }, taxi: { L: 4.7, W: 1.9, top: 32, acc: 14 }, van: { L: 5.2, W: 2.05, top: 27, acc: 10.5 }, wagon: { L: 5.9, W: 2.06, top: 46, acc: 20 } };
+const CAR_T = { sedan: { L: 4.6, W: 1.86, top: 34, acc: 15 }, taxi: { L: 4.7, W: 1.9, top: 32, acc: 14 }, van: { L: 5.2, W: 2.05, top: 27, acc: 10.5 }, wagon: { L: 5.9, W: 2.06, top: 46, acc: 20 }, police: { L: 4.8, W: 1.9, top: 40, acc: 18 } };
 const PAINTS = [0x9a1c22, 0x1d3f7a, 0xd8d8d8, 0x202227, 0x2f5d3a, 0x6b6f76, 0xb58b2a, 0x5a2a6e, 0x0e5c6a, 0xc9c3b4];
 const GLASS = 0x0b1220, TIRE = 0x121214, TRIM = 0x2c2d31, CHROME = 0xb8bcc4;
 function carGeos(type, paint) {
@@ -925,6 +1097,7 @@ function carGeos(type, paint) {
     for (const s of [-1, 1]) { b.push(part(BOX, paint, s * W * 0.43, baseY + 0.31 + cabH / 2, cabZ + cabL / 2 - 0.08, 0.08, cabH, 0.12), part(BOX, paint, s * W * 0.43, baseY + 0.31 + cabH / 2, cabZ - cabL / 2 + 0.08, 0.1, cabH, 0.16)); }
     b.push(part(BOX, TRIM, 0, 0.42, L / 2 + 0.02, W * 1.01, 0.24, 0.14), part(BOX, TRIM, 0, 0.42, -L / 2 - 0.02, W * 1.01, 0.24, 0.14), part(BOX, TRIM, 0, 0.62, L / 2 + 0.03, W * 0.5, 0.14, 0.04));
     if (type === 'taxi') { b.push(part(BOX, 0x151515, W / 2 + 0.005, 0.6, 0, 0.02, 0.14, L * 0.8), part(BOX, 0x151515, -W / 2 - 0.005, 0.6, 0, 0.02, 0.14, L * 0.8)); l.push(part(BOX, 0xffd84a, 0, baseY + 0.31 + cabH + 0.2, cabZ, 0.7, 0.24, 0.26)); }
+    if (type === 'police') { for (const s of [-1, 1]) b.push(part(BOX, 0xeeeeee, s * (W / 2 + 0.006), 0.66, 0.15, 0.02, 0.42, L * 0.44)); b.push(part(BOX, 0x1a1a1e, 0, baseY + 0.31 + cabH + 0.13, cabZ, 1.25, 0.1, 0.34)); }
     if (wag) {
       const red = 0xc21d1d;
       for (const s of [-1, 1]) b.push(part(BOX, red, s * (W / 2 + 0.005), 0.72, 0, 0.02, 0.1, L * 0.9), part(BOX, red, s * (W / 2 - 0.1), 1.05, -L / 2 + 0.55, 0.12, 0.5, 0.9, -0.5, 0, 0), part(BOX, CHROME, s * (W / 2 + 0.01), 0.52, 0, 0.02, 0.05, L * 0.9));
@@ -952,25 +1125,35 @@ class Car {
       this.barW = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.16, 0.32), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 3, 3) })); this.barW.position.set(0.42, 1.72, 1.05);
       this.inner.add(this.barR, this.barW); this.siren = false;
     }
-    this.pos = V3(); this.vel = new THREE.Vector2(); this.h = 0; this.steer = 0; this.hp = 100; this.ai = null; this.parked = false; this.wrecked = false; this.fire = 0; this.wreckT = 0; this.y = 0; this.vy = 0;
+    if (type === 'police') {
+      this.barR = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.14, 0.3), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.35, 0.1, 0.1) })); this.barR.position.set(-0.32, 1.7, -0.2);
+      this.barB = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.14, 0.3), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.1, 0.1, 0.35) })); this.barB.position.set(0.32, 1.7, -0.2);
+      this.inner.add(this.barR, this.barB); this.siren = false; this.cop = { mode: 'patrol', stuck: 0, rev: 0, na: 0, nb: 0, nav: false, deployed: 0, extra: false };
+    }
+    this.pos = V3(); this.vel = new THREE.Vector2(); this.h = 0; this.steer = 0; this.hp = 100; this.ai = null; this.parked = false; this.wrecked = false; this.fire = 0; this.wreckT = 0; this.y = 0; this.vy = 0; this.pHit = -99; this.boost = 0;
     this.input = { t: 0, s: 0, hb: false }; this.roll = 0; this.pitch = 0; this.blocked = 0; this.ignore = 0;
     scene.add(this.g); cars.push(this);
   }
   get speed() { return this.vel.length(); }
   fwdSpeed() { return this.vel.x * Math.sin(this.h) + this.vel.y * Math.cos(this.h); }
-  damage(n, from) {
-    if (this.wrecked) return; this.hp -= n;
+  damage(n) {
+    if (this.possessed) { this.possessed.meter = Math.min(100, this.possessed.meter + n * 1.3); this.possessed.calm = 0; return; }
+    if (this.wrecked) return; this.hp -= n * (this.armor || 1);
     if (this.hp < 35 && Math.random() < 0.3) smokePuff(V3(this.pos.x, 1.2, this.pos.z).addScaledVector(V3(Math.sin(this.h), 0, Math.cos(this.h)), this.T.L * 0.35), 2, [0.12, 0.12, 0.13], 1, 2);
     if (this.hp <= 0) this.explode();
   }
   explode() {
-    this.wrecked = true; this.ai = null; this.parked = false; this.mat.color.setScalar(0.1); this.mat.roughness = 1; this.lights.visible = false; this.pool.visible = false; if (this.barR) { this.barR.visible = this.barW.visible = false; }
+    this.wrecked = true; this.ai = null; this.parked = false; this.mat.color.setScalar(0.1); this.mat.roughness = 1; this.lights.visible = false; this.pool.visible = false; this.siren = false;
+    for (const b of [this.barR, this.barW, this.barB]) if (b) b.visible = false;
     this.fire = 22; this.wreckT = 0; this.vy = 7; this.spinv = R(-2, 2); this.input.t = 0; this.input.s = 0;
-    const p = V3(this.pos.x, 1, this.pos.z); explosion(p, 9, 90, this);
+    const byPlayer = time - this.pHit < 4; if (byPlayer) crime(this.type === 'police' ? 2 : 1, 'boom', 2);
+    const p = V3(this.pos.x, 1, this.pos.z); explosion(p, 9, 90, this, null, byPlayer);
     if (player.car === this) { exitCar(true); hurtPlayer(35, p); }
   }
   resetAI(node) {
     this.wrecked = false; this.hp = 100; this.fire = 0; this.mat.color.setScalar(1); this.mat.roughness = 0.3; this.lights.visible = true; this.pool.visible = true; this.inner.rotation.set(0, 0, 0); this.y = 0; this.vy = 0;
+    for (const b of [this.barR, this.barB]) if (b) b.visible = true;
+    this.siren = false; this.possessed = null; this.T = CAR_T[this.type]; this.mat.emissive.setScalar(0); if (this.cop) { this.cop.mode = 'patrol'; this.cop.deployed = 0; }
     let a, b, d; do { a = (Math.random() * (N + 1)) | 0; b = (Math.random() * (N + 1)) | 0; d = (Math.random() * 4) | 0; } while (a + DX[d] < 0 || a + DX[d] > N || b + DZ[d] < 0 || b + DZ[d] > N || (node && Math.hypot(roadPos(a) - player.pos.x, roadPos(b) - player.pos.z) < 140));
     this.ai = { d, na: a + DX[d], nb: b + DZ[d], cruise: R(10, 15) };
     const off = R(12, 60); this.pos.set(roadPos(a) - DZ[d] * LANE + DX[d] * off, 0, roadPos(b) + DX[d] * LANE + DZ[d] * off);
@@ -1009,7 +1192,8 @@ function stepCar(c, dt) {
     if (t > 0) vf += (vf < -0.5 ? T.acc * 2 : T.acc * (1 - Math.max(0, vf) / (T.top * 1.05))) * t * dt;
     else if (t < 0) vf += (vf > 0.5 ? T.acc * 1.9 : T.acc * 0.55) * t * dt;
   }
-  vf = clamp(vf, -11, T.top); vf -= vf * (0.12 + (t === 0 ? 0.45 : 0) + (c.wrecked ? 2 : 0)) * dt;
+  if (c.boost) vf += 15 * dt;
+  vf = clamp(vf, -11, T.top * (c.boost ? 1.35 : 1)); vf -= vf * (0.12 + (t === 0 ? 0.45 : 0) + (c.wrecked ? 2 : 0)) * dt;
   if (hb) vf -= Math.sign(vf) * Math.min(Math.abs(vf), 7 * dt);
   const grip = hb ? 1.4 : c.wrecked ? 4 : 9; vr *= Math.exp(-grip * dt);
   c.vel.set(s * vf - co * vr, co * vf + s * vr);
@@ -1037,7 +1221,7 @@ function stepCar(c, dt) {
   const spd = c.speed;
   if (spd > 5) {
     lampsNear(c.pos.x, c.pos.z, 2.2, (L, i) => { knockLamp(L, i, c.vel.x, c.vel.y); c.vel.multiplyScalar(0.75); c.damage(6); if (player.car === c) addShake(null, 0.5); });
-    for (const q of peds) { if (q.state === 'knock' || q.state === 'down') continue; const d2 = (q.pos.x - c.pos.x) ** 2 + (q.pos.z - c.pos.z) ** 2; if (d2 < 2.6 * 2.6) { if (d2 < 1.7 * 1.7) q.knock(c.vel.x * 0.9, 4 + spd * 0.25, c.vel.y * 0.9); else if (q.state === 'walk') q.scare(c.pos, 3); } }
+    for (const q of peds) { if (q.state === 'knock' || q.state === 'down') continue; const d2 = (q.pos.x - c.pos.x) ** 2 + (q.pos.z - c.pos.z) ** 2; if (d2 < 2.6 * 2.6) { if (d2 < 1.7 * 1.7) { q.knock(c.vel.x * 0.9, 4 + spd * 0.25, c.vel.y * 0.9); if (player.car === c) crime(q.cop ? 2 : 1, q.cop ? 'cop' : 'ped', 4); } else if (q.state === 'walk') q.scare(c.pos, 3); } }
   }
   if (!player.car && !player.dead && spd > 3) { const dx = player.pos.x - c.pos.x, dz = player.pos.z - c.pos.z, d = Math.hypot(dx, dz); if (d < 1.9 && player.pos.y < 2) { player.vel.x = c.vel.x * 0.8 + dx / d * 4; player.vel.z = c.vel.y * 0.8 + dz / d * 4; player.vel.y = 5; player.onGround = false; if (spd > 7) hurtPlayer(spd * 1.2, c.pos); } }
   const gy = groundY(c.pos.x, c.pos.z);
@@ -1051,6 +1235,7 @@ function carCollisions() {
     a.pos.x -= nx * pen; a.pos.z -= nz * pen; b.pos.x += nx * pen; b.pos.z += nz * pen;
     const rv = (b.vel.x - a.vel.x) * nx + (b.vel.y - a.vel.y) * nz;
     if (rv < 0) {
+      if (-rv > 3) { if (player.car === a) playerHitCar(b); else if (player.car === b) playerHitCar(a); }
       const j2 = -rv * 0.8; a.vel.x -= nx * j2; a.vel.y -= nz * j2; b.vel.x += nx * j2; b.vel.y += nz * j2;
       if (-rv > 5) { const hurt = (-rv - 5) * 2.4; a.damage(hurt); b.damage(hurt); const cp = V3((a.pos.x + b.pos.x) / 2, 0.8, (a.pos.z + b.pos.z) / 2); sparks(cp, 30, 6, [3, 1.8, 0.8]); sfxAt('crash', cp, Math.min(1, -rv / 15)); if (player.car === a || player.car === b) addShake(null, Math.min(1, -rv / 18)); if (a.ai) { a.ai.cruise = 0; } if (b.ai) b.ai.cruise = 0; }
     }
@@ -1065,6 +1250,7 @@ for (let i = 0; i < 22; i++) {
   if (Math.random() < 0.5) { c.pos.set(roadPos(k) + side * 8.3, 0, along); c.h = side > 0 ? 0 : Math.PI; } else { c.pos.set(along, 0, roadPos(k) + side * 8.3); c.h = side > 0 ? -Math.PI / 2 : Math.PI / 2; }
   c.parked = true; c.pool.visible = false;
 }
+for (let i = 0; i < 3; i++) new Car('police', 0x15171d).resetAI();
 for (const c of cars) c.g.position.copy(c.pos), c.g.rotation.y = c.h;
 
 // ============================================================ ghosts
@@ -1091,7 +1277,7 @@ const GPOOL_GEO = poolGeo;
 const ghosts = [];
 class Ghost {
   constructor(type, pos) {
-    const T = GT[type]; this.type = type; this.T = T; this.r = T.r; this.hp = this.maxHp = T.hp; this.state = 'roam';
+    const T = GT[type]; this.type = type; this.T = T; this.name = T.name; this.r = T.r; this.hp = this.maxHp = T.hp; this.state = 'roam';
     this.mat = new THREE.ShaderMaterial({ uniforms: { uTime: { value: 0 }, uWob: { value: 1 }, uColor: { value: new THREE.Color(...T.color) }, uHit: { value: 0 }, uAlpha: { value: 1 }, uTailY: { value: T.tail } }, vertexShader: GHOST_VS, fragmentShader: GHOST_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
     const s = type === 'boss' ? T.r / 1.2 : 1;
     this.g = new THREE.Group(); this.inner = new THREE.Group(); this.inner.scale.setScalar(s); this.g.add(this.inner);
@@ -1116,17 +1302,17 @@ class Ghost {
     this.hit = Math.max(this.hit, Math.min(1, n / 12));
     if (this.state === 'stunned') { this.stun = Math.max(this.stun, 3.5); return; }
     this.hp -= n;
-    if (this.hp <= 0) { this.hp = 0; this.state = 'stunned'; this.stun = this.type === 'boss' ? 14 : 10; toast(`${this.T.name} 기절!`, '트랩을 던지세요 · G'); sfxAt('wail', this.pos, 0.8); }
+    if (this.hp <= 0) { this.hp = 0; this.state = 'stunned'; this.stun = this.type === 'boss' ? 14 : 10; toast(`${this.name} 기절!`, '트랩을 던지세요 · G'); sfxAt('wail', this.pos, 0.8); }
     else if (this.state === 'roam') this.state = 'hunt';
   }
-  remove() { scene.remove(this.g, this.gpool); this.mat.dispose(); this.gpool.material.dispose(); ghosts.splice(ghosts.indexOf(this), 1); if (beam.lock === this) beam.lock = null; }
+  remove() { scene.remove(this.g, this.gpool); this.mat.dispose(); this.gpool.material.dispose(); if (this.tag) { this.tag.material.map.dispose(); this.tag.material.dispose(); } ghosts.splice(ghosts.indexOf(this), 1); if (beam.lock === this) beam.lock = null; }
   update(dt) {
-    this.t += dt; const T = this.T, tgt = player.car ? player.car.pos : player.pos, toP = _v.set(tgt.x - this.pos.x, (tgt.y + 1.2) - this.pos.y, tgt.z - this.pos.z), dist = toP.length();
+    this.t += dt; const T = this.T, tgt = this.raid || (player.car ? player.car.pos : player.pos), toP = _v.set(tgt.x - this.pos.x, (tgt.y + 1.2) - this.pos.y, tgt.z - this.pos.z), dist = toP.length();
     const spd = T.speed * (this.slime > 0 ? 0.45 : 1); this.slime -= dt; this.hit = Math.max(0, this.hit - dt * 4); if (this.spawnT > 0) this.spawnT -= dt;
     const want = _w.set(0, 0, 0);
     switch (this.state) {
       case 'roam': {
-        if (this.pos.distanceToSquared(this.wander) < 16 || Math.random() < dt * 0.1) this.wander.set(clamp(this.pos.x + R(-60, 60), -HALF, HALF), R(5, 26), clamp(this.pos.z + R(-60, 60), -HALF, HALF));
+        if (this.pos.distanceToSquared(this.wander) < 16 || Math.random() < dt * 0.1) { const c = this.leash || this.pos, k = this.leash ? 0.5 : 1; this.wander.set(clamp(c.x + R(-60, 60) * k, -HALF, HALF), R(5, 26), clamp(c.z + R(-60, 60) * k, -HALF, HALF)); }
         want.subVectors(this.wander, this.pos).setLength(spd * 0.5);
         if (dist < 55 && !player.dead && state === 'play') this.state = 'hunt';
         break;
@@ -1145,7 +1331,7 @@ class Ghost {
       }
       case 'swoop': {
         this.swoopT -= dt; want.copy(toP).setLength(spd * 2.8);
-        if (!this.hitDone && dist < 1.8 + this.r * 0.5) { this.hitDone = true; hurtPlayer(T.dmg + 4, this.pos); slimeScreen(); }
+        if (!this.hitDone && dist < 1.8 + this.r * 0.5) { this.hitDone = true; if (this.raid) raidHit(this); else { hurtPlayer(T.dmg + 4, this.pos); slimeScreen(); } }
         if (this.swoopT <= 0 || this.hitDone) { this.state = 'hunt'; this.vel.multiplyScalar(0.3); this.vel.y += 6; }
         break;
       }
@@ -1163,7 +1349,7 @@ class Ghost {
         else want.set(0, (this.r + 2.5) - this.pos.y, 0).multiplyScalar(0.8);
         want.x += Math.sin(this.t * 13) * 1.5; want.z += Math.cos(this.t * 11) * 1.5;
         if (Math.random() < dt * 25) FX.add(this.pos.x + R(-1, 1) * this.r, this.pos.y + R(-1, 1) * this.r, this.pos.z + R(-1, 1) * this.r, R(-2, 2), R(-2, 2), R(-2, 2), 1.2, 1.8, 4, 0.25, 0.14, 0.02);
-        if (this.stun <= 0) { this.state = 'hunt'; this.hp = this.maxHp * 0.45; this.vel.y += 8; toast(`${T.name}가 깨어났습니다`); }
+        if (this.stun <= 0) { this.state = 'hunt'; this.hp = this.maxHp * 0.45; this.vel.y += 8; toast(`${this.name}가 깨어났습니다`); }
         break;
       }
       case 'captured': this.updateCapture(dt); return;
@@ -1181,7 +1367,7 @@ class Ghost {
     this.arms[0].rotation.x = Math.sin(this.t * 5) * 0.6; this.arms[1].rotation.x = -Math.sin(this.t * 5) * 0.6;
     const u = this.mat.uniforms; u.uTime.value = this.t; u.uHit.value = st ? (Math.sin(this.t * 30) > 0 ? 0.35 : 0) : this.hit; u.uWob.value = st ? 2 : 1;
     if (this.spawnT > 0) u.uAlpha.value = 1 - this.spawnT / 1.2;
-    const gy = groundY(this.pos.x, this.pos.z), hh = this.pos.y - gy, ps = this.r * 7 * clamp(1.2 - hh / 30, 0, 1);
+    const gy = topY(this.pos.x, this.pos.z), hh = this.pos.y - gy, ps = this.r * 7 * clamp(1.2 - hh / 30, 0, 1);
     this.gpool.position.set(this.pos.x, gy + 0.21, this.pos.z); this.gpool.scale.set(ps + 0.01, 1, ps + 0.01);
     this.trail -= dt;
     if (this.trail <= 0 && dist < 160) { this.trail = 0.045; const c = this.T.color, k = this.r; FX.add(this.pos.x + R(-0.3, 0.3) * k, this.pos.y + bob - k * 1.2, this.pos.z + R(-0.3, 0.3) * k, R(-0.4, 0.4), R(-0.6, 0.3), R(-0.4, 0.4), c[0] * 1.6, c[1] * 1.6, c[2] * 1.6, 0.9, k * 0.55, 0.02, 0, 0.8); }
@@ -1198,9 +1384,10 @@ class Ghost {
     if (t >= 1) {
       const p = tp.clone().add(V3(0, 0.4, 0)); sparks(p, 70, 10, [3, 3, 2.4], 0.7); ring(p, 6, [3, 3, 2.5]); flash(p, 0xfff2d0, 450, 0.3, 25); smokePuff(p, 6, [0.25, 0.25, 0.3], 1.2, 1.8); sfxAt('snap', p);
       player.money += this.T.money; player.captures++; captureCount++;
-      toast(`포획 성공! +$${this.T.money.toLocaleString()}`, `${this.T.name} · 누적 ${player.captures}마리`);
+      toast(`포획 성공! +$${this.T.money.toLocaleString()}`, `${this.name} · 누적 ${player.captures}마리`);
       if (this.type === 'boss') { bossActive = null; toast('네온 거신 포획!', `+$${this.T.money.toLocaleString()} · 도시가 잠시 조용해졌습니다`); }
-      this.remove();
+      if (this.onCapture) this.onCapture();
+      this.remove(); writeSave();
     }
   }
 }
@@ -1216,11 +1403,11 @@ function spawnGhost(boss) {
 // ============================================================ projectiles
 const projs = [];
 const PROJ_GEO = new THREE.SphereGeometry(1, 12, 10);
-const PM = { slime: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.8, 3, 0.5) }), boson: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.5, 3, 4.5) }), ecto: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.9, 3.2, 0.5) }) };
+const PM = { slime: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.8, 3, 0.5) }), boson: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.5, 3, 4.5) }), ecto: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.9, 3.2, 0.5) }), stun: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.2, 2.2, 5) }) };
 function projectile(kind, from, dir, speed, owner) {
-  const m = new THREE.Mesh(PROJ_GEO, PM[kind]); const s = kind === 'boson' ? 0.14 : kind === 'slime' ? 0.2 : 0.35; m.scale.setScalar(s); if (kind === 'boson') m.scale.set(0.12, 0.12, 0.7);
+  const m = new THREE.Mesh(PROJ_GEO, PM[kind]); const s = kind === 'boson' ? 0.14 : kind === 'slime' ? 0.2 : kind === 'stun' ? 0.16 : 0.35; m.scale.setScalar(s); if (kind === 'boson') m.scale.set(0.12, 0.12, 0.7);
   m.position.copy(from); scene.add(m);
-  projs.push({ kind, m, pos: from.clone(), vel: dir.clone().multiplyScalar(speed), life: kind === 'ecto' ? 5 : 3, owner, trail: 0 });
+  projs.push({ kind, m, pos: from.clone(), vel: dir.clone().multiplyScalar(speed), life: kind === 'ecto' ? 5 : kind === 'stun' ? 2.5 : 3, owner, trail: 0 });
 }
 function ectoBall(g, delay) {
   setTimeout(() => {
@@ -1236,23 +1423,25 @@ function updateProjectiles(dt) {
     if (p.kind === 'slime') p.vel.y -= 7 * dt;
     p.pos.addScaledVector(p.vel, dt); p.m.position.copy(p.pos); if (p.kind === 'boson') p.m.lookAt(_v.copy(p.pos).add(p.vel));
     p.trail -= dt;
-    if (p.trail <= 0) { p.trail = 0.012; const c = p.kind === 'boson' ? [1.6, 2.2, 4] : [0.6, 2.4, 0.4]; FX.add(p.pos.x, p.pos.y, p.pos.z, R(-0.4, 0.4), R(-0.4, 0.4), R(-0.4, 0.4), c[0], c[1], c[2], p.kind === 'boson' ? 0.35 : 0.5, p.kind === 'ecto' ? 0.7 : 0.35, 0.02); }
+    if (p.trail <= 0) { p.trail = 0.012; const c = p.kind === 'boson' ? [1.6, 2.2, 4] : p.kind === 'stun' ? [0.8, 1.6, 4] : [0.6, 2.4, 0.4]; FX.add(p.pos.x, p.pos.y, p.pos.z, R(-0.4, 0.4), R(-0.4, 0.4), R(-0.4, 0.4), c[0], c[1], c[2], p.kind === 'boson' ? 0.35 : 0.5, p.kind === 'ecto' ? 0.7 : 0.35, 0.02); }
     let hit = null, n = UP;
     const gy = groundY(p.pos.x, p.pos.z);
     if (p.pos.y <= gy) { hit = 'world'; p.pos.y = gy + 0.02; }
     else { const b = inBuilding(p.pos.x, p.pos.y, p.pos.z); if (b) { hit = 'world'; const dx0 = p.pos.x - b.x0, dx1 = b.x1 - p.pos.x, dz0 = p.pos.z - b.z0, dz1 = b.z1 - p.pos.z, dy = b.h - p.pos.y, m = Math.min(dx0, dx1, dz0, dz1, dy); n = m === dy ? UP : m === dx0 ? V3(-1, 0, 0) : m === dx1 ? V3(1, 0, 0) : m === dz0 ? V3(0, 0, -1) : V3(0, 0, 1); } }
     let hg = null, hc = null;
-    if (!hit && p.kind !== 'ecto') { for (const g of ghosts) if (g.state !== 'captured' && g.pos.distanceTo(p.pos) < g.r * 1.25) { hg = g; hit = 'ghost'; break; } }
+    if (!hit && p.kind !== 'ecto' && p.kind !== 'stun') { for (const g of ghosts) if (g.state !== 'captured' && g.pos.distanceTo(p.pos) < g.r * 1.25) { hg = g; hit = 'ghost'; break; } }
     if (!hit && p.kind === 'boson') { for (const c of cars) if (c !== player.car && !c.wrecked && Math.hypot(c.pos.x - p.pos.x, c.pos.z - p.pos.z) < 2.3 && p.pos.y < 2.2) { hc = c; hit = 'car'; break; } }
-    if (!hit && p.kind === 'ecto') { const tp = player.car ? player.car.pos : player.pos; if (Math.hypot(tp.x - p.pos.x, tp.z - p.pos.z) < (player.car ? 2.4 : 1.0) && Math.abs(tp.y + 1 - p.pos.y) < 1.4) { hit = 'player'; } }
+    if (!hit && (p.kind === 'boson' || p.kind === 'slime') && heli.active && !heli.down && p.pos.distanceTo(heli.pos) < 3.6) hit = 'heli';
+    if (!hit && (p.kind === 'ecto' || p.kind === 'stun')) { const tp = player.car ? player.car.pos : player.pos; if (Math.hypot(tp.x - p.pos.x, tp.z - p.pos.z) < (player.car ? 2.4 : 1.0) && Math.abs(tp.y + 1 - p.pos.y) < 1.4) { hit = 'player'; } }
     if (!hit && p.life > 0) continue;
-    if (p.kind === 'slime') { if (hg) { hg.damage(9); hg.slime = 3.5; } else if (hit === 'world') slimes.add(p.pos, n, R(0.8, 1.5)); sparks(p.pos, 16, 5, [0.6, 2.4, 0.4], 0.6, 0.18); sfxAt('splat', p.pos, 0.5); }
-    else if (p.kind === 'boson') explosion(p.pos, 7, 65, null, hg);
+    if (p.kind === 'slime') { if (hg) { hg.damage(9); hg.slime = 3.5; } else if (hit === 'heli') damageHeli(6, true); else if (hit === 'world') slimes.add(p.pos, n, R(0.8, 1.5)); sparks(p.pos, 16, 5, [0.6, 2.4, 0.4], 0.6, 0.18); sfxAt('splat', p.pos, 0.5); }
+    else if (p.kind === 'boson') explosion(p.pos, 7 * (1 + 0.25 * upg('boson')), 65, null, hg, true);
+    else if (p.kind === 'stun') { sparks(p.pos, 18, 6, [0.8, 1.6, 4], 0.4, 0.15); if (hit === 'player') { hurtPlayer(player.car ? 3 : 6, p.pos); player.stunT = 0.8; sfx('stun', 0.7); } else sfxAt('stun', p.pos, 0.3); }
     else if (p.kind === 'ecto') { sparks(p.pos, 20, 6, [0.7, 2.6, 0.5], 0.7, 0.2); if (hit === 'player') { hurtPlayer(player.car ? p.owner.T.dmg * 0.5 : p.owner.T.dmg, p.pos); slimeScreen(); } else if (hit === 'world') slimes.add(p.pos, n, R(1.2, 2.2)); sfxAt('splat', p.pos, 0.6); }
     scene.remove(p.m); projs.splice(i, 1);
   }
 }
-function explosion(p, rad, dmg, srcCar, directGhost) {
+function explosion(p, rad, dmg, srcCar, directGhost, byPlayer) {
   const q = p.clone(); if (q.y < 0.4) q.y = 0.4;
   flash(q, 0xffa050, rad > 8 ? 4000 : 2400, 0.45, rad * 8);
   for (let i = 0; i < 70; i++) { sphereDir(_v); const s = R(3, 13) * rad / 7; FX.add(q.x, q.y, q.z, _v.x * s, Math.abs(_v.y) * s * 0.8 + 2, _v.z * s, R(3, 4.5), R(1.2, 2.4), R(0.3, 0.7), R(0.5, 1.0), R(1.4, 2.8) * rad / 7, 0.4, -1, 3.2); }
@@ -1264,8 +1453,9 @@ function explosion(p, rad, dmg, srcCar, directGhost) {
   const gy = groundY(q.x, q.z); if (p.y < gy + 3) scorches.add(V3(q.x, gy + 0.01, q.z), UP, rad * 1.1);
   addShake(q, rad > 8 ? 1.6 : 1.1, 70); sfxAt('boom', q);
   for (const g of ghosts) { const d = g.pos.distanceTo(q); if (g === directGhost || d < rad + g.r) g.damage(dmg * (g === directGhost ? 1 : clamp(1 - d / (rad + g.r), 0.2, 1))); }
-  for (const c of cars) if (c !== srcCar) { const d = Math.hypot(c.pos.x - q.x, c.pos.z - q.z); if (d < rad * 1.2) { c.damage(dmg * 0.9 * (1 - d / (rad * 1.3))); const k = (1 - d / (rad * 1.2)) * 10; c.vel.x += (c.pos.x - q.x) / (d || 1) * k; c.vel.y += (c.pos.z - q.z) / (d || 1) * k; c.vy = Math.max(c.vy, k * 0.5); } }
-  for (const ped of peds) { const d = ped.pos.distanceTo(q); if (d < rad * 1.2) ped.knock((ped.pos.x - q.x) / (d || 1) * 7, 6, (ped.pos.z - q.z) / (d || 1) * 7); }
+  if (heli.active && !heli.down && heli.pos.distanceTo(q) < rad + 4) damageHeli(dmg * 0.8, byPlayer);
+  for (const c of cars) if (c !== srcCar) { const d = Math.hypot(c.pos.x - q.x, c.pos.z - q.z); if (d < rad * 1.2) { if (byPlayer) playerHitCar(c); c.damage(dmg * 0.9 * (1 - d / (rad * 1.3))); const k = (1 - d / (rad * 1.2)) * 10; c.vel.x += (c.pos.x - q.x) / (d || 1) * k; c.vel.y += (c.pos.z - q.z) / (d || 1) * k; c.vy = Math.max(c.vy, k * 0.5); } }
+  for (const ped of peds) { const d = ped.pos.distanceTo(q); if (d < rad * 1.2) { ped.knock((ped.pos.x - q.x) / (d || 1) * 7, 6, (ped.pos.z - q.z) / (d || 1) * 7); if (byPlayer) crime(ped.cop ? 2 : 1, ped.cop ? 'cop' : 'ped', 4); } }
   scareNear(q, 45);
   lampsNear(q.x, q.z, rad, (L, i) => knockLamp(L, i, L.x - q.x, L.z - q.z));
   if (!player.car && !player.dead) { const d = player.pos.distanceTo(q); if (d < rad * 0.75) { hurtPlayer(20 * (1 - d / (rad * 0.75)) + 4, q); player.vel.add(_v.subVectors(player.pos, q).setY(0).normalize().multiplyScalar(8)); player.vel.y = 5; player.onGround = false; } }
@@ -1304,7 +1494,7 @@ function updateBeam(dt, firing, aim) {
   if (beam.lock) { const g = beam.lock; _v.subVectors(g.pos, aim.o); const ok = ghosts.includes(g) && g.state !== 'captured' && _v.length() < 70 && _v.normalize().dot(f) > Math.cos(0.8); if (!ok) beam.lock = null; }
   if (!beam.lock && aim.ghost) { beam.lock = aim.ghost; beam.lockDist = aim.ghost.pos.distanceTo(B0); }
   const g = beam.lock;
-  if (g) { B2.copy(g.pos).add(_v.set(R(-0.3, 0.3), R(-0.3, 0.3), R(-0.3, 0.3)).multiplyScalar(g.r)); g.damage((g.type === 'boss' ? 40 : 36) * dt); if (g.state === 'stunned') { beam.lockDist = Math.max(4, beam.lockDist - (player.aim ? 5 * dt : 0)); g.tether = aim.o.clone().addScaledVector(f, beam.lockDist + 2.4); } }
+  if (g) { B2.copy(g.pos).add(_v.set(R(-0.3, 0.3), R(-0.3, 0.3), R(-0.3, 0.3)).multiplyScalar(g.r)); g.damage((g.type === 'boss' ? 40 : 36) * dt * (1 + 0.2 * upg('beam'))); if (g.state === 'stunned') { beam.lockDist = Math.max(4, beam.lockDist - (player.aim ? 5 * dt : 0)); g.tether = aim.o.clone().addScaledVector(f, beam.lockDist + 2.4); } }
   else B2.copy(aim.point);
   const len = B0.distanceTo(B2);
   B1.copy(B0).addScaledVector(f, len * 0.5); B1.x += Math.sin(time * 7) * 0.3; B1.y += Math.cos(time * 9) * 0.3;
@@ -1343,8 +1533,9 @@ function updateBeam(dt, firing, aim) {
   if (Math.random() < dt * 6) SMOKE.add(ep.x, ep.y, ep.z, R(-0.5, 0.5), 1.5, R(-0.5, 0.5), 0.1, 0.09, 0.1, 1.6, 0.4, 1.6, -0.2, 0.4, 0.45);
   if (g) { const c = g.T.color; for (let k = 0; k < 2; k++) { sphereDir(_v); FX.add(ep.x, ep.y, ep.z, _v.x * 5, _v.y * 5, _v.z * 5, c[0] * 2.5, c[1] * 2.5, c[2] * 2.5, 0.35, 0.18, 0.02, 0, 1); } }
   beam.scorchT -= dt;
-  if (!g && !aim.hitCar && aim.hit && beam.scorchT <= 0) { beam.scorchT = 0.07; scorches.add(aim.hit.p.clone().add(V3(R(-0.2, 0.2), R(-0.2, 0.2), R(-0.2, 0.2)).projectOnPlane(aim.hit.n)), aim.hit.n, R(0.8, 1.6)); if (Math.random() < 0.25) scareNear(ep, 14, 3); }
-  if (!g && aim.hitCar) { aim.hitCar.damage(14 * dt); }
+  if (!g && !aim.hitCar && !aim.hitHeli && aim.hit && beam.scorchT <= 0) { beam.scorchT = 0.07; scorches.add(aim.hit.p.clone().add(V3(R(-0.2, 0.2), R(-0.2, 0.2), R(-0.2, 0.2)).projectOnPlane(aim.hit.n)), aim.hit.n, R(0.8, 1.6)); if (Math.random() < 0.25) scareNear(ep, 14, 3); }
+  if (!g && aim.hitCar) { playerHitCar(aim.hitCar); aim.hitCar.damage(14 * dt * (1 + 0.2 * upg('beam'))); }
+  else if (!g && aim.hitHeli) damageHeli(28 * dt, true);
   if (AU.beam) { AU.beam.gain.setTargetAtTime(0.32 * (AU.on ? 1 : 0), AU.ctx.currentTime, 0.03); AU.beamBp.Q.value = g ? 3 : 1.6; }
   addShake(null, 0.08);
 }
@@ -1371,8 +1562,8 @@ function throwTrap(aim) {
   if (aim.hit && aim.hit.n === UP && aim.hit.t < 18) to = aim.hit.p.clone();
   else { const f = V3(Math.sin(player.yaw), 0, Math.cos(player.yaw)); to = player.pos.clone().addScaledVector(f, 8); }
   _v.subVectors(to, player.pos).setY(0); if (_v.length() > 14) to.copy(player.pos).addScaledVector(_v.normalize(), 14);
-  const b = inBuilding(to.x, 0.5, to.z); if (b) to.copy(player.pos).addScaledVector(V3(Math.sin(player.yaw), 0, Math.cos(player.yaw)), 3);
-  to.y = groundY(to.x, to.z);
+  to.y = surfaceY(to.x, to.z, Math.max(to.y, player.pos.y) + 0.3);
+  if (inBuilding(to.x, to.y + 0.3, to.z)) { to.copy(player.pos).addScaledVector(V3(Math.sin(player.yaw), 0, Math.cos(player.yaw)), 2); to.y = surfaceY(to.x, to.z, player.pos.y + 0.3); }
   trap.from.copy(player.pos).add(V3(0, 1.2, 0)); trap.to.copy(to); trap.state = 'flying'; trap.t = 0; trap.g.visible = true; trap.idle = 0; sfx('trap');
 }
 function updateTrap(dt) {
@@ -1387,7 +1578,7 @@ function updateTrap(dt) {
     T.cone.visible = true; T.cone.material.uniforms.uI.value = T.state === 'capturing' ? 1.6 : 0.3 + Math.sin(time * 6) * 0.08;
     T.led.material.color.setRGB(Math.sin(time * 12) > 0 ? 4 : 0.3, 0.4, 0.2);
     const capturing = ghosts.filter(g => g.state === 'captured');
-    for (const g of ghosts) if (g.state === 'stunned') { const rad = g.type === 'boss' ? 15 : 9; if (Math.hypot(g.pos.x - T.pos.x, g.pos.z - T.pos.z) < rad && g.pos.y < 18) { startCapture(g); T.state = 'capturing'; } }
+    for (const g of ghosts) if (g.state === 'stunned') { const rad = (g.type === 'boss' ? 15 : 9) * (1 + 0.4 * upg('trap')); if (Math.hypot(g.pos.x - T.pos.x, g.pos.z - T.pos.z) < rad && Math.abs(g.pos.y - T.pos.y) < 18) { startCapture(g); T.state = 'capturing'; } }
     if (T.state === 'capturing') {
       if (Math.random() < 0.5) { const a = Math.random() * 6.28, r = R(0.5, 4); FX.add(T.pos.x + Math.cos(a) * r, T.pos.y + R(3, 9), T.pos.z + Math.sin(a) * r, 0, -8, 0, 2.5, 2.3, 1.8, 0.8, 0.15, 0.02); }
       if (!capturing.length && !ghosts.some(g => g.state === 'captured')) { T.state = 'closing'; T.t = 0; }
@@ -1403,23 +1594,32 @@ function updateTrap(dt) {
 
 // ============================================================ player
 function hurtPlayer(n, from) {
-  if (player.dead || state !== 'play') return;
+  if (player.dead || player.busted || state !== 'play') return;
   player.hp -= n; player.lastHit = time; hurtFx = Math.min(1, hurtFx + n / 30); addShake(null, Math.min(0.9, n / 25)); sfx('hurt', 0.8);
-  if (player.hp <= 0) { player.hp = 0; player.dead = true; player.deadT = 0; if (player.car) exitCar(true); hideBeam(); toast('쓰러졌습니다', '본부에서 다시 출동합니다'); }
+  if (player.hp <= 0) {
+    player.hp = 0; player.dead = true; player.deadT = 0; if (player.car) exitCar(true); hideBeam();
+    if (player.climb || player.zip) { player.climb = player.zip = null; resetPose(); }
+    if (mission) endMission(false, '쓰러져서 의뢰를 놓쳤습니다');
+    toast('쓰러졌습니다', '본부에서 다시 출동합니다');
+  }
 }
 let hurtFx = 0, slimeFx = 0, flashFx = 0;
 function slimeScreen() { slimeFx = 1; }
 function respawn() {
-  player.dead = false; player.hp = 100; player.money = Math.floor(player.money * 0.9); player.pos.set(HQ.cx - 6, 0.15, HQ.cz + 16); player.vel.set(0, 0, 0); player.yaw = Math.atan2(6, -22); player.pitch = -0.1; player.heat = 0; player.overheated = false; P.g.visible = true; P.g.rotation.x = 0;
+  player.dead = false; player.busted = false; player.climb = player.zip = null; player.stunT = 0; player.jumps = 0; player.airMax = 0.15; player.hp = player.maxHp; player.money = Math.floor(player.money * 0.9); clearWanted(); resetPose(); player.pos.set(HQ.cx - 6, 0.15, HQ.cz + 16); player.vel.set(0, 0, 0); player.yaw = Math.atan2(6, -22); player.pitch = -0.1; player.heat = 0; player.overheated = false; P.g.visible = true; P.g.rotation.x = 0;
 }
 function enterCar() {
   let best = null, bd = 4.8;
-  for (const c of cars) { if (c.wrecked) continue; const d = Math.hypot(c.pos.x - player.pos.x, c.pos.z - player.pos.z); if (d < bd) { bd = d; best = c; } }
+  if (player.climb || player.zip || player.busted || player.pos.y > 2) return;
+  for (const c of cars) { if (c.wrecked || c.possessed) continue; const d = Math.hypot(c.pos.x - player.pos.x, c.pos.z - player.pos.z); if (d < bd) { bd = d; best = c; } }
   if (!best) return;
-  if (best.ai) {
-    const ped = peds.reduce((a, b) => a.pos.distanceTo(player.pos) > b.pos.distanceTo(player.pos) ? a : b);
+  if (best.type === 'police') { crime(2, 'cop', 0); best.cop.mode = 'stolen'; toast('경찰차 탈취!', '수배가 크게 오릅니다 · H 사이렌'); }
+  else if (best.ai) {
+    const ped = peds.filter(q => !q.cop).reduce((a, b) => a.pos.distanceTo(player.pos) > b.pos.distanceTo(player.pos) ? a : b);
     const lx = Math.cos(best.h), lz = -Math.sin(best.h); ped.pos.set(best.pos.x + lx * 1.8, 0, best.pos.z + lz * 1.8); ped.inner.rotation.x = 0; ped.inner.position.y = 0; ped.scare(player.pos, 6);
-    toast('차량 탈취!', best.type === 'taxi' ? '택시' : best.type === 'van' ? '승합차' : '승용차');
+    const seen = copsNear(best.pos, 80) || Math.random() < 0.4;
+    toast('차량 탈취!', (best.type === 'taxi' ? '택시' : best.type === 'van' ? '승합차' : '승용차') + (seen ? ' · 목격자가 신고했습니다' : ''));
+    if (seen) crime(1, 'jack', 0);
   }
   best.ai = null; best.parked = false; best.pool.visible = true; player.car = best; P.g.visible = false; hideBeam(); camYawOff = 0; sfx('door');
   if (best === wagon) toast('고스트 왜건 탑승', 'H 사이렌 · Space 핸드브레이크');
@@ -1428,36 +1628,52 @@ function exitCar(forced) {
   const c = player.car; if (!c) return;
   const lx = Math.cos(c.h), lz = -Math.sin(c.h); let x = c.pos.x + lx * 2.3, z = c.pos.z + lz * 2.3;
   if (inBuilding(x, 0.5, z)) { x = c.pos.x - lx * 2.3; z = c.pos.z - lz * 2.3; }
-  player.pos.set(x, groundY(x, z), z); player.vel.set(forced ? lx * 6 : 0, forced ? 4 : 0, forced ? lz * 6 : 0); player.yaw = c.h + camYawOff; player.car = null; P.g.visible = true; c.input.t = 0; c.input.s = 0; c.input.hb = true; c.parked = true;
+  player.pos.set(x, groundY(x, z), z); player.vel.set(forced ? lx * 6 : 0, forced ? 4 : 0, forced ? lz * 6 : 0); player.yaw = c.h + camYawOff; player.car = null; P.g.visible = true; c.input.t = 0; c.input.s = 0; c.input.hb = true; c.parked = true; c.boost = 0;
   if (c.siren) { c.siren = false; }
   sfx('door');
 }
 function updatePlayer(dt) {
-  if (player.dead) { player.deadT += dt; P.g.rotation.x = -Math.min(1.5, player.deadT * 3); if (player.deadT > 3.2) respawn(); return; }
-  if (time - player.lastHit > 5) player.hp = Math.min(100, player.hp + 7 * dt);
+  if (player.dead) { jumpQ = false; player.deadT += dt; P.g.rotation.x = -Math.min(1.5, player.deadT * 3); if (player.deadT > 3.2) respawn(); return; }
+  if (player.busted) { jumpQ = false; player.bustT += dt; P.armL.rotation.set(-2.8, 0, -0.35); P.armR.rotation.set(-2.8, 0, 0.35); P.g.position.copy(player.pos); if (player.bustT > 2.8) respawn(); return; }
+  if (time - player.lastHit > 5) player.hp = Math.min(player.maxHp, player.hp + 7 * dt);
+  player.stunT = Math.max(0, player.stunT - dt);
   const c = player.car;
   if (c) {
     const tk = touch.active;
     c.input.t = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + (tk ? -touch.y : 0);
     c.input.s = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + (tk ? touch.x : 0);
-    c.input.t = clamp(c.input.t, -1, 1); c.input.s = clamp(c.input.s, -1, 1); c.input.hb = !!keys.Space || touch.jump;
+    c.input.t = clamp(c.input.t, -1, 1); c.input.s = clamp(c.input.s, -1, 1); c.input.hb = !!keys.Space || touch.jump; jumpQ = false;
+    // nitro (wagon tuning 2): Shift while accelerating
+    c.boost = c === wagon && upg('wagon') >= 2 && (keys.ShiftLeft || keys.ShiftRight) && c.input.t > 0 && player.nitro > 0 ? 1 : 0;
+    if (c.boost) { player.nitro = Math.max(0, player.nitro - dt * 22); const s = Math.sin(c.h), co = Math.cos(c.h); for (const k of [-0.5, 0.5]) FX.add(c.pos.x - s * 3 + co * k, 0.6, c.pos.z - co * 3 - s * k, -s * 6 + R(-1, 1), R(0, 1), -co * 6 + R(-1, 1), 0.8, 1.4, 4, 0.25, 0.5, 0.1, 0, 2); }
+    else player.nitro = Math.min(100, player.nitro + dt * 7);
     player.pos.set(c.pos.x, groundY(c.pos.x, c.pos.z), c.pos.z);
     return;
   }
+  if (player.climb) return climbUpdate(dt);
+  if (player.zip) return zipUpdate(dt);
   const s = Math.sin(player.yaw), co = Math.cos(player.yaw);
   let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0), mz = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
   let sprint = keys.ShiftLeft || keys.ShiftRight;
   if (touch.active) { mx += touch.x; mz -= touch.y; if (Math.hypot(touch.x, touch.y) > 0.92) sprint = true; }
   const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
-  const firing = fireHeld(), spd = (sprint && !player.aim ? 8.6 : 4.6) * (firing || player.aim ? 0.72 : 1);
+  const glide = upg('jump') >= 2 && !player.onGround && (keys.Space || touch.jump) && player.vel.y < 0;
+  const firing = fireHeld(), spd = (sprint && !player.aim ? 8.6 : 4.6) * (firing || player.aim ? 0.72 : 1) * (player.stunT > 0 ? 0.5 : 1) * (glide ? 1.5 : 1);
   const wx = s * mz - co * mx, wz = co * mz + s * mx;
-  const accel = player.onGround ? 14 : 3;
+  const accel = player.onGround ? 14 : glide ? 5 : 3;
   player.vel.x = damp(player.vel.x, wx * spd, accel, dt); player.vel.z = damp(player.vel.z, wz * spd, accel, dt);
-  if ((keys.Space || touch.jump) && player.onGround) { player.vel.y = 6.4; player.onGround = false; touch.jump = false; }
-  player.vel.y -= 20 * dt;
+  if (jumpQ) {
+    jumpQ = false;
+    if (player.onGround) { player.vel.y = 6.4; player.onGround = false; player.jumps = 1; }
+    else if (upg('jump') >= 1 && player.jumps < 2) { player.vel.y = 7.4; player.jumps = 2; jetFx(10); sfx('jet', 0.6); }
+  }
+  player.vel.y -= (glide ? 8 : 20) * dt; if (glide) { player.vel.y = Math.max(player.vel.y, -2.4); if (Math.random() < dt * 30) jetFx(1); }
   player.pos.addScaledVector(player.vel, dt);
-  const gy = groundY(player.pos.x, player.pos.z);
-  if (player.pos.y <= gy) { player.pos.y = gy; player.vel.y = 0; player.onGround = true; } else if (player.pos.y > gy + 0.05) player.onGround = false;
+  const gy = surfaceY(player.pos.x, player.pos.z, player.pos.y);
+  if (player.pos.y <= gy) {
+    if (!player.onGround) { const fall = player.airMax - gy; if (fall > 7.5 && !glide) hurtPlayer((fall - 7.5) * (upg('jump') ? 3 : 5), null); if (fall > 2.5) smokePuff(V3(player.pos.x, gy, player.pos.z), 3, [0.2, 0.2, 0.22], 0.6, 0.8, 0.4); }
+    player.pos.y = gy; player.vel.y = 0; player.onGround = true; player.jumps = 0; player.airMax = gy;
+  } else if (player.pos.y > gy + 0.05) { player.onGround = false; player.airMax = Math.max(player.airMax, player.pos.y); }
   pushOut(player.pos, 0.42);
   player.pos.x = clamp(player.pos.x, -BOUND, BOUND); player.pos.z = clamp(player.pos.z, -BOUND, BOUND);
   const hv = Math.hypot(player.vel.x, player.vel.z);
@@ -1472,14 +1688,16 @@ function updatePlayer(dt) {
   P.tipGlow.material.color.setRGB(3 * (0.6 + Math.random() * 0.4), 1.2, 0.4);
   P.packLights.material.color.setRGB(player.overheated ? 4 : 0.6, player.overheated ? 0.4 : 3, 0.4);
 }
-function fireHeld() { return (mouse.l || touch.fire) && state === 'play' && !paused && !player.car && !player.dead; }
+function fireHeld() { return (mouse.l || touch.fire) && state === 'play' && !paused && !player.car && !player.dead && !player.busted && !player.climb && !player.zip; }
+function jetFx(n) { const p = P.torso.localToWorld(V3(0, 0.1, -0.5)); for (let k = 0; k < n; k++) FX.add(p.x + R(-0.15, 0.15), p.y, p.z + R(-0.15, 0.15), R(-0.6, 0.6), R(-5, -2), R(-0.6, 0.6), 0.9, 1.6, 4, R(0.2, 0.4), 0.35, 0.05, 0, 2); }
 const aimState = { o: V3(), dir: V3(), point: V3(), hit: null, ghost: null, hitCar: null };
 function computeAim() {
   const A = aimState; A.o.copy(camera.position); camera.getWorldDirection(A.dir);
   const hit = rayWorld(A.o, A.dir, 90); A.hit = hit; const maxT = hit ? hit.t : 90;
   A.point.copy(A.o).addScaledVector(A.dir, maxT);
   A.ghost = pickGhost(A.o, A.dir, maxT);
-  A.hitCar = null;
+  A.hitCar = null; A.hitHeli = null;
+  if (heli.active && !heli.down) { _v.subVectors(heli.pos, A.o); const t = _v.dot(A.dir); if (t > 0 && t < maxT && _w.copy(A.dir).multiplyScalar(t).sub(_v).length() < 3.5) { A.hitHeli = heli; A.point.copy(A.o).addScaledVector(A.dir, t); } }
   for (const c of cars) { if (c.wrecked || c === player.car) continue; _v.subVectors(c.pos, A.o); _v.y += 0.8; const t = _v.dot(A.dir); if (t > 0 && t < maxT) { const perp = _w.copy(A.dir).multiplyScalar(t).sub(_v).length(); if (perp < 1.3) { A.hitCar = c; A.point.copy(A.o).addScaledVector(A.dir, t); break; } } }
   return A;
 }
@@ -1491,17 +1709,18 @@ function updateWeapons(dt) {
   $('cross').classList.toggle('lock', !!(beam.lock || aim.ghost));
   player.fireCd -= dt;
   updateBeam(dt, firing && player.weapon === 0, aim);
-  if (firing && player.weapon === 0) player.heat += 17 * dt;
+  if (firing && player.weapon === 0) player.heat += 17 * dt * (1 - 0.15 * upg('cool'));
   if (firing && player.fireCd <= 0 && player.weapon === 1) {
     player.fireCd = 0.15; player.heat += 2.5; const from = P.tip.getWorldPosition(V3()), dir = V3().subVectors(aim.point, from).normalize(); dir.x += R(-0.02, 0.02); dir.y += R(-0.01, 0.03); dir.z += R(-0.02, 0.02);
-    projectile('slime', from, dir.normalize(), 46); sfx('slime', 0.6); for (let k = 0; k < 8; k++) FX.add(from.x, from.y, from.z, dir.x * 6 + R(-1, 1), dir.y * 6 + R(-1, 1), dir.z * 6 + R(-1, 1), 0.6, 2.6, 0.4, 0.25, 0.2, 0.05);
+    projectile('slime', from, dir.normalize(), 46); sfx('slime', 0.6);
+    for (let k = 1, n = [1, 3, 5][upg('slime')] || 1; k < n; k++) projectile('slime', from, V3(dir.x + R(-0.07, 0.07), dir.y + R(-0.03, 0.05), dir.z + R(-0.07, 0.07)).normalize(), R(40, 48)); for (let k = 0; k < 8; k++) FX.add(from.x, from.y, from.z, dir.x * 6 + R(-1, 1), dir.y * 6 + R(-1, 1), dir.z * 6 + R(-1, 1), 0.6, 2.6, 0.4, 0.25, 0.2, 0.05);
   }
   if (firing && player.fireCd <= 0 && player.weapon === 2) {
-    player.fireCd = 0.85; player.heat += 16; const from = P.tip.getWorldPosition(V3()), dir = V3().subVectors(aim.point, from).normalize();
+    player.fireCd = 0.85 * (1 - 0.2 * upg('boson')); player.heat += 16; const from = P.tip.getWorldPosition(V3()), dir = V3().subVectors(aim.point, from).normalize();
     projectile('boson', from, dir, 85); sfx('boson'); flash(from, 0x9fd0ff, 400, 0.12, 15); sparks(from, 18, 7, [2, 2.6, 4], 0.25); player.pitch += 0.035; addShake(null, 0.25);
   }
   if (firing) player.lastFire = time;
-  if (player.overheated || time - (player.lastFire || 0) > 0.35) player.heat -= (player.overheated ? 34 : 26) * dt;
+  if (player.overheated || time - (player.lastFire || 0) > 0.35) player.heat -= (player.overheated ? 34 : 26) * (1 + 0.2 * upg('cool')) * dt;
   if (player.heat >= 100 && !player.overheated) { player.overheated = true; player.heat = 100; toast('과열!', '팩을 식히는 중입니다'); sfx('overheat'); }
   if (player.overheated) { const pp = P.torso.localToWorld(V3(0, 0.6, -0.45)); SMOKE.add(pp.x, pp.y, pp.z, R(-0.5, 0.5), 2.5, R(-0.5, 0.5), 0.55, 0.55, 0.6, 1.2, 0.2, 1.4, -0.2, 0.6, 0.5); if (player.heat <= 0) { player.overheated = false; sfx('click'); } }
   player.heat = clamp(player.heat, 0, 100);
@@ -1526,7 +1745,7 @@ function updateCamera(dt) {
     const tgt = V3(player.pos.x, player.pos.y + (player.dead ? 0.6 : 1.6), player.pos.z).addScaledVector(r, 0.7);
     const dist = lerp(4.1, 2.4, aimK), want = tgt.clone().addScaledVector(f, -dist).add(V3(0, 0.25, 0));
     const d = V3().subVectors(want, tgt), dl = d.length(); d.normalize(); const hit = rayWorld(tgt, d, dl); if (hit) want.copy(tgt).addScaledVector(d, Math.max(0.4, hit.t - 0.3));
-    want.y = Math.max(want.y, groundY(want.x, want.z) + 0.3);
+    want.y = Math.max(want.y, surfaceY(want.x, want.z, want.y) + 0.3);
     camera.position.copy(want); camLook.copy(want).add(f); camera.lookAt(camLook);
   }
   if (shake > 0.001) { camera.position.x += R(-1, 1) * shake * 0.25; camera.position.y += R(-1, 1) * shake * 0.25; camera.rotation.z += R(-1, 1) * shake * 0.02; shake = Math.max(0, shake - dt * 2.2); }
@@ -1539,34 +1758,37 @@ let locked = false, everLocked = false, lockAt = 0;
 addEventListener('keydown', e => {
   if (e.repeat) return; keys[e.code] = true;
   if (state !== 'play') return;
+  if (modal) { if (e.code === 'KeyE' || e.code === 'Enter') modalOk(); else if (e.code === 'KeyX' || e.code === 'Escape') modalNo(); e.preventDefault(); return; }
   if (e.code === 'Escape' || e.code === 'KeyP') { if (!locked) setPause(!paused); return; }
   if (paused) return;
   if (e.code.startsWith('Digit')) { const w = +e.code.slice(5) - 1; if (w >= 0 && w < 3) setWeapon(w); }
   if (e.code === 'KeyF') player.car ? exitCar() : enterCar();
   if (e.code === 'KeyG') throwTrap(computeAim());
-  if (e.code === 'KeyH' && player.car === wagon) { wagon.siren = !wagon.siren; }
+  if (e.code === 'KeyE') interact();
+  if (e.code === 'KeyH' && player.car && player.car.barR) player.car.siren = !player.car.siren;
   if (e.code === 'KeyR') toggleRain();
   if (e.code === 'KeyM') toggleSound();
-  if (e.code === 'Space') e.preventDefault();
+  if (e.code === 'Space') { jumpQ = true; e.preventDefault(); }
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.l = mouse.r = false; });
 const cvs = renderer.domElement;
 cvs.addEventListener('contextmenu', e => e.preventDefault());
 cvs.addEventListener('mousedown', e => {
-  if (state !== 'play' || paused || isTouch) return;
+  if (state !== 'play' || paused || modal || isTouch) return;
   if (!locked) { try { const r = cvs.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} }
   if (e.button === 0) mouse.l = true; if (e.button === 2) { mouse.r = true; player.aim = true; }
 });
 addEventListener('mouseup', e => { if (e.button === 0) mouse.l = false; if (e.button === 2) { mouse.r = false; player.aim = false; } });
 addEventListener('mousemove', e => {
-  if (state !== 'play' || paused || isTouch) return;
+  if (state !== 'play' || paused || modal || isTouch) return;
   if (!locked && !mouse.l && !mouse.r) return;
   if (performance.now() - lockAt < 150 || Math.abs(e.movementX) > 300 || Math.abs(e.movementY) > 300) return;
   look(e.movementX || 0, e.movementY || 0, player.aim ? 0.0013 : 0.0022);
 });
 addEventListener('wheel', e => { if (state === 'play' && !paused && !player.car) setWeapon((player.weapon + (e.deltaY > 0 ? 1 : 2)) % 3); }, { passive: true });
-document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === cvs; lockAt = performance.now(); if (locked) everLocked = true; else if (everLocked && state === 'play' && !paused) setPause(true); });
+document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === cvs; lockAt = performance.now(); if (locked) everLocked = true; else if (everLocked && state === 'play' && !paused && !modal) setPause(true); });
+let jumpQ = false;
 function look(dx, dy, s) { if (player.car) { camYawOff -= dx * s; camIdle = 0; player.pitch = clamp(player.pitch - dy * s, -0.6, 0.3); } else { player.yaw -= dx * s; player.pitch = clamp(player.pitch - dy * s, -1.2, 0.8); } }
 function setWeapon(w) { if (player.weapon === w) return; player.weapon = w; beam.lock = null; document.querySelectorAll('.slot').forEach(el => el.classList.toggle('on', +el.dataset.w === w)); sfx('click'); }
 // touch
@@ -1574,7 +1796,7 @@ const touch = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, lookId: null,
 if (isTouch) {
   const stick = $('stick'), knob = $('knob');
   addEventListener('touchstart', e => {
-    if (state !== 'play' || paused) return;
+    if (state !== 'play' || paused || modal) return;
     for (const t of e.changedTouches) {
       if (t.target.closest && t.target.closest('.tb')) continue;
       if (t.clientX < innerWidth * 0.42 && touch.id === null) { touch.id = t.identifier; touch.ox = t.clientX; touch.oy = t.clientY; touch.active = true; stick.style.display = 'block'; stick.style.left = t.clientX + 'px'; stick.style.top = t.clientY + 'px'; }
@@ -1593,7 +1815,8 @@ if (isTouch) {
   document.querySelectorAll('.tb').forEach(b => {
     const k = b.dataset.k;
     b.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); b.classList.add('on');
-      if (k === 'fire') touch.fire = true; else if (k === 'jump') touch.jump = true; else if (k === 'weapon') setWeapon((player.weapon + 1) % 3); else if (k === 'trap') throwTrap(computeAim()); else if (k === 'car') player.car ? exitCar() : enterCar(); }, { passive: false });
+      if (state !== 'play' || paused || modal) return;
+      if (k === 'fire') touch.fire = true; else if (k === 'jump') { touch.jump = true; jumpQ = true; } else if (k === 'weapon') setWeapon((player.weapon + 1) % 3); else if (k === 'trap') throwTrap(computeAim()); else if (k === 'car') player.car ? exitCar() : enterCar(); else if (k === 'act') interact(); }, { passive: false });
     b.addEventListener('touchend', e => { e.preventDefault(); b.classList.remove('on'); if (k === 'fire') touch.fire = false; if (k === 'jump') touch.jump = false; });
   });
 }
@@ -1639,9 +1862,17 @@ function drawMinimap() {
   mctx.setTransform(1, 0, 0, 1, 0, 0); mctx.clearRect(0, 0, W, W); mctx.save(); mctx.beginPath(); mctx.arc(C, C, C - 2, 0, 7); mctx.clip();
   mctx.fillStyle = '#0a0716'; mctx.fillRect(0, 0, W, W);
   const k = sc / MS, o = w2m(-MOFF, -MOFF); mctx.setTransform(-cy * k, -sy * k, sy * k, -cy * k, o[0], o[1]); mctx.drawImage(mapImg, 0, 0); mctx.setTransform(1, 0, 0, 1, 0, 0);
-  for (const c of cars) { const [x, z] = w2m(c.pos.x, c.pos.z); mctx.fillStyle = c === wagon ? '#fff' : c.wrecked ? '#442' : '#8a84a8'; mctx.fillRect(x - (c === wagon ? 3 : 1.5), z - (c === wagon ? 3 : 1.5), c === wagon ? 6 : 3, c === wagon ? 6 : 3); }
+  const edge = (x, z, lim = C - 12) => { const dx = x - C, dz = z - C, d = Math.hypot(dx, dz); return d > lim ? [C + dx / d * lim, C + dz / d * lim] : [x, z]; };
+  const flashOn = Math.sin(time * 14) > 0;
+  for (const c of cars) { const [x, z] = w2m(c.pos.x, c.pos.z), big = c === wagon || c.type === 'police', s = big ? 3 : 1.5; mctx.fillStyle = c === wagon ? '#fff' : c.wrecked ? '#442' : c.type === 'police' ? (c.siren ? (flashOn ? '#ff4060' : '#4f8cff') : '#4f8cff') : c.possessed ? '#86ff6e' : '#8a84a8'; mctx.fillRect(x - s, z - s, s * 2, s * 2); }
+  for (const q of peds) if (q.cop) { const [x, z] = w2m(q.pos.x, q.pos.z); mctx.fillStyle = '#4f8cff'; mctx.fillRect(x - 2, z - 2, 4, 4); }
+  for (const s of samples) if (!s.got) { const [x, z] = w2m(s.pos.x, s.pos.z); if (Math.hypot(x - C, z - C) < C - 6) { mctx.fillStyle = '#62e6ff'; mctx.beginPath(); mctx.moveTo(x, z - 4); mctx.lineTo(x + 4, z); mctx.lineTo(x, z + 4); mctx.lineTo(x - 4, z); mctx.fill(); } }
   if (trap.g.visible) { const [x, z] = w2m(trap.pos.x, trap.pos.z); mctx.fillStyle = '#ffd166'; mctx.fillRect(x - 3, z - 3, 6, 6); }
   const [hx, hz] = w2m(HQ.cx, HQ.cz); mctx.fillStyle = '#ff5a3b'; mctx.font = 'bold 18px sans-serif'; mctx.textAlign = 'center'; mctx.textBaseline = 'middle'; mctx.fillText('H', clamp(hx, 14, W - 14), clamp(hz, 14, W - 14));
+  if (!mission) for (const G of GIVERS) { const [x, z] = edge(...w2m(G.pos.x, G.pos.z)); mctx.fillStyle = G.col; mctx.beginPath(); mctx.arc(x, z, 9, 0, 7); mctx.fill(); mctx.fillStyle = '#120a1e'; mctx.font = '900 14px sans-serif'; mctx.fillText('!', x, z + 1); }
+  if (heli.active) { const [x, z] = edge(...w2m(heli.pos.x, heli.pos.z)); mctx.strokeStyle = flashOn ? '#ff4060' : '#4f8cff'; mctx.lineWidth = 2.5; mctx.beginPath(); mctx.moveTo(x - 7, z - 7); mctx.lineTo(x + 7, z + 7); mctx.moveTo(x + 7, z - 7); mctx.lineTo(x - 7, z + 7); mctx.stroke(); }
+  const wpP = mission && mission.def.wp(mission);
+  if (wpP) { const [x, z] = edge(...w2m(wpP.x, wpP.z)); mctx.strokeStyle = '#ffd166'; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(x, z, 8 + Math.sin(time * 6) * 2, 0, 7); mctx.stroke(); }
   for (const g of ghosts) {
     let [x, z] = w2m(g.pos.x, g.pos.z); const dx = x - C, dz = z - C, d = Math.hypot(dx, dz), lim = C - 10; if (d > lim) { x = C + dx / d * lim; z = C + dz / d * lim; }
     const c = g.T.color, col = `rgb(${c[0] * 255 | 0},${c[1] * 255 | 0},${c[2] * 255 | 0})`, r = g.type === 'boss' ? 9 : 5 + Math.sin(time * 8) * 1.2;
@@ -1652,22 +1883,31 @@ function drawMinimap() {
 }
 let lastMoney = -1, hudObjT = 0;
 function updateHUD(dt) {
-  $('hpFill').style.width = player.hp + '%';
+  $('hpFill').style.width = (player.hp / player.maxHp * 100) + '%';
   const hf = $('heatFill'); hf.style.width = player.heat + '%'; hf.classList.toggle('hot', player.overheated);
   if (player.money !== lastMoney) { lastMoney = player.money; $('money').textContent = '$' + player.money.toLocaleString(); }
   hudObjT -= dt;
   if (hudObjT <= 0) {
     hudObjT = 0.25;
     const toBoss = Math.max(0, nextBossAt - captureCount), stunned = ghosts.some(g => g.state === 'stunned');
-    $('obj').innerHTML = bossActive ? `<b>보스 출현!</b> 네온 거신을 약화시킨 뒤 트랩(G)으로 가두세요` : stunned ? `<b>기절한 유령이 있습니다.</b> 가까이에 트랩(G)을 던지세요` : `<b>유령 포획 ${player.captures}마리</b> · 보스까지 ${toBoss}마리 · PKE 신호를 따라가세요`;
+    $('obj').hidden = !!mission;
+    if (mission) {
+      const m = mission, b = m.def.bar(m); $('misT').textContent = '의뢰 · ' + m.def.title; $('misO').textContent = m.def.obj(m);
+      $('misM').hidden = $('misL').hidden = !b; if (b) { $('misL').textContent = b[0]; $('misBar').style.width = clamp(b[1], 0, 1) * 100 + '%'; }
+    } else $('obj').innerHTML = bossActive ? `<b>보스 출현!</b> 네온 거신을 약화시킨 뒤 트랩(G)으로 가두세요` : stunned ? `<b>기절한 유령이 있습니다.</b> 가까이에 트랩(G)을 던지세요` : wanted ? `<b>수배 ${wanted}단계</b> · 경찰 시야에서 벗어나거나 본부로 숨으세요` : `<b>유령 포획 ${player.captures}마리</b> · 보스까지 ${toBoss}마리 · PKE 신호나 ! 표시 의뢰인을 찾아가세요`;
+    $('rep').innerHTML = `평판 <b>${save.rep}</b> · 옥상 샘플 <b>${samples.filter(s => s.got).length}/${samples.length}</b>` + (player.car === wagon && upg('wagon') >= 2 ? ` · 니트로 <b>${Math.round(player.nitro)}%</b>` : '');
+    $('stars').hidden = !wanted; [...$('stars').children].forEach((s, i) => s.classList.toggle('on', i < wanted)); $('stars').classList.toggle('cool', time - lastSeen > 1.5);
     $('trapSt').textContent = trap.state === 'held' ? '트랩 준비됨 · G' : trap.state === 'armed' ? '트랩 설치됨 · 기절한 유령을 끌어오세요 (G 회수)' : trap.state === 'capturing' ? '포획 중…' : trap.state === 'closing' ? '트랩 봉인 중…' : '트랩 투척 중';
     $('trapSt').classList.toggle('armed', trap.state !== 'held');
     // hint
-    let hint = '';
-    if (!player.car && !player.dead) { for (const c of cars) if (!c.wrecked && Math.hypot(c.pos.x - player.pos.x, c.pos.z - player.pos.z) < 4.8) { hint = c.ai ? '<kbd>F</kbd>차량 탈취' : c === wagon ? '<kbd>F</kbd>고스트 왜건 탑승' : '<kbd>F</kbd>차량 탑승'; break; } }
-    else if (player.car) hint = '<kbd>F</kbd>하차' + (player.car === wagon ? ' · <kbd>H</kbd>사이렌' : '');
-    if (isTouch) hint = hint.replace(/<kbd>F<\/kbd>/, '<kbd>탑승</kbd>').replace(/ · <kbd>H<\/kbd>사이렌/, '');
-    $('hint').innerHTML = hint; $('hint').style.opacity = hint ? 1 : 0;
+    let hint = ''; const it = findInteract();
+    if (it) hint = '<kbd>E</kbd>' + it.label;
+    else if (player.climb) hint = '<kbd>W S</kbd>오르내리기 · <kbd>Space</kbd>뛰어내리기';
+    else if (player.zip) hint = '<kbd>Space</kbd>손 놓기';
+    else if (!player.car && !player.dead && player.pos.y < 2) { for (const c of cars) if (!c.wrecked && !c.possessed && Math.hypot(c.pos.x - player.pos.x, c.pos.z - player.pos.z) < 4.8) { hint = c.type === 'police' ? '<kbd>F</kbd>경찰차 탈취 (수배)' : c.ai ? '<kbd>F</kbd>차량 탈취' : c === wagon ? '<kbd>F</kbd>고스트 왜건 탑승' : '<kbd>F</kbd>차량 탑승'; break; } }
+    else if (player.car) hint = '<kbd>F</kbd>하차' + (player.car.barR ? ' · <kbd>H</kbd>사이렌' : '') + (player.car === wagon && upg('wagon') >= 2 ? ' · <kbd>Shift</kbd>니트로' : '');
+    if (isTouch) hint = hint.replace(/<kbd>F<\/kbd>/, '<kbd>탑승</kbd>').replace(/<kbd>E<\/kbd>/, '<kbd>행동</kbd>').replace(/<kbd>W S<\/kbd>/, '<kbd>스틱</kbd>').replace(/<kbd>Space<\/kbd>/, '<kbd>점프</kbd>').replace(/ · <kbd>H<\/kbd>사이렌/, '').replace(/ · <kbd>Shift<\/kbd>니트로/, '');
+    $('hint').innerHTML = hint; $('hint').style.opacity = hint ? 1 : 0; $('actBtn').hidden = !it;
   }
   // PKE
   const pp = player.car ? player.car.pos : player.pos; let near = null, nd = Infinity;
@@ -1680,17 +1920,492 @@ function updateHUD(dt) {
   hurtFx = Math.max(0, hurtFx - dt * 1.2); slimeFx = Math.max(0, slimeFx - dt * 0.5); flashFx = Math.max(0, flashFx - dt * 3);
   $('vig').style.opacity = Math.max(hurtFx, player.hp < 30 ? 0.35 + Math.sin(time * 5) * 0.15 : 0); $('slime').style.opacity = slimeFx * 0.9; $('flash').style.opacity = flashFx;
   mmT -= dt; if (mmT <= 0) { mmT = 1 / 20; drawMinimap(); }
+  if (mission) { const tt = $('misTime'); tt.textContent = mission.hold ? '' : fmtTime(mission.time); tt.classList.toggle('low', !mission.hold && mission.time < 15); }
+  updateWaypoint();
 }
+function updateWaypoint() {
+  const el = $('wp'), p = mission && mission.def.wp(mission);
+  if (!p || player.dead) { el.hidden = true; return; }
+  el.hidden = false; camera.updateMatrixWorld();
+  const W = innerWidth, H = innerHeight, cs = _w.set(p.x, p.y + 2.2, p.z).applyMatrix4(camera.matrixWorldInverse);
+  let x, y, off;
+  if (cs.z < -0.5) { _v.copy(cs).applyMatrix4(camera.projectionMatrix); x = (_v.x * 0.5 + 0.5) * W; y = (0.5 - _v.y * 0.5) * H; off = x < 40 || x > W - 40 || y < 80 || y > H - 60; }
+  else { x = W / 2 + cs.x * 50; y = H / 2 + (cs.z + 1) * 50; off = true; }
+  let rot = 0;
+  if (off) { const dx = x - W / 2, dy = y - H / 2, k = Math.min((W / 2 - 44) / Math.max(1e-3, Math.abs(dx)), (H / 2 - 80) / Math.max(1e-3, Math.abs(dy))); x = W / 2 + dx * k; y = H / 2 + dy * k; rot = Math.atan2(dy, dx) - Math.PI / 2; }
+  const pp = player.car ? player.car.pos : player.pos;
+  $('wpD').textContent = Math.round(Math.hypot(p.x - pp.x, p.z - pp.z)) + 'm';
+  el.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`; $('wpI').style.transform = `rotate(${rot}rad)`;
+}
+
+// ============================================================ NPCs: mission givers and the workshop
+function npc(shirt, extra = []) {
+  const g = new THREE.Group(), skin = 0xe8b896, legs = 0x2b2d36;
+  g.add(new THREE.Mesh(merge([part(BOX, shirt, 0, 1.2, 0, 0.44, 0.6, 0.24), part(SPH, skin, 0, 1.66, 0, 0.13, 0.15, 0.14), part(SPH, 0x2a1d14, 0, 1.72, -0.02, 0.14, 0.1, 0.145), part(BOX, shirt, -0.28, 1.2, 0, 0.11, 0.55, 0.12, 0, 0, 0.08), part(BOX, shirt, 0.28, 1.2, 0, 0.11, 0.55, 0.12, 0, 0, -0.08), part(SPH, skin, -0.31, 0.9, 0, 0.06, 0.06, 0.06), part(SPH, skin, 0.31, 0.9, 0, 0.06, 0.06, 0.06), part(BOX, legs, -0.11, 0.47, 0, 0.17, 0.9, 0.19), part(BOX, legs, 0.11, 0.47, 0, 0.17, 0.9, 0.19), ...extra]), charMat), blob(1.1));
+  return g;
+}
+function iconTex(ch, col) { const c = mkCanvas(128, 128), g = c.getContext('2d'); g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 18; g.beginPath(); g.arc(64, 64, 44, 0, 7); g.fill(); g.shadowBlur = 0; g.fillStyle = '#120a1e'; g.font = '900 70px "Noto Sans KR", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, 64, 68); return tex(c, true, false); }
+function marker(x, z, ch, col, sign) {
+  const icon = new THREE.Sprite(new THREE.SpriteMaterial({ map: iconTex(ch, col), color: new THREE.Color(1.8, 1.8, 1.8), depthWrite: false })); icon.scale.setScalar(1.1); icon.position.set(x, 2.6, z);
+  const pillar = new THREE.Mesh(BEAM_GEO, beamMat(col, 1.4)); pillar.scale.set(0.6, 1.5, 0.6); pillar.position.set(x, 30, z);
+  scene.add(icon, pillar);
+  if (sign) { const m = new THREE.Mesh(new THREE.PlaneGeometry(sign.w, sign.w / 4), new THREE.MeshBasicMaterial({ map: signTex(sign.text, col), color: new THREE.Color(2.2, 2.2, 2.2) })); m.position.set(sign.x, sign.y, sign.z); scene.add(m); document.fonts?.ready.then(() => { m.material.map.dispose(); m.material.map = signTex(sign.text, col); icon.material.map.dispose(); icon.material.map = iconTex(ch, col); }); }
+  return { icon, pillar };
+}
+const GIVERS = [
+  { id: 'lib', name: '김 사서', place: '시립도서관', lot: [2, 3], col: '#9dff5a', kind: 'exorcism', pay: 1500, shirt: 0x3f6b4a, extra: [part(BOX, 0x222222, 0, 1.67, 0.13, 0.22, 0.04, 0.02)],
+    lines: ['서고 깊은 곳에서 책을 갉아먹던 원령이 빠져나갔어요. 지금 도시 어딘가를 떠돌고 있습니다. 꼭 붙잡아 주세요.', '그 원령이 친구들을 데리고 돌아왔어요! 이번엔 호위 유령까지 붙었습니다.', '고서 보관실이 또 뚫렸어요. 이번 녀석은 훨씬 질기니 조심하세요.'] },
+  { id: 'taxi', name: '박 기사', place: '개인택시 조합', lot: [6, 5], col: '#ffe35a', kind: 'possessed', pay: 1800, shirt: 0xc9a227, extra: [part(CYL, 0x1c2a44, 0, 1.79, 0, 0.15, 0.08, 0.15)],
+    lines: ['제 택시에 유령이 씌어서 혼자 도시를 질주하고 있어요! 빔을 쏘거나 차로 들이받아서 유령을 끌어내 주세요.', '조합 택시가 또 씌었습니다. 이번엔 더 빨라요!', '유령들이 택시를 아주 좋아하나 봐요. 이번에도 부탁드립니다.'] },
+  { id: 'store', name: '최 사장', place: '24시 편의점', lot: [3, 6], col: '#5ef0ff', kind: 'hold', pay: 1600, shirt: 0x2f7fb0, extra: [part(BOX, 0xe8e8e8, 0, 1.05, 0.125, 0.36, 0.5, 0.01)],
+    lines: ['유령 떼가 가게로 몰려온대요! 녀석들이 가게를 점액으로 뒤덮지 못하게 잠시만 지켜 주세요.', '또 몰려옵니다! 지난번보다 숫자가 많아요.', '이젠 단골 유령까지 생겼어요. 오늘 밤도 부탁합니다.'] },
+  { id: 'radio', name: '윤 PD', place: 'GHOST FM 88.1', lot: [5, 3], col: '#ff4fd8', kind: 'race', pay: 1200, shirt: 0x7a2a6e, extra: [part(BOX, 0x111111, -0.15, 1.68, 0, 0.05, 0.13, 0.1), part(BOX, 0x111111, 0.15, 1.68, 0, 0.05, 0.13, 0.1), part(BOX, 0x111111, 0, 1.8, 0, 0.32, 0.04, 0.05)],
+    lines: ['생방송 이벤트예요! 도시 곳곳의 유령 신호 지점을 제한 시간 안에 차로 통과해 주세요. 청취자들이 지켜봅니다.', '청취율이 터졌어요! 이번엔 코스를 늘렸습니다.', '스폰서가 붙었어요. 더 길고 더 빠른 코스입니다!'] },
+];
+for (const G of GIVERS) {
+  const L = lots[G.lot[0]][G.lot[1]], A = LOT / 2 - SW, x = L.cx + 8, z = L.cz + A + 1.3;
+  G.pos = V3(x, 0.15, z); G.g = npc(G.shirt, G.extra); G.g.position.copy(G.pos); scene.add(G.g);
+  Object.assign(G, marker(x, z, '!', G.col, { text: G.place, w: 8, x, y: Math.min(7.2, topY(x, L.cz + A - 0.5) - 1.5), z: L.cz + A + 0.22 }));
+}
+const SHOP = { pos: V3(HQ.cx - 9.5, 0.15, HQ.cz - 3.4) };
+{
+  SHOP.g = npc(0xe8e8e2, [part(BOX, 0x62e6ff, 0, 1.69, 0.12, 0.24, 0.05, 0.03), part(BOX, 0xe8e8e2, 0, 0.75, 0, 0.46, 0.45, 0.26)]); SHOP.g.position.copy(SHOP.pos); scene.add(SHOP.g);
+  Object.assign(SHOP, marker(SHOP.pos.x, SHOP.pos.z, '$', '#62e6ff', { text: 'R&D 연구실', w: 5.2, x: HQ.cx - 11, y: 5.4, z: HQ.cz - 4.86 }));
+  SHOP.pillar.visible = false;
+  scene.add(new THREE.Mesh(merge([part(BOX, 0x3a3d44, HQ.cx - 12.6, 0.6, HQ.cz - 4.2, 2.6, 0.9, 1.1), part(BOX, 0x22252b, HQ.cx - 12.9, 1.22, HQ.cz - 4.3, 0.6, 0.35, 0.4), part(CYL, 0x55585f, HQ.cx - 12, 1.25, HQ.cz - 4.1, 0.12, 0.4, 0.12)]), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.6 })));
+  const glowBit = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.16), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 2.6, 3.2) })); glowBit.position.set(HQ.cx - 13.4, 1.2, HQ.cz - 4.0); scene.add(glowBit);
+}
+
+// ============================================================ missions
+let mission = null;
+const fmtTime = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+const payOf = G => Math.round(G.pay * (1 + 0.35 * (save.lv[G.id] || 0)) / 50) * 50;
+function nameTag(g, text, col) {
+  const c = mkCanvas(512, 96), x = c.getContext('2d');
+  x.fillStyle = 'rgba(10,6,20,.8)'; x.fillRect(6, 10, 500, 76); x.strokeStyle = col; x.lineWidth = 4; x.strokeRect(6, 10, 500, 76);
+  x.fillStyle = col; x.font = '900 46px "Noto Sans KR", sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 256, 50);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(c, true, false), depthWrite: false, depthTest: false }));
+  s.scale.set(4.2, 0.79, 1); s.position.y = g.r * 2 + 1.2; s.renderOrder = 9; g.g.add(s); g.tag = s; g.name = text;
+}
+function fadeGhost(g) { ring(g.pos, g.r * 2, [1.5, 3, 1.2]); smokePuff(g.pos, 4, [0.2, 0.3, 0.2], 1.2, 1.5, 0.4); g.remove(); }
+function slimeStore(m) { const p = V3(m.store.x + R(-4, 4), R(0.8, 5), m.wallZ + 0.03); slimes.add(p, ZAX, R(1, 2.2)); sparks(p, 12, 4, [0.6, 2.6, 0.5], 0.5, 0.15); }
+function raidHit(g) { if (mission && mission.kind === 'hold') { mission.hp -= g.T.dmg * 0.5; slimeStore(mission); sfxAt('splat', g.pos, 0.7); } }
+const raceRings = [0, 1].map(k => { const r = new THREE.Mesh(new THREE.TorusGeometry(6.5, 0.32, 10, 56), new THREE.MeshBasicMaterial({ color: k ? new THREE.Color(0.9, 0.25, 0.8) : new THREE.Color(3.2, 0.7, 2.8), transparent: true, opacity: k ? 0.5 : 1, depthWrite: false, blending: THREE.AdditiveBlending })); r.visible = false; scene.add(r); return r; });
+const racePillar = new THREE.Mesh(BEAM_GEO, beamMat(0xff4fd8, 2)); racePillar.scale.set(1.2, 2, 1.2); racePillar.visible = false; scene.add(racePillar);
+function placeRings(m) {
+  for (let k = 0; k < 2; k++) { const r = raceRings[k], i = m.k + k; r.visible = i < m.n; if (!r.visible) continue; const q = m.dirs[i]; r.position.copy(m.pts[i]); r.rotation.set(0, Math.atan2(DX[q], DZ[q]), 0); }
+  racePillar.visible = true; racePillar.position.set(m.pts[m.k].x, 40, m.pts[m.k].z);
+}
+function startRace(m) {
+  const c = player.car.pos; let a = clamp(Math.round((c.x + HALF) / CELL), 0, N), b = clamp(Math.round((c.z + HALF) / CELL), 0, N), d = -1;
+  m.pts = []; m.dirs = []; m.legT = [];
+  for (let k = 0; k < m.n; k++) {
+    const opts = [0, 1, 2, 3].filter(q => d < 0 || q !== (d + 2) % 4); let q, len, tries = 0;
+    do { q = pick(opts); len = 1 + ((Math.random() * 2) | 0); } while ((a + DX[q] * len < 0 || a + DX[q] * len > N || b + DZ[q] * len < 0 || b + DZ[q] * len > N) && ++tries < 30);
+    if (tries >= 30) { q = (d + 2) % 4; len = 1; }
+    a += DX[q] * len; b += DZ[q] * len; d = q;
+    m.pts.push(V3(roadPos(a), 4.6, roadPos(b))); m.dirs.push(q); m.legT.push(6 + len * 5.5);
+  }
+  m.phase = 'run'; m.hold = false; m.time = m.legT[0] + 4; placeRings(m); sfx('ding'); toast('출발!', '분홍 링을 차례로 차로 통과하세요');
+}
+const MISSION = {
+  exorcism: {
+    title: '서고의 원령', limit: () => 300,
+    start(m) {
+      const pp = player.pos; let L = null;
+      for (let k = 0; k < 80 && !L; k++) { const c = lots[(Math.random() * N) | 0][(Math.random() * N) | 0], d = Math.hypot(c.cx - pp.x, c.cz - pp.z); if (c.type !== 'hq' && d > 150 && d < 320) L = c; }
+      L = L || lots[0][0]; m.anchor = V3(L.cx, 14, L.cz);
+      const g = new Ghost(m.lv >= 2 ? 'howler' : 'gulper', V3(L.cx, 20, L.cz));
+      g.hp = g.maxHp = Math.round(g.T.hp * (2.2 + m.lv * 0.4)); g.leash = m.anchor; g.mission = true; g.onCapture = () => endMission(true);
+      nameTag(g, '책벌레 원령', '#9dff5a'); m.ghost = g;
+      for (let k = 0; k < Math.min(3, m.lv); k++) { const e = new Ghost('wisp', m.anchor.clone().add(V3(R(-10, 10), R(4, 10), R(-10, 10)))); e.leash = m.anchor; e.mission = true; m.extra.push(e); }
+      toast('의뢰 시작: 서고의 원령', '노란 표식과 PKE를 따라가세요');
+    },
+    update(m) { if (!ghosts.includes(m.ghost)) endMission(false, '원령이 사라졌습니다'); },
+    obj: m => m.ghost.state === 'stunned' ? '원령이 기절했습니다. 트랩(G)을 던져 가두세요' : '도시를 떠도는 원령을 찾아 빔으로 약화시키세요',
+    wp: m => m.ghost.pos,
+    bar: m => ['원령 기력', m.ghost.hp / m.ghost.maxHp],
+    end(m, ok) { for (const g of [m.ghost, ...m.extra]) if (ghosts.includes(g) && g.state !== 'captured') { if (ok) { g.leash = null; g.mission = false; } else fadeGhost(g); } },
+  },
+  possessed: {
+    title: '귀신 들린 택시', limit: () => 240,
+    start(m) {
+      const pp = player.pos; let best = null, bs = -1e9;
+      for (const c of cars) { if (!c.ai || c.wrecked || c.type === 'police' || c === wagon) continue; const d = c.pos.distanceTo(pp), s = (c.type === 'taxi' ? 150 : 0) + Math.min(d, 200) - (d < 60 ? 400 : 0); if (s > bs) { bs = s; best = c; } }
+      if (!best) { best = new Car('taxi', 0xf2c21a); best.resetAI(true); }
+      m.car = best; best.possessed = { meter: 0, calm: 0, shot: 2 }; best.T = { ...best.T, top: 33 + m.lv * 3, acc: 17 }; m.cruise = 18 + m.lv * 2; best.hp = 100;
+      toast('의뢰 시작: 귀신 들린 택시', '초록빛으로 번쩍이는 차를 찾으세요');
+    },
+    update(m, dt) {
+      if (m.ghost) { if (!ghosts.includes(m.ghost)) endMission(false, '택시 귀신이 달아났습니다'); return; }
+      const c = m.car, P = c.possessed;
+      if (c.ai) c.ai.cruise = m.cruise; c.ignore = 1;
+      P.calm += dt; if (P.calm > 3) P.meter = Math.max(0, P.meter - 5 * dt);
+      const k = 0.5 + 0.5 * Math.sin(time * 9); c.mat.emissive.setRGB(0.05 + k * 0.1, 0.5 + k * 0.6, 0.08);
+      if (Math.random() < dt * 30) FX.add(c.pos.x + R(-1, 1), R(0.8, 1.8), c.pos.z + R(-1.5, 1.5), R(-0.5, 0.5), R(1, 2.5), R(-0.5, 0.5), 0.5, 2.6, 0.5, 0.8, 0.6, 0.05, -0.5, 0.3);
+      const tp = player.car ? player.car.pos : player.pos;
+      P.shot -= dt; if (P.shot <= 0 && c.pos.distanceTo(tp) < 45 && !player.dead) { P.shot = R(1.6, 2.6); const from = V3(c.pos.x, 2.2, c.pos.z); projectile('ecto', from, V3(tp.x - from.x, tp.y + 1.1 - from.y, tp.z - from.z).normalize(), 24, { T: { dmg: 7 } }); sfxAt('ecto', from, 0.6); }
+      if (P.meter >= 100) {
+        c.possessed = null; c.T = CAR_T[c.type]; c.mat.emissive.setScalar(0); c.ai = null; c.parked = true; c.vel.multiplyScalar(0.25);
+        const g = new Ghost('gulper', V3(c.pos.x, 3.2, c.pos.z)); g.spawnT = 0; g.hp = 0; g.state = 'stunned'; g.stun = 14; g.mission = true; g.onCapture = () => endMission(true);
+        nameTag(g, '택시 귀신', '#ffe35a'); m.ghost = g;
+        ring(g.pos, 6, [0.6, 3, 0.6]); sparks(g.pos, 50, 9, [0.6, 3, 0.6], 0.8); sfxAt('wail', g.pos); addShake(g.pos, 0.6, 40);
+        toast('귀신이 튀어나왔습니다!', '기절한 사이 트랩(G)으로 가두세요');
+      }
+    },
+    obj: m => m.ghost ? (m.ghost.state === 'stunned' ? '택시 귀신이 기절했습니다. 트랩(G)으로 가두세요' : '깨어난 택시 귀신을 다시 약화시키세요') : '택시를 쫓아가 빔을 쏘거나 차로 들이받아 귀신을 끌어내세요',
+    wp: m => m.ghost ? m.ghost.pos : m.car.pos,
+    bar: m => m.ghost ? ['귀신 기력', m.ghost.hp / m.ghost.maxHp] : ['퇴마 게이지', m.car.possessed.meter / 100],
+    end(m, ok) { const c = m.car; if (c.possessed) { c.possessed = null; c.T = CAR_T[c.type]; c.mat.emissive.setScalar(0); } if (m.ghost && ghosts.includes(m.ghost) && m.ghost.state !== 'captured') { if (ok) m.ghost.mission = false; else fadeGhost(m.ghost); } },
+  },
+  hold: {
+    title: '편의점 사수', limit: m => 75 + m.lv * 10,
+    start(m) { const G = m.G; m.store = V3(G.pos.x, 2.6, G.pos.z - 1.1); m.wallZ = G.pos.z - 1.3; m.hp = 100; m.spawnT = 4; m.raiders = []; toast('의뢰 시작: 편의점 사수', '유령 떼가 가게를 노립니다. 시간이 끝날 때까지 버티세요'); },
+    timeout(m) { endMission(true); },
+    update(m, dt) {
+      m.raiders = m.raiders.filter(g => ghosts.includes(g) && g.raid);
+      m.spawnT -= dt;
+      if (m.spawnT <= 0 && m.raiders.length < 3 + Math.min(2, m.lv)) {
+        m.spawnT = Math.max(3, R(5, 8) - m.lv * 0.6);
+        const a = Math.random() * 6.28, r = Math.random(), g = new Ghost(r < 0.3 ? 'howler' : r < 0.65 ? 'wisp' : 'gulper', V3(m.store.x + Math.cos(a) * 50, R(12, 22), m.store.z + Math.sin(a) * 50));
+        g.raid = m.store; g.state = 'hunt'; g.mission = true; m.raiders.push(g);
+      }
+      for (const g of m.raiders) if (g.state === 'hunt' && Math.hypot(g.pos.x - m.store.x, g.pos.z - m.store.z) < 15) { m.hp -= 0.35 * dt; if (Math.random() < dt * 1.2) slimeStore(m); }
+      if (m.hp <= 0) endMission(false, '가게가 점액으로 뒤덮였습니다');
+    },
+    obj: m => `가게를 노리는 유령을 막으세요 · 습격 유령 ${m.raiders.length}`,
+    wp: m => m.store,
+    bar: m => ['가게 내구도', m.hp / 100],
+    end(m, ok) { for (const g of m.raiders) if (ghosts.includes(g)) { g.raid = null; g.mission = false; if (ok && g.state === 'hunt') { g.state = 'roam'; g.wander.set(g.pos.x + R(-200, 200), 30, g.pos.z + R(-200, 200)); } } },
+  },
+  race: {
+    title: '심야 생방송 레이스', limit: () => 0,
+    start(m) { m.hold = true; m.phase = 'wait'; m.n = Math.min(10, 5 + m.lv * 2); m.k = 0; toast('의뢰 시작: 심야 생방송 레이스', '아무 차량에나 타면 출발합니다'); },
+    update(m) {
+      if (m.phase === 'wait') { if (player.car) startRace(m); return; }
+      raceRings[0].scale.setScalar(1 + Math.sin(time * 5) * 0.05); raceRings[0].rotation.z += 0.02;
+      const cp = m.pts[m.k], c = player.car;
+      if (c && Math.hypot(c.pos.x - cp.x, c.pos.z - cp.z) < 10) {
+        m.k++; sfx('ding'); flash(cp, 0xff60e0, 900, 0.3, 30); sparks(cp, 40, 10, [3, 0.8, 2.6], 0.7); ring(V3(cp.x, 0.3, cp.z), 10, [3, 0.7, 2.6]);
+        if (m.k >= m.n) { m.reward += Math.round(m.time) * 20; endMission(true); return; }
+        m.time += m.legT[m.k]; placeRings(m);
+      }
+    },
+    obj: m => m.phase === 'wait' ? '아무 차량에나 타면 출발 신호가 울립니다' : `신호 지점 ${m.k + 1}/${m.n} · 링을 차로 통과하세요 (남은 시간이 보너스)`,
+    wp: m => m.phase === 'wait' ? null : m.pts[m.k],
+    bar: m => m.phase === 'wait' ? null : ['코스 진행', m.k / m.n],
+    end() { raceRings.forEach(r => r.visible = false); racePillar.visible = false; },
+  },
+};
+function giverIcons() { for (const G of GIVERS) G.icon.visible = G.pillar.visible = !mission; }
+function offerMission(G) {
+  const lv = save.lv[G.id] || 0, lim = MISSION[G.kind].limit({ lv });
+  dlgG = G; $('dlgName').textContent = G.name; $('dlgName').style.setProperty('--c', G.col);
+  $('dlgPlace').textContent = `${G.place} · ${lv + 1}번째 의뢰`;
+  $('dlgText').textContent = G.lines[Math.min(lv, G.lines.length - 1)];
+  $('dlgReward').textContent = `보상 $${payOf(G).toLocaleString()} · 평판 +1 · ` + (G.kind === 'hold' ? `${lim}초 버티기` : G.kind === 'race' ? '차량 필요, 남은 시간만큼 추가 보상' : `제한 ${fmtTime(lim)}`);
+  openModal('dlg');
+}
+function startMission(G) {
+  if (mission || !G) return;
+  const def = MISSION[G.kind];
+  mission = { G, kind: G.kind, def, lv: save.lv[G.id] || 0, reward: payOf(G), extra: [], hold: false };
+  mission.time = def.limit(mission); def.start(mission);
+  giverIcons(); $('mis').hidden = false; sfx('ding');
+}
+function endMission(ok, why = '') {
+  const m = mission; if (!m) return; mission = null;
+  m.def.end(m, ok);
+  if (ok) { player.money += m.reward; save.rep++; save.lv[m.G.id] = m.lv + 1; toast('의뢰 완료!', `${m.G.name} · +$${m.reward.toLocaleString()} · 평판 ${save.rep}`); sfx('fanfare'); }
+  else { toast('의뢰 실패', why); sfx('fail'); }
+  $('mis').hidden = true; $('wp').hidden = true; giverIcons(); writeSave();
+}
+function updateMission(dt) {
+  for (const G of GIVERS) if (G.icon.visible) G.icon.position.y = 2.6 + Math.sin(time * 3 + G.pos.x) * 0.12;
+  SHOP.icon.position.y = 2.6 + Math.sin(time * 3) * 0.12;
+  const m = mission; if (!m) return;
+  if (!m.hold) { m.time -= dt; if (m.time <= 0) { m.time = 0; if (m.def.timeout) m.def.timeout(m); else endMission(false, '제한 시간이 지났습니다'); return; } }
+  m.def.update(m, dt);
+}
+
+// ============================================================ police: wanted level, patrol cars, officers, helicopter
+let wanted = 0, wantedCool = 0, lastSeen = -99, bustT = 0, copSpawnT = 0;
+const crimeCd = {};
+function crime(n, kind, cd = 4) {
+  if (state !== 'play' || player.dead || player.busted) return;
+  if ((crimeCd[kind] || 0) > time) return; crimeCd[kind] = time + cd;
+  const prev = wanted; wanted = Math.min(5, wanted + n); wantedCool = 0; lastSeen = time;
+  if (wanted > prev) { sfx('star', 0.8); if (prev === 0) toast('수배 발령!', '경찰이 출동합니다. 시야에서 벗어나면 수배가 풀립니다'); else if (wanted >= 4 && prev < 4) toast('경찰 헬기 출동!', '탐조등을 피해 숨으세요'); }
+}
+function playerHitCar(c) { c.pHit = time; if (c.type === 'police' && c !== player.car && !c.wrecked) crime(1, 'cop', 3); }
+function copsNear(p, r) { for (const c of cars) if (c.type === 'police' && !c.wrecked && c !== player.car && c.pos.distanceTo(p) < r) return true; for (const q of peds) if (q.cop && !q.leave && q.pos.distanceTo(p) < r * 0.6) return true; return false; }
+function clearWanted() { wanted = 0; wantedCool = 0; bustT = 0; for (const c of cars) if (c.cop && c.cop.mode === 'chase') { c.cop.mode = 'idle'; c.siren = false; c.cop.deployed = 0; } for (const q of peds) if (q.cop) q.leave = true; }
+const officerCount = () => peds.reduce((n, q) => n + (q.cop && !q.leave ? 1 : 0), 0);
+function spawnCop(x, z) { const q = new Ped(true); q.pos.set(x, groundY(x, z), z); q.g.position.copy(q.pos); peds.push(q); return q; }
+function removeCar(c) { scene.remove(c.g); c.mat.dispose(); c.body.geometry.dispose(); c.lights.geometry.dispose(); cars.splice(cars.indexOf(c), 1); }
+function bust() {
+  if (player.busted || player.dead) return;
+  if (mission) endMission(false, '체포되어 의뢰를 놓쳤습니다');
+  if (player.car) exitCar(false);
+  player.busted = true; player.bustT = 0; player.climb = player.zip = null; hideBeam(); bustT = 0;
+  toast('체포!', '벌금으로 소지금 10%를 내고 본부에서 풀려납니다'); sfx('busted');
+}
+function copUpdate(q, dt) {
+  const p = q.pos, tp = player.car ? player.car.pos : player.pos;
+  let dx = tp.x - p.x, dz = tp.z - p.z, spd; const d = Math.hypot(dx, dz) || 1;
+  if (q.leave || player.dead || player.busted) { dx = -dx; dz = -dz; spd = 3.2; q.leaveT = (q.leaveT || 0) + dt; }
+  else spd = d > 3.5 ? 5.4 : d > 1.2 ? 2.4 : 0;
+  q.vel.x = damp(q.vel.x, dx / d * spd, 6, dt); q.vel.z = damp(q.vel.z, dz / d * spd, 6, dt);
+  p.x += q.vel.x * dt; p.z += q.vel.z * dt; p.y = groundY(p.x, p.z); pushOut(p, 0.35);
+  p.x = clamp(p.x, -BOUND, BOUND); p.z = clamp(p.z, -BOUND, BOUND);
+  q.rot = Math.atan2(dx, dz);
+  if (!q.leave && !player.dead && !player.busted) {
+    q.shot -= dt;
+    if (q.shot <= 0 && d < 18 && (d > 2.6 || player.pos.y - p.y > 2)) { q.shot = R(1.5, 2.4); const from = V3(p.x, 1.35, p.z), aim = V3(tp.x + R(-0.4, 0.4), tp.y + 1.1, tp.z + R(-0.4, 0.4)); projectile('stun', from, aim.sub(from).normalize(), 36, q); sfxAt('stun', from, 0.4); }
+  }
+  return Math.hypot(q.vel.x, q.vel.z);
+}
+function copDrive(c, dt) {
+  const C = c.cop, tp = player.car ? player.car.pos : player.pos, d = Math.hypot(tp.x - c.pos.x, tp.z - c.pos.z);
+  let tx = tp.x, tz = tp.z;
+  if (d > 45) {
+    if (!C.nav) { C.na = clamp(Math.round((c.pos.x + HALF) / CELL), 0, N); C.nb = clamp(Math.round((c.pos.z + HALF) / CELL), 0, N); C.nav = true; }
+    else if (Math.hypot(roadPos(C.na) - c.pos.x, roadPos(C.nb) - c.pos.z) < 11) {
+      let bd = Infinity, ba = C.na, bb = C.nb;
+      for (let q = 0; q < 4; q++) { const a = C.na + DX[q], b = C.nb + DZ[q]; if (a < 0 || b < 0 || a > N || b > N) continue; const dd = Math.hypot(roadPos(a) - tp.x, roadPos(b) - tp.z); if (dd < bd) { bd = dd; ba = a; bb = b; } }
+      C.na = ba; C.nb = bb;
+    }
+    tx = roadPos(C.na); tz = roadPos(C.nb);
+  } else C.nav = false;
+  const diff = angDiff(Math.atan2(tx - c.pos.x, tz - c.pos.z), c.h), vf = c.fwdSpeed(), close = !player.car && d < 16;
+  if (C.rev > 0) { C.rev -= dt; c.input.t = -1; c.input.s = clamp(diff * 2, -1, 1); c.input.hb = false; return; }
+  const target = close ? 0 : Math.abs(diff) > 1.1 ? 9 : d < 45 ? 30 : 26;
+  if (!close && vf < 2 && target > 5) { C.stuck += dt; if (C.stuck > 1.6) { C.stuck = 0; C.rev = 1.1; } } else C.stuck = 0;
+  c.input.s = clamp(-diff * 2.4, -1, 1); c.input.t = vf < target - 1 ? 1 : vf > target + 2 ? -0.6 : 0.1; c.input.hb = Math.abs(diff) > 1.0 && vf > 13;
+  if (close && Math.abs(vf) < 2 && C.deployed < 2 && officerCount() < 6) {
+    for (const s of [-1, 1]) { if (C.deployed >= 2) break; const lx = Math.cos(c.h) * s, lz = -Math.sin(c.h) * s; spawnCop(c.pos.x + lx * 1.8, c.pos.z + lz * 1.8); C.deployed++; }
+    sfxAt('door', c.pos, 0.7);
+  }
+}
+function spawnPolice(pp) {
+  for (let k = 0; k < 30; k++) {
+    const a = (Math.random() * (N + 1)) | 0, b = (Math.random() * (N + 1)) | 0, x = roadPos(a), z = roadPos(b), d = Math.hypot(x - pp.x, z - pp.z);
+    if (d < 120 || d > 220) continue;
+    const c = new Car('police', 0x15171d); c.cop.extra = true; c.cop.mode = 'chase'; c.siren = true; c.pos.set(x, 0, z); c.h = Math.atan2(pp.x - x, pp.z - z); c.g.position.copy(c.pos); c.g.rotation.y = c.h;
+    return c;
+  }
+}
+function updatePolice(dt) {
+  const pp = player.car ? player.car.pos : player.pos, drop = [];
+  let seen = false, chasers = 0;
+  for (const c of cars) {
+    if (c.type !== 'police' || c === player.car) continue;
+    const C = c.cop, d = c.pos.distanceTo(pp);
+    if (c.wrecked) { if (C.extra && c.wreckT > 20 && d > 120) drop.push(c); continue; }
+    if (wanted > 0) {
+      if ((C.mode === 'patrol' && d < 260) || ((C.mode === 'idle' || C.mode === 'stolen') && d < 200)) { C.mode = 'chase'; c.ai = null; C.nav = false; c.parked = false; }
+      if (C.mode === 'chase') { chasers++; c.siren = true; if (d < 75) seen = true; }
+    } else if (C.mode !== 'patrol') {
+      c.siren = false; if (C.mode === 'chase') { C.mode = 'idle'; C.deployed = 0; }
+      if (d > 150) { if (C.extra) drop.push(c); else c.resetAI(true); }
+    }
+  }
+  for (const c of drop) removeCar(c);
+  for (const q of peds) if (q.cop && !q.leave) { const d = q.pos.distanceTo(pp); if (d < 40) seen = true; if (d > 150) q.leave = true; }
+  if (heli.active && !heli.down && Math.hypot(heli.pos.x - pp.x, heli.pos.z - pp.z) < 110) seen = true;
+  if (wanted > 0) {
+    copSpawnT -= dt;
+    if (chasers < [0, 2, 3, 4, 5, 6][wanted] && copSpawnT <= 0 && cars.filter(c => c.type === 'police').length < 9) { copSpawnT = 3.5; spawnPolice(pp); }
+    if (seen) { wantedCool = 0; lastSeen = time; }
+    else { wantedCool += dt; if (wantedCool > 8 + wanted * 3) { wantedCool = 0; wanted--; if (!wanted) { clearWanted(); toast('경찰을 따돌렸습니다'); } else sfx('click'); } }
+    if (wanted > 0 && !seen && Math.abs(pp.x - HQ.cx) < 14 && pp.z > HQ.cz - 5 && pp.z < HQ.cz + 26) { clearWanted(); toast('본부로 숨어 수배를 피했습니다'); }
+  }
+  // arrest: officers next to a slow player, or a stopped car boxed in by police
+  if (wanted > 0 && !player.dead && !player.busted) {
+    let near = false;
+    if (player.car) { if (player.car.speed < 1.6) { for (const c of cars) if (c.type === 'police' && c !== player.car && !c.wrecked && c.cop.mode === 'chase' && c.pos.distanceTo(pp) < 6) near = true; for (const q of peds) if (q.cop && !q.leave && q.state === 'cop' && q.pos.distanceTo(pp) < 2.8) near = true; } }
+    else if (!player.climb && !player.zip) { const v = Math.hypot(player.vel.x, player.vel.z); for (const q of peds) if (q.cop && !q.leave && q.state === 'cop' && q.pos.distanceTo(player.pos) < 1.7 && v < 2.6) near = true; }
+    bustT = near ? bustT + dt : Math.max(0, bustT - dt * 2);
+    if (bustT > 1.5) bust();
+  } else bustT = 0;
+  for (let i = peds.length - 1; i >= 0; i--) { const q = peds[i]; if (q.cop && q.leave && (q.leaveT > 14 || q.pos.distanceTo(camera.position) > 90)) { scene.remove(q.g); peds.splice(i, 1); } }
+  updateHeli(dt, pp);
+}
+
+// ---- police helicopter (4+ stars): searchlight, stun volleys, can be shot down
+const heli = { active: false, down: false, hp: 200, pos: V3(), vel: V3(), ang: 0, shot: 3, cd: 0 };
+{
+  const g = new THREE.Group(), body = 0x1d2433, M = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.6, envMapIntensity: 1.2 }), dk = 0x2a2d33;
+  g.add(new THREE.Mesh(merge([
+    part(SPH, body, 0, 0, 0, 1.5, 1.25, 2.6), part(SPH, 0x0b1220, 0, 0.25, 1.55, 1.05, 0.8, 1.2), part(CYL, body, 0, 0.25, -3.6, 0.28, 4.4, 0.28, Math.PI / 2, 0, 0), part(BOX, body, 0, 1.0, -5.6, 0.12, 1.5, 0.9), part(BOX, 0xe8e8e8, 0, -0.35, 0, 1.52, 0.35, 3.6),
+    part(BOX, dk, 0.9, -1.55, 0, 0.1, 0.1, 4.2), part(BOX, dk, -0.9, -1.55, 0, 0.1, 0.1, 4.2), part(BOX, dk, 0.75, -1.2, 0.9, 0.08, 0.7, 0.08), part(BOX, dk, -0.75, -1.2, 0.9, 0.08, 0.7, 0.08), part(BOX, dk, 0.75, -1.2, -0.9, 0.08, 0.7, 0.08), part(BOX, dk, -0.75, -1.2, -0.9, 0.08, 0.7, 0.08), part(CYL, dk, 0, 1.4, 0, 0.12, 0.6, 0.12),
+  ]), M));
+  heli.rotor = new THREE.Mesh(merge([part(BOX, 0x15161a, 0, 0, 0, 11, 0.06, 0.32), part(BOX, 0x15161a, 0, 0, 0, 0.32, 0.06, 11)]), M); heli.rotor.position.y = 1.72; g.add(heli.rotor);
+  heli.tail = new THREE.Mesh(merge([part(BOX, 0x15161a, 0, 0, 0, 0.05, 1.8, 0.16), part(BOX, 0x15161a, 0, 0, 0, 0.05, 0.16, 1.8)]), M); heli.tail.position.set(0.18, 1.0, -5.9); g.add(heli.tail);
+  const lamp = (x, y, z, c) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), new THREE.MeshBasicMaterial({ color: c })); m.position.set(x, y, z); g.add(m); return m; };
+  lamp(-1.5, 0, 0.4, new THREE.Color(4, 0.2, 0.2)); lamp(1.5, 0, 0.4, new THREE.Color(0.2, 4, 0.4)); heli.strobe = lamp(0, -1.3, -2.4, new THREE.Color(5, 5, 5));
+  const cg = new THREE.ConeGeometry(1, 1, 24, 1, true); cg.translate(0, -0.5, 0);
+  heli.cone = new THREE.Mesh(cg, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 0.5, 0.42), transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  heli.spot = new THREE.Mesh(poolGeo, new THREE.MeshBasicMaterial({ map: TX.pool, color: new THREE.Color(1.6, 1.6, 1.4), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  heli.cone.renderOrder = 8; heli.spot.renderOrder = 1;
+  g.visible = heli.cone.visible = heli.spot.visible = false; heli.g = g; scene.add(g, heli.cone, heli.spot);
+}
+function heliShow(on) { heli.g.visible = heli.cone.visible = heli.spot.visible = on; }
+function damageHeli(n, byPlayer) {
+  const H = heli; if (!H.active || H.down) return;
+  H.hp -= n; if (byPlayer) crime(1, 'cop', 3);
+  if (Math.random() < 0.3) sparks(H.pos, 6, 5, [3, 1.8, 0.6], 0.4);
+  if (H.hp <= 0) { H.down = true; H.vel.set(R(-4, 4), 2, R(-4, 4)); H.cone.visible = H.spot.visible = false; explosion(H.pos.clone(), 6, 30, null, null, false); toast('경찰 헬기 격추!', '수배가 더 무거워집니다'); crime(1, 'heli', 0); }
+}
+function updateHeli(dt, pp) {
+  const H = heli;
+  if (!H.active) {
+    H.cd -= dt; if (wanted < 4 || H.cd > 0) return;
+    const a = Math.random() * 6.28; H.active = true; H.down = false; H.hp = 200; H.shot = 4; H.vel.set(0, 0, 0); H.pos.set(pp.x + Math.cos(a) * 160, 90, pp.z + Math.sin(a) * 160); heliShow(true);
+  }
+  H.rotor.rotation.y += dt * 38; H.tail.rotation.x += dt * 50; H.strobe.visible = Math.sin(time * 9) > 0.85;
+  if (H.down) {
+    H.vel.y -= 14 * dt; H.pos.addScaledVector(H.vel, dt); H.g.rotation.y += dt * 5; H.g.rotation.z += dt * 0.8; H.g.position.copy(H.pos);
+    if (Math.random() < dt * 40) { FX.add(H.pos.x, H.pos.y, H.pos.z, R(-1, 1), R(0, 2), R(-1, 1), 3.5, R(1, 1.8), 0.3, R(0.3, 0.6), R(1, 1.6), 0.2, -2, 1); SMOKE.add(H.pos.x, H.pos.y, H.pos.z, R(-1, 1), 2, R(-1, 1), 0.05, 0.05, 0.055, 3, 1.2, 4, -0.2, 0.3, 0.6); }
+    const gy = topY(H.pos.x, H.pos.z); if (H.pos.y < gy + 1.2) { explosion(V3(H.pos.x, gy + 1, H.pos.z), 10, 80, null, null, false); H.active = false; heliShow(false); H.cd = 45; H.g.rotation.set(0, 0, 0); }
+    return;
+  }
+  const leaving = wanted < 4 || player.dead || player.busted;
+  let alt = 52; for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const L = lotAt(pp.x + i * CELL, pp.z + j * CELL) || nearestLot(pp.x + i * CELL, pp.z + j * CELL); for (const b of L.boxes) alt = Math.max(alt, b.h + 16); }
+  H.ang += dt * 0.32;
+  const tx = leaving ? H.pos.x * 2 - pp.x : pp.x + Math.cos(H.ang) * 28, tz = leaving ? H.pos.z * 2 - pp.z : pp.z + Math.sin(H.ang) * 28, ty = leaving ? 150 : Math.min(alt, 200);
+  const want = _w.set(tx - H.pos.x, ty - H.pos.y, tz - H.pos.z); if (want.length() > 22) want.setLength(22);
+  H.vel.x = damp(H.vel.x, want.x, 1.2, dt); H.vel.y = damp(H.vel.y, want.y, 1.2, dt); H.vel.z = damp(H.vel.z, want.z, 1.2, dt); H.pos.addScaledVector(H.vel, dt);
+  if (leaving && (H.pos.y > 140 || H.pos.distanceTo(pp) > 300)) { H.active = false; heliShow(false); H.cd = 20; return; }
+  H.g.position.copy(H.pos); H.g.rotation.y = H.g.rotation.y + angDiff(Math.atan2(pp.x - H.pos.x, pp.z - H.pos.z), H.g.rotation.y) * Math.min(1, dt * 2); H.g.rotation.x = clamp(Math.hypot(H.vel.x, H.vel.z) * 0.015, 0, 0.3);
+  const sy = player.car ? groundY(pp.x, pp.z) : surfaceY(pp.x, pp.z, player.pos.y + 0.2), tgt = V3(pp.x + Math.sin(time * 0.9) * 2, sy, pp.z + Math.cos(time * 0.7) * 2);
+  const d = _v.subVectors(tgt, H.pos), len = d.length();
+  H.cone.position.copy(H.pos).add(V3(0, -1, 0)); H.cone.quaternion.setFromUnitVectors(V3(0, -1, 0), d.normalize()); H.cone.scale.set(len * 0.11, len, len * 0.11);
+  H.spot.position.set(tgt.x, sy + 0.08, tgt.z); H.spot.scale.set(len * 0.24, 1, len * 0.24);
+  H.shot -= dt;
+  if (!leaving && H.shot <= 0 && H.pos.distanceTo(pp) < 120) { H.shot = R(2.4, 3.4); const from = H.pos.clone().add(V3(0, -1.4, 0)); for (let k = 0; k < 3; k++) { const aim = V3(pp.x + R(-1.5, 1.5), pp.y + 1, pp.z + R(-1.5, 1.5)); projectile('stun', from, aim.sub(from).normalize(), 48, H); } sfxAt('stun', from, 0.7); }
+}
+
+// ============================================================ rooftop moves: ladders, ziplines, samples, E interactions
+function resetPose() { P.armR.rotation.set(-1.25, 0, 0.1); P.armL.rotation.set(-1.1, 0, -0.55); P.legL.rotation.x = P.legR.rotation.x = 0; }
+function findInteract() {
+  if (state !== 'play' || player.car || player.dead || player.busted || player.climb || player.zip) return null;
+  const p = player.pos; let best = null, bd = 1e9;
+  const near = (d, r, o) => { if (d < r && d < bd) { bd = d; best = o; } };
+  if (p.y < 2) {
+    if (!mission) for (const G of GIVERS) near(Math.hypot(G.pos.x - p.x, G.pos.z - p.z), 3.2, { kind: 'giver', G, label: `대화 · ${G.name} (${G.place})` });
+    near(Math.hypot(SHOP.pos.x - p.x, SHOP.pos.z - p.z), 3.2, { kind: 'shop', label: '오 박사의 연구실' });
+  }
+  for (const L of ladders) {
+    if (p.y < 2) near(Math.hypot(L.x - p.x, L.z - p.z), 1.7, { kind: 'ladder', L, up: true, label: '사다리 오르기' });
+    else if (Math.abs(p.y - L.h) < 0.6) near(Math.hypot(L.x - L.nx * 1.3 - p.x, L.z - L.nz * 1.3 - p.z), 1.8, { kind: 'ladder', L, up: false, label: '사다리 내려가기' });
+  }
+  for (const Z of zips) if (Math.abs(p.y - Z.hA) < 0.6) near(Math.hypot(Z.p0.x - p.x, Z.p0.z - p.z), 2.4, { kind: 'zip', Z, label: '짚라인 타기' });
+  return best;
+}
+function interact() {
+  const it = findInteract(); if (!it) return;
+  if (it.kind === 'giver') offerMission(it.G);
+  else if (it.kind === 'shop') openShop();
+  else if (it.kind === 'ladder') { const L = it.L; player.climb = { L, anim: 0 }; player.vel.set(0, 0, 0); player.yaw = Math.atan2(-L.nx, -L.nz); player.pos.set(L.x, it.up ? Math.max(player.pos.y, 0.15) : L.h - 1.7, L.z); hideBeam(); sfx('clang', 0.3); }
+  else if (it.kind === 'zip') { player.zip = { Z: it.Z, s: 0.6, v: 5 }; player.yaw = Math.atan2(it.Z.dir.x, it.Z.dir.z); hideBeam(); sfx('clang', 0.4); }
+}
+function climbUpdate(dt) {
+  const C = player.climb, L = C.L;
+  let v = ((keys.KeyW || keys.ArrowUp) ? 1 : 0) - ((keys.KeyS || keys.ArrowDown) ? 1 : 0); if (touch.active) v -= touch.y * 1.3; v = clamp(v, -1, 1);
+  if (jumpQ) { jumpQ = false; player.climb = null; resetPose(); player.vel.set(L.nx * 4, 3, L.nz * 4); player.onGround = false; player.airMax = player.pos.y; return; }
+  player.pos.y += v * ((keys.ShiftLeft || keys.ShiftRight) ? 6.5 : 4.2) * dt; C.anim += v * dt * 7;
+  player.pos.x = L.x; player.pos.z = L.z; player.vel.set(0, 0, 0); player.facing = Math.atan2(-L.nx, -L.nz);
+  if (player.pos.y >= L.h - 1.0 && v > 0) { player.climb = null; resetPose(); player.pos.set(L.x - L.nx * 1.5, L.h, L.z - L.nz * 1.5); player.onGround = true; player.airMax = L.h; sfx('door', 0.3); return; }
+  if (player.pos.y <= 0.15 && v < 0) { player.climb = null; resetPose(); player.pos.y = groundY(L.x, L.z); player.onGround = true; player.airMax = player.pos.y; return; }
+  const s = Math.sin(C.anim); P.armL.rotation.set(-2.7 + s * 0.35, 0, -0.1); P.armR.rotation.set(-2.7 - s * 0.35, 0, 0.1); P.legL.rotation.x = -0.5 - s * 0.5; P.legR.rotation.x = -0.5 + s * 0.5;
+  P.torso.rotation.x = 0; P.g.position.copy(player.pos); P.g.rotation.y = player.facing;
+}
+function zipUpdate(dt) {
+  const Z = player.zip, D = Z.Z;
+  Z.v = Math.min(26, Z.v + (2 + 9.8 * D.drop / D.len) * dt); Z.s += Z.v * dt;
+  player.pos.copy(D.a).addScaledVector(D.dir, Z.s); player.pos.y -= 2.15;
+  player.vel.copy(D.dir).multiplyScalar(Z.v); player.facing = Math.atan2(D.dir.x, D.dir.z);
+  P.armL.rotation.set(-3.0, 0, -0.15); P.armR.rotation.set(-3.0, 0, 0.15); P.legL.rotation.x = 0.25; P.legR.rotation.x = -0.15;
+  P.g.position.copy(player.pos); P.g.rotation.y = player.facing;
+  if (Math.random() < dt * 40) FX.add(player.pos.x, player.pos.y + 2.15, player.pos.z, R(-1, 1) - D.dir.x * 3, R(-1, 1), R(-1, 1) - D.dir.z * 3, 3, 2, 0.8, 0.25, 0.08, 0.02, 9, 0.5);
+  if (Z.s >= D.len - 1.2 || jumpQ) { jumpQ = false; player.zip = null; resetPose(); player.vel.multiplyScalar(0.45); player.vel.y = 2; player.onGround = false; player.airMax = player.pos.y; }
+}
+function updateRoofs(dt) {
+  if (zipLampMesh) zipLampMesh.material.color.setRGB(0.4, Math.sin(time * 4) > 0 ? 3.2 : 0.6, 1.4 * (Math.sin(time * 4) > 0 ? 1 : 0.4));
+  for (const s of samples) {
+    if (s.got) continue;
+    s.core.rotation.y += dt * 1.6; s.core.position.y = 0.7 + Math.sin(time * 2.4 + s.id) * 0.12;
+    if (player.car || player.dead || player.pos.distanceTo(s.pos) > 1.6) continue;
+    s.got = true; s.g.visible = false; save.samples.push(s.id); player.money += 300;
+    const n = samples.filter(q => q.got).length; toast(`옥상 PKE 샘플 ${n}/${samples.length}`, '+$300 · 오 박사가 좋아하겠군요'); sfx('chirp');
+    sparks(s.pos.clone().setY(s.pos.y + 0.8), 40, 6, [0.6, 2.6, 3], 0.6);
+    if (n === samples.length) { player.money += 3000; toast('샘플 전부 수집!', '보너스 +$3,000'); }
+    writeSave();
+  }
+}
+
+// ============================================================ shop (Dr. Oh) and modal dialogs
+const UPG = [
+  { id: 'beam', name: '양성자 빔 증폭기', desc: '빔 위력 +20% (단계마다)', cost: [1500, 3500, 7000], rep: [0, 1, 3] },
+  { id: 'cool', name: '팩 냉각기', desc: '빔 발열 -15%, 냉각 속도 +20% (단계마다)', cost: [1200, 3000, 6000], rep: [0, 1, 3] },
+  { id: 'slime', name: '슬라임 산탄기', desc: '한 번에 3발, 2단계는 5발', cost: [2000, 5000], rep: [0, 2] },
+  { id: 'boson', name: '보손 압축기', desc: '폭발 반경 +25%, 재장전 -20% (단계마다)', cost: [2500, 6000], rep: [1, 3] },
+  { id: 'trap', name: '트랩 흡입기', desc: '트랩 포획 반경 +40% (단계마다)', cost: [1800, 4500], rep: [0, 2] },
+  { id: 'jump', name: '점프 팩', desc: '1단계 공중 이단 점프와 낙하 피해 감소, 2단계 Space를 누르고 있으면 활공', cost: [3000, 7500], rep: [1, 3] },
+  { id: 'armor', name: '강화 방호복', desc: '최대 체력 +25 (단계마다)', cost: [2000, 5000, 9000], rep: [0, 2, 4] },
+  { id: 'wagon', name: '고스트 왜건 튜닝', desc: '속도·가속 +15%, 차체 피해 -25%, 2단계 니트로 (운전 중 Shift)', cost: [3000, 8000], rep: [1, 3] },
+];
+function applyUpgrades() {
+  player.maxHp = 100 + 25 * upg('armor'); player.hp = Math.min(player.hp, player.maxHp);
+  const w = upg('wagon'); wagon.T = { ...CAR_T.wagon, top: CAR_T.wagon.top * (1 + 0.15 * w), acc: CAR_T.wagon.acc * (1 + 0.15 * w) }; wagon.armor = 1 - 0.25 * w;
+}
+function renderShop() {
+  $('shopMoney').textContent = `소지금 $${Math.floor(player.money).toLocaleString()} · 평판 ${save.rep}`;
+  const box = $('ups'); box.innerHTML = '';
+  for (const u of UPG) {
+    const lv = upg(u.id), max = u.cost.length, el = document.createElement('div'), head = document.createElement('div'), b = document.createElement('b'), pips = document.createElement('span'), d = document.createElement('small'), btn = document.createElement('button');
+    el.className = 'up'; b.textContent = u.name; pips.className = 'pips'; pips.textContent = '●'.repeat(lv) + '○'.repeat(max - lv); head.append(b, pips); d.textContent = u.desc; btn.dataset.id = u.id;
+    if (lv >= max) { btn.textContent = '완료'; btn.disabled = true; }
+    else if (save.rep < u.rep[lv]) { btn.textContent = `평판 ${u.rep[lv]} 필요`; btn.disabled = true; }
+    else { btn.textContent = '$' + u.cost[lv].toLocaleString(); btn.disabled = player.money < u.cost[lv]; btn.addEventListener('click', () => buy(u)); }
+    el.append(head, d, btn); box.append(el);
+  }
+}
+function buy(u) {
+  const lv = upg(u.id); if (lv >= u.cost.length || save.rep < u.rep[lv] || player.money < u.cost[lv]) return;
+  player.money -= u.cost[lv]; save.up[u.id] = lv + 1; applyUpgrades(); if (u.id === 'armor') player.hp = player.maxHp; if (u.id === 'wagon') player.nitro = 100;
+  writeSave(); sfx('buy'); renderShop(); toast(`${u.name} ${lv + 1}단계`, '장착 완료');
+}
+let modal = null, dlgG = null;
+function muteLoops() { if (!AU.ctx) return; for (const k of ['eng', 'sir', 'psir', 'heli', 'zip']) if (AU[k]) AU[k].gain.value = 0; }
+function openModal(id) { modal = id; $(id).hidden = false; mouse.l = mouse.r = false; player.aim = false; hideBeam(); muteLoops(); if (locked) document.exitPointerLock(); }
+function closeModal() { if (!modal) return; $(modal).hidden = true; modal = null; if (!isTouch && everLocked) { try { const r = cvs.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} } }
+function openShop() { renderShop(); openModal('shop'); sfx('door', 0.5); }
+function modalOk() { if (modal === 'dlg') { const G = dlgG; closeModal(); startMission(G); } else closeModal(); }
+function modalNo() { closeModal(); }
+$('dlgOk').addEventListener('click', modalOk); $('dlgNo').addEventListener('click', modalNo); $('shopClose').addEventListener('click', modalNo);
 
 // ============================================================ game flow
 let state = 'menu', paused = false, time = 0, spawnT = 3, weatherT = R(15, 30);
-function setPause(p) { paused = p; $('pause').hidden = !p; if (p) { mouse.l = mouse.r = false; player.aim = false; hideBeam(); if (AU.eng) { AU.eng.gain.value = 0; AU.sir.gain.value = 0; } } }
+function setPause(p) { paused = p; $('pause').hidden = !p; if (p) { mouse.l = mouse.r = false; player.aim = false; hideBeam(); muteLoops(); } }
+if (save.money || save.rep || Object.keys(save.up).length) { $('saveInfo').hidden = false; $('saveInfo').textContent = `저장된 기록으로 이어서 합니다: $${save.money.toLocaleString()} · 평판 ${save.rep} · 개조 ${Object.values(save.up).reduce((a, b) => a + b, 0)}단계 (일시정지 메뉴에서 초기화)`; }
 $('go').addEventListener('click', () => {
   initAudio(); state = 'play'; $('start').hidden = true; $('hud').hidden = false; if (isTouch) $('touch').hidden = false;
-  respawn(); player.money = 0; camera.position.set(player.pos.x, 2, player.pos.z);
+  applyUpgrades(); respawn(); player.money = save.money; player.hp = player.maxHp; camera.position.set(player.pos.x, 2, player.pos.z);
   if (!isTouch) { try { const r = cvs.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} }
   toast('출동!', 'PKE 신호를 따라가 유령을 찾으세요');
   setTimeout(() => state === 'play' && toast('양성자 빔으로 약화', '기절하면 트랩(G)을 던져 가두세요'), 3500);
+  setTimeout(() => state === 'play' && !mission && toast('시민 의뢰', '머리 위 ! 표시 의뢰인에게 가서 E를 누르세요'), 8000);
+});
+let resetArm = false;
+$('optReset').addEventListener('click', () => {
+  if (!resetArm) { resetArm = true; $('optReset').textContent = '한 번 더 누르면 초기화'; setTimeout(() => { resetArm = false; $('optReset').textContent = '기록 초기화'; }, 3000); return; }
+  resetArm = false; $('optReset').textContent = '기록 초기화';
+  if (mission) endMission(false, '기록을 초기화했습니다');
+  Object.assign(save, { money: 0, rep: 0, lv: {}, up: {}, samples: [] }); player.money = 0;
+  for (const s of samples) { s.got = false; s.g.visible = true; }
+  applyUpgrades(); player.hp = player.maxHp; writeSave(); toast('기록을 초기화했습니다');
 });
 $('resume').addEventListener('click', () => { setPause(false); if (!isTouch && everLocked) { try { const r = cvs.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} } });
 $('optRain').addEventListener('click', toggleRain);
@@ -1710,15 +2425,17 @@ function spawner(dt) {
   }
   weatherT -= dt;
   if (weatherT <= 0) { weatherT = R(18, 40); if (rainOn) { const pp = camera.position; lightningBolt(pp.x + R(-300, 300), pp.z + R(-300, 300)); } }
-  for (const g of ghosts) { if (g.pos.distanceTo(player.pos) > 330 && g.state === 'roam' && g.type !== 'boss') { g.remove(); break; } }
+  for (const g of ghosts) { if (g.pos.distanceTo(player.pos) > 330 && g.state === 'roam' && g.type !== 'boss' && !g.mission) { g.remove(); break; } }
 }
 function updateWorld(dt) {
   for (const c of cars) {
-    if (c.ai) aiDrive(c, dt); else if (c !== player.car && !c.wrecked) { c.input.t = 0; c.input.s = 0; c.input.hb = true; }
-    if (c.ai || c === player.car || c.speed > 0.05 || c.wrecked || c.y > 0) stepCar(c, dt);
+    const chase = c.cop && c.cop.mode === 'chase' && c !== player.car && !c.wrecked;
+    if (chase) copDrive(c, dt); else if (c.ai) aiDrive(c, dt); else if (c !== player.car && !c.wrecked) { c.input.t = 0; c.input.s = 0; c.input.hb = true; }
+    if (c.ai || chase || c === player.car || c.speed > 0.05 || c.wrecked || c.y > 0) stepCar(c, dt);
     if (c.fire > 0) { c.fire -= dt; if (Math.random() < dt * 30) { const p = c.pos; FX.add(p.x + R(-1, 1), 1.2 + R(0, 0.6), p.z + R(-1, 1), R(-0.5, 0.5), R(2, 4), R(-0.5, 0.5), 3.5, R(1, 1.8), 0.3, R(0.4, 0.8), R(0.8, 1.4), 0.2, -2, 1); } if (Math.random() < dt * 8) SMOKE.add(c.pos.x + R(-1, 1), 1.8, c.pos.z + R(-1, 1), R(-0.6, 0.6), R(2, 3), R(-0.6, 0.6), 0.05, 0.05, 0.055, R(3, 5), 1.2, 5, -0.2, 0.3, 0.6); }
     if (c.wrecked) { c.wreckT += dt; if (c.wreckT > 45 && c.pos.distanceTo(player.pos) > 140 && c !== wagon) { c.resetAI(true); } }
-    if (c.barR) { const on = c.siren && Math.sin(time * 16) > 0; c.barR.material.color.setRGB(on ? 5 : 0.4, 0.15, 0.1); c.barW.material.color.setScalar(!on && c.siren ? 4 : 0.5); }
+    if (c.barB) { const ph = Math.sin(time * 14) > 0, on = c.siren; c.barR.material.color.setRGB(on && ph ? 6 : 0.35, 0.1, 0.1); c.barB.material.color.setRGB(0.1, 0.25, on && !ph ? 7 : 0.35); }
+    else if (c.barR) { const on = c.siren && Math.sin(time * 16) > 0; c.barR.material.color.setRGB(on ? 5 : 0.4, 0.15, 0.1); c.barW.material.color.setScalar(!on && c.siren ? 4 : 0.5); }
   }
   carCollisions();
   if (wagon.wrecked && wagon.wreckT > 12) { wagon.wrecked = false; wagon.hp = 100; wagon.fire = 0; wagon.mat.color.setScalar(1); wagon.lights.visible = true; wagon.barR.visible = wagon.barW.visible = true; wagon.pos.set(HQ.cx + 5, 0, HQ.cz + 10); wagon.h = 0; wagon.vel.set(0, 0); wagon.inner.rotation.set(0, 0, 0); toast('본부에 새 고스트 왜건이 준비됐습니다'); }
@@ -1749,19 +2466,24 @@ function updateAudio() {
   if (c) { const sp = Math.abs(c.fwdSpeed()), gear = sp % 12; AU.engO.frequency.setTargetAtTime(38 + gear * 7 + sp * 1.4, t, 0.05); AU.engO2.frequency.setTargetAtTime(19 + gear * 3.5 + sp * 0.7, t, 0.05); }
   const sir = c === wagon && wagon.siren && !paused; AU.sir.gain.setTargetAtTime(sir ? 0.08 : 0, t, 0.05); if (sir) AU.sirO.frequency.setTargetAtTime(Math.sin(time * 3.2) > 0 ? 960 : 700, t, 0.02);
   AU.rain.gain.setTargetAtTime(rainOn ? 0.05 : 0, t, 0.3);
+  let pd = 1e9; for (const q of cars) if (q.siren && q.type === 'police') pd = Math.min(pd, q.pos.distanceTo(camera.position));
+  AU.psir.gain.setTargetAtTime(pd < 200 ? 0.06 * (1 - pd / 200) : 0, t, 0.1); AU.psirO.frequency.setTargetAtTime(950 + Math.sin(time * 3.4) * 380, t, 0.03);
+  AU.heli.gain.setTargetAtTime(heli.active ? 0.22 * clamp(1 - heli.pos.distanceTo(camera.position) / 260, 0, 1) : 0, t, 0.2);
+  AU.zip.gain.setTargetAtTime(player.zip ? 0.04 + player.zip.v * 0.005 : 0, t, 0.05);
   AU.pack.gain.setTargetAtTime(!c && state === 'play' ? 0.02 + player.heat * 0.0006 : 0, t, 0.1);
 }
 
 // ============================================================ loop
-let last = performance.now(), fAcc = 0, fN = 0;
+let last = performance.now(), fAcc = 0, fN = 0, saveT = 20;
 function frame(now) {
   requestAnimationFrame(frame);
   const raw = (now - last) / 1000; last = now; const dt = Math.min(0.05, raw);
   if (qAuto) { fAcc += raw; fN++; if (fN >= 90) { const avg = fAcc / fN; if (avg > 1 / 28 && qLevel > 0) { qLevel--; applyQuality(); } fAcc = 0; fN = 0; } }
-  if (!paused) {
+  if (!paused && !modal) {
     time += dt;
     if (state === 'play') updatePlayer(dt);
     updateWorld(dt);
+    if (state === 'play') { updatePolice(dt); updateMission(dt); updateRoofs(dt); saveT -= dt; if (saveT <= 0) { saveT = 20; writeSave(); } }
     updateCamera(dt);
     if (state === 'play') updateWeapons(dt);
     updateProjectiles(dt); updateTrap(dt); updateFx(dt); spawner(dt);
@@ -1771,7 +2493,9 @@ function frame(now) {
   composer.render();
 }
 requestAnimationFrame(frame);
-window.__game = { player, ghosts, cars, peds, trap, beam, lots, get state() { return state; }, get fps() { return fN; }, spawnGhost, explosion, computeAim, setWeapon, enterCar, exitCar, throwTrap, THREE };
+window.__game = { player, ghosts, cars, peds, trap, beam, lots, save, givers: GIVERS, shop: SHOP, ladders, zips, samples, heli, upgrades: UPG,
+  get state() { return state; }, get fps() { return fN; }, get mission() { return mission; }, get wanted() { return wanted; }, get modal() { return modal; },
+  spawnGhost, explosion, computeAim, setWeapon, enterCar, exitCar, throwTrap, interact, startMission, endMission, crime, bust, spawnCop, buy, THREE };
 </script>
 </body>
 </html>
