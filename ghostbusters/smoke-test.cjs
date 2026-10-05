@@ -1,5 +1,5 @@
 'use strict';
-// 실제 크로미움에서 게임을 띄워 런타임 오류 없이 핵심 루프(빔 → 기절 → 트랩 포획, 보손 폭발, 차량 탈취·주행)와
+// 실제 크로미움에서 게임을 띄워 런타임 오류 없이 핵심 루프(빔 → 기절 → 트랩 포획, 보손 폭발, 차량 탈취·주행), 달리기·제트팩·초대형 게틀링과
 // 의뢰 4종, 경찰 추격·체포, 사다리·짚라인·옥상 샘플, 오 박사 상점, 저장·이어 하기가 돌아가는지 확인하는 스모크 테스트.
 // 실행: node ghostbusters/smoke-test.cjs [스크린샷 폴더]
 //  - playwright 와 three@0.160.0 이 require 가능한 곳(예: NODE_PATH)에 있어야 한다. CDN 요청은 로컬 three 로 돌려준다.
@@ -102,6 +102,55 @@ const errors = [];
     await ev(() => { const G = window.__game, g = G.mission.ghost; g.damage(1e6); g.pos.set(G.trap.pos.x + 3, G.trap.pos.y + 3.5, G.trap.pos.z + 3); g.vel.set(0, 0, 0); });
   };
   const out = {};
+
+  // 달리기: 본부 앞마당에서 Shift + W로 달리기 속도까지 올린다
+  await step('run', async () => {
+    await ev(() => { const G = window.__game, H = G.lots[4][4], P = G.player; P.pos.set(H.cx - 6, 0.15, H.cz + 16); P.vel.set(0, 0, 0); P.yaw = Math.atan2(6, -22); P.pitch = -0.1; });
+    await page.keyboard.down('ShiftLeft'); await page.keyboard.down('KeyW');
+    const ran = await until(() => { const P = window.__game.player; return Math.hypot(P.vel.x, P.vel.z) > 9.5 && P.runK > 0.7; }, 120000);
+    await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft');
+    check(ran, 'sprinting did not reach running speed');
+    await until(() => { const P = window.__game.player; return Math.hypot(P.vel.x, P.vel.z) < 0.5; }, 60000);
+  });
+
+  // 제트팩: Space를 누르고 있으면 날아오르며 연료를 쓰고, 놓으면 자동 감속 분사로 다치지 않고 내려앉은 뒤 연료가 다시 찬다
+  await step('jetpack', async () => {
+    const hp0 = await ev(() => window.__game.player.hp);
+    await page.keyboard.down('Space');
+    const flew = await until(() => window.__game.player.jet && window.__game.player.pos.y > 10);
+    const fuel = await ev(() => window.__game.player.fuel / window.__game.player.fuelMax);
+    await shot('5b-jetpack');
+    await page.keyboard.up('Space');
+    if (!check(flew, 'holding Space did not fly the jetpack')) return;
+    check(fuel < 0.95, 'jetpack flight did not use fuel');
+    if (!check(await until(() => window.__game.player.onGround), 'did not land after the jetpack flight')) return;
+    const hp1 = await ev(() => window.__game.player.hp);
+    out.jet = +(hp0 - hp1).toFixed(1);
+    check(hp0 - hp1 < 1, `landing after the jetpack flight cost ${hp0 - hp1} hp`);
+    check(await until(() => window.__game.player.fuel >= window.__game.player.fuelMax, 120000), 'jetpack fuel did not refill on the ground');
+  });
+
+  // 초대형 게틀링: 총열이 돈 뒤 연사해 유령을 맞히고, 탄피가 튀고, 팩이 달아오른다
+  await step('gatling', async () => {
+    await page.keyboard.press('Digit4');
+    const place = () => ev(() => { const G = window.__game, a = G.computeAim(), g = G.ghosts.find(x => x.type !== 'boss' && x.state !== 'captured'); g.state = 'hunt'; g.spawnT = 0; g.pos.copy(a.o).addScaledVector(a.dir, 13); g.vel.set(0, 0, 0); g.atk = 99; window.__tg = g; return g.hp; });
+    await ev(() => { window.__game.player.pitch = 0.05; window.__game.player.heat = 0; });
+    const hp0 = await place();
+    await page.mouse.down();
+    const fired = await until(() => window.__game.gat.n > 25);
+    await place().catch(() => {});
+    await shot('5c-gatling');
+    const g = await ev(() => { const G = window.__game; return { weapon: G.player.weapon, n: G.gat.n, spin: G.gat.spin, casings: G.casings.length, heat: G.player.heat, hp: window.__tg.hp, wanted: G.wanted }; });
+    await page.mouse.up();
+    out.gat = [g.n, +(hp0 - g.hp).toFixed(1), +g.heat.toFixed(1)];
+    check(fired && g.weapon === 3 && g.spin > 0.7, 'minigun did not spin up and fire: ' + JSON.stringify(g));
+    check(g.hp < hp0, 'minigun rounds did not hurt the ghost');
+    check(g.casings > 0, 'minigun did not eject casings');
+    check(g.heat > 0, 'minigun did not heat the pack');
+    check(g.wanted === 0, 'shooting a ghost in the HQ yard raised the wanted level');
+    check(await until(() => window.__game.gat.spin < 0.05, 60000), 'minigun barrels did not spin down');
+    await page.keyboard.press('Digit1');
+  });
 
   // 의뢰 1: 김 사서에게 E로 말을 걸어 수락하고, 이름 붙은 원령을 포획
   await step('exorcism', async () => {

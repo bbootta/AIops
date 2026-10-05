@@ -45,13 +45,15 @@ html,body{height:100%;margin:0;background:var(--ink);color:var(--text);font-fami
 .meter{flex:1;height:10px;background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:6px;overflow:hidden}
 .meter i{display:block;height:100%;width:100%;transition:width .15s}
 #hpFill{background:linear-gradient(90deg,#ff3d5e,#ff8a5e)}
+#fuelFill{background:linear-gradient(90deg,#3fb6ff,#9ff0ff)}
+#fuelFill.low{background:#ff3d5e;box-shadow:0 0 8px #ff3d5e}
 #heatFill{background:linear-gradient(90deg,#ffb347,#ff3d1f)}
 #heatFill.hot{background:#fff;box-shadow:0 0 10px #ff3d1f}
 #spd{font-family:var(--mono);font-size:30px;line-height:1;color:var(--text);text-shadow:0 0 12px rgba(98,230,255,.5)}
 #spd small{font-size:13px;color:var(--dim);margin-left:4px}
-.wpn{position:absolute;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:grid;gap:7px;width:270px}
-.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.slot{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:11.5px;line-height:1.3;color:var(--dim);display:grid;gap:2px}
+.wpn{position:absolute;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:grid;gap:7px;width:340px}
+.slots{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.slot{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:11.5px;line-height:1.3;color:var(--dim);display:grid;gap:2px;word-break:keep-all}
 .slot .k{font-family:var(--mono);font-size:11px;opacity:.7}
 .slot.on{border-color:var(--c);color:var(--text);box-shadow:0 0 14px color-mix(in srgb,var(--c) 45%,transparent),inset 0 0 12px color-mix(in srgb,var(--c) 22%,transparent)}
 .slot.on b{color:var(--c)}
@@ -161,12 +163,14 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
   <div class="bl">
     <div id="spd" hidden>0<small>km/h</small></div>
     <div class="hp"><span>체력</span><div class="meter"><i id="hpFill"></i></div></div>
+    <div class="hp" id="fuelRow" hidden><span>연료</span><div class="meter"><i id="fuelFill"></i></div></div>
   </div>
   <div class="wpn">
     <div class="slots">
       <div class="slot on" data-w="0" style="--c:var(--proton)"><span class="k">1</span><b>양성자 빔</b></div>
       <div class="slot" data-w="1" style="--c:var(--ecto)"><span class="k">2</span><b>슬라임 블래스터</b></div>
       <div class="slot" data-w="2" style="--c:var(--spec)"><span class="k">3</span><b>보손 다트</b></div>
+      <div class="slot" data-w="3" style="--c:var(--gold)"><span class="k">4</span><b>초대형 게틀링</b></div>
     </div>
     <div class="row"><span>팩 온도</span><div class="meter"><i id="heatFill" style="width:0%"></i></div></div>
     <div id="trapSt">트랩 준비됨</div>
@@ -196,9 +200,9 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
     <h1>Ghost <span>Patrol</span></h1>
     <p class="lead">밤이 되자 도시 전체에 유령이 쏟아졌습니다. 양성자 빔으로 유령을 붙잡아 기력을 빼고, 트랩을 던져 가둬 넣으세요. 머리 위에 ! 표시가 뜬 시민의 의뢰를 해결하고, 번 돈으로 본부의 오 박사에게 장비를 개조하세요. 차를 빼앗거나 사고를 내면 경찰이 쫓아옵니다.</p>
     <div class="keys desk">
-      <kbd>W A S D</kbd><span>이동 · Shift 달리기 · Space 점프</span>
+      <kbd>W A S D</kbd><span>이동 · Shift 달리기 · Space 점프 (누르고 있으면 제트팩 비행)</span>
       <kbd>마우스</kbd><span>조준 · 왼쪽 버튼 발사 · 오른쪽 버튼 정밀 조준</span>
-      <kbd>1 2 3 / 휠</kbd><span>양성자 빔 · 슬라임 블래스터 · 보손 다트</span>
+      <kbd>1 2 3 4 / 휠</kbd><span>양성자 빔 · 슬라임 블래스터 · 보손 다트 · 초대형 게틀링</span>
       <kbd>G</kbd><span>트랩 던지기 (다시 누르면 회수)</span>
       <kbd>F</kbd><span>차량 탑승 · 탈취 · 하차 (운전 중 Space 핸드브레이크, H 사이렌)</span>
       <kbd>E</kbd><span>의뢰인 대화 · 사다리 · 짚라인 · 오 박사 연구실</span>
@@ -207,7 +211,7 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
     <div class="keys mob">
       <kbd>왼쪽 드래그</kbd><span>이동 (끝까지 밀면 달리기)</span>
       <kbd>오른쪽 드래그</kbd><span>시점 회전</span>
-      <kbd>버튼</kbd><span>발사 · 무기 · 트랩 · 점프 · 차량 탑승</span>
+      <kbd>버튼</kbd><span>발사 · 무기 · 트랩 · 점프(누르고 있으면 제트팩) · 차량 탑승</span>
       <kbd>행동</kbd><span>의뢰인 대화 · 사다리 · 짚라인 · 연구실 (가까이 가면 나타남)</span>
     </div>
     <button class="btn" id="go">출동하기</button>
@@ -331,8 +335,8 @@ const moon = new THREE.DirectionalLight(0xa9bbff, 0.75); moon.position.set(-300,
 scene.add(hemi, moon, moon.target);
 const LIGHTS = [];
 for (let i = 0; i < 6; i++) { const l = new THREE.PointLight(0xffffff, 0, 40, 2); scene.add(l); LIGHTS.push({ l, t: 0, dur: 1, base: 0 }); }
-const beamTipLight = new THREE.PointLight(0xff7a3a, 0, 14, 2), beamHitLight = new THREE.PointLight(0xff6a2b, 0, 22, 2);
-scene.add(beamTipLight, beamHitLight);
+const beamTipLight = new THREE.PointLight(0xff7a3a, 0, 14, 2), beamHitLight = new THREE.PointLight(0xff6a2b, 0, 22, 2), jetLight = new THREE.PointLight(0xff8a3a, 0, 16, 2);
+scene.add(beamTipLight, beamHitLight, jetLight);
 function flash(p, color, inten, dur, dist = 40) {
   let best = LIGHTS[0];
   for (const L of LIGHTS) if (L.t <= 0 || L.base * (L.t / L.dur) < best.base * (best.t / best.dur)) { best = L; if (L.t <= 0) break; }
@@ -458,13 +462,26 @@ function hqSignTex() {
 }
 function garageTex() { const c = mkCanvas(256, 256), g = c.getContext('2d'); g.fillStyle = '#3b3f46'; g.fillRect(0, 0, 256, 256); for (let y = 0; y < 256; y += 16) { g.fillStyle = '#2a2d33'; g.fillRect(0, y, 256, 3); g.fillStyle = '#4a4f57'; g.fillRect(0, y + 3, 256, 2); } speckle(g, 256, 256, 1500, ['#000'], 0.3); return tex(c); }
 function stripeTex() { const c = mkCanvas(128, 32), g = c.getContext('2d'); g.fillStyle = '#ffcc22'; g.fillRect(0, 0, 128, 32); g.fillStyle = '#111'; for (let x = -32; x < 160; x += 24) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 12, 0); g.lineTo(x - 4, 32); g.lineTo(x - 16, 32); g.fill(); } return tex(c); }
+function starTex() {
+  const S = 128, c = mkCanvas(S, S), g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 40);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(255,230,170,.8)'); gr.addColorStop(1, 'rgba(255,150,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  g.fillStyle = 'rgba(255,235,190,.9)'; for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + Math.random() * 0.3, r = 40 + Math.random() * 22, ox = Math.cos(a + 1.57) * 5, oy = Math.sin(a + 1.57) * 5; g.beginPath(); g.moveTo(64 + ox, 64 + oy); g.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); g.lineTo(64 - ox, 64 - oy); g.fill(); }
+  return tex(c, true, false);
+}
+function holeTex() {
+  const S = 64, c = mkCanvas(S, S), g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 30);
+  gr.addColorStop(0, 'rgba(5,4,4,1)'); gr.addColorStop(0.22, 'rgba(10,8,8,.95)'); gr.addColorStop(0.32, 'rgba(120,112,110,.55)'); gr.addColorStop(0.6, 'rgba(40,36,36,.35)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  g.strokeStyle = 'rgba(8,6,6,.7)'; g.lineWidth = 1.2; for (let i = 0; i < 7; i++) { const a = Math.random() * 6.28, r = 14 + Math.random() * 14; g.beginPath(); g.moveTo(32 + Math.cos(a) * 6, 32 + Math.sin(a) * 6); g.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); g.stroke(); }
+  return tex(c, true, false);
+}
 
 const TX = {
   road: roadTex(), cross: crossTex(), concrete: concreteTex(), grass: grassTex(), gravel: gravelTex(),
   glow: radialTex([[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,255,255,.55)'], [1, 'rgba(255,255,255,0)']]),
   pool: radialTex([[0, 'rgba(255,255,255,.9)'], [0.4, 'rgba(255,255,255,.35)'], [1, 'rgba(255,255,255,0)']]),
   shadow: radialTex([[0, 'rgba(0,0,0,.75)'], [0.6, 'rgba(0,0,0,.35)'], [1, 'rgba(0,0,0,0)']]),
-  scorch: scorchTex(), splat: splatTex(), head: headlightTex(), garage: garageTex(), stripe: stripeTex(),
+  scorch: scorchTex(), splat: splatTex(), head: headlightTex(), garage: garageTex(), stripe: stripeTex(), star: starTex(), hole: holeTex(),
 };
 
 // ============================================================ sky + environment
@@ -944,6 +961,18 @@ function initAudio() {
   const hlo = ctx.createOscillator(); hlo.type = 'square'; hlo.frequency.value = 15; const hlg = ctx.createGain(); hlg.gain.value = 0.85; hlo.connect(hlg); hlg.connect(hm.gain); hlo.start();
   AU.zip = ctx.createGain(); AU.zip.gain.value = 0; AU.zip.connect(AU.master);
   const zf = ctx.createBiquadFilter(); zf.type = 'bandpass'; zf.frequency.value = 2600; zf.Q.value = 4; noiseSrc().connect(zf); zf.connect(AU.zip);
+  // minigun: a noise burst gated at the fire rate with a low thump, plus the barrel spin whine
+  AU.gat = ctx.createGain(); AU.gat.gain.value = 0; AU.gat.connect(AU.master);
+  const gg = ctx.createGain(); gg.gain.value = 0.5; gg.connect(AU.gat);
+  const gb = ctx.createBiquadFilter(); gb.type = 'bandpass'; gb.frequency.value = 1300; gb.Q.value = 0.6; noiseSrc().connect(gb); gb.connect(gg);
+  const gth = ctx.createOscillator(); gth.frequency.value = 70; const gtg = ctx.createGain(); gtg.gain.value = 0.8; gth.connect(gtg); gtg.connect(gg); gth.start();
+  const glfo = ctx.createOscillator(); glfo.type = 'square'; glfo.frequency.value = 22; const glg = ctx.createGain(); glg.gain.value = 0.5; glfo.connect(glg); glg.connect(gg.gain); glfo.start();
+  AU.gatW = ctx.createGain(); AU.gatW.gain.value = 0; AU.gatW.connect(AU.master);
+  AU.gatWO = ctx.createOscillator(); AU.gatWO.type = 'sawtooth'; AU.gatWO.frequency.value = 200; const gwf = ctx.createBiquadFilter(); gwf.type = 'bandpass'; gwf.frequency.value = 1600; gwf.Q.value = 2; AU.gatWO.connect(gwf); gwf.connect(AU.gatW); AU.gatWO.start();
+  // jetpack roar: low rumble plus a hiss
+  AU.jet = ctx.createGain(); AU.jet.gain.value = 0; AU.jet.connect(AU.master);
+  const jl = ctx.createBiquadFilter(); jl.type = 'lowpass'; jl.frequency.value = 700; noiseSrc().connect(jl); jl.connect(AU.jet);
+  const jh = ctx.createBiquadFilter(); jh.type = 'bandpass'; jh.frequency.value = 2400; jh.Q.value = 0.7; const jhg = ctx.createGain(); jhg.gain.value = 0.35; noiseSrc().connect(jh); jh.connect(jhg); jhg.connect(AU.jet);
 }
 function env(g, t, a, peak, dec) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec); }
 function sfx(kind, vol = 1) {
@@ -979,6 +1008,8 @@ function sfx(kind, vol = 1) {
     case 'busted': osc('sawtooth', 220, 110, 0.9, 0.26); tone(147, 0.1, 0.9, 'square', 0.14); break;
     case 'star': tone(988, 0, 0.09, 'square', 0.14); tone(988, 0.13, 0.09, 'square', 0.14); break;
     case 'jet': noise(0.35, 900, 1.2, 0.5, 'bandpass'); osc('sine', 180, 90, 0.3, 0.3); break;
+    case 'step': noise(0.08, 420, 1.4, 0.45); osc('sine', 110, 55, 0.07, 0.22); break;
+    case 'tink': tone(R(3000, 4200), 0, 0.06, 'sine', 0.12); break;
   }
 }
 function sfxAt(kind, p, vol = 1) { const d = p.distanceTo(camera.position); sfx(kind, vol * clamp(1 - d / 110, 0, 1)); }
@@ -993,7 +1024,7 @@ function blob(s) { const m = new THREE.Mesh(SHADOW_GEO, SHADOW_MAT); m.scale.set
 
 // ---- player
 const player = { pos: V3(), vel: V3(), yaw: 0, pitch: -0.08, facing: 0, onGround: true, hp: 100, maxHp: 100, lastHit: -99, car: null, weapon: 0, heat: 0, overheated: false, fireCd: 0, dead: false, deadT: 0, money: 0, captures: 0, walk: 0, aim: false,
-  climb: null, zip: null, busted: false, bustT: 0, stunT: 0, jumps: 0, airMax: 0, nitro: 100 };
+  climb: null, zip: null, busted: false, bustT: 0, stunT: 0, airMax: 0, nitro: 100, runK: 0, pumpK: 0, flyK: 0, stepS: false, fuel: 100, fuelMax: 100, fuelOut: false, jet: false, groundT: 0 };
 const P = {};
 {
   const g = new THREE.Group(), suit = 0x9c8e6f, suitD = 0x7d7058, dark = 0x2a2b30, metal = 0x55585f;
@@ -1015,12 +1046,41 @@ const P = {};
   wand.add(new THREE.Mesh(merge([part(BOX, dark, 0, 0, 0.05, 0.08, 0.09, 0.52), part(BOX, 0x8a2a1e, 0, -0.08, -0.12, 0.05, 0.14, 0.06), part(BOX, 0x8a2a1e, 0, -0.06, 0.15, 0.05, 0.12, 0.05), part(CYL, metal, 0, 0, 0.36, 0.035, 0.2, 0.035, Math.PI / 2, 0, 0), part(BOX, 0x3a3c42, 0.05, 0.03, 0.02, 0.03, 0.05, 0.22)]), charMat));
   P.tipGlow = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 1.2, 0.4) })); P.tipGlow.position.set(0, 0, 0.47); wand.add(P.tipGlow);
   P.tip = new THREE.Object3D(); P.tip.position.set(0, 0, 0.5); wand.add(P.tip);
+  // minigun (weapon 4): receiver at the right hip, six barrels spinning between clamp rings, ammo belt fed from the pack
+  const gun = new THREE.Group(); gun.position.set(-0.34, 0.12, 0.3); gun.scale.setScalar(1.3); gun.visible = false; torso.add(gun);
+  gun.add(new THREE.Mesh(merge([
+    part(CYL, 0x4a4e57, 0, 0, 0, 0.16, 0.5, 0.16, Math.PI / 2, 0, 0), part(BOX, metal, 0, 0.16, -0.04, 0.15, 0.1, 0.32), part(CYL, metal, 0, 0, -0.27, 0.12, 0.06, 0.12, Math.PI / 2, 0, 0),
+    part(BOX, 0x8a2a1e, 0, 0.27, 0.1, 0.045, 0.16, 0.05), part(BOX, dark, 0, 0.22, 0.1, 0.05, 0.04, 0.22),
+    part(BOX, 0x8a2a1e, -0.07, -0.02, -0.34, 0.04, 0.14, 0.05), part(BOX, 0x8a2a1e, 0.07, -0.02, -0.34, 0.04, 0.14, 0.05), part(BOX, 0xb08a3a, -0.17, -0.02, 0, 0.05, 0.14, 0.2),
+  ]), charMat));
+  P.gatMat = new THREE.MeshStandardMaterial({ color: 0x8d939c, metalness: 0.85, roughness: 0.32, envMapIntensity: 1.6 });
+  const brl = [];
+  for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; brl.push(part(CYL, WHITE, Math.cos(a) * 0.085, Math.sin(a) * 0.085, 0.5, 0.028, 1.0, 0.028, Math.PI / 2, 0, 0)); }
+  for (const z of [0.06, 0.55, 0.96]) brl.push(part(CYL, WHITE, 0, 0, z, 0.125, 0.05, 0.125, Math.PI / 2, 0, 0));
+  brl.push(part(CYL, WHITE, 0, 0, 0.5, 0.03, 1.0, 0.03, Math.PI / 2, 0, 0));
+  P.gatBarrels = new THREE.Mesh(merge(brl), P.gatMat); P.gatBarrels.position.z = 0.25; gun.add(P.gatBarrels);
+  P.gatTip = new THREE.Object3D(); P.gatTip.position.set(0, 0, 1.3); gun.add(P.gatTip);
+  P.gatFlash = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.star, color: new THREE.Color(3, 2.1, 1.1), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false })); P.gatFlash.position.set(0, 0, 1.4); P.gatFlash.visible = false; gun.add(P.gatFlash);
+  // belt path laid out in torso space (out of the receiver, down past the hip, up into the pack), then moved into the gun's frame
+  const belt = new THREE.CatmullRomCurve3([[-0.34, 0, 0.08], [-0.32, -0.15, -0.04], [-0.2, -0.17, -0.17], [-0.12, -0.06, -0.24], [-0.1, 0.12, -0.29]].map(([x, y, z]) => V3(x + 0.34, y - 0.12, z - 0.3).divideScalar(1.3)));
+  gun.add(new THREE.Mesh(new THREE.TubeGeometry(belt, 18, 0.04, 6), new THREE.MeshStandardMaterial({ color: 0xc9a04a, metalness: 0.8, roughness: 0.45, envMapIntensity: 1.2 })));
   const arm = (x, rx, rz) => { const a = new THREE.Group(); a.position.set(x, 0.58, 0); a.add(new THREE.Mesh(merge([part(BOX, suit, 0, -0.25, 0, 0.13, 0.52, 0.14), part(SPH, 0x3a3530, 0, -0.55, 0, 0.07, 0.08, 0.07)]), charMat)); a.rotation.set(rx, 0, rz); torso.add(a); return a; };
   P.armR = arm(0.31, -1.25, 0.1); P.armL = arm(-0.31, -1.1, -0.55);
   const leg = x => { const l = new THREE.Group(); l.position.set(x, 0, 0); l.add(new THREE.Mesh(merge([part(BOX, suit, 0, -0.42, 0, 0.18, 0.84, 0.2), part(BOX, 0x1b1b1d, 0, -0.88, 0.04, 0.2, 0.14, 0.3)]), charMat)); hips.add(l); return l; };
   P.legL = leg(-0.12); P.legR = leg(0.12);
+  // jetpack: twin thrusters on the pack sides; flame cones show while thrusting
+  torso.add(new THREE.Mesh(merge([
+    part(CYL, metal, -0.29, 0.2, -0.3, 0.075, 0.44, 0.075), part(CYL, metal, 0.29, 0.2, -0.3, 0.075, 0.44, 0.075),
+    part(CYL, 0x8a2a1e, -0.29, 0.36, -0.3, 0.082, 0.06, 0.082), part(CYL, 0x8a2a1e, 0.29, 0.36, -0.3, 0.082, 0.06, 0.082),
+    part(CONE, 0x1f2024, -0.29, -0.04, -0.3, 0.08, 0.12, 0.08), part(CONE, 0x1f2024, 0.29, -0.04, -0.3, 0.08, 0.12, 0.08),
+  ]), charMat));
+  P.jetGlow = new THREE.Mesh(merge([-0.29, 0.29].map(x => part(CYL, WHITE, x, -0.09, -0.3, 0.086, 0.03, 0.086))), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.35, 0.1, 0.04) })); torso.add(P.jetGlow);
+  const FLAME = new THREE.ConeGeometry(1, 1, 12, 1, true).rotateX(Math.PI).translate(0, -0.5, 0);
+  const flameMat = (r, gg, b, o) => new THREE.MeshBasicMaterial({ color: new THREE.Color(r, gg, b), transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const fo = flameMat(2.6, 1.0, 0.26, 0.7), fi = flameMat(1.8, 2.0, 2.8, 0.8);
+  P.flames = [-0.29, 0.29].map(x => { const f = new THREE.Group(), o = new THREE.Mesh(FLAME, fo), i = new THREE.Mesh(FLAME, fi); f.position.set(x, -0.1, -0.3); o.scale.set(0.085, 0.8, 0.085); i.scale.set(0.04, 0.42, 0.04); o.renderOrder = i.renderOrder = 6; f.add(o, i); f.visible = false; torso.add(f); return f; });
   g.add(blob(1.3));
-  Object.assign(P, { g, hips, torso, wand });
+  Object.assign(P, { g, hips, torso, wand, gun });
   scene.add(g);
 }
 
@@ -1546,6 +1606,61 @@ function updateBeam(dt, firing, aim) {
   addShake(null, 0.08);
 }
 
+// ============================================================ minigun
+const gat = { spin: 0, acc: 0, n: 0, flashT: 0, on: false, told: false };
+const bullets = [], casings = [];
+const tracerMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 2.7, 0.9), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }), 48);
+const casingMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.024, 0.024, 0.09, 6), new THREE.MeshStandardMaterial({ color: 0xd8a842, metalness: 0.9, roughness: 0.3, emissive: 0x3a2808, envMapIntensity: 1.5 }), 90);
+for (const m of [tracerMesh, casingMesh]) { m.count = 0; m.frustumCulled = false; scene.add(m); } tracerMesh.renderOrder = 6;
+const holes = new DecalPool(220, new THREE.MeshBasicMaterial({ map: TX.hole, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+// one round: hitscan from the camera along a jittered aim ray; the tracer flies from the muzzle and the hit lands when it arrives
+function gatRound(aim) {
+  gat.n++; gat.flashT = 0.04;
+  const hv = Math.hypot(player.vel.x, player.vel.z), sp = player.aim ? 0.012 : 0.026 + Math.min(0.03, hv * 0.003) + (player.onGround ? 0 : 0.015);
+  const o = aim.o, d = V3(aim.dir.x + R(-sp, sp), aim.dir.y + R(-sp, sp), aim.dir.z + R(-sp, sp)).normalize();
+  const w = rayWorld(o, d, 150); let maxT = w ? w.t : 150, kind = w ? 'world' : null, tgt = null;
+  const near = (p, r) => { _v.subVectors(p, o); const t = _v.dot(d); if (t > 0.5 && t < maxT && _w.copy(d).multiplyScalar(t).sub(_v).length() < r) { maxT = t; return true; } return false; };
+  for (const g of ghosts) if (g.state !== 'captured' && g.spawnT <= 0.6 && near(g.pos, g.r * 1.1)) { kind = 'ghost'; tgt = g; }
+  for (const c of cars) if (!c.wrecked && c !== player.car && near(_p.set(c.pos.x, 0.8, c.pos.z), 1.3)) { kind = 'car'; tgt = c; }
+  if (heli.active && !heli.down && near(heli.pos, 3.2)) { kind = 'heli'; tgt = heli; }
+  for (const q of peds) if (q.g.visible && q.state !== 'knock' && q.state !== 'down' && near(_p.set(q.pos.x, q.pos.y + 1, q.pos.z), 0.45)) { kind = 'ped'; tgt = q; }
+  const end = V3().copy(o).addScaledVector(d, maxT), from = P.gatTip.getWorldPosition(V3()), dir = V3().subVectors(end, from), len = dir.length();
+  bullets.push({ from, dir: dir.divideScalar(len || 1), len, t: 0, kind, tgt, end, n: kind === 'world' ? w.n : null, tracer: gat.n % 2 === 0 });
+  // brass flies out of the receiver's side
+  if (casings.length < 90) { _w.set(-1, 0, 0).transformDirection(P.gun.matrixWorld); casings.push({ p: P.gun.localToWorld(V3(-0.22, 0.02, 0)), v: V3(_w.x * R(2.5, 4) + player.vel.x, R(2, 3.5) + player.vel.y * 0.5, _w.z * R(2.5, 4) + player.vel.z), r: V3(R(0, 6), R(0, 6), R(0, 6)), w: V3(R(-20, 20), R(-20, 20), R(-20, 20)), life: 3 }); }
+  player.heat += 0.5 * (1 - 0.15 * upg('cool'));
+  addShake(null, 0.06); player.pitch = Math.min(0.8, player.pitch + 0.002); player.yaw += R(-0.0012, 0.0012);
+  if (!player.onGround) player.vel.addScaledVector(d, -0.2);
+  if (gat.n % 6 === 0) scareNear(player.pos, 30, 5);
+}
+function bulletHit(b) {
+  const p = b.end, t = b.tgt;
+  if (b.kind === 'ghost') { if (ghosts.includes(t)) { t.damage(2.6); const c = t.T.color; for (let i = 0; i < 3; i++) { sphereDir(_v); FX.add(p.x, p.y, p.z, _v.x * 5, _v.y * 5, _v.z * 5, c[0] * 2.5, c[1] * 2.5, c[2] * 2.5, 0.3, 0.2, 0.03, 0, 1); } } }
+  else if (b.kind === 'car') { if (!t.wrecked) { playerHitCar(t); t.damage(t.possessed ? 0.8 : 3.2); } sparks(p, 5, 7, [3.5, 2.8, 1.6], 0.35, 0.09); if (Math.random() < 0.2) sfxAt('tink', p, 0.5); }
+  else if (b.kind === 'heli') { damageHeli(2.2, true); sparks(p, 4, 6, [3.5, 2.8, 1.6], 0.3, 0.09); }
+  else if (b.kind === 'ped') { if (t.state !== 'knock' && t.state !== 'down') { t.knock(b.dir.x * 4, 3, b.dir.z * 4); crime(t.cop ? 2 : 1, t.cop ? 'cop' : 'ped', 4); } }
+  else if (b.kind === 'world') { sparks(p, 4, 6, [3.4, 2.2, 0.9], 0.3, 0.08); if (Math.random() < 0.5) SMOKE.add(p.x, p.y, p.z, b.n.x * 1.5 + R(-0.4, 0.4), b.n.y * 1.5 + R(0, 0.6), b.n.z * 1.5 + R(-0.4, 0.4), 0.2, 0.19, 0.2, R(0.5, 0.9), 0.25, 1.1, -0.2, 2, 0.45); holes.add(p, b.n, R(0.3, 0.45)); }
+}
+function updateBullets(dt) {
+  let n = 0;
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i]; b.t += dt * 420;
+    if (b.tracer && n < 48) { const head = Math.min(b.t, b.len), tail = Math.max(0, head - 7); if (head > tail) { _q.setFromUnitVectors(ZAX, b.dir); _m4.compose(_p.copy(b.from).addScaledVector(b.dir, tail), _q, _sc.set(0.05, 0.05, head - tail)); tracerMesh.setMatrixAt(n++, _m4); } }
+    if (b.t >= b.len) { bulletHit(b); bullets.splice(i, 1); }
+  }
+  tracerMesh.count = n; tracerMesh.instanceMatrix.needsUpdate = true;
+  // casings tumble, bounce on the street or a rooftop, then vanish
+  let k = 0;
+  for (let i = casings.length - 1; i >= 0; i--) {
+    const c = casings[i]; c.life -= dt; if (c.life <= 0) { casings.splice(i, 1); continue; }
+    c.v.y -= 18 * dt; c.p.addScaledVector(c.v, dt); c.r.addScaledVector(c.w, dt);
+    const gy = surfaceY(c.p.x, c.p.z, c.p.y + 0.3);
+    if (c.p.y < gy + 0.03) { c.p.y = gy + 0.03; if (c.v.y < -1.5 && Math.random() < 0.15) sfxAt('tink', c.p, 0.25); c.v.y *= -0.35; c.v.x *= 0.55; c.v.z *= 0.55; c.w.multiplyScalar(0.6); }
+    _m4.compose(c.p, _q.setFromEuler(_eu.set(c.r.x, c.r.y, c.r.z)), _sc.set(1, 1, 1)); casingMesh.setMatrixAt(k++, _m4);
+  }
+  casingMesh.count = k; casingMesh.instanceMatrix.needsUpdate = true;
+}
+
 // ============================================================ trap
 const trap = { state: 'held', t: 0, pos: V3(), from: V3(), to: V3(), idle: 0 };
 {
@@ -1612,7 +1727,7 @@ function hurtPlayer(n, from) {
 let hurtFx = 0, slimeFx = 0, flashFx = 0;
 function slimeScreen() { slimeFx = 1; }
 function respawn() {
-  player.dead = false; player.busted = false; player.climb = player.zip = null; player.stunT = 0; player.jumps = 0; player.airMax = 0.15; player.hp = player.maxHp; player.money = Math.floor(player.money * 0.9); clearWanted(); resetPose(); player.pos.set(HQ.cx - 6, 0.15, HQ.cz + 16); player.vel.set(0, 0, 0); player.yaw = Math.atan2(6, -22); player.pitch = -0.1; player.heat = 0; player.overheated = false; P.g.visible = true; P.g.rotation.x = 0;
+  player.dead = false; player.busted = false; player.climb = player.zip = null; player.stunT = 0; player.fuel = player.fuelMax; player.airMax = 0.15; player.hp = player.maxHp; player.money = Math.floor(player.money * 0.9); clearWanted(); resetPose(); player.pos.set(HQ.cx - 6, 0.15, HQ.cz + 16); player.vel.set(0, 0, 0); player.yaw = Math.atan2(6, -22); player.pitch = -0.1; player.heat = 0; player.overheated = false; P.g.visible = true; P.g.rotation.x = 0;
 }
 function enterCar() {
   let best = null, bd = 4.8;
@@ -1639,6 +1754,7 @@ function exitCar(forced) {
   sfx('door');
 }
 function updatePlayer(dt) {
+  const wasJet = player.jet; player.jet = false; for (const f of P.flames) f.visible = false; jetLight.intensity = 0;
   if (player.dead) { jumpQ = false; player.deadT += dt; P.g.rotation.x = -Math.min(1.5, player.deadT * 3); if (player.deadT > 3.2) respawn(); return; }
   if (player.busted) { jumpQ = false; player.bustT += dt; P.armL.rotation.set(-2.8, 0, -0.35); P.armR.rotation.set(-2.8, 0, 0.35); P.g.position.copy(player.pos); if (player.bustT > 2.8) respawn(); return; }
   if (time - player.lastHit > 5) player.hp = Math.min(player.maxHp, player.hp + 7 * dt);
@@ -1653,6 +1769,7 @@ function updatePlayer(dt) {
     c.boost = c === wagon && upg('wagon') >= 2 && (keys.ShiftLeft || keys.ShiftRight || (tk && Math.hypot(touch.x, touch.y) > 0.92)) && c.input.t > 0 && player.nitro > 0 ? 1 : 0;
     if (c.boost) { player.nitro = Math.max(0, player.nitro - dt * 22); const s = Math.sin(c.h), co = Math.cos(c.h); for (const k of [-0.5, 0.5]) FX.add(c.pos.x - s * 3 + co * k, 0.6, c.pos.z - co * 3 - s * k, -s * 6 + R(-1, 1), R(0, 1), -co * 6 + R(-1, 1), 0.8, 1.4, 4, 0.25, 0.5, 0.1, 0, 2); }
     else player.nitro = Math.min(100, player.nitro + dt * 7);
+    player.fuel = Math.min(player.fuelMax, player.fuel + 30 * dt);
     player.pos.set(c.pos.x, groundY(c.pos.x, c.pos.z), c.pos.z);
     return;
   }
@@ -1663,39 +1780,77 @@ function updatePlayer(dt) {
   let sprint = keys.ShiftLeft || keys.ShiftRight;
   if (touch.active) { mx += touch.x; mz -= touch.y; if (Math.hypot(touch.x, touch.y) > 0.92) sprint = true; }
   const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
-  const glide = upg('jump') >= 2 && !player.onGround && (keys.Space || touch.jump) && player.vel.y < 0;
-  const firing = fireHeld(), spd = (sprint && !player.aim ? 8.6 : 4.6) * (firing || player.aim ? 0.72 : 1) * (player.stunT > 0 ? 0.5 : 1) * (glide ? 1.5 : 1);
+  const firing = fireHeld(), heavy = player.weapon === 3, air = !player.onGround;
+  // jetpack: hold Space (touch: jump) in the air to climb; a fast fall near the ground fires an automatic braking burst while fuel lasts
+  let jet = 0;
+  if (air && (keys.Space || touch.jump) && player.fuel > 0 && (wasJet || player.vel.y < 4)) jet = 1;
+  else if (air && player.vel.y < -7 && player.fuel > 4 && player.pos.y - surfaceY(player.pos.x, player.pos.z, player.pos.y) < 1.5 + Math.max(-player.vel.y * 0.5, player.vel.y * player.vel.y / 80)) jet = 2;
+  if (jet && !wasJet) sfx('jet', 0.5);
+  player.jet = jet > 0;
+  let spd = (sprint && !player.aim && !(heavy && firing) ? 10.5 : 4.6) * (heavy ? 0.85 : 1) * (firing || player.aim ? (heavy ? 0.65 : 0.72) : 1);
+  if (jet === 1) spd = sprint ? 19 : 12.5;
+  if (player.stunT > 0) spd *= 0.5;
   const wx = s * mz - co * mx, wz = co * mz + s * mx;
-  const accel = player.onGround ? 14 : glide ? 5 : 3;
+  const accel = !air ? 14 : jet === 1 ? 6 : 3;
   player.vel.x = damp(player.vel.x, wx * spd, accel, dt); player.vel.z = damp(player.vel.z, wz * spd, accel, dt);
-  if (jumpQ) {
-    jumpQ = false;
-    if (player.onGround) { player.vel.y = 6.4; player.onGround = false; player.jumps = 1; }
-    else if (upg('jump') >= 1 && player.jumps < 2) { player.vel.y = 7.4; player.jumps = 2; jetFx(10); sfx('jet', 0.6); }
-  }
-  player.vel.y -= (glide ? 8 : 20) * dt; if (glide) { player.vel.y = Math.max(player.vel.y, -2.4); if (Math.random() < dt * 30) jetFx(1); }
+  if (jumpQ) { jumpQ = false; if (!air) { player.vel.y = 6.4; player.onGround = false; } }
+  if (jet === 1) { player.vel.y = Math.max(player.vel.y, Math.min(9, player.vel.y + 46 * dt)); if (player.pos.y > 150) player.vel.y = Math.min(player.vel.y, 0); player.fuel -= (sprint ? 30 : 20) * dt; }
+  else if (jet === 2) { player.vel.y += 60 * dt; player.fuel -= 28 * dt; }
+  if (player.fuel <= 0 && air && !player.fuelOut) { player.fuelOut = true; toast('제트팩 연료 바닥!', '땅에 내려서면 다시 충전됩니다'); }
+  player.fuel = Math.max(0, player.fuel);
+  player.vel.y -= 20 * dt;
   player.pos.addScaledVector(player.vel, dt);
   const gy = surfaceY(player.pos.x, player.pos.z, player.pos.y);
   if (player.pos.y <= gy) {
-    if (!player.onGround) { const fall = player.airMax - gy; if (fall > 7.5 && !glide) hurtPlayer((fall - 7.5) * (upg('jump') ? 3 : 5), null); if (fall > 2.5) smokePuff(V3(player.pos.x, gy, player.pos.z), 3, [0.2, 0.2, 0.22], 0.6, 0.8, 0.4); }
-    player.pos.y = gy; player.vel.y = 0; player.onGround = true; player.jumps = 0; player.airMax = gy;
-  } else if (player.pos.y > gy + 0.05) { player.onGround = false; player.airMax = Math.max(player.airMax, player.pos.y); }
+    if (!player.onGround) { const fall = Math.max(player.airMax - gy, player.vel.y * player.vel.y / 40); if (fall > 7.5) hurtPlayer((fall - 7.5) * (upg('jump') ? 3 : 5), null); if (fall > 2.5 || jet) smokePuff(V3(player.pos.x, gy, player.pos.z), 3, [0.2, 0.2, 0.22], 0.6, 0.8, 0.4); }
+    player.pos.y = gy; player.vel.y = 0; player.onGround = true; player.airMax = gy;
+  } else if (player.pos.y > gy + 0.05) { player.onGround = false; player.airMax = jet ? player.pos.y : Math.max(player.airMax, player.pos.y); }
+  if (player.onGround) { player.fuelOut = false; player.groundT += dt; if (player.groundT > 0.4) player.fuel = Math.min(player.fuelMax, player.fuel + (upg('jump') >= 2 ? 60 : 30) * dt); } else player.groundT = 0;
   pushOut(player.pos, 0.42);
   player.pos.x = clamp(player.pos.x, -BOUND, BOUND); player.pos.z = clamp(player.pos.z, -BOUND, BOUND);
-  const hv = Math.hypot(player.vel.x, player.vel.z);
+  const hv = Math.hypot(player.vel.x, player.vel.z), inAir = !player.onGround;
+  player.runK = damp(player.runK, !inAir && hv > 6 ? 1 : 0, 8, dt);
+  player.pumpK = damp(player.pumpK, firing || player.aim || inAir || heavy ? 0 : player.runK, 10, dt);
+  player.flyK = damp(player.flyK, player.jet ? 1 : 0, player.jet ? 3 : 1.2, dt);
+  const rk = player.runK, pk = player.pumpK;
   if (firing || player.aim) player.facing = player.facing + angDiff(player.yaw, player.facing) * Math.min(1, dt * 16);
   else if (hv > 0.5) player.facing = player.facing + angDiff(Math.atan2(player.vel.x, player.vel.z), player.facing) * Math.min(1, dt * 10);
-  player.walk += dt * hv * 2.1; const sw = Math.sin(player.walk) * Math.min(0.85, hv * 0.12);
-  P.legL.rotation.x = sw; P.legR.rotation.x = -sw; P.hips.position.y = 0.95 + Math.abs(Math.cos(player.walk)) * Math.min(0.06, hv * 0.008);
-  P.torso.rotation.x = -player.pitch * 0.55 + (firing && player.weapon === 0 ? R(-0.02, 0.02) : 0); P.torso.rotation.y = 0;
+  // legs: walking or sprinting stride on the ground (longer strides when sprinting), dangling in the air
+  if (!inAir) player.walk += dt * hv * 2.1 * (1 - 0.32 * rk);
+  const sw = Math.sin(player.walk) * Math.min(0.85 + 0.35 * rk, hv * 0.12), dang = Math.sin(time * 7) * 0.06;
+  P.legL.rotation.x = inAir ? 0.12 + 0.18 * player.flyK + dang : sw; P.legR.rotation.x = inAir ? 0.02 + 0.1 * player.flyK - dang : -sw;
+  P.hips.position.y = 0.95 + (inAir ? 0 : Math.abs(Math.cos(player.walk)) * Math.min(0.06 + rk * 0.05, hv * 0.008));
+  // footsteps: a soft thump per step, dust kicked up when sprinting
+  const stepS = Math.sin(player.walk) > 0;
+  if (!inAir && hv > 3 && stepS !== player.stepS) { sfx('step', 0.1 + rk * 0.22); if (rk > 0.6) SMOKE.add(player.pos.x - player.vel.x * 0.05, player.pos.y + 0.1, player.pos.z - player.vel.z * 0.05, R(-0.4, 0.4), R(0.3, 0.8), R(-0.4, 0.4), 0.16, 0.15, 0.16, R(0.5, 0.8), 0.3, 1.1, 0, 2, 0.3); }
+  player.stepS = stepS;
+  // torso follows the aim pitch and leans forward when sprinting or flying fast; arms hold the thrower or the minigun,
+  // and while sprinting without shooting the thrower drops to the hip and the arms swing
+  const lean = inAir ? clamp(hv * 0.022, 0, 0.35) * (0.3 + 0.7 * player.flyK) : rk * 0.3, ar = Math.sin(player.walk) * 0.9;
+  P.torso.rotation.x = -player.pitch * 0.55 * (1 - pk) + lean + (firing && player.weapon === 0 ? R(-0.02, 0.02) : 0); P.torso.rotation.y = 0;
+  if (heavy) { P.armR.rotation.set(-1.21, 0, -0.97); P.armL.rotation.set(0.28, 0, -0.1); }
+  else { P.armR.rotation.set(lerp(-1.25, -0.3 + ar, pk), 0, lerp(0.1, 0.12, pk)); P.armL.rotation.set(lerp(-1.1, -0.3 - ar, pk), 0, lerp(-0.55, -0.12, pk)); }
+  P.wand.rotation.x = pk * 1.1; P.wand.position.y = 0.22 - pk * 0.12;
   P.g.position.copy(player.pos); P.g.rotation.y = player.facing;
   const hot = player.overheated ? 1 : player.heat / 100;
   P.cyc.material.color.setRGB(4, 0.5 + hot * 2, 0.2 + hot * 2); P.cyc.rotation.z += dt * (4 + (firing ? 20 : 0));
   P.tipGlow.material.color.setRGB(3 * (0.6 + Math.random() * 0.4), 1.2, 0.4);
   P.packLights.material.color.setRGB(player.overheated ? 4 : 0.6, player.overheated ? 0.4 : 3, 0.4);
+  P.jetGlow.material.color.setRGB(0.35 + 2.6 * player.flyK, 0.1 + 0.9 * player.flyK, 0.04 + 0.25 * player.flyK);
+  if (player.jet) { P.g.updateMatrixWorld(true); jetFx(dt); }
 }
 function fireHeld() { return (mouse.l || touch.fire) && state === 'play' && !paused && !player.car && !player.dead && !player.busted && !player.climb && !player.zip; }
-function jetFx(n) { const p = P.torso.localToWorld(V3(0, 0.1, -0.5)); for (let k = 0; k < n; k++) FX.add(p.x + R(-0.15, 0.15), p.y, p.z + R(-0.15, 0.15), R(-0.6, 0.6), R(-5, -2), R(-0.6, 0.6), 0.9, 1.6, 4, R(0.2, 0.4), 0.35, 0.05, 0, 2); }
+// jetpack exhaust: flickering flame cones, sparks and smoke from both nozzles, dust blown off the ground below
+function jetFx(dt) {
+  for (const f of P.flames) {
+    f.visible = true; f.scale.set(R(0.85, 1.15), R(0.8, 1.3), R(0.85, 1.15)); f.getWorldPosition(_p);
+    for (let i = 0, n = Math.ceil(dt * 60); i < n; i++) FX.add(_p.x + R(-0.05, 0.05), _p.y - 0.2, _p.z + R(-0.05, 0.05), player.vel.x * 0.4 + R(-0.7, 0.7), player.vel.y * 0.4 - R(7, 10), player.vel.z * 0.4 + R(-0.7, 0.7), 2.4, R(0.8, 1.2), 0.25, R(0.1, 0.2), 0.28, 0.05, 0, 2);
+    if (Math.random() < dt * 30) SMOKE.add(_p.x, _p.y - 0.5, _p.z, R(-0.6, 0.6), -R(2, 4), R(-0.6, 0.6), 0.14, 0.13, 0.14, R(0.9, 1.5), 0.35, 2.2, -0.6, 1.6, 0.35);
+  }
+  jetLight.position.set(player.pos.x, player.pos.y + 0.4, player.pos.z); jetLight.intensity = R(20, 30);
+  const h = player.pos.y - surfaceY(player.pos.x, player.pos.z, player.pos.y);
+  if (h < 7 && Math.random() < dt * 40 * (1 - h / 7)) { const a = Math.random() * 6.28; SMOKE.add(player.pos.x + Math.cos(a) * 0.8, player.pos.y - h + 0.2, player.pos.z + Math.sin(a) * 0.8, Math.cos(a) * R(3, 6), R(0.2, 0.8), Math.sin(a) * R(3, 6), 0.17, 0.16, 0.17, R(0.8, 1.4), 0.6, 2.4, 0, 1.2, 0.4); }
+}
 const aimState = { o: V3(), dir: V3(), point: V3(), hit: null, ghost: null, hitCar: null };
 function computeAim() {
   const A = aimState; A.o.copy(camera.position); camera.getWorldDirection(A.dir);
@@ -1709,12 +1864,24 @@ function computeAim() {
 }
 function updateWeapons(dt) {
   $('cross').hidden = !!(player.car || player.dead);
-  if (player.car || player.dead) { updateBeam(dt, false); return; }
+  if (player.car || player.dead) { updateBeam(dt, false); gat.on = false; P.gatFlash.visible = false; return; }
   P.g.updateMatrixWorld(true);
   const aim = computeAim(), firing = fireHeld() && !player.overheated;
   $('cross').classList.toggle('lock', !!(beam.lock || aim.ghost));
   player.fireCd -= dt;
   updateBeam(dt, firing && player.weapon === 0, aim);
+  // minigun: the barrels spin up before the first round and keep turning for a moment after release
+  const gatOn = firing && player.weapon === 3;
+  gat.spin = clamp(gat.spin + (gatOn ? dt / 0.35 : -dt / 1.3), 0, 1); gat.on = gatOn && gat.spin >= 0.7;
+  if (gat.on) { gat.acc += dt * 22; while (gat.acc >= 1) { gat.acc -= 1; gatRound(aim); } } else gat.acc = 0;
+  P.gatBarrels.rotation.z += dt * gat.spin * 48;
+  gat.flashT -= dt; P.gatFlash.visible = gat.flashT > 0; if (P.gatFlash.visible) { P.gatFlash.material.rotation = Math.random() * 6.28; P.gatFlash.scale.setScalar(R(0.7, 1.15)); }
+  if (!beam.on) beamTipLight.intensity = 0;
+  if (player.weapon === 3) {
+    const hot = player.heat / 100; P.gatMat.emissive.setRGB(hot * hot * 2.2, hot * hot * 0.55, hot * hot * 0.12);
+    if (gat.flashT > 0 && !beam.on) { P.gatTip.getWorldPosition(beamTipLight.position); beamTipLight.intensity = R(40, 70); }
+    if (gat.spin > 0.05 && !gatOn && Math.random() < dt * 14) { P.gatTip.getWorldPosition(_p); SMOKE.add(_p.x, _p.y, _p.z, R(-0.2, 0.2), R(0.6, 1.2), R(-0.2, 0.2), 0.3, 0.29, 0.3, R(1, 1.6), 0.12, 0.7, -0.3, 1.2, 0.3); }
+  }
   if (firing && player.weapon === 0) player.heat += 17 * dt * (1 - 0.15 * upg('cool'));
   if (firing && player.fireCd <= 0 && player.weapon === 1) {
     player.fireCd = 0.15; player.heat += 2.5; const from = P.tip.getWorldPosition(V3()), dir = V3().subVectors(aim.point, from).normalize(); dir.x += R(-0.02, 0.02); dir.y += R(-0.01, 0.03); dir.z += R(-0.02, 0.02);
@@ -1746,10 +1913,10 @@ function updateCamera(dt) {
     camera.position.copy(camPos); camera.lookAt(c.pos.x + Math.sin(c.h) * 4, c.g.position.y + 1.4, c.pos.z + Math.cos(c.h) * 4);
     fov = 66 + Math.min(16, spd * 0.42); player.yaw = yaw;
   } else {
-    const aimK = player.aim ? 1 : 0; fov = player.aim ? 50 : 68;
+    const aimK = player.aim ? 1 : 0, rk = player.runK, fk = player.flyK; fov = player.aim ? 50 : 68 + rk * 7 + fk * 6;
     const cp = Math.cos(player.pitch), f = V3(Math.sin(player.yaw) * cp, Math.sin(player.pitch), Math.cos(player.yaw) * cp), r = V3(-Math.cos(player.yaw), 0, Math.sin(player.yaw));
-    const tgt = V3(player.pos.x, player.pos.y + (player.dead ? 0.6 : 1.6), player.pos.z).addScaledVector(r, 0.7);
-    const dist = lerp(4.1, 2.4, aimK), want = tgt.clone().addScaledVector(f, -dist).add(V3(0, 0.25, 0));
+    const tgt = V3(player.pos.x, player.pos.y + (player.dead ? 0.6 : 1.6) + Math.sin(player.walk * 2) * 0.05 * rk, player.pos.z).addScaledVector(r, 0.7);
+    const dist = lerp(4.1 + rk * 0.5 + fk * 1.6, 2.4, aimK), want = tgt.clone().addScaledVector(f, -dist).add(V3(0, 0.25, 0));
     const d = V3().subVectors(want, tgt), dl = d.length(); d.normalize(); const hit = rayWorld(tgt, d, dl); if (hit) want.copy(tgt).addScaledVector(d, Math.max(0.4, hit.t - 0.3));
     want.y = Math.max(want.y, surfaceY(want.x, want.z, want.y) + 0.3);
     camera.position.copy(want); camLook.copy(want).add(f); camera.lookAt(camLook);
@@ -1767,7 +1934,7 @@ addEventListener('keydown', e => {
   if (modal) { if (e.code === 'KeyE' || e.code === 'Enter') modalOk(); else if (e.code === 'KeyX' || e.code === 'Escape') modalNo(); e.preventDefault(); return; }
   if (e.code === 'Escape' || e.code === 'KeyP') { if (!locked) setPause(!paused); return; }
   if (paused) return;
-  if (e.code.startsWith('Digit')) { const w = +e.code.slice(5) - 1; if (w >= 0 && w < 3) setWeapon(w); }
+  if (e.code.startsWith('Digit')) { const w = +e.code.slice(5) - 1; if (w >= 0 && w < 4) setWeapon(w); }
   if (e.code === 'KeyF') player.car ? exitCar() : enterCar();
   if (e.code === 'KeyG') throwTrap(computeAim());
   if (e.code === 'KeyE') interact();
@@ -1792,11 +1959,14 @@ addEventListener('mousemove', e => {
   if (performance.now() - lockAt < 150 || Math.abs(e.movementX) > 300 || Math.abs(e.movementY) > 300) return;
   look(e.movementX || 0, e.movementY || 0, player.aim ? 0.0013 : 0.0022);
 });
-addEventListener('wheel', e => { if (state === 'play' && !paused && !player.car) setWeapon((player.weapon + (e.deltaY > 0 ? 1 : 2)) % 3); }, { passive: true });
+addEventListener('wheel', e => { if (state === 'play' && !paused && !player.car) setWeapon((player.weapon + (e.deltaY > 0 ? 1 : 3)) % 4); }, { passive: true });
 document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === cvs; lockAt = performance.now(); if (locked) everLocked = true; else if (everLocked && state === 'play' && !paused && !modal) setPause(true); });
 let jumpQ = false;
 function look(dx, dy, s) { if (player.car) { camYawOff -= dx * s; camIdle = 0; player.pitch = clamp(player.pitch - dy * s, -0.6, 0.3); } else { player.yaw -= dx * s; player.pitch = clamp(player.pitch - dy * s, -1.2, 0.8); } }
-function setWeapon(w) { if (player.weapon === w) return; player.weapon = w; beam.lock = null; document.querySelectorAll('.slot').forEach(el => el.classList.toggle('on', +el.dataset.w === w)); sfx('click'); }
+function setWeapon(w) {
+  if (player.weapon === w) return; player.weapon = w; beam.lock = null; P.wand.visible = w !== 3; P.gun.visible = w === 3; document.querySelectorAll('.slot').forEach(el => el.classList.toggle('on', +el.dataset.w === w)); sfx('click');
+  if (w === 3 && !gat.told) { gat.told = true; toast('초대형 게틀링', '발사를 누르고 있으면 총열이 돈 뒤 쏟아집니다. 팩이 빨리 달아오릅니다'); }
+}
 // touch
 const touch = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, lookId: null, lx: 0, ly: 0, fire: false, jump: false };
 if (isTouch) {
@@ -1822,7 +1992,7 @@ if (isTouch) {
     const k = b.dataset.k;
     b.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); b.classList.add('on');
       if (state !== 'play' || paused || modal) return;
-      if (k === 'fire') touch.fire = true; else if (k === 'jump') { touch.jump = true; jumpQ = true; } else if (k === 'weapon') setWeapon((player.weapon + 1) % 3); else if (k === 'trap') throwTrap(computeAim()); else if (k === 'car') player.car ? exitCar() : enterCar(); else if (k === 'act') interact(); }, { passive: false });
+      if (k === 'fire') touch.fire = true; else if (k === 'jump') { touch.jump = true; jumpQ = true; } else if (k === 'weapon') setWeapon((player.weapon + 1) % 4); else if (k === 'trap') throwTrap(computeAim()); else if (k === 'car') player.car ? exitCar() : enterCar(); else if (k === 'act') interact(); }, { passive: false });
     b.addEventListener('touchend', e => { e.preventDefault(); b.classList.remove('on'); if (k === 'fire') touch.fire = false; if (k === 'jump') touch.jump = false; });
   });
 }
@@ -1893,6 +2063,7 @@ function drawMinimap() {
 let lastMoney = -1, hudObjT = 0, hudSig = '';
 function updateHUD(dt) {
   $('hpFill').style.width = (player.hp / player.maxHp * 100) + '%';
+  const fr = player.fuel / player.fuelMax; $('fuelRow').hidden = !!player.car || fr > 0.995; $('fuelFill').style.width = fr * 100 + '%'; $('fuelFill').classList.toggle('low', fr < 0.25);
   const hf = $('heatFill'); hf.style.width = player.heat + '%'; hf.classList.toggle('hot', player.overheated);
   if (player.money !== lastMoney) { lastMoney = player.money; $('money').textContent = '$' + player.money.toLocaleString(); }
   const sig = `${wanted}${player.car ? 1 : 0}${player.climb ? 1 : 0}${player.zip ? 1 : 0}${mission ? mission.kind + (mission.k || 0) + (mission.phase || '') + (mission.ghost ? mission.ghost.state : '') : ''}`;
@@ -2365,12 +2536,13 @@ const UPG = [
   { id: 'slime', name: '슬라임 산탄기', desc: '한 번에 3발, 2단계는 5발', cost: [2000, 5000], rep: [0, 2] },
   { id: 'boson', name: '보손 압축기', desc: '폭발 반경 +25%, 재장전 -20% (단계마다)', cost: [2500, 6000], rep: [1, 3] },
   { id: 'trap', name: '트랩 흡입기', desc: '트랩 포획 반경 +40% (단계마다)', cost: [1800, 4500], rep: [0, 2] },
-  { id: 'jump', name: '점프 팩', desc: '1단계 공중 이단 점프와 낙하 피해 감소, 2단계 Space를 누르고 있으면 활공', cost: [3000, 7500], rep: [1, 3] },
+  { id: 'jump', name: '제트팩 연료통', desc: '1단계 연료 +50%와 낙하 피해 감소, 2단계 연료 +100%와 충전 속도 2배', cost: [3000, 7500], rep: [1, 3] },
   { id: 'armor', name: '강화 방호복', desc: '최대 체력 +25 (단계마다)', cost: [2000, 5000, 9000], rep: [0, 2, 4] },
   { id: 'wagon', name: '고스트 왜건 튜닝', desc: '속도·가속 +15%, 차체 피해 -25%, 2단계 니트로 (운전 중 Shift)', cost: [3000, 8000], rep: [1, 3] },
 ];
 function applyUpgrades() {
   player.maxHp = 100 + 25 * upg('armor'); player.hp = Math.min(player.hp, player.maxHp);
+  player.fuelMax = 100 * (1 + 0.5 * upg('jump')); player.fuel = Math.min(player.fuel, player.fuelMax);
   const w = upg('wagon'); wagon.T = { ...CAR_T.wagon, top: CAR_T.wagon.top * (1 + 0.15 * w), acc: CAR_T.wagon.acc * (1 + 0.15 * w) }; wagon.armor = 1 - 0.25 * w;
 }
 function renderShop() {
@@ -2387,11 +2559,11 @@ function renderShop() {
 }
 function buy(u) {
   const lv = upg(u.id); if (lv >= u.cost.length || save.rep < u.rep[lv] || player.money < u.cost[lv]) return;
-  player.money -= u.cost[lv]; save.up[u.id] = lv + 1; applyUpgrades(); if (u.id === 'armor') player.hp = player.maxHp; if (u.id === 'wagon') player.nitro = 100;
+  player.money -= u.cost[lv]; save.up[u.id] = lv + 1; applyUpgrades(); if (u.id === 'armor') player.hp = player.maxHp; if (u.id === 'wagon') player.nitro = 100; if (u.id === 'jump') player.fuel = player.fuelMax;
   writeSave(); sfx('buy'); renderShop(); toast(`${u.name} ${lv + 1}단계`, '장착 완료');
 }
 let modal = null, dlgG = null;
-function muteLoops() { if (!AU.ctx) return; for (const k of ['eng', 'sir', 'psir', 'heli', 'zip']) if (AU[k]) AU[k].gain.value = 0; }
+function muteLoops() { if (!AU.ctx) return; for (const k of ['eng', 'sir', 'psir', 'heli', 'zip', 'jet', 'gat', 'gatW']) if (AU[k]) AU[k].gain.value = 0; }
 function openModal(id) { modal = id; $(id).hidden = false; mouse.l = mouse.r = false; player.aim = false; hideBeam(); muteLoops(); if (locked) document.exitPointerLock(); }
 function closeModal() { if (!modal) return; $(modal).hidden = true; modal = null; if (!isTouch && everLocked) { try { const r = cvs.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} } }
 function openShop() { renderShop(); openModal('shop'); sfx('door', 0.5); }
@@ -2410,6 +2582,7 @@ $('go').addEventListener('click', () => {
   toast('출동!', 'PKE 신호를 따라가 유령을 찾으세요');
   setTimeout(() => state === 'play' && toast('양성자 빔으로 약화', '기절하면 트랩(G)을 던져 가두세요'), 3500);
   setTimeout(() => state === 'play' && !mission && toast('시민 의뢰', '머리 위 ! 표시 의뢰인에게 가서 E를 누르세요'), 8000);
+  setTimeout(() => state === 'play' && !mission && toast('제트팩', 'Space를 누르고 있으면 날아오릅니다'), 13000);
 });
 let resetArm = false;
 $('optReset').addEventListener('click', () => {
@@ -2483,6 +2656,8 @@ function updateAudio() {
   AU.psir.gain.setTargetAtTime(pd < 200 ? 0.06 * (1 - pd / 200) : 0, t, 0.1); AU.psirO.frequency.setTargetAtTime(950 + Math.sin(time * 3.4) * 380, t, 0.03);
   AU.heli.gain.setTargetAtTime(heli.active ? 0.22 * clamp(1 - heli.pos.distanceTo(camera.position) / 260, 0, 1) : 0, t, 0.2);
   AU.zip.gain.setTargetAtTime(player.zip ? 0.04 + player.zip.v * 0.005 : 0, t, 0.05);
+  AU.jet.gain.setTargetAtTime(player.jet ? 0.32 : 0, t, 0.06);
+  AU.gat.gain.setTargetAtTime(gat.on ? 0.42 : 0, t, 0.015); AU.gatW.gain.setTargetAtTime(gat.spin * 0.06, t, 0.05); AU.gatWO.frequency.setTargetAtTime(160 + gat.spin * 520, t, 0.05);
   AU.pack.gain.setTargetAtTime(!c && state === 'play' ? 0.02 + player.heat * 0.0006 : 0, t, 0.1);
 }
 
@@ -2499,14 +2674,14 @@ function frame(now) {
     if (state === 'play') { updatePolice(dt); updateMission(dt); updateRoofs(dt); saveT -= dt; if (saveT <= 0) { saveT = 20; writeSave(); } }
     updateCamera(dt);
     if (state === 'play') updateWeapons(dt);
-    updateProjectiles(dt); updateTrap(dt); updateFx(dt); spawner(dt);
+    updateProjectiles(dt); updateBullets(dt); updateTrap(dt); updateFx(dt); spawner(dt);
     if (state === 'play') updateHUD(dt);
     updateAudio();
   }
   composer.render();
 }
 requestAnimationFrame(frame);
-window.__game = { player, ghosts, cars, peds, trap, beam, lots, save, givers: GIVERS, shop: SHOP, ladders, zips, samples, heli, upgrades: UPG,
+window.__game = { player, ghosts, cars, peds, trap, beam, lots, save, givers: GIVERS, shop: SHOP, ladders, zips, samples, heli, upgrades: UPG, gat, bullets, casings,
   get state() { return state; }, get fps() { return fN; }, get mission() { return mission; }, get wanted() { return wanted; }, get modal() { return modal; },
   spawnGhost, explosion, computeAim, setWeapon, enterCar, exitCar, throwTrap, interact, startMission, endMission, crime, bust, spawnCop, buy, THREE };
 </script>
