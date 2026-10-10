@@ -1,6 +1,6 @@
 'use strict';
-// 실제 크로미움에서 게임을 띄워 런타임 오류 없이 핵심 루프(빔 → 기절 → 트랩 포획, 보손 폭발, 차량 탈취·주행), 달리기·제트팩·초대형 게틀링과
-// 의뢰 4종, 경찰 추격·체포, 사다리·짚라인·옥상 샘플, 오 박사 상점, 저장·이어 하기가 돌아가는지 확인하는 스모크 테스트.
+// 실제 크로미움에서 게임을 띄워 런타임 오류 없이 핵심 루프(빔 → 기절 → 트랩 포획, 보손 폭발, 차량 탈취·주행), 달리기·제트팩·초대형 게틀링,
+// 운전 중 창밖 사격과 공격용 특수차량 인터셉터, 의뢰 4종, 경찰 추격·체포, 사다리·짚라인·옥상 샘플, 오 박사 상점, 저장·이어 하기가 돌아가는지 확인하는 스모크 테스트.
 // 실행: node ghostbusters/smoke-test.cjs [스크린샷 폴더]
 //  - playwright 와 three@0.160.0 이 require 가능한 곳(예: NODE_PATH)에 있어야 한다. CDN 요청은 로컬 three 로 돌려준다.
 const fs = require('fs');
@@ -28,7 +28,8 @@ const errors = [];
   await page.goto('http://game.test/');
   await page.waitForFunction(() => window.__game && window.__game.ghosts.length > 0, null, { timeout: 60000 });
   await page.waitForTimeout(1500);
-  const shot = async n => { if (shotDir) await page.screenshot({ path: path.join(shotDir, n + '.png') }); };
+  // GPU 없이 소프트웨어로 그리는 환경에서는 한 장에 30초(기본 제한)를 넘기기도 한다
+  const shot = async n => { if (shotDir) await page.screenshot({ path: path.join(shotDir, n + '.png'), timeout: 180000 }); };
   await shot('1-menu');
 
   await page.click('#go');
@@ -150,6 +151,84 @@ const errors = [];
     check(g.wanted === 0, 'shooting a ghost in the HQ yard raised the wanted level');
     check(await until(() => window.__game.gat.spin < 0.05, 60000), 'minigun barrels did not spin down');
     await page.keyboard.press('Digit1');
+  });
+
+  // 차 앞 조준선에 유령을 세운다. fresh 이면 기력이 찬 새 유령을 쓴다
+  const placeAhead = (dist, fresh) => ev(([dist, fresh]) => {
+    const G = window.__game, a = G.computeAim(); let g = window.__tg;
+    if (fresh || !g || !G.ghosts.includes(g) || g.state === 'captured') { g = G.ghosts.find(x => x.type !== 'boss' && x.state !== 'captured'); g.state = 'hunt'; g.hp = g.maxHp; window.__tg = g; }
+    g.spawnT = 0; g.pos.copy(a.o).addScaledVector(a.dir, a.tMin + dist); g.vel.set(0, 0, 0); g.atk = 99; return g.hp;
+  }, [dist, !!fresh]);
+
+  // 운전 중 창밖 사격: 차에서 발사를 누르면 운전석 창밖으로 상체를 내밀고 지금 고른 무기(빔)로 차 앞의 유령을 붙잡는다
+  await step('driveby', async () => {
+    await ev(() => { const G = window.__game, w = G.cars.find(c => c.type === 'wagon'); G.player.pos.set(w.pos.x - 1.5, 0.15, w.pos.z); G.player.vel.set(0, 0, 0); G.player.heat = 0; G.player.pitch = 0; });
+    await page.waitForTimeout(300);
+    await page.keyboard.press('KeyF');
+    if (!check(await until(() => !!window.__game.player.car, 60000), 'could not get into the wagon for the drive-by')) return;
+    const hp0 = await placeAhead(12, true);
+    await page.mouse.down();
+    let leaned = false;
+    for (let i = 0; i < 40 && !leaned; i++) { await placeAhead(12); leaned = await until(() => { const G = window.__game; return !!G.beam.lock && G.leanK > 0.9; }, 3000); }
+    await until(h => window.__tg.hp < h, 60000, hp0);
+    await shot('5d-driveby');
+    const d = await ev(() => { const G = window.__game; return { car: !!G.player.car, lean: G.leanK, lock: !!G.beam.lock, on: G.beam.on, hp: window.__tg.hp, cross: !document.getElementById('cross').hidden }; });
+    await page.mouse.up();
+    out.driveby = [+(hp0 - d.hp).toFixed(1), +d.lean.toFixed(2)];
+    check(leaned && d.car && d.on, 'firing from the car did not lean out and lock the beam: ' + JSON.stringify(d));
+    check(d.hp < hp0, 'the beam fired from the car did not hurt the ghost');
+    check(d.cross, 'crosshair was hidden while shooting from the car');
+    check(await until(() => window.__game.leanK < 0.1, 60000), 'the driver did not sit back in after releasing fire');
+    await page.keyboard.press('KeyF');
+    await until(() => !window.__game.player.car, 60000);
+  });
+
+  // 인터셉터: 본부 앞마당에서 기다리다가, 포탑 기관포로 유령을 맞히며 달아오르고, 유도 미사일이 쫓아가 터지고, 장갑이 피해를 줄이고, 부서지면 본부에 다시 놓인다
+  await step('interceptor', async () => {
+    const I0 = await ev(() => { const I = window.__game.interceptor; return { off: +I.pos.distanceTo(I.home).toFixed(2), ammo: I.ammo, wrecked: I.wrecked }; });
+    check(I0.off < 3 && I0.ammo === 8 && !I0.wrecked, 'interceptor is not waiting at HQ: ' + JSON.stringify(I0));
+    await ev(() => { const G = window.__game, I = G.interceptor, P = G.player; P.pos.set(I.pos.x + Math.cos(I.h) * 1.9, 0.15, I.pos.z - Math.sin(I.h) * 1.9); P.vel.set(0, 0, 0); P.pitch = 0.02; });
+    await page.waitForTimeout(300);
+    await page.keyboard.press('KeyF');
+    if (!check(await until(() => window.__game.player.car === window.__game.interceptor, 60000), 'F did not board the interceptor')) return;
+    check(await until(() => !document.getElementById('veh').hidden && document.getElementById('slots').hidden, 60000), 'interceptor HUD did not replace the weapon slots');
+    const hp0 = await placeAhead(18, true);
+    await page.mouse.down();
+    const fired = await until(() => window.__game.interceptor.shots > 12);
+    await placeAhead(18).catch(() => {});
+    await until(h => window.__tg.hp < h, 60000, hp0);
+    await shot('5e-interceptor');
+    const k = await ev(() => { const I = window.__game.interceptor; return { shots: I.shots, heat: I.heat, hp: window.__tg.hp, lean: window.__game.leanK }; });
+    await page.mouse.up();
+    out.cannon = [k.shots, +(hp0 - k.hp).toFixed(1), +k.heat.toFixed(1)];
+    check(fired && k.heat > 0, 'turret cannon did not fire and heat up: ' + JSON.stringify(k));
+    check(k.hp < hp0, 'turret cannon did not hurt the ghost');
+    check(k.lean === 0, 'the driver leaned out of the interceptor');
+    // 유도 미사일: 조준선의 유령을 쫓아가 터진다
+    const hp1 = await placeAhead(26, true);
+    await page.mouse.down({ button: 'right' });
+    let launched = false;
+    for (let i = 0; i < 40 && !launched; i++) { await placeAhead(26); launched = await until(() => window.__game.projs.some(p => p.kind === 'missile'), 3000); }
+    await page.mouse.up({ button: 'right' });
+    const m = await ev(() => { const G = window.__game, p = G.projs.find(q => q.kind === 'missile'); return { ammo: G.interceptor.ammo, homing: !!p && p.tgt === window.__tg }; });
+    await shot('5f-missile');
+    if (!check(launched && m.ammo < 8, 'right click did not launch a missile: ' + JSON.stringify(m))) return;
+    check(m.homing, 'missile did not lock onto the ghost under the crosshair');
+    check(await until(() => !window.__game.projs.some(p => p.kind === 'missile'), 120000), 'missile never hit anything');
+    const hp2 = await ev(() => window.__tg.hp);
+    out.missile = +(hp1 - hp2).toFixed(1);
+    check(hp2 < hp1, 'missile did not hurt the ghost');
+    check(await until(a => window.__game.interceptor.ammo > a, 240000, m.ammo), 'missile pods did not reload');
+    // 장갑과 재배치
+    const taken = await ev(() => { const I = window.__game.interceptor, h = I.hp; I.damage(40); const t = h - I.hp; I.hp = h; return t; });
+    check(Math.abs(taken - 14) < 0.01, `armor let ${taken} of 40 damage through`);
+    await page.keyboard.press('KeyF');
+    await until(() => !window.__game.player.car, 60000);
+    await ev(() => { const G = window.__game, I = G.interceptor; G.player.pos.set(I.home.x + 30, 0.15, I.home.z + 12); I.damage(1e6); });
+    if (!check(await ev(() => window.__game.interceptor.wrecked), 'interceptor did not wreck')) return;
+    await ev(() => { window.__game.interceptor.wreckT = 11; });
+    check(await until(() => { const I = window.__game.interceptor; return !I.wrecked && I.hp === 100 && I.ammo === 8 && I.pos.distanceTo(I.home) < 0.01; }, 120000), 'a new interceptor did not appear at HQ');
+    await ev(() => window.__game.clearWanted());
   });
 
   // 의뢰 1: 김 사서에게 E로 말을 걸어 수락하고, 이름 붙은 원령을 포획
