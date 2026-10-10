@@ -64,6 +64,8 @@ html,body{height:100%;margin:0;background:var(--ink);color:var(--text);font-fami
 #vHeat.hot{background:#fff;box-shadow:0 0 10px #ff3d1f}
 #vAmmo{font-family:var(--mono);font-size:14px;letter-spacing:.12em;color:var(--gold)}
 #vAmmo i{font-style:normal;color:#4a4060}
+#vBoost{background:linear-gradient(90deg,#62e6ff,#4f8cff)}
+#vBoost.low{background:#4a4060}
 #trapSt{font-size:12.5px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 9px;color:var(--dim)}
 #trapSt.armed{color:var(--gold);border-color:rgba(255,209,102,.5)}
 #toast{position:absolute;left:50%;top:22%;transform:translateX(-50%);text-align:center;font-family:var(--display);font-size:clamp(18px,3.2vw,30px);letter-spacing:.02em;color:var(--text);text-shadow:0 0 18px rgba(255,106,43,.7),0 2px 0 #000;opacity:0;transition:opacity .25s;white-space:nowrap}
@@ -182,6 +184,7 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
       <div class="vt">인터셉터 무장</div>
       <div class="row"><span>기관포</span><div class="meter"><i id="vHeat" style="width:0%"></i></div></div>
       <div class="row"><span>미사일</span><span id="vAmmo"></span></div>
+      <div class="row"><span>부스터</span><div class="meter"><i id="vBoost" style="width:100%"></i></div></div>
     </div>
     <div class="row" id="packRow"><span>팩 온도</span><div class="meter"><i id="heatFill" style="width:0%"></i></div></div>
     <div id="trapSt">트랩 준비됨</div>
@@ -197,8 +200,8 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
   <div id="stick"><div id="knob"></div></div>
   <div class="tbtns">
     <button class="tb act" data-k="act" id="actBtn" hidden>행동</button>
-    <button class="tb" data-k="weapon">무기</button>
-    <button class="tb" data-k="trap" id="trapBtn">트랩</button>
+    <button class="tb" data-k="weapon" id="wpnBtn">무기</button>
+    <button class="tb" data-k="trap">트랩</button>
     <button class="tb fire" data-k="fire">발사</button>
     <button class="tb" data-k="jump">점프</button>
     <button class="tb" data-k="car">탑승</button>
@@ -214,9 +217,9 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
       <kbd>W A S D</kbd><span>이동 · Shift 달리기 · Space 점프 (누르고 있으면 제트팩 비행)</span>
       <kbd>마우스</kbd><span>조준 · 왼쪽 버튼 발사 · 오른쪽 버튼 정밀 조준</span>
       <kbd>1 2 3 4 / 휠</kbd><span>양성자 빔 · 슬라임 블래스터 · 보손 다트 · 초대형 게틀링</span>
-      <kbd>G</kbd><span>트랩 던지기 (다시 누르면 회수)</span>
+      <kbd>G</kbd><span>트랩 던지기 (다시 누르면 회수, 운전 중에는 창밖으로)</span>
       <kbd>F</kbd><span>차량 탑승 · 탈취 · 하차 (운전 중 좌클릭 창밖 사격, Space 핸드브레이크, H 사이렌)</span>
-      <kbd>인터셉터</kbd><span>본부 앞 공격용 특수차량: 좌클릭 포탑 기관포 · 우클릭 유도 미사일</span>
+      <kbd>인터셉터</kbd><span>본부 앞 공격용 특수차량: 좌클릭 포탑 기관포 · 우클릭 유도 미사일 · G 트랩 발사기 · Shift 부스터</span>
       <kbd>E</kbd><span>의뢰인 대화 · 사다리 · 짚라인 · 오 박사 연구실</span>
       <kbd>R · M · Esc</kbd><span>비 켜고 끄기 · 소리 · 일시정지</span>
     </div>
@@ -224,7 +227,7 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
       <kbd>왼쪽 드래그</kbd><span>이동 (끝까지 밀면 달리기)</span>
       <kbd>오른쪽 드래그</kbd><span>시점 회전</span>
       <kbd>버튼</kbd><span>발사 · 무기 · 트랩 · 점프(누르고 있으면 제트팩) · 차량 탑승</span>
-      <kbd>운전 중</kbd><span>발사 버튼으로 창밖 사격 · 인터셉터는 발사가 포탑 기관포, 트랩 버튼이 유도 미사일</span>
+      <kbd>운전 중</kbd><span>발사 버튼으로 창밖 사격, 트랩 버튼으로 트랩 던지기 · 인터셉터는 발사가 포탑 기관포, 무기 버튼이 유도 미사일, 스틱 끝까지 밀면 부스터</span>
       <kbd>행동</kbd><span>의뢰인 대화 · 사다리 · 짚라인 · 연구실 (가까이 가면 나타남)</span>
     </div>
     <button class="btn" id="go">출동하기</button>
@@ -1408,6 +1411,16 @@ function carGeos(type, paint) {
       part(BOX, 0xff1a1a, wx - 0.2, 1.15, -L / 2 + 0.185, 0.3, 0.14, 0.04), part(BOX, 0xff1a1a, -wx + 0.2, 1.15, -L / 2 + 0.185, 0.3, 0.14, 0.04));
     // glowing proton vents along the rear deck, amber markers on the roof corners
     for (const s of [-1, 1]) l.push(part(BOX, 0xff7a30, s * (W / 2 - 0.115), 1.62, -1.75, 0.02, 0.06, 1.2), part(BOX, 0xffa040, s * 0.85, 2.14, 1.15, 0.12, 0.05, 0.07), part(BOX, 0xffa040, s * 0.85, 2.14, -0.75, 0.12, 0.05, 0.07));
+    // trap launcher on the rear deck: a square tube tilted up and back on a bracket, dark mouth, hazard band
+    b.push(part(BOX, GUN, 0, 2.12, -2.3, 0.4, 0.2, 0.3), part(BOX, DK, 0, 2.22, -2.0, 0.66, 0.44, 0.8, 0.5, 0, 0), part(BOX, HZ, 0, 2.22, -2.0, 0.67, 0.45, 0.1, 0.5, 0, 0), part(BOX, 0x0b0b0d, 0, 2.417, -2.361, 0.52, 0.3, 0.02, 0.5, 0, 0));
+    // four rocket boosters on the rear flanks, two stacked on each side: nose cone, hazard band, bell nozzle with a hot glow inside
+    for (const s of [-1, 1]) {
+      b.push(part(BOX, DK, s * 1.13, 1.55, -1.95, 0.26, 0.62, 1.1));
+      for (const y of [1.36, 1.74]) {
+        b.push(part(CYL, GUN, s * 1.31, y, -1.95, 0.17, 1.5, 0.17, Math.PI / 2, 0, 0), part(CONE, GUN, s * 1.31, y, -1.08, 0.17, 0.24, 0.17, Math.PI / 2, 0, 0), part(CYL, HZ, s * 1.31, y, -1.5, 0.178, 0.12, 0.178, Math.PI / 2, 0, 0), part(CONE, 0x2a2b30, s * 1.31, y, -2.85, 0.21, 0.3, 0.21, Math.PI / 2, 0, 0));
+        l.push(part(CYL, 0xff7a30, s * 1.31, y, -3.01, 0.15, 0.02, 0.15, Math.PI / 2, 0, 0));
+      }
+    }
     // roof turret, built in its own frame so it can turn: ring, housing, a missile pod (2 x 2 tubes) on each flank, sensor and whip antenna;
     // the twin cannon in the gun frame (trunnion) so it can tilt, with coils around the barrels that glow as they heat up
     const tur = [part(CYL, DK, 0, 0.06, 0, 0.62, 0.12, 0.62), part(BOX, paint, 0, 0.3, -0.05, 0.95, 0.36, 1.05), part(BOX, paint, 0, 0.3, 0.5, 0.8, 0.28, 0.16, 0.5, 0, 0), part(SPH, GLASS, 0.3, 0.54, -0.3, 0.11, 0.11, 0.11), part(CYL, GUN, -0.3, 0.8, -0.45, 0.02, 0.65, 0.02)];
@@ -1464,7 +1477,7 @@ class Car {
       this.inner.add(this.barR, this.barB); this.siren = false; this.cop = { mode: 'patrol', stuck: 0, rev: 0, na: 0, nb: 0, nav: false, deployed: 0, extra: false };
     }
     if (type === 'interceptor') {
-      // the turret turns toward the crosshair and the cannon tilts; muzzle flashes at the barrel tips, missiles leave from the pod tubes
+      // the turret turns toward the crosshair and the cannon tilts; muzzle flashes at the barrel tips, missiles leave from the pod tubes, traps from the rear launcher
       this.tur = new THREE.Group(); this.tur.position.set(0, 2.125, 0.15); this.tur.scale.setScalar(1.2); this.gunP = new THREE.Group(); this.gunP.position.set(0, 0.3, 0.3);
       this.coil = new THREE.Mesh(G.coil, new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(1.4, 0.4, 0.15) }));
       this.gunP.add(new THREE.Mesh(G.gun, this.mat), this.coil); this.tur.add(new THREE.Mesh(G.tur, this.mat), this.gunP); this.inner.add(this.tur);
@@ -1473,7 +1486,12 @@ class Car {
       this.barR = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.12, 0.26), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 0.2, 0.15) })); this.barR.position.set(-0.45, 2.2, 1.08);
       this.barW = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.12, 0.26), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 3, 3) })); this.barW.position.set(0.45, 2.2, 1.08);
       this.inner.add(this.barR, this.barW); this.siren = false;
-      Object.assign(this, { armor: 0.35, heat: 0, over: false, cd: 0, mcd: 0, ammo: 8, rl: 0, shots: 0, salvo: 0 });
+      this.launch = new THREE.Object3D(); this.launch.position.set(0, 2.47, -2.45); this.inner.add(this.launch);
+      // booster flames: an orange outer cone around a blue-white core, pointing back out of each nozzle
+      const fl = new THREE.ConeGeometry(1, 1, 12, 1, true).rotateX(Math.PI).translate(0, -0.5, 0), fm = (r, g, b, o) => new THREE.MeshBasicMaterial({ color: new THREE.Color(r, g, b), transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+      const fo = fm(2.6, 1.0, 0.26, 0.7), fi = fm(1.8, 2.0, 2.8, 0.8); this.flames = [];
+      for (const s of [-1, 1]) for (const y of [1.36, 1.74]) { const f = new THREE.Group(), o = new THREE.Mesh(fl, fo), i = new THREE.Mesh(fl, fi); o.scale.set(0.17, 1.9, 0.17); i.scale.set(0.08, 1.0, 0.08); o.renderOrder = i.renderOrder = 6; f.add(o, i); f.position.set(s * 1.31, y, -3.02); f.rotation.x = Math.PI / 2; f.visible = false; this.inner.add(f); this.flames.push(f); }
+      Object.assign(this, { armor: 0.35, heat: 0, over: false, cd: 0, mcd: 0, ammo: 8, rl: 0, shots: 0, salvo: 0, bst: 100 });
     }
     this.pos = V3(); this.vel = new THREE.Vector2(); this.h = 0; this.steer = 0; this.hp = 100; this.ai = null; this.parked = false; this.wrecked = false; this.fire = 0; this.wreckT = 0; this.y = 0; this.vy = 0; this.pHit = -99; this.boost = 0;
     this.input = { t: 0, s: 0, hb: false }; this.roll = 0; this.pitch = 0; this.blocked = 0; this.ignore = 0;
@@ -1537,8 +1555,8 @@ function stepCar(c, dt) {
     if (t > 0) vf += (vf < -0.5 ? T.acc * 2 : T.acc * (1 - Math.max(0, vf) / (T.top * 1.05))) * t * dt;
     else if (t < 0) vf += (vf > 0.5 ? T.acc * 1.9 : T.acc * 0.55) * t * dt;
   }
-  if (c.boost) vf += 15 * dt;
-  vf = clamp(vf, -11, T.top * (c.boost ? 1.35 : 1)); vf -= vf * (0.12 + (t === 0 ? 0.45 : 0) + (c.wrecked ? 2 : 0)) * dt;
+  if (c.boost) vf += 15 * c.boost * dt;
+  vf = clamp(vf, -11, T.top * (1 + 0.35 * c.boost)); vf -= vf * (0.12 + (t === 0 ? 0.45 : 0) + (c.wrecked ? 2 : 0)) * dt;
   if (hb) vf -= Math.sign(vf) * Math.min(Math.abs(vf), 7 * dt);
   const grip = hb ? 1.4 : c.wrecked ? 4 : 9; vr *= Math.exp(-grip * dt);
   c.vel.set(s * vf - co * vr, co * vf + s * vr);
@@ -2034,10 +2052,21 @@ function updateTurret(dt, aim) {
   if (hot > 0.5 && Math.random() < dt * 12 * hot) { const f = c.muz[(Math.random() * 2) | 0].getWorldPosition(_p); SMOKE.add(f.x, f.y, f.z, R(-0.2, 0.2), R(0.6, 1.2), R(-0.2, 0.2), 0.3, 0.29, 0.3, R(1, 1.6), 0.15, 0.8, -0.3, 1.2, 0.3); }
   for (const f of c.muz) { f.t -= dt; f.visible = f.t > 0; if (f.visible) { f.material.rotation = Math.random() * 6.28; f.scale.setScalar(R(0.9, 1.4)); } }
   if (c.ammo < 8) { c.rl += dt; if (c.rl >= 1.6) { c.rl = 0; c.ammo++; } } else c.rl = 0;
+  // rocket boosters: a 4 second tank that refills while they are off; flickering flames, sparks and smoke out of the four nozzles
+  c.bst = c.boost ? Math.max(0, c.bst - 25 * dt) : Math.min(100, c.bst + 12 * dt);
+  if (!c.boost) { for (const f of c.flames) f.visible = false; return; }
+  const bx = -Math.sin(c.h), bz = -Math.cos(c.h);
+  for (const f of c.flames) {
+    f.visible = true; f.scale.set(R(0.85, 1.15), R(0.8, 1.3), R(0.85, 1.15)); f.getWorldPosition(_p);
+    for (let i = 0, n = Math.ceil(dt * 60); i < n; i++) FX.add(_p.x + R(-0.08, 0.08), _p.y + R(-0.08, 0.08), _p.z + R(-0.08, 0.08), c.vel.x * 0.5 + bx * R(12, 18), R(-0.5, 0.5), c.vel.y * 0.5 + bz * R(12, 18), 2.4, R(0.8, 1.2), 0.25, R(0.12, 0.22), 0.25, 0.05, 0, 2);
+    if (Math.random() < dt * 14) SMOKE.add(_p.x + bx * 1.5, _p.y, _p.z + bz * 1.5, bx * R(2, 5), R(0.5, 1.5), bz * R(2, 5), 0.16, 0.15, 0.16, R(1, 1.8), 0.35, 2.4, -0.3, 1.4, 0.35);
+  }
+  c.inner.localToWorld(jetLight.position.set(0, 1.5, -3.6)); jetLight.intensity = R(35, 50);
+  if (player.car === c) addShake(null, 0.1);
 }
 
 // ============================================================ trap
-const trap = { state: 'held', t: 0, pos: V3(), from: V3(), to: V3(), idle: 0 };
+const trap = { state: 'held', t: 0, pos: V3(), from: V3(), to: V3(), idle: 0, dur: 0.65, arc: 2.6 };
 {
   const g = new THREE.Group(), base = new THREE.Mesh(merge([part(BOX, 0x2d2f35, 0, 0.12, 0, 0.72, 0.24, 0.46), part(BOX, 0x1a1a1e, 0, 0.02, 0, 0.76, 0.04, 0.5), part(BOX, 0x777b83, 0, 0.26, 0.24, 0.6, 0.05, 0.04)]), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.7 }));
   const stripe = new THREE.Mesh(new THREE.PlaneGeometry(0.66, 0.1), new THREE.MeshStandardMaterial({ map: TX.stripe, roughness: 0.6 })); stripe.position.set(0, 0.13, 0.232);
@@ -2051,21 +2080,38 @@ const trap = { state: 'held', t: 0, pos: V3(), from: V3(), to: V3(), idle: 0 };
   g.add(base, stripe, trap.led, trap.cone, blob(1)); g.visible = false; trap.g = g; scene.add(g);
 }
 function throwTrap(aim) {
-  if (player.car || player.dead) return;
+  if (player.dead) return;
   if (trap.state === 'armed') { trap.state = 'held'; trap.g.visible = false; trap.cone.visible = false; sfx('click'); return; }
   if (trap.state !== 'held') return;
+  if (player.car) return carTrap(player.car, aim);
   let to;
   if (aim.hit && aim.hit.n === UP && aim.hit.t < 18) to = aim.hit.p.clone();
   else { const f = V3(Math.sin(player.yaw), 0, Math.cos(player.yaw)); to = player.pos.clone().addScaledVector(f, 8); }
   _v.subVectors(to, player.pos).setY(0); if (_v.length() > 14) to.copy(player.pos).addScaledVector(_v.normalize(), 14);
   to.y = surfaceY(to.x, to.z, Math.max(to.y, player.pos.y) + 0.3);
   if (inBuilding(to.x, to.y + 0.3, to.z)) { to.copy(player.pos).addScaledVector(V3(Math.sin(player.yaw), 0, Math.cos(player.yaw)), 2); to.y = surfaceY(to.x, to.z, player.pos.y + 0.3); }
-  trap.from.copy(player.pos).add(V3(0, 1.2, 0)); trap.to.copy(to); trap.state = 'flying'; trap.t = 0; trap.g.visible = true; trap.idle = 0; sfx('trap');
+  trap.from.copy(player.pos).add(V3(0, 1.2, 0)); trap.to.copy(to); trap.dur = 0.65; trap.arc = 2.6; trap.state = 'flying'; trap.t = 0; trap.g.visible = true; trap.idle = 0; sfx('trap');
+}
+// from a car the trap goes out of the driver's window; the interceptor fires it from the launcher on its rear deck, more than twice as far.
+// It flies to the stunned ghost nearest the car, else to the street under the crosshair, else onto the road ahead
+function carTrap(c, aim) {
+  const big = c === interceptor, reach = big ? 32 : 14, p = c.pos; let to = null, best = Infinity;
+  for (const g of ghosts) if (g.state === 'stunned') { const d = Math.hypot(g.pos.x - p.x, g.pos.z - p.z); if (d < reach + (g.type === 'boss' ? 12 : 7) && d < best) { best = d; to = V3(g.pos.x, 0, g.pos.z); } }
+  if (!to && aim.hit && aim.hit.n === UP && Math.hypot(aim.hit.p.x - p.x, aim.hit.p.z - p.z) < reach) to = aim.hit.p.clone();
+  if (!to) to = V3(p.x + Math.sin(player.yaw) * 8, 0, p.z + Math.cos(player.yaw) * 8);
+  _v.subVectors(to, p).setY(0); if (_v.length() > reach) to.copy(p).addScaledVector(_v.normalize(), reach);
+  to.y = surfaceY(to.x, to.z, Math.max(to.y, 0) + 0.3);
+  if (inBuilding(to.x, to.y + 0.3, to.z)) { to.set(p.x + Math.cos(c.h) * 3, 0, p.z - Math.sin(c.h) * 3); to.y = groundY(to.x, to.z); }
+  c.g.updateMatrixWorld(true);
+  if (big) { c.launch.getWorldPosition(trap.from); smokePuff(trap.from, 3, [0.3, 0.29, 0.31], 1.2, 1.2, 0.5); flash(trap.from, 0xfff2d0, 300, 0.1, 10); sfx('impact', 0.5); }
+  else { c.inner.localToWorld(trap.from.set(c.T.W / 2 + 0.2, c.T.seat[0] - 0.1, c.T.seat[1])); leanT = 0.5; }
+  const d = Math.hypot(to.x - p.x, to.z - p.z);
+  trap.to.copy(to); trap.dur = big ? 0.5 + d * 0.02 : 0.65; trap.arc = big ? 2 + d * 0.15 : 2.6; trap.state = 'flying'; trap.t = 0; trap.g.visible = true; trap.idle = 0; sfx('trap');
 }
 function updateTrap(dt) {
   const T = trap; T.t += dt; T.cone.material.uniforms.uTime.value = time;
   if (T.state === 'flying') {
-    const k = Math.min(1, T.t / 0.65); T.pos.lerpVectors(T.from, T.to, k); T.pos.y += Math.sin(k * Math.PI) * 2.6 * (1 - k * 0.3); if (k >= 1) T.pos.y = T.to.y;
+    const k = Math.min(1, T.t / T.dur); T.pos.lerpVectors(T.from, T.to, k); T.pos.y += Math.sin(k * Math.PI) * T.arc * (1 - k * 0.3); if (k >= 1) T.pos.y = T.to.y;
     T.g.position.copy(T.pos); T.g.rotation.y += dt * 14; T.g.rotation.x = (1 - k) * 3;
     if (k >= 1) { T.state = 'armed'; T.t = 0; T.g.rotation.x = 0; sparks(T.pos.clone().add(V3(0, 0.3, 0)), 20, 4, [3, 3, 2], 0.4); sfx('clang', 0.5); }
   } else if (T.state === 'armed' || T.state === 'capturing') {
@@ -2119,13 +2165,13 @@ function enterCar() {
   }
   best.ai = null; best.parked = false; best.pool.visible = true; player.car = best; P.g.visible = false; hideBeam(); camYawOff = 0; carAim = 0; leanK = leanT = 0; sfx('door');
   if (best === wagon) toast('고스트 왜건 탑승', 'H 사이렌 · Space 핸드브레이크');
-  else if (best === interceptor) toast('인터셉터 탑승', '좌클릭 포탑 기관포 · 우클릭 유도 미사일 · H 경광등');
+  else if (best === interceptor) toast('인터셉터 탑승', '좌클릭 포탑 기관포 · 우클릭 유도 미사일 · G 트랩 발사기 · Shift 부스터 · H 경광등');
 }
 function exitCar(forced) {
   const c = player.car; if (!c) return;
   const lx = Math.cos(c.h), lz = -Math.sin(c.h); let x = c.pos.x + lx * 2.3, z = c.pos.z + lz * 2.3;
   if (inBuilding(x, 0.5, z)) { x = c.pos.x - lx * 2.3; z = c.pos.z - lz * 2.3; }
-  player.pos.set(x, groundY(x, z), z); player.vel.set(forced ? lx * 6 : 0, forced ? 4 : 0, forced ? lz * 6 : 0); player.yaw = c.h + camYawOff; player.car = null; P.g.visible = P.legL.visible = P.legR.visible = true; leanK = leanT = 0; c.input.t = 0; c.input.s = 0; c.input.hb = true; c.parked = true; c.boost = 0;
+  player.pos.set(x, groundY(x, z), z); player.vel.set(forced ? lx * 6 : 0, forced ? 4 : 0, forced ? lz * 6 : 0); player.yaw = c.h + camYawOff; player.car = null; P.g.visible = P.legL.visible = P.legR.visible = true; leanK = leanT = 0; c.input.t = 0; c.input.s = 0; c.input.hb = true; c.parked = true; c.boost = 0; if (c.flames) for (const f of c.flames) f.visible = false;
   if (c.siren) { c.siren = false; }
   sfx('door');
 }
@@ -2141,9 +2187,12 @@ function updatePlayer(dt) {
     c.input.t = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + (tk ? -touch.y : 0);
     c.input.s = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + (tk ? touch.x : 0);
     c.input.t = clamp(c.input.t, -1, 1); c.input.s = clamp(c.input.s, -1, 1); c.input.hb = !!keys.Space || touch.jump; jumpQ = false;
-    // nitro (wagon tuning 2): Shift while accelerating, or the touch stick pushed to its edge
-    c.boost = c === wagon && upg('wagon') >= 2 && (keys.ShiftLeft || keys.ShiftRight || (tk && Math.hypot(touch.x, touch.y) > 0.92)) && c.input.t > 0 && player.nitro > 0 ? 1 : 0;
-    if (c.boost) { player.nitro = Math.max(0, player.nitro - dt * 22); const s = Math.sin(c.h), co = Math.cos(c.h); for (const k of [-0.5, 0.5]) FX.add(c.pos.x - s * 3 + co * k, 0.6, c.pos.z - co * 3 - s * k, -s * 6 + R(-1, 1), R(0, 1), -co * 6 + R(-1, 1), 0.8, 1.4, 4, 0.25, 0.5, 0.1, 0, 2); }
+    // nitro (wagon tuning 2) or the interceptor's rocket boosters: Shift while accelerating, or the touch stick pushed to its edge.
+    // The boosters light only with some fuel in their tank, then burn until it runs dry
+    const push = (keys.ShiftLeft || keys.ShiftRight || (tk && Math.hypot(touch.x, touch.y) > 0.92)) && c.input.t > 0, lit = c === interceptor && push && c.bst > (c.boost ? 0 : 15);
+    if (lit && !c.boost) { sfx('jet', 0.9); addShake(null, 0.5); }
+    c.boost = lit ? 2 : c === wagon && upg('wagon') >= 2 && push && player.nitro > 0 ? 1 : 0;
+    if (c.boost === 1) { player.nitro = Math.max(0, player.nitro - dt * 22); const s = Math.sin(c.h), co = Math.cos(c.h); for (const k of [-0.5, 0.5]) FX.add(c.pos.x - s * 3 + co * k, 0.6, c.pos.z - co * 3 - s * k, -s * 6 + R(-1, 1), R(0, 1), -co * 6 + R(-1, 1), 0.8, 1.4, 4, 0.25, 0.5, 0.1, 0, 2); }
     else player.nitro = Math.min(100, player.nitro + dt * 7);
     player.fuel = Math.min(player.fuelMax, player.fuel + 30 * dt);
     player.pos.set(c.pos.x, groundY(c.pos.x, c.pos.z), c.pos.z); player.vel.set(c.vel.x, 0, c.vel.y); player.onGround = true; player.pitch = clamp(player.pitch, -0.6, 0.3);
@@ -2396,8 +2445,8 @@ if (isTouch) {
     const k = b.dataset.k;
     b.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); b.classList.add('on');
       if (state !== 'play' || paused || modal) return;
-      if (k === 'fire') touch.fire = true; else if (k === 'jump') { touch.jump = true; jumpQ = true; } else if (k === 'weapon') setWeapon((player.weapon + 1) % 4); else if (k === 'trap') { if (player.car === interceptor) touch.missile = true; else throwTrap(computeAim()); } else if (k === 'car') player.car ? exitCar() : enterCar(); else if (k === 'act') interact(); }, { passive: false });
-    b.addEventListener('touchend', e => { e.preventDefault(); b.classList.remove('on'); if (k === 'fire') touch.fire = false; if (k === 'jump') touch.jump = false; if (k === 'trap') touch.missile = false; });
+      if (k === 'fire') touch.fire = true; else if (k === 'jump') { touch.jump = true; jumpQ = true; } else if (k === 'weapon') { if (player.car === interceptor) touch.missile = true; else setWeapon((player.weapon + 1) % 4); } else if (k === 'trap') throwTrap(computeAim()); else if (k === 'car') player.car ? exitCar() : enterCar(); else if (k === 'act') interact(); }, { passive: false });
+    b.addEventListener('touchend', e => { e.preventDefault(); b.classList.remove('on'); if (k === 'fire') touch.fire = false; if (k === 'jump') touch.jump = false; if (k === 'weapon') touch.missile = false; });
   });
 }
 
@@ -2427,7 +2476,7 @@ let toastT = 0;
 // on touch, prompts name the on-screen buttons instead of keyboard keys
 const keyText = s => !isTouch ? s : s.replace(/\(G\)/g, '').replace('G 회수', '트랩 버튼으로 회수').replace('E를 누르세요', '행동 버튼을 누르세요')
   .replace('Space 핸드브레이크', '점프 버튼으로 핸드브레이크').replace('Space를', '점프 버튼을').replace('운전 중 Shift', '운전 중 스틱 끝까지')
-  .replace('좌클릭 포탑 기관포', '발사 버튼 포탑 기관포').replace('우클릭 유도 미사일', '미사일 버튼 유도 미사일').replace(/H (사이렌|경광등)( · )?/, '').replace(/ · G?$/, '');
+  .replace('좌클릭 포탑 기관포', '발사 버튼 포탑 기관포').replace('우클릭 유도 미사일', '미사일 버튼 유도 미사일').replace('G 트랩 발사기', '트랩 버튼 트랩 발사기').replace('Shift 부스터', '스틱 끝까지 밀면 부스터').replace(/H (사이렌|경광등)( · )?/, '').replace(/ · G?$/, '');
 function toast(a, b = '') { const el = $('toast'); el.innerHTML = ''; el.append(a); if (b) { const s = document.createElement('small'); s.textContent = keyText(b); el.append(s); } el.style.opacity = 1; toastT = 2.6; }
 const mm = $('minimap'), mctx = mm.getContext('2d'), MS = 0.55, MOFF = HALF + ROAD;
 const mapImg = mkCanvas(Math.ceil(MOFF * 2 * MS), Math.ceil(MOFF * 2 * MS));
@@ -2493,10 +2542,10 @@ function updateHUD(dt) {
     else if (player.climb) hint = '<kbd>W S</kbd>오르내리기 · <kbd>Space</kbd>뛰어내리기';
     else if (player.zip) hint = '<kbd>Space</kbd>손 놓기';
     else if (!player.car && !player.dead && player.pos.y < 2) { for (const c of cars) if (!c.wrecked && !c.possessed && Math.hypot(c.pos.x - player.pos.x, c.pos.z - player.pos.z) < 4.8) { hint = c.type === 'police' ? '<kbd>F</kbd>경찰차 탈취 (수배)' : c.ai ? '<kbd>F</kbd>차량 탈취' : c === wagon ? '<kbd>F</kbd>고스트 왜건 탑승' : c === interceptor ? '<kbd>F</kbd>인터셉터 탑승' : '<kbd>F</kbd>차량 탑승'; break; } }
-    else if (player.car === interceptor) hint = '<kbd>F</kbd>하차 · <kbd>좌클릭</kbd>기관포 · <kbd>우클릭</kbd>미사일 · <kbd>H</kbd>경광등';
-    else if (player.car) hint = '<kbd>F</kbd>하차 · <kbd>좌클릭</kbd>창밖 사격' + (player.car.barR ? ' · <kbd>H</kbd>사이렌' : '') + (player.car === wagon && upg('wagon') >= 2 ? ' · <kbd>Shift</kbd>니트로' : '');
-    if (isTouch) hint = hint.replace(/<kbd>F<\/kbd>/, '<kbd>탑승</kbd>').replace(/<kbd>E<\/kbd>/, '<kbd>행동</kbd>').replace(/<kbd>W S<\/kbd>/, '<kbd>스틱</kbd>').replace(/<kbd>Space<\/kbd>/, '<kbd>점프</kbd>').replace(/ · <kbd>H<\/kbd>(사이렌|경광등)/, '').replace(/<kbd>Shift<\/kbd>니트로/, '<kbd>스틱 끝까지</kbd>니트로')
-      .replace(/<kbd>좌클릭<\/kbd>/, '<kbd>발사</kbd>').replace(/<kbd>우클릭<\/kbd>미사일/, '<kbd>미사일</kbd>버튼');
+    else if (player.car === interceptor) hint = '<kbd>F</kbd>하차 · <kbd>좌클릭</kbd>기관포 · <kbd>우클릭</kbd>미사일 · <kbd>G</kbd>트랩 · <kbd>Shift</kbd>부스터 · <kbd>H</kbd>경광등';
+    else if (player.car) hint = '<kbd>F</kbd>하차 · <kbd>좌클릭</kbd>창밖 사격 · <kbd>G</kbd>트랩' + (player.car.barR ? ' · <kbd>H</kbd>사이렌' : '') + (player.car === wagon && upg('wagon') >= 2 ? ' · <kbd>Shift</kbd>니트로' : '');
+    if (isTouch) hint = hint.replace(/<kbd>F<\/kbd>/, '<kbd>탑승</kbd>').replace(/<kbd>E<\/kbd>/, '<kbd>행동</kbd>').replace(/<kbd>W S<\/kbd>/, '<kbd>스틱</kbd>').replace(/<kbd>Space<\/kbd>/, '<kbd>점프</kbd>').replace(/ · <kbd>H<\/kbd>(사이렌|경광등)/, '').replace(/<kbd>Shift<\/kbd>(니트로|부스터)/, '<kbd>스틱 끝까지</kbd>$1')
+      .replace(/<kbd>좌클릭<\/kbd>/, '<kbd>발사</kbd>').replace(/<kbd>우클릭<\/kbd>미사일/, '<kbd>미사일</kbd>버튼').replace(/<kbd>G<\/kbd>트랩/, '<kbd>트랩</kbd>포획');
     $('hint').innerHTML = hint; $('hint').style.opacity = hint ? 1 : 0; $('actBtn').hidden = !it;
   }
   // PKE
@@ -2506,8 +2555,8 @@ function updateHUD(dt) {
   if (near) { const rx = near.pos.x - pp.x, rz = near.pos.z - pp.z, fy = player.yaw, a = Math.atan2(-Math.cos(fy) * rx + Math.sin(fy) * rz, Math.sin(fy) * rx + Math.cos(fy) * rz); $('pkeArrow').style.transform = `rotate(${a}rad)`; $('pkeDist').textContent = Math.round(nd) + 'm'; } else $('pkeDist').textContent = '--';
   const sp = $('spd'); if (player.car) { sp.hidden = false; sp.firstChild.nodeValue = Math.round(player.car.speed * 3.6); } else sp.hidden = true;
   const inV = player.car === interceptor;
-  if (inV !== hudV) { hudV = inV; $('slots').hidden = $('packRow').hidden = inV; $('veh').hidden = !inV; $('trapBtn').textContent = inV ? '미사일' : '트랩'; }
-  if (inV) { const c = interceptor; $('vHeat').style.width = c.heat + '%'; $('vHeat').classList.toggle('hot', c.over); if (c.ammo !== hudAmmo) { hudAmmo = c.ammo; $('vAmmo').innerHTML = '●'.repeat(c.ammo) + '<i>' + '●'.repeat(8 - c.ammo) + '</i>'; } }
+  if (inV !== hudV) { hudV = inV; $('slots').hidden = $('packRow').hidden = inV; $('veh').hidden = !inV; $('wpnBtn').textContent = inV ? '미사일' : '무기'; }
+  if (inV) { const c = interceptor; $('vHeat').style.width = c.heat + '%'; $('vHeat').classList.toggle('hot', c.over); $('vBoost').style.width = c.bst + '%'; $('vBoost').classList.toggle('low', !c.boost && c.bst < 15); if (c.ammo !== hudAmmo) { hudAmmo = c.ammo; $('vAmmo').innerHTML = '●'.repeat(c.ammo) + '<i>' + '●'.repeat(8 - c.ammo) + '</i>'; } }
   const bb = $('boss'); if (bossActive) { bb.hidden = false; $('bossFill').style.width = (bossActive.hp / bossActive.maxHp * 100) + '%'; } else bb.hidden = true;
   toastT -= dt; if (toastT <= 0) $('toast').style.opacity = 0;
   hurtFx = Math.max(0, hurtFx - dt * 1.2); slimeFx = Math.max(0, slimeFx - dt * 0.5); flashFx = Math.max(0, flashFx - dt * 3);
@@ -3037,7 +3086,7 @@ function updateWorld(dt) {
   carCollisions();
   for (const c of [wagon, interceptor]) if (c.wrecked && c.wreckT > 12) {
     c.wrecked = false; c.hp = 100; c.fire = 0; c.mat.color.setScalar(1); c.mat.roughness = 0; c.mat.clearcoat = 1; c.lights.visible = true; c.barR.visible = c.barW.visible = true; c.pos.copy(c.home); c.h = 0; c.vel.set(0, 0); c.inner.rotation.set(0, 0, 0);
-    if (c === interceptor) { c.coil.visible = true; c.tur.rotation.y = 0; Object.assign(c, { heat: 0, over: false, ammo: 8, rl: 0 }); }
+    if (c === interceptor) { c.coil.visible = true; c.tur.rotation.y = 0; Object.assign(c, { heat: 0, over: false, ammo: 8, rl: 0, bst: 100 }); }
     toast(c === wagon ? '본부에 새 고스트 왜건이 준비됐습니다' : '본부에 새 인터셉터가 준비됐습니다');
   }
   for (const q of peds) { if (q.pos.distanceToSquared(camera.position) > 250 * 250 && q.state === 'walk') { q.g.visible = false; q.s += q.dir * q.speed * dt; continue; } q.g.visible = true; q.update(dt); }
@@ -3072,7 +3121,7 @@ function updateAudio() {
   AU.psir.gain.setTargetAtTime(pd < 200 ? 0.06 * (1 - pd / 200) : 0, t, 0.1); AU.psirO.frequency.setTargetAtTime(950 + Math.sin(time * 3.4) * 380, t, 0.03);
   AU.heli.gain.setTargetAtTime(heli.active ? 0.22 * clamp(1 - heli.pos.distanceTo(camera.position) / 260, 0, 1) : 0, t, 0.2);
   AU.zip.gain.setTargetAtTime(player.zip ? 0.04 + player.zip.v * 0.005 : 0, t, 0.05);
-  AU.jet.gain.setTargetAtTime(player.jet ? 0.32 : 0, t, 0.06);
+  AU.jet.gain.setTargetAtTime(player.jet ? 0.32 : interceptor.boost ? 0.45 : 0, t, 0.06);
   AU.gat.gain.setTargetAtTime(gat.on ? 0.42 : 0, t, 0.015); AU.gatW.gain.setTargetAtTime(gat.spin * 0.06, t, 0.05); AU.gatWO.frequency.setTargetAtTime(160 + gat.spin * 520, t, 0.05);
   AU.pack.gain.setTargetAtTime(!c && state === 'play' ? 0.02 + player.heat * 0.0006 : 0, t, 0.1);
 }

@@ -1,6 +1,6 @@
 'use strict';
 // 실제 크로미움에서 게임을 띄워 런타임 오류 없이 핵심 루프(빔 → 기절 → 트랩 포획, 보손 폭발, 차량 탈취·주행), 달리기·제트팩·초대형 게틀링,
-// 운전 중 창밖 사격과 공격용 특수차량 인터셉터, 의뢰 4종, 경찰 추격·체포, 사다리·짚라인·옥상 샘플, 오 박사 상점, 저장·이어 하기가 돌아가는지 확인하는 스모크 테스트.
+// 운전 중 창밖 사격·트랩 포획과 공격용 특수차량 인터셉터(트랩 발사기, 로켓 부스터), 의뢰 4종, 경찰 추격·체포, 사다리·짚라인·옥상 샘플, 오 박사 상점, 저장·이어 하기가 돌아가는지 확인하는 스모크 테스트.
 // 실행: node ghostbusters/smoke-test.cjs [스크린샷 폴더]
 //  - playwright 와 three@0.160.0 이 require 가능한 곳(예: NODE_PATH)에 있어야 한다. CDN 요청은 로컬 three 로 돌려준다.
 const fs = require('fs');
@@ -179,11 +179,21 @@ const errors = [];
     check(d.hp < hp0, 'the beam fired from the car did not hurt the ghost');
     check(d.cross, 'crosshair was hidden while shooting from the car');
     check(await until(() => window.__game.leanK < 0.1, 60000), 'the driver did not sit back in after releasing fire');
+    // 차에서 포획: 기절한 유령이 있을 때 G를 누르면 창밖으로 던진 트랩이 그 밑에 떨어져 빨아들인다
+    await until(() => window.__game.trap.state === 'held', 120000);
+    const caps0 = await ev(() => window.__game.player.captures);
+    await placeAhead(10); await ev(() => window.__tg.damage(1e6));
+    await page.keyboard.press('KeyG');
+    const t0 = await ev(() => { const G = window.__game, T = G.trap, c = G.player.car, g = window.__tg; return { st: T.state, to: +Math.hypot(T.to.x - c.pos.x, T.to.z - c.pos.z).toFixed(1), off: +Math.hypot(T.to.x - g.pos.x, T.to.z - g.pos.z).toFixed(1) }; });
+    out.carTrap = t0.to;
+    check(t0.st === 'flying' && t0.off < 3, 'G in a car did not throw the trap at the stunned ghost: ' + JSON.stringify(t0));
+    check(await until(c => window.__game.player.captures > c, 240000, caps0), 'the trap thrown from the car did not capture the stunned ghost');
     await page.keyboard.press('KeyF');
     await until(() => !window.__game.player.car, 60000);
   });
 
-  // 인터셉터: 본부 앞마당에서 기다리다가, 포탑 기관포로 유령을 맞히며 달아오르고, 유도 미사일이 쫓아가 터지고, 장갑이 피해를 줄이고, 부서지면 본부에 다시 놓인다
+  // 인터셉터: 본부 앞마당에서 기다리다가, 포탑 기관포로 유령을 맞히며 달아오르고, 유도 미사일이 쫓아가 터지고, 트랩 발사기로 멀리 있는 기절한 유령을 포획하고,
+  // 로켓 부스터로 훨씬 빨라지고, 장갑이 피해를 줄이고, 부서지면 본부에 다시 놓인다
   await step('interceptor', async () => {
     const I0 = await ev(() => { const I = window.__game.interceptor; return { off: +I.pos.distanceTo(I.home).toFixed(2), ammo: I.ammo, wrecked: I.wrecked }; });
     check(I0.off < 3 && I0.ammo === 8 && !I0.wrecked, 'interceptor is not waiting at HQ: ' + JSON.stringify(I0));
@@ -219,6 +229,30 @@ const errors = [];
     out.missile = +(hp1 - hp2).toFixed(1);
     check(hp2 < hp1, 'missile did not hurt the ghost');
     check(await until(a => window.__game.interceptor.ammo > a, 240000, m.ammo), 'missile pods did not reload');
+    // 트랩 발사기: 창밖으로 던질 수 있는 거리보다 먼 기절한 유령에게 뒤 짐칸 발사기로 트랩을 쏘아 포획한다
+    await until(() => window.__game.trap.state === 'held', 120000);
+    const caps1 = await ev(() => window.__game.player.captures);
+    await placeAhead(24, true); await ev(() => window.__tg.damage(1e6));
+    await page.keyboard.press('KeyG');
+    const t1 = await ev(() => { const G = window.__game, T = G.trap, I = G.interceptor; return { st: T.state, to: +Math.hypot(T.to.x - I.pos.x, T.to.z - I.pos.z).toFixed(1) }; });
+    out.launcher = t1.to;
+    check(t1.st === 'flying' && t1.to > 14, 'the interceptor did not launch the trap past throwing range: ' + JSON.stringify(t1));
+    check(await until(c => window.__game.player.captures > c, 240000, caps1), 'the launched trap did not capture the stunned ghost');
+    // 로켓 부스터: 같은 프레임 수를 가속했을 때 Shift를 누르면 부스터 4개가 불을 뿜으며 훨씬 빨라지고 연료가 준다
+    const run = async boost => {
+      await ev(() => { const I = window.__game.interceptor; I.pos.copy(I.home); I.h = 0; I.vel.set(0, 0); });
+      if (boost) await page.keyboard.down('ShiftLeft');
+      await page.keyboard.down('KeyW');
+      await ev(() => new Promise(r => { let k = 0; const f = () => (++k >= 12 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); }));
+      const r = await ev(() => { const I = window.__game.interceptor; return { v: +I.speed.toFixed(1), boost: I.boost, bst: +I.bst.toFixed(1), flames: I.flames.filter(f => f.visible).length }; });
+      await page.keyboard.up('KeyW'); if (boost) await page.keyboard.up('ShiftLeft');
+      return r;
+    };
+    const plain = await run(false), boosted = await run(true);
+    out.boost = [plain.v, boosted.v, boosted.bst];
+    check(boosted.boost === 2 && boosted.flames === 4 && boosted.bst < 100, 'Shift did not light the four boosters: ' + JSON.stringify(boosted));
+    check(boosted.v > plain.v * 1.5, `the boosters did not speed the interceptor up: ${plain.v} vs ${boosted.v}`);
+    check(await until(() => window.__game.interceptor.flames.every(f => !f.visible), 60000), 'booster flames stayed on after letting go');
     // 장갑과 재배치
     const taken = await ev(() => { const I = window.__game.interceptor, h = I.hp; I.damage(40); const t = h - I.hp; I.hp = h; return t; });
     check(Math.abs(taken - 14) < 0.01, `armor let ${taken} of 40 damage through`);
