@@ -224,7 +224,12 @@ GOLDEN = {
 # 것이 시정의 목적이며, 골든이 FAIL 0 으로 돌아가면 그것이 회귀다.
 # +3 PASS: ncr_components_sum · ncr_identity · ncr_min. 순자본비율이 2선에 인자
 # 자체가 없던 것을 시정했다 (검수 6단계). 은행 표본이라 ncr_min 은 참고치다.
-GOLDEN_VALIDATION = {"PASS": 74, "FAIL": 1, "WARN": 15}
+# +7 PASS · +2 WARN: AI 사고 스트레스 stress_ai_* 9건. ledgers_present 는 원장이
+# 빠졌을 때만 FAIL 로 남는다. WARN 둘은 stress_ai_trough_meets_requirement
+# (심각 심도 다수가 CET1 요구치 완충 침범, 결재 차단 표시)와 stress_ai_lcr_floor
+# (결합 시나리오 LCR 100% 미달)이다. 이 표본에서 침범이 나오는 것이 정상이며,
+# 둘 중 하나가 PASS 로 바뀌면 모수나 경로가 약해졌다는 뜻이다.
+GOLDEN_VALIDATION = {"PASS": 81, "FAIL": 1, "WARN": 17}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",

@@ -1856,11 +1856,15 @@ def _check_ai_incident(ledger_tables: dict | None, ai_result: Any,
                        bis_result: Any, report: ValidationReport) -> None:
     """AI 사고 시나리오 스트레스 (risk_lib.stress.ai_incident) 자체검증.
 
-    원장 st_ai_* 가 없으면 FAIL 이다. 검사가 돌지 않은 것이 통과로 읽히면 안 된다.
+    산출 결과가 왔는데 원장 st_ai_* 가 없으면 FAIL 이다. 산출 결과도 원장도
+    없는 부분 실행이면 다른 원장 검사와 같이 _not_run WARN 을 남긴다.
     """
     t = ledger_tables or {}
     need = ("st_ai_scenario", "st_ai_param", "st_ai_path", "st_ai_impact",
             "st_ai_reverse")
+    if ai_result is None and not any(k in t for k in need):
+        _not_run(report, "stress_ai", "ai_incident_result is None")
+        return
     missing = [k for k in need if k not in t or t[k] is None or not len(t[k])]
     if missing:
         report.add(ConsistencyCheck(

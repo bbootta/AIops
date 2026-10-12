@@ -1,7 +1,7 @@
 """위기상황·ICAAP 그룹(screens/stress.js) 카탈로그 (설계 사양 2.8장).
 
 위기상황·거시지표 모니터링·시나리오 설정·역스트레스·ICAAP 인벤토리·
-경영조치·제출 여섯 화면이 저자로서 새로 쓴 한국어 문자열만 여기 있다.
+경영조치·제출·AI 사고 스트레스 일곱 화면이 저자로서 새로 쓴 한국어 문자열만 여기 있다.
 기존 카탈로그(i18n.py)와 셸 어휘(ng_frag·ng_gate·ng_shell), 다른 화면
 모듈이 이미 가진 문구는 다시 적지 않고 그대로 쓴다.
 
@@ -97,4 +97,7 @@ _t("ng_stress",
    '||The synthetic pipeline never assigns submitted. The submission status changes only at the submission step of the close workflow.',
    '발동표는 발동 지표와 임계, 승인 주체와 소요 기간을 정한다. 발동 기록은 시나리오·분기별로 임계를 미달한 사실과 그 사유를 남기며, 자본효과 가정이 없는 조치는 경로에 반영하지 않는다.'
    '||The playbook sets the trigger metric, the trigger level, the approving body and the lead time. The action record keeps, per scenario and quarter, the fact that the trigger level was missed and why, and an action with no capital effect assumption is not reflected in the path.',
+
+   # AI 사고 스트레스
+   '시나리오 × 심도 최대 CET1비율 하락 (bp)||Maximum CET1 ratio decline by scenario and severity (bp)',
    into=MESSAGES)

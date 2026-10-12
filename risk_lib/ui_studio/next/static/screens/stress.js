@@ -1,5 +1,5 @@
-/* screens/stress.js: 위기상황·ICAAP 6화면 */
-/* (위기상황 · 거시지표 모니터링 · 시나리오 설정 · 역스트레스 · ICAAP 인벤토리 · 경영조치·제출) */
+/* screens/stress.js: 위기상황·ICAAP 7화면 */
+/* (위기상황 · 거시지표 모니터링 · 시나리오 설정 · 역스트레스 · ICAAP 인벤토리 · 경영조치·제출 · AI 사고 스트레스) */
 /* 규칙 (설계 사양 2.8·5·6장, 수용기준 A7·A8·A12·A21): */
 /* - 총계는 프레임 total 과 x_ 서버 객체에서 읽는다. 화면이 센 행수를 총계로 찍지 않는다. */
 /* - 색은 NG.tone(원장 어휘, 값) 하나로만 정한다. x_severity 에 어휘가 없는 값 */
@@ -332,10 +332,39 @@ function actions(root,c){
   ap(root,tcard(c,'st_action_playbook'),tcard(c,'st_management_action'),tcard(c,'reg_submission'));
   }
 
+/* ══════════════ AI 사고 스트레스 ═══════════════════════════════════ */
+/* 시나리오 식별자·심도 표기·분기는 원장 값이다. 하락폭은 delta_cet1_bp 의 부호만 바꾼다. */
+/* 요구선은 같은 행의 cet1 - cet1_surplus 를 rwa_total 로 나눈 값이다. */
+function aiStress(root,c){
+  const im=G(c,'st_ai_impact'),p=G(c,'st_ai_path');
+  if(!im||!p){ap(root,NO(T('연결 원장 없음'),'warn'));return}
+  LEAD(root,'AI 사고 유형마다 기준·악화·심각 세 심도를, 거시 심각 시나리오와의 결합을 함께 다축 위기상황 엔진에 얹은 결과다. 모수 대부분은 재량 관리값이며 근거와 근거 상태는 모수 원장에 있다.');
+  const tg=tgt(c,x=>Math.abs(x)<=2?fmt.pct(x,2):fmt.num(x));if(tg)ap(root,tg);
+  const ii=IX(im),bp=x=>x==null?'-':x.toFixed(1),base=im.rows.filter(r=>r[ii.severity_key]!=='combined');
+  const sc=[],sv=[];
+  base.forEach(r=>{if(sc.indexOf(r[ii.scenario_id])<0)sc.push(r[ii.scenario_id]);
+    if(sv.indexOf(r[ii.severity_label])<0)sv.push(r[ii.severity_label])});
+  const at=(s,v)=>base.find(r=>r[ii.scenario_id]===s&&r[ii.severity_label]===v);
+  ap(root,CH.heat(sc.map(s=>sv.map(v=>{const r=at(s,v);return r?-r[ii.delta_cet1_bp]:null})),sc,sv,
+    {title:T('시나리오 × 심도 최대 CET1비율 하락 (bp)'),fmt:bp,src:im}));
+  const pi=IX(p),qs=uniq(p,'quarter'),cb=p.rows.filter(r=>r[pi.severity_key]==='combined'),ids=[];
+  cb.forEach(r=>{if(ids.indexOf(r[pi.scenario_id])<0)ids.push(r[pi.scenario_id])});
+  const pv=(s,q,k)=>{const r=cb.find(x=>x[pi.scenario_id]===s&&x[pi.quarter]===q);return r?r[pi[k]]:null};
+  if(ids[0]){const r0=cb.find(x=>x[pi.scenario_id]===ids[0]);
+    const req=r0[pi.rwa_total]?(r0[pi.cet1]-r0[pi.cet1_surplus])/r0[pi.rwa_total]:null;
+    ap(root,CH.multiLine(ids.map(s=>({name:s,values:qs.map(q=>pv(s,q,'cet1_ratio'))}))
+      .concat([{name:T('거시 단독'),dotted:true,values:qs.map(q=>pv(ids[0],q,'cet1_ratio_macro'))}]),qs,
+      {title:T('결합 시나리오 CET1비율 경로'),fmt:x=>fmt.pct(x,2),src:p,
+       rules:[{value:req,label:'CET1 '+T('소요 자본 선')}]}))}
+  ap(root,tcard(c,'st_ai_impact'),tcard(c,'st_ai_reverse'),tcard(c,'st_ai_scenario'),
+    tcard(c,'st_ai_param'),tcard(c,'st_ai_path'));
+  }
+
 NG.screen('stress',{group:GRP,sub:null,title:'위기상황',build:stressMain});
 NG.screen('macro',{group:GRP,sub:SUB,title:'거시지표 모니터링',build:macroMon});
 NG.screen('scenario',{group:GRP,sub:SUB,title:'시나리오 설정',build:scenarioSet});
 NG.screen('reverse-stress',{group:GRP,sub:SUB,title:'역스트레스',build:reverseStress});
 NG.screen('icaap',{group:GRP,sub:SUB,title:'ICAAP 인벤토리',build:icaap});
 NG.screen('actions',{group:GRP,sub:SUB,title:'경영조치·제출',build:actions});
+NG.screen('ai-stress',{group:GRP,sub:SUB,title:'AI 사고 스트레스',build:aiStress});
 })();

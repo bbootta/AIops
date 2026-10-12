@@ -32,10 +32,11 @@ path = request.write()          # docs/independent_validation/<run_id>.request.j
 요청 패키지에는 다음이 들어간다. 하나라도 빠지면 3선이 재계산할 수 없다.
 
 - **재현 명령** — seed·asof·파이프라인 호출
-- **재계산 대상 21종** (`RECALC_SCOPE`, 개수는 코드가 정본): RWA 합계·펀드·
+- **재계산 대상 26종** (`RECALC_SCOPE`, 개수는 코드가 정본): RWA 합계·펀드·
   유동화, CET1/총자본비율, 레버리지, ECL(가중 포함), LCR, NSFR, IRRBB(ΔEVE 비율·
   ΔNII·별표 9-1 두 값), 생존기간, 위기상황 CET1 저점, 역스트레스 임계 심도,
-  대손준비금, LGD 백테스트 두 값, CCF 실현치
+  대손준비금, LGD 백테스트 두 값, CCF 실현치,
+  AI 사고 스트레스(최악 ΔCET1·저점·결합 저점·임계 손실/BI·최저 LCR)
 - **자체검증 결과 요약** — PASS/WARN/FAIL과 FAIL 항목명 (숨기지 않는다)
 - **우리가 아는 가정 목록** (`KNOWN_ASSUMPTIONS`) — 3선이 도전해야 할 약한 고리
 - **산출 지문·포트폴리오 지문** — 다른 실행의 응답이 승인으로 쓰이지 않게 한다

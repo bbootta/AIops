@@ -366,7 +366,7 @@ CLI는 검증에서 FAIL이 하나라도 있으면 종료코드 1을 반환한�
 
 ## PostgreSQL 저장소 (배치·에이전틱 UI 의 읽기 원천)
 
-산출 원장 275장과 기관 축 원장 5장은 PostgreSQL 에 실행(run_id) 단위로 쌓인다.
+산출 원장 280장과 기관 축 원장 5장은 PostgreSQL 에 실행(run_id) 단위로 쌓인다.
 배치와 에이전틱 UI 는 그 DB 에서 읽는다. 연결은 환경변수 둘로 정한다.
 
 ```bash
@@ -374,7 +374,7 @@ export RYNTA_PG_DSN=postgresql://rynta:rynta@localhost:5432/rynta   # 기본값
 export RYNTA_PG_SCHEMA=rynta                                        # 기본값
 pip install -e '.[db]'                                              # psycopg 3
 
-python -m risk_lib.cli db-init                          # 스키마·등록부·원장 테이블 276장 (멱등)
+python -m risk_lib.cli db-init                          # 스키마·등록부·원장 테이블 285장 (멱등)
 python -m risk_lib.cli db-load --asof 2026-06-30        # 파이프라인 실행 → 적재 (기관·기준일 콤마 목록 가능)
 python -m risk_lib.cli db-runs                          # 적재된 실행 목록
 

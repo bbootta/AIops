@@ -107,6 +107,8 @@ NEW_SCREEN_FULL_TABLES = (
     "lex_substitution",
     # 한도 정의
     "lim_limit_definition",
+    # AI 사고 스트레스 (분기별 열지도와 결합 경로가 시나리오 x 심도 x 분기 전량을 쓴다)
+    "st_ai_path",
 )
 
 _ENGINE_JS = (Path(__file__).with_name("engine.js")).read_text(encoding="utf-8")
@@ -5354,6 +5356,36 @@ function dkLiveLog(host,M,{rows=14,short=false,onEvent}={}){
   for(let k=0;k<Math.min(8,rows);k++)push();
   setInterval(push,900);
   return st;
+}
+/* AI 사고 스트레스: 시나리오 x 심도 최대 CET1비율 하락 3D, 심각 심도의 분기별 하락 열지도,
+   결합 시나리오 CET1비율 경로(거시 단독·요구치 함께). 수치는 전부 st_ai_* 원장에서 온다. */
+function aiStressCharts(root){
+  const im=aiFull('st_ai_impact');
+  if(im){const i=frameIdx(im);
+    const rows=im.rows.filter(r=>r[i.severity_key]!=='combined');
+    const sc=[...new Set(rows.map(r=>r[i.scenario_id]))];
+    const sv=[...new Set(rows.map(r=>r[i.severity_label]))];
+    const m=sc.map(s=>sv.map(v=>{const r=rows.find(x=>x[i.scenario_id]===s&&x[i.severity_label]===v);
+      return r?-r[i.delta_cet1_bp]:0}));
+    root.appendChild(aiCard('시나리오 × 심도 최대 CET1비율 하락 (bp, 3D)',
+      ai3d(m,sc,sv,{fmt:v=>v.toFixed(1)}),im))}
+  const p=aiFull('st_ai_path');if(!p)return;
+  const i=frameIdx(p);
+  const qs=[...new Set(p.rows.map(r=>r[i.quarter]))];
+  const at=(rows,s,q)=>rows.find(x=>x[i.scenario_id]===s&&x[i.quarter]===q);
+  const sev=p.rows.filter(r=>r[i.severity_key]==='severely_adverse');
+  const sc=[...new Set(sev.map(r=>r[i.scenario_id]))];
+  const hm=sc.map(s=>qs.map(q=>{const r=at(sev,s,q);return r?r[i.delta_cet1_bp]:0}));
+  const left=aiCard('심각 심도 분기별 CET1비율 변화 (bp)',
+    heatGrid(sc,qs,hm,{fmt:v=>v.toFixed(1),tone:v=>v<0?'bad':'good'}),p);
+  const comb=p.rows.filter(r=>r[i.severity_key]==='combined');
+  const ids=[...new Set(comb.map(r=>r[i.scenario_id]))];
+  if(!ids.length){root.appendChild(left);return}
+  const ser=ids.map(s=>({name:s,values:qs.map(q=>{const r=at(comb,s,q);return r?r[i.cet1_ratio]:null})}));
+  ser.push({name:T('거시 단독'),values:qs.map(q=>{const r=at(comb,ids[0],q);return r?r[i.cet1_ratio_macro]:null})});
+  const r0=at(comb,ids[0],qs[0]);
+  const req=r0&&r0[i.rwa_total]?(r0[i.cet1]-r0[i.cet1_surplus])/r0[i.rwa_total]:null;
+  root.appendChild(aiPair(left,aiCard('결합 시나리오 CET1비율 경로',multiLine(ser,qs,req),p)));
 }
 function aiDesk(root){
   const M=dkModel();
@@ -11308,6 +11340,14 @@ const DETAIL_SCREENS=[
     tables:[['경영조치 발동표','st_action_playbook'],
             ['경영조치 발동 기록','st_management_action'],
             ['업무보고서 제출 이력','reg_submission']]})],
+  ['AI 사고 스트레스','ST · AI 사고 시나리오 스트레스 (사고유형별 심도 · 거시 결합 · 역스트레스)',screenOf({
+    lead:'AI 사고 유형마다 기준·악화·심각 세 심도를, 거시 심각 시나리오와의 결합을 함께 다축 위기상황 엔진에 얹은 결과다. 모수 대부분은 재량 관리값이며 근거와 근거 상태는 모수 원장에 있다.',
+    charts:aiStressCharts,
+    tables:[['시나리오별 영향 요약','st_ai_impact'],
+            ['역스트레스 임계값','st_ai_reverse'],
+            ['시나리오 정의','st_ai_scenario'],
+            ['시나리오 모수 (근거·근거 상태)','st_ai_param'],
+            ['분기별 자본·유동성 경로','st_ai_path']]})],
   ['조회 거버넌스','UIX · 승인 View 와 조회계획 (레이아웃 제안 포함)',screenOf({
     tables:[['승인 View 마스터','ui_view'],
             ['자연어 조회계획','ui_query_plan'],
@@ -11387,7 +11427,7 @@ const NAVGROUPS=[
        적용 계정이 다르므로 두 화면의 수치를 한 문장에서 비교하지 않는다. */
     ['ALM',['금리리스크','국내 금리리스크','현금흐름 원장','유동성 사다리',
             '유동성리스크','생존기간','ALM 계수 원장']],
-    ['위기상황',['거시지표 모니터링','시나리오 설정','역스트레스',
+    ['위기상황',['거시지표 모니터링','시나리오 설정','역스트레스','AI 사고 스트레스',
               'ICAAP 인벤토리','경영조치·제출']],
   ]],
   /* 기후리스크. 화면은 엔진 산출 수준(부문 계수·NGFS 경로)까지이고 개요에 지구본 히트맵이 있다. */

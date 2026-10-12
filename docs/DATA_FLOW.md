@@ -28,11 +28,11 @@ python -m risk_lib.datamodel.lineage
 
 | 항목 | 수 |
 |---|---|
-| 카탈로그 원장 | 275장 |
-| 실체화된 원장 | 275 |
-| 전용 화면 | 89장 (범용 조회기 4장 별도) |
+| 카탈로그 원장 | 280장 |
+| 실체화된 원장 | 280 |
+| 전용 화면 | 91장 (범용 조회기 4장 별도) |
 | 감독서식 모듈 | 23개 |
-| 전용 화면이 그리는 원장 | 266장 |
+| 전용 화면이 그리는 원장 | 271장 |
 | 감독서식이 읽는 원장 | 38장 |
 | 미배선 원장 (화면·서식 둘 다 없음) | 6장 |
 | 그중 하류 원장도 없는 것 | 3장 |
@@ -48,7 +48,7 @@ flowchart LR
   B3["시장 · 원장 27장"]
   B4["운영 · 원장 13장"]
   B5["ALM · 원장 47장"]
-  B6["위기상황 · 원장 14장"]
+  B6["위기상황 · 원장 19장"]
   B7["규제서식 · 원장 10장"]
   B8["거버넌스·통제 · 원장 49장"]
   B5 -->|4| B8
@@ -113,7 +113,7 @@ flowchart LR
   end
   subgraph G["원천·리스크데이터 원장 43장"]
   direction TB
-    Tdat_mart_load["dat_mart_load (265행)"]
+    Tdat_mart_load["dat_mart_load (270행)"]
     Tdat_retention_action["dat_retention_action (3행)"]
     Tdat_retention_policy["dat_retention_policy (6행)"]
     Tint_connector["int_connector (5행)"]
@@ -128,13 +128,13 @@ flowchart LR
     Trdm_account_master["rdm_account_master (20행)"]
     Trdm_asset_quality["rdm_asset_quality (2,980행)"]
     Trdm_canonical_map["rdm_canonical_map (30행)"]
-    Trdm_code_master["rdm_code_master (1,995행)"]
+    Trdm_code_master["rdm_code_master (2,035행)"]
     Trdm_collateral["rdm_collateral (2,900행)"]
     Trdm_delinquency["rdm_delinquency (2,980행)"]
     Trdm_derivative_master["rdm_derivative_master (84행)"]
     Trdm_derivative_underlying["rdm_derivative_underlying (123행)"]
-    Trdm_dq_result["rdm_dq_result (6,221행)"]
-    Trdm_dq_rule["rdm_dq_rule (3,863행)"]
+    Trdm_dq_result["rdm_dq_result (6,427행)"]
+    Trdm_dq_rule["rdm_dq_rule (3,982행)"]
     Trdm_exposure["rdm_exposure (2,980행)"]
     Trdm_exposure_balance["rdm_exposure_balance (2,980행)"]
     Trdm_ext_climate_indicator["rdm_ext_climate_indicator (1,920행)"]
@@ -234,7 +234,7 @@ flowchart LR
 flowchart LR
   subgraph G["원천·리스크데이터 원장"]
   direction TB
-    Tdat_mart_load["dat_mart_load (265행)"]
+    Tdat_mart_load["dat_mart_load (270행)"]
     Tdat_retention_action["dat_retention_action (3행)"]
     Tdat_retention_policy["dat_retention_policy (6행)"]
     Tint_connector["int_connector (5행)"]
@@ -249,13 +249,13 @@ flowchart LR
     Trdm_account_master["rdm_account_master (20행)"]
     Trdm_asset_quality["rdm_asset_quality (2,980행)"]
     Trdm_canonical_map["rdm_canonical_map (30행)"]
-    Trdm_code_master["rdm_code_master (1,995행)"]
+    Trdm_code_master["rdm_code_master (2,035행)"]
     Trdm_collateral["rdm_collateral (2,900행)"]
     Trdm_delinquency["rdm_delinquency (2,980행)"]
     Trdm_derivative_master["rdm_derivative_master (84행)"]
     Trdm_derivative_underlying["rdm_derivative_underlying (123행)"]
-    Trdm_dq_result["rdm_dq_result (6,221행)"]
-    Trdm_dq_rule["rdm_dq_rule (3,863행)"]
+    Trdm_dq_result["rdm_dq_result (6,427행)"]
+    Trdm_dq_rule["rdm_dq_rule (3,982행)"]
     Trdm_exposure["rdm_exposure (2,980행)"]
     Trdm_exposure_balance["rdm_exposure_balance (2,980행)"]
     Trdm_ext_climate_indicator["rdm_ext_climate_indicator (1,920행)"]
@@ -285,6 +285,7 @@ flowchart LR
     Vxae30xd6c4x20xac1cxc694["기후 개요"]
     Vxb2f4xbcf4xb7xbcf4xc99d["담보·보증"]
     Vxb4f1xae09x20xc804xc774["등급 전이"]
+    Vxba54xb274x20xad6cxc870["메뉴 구조"]
     Vxbcc0xacbd["변경"]
     Vxc2dcxb098xb9acxc624x20xc124xc815["시나리오 설정"]
     Vxc6d0xcc9cxb7xacc4xc57d["원천·계약"]
@@ -351,6 +352,49 @@ flowchart LR
   Trdm_guarantee --> Vxb2f4xbcf4xb7xbcf4xc99d
   Trdm_obligor_financial --> Vxb2f4xbcf4xb7xbcf4xc99d
   Trdm_code_master --> Vxb4f1xae09x20xc804xc774
+  Tdat_mart_load --> Vxba54xb274x20xad6cxc870
+  Tdat_retention_action --> Vxba54xb274x20xad6cxc870
+  Tdat_retention_policy --> Vxba54xb274x20xad6cxc870
+  Tint_connector --> Vxba54xb274x20xad6cxc870
+  Tint_connector_operation --> Vxba54xb274x20xad6cxc870
+  Tint_connector_violation --> Vxba54xb274x20xad6cxc870
+  Tint_delivery_attempt --> Vxba54xb274x20xad6cxc870
+  Tint_inbound_contract --> Vxba54xb274x20xad6cxc870
+  Tint_inbound_delivery --> Vxba54xb274x20xad6cxc870
+  Tint_quarantine --> Vxba54xb274x20xad6cxc870
+  Tint_retry_policy --> Vxba54xb274x20xad6cxc870
+  Tlim_limit_definition --> Vxba54xb274x20xad6cxc870
+  Trdm_account_master --> Vxba54xb274x20xad6cxc870
+  Trdm_asset_quality --> Vxba54xb274x20xad6cxc870
+  Trdm_canonical_map --> Vxba54xb274x20xad6cxc870
+  Trdm_code_master --> Vxba54xb274x20xad6cxc870
+  Trdm_collateral --> Vxba54xb274x20xad6cxc870
+  Trdm_delinquency --> Vxba54xb274x20xad6cxc870
+  Trdm_derivative_master --> Vxba54xb274x20xad6cxc870
+  Trdm_derivative_underlying --> Vxba54xb274x20xad6cxc870
+  Trdm_dq_result --> Vxba54xb274x20xad6cxc870
+  Trdm_dq_rule --> Vxba54xb274x20xad6cxc870
+  Trdm_exposure --> Vxba54xb274x20xad6cxc870
+  Trdm_exposure_balance --> Vxba54xb274x20xad6cxc870
+  Trdm_ext_climate_indicator --> Vxba54xb274x20xad6cxc870
+  Trdm_ext_climate_series --> Vxba54xb274x20xad6cxc870
+  Trdm_ext_country --> Vxba54xb274x20xad6cxc870
+  Trdm_ext_source --> Vxba54xb274x20xad6cxc870
+  Trdm_fund_holding --> Vxba54xb274x20xad6cxc870
+  Trdm_fund_mandate --> Vxba54xb274x20xad6cxc870
+  Trdm_fund_master --> Vxba54xb274x20xad6cxc870
+  Trdm_guarantee --> Vxba54xb274x20xad6cxc870
+  Trdm_macro_indicator_master --> Vxba54xb274x20xad6cxc870
+  Trdm_netting_set --> Vxba54xb274x20xad6cxc870
+  Trdm_obligor --> Vxba54xb274x20xad6cxc870
+  Trdm_obligor_financial --> Vxba54xb274x20xad6cxc870
+  Trdm_product_master --> Vxba54xb274x20xad6cxc870
+  Trdm_reconciliation --> Vxba54xb274x20xad6cxc870
+  Trdm_sec_master --> Vxba54xb274x20xad6cxc870
+  Trdm_sec_pool --> Vxba54xb274x20xad6cxc870
+  Trdm_sec_tranche --> Vxba54xb274x20xad6cxc870
+  Trdm_snapshot --> Vxba54xb274x20xad6cxc870
+  Trdm_source_contract --> Vxba54xb274x20xad6cxc870
   Trdm_canonical_map --> Vxbcc0xacbd
   Trdm_canonical_map --> Vxc2dcxb098xb9acxc624x20xc124xc815
   Trdm_canonical_map --> Vxc6d0xcc9cxb7xacc4xc57d
@@ -849,6 +893,7 @@ flowchart LR
     Vxac80xc99dx20xc77cxc815["검증 일정"]
     Vxb4f1xae09x20xbcf4xc815["등급 보정"]
     Vxb4f1xae09x20xc804xc774["등급 전이"]
+    Vxba54xb274x20xad6cxc870["메뉴 구조"]
     Vxbaa8xd615x20xac70xbc84xb10cxc2a4["모형 거버넌스"]
     Vxbaa8xd615x20xc778xbca4xd1a0xb9ac["모형 인벤토리"]
     Vxbaa8xd615xb9acxc2a4xd06c["모형리스크"]
@@ -921,6 +966,78 @@ flowchart LR
   Tcrm_pd_calibration --> Vxb4f1xae09x20xc804xc774
   Tcrm_performance --> Vxb4f1xae09x20xc804xc774
   Tcrm_rating_migration --> Vxb4f1xae09x20xc804xc774
+  Tagg_credit_exposure --> Vxba54xb274x20xad6cxc870
+  Tcrm_allocation --> Vxba54xb274x20xad6cxc870
+  Tcrm_backtest_criteria --> Vxba54xb274x20xad6cxc870
+  Tcrm_backtest_result --> Vxba54xb274x20xad6cxc870
+  Tcrm_beel_curve --> Vxba54xb274x20xad6cxc870
+  Tcrm_capm_estimate --> Vxba54xb274x20xad6cxc870
+  Tcrm_capm_observation --> Vxba54xb274x20xad6cxc870
+  Tcrm_ccf_backtest --> Vxba54xb274x20xad6cxc870
+  Tcrm_ccf_estimate --> Vxba54xb274x20xad6cxc870
+  Tcrm_code_scope --> Vxba54xb274x20xad6cxc870
+  Tcrm_collateral_link --> Vxba54xb274x20xad6cxc870
+  Tcrm_collateral_terms --> Vxba54xb274x20xad6cxc870
+  Tcrm_default_history --> Vxba54xb274x20xad6cxc870
+  Tcrm_default_observation --> Vxba54xb274x20xad6cxc870
+  Tcrm_defaulted_lgd --> Vxba54xb274x20xad6cxc870
+  Tcrm_dev_sample --> Vxba54xb274x20xad6cxc870
+  Tcrm_estimation_param --> Vxba54xb274x20xad6cxc870
+  Tcrm_estimation_run --> Vxba54xb274x20xad6cxc870
+  Tcrm_ews_signal --> Vxba54xb274x20xad6cxc870
+  Tcrm_exposure_terms --> Vxba54xb274x20xad6cxc870
+  Tcrm_facility_drawdown_history --> Vxba54xb274x20xad6cxc870
+  Tcrm_input_floor --> Vxba54xb274x20xad6cxc870
+  Tcrm_irb_scope --> Vxba54xb274x20xad6cxc870
+  Tcrm_lgd_backtest --> Vxba54xb274x20xad6cxc870
+  Tcrm_lgd_component --> Vxba54xb274x20xad6cxc870
+  Tcrm_lgd_discount_rate --> Vxba54xb274x20xad6cxc870
+  Tcrm_lgd_estimate --> Vxba54xb274x20xad6cxc870
+  Tcrm_lifecycle_compliance --> Vxba54xb274x20xad6cxc870
+  Tcrm_lifecycle_event --> Vxba54xb274x20xad6cxc870
+  Tcrm_mitigation_param --> Vxba54xb274x20xad6cxc870
+  Tcrm_moc_component --> Vxba54xb274x20xad6cxc870
+  Tcrm_model --> Vxba54xb274x20xad6cxc870
+  Tcrm_model_governance --> Vxba54xb274x20xad6cxc870
+  Tcrm_obligor_axis_score --> Vxba54xb274x20xad6cxc870
+  Tcrm_obligor_score --> Vxba54xb274x20xad6cxc870
+  Tcrm_override --> Vxba54xb274x20xad6cxc870
+  Tcrm_override_performance --> Vxba54xb274x20xad6cxc870
+  Tcrm_override_reason --> Vxba54xb274x20xad6cxc870
+  Tcrm_pd_calibration --> Vxba54xb274x20xad6cxc870
+  Tcrm_pd_estimate --> Vxba54xb274x20xad6cxc870
+  Tcrm_pd_yearly_dr --> Vxba54xb274x20xad6cxc870
+  Tcrm_performance --> Vxba54xb274x20xad6cxc870
+  Tcrm_plgd --> Vxba54xb274x20xad6cxc870
+  Tcrm_plgd_sensitivity --> Vxba54xb274x20xad6cxc870
+  Tcrm_qualitative_assessment --> Vxba54xb274x20xad6cxc870
+  Tcrm_qualitative_item --> Vxba54xb274x20xad6cxc870
+  Tcrm_rating --> Vxba54xb274x20xad6cxc870
+  Tcrm_rating_migration --> Vxba54xb274x20xad6cxc870
+  Tcrm_rating_requirement --> Vxba54xb274x20xad6cxc870
+  Tcrm_recovery_history --> Vxba54xb274x20xad6cxc870
+  Tcrm_representativeness --> Vxba54xb274x20xad6cxc870
+  Tcrm_sample_representativeness --> Vxba54xb274x20xad6cxc870
+  Tcrm_scorecard_axis --> Vxba54xb274x20xad6cxc870
+  Tcrm_scorecard_bin --> Vxba54xb274x20xad6cxc870
+  Tcrm_scorecard_factor --> Vxba54xb274x20xad6cxc870
+  Tcrm_scorecard_param --> Vxba54xb274x20xad6cxc870
+  Tecl_gl_reconciliation --> Vxba54xb274x20xad6cxc870
+  Tecl_macro_scenario --> Vxba54xb274x20xad6cxc870
+  Tecl_pma --> Vxba54xb274x20xad6cxc870
+  Tecl_provision_bridge --> Vxba54xb274x20xad6cxc870
+  Tecl_result --> Vxba54xb274x20xad6cxc870
+  Tecl_sicr_trigger_stat --> Vxba54xb274x20xad6cxc870
+  Tecl_stage_transition --> Vxba54xb274x20xad6cxc870
+  Trwa_crm_allocation --> Vxba54xb274x20xad6cxc870
+  Trwa_fund_result --> Vxba54xb274x20xad6cxc870
+  Trwa_irb_pool --> Vxba54xb274x20xad6cxc870
+  Trwa_market_component --> Vxba54xb274x20xad6cxc870
+  Trwa_operational_bi --> Vxba54xb274x20xad6cxc870
+  Trwa_output_floor --> Vxba54xb274x20xad6cxc870
+  Trwa_result --> Vxba54xb274x20xad6cxc870
+  Trwa_sa_bucket --> Vxba54xb274x20xad6cxc870
+  Trwa_sec_result --> Vxba54xb274x20xad6cxc870
   Tcrm_backtest_criteria --> Vxbaa8xd615x20xac70xbc84xb10cxc2a4
   Tcrm_backtest_result --> Vxbaa8xd615x20xac70xbc84xb10cxc2a4
   Tcrm_ccf_backtest --> Vxbaa8xd615x20xac70xbc84xb10cxc2a4
@@ -1243,6 +1360,7 @@ flowchart LR
     VNCRxb7xac74xc804xc131["NCR·건전성"]
     VVaRxb7ES["VaR·ES"]
     Vxac00xaca9xac80xc99dxb7IPV["가격검증·IPV"]
+    Vxba54xb274x20xad6cxc870["메뉴 구조"]
     Vxbc31xd14cxc2a4xd305["백테스팅"]
     Vxc2dcxc7a5["시장"]
     Vxc2dcxc7a5x20RWA["시장 RWA"]
@@ -1260,6 +1378,33 @@ flowchart LR
   Tmkt_ipv --> Vxac00xaca9xac80xc99dxb7IPV
   Tmkt_risk_factor --> Vxac00xaca9xac80xc99dxb7IPV
   Tmkt_trade --> Vxac00xaca9xac80xc99dxb7IPV
+  Tagg_market_exposure --> Vxba54xb274x20xad6cxc870
+  Tccr_collateral_position --> Vxba54xb274x20xad6cxc870
+  Tccr_csa_term --> Vxba54xb274x20xad6cxc870
+  Tccr_margin_call --> Vxba54xb274x20xad6cxc870
+  Tccr_margin_dispute --> Vxba54xb274x20xad6cxc870
+  Tgov_price_source_rank --> Vxba54xb274x20xad6cxc870
+  Tgov_pricing_control --> Vxba54xb274x20xad6cxc870
+  Tgov_pricing_gap --> Vxba54xb274x20xad6cxc870
+  Tgov_pricing_result --> Vxba54xb274x20xad6cxc870
+  Tint_feed_field_map --> Vxba54xb274x20xad6cxc870
+  Tint_feed_health --> Vxba54xb274x20xad6cxc870
+  Tint_market_feed --> Vxba54xb274x20xad6cxc870
+  Tmkt_backtest_exception --> Vxba54xb274x20xad6cxc870
+  Tmkt_code_scope --> Vxba54xb274x20xad6cxc870
+  Tmkt_derivative_sensitivity --> Vxba54xb274x20xad6cxc870
+  Tmkt_ipv --> Vxba54xb274x20xad6cxc870
+  Tmkt_portfolio --> Vxba54xb274x20xad6cxc870
+  Tmkt_portfolio_capital --> Vxba54xb274x20xad6cxc870
+  Tmkt_position --> Vxba54xb274x20xad6cxc870
+  Tmkt_pricing_model --> Vxba54xb274x20xad6cxc870
+  Tmkt_product --> Vxba54xb274x20xad6cxc870
+  Tmkt_product_model_map --> Vxba54xb274x20xad6cxc870
+  Tmkt_risk_factor --> Vxba54xb274x20xad6cxc870
+  Tmkt_trade --> Vxba54xb274x20xad6cxc870
+  Tmkt_var_es --> Vxba54xb274x20xad6cxc870
+  Tmkt_var_es_portfolio --> Vxba54xb274x20xad6cxc870
+  Tncr_component --> Vxba54xb274x20xad6cxc870
   Tmkt_backtest_exception --> Vxbc31xd14cxc2a4xd305
   Tagg_market_exposure --> Vxc2dcxc7a5
   Tccr_collateral_position --> Vxc2dcxc7a5
@@ -1407,6 +1552,7 @@ flowchart LR
   subgraph V["화면·서식"]
   direction TB
     VKRIxb7xd1b5xc81c["KRI·통제"]
+    Vxba54xb274x20xad6cxc870["메뉴 구조"]
     Vxc190xc2e4xb7xd68cxc218["손실·회수"]
     Vxc6b4xc601["운영"]
     Vxc6b4xc601x20RWA["운영 RWA"]
@@ -1417,6 +1563,19 @@ flowchart LR
   end
   Topr_control --> VKRIxb7xd1b5xc81c
   Topr_kri --> VKRIxb7xd1b5xc81c
+  Tagg_operational_loss --> Vxba54xb274x20xad6cxc870
+  Topr_capital --> Vxba54xb274x20xad6cxc870
+  Topr_close_gate --> Vxba54xb274x20xad6cxc870
+  Topr_close_task --> Vxba54xb274x20xad6cxc870
+  Topr_code_scope --> Vxba54xb274x20xad6cxc870
+  Topr_control --> Vxba54xb274x20xad6cxc870
+  Topr_kri --> Vxba54xb274x20xad6cxc870
+  Topr_loss_event --> Vxba54xb274x20xad6cxc870
+  Topr_rcsa_action --> Vxba54xb274x20xad6cxc870
+  Topr_rcsa_assessment --> Vxba54xb274x20xad6cxc870
+  Topr_rcsa_control --> Vxba54xb274x20xad6cxc870
+  Topr_rcsa_scale --> Vxba54xb274x20xad6cxc870
+  Topr_recovery --> Vxba54xb274x20xad6cxc870
   Topr_capital --> Vxc190xc2e4xb7xd68cxc218
   Topr_loss_event --> Vxc190xc2e4xb7xd68cxc218
   Topr_recovery --> Vxc190xc2e4xb7xd68cxc218
@@ -1659,6 +1818,7 @@ flowchart LR
     Vxac80xc99d["검증"]
     Vxad6dxb0b4x20xae08xb9acxb9acxc2a4xd06c["국내 금리리스크"]
     Vxae08xb9acxb9acxc2a4xd06c["금리리스크"]
+    Vxba54xb274x20xad6cxc870["메뉴 구조"]
     Vxbe44xb9ccxae30xc131xc608xae08x20xcf54xc5b4["비만기성예금 코어"]
     Vxc0ddxc874xae30xac04["생존기간"]
     Vxc2e4xd589xb7xac10xc0acxcd94xc801["실행·감사추적"]
@@ -1756,6 +1916,53 @@ flowchart LR
   Talm_repricing_gap --> Vxae08xb9acxb9acxc2a4xd06c
   Talm_result --> Vxae08xb9acxb9acxc2a4xd06c
   Talm_scenario_def --> Vxae08xb9acxb9acxc2a4xd06c
+  Tagg_alm_exposure --> Vxba54xb274x20xad6cxc870
+  Talm_behaviour_backtest --> Vxba54xb274x20xad6cxc870
+  Talm_behaviour_model --> Vxba54xb274x20xad6cxc870
+  Talm_behaviour_param --> Vxba54xb274x20xad6cxc870
+  Talm_behaviour_scenario_mult --> Vxba54xb274x20xad6cxc870
+  Talm_cashflow_behavioural --> Vxba54xb274x20xad6cxc870
+  Talm_cashflow_bucket --> Vxba54xb274x20xad6cxc870
+  Talm_cashflow_contract --> Vxba54xb274x20xad6cxc870
+  Talm_code_scope --> Vxba54xb274x20xad6cxc870
+  Talm_contract --> Vxba54xb274x20xad6cxc870
+  Talm_early_redemption_observation --> Vxba54xb274x20xad6cxc870
+  Talm_irrbb_bucket_pv --> Vxba54xb274x20xad6cxc870
+  Talm_irrbb_result --> Vxba54xb274x20xad6cxc870
+  Talm_irrbb_shock --> Vxba54xb274x20xad6cxc870
+  Talm_lcr_factor --> Vxba54xb274x20xad6cxc870
+  Talm_lcr_flow --> Vxba54xb274x20xad6cxc870
+  Talm_lcr_item --> Vxba54xb274x20xad6cxc870
+  Talm_liquidity_stress_param --> Vxba54xb274x20xad6cxc870
+  Talm_maturity_ladder --> Vxba54xb274x20xad6cxc870
+  Talm_nii_result --> Vxba54xb274x20xad6cxc870
+  Talm_nmd_balance_history --> Vxba54xb274x20xad6cxc870
+  Talm_nmd_core_method_compare --> Vxba54xb274x20xad6cxc870
+  Talm_nmd_param --> Vxba54xb274x20xad6cxc870
+  Talm_nsfr_factor --> Vxba54xb274x20xad6cxc870
+  Talm_nsfr_item --> Vxba54xb274x20xad6cxc870
+  Talm_post_shock_floor --> Vxba54xb274x20xad6cxc870
+  Talm_prepay_observation --> Vxba54xb274x20xad6cxc870
+  Talm_prepay_scurve_param --> Vxba54xb274x20xad6cxc870
+  Talm_product_terms --> Vxba54xb274x20xad6cxc870
+  Talm_rate_shock_param --> Vxba54xb274x20xad6cxc870
+  Talm_repricing_gap --> Vxba54xb274x20xad6cxc870
+  Talm_result --> Vxba54xb274x20xad6cxc870
+  Talm_scenario_def --> Vxba54xb274x20xad6cxc870
+  Talm_survival_path --> Vxba54xb274x20xad6cxc870
+  Talm_time_bucket --> Vxba54xb274x20xad6cxc870
+  Tdisc_irrbb_table6 --> Vxba54xb274x20xad6cxc870
+  Tdisc_irrbb_table7_qualitative --> Vxba54xb274x20xad6cxc870
+  Tdisc_irrbb_table7_quantitative --> Vxba54xb274x20xad6cxc870
+  Tkr_auto_option_param --> Vxba54xb274x20xad6cxc870
+  Tkr_irrbb_governance --> Vxba54xb274x20xad6cxc870
+  Tkr_nmd_category --> Vxba54xb274x20xad6cxc870
+  Tkr_retail_behavioural_scope --> Vxba54xb274x20xad6cxc870
+  Tkr_retail_criteria --> Vxba54xb274x20xad6cxc870
+  Tliq_funding_concentration --> Vxba54xb274x20xad6cxc870
+  Tliq_funding_ladder --> Vxba54xb274x20xad6cxc870
+  Tliq_funding_limit --> Vxba54xb274x20xad6cxc870
+  Tliq_funding_trade --> Vxba54xb274x20xad6cxc870
   Talm_nii_result --> Vxbe44xb9ccxae30xc131xc608xae08x20xcf54xc5b4
   Talm_nmd_balance_history --> Vxbe44xb9ccxae30xc131xc608xae08x20xcf54xc5b4
   Talm_nmd_core_method_compare --> Vxbe44xb9ccxae30xc131xc608xae08x20xcf54xc5b4
@@ -1845,7 +2052,7 @@ flowchart LR
   Talm_time_bucket --> FORMS
 ```
 
-### 2.6 위기상황 · 원장 14장
+### 2.6 위기상황 · 원장 19장
 
 산출 모듈 → 원장 (미배선 3장 포함)
 
@@ -1858,9 +2065,10 @@ flowchart LR
     Prisk_libx2fdatamodelx2fmaterialize_detailx2epy["risk_lib/datamodel/materialize_detail.py"]
     Prisk_libx2ficaapx2frisk_inventoryx2epy["risk_lib/icaap/risk_inventory.py"]
     Prisk_libx2finstitutionsx2epy["risk_lib/institutions.py"]
+    Prisk_libx2fstressx2fai_incidentx2epy["risk_lib/stress/ai_incident.py"]
     Prisk_libx2fstressx2fmanagement_actionx2epy["risk_lib/stress/management_action.py"]
   end
-  subgraph G["위기상황 원장 14장"]
+  subgraph G["위기상황 원장 19장"]
   direction TB
     Tagg_stress_exposure["agg_stress_exposure (15행)"]
     Tcap_stack["cap_stack (3행)"]
@@ -1871,6 +2079,11 @@ flowchart LR
     Tmacro_indicator["macro_indicator (144행)"]
     Tmacro_scenario_link["macro_scenario_link (36행)"]
     Tst_action_playbook["st_action_playbook (6행)"]
+    Tst_ai_impact["st_ai_impact (23행)"]
+    Tst_ai_param["st_ai_param (117행)"]
+    Tst_ai_path["st_ai_path (230행)"]
+    Tst_ai_reverse["st_ai_reverse (12행)"]
+    Tst_ai_scenario["st_ai_scenario (9행)"]
     Tst_calc_trace["st_calc_trace (2,220행)"]
     Tst_capital_path["st_capital_path (30행)"]
     Tst_macro_scenario_shock["st_macro_scenario_shock (36행)"]
@@ -1892,6 +2105,11 @@ flowchart LR
   Prisk_libx2finstitutionsx2epy --> Tmacro_indicator
   Prisk_libx2finstitutionsx2epy --> Tmacro_scenario_link
   Prisk_libx2finstitutionsx2epy --> Tst_shock_axis
+  Prisk_libx2fstressx2fai_incidentx2epy --> Tst_ai_impact
+  Prisk_libx2fstressx2fai_incidentx2epy --> Tst_ai_param
+  Prisk_libx2fstressx2fai_incidentx2epy --> Tst_ai_path
+  Prisk_libx2fstressx2fai_incidentx2epy --> Tst_ai_reverse
+  Prisk_libx2fstressx2fai_incidentx2epy --> Tst_ai_scenario
   Prisk_libx2fstressx2fmanagement_actionx2epy --> Tst_action_playbook
   Prisk_libx2fstressx2fmanagement_actionx2epy --> Tst_management_action
   Tst_capital_path -.-> Tagg_stress_exposure
@@ -1899,9 +2117,12 @@ flowchart LR
   Ticaap_risk_taxonomy -.-> Ticaap_capital_map
   Ticaap_risk_taxonomy -.-> Ticaap_materiality
   Tst_action_playbook -.-> Tst_management_action
+  Tst_ai_scenario -.-> Tst_ai_impact
+  Tst_ai_scenario -.-> Tst_ai_param
+  Tst_ai_scenario -.-> Tst_ai_path
 ```
 
-원장 → 화면·서식 (쓰이는 11장만)
+원장 → 화면·서식 (쓰이는 16장만)
 
 ```mermaid
 flowchart LR
@@ -1914,6 +2135,11 @@ flowchart LR
     Ticaap_materiality_policy["icaap_materiality_policy (3행)"]
     Ticaap_risk_taxonomy["icaap_risk_taxonomy (11행)"]
     Tst_action_playbook["st_action_playbook (6행)"]
+    Tst_ai_impact["st_ai_impact (23행)"]
+    Tst_ai_param["st_ai_param (117행)"]
+    Tst_ai_path["st_ai_path (230행)"]
+    Tst_ai_reverse["st_ai_reverse (12행)"]
+    Tst_ai_scenario["st_ai_scenario (9행)"]
     Tst_calc_trace["st_calc_trace (2,220행)"]
     Tst_capital_path["st_capital_path (30행)"]
     Tst_management_action["st_management_action (83행)"]
@@ -1921,10 +2147,12 @@ flowchart LR
   end
   subgraph V["화면·서식"]
   direction TB
+    VAIx20xc0acxace0x20xc2a4xd2b8xb808xc2a4["AI 사고 스트레스"]
     VICAAPx20xc778xbca4xd1a0xb9ac["ICAAP 인벤토리"]
     Vxac80xc99d["검증"]
     Vxacbdxc601xc870xce58xb7xc81cxcd9c["경영조치·제출"]
     Vxae30xd6c4x20xac1cxc694["기후 개요"]
+    Vxba54xb274x20xad6cxc870["메뉴 구조"]
     Vxc2dcxb098xb9acxc624x20xc124xc815["시나리오 설정"]
     Vxc2e4xd589xb7xac10xc0acxcd94xc801["실행·감사추적"]
     Vxc704xae30xc0c1xd669["위기상황"]
@@ -1933,6 +2161,11 @@ flowchart LR
     Vxcf55xd54f["콕핏"]
     FORMS["감독서식 1개 모듈"]
   end
+  Tst_ai_impact --> VAIx20xc0acxace0x20xc2a4xd2b8xb808xc2a4
+  Tst_ai_param --> VAIx20xc0acxace0x20xc2a4xd2b8xb808xc2a4
+  Tst_ai_path --> VAIx20xc0acxace0x20xc2a4xd2b8xb808xc2a4
+  Tst_ai_reverse --> VAIx20xc0acxace0x20xc2a4xd2b8xb808xc2a4
+  Tst_ai_scenario --> VAIx20xc0acxace0x20xc2a4xd2b8xb808xc2a4
   Ticaap_capital_map --> VICAAPx20xc778xbca4xd1a0xb9ac
   Ticaap_materiality --> VICAAPx20xc778xbca4xd1a0xb9ac
   Ticaap_materiality_policy --> VICAAPx20xc778xbca4xd1a0xb9ac
@@ -1941,6 +2174,21 @@ flowchart LR
   Tst_action_playbook --> Vxacbdxc601xc870xce58xb7xc81cxcd9c
   Tst_management_action --> Vxacbdxc601xc870xce58xb7xc81cxcd9c
   Ticaap_risk_taxonomy --> Vxae30xd6c4x20xac1cxc694
+  Tagg_stress_exposure --> Vxba54xb274x20xad6cxc870
+  Tcap_stack --> Vxba54xb274x20xad6cxc870
+  Ticaap_capital_map --> Vxba54xb274x20xad6cxc870
+  Ticaap_materiality --> Vxba54xb274x20xad6cxc870
+  Ticaap_materiality_policy --> Vxba54xb274x20xad6cxc870
+  Ticaap_risk_taxonomy --> Vxba54xb274x20xad6cxc870
+  Tst_action_playbook --> Vxba54xb274x20xad6cxc870
+  Tst_ai_impact --> Vxba54xb274x20xad6cxc870
+  Tst_ai_param --> Vxba54xb274x20xad6cxc870
+  Tst_ai_path --> Vxba54xb274x20xad6cxc870
+  Tst_ai_reverse --> Vxba54xb274x20xad6cxc870
+  Tst_ai_scenario --> Vxba54xb274x20xad6cxc870
+  Tst_calc_trace --> Vxba54xb274x20xad6cxc870
+  Tst_capital_path --> Vxba54xb274x20xad6cxc870
+  Tst_management_action --> Vxba54xb274x20xad6cxc870
   Tst_calc_trace --> Vxc2dcxb098xb9acxc624x20xc124xc815
   Tcap_stack --> Vxc2e4xd589xb7xac10xc0acxcd94xc801
   Tst_calc_trace --> Vxc704xae30xc0c1xd669
@@ -1951,6 +2199,11 @@ flowchart LR
   Ticaap_materiality_policy --> Vxc885xd569xbcf4xace0xc11c
   Ticaap_risk_taxonomy --> Vxc885xd569xbcf4xace0xc11c
   Tst_action_playbook --> Vxc885xd569xbcf4xace0xc11c
+  Tst_ai_impact --> Vxc885xd569xbcf4xace0xc11c
+  Tst_ai_param --> Vxc885xd569xbcf4xace0xc11c
+  Tst_ai_path --> Vxc885xd569xbcf4xace0xc11c
+  Tst_ai_reverse --> Vxc885xd569xbcf4xace0xc11c
+  Tst_ai_scenario --> Vxc885xd569xbcf4xace0xc11c
   Tst_calc_trace --> Vxc885xd569xbcf4xace0xc11c
   Tst_capital_path --> Vxc885xd569xbcf4xace0xc11c
   Tst_management_action --> Vxc885xd569xbcf4xace0xc11c
@@ -2026,6 +2279,7 @@ flowchart LR
     Vxac10xb3c5xbcf4xace0["감독보고"]
     Vxac80xc99d["검증"]
     Vxacbdxc601xc870xce58xb7xc81cxcd9c["경영조치·제출"]
+    Vxba54xb274x20xad6cxc870["메뉴 구조"]
     Vxc2e4xd589xb7xac10xc0acxcd94xc801["실행·감사추적"]
     Vxc885xd569xbcf4xace0xc11c["종합보고서"]
     Vxcf55xd54f["콕핏"]
@@ -2038,6 +2292,12 @@ flowchart LR
   Treg_form_check --> Vxac10xb3c5xbcf4xace0
   Treg_form_check --> Vxac80xc99d
   Treg_submission --> Vxacbdxc601xc870xce58xb7xc81cxcd9c
+  Tpru_balance_sheet --> Vxba54xb274x20xad6cxc870
+  Tpru_camel --> Vxba54xb274x20xad6cxc870
+  Tpru_liquidity_ratio --> Vxba54xb274x20xad6cxc870
+  Tpru_prompt_action --> Vxba54xb274x20xad6cxc870
+  Treg_form_check --> Vxba54xb274x20xad6cxc870
+  Treg_submission --> Vxba54xb274x20xad6cxc870
   Treg_form_check --> Vxc2e4xd589xb7xac10xc0acxcd94xc801
   Tpru_balance_sheet --> Vxc885xd569xbcf4xace0xc11c
   Tpru_camel --> Vxc885xd569xbcf4xace0xc11c
@@ -2089,7 +2349,7 @@ flowchart LR
     Tgov_access_decision["gov_access_decision (6행)"]
     Tgov_alert_policy["gov_alert_policy (5행)"]
     Tgov_approval["gov_approval (294행)"]
-    Tgov_audit_chain["gov_audit_chain (425행)"]
+    Tgov_audit_chain["gov_audit_chain (434행)"]
     Tgov_change_control["gov_change_control (0행)"]
     Tgov_change_gate["gov_change_gate (0행)"]
     Tgov_change_impact["gov_change_impact (0행)"]
@@ -2118,14 +2378,14 @@ flowchart LR
     Tlex_position["lex_position (8,739행)"]
     Tlex_setting["lex_setting (25행)"]
     Tlex_substitution["lex_substitution (300행)"]
-    Tui_field_policy["ui_field_policy (2,889행)"]
+    Tui_field_policy["ui_field_policy (2,974행)"]
     Tui_layout_proposal["ui_layout_proposal (3행)"]
     Tui_query_plan["ui_query_plan (6행)"]
-    Tui_view["ui_view (347행)"]
+    Tui_view["ui_view (352행)"]
     Tval_audit_ledger["val_audit_ledger (23행)"]
-    Tval_check["val_check (98행)"]
+    Tval_check["val_check (107행)"]
     Tval_independent_request["val_independent_request (1행)"]
-    Tval_independent_target["val_independent_target (21행)"]
+    Tval_independent_target["val_independent_target (26행)"]
   end
   Prisk_libx2fdatamodelx2fmaterializex2epy --> Taig_adjustment
   Prisk_libx2fdatamodelx2fmaterializex2epy --> Tval_audit_ledger
@@ -2225,7 +2485,7 @@ flowchart LR
     Tgov_access_decision["gov_access_decision (6행)"]
     Tgov_alert_policy["gov_alert_policy (5행)"]
     Tgov_approval["gov_approval (294행)"]
-    Tgov_audit_chain["gov_audit_chain (425행)"]
+    Tgov_audit_chain["gov_audit_chain (434행)"]
     Tgov_change_control["gov_change_control (0행)"]
     Tgov_change_gate["gov_change_gate (0행)"]
     Tgov_change_impact["gov_change_impact (0행)"]
@@ -2254,17 +2514,18 @@ flowchart LR
     Tlex_position["lex_position (8,739행)"]
     Tlex_setting["lex_setting (25행)"]
     Tlex_substitution["lex_substitution (300행)"]
-    Tui_field_policy["ui_field_policy (2,889행)"]
+    Tui_field_policy["ui_field_policy (2,974행)"]
     Tui_layout_proposal["ui_layout_proposal (3행)"]
     Tui_query_plan["ui_query_plan (6행)"]
-    Tui_view["ui_view (347행)"]
+    Tui_view["ui_view (352행)"]
     Tval_audit_ledger["val_audit_ledger (23행)"]
-    Tval_check["val_check (98행)"]
-    Tval_independent_target["val_independent_target (21행)"]
+    Tval_check["val_check (107행)"]
+    Tval_independent_target["val_independent_target (26행)"]
   end
   subgraph V["화면·서식"]
   direction TB
     VAIx20xac70xbc84xb10cxc2a4["AI 거버넌스"]
+    VAIx20xad00xc81cx20xb370xc2a4xd06c["AI 관제 데스크"]
     VAIx20xb9acxc2a4xd06cx20xac1cxc694["AI 리스크 개요"]
     VAIx20xc778xbca4xd1a0xb9acxb7xc704xd5d8xbd84xb958["AI 인벤토리·위험분류"]
     VBEELxb7PLGD["BEEL·PLGD"]
@@ -2277,6 +2538,7 @@ flowchart LR
     Vxac70xc561x20xbd84xc11d["거액 분석"]
     Vxac70xc561x20xc124xc815["거액 설정"]
     Vxac80xc99d["검증"]
+    Vxba54xb274x20xad6cxc870["메뉴 구조"]
     Vxbaa8xd615x20xac70xbc84xb10cxc2a4["모형 거버넌스"]
     Vxbaa8xd615x20xc218xba85xc8fcxae30["모형 수명주기"]
     Vxbcc0xacbd["변경"]
@@ -2298,9 +2560,16 @@ flowchart LR
     Vxd589xb3d9xbaa8xd615x20xcd94xc815["행동모형 추정"]
     Vxd68cxc218x20xd560xc778xc728["회수 할인율"]
   end
+  Tagent_registry --> VAIx20xac70xbc84xb10cxc2a4
   Taig_adjustment --> VAIx20xac70xbc84xb10cxc2a4
   Taig_agent_trace --> VAIx20xac70xbc84xb10cxc2a4
   Taig_redaction_rule --> VAIx20xac70xbc84xb10cxc2a4
+  Tagent_activity --> VAIx20xad00xc81cx20xb370xc2a4xd06c
+  Tagent_killswitch --> VAIx20xad00xc81cx20xb370xc2a4xd06c
+  Tagent_registry --> VAIx20xad00xc81cx20xb370xc2a4xd06c
+  Taig_agent_trace --> VAIx20xad00xc81cx20xb370xc2a4xd06c
+  Tgov_approval --> VAIx20xad00xc81cx20xb370xc2a4xd06c
+  Tgov_exception_action --> VAIx20xad00xc81cx20xb370xc2a4xd06c
   Tagent_activity --> VAIx20xb9acxc2a4xd06cx20xac1cxc694
   Tagent_killswitch --> VAIx20xb9acxc2a4xd06cx20xac1cxc694
   Tagent_registry --> VAIx20xb9acxc2a4xd06cx20xac1cxc694
@@ -2339,6 +2608,54 @@ flowchart LR
   Tval_audit_ledger --> Vxac80xc99d
   Tval_check --> Vxac80xc99d
   Tval_independent_target --> Vxac80xc99d
+  Tagent_activity --> Vxba54xb274x20xad6cxc870
+  Tagent_killswitch --> Vxba54xb274x20xad6cxc870
+  Tagent_registry --> Vxba54xb274x20xad6cxc870
+  Taig_adjustment --> Vxba54xb274x20xad6cxc870
+  Taig_agent_trace --> Vxba54xb274x20xad6cxc870
+  Taig_redaction_rule --> Vxba54xb274x20xad6cxc870
+  Tchg_change_request --> Vxba54xb274x20xad6cxc870
+  Tchg_impact_map --> Vxba54xb274x20xad6cxc870
+  Tchg_regression_test --> Vxba54xb274x20xad6cxc870
+  Tgov_access_decision --> Vxba54xb274x20xad6cxc870
+  Tgov_alert_policy --> Vxba54xb274x20xad6cxc870
+  Tgov_approval --> Vxba54xb274x20xad6cxc870
+  Tgov_audit_chain --> Vxba54xb274x20xad6cxc870
+  Tgov_change_control --> Vxba54xb274x20xad6cxc870
+  Tgov_change_gate --> Vxba54xb274x20xad6cxc870
+  Tgov_change_impact --> Vxba54xb274x20xad6cxc870
+  Tgov_change_policy --> Vxba54xb274x20xad6cxc870
+  Tgov_change_request --> Vxba54xb274x20xad6cxc870
+  Tgov_evidence_edge --> Vxba54xb274x20xad6cxc870
+  Tgov_evidence_node --> Vxba54xb274x20xad6cxc870
+  Tgov_exception_action --> Vxba54xb274x20xad6cxc870
+  Tgov_model_stage --> Vxba54xb274x20xad6cxc870
+  Tgov_model_state --> Vxba54xb274x20xad6cxc870
+  Tgov_model_transition --> Vxba54xb274x20xad6cxc870
+  Tgov_role --> Vxba54xb274x20xad6cxc870
+  Tgov_role_permission --> Vxba54xb274x20xad6cxc870
+  Tgov_run_domain --> Vxba54xb274x20xad6cxc870
+  Tgov_run_issue --> Vxba54xb274x20xad6cxc870
+  Tgov_sod_conflict --> Vxba54xb274x20xad6cxc870
+  Tgov_unified_run --> Vxba54xb274x20xad6cxc870
+  Tgov_user_role --> Vxba54xb274x20xad6cxc870
+  Tint_engine_adapter --> Vxba54xb274x20xad6cxc870
+  Tint_engine_io --> Vxba54xb274x20xad6cxc870
+  Tlex_aggregate --> Vxba54xb274x20xad6cxc870
+  Tlex_connected_group --> Vxba54xb274x20xad6cxc870
+  Tlex_exemption --> Vxba54xb274x20xad6cxc870
+  Tlex_exposure_measure --> Vxba54xb274x20xad6cxc870
+  Tlex_lookthrough --> Vxba54xb274x20xad6cxc870
+  Tlex_position --> Vxba54xb274x20xad6cxc870
+  Tlex_setting --> Vxba54xb274x20xad6cxc870
+  Tlex_substitution --> Vxba54xb274x20xad6cxc870
+  Tui_field_policy --> Vxba54xb274x20xad6cxc870
+  Tui_layout_proposal --> Vxba54xb274x20xad6cxc870
+  Tui_query_plan --> Vxba54xb274x20xad6cxc870
+  Tui_view --> Vxba54xb274x20xad6cxc870
+  Tval_audit_ledger --> Vxba54xb274x20xad6cxc870
+  Tval_check --> Vxba54xb274x20xad6cxc870
+  Tval_independent_target --> Vxba54xb274x20xad6cxc870
   Tgov_role --> Vxbaa8xd615x20xac70xbc84xb10cxc2a4
   Tgov_run_domain --> Vxbaa8xd615x20xac70xbc84xb10cxc2a4
   Tgov_model_stage --> Vxbaa8xd615x20xc218xba85xc8fcxae30
@@ -2386,6 +2703,7 @@ flowchart LR
   Tgov_sod_conflict --> Vxc811xadfcxd1b5xc81cxb7xc9c1xbb34xbd84xb9ac
   Tgov_user_role --> Vxc811xadfcxd1b5xc81cxb7xc9c1xbb34xbd84xb9ac
   Tui_field_policy --> Vxc811xadfcxd1b5xc81cxb7xc9c1xbb34xbd84xb9ac
+  Tagent_registry --> Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9
   Taig_agent_trace --> Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9
   Taig_redaction_rule --> Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9
   Tui_field_policy --> Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9
@@ -2441,6 +2759,10 @@ flowchart LR
   Tval_audit_ledger --> Vxc885xd569xbcf4xace0xc11c
   Tval_check --> Vxc885xd569xbcf4xace0xc11c
   Tval_independent_target --> Vxc885xd569xbcf4xace0xc11c
+  Tagent_activity --> Vxcf55xd54f
+  Tagent_killswitch --> Vxcf55xd54f
+  Tagent_registry --> Vxcf55xd54f
+  Taig_agent_trace --> Vxcf55xd54f
   Tgov_approval --> Vxcf55xd54f
   Tgov_evidence_edge --> Vxcf55xd54f
   Tgov_evidence_node --> Vxcf55xd54f
@@ -2471,7 +2793,9 @@ flowchart RL
   B7["규제서식"]
   B8["거버넌스·통제"]
   VAIx20xac70xbc84xb10cxc2a4("AI 거버넌스")
+  VAIx20xad00xc81cx20xb370xc2a4xd06c("AI 관제 데스크")
   VAIx20xb9acxc2a4xd06cx20xac1cxc694("AI 리스크 개요")
+  VAIx20xc0acxace0x20xc2a4xd2b8xb808xc2a4("AI 사고 스트레스")
   VAIx20xc778xbca4xd1a0xb9acxb7xc704xd5d8xbd84xb958("AI 인벤토리·위험분류")
   VALM("ALM")
   VALMx20xacc4xc218x20xc6d0xc7a5("ALM 계수 원장")
@@ -2500,6 +2824,7 @@ flowchart RL
   Vxb2f4xbcf4xb7xbcf4xc99d("담보·보증")
   Vxb4f1xae09x20xbcf4xc815("등급 보정")
   Vxb4f1xae09x20xc804xc774("등급 전이")
+  Vxba54xb274x20xad6cxc870("메뉴 구조")
   Vxbaa8xd615x20xac70xbc84xb10cxc2a4("모형 거버넌스")
   Vxbaa8xd615x20xc218xba85xc8fcxae30("모형 수명주기")
   Vxbaa8xd615x20xc778xbca4xd1a0xb9ac("모형 인벤토리")
@@ -2548,8 +2873,10 @@ flowchart RL
   Vxd589xb3d9xbaa8xd615x20xcd94xc815("행동모형 추정")
   Vxd604xae08xd750xb984x20xc6d0xc7a5("현금흐름 원장")
   Vxd68cxc218x20xd560xc778xc728("회수 할인율")
-  VAIx20xac70xbc84xb10cxc2a4 -.->|3| B8
+  VAIx20xac70xbc84xb10cxc2a4 -.->|4| B8
+  VAIx20xad00xc81cx20xb370xc2a4xd06c -.->|6| B8
   VAIx20xb9acxc2a4xd06cx20xac1cxc694 -.->|6| B8
+  VAIx20xc0acxace0x20xc2a4xd2b8xb808xc2a4 -.->|5| B6
   VAIx20xc778xbca4xd1a0xb9acxb7xc704xd5d8xbd84xb958 -.->|1| B8
   VALM -.->|47| B5
   VALMx20xacc4xc218x20xc6d0xc7a5 -.->|10| B5
@@ -2593,6 +2920,14 @@ flowchart RL
   Vxb4f1xae09x20xbcf4xc815 -.->|1| B2
   Vxb4f1xae09x20xc804xc774 -.->|4| B2
   Vxb4f1xae09x20xc804xc774 -.->|1| B1
+  Vxba54xb274x20xad6cxc870 -.->|47| B5
+  Vxba54xb274x20xad6cxc870 -.->|48| B8
+  Vxba54xb274x20xad6cxc870 -.->|6| B7
+  Vxba54xb274x20xad6cxc870 -.->|27| B3
+  Vxba54xb274x20xad6cxc870 -.->|72| B2
+  Vxba54xb274x20xad6cxc870 -.->|13| B4
+  Vxba54xb274x20xad6cxc870 -.->|43| B1
+  Vxba54xb274x20xad6cxc870 -.->|15| B6
   Vxbaa8xd615x20xac70xbc84xb10cxc2a4 -.->|2| B8
   Vxbaa8xd615x20xac70xbc84xb10cxc2a4 -.->|7| B2
   Vxbaa8xd615x20xc218xba85xc8fcxae30 -.->|3| B8
@@ -2637,7 +2972,7 @@ flowchart RL
   Vxc720xb3d9xd654 -.->|1| B2
   Vxc720xb3d9xd654 -.->|3| B1
   Vxc811xadfcxd1b5xc81cxb7xc9c1xbb34xbd84xb9ac -.->|5| B8
-  Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9 -.->|4| B8
+  Vxc815xbcf4xd750xb984xb7xb9c8xc2a4xd0b9 -.->|5| B8
   Vxc870xae30xacbdxbcf4 -.->|1| B2
   Vxc870xd68cx20xac70xbc84xb10cxc2a4 -.->|3| B8
   Vxc885xd569xbcf4xace0xc11c -.->|47| B5
@@ -2647,7 +2982,7 @@ flowchart RL
   Vxc885xd569xbcf4xace0xc11c -.->|72| B2
   Vxc885xd569xbcf4xace0xc11c -.->|13| B4
   Vxc885xd569xbcf4xace0xc11c -.->|43| B1
-  Vxc885xd569xbcf4xace0xc11c -.->|10| B6
+  Vxc885xd569xbcf4xace0xc11c -.->|15| B6
   Vxc9d1xacc4x20xc6d0xc7a5 -.->|1| B5
   Vxc9d1xacc4x20xc6d0xc7a5 -.->|1| B3
   Vxc9d1xacc4x20xc6d0xc7a5 -.->|1| B2
@@ -2662,7 +2997,7 @@ flowchart RL
   Vxcf54xb4dcx20xb9e4xd551 -.->|1| B4
   Vxcf54xb4dcx20xb9e4xd551 -.->|2| B1
   Vxcf55xd54f -.->|1| B5
-  Vxcf55xd54f -.->|7| B8
+  Vxcf55xd54f -.->|11| B8
   Vxcf55xd54f -.->|1| B7
   Vxcf55xd54f -.->|1| B3
   Vxcf55xd54f -.->|4| B2
@@ -2686,8 +3021,10 @@ flowchart RL
 
 | 화면 | 원장 수 | 원장 |
 |---|---|---|
-| AI 거버넌스 | 3 | aig_adjustment, aig_agent_trace, aig_redaction_rule |
+| AI 거버넌스 | 4 | agent_registry, aig_adjustment, aig_agent_trace, aig_redaction_rule |
+| AI 관제 데스크 | 6 | agent_activity, agent_killswitch, agent_registry, aig_agent_trace, gov_approval, gov_exception_action |
 | AI 리스크 개요 | 6 | agent_activity, agent_killswitch, agent_registry, aig_agent_trace, aig_redaction_rule, gov_approval |
+| AI 사고 스트레스 | 5 | st_ai_impact, st_ai_param, st_ai_path, st_ai_reverse, st_ai_scenario |
 | AI 인벤토리·위험분류 | 1 | agent_registry |
 | ALM | 47 | agg_alm_exposure, alm_behaviour_backtest, alm_behaviour_model, alm_behaviour_param, alm_behaviour_scenario_mult, alm_cashflow_behavioural, alm_cashflow_bucket, alm_cashflow_contract, alm_code_scope, alm_contract, alm_early_redemption_observation, alm_irrbb_bucket_pv, alm_irrbb_result, alm_irrbb_shock, alm_lcr_factor, alm_lcr_flow, alm_lcr_item, alm_liquidity_stress_param, alm_maturity_ladder, alm_nii_result, alm_nmd_balance_history, alm_nmd_core_method_compare, alm_nmd_param, alm_nsfr_factor, alm_nsfr_item, alm_post_shock_floor, alm_prepay_observation, alm_prepay_scurve_param, alm_product_terms, alm_rate_shock_param, alm_repricing_gap, alm_result, alm_scenario_def, alm_survival_path, alm_time_bucket, disc_irrbb_table6, disc_irrbb_table7_qualitative, disc_irrbb_table7_quantitative, kr_auto_option_param, kr_irrbb_governance, kr_nmd_category, kr_retail_behavioural_scope, kr_retail_criteria, liq_funding_concentration, liq_funding_ladder, liq_funding_limit, liq_funding_trade |
 | ALM 계수 원장 | 10 | alm_behaviour_param, alm_behaviour_scenario_mult, alm_liquidity_stress_param, alm_nmd_param, alm_post_shock_floor, alm_prepay_scurve_param, alm_product_terms, alm_rate_shock_param, alm_scenario_def, alm_time_bucket |
@@ -2719,7 +3056,7 @@ flowchart RL
 | 담보·보증 | 3 | rdm_collateral, rdm_guarantee, rdm_obligor_financial |
 | 등급 보정 | 1 | crm_pd_calibration |
 | 등급 전이 | 5 | crm_lgd_component, crm_pd_calibration, crm_performance, crm_rating_migration, rdm_code_master |
-| 메뉴 구조 | 0 | (없음) |
+| 메뉴 구조 | 271 | agent_activity, agent_killswitch, agent_registry, agg_alm_exposure, agg_credit_exposure, agg_market_exposure, agg_operational_loss, agg_stress_exposure, aig_adjustment, aig_agent_trace, aig_redaction_rule, alm_behaviour_backtest, alm_behaviour_model, alm_behaviour_param, alm_behaviour_scenario_mult, alm_cashflow_behavioural, alm_cashflow_bucket, alm_cashflow_contract, alm_code_scope, alm_contract, alm_early_redemption_observation, alm_irrbb_bucket_pv, alm_irrbb_result, alm_irrbb_shock, alm_lcr_factor, alm_lcr_flow, alm_lcr_item, alm_liquidity_stress_param, alm_maturity_ladder, alm_nii_result, alm_nmd_balance_history, alm_nmd_core_method_compare, alm_nmd_param, alm_nsfr_factor, alm_nsfr_item, alm_post_shock_floor, alm_prepay_observation, alm_prepay_scurve_param, alm_product_terms, alm_rate_shock_param, alm_repricing_gap, alm_result, alm_scenario_def, alm_survival_path, alm_time_bucket, cap_stack, ccr_collateral_position, ccr_csa_term, ccr_margin_call, ccr_margin_dispute, chg_change_request, chg_impact_map, chg_regression_test, crm_allocation, crm_backtest_criteria, crm_backtest_result, crm_beel_curve, crm_capm_estimate, crm_capm_observation, crm_ccf_backtest, crm_ccf_estimate, crm_code_scope, crm_collateral_link, crm_collateral_terms, crm_default_history, crm_default_observation, crm_defaulted_lgd, crm_dev_sample, crm_estimation_param, crm_estimation_run, crm_ews_signal, crm_exposure_terms, crm_facility_drawdown_history, crm_input_floor, crm_irb_scope, crm_lgd_backtest, crm_lgd_component, crm_lgd_discount_rate, crm_lgd_estimate, crm_lifecycle_compliance, crm_lifecycle_event, crm_mitigation_param, crm_moc_component, crm_model, crm_model_governance, crm_obligor_axis_score, crm_obligor_score, crm_override, crm_override_performance, crm_override_reason, crm_pd_calibration, crm_pd_estimate, crm_pd_yearly_dr, crm_performance, crm_plgd, crm_plgd_sensitivity, crm_qualitative_assessment, crm_qualitative_item, crm_rating, crm_rating_migration, crm_rating_requirement, crm_recovery_history, crm_representativeness, crm_sample_representativeness, crm_scorecard_axis, crm_scorecard_bin, crm_scorecard_factor, crm_scorecard_param, dat_mart_load, dat_retention_action, dat_retention_policy, disc_irrbb_table6, disc_irrbb_table7_qualitative, disc_irrbb_table7_quantitative, ecl_gl_reconciliation, ecl_macro_scenario, ecl_pma, ecl_provision_bridge, ecl_result, ecl_sicr_trigger_stat, ecl_stage_transition, gov_access_decision, gov_alert_policy, gov_approval, gov_audit_chain, gov_change_control, gov_change_gate, gov_change_impact, gov_change_policy, gov_change_request, gov_evidence_edge, gov_evidence_node, gov_exception_action, gov_model_stage, gov_model_state, gov_model_transition, gov_price_source_rank, gov_pricing_control, gov_pricing_gap, gov_pricing_result, gov_role, gov_role_permission, gov_run_domain, gov_run_issue, gov_sod_conflict, gov_unified_run, gov_user_role, icaap_capital_map, icaap_materiality, icaap_materiality_policy, icaap_risk_taxonomy, int_connector, int_connector_operation, int_connector_violation, int_delivery_attempt, int_engine_adapter, int_engine_io, int_feed_field_map, int_feed_health, int_inbound_contract, int_inbound_delivery, int_market_feed, int_quarantine, int_retry_policy, kr_auto_option_param, kr_irrbb_governance, kr_nmd_category, kr_retail_behavioural_scope, kr_retail_criteria, lex_aggregate, lex_connected_group, lex_exemption, lex_exposure_measure, lex_lookthrough, lex_position, lex_setting, lex_substitution, lim_limit_definition, liq_funding_concentration, liq_funding_ladder, liq_funding_limit, liq_funding_trade, mkt_backtest_exception, mkt_code_scope, mkt_derivative_sensitivity, mkt_ipv, mkt_portfolio, mkt_portfolio_capital, mkt_position, mkt_pricing_model, mkt_product, mkt_product_model_map, mkt_risk_factor, mkt_trade, mkt_var_es, mkt_var_es_portfolio, ncr_component, opr_capital, opr_close_gate, opr_close_task, opr_code_scope, opr_control, opr_kri, opr_loss_event, opr_rcsa_action, opr_rcsa_assessment, opr_rcsa_control, opr_rcsa_scale, opr_recovery, pru_balance_sheet, pru_camel, pru_liquidity_ratio, pru_prompt_action, rdm_account_master, rdm_asset_quality, rdm_canonical_map, rdm_code_master, rdm_collateral, rdm_delinquency, rdm_derivative_master, rdm_derivative_underlying, rdm_dq_result, rdm_dq_rule, rdm_exposure, rdm_exposure_balance, rdm_ext_climate_indicator, rdm_ext_climate_series, rdm_ext_country, rdm_ext_source, rdm_fund_holding, rdm_fund_mandate, rdm_fund_master, rdm_guarantee, rdm_macro_indicator_master, rdm_netting_set, rdm_obligor, rdm_obligor_financial, rdm_product_master, rdm_reconciliation, rdm_sec_master, rdm_sec_pool, rdm_sec_tranche, rdm_snapshot, rdm_source_contract, reg_form_check, reg_submission, rwa_crm_allocation, rwa_fund_result, rwa_irb_pool, rwa_market_component, rwa_operational_bi, rwa_output_floor, rwa_result, rwa_sa_bucket, rwa_sec_result, st_action_playbook, st_ai_impact, st_ai_param, st_ai_path, st_ai_reverse, st_ai_scenario, st_calc_trace, st_capital_path, st_management_action, ui_field_policy, ui_layout_proposal, ui_query_plan, ui_view, val_audit_ledger, val_check, val_independent_target |
 | 모형 거버넌스 | 9 | crm_backtest_criteria, crm_backtest_result, crm_ccf_backtest, crm_lgd_backtest, crm_model_governance, crm_representativeness, crm_sample_representativeness, gov_role, gov_run_domain |
 | 모형 수명주기 | 3 | gov_model_stage, gov_model_state, gov_model_transition |
 | 모형 인벤토리 | 3 | crm_model, crm_pd_calibration, crm_performance |
@@ -2759,15 +3096,15 @@ flowchart RL
 | 유동화 | 4 | rdm_sec_master, rdm_sec_pool, rdm_sec_tranche, rwa_sec_result |
 | 전환위험 | 0 | (없음) |
 | 접근통제·직무분리 | 5 | gov_access_decision, gov_role_permission, gov_sod_conflict, gov_user_role, ui_field_policy |
-| 정보흐름·마스킹 | 4 | aig_agent_trace, aig_redaction_rule, ui_field_policy, ui_view |
+| 정보흐름·마스킹 | 5 | agent_registry, aig_agent_trace, aig_redaction_rule, ui_field_policy, ui_view |
 | 조기경보 | 1 | crm_ews_signal |
 | 조회 거버넌스 | 3 | ui_layout_proposal, ui_query_plan, ui_view |
-| 종합보고서 | 266 | agent_activity, agent_killswitch, agent_registry, agg_alm_exposure, agg_credit_exposure, agg_market_exposure, agg_operational_loss, agg_stress_exposure, aig_adjustment, aig_agent_trace, aig_redaction_rule, alm_behaviour_backtest, alm_behaviour_model, alm_behaviour_param, alm_behaviour_scenario_mult, alm_cashflow_behavioural, alm_cashflow_bucket, alm_cashflow_contract, alm_code_scope, alm_contract, alm_early_redemption_observation, alm_irrbb_bucket_pv, alm_irrbb_result, alm_irrbb_shock, alm_lcr_factor, alm_lcr_flow, alm_lcr_item, alm_liquidity_stress_param, alm_maturity_ladder, alm_nii_result, alm_nmd_balance_history, alm_nmd_core_method_compare, alm_nmd_param, alm_nsfr_factor, alm_nsfr_item, alm_post_shock_floor, alm_prepay_observation, alm_prepay_scurve_param, alm_product_terms, alm_rate_shock_param, alm_repricing_gap, alm_result, alm_scenario_def, alm_survival_path, alm_time_bucket, cap_stack, ccr_collateral_position, ccr_csa_term, ccr_margin_call, ccr_margin_dispute, chg_change_request, chg_impact_map, chg_regression_test, crm_allocation, crm_backtest_criteria, crm_backtest_result, crm_beel_curve, crm_capm_estimate, crm_capm_observation, crm_ccf_backtest, crm_ccf_estimate, crm_code_scope, crm_collateral_link, crm_collateral_terms, crm_default_history, crm_default_observation, crm_defaulted_lgd, crm_dev_sample, crm_estimation_param, crm_estimation_run, crm_ews_signal, crm_exposure_terms, crm_facility_drawdown_history, crm_input_floor, crm_irb_scope, crm_lgd_backtest, crm_lgd_component, crm_lgd_discount_rate, crm_lgd_estimate, crm_lifecycle_compliance, crm_lifecycle_event, crm_mitigation_param, crm_moc_component, crm_model, crm_model_governance, crm_obligor_axis_score, crm_obligor_score, crm_override, crm_override_performance, crm_override_reason, crm_pd_calibration, crm_pd_estimate, crm_pd_yearly_dr, crm_performance, crm_plgd, crm_plgd_sensitivity, crm_qualitative_assessment, crm_qualitative_item, crm_rating, crm_rating_migration, crm_rating_requirement, crm_recovery_history, crm_representativeness, crm_sample_representativeness, crm_scorecard_axis, crm_scorecard_bin, crm_scorecard_factor, crm_scorecard_param, dat_mart_load, dat_retention_action, dat_retention_policy, disc_irrbb_table6, disc_irrbb_table7_qualitative, disc_irrbb_table7_quantitative, ecl_gl_reconciliation, ecl_macro_scenario, ecl_pma, ecl_provision_bridge, ecl_result, ecl_sicr_trigger_stat, ecl_stage_transition, gov_access_decision, gov_alert_policy, gov_approval, gov_audit_chain, gov_change_control, gov_change_gate, gov_change_impact, gov_change_policy, gov_change_request, gov_evidence_edge, gov_evidence_node, gov_exception_action, gov_model_stage, gov_model_state, gov_model_transition, gov_price_source_rank, gov_pricing_control, gov_pricing_gap, gov_pricing_result, gov_role, gov_role_permission, gov_run_domain, gov_run_issue, gov_sod_conflict, gov_unified_run, gov_user_role, icaap_capital_map, icaap_materiality, icaap_materiality_policy, icaap_risk_taxonomy, int_connector, int_connector_operation, int_connector_violation, int_delivery_attempt, int_engine_adapter, int_engine_io, int_feed_field_map, int_feed_health, int_inbound_contract, int_inbound_delivery, int_market_feed, int_quarantine, int_retry_policy, kr_auto_option_param, kr_irrbb_governance, kr_nmd_category, kr_retail_behavioural_scope, kr_retail_criteria, lex_aggregate, lex_connected_group, lex_exemption, lex_exposure_measure, lex_lookthrough, lex_position, lex_setting, lex_substitution, lim_limit_definition, liq_funding_concentration, liq_funding_ladder, liq_funding_limit, liq_funding_trade, mkt_backtest_exception, mkt_code_scope, mkt_derivative_sensitivity, mkt_ipv, mkt_portfolio, mkt_portfolio_capital, mkt_position, mkt_pricing_model, mkt_product, mkt_product_model_map, mkt_risk_factor, mkt_trade, mkt_var_es, mkt_var_es_portfolio, ncr_component, opr_capital, opr_close_gate, opr_close_task, opr_code_scope, opr_control, opr_kri, opr_loss_event, opr_rcsa_action, opr_rcsa_assessment, opr_rcsa_control, opr_rcsa_scale, opr_recovery, pru_balance_sheet, pru_camel, pru_liquidity_ratio, pru_prompt_action, rdm_account_master, rdm_asset_quality, rdm_canonical_map, rdm_code_master, rdm_collateral, rdm_delinquency, rdm_derivative_master, rdm_derivative_underlying, rdm_dq_result, rdm_dq_rule, rdm_exposure, rdm_exposure_balance, rdm_ext_climate_indicator, rdm_ext_climate_series, rdm_ext_country, rdm_ext_source, rdm_fund_holding, rdm_fund_mandate, rdm_fund_master, rdm_guarantee, rdm_macro_indicator_master, rdm_netting_set, rdm_obligor, rdm_obligor_financial, rdm_product_master, rdm_reconciliation, rdm_sec_master, rdm_sec_pool, rdm_sec_tranche, rdm_snapshot, rdm_source_contract, reg_form_check, reg_submission, rwa_crm_allocation, rwa_fund_result, rwa_irb_pool, rwa_market_component, rwa_operational_bi, rwa_output_floor, rwa_result, rwa_sa_bucket, rwa_sec_result, st_action_playbook, st_calc_trace, st_capital_path, st_management_action, ui_field_policy, ui_layout_proposal, ui_query_plan, ui_view, val_audit_ledger, val_check, val_independent_target |
+| 종합보고서 | 271 | agent_activity, agent_killswitch, agent_registry, agg_alm_exposure, agg_credit_exposure, agg_market_exposure, agg_operational_loss, agg_stress_exposure, aig_adjustment, aig_agent_trace, aig_redaction_rule, alm_behaviour_backtest, alm_behaviour_model, alm_behaviour_param, alm_behaviour_scenario_mult, alm_cashflow_behavioural, alm_cashflow_bucket, alm_cashflow_contract, alm_code_scope, alm_contract, alm_early_redemption_observation, alm_irrbb_bucket_pv, alm_irrbb_result, alm_irrbb_shock, alm_lcr_factor, alm_lcr_flow, alm_lcr_item, alm_liquidity_stress_param, alm_maturity_ladder, alm_nii_result, alm_nmd_balance_history, alm_nmd_core_method_compare, alm_nmd_param, alm_nsfr_factor, alm_nsfr_item, alm_post_shock_floor, alm_prepay_observation, alm_prepay_scurve_param, alm_product_terms, alm_rate_shock_param, alm_repricing_gap, alm_result, alm_scenario_def, alm_survival_path, alm_time_bucket, cap_stack, ccr_collateral_position, ccr_csa_term, ccr_margin_call, ccr_margin_dispute, chg_change_request, chg_impact_map, chg_regression_test, crm_allocation, crm_backtest_criteria, crm_backtest_result, crm_beel_curve, crm_capm_estimate, crm_capm_observation, crm_ccf_backtest, crm_ccf_estimate, crm_code_scope, crm_collateral_link, crm_collateral_terms, crm_default_history, crm_default_observation, crm_defaulted_lgd, crm_dev_sample, crm_estimation_param, crm_estimation_run, crm_ews_signal, crm_exposure_terms, crm_facility_drawdown_history, crm_input_floor, crm_irb_scope, crm_lgd_backtest, crm_lgd_component, crm_lgd_discount_rate, crm_lgd_estimate, crm_lifecycle_compliance, crm_lifecycle_event, crm_mitigation_param, crm_moc_component, crm_model, crm_model_governance, crm_obligor_axis_score, crm_obligor_score, crm_override, crm_override_performance, crm_override_reason, crm_pd_calibration, crm_pd_estimate, crm_pd_yearly_dr, crm_performance, crm_plgd, crm_plgd_sensitivity, crm_qualitative_assessment, crm_qualitative_item, crm_rating, crm_rating_migration, crm_rating_requirement, crm_recovery_history, crm_representativeness, crm_sample_representativeness, crm_scorecard_axis, crm_scorecard_bin, crm_scorecard_factor, crm_scorecard_param, dat_mart_load, dat_retention_action, dat_retention_policy, disc_irrbb_table6, disc_irrbb_table7_qualitative, disc_irrbb_table7_quantitative, ecl_gl_reconciliation, ecl_macro_scenario, ecl_pma, ecl_provision_bridge, ecl_result, ecl_sicr_trigger_stat, ecl_stage_transition, gov_access_decision, gov_alert_policy, gov_approval, gov_audit_chain, gov_change_control, gov_change_gate, gov_change_impact, gov_change_policy, gov_change_request, gov_evidence_edge, gov_evidence_node, gov_exception_action, gov_model_stage, gov_model_state, gov_model_transition, gov_price_source_rank, gov_pricing_control, gov_pricing_gap, gov_pricing_result, gov_role, gov_role_permission, gov_run_domain, gov_run_issue, gov_sod_conflict, gov_unified_run, gov_user_role, icaap_capital_map, icaap_materiality, icaap_materiality_policy, icaap_risk_taxonomy, int_connector, int_connector_operation, int_connector_violation, int_delivery_attempt, int_engine_adapter, int_engine_io, int_feed_field_map, int_feed_health, int_inbound_contract, int_inbound_delivery, int_market_feed, int_quarantine, int_retry_policy, kr_auto_option_param, kr_irrbb_governance, kr_nmd_category, kr_retail_behavioural_scope, kr_retail_criteria, lex_aggregate, lex_connected_group, lex_exemption, lex_exposure_measure, lex_lookthrough, lex_position, lex_setting, lex_substitution, lim_limit_definition, liq_funding_concentration, liq_funding_ladder, liq_funding_limit, liq_funding_trade, mkt_backtest_exception, mkt_code_scope, mkt_derivative_sensitivity, mkt_ipv, mkt_portfolio, mkt_portfolio_capital, mkt_position, mkt_pricing_model, mkt_product, mkt_product_model_map, mkt_risk_factor, mkt_trade, mkt_var_es, mkt_var_es_portfolio, ncr_component, opr_capital, opr_close_gate, opr_close_task, opr_code_scope, opr_control, opr_kri, opr_loss_event, opr_rcsa_action, opr_rcsa_assessment, opr_rcsa_control, opr_rcsa_scale, opr_recovery, pru_balance_sheet, pru_camel, pru_liquidity_ratio, pru_prompt_action, rdm_account_master, rdm_asset_quality, rdm_canonical_map, rdm_code_master, rdm_collateral, rdm_delinquency, rdm_derivative_master, rdm_derivative_underlying, rdm_dq_result, rdm_dq_rule, rdm_exposure, rdm_exposure_balance, rdm_ext_climate_indicator, rdm_ext_climate_series, rdm_ext_country, rdm_ext_source, rdm_fund_holding, rdm_fund_mandate, rdm_fund_master, rdm_guarantee, rdm_macro_indicator_master, rdm_netting_set, rdm_obligor, rdm_obligor_financial, rdm_product_master, rdm_reconciliation, rdm_sec_master, rdm_sec_pool, rdm_sec_tranche, rdm_snapshot, rdm_source_contract, reg_form_check, reg_submission, rwa_crm_allocation, rwa_fund_result, rwa_irb_pool, rwa_market_component, rwa_operational_bi, rwa_output_floor, rwa_result, rwa_sa_bucket, rwa_sec_result, st_action_playbook, st_ai_impact, st_ai_param, st_ai_path, st_ai_reverse, st_ai_scenario, st_calc_trace, st_capital_path, st_management_action, ui_field_policy, ui_layout_proposal, ui_query_plan, ui_view, val_audit_ledger, val_check, val_independent_target |
 | 집계 원장 | 5 | agg_alm_exposure, agg_credit_exposure, agg_market_exposure, agg_operational_loss, agg_stress_exposure |
 | 집합투자증권 | 4 | rdm_fund_holding, rdm_fund_mandate, rdm_fund_master, rwa_fund_result |
 | 코드 마스터 | 1 | rdm_code_master |
 | 코드 매핑 | 6 | alm_code_scope, crm_code_scope, mkt_code_scope, opr_code_scope, rdm_account_master, rdm_product_master |
-| 콕핏 | 18 | alm_result, cap_stack, crm_model, ecl_result, gov_approval, gov_evidence_edge, gov_evidence_node, gov_exception_action, mkt_ipv, rdm_reconciliation, rdm_source_contract, reg_form_check, rwa_result, rwa_sa_bucket, st_capital_path, val_audit_ledger, val_check, val_independent_target |
+| 콕핏 | 22 | agent_activity, agent_killswitch, agent_registry, aig_agent_trace, alm_result, cap_stack, crm_model, ecl_result, gov_approval, gov_evidence_edge, gov_evidence_node, gov_exception_action, mkt_ipv, rdm_reconciliation, rdm_source_contract, reg_form_check, rwa_result, rwa_sa_bucket, st_capital_path, val_audit_ledger, val_check, val_independent_target |
 | 파생상품 | 4 | mkt_derivative_sensitivity, rdm_derivative_master, rdm_derivative_underlying, rdm_netting_set |
 | 포트폴리오 설정 | 2 | mkt_portfolio, mkt_trade |
 | 한도관리 | 4 | kr_irrbb_governance, lim_limit_definition, rdm_exposure, rdm_obligor |
@@ -2839,7 +3176,6 @@ flowchart RL
 | 거시지표 모니터링 | 사유 미기재 |
 | 기관 설정 | 연결 원장은 있다. inst_master·inst_profile·inst_portfolio_mix·inst_country_mix·intl_label_lexicon 이며 data_gen_intl.build_all() 이 만든다. 다만 그 다섯 장이 아직 ALL_TABLES 밖이라 이 계보 그래프의 원장 집합에 없다. 카탈로그에 등재되면 이 줄을 뺀다 |
 | 기후 자본 경로 | NGFS 자본 경로(risk_lib.stress.climate_capital)를 원장으로 만들지 않았다. 화면은 PipelineResult.stress_deep['climate_capital'] 을 payload 로 받아 그린다. 운영 보고서 50번과 같은 값이다 |
-| 메뉴 구조 | 화면 메뉴 트리(NAVGROUPS)의 순서·숨김을 이 브라우저(localStorage)에만 저장하는 설정 화면. 원장·산출값을 그리지 않는다 |
 | 물리적 위험 | 기후 물리적 위험 결과를 원장으로 만들지 않았다. 화면은 PipelineResult.climate(risk_lib.climate) 의 부문 계수 산출을 payload 로 받아 그린다. clr_* 원장이 등재되면 이 줄을 뺀다 |
 | 상업성 | 사업성 산출. 규제 산출물이 아니고 원장 카탈로그에 넣지 않았다. 수치는 risk_lib/commercial.py 의 가정 프레임에서 온다 |
 | 시뮬레이션 | 사유 미기재 |
