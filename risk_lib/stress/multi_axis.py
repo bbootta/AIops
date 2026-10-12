@@ -107,6 +107,45 @@ class StressBooks:
 
 
 @dataclass(frozen=True)
+class StressOverlay:
+    """거시 심도와 별개로 얹는 개별 사건 충격. AI 사고처럼 몇 개 축만 크게 움직이는
+    사건을 같은 전이 경로(신용 RWA·ECL·운영 RWA·LCR·손익·자본·하한)로 보낸다.
+
+    값은 **누적**이다. 엔진은 분기마다 기준 대비 연간 이익 변화로 자본을 다시 맞추므로
+    일회성 손실을 분기 값으로 넣으면 다음 분기에 사라진다. 호출부가 사건 이후 누적한
+    손실을 넣어야 자본에 남는다.
+
+    - `axis_addons`: 기존 축 값에 더하는 충격 (거시 심도가 0 이면 이 값이 전부다)
+    - `direct_loss`: 세전 직접손실 (운영손실·배상·사기·영업중단 수익손실)
+    - `post_tax_charge`: 세후 차감 (손금불산입 과징금·벌금)
+    - `op_loss_10y_addon`: 10년 평균 운영손실 가산 (OPE25 손실요소, 손실 L 이면 L/10)
+    - `pd_multiplier`: 자산군 → PD 배수 (해당 자산군 IRB 익스포저에만)
+    - `sa_fallback`: 표준방법으로 되돌리는 IRB 자산군 (모형 사용 중지)
+    - `runoff_addon`: LCR 유출 범주 → 이탈률 가산
+    """
+    axis_addons: tuple[tuple[str, float], ...] = ()
+    direct_loss: float = 0.0
+    post_tax_charge: float = 0.0
+    op_loss_10y_addon: float = 0.0
+    pd_multiplier: tuple[tuple[str, float], ...] = ()
+    sa_fallback: tuple[str, ...] = ()
+    runoff_addon: tuple[tuple[str, float], ...] = ()
+
+
+def _overlay_pd(asset_class: np.ndarray, pd_vals: np.ndarray,
+                overlay: "StressOverlay | None") -> np.ndarray:
+    """자산군별 PD 배수를 적용한다. 덧씌우기가 없으면 입력을 그대로 돌려준다."""
+    if overlay is None or not overlay.pd_multiplier:
+        return pd_vals
+    out = pd_vals.copy()
+    for cls, mult in overlay.pd_multiplier:
+        m = asset_class == cls
+        if m.any():
+            out[m] = np.clip(out[m] * float(mult), 0.0, 1.0)
+    return out
+
+
+@dataclass(frozen=True)
 class StressPoint:
     """한 (시나리오, 분기)의 전 중간값."""
     scenario: str
@@ -134,7 +173,8 @@ def _downgrade(ratings: np.ndarray, notches: float) -> np.ndarray:
 
 
 def _stressed_full(books: StressBooks, sh: dict[str, float],
-                   sc: Scenario) -> pd.DataFrame:
+                   sc: Scenario,
+                   overlay: "StressOverlay | None" = None) -> pd.DataFrame:
     """산출하한 분모용 — 전체 포트폴리오에 같은 충격을 적용한다.
 
     내부등급법 대상은 충격 PD로 등급을 다시 매기고(표준방법 버킷이 함께
@@ -147,6 +187,9 @@ def _stressed_full(books: StressBooks, sh: dict[str, float],
     m = f["asset_class"].isin(irb_classes).to_numpy()
     if m.any() and "pd" in f.columns:
         pd_str = sc.stress_pd(f.loc[m, "pd"].to_numpy(dtype=float))
+        if overlay is not None and overlay.pd_multiplier:
+            pd_str = _overlay_pd(f.loc[m, "asset_class"].to_numpy(), pd_str,
+                                 overlay)
         f.loc[m, "pd"] = pd_str
         if "grade" in f.columns:
             f.loc[m, "grade"] = [pd_to_rating(float(x)).grade for x in pd_str]
@@ -165,17 +208,24 @@ def evaluate_point(books: StressBooks, severity: float, *,
                    base: dict[str, float] | None = None,
                    buffers: dict[str, float] | None = None,
                    eir: float = 0.05,
-                   floor: float = FULLY_LOADED_FLOOR) -> StressPoint:
+                   floor: float = FULLY_LOADED_FLOOR,
+                   overlay: StressOverlay | None = None) -> StressPoint:
     """한 심도에서 전 축을 동시 적용하고 모든 중간값을 낸다.
 
     `base`는 심도 0 결과(values). 자본 롤포워드가 **이익 변화**를 쓰므로
     기준 이익이 필요하다. None이면 내부에서 심도 0을 먼저 푼다.
     """
-    if base is None and severity != 0.0:
+    if base is None and (severity != 0.0 or overlay is not None):
         base = evaluate_point(books, 0.0, buffers=buffers, eir=eir,
                               floor=floor).values
 
     sh = shocks_at(severity)
+    if overlay is not None and overlay.axis_addons:
+        sh = dict(sh)
+        for k, add in overlay.axis_addons:
+            if k not in sh:
+                raise KeyError(f"알 수 없는 충격 축: {k}")
+            sh[k] = sh[k] + float(add)
     v: dict[str, float] = {}
 
     # ---------------------------------------------------------- 신용 파라미터
@@ -189,6 +239,8 @@ def evaluate_point(books: StressBooks, severity: float, *,
     v["ead_base"] = float(ead0.sum())
 
     pd_str = sc.stress_pd(irb["pd"].to_numpy(dtype=float))
+    if overlay is not None and overlay.pd_multiplier:
+        pd_str = _overlay_pd(irb["asset_class"].to_numpy(), pd_str, overlay)
     lgd_after_addon = sc.stress_lgd(irb["lgd"].to_numpy(dtype=float))
     # 담보가치 h만큼 하락 → 회수분(1−LGD)의 h만큼이 손실로 넘어온다.
     lgd_str = np.clip(lgd_after_addon + sh["collateral"] * (1 - lgd_after_addon),
@@ -204,7 +256,20 @@ def evaluate_point(books: StressBooks, severity: float, *,
     v["ead_uplift"] = ead_uplift
 
     # ---------------------------------------------------------- 신용 RWA
-    v["rwa_irb"] = float(compute_rwa_irb(irb)["rwa"].sum())
+    if overlay is not None and overlay.sa_fallback:
+        fb = irb["asset_class"].isin(overlay.sa_fallback).to_numpy()
+        irb_rwa_rows = compute_rwa_irb(irb)["rwa"].to_numpy(dtype=float)
+        v["rwa_irb"] = float(irb_rwa_rows[~fb].sum())
+        fb_rows = irb.loc[fb].copy()
+        if len(fb_rows) and "grade" in fb_rows.columns:
+            from risk_lib.models.rating import pd_to_rating
+            fb_rows["grade"] = [pd_to_rating(float(x)).grade
+                                for x in fb_rows["pd"].to_numpy(dtype=float)]
+        v["rwa_sa_fallback"] = (float(standardised_rwa_total(
+            fb_rows, books.sa_bucket_by_grade)) if len(fb_rows) else 0.0)
+        v["rwa_irb_fallback_removed"] = float(irb_rwa_rows[fb].sum())
+    else:
+        v["rwa_irb"] = float(compute_rwa_irb(irb)["rwa"].sum())
     v["ecl"] = float(compute_ecl(irb, eir=eir)["ecl"].sum())
 
     sa = books.sa.copy()
@@ -269,8 +334,10 @@ def evaluate_point(books: StressBooks, severity: float, *,
         v["delta_nii"] = float((gap[within_1y] * dy).sum())
 
     # ---------------------------------------------------------- 운영
-    op = compute_op_risk_rwa(books.bi,
-                             books.op_losses_10y * (1.0 + sh["op_loss"]))
+    op_avg10y = books.op_losses_10y * (1.0 + sh["op_loss"])
+    if overlay is not None and overlay.op_loss_10y_addon:
+        op_avg10y = op_avg10y + float(overlay.op_loss_10y_addon)
+    op = compute_op_risk_rwa(books.bi, op_avg10y)
     v["op_ilm"] = float(op.ilm)
     v["rwa_op"] = float(op.rwa)
     v["op_loss_annual"] = books.op_loss_annual * (1.0 + sh["op_loss"])
@@ -281,8 +348,12 @@ def evaluate_point(books: StressBooks, severity: float, *,
     hqla_l2b = books.hqla.get("level_2b", 0.0) * 0.50
     hqla = (hqla_l1 + hqla_l2a + hqla_l2b) * (1.0 - sh["hqla_haircut"])
     out = books.lcr_outflows
-    runoff = np.clip(out["runoff"].to_numpy(dtype=float)
-                     + sh["deposit_runoff"], 0.0, 1.0)
+    runoff_raw = out["runoff"].to_numpy(dtype=float) + sh["deposit_runoff"]
+    if overlay is not None and overlay.runoff_addon:
+        cat = out["category"].to_numpy()
+        for c, add in overlay.runoff_addon:
+            runoff_raw = runoff_raw + np.where(cat == c, float(add), 0.0)
+    runoff = np.clip(runoff_raw, 0.0, 1.0)
     gross_out = float((out["amount"].to_numpy(dtype=float) * runoff).sum())
     inflow = float(books.lcr_inflows["inflow"].sum())
     inflow_capped = min(inflow, gross_out * LCR_INFLOW_CAP)
@@ -304,8 +375,14 @@ def evaluate_point(books: StressBooks, severity: float, *,
     v["pre_tax_income"] = (interest + fee - books.operating_cost
                            - v["provision"] - v["op_loss_annual"]
                            + v["trading_pnl"])
+    if overlay is not None:
+        v["overlay_direct_loss"] = float(overlay.direct_loss)
+        v["overlay_post_tax_charge"] = float(overlay.post_tax_charge)
+        v["pre_tax_income"] = v["pre_tax_income"] - float(overlay.direct_loss)
     v["tax"] = -max(v["pre_tax_income"], 0.0) * TAX_RATE
     v["net_income"] = v["pre_tax_income"] + v["tax"]
+    if overlay is not None and overlay.post_tax_charge:
+        v["net_income"] = v["net_income"] - float(overlay.post_tax_charge)
 
     # ---------------------------------------------------------- 자본
     base_ni = base["net_income"] if base else v["net_income"]
@@ -324,11 +401,13 @@ def evaluate_point(books: StressBooks, severity: float, *,
     v["rwa_structured"] = float(books.structured_rwa)
     internal = (v["rwa_irb"] + v["rwa_sa"] + v["rwa_ccr"]
                 + v["rwa_market"] + v["rwa_op"] + v["rwa_structured"])
+    if overlay is not None and overlay.sa_fallback:
+        internal = internal + v["rwa_sa_fallback"]
     if books.sa_bucket_by_grade and len(books.full):
         # 산출하한 분모도 충격을 받아야 한다 — 기준 상태 분모를 그대로 쓰면
         # 스트레스에서 하한이 절대 구속되지 않는 착시가 생긴다.
-        std_credit = standardised_rwa_total(_stressed_full(books, sh, sc),
-                                            books.sa_bucket_by_grade)
+        std_credit = standardised_rwa_total(
+            _stressed_full(books, sh, sc, overlay), books.sa_bucket_by_grade)
     else:
         std_credit = (internal - v["rwa_market"] - v["rwa_op"] - v["rwa_ccr"]
                       - v["rwa_structured"])

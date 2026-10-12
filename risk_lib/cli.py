@@ -74,6 +74,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         output_floor=args.floor,
         buffers=buffers,
         years_ahead=args.years_ahead,
+        asof=args.asof,
     )
 
     md = render_markdown(result)
@@ -570,6 +571,9 @@ def main(argv: list[str] | None = None) -> int:
                        help="D-SIB 가산자본 (default 1.0%%)")
     run_p.add_argument("--years-ahead", type=int, default=2,
                        help="분기 스트레스/ECL 경로 지평(연도)")
+    run_p.add_argument("--asof", default=None,
+                       help="기준일 (YYYY-MM-DD). 생략하면 시스템 날짜를 쓰며 "
+                            "meta.asof_source 가 wall_clock 으로 남는다")
     run_p.add_argument("--from-db", default=None, metavar="RUN_ID",
                      help="DB 에 적재된 실행의 입력으로 재산출한다 (RYNTA_PG_DSN)")
     run_p.set_defaults(func=_cmd_run)
