@@ -167,5 +167,50 @@
   "recalc": [],
   "headline_figures": [],
   "chord": "sf"
+ },
+ {
+  "id": "ai-stress",
+  "title_ko": "AI 사고 스트레스",
+  "title_en": "AI incident stress",
+  "sub": "위기상황",
+  "legacy": [
+   "AI 사고 스트레스"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "st_ai_scenario",
+   "st_ai_param",
+   "st_ai_path",
+   "st_ai_impact",
+   "st_ai_reverse"
+  ],
+  "products": [],
+  "domains": [
+   "stress"
+  ],
+  "min_svg": 1,
+  "checks": [
+   "stress_ai_trough_meets_requirement",
+   "stress_ai_lcr_floor",
+   "stress_ai_base_reconciles"
+  ],
+  "recalc": [
+   "ai_stress_worst_delta_cet1_bp",
+   "ai_stress_trough_cet1",
+   "ai_combined_trough_cet1",
+   "ai_reverse_critical_loss_bi",
+   "ai_stress_lcr_min"
+  ],
+  "headline_figures": [
+   "ai_stress_worst_delta_cet1_bp",
+   "ai_stress_trough_cet1",
+   "ai_combined_trough_cet1",
+   "ai_reverse_critical_loss_bi",
+   "ai_stress_lcr_min"
+  ],
+  "chord": "sg"
  }
 ]

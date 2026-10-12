@@ -36,7 +36,7 @@ NON_CATALOG_TABLES = frozenset(_app._INST_TABLES) | {"limits_full", "req_trace"}
 
 # sec11.md 의 기존 nav 리프 수. 흡수 라벨이 이 수와 다르면 화면이 사라졌거나
 # 두 번 흡수된 것이다.
-LEGACY_LABEL_COUNT = 92
+LEGACY_LABEL_COUNT = 93
 
 _ID_RE = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 
@@ -167,6 +167,20 @@ _FIGURES: dict[str, tuple] = {
         "lgd-ead-backtest"),
     "ccf_realised_mean": ("crm_ccf_backtest", _A, "ccf_realized_mean",
         ("lgd_ccf_backtest_censoring_reported",), "ccf_realised_mean", "ccf-estimate"),
+    "ai_stress.worst_delta_cet1": ("st_ai_impact", {"severity_key": "severely_adverse"},
+        "delta_cet1_bp", ("stress_ai_trough_meets_requirement",
+        "stress_ai_severity_monotone"), "ai_stress_worst_delta_cet1_bp", "ai-stress"),
+    "ai_stress.trough_cet1": ("st_ai_impact", {"severity_key": "severely_adverse"},
+        "cet1_ratio_trough", ("stress_ai_trough_meets_requirement",),
+        "ai_stress_trough_cet1", "ai-stress"),
+    "ai_stress.combined_trough_cet1": ("st_ai_impact", {"scenario_id": "AI-C1",
+        "severity_key": "combined"}, "cet1_ratio_trough",
+        ("stress_ai_combined_decomposition",), "ai_combined_trough_cet1", "ai-stress"),
+    "ai_stress.reverse_loss_bi": ("st_ai_reverse", {"metric_id": "loss_star_bi"},
+        "value", ("stress_ai_base_reconciles",), "ai_reverse_critical_loss_bi",
+        "ai-stress"),
+    "ai_stress.lcr_min": ("st_ai_impact", {"severity_key": "severely_adverse"},
+        "lcr_min", ("stress_ai_lcr_floor",), "ai_stress_lcr_min", "ai-stress"),
     "val_check.summary": ("val_check", _A, "status", (), None, "validation"),
     "reg_form_check.summary": ("reg_form_check", {}, "status", (), None, "reg-forms"),
     "raf.worst": ("val_audit_ledger", {"figure_id": "raf.worst"}, "value", (), None,

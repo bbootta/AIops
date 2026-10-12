@@ -100,6 +100,24 @@ RECALC_SCOPE: tuple[tuple[str, str, str], ...] = (
     ("ccf_realised_mean",
      "CCF 실현치 (익스포저 유형·등급대 시설건수 가중 평균)",
      "CRE32.32 · CRE20.94 — 적용 CCF와의 차이가 EAD 과소산출로 직결된다"),
+    # AI 사고 시나리오 스트레스 (risk_lib.stress.ai_incident). 크기 대부분이 재량
+    # 내부 관리값이라 3선이 같은 모수로 다시 계산하고 모수 자체에 도전해야 한다.
+    ("ai_stress_worst_delta_cet1_bp",
+     "AI 사고 단독 심각 최대 CET1비율 하락 (bp)",
+     "SRP20 · 요건 BR-049 · BR-055. 모수는 st_ai_param (재량 내부 관리값 포함)"),
+    ("ai_stress_trough_cet1",
+     "AI 사고 단독 심각 최악 시나리오의 CET1비율 저점",
+     "SRP20 · 은행업감독규정 제26조. 누적 손실과 OPE25 ILM 10년 평균 가산 포함"),
+    ("ai_combined_trough_cet1",
+     "거시 심각 + AI 결합(AI-C1) CET1비율 저점",
+     "SRP20. 거시 성분은 같은 장부의 거시 단독 경로이며 상호작용 잔차는 "
+     "st_ai_path.interaction_bp"),
+    ("ai_reverse_critical_loss_bi",
+     "AI 역스트레스 임계 세전 운영손실 / BI (ILM 반영)",
+     "OPE25 ILM · SRP20. ILM 경로를 뺀 값은 st_ai_reverse loss_star_bi_no_ilm"),
+    ("ai_stress_lcr_min",
+     "AI 사고 단독 심각 LCR 최저",
+     "LCR20.1 · LCR40. LCR 은 자본으로 되먹임되지 않는다"),
 )
 
 
@@ -429,6 +447,7 @@ def _headline(result, tables: dict[str, pd.DataFrame] | None
         "lgd_backtest_bias": _lgd_bias(t),
         "lgd_backtest_n_censored": _lgd_censored(t),
         "ccf_realised_mean": _ccf_realised(t),
+        **_ai_headline(t),
     }
 
 
@@ -467,6 +486,33 @@ def _lgd_censored(tables: dict) -> float | None:
         return None
     seg = lgd[lgd["segment_axis"] == "segment"]
     return float(seg["n_censored"].fillna(0).sum()) if len(seg) else None
+
+
+def _ai_headline(tables: dict) -> dict[str, float | None]:
+    """AI 사고 스트레스 헤드라인. 원장이 없으면 지어내지 않고 None."""
+    keys = ("ai_stress_worst_delta_cet1_bp", "ai_stress_trough_cet1",
+            "ai_combined_trough_cet1", "ai_reverse_critical_loss_bi",
+            "ai_stress_lcr_min")
+    imp, rev = tables.get("st_ai_impact"), tables.get("st_ai_reverse")
+    if imp is None or not len(imp):
+        return {k: None for k in keys}
+    solo = imp[(imp["severity_key"] == "severely_adverse")
+               & (imp["scenario_id"] != "AI-C1") & (imp["scenario_id"] != "AI-C2")]
+    worst = solo.loc[solo["delta_cet1_bp"].idxmin()]
+    c1 = imp[imp["scenario_id"] == "AI-C1"]
+    lstar = None
+    if rev is not None and len(rev):
+        hit = rev[rev["metric_id"] == "loss_star_bi"]
+        if len(hit) and pd.notna(hit["value"].iloc[0]):
+            lstar = float(hit["value"].iloc[0])
+    return {
+        "ai_stress_worst_delta_cet1_bp": float(worst["delta_cet1_bp"]),
+        "ai_stress_trough_cet1": float(worst["cet1_ratio_trough"]),
+        "ai_combined_trough_cet1": (float(c1["cet1_ratio_trough"].iloc[0])
+                                    if len(c1) else None),
+        "ai_reverse_critical_loss_bi": lstar,
+        "ai_stress_lcr_min": float(solo["lcr_min"].min()),
+    }
 
 
 def _ccf_realised(tables: dict) -> float | None:
@@ -575,6 +621,14 @@ KNOWN_ASSUMPTIONS: tuple[str, ...] = (
     "스케일에서 비롯된 것이며 실무 수치로 읽으면 오해를 부른다 (지적 F-005).",
     "표준방법 RWA가 내부모형의 78% 수준이라 산출하한이 현 구성에서 구속되지 "
     "않는다. 통상 표준방법이 더 보수적인 점과 배치된다 (지적 F-006).",
+    "AI 사고 스트레스 크기는 대부분 재량 내부 관리값이다. 공개 선례(SKT·쿠팡·롯데카드 "
+    "과징금, Knight·Arup·CrowdStrike·TSB 손실)는 이번 회차 검색 요약으로만 확인했고 "
+    "원문 대조가 남았다. 재현기간은 서열 해석이며 손실분포 적합이 아니다 "
+    "(risk_lib.stress.ai_incident · st_ai_param).",
+    "AI 사고 스트레스는 운영손실 10년 평균을 헤드라인 운영 RWA 와 같은 값으로 고친 "
+    "장부를 쓰고, 일회성 손실을 분기마다 누적해 넘긴다. 기존 거시 경로는 연간 이익 "
+    "변화를 분기마다 기준점에 대어 비누적이므로, 결합 경로는 두 관례가 섞인 값이다 "
+    "(risk_lib.stress.ai_incident).",
 )
 
 

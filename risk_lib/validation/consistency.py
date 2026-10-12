@@ -1849,6 +1849,172 @@ def _check_irb_estimation_ledgers(ledgers: dict | None, asof: str | None,
         run_plgd_checks(ledgers, report=report)
 
 
+AI_INTERACTION_TOL_BP = 2.0   # 결합 상호작용 잔차 허용 (bp)
+
+
+def _check_ai_incident(ledger_tables: dict | None, ai_result: Any,
+                       bis_result: Any, report: ValidationReport) -> None:
+    """AI 사고 시나리오 스트레스 (risk_lib.stress.ai_incident) 자체검증.
+
+    원장 st_ai_* 가 없으면 FAIL 이다. 검사가 돌지 않은 것이 통과로 읽히면 안 된다.
+    """
+    t = ledger_tables or {}
+    need = ("st_ai_scenario", "st_ai_param", "st_ai_path", "st_ai_impact",
+            "st_ai_reverse")
+    missing = [k for k in need if k not in t or t[k] is None or not len(t[k])]
+    if missing:
+        report.add(ConsistencyCheck(
+            "stress_ai_ledgers_present", "FAIL",
+            "AI 사고 스트레스 원장 결손: " + ", ".join(missing),
+            blocks_approval=True))
+        return
+    from risk_lib.alm.params import EVIDENCE_STATUS
+    from risk_lib.stress.ai_incident import PIPA_GENERAL_CAP, STANDALONE_IDS
+    path, imp, prm = t["st_ai_path"], t["st_ai_impact"], t["st_ai_param"]
+    solo = path[path["scenario_id"].isin(STANDALONE_IDS)]
+
+    # 1. 영(0) 덧씌우기 항등성과 헤드라인 대사
+    quiet = solo[(solo["loss_op_cum"] == 0) & (solo["loss_nonop_cum"] == 0)
+                 & (solo["fine_cum"] == 0) & (solo["pd_multiplier"] == 1.0)
+                 & (solo["lgd_addon"] == 0) & (solo["runoff_addon_max"] == 0)
+                 & (~solo["sa_fallback_adopted"])]
+    bad = quiet[(quiet["delta_cet1_bp"].abs() > 1e-9)
+                | ((quiet["lcr"] - quiet["lcr_macro"]).abs() > 1e-12)]
+    msgs = []
+    status = "PASS" if len(bad) == 0 else "FAIL"
+    if len(bad):
+        msgs.append(f"충격 0 인 {len(bad)}개 행이 기준점과 다르다")
+    pub = getattr(ai_result, "published", {}) or {}
+    base = getattr(ai_result, "base", {}) or {}
+    if pub and base:
+        d_bp = (float(base["cet1_ratio"]) - float(pub["cet1_ratio"])) * 1e4
+        d_rwa = float(base["rwa_total"]) / float(pub["rwa_total"]) - 1.0
+        d_op = float(base["rwa_op"]) / float(pub["rwa_op"]) - 1.0
+        msgs.append(f"덧씌우기 기준점 CET1비율 차 {d_bp:+.4f}bp, RWA 합계 상대차 "
+                    f"{d_rwa:+.2e}, 운영 RWA 상대차 {d_op:+.2e}")
+        if abs(d_bp) > 0.01 or abs(d_op) > 1e-9:
+            status = "FAIL" if status == "FAIL" else "WARN"
+    else:
+        msgs.append("헤드라인 대사값이 넘어오지 않아 대사하지 않았다")
+        status = "FAIL" if status == "FAIL" else "WARN"
+    report.add(ConsistencyCheck(
+        "stress_ai_base_reconciles", status,
+        f"충격 0 행 {len(quiet)}개 항등 확인. " + "; ".join(msgs),
+        is_identity=(status == "PASS")))
+
+    # 2. 심도 단조성
+    viol = []
+    s_imp = imp[imp["scenario_id"].isin(STANDALONE_IDS)].set_index(
+        ["scenario_id", "severity_key"])
+    for sid in STANDALONE_IDS:
+        seq = [s_imp.loc[(sid, k)] for k in ("baseline", "adverse", "severely_adverse")]
+        for a, b in zip(seq, seq[1:]):
+            if b["delta_cet1_bp"] > a["delta_cet1_bp"] + 1e-9:
+                viol.append(f"{sid} CET1 하락")
+            for col in ("loss_op_total", "loss_nonop_total", "fine_total"):
+                if b[col] + 1e-6 < a[col]:
+                    viol.append(f"{sid} {col}")
+            if b["lcr_min"] > a["lcr_min"] + 1e-12:
+                viol.append(f"{sid} LCR")
+    report.add(ConsistencyCheck(
+        "stress_ai_severity_monotone", "PASS" if not viol else "FAIL",
+        "7개 시나리오 기준 <= 악화 <= 심각 (CET1 하락폭, 손실 성분, LCR 하락)"
+        if not viol else "심도 역전: " + ", ".join(sorted(set(viol)))))
+
+    # 3. 일회성·흐름 손실의 누적 비감소
+    nd = []
+    for (sid, sev), g in path.groupby(["scenario_id", "severity_key"], sort=False):
+        g = g.sort_values("q_index")
+        for col in ("loss_op_cum", "loss_nonop_cum", "fine_cum"):
+            if (g[col].diff().dropna() < -1e-6).any():
+                nd.append(f"{sid}/{sev}/{col}")
+    report.add(ConsistencyCheck(
+        "stress_ai_losses_cumulative", "PASS" if not nd else "FAIL",
+        "손실·과징금 누적값이 분기에 따라 줄지 않는다 (일회성 손실이 다음 분기에 "
+        "사라지지 않음)" if not nd else "누적 감소: " + ", ".join(nd)))
+
+    # 4. 채널 분리 (이중계상 방지)
+    issues = []
+    kinds = prm.groupby("scenario_id")["channel_kind"].apply(set).to_dict()
+    for sid, ks in kinds.items():
+        if "lgd" in ks and sid != "AI-02":
+            issues.append(f"{sid} LGD 채널")
+    pd_sids = {sid for sid, ks in kinds.items() if "pd" in ks}
+    if not pd_sids <= {"AI-02", "AI-07"}:
+        issues.append("PD 채널이 모형오류·증빙손상 밖에 있음")
+    c1 = path[path["scenario_id"] == "AI-C1"]
+    if len(c1) and (c1["lgd_addon"] > 0).any():
+        issues.append("결합 AI-C1 에 LGD 가산 (거시 lgd_addon 과 겹침)")
+    report.add(ConsistencyCheck(
+        "stress_ai_channel_separation", "PASS" if not issues else "FAIL",
+        "op_loss 축 미사용, 과징금은 세후 차감에만, 신용 채널은 운영손실 자료 밖, "
+        "결합에서 LGD 가산 제외" if not issues else "; ".join(issues)))
+
+    # 5. 법정 상한
+    pipc = prm[(prm["scenario_id"] == "AI-03") & (prm["channel"] == "pipc_fine")]
+    over = pipc[pipc["value"] > PIPA_GENERAL_CAP + 1e-12]
+    flags = getattr(ai_result, "flags", {}) or {}
+    capped = [k for k, v in flags.items() if "fsc_capped" in v]
+    report.add(ConsistencyCheck(
+        "stress_ai_statutory_caps", "PASS" if not len(over) else "FAIL",
+        (f"개인정보보호법 과징금 모수 <= 일반 상한 {PIPA_GENERAL_CAP:.0%} "
+         f"(개정 10% 상한은 역스트레스 판정선으로만). 신용정보법 해킹 상한 절단 "
+         f"{len(capped)}건{(' (' + ', '.join(capped) + ')') if capped else ''}. "
+         "1인당 법정손해배상(제43조의2) 점검은 영향고객 원장이 없어 하지 않았다")
+        if not len(over) else f"일반 상한 초과 모수 {len(over)}건"))
+
+    # 6. 근거 등록
+    no_cite = prm[prm["citation"].fillna("").str.strip() == ""]
+    bad_ev = prm[~prm["evidence_status"].isin(EVIDENCE_STATUS)]
+    share = float((prm["evidence_status"] == "재량·미규정").mean()) if len(prm) else 0.0
+    report.add(ConsistencyCheck(
+        "stress_ai_evidence_registered",
+        "PASS" if not len(no_cite) and not len(bad_ev) else "FAIL",
+        f"모수 {len(prm)}행 전부 근거·근거상태 기재. 재량·미규정 비중 {share:.0%} "
+        "(내부 관리값, 기관 승인 시나리오로 교체 전제)"
+        if not len(no_cite) and not len(bad_ev)
+        else f"근거 누락 {len(no_cite)}행, 허용 밖 근거상태 {len(bad_ev)}행"))
+
+    # 7. CET1 요구치 침범
+    if base and float(base.get("cet1", 0.0)) < float(base.get("cet1_required", 0.0)) \
+            * float(base.get("rwa_total", 0.0)):
+        report.add(ConsistencyCheck(
+            "stress_ai_trough_meets_requirement", "FAIL",
+            "AI 사고 전 기준점이 이미 CET1 요구치 미달", blocks_approval=True))
+    else:
+        br = imp[imp["breach"]]
+        if not len(br):
+            report.add(ConsistencyCheck(
+                "stress_ai_trough_meets_requirement", "PASS",
+                "AI 사고 단독·결합 전 경로에서 CET1 요구치(완충 포함) 유지"))
+        else:
+            items = [f"{r.scenario_id}/{r.severity_label} {r.cet1_ratio_trough:.2%} "
+                     f"({r.trough_quarter}, 잉여 {r.cet1_surplus_trough / 1e8:,.1f}억)"
+                     for r in br.itertuples()]
+            report.add(ConsistencyCheck(
+                "stress_ai_trough_meets_requirement", "WARN",
+                "AI 사고 경로 CET1 요구치(완충 포함) 침범 (자본계획·회복계획 연계 "
+                "필요): " + "; ".join(items),
+                blocks_approval=True))
+
+    # 8. LCR 100% 미달
+    low = imp[imp["lcr_min"] < 1.0]
+    report.add(ConsistencyCheck(
+        "stress_ai_lcr_floor", "PASS" if not len(low) else "WARN",
+        "AI 사고 전 경로 LCR >= 100% (LCR 은 자본으로 되먹임되지 않는다)"
+        if not len(low) else "LCR 100% 미달: " + "; ".join(
+            f"{r.scenario_id}/{r.severity_label} {r.lcr_min:.3f} ({r.lcr_min_quarter})"
+            for r in low.itertuples())))
+
+    # 9. 결합 상호작용 잔차
+    c1 = path[(path["scenario_id"] == "AI-C1") & path["interaction_bp"].notna()]
+    worst = float(c1["interaction_bp"].abs().max()) if len(c1) else float("nan")
+    report.add(ConsistencyCheck(
+        "stress_ai_combined_decomposition",
+        "PASS" if len(c1) and worst <= AI_INTERACTION_TOL_BP else "WARN",
+        f"AI-C1 결합 증분 - 구성요소 증분 합의 최대 |잔차| {worst:.2f}bp "
+        f"(허용 {AI_INTERACTION_TOL_BP}bp)"))
+
 def run_consistency_checks(
     *,
     sa_results: pd.DataFrame | None = None,
@@ -1887,6 +2053,7 @@ def run_consistency_checks(
     portfolio: pd.DataFrame | None = None,
     meta: dict | None = None,
     ledger_tables: dict | None = None,
+    ai_incident_result: Any = None,
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
@@ -1968,5 +2135,6 @@ def run_consistency_checks(
     _check_macro_master_source(ledger_tables, rep)
     _check_backtest_censoring(ledger_tables, rep)
     _check_irb_estimation_ledgers(ledger_tables, asof, rep)
+    _check_ai_incident(ledger_tables, ai_incident_result, bis_result, rep)
 
     return rep

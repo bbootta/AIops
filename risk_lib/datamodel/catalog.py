@@ -2654,6 +2654,9 @@ from risk_lib.regulatory.forms_irrbb_disclosure import (               # noqa: E
 from risk_lib.stress.management_action import (                        # noqa: E402
     SPECS as _MGMT_ACTION_TABLES,
 )
+from risk_lib.stress.ai_incident import (                              # noqa: E402
+    SPECS as _AI_INCIDENT_TABLES,
+)
 
 # [별표 9-1] 국내 고유 요건 — 폐지된 2014년 체계 원장과 입력 없는 자동금리옵션
 # 재평가 원장을 뺀 나머지.
@@ -2758,7 +2761,7 @@ NEW_LEDGER_TABLES: tuple[TableSpec, ...] = (
     + _BEHAV_HIST_TABLES + _BEHAV_EST_TABLES + _INVENTORY_TABLES
     + _FUNDING_TABLES + _MARGIN_TABLES + _PRODUCT_TABLES + _RCSA_TABLES
     + _MKT_PORTFOLIO_TABLES + _RUN_ISSUE_TABLES
-    + _FEED_TABLES + _PMA_TABLES + _MGMT_ACTION_TABLES
+    + _FEED_TABLES + _PMA_TABLES + _MGMT_ACTION_TABLES + _AI_INCIDENT_TABLES
     + _CHANGE_TABLES + _PRICING_TABLES + _LIFECYCLE_TABLES + _RBAC_TABLES
     + _AUDIT_TABLES + _RETENTION_TABLES + _UNIFIED_TABLES + _CLOSE_TABLES
     + _CONNECTOR_TABLES + _INBOUND_TABLES + _ADAPTER_TABLES

@@ -188,6 +188,8 @@ class PipelineResult:
     concentration_hier: dict[str, Any] = field(default_factory=dict)  # v0.11.0
     rapm_deep: Any = None      # v0.12.0 CRO-grade RAPM deep-dive (Du Pont/EVA/pricing/scenarios)
     stress_deep: dict[str, Any] = field(default_factory=dict)  # v0.13.0 CRO-grade stress 부문
+    # AI 사고 시나리오 스트레스 (risk_lib.stress.ai_incident). 원장 st_ai_* 의 원천.
+    ai_incident: Any = None
     # 구조화 원장(집합투자증권·유동화) — 자본비율 분모에 들어간 바로 그 원장이다.
     # 화면이 따로 만들면 분모와 화면이 다른 실행을 설명하게 된다.
     structured: Any = None
@@ -1614,6 +1616,20 @@ def run_pipeline(
         op_loss_result, limit_report,
         asof=asof.isoformat(), seed=seed)
 
+    # 12e. AI 사고 시나리오 스트레스: 전 축 엔진에 개별 사건을 덧씌운다. 운영손실
+    # 10년 평균은 헤드라인 운영 RWA 와 같은 값(운영 명목 x 기관 손실률)으로 맞춘
+    # 장부를 쓴다. 기존 위기상황 경로의 장부(명목 x 0.001)는 그대로 둔다.
+    from dataclasses import replace as _dc_replace
+    from risk_lib.stress.ai_incident import run_ai_incident_stress
+    ai_incident = run_ai_incident_stress(
+        _dc_replace(books, op_losses_10y=op_notional
+                    * float(market_op["op_loss_rate"])),
+        quarters=quarters, buffers=buffers,
+        institution_code=institution_code or "",
+        published={"cet1_ratio": float(bis.cet1_ratio),
+                   "rwa_total": float(rwa_final), "rwa_op": float(op.rwa)})
+    ledgers["tables"].update(ai_incident.tables())
+
     # 13. 내부자본(ICAAP)
     icaap = _stage_icaap(sa_res, irb_res, mkt, op, alm, conc, capital,
                          structured, ccr_rwa=rwa_ccr)
@@ -1688,6 +1704,7 @@ def run_pipeline(
         capital_stack=capital,
         total_ead=total_ead,
         ledger_tables=ledgers["tables"],
+        ai_incident_result=ai_incident,
     )
     # v0.14.0 — cross-domain 정합성 (PD↔RWA, RWA↔BIS, ECL↔RWA,
     # 한도↔집중, RAPM↔EC, 스트레스↔BIS).  재현성 digest는 호출자가
@@ -1864,6 +1881,7 @@ def run_pipeline(
         macro_ecl=macro, reverse_stress=reverse,
         macro_ecl_path=macro_path,
         stress_path=stress_path, stress_path_trough=stress_path_trough,
+        ai_incident=ai_incident,
         backtest=backtest, validation=validation,
         alm=alm, alm_tables=alm["tables"],
         ledger_tables=ledgers["tables"], ledger_warnings=ledgers["warnings"],

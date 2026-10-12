@@ -308,6 +308,64 @@ def _sec_stress(lines: list[str], result: PipelineResult) -> None:
         add("|---|" + "---:|" * len(sev))
         add("| CET1 | " + " | ".join(f"{v:.2%}" for v in sev["cet1_ratio"]) + " |")
         add("")
+    _sec_ai_incident(lines, result)
+
+
+def _sec_ai_incident(lines: list[str], result: PipelineResult) -> None:
+    """11-3. AI 사고 시나리오 (risk_lib.stress.ai_incident)."""
+    add = lines.append
+    ai = getattr(result, "ai_incident", None)
+    add("### 11-3. AI 사고 시나리오 스트레스")
+    add("")
+    if ai is None or ai.impact is None or not len(ai.impact):
+        add("- AI 사고 스트레스 산출이 없다 (원장 st_ai_* 결손).")
+        add("")
+        return
+    sc = ai.scenario.set_index("scenario_id")
+    add("기존 위기상황 엔진에 AI 사고를 개별 사건으로 덧씌운 결과다. 심도는 사고 발생을 "
+        "전제로 한 조건부 크기이며(기준: 통제 작동, 악화: 공개 선례 대표값, 심각: 관측 "
+        "최악 선례나 법정 상한), 크기 대부분은 재량 내부 관리값이다 (모수 st_ai_param).")
+    add("")
+    imp = ai.impact
+    rows = []
+    for sid in [s for s in sc.index if s.startswith("AI-0")]:
+        g = imp[imp["scenario_id"] == sid].set_index("severity_key")
+        sv = g.loc["severely_adverse"]
+        rows.append([
+            sid, sc.loc[sid, "incident_class"],
+            " / ".join(f"{g.loc[k, 'delta_cet1_bp']:+.1f}"
+                       for k in ("baseline", "adverse", "severely_adverse")),
+            f"{sv['cet1_ratio_trough']:.2%}", sv["trough_quarter"],
+            f"{sv['lcr_min']:.3f}", "X" if sv["breach"] else "O"])
+    lines.extend(_md_table(
+        ["시나리오", "사고분류", "ΔCET1 bp (기준/악화/심각)", "심각 저점", "저점 분기",
+         "심각 LCR 최저", "심각 요구치 충족"],
+        ["l", "l", "r", "r", "l", "r", "r"], rows))
+    add("")
+    for sid in ("AI-C1", "AI-C2"):
+        c = imp[imp["scenario_id"] == sid]
+        if len(c):
+            r = c.iloc[0]
+            add(f"- {sid} {sc.loc[sid, 'scenario_name']}: 저점 {r['cet1_ratio_trough']:.2%} "
+                f"({r['trough_quarter']}, 같은 분기 거시 단독 {r['cet1_ratio_reference']:.2%}), "
+                f"AI 증분 최대 {r['delta_cet1_bp']:+.1f}bp, LCR 최저 {r['lcr_min']:.3f}")
+    rev = ai.reverse.set_index("metric_id")
+
+    def rv(k, fmt):
+        if k not in rev.index:
+            return "-"
+        v = rev.loc[k, "value"]
+        if rev.loc[k, "already_breached"]:
+            return "기준점 이미 미달"
+        return "미침범" if v is None or v != v else fmt(v)
+    add(f"- 역스트레스: 임계 세전 운영손실 BI 대비 {rv('loss_star_bi', lambda v: f'{v:.2%}')} "
+        f"(ILM 경로 제외 {rv('loss_star_bi_no_ilm', lambda v: f'{v:.2%}')}), "
+        f"임계 세후 과징금 REV 대비 {rv('fine_star_rev', lambda v: f'{v:.2%}')}, "
+        f"공통 PD 임계배수 {rv('pd_multiplier_star', lambda v: f'{v:.3f}')}, "
+        f"LCR 100% 소매예금 이탈 가산 {rv('lcr_retail_runoff_star', lambda v: f'{v:.2%}')}")
+    add("- 운영손실 10년 평균은 헤드라인 운영 RWA 와 같은 값으로 맞춘 장부를 쓰고, "
+        "일회성 손실은 분기마다 누적한다. LCR 은 자본으로 되먹임되지 않는다.")
+    add("")
 
 
 def _sec_validation(lines: list[str], result: PipelineResult) -> None:
