@@ -336,12 +336,18 @@ def _sec_ai_incident(lines: list[str], result: PipelineResult) -> None:
             " / ".join(f"{g.loc[k, 'delta_cet1_bp']:+.1f}"
                        for k in ("baseline", "adverse", "severely_adverse")),
             f"{sv['cet1_ratio_trough']:.2%}", sv["trough_quarter"],
-            f"{sv['lcr_min']:.3f}", "X" if sv["breach"] else "O"])
+            f"{sv['lcr_min']:.3f}", "X" if sv["cet1_breach"] else "O",
+            "X" if sv["breach"] else "O"])
     lines.extend(_md_table(
         ["시나리오", "사고분류", "ΔCET1 bp (기준/악화/심각)", "심각 저점", "저점 분기",
-         "심각 LCR 최저", "심각 요구치 충족"],
-        ["l", "l", "r", "r", "l", "r", "r"], rows))
+         "심각 LCR 최저", "심각 CET1 요구치 충족", "심각 3계층 요구치 충족"],
+        ["l", "l", "r", "r", "l", "r", "r", "r"], rows))
     add("")
+    from risk_lib.stress.ai_incident import _breached_tiers
+    if ai.base and float(ai.base.get("binding_surplus", 0.0)) < 0:
+        add(f"- 기준점이 AI 사고 전에 이미 자본 요구치(완충 포함) 미달이다 "
+            f"({_breached_tiers(ai.base)}). 3계층 판정은 전 경로 미달이므로 CET1 계층 "
+            "결과를 함께 적는다.")
     for sid in ("AI-C1", "AI-C2"):
         c = imp[imp["scenario_id"] == sid]
         if len(c):
@@ -358,11 +364,14 @@ def _sec_ai_incident(lines: list[str], result: PipelineResult) -> None:
         if rev.loc[k, "already_breached"]:
             return "기준점 이미 미달"
         return "미침범" if v is None or v != v else fmt(v)
-    add(f"- 역스트레스: 임계 세전 운영손실 BI 대비 {rv('loss_star_bi', lambda v: f'{v:.2%}')} "
-        f"(ILM 경로 제외 {rv('loss_star_bi_no_ilm', lambda v: f'{v:.2%}')}), "
-        f"임계 세후 과징금 REV 대비 {rv('fine_star_rev', lambda v: f'{v:.2%}')}, "
-        f"공통 PD 임계배수 {rv('pd_multiplier_star', lambda v: f'{v:.3f}')}, "
-        f"LCR 100% 소매예금 이탈 가산 {rv('lcr_retail_runoff_star', lambda v: f'{v:.2%}')}")
+    for sfx, tier in (("", "3계층 구속 기준"), ("_cet1", "CET1 계층 기준")):
+        add(f"- 역스트레스 ({tier}): 임계 세전 운영손실 BI 대비 "
+            f"{rv('loss_star_bi' + sfx, lambda v: f'{v:.2%}')} "
+            f"(ILM 경로 제외 {rv('loss_star_bi_no_ilm' + sfx, lambda v: f'{v:.2%}')}), "
+            f"임계 세후 과징금 REV 대비 {rv('fine_star_rev' + sfx, lambda v: f'{v:.2%}')}, "
+            f"공통 PD 임계배수 {rv('pd_multiplier_star' + sfx, lambda v: f'{v:.3f}')}")
+    add(f"- LCR 100% 를 만드는 소매예금 이탈 가산 "
+        f"{rv('lcr_retail_runoff_star', lambda v: f'{v:.2%}')}")
     add("- 운영손실 10년 평균은 헤드라인 운영 RWA 와 같은 값으로 맞춘 장부를 쓰고, "
         "일회성 손실은 분기마다 누적한다. LCR 은 자본으로 되먹임되지 않는다.")
     add("")

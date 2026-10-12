@@ -19,6 +19,8 @@ AI 사고 일곱 유형(요건 BR-049 사고분류 7종, 공급자 장애·공�
    - nonop: 세전 직접손실이지만 운영손실 자료 밖(일실수익·이용료·이전비)
    - fine: 세후 차감(손금불산입 과징금), 운영손실 자료에 들어간다
    - pd·lgd·fallback: 신용 경계사건. 운영손실 자료에 넣지 않는다
+   - pd_capital: 자본 산출 전용 PD 배수(감독 보수성). RWA 에만 들어가고 ECL 에는
+     넣지 않는다
    - runoff: LCR 전용. 자본으로 되먹임되지 않는다
    같은 사건을 기존 op_loss 축과 직접손실에 함께 넣지 않는다.
 4. 일회성 손실과 흐름 손실은 사건 이후 누적해 넘긴다. 엔진은 분기마다 기준 대비
@@ -26,8 +28,11 @@ AI 사고 일곱 유형(요건 BR-049 사고분류 7종, 공급자 장애·공�
 5. 제재 시차는 날짜로 정한다. 사고일은 첫 투영 분기 시작일 + 14일, 탐지형 사고의
    탐지일은 사고일 + 4개월이다. 과징금은 그 날짜 + 4/7/11개월(SKT·쿠팡·롯데카드
    선례)이 속한 분기에 착지하고, 시계 밖이면 버리지 않고 시계 밖 금액으로 남긴다.
+   운영·비운영 손실의 시계 밖 몫도 앞당기지 않고 같은 방식으로 남긴다.
 6. 표준방법 회귀(모형 사용 정지)는 자본을 줄이는 쪽이면 받아들이지 않는다
    (무완화 규칙). 두 번 풀어 RWA 합계가 큰 쪽을 채택하고 포기한 완화액을 남긴다.
+7. 요구치 판정은 엔진과 같이 CET1·Tier1·총자본 세 계층(완충 포함)의 구속 계층으로
+   한다. CET1 계층만의 잉여·미달과 역스트레스 임계는 따로 남긴다(접미 _cet1).
 
 운영손실 기준선. 이 모듈은 파이프라인 헤드라인 운영 RWA와 같은 10년 평균 손실
 (운영 명목 x 기관 손실률)로 고친 장부를 받는다. 기존 위기상황 경로의 장부는 명목
@@ -64,7 +69,7 @@ _IX = {s: i for i, s in enumerate(SEVERITIES)}
 INCIDENT_CLASSES = ("권한/행동위반", "모형오류", "데이터유출", "공정성/소비자피해",
                     "가용성", "공급망", "증빙손상", "복합")
 TIMING_TYPES = ("사고형", "탐지형", "결합")
-CHANNEL_KINDS = ("driver", "op", "nonop", "fine", "pd", "lgd", "runoff",
+CHANNEL_KINDS = ("driver", "op", "nonop", "fine", "pd", "pd_capital", "lgd", "runoff",
                  "fallback", "rule")
 
 IRB3 = ("corporate", "residential_mortgage", "retail_other")
@@ -80,6 +85,8 @@ PD_MULTIPLIER_CAP = 1.30            # retail_other 혹 모양 K 부호 가드
 IMPACT_TOLERANCE_DAYS = 1           # 핵심업무서비스 '모바일 이체' 영향허용치
 KR_CREDIT_INFO_HACKING_CAP = 5.0e9  # 신용정보법 해킹 유출 과징금 절대 상한 (KR 관할 가드)
 PIPA_GENERAL_CAP = 0.03             # 개인정보보호법 제64조의2 일반 상한 (전체 매출액 대비)
+PIPA_AGGRAVATED_CAP = 0.10          # 같은 조 가중 상한 (2026-09-11 시행, 고의·중과실 반복 등)
+TIER_KO = {"cet1": "CET1", "tier1": "Tier1", "total": "총자본"}
 
 _EV_SECONDARY = "2차자료"
 _EV_DISCRETION = "재량·미규정"
@@ -261,18 +268,19 @@ SCENARIO_BY_ID = {s.scenario_id: s for s in SCENARIOS}
 STANDALONE_IDS = tuple(s.scenario_id for s in SCENARIOS if s.timing_type != "결합")
 COMBINED_IDS = tuple(s.scenario_id for s in SCENARIOS if s.timing_type == "결합")
 
-_KNIGHT = ("Knight Capital 2012 알고리즘 오류: 약 30분에 세전 약 USD 440m, 자기자본 약 30%, "
-           "SEC 제재 USD 12m (Form 8-K · SEC 2013-222, 검색 요약)")
-_LAG = ("SKT 2025 사고~PIPC 처분 약 4개월, 쿠팡 약 7개월, 롯데카드 약 11개월 "
-        "(보도 검색 요약)")
+_KNIGHT = ("Knight Capital 2012 알고리즘 오류: 장 개시 후 약 45분, 손실 USD 460m 초과 "
+           "(SEC 2013-222 · 34-70694), Form 8-K 세전 약 USD 440m, 자기자본 약 30%, "
+           "SEC 제재 USD 12m (검색 요약)")
+_LAG = ("SKT 2025 사고~PIPC 약 4개월, 쿠팡 탐지~PIPC 약 7개월, 롯데카드 사고~PIPC 약 "
+        "7개월·사고~금융위원회 약 11.5개월 (보도 검색 요약)")
 
 PARAMS: tuple[AIParam, ...] = (
     # ---- AI-01
-    AIParam("AI-01", "kill_latency_minutes", "driver", "분", (2, 10, 30),
+    AIParam("AI-01", "kill_latency_minutes", "driver", "분", (2, 10, 45),
             "탐지~차단 지연. 실행손실 산식에만 쓴다", "첫 분기",
             "심각: " + _KNIGHT + ". 기준·악화는 재량", _EV_DISCRETION),
     AIParam("AI-01", "execution_loss", "op", "BI 대비 비율 (= 0.002 x 차단지연 분)",
-            (0.004, 0.02, 0.06), "전 기관, 오실행 거래·이체 손실", "첫 분기 전액",
+            (0.004, 0.02, 0.09), "전 기관, 오실행 거래·이체 손실", "첫 분기 전액",
             "분당 BI 0.2% 산식은 재량. Knight 2012 는 질적 앵커", _EV_DISCRETION),
     AIParam("AI-01", "regulatory_sanction", "fine", "execution_loss 대비 배수",
             (0.027, 0.027, 0.027), "전 기관, 감독 제재 (손금불산입)",
@@ -300,11 +308,13 @@ PARAMS: tuple[AIParam, ...] = (
     AIParam("AI-03", "pipc_fine", "fine", "REV 대비 비율", (0.001, 0.0106, 0.03),
             "전 기관, 개인정보보호법 과징금 (손금불산입)", "사고일 + 4/7/11개월",
             "악화: SKT 2025 PIPC 1,347.91억 = 별도매출 약 1.06% (쿠팡 2026 약 1.37%). 심각: "
-            "개인정보보호법 제64조의2 일반 상한 전체 매출액의 3%. 기준 0.1% 는 재량",
+            "개인정보보호법 제64조의2 일반 상한 전체 매출액의 3%. 가중요건(고의·중과실 반복, "
+            "1천만 명 이상 피해, 시정명령 불이행 후 유출) 미충족 가정이며, 가중 상한 10% "
+            "(2026-09-11 시행)는 역스트레스 F* 와 비교만 한다. 기준 0.1% 는 재량",
             _EV_SECONDARY),
     AIParam("AI-03", "fsc_fine", "fine", "pipc_fine 대비 배수", (0.52, 0.52, 0.52),
             "전 기관, 신용정보법 과징금 (PIPC 부과 시에만, KR 관할은 해킹 상한 가드)",
-            "PIPC 와 같은 분기",
+            "PIPC 와 같은 분기 (재량: 롯데카드 선례는 PIPC 의결 뒤 약 4.5개월)",
             "롯데카드: PIPC 96.2억, 금융위원회 50억(신용정보법 해킹 상한) 비율. 상한에 걸린 "
             "사례라 하한 성격", _EV_SECONDARY),
     AIParam("AI-03", "customer_redress", "op", "REV 대비 비율", (0.0005, 0.0159, 0.0393),
@@ -312,7 +322,8 @@ PARAMS: tuple[AIParam, ...] = (
             "심각: SKT 2025 보상 약 5,000억 / 별도매출 약 12.7조 = 약 3.93%. 기준·악화는 재량",
             _EV_SECONDARY),
     AIParam("AI-03", "suspension_months", "driver", "개월", (0.0, 1.5, 4.5),
-            "신규영업 일부정지 기간. 일실수익 산식에만 쓴다", "금융위원회 의결 다음 분기부터",
+            "신규영업 일부정지 기간. 일실수익 산식에만 쓴다",
+            "금융위원회 의결 다음 분기부터 (재량: 선례는 의결 다음 날 시작)",
             "롯데카드: 금융위원회 최종 1.5개월, 금융감독원 원안 4.5개월", _EV_SECONDARY),
     AIParam("AI-03", "suspension_revenue_share", "nonop",
             "정지 대상 신규취급의 연 REV 기여 비중", (0.10, 0.10, 0.10),
@@ -409,8 +420,9 @@ PARAMS: tuple[AIParam, ...] = (
             "전 기관, 기록보존·내부통제 위반 제재", "탐지일 + 4/7/11개월",
             "재량. 동양생명 금융감독원 원안 약 1,402억 대비 금융위원회 최종 70.23억(약 5%)은 "
             "제재 수준 불확실성의 참고", _EV_DISCRETION),
-    AIParam("AI-07", "supervisory_moc", "pd", "PD 배수", (1.0, 1.05, 1.10),
-            "IRB 모형산출 3개 자산군 감독 보수성 배수", "셋째~여섯째 분기",
+    AIParam("AI-07", "supervisory_moc", "pd_capital", "PD 배수", (1.0, 1.05, 1.10),
+            "IRB 모형산출 3개 자산군 감독 보수성 배수. 자본 산출(RWA·산출하한 분모) 전용이며 "
+            "IFRS 9 ECL 에는 넣지 않는다", "셋째~여섯째 분기",
             "재량. SR 11-7 · PRA SS1/23 보수성 원칙, CRE36 문서화 요건", _EV_DISCRETION),
     AIParam("AI-07", "sa_fallback_all", "fallback", "적용 플래그 (1 = 판정 수행)",
             (0, 0, 1), "3개 자산군 승인 효력 정지 판정, 무완화 규칙", "셋째~여섯째 분기",
@@ -492,12 +504,19 @@ def timeline(quarters: list[str]) -> Timeline:
 # --------------------------------------------------------------------------- 계획
 @dataclass
 class Plan:
-    """한 (시나리오, 심도)의 성분. 금액은 원화, 가중치는 {분기: 비중}."""
+    """한 (시나리오, 심도)의 성분. 금액은 원화, 가중치는 {분기: 비중}.
+
+    가중치의 분기가 시계 밖(>= n)이어도 버리거나 앞당기지 않는다. 누적(_cum)이
+    시계 안 분기만 더하므로 시계 밖 몫은 자본 경로에 들어가지 않고, 영향 요약의
+    시계 밖 금액 열(_oob)로 남는다. 과징금은 add_fine 이 같은 규칙으로 따로 모은다.
+    """
     op: list[tuple[float, dict[int, float]]] = field(default_factory=list)
     nonop: list[tuple[float, dict[int, float]]] = field(default_factory=list)
     fine: list[tuple[float, dict[int, float]]] = field(default_factory=list)
     fine_out_of_horizon: float = 0.0
     pd: list[tuple[str, float, int, int]] = field(default_factory=list)
+    # 자본 산출 전용 PD 배수 (감독 보수성). ECL 에는 들어가지 않는다.
+    pd_capital: list[tuple[str, float, int, int]] = field(default_factory=list)
     lgd: tuple[float, int, int] | None = None
     runoff: tuple[tuple[tuple[str, float], ...], int, int] | None = None
     fallback: tuple[tuple[str, ...], int, int] | None = None
@@ -586,23 +605,19 @@ def plan_ai03(s: Scale, sev: str, tl: Timeline, k: float = 1.0, *,
     p.add_fine(pipc, fq)
     p.add_fine(fsc, fq)
     redress = k * param("AI-03", "customer_redress", sev) * s.REV
-    p.op.append((redress, {t0: 0.5, min(t0 + 1, tl.n - 1): 0.5}))
+    p.op.append((redress, {t0: 0.5, t0 + 1: 0.5}))
     months = param("AI-03", "suspension_months", sev)
     susp = k * s.REV * param("AI-03", "suspension_revenue_share", sev) * months / 12.0
     if susp > 0:
-        if fq is not None:
-            first = fq + 1
-            w = ({first: 1.0} if months <= 3 else
-                 {first: 3.0 / months, first + 1: (months - 3.0) / months})
-            w = {o: v for o, v in w.items() if o < tl.n}
-            if w:
-                p.nonop.append((susp * sum(w.values()), {o: v / sum(w.values())
-                                                         for o, v in w.items()}))
-                p.revenue_lost += susp * sum(w.values())
+        # 의결이 시계 밖이면 정지도 시계 밖이다. 시계 끝 다음 분기로 두어 _oob 로 남긴다.
+        first = (fq if fq is not None else tl.n) + 1
+        w = ({first: 1.0} if months <= 3 else
+             {first: 3.0 / months, first + 1: (months - 3.0) / months})
+        p.nonop.append((susp, w))
+        p.revenue_lost += susp
     att = k * param("AI-03", "attrition_nii", sev) * s.NII
     if att > 0:
-        a, z = t0 + 1, min(t0 + 4, tl.n - 1)
-        p.nonop.append((att, _even(a, z)))
+        p.nonop.append((att, _even(t0 + 1, t0 + 4)))
         p.revenue_lost += att
     rs = tuple((c, k * param("AI-03", c, sev)) for c in RETAIL_RUNOFF
                if param("AI-03", c, sev))
@@ -617,7 +632,7 @@ def plan_ai04(s: Scale, sev: str, tl: Timeline, k: float = 1.0, *,
     det = tl.q(tl.detection_date) or 0
     redress = k * (param("AI-04", "interest_redress", sev) * s.NP_EAD
                    + param("AI-04", "chatbot_fee_refund", sev) * s.FEE)
-    rq = min(det + 1, tl.n - 1)
+    rq = det + 1
     p.op.append((redress, {rq: 1.0}))
     fine = param("AI-04", "conduct_sanction", sev) * redress
     if (jurisdiction == "EU" and tl.detection_date >= EU_AI_ACT_HIGH_RISK_DATE):
@@ -627,7 +642,7 @@ def plan_ai04(s: Scale, sev: str, tl: Timeline, k: float = 1.0, *,
     halt = k * s.REV * s.NP_SHARE * months / 12.0
     if halt > 0:
         w = ({det: 1.0} if months <= 3 else
-             {det: 3.0 / months, min(det + 1, tl.n - 1): (months - 3.0) / months})
+             {det: 3.0 / months, det + 1: (months - 3.0) / months})
         p.nonop.append((halt, w))
         p.revenue_lost += halt
     if param("AI-04", "sa_fallback_natural_person", sev):
@@ -658,7 +673,7 @@ def plan_ai06(s: Scale, sev: str, tl: Timeline, k: float = 1.0, **_) -> Plan:
     p = Plan()
     fraud = k * param("AI-06", "shared_model_fraud", sev) * s.REV
     win = int(param("AI-06", "exposure_quarters", sev))
-    p.op.append((fraud, _even(0, min(win - 1, tl.n - 1))))
+    p.op.append((fraud, _even(0, win - 1)))
     nf = k * param("AI-06", "no_fault_liability", sev) * s.REV
     if nf:
         p.op += _flow(3, tl.n, nf)
@@ -672,13 +687,13 @@ def plan_ai07(s: Scale, sev: str, tl: Timeline, k: float = 1.0, **_) -> Plan:
     p = Plan()
     det = tl.q(tl.detection_date) or 0
     rem = k * param("AI-07", "lookback_reperformance", sev) * s.REV
-    p.op.append((rem, {det: 0.5, min(det + 1, tl.n - 1): 0.5}))
+    p.op.append((rem, {det: 0.5, det + 1: 0.5}))
     p.add_fine(k * param("AI-07", "recordkeeping_sanction", sev) * s.REV,
                tl.sanction_q(sev, detected=True))
     m = _scaled_pd(param("AI-07", "supervisory_moc", sev), k)
     a, z = det + 1, min(det + 4, tl.n - 1)
     if m > 1.0:
-        p.pd = [(cl, m, a, z) for cl in IRB3]
+        p.pd_capital = [(cl, m, a, z) for cl in IRB3]
     if param("AI-07", "sa_fallback_all", sev):
         p.fallback = (IRB3, a, z)
     return p
@@ -697,6 +712,7 @@ def merge(*plans: Plan) -> Plan:
         out.fine += p.fine
         out.fine_out_of_horizon += p.fine_out_of_horizon
         out.pd += p.pd
+        out.pd_capital += p.pd_capital
         out.revenue_lost += p.revenue_lost
         out.flags += p.flags
         for attr in ("lgd", "runoff", "fallback"):
@@ -711,12 +727,21 @@ def _cum(parts: list[tuple[float, dict[int, float]]], q: int) -> float:
     return sum(a * sum(w for o, w in ws.items() if o <= q) for a, ws in parts)
 
 
+def _oob(parts: list[tuple[float, dict[int, float]]], n: int) -> float:
+    """시계 밖(분기 >= n) 몫의 합."""
+    return sum(a * sum(w for o, w in ws.items() if o >= n) for a, ws in parts)
+
+
 def overlay_at(plan: Plan, q: int) -> tuple[StressOverlay, tuple[str, ...], dict]:
     op, nonop, fine = _cum(plan.op, q), _cum(plan.nonop, q), _cum(plan.fine, q)
     pdm: dict[str, float] = {}
     for cl, m, a, z in plan.pd:
         if a <= q <= z:
             pdm[cl] = pdm.get(cl, 1.0) * m
+    pdc: dict[str, float] = {}
+    for cl, m, a, z in plan.pd_capital:
+        if a <= q <= z:
+            pdc[cl] = pdc.get(cl, 1.0) * m
     ax = ()
     if plan.lgd and plan.lgd[1] <= q <= plan.lgd[2] and plan.lgd[0] > 0:
         ax = (("lgd_addon", float(plan.lgd[0])),)
@@ -728,9 +753,11 @@ def overlay_at(plan: Plan, q: int) -> tuple[StressOverlay, tuple[str, ...], dict
         fb = tuple(plan.fallback[0])
     ov = StressOverlay(axis_addons=ax, direct_loss=op + nonop, post_tax_charge=fine,
                        op_loss_10y_addon=(op + fine) / 10.0,
-                       pd_multiplier=tuple(sorted(pdm.items())), runoff_addon=ro)
+                       pd_multiplier=tuple(sorted(pdm.items())),
+                       pd_multiplier_capital=tuple(sorted(pdc.items())), runoff_addon=ro)
+    both = {cl: pdm.get(cl, 1.0) * pdc.get(cl, 1.0) for cl in set(pdm) | set(pdc)}
     parts = {"op": op, "nonop": nonop, "fine": fine,
-             "pd": max(pdm.values()) if pdm else 1.0,
+             "pd": max(both.values()) if both else 1.0,
              "lgd": ax[0][1] if ax else 0.0,
              "runoff": max((v for _, v in ro), default=0.0)}
     return ov, fb, parts
@@ -773,7 +800,25 @@ def _eval(ctx: _Ctx, plan: Plan, q: int, path: str | None) -> tuple[dict, float 
 
 
 def _surplus(v: dict) -> float:
+    """구속 계층 잉여 (원화). CET1·Tier1·총자본 요구치(완충 포함) 가운데 가장 빠듯한
+    계층의 잉여다. 엔진 판정(passes)과 같은 기준이다."""
+    return float(v["binding_surplus"] * v["rwa_total"])
+
+
+def _cet1_surplus(v: dict) -> float:
+    """CET1 계층만의 잉여 (원화)."""
     return float(v["cet1"] - v["cet1_required"] * v["rwa_total"])
+
+
+def _binding_tier(v: dict) -> str:
+    return ("cet1", "tier1", "total")[int(v["binding_index"])]
+
+
+def _breached_tiers(v: dict) -> str:
+    """요구치 미달 계층을 '계층 비율 < 요구' 로 적는다. 없으면 빈 문자열."""
+    out = [f"{TIER_KO[k]} {v[f'{k}_ratio']:.2%} < {v[f'{k}_required']:.2%}"
+           for k in ("cet1", "tier1", "total") if v[f"{k}_surplus"] < 0]
+    return ", ".join(out)
 
 
 def _path_rows(ctx: _Ctx, tl: Timeline, sid: str, sev_key: str, plan: Plan,
@@ -805,7 +850,9 @@ def _path_rows(ctx: _Ctx, tl: Timeline, sid: str, sev_key: str, plan: Plan,
             "ecl": float(v["ecl"]), "delta_ecl": float(v["ecl"] - vm["ecl"]),
             "lcr": float(v["lcr"]), "lcr_macro": float(vm["lcr"]),
             "pre_tax_income": float(v["pre_tax_income"]),
-            "cet1_surplus": _surplus(v),
+            "cet1_surplus": _cet1_surplus(v),
+            "capital_surplus": _surplus(v),
+            "binding_tier": _binding_tier(v),
             "passes": bool(_surplus(v) >= 0.0),
             "interaction_bp": None,
         })
@@ -851,7 +898,9 @@ def _impact_row(rows: list[dict], plan: Plan, scale: Scale) -> dict:
         "delta_cet1_bp": float(df["delta_cet1_bp"].min()),
         "delta_cet1_bp_at_trough": float(t["delta_cet1_bp"]),
         "cet1_surplus_trough": float(df["cet1_surplus"].min()),
-        "breach": bool((df["cet1_surplus"] < 0).any()),
+        "capital_surplus_trough": float(df["capital_surplus"].min()),
+        "breach": bool((df["capital_surplus"] < 0).any()),
+        "cet1_breach": bool((df["cet1_surplus"] < 0).any()),
         "cet1_ratio_end": float(last["cet1_ratio"]),
         "delta_cet1_bp_end": float(last["delta_cet1_bp"]),
         "lcr_min": float(df.loc[j, "lcr"]), "lcr_min_quarter": df.loc[j, "quarter"],
@@ -859,6 +908,8 @@ def _impact_row(rows: list[dict], plan: Plan, scale: Scale) -> dict:
         "loss_nonop_total": float(last["loss_nonop_cum"]),
         "fine_total": float(last["fine_cum"]),
         "fine_out_of_horizon": float(plan.fine_out_of_horizon),
+        "loss_op_out_of_horizon": float(_oob(plan.op, len(df))),
+        "loss_nonop_out_of_horizon": float(_oob(plan.nonop, len(df))),
         "delta_rwa_op_max": float(df["delta_rwa_op"].max()),
         "delta_ecl_max": float(df["delta_ecl"].max()),
         "relief_forgone_max": (float(df["relief_forgone"].dropna().max())
@@ -882,36 +933,40 @@ def _bisect(f, lo: float, hi: float, n: int = 32) -> float:
     return hi
 
 
-def _reverse_rows(ctx: _Ctx, tl: Timeline, scale: Scale, plans_sev: dict,
-                  impact: pd.DataFrame, jurisdiction: str) -> list[dict]:
+def _reverse_capital(ctx: _Ctx, tl: Timeline, scale: Scale, impact: pd.DataFrame,
+                     jurisdiction: str, surplus_fn, suffix: str,
+                     tier_ko: str) -> list[dict]:
+    """자본 임계 지표. surplus_fn 이 판정 계층을 정한다 (구속 3계층 또는 CET1)."""
     rows = []
     base = ctx.base
-    surplus0 = _surplus(base)
+    surplus0 = surplus_fn(base)
     breached = surplus0 < 0
+    # 미달 계층의 비율은 보고서·2선 상세에 적는다. 비고는 고정 문구로 두어 영문 빌드가 옮긴다.
+    why = f"기준점이 이미 {tier_ko} 요구치 미달"
 
     def surplus_of(ov: StressOverlay) -> float:
-        return _surplus(evaluate_point(ctx.books, 0.0, buffers=ctx.buffers,
-                                       base=base, overlay=ov).values)
+        return surplus_fn(evaluate_point(ctx.books, 0.0, buffers=ctx.buffers,
+                                         base=base, overlay=ov).values)
 
     def row(mid, ko, value, unit, note, *, resilient=False):
-        rows.append({"metric_id": mid, "metric": ko, "value": value, "unit": unit,
-                     "already_breached": bool(breached), "resilient": bool(resilient),
-                     "note": note})
+        rows.append({"metric_id": mid + suffix, "metric": f"{ko} [{tier_ko}]",
+                     "value": value, "unit": unit, "already_breached": bool(breached),
+                     "resilient": bool(resilient), "note": note})
 
     # 1. ILM 산입 세전손실 L*
+    ko = "임계 세전 운영손실 / BI (ILM 경로 포함)"
     if breached:
-        row("loss_star_bi", "임계 세전 운영손실 / BI (ILM 반영)", 0.0, "ratio",
-            "기준점이 이미 CET1 요구치 미달")
+        row("loss_star_bi", ko, 0.0, "ratio", why)
     else:
         hi = 10.0 * scale.BI
         f = lambda L: surplus_of(StressOverlay(direct_loss=L, op_loss_10y_addon=L / 10))
         if f(hi) > 0:
-            row("loss_star_bi", "임계 세전 운영손실 / BI (ILM 반영)", None, "ratio",
+            row("loss_star_bi", ko, None, "ratio",
                 "BI 10배 손실로도 요구치를 침범하지 않음", resilient=True)
         else:
             L = _bisect(f, 0.0, hi)
-            row("loss_star_bi", "임계 세전 운영손실 / BI (ILM 반영)", L / scale.BI,
-                "ratio", f"세전 {L:,.0f} KRW. 세금차폐는 연간 세전이익 한도")
+            row("loss_star_bi", ko, L / scale.BI, "ratio",
+                f"세전 {L:,.0f} KRW. 세금차폐는 연간 세전이익 한도")
     # 1b. ILM 경로 없는 손익만 (닫힌꼴)
     P = max(float(base["pre_tax_income"]), 0.0)
     if breached:
@@ -921,56 +976,46 @@ def _reverse_rows(ctx: _Ctx, tl: Timeline, scale: Scale, plans_sev: dict,
                   else surplus0 + TAX_RATE * P)
     row("loss_star_bi_no_ilm", "임계 세전손실 / BI (ILM 경로 제외, 닫힌꼴)",
         lstar0 / scale.BI if scale.BI else None, "ratio",
+        why if breached else
         "운영 RWA 가 손실에 반응하지 않는 경우(ILM = 1 재량)의 손익 경로만")
     # 2. 세후 과징금 F*
+    ko = "임계 세후 과징금 / REV"
     if breached:
-        row("fine_star_rev", "임계 세후 과징금 / REV", 0.0, "ratio",
-            "기준점이 이미 CET1 요구치 미달")
+        row("fine_star_rev", ko, 0.0, "ratio", why)
     else:
         hi = 10.0 * scale.REV
         f = lambda F: surplus_of(StressOverlay(post_tax_charge=F,
                                                op_loss_10y_addon=F / 10))
         if f(hi) > 0:
-            row("fine_star_rev", "임계 세후 과징금 / REV", None, "ratio",
-                "REV 10배로도 미침범", resilient=True)
+            row("fine_star_rev", ko, None, "ratio", "REV 10배로도 미침범", resilient=True)
         else:
             F = _bisect(f, 0.0, hi)
-            row("fine_star_rev", "임계 세후 과징금 / REV", F / scale.REV, "ratio",
-                f"세후 {F:,.0f} KRW = BI 대비 {F / scale.BI:.4f}. 개인정보보호법 일반 "
-                f"상한은 전체 매출액의 {PIPA_GENERAL_CAP:.2f}")
+            x = F / scale.REV
+            if x <= PIPA_GENERAL_CAP:
+                cmp = "개인정보위 과징금 일반 상한 안에서 침범 가능"
+            elif x <= PIPA_AGGRAVATED_CAP:
+                cmp = ("일반 상한 초과, 가중 상한 이내: 가중요건 충족 시 개인정보위 "
+                       "과징금 단독으로 침범 가능")
+            else:
+                cmp = "가중 상한 초과: 개인정보위 과징금 단독으로는 침범하지 않음"
+            row("fine_star_rev", ko, x, "ratio",
+                f"세후 {F:,.0f} KRW (BI 대비 {F / scale.BI:.4f}). 개인정보보호법 "
+                f"제64조의2 일반 상한 {PIPA_GENERAL_CAP:.2f}, 가중 상한 "
+                f"{PIPA_AGGRAVATED_CAP:.2f} (전체 매출액 대비). {cmp}")
     # 3. 공통 PD 임계배수 m*
+    ko = "모형오류 공통 PD 임계배수"
     if breached:
-        row("pd_multiplier_star", "모형오류 공통 PD 임계배수", 1.0, "multiple",
-            "기준점이 이미 CET1 요구치 미달")
+        row("pd_multiplier_star", ko, 1.0, "multiple", why)
     else:
         f = lambda m: surplus_of(StressOverlay(
             pd_multiplier=tuple((c, m) for c in IRB3)))
         if f(20.0) > 0:
-            row("pd_multiplier_star", "모형오류 공통 PD 임계배수", None, "multiple",
-                "PD 20배로도 미침범", resilient=True)
+            row("pd_multiplier_star", ko, None, "multiple", "PD 20배로도 미침범",
+                resilient=True)
         else:
-            row("pd_multiplier_star", "모형오류 공통 PD 임계배수",
-                _bisect(f, 1.0, 20.0), "multiple",
+            row("pd_multiplier_star", ko, _bisect(f, 1.0, 20.0), "multiple",
                 "IRB 3개 자산군 공통. retail_other 는 PD 상향이 RWA 를 낮출 수 있다")
-    # 4. LCR 소매예금 이탈 임계
-    lcr0 = float(base["lcr"])
-    if lcr0 < 1.0:
-        row("lcr_retail_runoff_star", "LCR 100% 를 만드는 소매예금 이탈률 가산",
-            0.0, "ratio", "기준 LCR 이 이미 100% 미달")
-    else:
-        g = lambda x: evaluate_point(
-            ctx.books, 0.0, buffers=ctx.buffers, base=base,
-            overlay=StressOverlay(runoff_addon=tuple((c, x) for c in RETAIL_RUNOFF))
-        ).values["lcr"] - 1.0
-        if g(1.0) > 0:
-            row("lcr_retail_runoff_star", "LCR 100% 를 만드는 소매예금 이탈률 가산",
-                None, "ratio", "전액 이탈로도 100% 유지", resilient=True)
-        else:
-            row("lcr_retail_runoff_star", "LCR 100% 를 만드는 소매예금 이탈률 가산",
-                _bisect(g, 0.0, 1.0), "ratio",
-                "안정·불안정 소매예금에 같은 가산. 가설 AI 증폭 예금이탈은 이 임계와 "
-                "비교만 한다")
-    # 5. 시나리오 배율 k* (저점 분기 기준)
+    # 4. 시나리오 배율 k* (CET1 저점 분기 기준)
     for sid in STANDALONE_IDS:
         imp = impact[(impact["scenario_id"] == sid)
                      & (impact["severity_key"] == "severely_adverse")]
@@ -979,11 +1024,11 @@ def _reverse_rows(ctx: _Ctx, tl: Timeline, scale: Scale, plans_sev: dict,
         def sur_k(kk, sid=sid, q=q):
             pl = PLANS[sid](scale, "severely_adverse", tl, kk, jurisdiction=jurisdiction)
             v, _, _ = _eval(ctx, pl, q, None)
-            return _surplus(v)
+            return surplus_fn(v)
         mid = f"scenario_k:{sid}"
-        ko = f"{sid} 심각 벡터 임계 배율 (저점 분기 기준)"
+        ko = f"{sid} 심각 벡터 임계 배율 (CET1 저점 분기 기준)"
         if breached:
-            row(mid, ko, 0.0, "multiple", "기준점이 이미 CET1 요구치 미달")
+            row(mid, ko, 0.0, "multiple", why)
         elif sur_k(1.0) <= 0:
             row(mid, ko, _bisect(sur_k, 0.0, 1.0, 20), "multiple",
                 f"저점 {tl.quarters[q]}. 금액 x k, PD 배수 1 + k(m - 1)")
@@ -992,6 +1037,39 @@ def _reverse_rows(ctx: _Ctx, tl: Timeline, scale: Scale, plans_sev: dict,
         else:
             row(mid, ko, _bisect(sur_k, 1.0, 8.0, 22), "multiple",
                 f"저점 {tl.quarters[q]}. 금액 x k, PD 배수 1 + k(m - 1)")
+    return rows
+
+
+def _reverse_rows(ctx: _Ctx, tl: Timeline, scale: Scale, impact: pd.DataFrame,
+                  jurisdiction: str) -> list[dict]:
+    """역스트레스. 자본 지표는 구속 3계층(주 지표)과 CET1 계층(접미 _cet1) 두 벌,
+    LCR 지표는 자체 기준(LCR 100%)으로 미달을 판정한다."""
+    rows = _reverse_capital(ctx, tl, scale, impact, jurisdiction, _surplus, "",
+                            "3계층")
+    rows += _reverse_capital(ctx, tl, scale, impact, jurisdiction, _cet1_surplus,
+                             "_cet1", "CET1")
+    base = ctx.base
+    lcr0 = float(base["lcr"])
+    ko = "LCR 100% 를 만드는 소매예금 이탈률 가산"
+
+    def row(value, note, *, resilient=False):
+        rows.append({"metric_id": "lcr_retail_runoff_star", "metric": ko,
+                     "value": value, "unit": "ratio",
+                     "already_breached": bool(lcr0 < 1.0),
+                     "resilient": bool(resilient), "note": note})
+    if lcr0 < 1.0:
+        row(0.0, "기준 LCR 이 이미 100% 미달")
+    else:
+        g = lambda x: evaluate_point(
+            ctx.books, 0.0, buffers=ctx.buffers, base=base,
+            overlay=StressOverlay(runoff_addon=tuple((c, x) for c in RETAIL_RUNOFF))
+        ).values["lcr"] - 1.0
+        if g(1.0) > 0:
+            row(None, "전액 이탈로도 100% 유지", resilient=True)
+        else:
+            row(_bisect(g, 0.0, 1.0),
+                "안정·불안정 소매예금에 같은 가산. 가설 AI 증폭 예금이탈은 이 임계와 "
+                "비교만 한다")
     return rows
 
 
@@ -1014,11 +1092,9 @@ def run_ai_incident_stress(books: StressBooks, *, quarters: list[str],
     path_rows: list[dict] = []
     impact_rows: list[dict] = []
     flags: dict[str, list[str]] = {}
-    plans_sev: dict[tuple[str, str], Plan] = {}
     for sid in STANDALONE_IDS:
         for sev in SEVERITIES:
             plan = PLANS[sid](scale, sev, tl, jurisdiction=jurisdiction)
-            plans_sev[(sid, sev)] = plan
             rows = _path_rows(ctx, tl, sid, sev, plan, None)
             path_rows += rows
             impact_rows.append(_impact_row(rows, plan, scale))
@@ -1045,8 +1121,7 @@ def run_ai_incident_stress(books: StressBooks, *, quarters: list[str],
 
     path = pd.DataFrame(path_rows)
     impact = pd.DataFrame(impact_rows)
-    reverse = pd.DataFrame(_reverse_rows(ctx, tl, scale, plans_sev, impact,
-                                         jurisdiction))
+    reverse = pd.DataFrame(_reverse_rows(ctx, tl, scale, impact, jurisdiction))
     return AIIncidentResult(
         scenario=scenario_frame(), param=param_frame(), path=path, impact=impact,
         reverse=reverse, base=dict(base), published=dict(published or {}),
@@ -1139,7 +1214,7 @@ AI_PATH = TableSpec(
         C("op_loss_10y_addon", "float", "10년 평균손실 가산", nullable=False,
           unit="KRW", min_value=0.0),
         C("pd_multiplier", "float", "적용 PD 배수", nullable=False, unit="multiple",
-          min_value=1.0),
+          min_value=1.0, note="자본 전용 배수(감독 보수성) 포함. 자산군 가운데 최대"),
         C("lgd_addon", "float", "적용 LGD 가산", nullable=False, unit="ratio",
           min_value=0.0, max_value=1.0),
         C("runoff_addon_max", "float", "LCR 이탈률 가산 최대", nullable=False,
@@ -1166,8 +1241,13 @@ AI_PATH = TableSpec(
           min_value=0.0),
         C("pre_tax_income", "float", "세전이익 (연환산)", nullable=False, unit="KRW"),
         C("cet1_surplus", "float", "CET1 요구치 대비 잉여", nullable=False, unit="KRW",
-          note="음수면 요구치(완충 포함) 미달"),
-        C("passes", "bool", "CET1 요구치 충족", nullable=False),
+          note="CET1 계층만. 음수면 CET1 요구치(완충 포함) 미달"),
+        C("capital_surplus", "float", "구속 계층 요구치 대비 잉여", nullable=False,
+          unit="KRW", note="CET1·Tier1·총자본 요구치(완충 포함) 가운데 가장 빠듯한 계층"),
+        C("binding_tier", "string", "구속 계층", nullable=False,
+          allowed=("cet1", "tier1", "total")),
+        C("passes", "bool", "자본 3계층 요구치 충족", nullable=False,
+          note="capital_surplus >= 0. 엔진 판정(passes)과 같은 기준"),
         C("interaction_bp", "float", "결합 상호작용 잔차", nullable=True, unit="bp",
           note="AI-C1 만. 결합 증분 - 구성요소 증분의 합"),
     ),
@@ -1187,12 +1267,17 @@ AI_IMPACT = TableSpec(
         C("cet1_ratio_reference", "float", "저점 분기 비교 기준 CET1비율",
           nullable=False, unit="ratio"),
         C("cet1_ratio_trough", "float", "CET1비율 저점", nullable=False, unit="ratio"),
-        C("delta_cet1_bp", "float", "최대 CET1비율 하락", nullable=False, unit="bp"),
+        C("delta_cet1_bp", "float", "최저 CET1비율 변화", nullable=False, unit="bp",
+          note="분기 가운데 가장 작은 값. 하락은 음수"),
         C("delta_cet1_bp_at_trough", "float", "저점 분기 CET1비율 변화",
           nullable=False, unit="bp"),
         C("cet1_surplus_trough", "float", "CET1 요구치 대비 최소 잉여", nullable=False,
           unit="KRW"),
-        C("breach", "bool", "CET1 요구치 미달 발생", nullable=False),
+        C("capital_surplus_trough", "float", "구속 계층 요구치 대비 최소 잉여",
+          nullable=False, unit="KRW"),
+        C("breach", "bool", "자본 3계층 요구치 미달 발생", nullable=False,
+          note="CET1·Tier1·총자본 가운데 하나라도 미달인 분기가 있음"),
+        C("cet1_breach", "bool", "CET1 요구치 미달 발생", nullable=False),
         C("cet1_ratio_end", "float", "시계 끝 CET1비율", nullable=False, unit="ratio"),
         C("delta_cet1_bp_end", "float", "시계 끝 CET1비율 변화", nullable=False,
           unit="bp"),
@@ -1206,6 +1291,10 @@ AI_IMPACT = TableSpec(
           unit="KRW", min_value=0.0),
         C("fine_out_of_horizon", "float", "시계 밖 과징금", nullable=False, unit="KRW",
           min_value=0.0),
+        C("loss_op_out_of_horizon", "float", "시계 밖 운영손실", nullable=False,
+          unit="KRW", min_value=0.0),
+        C("loss_nonop_out_of_horizon", "float", "시계 밖 비운영 손실", nullable=False,
+          unit="KRW", min_value=0.0, note="시계 밖 영업정지 일실수익·고객 이탈 몫"),
         C("delta_rwa_op_max", "float", "운영 RWA 최대 증분", nullable=False, unit="KRW"),
         C("delta_ecl_max", "float", "ECL 최대 증분", nullable=False, unit="KRW"),
         C("relief_forgone_max", "float", "포기한 RWA 감소 최대", nullable=True,
@@ -1213,7 +1302,7 @@ AI_IMPACT = TableSpec(
         C("cum_loss_to_bi", "float", "누적 손실·과징금 / BI", nullable=False,
           unit="ratio", min_value=0.0),
         C("revenue_lost_to_rev", "float", "일실수익 / REV", nullable=False,
-          unit="ratio", min_value=0.0),
+          unit="ratio", min_value=0.0, note="시계 밖 몫 포함"),
         C("impact_tolerance_breach_days", "float", "영향허용치 초과일수", nullable=True,
           unit="days", min_value=0.0, note="가용성 사고(AI-05)만"),
     ),
@@ -1230,7 +1319,8 @@ AI_REVERSE = TableSpec(
         C("value", "float", "임계값", nullable=True, unit="param",
           note="단위는 unit 칸. 미침범이면 NULL"),
         C("unit", "string", "단위", nullable=False),
-        C("already_breached", "bool", "기준점 이미 미달", nullable=False),
+        C("already_breached", "bool", "기준점 이미 미달", nullable=False,
+          note="자본 지표는 metric 끝의 [계층] 기준, LCR 지표는 LCR 100% 기준"),
         C("resilient", "bool", "탐색 범위 안 미침범", nullable=False),
         C("note", "text", "해석", nullable=False),
     ),

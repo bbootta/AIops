@@ -466,6 +466,25 @@ def test_every_lineage_entry_names_real_checks_and_a_real_table(ext, studio):
     assert bad_tables == [] and bad_checks == [] and bad_screens == []
 
 
+def test_ai_lineage_opens_the_row_the_headline_came_from(ext, studio):
+    """계보 서랍은 pk 를 만족하는 첫 행을 연다. AI 헤드라인은 어느 시나리오 행에서
+    오는지가 산출마다 바뀌므로, 그 첫 행의 값이 3선 대상 보고값과 같아야 한다."""
+    rows = {r["target"]: r for r in ext["x_screen_gate"]["targets"]["ai-stress"]}
+    checked = 0
+    for fid, f in ext["x_lineage"]["figures"].items():
+        if f["screen"] != "ai-stress":
+            continue
+        df = studio.tables[f["table"]]
+        hit = df
+        for k in f["pk"]:
+            hit = hit[hit[k["column"]].astype(str) == str(k["value"])]
+        assert len(hit), fid
+        assert hit.iloc[0][f["column"]] == pytest.approx(
+            rows[f["recalc_target"]]["reported"]), fid
+        checked += 1
+    assert checked == 5
+
+
 def test_the_report_screen_reads_only_catalogued_fact_keys():
     """A11: exec-report may read no executive.facts key outside facts_map."""
     src = _static_text(SCREEN_DIR / "reports.js")

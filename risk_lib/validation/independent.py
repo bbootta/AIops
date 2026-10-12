@@ -103,7 +103,7 @@ RECALC_SCOPE: tuple[tuple[str, str, str], ...] = (
     # AI 사고 시나리오 스트레스 (risk_lib.stress.ai_incident). 크기 대부분이 재량
     # 내부 관리값이라 3선이 같은 모수로 다시 계산하고 모수 자체에 도전해야 한다.
     ("ai_stress_worst_delta_cet1_bp",
-     "AI 사고 단독 심각 최대 CET1비율 하락 (bp)",
+     "AI 사고 단독 심각 최저 CET1비율 변화 (bp, 하락은 음수)",
      "SRP20 · 요건 BR-049 · BR-055. 모수는 st_ai_param (재량 내부 관리값 포함)"),
     ("ai_stress_trough_cet1",
      "AI 사고 단독 심각 최악 시나리오의 CET1비율 저점",
@@ -113,8 +113,10 @@ RECALC_SCOPE: tuple[tuple[str, str, str], ...] = (
      "SRP20. 거시 성분은 같은 장부의 거시 단독 경로이며 상호작용 잔차는 "
      "st_ai_path.interaction_bp"),
     ("ai_reverse_critical_loss_bi",
-     "AI 역스트레스 임계 세전 운영손실 / BI (ILM 반영)",
-     "OPE25 ILM · SRP20. ILM 경로를 뺀 값은 st_ai_reverse loss_star_bi_no_ilm"),
+     "AI 역스트레스 임계 세전 운영손실 / BI (ILM 경로 포함, 자본 3계층 구속 기준, "
+     "기준점이 이미 미달이면 0)",
+     "OPE25 ILM · SRP20. ILM 경로를 뺀 값은 st_ai_reverse loss_star_bi_no_ilm, "
+     "CET1 계층만의 값은 loss_star_bi_cet1"),
     ("ai_stress_lcr_min",
      "AI 사고 단독 심각 LCR 최저",
      "LCR20.1 · LCR40. LCR 은 자본으로 되먹임되지 않는다"),

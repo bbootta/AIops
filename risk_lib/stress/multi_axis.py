@@ -119,7 +119,11 @@ class StressOverlay:
     - `direct_loss`: 세전 직접손실 (운영손실·배상·사기·영업중단 수익손실)
     - `post_tax_charge`: 세후 차감 (손금불산입 과징금·벌금)
     - `op_loss_10y_addon`: 10년 평균 운영손실 가산 (OPE25 손실요소, 손실 L 이면 L/10)
-    - `pd_multiplier`: 자산군 → PD 배수 (해당 자산군 IRB 익스포저에만)
+    - `pd_multiplier`: 자산군 → PD 배수 (해당 자산군 IRB 익스포저에만). 신용 위험 자체가
+      바뀐 경우라 RWA·산출하한 분모·ECL 에 모두 들어간다
+    - `pd_multiplier_capital`: 자산군 → 자본 산출 전용 PD 배수 (감독 보수성 MoC 처럼
+      위험은 그대로이고 자본 추정만 보수적으로 잡는 경우). RWA·산출하한 분모에만
+      들어가고 ECL(편의 없는 추정)에는 넣지 않는다
     - `sa_fallback`: 표준방법으로 되돌리는 IRB 자산군 (모형 사용 중지)
     - `runoff_addon`: LCR 유출 범주 → 이탈률 가산
     """
@@ -128,17 +132,18 @@ class StressOverlay:
     post_tax_charge: float = 0.0
     op_loss_10y_addon: float = 0.0
     pd_multiplier: tuple[tuple[str, float], ...] = ()
+    pd_multiplier_capital: tuple[tuple[str, float], ...] = ()
     sa_fallback: tuple[str, ...] = ()
     runoff_addon: tuple[tuple[str, float], ...] = ()
 
 
 def _overlay_pd(asset_class: np.ndarray, pd_vals: np.ndarray,
-                overlay: "StressOverlay | None") -> np.ndarray:
-    """자산군별 PD 배수를 적용한다. 덧씌우기가 없으면 입력을 그대로 돌려준다."""
-    if overlay is None or not overlay.pd_multiplier:
+                mults: tuple[tuple[str, float], ...]) -> np.ndarray:
+    """자산군별 PD 배수를 적용한다. 배수가 없으면 입력을 그대로 돌려준다."""
+    if not mults:
         return pd_vals
     out = pd_vals.copy()
-    for cls, mult in overlay.pd_multiplier:
+    for cls, mult in mults:
         m = asset_class == cls
         if m.any():
             out[m] = np.clip(out[m] * float(mult), 0.0, 1.0)
@@ -187,9 +192,10 @@ def _stressed_full(books: StressBooks, sh: dict[str, float],
     m = f["asset_class"].isin(irb_classes).to_numpy()
     if m.any() and "pd" in f.columns:
         pd_str = sc.stress_pd(f.loc[m, "pd"].to_numpy(dtype=float))
-        if overlay is not None and overlay.pd_multiplier:
-            pd_str = _overlay_pd(f.loc[m, "asset_class"].to_numpy(), pd_str,
-                                 overlay)
+        if overlay is not None:
+            cls = f.loc[m, "asset_class"].to_numpy()
+            pd_str = _overlay_pd(cls, pd_str, overlay.pd_multiplier)
+            pd_str = _overlay_pd(cls, pd_str, overlay.pd_multiplier_capital)
         f.loc[m, "pd"] = pd_str
         if "grade" in f.columns:
             f.loc[m, "grade"] = [pd_to_rating(float(x)).grade for x in pd_str]
@@ -240,7 +246,8 @@ def evaluate_point(books: StressBooks, severity: float, *,
 
     pd_str = sc.stress_pd(irb["pd"].to_numpy(dtype=float))
     if overlay is not None and overlay.pd_multiplier:
-        pd_str = _overlay_pd(irb["asset_class"].to_numpy(), pd_str, overlay)
+        pd_str = _overlay_pd(irb["asset_class"].to_numpy(), pd_str,
+                             overlay.pd_multiplier)
     lgd_after_addon = sc.stress_lgd(irb["lgd"].to_numpy(dtype=float))
     # 담보가치 h만큼 하락 → 회수분(1−LGD)의 h만큼이 손실로 넘어온다.
     lgd_str = np.clip(lgd_after_addon + sh["collateral"] * (1 - lgd_after_addon),
@@ -256,11 +263,20 @@ def evaluate_point(books: StressBooks, severity: float, *,
     v["ead_uplift"] = ead_uplift
 
     # ---------------------------------------------------------- 신용 RWA
+    # 자본 전용 PD 배수는 RWA 쪽 장부에만 얹는다. ECL 은 아래에서 irb 로 잰다.
+    irb_cap = irb
+    if overlay is not None and overlay.pd_multiplier_capital:
+        irb_cap = irb.copy()
+        irb_cap["pd"] = _overlay_pd(irb["asset_class"].to_numpy(), pd_str,
+                                    overlay.pd_multiplier_capital)
     if overlay is not None and overlay.sa_fallback:
-        fb = irb["asset_class"].isin(overlay.sa_fallback).to_numpy()
-        irb_rwa_rows = compute_rwa_irb(irb)["rwa"].to_numpy(dtype=float)
+        fb = irb_cap["asset_class"].isin(overlay.sa_fallback).to_numpy()
+        irb_rwa_rows = compute_rwa_irb(irb_cap)["rwa"].to_numpy(dtype=float)
         v["rwa_irb"] = float(irb_rwa_rows[~fb].sum())
-        fb_rows = irb.loc[fb].copy()
+        fb_rows = irb_cap.loc[fb].copy()
+        if "ltv" in fb_rows.columns:
+            # 산출하한 분모(_stressed_full)·표준방법 장부와 같은 담보 하락 LTV 충격
+            fb_rows["ltv"] = fb_rows["ltv"] / max(1e-9, 1.0 - sh["collateral"])
         if len(fb_rows) and "grade" in fb_rows.columns:
             from risk_lib.models.rating import pd_to_rating
             fb_rows["grade"] = [pd_to_rating(float(x)).grade
@@ -269,7 +285,7 @@ def evaluate_point(books: StressBooks, severity: float, *,
             fb_rows, books.sa_bucket_by_grade)) if len(fb_rows) else 0.0)
         v["rwa_irb_fallback_removed"] = float(irb_rwa_rows[fb].sum())
     else:
-        v["rwa_irb"] = float(compute_rwa_irb(irb)["rwa"].sum())
+        v["rwa_irb"] = float(compute_rwa_irb(irb_cap)["rwa"].sum())
     v["ecl"] = float(compute_ecl(irb, eir=eir)["ecl"].sum())
 
     sa = books.sa.copy()

@@ -851,6 +851,25 @@ def _x_trend(studio, ledger_path) -> dict:
     return out
 
 
+# AI 헤드라인 셋은 어느 시나리오 행에서 오는지가 산출마다 바뀐다. pk 가 심도 하나뿐이면
+# 계보 서랍이 첫 일치 행(AI-01)을 연다. 헤드라인(independent._ai_headline)과 같은 규칙으로
+# 고른 scenario_id 를 빌드 시점에 pk 에 덧붙인다.
+_AI_PICK = {"ai_stress.worst_delta_cet1": "delta_cet1_bp",
+            "ai_stress.trough_cet1": "delta_cet1_bp",
+            "ai_stress.lcr_min": "lcr_min"}
+
+
+def _ai_pick(studio, fid: str) -> str | None:
+    col = _AI_PICK.get(fid)
+    imp = studio.tables.get("st_ai_impact")
+    if col is None or not isinstance(imp, pd.DataFrame) or not len(imp):
+        return None
+    from risk_lib.stress.ai_incident import STANDALONE_IDS
+    solo = imp[(imp["severity_key"] == "severely_adverse")
+               & imp["scenario_id"].isin(STANDALONE_IDS)]
+    return str(solo.loc[solo[col].idxmin(), "scenario_id"]) if len(solo) else None
+
+
 def _x_lineage(studio, gate: dict) -> dict:
     audit = studio.tables.get("val_audit_ledger")
     scope = {k: ko for k, ko, _ in independent.RECALC_SCOPE}
@@ -861,10 +880,14 @@ def _x_lineage(studio, gate: dict) -> dict:
                 if isinstance(audit, pd.DataFrame) else None)
         label = (_c(arow["label"]) if arow is not None
                  else scope.get(f["recalc"], _FIGURE_LABELS.get(fid, fid)))
+        pk = [{"column": c, "value": studio.asof if v is None else v}
+              for c, v in f["pk"].items()]
+        sid = _ai_pick(studio, fid)
+        if sid is not None:
+            pk.append({"column": "scenario_id", "value": sid})
         figures[fid] = {
             "label": label, "table": f["table"],
-            "pk": [{"column": c, "value": studio.asof if v is None else v}
-                   for c, v in f["pk"].items()],
+            "pk": pk,
             "column": f["column"], "check_names": list(f["checks"]),
             "recalc_target": f["recalc"], "in_scope": f["recalc"] in scope,
             "gate_state": state.get(f["recalc"], "범위밖"),

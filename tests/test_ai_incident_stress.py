@@ -12,14 +12,18 @@ import pytest
 from risk_lib.datamodel import catalog as cat
 from risk_lib.stress import ai_incident as ai
 
-# 심각 심도 단독 시나리오의 최대 CET1비율 하락 (bp). 결합은 AI 사고 증분.
+# 심각 심도 단독 시나리오의 최저 CET1비율 변화 (bp). 결합은 AI 사고 증분.
+# AI-01 은 SEC 2013-222 원문의 45분, AI-07 은 감독 보수성 배수를 자본 산출에만
+# 넣은 값이다 (적대적 검토 반영).
 GOLDEN_SEVERE_BP = {
-    "AI-01": -16.425354, "AI-02": -61.530503, "AI-03": -21.332873,
+    "AI-01": -24.402409, "AI-02": -61.530503, "AI-03": -21.332873,
     "AI-04": -14.857236, "AI-05": -17.313897, "AI-06": -10.452455,
-    "AI-07": -17.788889,
+    "AI-07": -15.134452,
 }
 GOLDEN_COMBINED_TROUGH = {"AI-C1": 0.035868, "AI-C2": 0.036834}
-GOLDEN_LOSS_STAR_BI = 0.042594
+# 이 표본은 AI 사고 전에 이미 Tier1·총자본 요구치 미달이다. 3계층 기준 임계는 0 이고
+# CET1 계층 임계만 값이 있다.
+GOLDEN_LOSS_STAR_BI_CET1 = 0.042594
 
 
 def _t(result, name):
@@ -64,9 +68,67 @@ def test_combined_trough_regression(result, sid, golden):
 
 def test_reverse_critical_loss_regression(result):
     rev = _t(result, "st_ai_reverse").set_index("metric_id")
-    assert rev.loc["loss_star_bi", "value"] == pytest.approx(GOLDEN_LOSS_STAR_BI, abs=1e-6)
+    assert rev.loc["loss_star_bi", "value"] == 0.0
+    assert bool(rev.loc["loss_star_bi", "already_breached"])
+    assert rev.loc["loss_star_bi_cet1", "value"] == pytest.approx(
+        GOLDEN_LOSS_STAR_BI_CET1, abs=1e-6)
     # ILM 경로를 끈 닫힌 해는 ILM 이 손실을 키우므로 항상 더 크다.
-    assert rev.loc["loss_star_bi_no_ilm", "value"] > rev.loc["loss_star_bi", "value"]
+    assert rev.loc["loss_star_bi_no_ilm_cet1", "value"] > rev.loc["loss_star_bi_cet1", "value"]
+
+
+def test_requirement_test_uses_all_three_tiers(result):
+    """엔진 판정과 같이 CET1·Tier1·총자본(완충 포함)의 구속 계층으로 본다 (F-F02)."""
+    base = result.ai_incident.base
+    assert base["binding_surplus"] < 0 <= base["cet1_surplus"]
+    imp = _t(result, "st_ai_impact")
+    assert imp["breach"].all()
+    assert not imp["cet1_breach"].all()
+    path = _t(result, "st_ai_path")
+    assert not path["passes"].any()
+    assert (path["capital_surplus"] <= path["cet1_surplus"] + 1e-6).all()
+
+
+def test_lcr_reverse_flag_follows_lcr_not_capital(result):
+    rev = _t(result, "st_ai_reverse").set_index("metric_id")
+    assert result.ai_incident.base["lcr"] >= 1.0
+    assert not bool(rev.loc["lcr_retail_runoff_star", "already_breached"])
+    assert rev.loc["lcr_retail_runoff_star", "value"] > 0
+
+
+def test_capital_only_pd_multiplier_leaves_ecl_alone(result):
+    """AI-07 감독 보수성 배수는 RWA 에만 들어간다. ECL 은 편의 없는 추정이다."""
+    path = _t(result, "st_ai_path")
+    a7 = path[(path["scenario_id"] == "AI-07") & (path["pd_multiplier"] > 1.0)]
+    assert len(a7)
+    assert a7["delta_ecl"].abs().max() == 0.0
+    assert (a7["delta_rwa_total"] > 0).all()
+
+
+def test_out_of_horizon_losses_are_kept_not_compressed():
+    """짧은 시계에서 영업정지·이탈 손실을 버리거나 앞당기지 않고 시계 밖 몫으로 남긴다."""
+    tl = ai.timeline(["2026Q4", "2027Q1", "2027Q2", "2027Q3"])
+    sc = ai.Scale(REV=1e12, BI=1e12, OPEX=5e11, FEE=2e11, NII=8e11, NP_EAD=1e13,
+                  NP_SHARE=0.4)
+    plan = ai.plan_ai03(sc, "severely_adverse", tl)
+    total = sum(a for a, _ in plan.nonop)
+    kept = ai._cum(plan.nonop, tl.n - 1) + ai._oob(plan.nonop, tl.n)
+    assert kept == pytest.approx(total)
+    assert ai._oob(plan.nonop, tl.n) > 0
+    for _, ws in plan.nonop:
+        assert sum(ws.values()) == pytest.approx(1.0)
+
+
+def test_english_build_leaves_no_korean_in_ai_ledgers(result):
+    from risk_lib.ui_studio.export_en import HANGUL, Translator
+    tr = Translator()
+    left = set()
+    for sp in ai.SPECS:
+        df = _t(result, sp.name)
+        for c in df.columns:
+            for v in df[c].dropna().unique():
+                if isinstance(v, str) and HANGUL.search(tr.text(v)):
+                    left.add(v)
+    assert not left, sorted(left)[:5]
 
 
 def test_severity_is_monotone_for_every_standalone_scenario(result):
@@ -99,7 +161,8 @@ def test_second_line_checks_ran_with_expected_statuses(result):
         "stress_ai_channel_separation": "PASS",
         "stress_ai_statutory_caps": "PASS",
         "stress_ai_evidence_registered": "PASS",
-        "stress_ai_trough_meets_requirement": "WARN",
+        # 기준점이 이미 Tier1·총자본 요구치 미달이다
+        "stress_ai_trough_meets_requirement": "FAIL",
         "stress_ai_lcr_floor": "WARN",
         "stress_ai_combined_decomposition": "PASS",
     }
@@ -126,4 +189,4 @@ def test_headlines_are_in_the_recalc_scope_and_read_from_the_ledgers(result):
     h = _headline(result, result.ledger_tables)
     assert h["ai_stress_worst_delta_cet1_bp"] == pytest.approx(min(GOLDEN_SEVERE_BP.values()), abs=1e-5)
     assert h["ai_combined_trough_cet1"] == pytest.approx(min(GOLDEN_COMBINED_TROUGH.values()), abs=1e-6)
-    assert h["ai_reverse_critical_loss_bi"] == pytest.approx(GOLDEN_LOSS_STAR_BI, abs=1e-6)
+    assert h["ai_reverse_critical_loss_bi"] == 0.0

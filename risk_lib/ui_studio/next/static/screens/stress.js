@@ -33,7 +33,7 @@ function uniq(f,col){const i=IX(f)[col],out=[];
 function tgt(c,fv){
   const rows=((c.D.x_screen_gate||{}).targets||{})[c.id]||[];
   if(!rows[0])return null;
-  return U.kpiRow(rows.map(r=>U.kpi({label:r.korean,raw:true,value:fv(r.reported),
+  return U.kpiRow(rows.map(r=>U.kpi({label:r.korean,raw:true,value:fv(r.reported,r),
     sub:T('상시 독립검증 (3선) 재계산 대상')+' '+r.target+' · '+r.citation,
     tone:NG.tone('recalc.state',r.state),badge:r.state,
     lineage:NG.lineage.byTarget(r.target)})),c.meta.density)}
@@ -339,8 +339,11 @@ function aiStress(root,c){
   const im=G(c,'st_ai_impact'),p=G(c,'st_ai_path');
   if(!im||!p){ap(root,NO(T('연결 원장 없음'),'warn'));return}
   LEAD(root,'AI 사고 유형마다 기준·악화·심각 세 심도를, 거시 심각 시나리오와의 결합을 함께 다축 위기상황 엔진에 얹은 결과다. 모수 대부분은 재량 관리값이며 근거와 근거 상태는 모수 원장에 있다.');
-  const tg=tgt(c,x=>Math.abs(x)<=2?fmt.pct(x,2):fmt.num(x));if(tg)ap(root,tg);
-  const ii=IX(im),bp=x=>x==null?'-':x.toFixed(1),base=im.rows.filter(r=>r[ii.severity_key]!=='combined');
+  const bp=x=>x==null?'-':x.toFixed(1);
+  /* 서식은 재계산 대상별 단위로 정한다. bp 하나 외에는 모두 비율이다. */
+  const tg=tgt(c,(x,r)=>r.target==='ai_stress_worst_delta_cet1_bp'?(x==null?'-':bp(x)+'bp'):fmt.pct(x,2));
+  if(tg)ap(root,tg);
+  const ii=IX(im),base=im.rows.filter(r=>r[ii.severity_key]!=='combined');
   const sc=[],sv=[];
   base.forEach(r=>{if(sc.indexOf(r[ii.scenario_id])<0)sc.push(r[ii.scenario_id]);
     if(sv.indexOf(r[ii.severity_label])<0)sv.push(r[ii.severity_label])});

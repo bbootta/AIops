@@ -1873,7 +1873,9 @@ def _check_ai_incident(ledger_tables: dict | None, ai_result: Any,
             blocks_approval=True))
         return
     from risk_lib.alm.params import EVIDENCE_STATUS
-    from risk_lib.stress.ai_incident import PIPA_GENERAL_CAP, STANDALONE_IDS
+    from risk_lib.stress.ai_incident import (
+        PIPA_AGGRAVATED_CAP, PIPA_GENERAL_CAP, STANDALONE_IDS, _breached_tiers,
+    )
     path, imp, prm = t["st_ai_path"], t["st_ai_impact"], t["st_ai_param"]
     solo = path[path["scenario_id"].isin(STANDALONE_IDS)]
 
@@ -1903,10 +1905,10 @@ def _check_ai_incident(ledger_tables: dict | None, ai_result: Any,
         status = "FAIL" if status == "FAIL" else "WARN"
     report.add(ConsistencyCheck(
         "stress_ai_base_reconciles", status,
-        f"충격 0 행 {len(quiet)}개 항등 확인. " + "; ".join(msgs),
-        is_identity=(status == "PASS")))
+        f"충격 0 행 {len(quiet)}개 항등 확인. " + "; ".join(msgs)))
 
-    # 2. 심도 단조성
+    # 2. 심도 단조성. 손실 성분은 시계 안 + 시계 밖으로 비교한다. 심각 쪽 제재가
+    # 시계 밖으로 밀려 시계 안 금액이 작아지는 것은 역전이 아니다.
     viol = []
     s_imp = imp[imp["scenario_id"].isin(STANDALONE_IDS)].set_index(
         ["scenario_id", "severity_key"])
@@ -1915,14 +1917,17 @@ def _check_ai_incident(ledger_tables: dict | None, ai_result: Any,
         for a, b in zip(seq, seq[1:]):
             if b["delta_cet1_bp"] > a["delta_cet1_bp"] + 1e-9:
                 viol.append(f"{sid} CET1 하락")
-            for col in ("loss_op_total", "loss_nonop_total", "fine_total"):
-                if b[col] + 1e-6 < a[col]:
+            for col, oob in (("loss_op_total", "loss_op_out_of_horizon"),
+                             ("loss_nonop_total", "loss_nonop_out_of_horizon"),
+                             ("fine_total", "fine_out_of_horizon")):
+                if b[col] + b[oob] + 1e-6 < a[col] + a[oob]:
                     viol.append(f"{sid} {col}")
             if b["lcr_min"] > a["lcr_min"] + 1e-12:
                 viol.append(f"{sid} LCR")
     report.add(ConsistencyCheck(
         "stress_ai_severity_monotone", "PASS" if not viol else "FAIL",
-        "7개 시나리오 기준 <= 악화 <= 심각 (CET1 하락폭, 손실 성분, LCR 하락)"
+        "7개 시나리오 기준 <= 악화 <= 심각 (CET1 하락폭, 손실 성분 시계 안·밖 합, "
+        "LCR 하락)"
         if not viol else "심도 역전: " + ", ".join(sorted(set(viol)))))
 
     # 3. 일회성·흐름 손실의 누적 비감소
@@ -1935,7 +1940,9 @@ def _check_ai_incident(ledger_tables: dict | None, ai_result: Any,
     report.add(ConsistencyCheck(
         "stress_ai_losses_cumulative", "PASS" if not nd else "FAIL",
         "손실·과징금 누적값이 분기에 따라 줄지 않는다 (일회성 손실이 다음 분기에 "
-        "사라지지 않음)" if not nd else "누적 감소: " + ", ".join(nd)))
+        "사라지지 않음)" if not nd else "누적 감소: " + ", ".join(nd),
+        # 비음수 금액 x 양의 가중치 누적이라 구성상 성립한다. 통제로 세지 않는다.
+        is_identity=True))
 
     # 4. 채널 분리 (이중계상 방지)
     issues = []
@@ -1944,15 +1951,18 @@ def _check_ai_incident(ledger_tables: dict | None, ai_result: Any,
         if "lgd" in ks and sid != "AI-02":
             issues.append(f"{sid} LGD 채널")
     pd_sids = {sid for sid, ks in kinds.items() if "pd" in ks}
-    if not pd_sids <= {"AI-02", "AI-07"}:
-        issues.append("PD 채널이 모형오류·증빙손상 밖에 있음")
+    if not pd_sids <= {"AI-02"}:
+        issues.append("신용 PD 채널이 모형오류(AI-02) 밖에 있음")
+    cap_sids = {sid for sid, ks in kinds.items() if "pd_capital" in ks}
+    if not cap_sids <= {"AI-07"}:
+        issues.append("자본 전용 PD 채널이 증빙손상(AI-07) 밖에 있음")
     c1 = path[path["scenario_id"] == "AI-C1"]
     if len(c1) and (c1["lgd_addon"] > 0).any():
         issues.append("결합 AI-C1 에 LGD 가산 (거시 lgd_addon 과 겹침)")
     report.add(ConsistencyCheck(
         "stress_ai_channel_separation", "PASS" if not issues else "FAIL",
-        "op_loss 축 미사용, 과징금은 세후 차감에만, 신용 채널은 운영손실 자료 밖, "
-        "결합에서 LGD 가산 제외" if not issues else "; ".join(issues)))
+        "LGD 채널은 AI-02 만, 신용 PD 채널은 AI-02 만, 자본 전용 PD 채널은 AI-07 만, "
+        "결합 AI-C1 LGD 가산 제외" if not issues else "; ".join(issues)))
 
     # 5. 법정 상한
     pipc = prm[(prm["scenario_id"] == "AI-03") & (prm["channel"] == "pipc_fine")]
@@ -1962,7 +1972,8 @@ def _check_ai_incident(ledger_tables: dict | None, ai_result: Any,
     report.add(ConsistencyCheck(
         "stress_ai_statutory_caps", "PASS" if not len(over) else "FAIL",
         (f"개인정보보호법 과징금 모수 <= 일반 상한 {PIPA_GENERAL_CAP:.0%} "
-         f"(개정 10% 상한은 역스트레스 판정선으로만). 신용정보법 해킹 상한 절단 "
+         f"(가중 상한 {PIPA_AGGRAVATED_CAP:.0%} 는 모수에 쓰지 않고 역스트레스 "
+         f"fine_star_rev 비고에서 F* 와 비교만 한다). 신용정보법 해킹 상한 절단 "
          f"{len(capped)}건{(' (' + ', '.join(capped) + ')') if capped else ''}. "
          "1인당 법정손해배상(제43조의2) 점검은 영향고객 원장이 없어 하지 않았다")
         if not len(over) else f"일반 상한 초과 모수 {len(over)}건"))
@@ -1979,25 +1990,33 @@ def _check_ai_incident(ledger_tables: dict | None, ai_result: Any,
         if not len(no_cite) and not len(bad_ev)
         else f"근거 누락 {len(no_cite)}행, 허용 밖 근거상태 {len(bad_ev)}행"))
 
-    # 7. CET1 요구치 침범
-    if base and float(base.get("cet1", 0.0)) < float(base.get("cet1_required", 0.0)) \
-            * float(base.get("rwa_total", 0.0)):
+    # 7. 자본 요구치 침범. 엔진 판정과 같이 CET1·Tier1·총자본 세 계층(완충 포함)을
+    # 본다 (F-F02: CET1 하나만 보면 기본자본·총자본 미달을 놓친다).
+    cb = imp[imp["cet1_breach"]]
+    cet1_note = ("CET1 계층 침범 " + (f"{len(cb)}건: " + "; ".join(
+        f"{r.scenario_id}/{r.severity_label} {r.cet1_ratio_trough:.2%} "
+        f"(잉여 {r.cet1_surplus_trough / 1e8:,.1f}억)" for r in cb.itertuples())
+        if len(cb) else "없음"))
+    if base and float(base.get("binding_surplus", 0.0)) < 0:
         report.add(ConsistencyCheck(
             "stress_ai_trough_meets_requirement", "FAIL",
-            "AI 사고 전 기준점이 이미 CET1 요구치 미달", blocks_approval=True))
+            f"AI 사고 전 기준점이 이미 자본 요구치 미달 ({_breached_tiers(base)}). "
+            f"AI 사고 경로는 전부 미달로 판정된다. 참고로 {cet1_note}",
+            blocks_approval=True))
     else:
         br = imp[imp["breach"]]
         if not len(br):
             report.add(ConsistencyCheck(
                 "stress_ai_trough_meets_requirement", "PASS",
-                "AI 사고 단독·결합 전 경로에서 CET1 요구치(완충 포함) 유지"))
+                "AI 사고 단독·결합 전 경로에서 자본 3계층 요구치(완충 포함) 유지"))
         else:
-            items = [f"{r.scenario_id}/{r.severity_label} {r.cet1_ratio_trough:.2%} "
-                     f"({r.trough_quarter}, 잉여 {r.cet1_surplus_trough / 1e8:,.1f}억)"
+            items = [f"{r.scenario_id}/{r.severity_label} CET1 {r.cet1_ratio_trough:.2%} "
+                     f"({r.trough_quarter}, 구속 계층 잉여 "
+                     f"{r.capital_surplus_trough / 1e8:,.1f}억)"
                      for r in br.itertuples()]
             report.add(ConsistencyCheck(
                 "stress_ai_trough_meets_requirement", "WARN",
-                "AI 사고 경로 CET1 요구치(완충 포함) 침범 (자본계획·회복계획 연계 "
+                "AI 사고 경로 자본 3계층 요구치(완충 포함) 침범 (자본계획·회복계획 연계 "
                 "필요): " + "; ".join(items),
                 blocks_approval=True))
 
@@ -2016,7 +2035,7 @@ def _check_ai_incident(ledger_tables: dict | None, ai_result: Any,
     report.add(ConsistencyCheck(
         "stress_ai_combined_decomposition",
         "PASS" if len(c1) and worst <= AI_INTERACTION_TOL_BP else "WARN",
-        f"AI-C1 결합 증분 - 구성요소 증분 합의 최대 |잔차| {worst:.2f}bp "
+        f"AI-C1 결합 증분 - 구성요소 증분 합의 최대 잔차 절대값 {worst:.2f}bp "
         f"(허용 {AI_INTERACTION_TOL_BP}bp)"))
 
 def run_consistency_checks(
