@@ -1,0 +1,22 @@
+{
+  "asof": "2026-09-30",
+  "run_date": "2026-10-12",
+  "version": 1,
+  "seed": 42,
+  "request_id": "IVR-B62F92006B5C",
+  "headline_digest": "b9ab9f9cbf899c1f9522ea4dbff29603",
+  "submission_digest": "41a8a800df51514157215db01d4b260b6afebc12f3433eac7b34507bddb56111",
+  "gate_status": "응답대기",
+  "n_forms": 290,
+  "n_form_lines": 6148,
+  "n_form_checks_failed": 0,
+  "n_tables": 280,
+  "self_validation": {
+    "PASS": 86,
+    "WARN": 15,
+    "FAIL": 2,
+    "규제미달": 5
+  },
+  "git_revision": "5cbf39c7e2f346682db6af9e53117e0280a4c9bd+dirty",
+  "created_at": "2026-10-12T03:50:34+00:00"
+}

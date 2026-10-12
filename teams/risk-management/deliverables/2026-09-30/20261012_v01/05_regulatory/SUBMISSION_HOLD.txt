@@ -1,0 +1,4 @@
+이 디렉터리의 서식은 초안이다. 제출 승인 보류 사유:
+- 3선 게이트 응답대기
+- 자체검증 FAIL 2건
+- 규제 미달 stress_trough_meets_requirement·pillar2_requirement_evidence·bis_buffer_requirement·large_exposure_two_sources·stress_ai_trough_meets_requirement

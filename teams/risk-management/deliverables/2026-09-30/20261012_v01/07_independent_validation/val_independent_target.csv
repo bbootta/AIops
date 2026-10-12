@@ -1,0 +1,27 @@
+﻿request_id,target,korean,reported,recomputed,matched,citation
+IVR-B62F92006B5C,rwa_final_total,위험가중자산 합계,13488171388685.535,,,CRE20.1 · RBC20.11
+IVR-B62F92006B5C,rwa_fund,집합투자증권 위험가중자산,3340770011494.9395,,,CRE60
+IVR-B62F92006B5C,rwa_securitisation,유동화 위험가중자산,797107276215.5831,,,CRE40 · CRE41 · CRE44
+IVR-B62F92006B5C,cet1_ratio,보통주자본비율,0.08113545772427645,,,은행업감독규정 제26조
+IVR-B62F92006B5C,total_ratio,총자본비율,0.10930829072362287,,,은행업감독규정 제26조
+IVR-B62F92006B5C,leverage_ratio,레버리지비율,0.09697351438263638,,,LEV20.1
+IVR-B62F92006B5C,ecl_total,기대신용손실 합계 (TTC · 시점추정),97546776363.82495,,,IFRS 9 5.5
+IVR-B62F92006B5C,ecl_weighted_total,기대신용손실 합계 (PIT · 확률가중),135045061371.37775,,,IFRS 9 5.5.17
+IVR-B62F92006B5C,lcr,유동성커버리지비율,1.1807093493508851,,,LCR20.1
+IVR-B62F92006B5C,nsfr,순안정자금조달비율,1.0846036493176723,,,NSF20.1
+IVR-B62F92006B5C,irrbb_worst_pct_tier1,IRRBB 최대 ΔEVE 감소 / 기본자본,0.07822582425869697,,,SRP31.92 · 은행업감독규정 — 분모는 총자기자본이 아니라 Tier 1
+IVR-B62F92006B5C,irrbb_delta_nii_parallel,"ΔNII 평행충격 (12개월, 마진 포함)",-110854921143.45087,,,BCBS d368 §132 · EBA GL 2022-14
+IVR-B62F92006B5C,survival_days,"생존기간 (기관고유 스트레스, 시계 우측절단)",90.0,,,BCBS d144 Principle 10 — 시계 안에서 소진되지 않으면 시계 길이로 절단된 값이다. 목표 생존기간에는 규정값이 없고 이사회 승인 대상이다(Principle 11)
+IVR-B62F92006B5C,stress_trough_cet1,심각 시나리오 CET1 저점,0.03789244347763308,,,SRP20
+IVR-B62F92006B5C,reverse_critical_severity,역스트레스 임계 심도,0.04680633544921875,,,SRP20
+IVR-B62F92006B5C,reserve_shortfall,대손준비금 소요액,30567097645.00345,,,은행업감독규정 제29조 제2항
+IVR-B62F92006B5C,kr_irrbb_table6_max_delta_eve,"[별표 9-1] <표6> 당기 최대 ΔEVE (감소액, 양수 표기)",96559529295.02438,,,은행업감독업무시행세칙 [별표 9-1] 제22항 나 <표6> — 자체 조정 금지 양식
+IVR-B62F92006B5C,kr_irrbb_table6_max_delta_nii,"[별표 9-1] <표6> 당기 최대 ΔNII (감소액, 양수 표기)",110854921143.45087,,,은행업감독업무시행세칙 [별표 9-1] 제22항 나 <표6> · 제14항 목표관리기간 1년
+IVR-B62F92006B5C,lgd_backtest_bias,LGD 실현−추정 편의 (세그먼트축 부도건수 가중),0.004856876885247529,,,CRE36.83 사후검증 · BNK-CRM-010 — 표본은 완결 워크아웃이며 관측중단분은 제외된다(`lgd_backtest_n_censored`)
+IVR-B62F92006B5C,lgd_backtest_n_censored,LGD 표본의 관측중단 건수,294.0,,,회수 진행 중인 부도건. 세지 않으면 실현 LGD가 낮게 나온다
+IVR-B62F92006B5C,ccf_realised_mean,CCF 실현치 (익스포저 유형·등급대 시설건수 가중 평균),0.4948789418653937,,,CRE32.32 · CRE20.94 — 적용 CCF와의 차이가 EAD 과소산출로 직결된다
+IVR-B62F92006B5C,ai_stress_worst_delta_cet1_bp,"AI 사고 단독 심각 최저 CET1비율 변화 (bp, 하락은 음수)",-61.530503187459814,,,SRP20 · 요건 BR-049 · BR-055. 모수는 st_ai_param (재량 내부 관리값 포함)
+IVR-B62F92006B5C,ai_stress_trough_cet1,AI 사고 단독 심각 최악 시나리오의 CET1비율 저점,0.07498240740553047,,,SRP20 · 은행업감독규정 제26조. 누적 손실과 OPE25 ILM 10년 평균 가산 포함
+IVR-B62F92006B5C,ai_combined_trough_cet1,거시 심각 + AI 결합(AI-C1) CET1비율 저점,0.03586789204852227,,,SRP20. 거시 성분은 같은 장부의 거시 단독 경로이며 상호작용 잔차는 st_ai_path.interaction_bp
+IVR-B62F92006B5C,ai_reverse_critical_loss_bi,"AI 역스트레스 임계 세전 운영손실 / BI (ILM 경로 포함, 자본 3계층 구속 기준, 기준점이 이미 미달이면 0)",0.0,,,"OPE25 ILM · SRP20. ILM 경로를 뺀 값은 st_ai_reverse loss_star_bi_no_ilm, CET1 계층만의 값은 loss_star_bi_cet1"
+IVR-B62F92006B5C,ai_stress_lcr_min,AI 사고 단독 심각 LCR 최저,0.9940773391631635,,,LCR20.1 · LCR40. LCR 은 자본으로 되먹임되지 않는다

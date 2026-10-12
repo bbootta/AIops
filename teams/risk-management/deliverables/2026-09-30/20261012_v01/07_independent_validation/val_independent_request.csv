@@ -1,0 +1,2 @@
+﻿request_id,run_id,asof,requested_by,requested_to,branch,headline_digest,n_recalc_targets,n_self_fail,n_self_warn,status,reason
+IVR-B62F92006B5C,RUN-20260930-42,2026-09-30,리스크관리 팀에이전트,적합성검증 팀에이전트,claude/validation-team-agent-Pw9F5,b9ab9f9cbf899c1f9522ea4dbff29603,26,2,15,응답대기,적합성검증 팀에이전트 응답 없음 (docs/independent_validation/RUN-20260930-42.response.json)
