@@ -153,6 +153,20 @@ body:not(.touch) .mob{display:none}
 .up button:disabled{background:#2b2342;color:#8d83ad;cursor:default}
 .tb.act{position:absolute;right:0;bottom:calc(100% + 12px);height:46px;padding:0 20px;border-radius:23px;background:rgba(255,209,102,.32);border-color:var(--gold);font-size:15px}
 body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;font-size:16px}
+#titanP{display:grid;gap:5px;background:var(--panel);border:1px solid rgba(98,230,255,.55);border-radius:8px;padding:7px 10px;box-shadow:0 0 14px rgba(98,230,255,.22)}
+#titanP .vt{font-family:var(--display);font-size:13px;letter-spacing:.04em;color:#9feaff}
+#tHp{background:linear-gradient(90deg,#3fd27a,#9dffb5)}
+#tHp.low{background:linear-gradient(90deg,#ff3d5e,#ff8a5e)}
+#tEn{background:linear-gradient(90deg,#62e6ff,#d4f8ff);box-shadow:0 0 8px rgba(98,230,255,.6)}
+#tEn.low{background:#4a4060;box-shadow:none}
+#tSk{font-size:11.5px;color:var(--dim);flex-wrap:wrap;gap:4px 6px}
+#tSk b{color:#9feaff;font-weight:700}
+.xp{display:grid;gap:3px;font-family:var(--mono);font-size:12px;color:var(--dim);text-shadow:0 1px 2px #000}
+.xp .meter{height:6px;flex:none}
+#xpFill{background:linear-gradient(90deg,#62e6ff,#b88bff)}
+.xp.ready #xpT{color:#9feaff;animation:blink .9s steps(2) infinite}
+.xp.gain #xpFill{box-shadow:0 0 10px #62e6ff}
+.tb.morph{position:absolute;left:0;bottom:calc(100% + 12px);height:46px;padding:0 18px;border-radius:23px;background:rgba(98,230,255,.25);border-color:var(--spec);font-size:15px}
 </style>
 </head>
 <body>
@@ -164,6 +178,7 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
     <div class="mis" id="mis" hidden><div class="mt"><b id="misT"></b><span id="misTime"></span></div><div id="misO"></div><div id="misL"></div><div class="meter" id="misM"><i id="misBar"></i></div></div>
     <div class="money" id="money">$0</div>
     <div class="rep" id="rep"></div>
+    <div class="xp" id="xp"><span id="xpT"></span><div class="meter"><i id="xpFill"></i></div></div>
   </div>
   <div class="pke"><span class="lbl">PKE</span><div class="bars" id="bars"></div><div id="pkeArrow"><svg viewBox="0 0 16 16"><path d="M8 1 L14 14 L8 10.5 L2 14 Z"/></svg></div><span id="pkeDist">--</span></div>
   <canvas id="minimap" width="344" height="344"></canvas>
@@ -173,7 +188,7 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
   <div id="cross"><i></i><i></i><i></i><i></i></div>
   <div class="bl">
     <div id="spd" hidden>0<small>km/h</small></div>
-    <div class="hp"><span>체력</span><div class="meter"><i id="hpFill"></i></div></div>
+    <div class="hp" id="hpRow"><span>체력</span><div class="meter"><i id="hpFill"></i></div></div>
     <div class="hp" id="fuelRow" hidden><span>연료</span><div class="meter"><i id="fuelFill"></i></div></div>
   </div>
   <div class="wpn">
@@ -191,6 +206,12 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
       <div class="row"><span>미사일</span><span id="vAmmo"></span></div>
       <div class="row"><span>부스터</span><div class="meter"><i id="vBoost" style="width:100%"></i></div></div>
     </div>
+    <div id="titanP" hidden>
+      <div class="vt" id="tName">타이탄</div>
+      <div class="row"><span>체력</span><div class="meter"><i id="tHp" style="width:100%"></i></div></div>
+      <div class="row"><span>열선</span><div class="meter"><i id="tEn" style="width:100%"></i></div></div>
+      <div class="row" id="tSk"></div>
+    </div>
     <div class="row" id="packRow"><span>팩 온도</span><div class="meter"><i id="heatFill" style="width:0%"></i></div></div>
     <div id="trapSt">트랩 준비됨</div>
   </div>
@@ -206,10 +227,11 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
   <div class="tbtns">
     <button class="tb act" data-k="act" id="actBtn" hidden>행동</button>
     <button class="tb" data-k="weapon" id="wpnBtn">무기</button>
-    <button class="tb" data-k="trap">트랩</button>
+    <button class="tb" data-k="trap" id="trapBtn">트랩</button>
     <button class="tb fire" data-k="fire">발사</button>
-    <button class="tb" data-k="jump">점프</button>
-    <button class="tb" data-k="car">탑승</button>
+    <button class="tb" data-k="jump" id="jumpBtn">점프</button>
+    <button class="tb" data-k="car" id="carBtn">탑승</button>
+    <button class="tb morph" data-k="morph" id="morphBtn">변신</button>
   </div>
 </div>
 
@@ -217,7 +239,7 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
   <div class="in">
     <div class="eyebrow">고스트버스터즈 팬메이드 · 네온 시티의 밤</div>
     <h1>Ghost <span>Patrol</span></h1>
-    <p class="lead">밤이 되자 도시 전체에 유령이 쏟아졌습니다. 양성자 빔으로 유령을 붙잡아 기력을 빼고, 트랩을 던져 가둬 넣으세요. 머리 위에 ! 표시가 뜬 시민의 의뢰를 해결하고, 번 돈으로 본부의 오 박사에게 장비를 개조하세요. 차를 빼앗거나 사고를 내면 경찰이 쫓아옵니다.</p>
+    <p class="lead">밤이 되자 도시 전체에 유령이 쏟아졌습니다. 양성자 빔으로 유령을 붙잡아 기력을 빼고, 트랩을 던져 가둬 넣으세요. 머리 위에 ! 표시가 뜬 시민의 의뢰를 해결하고, 번 돈으로 본부의 오 박사에게 장비를 개조하세요. 차를 빼앗거나 사고를 내면 경찰이 쫓아옵니다. 언제든 거대 괴수 타이탄으로 변신할 수 있고, 유령을 잡아 경험치를 모으면 타이탄이 진화합니다.</p>
     <div class="keys desk">
       <kbd>W A S D</kbd><span>이동 · Shift 달리기 · Space 점프 (누르고 있으면 제트팩 비행)</span>
       <kbd>마우스</kbd><span>조준 · 왼쪽 버튼 발사 · 오른쪽 버튼 정밀 조준</span>
@@ -225,6 +247,7 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
       <kbd>G</kbd><span>트랩 던지기 (다시 누르면 회수, 운전 중에는 창밖으로)</span>
       <kbd>F</kbd><span>차량 탑승 · 탈취 · 하차 (운전 중 좌클릭 창밖 사격, Space 핸드브레이크, H 사이렌)</span>
       <kbd>인터셉터</kbd><span>본부 앞 공격용 특수차량: 좌클릭 포탑 기관포 · 우클릭 유도 미사일 · G 트랩 발사기 · Shift 부스터</span>
+      <kbd>T</kbd><span>타이탄 변신 · 해제 (좌클릭 원자 열선 · 우클릭 꼬리 · Space 발구르기 · G 흡수 · H 포효)</span>
       <kbd>E</kbd><span>의뢰인 대화 · 사다리 · 짚라인 · 오 박사 연구실</span>
       <kbd>R · M · Esc</kbd><span>비 켜고 끄기 · 소리 · 일시정지</span>
     </div>
@@ -233,6 +256,7 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
       <kbd>오른쪽 드래그</kbd><span>시점 회전</span>
       <kbd>버튼</kbd><span>발사 · 무기 · 트랩 · 점프(누르고 있으면 제트팩) · 차량 탑승</span>
       <kbd>운전 중</kbd><span>발사 버튼으로 창밖 사격, 트랩 버튼으로 트랩 던지기 · 인터셉터는 발사가 포탑 기관포, 무기 버튼이 유도 미사일, 스틱 끝까지 밀면 부스터</span>
+      <kbd>변신</kbd><span>타이탄 변신 · 해제 (발사 열선 · 꼬리 · 쿵 · 흡수 · 포효 버튼)</span>
       <kbd>행동</kbd><span>의뢰인 대화 · 사다리 · 짚라인 · 연구실 (가까이 가면 나타남)</span>
     </div>
     <button class="btn" id="go">출동하기</button>
@@ -308,10 +332,10 @@ const UP = V3(0, 1, 0), ZAX = V3(0, 0, 1), _v2 = new THREE.Vector2();
 
 // ============================================================ save (money, reputation, mission levels, upgrades, rooftop samples)
 const SAVE_KEY = 'ghost-patrol-save-v1';
-const save = { money: 0, rep: 0, lv: {}, up: {}, samples: [] };
+const save = { money: 0, rep: 0, lv: {}, up: {}, samples: [], xp: 0, evo: 0 };
 try {
   const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-  if (s && typeof s === 'object') { save.money = Math.max(0, +s.money || 0); save.rep = Math.max(0, +s.rep || 0); save.lv = s.lv && typeof s.lv === 'object' ? s.lv : {}; save.up = s.up && typeof s.up === 'object' ? s.up : {}; save.samples = Array.isArray(s.samples) ? s.samples : []; }
+  if (s && typeof s === 'object') { save.money = Math.max(0, +s.money || 0); save.rep = Math.max(0, +s.rep || 0); save.lv = s.lv && typeof s.lv === 'object' ? s.lv : {}; save.up = s.up && typeof s.up === 'object' ? s.up : {}; save.samples = Array.isArray(s.samples) ? s.samples : []; save.xp = Math.max(0, Math.floor(+s.xp || 0)); save.evo = clamp(Math.floor(+s.evo || 0), 0, 3); }
 } catch (_) {}
 function writeSave() { save.money = Math.max(0, Math.floor(player.money)); try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (_) {} }
 const upg = id => save.up[id] || 0;
@@ -1208,6 +1232,11 @@ function initAudio() {
   AU.jet = ctx.createGain(); AU.jet.gain.value = 0; AU.jet.connect(AU.master);
   const jl = ctx.createBiquadFilter(); jl.type = 'lowpass'; jl.frequency.value = 700; noiseSrc().connect(jl); jl.connect(AU.jet);
   const jh = ctx.createBiquadFilter(); jh.type = 'bandpass'; jh.frequency.value = 2400; jh.Q.value = 0.7; const jhg = ctx.createGain(); jhg.gain.value = 0.35; noiseSrc().connect(jh); jh.connect(jhg); jhg.connect(AU.jet);
+  // titan heat ray: a deep saw drone under a hiss
+  AU.tb = ctx.createGain(); AU.tb.gain.value = 0; AU.tb.connect(AU.master);
+  const tl = ctx.createBiquadFilter(); tl.type = 'lowpass'; tl.frequency.value = 900; tl.connect(AU.tb);
+  for (const f of [52, 78.5, 104.6]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; const g = ctx.createGain(); g.gain.value = 0.18; o.connect(g); g.connect(tl); o.start(); }
+  const tn = ctx.createBiquadFilter(); tn.type = 'bandpass'; tn.frequency.value = 2200; tn.Q.value = 0.8; const tng = ctx.createGain(); tng.gain.value = 0.5; noiseSrc().connect(tn); tn.connect(tng); tng.connect(AU.tb);
 }
 function env(g, t, a, peak, dec) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec); }
 function sfx(kind, vol = 1) {
@@ -1250,6 +1279,16 @@ function sfx(kind, vol = 1) {
     case 'impact': noise(0.35, 800, 0.8, 0.7); osc('sine', 150, 45, 0.25, 0.5); break;
     case 'shield': osc('sine', 700, 1700, 0.16, 0.2); noise(0.14, 3600, 5, 0.22, 'bandpass'); break;
     case 'shieldDown': osc('sawtooth', 1500, 120, 0.7, 0.22); noise(0.6, 2600, 1, 0.45, 'bandpass'); osc('sine', 300, 60, 0.5, 0.35); break;
+    case 'morph': osc('sawtooth', 70, 900, 1.3, 0.22, 0.35); osc('sine', 110, 1500, 1.4, 0.2, 0.4); noise(1.4, 2000, 1.2, 0.3, 'bandpass', 0.6); osc('sine', 55, 28, 1.2, 0.7, 0.6); break;
+    case 'roar': { const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain(), l = ctx.createOscillator(), lg = ctx.createGain(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(150, t); o.frequency.linearRampToValueAtTime(260, t + 0.35); o.frequency.linearRampToValueAtTime(190, t + 1.2); o.frequency.linearRampToValueAtTime(100, t + 2.1);
+      f.type = 'bandpass'; f.Q.value = 2.2; f.frequency.setValueAtTime(600, t); f.frequency.linearRampToValueAtTime(1700, t + 0.4); f.frequency.linearRampToValueAtTime(700, t + 2.1);
+      l.frequency.value = 27; lg.gain.value = 40; l.connect(lg); lg.connect(o.frequency); env(g, t, 0.18, 0.55, 2.0); o.connect(f); f.connect(g); g.connect(out); o.start(t); l.start(t); o.stop(t + 2.3); l.stop(t + 2.3);
+      noise(2.0, 1100, 1.1, 0.35, 'bandpass', 0.25); osc('sine', 68, 40, 2.0, 0.55, 0.25); break; }
+    case 'tstep': noise(0.6, 220, 0.8, 1.0); osc('sine', 58, 26, 0.6, 1.0); noise(0.15, 1500, 1, 0.3, 'bandpass'); break;
+    case 'tswing': noise(0.7, 500, 1.3, 0.55, 'bandpass', 0.2); osc('sine', 80, 45, 0.6, 0.35, 0.15); break;
+    case 'tcharge': osc('sawtooth', 50, 380, 0.75, 0.16, 0.25); noise(0.8, 3200, 2.5, 0.25, 'bandpass', 0.35); osc('square', 28, 110, 0.75, 0.07, 0.25); break;
+    case 'pulse': noise(1.8, 380, 0.7, 1.0); osc('sine', 85, 18, 1.5, 1.0); osc('sawtooth', 700, 50, 0.9, 0.22); noise(0.45, 4500, 1, 0.45, 'highpass'); break;
   }
 }
 function sfxAt(kind, p, vol = 1) { const d = p.distanceTo(camera.position); sfx(kind, vol * clamp(1 - d / 110, 0, 1)); }
@@ -1536,7 +1575,7 @@ class Car {
     this.wrecked = true; this.ai = null; this.parked = false; this.mat.color.setScalar(0.1); this.mat.roughness = 1; this.mat.clearcoat = 0.001; this.lights.visible = false; this.pool.visible = false; this.siren = false;
     for (const b of [this.barR, this.barW, this.barB, this.coil]) if (b) b.visible = false;
     this.fire = 22; this.wreckT = 0; this.vy = 7; this.spinv = R(-2, 2); this.input.t = 0; this.input.s = 0;
-    const byPlayer = time - this.pHit < 4; if (byPlayer) crime(this.type === 'police' ? 2 : 1, 'boom', 2);
+    const byPlayer = time - this.pHit < 4; if (byPlayer) crime(this.type === 'police' ? 2 : 1, 'boom', 2); if (byPlayer && titan.on) gainXP(this.type === 'police' ? 10 : 5);
     const p = V3(this.pos.x, 1, this.pos.z); explosion(p, 9, 90, this, null, byPlayer);
     if (player.car === this) { exitCar(true); hurtPlayer(35, p); }
   }
@@ -1567,7 +1606,7 @@ function aiDrive(c, dt) {
   else {
     const fx = Math.sin(c.h), fz = Math.cos(c.h), chk = (px, pz, rad) => { const rx = px - c.pos.x, rz = pz - c.pos.z, ah = rx * fx + rz * fz, lat = Math.abs(rx * -fz + rz * fx); if (ah > 0 && ah < 14 && lat < rad) target = Math.min(target, Math.max(0, (ah - 5.5) * 1.3)); };
     for (const o of cars) if (o !== c) chk(o.pos.x, o.pos.z, 2.2);
-    if (!player.car) chk(player.pos.x, player.pos.z, 1.6);
+    if (!player.car) chk(player.pos.x, player.pos.z, titan.on ? titan.rad + 1.5 : 1.6);
     for (const q of peds) if (q.state !== 'walk') chk(q.pos.x, q.pos.z, 1.4);
   }
   const vf = c.fwdSpeed();
@@ -1613,7 +1652,7 @@ function stepCar(c, dt) {
     lampsNear(c.pos.x, c.pos.z, 2.2, (L, i) => { knockLamp(L, i, c.vel.x, c.vel.y); c.vel.multiplyScalar(T.m ? 0.93 : 0.75); c.damage(6); if (player.car === c) addShake(null, 0.5); });
     for (const q of peds) { if (q.state === 'knock' || q.state === 'down') continue; const d2 = (q.pos.x - c.pos.x) ** 2 + (q.pos.z - c.pos.z) ** 2; if (d2 < 2.6 * 2.6) { if (d2 < 1.7 * 1.7) { q.knock(c.vel.x * 0.9, 4 + spd * 0.25, c.vel.y * 0.9); if (player.car === c) crime(q.cop ? 2 : 1, q.cop ? 'cop' : 'ped', 4); } else if (q.state === 'walk') q.scare(c.pos, 3); } }
   }
-  if (!player.car && !player.dead && spd > 3) { const dx = player.pos.x - c.pos.x, dz = player.pos.z - c.pos.z, d = Math.hypot(dx, dz); if (d < 1.9 && player.pos.y < 2) { player.vel.x = c.vel.x * 0.8 + dx / d * 4; player.vel.z = c.vel.y * 0.8 + dz / d * 4; player.vel.y = 5; player.onGround = false; if (spd > 7) hurtPlayer(spd * 1.2, c.pos); } }
+  if (!player.car && !player.dead && !titan.on && spd > 3) { const dx = player.pos.x - c.pos.x, dz = player.pos.z - c.pos.z, d = Math.hypot(dx, dz); if (d < 1.9 && player.pos.y < 2) { player.vel.x = c.vel.x * 0.8 + dx / d * 4; player.vel.z = c.vel.y * 0.8 + dz / d * 4; player.vel.y = 5; player.onGround = false; if (spd > 7) hurtPlayer(spd * 1.2, c.pos); } }
   const gy = groundY(c.pos.x, c.pos.z);
   c.g.position.set(c.pos.x, gy + c.y, c.pos.z); c.g.rotation.y = c.h; c.inner.rotation.z = c.wrecked ? c.inner.rotation.z : -c.roll; c.inner.rotation.x = c.pitch;
 }
@@ -1695,12 +1734,12 @@ class Ghost {
     this.hit = Math.max(this.hit, Math.min(1, n / 12));
     if (this.state === 'stunned') { this.stun = Math.max(this.stun, 3.5); return; }
     this.hp -= n;
-    if (this.hp <= 0) { this.hp = 0; this.state = 'stunned'; this.stun = this.type === 'boss' ? 14 : 10; toast(`${this.name} 기절!`, '트랩을 던지세요 · G'); sfxAt('wail', this.pos, 0.8); }
+    if (this.hp <= 0) { this.hp = 0; this.state = 'stunned'; this.stun = this.type === 'boss' ? 14 : 10; toast(`${this.name} 기절!`, titan.on ? '흡수하세요 · G' : '트랩을 던지세요 · G'); sfxAt('wail', this.pos, 0.8); gainXP(this.type === 'boss' ? 50 : 10); }
     else if (this.state === 'roam') this.state = 'hunt';
   }
   remove() { scene.remove(this.g, this.gpool); this.mat.dispose(); this.gpool.material.dispose(); if (this.tag) { this.tag.material.map.dispose(); this.tag.material.dispose(); } ghosts.splice(ghosts.indexOf(this), 1); if (beam.lock === this) beam.lock = null; }
   update(dt) {
-    this.t += dt; const T = this.T, tgt = this.raid || (player.car ? player.car.pos : player.pos), toP = _v.set(tgt.x - this.pos.x, (tgt.y + 1.2) - this.pos.y, tgt.z - this.pos.z), dist = toP.length();
+    this.t += dt; const T = this.T, tgt = this.raid || (player.car ? player.car.pos : player.pos), big = titan.on && !this.raid, toP = _v.set(tgt.x - this.pos.x, (tgt.y + (big ? titan.vh * 0.6 : 1.2)) - this.pos.y, tgt.z - this.pos.z), dist = toP.length();
     const spd = T.speed * (this.slime > 0 ? 0.45 : 1); this.slime -= dt; this.hit = Math.max(0, this.hit - dt * 4); if (this.spawnT > 0) this.spawnT -= dt;
     const want = _w.set(0, 0, 0);
     switch (this.state) {
@@ -1711,7 +1750,7 @@ class Ghost {
         break;
       }
       case 'hunt': {
-        this.orbit += dt * 0.55 * this.odir; const R0 = this.type === 'boss' ? 26 : 12 + Math.sin(this.t * 0.3) * 3, H = this.type === 'boss' ? 12 : 4.5 + Math.sin(this.t * 0.7) * 2;
+        this.orbit += dt * 0.55 * this.odir; const R0 = (this.type === 'boss' ? 26 : 12 + Math.sin(this.t * 0.3) * 3) + (big ? titan.rad * 3 : 0), H = (this.type === 'boss' ? 12 : 4.5 + Math.sin(this.t * 0.7) * 2) + (big ? titan.vh * 0.7 : 0);
         want.set(tgt.x + Math.cos(this.orbit) * R0 - this.pos.x, tgt.y + H - this.pos.y, tgt.z + Math.sin(this.orbit) * R0 - this.pos.z);
         if (want.length() > spd) want.setLength(spd);
         this.atk -= dt;
@@ -1724,7 +1763,7 @@ class Ghost {
       }
       case 'swoop': {
         this.swoopT -= dt; want.copy(toP).setLength(spd * 2.8);
-        if (!this.hitDone && dist < 1.8 + this.r * 0.5) { this.hitDone = true; if (this.raid) raidHit(this); else if (player.car === interceptor) interceptor.damage(T.dmg + 4, this.pos); else { hurtPlayer(T.dmg + 4, this.pos); slimeScreen(); } }
+        if (!this.hitDone && dist < 1.8 + this.r * 0.5 + (big ? titan.rad : 0)) { this.hitDone = true; if (this.raid) raidHit(this); else if (player.car === interceptor) interceptor.damage(T.dmg + 4, this.pos); else { hurtPlayer(T.dmg + 4, this.pos); slimeScreen(); } }
         if (this.swoopT <= 0 || this.hitDone) { this.state = 'hunt'; this.vel.multiplyScalar(0.3); this.vel.y += 6; }
         break;
       }
@@ -1766,7 +1805,7 @@ class Ghost {
     if (this.trail <= 0 && dist < 160) { this.trail = 0.045; const c = this.T.color, k = this.r; FX.add(this.pos.x + R(-0.3, 0.3) * k, this.pos.y + bob - k * 1.2, this.pos.z + R(-0.3, 0.3) * k, R(-0.4, 0.4), R(-0.6, 0.3), R(-0.4, 0.4), c[0] * 1.6, c[1] * 1.6, c[2] * 1.6, 0.9, k * 0.55, 0.02, 0, 0.8); }
   }
   updateCapture(dt) {
-    this.cap += dt / (this.type === 'boss' ? 2.6 : 1.5); const t = Math.min(1, this.cap), tp = trap.pos;
+    this.cap += dt / (this.type === 'boss' ? 2.6 : 1.5); const t = Math.min(1, this.cap), tp = this.capTo || trap.pos;
     const ang = t * 14, rad = (1 - t) * this.r * 1.5, y = lerp(this.capFrom.y, tp.y + 0.3, t * t);
     this.pos.set(lerp(this.capFrom.x, tp.x, t) + Math.cos(ang) * rad, y, lerp(this.capFrom.z, tp.z, t) + Math.sin(ang) * rad);
     this.g.position.copy(this.pos); this.g.rotation.y += dt * 12;
@@ -1776,7 +1815,7 @@ class Ghost {
     const c = this.T.color; for (let k = 0; k < 3; k++) FX.add(this.pos.x + R(-1, 1) * rad, this.pos.y + R(-1, 1) * rad, this.pos.z + R(-1, 1) * rad, (tp.x - this.pos.x) * 2, (tp.y - this.pos.y) * 2, (tp.z - this.pos.z) * 2, c[0] * 2, c[1] * 2, c[2] * 2, 0.4, 0.25, 0.02);
     if (t >= 1) {
       const p = tp.clone().add(V3(0, 0.4, 0)); sparks(p, 70, 10, [3, 3, 2.4], 0.7); ring(p, 6, [3, 3, 2.5]); flash(p, 0xfff2d0, 450, 0.3, 25); smokePuff(p, 6, [0.25, 0.25, 0.3], 1.2, 1.8); sfxAt('snap', p);
-      player.money += this.T.money; player.captures++; captureCount++;
+      player.money += this.T.money; player.captures++; captureCount++; gainXP(this.type === 'boss' ? 200 : 40); if (this.capTo) titanFed();
       toast(`포획 성공! +$${this.T.money.toLocaleString()}`, `${this.name} · 누적 ${player.captures}마리`);
       if (this.type === 'boss') { bossActive = null; toast('네온 거신 포획!', `+$${this.T.money.toLocaleString()} · 도시가 잠시 조용해졌습니다`); }
       if (this.onCapture) this.onCapture();
@@ -1809,7 +1848,7 @@ function projectile(kind, from, dir, speed, owner) {
 function ectoBall(g, delay) {
   setTimeout(() => {
     if (!ghosts.includes(g) || g.state === 'stunned' || g.state === 'captured') return;
-    const tgt = player.car ? player.car.pos : player.pos, aim = V3(tgt.x + R(-1.5, 1.5), tgt.y + 1.1, tgt.z + R(-1.5, 1.5));
+    const tgt = player.car ? player.car.pos : player.pos, aim = V3(tgt.x + R(-1.5, 1.5), tgt.y + (titan.on ? titan.vh * 0.6 : 1.1), tgt.z + R(-1.5, 1.5));
     const from = g.pos.clone().add(V3(0, 0.2 * g.r, 0)), dir = aim.sub(from).normalize(); dir.y += 0.04;
     projectile('ecto', from, dir, g.type === 'boss' ? 26 : 21, g); sfxAt('ecto', from, 0.6);
   }, delay * 1000);
@@ -1831,7 +1870,7 @@ function updateProjectiles(dt) {
     if (!hit && p.kind !== 'ecto' && p.kind !== 'stun') { for (const g of ghosts) if (g.state !== 'captured' && g.pos.distanceTo(p.pos) < g.r * 1.25) { hg = g; hit = 'ghost'; break; } }
     if (!hit && (p.kind === 'boson' || p.kind === 'missile')) { for (const c of cars) if (c !== player.car && c !== p.owner && !c.wrecked && Math.hypot(c.pos.x - p.pos.x, c.pos.z - p.pos.z) < 2.3 && p.pos.y < 2.2) { hc = c; hit = 'car'; break; } }
     if (!hit && (p.kind === 'boson' || p.kind === 'slime' || p.kind === 'missile') && heli.active && !heli.down && p.pos.distanceTo(heli.pos) < 3.6) hit = 'heli';
-    if (!hit && (p.kind === 'ecto' || p.kind === 'stun')) { const tp = player.car ? player.car.pos : player.pos; if (Math.hypot(tp.x - p.pos.x, tp.z - p.pos.z) < (player.car ? 2.4 : 1.0) && Math.abs(tp.y + 1 - p.pos.y) < 1.4) { hit = 'player'; } }
+    if (!hit && (p.kind === 'ecto' || p.kind === 'stun')) { const tp = player.car ? player.car.pos : player.pos; if (titan.on ? Math.hypot(tp.x - p.pos.x, tp.z - p.pos.z) < titan.rad * 1.3 && p.pos.y > tp.y && p.pos.y < tp.y + titan.vh : Math.hypot(tp.x - p.pos.x, tp.z - p.pos.z) < (player.car ? 2.4 : 1.0) && Math.abs(tp.y + 1 - p.pos.y) < 1.4) { hit = 'player'; } }
     if (!hit && p.life > 0) continue;
     if (p.kind === 'slime') { if (hg) { hg.damage(9); hg.slime = 3.5; } else if (hit === 'heli') damageHeli(6, true); else if (hit === 'world') slimes.add(p.pos, n, R(0.8, 1.5)); sparks(p.pos, 16, 5, [0.6, 2.4, 0.4], 0.6, 0.18); sfxAt('splat', p.pos, 0.5); }
     else if (p.kind === 'boson') explosion(p.pos, 7 * (1 + 0.25 * upg('boson')), 65, p.owner, hg, true);
@@ -1879,7 +1918,7 @@ function explosion(p, rad, dmg, srcCar, directGhost, byPlayer) {
   for (const ped of peds) { const d = ped.pos.distanceTo(q); if (d < rad * 1.2) { ped.knock((ped.pos.x - q.x) / (d || 1) * 7, 6, (ped.pos.z - q.z) / (d || 1) * 7); if (byPlayer) crime(ped.cop ? 2 : 1, ped.cop ? 'cop' : 'ped', 4); } }
   scareNear(q, 45);
   lampsNear(q.x, q.z, rad, (L, i) => knockLamp(L, i, L.x - q.x, L.z - q.z));
-  if (!player.car && !player.dead) { const d = player.pos.distanceTo(q); if (d < rad * 0.75) { hurtPlayer(20 * (1 - d / (rad * 0.75)) + 4, q); player.vel.add(_v.subVectors(player.pos, q).setY(0).normalize().multiplyScalar(8)); player.vel.y = 5; player.onGround = false; } }
+  if (!player.car && !player.dead && !titan.on) { const d = player.pos.distanceTo(q); if (d < rad * 0.75) { hurtPlayer(20 * (1 - d / (rad * 0.75)) + 4, q); player.vel.add(_v.subVectors(player.pos, q).setY(0).normalize().multiplyScalar(8)); player.vel.y = 5; player.onGround = false; } }
 }
 
 // ============================================================ proton stream
@@ -1906,7 +1945,7 @@ function pickGhost(o, d, maxT, tMin = 0) {
   for (const g of ghosts) { if (g.state === 'captured' || g.spawnT > 0.6) continue; _v.subVectors(g.pos, o); const t = _v.dot(d); if (t < tMin || t > maxT + g.r) continue; const perp = _w.copy(d).multiplyScalar(t).sub(_v).length(); if (perp < g.r * 1.3 + t * (isTouch ? 0.12 : 0.05) && t < bt) { best = g; bt = t; } }
   return best;
 }
-function hideBeam() { for (const k in beamR) beamR[k].mesh.visible = false; for (const f of forks) f.r.mesh.visible = false; beamTipLight.intensity = 0; beamHitLight.intensity = 0; if (AU.beam) AU.beam.gain.setTargetAtTime(0, AU.ctx.currentTime, 0.05); beam.on = false; }
+function hideBeam() { for (const k in beamR) beamR[k].mesh.visible = false; for (const f of forks) f.r.mesh.visible = false; beamTipLight.intensity = 0; beamHitLight.intensity = 0; if (AU.beam) AU.beam.gain.setTargetAtTime(0, AU.ctx.currentTime, 0.05); beam.on = false; if (titan.firing) titanBeamOff(); }
 function updateBeam(dt, firing, aim) {
   if (!firing) { if (beam.on) { hideBeam(); sparks(P.tip.getWorldPosition(V3()), 10, 3, [3, 1.4, 0.5], 0.3); } beam.lock = null; return; }
   if (!beam.on) { beam.on = true; sfx('hit', 0.5); }
@@ -2180,6 +2219,7 @@ function updateTrap(dt) {
 // ============================================================ player
 function hurtPlayer(n, from) {
   if (player.dead || player.busted || state !== 'play') return;
+  if (titan.on) return titanHurt(n);
   player.hp -= n; player.lastHit = time; hurtFx = Math.min(1, hurtFx + n / 30); addShake(null, Math.min(0.9, n / 25)); sfx('hurt', 0.8);
   if (player.hp <= 0) {
     player.hp = 0; player.dead = true; player.deadT = 0; if (player.car) exitCar(true); hideBeam();
@@ -2189,13 +2229,14 @@ function hurtPlayer(n, from) {
   }
 }
 let hurtFx = 0, slimeFx = 0, flashFx = 0;
-function slimeScreen() { slimeFx = 1; }
+function slimeScreen() { if (!titan.on) slimeFx = 1; }
 function respawn() {
+  if (titan.on) titanReset();
   player.dead = false; player.busted = false; player.climb = player.zip = null; player.stunT = 0; player.fuel = player.fuelMax; player.airMax = 0.15; player.hp = player.maxHp; player.money = Math.floor(player.money * 0.9); clearWanted(); resetPose(); player.pos.set(HQ.cx - 6, 0.15, HQ.cz + 16); player.vel.set(0, 0, 0); player.yaw = Math.atan2(6, -22); player.pitch = -0.1; player.heat = 0; player.overheated = false; P.g.visible = true; P.g.rotation.x = 0;
 }
 function enterCar() {
   let best = null, bd = 4.8;
-  if (player.climb || player.zip || player.busted || player.pos.y > 2) return;
+  if (player.climb || player.zip || player.busted || titan.on || player.pos.y > 2) return;
   for (const c of cars) { if (c.wrecked || c.possessed) continue; const d = Math.hypot(c.pos.x - player.pos.x, c.pos.z - player.pos.z); if (d < bd) { bd = d; best = c; } }
   if (!best) return;
   if (best.type === 'police') { crime(2, 'cop', 0); best.cop.mode = 'stolen'; toast('경찰차 탈취!', '수배가 크게 오릅니다 · H 사이렌'); }
@@ -2219,11 +2260,12 @@ function exitCar(forced) {
   sfx('door');
 }
 function updatePlayer(dt) {
-  const wasJet = player.jet; player.jet = false; for (const f of P.flames) f.visible = false; jetLight.intensity = 0;
+  const wasJet = player.jet; player.jet = false; for (const f of P.flames) f.visible = false; jetLight.intensity = 0; titan.cd = Math.max(0, titan.cd - dt);
   if (player.dead) { jumpQ = false; player.deadT += dt; P.g.rotation.x = -Math.min(1.5, player.deadT * 3); if (player.deadT > 3.2) respawn(); return; }
   if (player.busted) { jumpQ = false; player.bustT += dt; P.armL.rotation.set(-2.8, 0, -0.35); P.armR.rotation.set(-2.8, 0, 0.35); P.g.position.copy(player.pos); if (player.bustT > 2.8) respawn(); return; }
   if (time - player.lastHit > 5) player.hp = Math.min(player.maxHp, player.hp + 7 * dt);
   player.stunT = Math.max(0, player.stunT - dt);
+  if (titan.on) return updateTitan(dt);
   const c = player.car;
   if (c) {
     const tk = touch.active;
@@ -2323,8 +2365,8 @@ const aimState = { o: V3(), dir: V3(), point: V3(), hit: null, ghost: null, hitC
 function computeAim() {
   const A = aimState; A.o.copy(camera.position); camera.getWorldDirection(A.dir);
   // from a car the camera sits well behind it: nothing between the lens and the car counts as a target
-  A.tMin = player.car ? Math.max(0, _v.subVectors(player.car.pos, A.o).dot(A.dir)) : 0;
-  const hit = rayWorld(A.o, A.dir, 90); A.hit = hit; const maxT = hit ? hit.t : 90;
+  A.tMin = player.car ? Math.max(0, _v.subVectors(player.car.pos, A.o).dot(A.dir)) : titan.on ? Math.max(0, _v.subVectors(player.pos, A.o).dot(A.dir) + titan.rad) : 0;
+  const RG = titan.on ? 320 : 90, hit = rayWorld(A.o, A.dir, RG); A.hit = hit; const maxT = hit ? hit.t : RG;
   A.point.copy(A.o).addScaledVector(A.dir, maxT);
   A.ghost = pickGhost(A.o, A.dir, maxT, A.tMin);
   A.hitCar = null; A.hitHeli = null;
@@ -2355,6 +2397,7 @@ function updateWeapons(dt) {
   const c = player.car, inV = c === interceptor;
   $('cross').hidden = !!(player.dead || (c && carAim < 0.5));
   if (player.dead) { updateBeam(dt, false); gat.on = false; P.gatFlash.visible = false; return; }
+  if (titan.on) { updateTurret(dt, null); updateBeam(dt, false); gat.on = false; gat.spin = 0; P.gatFlash.visible = false; titanWeapons(dt); return; }
   const aim = computeAim(), out = !c || (!inV && leanOut(dt, aim));
   updateTurret(dt, inV ? aim : null);
   P.g.updateMatrixWorld(true);
@@ -2391,6 +2434,478 @@ function updateWeapons(dt) {
   player.heat = clamp(player.heat, 0, 100);
 }
 
+// ============================================================ titan: the Ghostbuster can turn into a giant reptile kaiju (T); captures and jobs give XP and it evolves in four stages
+// h: height (m), spd: walking speed (m/s), beam: heat ray damage per second, col: heat ray and dorsal plate glow, crack: lava glow in the hide
+const EVO = [
+  { name: '어린 타이탄', h: 12, hp: 600, spd: 7, beam: 60, col: [0.35, 0.95, 3.4], crack: [0, 0, 0] },
+  { name: '타이탄', h: 16, hp: 900, spd: 8.5, beam: 85, col: [0.55, 1.7, 4.2], crack: [0, 0, 0] },
+  { name: '용암 타이탄', h: 21, hp: 1300, spd: 10, beam: 120, col: [4.2, 1.3, 0.3], crack: [2.6, 0.7, 0.12] },
+  { name: '킹 타이탄', h: 27, hp: 1800, spd: 11.5, beam: 170, col: [2.8, 0.55, 4.2], crack: [1.5, 0.3, 2.4] },
+];
+const XP_EVO = [300, 900, 2000];
+const titan = { on: false, phase: 'off', t: 0, hp: 600, en: 100, drained: false, cd: 0, hitT: -99, charge: 0, firing: false, walk: 0, ff: false, spin: 0, tailT: 0, tailCd: 0, stompT: 0, stompCd: 0, pulseCd: 0, pulse: false, pulseT: 0,
+  roarT: 0, roarCd: 0, eatT: 0, grow: 0, vh: 0, rad: 2.4, s: 1, from: 0, evoK: 1, burst: false, ready: -1, hits: new Set(), scareT: 0, blastT: 0, blastN: 0, mouth: V3(), sprintK: 0, xpT: 0, hurtS: 0, roarK: 0, pulseK: 0, evoG: 0 };
+const tEase = t => t * t * (3 - 2 * t), tBack = t => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2);
+const _tc = new THREE.Color(), tcol = c => { const m = Math.max(c[0], c[1], c[2]) || 1; return _tc.setRGB(c[0] / m, c[1] / m, c[2] / m); };
+const TM = {};
+{
+  // hide: overlapping rounded scales (the normal map comes from their height) and a crack map that glows once the hide turns to lava
+  const S = 256, c = mkCanvas(S, S), g = c.getContext('2d'); g.fillStyle = '#6a6a6a'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 700; i++) {
+    const r = R(5, 12), x = Math.random() * S, y = Math.random() * S;
+    for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) {
+      const X = x + ox, Y = y + oy; if (X < -r || X > S + r || Y < -r || Y > S + r) continue;
+      const gr = g.createRadialGradient(X, Y, 0, X, Y, r); gr.addColorStop(0, '#c4c4c4'); gr.addColorStop(0.7, '#7a7a7a'); gr.addColorStop(1, '#3c3c3c');
+      g.fillStyle = gr; g.beginPath(); g.arc(X, Y, r, 0, 6.283); g.fill();
+    }
+  }
+  const m = mkCanvas(S, S), gm = m.getContext('2d'); gm.fillStyle = '#000'; gm.fillRect(0, 0, S, S);
+  TM.nrm = normalTex(c, m, 2.4); TM.nrm.repeat.set(3, 3);
+  const e = mkCanvas(S, S), ge = e.getContext('2d'); ge.fillStyle = '#000'; ge.fillRect(0, 0, S, S);
+  ge.strokeStyle = '#fff'; ge.lineCap = ge.lineJoin = 'round'; ge.shadowColor = '#fff'; ge.shadowBlur = 5;
+  for (let i = 0; i < 30; i++) {
+    const pts = []; let x = Math.random() * S, y = Math.random() * S, a = Math.random() * 6.283;
+    for (let k = 0; k <= 6; k++) { pts.push([x, y]); a += R(-0.9, 0.9); const l = R(8, 22); x += Math.cos(a) * l; y += Math.sin(a) * l; }
+    ge.lineWidth = R(1.2, 2.6);
+    for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { ge.beginPath(); pts.forEach(([px, py], k) => k ? ge.lineTo(px + ox, py + oy) : ge.moveTo(px + ox, py + oy)); ge.stroke(); }
+  }
+  TM.crackMap = tex(e); TM.crackMap.repeat.set(3, 3);
+}
+TM.skin = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0.04, normalMap: TM.nrm, normalScale: new THREE.Vector2(1.3, 1.3), emissive: 0x000000, emissiveMap: TM.crackMap, envMapIntensity: 0.7 });
+TM.crack = [0, 0, 0];
+// dorsal plates: spine.x runs from the tail tip (0) to the neck (1), spine.y from a plate's root (0) to its tip (1).
+// Charging lights them from the tail up to the head (uSweep), a bright band runs ahead of the light, and they breathe softly at rest
+TM.U = { uSweep: { value: -1 }, uLit: { value: 0 }, uFront: { value: 0 }, uIdle: { value: 0.05 }, uTime: { value: 0 }, uCol: { value: new THREE.Color() } };
+TM.plate = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.05, envMapIntensity: 0.8 });
+TM.plate.onBeforeCompile = sh => {
+  Object.assign(sh.uniforms, TM.U);
+  sh.vertexShader = 'attribute vec2 spine;\nvarying vec2 vSpine;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvSpine = spine;');
+  sh.fragmentShader = 'uniform float uSweep, uLit, uFront, uIdle, uTime;\nuniform vec3 uCol;\nvarying vec2 vSpine;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+	float tLit = 1.0 - smoothstep(uSweep - 0.03, uSweep + 0.03, vSpine.x), tb = (vSpine.x - uSweep) * 9.0, tBand = exp(-tb * tb), tTip = 0.35 + 0.65 * vSpine.y;
+	totalEmissiveRadiance += uCol * tTip * (uIdle * (0.65 + 0.35 * sin(uTime * 2.4 - vSpine.x * 7.0)) + tLit * uLit + tBand * uFront);`);
+};
+TM.eye = new THREE.MeshBasicMaterial({ color: new THREE.Color() });
+TM.glow = new THREE.MeshBasicMaterial({ color: new THREE.Color(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+{
+  // jagged plate outline (root along y = 0, tip at y = 1.12), extruded thin and turned so it stands along the spine
+  const sh = new THREE.Shape(), O = [[-0.5, 0], [-0.4, 0.3], [-0.62, 0.42], [-0.32, 0.55], [-0.42, 0.82], [-0.12, 0.74], [0, 1.12], [0.14, 0.76], [0.42, 0.84], [0.32, 0.56], [0.6, 0.44], [0.4, 0.3], [0.5, 0]];
+  sh.moveTo(O[0][0], O[0][1]); for (const [x, y] of O.slice(1)) sh.lineTo(x, y);
+  const PLATE = new THREE.ExtrudeGeometry(sh, { depth: 0.14, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.04, bevelSegments: 1, curveSegments: 1 }).translate(0, 0, -0.07).rotateY(Math.PI / 2);
+  const SKH = 0x252429, BEH = 0x433e39, CLH = 0xd9d1bf, TOH = 0xece6d6, DKH = 0x0c0c0e, cSK = new THREE.Color(SKH), cPL = new THREE.Color(0x67625b), py = PLATE.attributes.position;
+  const plates = [];
+  // a plate fades from the hide colour at its root to bone at its tip
+  const plate = (sp, ...a) => {
+    const g = part(PLATE, cPL, ...a), n = g.attributes.position.count, col = g.attributes.color.array, sa = new Float32Array(n * 2);
+    for (let i = 0; i < n; i++) { const t = clamp(py.getY(i) / 1.12, 0, 1); _tc.copy(cSK).lerp(cPL, Math.pow(t, 1.1)); col[i * 3] = _tc.r; col[i * 3 + 1] = _tc.g; col[i * 3 + 2] = _tc.b; sa[i * 2] = sp; sa[i * 2 + 1] = t; }
+    g.setAttribute('spine', new THREE.BufferAttribute(sa, 2)); plates.push(g);
+  };
+  const skin = (grp, parts) => grp.add(new THREE.Mesh(merge(parts), TM.skin));
+  const flush = grp => grp.add(new THREE.Mesh(merge(plates.splice(0)), TM.plate));
+  // model faces +z, local +x is its left; built 12 m tall and scaled per stage
+  const G = new THREE.Group(), hips = new THREE.Group(), body = new THREE.Group();
+  hips.position.y = 4.7; body.rotation.x = 0.24; G.add(hips); hips.add(body);
+  skin(body, [
+    part(SPH, SKH, 0, 1.0, 0.1, 2.5, 2.4, 2.3), part(SPH, BEH, 0, 1.1, 0.55, 2.05, 2.1, 1.95), part(SPH, SKH, 0, 3.2, 0.45, 2.25, 2.4, 2.0), part(SPH, BEH, 0, 3.05, 0.95, 1.75, 1.9, 1.6),
+    part(SPH, SKH, 1.45, 3.85, 0.45, 1.1, 1.0, 1.0), part(SPH, SKH, -1.45, 3.85, 0.45, 1.1, 1.0, 1.0), part(SPH, SKH, 0, 2.4, -0.6, 2.2, 2.6, 1.8),
+    part(SPH, SKH, 0, 5.0, 0.95, 1.3, 1.6, 1.25), part(SPH, BEH, 0, 4.85, 1.45, 0.95, 1.3, 0.85),
+  ]);
+  // three rows of back plates, the middle row tallest, biggest over the shoulders
+  const bk = [[0.4, -2.05, 1.2], [1.2, -2.1, 1.1], [2.0, -2.25, 1.0], [2.8, -2.25, 0.9], [3.6, -2.05, 0.8], [4.4, -1.6, 0.65], [5.15, -0.15, 0.5]];
+  bk.forEach(([y, z, f], i) => {
+    const big = 1.2 + Math.sin(i * Math.PI / 6) * 0.8, sp = 0.55 + 0.45 * i / 6;
+    plate(sp, 0, y, z, 1, big, big, -f, 0, 0);
+    for (const s of [-1, 1]) plate(sp - 0.02, s * 0.62, y - 0.3, z + 0.12, 0.9, big * 0.66, big * 0.7, -f, 0, -s * 0.32);
+  });
+  flush(body);
+  const head = new THREE.Group(); head.position.set(0, 5.95, 1.55); head.rotation.order = 'YXZ'; head.rotation.x = -0.24; body.add(head);
+  const hp = [part(SPH, SKH, 0, 0.25, 0.35, 0.9, 0.78, 1.15), part(SPH, SKH, 0, 0.1, 1.2, 0.58, 0.38, 0.98)];
+  for (const s of [-1, 1]) {
+    hp.push(part(SPH, SKH, s * 0.42, 0.5, 0.82, 0.3, 0.17, 0.55, 0.12, 0, s * 0.2), part(SPH, DKH, s * 0.14, 0.22, 2.08, 0.06, 0.04, 0.06), part(CONE, SKH, s * 0.35, 0.6, -0.55, 0.2, 0.7, 0.2, -1.3, 0, -s * 0.3));
+    for (const [x, z] of [[0.4, 0.85], [0.38, 1.15], [0.33, 1.45], [0.24, 1.75]]) hp.push(part(CONE, TOH, s * x, -0.3, z, 0.07, 0.24, 0.07, Math.PI, 0, 0));
+  }
+  skin(head, hp);
+  TM.eyes = [-1, 1].map(s => { const e = new THREE.Mesh(SPH, TM.eye); e.position.set(s * 0.58, 0.36, 1.18); e.scale.set(0.09, 0.055, 0.09); head.add(e); return e; });
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.05, 0.25); head.add(jaw);
+  const jp = [part(SPH, SKH, 0, -0.27, 0.85, 0.54, 0.22, 1.0), part(SPH, BEH, 0, -0.36, 0.42, 0.66, 0.3, 0.72)];
+  for (const s of [-1, 1]) for (const [x, z] of [[0.33, 0.9], [0.3, 1.2], [0.22, 1.5]]) jp.push(part(CONE, TOH, s * x, -0.04, z, 0.06, 0.2, 0.06));
+  skin(jaw, jp);
+  TM.mouth = new THREE.Object3D(); TM.mouth.position.set(0, -0.12, 2.2); head.add(TM.mouth);
+  TM.mglow = new THREE.Mesh(SPH, TM.glow); TM.mglow.position.set(0, -0.36, 1.2); TM.mglow.scale.set(0.3, 0.1, 0.6); TM.mglow.visible = false; head.add(TM.mglow);
+  TM.flare = new THREE.Sprite(new THREE.SpriteMaterial({ map: TX.star, color: new THREE.Color(), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+  TM.flare.position.copy(TM.mouth.position); TM.flare.scale.setScalar(3.2); TM.flare.visible = false; head.add(TM.flare);
+  // short forward-held arms with three claws
+  TM.arms = [-1, 1].map(s => {
+    const a = new THREE.Group(); a.position.set(s * 1.85, 3.55, 1.2); a.rotation.set(-0.5, 0, s * 0.22); body.add(a);
+    const p = [part(SPH, SKH, 0, -0.62, 0, 0.46, 0.86, 0.46), part(SPH, SKH, 0, -1.65, 0.45, 0.36, 0.74, 0.36, -1.0, 0, 0), part(SPH, SKH, 0, -1.95, 0.88, 0.33, 0.26, 0.36)];
+    for (const x of [-0.16, 0, 0.16]) p.push(part(CONE, CLH, x, -2.05, 1.18, 0.05, 0.28, 0.05, Math.PI / 2 + 0.5, 0, 0));
+    skin(a, p); return a;
+  });
+  // legs (index 0 is the right leg, the one that stomps); the foot markers are where the footfalls land
+  TM.feet = [];
+  TM.legs = [-1, 1].map(s => {
+    const l = new THREE.Group(); l.position.set(s * 1.55, 0.2, -0.1); hips.add(l);
+    const p = [part(SPH, SKH, 0, -0.9, 0.3, 1.28, 1.95, 1.5), part(SPH, SKH, 0, -2.3, 0.6, 0.95, 1.1, 0.98), part(SPH, SKH, 0, -3.3, 0.38, 0.8, 1.35, 0.82, 0.22, 0, 0), part(SPH, SKH, 0, -4.48, 0.78, 0.98, 0.42, 1.38)];
+    for (const x of [-0.42, 0, 0.42]) p.push(part(CONE, CLH, x, -4.6, 2.15, 0.13, 0.46, 0.13, Math.PI / 2, 0, 0));
+    p.push(part(CONE, CLH, 0, -4.5, -0.55, 0.12, 0.4, 0.12, -Math.PI / 2, 0, 0));
+    skin(l, p); const f = new THREE.Object3D(); f.position.set(0, -4.7, 0.8); l.add(f); TM.feet.push(f); return l;
+  });
+  // tail: nine nested segments that taper to a point and drag along the ground, each carrying plates
+  const PITCH = [-0.3, -0.12, -0.05, 0.05, 0.1, 0.1, 0.1, 0.08, 0.05];
+  TM.tail = []; let parent = hips, prevL = 0;
+  for (let k = 0; k < 9; k++) {
+    const seg = new THREE.Group(), r = 1.45 * Math.pow(1 - k / 10, 1.15), rn = k < 8 ? 1.45 * Math.pow(1 - (k + 1) / 10, 1.15) : r * 0.5, L = 1.95 - 0.04 * k;
+    if (k === 0) seg.position.set(0, -0.15, -1.9); else seg.position.set(0, 0, -prevL);
+    const p = [part(SPH, SKH, 0, 0, 0, r, r * 0.92, r), part(new THREE.CylinderGeometry(1, rn / r, 1, 14), SKH, 0, 0, -L / 2, r, L * 1.02, r * 0.92, Math.PI / 2, 0, 0)];
+    if (k === 8) p.push(part(CONE, SKH, 0, 0, -L - 0.4, rn, 0.8, rn * 0.92, -Math.PI / 2, 0, 0));
+    skin(seg, p);
+    for (const f of [0.3, 0.8]) {
+      const rf = lerp(r, rn, f), zz = rf * 0.95 + 0.2, sp = 0.5 * (1 - k / 9) - f * 0.5 / 9;
+      plate(sp, 0, rf * 0.72, -L * f, 0.85, zz, zz * 0.9, -0.75);
+      if (k < 5) for (const s of [-1, 1]) plate(sp - 0.01, s * rf * 0.42, rf * 0.55, -L * f - 0.3, 0.75, zz * 0.62, zz * 0.62, -0.75, 0, -s * 0.45);
+    }
+    flush(seg); seg.userData = { rx: PITCH[k], L }; seg.rotation.x = PITCH[k]; parent.add(seg); TM.tail.push(seg); parent = seg; prevL = L;
+  }
+  const sh2 = blob(1); sh2.scale.set(9, 1, 13); sh2.position.set(0, 0.06, -3.5); G.add(sh2);
+  G.visible = false; scene.add(G);
+  Object.assign(TM, { g: G, hips, body, head, jaw });
+  // nuclear pulse: a glowing shell that bursts out from the chest
+  TM.pulse = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 18), new THREE.ShaderMaterial({ uniforms: { uI: { value: 0 }, uCol: { value: new THREE.Color() } }, vertexShader: SHIELD_VS,
+    fragmentShader: `uniform float uI; uniform vec3 uCol; varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ float f = 1.0 - abs(dot(normalize(vN), normalize(vV))); gl_FragColor = vec4(uCol * (0.25 + 2.2 * f * f), uI * (0.15 + 0.85 * f * f)); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  TM.pulse.visible = false; TM.pulse.renderOrder = 7; scene.add(TM.pulse);
+}
+// atomic heat ray: a wide glow, a white-hot core and two spirals twisting around it
+const TBN = 60, TBP = [0, 1, 2].map(() => Array.from({ length: TBN }, () => V3()));
+const TBR = { glow: new Ribbon(TBN, [1, 1, 1]), core: new Ribbon(TBN, [1, 1, 1]), s1: new Ribbon(TBN, [1, 1, 1]), s2: new Ribbon(TBN, [1, 1, 1]) };
+// colours of the current stage: ray, eyes, mouth glow, plates, lava cracks
+function titanLook(k) {
+  const E = EVO[k], c = E.col;
+  TBR.glow.mat.uniforms.uColor.value.setRGB(c[0] * 0.5, c[1] * 0.5, c[2] * 0.5);
+  TBR.core.mat.uniforms.uColor.value.setRGB(2.4 + c[0] * 0.3, 2.4 + c[1] * 0.3, 2.4 + c[2] * 0.3);
+  for (const r of [TBR.s1, TBR.s2]) r.mat.uniforms.uColor.value.setRGB(c[0], c[1], c[2]);
+  TM.eye.color.setRGB(0.4 + c[0] * 0.5, 0.4 + c[1] * 0.5, 0.4 + c[2] * 0.5); TM.glow.color.setRGB(c[0] * 1.2, c[1] * 1.2, c[2] * 1.2);
+  TM.flare.material.color.setRGB(c[0] * 0.8 + 1, c[1] * 0.8 + 1, c[2] * 0.8 + 1); TM.pulse.material.uniforms.uCol.value.setRGB(c[0] * 0.5, c[1] * 0.5, c[2] * 0.5);
+  TM.U.uCol.value.setRGB(c[0], c[1], c[2]); TM.crack = E.crack; TM.skin.color.setScalar(k >= 2 ? 0.78 : 1);
+}
+titanLook(save.evo);
+function gainXP(n) {
+  if (state !== 'play') return;
+  save.xp += n; titan.xpT = 0.8; const k = save.evo;
+  if (k < 3 && save.xp >= XP_EVO[k] && titan.ready < k) {
+    titan.ready = k;
+    if (!titan.on) setTimeout(() => state === 'play' && !titan.on && toast('타이탄 진화 준비 완료', `T로 변신하면 ${EVO[k + 1].name}으로 진화합니다`), 1600);
+  }
+}
+function toggleTitan() {
+  if (state !== 'play' || paused || modal) return;
+  const T = titan;
+  if (T.phase === 'on') return titanOut(false);
+  if (T.phase !== 'off' || player.dead || player.busted) return;
+  if (player.climb || player.zip) return toast('지금은 변신할 수 없습니다', '사다리나 짚라인에서 내린 뒤 변신하세요');
+  if (T.cd > 0) return toast('변신 에너지 충전 중', `${Math.ceil(T.cd)}초 뒤에 다시 변신할 수 있습니다`);
+  if (player.car) exitCar();
+  const E = EVO[save.evo];
+  Object.assign(T, { on: true, phase: 'in', t: 0, grow: 0, from: save.evo, evoK: 1, hp: E.hp, en: 100, drained: false, charge: 0, firing: false, spin: 0, tailT: 0, tailCd: 0, stompT: 0, stompCd: 0, pulseCd: 0, pulse: false, pulseT: 0, roarT: 0, roarCd: 0, eatT: 0, hitT: -99, burst: false, sprintK: 0 });
+  T.hits.clear(); hideBeam(); gat.spin = 0; gat.on = false; P.gatFlash.visible = false; player.heat = 0; player.overheated = false; player.aim = false; mouse.r = false; player.vel.x = player.vel.z = 0; player.jet = false;
+  titanLook(save.evo); sfx('morph'); flash(_p.copy(player.pos).add(_w.set(0, 2, 0)), tcol(E.col), 600, 1.6, 30);
+}
+// back to human: on request (3 s before the next change) or knocked out (30 s)
+function titanOut(down) {
+  const T = titan; if (T.phase !== 'on') return;
+  T.phase = 'out'; T.t = 0; titanBeamOff(); T.charge = 0; T.tailT = T.stompT = T.roarT = T.eatT = 0; T.spin = 0; T.cd = down ? 30 : 3;
+  if (down) { toast('타이탄이 쓰러졌습니다', '30초 뒤에 다시 변신할 수 있습니다'); sfx('roar', 0.7); } else sfx('morph', 0.7);
+}
+function titanReset() {
+  const T = titan; titanBeamOff();
+  Object.assign(T, { on: false, phase: 'off', t: 0, charge: 0, tailT: 0, stompT: 0, roarT: 0, eatT: 0, pulseT: 0, spin: 0, grow: 0, vh: 0 });
+  TM.g.visible = false; TM.pulse.visible = false; P.g.visible = true; resetPose();
+}
+// the kaiju takes 60% of what would hit the Ghostbuster and heals slowly after 6 quiet seconds
+function titanHurt(n) {
+  const T = titan; if (T.phase !== 'on') return;
+  T.hp -= n * 0.6; T.hitT = time; hurtFx = Math.min(1, hurtFx + n / 90);
+  if (time - T.hurtS > 0.3) { T.hurtS = time; sfx('hurt', 0.5); }
+  if (T.hp <= 0) { T.hp = 0; titanOut(true); }
+}
+// an absorbed ghost feeds it: health and heat ray energy
+function titanFed() { const T = titan; if (!T.on) return; const E = EVO[save.evo]; T.hp = Math.min(E.hp, T.hp + E.hp * 0.12); T.en = Math.min(100, T.en + 25); }
+function updateTitan(dt) {
+  const T = titan; T.t += dt;
+  if (T.phase === 'in') {
+    // the Ghostbuster disappears in a swirl, then the kaiju grows out of it with a little overshoot
+    morphFx(dt);
+    if (P.g.visible) { P.g.position.copy(player.pos); if (T.t >= 0.7) { morphBurst(false); P.g.visible = false; TM.g.visible = true; } }
+    T.grow = T.t < 0.7 ? 0 : tBack(Math.min(1, (T.t - 0.7) / 0.9));
+    if (T.t >= 1.6) {
+      T.phase = 'on'; T.grow = 1; const E = EVO[save.evo];
+      toast(`${E.name} 등장!`, isTouch ? '발사 버튼 원자 열선 · 꼬리 · 쿵 · 흡수 · 포효 버튼' : '좌클릭 원자 열선 · 우클릭 꼬리 · Space 발구르기 · G 흡수 · H 포효 · T 해제'); sfx('roar', 0.8);
+    }
+  } else if (T.phase === 'out') {
+    T.grow = 1 - tEase(Math.min(1, T.t / 0.8)); morphFx(dt);
+    if (T.t >= 0.8) { T.on = false; T.phase = 'off'; TM.g.visible = false; P.g.visible = true; P.g.position.copy(player.pos); P.g.rotation.set(0, player.facing, 0); morphBurst(true); player.vel.set(0, 0, 0); player.airMax = player.pos.y; resetPose(); return; }
+  } else if (T.phase === 'evo') {
+    // evolution: energy pours in for a second, a flash, then the body grows to the new stage's size
+    if (T.t < 1) evoFx(dt, T.t);
+    else if (!T.burst) { T.burst = true; titanLook(save.evo); evoBurst(); }
+    T.evoK = T.t < 1 ? 0 : tBack(Math.min(1, (T.t - 1) / 1.2));
+    if (T.t >= 2.6) {
+      const E = EVO[save.evo]; T.phase = 'on'; T.from = save.evo; T.evoK = 1; T.hp = E.hp; T.en = 100; T.drained = false; writeSave();
+      toast(`진화! ${E.name}`, `키 ${E.h} m · 체력 ${E.hp}` + (save.evo === 2 ? (isTouch ? ' · 새 능력: 핵 펄스 (쿵 버튼)' : ' · 새 능력: 핵 펄스 (Space)') : '')); sfx('fanfare');
+    }
+  } else if (T.phase === 'on' && save.evo < 3 && save.xp >= XP_EVO[save.evo] && T.tailT <= 0 && T.stompT <= 0) {
+    T.from = save.evo; save.evo++; T.phase = 'evo'; T.t = 0; T.burst = false; T.evoK = 0; titanBeamOff(); T.charge = 0;
+    toast('타이탄 진화!', `${EVO[T.from].name}에서 ${EVO[save.evo].name}으로`); sfx('roar', 1); sfx('tcharge', 0.8);
+  }
+  const E = EVO[save.evo], h = lerp(EVO[T.from].h, E.h, T.evoK), s = h / 12; T.s = s; T.vh = h * T.grow; T.rad = 2.4 * s * Math.max(0.25, T.grow);
+  const p = player.pos, v = player.vel, on = T.phase === 'on';
+  let mx = 0, mz = 0, sprint = false;
+  if (on) { mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0); mz = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0); sprint = keys.ShiftLeft || keys.ShiftRight; if (touch.active) { mx += touch.x; mz -= touch.y; if (Math.hypot(touch.x, touch.y) > 0.92) sprint = true; } }
+  const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
+  if (jumpQ) { jumpQ = false; if (on) titanStomp(); }
+  const shooting = T.firing || T.charge > 0, busy = T.tailT > 0 || T.stompT > 0 || T.roarT > 0 || T.eatT > 0;
+  const spd = E.spd * (sprint && !shooting ? 1.75 : 1) * (shooting ? 0.4 : busy ? 0.35 : 1);
+  const sy = Math.sin(player.yaw), cy = Math.cos(player.yaw);
+  v.x = damp(v.x, (sy * mz - cy * mx) * spd, 2.6, dt); v.z = damp(v.z, (cy * mz + sy * mx) * spd, 2.6, dt);
+  v.y -= 25 * dt; p.addScaledVector(v, dt);
+  // it steps up onto anything lower than its knee and is blocked by taller buildings; a heavy landing shakes the ground
+  const step = 1.2 * s, gy = surfaceY(p.x, p.z, p.y + step);
+  if (p.y <= gy) { if (v.y < -9 && on) titanQuake(V3(p.x, gy, p.z), 10 * s, 40 + 15 * save.evo, 1.5); p.y = gy; v.y = 0; }
+  const y0 = p.y; p.y += step; pushOut(p, T.rad); p.y = y0;
+  p.x = clamp(p.x, -BOUND, BOUND); p.z = clamp(p.z, -BOUND, BOUND);
+  const hv = Math.hypot(v.x, v.z), aimT = on && (shooting || mouse.l || touch.fire);
+  if (T.tailT <= 0) { const want = aimT ? player.yaw : hv > 0.6 ? Math.atan2(v.x, v.z) : player.facing; player.facing = angDiff(player.facing + clamp(angDiff(want, player.facing), -2.2 * dt, 2.2 * dt), 0); }
+  T.sprintK = damp(T.sprintK, sprint && hv > E.spd * 1.2 ? 1 : 0, 4, dt);
+  // gait: slow heavy strides, the hips dip at each footfall; the stomp lifts the right leg and drives it down
+  T.walk += dt * hv * 0.9 / s;
+  const amp = Math.min(1, hv / (E.spd * 0.8)), sw = Math.sin(T.walk) * 0.38 * amp;
+  let l0 = sw;
+  if (T.stompT > 0 && !T.pulse) { const k = 1 - T.stompT / 0.5; l0 = k < 0.5 ? lerp(sw, -0.75, tEase(k / 0.5)) : k < 0.6 ? lerp(-0.75, 0, (k - 0.5) / 0.1) : 0; }
+  TM.legs[0].rotation.x = l0; TM.legs[1].rotation.x = -sw;
+  T.roarK = T.roarT > 0 ? Math.min(1, (2 - T.roarT) / 0.3) * Math.min(1, T.roarT / 0.4) : 0;
+  T.pulseK = T.stompT > 0 && T.pulse ? Math.sin(Math.PI * (1 - T.stompT)) : 0;
+  T.evoG = T.phase === 'evo' ? (T.t < 1 ? T.t : Math.max(0, 1 - (T.t - 1) / 0.8)) : 0;
+  const evoP = T.phase === 'evo' ? (T.t < 1 ? tEase(T.t) : Math.max(0, 1 - (T.t - 1) / 0.6)) : 0, rk = T.roarK, pk = T.pulseK;
+  TM.hips.position.y = 4.7 - 0.12 * amp + Math.abs(Math.cos(T.walk)) * 0.22 * amp - pk * 0.6;
+  TM.hips.rotation.z = Math.sin(T.walk) * 0.05 * amp; TM.hips.rotation.y = Math.sin(T.walk) * 0.06 * amp;
+  TM.body.rotation.x = 0.24 + T.sprintK * 0.12 + amp * 0.04 - rk * 0.42 - evoP * 0.35 + pk * 0.3;
+  TM.head.rotation.x = -0.24 - clamp(player.pitch, -0.6, 0.6) * 0.75 - rk * 0.5 - evoP * 0.5 + pk * 0.2;
+  TM.head.rotation.y = damp(TM.head.rotation.y, T.tailT > 0 ? 0 : clamp(angDiff(player.yaw, player.facing), -0.5, 0.5), 6, dt);
+  const open = Math.max(T.charge / 0.7, T.firing ? 1 : 0, rk, evoP, T.eatT > 0 ? 0.6 + 0.4 * Math.sin(T.t * 18) : 0);
+  TM.jaw.rotation.x = damp(TM.jaw.rotation.x, open * 0.6, 14, dt);
+  TM.arms.forEach((a, i) => { const sg = i ? 1 : -1; a.rotation.x = -0.5 + Math.sin(T.walk) * 0.15 * amp * sg - rk * 0.4; a.rotation.z = sg * (0.22 + rk * 0.5); });
+  const tk = T.tailT > 0 ? Math.sin(Math.PI * (1 - T.tailT / 0.85)) : 0;
+  TM.tail.forEach((g, k) => { g.rotation.y = Math.sin(time * 0.9 - k * 0.5) * 0.05 + Math.sin(T.walk - k * 0.6) * 0.08 * amp + tk * 0.12; g.rotation.x = g.userData.rx + Math.sin(time * 0.7 - k * 0.4) * 0.015; });
+  TM.g.position.copy(p); TM.g.rotation.y = player.facing + T.spin; TM.g.scale.setScalar(Math.max(1e-3, s * T.grow)); TM.g.updateMatrixWorld(true);
+  const ff = Math.cos(T.walk) > 0;
+  if (ff !== T.ff) { T.ff = ff; if (amp > 0.25 && on) titanStep(Math.sin(T.walk) > 0 ? 1 : 0); }
+  if (T.grow > 0.5) {
+    // cars in the way are shoved aside, and kicked hard when it walks into them
+    const r = T.rad + 1.3;
+    for (const c of cars) {
+      const dx = c.pos.x - p.x, dz = c.pos.z - p.z, d2 = dx * dx + dz * dz; if (d2 > r * r || d2 < 1e-6) continue;
+      const d = Math.sqrt(d2), nx = dx / d, nz = dz / d, rv = v.x * nx + v.z * nz;
+      c.pos.x = p.x + nx * r; c.pos.z = p.z + nz * r; c.g.position.x = c.pos.x; c.g.position.z = c.pos.z;
+      if (rv > 0) { c.vel.x += nx * rv * 1.2; c.vel.y += nz * rv * 1.2; }
+      if (rv > 4) { playerHitCar(c); c.damage(rv * 2.5, p); c.vy = Math.max(c.vy, rv * 0.5); c.y = Math.max(c.y, 0.01); }
+    }
+    if (hv > 1) lampsNear(p.x, p.z, T.rad * 0.9, (L, i) => knockLamp(L, i, L.x - p.x, L.z - p.z));
+    T.scareT -= dt; if (T.scareT <= 0) { T.scareT = 0.8; scareNear(p, 40 * s, 6); }
+  }
+  if (on && time - T.hitT > 6) T.hp = Math.min(E.hp, T.hp + E.hp * 0.02 * dt);
+}
+// heat ray: hold fire to charge (the plates light up from the tail to the head), then a ray from the mouth to the crosshair.
+// It drains energy while it fires and stops when it runs dry until the tank is back to 40%
+function titanWeapons(dt) {
+  const T = titan, E = EVO[save.evo];
+  TM.mouth.getWorldPosition(T.mouth);
+  const aim = computeAim(); $('cross').classList.toggle('lock', !!aim.ghost);
+  const aligned = Math.abs(angDiff(player.yaw, player.facing)) < 0.6;
+  const want = T.phase === 'on' && fireHeld() && !T.drained && T.tailT <= 0 && T.stompT <= 0 && T.roarT <= 0 && T.eatT <= 0;
+  if (want) { if (T.charge === 0) sfx('tcharge', 0.9); T.charge = Math.min(0.7, T.charge + dt); } else T.charge = 0;
+  const fire = want && T.charge >= 0.7 && aligned;
+  if (fire) { T.en -= 20 * dt; if (T.en <= 0) { T.en = 0; T.drained = true; toast('열선 에너지 고갈', '잠시 뒤 다시 충전됩니다'); } }
+  else { T.en = Math.min(100, T.en + (T.drained ? 30 : 16) * dt); if (T.drained && T.en >= 40) T.drained = false; }
+  if (fire && !T.drained) titanBeam(dt, aim, E); else if (T.firing) titanBeamOff();
+  titanMoves(dt, E);
+}
+const _tu = V3(), _tv = V3(), _td = V3(), _te = V3();
+function titanBeam(dt, aim, E) {
+  const T = titan, s = T.s, o = T.mouth, g = aim.ghost && aim.ghost.state !== 'captured' ? aim.ghost : null;
+  if (!T.firing) { T.firing = true; T.blastT = 0; }
+  _td.subVectors(g ? g.pos : aim.point, o); let len = _td.length(); _td.divideScalar(len || 1);
+  const hit = rayWorld(o, _td, Math.min(320, g ? len : 320)); len = hit ? hit.t : g ? len : 320; _te.copy(o).addScaledVector(_td, len);
+  // everything along the ray burns: ghosts, cars and the police helicopter
+  const bw = 0.8 * s;
+  for (const q of ghosts) { if (q.state === 'captured') continue; _v.subVectors(q.pos, o); const t = _v.dot(_td); if (t < 0 || t > len + q.r) continue; if (_w.copy(_td).multiplyScalar(t).sub(_v).length() < q.r + bw) q.damage(E.beam * dt); }
+  for (const c of cars) { if (c.wrecked) continue; _v.set(c.pos.x - o.x, 0.9 - o.y, c.pos.z - o.z); const t = _v.dot(_td); if (t < 0 || t > len + 2) continue; if (_w.copy(_td).multiplyScalar(t).sub(_v).length() < 1.6 + bw) { playerHitCar(c); c.damage((90 + 30 * save.evo) * dt, _te); } }
+  if (heli.active && !heli.down) { _v.subVectors(heli.pos, o); const t = _v.dot(_td); if (t > 0 && t < len + 4 && _w.copy(_td).multiplyScalar(t).sub(_v).length() < 3.5 + bw) damageHeli(70 * dt, true); }
+  T.blastT -= dt; if (T.blastT <= 0) { T.blastT = 0.25; titanBlast(_te, hit ? hit.n : null, E, T.blastN++); }
+  _tu.crossVectors(_td, UP); if (_tu.lengthSq() < 1e-4) _tu.set(1, 0, 0); _tu.normalize(); _tv.crossVectors(_tu, _td).normalize();
+  const fl = R(0.85, 1.15), [P0, P1, P2] = TBP;
+  for (let i = 0; i < TBN; i++) {
+    const t = i / (TBN - 1), d = t * len;
+    P0[i].copy(o).addScaledVector(_td, d).addScaledVector(_tu, R(-0.05, 0.05) * bw).addScaledVector(_tv, R(-0.05, 0.05) * bw);
+    for (let k = 0; k < 2; k++) { const a = t * 40 - time * 30 + k * Math.PI, rr = bw * (0.85 + 0.25 * Math.sin(t * 23 + time * 17 + k)); (k ? P2 : P1)[i].copy(o).addScaledVector(_td, d).addScaledVector(_tu, Math.cos(a) * rr).addScaledVector(_tv, Math.sin(a) * rr); }
+  }
+  TBR.glow.mat.uniforms.uI.value = 0.7 * fl; TBR.core.mat.uniforms.uI.value = 1.2 * fl; TBR.s1.mat.uniforms.uI.value = R(0.7, 1.2); TBR.s2.mat.uniforms.uI.value = R(0.7, 1.2);
+  TBR.glow.set(P0, TBN, t => bw * 3.4 * (0.45 + 0.55 * Math.min(1, t * 5))); TBR.core.set(P0, TBN, t => bw * (0.7 + 0.3 * Math.min(1, t * 8)));
+  TBR.s1.set(P1, TBN, () => bw * 0.38); TBR.s2.set(P2, TBN, () => bw * 0.38);
+  const lc = tcol(E.col), c = E.col;
+  beamTipLight.color.copy(lc); beamTipLight.distance = 30 * s; beamTipLight.position.copy(o); beamTipLight.intensity = 260 * fl * s;
+  beamHitLight.color.copy(lc); beamHitLight.distance = 50 * s; beamHitLight.position.copy(_te).addScaledVector(_td, -1.5); beamHitLight.intensity = 900 * fl * s;
+  for (let k = 0; k < 4; k++) { sphereDir(_v); const sp = R(6, 14) * s; FX.add(_te.x, _te.y, _te.z, _v.x * sp, _v.y * sp + 3, _v.z * sp, c[0], c[1], c[2], R(0.3, 0.7), 0.25 * s, 0.05, 10, 1); }
+  FX.add(_te.x, _te.y, _te.z, R(-1, 1), R(0, 2), R(-1, 1), c[0] * 0.8 + 1, c[1] * 0.8 + 1, c[2] * 0.8 + 1, 0.15, R(2, 3.5) * s, 0.5, 0, 2);
+  if (Math.random() < dt * 8) SMOKE.add(_te.x, _te.y, _te.z, R(-1, 1), 2, R(-1, 1), 0.1, 0.09, 0.1, 2.2, 1.2 * s, 4 * s, -0.2, 0.4, 0.45);
+  for (let k = 0; k < 2; k++) FX.add(o.x, o.y, o.z, _td.x * 6 + R(-1.5, 1.5), _td.y * 6 + R(-1.5, 1.5), _td.z * 6 + R(-1.5, 1.5), c[0], c[1], c[2], 0.25, 0.4 * s, 0.05, 0, 2);
+  addShake(null, 0.12 + 0.05 * s);
+}
+function titanBeamOff() {
+  for (const k in TBR) TBR[k].mesh.visible = false;
+  beamTipLight.intensity = 0; beamHitLight.intensity = 0; beamTipLight.color.set(0xff7a3a); beamHitLight.color.set(0xff6a2b); beamTipLight.distance = 14; beamHitLight.distance = 22;
+  titan.firing = false;
+}
+// where the ray lands it blows up every quarter second: ghosts, cars, people, lamps and the helicopter nearby
+function titanBlast(p, n, E, k) {
+  const s = titan.s, rad = 3 + 1.6 * s, dmg = 14 * s, c = E.col;
+  for (const g of ghosts) { if (g.state === 'captured') continue; const d = g.pos.distanceTo(p); if (d < rad + g.r) g.damage(dmg * clamp(1 - d / (rad + g.r), 0.3, 1)); }
+  if (p.y < 6) for (const q of cars) { const d = Math.hypot(q.pos.x - p.x, q.pos.z - p.z); if (d < rad * 1.2) { const f = 1 - d / (rad * 1.2); playerHitCar(q); q.damage(dmg * 1.5 * f, p); q.vel.x += (q.pos.x - p.x) / (d || 1) * f * 6; q.vel.y += (q.pos.z - p.z) / (d || 1) * f * 6; q.vy = Math.max(q.vy, f * 4); q.y = Math.max(q.y, 0.01); } }
+  for (const q of peds) { if (q.state === 'knock' || q.state === 'down') continue; const d = q.pos.distanceTo(p); if (d < rad) { q.knock((q.pos.x - p.x) / (d || 1) * 7, 6, (q.pos.z - p.z) / (d || 1) * 7); crime(q.cop ? 2 : 1, q.cop ? 'cop' : 'ped', 4); } }
+  lampsNear(p.x, p.z, rad * 0.7, (L, i) => knockLamp(L, i, L.x - p.x, L.z - p.z));
+  if (heli.active && !heli.down && heli.pos.distanceTo(p) < rad + 4) damageHeli(dmg, true);
+  flash(p, tcol(c), 1800 * s, 0.3, rad * 7); ring(p, rad * 1.6, [c[0] * 0.8, c[1] * 0.8, c[2] * 0.8]);
+  for (let i = 0; i < 24; i++) { sphereDir(_v); const sp = R(4, 12) * s; FX.add(p.x, p.y, p.z, _v.x * sp, Math.abs(_v.y) * sp + 2, _v.z * sp, R(2.5, 4), R(1, 2), R(0.3, 0.6), R(0.4, 0.8), R(1, 2) * s, 0.3, -1, 3); }
+  smokePuff(p, 3, [0.07, 0.065, 0.07], 1.6 * s, 3.5, 0.55);
+  if (k % 3 === 0) sfxAt('boom', p, 0.7); else sfxAt('impact', p, 0.8);
+  scareNear(p, 40, 5); if (n) scorches.add(p, n, rad * 0.9);
+}
+// tail spin (right click), stomp or nuclear pulse (Space), roar (H): timers, hits and the glow of plates and hide
+function titanMoves(dt, E) {
+  const T = titan, s = T.s, p = player.pos;
+  T.tailCd -= dt; T.stompCd -= dt; T.pulseCd -= dt; T.roarCd -= dt; T.eatT = Math.max(0, T.eatT - dt);
+  if (T.tailT > 0) {
+    // a full turn in 0.85 s; whatever is inside the tail's arc behind it gets hit once per swing
+    T.tailT = Math.max(0, T.tailT - dt); T.spin = -Math.PI * 2 * tEase(1 - T.tailT / 0.85);
+    const b = player.facing + T.spin + Math.PI, reach = 15 * s, top = p.y + T.vh * 1.1, tx = -Math.cos(b), tz = Math.sin(b);
+    const inArc = (x, y, z) => { const dx = x - p.x, dz = z - p.z, d = Math.hypot(dx, dz); return d < reach && d > 0.5 && y < top && Math.abs(angDiff(Math.atan2(dx, dz), b)) < 0.6; };
+    for (const g of ghosts) if (g.state !== 'captured' && !T.hits.has(g) && inArc(g.pos.x, g.pos.y, g.pos.z)) { T.hits.add(g); g.damage(70 + 35 * save.evo); _v.set(g.pos.x - p.x, 0, g.pos.z - p.z).normalize(); g.vel.x += _v.x * 14 + tx * 10; g.vel.y += 4; g.vel.z += _v.z * 14 + tz * 10; sparks(g.pos, 20, 8, [2, 2.4, 3]); }
+    for (const c of cars) if (!T.hits.has(c) && inArc(c.pos.x, 0.9, c.pos.z)) {
+      T.hits.add(c); playerHitCar(c); c.damage(60 + 20 * save.evo, p); const dx = c.pos.x - p.x, dz = c.pos.z - p.z, d = Math.hypot(dx, dz) || 1;
+      c.vel.x += dx / d * 8 + tx * 12; c.vel.y += dz / d * 8 + tz * 12; c.vy = Math.max(c.vy, 7); c.y = Math.max(c.y, 0.01);
+      const cp = V3(c.pos.x, 1, c.pos.z); sparks(cp, 30, 9, [3, 1.8, 0.8]); sfxAt('crash', cp, 1); addShake(cp, 0.6, 60);
+    }
+    for (const q of peds) if (q.state !== 'knock' && q.state !== 'down' && inArc(q.pos.x, q.pos.y, q.pos.z)) { const dx = q.pos.x - p.x, dz = q.pos.z - p.z, d = Math.hypot(dx, dz) || 1; q.knock(dx / d * 9 + tx * 6, 7, dz / d * 9 + tz * 6); crime(q.cop ? 2 : 1, q.cop ? 'cop' : 'ped', 4); }
+    lampsNear(p.x, p.z, reach, (L, i) => { if (inArc(L.x, 1, L.z)) knockLamp(L, i, tx, tz); });
+    if (heli.active && !heli.down && !T.hits.has(heli) && heli.pos.distanceTo(p) < reach * 1.3) { T.hits.add(heli); damageHeli(80, true); }
+    if (T.tailT === 0) T.spin = 0;
+  }
+  if (T.stompT > 0) {
+    const prev = T.stompT; T.stompT = Math.max(0, T.stompT - dt);
+    if (T.pulse) { if (prev > 0.5 && T.stompT <= 0.5) titanPulse(E); }
+    else if (prev > 0.2 && T.stompT <= 0.2) { TM.feet[0].getWorldPosition(_p); titanQuake(V3(_p.x, p.y, _p.z), 12 * s, 45 + 20 * save.evo, 1.3); }
+  }
+  if (T.roarT > 0) { const prev = T.roarT; T.roarT = Math.max(0, T.roarT - dt); if (prev > 1.65 && T.roarT <= 1.65) titanRoarHit(E); }
+  const U = TM.U; U.uTime.value = time;
+  if (T.firing) { U.uSweep.value = 1.2; U.uLit.value = 1.9 + 0.3 * Math.sin(time * 40); U.uFront.value = 0; }
+  else if (T.charge > 0) { U.uSweep.value = T.charge / 0.7 * 1.1; U.uLit.value = 1.2; U.uFront.value = 2.4; }
+  else { U.uLit.value = damp(U.uLit.value, 0, 3, dt); U.uFront.value = damp(U.uFront.value, 0, 6, dt); }
+  U.uIdle.value = 0.05 + T.pulseK * 2.4 + T.evoG * 3 + T.roarK * 0.5;
+  const cr = TM.crack, cc = E.col, br = 0.75 + 0.25 * Math.sin(time * 2), gl = U.uLit.value + U.uFront.value * 0.3 + T.pulseK * 2 + T.evoG * 2, kk = br * (1 + gl * 0.4);
+  TM.skin.emissive.setRGB(cr[0] * kk + cc[0] * 0.05 * gl, cr[1] * kk + cc[1] * 0.05 * gl, cr[2] * kk + cc[2] * 0.05 * gl);
+  const mo = T.charge > 0 || T.firing; TM.mglow.visible = TM.flare.visible = mo;
+  if (mo) { TM.flare.material.rotation = Math.random() * 6.28; TM.flare.scale.setScalar(T.firing ? R(2.6, 3.6) : 0.6 + 2.4 * T.charge / 0.7); }
+  if (T.pulseT > 0) {
+    T.pulseT = Math.max(0, T.pulseT - dt); const k = 1 - T.pulseT / 0.7;
+    TM.pulse.position.set(p.x, p.y + T.vh * 0.45, p.z); TM.pulse.scale.setScalar(24 * s * (1 - Math.pow(1 - k, 3))); TM.pulse.material.uniforms.uI.value = 1 - k; TM.pulse.visible = T.pulseT > 0;
+  }
+}
+function titanTail() {
+  const T = titan; if (T.phase !== 'on' || T.tailT > 0 || T.tailCd > 0 || T.stompT > 0) return;
+  T.tailT = 0.85; T.tailCd = 1.6; T.hits.clear(); titanBeamOff(); T.charge = 0; sfx('tswing', 1);
+}
+// from the third stage on, Space fires the nuclear pulse whenever it is charged and stomps otherwise
+function titanStomp() {
+  const T = titan; if (T.phase !== 'on' || T.stompT > 0 || T.tailT > 0) return;
+  if (save.evo >= 2 && T.pulseCd <= 0) { T.pulse = true; T.stompT = 1.0; T.pulseCd = 7; titanBeamOff(); T.charge = 0; sfx('tcharge', 1); }
+  else if (T.stompCd <= 0) { T.pulse = false; T.stompT = 0.5; T.stompCd = 2.2; }
+}
+function titanRoar() { const T = titan; if (T.phase !== 'on' || T.roarT > 0 || T.roarCd > 0) return; T.roarT = 2; T.roarCd = 6; titanBeamOff(); T.charge = 0; sfx('roar', 1); }
+// G: every stunned ghost within reach is sucked into the mouth (a capture, like the trap)
+function titanAbsorb() {
+  const T = titan; if (T.phase !== 'on') return;
+  const p = player.pos, reach = 22 + 10 * T.s; let n = 0;
+  for (const g of ghosts) if (g.state === 'stunned' && Math.hypot(g.pos.x - p.x, g.pos.z - p.z) < reach + g.r && g.pos.y < p.y + T.vh + 30) { g.capTo = T.mouth; startCapture(g); n++; }
+  if (n) { T.eatT = 1.8; titanBeamOff(); T.charge = 0; } else toast('흡수할 유령이 없습니다', '열선으로 유령을 기절시킨 뒤 흡수하세요');
+}
+// a footfall: a thud and a small quake, dust, and whatever is under the foot gets crushed
+function titanStep(i) {
+  const s = titan.s, q = TM.feet[i].getWorldPosition(V3()); q.y = player.pos.y;
+  sfxAt('tstep', q, 0.5 + 0.25 * s); addShake(q, 0.25 + 0.12 * s, 70);
+  for (let k = 0; k < 10; k++) { const a = Math.random() * 6.28; SMOKE.add(q.x + Math.cos(a) * s, q.y + 0.2, q.z + Math.sin(a) * s, Math.cos(a) * R(2, 5) * s, R(0.2, 1), Math.sin(a) * R(2, 5) * s, 0.17, 0.16, 0.17, R(1, 1.8), 0.8 * s, 3 * s, 0, 1.4, 0.4); }
+  titanCrush(q, 1.6 * s, 35);
+}
+function titanCrush(p, r, dmg) {
+  for (const c of cars) { const d = Math.hypot(c.pos.x - p.x, c.pos.z - p.z); if (d < r + 1.2) { playerHitCar(c); c.damage(dmg, p); c.vy = Math.max(c.vy, 3); c.y = Math.max(c.y, 0.01); } }
+  for (const q of peds) { if (q.state === 'knock' || q.state === 'down') continue; const d = Math.hypot(q.pos.x - p.x, q.pos.z - p.z); if (d < r) { q.knock((q.pos.x - p.x) / (d || 1) * 6, 5, (q.pos.z - p.z) / (d || 1) * 6); crime(q.cop ? 2 : 1, q.cop ? 'cop' : 'ped', 4); } }
+  lampsNear(p.x, p.z, r, (L, i) => knockLamp(L, i, L.x - p.x, L.z - p.z));
+}
+// ground shock (stomp, heavy landing, pulse): rings and a dust wave, ghosts near the ground stunned, cars thrown, people knocked over
+function titanQuake(p, rad, dmg, k) {
+  const q = V3(p.x, p.y + 0.3, p.z);
+  ring(q, rad, [2.2, 1.9, 1.6]); ring(q, rad * 0.6, [3, 2.6, 2.2]);
+  for (let i = 0; i < 26; i++) { const a = Math.random() * 6.28, r0 = R(0.3, 1) * rad * 0.5; SMOKE.add(q.x + Math.cos(a) * r0, q.y, q.z + Math.sin(a) * r0, Math.cos(a) * R(4, 10), R(0.5, 2), Math.sin(a) * R(4, 10), 0.18, 0.17, 0.18, R(1.5, 2.8), rad * 0.12, rad * 0.4, 0, 1.2, 0.5); }
+  sparks(q, 30, 8, [3, 2.2, 1.2], 0.8, 0.2); addShake(q, k, 90); sfxAt('tstep', q, 1); sfxAt('boom', q, 0.6);
+  for (const g of ghosts) { if (g.state === 'captured') continue; const d = g.pos.distanceTo(q); if (d < rad && g.pos.y < q.y + rad * 0.6) g.damage(dmg * clamp(1 - d / rad, 0.3, 1)); }
+  for (const c of cars) { const d = Math.hypot(c.pos.x - q.x, c.pos.z - q.z); if (d < rad) { const f = 1 - d / rad; playerHitCar(c); c.damage(dmg * f, q); c.vy = Math.max(c.vy, 3 + 6 * f); c.y = Math.max(c.y, 0.01); c.vel.x += (c.pos.x - q.x) / (d || 1) * 6 * f; c.vel.y += (c.pos.z - q.z) / (d || 1) * 6 * f; } }
+  for (const ped of peds) { if (ped.state === 'knock' || ped.state === 'down') continue; const d = Math.hypot(ped.pos.x - q.x, ped.pos.z - q.z); if (d < rad) { ped.knock((ped.pos.x - q.x) / (d || 1) * 5, 6, (ped.pos.z - q.z) / (d || 1) * 5); crime(ped.cop ? 2 : 1, ped.cop ? 'cop' : 'ped', 4); } }
+  lampsNear(q.x, q.z, rad * 0.8, (L, i) => knockLamp(L, i, L.x - q.x, L.z - q.z));
+  scareNear(q, rad * 3, 6); scorches.add(V3(q.x, p.y + 0.01, q.z), UP, rad * 0.5);
+}
+// nuclear pulse (third stage on): crouch, then a blast from the whole body that throws everything around it outward
+function titanPulse(E) {
+  const T = titan, s = T.s, p = player.pos, c = V3(p.x, p.y + T.vh * 0.45, p.z), rad = 24 * s, dmg = 180 + 60 * (save.evo - 2), col = E.col;
+  for (const g of ghosts) { if (g.state === 'captured') continue; const d = g.pos.distanceTo(c); if (d < rad + g.r) { g.damage(dmg * clamp(1 - d / (rad + g.r), 0.4, 1)); _v.subVectors(g.pos, c).normalize(); g.vel.addScaledVector(_v, 20); } }
+  for (const q of cars) { const d = Math.hypot(q.pos.x - c.x, q.pos.z - c.z); if (d < rad) { const f = 1 - d / rad; playerHitCar(q); q.damage(dmg * 0.8 * f, c); q.vel.x += (q.pos.x - c.x) / (d || 1) * 18 * f; q.vel.y += (q.pos.z - c.z) / (d || 1) * 18 * f; q.vy = Math.max(q.vy, 4 + 8 * f); q.y = Math.max(q.y, 0.01); } }
+  if (heli.active && !heli.down && heli.pos.distanceTo(c) < rad + 10) damageHeli(150, true);
+  titanQuake(p, rad * 0.75, dmg * 0.4, 2.0);
+  flash(c, tcol(col), 9000, 0.6, rad * 4); flashFx = 0.35; T.pulseT = 0.7; TM.pulse.visible = true;
+  for (let i = 0; i < 160; i++) { sphereDir(_v); const sp = R(20, 45) * s; FX.add(c.x, c.y, c.z, _v.x * sp, _v.y * sp, _v.z * sp, col[0], col[1], col[2], R(0.4, 0.9), R(0.6, 1.4) * s, 0.2, 0, 2.5); }
+  sfx('pulse'); scareNear(c, 150, 8);
+}
+// roar: people flee, nearby ghosts are slowed, hurt and pushed back, a shock ring and breath steam
+function titanRoarHit(E) {
+  const T = titan, s = T.s, p = player.pos, m = T.mouth, fx = Math.sin(player.facing), fz = Math.cos(player.facing);
+  scareNear(p, 120, 8);
+  for (const g of ghosts) { if (g.state === 'captured') continue; if (g.pos.distanceTo(p) < 45 * s) { g.slime = 4; g.damage(12 + 8 * save.evo); _v.set(g.pos.x - p.x, 0, g.pos.z - p.z).normalize(); g.vel.addScaledVector(_v, 14); } }
+  ring(V3(p.x, p.y + 0.3, p.z), 18 * s, [1.6, 1.8, 2.2]);
+  for (let i = 0; i < 24; i++) SMOKE.add(m.x, m.y, m.z, fx * R(8, 16) * s + R(-2, 2), R(-1, 2), fz * R(8, 16) * s + R(-2, 2), 0.5, 0.52, 0.58, R(1.2, 2), 0.6 * s, 3 * s, -0.1, 1.5, 0.35);
+  addShake(null, 0.8);
+}
+// change effects: a swirl of particles while changing, a burst when the body appears or vanishes
+function morphFx(dt) {
+  const p = player.pos, c = EVO[save.evo].col, h = Math.max(2, titan.vh);
+  for (let i = 0, n = Math.ceil(dt * 120); i < n; i++) { const a = Math.random() * 6.28, r = R(1, 3) + titan.rad, y = R(0, h); FX.add(p.x + Math.cos(a) * r, p.y + y, p.z + Math.sin(a) * r, -Math.sin(a) * 9 - Math.cos(a) * 2, R(1, 4), Math.cos(a) * 9 - Math.sin(a) * 2, c[0], c[1], c[2], R(0.3, 0.6), R(0.2, 0.45), 0.05, 0, 1); }
+  if (Math.random() < dt * 10) smokePuff(p, 1, [0.12, 0.12, 0.15], 1.6, 2, 0.4);
+  addShake(null, 0.15);
+}
+function morphBurst(out) {
+  const g0 = player.pos, p = V3(g0.x, g0.y + 1.5, g0.z), gq = V3(g0.x, g0.y + 0.3, g0.z), c = EVO[save.evo].col, k = out ? 0.5 : 1;
+  flash(p, tcol(c), 1500 * k, 0.5, 60); ring(gq, 14 * k, [c[0], c[1], c[2]]); ring(gq, 8 * k, [3, 3, 3]);
+  for (let i = 0; i < 90 * k; i++) { sphereDir(_v); const sp = R(6, 18); FX.add(p.x, p.y, p.z, _v.x * sp, _v.y * sp + 2, _v.z * sp, c[0], c[1], c[2], R(0.4, 0.9), R(0.3, 0.7), 0.05, 2, 1.5); }
+  smokePuff(gq, 8 * k, [0.12, 0.12, 0.15], 3, 2.5, 0.5); addShake(null, 0.9 * k); sfx(out ? 'impact' : 'boom', 0.8);
+  if (!out) { flashFx = 0.5; scareNear(p, 50, 6); }
+}
+function evoFx(dt, t) {
+  const T = titan, p = player.pos, c = EVO[save.evo].col, s = T.s, cy = p.y + T.vh * 0.5;
+  for (let i = 0, n = Math.ceil(dt * 160); i < n; i++) { sphereDir(_v); const r = R(14, 26) * s, x = p.x + _v.x * r, y = Math.max(0.5, cy + _v.y * r * 0.6), z = p.z + _v.z * r; FX.add(x, y, z, (p.x - x) * 1.6, (cy - y) * 1.6, (p.z - z) * 1.6, c[0], c[1], c[2], 0.6, R(0.3, 0.7) * s, 0.05, 0, 0); }
+  addShake(null, 0.2 + 0.4 * t);
+}
+function evoBurst() {
+  const T = titan, p = player.pos, E = EVO[save.evo], s = E.h / 12, c = E.col, q = V3(p.x, p.y + T.vh * 0.5, p.z), gq = V3(p.x, p.y + 0.3, p.z);
+  flash(q, tcol(c), 6000, 0.8, 120); flashFx = 0.6; ring(gq, 30 * s, [c[0], c[1], c[2]]); ring(gq, 18 * s, [3, 3, 3]);
+  for (let i = 0; i < 200; i++) { sphereDir(_v); const sp = R(12, 40) * s; FX.add(q.x, q.y, q.z, _v.x * sp, _v.y * sp, _v.z * sp, c[0], c[1], c[2], R(0.5, 1.2), R(0.5, 1.2) * s, 0.1, 2, 1.8); }
+  smokePuff(gq, 12, [0.1, 0.1, 0.12], 4 * s, 3, 0.5); addShake(null, 1.6); sfx('pulse'); scareNear(q, 120, 8);
+}
+
 // ============================================================ camera
 let camYawOff = 0, camIdle = 0, carAim = 0; const camPos = V3(), camLook = V3();
 function updateCamera(dt) {
@@ -2408,6 +2923,13 @@ function updateCamera(dt) {
     const cp = Math.cos(player.pitch) * 30;
     camera.position.copy(camPos); camLook.set(c.pos.x + Math.sin(c.h) * 4, c.g.position.y + 1.4, c.pos.z + Math.cos(c.h) * 4).lerp(_v.set(camPos.x + Math.sin(yaw) * cp, camPos.y + Math.sin(player.pitch) * 30, camPos.z + Math.cos(yaw) * cp), carAim); camera.lookAt(camLook);
     fov = 66 + Math.min(16, spd * 0.42) - (player.aim && !big ? 12 : 0); player.yaw = yaw;
+  } else if (titan.on) {
+    const T = titan, H = lerp(1.7, Math.max(1.7, T.vh), clamp(T.grow * 1.2, 0, 1));
+    const cp = Math.cos(player.pitch), f = V3(Math.sin(player.yaw) * cp, Math.sin(player.pitch), Math.cos(player.yaw) * cp), r = V3(-Math.cos(player.yaw), 0, Math.sin(player.yaw));
+    const tgt = V3(player.pos.x, player.pos.y + H * 0.72, player.pos.z).addScaledVector(r, H * 0.5), want = tgt.clone().addScaledVector(f, -(H * 1.6 + 2.6 + T.sprintK * H * 0.25)).add(V3(0, H * 0.1, 0));
+    const d = V3().subVectors(want, tgt), dl = d.length(); d.normalize(); const hit = rayWorld(tgt, d, dl); if (hit) want.copy(tgt).addScaledVector(d, Math.max(H * 0.5, hit.t - 0.5));
+    want.y = Math.max(want.y, surfaceY(want.x, want.z, want.y) + 0.5);
+    camera.position.lerp(want, 1 - Math.exp(-7 * dt)); camLook.copy(camera.position).add(f); camera.lookAt(camLook); fov = 66 + T.sprintK * 6;
   } else {
     const aimK = player.aim ? 1 : 0, rk = player.runK, fk = player.flyK; fov = player.aim ? 50 : 68 + rk * 7 + fk * 6;
     const cp = Math.cos(player.pitch), f = V3(Math.sin(player.yaw) * cp, Math.sin(player.pitch), Math.cos(player.yaw) * cp), r = V3(-Math.cos(player.yaw), 0, Math.sin(player.yaw));
@@ -2431,10 +2953,12 @@ addEventListener('keydown', e => {
   if (e.code === 'Escape' || e.code === 'KeyP') { if (!locked) setPause(!paused); return; }
   if (paused) return;
   if (e.code.startsWith('Digit')) { const w = +e.code.slice(5) - 1; if (w >= 0 && w < 4) setWeapon(w); }
-  if (e.code === 'KeyF') player.car ? exitCar() : enterCar();
-  if (e.code === 'KeyG') throwTrap(computeAim());
+  if (e.code === 'KeyF' && !titan.on) player.car ? exitCar() : enterCar();
+  if (e.code === 'KeyG') titan.on ? titanAbsorb() : throwTrap(computeAim());
+  if (e.code === 'KeyT') toggleTitan();
   if (e.code === 'KeyE') interact();
-  if (e.code === 'KeyH' && player.car && player.car.barR) player.car.siren = !player.car.siren;
+  if (e.code === 'KeyH' && titan.on) titanRoar();
+  else if (e.code === 'KeyH' && player.car && player.car.barR) player.car.siren = !player.car.siren;
   if (e.code === 'KeyR') toggleRain();
   if (e.code === 'KeyM') toggleSound();
   if (e.code === 'Space') { jumpQ = true; e.preventDefault(); }
@@ -2446,7 +2970,7 @@ cvs.addEventListener('contextmenu', e => e.preventDefault());
 cvs.addEventListener('mousedown', e => {
   if (state !== 'play' || paused || modal || isTouch) return;
   if (!locked) { try { const r = cvs.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} }
-  if (e.button === 0) mouse.l = true; if (e.button === 2) { mouse.r = true; player.aim = true; }
+  if (e.button === 0) mouse.l = true; if (e.button === 2) { if (titan.on) titanTail(); else { mouse.r = true; player.aim = true; } }
 });
 addEventListener('mouseup', e => { if (e.button === 0) mouse.l = false; if (e.button === 2) { mouse.r = false; player.aim = false; } });
 addEventListener('mousemove', e => {
@@ -2488,7 +3012,7 @@ if (isTouch) {
     const k = b.dataset.k;
     b.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); b.classList.add('on');
       if (state !== 'play' || paused || modal) return;
-      if (k === 'fire') touch.fire = true; else if (k === 'jump') { touch.jump = true; jumpQ = true; } else if (k === 'weapon') { if (player.car === interceptor) touch.missile = true; else setWeapon((player.weapon + 1) % 4); } else if (k === 'trap') throwTrap(computeAim()); else if (k === 'car') player.car ? exitCar() : enterCar(); else if (k === 'act') interact(); }, { passive: false });
+      if (k === 'fire') touch.fire = true; else if (k === 'jump') { touch.jump = true; jumpQ = true; } else if (k === 'weapon') { if (titan.on) titanTail(); else if (player.car === interceptor) touch.missile = true; else setWeapon((player.weapon + 1) % 4); } else if (k === 'trap') titan.on ? titanAbsorb() : throwTrap(computeAim()); else if (k === 'car') titan.on ? titanRoar() : player.car ? exitCar() : enterCar(); else if (k === 'act') interact(); else if (k === 'morph') toggleTitan(); }, { passive: false });
     b.addEventListener('touchend', e => { e.preventDefault(); b.classList.remove('on'); if (k === 'fire') touch.fire = false; if (k === 'jump') touch.jump = false; if (k === 'weapon') touch.missile = false; });
   });
 }
@@ -2519,7 +3043,7 @@ let toastT = 0;
 // on touch, prompts name the on-screen buttons instead of keyboard keys
 const keyText = s => !isTouch ? s : s.replace(/\(G\)/g, '').replace('G 회수', '트랩 버튼으로 회수').replace('E를 누르세요', '행동 버튼을 누르세요')
   .replace('Space 핸드브레이크', '점프 버튼으로 핸드브레이크').replace('Space를', '점프 버튼을').replace('운전 중 Shift', '운전 중 스틱 끝까지')
-  .replace('좌클릭 포탑 기관포', '발사 버튼 포탑 기관포').replace('우클릭 유도 미사일', '미사일 버튼 유도 미사일').replace('G 트랩 발사기', '트랩 버튼 트랩 발사기').replace('Shift 부스터', '스틱 끝까지 밀면 부스터').replace(/H (사이렌|경광등)( · )?/, '').replace(/ · G?$/, '');
+  .replace('좌클릭 포탑 기관포', '발사 버튼 포탑 기관포').replace('우클릭 유도 미사일', '미사일 버튼 유도 미사일').replace('G 트랩 발사기', '트랩 버튼 트랩 발사기').replace('Shift 부스터', '스틱 끝까지 밀면 부스터').replace(/H (사이렌|경광등)( · )?/, '').replace(/ · G?$/, '').replace('T를 누르면', '변신 버튼을 누르면').replace('T로 변신하면', '변신 버튼으로 변신하면');
 function toast(a, b = '') { const el = $('toast'); el.innerHTML = ''; el.append(a); if (b) { const s = document.createElement('small'); s.textContent = keyText(b); el.append(s); } el.style.opacity = 1; toastT = 2.6; }
 const mm = $('minimap'), mctx = mm.getContext('2d'), MS = 0.55, MOFF = HALF + ROAD;
 const mapImg = mkCanvas(Math.ceil(MOFF * 2 * MS), Math.ceil(MOFF * 2 * MS));
@@ -2558,10 +3082,10 @@ function drawMinimap() {
   mctx.fillStyle = '#62e6ff'; mctx.beginPath(); mctx.moveTo(C, C - 10); mctx.lineTo(C + 7, C + 8); mctx.lineTo(C, C + 4); mctx.lineTo(C - 7, C + 8); mctx.closePath(); mctx.fill();
   mctx.restore();
 }
-let lastMoney = -1, hudObjT = 0, hudSig = '', hudV = false, hudAmmo = -1;
+let lastMoney = -1, hudObjT = 0, hudSig = '', hudV = false, hudAmmo = -1, hudMorph = '';
 function updateHUD(dt) {
   $('hpFill').style.width = (player.hp / player.maxHp * 100) + '%';
-  const fr = player.fuel / player.fuelMax; $('fuelRow').hidden = !!player.car || fr > 0.995; $('fuelFill').style.width = fr * 100 + '%'; $('fuelFill').classList.toggle('low', fr < 0.25);
+  const fr = player.fuel / player.fuelMax; $('fuelRow').hidden = !!player.car || titan.on || fr > 0.995; $('fuelFill').style.width = fr * 100 + '%'; $('fuelFill').classList.toggle('low', fr < 0.25);
   const hf = $('heatFill'); hf.style.width = player.heat + '%'; hf.classList.toggle('hot', player.overheated);
   if (player.money !== lastMoney) { lastMoney = player.money; $('money').textContent = '$' + player.money.toLocaleString(); }
   const sig = `${wanted}${player.car ? 1 : 0}${player.climb ? 1 : 0}${player.zip ? 1 : 0}${mission ? mission.kind + (mission.k || 0) + (mission.phase || '') + (mission.ghost ? mission.ghost.state : '') : ''}`;
@@ -2574,14 +3098,19 @@ function updateHUD(dt) {
     if (mission) {
       const m = mission, b = m.def.bar(m); $('misT').textContent = '의뢰 · ' + m.def.title; $('misO').textContent = keyText(m.def.obj(m));
       $('misM').hidden = $('misL').hidden = !b; if (b) { $('misL').textContent = b[0]; $('misBar').style.width = clamp(b[1], 0, 1) * 100 + '%'; }
-    } else $('obj').innerHTML = keyText(bossActive ? `<b>보스 출현!</b> 네온 거신을 약화시킨 뒤 트랩(G)으로 가두세요` : stunned ? `<b>기절한 유령이 있습니다.</b> 가까이에 트랩(G)을 던지세요` : wanted ? `<b>수배 ${wanted}단계</b> · 경찰 시야에서 벗어나거나 본부로 숨으세요` : `<b>유령 포획 ${player.captures}마리</b> · 보스까지 ${toBoss}마리 · PKE 신호나 ! 표시 의뢰인을 찾아가세요`);
+    } else $('obj').innerHTML = keyText(bossActive ? (titan.on ? `<b>보스 출현!</b> 원자 열선으로 네온 거신을 쓰러뜨린 뒤 흡수(G)하세요` : `<b>보스 출현!</b> 네온 거신을 약화시킨 뒤 트랩(G)으로 가두세요`) : stunned ? (titan.on ? `<b>기절한 유령이 있습니다.</b> 가까이 가서 흡수(G)하세요` : `<b>기절한 유령이 있습니다.</b> 가까이에 트랩(G)을 던지세요`) : wanted ? `<b>수배 ${wanted}단계</b> · 경찰 시야에서 벗어나거나 본부로 숨으세요` : `<b>유령 포획 ${player.captures}마리</b> · 보스까지 ${toBoss}마리 · PKE 신호나 ! 표시 의뢰인을 찾아가세요`);
     $('rep').innerHTML = `평판 <b>${save.rep}</b> · 옥상 샘플 <b>${samples.filter(s => s.got).length}/${samples.length}</b>` + (player.car === wagon && upg('wagon') >= 2 ? ` · 니트로 <b>${Math.round(player.nitro)}%</b>` : '');
+    const ev = save.evo, xp = save.xp, nx = XP_EVO[ev], pv = ev ? XP_EVO[ev - 1] : 0, rdy = ev < 3 && xp >= nx;
+    $('xpT').textContent = ev >= 3 ? `타이탄 Lv.4 · 최종 진화 · 경험치 ${xp}` : rdy ? `타이탄 Lv.${ev + 1} · 진화 준비 완료` + (titan.on ? '' : isTouch ? ' · 변신 버튼' : ' · T 변신') : `타이탄 Lv.${ev + 1} · 경험치 ${xp}/${nx}`;
+    $('xpFill').style.width = (ev >= 3 ? 100 : clamp((xp - pv) / (nx - pv), 0, 1) * 100) + '%'; $('xp').classList.toggle('ready', rdy);
+    if (titan.on) { const T = titan, sk = [['꼬리', T.tailCd], ['발구르기', T.stompCd]]; if (ev >= 2) sk.push(['핵 펄스', T.pulseCd]); sk.push(['포효', T.roarCd]); $('tSk').innerHTML = sk.map(([n, c]) => c > 0 ? `${n} ${Math.ceil(c)}초` : `<b>${n}</b>`).join(' · '); }
     $('stars').hidden = !wanted; [...$('stars').children].forEach((s, i) => s.classList.toggle('on', i < wanted)); $('stars').classList.toggle('cool', time - lastSeen > 1.5);
     $('trapSt').textContent = keyText(trap.state === 'held' ? '트랩 준비됨 · G' : trap.state === 'armed' ? '트랩 설치됨 · 기절한 유령을 끌어오세요 (G 회수)' : trap.state === 'capturing' ? '포획 중…' : trap.state === 'closing' ? '트랩 봉인 중…' : '트랩 투척 중');
     $('trapSt').classList.toggle('armed', trap.state !== 'held');
     // hint
     let hint = ''; const it = findInteract();
     if (it) hint = '<kbd>E</kbd>' + it.label;
+    else if (titan.on) hint = isTouch ? '' : '<kbd>좌클릭</kbd>원자 열선 · <kbd>우클릭</kbd>꼬리 · <kbd>Space</kbd>쿵 · <kbd>G</kbd>흡수 · <kbd>H</kbd>포효 · <kbd>T</kbd>해제';
     else if (player.climb) hint = '<kbd>W S</kbd>오르내리기 · <kbd>Space</kbd>뛰어내리기';
     else if (player.zip) hint = '<kbd>Space</kbd>손 놓기';
     else if (!player.car && !player.dead && player.pos.y < 2) { for (const c of cars) if (!c.wrecked && !c.possessed && Math.hypot(c.pos.x - player.pos.x, c.pos.z - player.pos.z) < 4.8) { hint = c.type === 'police' ? '<kbd>F</kbd>경찰차 탈취 (수배)' : c.ai ? '<kbd>F</kbd>차량 탈취' : c === wagon ? '<kbd>F</kbd>고스트 왜건 탑승' : c === interceptor ? '<kbd>F</kbd>인터셉터 탑승' : '<kbd>F</kbd>차량 탑승'; break; } }
@@ -2597,13 +3126,19 @@ function updateHUD(dt) {
   const lvl = near ? Math.round(clamp(10 - nd / 20, 1, 10)) : 0; [...bars.children].forEach((b, i) => b.classList.toggle('on', i < lvl + (Math.random() < 0.3 ? 1 : 0)));
   if (near) { const rx = near.pos.x - pp.x, rz = near.pos.z - pp.z, fy = player.yaw, a = Math.atan2(-Math.cos(fy) * rx + Math.sin(fy) * rz, Math.sin(fy) * rx + Math.cos(fy) * rz); $('pkeArrow').style.transform = `rotate(${a}rad)`; $('pkeDist').textContent = Math.round(nd) + 'm'; } else $('pkeDist').textContent = '--';
   const sp = $('spd'); if (player.car) { sp.hidden = false; sp.firstChild.nodeValue = Math.round(player.car.speed * 3.6); } else sp.hidden = true;
-  const inV = player.car === interceptor;
-  if (inV !== hudV) { hudV = inV; $('slots').hidden = $('packRow').hidden = inV; $('veh').hidden = !inV; $('wpnBtn').textContent = inV ? '미사일' : '무기'; }
+  const inV = player.car === interceptor, tOn = titan.on, mode = tOn ? 't' + save.evo : inV ? 'v' : 'f';
+  if (mode !== hudV) {
+    hudV = mode; $('slots').hidden = $('packRow').hidden = inV || tOn; $('veh').hidden = !inV; $('titanP').hidden = !tOn; $('trapSt').hidden = $('hpRow').hidden = tOn; $('tName').textContent = EVO[save.evo].name;
+    $('wpnBtn').textContent = tOn ? '꼬리' : inV ? '미사일' : '무기'; $('trapBtn').textContent = tOn ? '흡수' : '트랩'; $('jumpBtn').textContent = tOn ? '쿵' : '점프'; $('carBtn').textContent = tOn ? '포효' : '탑승';
+  }
+  if (tOn) { const E = EVO[save.evo], f = titan.hp / E.hp; $('tHp').style.width = f * 100 + '%'; $('tHp').classList.toggle('low', f < 0.25); $('tEn').style.width = titan.en + '%'; $('tEn').classList.toggle('low', titan.drained); }
+  const mlb = titan.on ? '해제' : titan.cd > 0 ? '변신 ' + Math.ceil(titan.cd) : '변신'; if (mlb !== hudMorph) { hudMorph = mlb; $('morphBtn').textContent = mlb; }
+  titan.xpT = Math.max(0, titan.xpT - dt); $('xp').classList.toggle('gain', titan.xpT > 0);
   if (inV) { const c = interceptor; $('vHeat').style.width = c.heat + '%'; $('vHeat').classList.toggle('hot', c.over); $('vBoost').style.width = c.bst + '%'; $('vBoost').classList.toggle('low', !c.boost && c.bst < 15); $('vShield').style.width = c.shield + '%'; $('vHull').style.width = Math.max(0, c.hp) + '%'; $('vHull').classList.toggle('low', c.hp < 35); if (c.ammo !== hudAmmo) { hudAmmo = c.ammo; $('vAmmo').innerHTML = '●'.repeat(c.ammo) + '<i>' + '●'.repeat(8 - c.ammo) + '</i>'; } }
   const bb = $('boss'); if (bossActive) { bb.hidden = false; $('bossFill').style.width = (bossActive.hp / bossActive.maxHp * 100) + '%'; } else bb.hidden = true;
   toastT -= dt; if (toastT <= 0) $('toast').style.opacity = 0;
   hurtFx = Math.max(0, hurtFx - dt * 1.2); slimeFx = Math.max(0, slimeFx - dt * 0.5); flashFx = Math.max(0, flashFx - dt * 3);
-  $('vig').style.opacity = Math.max(hurtFx, player.hp < 30 ? 0.35 + Math.sin(time * 5) * 0.15 : 0); $('slime').style.opacity = slimeFx * 0.9; $('flash').style.opacity = flashFx;
+  $('vig').style.opacity = Math.max(hurtFx, (titan.on ? titan.hp < EVO[save.evo].hp * 0.25 : player.hp < 30) ? 0.35 + Math.sin(time * 5) * 0.15 : 0); $('slime').style.opacity = slimeFx * 0.9; $('flash').style.opacity = flashFx;
   mmT -= dt; if (mmT <= 0) { mmT = 1 / 20; drawMinimap(); }
   if (mission) { const tt = $('misTime'); tt.textContent = mission.hold ? '' : fmtTime(mission.time); tt.classList.toggle('low', !mission.hold && mission.time < 15); }
   updateWaypoint();
@@ -2801,7 +3336,7 @@ function startMission(G) {
 function endMission(ok, why = '') {
   const m = mission; if (!m) return; mission = null;
   m.def.end(m, ok);
-  if (ok) { player.money += m.reward; save.rep++; save.lv[m.G.id] = m.lv + 1; toast('의뢰 완료!', `${m.G.name} · +$${m.reward.toLocaleString()} · 평판 ${save.rep}`); sfx('fanfare'); }
+  if (ok) { player.money += m.reward; save.rep++; gainXP(100); save.lv[m.G.id] = m.lv + 1; toast('의뢰 완료!', `${m.G.name} · +$${m.reward.toLocaleString()} · 평판 ${save.rep}`); sfx('fanfare'); }
   else { toast('의뢰 실패', why); sfx('fail'); }
   $('mis').hidden = true; $('wp').hidden = true; hudObjT = 0; giverIcons(); writeSave();
 }
@@ -2830,7 +3365,7 @@ const officerCount = () => peds.reduce((n, q) => n + (q.cop && !q.leave ? 1 : 0)
 function spawnCop(x, z) { const q = new Ped(true); q.pos.set(x, groundY(x, z), z); q.g.position.copy(q.pos); peds.push(q); return q; }
 function removeCar(c) { scene.remove(c.g); c.mat.dispose(); c.body.geometry.dispose(); c.lights.geometry.dispose(); cars.splice(cars.indexOf(c), 1); }
 function bust() {
-  if (player.busted || player.dead) return;
+  if (player.busted || player.dead || titan.on) return;
   if (mission) endMission(false, '체포되어 의뢰를 놓쳤습니다');
   if (player.car) exitCar(false);
   player.busted = true; player.bustT = 0; player.climb = player.zip = null; hideBeam(); bustT = 0;
@@ -2941,7 +3476,7 @@ function damageHeli(n, byPlayer) {
   const H = heli; if (!H.active || H.down) return;
   H.hp -= n; if (byPlayer) crime(1, 'cop', 3);
   if (Math.random() < 0.3) sparks(H.pos, 6, 5, [3, 1.8, 0.6], 0.4);
-  if (H.hp <= 0) { H.down = true; H.vel.set(R(-4, 4), 2, R(-4, 4)); H.cone.visible = H.spot.visible = false; explosion(H.pos.clone(), 6, 30, null, null, false); toast('경찰 헬기 격추!', '수배가 더 무거워집니다'); crime(1, 'heli', 0); }
+  if (H.hp <= 0) { if (byPlayer) gainXP(40); H.down = true; H.vel.set(R(-4, 4), 2, R(-4, 4)); H.cone.visible = H.spot.visible = false; explosion(H.pos.clone(), 6, 30, null, null, false); toast('경찰 헬기 격추!', '수배가 더 무거워집니다'); crime(1, 'heli', 0); }
 }
 function updateHeli(dt, pp) {
   const H = heli;
@@ -2976,7 +3511,7 @@ function updateHeli(dt, pp) {
 // ============================================================ rooftop moves: ladders, ziplines, samples, E interactions
 function resetPose() { P.armR.rotation.set(-1.25, 0, 0.1); P.armL.rotation.set(-1.1, 0, -0.55); P.legL.rotation.x = P.legR.rotation.x = 0; }
 function findInteract() {
-  if (state !== 'play' || player.car || player.dead || player.busted || player.climb || player.zip) return null;
+  if (state !== 'play' || player.car || player.dead || player.busted || player.climb || player.zip || titan.on) return null;
   const p = player.pos; let best = null, bd = 1e9;
   const near = (d, r, o) => { if (d < r && d < bd) { bd = d; best = o; } };
   if (p.y < 2) {
@@ -3024,7 +3559,7 @@ function updateRoofs(dt) {
     if (s.got) continue;
     s.core.rotation.y += dt * 1.6; s.core.position.y = 0.7 + Math.sin(time * 2.4 + s.id) * 0.12;
     if (player.car || player.dead || player.pos.distanceTo(s.pos) > 1.6) continue;
-    s.got = true; s.g.visible = false; save.samples.push(s.id); player.money += 300;
+    s.got = true; s.g.visible = false; save.samples.push(s.id); player.money += 300; gainXP(15);
     const n = samples.filter(q => q.got).length; toast(`옥상 PKE 샘플 ${n}/${samples.length}`, '+$300 · 오 박사가 좋아하겠군요'); sfx('chirp');
     sparks(s.pos.clone().setY(s.pos.y + 0.8), 40, 6, [0.6, 2.6, 3], 0.6);
     if (n === samples.length) { player.money += 3000; toast('샘플 전부 수집!', '보너스 +$3,000'); }
@@ -3066,7 +3601,7 @@ function buy(u) {
   writeSave(); sfx('buy'); renderShop(); toast(`${u.name} ${lv + 1}단계`, '장착 완료');
 }
 let modal = null, dlgG = null;
-function muteLoops() { if (!AU.ctx) return; for (const k of ['eng', 'sir', 'psir', 'heli', 'zip', 'jet', 'gat', 'gatW']) if (AU[k]) AU[k].gain.value = 0; }
+function muteLoops() { if (!AU.ctx) return; for (const k of ['eng', 'sir', 'psir', 'heli', 'zip', 'jet', 'gat', 'gatW', 'tb']) if (AU[k]) AU[k].gain.value = 0; }
 function openModal(id) { modal = id; $(id).hidden = false; mouse.l = mouse.r = false; player.aim = false; hideBeam(); muteLoops(); if (locked) document.exitPointerLock(); }
 function closeModal() { if (!modal) return; $(modal).hidden = true; modal = null; if (!isTouch && everLocked) { try { const r = cvs.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (_) {} } }
 function openShop() { renderShop(); openModal('shop'); sfx('door', 0.5); }
@@ -3077,7 +3612,7 @@ $('dlgOk').addEventListener('click', modalOk); $('dlgNo').addEventListener('clic
 // ============================================================ game flow
 let state = 'menu', paused = false, time = 0, spawnT = 3, weatherT = R(15, 30);
 function setPause(p) { paused = p; $('pause').hidden = !p; if (p) { mouse.l = mouse.r = false; player.aim = false; hideBeam(); muteLoops(); } }
-if (save.money || save.rep || Object.keys(save.up).length) { $('saveInfo').hidden = false; $('saveInfo').textContent = `저장된 기록으로 이어서 합니다: $${save.money.toLocaleString()} · 평판 ${save.rep} · 개조 ${Object.values(save.up).reduce((a, b) => a + b, 0)}단계 (일시정지 메뉴에서 초기화)`; }
+if (save.money || save.rep || Object.keys(save.up).length || save.xp) { $('saveInfo').hidden = false; $('saveInfo').textContent = `저장된 기록으로 이어서 합니다: $${save.money.toLocaleString()} · 평판 ${save.rep} · 개조 ${Object.values(save.up).reduce((a, b) => a + b, 0)}단계 · 타이탄 Lv.${save.evo + 1} (일시정지 메뉴에서 초기화)`; }
 $('go').addEventListener('click', () => {
   initAudio(); state = 'play'; $('start').hidden = true; $('hud').hidden = false; if (isTouch) $('touch').hidden = false;
   applyUpgrades(); respawn(); player.money = save.money; player.hp = player.maxHp; camera.position.set(player.pos.x, 2, player.pos.z);
@@ -3086,13 +3621,14 @@ $('go').addEventListener('click', () => {
   setTimeout(() => state === 'play' && toast('양성자 빔으로 약화', '기절하면 트랩(G)을 던져 가두세요'), 3500);
   setTimeout(() => state === 'play' && !mission && toast('시민 의뢰', '머리 위 ! 표시 의뢰인에게 가서 E를 누르세요'), 8000);
   setTimeout(() => state === 'play' && !mission && toast('제트팩', 'Space를 누르고 있으면 날아오릅니다'), 13000);
+  setTimeout(() => state === 'play' && !mission && !titan.on && toast('타이탄 변신', 'T를 누르면 거대 괴수로 변신합니다. 유령을 잡을수록 진화합니다'), 19000);
 });
 let resetArm = false;
 $('optReset').addEventListener('click', () => {
   if (!resetArm) { resetArm = true; $('optReset').textContent = '한 번 더 누르면 초기화'; setTimeout(() => { resetArm = false; $('optReset').textContent = '기록 초기화'; }, 3000); return; }
   resetArm = false; $('optReset').textContent = '기록 초기화';
   if (mission) endMission(false, '기록을 초기화했습니다');
-  Object.assign(save, { money: 0, rep: 0, lv: {}, up: {}, samples: [] }); player.money = 0;
+  Object.assign(save, { money: 0, rep: 0, lv: {}, up: {}, samples: [], xp: 0, evo: 0 }); player.money = 0; titan.ready = -1; if (titan.on) titanReset(); titanLook(0);
   for (const s of samples) { s.got = false; s.g.visible = true; }
   applyUpgrades(); player.hp = player.maxHp; writeSave(); toast('기록을 초기화했습니다');
 });
@@ -3166,7 +3702,8 @@ function updateAudio() {
   AU.zip.gain.setTargetAtTime(player.zip ? 0.04 + player.zip.v * 0.005 : 0, t, 0.05);
   AU.jet.gain.setTargetAtTime(player.jet ? 0.32 : interceptor.boost ? 0.45 : 0, t, 0.06);
   AU.gat.gain.setTargetAtTime(gat.on ? 0.42 : 0, t, 0.015); AU.gatW.gain.setTargetAtTime(gat.spin * 0.06, t, 0.05); AU.gatWO.frequency.setTargetAtTime(160 + gat.spin * 520, t, 0.05);
-  AU.pack.gain.setTargetAtTime(!c && state === 'play' ? 0.02 + player.heat * 0.0006 : 0, t, 0.1);
+  AU.pack.gain.setTargetAtTime(!c && !titan.on && state === 'play' ? 0.02 + player.heat * 0.0006 : 0, t, 0.1);
+  if (AU.tb) AU.tb.gain.setTargetAtTime(titan.firing && !paused ? 0.35 : 0, t, 0.05);
 }
 
 // ============================================================ loop
@@ -3198,6 +3735,7 @@ requestAnimationFrame(frame);
 window.__game = { player, ghosts, cars, peds, trap, beam, lots, save, givers: GIVERS, shop: SHOP, ladders, zips, samples, heli, upgrades: UPG, gat, bullets, casings,
   get state() { return state; }, get fps() { return fN; }, get mission() { return mission; }, get wanted() { return wanted; }, get modal() { return modal; },
   interceptor, projs, projectile, get leanK() { return leanK; },
+  titan, titanModel: TM, EVO, XP_EVO, toggleTitan, gainXP, titanTail, titanStomp, titanRoar, titanAbsorb, get nextBossAt() { return nextBossAt; }, set nextBossAt(v) { nextBossAt = v; },
   spawnGhost, explosion, computeAim, setWeapon, enterCar, exitCar, throwTrap, interact, startMission, endMission, crime, clearWanted, bust, spawnCop, buy, THREE };
 </script>
 </body>

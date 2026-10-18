@@ -1,6 +1,6 @@
 'use strict';
 // 실제 크로미움에서 게임을 띄워 런타임 오류 없이 핵심 루프(빔 → 기절 → 트랩 포획, 보손 폭발, 차량 탈취·주행), 달리기·제트팩·초대형 게틀링,
-// 운전 중 창밖 사격·트랩 포획과 공격용 특수차량 인터셉터(트랩 발사기, 로켓 부스터, 방어막과 장갑), 의뢰 4종, 경찰 추격·체포, 사다리·짚라인·옥상 샘플, 오 박사 상점, 저장·이어 하기가 돌아가는지 확인하는 스모크 테스트.
+// 운전 중 창밖 사격·트랩 포획과 공격용 특수차량 인터셉터(트랩 발사기, 로켓 부스터, 방어막과 장갑), 의뢰 4종, 경찰 추격·체포, 사다리·짚라인·옥상 샘플, 타이탄 변신·진화, 오 박사 상점, 저장·이어 하기가 돌아가는지 확인하는 스모크 테스트.
 // 실행: node ghostbusters/smoke-test.cjs [스크린샷 폴더]
 //  - playwright 와 three@0.160.0 이 require 가능한 곳(예: NODE_PATH)에 있어야 한다. CDN 요청은 로컬 three 로 돌려준다.
 const fs = require('fs');
@@ -257,8 +257,8 @@ const errors = [];
     const def = await ev(() => { const I = window.__game.interceptor, h = I.hp; I.shield = 100; I.damage(40); const s1 = I.shield, h1 = h - I.hp; I.shield = 0; I.damage(40); const h2 = h - I.hp; I.hp = h; I.shield = 100; return { s1: +s1.toFixed(2), h1: +h1.toFixed(2), h2: +h2.toFixed(2) }; });
     out.armor = [def.s1, def.h2];
     check(def.s1 === 92 && def.h1 === 0 && def.h2 === 8, 'shield and armor did not soak damage as expected: ' + JSON.stringify(def));
-    // 운전자 보호: 타고 있으면 유령의 슬라임 탄을 운전자 대신 차가 맞는다
-    const php = await ev(() => { const G = window.__game, I = G.interceptor, g = G.ghosts.find(x => x.type !== 'boss'); G.player.hp = G.player.maxHp; I.shield = 100;
+    // 운전자 보호: 타고 있으면 유령의 슬라임 탄을 운전자 대신 차가 맞는다 (부스터 시험으로 굴러가던 차를 세운 뒤 쏜다)
+    const php = await ev(() => { const G = window.__game, I = G.interceptor, g = G.ghosts.find(x => x.type !== 'boss'); I.pos.copy(I.home); I.h = 0; I.vel.set(0, 0); G.player.hp = G.player.maxHp; I.shield = 100;
       window.__ep = G.projectile('ecto', I.pos.clone().add(new G.THREE.Vector3(4, 1.2, 0)), new G.THREE.Vector3(-1, 0, 0), 21, g); return G.player.hp; });
     check(await until(() => !window.__game.projs.includes(window.__ep), 60000), 'the test slime ball never landed');
     const crew = await ev(() => ({ hp: window.__game.player.hp, shield: +window.__game.interceptor.shield.toFixed(1) }));
@@ -407,6 +407,74 @@ const errors = [];
     check(await until(n => window.__game.save.samples.length > n, 120000, sm.n), 'rooftop sample was not collected');
   });
 
+  // 타이탄: T로 거대 괴수로 변신해 원자 열선으로 유령을 기절시키고 G로 흡수하면 경험치가 쌓이고, 300을 넘으면 그 자리에서 진화한다.
+  // 꼬리(우클릭)와 발구르기(Space)가 차를 부수고, 포효(H)가 유령을 느리게 하며, 유령의 슬라임 탄은 사람 대신 타이탄이 맞는다
+  await step('titan', async () => {
+    await ev(() => { const G = window.__game, P = G.player; G.clearWanted(); G.nextBossAt = 99; P.pos.set(-43, 0.15, 0); P.vel.set(0, 0, 0); P.yaw = 0; P.facing = 0; P.pitch = 0.12; P.hp = P.maxHp; G.save.xp = 250; G.save.evo = 0; G.titan.ready = -1; G.titan.cd = 0; });
+    await page.waitForTimeout(300);
+    await page.keyboard.press('KeyT');
+    if (!check(await until(() => window.__game.titan.phase === 'on'), 'T did not turn the Ghostbuster into the titan')) return;
+    const t0 = await ev(() => { const G = window.__game, T = G.titan; return { model: G.titanModel.g.visible, vh: +T.vh.toFixed(1), hp: T.hp, panel: !document.getElementById('titanP').hidden, slots: document.getElementById('slots').hidden, name: document.getElementById('tName').textContent }; });
+    check(t0.model && t0.vh > 11 && t0.hp === 600 && t0.panel && t0.slots && t0.name === '어린 타이탄', 'the titan or its HUD did not appear: ' + JSON.stringify(t0));
+    await shot('13b-titan');
+    // 원자 열선: 누르고 있으면 등판이 꼬리부터 빛나며 충전된 뒤 입에서 열선이 나가 유령을 태운다
+    await placeAhead(26, true); await ev(() => { window.__tg.hp = 30; });
+    await page.mouse.down();
+    let stunned = false;
+    for (let i = 0; i < 60 && !stunned; i++) { await placeAhead(26); stunned = await until(() => window.__tg.state === 'stunned', 3000); }
+    const b = await ev(() => { const T = window.__game.titan; return { firing: T.firing, en: +T.en.toFixed(1), st: window.__tg.state }; });
+    await shot('13c-heat-ray');
+    await page.mouse.up();
+    out.titanRay = b.en;
+    if (!check(stunned && b.en < 100, 'the heat ray did not stun the ghost: ' + JSON.stringify(b))) return;
+    // 흡수: 근처의 기절한 유령이 입으로 빨려 들어가 포획되고 경험치 40을 얻는다
+    const a0 = await ev(() => { const G = window.__game, p = G.player.pos; window.__tg.pos.set(p.x + 12, p.y + 14, p.z + 12); window.__tg.vel.set(0, 0, 0); return { caps: G.player.captures, xp: G.save.xp }; });
+    await page.keyboard.press('KeyG');
+    if (!check(await until(c => window.__game.player.captures > c, 240000, a0.caps), 'G did not absorb the stunned ghost')) return;
+    const xp1 = await ev(() => window.__game.save.xp);
+    check(xp1 >= a0.xp + 40, `absorbing did not give 40 xp: ${a0.xp} to ${xp1}`);
+    // 진화: 경험치가 300을 넘었으니 더 크고 튼튼한 다음 단계로 자라고, 단계가 저장된다
+    if (!check(await until(() => window.__game.titan.phase === 'evo', 120000), 'the titan did not evolve after reaching 300 xp')) return;
+    await until(() => window.__game.titan.t > 1.3, 120000);
+    await shot('13d-evolving');
+    if (!check(await until(() => window.__game.titan.phase === 'on'), 'the evolution did not finish')) return;
+    const e = await ev(() => { const G = window.__game, T = G.titan; return { evo: G.save.evo, vh: +T.vh.toFixed(1), hp: T.hp, name: document.getElementById('tName').textContent, stored: JSON.parse(localStorage.getItem('ghost-patrol-save-v1') || '{}').evo }; });
+    out.evo = [e.evo, e.vh];
+    check(e.evo === 1 && e.vh > 15 && e.hp > 850 && e.name === '타이탄' && e.stored === 1, 'evolution did not grow the titan or save the stage: ' + JSON.stringify(e));
+    // 꼬리: 우클릭하면 한 바퀴 돌며 뒤에 세워 둔 차를 친다
+    const park = (dz) => ev(dz => { const G = window.__game, P = G.player, c = G.cars.find(c => c.type === 'sedan' && !c.wrecked && c !== G.player.car && !c.possessed && c !== window.__car);
+      c.ai = null; c.parked = true; c.vel.set(0, 0); c.hp = 100; c.h = 0; c.pos.set(P.pos.x, 0, P.pos.z + dz); c.g.position.set(c.pos.x, 0, c.pos.z); window.__car = c; return c.hp; }, dz);
+    await park(-10);
+    await page.mouse.down({ button: 'right' }); await page.mouse.up({ button: 'right' });
+    check(await until(() => window.__game.titan.tailT > 0, 30000), 'right click did not swing the tail');
+    check(await until(() => window.__car.hp < 100, 120000), 'the tail swing did not hit the car behind');
+    await until(() => window.__game.titan.tailT === 0, 60000);
+    // 발구르기: Space로 오른발을 내리찍으면 앞의 차가 충격파에 다친다
+    await park(9);
+    await page.keyboard.press('Space');
+    check(await until(() => window.__game.titan.stompT > 0, 30000), 'Space did not stomp');
+    check(await until(() => window.__car.hp < 100, 120000), 'the stomp did not hurt the car in front');
+    await until(() => window.__game.titan.stompT === 0, 60000);
+    // 포효: 근처 유령이 느려지고 다친다
+    const hp2 = await placeAhead(20, true);
+    await ev(() => { const G = window.__game, p = G.player.pos; window.__tg.pos.set(p.x + 10, p.y + 15, p.z + 10); window.__tg.slime = 0; });
+    await page.keyboard.press('KeyH');
+    check(await until(h => window.__tg.slime > 0 && window.__tg.hp < h, 120000, hp2), 'the roar did not slow and hurt the nearby ghost');
+    // 유령의 슬라임 탄은 사람 대신 타이탄이 맞는다
+    const h0 = await ev(() => { const G = window.__game, P = G.player, T = G.titan, g = G.ghosts.find(x => x.type !== 'boss' && x.state !== 'captured');
+      T.hp = G.EVO[G.save.evo].hp; P.hp = P.maxHp;
+      window.__ep = G.projectile('ecto', new G.THREE.Vector3(P.pos.x, P.pos.y + T.vh * 0.5, P.pos.z + 12), new G.THREE.Vector3(0, 0, -1), 21, g); return { hp: T.hp, php: P.hp }; });
+    check(await until(() => !window.__game.projs.includes(window.__ep), 60000), 'the test slime ball never landed');
+    const h1 = await ev(() => ({ hp: window.__game.titan.hp, php: window.__game.player.hp }));
+    check(h1.hp < h0.hp && h1.php === h0.php, 'the slime ball did not hit the titan instead of the Ghostbuster: ' + JSON.stringify([h0, h1]));
+    // T를 다시 누르면 사람으로 돌아온다
+    await page.keyboard.press('KeyT');
+    check(await until(() => window.__game.titan.phase === 'off', 120000), 'T did not change back');
+    const o = await ev(() => ({ model: window.__game.titanModel.g.visible, slots: !document.getElementById('slots').hidden, panel: document.getElementById('titanP').hidden }));
+    check(!o.model && o.slots && o.panel, 'the Ghostbuster HUD did not come back: ' + JSON.stringify(o));
+    await ev(() => window.__game.clearWanted());
+  });
+
   // 오 박사 연구실: E로 열고 업그레이드 구매, 저장 확인
   await step('shop', async () => {
     await ev(() => { window.__game.player.money = 20000; });
@@ -432,9 +500,10 @@ const errors = [];
     await page.waitForFunction(() => window.__game && window.__game.ghosts.length > 0, null, { timeout: 120000 });
     await page.waitForTimeout(800);
     await shot('15-continue');
-    const c = await ev(() => { const G = window.__game, el = document.getElementById('saveInfo'); return { info: el.hidden ? '' : el.textContent, rep: G.save.rep, beam: G.save.up.beam, got: G.samples.filter(s => s.got).length }; });
+    const c = await ev(() => { const G = window.__game, el = document.getElementById('saveInfo'); return { info: el.hidden ? '' : el.textContent, rep: G.save.rep, beam: G.save.up.beam, got: G.samples.filter(s => s.got).length, evo: G.save.evo }; });
     out.rep = c.rep;
     check(c.info.includes('평판 ' + before.rep) && c.rep === before.rep && c.beam === 1 && c.got === before.samples && c.got >= 1, 'saved progress was not restored: ' + JSON.stringify(c));
+    check(c.evo === 1 && c.info.includes('타이탄 Lv.2'), 'the titan stage was not restored: ' + JSON.stringify(c));
     await page.click('#go');
     await page.waitForTimeout(500);
     const r = await ev(() => ({ money: window.__game.player.money, maxHp: window.__game.player.maxHp }));
