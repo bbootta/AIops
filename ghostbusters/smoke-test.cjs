@@ -153,10 +153,10 @@ const errors = [];
     await page.keyboard.press('Digit1');
   });
 
-  // 차 앞 조준선에 유령을 세운다. fresh 이면 기력이 찬 새 유령을 쓴다
+  // 차 앞 조준선에 유령을 세운다. fresh 이면 기력이 찬 새 유령을 쓰고, 순간이동으로 먼 유령이 정리되어 하나도 없으면 새로 부른다
   const placeAhead = (dist, fresh) => ev(([dist, fresh]) => {
     const G = window.__game, a = G.computeAim(); let g = window.__tg;
-    if (fresh || !g || !G.ghosts.includes(g) || g.state === 'captured') { g = G.ghosts.find(x => x.type !== 'boss' && x.state !== 'captured'); g.state = 'hunt'; g.hp = g.maxHp; window.__tg = g; }
+    if (fresh || !g || !G.ghosts.includes(g) || g.state === 'captured') { g = G.ghosts.find(x => x.type !== 'boss' && x.state !== 'captured') || G.spawnGhost(false); g.state = 'hunt'; g.hp = g.maxHp; window.__tg = g; }
     g.spawnT = 0; g.pos.copy(a.o).addScaledVector(a.dir, a.tMin + dist); g.vel.set(0, 0, 0); g.atk = 99; return g.hp;
   }, [dist, !!fresh]);
 
