@@ -2926,7 +2926,9 @@ function updateCamera(dt) {
   } else if (titan.on) {
     const T = titan, H = lerp(1.7, Math.max(1.7, T.vh), clamp(T.grow * 1.2, 0, 1));
     const cp = Math.cos(player.pitch), f = V3(Math.sin(player.yaw) * cp, Math.sin(player.pitch), Math.cos(player.yaw) * cp), r = V3(-Math.cos(player.yaw), 0, Math.sin(player.yaw));
-    const tgt = V3(player.pos.x, player.pos.y + H * 0.72, player.pos.z).addScaledVector(r, H * 0.5), want = tgt.clone().addScaledVector(f, -(H * 1.6 + 2.6 + T.sprintK * H * 0.25)).add(V3(0, H * 0.1, 0));
+    // over the right shoulder, kept 1.5 m off a building on that side; the closer the building, the more it moves in and rises to look over the head
+    const c0 = V3(player.pos.x, player.pos.y + H * 0.72, player.pos.z), side = rayWorld(c0, r, H * 0.5 + 2), so = side ? clamp(side.t - 1.5, 0, H * 0.5) : H * 0.5;
+    const tgt = c0.addScaledVector(r, so).setY(c0.y + (H * 0.5 - so) * 0.8), want = tgt.clone().addScaledVector(f, -(H * 1.6 + 2.6 + T.sprintK * H * 0.25)).add(V3(0, H * 0.1, 0));
     const d = V3().subVectors(want, tgt), dl = d.length(); d.normalize(); const hit = rayWorld(tgt, d, dl); if (hit) want.copy(tgt).addScaledVector(d, Math.max(H * 0.5, hit.t - 0.5));
     want.y = Math.max(want.y, surfaceY(want.x, want.z, want.y) + 0.5);
     camera.position.lerp(want, 1 - Math.exp(-7 * dt)); camLook.copy(camera.position).add(f); camera.lookAt(camLook); fov = 66 + T.sprintK * 6;
