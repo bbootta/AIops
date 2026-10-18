@@ -1,6 +1,6 @@
 'use strict';
 // 실제 크로미움에서 게임을 띄워 런타임 오류 없이 핵심 루프(빔 → 기절 → 트랩 포획, 보손 폭발, 차량 탈취·주행), 달리기·제트팩·초대형 게틀링,
-// 운전 중 창밖 사격·트랩 포획과 공격용 특수차량 인터셉터(트랩 발사기, 로켓 부스터), 의뢰 4종, 경찰 추격·체포, 사다리·짚라인·옥상 샘플, 오 박사 상점, 저장·이어 하기가 돌아가는지 확인하는 스모크 테스트.
+// 운전 중 창밖 사격·트랩 포획과 공격용 특수차량 인터셉터(트랩 발사기, 로켓 부스터, 방어막과 장갑), 의뢰 4종, 경찰 추격·체포, 사다리·짚라인·옥상 샘플, 오 박사 상점, 저장·이어 하기가 돌아가는지 확인하는 스모크 테스트.
 // 실행: node ghostbusters/smoke-test.cjs [스크린샷 폴더]
 //  - playwright 와 three@0.160.0 이 require 가능한 곳(예: NODE_PATH)에 있어야 한다. CDN 요청은 로컬 three 로 돌려준다.
 const fs = require('fs');
@@ -193,7 +193,7 @@ const errors = [];
   });
 
   // 인터셉터: 본부 앞마당에서 기다리다가, 포탑 기관포로 유령을 맞히며 달아오르고, 유도 미사일이 쫓아가 터지고, 트랩 발사기로 멀리 있는 기절한 유령을 포획하고,
-  // 로켓 부스터로 훨씬 빨라지고, 장갑이 피해를 줄이고, 부서지면 본부에 다시 놓인다
+  // 로켓 부스터로 훨씬 빨라지고, 방어막과 장갑이 피해를 받아 내며 운전자를 지키고, 부서지면 본부에 다시 놓인다
   await step('interceptor', async () => {
     const I0 = await ev(() => { const I = window.__game.interceptor; return { off: +I.pos.distanceTo(I.home).toFixed(2), ammo: I.ammo, wrecked: I.wrecked }; });
     check(I0.off < 3 && I0.ammo === 8 && !I0.wrecked, 'interceptor is not waiting at HQ: ' + JSON.stringify(I0));
@@ -253,15 +253,24 @@ const errors = [];
     check(boosted.boost === 2 && boosted.flames === 4 && boosted.bst < 100, 'Shift did not light the four boosters: ' + JSON.stringify(boosted));
     check(boosted.v > plain.v * 1.5, `the boosters did not speed the interceptor up: ${plain.v} vs ${boosted.v}`);
     check(await until(() => window.__game.interceptor.flames.every(f => !f.visible), 60000), 'booster flames stayed on after letting go');
-    // 장갑과 재배치
-    const taken = await ev(() => { const I = window.__game.interceptor, h = I.hp; I.damage(40); const t = h - I.hp; I.hp = h; return t; });
-    check(Math.abs(taken - 14) < 0.01, `armor let ${taken} of 40 damage through`);
+    // 방어막과 장갑: 장갑이 피해를 1/5로 줄이고 방어막이 먼저 받는다. 방어막이 비면 그때부터 차체가 받는다
+    const def = await ev(() => { const I = window.__game.interceptor, h = I.hp; I.shield = 100; I.damage(40); const s1 = I.shield, h1 = h - I.hp; I.shield = 0; I.damage(40); const h2 = h - I.hp; I.hp = h; I.shield = 100; return { s1: +s1.toFixed(2), h1: +h1.toFixed(2), h2: +h2.toFixed(2) }; });
+    out.armor = [def.s1, def.h2];
+    check(def.s1 === 92 && def.h1 === 0 && def.h2 === 8, 'shield and armor did not soak damage as expected: ' + JSON.stringify(def));
+    // 운전자 보호: 타고 있으면 유령의 슬라임 탄을 운전자 대신 차가 맞는다
+    const php = await ev(() => { const G = window.__game, I = G.interceptor, g = G.ghosts.find(x => x.type !== 'boss'); G.player.hp = G.player.maxHp; I.shield = 100;
+      window.__ep = G.projectile('ecto', I.pos.clone().add(new G.THREE.Vector3(4, 1.2, 0)), new G.THREE.Vector3(-1, 0, 0), 21, g); return G.player.hp; });
+    check(await until(() => !window.__game.projs.includes(window.__ep), 60000), 'the test slime ball never landed');
+    const crew = await ev(() => ({ hp: window.__game.player.hp, shield: +window.__game.interceptor.shield.toFixed(1) }));
+    out.crew = crew.shield;
+    check(crew.hp === php && crew.shield < 100, 'the slime ball hurt the driver instead of the interceptor: ' + JSON.stringify(crew));
+    // 재배치
     await page.keyboard.press('KeyF');
     await until(() => !window.__game.player.car, 60000);
     await ev(() => { const G = window.__game, I = G.interceptor; G.player.pos.set(I.home.x + 30, 0.15, I.home.z + 12); I.damage(1e6); });
     if (!check(await ev(() => window.__game.interceptor.wrecked), 'interceptor did not wreck')) return;
     await ev(() => { window.__game.interceptor.wreckT = 11; });
-    check(await until(() => { const I = window.__game.interceptor; return !I.wrecked && I.hp === 100 && I.ammo === 8 && I.pos.distanceTo(I.home) < 0.01; }, 120000), 'a new interceptor did not appear at HQ');
+    check(await until(() => { const I = window.__game.interceptor; return !I.wrecked && I.hp === 100 && I.shield === 100 && I.ammo === 8 && I.pos.distanceTo(I.home) < 0.01; }, 120000), 'a new interceptor did not appear at HQ');
     await ev(() => window.__game.clearWanted());
   });
 

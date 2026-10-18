@@ -65,6 +65,9 @@ html,body{height:100%;margin:0;background:var(--ink);color:var(--text);font-fami
 #vAmmo{font-family:var(--mono);font-size:14px;letter-spacing:.12em;color:var(--gold)}
 #vAmmo i{font-style:normal;color:#4a4060}
 #vBoost{background:linear-gradient(90deg,#62e6ff,#4f8cff)}
+#vShield{background:linear-gradient(90deg,#62e6ff,#d4f8ff);box-shadow:0 0 8px rgba(98,230,255,.6)}
+#vHull{background:linear-gradient(90deg,#3fd27a,#9dffb5)}
+#vHull.low{background:linear-gradient(90deg,#ff3d5e,#ff8a5e)}
 #vBoost.low{background:#4a4060}
 #trapSt{font-size:12.5px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 9px;color:var(--dim)}
 #trapSt.armed{color:var(--gold);border-color:rgba(255,209,102,.5)}
@@ -182,6 +185,8 @@ body.touch #stars{top:calc(142px + env(safe-area-inset-top,0px));width:120px;fon
     </div>
     <div id="veh" hidden>
       <div class="vt">인터셉터 무장</div>
+      <div class="row"><span>방어막</span><div class="meter"><i id="vShield" style="width:100%"></i></div></div>
+      <div class="row"><span>장갑</span><div class="meter"><i id="vHull" style="width:100%"></i></div></div>
       <div class="row"><span>기관포</span><div class="meter"><i id="vHeat" style="width:0%"></i></div></div>
       <div class="row"><span>미사일</span><span id="vAmmo"></span></div>
       <div class="row"><span>부스터</span><div class="meter"><i id="vBoost" style="width:100%"></i></div></div>
@@ -1243,6 +1248,8 @@ function sfx(kind, vol = 1) {
     case 'cannon': osc('square', 190, 55, 0.12, 0.45); noise(0.12, 1600, 0.7, 0.7); noise(0.05, 6000, 1, 0.3, 'highpass'); break;
     case 'missile': noise(0.7, 1400, 0.8, 0.55, 'bandpass', 0.02); osc('sawtooth', 220, 880, 0.5, 0.12, 0.02); noise(0.15, 500, 1, 0.5); break;
     case 'impact': noise(0.35, 800, 0.8, 0.7); osc('sine', 150, 45, 0.25, 0.5); break;
+    case 'shield': osc('sine', 700, 1700, 0.16, 0.2); noise(0.14, 3600, 5, 0.22, 'bandpass'); break;
+    case 'shieldDown': osc('sawtooth', 1500, 120, 0.7, 0.22); noise(0.6, 2600, 1, 0.45, 'bandpass'); osc('sine', 300, 60, 0.5, 0.35); break;
   }
 }
 function sfxAt(kind, p, vol = 1) { const d = p.distanceTo(camera.position); sfx(kind, vol * clamp(1 - d / 110, 0, 1)); }
@@ -1421,6 +1428,14 @@ function carGeos(type, paint) {
         l.push(part(CYL, 0xff7a30, s * 1.31, y, -3.01, 0.15, 0.02, 0.15, Math.PI / 2, 0, 0));
       }
     }
+    // heavy armour kit: bolted side skirts over the wheels, a V dozer blade, grilles over the windows, shield emitters on the rear deck
+    for (const s of [-1, 1]) {
+      for (const z of [-1.95, -0.65, 0.65, 1.95]) b.push(part(BOX, paint, s * 1.33, 0.86, z, 0.08, 0.56, 1.24), part(BOX, DK, s * 1.37, 1.1, z, 0.02, 0.06, 1.24), part(BOX, DK, s * 1.375, 0.7, z - 0.45, 0.03, 0.06, 0.06), part(BOX, DK, s * 1.375, 0.7, z + 0.45, 0.03, 0.06, 0.06));
+      b.push(part(BOX, DK, s * 0.6, 0.62, L / 2 + 0.25, 1.3, 0.62, 0.1, 0, s * 0.42, 0), part(BOX, HZ, s * 0.6, 0.88, L / 2 + 0.25, 1.3, 0.07, 0.12, 0, s * 0.42, 0));
+      for (const y of [1.74, 1.9]) b.push(part(BOX, DK, s * 1.03, y, 0.4, 0.04, 0.04, 1.36));
+      b.push(part(CYL, GUN, s * 0.55, 2.1, -1.25, 0.1, 0.14, 0.1)); l.push(part(SPH, 0x62e6ff, s * 0.55, 2.2, -1.25, 0.08, 0.08, 0.08));
+    }
+    for (const x of [-0.6, -0.2, 0.2, 0.6]) b.push(part(BOX, DK, x, 1.82, 1.335, 0.05, 0.34, 0.04));
     // roof turret, built in its own frame so it can turn: ring, housing, a missile pod (2 x 2 tubes) on each flank, sensor and whip antenna;
     // the twin cannon in the gun frame (trunnion) so it can tilt, with coils around the barrels that glow as they heat up
     const tur = [part(CYL, DK, 0, 0.06, 0, 0.62, 0.12, 0.62), part(BOX, paint, 0, 0.3, -0.05, 0.95, 0.36, 1.05), part(BOX, paint, 0, 0.3, 0.5, 0.8, 0.28, 0.16, 0.5, 0, 0), part(SPH, GLASS, 0.3, 0.54, -0.3, 0.11, 0.11, 0.11), part(CYL, GUN, -0.3, 0.8, -0.45, 0.02, 0.65, 0.02)];
@@ -1429,7 +1444,7 @@ function carGeos(type, paint) {
       for (const tx of [-0.11, 0.11]) for (const ty of [-0.11, 0.11]) tur.push(part(CYL, 0x0b0b0d, s * 0.75 + tx, 0.4 + ty, 0.505, 0.085, 0.03, 0.085, Math.PI / 2, 0, 0), part(SPH, 0xc21d1d, s * 0.75 + tx, 0.4 + ty, 0.48, 0.06, 0.06, 0.05));
     }
     ex.tur = merge(tur.map(tagPBR));
-    ex.gun = merge([part(BOX, paint, 0, 0, 0.05, 0.62, 0.26, 0.24), ...[-1, 1].flatMap(s => [part(CYL, GUN, s * 0.18, 0, 0.35, 0.095, 0.5, 0.095, Math.PI / 2, 0, 0), part(CYL, DK, s * 0.18, 0, 0.95, 0.055, 0.9, 0.055, Math.PI / 2, 0, 0), part(CYL, DK, s * 0.18, 0, 1.42, 0.085, 0.12, 0.085, Math.PI / 2, 0, 0)])].map(tagPBR));
+    ex.gun = merge([part(BOX, paint, 0, 0, 0.05, 0.62, 0.26, 0.24), part(BOX, DK, 0, 0, 0.2, 0.66, 0.34, 0.08), ...[-1, 1].flatMap(s => [part(CYL, GUN, s * 0.18, 0, 0.35, 0.095, 0.5, 0.095, Math.PI / 2, 0, 0), part(CYL, DK, s * 0.18, 0, 0.95, 0.055, 0.9, 0.055, Math.PI / 2, 0, 0), part(CYL, DK, s * 0.18, 0, 1.42, 0.085, 0.12, 0.085, Math.PI / 2, 0, 0)])].map(tagPBR));
     ex.coil = merge([-1, 1].flatMap(s => [0.62, 0.76, 0.9].map(z => part(CYL, 0xffffff, s * 0.18, 0, z, 0.075, 0.035, 0.075, Math.PI / 2, 0, 0))));
   } else if (type === 'van') {
     b.push(part(BOX, paint, 0, 1.12, -0.2, W, 1.7, L - 0.6), part(BOX, paint, 0, 0.72, L / 2 - 0.35, W, 0.9, 0.7), part(BOX, GLASS, 0, 1.55, L / 2 - 0.62, W * 0.92, 0.7, 0.12, -0.35, 0, 0),
@@ -1455,6 +1470,16 @@ function carGeos(type, paint) {
   for (const s of [-1, 1]) { wheel(s * (W / 2 - wo), L * 0.32, wr, ww); wheel(s * (W / 2 - wo), -L * 0.32, wr, ww); }
   return { body: merge(b.map(tagPBR)), lights: merge(l), ...ex };
 }
+// the interceptor's energy shield: hexagon cells on an egg around the hull, bright at the rim, flaring where a hit lands
+const SHIELD_VS = `varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vP=position; vec4 mv=modelViewMatrix*vec4(position,1.0); vV=normalize(-mv.xyz); vN=normalize(normalMatrix*normal); gl_Position=projectionMatrix*mv; }`;
+const SHIELD_FS = `uniform float uI; uniform float uH; uniform float uTime; uniform vec3 uHit; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+float hexD(vec2 p){ p=abs(p); return max(dot(p,vec2(0.5,0.866)),p.x); }
+void main(){
+  vec2 uv=vec2(atan(vP.z,vP.x)*3.8197,asin(clamp(vP.y,-1.0,1.0))*3.8197), r=vec2(1.0,1.732), h=r*0.5, a=mod(uv,r)-h, b=mod(uv-h,r)-h, g=dot(a,a)<dot(b,b)?a:b;
+  float edge=smoothstep(0.42,0.5,hexD(g)), f=1.0-abs(dot(normalize(vN),normalize(vV))), d=distance(normalize(vP),uHit);
+  float spot=exp(-d*d*6.0)*uH, wave=smoothstep(0.12,0.0,abs(d-(1.0-uH)*1.6))*uH;
+  float k=(f*f*0.7+edge*(0.18+0.6*f))*uI+(spot*(0.6+edge)+wave*0.8)*(0.6+0.4*sin(uTime*40.0));
+  gl_FragColor=vec4(vec3(0.45,1.5,2.6),k*0.8); }`;
 const CAR_LIGHT_MAT = new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(2.4, 2.4, 2.4) });
 const HEAD_GEO = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), HEAD_MAT = new THREE.MeshBasicMaterial({ map: TX.head, color: new THREE.Color(0.55, 0.5, 0.4), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
 const cars = [];
@@ -1491,7 +1516,9 @@ class Car {
       const fl = new THREE.ConeGeometry(1, 1, 12, 1, true).rotateX(Math.PI).translate(0, -0.5, 0), fm = (r, g, b, o) => new THREE.MeshBasicMaterial({ color: new THREE.Color(r, g, b), transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
       const fo = fm(2.6, 1.0, 0.26, 0.7), fi = fm(1.8, 2.0, 2.8, 0.8); this.flames = [];
       for (const s of [-1, 1]) for (const y of [1.36, 1.74]) { const f = new THREE.Group(), o = new THREE.Mesh(fl, fo), i = new THREE.Mesh(fl, fi); o.scale.set(0.17, 1.9, 0.17); i.scale.set(0.08, 1.0, 0.08); o.renderOrder = i.renderOrder = 6; f.add(o, i); f.position.set(s * 1.31, y, -3.02); f.rotation.x = Math.PI / 2; f.visible = false; this.inner.add(f); this.flames.push(f); }
-      Object.assign(this, { armor: 0.35, heat: 0, over: false, cd: 0, mcd: 0, ammo: 8, rl: 0, shots: 0, salvo: 0, bst: 100 });
+      this.bubble = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 24), new THREE.ShaderMaterial({ uniforms: { uI: { value: 0 }, uH: { value: 0 }, uTime: { value: 0 }, uHit: { value: V3(0, 1, 0) } }, vertexShader: SHIELD_VS, fragmentShader: SHIELD_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+      this.bubble.position.set(0, 1.3, -0.05); this.bubble.scale.set(2.15, 1.95, 3.75); this.bubble.renderOrder = 7; this.bubble.visible = false; this.inner.add(this.bubble);
+      Object.assign(this, { armor: 0.2, shield: 100, shT: 99, shF: 0, shH: 0, heat: 0, over: false, cd: 0, mcd: 0, ammo: 8, rl: 0, shots: 0, salvo: 0, bst: 100 });
     }
     this.pos = V3(); this.vel = new THREE.Vector2(); this.h = 0; this.steer = 0; this.hp = 100; this.ai = null; this.parked = false; this.wrecked = false; this.fire = 0; this.wreckT = 0; this.y = 0; this.vy = 0; this.pHit = -99; this.boost = 0;
     this.input = { t: 0, s: 0, hb: false }; this.roll = 0; this.pitch = 0; this.blocked = 0; this.ignore = 0;
@@ -1499,9 +1526,9 @@ class Car {
   }
   get speed() { return this.vel.length(); }
   fwdSpeed() { return this.vel.x * Math.sin(this.h) + this.vel.y * Math.cos(this.h); }
-  damage(n) {
+  damage(n, from) {
     if (this.possessed) { this.possessed.meter = Math.min(100, this.possessed.meter + n * 1.3); this.possessed.calm = 0; return; }
-    if (this.wrecked) return; this.hp -= n * (this.armor || 1);
+    if (this.wrecked) return; n *= this.armor || 1; if (this.shield > 0) n = shieldSoak(this, n, from); this.hp -= n;
     if (this.hp < 35 && Math.random() < 0.3) smokePuff(V3(this.pos.x, 1.2, this.pos.z).addScaledVector(V3(Math.sin(this.h), 0, Math.cos(this.h)), this.T.L * 0.35), 2, [0.12, 0.12, 0.13], 1, 2);
     if (this.hp <= 0) this.explode();
   }
@@ -1697,7 +1724,7 @@ class Ghost {
       }
       case 'swoop': {
         this.swoopT -= dt; want.copy(toP).setLength(spd * 2.8);
-        if (!this.hitDone && dist < 1.8 + this.r * 0.5) { this.hitDone = true; if (this.raid) raidHit(this); else { hurtPlayer(T.dmg + 4, this.pos); slimeScreen(); } }
+        if (!this.hitDone && dist < 1.8 + this.r * 0.5) { this.hitDone = true; if (this.raid) raidHit(this); else if (player.car === interceptor) interceptor.damage(T.dmg + 4, this.pos); else { hurtPlayer(T.dmg + 4, this.pos); slimeScreen(); } }
         if (this.swoopT <= 0 || this.hitDone) { this.state = 'hunt'; this.vel.multiplyScalar(0.3); this.vel.y += 6; }
         break;
       }
@@ -1705,7 +1732,7 @@ class Ghost {
         this.slamT -= dt;
         if (this.slamT > 0.6) want.set(tgt.x - this.pos.x, 18 - this.pos.y, tgt.z - this.pos.z).setLength(spd * 1.5);
         else { want.set(0, -40, 0); if (this.pos.y < this.r + 1.5 || this.slamT <= 0) { const gp = V3(this.pos.x, 0.3, this.pos.z); ring(gp, 22, [2.5, 1, 0.3]); ring(gp, 14, [3, 2.2, 1]); sparks(gp, 60, 14, [3, 1.2, 0.3], 0.9, 0.25); smokePuff(gp, 14, [0.12, 0.08, 0.1], 3, 2.5); addShake(gp, 1.4, 60); sfxAt('boom', gp); scorches.add(gp, UP, 16);
-          const pd = Math.hypot(tgt.x - gp.x, tgt.z - gp.z); if (pd < 14) hurtPlayer(26 * (1 - pd / 16), gp); scareNear(gp, 30); lampsNear(gp.x, gp.z, 14, (L, i) => knockLamp(L, i, L.x - gp.x, L.z - gp.z)); for (const c of cars) if (c.pos.distanceTo(gp) < 12) { c.damage(30); c.vy = 5; }
+          const pd = Math.hypot(tgt.x - gp.x, tgt.z - gp.z); if (pd < 14 && player.car !== interceptor) hurtPlayer(26 * (1 - pd / 16), gp); scareNear(gp, 30); lampsNear(gp.x, gp.z, 14, (L, i) => knockLamp(L, i, L.x - gp.x, L.z - gp.z)); for (const c of cars) if (c.pos.distanceTo(gp) < 12) { c.damage(30, gp); c.vy = 5; }
           this.state = 'hunt'; this.slam = 7; this.vel.set(0, 18, 0); } }
         break;
       }
@@ -1809,8 +1836,8 @@ function updateProjectiles(dt) {
     if (p.kind === 'slime') { if (hg) { hg.damage(9); hg.slime = 3.5; } else if (hit === 'heli') damageHeli(6, true); else if (hit === 'world') slimes.add(p.pos, n, R(0.8, 1.5)); sparks(p.pos, 16, 5, [0.6, 2.4, 0.4], 0.6, 0.18); sfxAt('splat', p.pos, 0.5); }
     else if (p.kind === 'boson') explosion(p.pos, 7 * (1 + 0.25 * upg('boson')), 65, p.owner, hg, true);
     else if (p.kind === 'missile') explosion(p.pos, 8, 95, p.owner, hg, true);
-    else if (p.kind === 'stun') { sparks(p.pos, 18, 6, [0.8, 1.6, 4], 0.4, 0.15); if (hit === 'player') { hurtPlayer(player.car === interceptor ? 1 : player.car ? 3 : 6, p.pos); player.stunT = 0.8; sfx('stun', 0.7); } else sfxAt('stun', p.pos, 0.3); }
-    else if (p.kind === 'ecto') { sparks(p.pos, 20, 6, [0.7, 2.6, 0.5], 0.7, 0.2); if (hit === 'player') { hurtPlayer(p.owner.T.dmg * (player.car === interceptor ? 0.2 : player.car ? 0.5 : 1), p.pos); slimeScreen(); } else if (hit === 'world') slimes.add(p.pos, n, R(1.2, 2.2)); sfxAt('splat', p.pos, 0.6); }
+    else if (p.kind === 'stun') { sparks(p.pos, 18, 6, [0.8, 1.6, 4], 0.4, 0.15); if (hit === 'player' && player.car === interceptor) interceptor.damage(5, p.pos); else if (hit === 'player') { hurtPlayer(player.car ? 3 : 6, p.pos); player.stunT = 0.8; sfx('stun', 0.7); } else sfxAt('stun', p.pos, 0.3); }
+    else if (p.kind === 'ecto') { sparks(p.pos, 20, 6, [0.7, 2.6, 0.5], 0.7, 0.2); if (hit === 'player' && player.car === interceptor) interceptor.damage(p.owner.T.dmg, p.pos); else if (hit === 'player') { hurtPlayer(p.owner.T.dmg * (player.car ? 0.5 : 1), p.pos); slimeScreen(); } else if (hit === 'world') slimes.add(p.pos, n, R(1.2, 2.2)); sfxAt('splat', p.pos, 0.6); }
     scene.remove(p.m); projs.splice(i, 1);
   }
 }
@@ -1848,7 +1875,7 @@ function explosion(p, rad, dmg, srcCar, directGhost, byPlayer) {
   addShake(q, rad > 8 ? 1.6 : 1.1, 70); sfxAt('boom', q);
   for (const g of ghosts) { const d = g.pos.distanceTo(q); if (g === directGhost || d < rad + g.r) g.damage(dmg * (g === directGhost ? 1 : clamp(1 - d / (rad + g.r), 0.2, 1))); }
   if (heli.active && !heli.down && heli.pos.distanceTo(q) < rad + 4) damageHeli(dmg * 0.8, byPlayer);
-  for (const c of cars) if (c !== srcCar) { const d = Math.hypot(c.pos.x - q.x, c.pos.z - q.z); if (d < rad * 1.2) { if (byPlayer) playerHitCar(c); c.damage(dmg * 0.9 * (1 - d / (rad * 1.3))); const k = (1 - d / (rad * 1.2)) * 10; c.vel.x += (c.pos.x - q.x) / (d || 1) * k; c.vel.y += (c.pos.z - q.z) / (d || 1) * k; c.vy = Math.max(c.vy, k * 0.5); } }
+  for (const c of cars) if (c !== srcCar) { const d = Math.hypot(c.pos.x - q.x, c.pos.z - q.z); if (d < rad * 1.2) { if (byPlayer) playerHitCar(c); c.damage(dmg * 0.9 * (1 - d / (rad * 1.3)), q); const k = (1 - d / (rad * 1.2)) * 10; c.vel.x += (c.pos.x - q.x) / (d || 1) * k; c.vel.y += (c.pos.z - q.z) / (d || 1) * k; c.vy = Math.max(c.vy, k * 0.5); } }
   for (const ped of peds) { const d = ped.pos.distanceTo(q); if (d < rad * 1.2) { ped.knock((ped.pos.x - q.x) / (d || 1) * 7, 6, (ped.pos.z - q.z) / (d || 1) * 7); if (byPlayer) crime(ped.cop ? 2 : 1, ped.cop ? 'cop' : 'ped', 4); } }
   scareNear(q, 45);
   lampsNear(q.x, q.z, rad, (L, i) => knockLamp(L, i, L.x - q.x, L.z - q.z));
@@ -2031,6 +2058,18 @@ function fireMissile(c, aim) {
   c.ammo--; c.mcd = 0.22; c.rl = 0;
   sfx('missile', 0.8); flash(from, 0xffa050, 500, 0.15, 12); smokePuff(from, 3, [0.3, 0.29, 0.31], 1.4, 1.2, 0.5); addShake(null, 0.2);
 }
+// the shield takes a hit before the hull does: it flares around the hit and pops when it runs dry
+const _sv = V3();
+function shieldSoak(c, n, from) {
+  const a = Math.min(c.shield, n), U = c.bubble.material.uniforms; c.shield -= a; c.shT = 0; c.shF = Math.min(1, c.shF + 0.3 + a * 0.05); c.shH = 1;
+  if (from) { c.g.updateMatrixWorld(true); U.uHit.value.copy(c.bubble.worldToLocal(_sv.copy(from))).normalize(); } else U.uHit.value.set(R(-1, 1), R(0, 1), R(-1, 1)).normalize();
+  if (c.shield <= 0.01) {
+    c.shield = 0; c.shF = 1.6; c.g.updateMatrixWorld(true); c.bubble.getWorldPosition(_sv);
+    sparks(_sv, 60, 10, [0.8, 2.4, 4], 0.7, 0.2); flash(_sv, 0x62e6ff, 900, 0.25, 20); sfxAt('shieldDown', c.pos, 0.9);
+    if (player.car === c) { addShake(null, 0.5); toast('방어막 붕괴', '잠시 뒤 다시 충전됩니다'); }
+  } else if (time - (c.shS || 0) > 0.12) { c.shS = time; sfxAt('shield', c.pos, 0.6); }
+  return n - a;
+}
 // aim is null while nobody is aboard: the turret holds still but the barrels keep cooling and the pods keep reloading
 function updateTurret(dt, aim) {
   const c = interceptor, firing = !!aim && fireHeld() && !c.over; c.cd -= dt; c.mcd -= dt;
@@ -2052,6 +2091,10 @@ function updateTurret(dt, aim) {
   if (hot > 0.5 && Math.random() < dt * 12 * hot) { const f = c.muz[(Math.random() * 2) | 0].getWorldPosition(_p); SMOKE.add(f.x, f.y, f.z, R(-0.2, 0.2), R(0.6, 1.2), R(-0.2, 0.2), 0.3, 0.29, 0.3, R(1, 1.6), 0.15, 0.8, -0.3, 1.2, 0.3); }
   for (const f of c.muz) { f.t -= dt; f.visible = f.t > 0; if (f.visible) { f.material.rotation = Math.random() * 6.28; f.scale.setScalar(R(0.9, 1.4)); } }
   if (c.ammo < 8) { c.rl += dt; if (c.rl >= 1.6) { c.rl = 0; c.ammo++; } } else c.rl = 0;
+  // the shield recharges 3 s after the last hit and shimmers while it does; once it is full and things stay quiet the hull patches itself up
+  c.shT += dt; c.shF = Math.max(0, c.shF - dt * 2.2); c.shH = Math.max(0, c.shH - dt * 2.5);
+  if (!c.wrecked && c.shT > 3) { c.shield = Math.min(100, c.shield + 25 * dt); if (c.shT > 8 && c.shield >= 100) c.hp = Math.min(100, c.hp + 2 * dt); }
+  const SU = c.bubble.material.uniforms; SU.uI.value = c.shF + (!c.wrecked && c.shT > 3 && c.shield < 100 ? 0.14 + 0.08 * Math.sin(time * 9) : 0); SU.uH.value = c.shH; SU.uTime.value = time; c.bubble.visible = SU.uI.value + SU.uH.value > 0.01;
   // rocket boosters: a 4 second tank that refills while they are off; flickering flames, sparks and smoke out of the four nozzles
   c.bst = c.boost ? Math.max(0, c.bst - 25 * dt) : Math.min(100, c.bst + 12 * dt);
   if (!c.boost) { for (const f of c.flames) f.visible = false; return; }
@@ -2556,7 +2599,7 @@ function updateHUD(dt) {
   const sp = $('spd'); if (player.car) { sp.hidden = false; sp.firstChild.nodeValue = Math.round(player.car.speed * 3.6); } else sp.hidden = true;
   const inV = player.car === interceptor;
   if (inV !== hudV) { hudV = inV; $('slots').hidden = $('packRow').hidden = inV; $('veh').hidden = !inV; $('wpnBtn').textContent = inV ? '미사일' : '무기'; }
-  if (inV) { const c = interceptor; $('vHeat').style.width = c.heat + '%'; $('vHeat').classList.toggle('hot', c.over); $('vBoost').style.width = c.bst + '%'; $('vBoost').classList.toggle('low', !c.boost && c.bst < 15); if (c.ammo !== hudAmmo) { hudAmmo = c.ammo; $('vAmmo').innerHTML = '●'.repeat(c.ammo) + '<i>' + '●'.repeat(8 - c.ammo) + '</i>'; } }
+  if (inV) { const c = interceptor; $('vHeat').style.width = c.heat + '%'; $('vHeat').classList.toggle('hot', c.over); $('vBoost').style.width = c.bst + '%'; $('vBoost').classList.toggle('low', !c.boost && c.bst < 15); $('vShield').style.width = c.shield + '%'; $('vHull').style.width = Math.max(0, c.hp) + '%'; $('vHull').classList.toggle('low', c.hp < 35); if (c.ammo !== hudAmmo) { hudAmmo = c.ammo; $('vAmmo').innerHTML = '●'.repeat(c.ammo) + '<i>' + '●'.repeat(8 - c.ammo) + '</i>'; } }
   const bb = $('boss'); if (bossActive) { bb.hidden = false; $('bossFill').style.width = (bossActive.hp / bossActive.maxHp * 100) + '%'; } else bb.hidden = true;
   toastT -= dt; if (toastT <= 0) $('toast').style.opacity = 0;
   hurtFx = Math.max(0, hurtFx - dt * 1.2); slimeFx = Math.max(0, slimeFx - dt * 0.5); flashFx = Math.max(0, flashFx - dt * 3);
@@ -3086,7 +3129,7 @@ function updateWorld(dt) {
   carCollisions();
   for (const c of [wagon, interceptor]) if (c.wrecked && c.wreckT > 12) {
     c.wrecked = false; c.hp = 100; c.fire = 0; c.mat.color.setScalar(1); c.mat.roughness = 0; c.mat.clearcoat = 1; c.lights.visible = true; c.barR.visible = c.barW.visible = true; c.pos.copy(c.home); c.h = 0; c.vel.set(0, 0); c.inner.rotation.set(0, 0, 0);
-    if (c === interceptor) { c.coil.visible = true; c.tur.rotation.y = 0; Object.assign(c, { heat: 0, over: false, ammo: 8, rl: 0, bst: 100 }); }
+    if (c === interceptor) { c.coil.visible = true; c.tur.rotation.y = 0; Object.assign(c, { heat: 0, over: false, ammo: 8, rl: 0, bst: 100, shield: 100, shT: 99, shF: 0, shH: 0 }); }
     toast(c === wagon ? '본부에 새 고스트 왜건이 준비됐습니다' : '본부에 새 인터셉터가 준비됐습니다');
   }
   for (const q of peds) { if (q.pos.distanceToSquared(camera.position) > 250 * 250 && q.state === 'walk') { q.g.visible = false; q.s += q.dir * q.speed * dt; continue; } q.g.visible = true; q.update(dt); }
@@ -3154,7 +3197,7 @@ function frame(now) {
 requestAnimationFrame(frame);
 window.__game = { player, ghosts, cars, peds, trap, beam, lots, save, givers: GIVERS, shop: SHOP, ladders, zips, samples, heli, upgrades: UPG, gat, bullets, casings,
   get state() { return state; }, get fps() { return fN; }, get mission() { return mission; }, get wanted() { return wanted; }, get modal() { return modal; },
-  interceptor, projs, get leanK() { return leanK; },
+  interceptor, projs, projectile, get leanK() { return leanK; },
   spawnGhost, explosion, computeAim, setWeapon, enterCar, exitCar, throwTrap, interact, startMission, endMission, crime, clearWanted, bust, spawnCop, buy, THREE };
 </script>
 </body>
