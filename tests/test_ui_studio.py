@@ -19,6 +19,7 @@ import pytest
 from risk_lib.datamodel import catalog as cat
 from risk_lib.ui_studio import governance as gov
 from risk_lib.ui_studio import layout as lay
+from risk_lib.ui_studio.app import _BLOB_RE
 from risk_lib.ui_studio.app import decode_payload
 from risk_lib.ui_studio.app import render
 from risk_lib.ui_studio.nl_query import compile_query, execute
@@ -648,7 +649,9 @@ def test_chart_primitives_cover_what_the_ops_reports_draw(studio):
                "function heat(", "function waterfall(", "function gauge(",
                "function kriCards(", "function hbars(", "function multiLine("):
         assert fn in src, f"차트 원시함수 없음: {fn}"
-    assert "cdn." not in src and "<script src=" not in src, (
+    # payload 는 base85 글자열로 실린다. 'cdn.' 같은 조각이 우연히 생길 수 있으므로 그 덩어리는 빼고 본다
+    code = _BLOB_RE.sub("", src)
+    assert "cdn." not in code and "<script src=" not in code, (
         "외부 스크립트 참조 — 아티팩트 CSP에서 차단된다")
 
 

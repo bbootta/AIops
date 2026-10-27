@@ -203,6 +203,7 @@ _m(
     foot_abbr='약어||Abbreviations',
     foot_abbr_body='RDM(리스크데이터관리) · RWA(위험가중자산) · ECL(기대신용손실) · ALM(자산부채관리) · IRRBB(은행계정 금리리스크) · LCR(유동성커버리지비율) · NSFR(순안정자금조달비율) · IPV(독립가격검증) · SICR(신용위험 유의적 증가) · DQ(데이터품질) · AST(구문트리) · PSMOR(운영리스크 건전관리 원칙).||RDM (risk data management) · RWA (risk-weighted assets) · ECL (expected credit loss) · ALM (asset and liability management) · IRRBB (interest rate risk in the banking book) · LCR (liquidity coverage ratio) · NSFR (net stable funding ratio) · IPV (independent price verification) · SICR (significant increase in credit risk) · DQ (data quality) · AST (abstract syntax tree) · PSMOR (Principles for the Sound Management of Operational Risk).',
     nav_aria='메뉴||Menu',
+    help_show='설명 보기||Show description',
 )
 
 # ════════════════════════════════════════════════════════════════════════

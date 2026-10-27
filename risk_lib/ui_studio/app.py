@@ -1127,6 +1127,24 @@ main{padding:20px;min-width:0}
 section{display:none}section.on{display:block}
 h2{font-size:24px;line-height:1.15;letter-spacing:-.03em;margin:2px 0 6px}
 .lead{color:var(--muted);font-size:12px;margin:0 0 16px;max-width:96ch}
+/* 화면 설명문은 제목 옆 물음표에 접어 둔다 (helpTips). 펼친 상자는 물음표 바로 아래에 뜨고
+   위쪽 여백(padding-top)이 물음표와 상자 사이를 잇는다. 닫힘은 잠깐 늦춰 물음표에서 상자로
+   비스듬히 옮기는 동안 닫히지 않게 한다 */
+.htipw{position:relative;display:inline-block;vertical-align:4px;margin-left:8px}
+.htip{width:20px;height:20px;padding:0;border-radius:50%;border:1px solid var(--line);
+background:var(--panel2);color:var(--muted);font-family:inherit;font-size:12px;font-weight:800;
+line-height:18px;cursor:help}
+.htip:hover,.htip:focus-visible,.htipw.open .htip{color:var(--text);border-color:var(--accent)}
+.tippos{position:absolute;left:0;top:100%;padding-top:8px;z-index:60;visibility:hidden;opacity:0;
+transition:opacity .12s ease .2s,visibility 0s linear .32s}
+.htipw:hover .tippos,.htipw:focus-within .tippos,.htipw.open .tippos{visibility:visible;opacity:1;transition-delay:0s}
+.htipw.shut .tippos{visibility:hidden;opacity:0;transition:none}
+.tipbox{width:min(560px,calc(100vw - 32px));max-height:60vh;overflow:auto;background:var(--panel);
+border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);
+font-size:12px;font-weight:400;line-height:1.55;letter-spacing:0;color:var(--text);text-align:left}
+.tipbox .lead{color:var(--text);margin:0 0 8px;max-width:none}
+.tipbox .note{margin:0 0 8px}
+.tipbox>:last-child{margin-bottom:0}
 .grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
 .card{background:var(--card-grad);border:1px solid var(--line);
 border-radius:16px;padding:15px;min-width:0;box-shadow:var(--shadow);
@@ -1680,22 +1698,27 @@ function eqv(v,ko){return v===ko||(DV[ko]!==undefined&&v===DV[ko])}
 function hasv(v,ko){const t=String(v==null?'':v);return t.indexOf(ko)>=0||(DV[ko]!==undefined&&t.indexOf(DV[ko])>=0)}
 /* 공개 영문 빌드의 마지막 안전망. 화면 코드가 rawEl·템플릿 문자열로 직접 박은 한글(KPI 라벨·
    요약 리본·값 서식)은 el() 의 i18n 게이트를 지나지 않는다. 화면이 그려진 뒤 텍스트 노드를 훑어
-   export_en 과 같은 규칙(사전 전체 일치 → 낱말 사전 → 숫자+단위·제N조; 하나라도 모르면 원문)으로
-   옮긴다. 사전이 비어 있으면(국문 빌드) 아무것도 하지 않는다. */
+   export_en 과 같은 규칙(사전 전체 일치 → 숫자 틀 → 'X 1건당 1행' 입도 설명 → 낱말 사전 → 숫자+단위·제N조,
+   수가 1이면 단수형 1 row; 하나라도 모르면 원문)으로 옮긴다. 사전이 비어 있으면(국문 빌드) 아무것도 하지 않는다. */
 const DV_ON=Object.keys(DV).length>0;
-const DV_UNIT={'건':'','종':' types','장':' tables','행':' rows','열':' columns','칸':' cells','쌍':' pairs','구간':' buckets','개':'','명':' people','년':'','월':'','일':'','개월':' months','분기':' quarters','회':' times','차':'','호':'','단계':' stages','등급':' grades','층':' layers','곳':'','배':'x','인':' persons','개사':' firms','개국':' countries','좌':' accounts','매':'','점':' points','원':' KRW','억원':'00m KRW','억':'00m','조원':'tn KRW','조':'tn','만원':'0k KRW','만':'0k','천만원':'0m KRW','천만':'0m','천원':'k KRW','천':'k','백만원':'m KRW','백만':'m','십억원':'bn KRW','십억':'bn'};
+const DV_UNIT={'건':'','종':' types','장':' tables','행':' rows','열':' columns','칸':' cells','쌍':' pairs','구간':' buckets','개':'','명':' people','년':' years','월':'','일':' days','개월':' months','분기':' quarters','회':' times','차':'','호':'','단계':' stages','등급':' grades','층':' layers','곳':'','배':'x','인':' persons','개사':' firms','개국':' countries','좌':' accounts','매':'','점':' points','원':' KRW','억원':'00m KRW','억':'00m','조원':'tn KRW','조':'tn','만원':'0k KRW','만':'0k','천만원':'0m KRW','천만':'0m','천원':'k KRW','천':'k','백만원':'m KRW','백만':'m','십억원':'bn KRW','십억':'bn'};
 const DV_LAW={'조':'Article','항':'Paragraph','편':'Part','절':'Section','호':'Item','관':'Subsection','장':'Chapter'};
-const DV_SPLIT=/([·,;:()\[\]{}\/+×→←↔≥≤=<>|~%&"'*#@!?…、。_\n\t]+|\s*-\s+|\s+-\s*|(?<=[가-힣])-|-(?=[가-힣]))/;
+const DV_SPLIT=/((?:[·;:()\[\]{}\/+×→←↔≥≤=<>|~%&"'*#@!?…、。_\n\t]|,(?!\d)|(?<!\d),)+|\s*-\s+|\s+-\s*|(?<=[가-힣])-|-(?=[가-힣]))/;
 const DV_END=/(다\.|다$|이다|한다|없다|않는다|된다|있다|였다|합니다|니다)/,DV_PART=/[가-힣][은는이가을를에로]\s+[가-힣]/;
 const DV_UNIT_RE=/^([\d,.]+)(건|종|장|행|열|칸|쌍|구간|개|명|년|월|일|개월|분기|회|차|호|단계|등급|층|곳|배|인|개사|개국|좌|매|점|원|억원|억|조원|조|만원|만|천만원|천만|천원|천|백만원|백만|십억원|십억)$/;
 const DVU=new Set(window.__DVU__||[]);
 function dvKR(){return !!(D&&D.meta&&String(D.meta.institution_code||'').startsWith('KR'))}
 /* 국내 기관을 보는 동안은 원장 값을 건드리지 않는다: 화면 문자열 목록(DVU)에 있는 키만 바꾼다 */
 function dvOk(k){return !dvKR()||DVU.has(k)}
-function dvWord(w){if(DV[w]!==undefined&&dvOk(w))return DV[w];let u=DV_UNIT_RE.exec(w);if(u)return u[1]+DV_UNIT[u[2]];
+/* 억은 1e8 이라 영어 자릿수로 옮기면 '975억원' 이 '97500m KRW' 가 된다. 십억(bn)으로 바꿔 적는다. */
+function dvUnit(n,k){if(k==='억원'||k==='억'){const v=Number(n.replace(/,/g,''))/10;if(isFinite(v))return v.toLocaleString('en-US',{maximumFractionDigits:2})+(k==='억원'?'bn KRW':'bn')}return n+DV_UNIT[k]}
+const DV_SG={rows:'row',columns:'column',types:'type',tables:'table',cells:'cell',pairs:'pair',buckets:'bucket',people:'person',months:'month',quarters:'quarter',times:'time',stages:'stage',grades:'grade',layers:'layer',persons:'person',firms:'firm',countries:'country',accounts:'account',points:'point',days:'day',years:'year',checks:'check',codes:'code',models:'model',domains:'domain',frameworks:'framework',indicators:'indicator',deviations:'deviation',exceptions:'exception',breaches:'breach',warnings:'warning',limits:'limit',scenarios:'scenario',forms:'form',axes:'axis'};
+function dvSing(t){return t.replace(/(^|[^\d.,])1 ([a-z]+)\b/g,(m,p,w)=>DV_SG[w]?p+'1 '+DV_SG[w]:m)}
+const DV_GRAIN=/^(.+?)\s+(?:1(?:건|개|명)당\s+)?1행$/;
+function dvWord(w){if(DV[w]!==undefined&&dvOk(w))return DV[w];let u=DV_UNIT_RE.exec(w);if(u)return dvUnit(u[1],u[2]);
   u=/^제(\d+)(조|항|편|절|호|관|장)(?:의(\d+))?$/.exec(w);if(u)return DV_LAW[u[2]]+' '+u[1]+(u[3]?'-'+u[3]:'');
   u=/^([가-힣A-Za-z0-9]+)(의|와|과)$/.exec(w);if(u&&DV[u[1]]!==undefined&&dvOk(u[1]))return DV[u[1]]+(u[2]==='의'?'':' and');return null}
-function dvSeg(seg){if(DV[seg]!==undefined&&dvOk(seg))return DV[seg];const words=seg.split(' '),out=[];let i=0;
+function dvSeg(seg){if(DV[seg]!==undefined&&dvOk(seg))return DV[seg];{const fm=dvFamily(seg);if(fm!==null)return fm}const words=seg.split(' '),out=[];let i=0;
   while(i<words.length){let hit=null;
     for(let j=words.length;j>i;j--){const ph=words.slice(i,j).join(' ');if(DV[ph]!==undefined&&dvOk(ph)){hit=DV[ph];i=j;break}}
     if(hit===null){const w=words[i];if(HANGUL.test(w)){hit=dvWord(w);if(hit===null)return null}else hit=w;i++}
@@ -1704,7 +1727,9 @@ function dvSeg(seg){if(DV[seg]!==undefined&&dvOk(seg))return DV[seg];const words
 const DVF=window.__DVF__||{},DV_NUM=/[\d][\d,.\-%]*/g;
 function dvFamily(s){const nums=s.match(DV_NUM);if(!nums)return null;const key=s.replace(DV_NUM,'#'),en=DVF[key];if(en===undefined||!dvOk(key))return null;
   let i=0;return en.replace(/#(\d)?/g,(m,d)=>d&&+d<=nums.length?nums[+d-1]:(i<nums.length?nums[i++]:'#'))}
-function dvText(s){if(!HANGUL.test(s))return s;if(DV[s]!==undefined&&dvOk(s))return DV[s];const fm=dvFamily(s);if(fm!==null)return fm;if(DV_END.test(s)||DV_PART.test(s))return null;
+function dvText(s){const t=dvText0(s);return t===null?null:dvSing(t).replace(/,,/g,',')}
+/* 원장 입도 설명('대출 계약 1건당 1행')은 영어 어순이 반대다: 1 row per loan contract */
+function dvText0(s){if(!HANGUL.test(s))return s;if(DV[s]!==undefined&&dvOk(s))return DV[s];const fm=dvFamily(s);if(fm!==null)return fm;{const gm=DV_GRAIN.exec(s);if(gm&&HANGUL.test(gm[1])){const g=dvText(gm[1]);if(g!==null)return '1 row per '+g.replace(/^([A-Z])(?=[a-z])/,c=>c.toLowerCase())}}if(DV_END.test(s)||DV_PART.test(s))return null;
   const parts=s.split(DV_SPLIT),out=[];
   for(const p of parts){if(p===undefined||p==='')continue;
     if(HANGUL.test(p)){const core=p.trim(),t=dvSeg(core);if(t===null)return null;
@@ -6905,6 +6930,34 @@ function insertSummary(label,section){
   const h2=section.querySelector('h2');
   h2?h2.after(d):section.prepend(d);
 }
+/* 화면 설명문 접기. 제목 아래 설명 문단(lead)은 화면을 열 때마다 같은 말이라 제목 옆 물음표에
+   접어 두고, 마우스를 올리거나 초점을 주거나 누르면 펼친다. note 는 접지 않는다: 검사 결과·대용 데이터
+   안내·합성데이터 고지(reviewNotice)처럼 판정과 함께 읽어야 하는 문구라 화면에 그대로 둔다. */
+function helpTips(s){
+  const h2=s.querySelector(':scope>h2');
+  if(!h2)return;
+  const take=[...s.children].filter(c=>c.matches('p.lead'));
+  if(!take.length)return;
+  const w=rawEl('span','htipw'),b=rawEl('button','htip','?'),pos=rawEl('div','tippos'),box=rawEl('div','tipbox');
+  b.type='button';b.setAttribute('aria-label',T('설명 보기'));b.setAttribute('aria-expanded','false');
+  box.id=s.id+'-tip';box.setAttribute('role','tooltip');b.setAttribute('aria-describedby',box.id);
+  take.forEach(c=>box.appendChild(c));
+  /* 물음표가 오른쪽 끝에 있으면 상자를 왼쪽으로 당겨 화면 안에 둔다 */
+  const place=()=>{w.classList.remove('shut');
+    const r=b.getBoundingClientRect(),W=box.getBoundingClientRect().width||Math.min(560,innerWidth-32);
+    pos.style.left=Math.min(0,innerWidth-16-W-r.left)+'px'};
+  w.addEventListener('mouseenter',place);
+  w.addEventListener('focusin',place);
+  b.onclick=e=>{e.stopPropagation();const on=!w.classList.contains('open');
+    w.classList.toggle('open',on);b.setAttribute('aria-expanded',String(on));if(on)place()};
+  pos.appendChild(box);w.append(b,pos);h2.appendChild(w);
+}
+/* 펼친 설명은 바깥을 누르면 닫히고, Esc 는 마우스·초점이 머문 채로도 닫는다 */
+document.addEventListener('click',e=>{document.querySelectorAll('.htipw.open').forEach(w=>{
+  if(!w.contains(e.target)){w.classList.remove('open');w.firstChild.setAttribute('aria-expanded','false')}})});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;
+  document.querySelectorAll('.htipw').forEach(w=>{if(w.classList.contains('open')||w.matches(':hover,:focus-within')){
+    w.classList.remove('open');w.classList.add('shut');w.firstChild.setAttribute('aria-expanded','false')}})});
 
 /* ══════════════ ALM 화면 (시작) ═══════════════════════════════════════════
    금리리스크(IRRBB) · 현금흐름 원장 · 유동성 사다리 · LCR/NSFR 상세 ·
@@ -11757,6 +11810,7 @@ function boot(){
       b.classList.add('on');s.classList.add('on');
       if(!s.dataset.done){const h=el('h2',null,title);s.appendChild(h);fn(s);
         insertSummary(label,s);
+        helpTips(s);
         translateDom(s);
         s.dataset.done='1'}
       window.scrollTo({top:0});

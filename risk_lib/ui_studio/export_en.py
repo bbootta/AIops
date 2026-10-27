@@ -30,14 +30,24 @@ _JS_LIT = (re.compile(r"'((?:[^'\\\n]|\\.)*[가-힣](?:[^'\\\n]|\\.)*)'"),
            re.compile(r'"((?:[^"\\\n]|\\.)*[가-힣](?:[^"\\\n]|\\.)*)"'))
 _NUMTOK = re.compile(r"[\d][\d,.\-%]*")
 HANGUL = re.compile(r"[가-힣]")
-_SPLIT = re.compile(r"([·,;:()\[\]{}/+×→←↔≥≤=<>|~%&\"'*#@!?…、。_\n\t]+|\s*[-]\s+|\s+[-]\s*|(?<=[가-힣])-|-(?=[가-힣]))")
+_SPLIT = re.compile(r"((?:[·;:()\[\]{}/+×→←↔≥≤=<>|~%&\"'*#@!?…、。_\n\t]|,(?!\d)|(?<!\d),)+|\s*[-]\s+|\s+[-]\s*|(?<=[가-힣])-|-(?=[가-힣]))")
 _UNIT = re.compile(r"^([\d,.]+)(건|종|장|행|열|칸|쌍|구간|개|명|년|월|일|개월|분기|회|차|호|단계|등급|층|곳|배|인|개사|개국|좌|매|점|원|억원|억|조원|조|만원|만|천만원|천만|천원|천|백만원|백만|십억원|십억)$")
 _UNIT_EN = {"건": "", "종": " types", "장": " tables", "행": " rows", "열": " columns", "칸": " cells", "쌍": " pairs", "구간": " buckets", "개": "", "명": " people",
-            "년": "", "월": "", "일": "", "개월": " months", "분기": " quarters", "회": " times",
+            "년": " years", "월": "", "일": " days", "개월": " months", "분기": " quarters", "회": " times",
             "차": "", "호": "", "단계": " stages", "등급": " grades", "층": " layers", "곳": "", "배": "x",
             "인": " persons", "개사": " firms", "개국": " countries", "좌": " accounts", "매": "", "점": " points",
             "원": " KRW", "억원": "00m KRW", "억": "00m", "조원": "tn KRW", "조": "tn", "만원": "0k KRW", "만": "0k",
             "천만원": "0m KRW", "천만": "0m", "천원": "k KRW", "천": "k", "백만원": "m KRW", "백만": "m", "십억원": "bn KRW", "십억": "bn"}
+# 수가 1이면 단수형 (1 row). 화면 런타임(app.py dvSing)과 같은 표
+_SING = {"rows": "row", "columns": "column", "types": "type", "tables": "table", "cells": "cell", "pairs": "pair",
+         "buckets": "bucket", "people": "person", "months": "month", "quarters": "quarter", "times": "time",
+         "stages": "stage", "grades": "grade", "layers": "layer", "persons": "person", "firms": "firm",
+         "countries": "country", "accounts": "account", "points": "point", "days": "day", "years": "year",
+         "checks": "check", "codes": "code", "models": "model", "domains": "domain", "frameworks": "framework",
+         "indicators": "indicator", "deviations": "deviation", "exceptions": "exception", "breaches": "breach",
+         "warnings": "warning", "limits": "limit", "scenarios": "scenario", "forms": "form", "axes": "axis"}
+_ONE = re.compile(r"(^|[^\d.,])1 ([a-z]+)\b")
+_GRAIN = re.compile(r"^(.+?)\s+(?:1(?:건|개|명)당\s+)?1행$")     # '대출 계약 1건당 1행' → 1 row per loan contract
 _LAW = re.compile(r"^제(\d+)(조|항|편|절|호|관|장)(?:의(\d+))?$")
 _LAW_EN = {"조": "Article", "항": "Paragraph", "편": "Part", "절": "Section", "호": "Item", "관": "Subsection", "장": "Chapter"}
 _SUB = re.compile(r"^(\d+)\.(가|나|다|라|마|바|사)$")
@@ -49,6 +59,17 @@ _HEX64 = re.compile(r"\b[0-9a-f]{64}\b")
 _HASH_KEY = re.compile(r"(sha256|fingerprint|digest|schema_hash|_hash)$")
 
 MISSES: Counter = Counter()
+
+
+def _unit(n: str, k: str) -> str:
+    """숫자+단위. 억은 1e8 이라 영어 자릿수로 옮기면 '975억원' 이 '97500m KRW' 가 되므로 십억(bn)으로 적는다."""
+    if k in ("억원", "억"):
+        try:
+            v = float(n.replace(",", "")) / 10
+        except ValueError:
+            return n + _UNIT_EN[k]
+        return f"{v:,.2f}".rstrip("0").rstrip(".") + ("bn KRW" if k == "억원" else "bn")
+    return n + _UNIT_EN[k]
 
 
 def _humanize(name: str) -> str:
@@ -152,7 +173,7 @@ class Translator:
             return self.m[w]
         u = _UNIT.match(w)
         if u:
-            return u.group(1) + _UNIT_EN[u.group(2)]
+            return _unit(u.group(1), u.group(2))
         u = _LAW.match(w)
         if u:
             return _LAW_EN[u.group(2)] + " " + u.group(1) + ("-" + u.group(3) if u.group(3) else "")
@@ -170,6 +191,9 @@ class Translator:
     def segment(self, seg: str) -> str | None:
         if seg in self.m:
             return self.m[seg]
+        t = self.family(seg)
+        if t is not None:
+            return t
         words = seg.split(" ")
         out, i = [], 0
         while i < len(words):
@@ -212,10 +236,13 @@ class Translator:
         t = self.templates(s)
         if t is None:
             t = self.family(s)
+        g = _GRAIN.match(s)
         if t is not None:
             r = t
         elif s in self.m:
             r = self.m[s]
+        elif g and HANGUL.search(g.group(1)) and not HANGUL.search(gt := self.text(g.group(1))):
+            r = "1 row per " + re.sub(r"^([A-Z])(?=[a-z])", lambda c: c.group(1).lower(), gt)
         elif _SENTENCE.search(s):
             MISSES[s] += 1
             r = s
@@ -235,6 +262,9 @@ class Translator:
                 else:
                     done.append(part)
             r = re.sub(r"  +", " ", "".join(done)) if done is not None else s
+        if r is not s:
+            r = _ONE.sub(lambda m: m.group(1) + "1 " + _SING[m.group(2)] if m.group(2) in _SING else m.group(0), r)
+            r = r.replace(",,", ",")
         self.cache[s] = r
         return r
 

@@ -876,7 +876,9 @@ def test_detail_screens_render_from_ledgers(page):
     assert "모형 카드" not in txt
     _tab_named(page, "상업성")
     t2 = _text(page)
-    assert "이중계상 검증 통과" in t2 and "규제 산출물이 아니다" in t2
+    # 설명 문단은 제목 옆 물음표 안에 접혀 있어 펼치기 전에는 inner_text 에 없다
+    assert "이중계상 검증 통과" in t2
+    assert "규제 산출물이 아니다" in page.text_content("section.on h2 .tipbox")
     assert page.errors == []
 
 
