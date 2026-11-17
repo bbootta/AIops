@@ -2592,6 +2592,7 @@ ALM_LEDGER_TABLES: tuple[TableSpec, ...] = (
 #     내재변동성)가 이 저장소의 어느 원천에도 없다. 입력을 지어내면 그 값이
 #     ΔEVE에 더해진다. 계수 원장(`kr_auto_option_param`)만 등재한다.
 from risk_lib.aig.trace import AIG_TABLES as _AIG_TABLES               # noqa: E402
+from risk_lib.aig.agent_risk import SPECS as _AGENT_RISK_TABLES        # noqa: E402
 from risk_lib.alm.behaviour_estimation import (                        # noqa: E402
     ESTIMATION_TABLES as _BEHAV_EST_TABLES,
 )
@@ -2765,7 +2766,7 @@ NEW_LEDGER_TABLES: tuple[TableSpec, ...] = (
     + _CHANGE_TABLES + _PRICING_TABLES + _LIFECYCLE_TABLES + _RBAC_TABLES
     + _AUDIT_TABLES + _RETENTION_TABLES + _UNIFIED_TABLES + _CLOSE_TABLES
     + _CONNECTOR_TABLES + _INBOUND_TABLES + _ADAPTER_TABLES
-    + _RESILIENCE_TABLES + _AIG_TABLES + _EXT_TABLES)
+    + _RESILIENCE_TABLES + _AIG_TABLES + _AGENT_RISK_TABLES + _EXT_TABLES)
 
 ALL_TABLES = (RDM_TABLES + CRM_TABLES + RWA_TABLES + ECL_TABLES
               + ST_TABLES + ALM_TABLES + MKT_TABLES + OPR_TABLES + VAL_TABLES

@@ -2038,6 +2038,353 @@ def _check_ai_incident(ledger_tables: dict | None, ai_result: Any,
         f"AI-C1 결합 증분 - 구성요소 증분 합의 최대 잔차 절대값 {worst:.2f}bp "
         f"(허용 {AI_INTERACTION_TOL_BP}bp)"))
 
+
+AGENT_RISK_TOL = 1e-9        # 금액·비율 대사의 상대 허용차
+
+
+def _check_agent_risk(ledger_tables: dict | None, agent_result: Any,
+                      rwa_published: float | None, report: ValidationReport) -> None:
+    """Agent 위험도 등급과 등급별 위험 관리 (risk_lib.aig.agent_risk) 자체검증.
+
+    같은 코드와 같은 가정으로 원장 사이의 정합성을 다시 본다. 예시 설정값이 적정한지,
+    합성 참조 포트폴리오가 실제 기관을 닮았는지는 여기서 볼 수 없다. 그것은
+    독립검증과 기관 승인의 몫이다.
+    """
+    t = ledger_tables or {}
+    from risk_lib.aig import agent_risk as ar
+    from risk_lib.aig import agent_tier as tr
+    from risk_lib.alm.params import EVIDENCE_STATUS
+    need = tuple(spec.name for spec in ar.SPECS)
+    if agent_result is None and not any(k in t for k in need):
+        _not_run(report, "agent_risk", "agent_risk_result is None")
+        return
+    missing = [k for k in need if k not in t or t[k] is None or not len(t[k])]
+    if missing:
+        report.add(ConsistencyCheck(
+            "agent_risk_ledgers_present", "FAIL",
+            "Agent 위험 원장 결손: " + ", ".join(missing), blocks_approval=True))
+        return
+
+    def close(a, b) -> bool:
+        if pd.isna(a) and pd.isna(b):
+            return True
+        if pd.isna(a) or pd.isna(b):
+            return False
+        return abs(float(a) - float(b)) <= AGENT_RISK_TOL * max(1.0, abs(float(b)))
+
+    prm = t["aig_tier_param"]
+    val = prm.set_index("param_id")["value"]
+    inp, asm = t["aig_tier_input"], t["aig_tier_assessment"]
+    unit, lim = t["aig_agent_unit"], t["aig_agent_limit"]
+    app, usage, layers = t["aig_risk_appetite"], t["aig_weighted_usage"], t["aig_limit_layer"]
+
+    # 1. 등급 재산정: 입력 원장과 설정 수치만으로 다시 낸 등급이 원장과 같은가
+    def _num(x):
+        return int(round(x)) if abs(x - round(x)) < 1e-9 else float(x)
+    try:
+        tp = tr.TierParams(
+            w_b=tuple(_num(float(val[f"TIER-W-B{i}"])) for i in range(1, 5)),
+            cuts=(_num(float(val["TIER-CUT-1"])), _num(float(val["TIER-CUT-2"]))))
+    except (KeyError, TypeError, ValueError):
+        tp = None
+    got = {(r["unit_id"], r["stage"]): r for r in asm.to_dict("records")}
+    diffs: list[str] = []
+    if tp is None:
+        diffs.append("등급 산식 수치(가중치, 구간 경계) 결손")
+    else:
+        keys = {(r["unit_id"], r["stage"]) for r in inp.to_dict("records")}
+        if keys != set(got):
+            diffs.append("입력 원장과 산정 원장의 단위·단계가 다르다")
+        for r in inp.to_dict("records"):
+            g = got.get((r["unit_id"], r["stage"]))
+            if g is None:
+                continue
+            o = ar.assess_row(r, tp)
+            same = (o.inherent == g["inherent_tier"] and o.residual == g["residual_tier"]
+                    and bool(o.downgraded) == bool(g["downgraded"])
+                    and close(o.impact, g["impact_level"])
+                    and close(o.score, g["exposure_score"])
+                    and close(o.exposure, g["exposure_level"]))
+            if not same:
+                diffs.append(f"{r['unit_id']}/{r['stage']}")
+    report.add(ConsistencyCheck(
+        "agent_tier_recompute_matches", "PASS" if not diffs else "FAIL",
+        f"입력 {len(inp)}행을 설정 수치로 다시 산정한 고유·잔여 등급, 영향 수준, 노출 "
+        "점수가 원장과 같다" if not diffs else "등급 재산정 불일치: " + ", ".join(diffs[:8]),
+        blocks_approval=bool(diffs)))
+
+    # 2. 단조성: 어느 항목의 수준을 올려도 등급이 내려가지 않는다
+    bad = tr.monotonicity_violations(tp) if tp is not None else -1
+    report.add(ConsistencyCheck(
+        "agent_tier_monotone", "PASS" if bad == 0 else "FAIL",
+        "항목 수준 6,561 조합에서 한 항목을 올려 등급이 내려가는 경우 0건"
+        if bad == 0 else f"단조성 위반 {bad}건 (가중치·구간 경계 설정 확인)",
+        metric=float(bad)))
+
+    # 3. 고정·불허·보류 규칙과 Agent 시스템 하한
+    rank = {"저": 0, "중": 1, "고": 2}
+    issues: list[str] = []
+    for r in asm.to_dict("records"):
+        key = f"{r['unit_id']}/{r['stage']}"
+        if pd.notna(r["banned_flags"]) and r["inherent_tier"] != tr.BANNED:
+            issues.append(f"{key} 불허 조건인데 등급 산정")
+        elif pd.notna(r["hold_reason"]) and r["inherent_tier"] != tr.HOLD:
+            issues.append(f"{key} 입력 결손인데 등급 확정")
+        elif pd.notna(r["fixed_flags"]) and pd.isna(r["banned_flags"]) and (
+                r["inherent_tier"] != "고" or bool(r["downgraded"])):
+            issues.append(f"{key} 고정 조건인데 고 미만 또는 하향")
+    parent = unit.set_index("unit_id")["parent_unit_id"].dropna()
+    for sys_id in sorted(set(parent)):
+        for stage in tr.STAGES:
+            s_row = got.get((sys_id, stage))
+            if s_row is None or s_row["inherent_tier"] not in rank:
+                continue
+            m = [got[(u, stage)]["inherent_tier"] for u in parent.index[parent == sys_id]
+                 if (u, stage) in got]
+            if any(x in rank and rank[x] > rank[s_row["inherent_tier"]] for x in m):
+                issues.append(f"{sys_id}/{stage} 시스템 등급이 구성원 최댓값 미만")
+    report.add(ConsistencyCheck(
+        "agent_tier_fixed_banned_rules", "PASS" if not issues else "FAIL",
+        "불허 조건은 접수 반려, 입력 결손은 미확정, 고정 조건은 고 등급이며 하향 없음, "
+        "Agent 시스템 등급은 구성원 최댓값 이상" if not issues else "; ".join(issues[:8]),
+        blocks_approval=bool(issues)))
+
+    # 4. 잔여 등급 하향의 근거: 통제 3종 충족, 2인 승인, 고정 조건 아님, 한 단계만
+    in_by = {(r["unit_id"], r["stage"]): r for r in inp.to_dict("records")}
+    issues = []
+    n_down = 0
+    for key, r in got.items():
+        if r["inherent_tier"] not in rank:
+            continue
+        step = rank[r["inherent_tier"]] - rank.get(r["residual_tier"], -9)
+        if bool(r["downgraded"]):
+            n_down += 1
+            i = in_by.get(key, {})
+            ok = (step == 1 and pd.isna(r["fixed_flags"])
+                  and all(bool(i.get(c)) for c in
+                          ("c1_prevent", "c2_detect", "c3_stop_recover", "dual_approval")))
+            if not ok:
+                issues.append(f"{key[0]}/{key[1]}")
+        elif step != 0:
+            issues.append(f"{key[0]}/{key[1]} 하향 표시 없이 잔여 등급이 다름")
+    report.add(ConsistencyCheck(
+        "agent_tier_downgrade_evidence", "PASS" if not issues else "FAIL",
+        f"잔여 등급 하향 {n_down}행 전부 통제 3종(예방·탐지·중지 복구) 충족과 2인 승인이 "
+        "있고 한 단계만 내렸으며 고정 조건 건은 없다"
+        if not issues else "하향 근거 결손: " + ", ".join(issues[:8]),
+        blocks_approval=bool(issues)))
+
+    # 5. 한도 계층: 건당 <= Agent별, 사용 <= 부여, 등급별 총량, 전사 총량
+    wl = lim[lim["limit_amount"].notna()]
+    issues = []
+    if (wl["per_action_limit"] > wl["limit_amount"] * (1 + AGENT_RISK_TOL)).any():
+        issues.append("건당 한도가 Agent별 한도보다 크다")
+    if (wl["used_amount"] > wl["limit_amount"] * (1 + AGENT_RISK_TOL)).any():
+        issues.append("사용 금액이 부여 한도를 넘는다")
+    l2 = layers[layers["layer"] == 2]
+    for r in l2.to_dict("records"):
+        g = float(wl.loc[wl["quantity_tier"] == r["scope"], "limit_amount"].sum())
+        if not close(g, r["granted_amount"]):
+            issues.append(f"등급별 부여 합계({r['scope']})가 Agent별 한도 합과 다르다")
+    adjust = layers[layers["status"].isin(("조정 대상", "한도 초과"))]
+    unset = layers[layers["status"] == ar.STATUS_UNSET]
+    if issues:
+        status, detail = "FAIL", "; ".join(issues)
+    elif len(adjust) or len(unset):
+        status = "WARN"
+        detail = "한도 계층 산술은 맞다. " + "; ".join(
+            [f"계층 {int(r['layer'])} {r['scope']} {r['status']} "
+             f"(초과 {float(r['excess_amount'] or 0) / 1e8:,.1f}억)"
+             for r in adjust.to_dict("records")]
+            + [f"계층 {int(r['layer'])} {r['scope']} 한도 미설정"
+               for r in unset.to_dict("records")]) + ". 한도 축소 또는 예외 승인 대상"
+    else:
+        status, detail = "PASS", "건당 <= Agent별 <= 등급별 총량, 전사 총량 이내"
+    report.add(ConsistencyCheck("agent_limit_hierarchy", status, detail))
+
+    # 6. 위험가중 사용량 대사: U = Σ(금액 x 등급별 위험가중치)
+    u_g = float((wl["limit_amount"] * wl["risk_weight"]).sum())
+    u_u = float((wl["used_amount"] * wl["risk_weight"]).sum())
+    tot = usage[(usage["tier_basis"] == "운영 등급") & (usage["tier"] == "합계")]
+    tot = tot.set_index("amount_basis")["weighted_amount"]
+    k2 = app[app["indicator_id"] == "K2"].iloc[0]
+    cap = float(k2["denominator"])
+    issues = []
+    if not close(u_g, tot.get("부여 한도")):
+        issues.append("부여 한도 기준 합계")
+    if not close(u_u, tot.get("실제 사용")):
+        issues.append("실제 사용 기준 합계")
+    if not close(u_g, k2["numerator"]) or not close(u_g / cap, k2["value"]):
+        issues.append("K2 분자 또는 값")
+    if not (wl["weighted_granted"] - wl["limit_amount"] * wl["risk_weight"]).abs().max() \
+            <= AGENT_RISK_TOL * max(1.0, u_g):
+        issues.append("Agent별 위험가중 부여 한도")
+    report.add(ConsistencyCheck(
+        "agent_weighted_usage_reconciles", "PASS" if not issues else "FAIL",
+        f"Agent별 한도에서 다시 낸 위험가중 사용량이 원장과 같다 (부여 한도 기준 "
+        f"{u_g / 1e8:,.1f}억, 자기자본 대비 {u_g / cap:.3%}; 실제 사용 기준 {u_u / 1e8:,.1f}억)"
+        if not issues else "위험가중 사용량 불일치: " + ", ".join(issues),
+        metric=u_g / cap, blocks_approval=bool(issues)))
+
+    # 7. 감내수준 지표 상태: 임계치로 다시 판정하고, 임계치가 없으면 '미설정'이어야 한다
+    issues, breached, n_unset = [], [], 0
+    for r in app.to_dict("records"):
+        thr = (r["threshold_early"], r["threshold_mgmt"], r["threshold_board"])
+        thr = None if any(pd.isna(x) for x in thr) else tuple(float(x) for x in thr)
+        value = None if pd.isna(r["value"]) else float(r["value"])
+        status, _ = ar.appetite_status(value, thr)
+        label = f"{r['indicator_id']}-{int(r['measure_seq'])}"
+        if status != r["status"]:
+            issues.append(f"{label} 상태 불일치")
+        if status == ar.STATUS_UNSET:
+            n_unset += 1
+        elif status != ar.STATUS_OK:
+            breached.append(f"{label} {r['indicator_name']} {status}")
+    if issues:
+        report.add(ConsistencyCheck("agent_appetite_status", "FAIL", "; ".join(issues),
+                                    blocks_approval=True))
+    else:
+        report.add(ConsistencyCheck(
+            "agent_appetite_status", "WARN" if breached or n_unset else "PASS",
+            (f"지표 {len(app)}행의 상태가 임계치 판정과 같다. "
+             + (("임계치 초과: " + "; ".join(breached) + ". ") if breached else "")
+             + (f"임계치 미설정 {n_unset}행은 '미설정'으로 표시 (범위 내로 적지 않음)"
+                if n_unset else "임계치 미설정 없음")),
+            metric=float(len(breached))))
+
+    # 8. 전이 평가의 출처: 1차 손실이 AI 사고 스트레스 영향 요약과 같은가
+    con = t["aig_contagion"]
+    imp = t.get("st_ai_impact")
+    issues = []
+    if imp is None or not len(imp):
+        if con["loss_first_order"].notna().any():
+            issues.append("영향 요약 원장이 없는데 전이 값이 있다")
+    else:
+        ix = imp.set_index(["scenario_id", "severity_key"])
+        for r in con.to_dict("records"):
+            key = (r["scenario_id"], r["severity_key"])
+            if key not in ix.index:
+                if pd.notna(r["loss_first_order"]):
+                    issues.append(f"{key[0]}/{key[1]} 시나리오 없음")
+                continue
+            x = ix.loc[key]
+            want = float(x["loss_op_total"] + x["loss_op_out_of_horizon"]
+                         + x["fine_total"] + x["fine_out_of_horizon"])
+            if not close(r["loss_first_order"], want):
+                issues.append(f"{key[0]}/{key[1]} 1차 손실")
+    for seq, g in con.groupby("incident_type"):
+        hit = g[g["n_units"] > 0]
+        want = int(hit["depth"].max()) if len(hit) else None
+        got_depth = g.loc[g["applied"], "depth"].tolist()
+        if got_depth != ([want] if want else []):
+            issues.append(f"사고 유형 {int(seq)} 적용 심도")
+    n_missing = int(con["loss_first_order"].isna().sum())
+    report.add(ConsistencyCheck(
+        "agent_contagion_traces_to_stress",
+        "FAIL" if issues else "WARN" if n_missing else "PASS",
+        ("전이 평가 " + f"{len(con)}행의 1차 손실이 st_ai_impact 와 같고 적용 심도는 적용 "
+         "단위가 있는 가장 깊은 심도다 (사고 발생을 전제한 조건부 크기, 발생 확률 아님)"
+         + (f". 계수가 없어 미산출인 행 {n_missing}개" if n_missing else ""))
+        if not issues else "전이 평가 불일치: " + ", ".join(issues[:8]),
+        blocks_approval=bool(issues)))
+
+    # 9. 내부 관리 가산의 분리와 이중 계상 방지
+    add = t["aig_internal_addon"]
+    tot = add[add["addon_kind"] == ar.ADDON_TOTAL].iloc[0]
+    issues = []
+    if rwa_published is not None and not close(tot["rwa_regulatory"], rwa_published):
+        issues.append("합계 행의 규제 위험가중자산이 공표값과 다르다")
+    if not close(tot["rwa_internal"], float(tot["rwa_regulatory"]) + float(tot["addon_rwa"])):
+        issues.append("내부 관리 위험가중자산 합산")
+    ap = add[add["addon_kind"] == ar.ADDON_APPLIED]
+    if not close(float(ap["addon_rwa"].sum()), tot["addon_rwa"]):
+        issues.append("적용 행 합계")
+    for sid, g in add[add["addon_kind"].isin((ar.ADDON_A, ar.ADDON_B, ar.ADDON_APPLIED))
+                      ].groupby("scope_id"):
+        v = g.set_index("addon_kind")["addon_rwa"]
+        parts = [float(v[x]) for x in (ar.ADDON_A, ar.ADDON_B)
+                 if x in v.index and pd.notna(v[x])]
+        if parts and ar.ADDON_APPLIED in v.index:
+            a = float(v[ar.ADDON_APPLIED])
+            if a < max(parts) * (1 - 1e-9) - 1e-6 or a > sum(parts) * (1 + 1e-9) + 1e-6:
+                issues.append(f"{sid} 적용 가산이 큰 값 규칙의 범위 밖")
+    if (add.loc[add["addon_kind"].isin((ar.ADDON_A, ar.ADDON_B)), "applied"]).any():
+        issues.append("비교용 (a)·(b) 행이 합계 반영으로 표시")
+    report.add(ConsistencyCheck(
+        "agent_addon_separation", "PASS" if not issues else "FAIL",
+        f"규제 위험가중자산은 공표값 그대로이고 내부 관리 가산 "
+        f"{float(tot['addon_rwa']) / 1e8:,.1f}억은 따로 실었다. 같은 익스포저에는 (a)·(b) "
+        "가운데 큰 값만 반영 (이중 계상 없음)" if not issues else "; ".join(issues),
+        metric=float(tot["addon_rwa"]), blocks_approval=bool(issues)))
+
+    # 10. 설정 수치의 근거와 상태
+    bad_ev = prm[~prm["evidence_status"].isin(EVIDENCE_STATUS)]
+    no_basis = prm[prm["basis"].fillna("").str.strip() == ""]
+    mis = prm[(prm["value"].isna()) != (prm["setting_status"] == ar.SET_UNSET)]
+    n_ex = int((prm["setting_status"] == ar.SET_EXAMPLE).sum())
+    n_un = int((prm["setting_status"] == ar.SET_UNSET).sum())
+    ok = not len(bad_ev) and not len(no_basis) and not len(mis)
+    report.add(ConsistencyCheck(
+        "agent_param_evidence", "PASS" if ok else "FAIL",
+        f"설정 수치 {len(prm)}행 전부 근거와 근거 상태 기재. 예시 설정값 {n_ex}행은 기관 "
+        f"승인 전이고 미설정 {n_un}행은 값이 비어 있다 (패키지 수치 기본값 없음)"
+        if ok else f"근거 누락 {len(no_basis)}행, 허용 밖 근거 상태 {len(bad_ev)}행, "
+                   f"값과 설정 상태 불일치 {len(mis)}행"))
+
+    # 11. 사후 검증: 사건 수가 적으면 사건율 순서의 결론을 내지 않는다
+    bt = t["aig_tier_backcheck"]
+    obs = t["aig_agent_observation"]
+    incidents = int(obs["incidents"].sum())
+    minimum = val.get("BT-MIN")
+    j1 = str(bt.loc[bt["item_seq"] == 1, "judgement"].iloc[0])
+    small = pd.notna(minimum) and incidents < float(minimum)
+    if small and j1 != "결론 유보":
+        report.add(ConsistencyCheck(
+            "agent_backcheck_small_sample", "FAIL",
+            f"사건 {incidents}건(최소 {int(minimum)}건 미만)인데 사건율 순서를 '{j1}'로 "
+            "적었다"))
+    else:
+        report.add(ConsistencyCheck(
+            "agent_backcheck_small_sample", "WARN" if small else "PASS",
+            (f"사건 {incidents}건으로 최소 {int(minimum)}건에 못 미쳐 등급별 사건율 순서의 "
+             "결론을 유보했다. 등급의 예측력은 아직 확인되지 않았다")
+            if small else f"사건 {incidents}건으로 사건율 순서 판단: {j1}",
+            metric=float(incidents)))
+
+    # 12. 실행 통제 연결: 넘어가는 값이 출처 원장과 같은가
+    link = t["aig_control_link"].set_index("link_id")
+    kq = {(r["indicator_id"], int(r["measure_seq"])): r for r in app.to_dict("records")}
+    want = {"BH-01": kq[("K5", 1)], "BH-02": kq[("K5", 2)], "BH-03": kq[("K2", 1)],
+            "BH-04": kq[("K8", 2)], "BH-05": kq[("K3", 1)], "BH-06": kq[("K4", 1)],
+            "BH-07": kq[("K1", 1)], "BH-08": kq[("K9", 1)], "BH-09": kq[("K6", 1)],
+            "BH-10": kq[("K7", 1)]}
+    issues = []
+    for lid, r in want.items():
+        if lid not in link.index or not close(link.loc[lid, "current_value"], r["value"]) \
+                or link.loc[lid, "state"] != r["status"]:
+            issues.append(lid)
+    sev = max([int(r["breach_level"]) for r in app.to_dict("records")
+               if r["indicator_id"] in ar.T10_INDICATORS and pd.notna(r["breach_level"])]
+              or [0])
+    n_t2 = int(lim["t2_triggered"].sum())
+    for lid, v in (("HB-01", float(n_t2)), ("HB-02", float(sev))):
+        if lid not in link.index or not close(link.loc[lid, "current_value"], v):
+            issues.append(lid)
+    t10 = lim["t10_start_stage"]
+    if sev == 0 and t10.notna().any():
+        issues.append("T10 미발동인데 시작 단계가 있다")
+    if sev > 0 and (t10.notna() != lim["limit_amount"].notna()).any():
+        issues.append("T10 적용 범위가 금액 한도 보유 단위와 다르다")
+    if (t10.dropna() > ar.T10_MAX_STAGE).any():
+        issues.append("T10 이 격리 단계까지 올라갔다")
+    report.add(ConsistencyCheck(
+        "agent_control_link_reconciles", "PASS" if not issues else "FAIL",
+        f"실행 통제 연결 {len(link)}행의 값이 출처 원장과 같다 (한도 소진율 임계 초과 T2 "
+        f"{n_t2}단위, 감내수준 초과 T10 심각도 {sev})"
+        if not issues else "실행 통제 연결 불일치: " + ", ".join(issues),
+        blocks_approval=bool(issues)))
+
+
 def run_consistency_checks(
     *,
     sa_results: pd.DataFrame | None = None,
@@ -2077,6 +2424,7 @@ def run_consistency_checks(
     meta: dict | None = None,
     ledger_tables: dict | None = None,
     ai_incident_result: Any = None,
+    agent_risk_result: Any = None,
 ) -> ValidationReport:
     """Run all available checks; missing inputs skip relevant checks."""
     rep = ValidationReport()
@@ -2159,5 +2507,6 @@ def run_consistency_checks(
     _check_backtest_censoring(ledger_tables, rep)
     _check_irb_estimation_ledgers(ledger_tables, asof, rep)
     _check_ai_incident(ledger_tables, ai_incident_result, bis_result, rep)
+    _check_agent_risk(ledger_tables, agent_risk_result, rwa_total_for_bis, rep)
 
     return rep

@@ -190,6 +190,9 @@ class PipelineResult:
     stress_deep: dict[str, Any] = field(default_factory=dict)  # v0.13.0 CRO-grade stress 부문
     # AI 사고 시나리오 스트레스 (risk_lib.stress.ai_incident). 원장 st_ai_* 의 원천.
     ai_incident: Any = None
+    # Agent 위험도 등급과 등급별 위험 관리 (risk_lib.aig.agent_risk). 원장 aig_tier_* ·
+    # aig_agent_* 등 18장의 원천.
+    agent_risk: Any = None
     # 구조화 원장(집합투자증권·유동화) — 자본비율 분모에 들어간 바로 그 원장이다.
     # 화면이 따로 만들면 분모와 화면이 다른 실행을 설명하게 된다.
     structured: Any = None
@@ -1630,6 +1633,15 @@ def run_pipeline(
                    "rwa_total": float(rwa_final), "rwa_op": float(op.rwa)})
     ledgers["tables"].update(ai_incident.tables())
 
+    # 12f. Agent 위험도 등급과 등급별 위험 관리. 등급은 결정론 산식이고, 전이 크기는
+    # 12e 의 영향 요약을 그대로 읽는다. 규제 위험가중자산은 입력으로만 쓰고 바꾸지 않는다.
+    from risk_lib.aig.agent_risk import run_agent_risk
+    agent_risk = run_agent_risk(
+        capital_total=float(capital.total), rwa_regulatory=float(rwa_final),
+        irb_results=irb_res, ai_impact=ai_incident.impact, ai_base=ai_incident.base,
+        bi=float(books.bi.bi), institution_code=institution_code or "")
+    ledgers["tables"].update(agent_risk.tables())
+
     # 13. 내부자본(ICAAP)
     icaap = _stage_icaap(sa_res, irb_res, mkt, op, alm, conc, capital,
                          structured, ccr_rwa=rwa_ccr)
@@ -1705,6 +1717,7 @@ def run_pipeline(
         total_ead=total_ead,
         ledger_tables=ledgers["tables"],
         ai_incident_result=ai_incident,
+        agent_risk_result=agent_risk,
     )
     # v0.14.0 — cross-domain 정합성 (PD↔RWA, RWA↔BIS, ECL↔RWA,
     # 한도↔집중, RAPM↔EC, 스트레스↔BIS).  재현성 digest는 호출자가
@@ -1881,7 +1894,7 @@ def run_pipeline(
         macro_ecl=macro, reverse_stress=reverse,
         macro_ecl_path=macro_path,
         stress_path=stress_path, stress_path_trough=stress_path_trough,
-        ai_incident=ai_incident,
+        ai_incident=ai_incident, agent_risk=agent_risk,
         backtest=backtest, validation=validation,
         alm=alm, alm_tables=alm["tables"],
         ledger_tables=ledgers["tables"], ledger_warnings=ledgers["warnings"],
