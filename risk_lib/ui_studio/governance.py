@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from risk_lib.aig import agent_tier as _tier
 from risk_lib.datamodel import catalog as cat
 from risk_lib.page_registry import PAGES
 
@@ -115,6 +116,32 @@ def _agent_files() -> list[Path]:
     return sorted(_AGENT_DIR.glob("*.md")) if _AGENT_DIR.is_dir() else []
 
 
+# 위험등급 (RL-17, 요건정의서 v0.94 4.9). 판단이 아니라 규칙이다. 에이전트 정의에서
+# 읽을 수 있는 사실(이름·도구)만으로 영향 4항목과 노출 4항목의 수준을 정하고,
+# 등급은 risk_lib.aig.agent_tier.assess 가 낸다. 사람의 선언이 필요한 고정 조건
+# F1·F3 과 통제 가능성 증거(C1~C3)는 이 레지스트리에 없으므로 넣지 않는다. 그래서
+# 이 값은 고유 등급이고 잔여 등급 하향이 없다. 확정은 사람이 한다.
+_REG_OUTPUT = ("rwa", "bis", "ecl", "rating", "stress", "market-risk", "prudential",
+               "orchestrator", "alm")
+_DECISION_SUPPORT = ("valid", "audit", "limit", "monitor", "rapm")
+_EXTERNAL_INPUT = ("WebSearch", "WebFetch")
+
+
+def agent_tier_levels(name: str, tools: str) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """에이전트 정의에서 등급 항목 수준 (A1~A4), (B1~B4) 를 정한다."""
+    have = {t.strip() for t in tools.split(",")}
+    reg = any(k in name for k in _REG_OUTPUT)
+    a = (3 if reg else 2 if any(k in name for k in _DECISION_SUPPORT) else 1,
+         2 if have & {"Write", "Edit"} else 1,      # 작업 산출물 기록(내부) / 조회
+         2,                                         # 마스킹을 거친 내부 기밀 수준으로 본다
+         3 if reg else 2)                           # 전사 수치 / 복수 부서
+    b = (2,                                         # 목표 지향 다단계 수행 (L2~L3)
+         3 if have & set(_EXTERNAL_INPUT) else 1,   # 외부 웹 / 내부 검증 원천
+         3 if "Agent" in have else 2 if len(have) >= 3 else 1,
+         2)                                         # 외부 API, 판본 식별
+    return a, b
+
+
 def build_agent_registry() -> pd.DataFrame:
     """.claude/agents 실제 정의에서 레지스트리를 만든다."""
     rows = []
@@ -130,22 +157,20 @@ def build_agent_registry() -> pd.DataFrame:
         mode = _MODE_BY_NAME.get(name,
                                  "제안전용" if ("Write" in tools or "Edit" in tools)
                                  else "조회전용")
-        # 위험등급(AIG-001) — 판단이 아니라 규칙이다: 규제 산출물을 만드는
-        # 에이전트는 상, 검증만 하는 에이전트는 중, 조회·안내는 하.
-        tier = ("상" if any(k in name for k in
-                            ("rwa", "bis", "ecl", "rating", "stress",
-                             "market", "prudential", "orchestrator"))
-                else "중" if any(k in name for k in ("valid", "audit", "limit"))
-                else "하")
+        a, b = agent_tier_levels(name, tools)
+        out = _tier.assess(a, b, fixed=_tier.fixed_flags(a, b))
+        basis = (f"영향 {out.impact} (A {'·'.join(map(str, a))}) × 노출 {out.exposure} "
+                 f"(B {'·'.join(map(str, b))}, S {out.score})"
+                 + (f" · 고정 {', '.join(out.fixed)}" if out.fixed else ""))
         rows.append({
             "agent_id": f"AG-{name[:24]}", "agent_name": name, "mode": mode,
-            "risk_tier": tier,
+            "risk_tier": out.inherent, "tier_basis": basis,
             "tools": tools, "scope": desc, "write_allowed": False,
             "owner": "리스크관리부",
             "domain": _agent_domain(name),
         })
     return pd.DataFrame(rows, columns=[
-        "agent_id", "agent_name", "mode", "risk_tier", "tools", "scope",
+        "agent_id", "agent_name", "mode", "risk_tier", "tier_basis", "tools", "scope",
         "write_allowed", "owner", "domain"])
 
 

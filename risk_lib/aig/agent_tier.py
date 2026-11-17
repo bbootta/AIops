@@ -455,7 +455,7 @@ TIER_POLICY = TableSpec(
         C("area_seq", "int", "영역 순번", nullable=False, min_value=1),
         C("area", "text", "관리 영역", nullable=False),
         C("tier", "string", "등급", nullable=False, allowed=TIERS + (HOLD,)),
-        C("requirement", "text", "기준", nullable=False),
+        C("requirement", "text", "관리 기준", nullable=False),
         C("requirement_refs", "text", "요건", nullable=False),
     ),
     primary_key=("area_seq", "tier"),
@@ -468,7 +468,7 @@ TIER_INPUT = TableSpec(
     product="PRD-AIG", grain="산정 단위 × 시점 1행",
     columns=(
         C("unit_id", "string", "산정 단위 ID", nullable=False),
-        C("stage", "string", "시점", nullable=False, allowed=STAGES),
+        C("stage", "string", "산정 시점", nullable=False, allowed=STAGES),
         C("input_source", "text", "입력 원천", nullable=False),
         C("a1", "int", "A1 업무 중대성", nullable=True, **_LEVEL),
         C("a2", "int", "A2 행동 효과·가역성", nullable=True, **_LEVEL),
@@ -504,7 +504,7 @@ TIER_ASSESSMENT = TableSpec(
     product="PRD-AIG", grain="산정 단위 × 시점 1행",
     columns=(
         C("unit_id", "string", "산정 단위 ID", nullable=False),
-        C("stage", "string", "시점", nullable=False, allowed=STAGES),
+        C("stage", "string", "산정 시점", nullable=False, allowed=STAGES),
         C("impact_base", "int", "영향 기본 수준", nullable=True, **_LEVEL),
         C("scale_add", "int", "영향 규모 가산 g", nullable=True, min_value=0, max_value=1),
         C("impact_level", "int", "영향 수준 I", nullable=True, **_LEVEL),

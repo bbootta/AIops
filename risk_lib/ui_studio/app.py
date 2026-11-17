@@ -1405,6 +1405,16 @@ font-variant-numeric:tabular-nums}
 .stat .sv.bad{color:var(--bad)}.stat .sv.warn{color:var(--warn)}.stat .sv.good{color:var(--good)}
 .stat .bar{height:6px}
 .stat .ss{font-size:10.5px;color:var(--muted);margin-top:5px;font-variant-numeric:tabular-nums}
+.stat .pill{margin:0;max-width:100%;white-space:normal}
+.kstats .stat .sl{white-space:normal;overflow:visible;line-height:1.35;min-height:2.7em}
+.lkrow{display:grid;grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr) auto;gap:8px;align-items:center;
+  padding:7px 0;border-bottom:1px solid var(--line)}
+.lkrow:last-of-type{border-bottom:0}
+.lkrow b{display:block;font-size:12px;font-weight:650}
+.lkrow small{display:block;font-size:10px;color:var(--muted)}
+.lkarrow{color:var(--muted);text-align:center}
+.lkv{display:flex;gap:6px;align-items:center;justify-content:flex-end;white-space:nowrap;font-size:11.5px}
+@media(max-width:620px){.lkrow{grid-template-columns:minmax(0,1fr)}.lkarrow{display:none}.lkv{justify-content:flex-start}}
 /* 100% 누적 띠 */
 .strips .srow{display:grid;grid-template-columns:minmax(80px,140px) minmax(0,1fr) auto;gap:10px;
 align-items:center;padding:5px 0;font-size:11.5px}
@@ -1694,7 +1704,10 @@ let RUNS = window.__RYNTA_RUNS__;
 /* 원장 값 비교. 공개 영문 빌드는 원장 값을 영어로 옮겨 싣고 그 사전을 __DV__ 로 준다.
    화면의 판정(상태·등급 문자열 비교)은 원문과 옮긴 값 어느 쪽이든 맞아야 한다. */
 const DV=window.__DV__||{};
-function eqv(v,ko){return v===ko||(DV[ko]!==undefined&&v===DV[ko])}
+/* '=원문' 키는 문자열 전체가 그 값일 때만 쓰는 번역이다. 등급 값 '중' 은 Medium 인데 조합 문자열의
+   '10건 중 3건' 은 of 라서, 같은 낱말에 두 번역이 필요하다. 전체 일치 번역이 있으면 그것이 먼저다. */
+function dvExact(s){const t=DV['='+s];return t!==undefined&&dvOk(s)?t:undefined}
+function eqv(v,ko){return v===ko||(DV['='+ko]!==undefined&&v===DV['='+ko])||(DV[ko]!==undefined&&v===DV[ko])}
 function hasv(v,ko){const t=String(v==null?'':v);return t.indexOf(ko)>=0||(DV[ko]!==undefined&&t.indexOf(DV[ko])>=0)}
 /* 공개 영문 빌드의 마지막 안전망. 화면 코드가 rawEl·템플릿 문자열로 직접 박은 한글(KPI 라벨·
    요약 리본·값 서식)은 el() 의 i18n 게이트를 지나지 않는다. 화면이 그려진 뒤 텍스트 노드를 훑어
@@ -1718,7 +1731,7 @@ const DV_GRAIN=/^(.+?)\s+(?:1(?:건|개|명)당\s+)?1행$/;
 function dvWord(w){if(DV[w]!==undefined&&dvOk(w))return DV[w];let u=DV_UNIT_RE.exec(w);if(u)return dvUnit(u[1],u[2]);
   u=/^제(\d+)(조|항|편|절|호|관|장)(?:의(\d+))?$/.exec(w);if(u)return DV_LAW[u[2]]+' '+u[1]+(u[3]?'-'+u[3]:'');
   u=/^([가-힣A-Za-z0-9]+)(의|와|과)$/.exec(w);if(u&&DV[u[1]]!==undefined&&dvOk(u[1]))return DV[u[1]]+(u[2]==='의'?'':' and');return null}
-function dvSeg(seg){if(DV[seg]!==undefined&&dvOk(seg))return DV[seg];{const fm=dvFamily(seg);if(fm!==null)return fm}const words=seg.split(' '),out=[];let i=0;
+function dvSeg(seg){{const x=dvExact(seg);if(x!==undefined)return x}if(DV[seg]!==undefined&&dvOk(seg))return DV[seg];{const fm=dvFamily(seg);if(fm!==null)return fm}const words=seg.split(' '),out=[];let i=0;
   while(i<words.length){let hit=null;
     for(let j=words.length;j>i;j--){const ph=words.slice(i,j).join(' ');if(DV[ph]!==undefined&&dvOk(ph)){hit=DV[ph];i=j;break}}
     if(hit===null){const w=words[i];if(HANGUL.test(w)){hit=dvWord(w);if(hit===null)return null}else hit=w;i++}
@@ -1729,7 +1742,7 @@ function dvFamily(s){const nums=s.match(DV_NUM);if(!nums)return null;const key=s
   let i=0;return en.replace(/#(\d)?/g,(m,d)=>d&&+d<=nums.length?nums[+d-1]:(i<nums.length?nums[i++]:'#'))}
 function dvText(s){const t=dvText0(s);return t===null?null:dvSing(t).replace(/,,/g,',')}
 /* 원장 입도 설명('대출 계약 1건당 1행')은 영어 어순이 반대다: 1 row per loan contract */
-function dvText0(s){if(!HANGUL.test(s))return s;if(DV[s]!==undefined&&dvOk(s))return DV[s];const fm=dvFamily(s);if(fm!==null)return fm;{const gm=DV_GRAIN.exec(s);if(gm&&HANGUL.test(gm[1])){const g=dvText(gm[1]);if(g!==null)return '1 row per '+g.replace(/^([A-Z])(?=[a-z])/,c=>c.toLowerCase())}}if(DV_END.test(s)||DV_PART.test(s))return null;
+function dvText0(s){if(!HANGUL.test(s))return s;{const x=dvExact(s);if(x!==undefined)return x}if(DV[s]!==undefined&&dvOk(s))return DV[s];const fm=dvFamily(s);if(fm!==null)return fm;{const gm=DV_GRAIN.exec(s);if(gm&&HANGUL.test(gm[1])){const g=dvText(gm[1]);if(g!==null)return '1 row per '+g.replace(/^([A-Z])(?=[a-z])/,c=>c.toLowerCase())}}if(DV_END.test(s)||DV_PART.test(s))return null;
   const parts=s.split(DV_SPLIT),out=[];
   for(const p of parts){if(p===undefined||p==='')continue;
     if(HANGUL.test(p)){const core=p.trim(),t=dvSeg(core);if(t===null)return null;
@@ -5123,7 +5136,8 @@ function aiWithAgentMeta(f,actorCol){
   return {columns:f.columns.concat(['agent_domain','agent_tier']),rows,total:f.total,shown:f.shown};
 }
 function aiPair(a,b){const g=el('div','agrid');g.appendChild(a);g.appendChild(b);splitGrid(g);return g}
-const AI_TIER_RANK=v=>eqv(v,'상')?0:eqv(v,'중')?1:eqv(v,'하')?2:3;
+const AI_TIER_RANK=v=>eqv(v,'고')?0:eqv(v,'중')?1:eqv(v,'저')?2:3;
+const AI_TIER_TONE=v=>eqv(v,'고')?'bad':eqv(v,'중')?'warn':eqv(v,'저')?'good':'';
 const AI_SEV_RANK=v=>eqv(v,'중대')?0:eqv(v,'상')?1:eqv(v,'중')?2:3;
 const AI_ST_RANK=v=>eqv(v,'반영')?0:eqv(v,'부분')?1:2;
 /* 에이전트 인벤토리: 도메인 × 위험등급 3D, 모드 × 위험등급 열지도, 도구별 보유 수, 도구 × 도메인 3D */
@@ -5134,7 +5148,7 @@ function aiInventoryCharts(root){
     ai3d(dt.matrix,dt.rows,dt.cols,{fmt:fmtNum}),reg));
   const mt=aiCross(reg,'mode','risk_tier',{rankCol:AI_TIER_RANK});
   const left=aiCard('모드 × 위험등급 에이전트 수',heatGrid(mt.rows,mt.cols,mt.matrix,
-    {tone:(v,r,c)=>eqv(c,'상')?'bad':eqv(c,'중')?'warn':'good'}),reg);
+    {tone:(v,r,c)=>AI_TIER_TONE(c)||'accent'}),reg);
   const tl=aiCross(reg,'domain','tools',{split:',',topCols:10});
   const items=tl.cols.map(t=>({label:t,value:tl.colTot.get(t)}));
   root.appendChild(aiPair(left,hbars(items,{title:'도구별 보유 에이전트 수',money:false,src:srcMeta(reg)})));
@@ -5279,7 +5293,7 @@ function dkModel(){
   const byName=new Map();agents.forEach(a=>{byName.set(a.name,a);byName.set(a.id,a)});
   const domains=[...new Set(agents.map(a=>a.domain))].sort();
   const dcol=d=>'var('+DK_DOM_COL[Math.max(0,domains.indexOf(d))%DK_DOM_COL.length]+')';
-  const tierTone=t=>eqv(t,'상')?'bad':eqv(t,'중')?'warn':'good';
+  const tierTone=t=>AI_TIER_TONE(t)||'good';
   let events=[];
   if(tr){const i=frameIdx(tr);events=tr.rows.map(r=>({seq:+r[i.seq]||0,actor:String(r[i.actor]),phase:String(r[i.phase]),tool:String(r[i.tool]||'-'),
       gate:r[i.gate],hits:+r[i.redaction_hits]||0,asof:String(r[i.asof]||'')})).sort((a,b)=>a.seq-b.seq)}
@@ -5311,7 +5325,7 @@ function dkGraph(card,M){
   const addN=(id,kind,col,r,label)=>{idx.set(id,nodes.length);nodes.push({id,kind,col,r,label,x:(rnd()-0.5)*400,y:(rnd()-0.5)*200,vx:0,vy:0,deg:0})};
   M.domains.forEach(d=>addN('D:'+d,'domain',M.dcol(d),9,d.replace(/^[A-Z] · /,'')));
   tools.forEach(t=>addN('T:'+t,'tool','var(--muted)',6,t));
-  M.agents.forEach(a=>{addN('A:'+a.id,'agent',M.dcol(a.domain),3+(eqv(a.tier,'상')?2:0),a.name);
+  M.agents.forEach(a=>{addN('A:'+a.id,'agent',M.dcol(a.domain),3+(eqv(a.tier,'고')?2:0),a.name);
     edges.push([idx.get('A:'+a.id),idx.get('D:'+a.domain),0.9]);
     a.tools.forEach(t=>{if(idx.has('T:'+t))edges.push([idx.get('A:'+a.id),idx.get('T:'+t),0.35])})});
   edges.forEach(([i,j])=>{nodes[i].deg++;nodes[j].deg++});
@@ -5412,6 +5426,141 @@ function aiStressCharts(root){
   const req=r0&&r0[i.rwa_total]?(r0[i.cet1]-r0[i.cet1_surplus])/r0[i.rwa_total]:null;
   root.appendChild(aiPair(left,aiCard('결합 시나리오 CET1비율 경로',multiLine(ser,qs,req),p)));
 }
+/* ---- Agent 위험도 등급과 등급별 위험 관리 (RL-17, 요건정의서 v0.94 4.9·4.11~4.13). 등급·단계·상태·
+   지표 이름·연결 방향은 원장 값이고 화면은 세기만 한다. 등급을 다시 산정하거나 임계치를 다시
+   판정하지 않는다. 등급 값은 낱말 하나('중')라 다른 글자와 한 문자열로 잇지 않고 따로 적는다. ---- */
+const AGT_TIERS=['저','중','고','미확정','불허'];
+const AGT_TIER_RANK=v=>{const k=AGT_TIERS.findIndex(t=>eqv(v,t));return k<0?9:k};
+const AGT_STAGE_RANK=v=>eqv(v,'예정')?0:eqv(v,'확정')?1:eqv(v,'운영')?2:3;
+const AGT_ST_TONE=v=>(eqv(v,'범위 내')||eqv(v,'한도 내')||eqv(v,'발동 없음')||eqv(v,'대상 없음'))?'good'
+  :(eqv(v,'조기경보 초과')||eqv(v,'대상 있음')||eqv(v,'기관 승인 전'))?'warn'
+  :(eqv(v,'경영진 상향 기준 초과')||eqv(v,'이사회 한도 초과')||eqv(v,'조정 대상')||eqv(v,'한도 초과')||eqv(v,'발동'))?'bad':'';
+function agtVal(v,unit){
+  if(v==null)return '-';
+  if(eqv(unit,'비율'))return (v*100).toFixed(Math.abs(v)<0.05?3:1)+'%';
+  if(unit==='KRW')return fmtMoney(v);
+  return fmtNum(Math.round(v*100)/100)}
+/* 집계 대상 산정 단위: 단독 Agent 와 Agent 시스템. 시스템의 구성원과 접수 반려 건은 세지 않는다. */
+function agtCounted(){const u=aiFull('aig_agent_unit');if(!u)return null;const i=frameIdx(u);
+  return new Set(u.rows.filter(r=>r[i.counted]===true).map(r=>String(r[i.unit_id])))}
+function agtPair(root,cards){
+  if(cards.length===2)root.appendChild(aiPair(cards[0],cards[1]));else cards.forEach(c=>root.appendChild(c))}
+/* Agent 위험도 등급: 운영 등급 타일, 영향 × 노출 격자, 단계 × 등급, 등급 이행, 등급 봉투 점검 */
+function agentTierCharts(root){
+  const ta=aiFull('aig_tier_assessment'),cs=agtCounted();
+  if(!ta||!cs)return;
+  const i=frameIdx(ta);
+  const mine=ta.rows.filter(r=>cs.has(String(r[i.unit_id])));
+  const op=mine.filter(r=>eqv(r[i.stage],'운영'));
+  const n=t=>op.filter(r=>eqv(r[i.residual_tier],t)).length;
+  root.appendChild(aiCard('운영 등급별 Agent 수',statTiles(['고','중','저','미확정']
+    .map(t=>({label:t,value:n(t),tone:AI_TIER_TONE(t)})),{money:false,share:true}),ta));
+  const lv=[3,2,1],ev=[1,2,3];
+  const m=lv.map(a=>ev.map(b=>op.filter(r=>r[i.impact_level]===a&&r[i.exposure_level]===b).length));
+  const cell=(a,b)=>{const r=ta.rows.find(x=>x[i.impact_level]===a&&x[i.exposure_level]===b);return r?r[i.matrix_tier]:null};
+  const left=aiCard('영향 × 노출 Agent 수 (운영)',heatGrid(lv.map(a=>T('영향')+' '+a),ev.map(b=>T('노출')+' '+b),m,
+    {tone:(v,r,c)=>AI_TIER_TONE(cell(+String(r).slice(-1),+String(c).slice(-1)))||'accent'}),ta);
+  const st=aiCross({columns:ta.columns,rows:mine},'stage','residual_tier',{rankRow:AGT_STAGE_RANK,rankCol:AGT_TIER_RANK});
+  agtPair(root,[left,aiCard('단계 × 등급 Agent 수',heatGrid(st.rows,st.cols,st.matrix,
+    {tone:(v,r,c)=>AI_TIER_TONE(c)||'accent'}),ta)]);
+  const mg=aiFull('aig_tier_migration'),en=aiFull('aig_tier_envelope'),cards=[];
+  if(mg){const x=aiCross(mg,'from_tier','to_tier',{val:'n_units',rankRow:AGT_TIER_RANK,rankCol:AGT_TIER_RANK});
+    cards.push(aiCard('등급 이행 (기간 초 → 기간 말)',heatGrid(x.rows,x.cols,x.matrix,
+      {tone:(v,r,c)=>AGT_TIER_RANK(c)>AGT_TIER_RANK(r)?'bad':AGT_TIER_RANK(c)<AGT_TIER_RANK(r)?'good':'accent'}),mg))}
+  if(en){const k=frameIdx(en);const c=col=>en.rows.filter(r=>r[k[col]]===true).length;
+    const gap=en.rows.filter(r=>!eqv(r[k.declared_gap],'일치')).length;
+    cards.push(aiCard('등급 봉투 점검',statTiles([
+      {label:T('점검 항목'),value:en.total,tone:'accent'},
+      {label:T('봉투 이탈'),value:c('envelope_breach'),tone:c('envelope_breach')?'bad':'good'},
+      {label:T('선언 대 실측 차이'),value:gap,tone:gap?'warn':'good'},
+      {label:T('관측 결손'),value:c('observation_missing'),tone:c('observation_missing')?'warn':'good'}],{money:false}),en))}
+  agtPair(root,cards);
+}
+/* Agent 위험 관리: 감내수준 지표 타일, 한도 계층, 위험가중 사용량, 사고 전이 열지도, 내부 관리 가산 */
+function agentRiskCharts(root){
+  const ap=aiFull('aig_risk_appetite');
+  if(ap){const i=frameIdx(ap);const g=rawEl('div','stats kstats');
+    ap.rows.forEach(r=>{const t=rawEl('div','stat'),tone=AGT_ST_TONE(r[i.status]),u=r[i.value_unit];
+      const lab=rawEl('div','sl',r[i.indicator_id]+' · '+r[i.indicator_name]);lab.title=String(r[i.definition]);
+      t.appendChild(lab);
+      t.appendChild(rawEl('div','sv '+tone,agtVal(r[i.value],u)));
+      t.appendChild(rawEl('span','pill '+tone,String(r[i.status])));
+      if(r[i.threshold_early]!=null)t.appendChild(rawEl('div','ss',
+        [r[i.threshold_early],r[i.threshold_mgmt],r[i.threshold_board]].map(x=>agtVal(x,u)).join(' / ')));
+      g.appendChild(t)});
+    const c=cardOf('위험 감내수준 지표 (K1~K9)',g,'임계치: 조기경보 / 경영진 상향 / 이사회 한도');
+    c.appendChild(srcMeta(ap));root.appendChild(c)}
+  const ly=aiFull('aig_limit_layer'),wu=aiFull('aig_weighted_usage'),cards=[];
+  if(ly){const i=frameIdx(ly);const w=rawEl('div');
+    ly.rows.filter(r=>r[i.limit_amount]!=null).forEach(r=>{const tone=AGT_ST_TONE(r[i.status]);
+      const line=rawEl('div');line.style.margin='8px 0';
+      const head=rawEl('div','meta');head.style.display='flex';head.style.gap='6px';
+      head.appendChild(rawEl('span',null,T('한도 계층')+' '+r[i.layer]));
+      head.appendChild(rawEl('b',null,String(r[i.scope])));
+      const v=rawEl('span','mono '+tone,fmtMoney(r[i.granted_amount])+' / '+fmtMoney(r[i.limit_amount]));
+      v.style.marginLeft='auto';head.appendChild(v);
+      head.appendChild(rawEl('span','pill '+tone,String(r[i.status])));
+      line.appendChild(head);
+      const b=rawEl('div','bar'),f=rawEl('i');f.style.width=Math.min(100,(r[i.utilisation]||0)*100).toFixed(1)+'%';
+      if(tone==='bad')f.style.background='var(--bad)';
+      b.appendChild(f);line.appendChild(b);w.appendChild(line)});
+    cards.push(aiCard('한도 계층 (부여 합계 / 한도)',w,ly))}
+  if(wu){const i=frameIdx(wu);const keys=[];
+    wu.rows.forEach(r=>{const k=r[i.tier_basis]+AI_SEP+r[i.amount_basis];if(keys.indexOf(k)<0)keys.push(k)});
+    const rows=keys.map(k=>{const [tb,ab]=k.split(AI_SEP);
+      return {label:tb+' · '+ab,items:wu.rows.filter(r=>r[i.tier_basis]===tb&&r[i.amount_basis]===ab&&!eqv(r[i.tier],'합계'))
+        .map(r=>({label:String(r[i.tier]),value:r[i.weighted_amount],tone:AI_TIER_TONE(r[i.tier])}))}});
+    cards.push(aiCard('위험가중 사용량 (등급별 구성)',shareStrips(rows,{fmt:fmtMoney}),wu))}
+  agtPair(root,cards);
+  const cg=aiFull('aig_contagion'),ad=aiFull('aig_internal_addon'),low=[];
+  if(cg){const i=frameIdx(cg);const names=[],tiers=[];
+    cg.rows.forEach(r=>{if(names.indexOf(r[i.incident_name])<0)names.push(r[i.incident_name]);
+      if(tiers.indexOf(r[i.tier])<0)tiers.push(r[i.tier])});
+    tiers.sort((a,b)=>AGT_TIER_RANK(a)-AGT_TIER_RANK(b));
+    const m=names.map(nm=>tiers.map(t=>{const r=cg.rows.find(x=>x[i.incident_name]===nm&&x[i.tier]===t);
+      return r&&r[i.delta_cet1_bp]!=null?-r[i.delta_cet1_bp]:0}));
+    low.push(aiCard('사고 유형 × 등급 CET1비율 하락 (bp, 조건부 크기)',
+      heatGrid(names,tiers,m,{fmt:v=>v.toFixed(1),tone:()=>'bad'}),cg))}
+  if(ad){const i=frameIdx(ad);const tot=ad.rows.find(r=>eqv(r[i.addon_kind],'합계'));
+    if(tot)low.push(aiCard('내부 관리 가산 (규제 자본비율과 분리)',statTiles([
+      {label:T('규제 위험가중자산'),value:tot[i.rwa_regulatory],tone:'accent'},
+      {label:T('내부 관리 위험가중자산'),value:tot[i.rwa_internal],tone:'accent'},
+      {label:T('내부 위험가중 가산'),value:tot[i.addon_rwa],tone:'warn'},
+      {label:T('내부자본 가산'),value:tot[i.addon_capital],tone:'warn'}]),ad))}
+  agtPair(root,low);
+}
+/* 실행 통제 연계: RYNTA Bifrost 의 통제 기록이 RYNTA Heimdall 지표로 오는 연결과, 지표 초과가
+   차단장치 조건으로 돌아가는 연결. 값과 상태는 연결 원장이 출처 원장에서 옮겨 적은 것이다. */
+function agentLinkCharts(root){
+  const lk=aiFull('aig_control_link');
+  if(lk){const i=frameIdx(lk);const dirs=[];
+    lk.rows.forEach(r=>{if(dirs.indexOf(r[i.direction])<0)dirs.push(r[i.direction])});
+    agtPair(root,dirs.map((d,k)=>{const w=rawEl('div');
+      lk.rows.filter(r=>r[i.direction]===d).forEach(r=>{const tone=AGT_ST_TONE(r[i.state]),u=r[i.value_unit];
+        const side=(name,ref)=>{const x=rawEl('div');x.appendChild(rawEl('b',null,String(name)));
+          x.appendChild(rawEl('small',null,String(ref)));return x};
+        const a=side(r[i.bifrost_control],r[i.bifrost_requirement]),b=side(r[i.heimdall_item],r[i.heimdall_requirement]);
+        const row=rawEl('div','lkrow');row.title=String(r[i.signal]);
+        row.appendChild(k?b:a);row.appendChild(rawEl('span','lkarrow','→'));row.appendChild(k?a:b);
+        const v=rawEl('div','lkv');v.appendChild(rawEl('span','mono',agtVal(r[i.current_value],u)));
+        if(!eqv(u,'비율')&&u!=='KRW')v.appendChild(rawEl('small',null,String(u)));
+        v.appendChild(rawEl('span','pill '+tone,String(r[i.state])));
+        row.appendChild(v);w.appendChild(row)});
+      const c=rawEl('div','card');c.appendChild(rawEl('h3',null,String(d)));c.appendChild(w);c.appendChild(srcMeta(lk));return c}))}
+  const lm=aiFull('aig_agent_limit');
+  if(lm){const i=frameIdx(lm);const rows=lm.rows.filter(r=>r[i.breaker_start_stage]!=null);
+    const cards=[];
+    if(rows.length)cards.push(aiCard('차단장치 시작 단계 (Agent별)',heatGrid(rows.map(r=>String(r[i.unit_id])),['T2','T10',T('적용')],
+      rows.map(r=>[r[i.t2_start_stage]||0,r[i.t10_start_stage]||0,r[i.breaker_start_stage]||0]),
+      {tone:v=>v>=4?'bad':v>=3?'warn':'good'}),lm));
+    const t2=lm.rows.filter(r=>r[i.t2_triggered]===true).length,hold=lm.rows.filter(r=>r[i.new_limit_hold]===true).length;
+    const t10=rows.length?Math.max(...rows.map(r=>r[i.t10_start_stage]||0)):0;
+    cards.push(aiCard('차단장치 조건',statTiles([
+      {label:T('T2 발동 Agent'),value:t2,tone:t2?'bad':'good'},
+      {label:T('T10 최고 시작 단계'),value:t10,tone:t10>=4?'bad':t10?'warn':'good'},
+      {label:T('신규 한도 보류'),value:hold,tone:hold?'warn':'good'}],{money:false}),lm));
+    agtPair(root,cards)}
+}
 function aiDesk(root){
   const M=dkModel();
   if(!M){root.appendChild(el('div','note','원장 agent_registry 가 payload 에 없다'));return}
@@ -5422,7 +5571,7 @@ function aiDesk(root){
   const timers=[];const alive=()=>root.closest('section')&&root.closest('section').classList.contains('on')&&!document.hidden;
   /* 1. 상단 계기판 */
   const c1=card('c3','등록 에이전트',T('전량'));c1.appendChild(rawEl('div','dk-val',String(M.agents.length)));
-  c1.appendChild(rawEl('div','dk-sub',T('운영 반영 권한')+' '+TC(M.agents.filter(a=>a.write).length,'건')+' · '+T('위험등급 상')+' '+TC(M.agents.filter(a=>eqv(a.tier,'상')).length,'건')));
+  c1.appendChild(rawEl('div','dk-sub',T('운영 반영 권한')+' '+TC(M.agents.filter(a=>a.write).length,'건')+' · '+T('위험등급 고')+' '+TC(M.agents.filter(a=>eqv(a.tier,'고')).length,'건')));
   const c2=card('c3','활동·추적 이벤트',M.tr?'aig_agent_trace':'agent_activity');c2.appendChild(rawEl('div','dk-val',String(M.events.length)));
   c2.appendChild(rawEl('div','dk-sub',T('인계')+' '+TC(M.hand.length,'건')+' · '+T('마스킹 적중')+' '+TC(M.events.reduce((a,e)=>a+e.hits,0),'건')));
   const live=rawEl('span','dk-live','LIVE');
@@ -5458,8 +5607,8 @@ function aiDesk(root){
   const c9=card('c6','5차원 속성 격자 (펜터랙트)',T('꼭짓점')+' 32 · '+T('모서리')+' 80');
   const latWrap=rawEl('div','dk-two');const ls=rawEl('div','dk-stats');const lh=el('div');latWrap.appendChild(ls);latWrap.appendChild(lh);c9.appendChild(latWrap);
   const lat=dkCanvas(lh,0.62,220,340);
-  /* 축 다섯: 운영 반영 권한, 위험등급 상, 제안 전용, Bash 보유, Write 보유. 에이전트마다 꼭짓점 하나. */
-  const AX=[['운영 반영 권한',a=>a.write],['위험등급 상',a=>eqv(a.tier,'상')],['제안 전용',a=>eqv(a.mode,'제안전용')],
+  /* 축 다섯: 운영 반영 권한, 위험등급 고, 제안 전용, Bash 보유, Write 보유. 에이전트마다 꼭짓점 하나. */
+  const AX=[['운영 반영 권한',a=>a.write],['위험등급 고',a=>eqv(a.tier,'고')],['제안 전용',a=>eqv(a.mode,'제안전용')],
             ['Bash 보유',a=>a.tools.indexOf('Bash')>=0],['Write 보유',a=>a.tools.indexOf('Write')>=0]];
   const occ=new Map();M.agents.forEach(a=>{let v=0;AX.forEach(([,f],k)=>{if(f(a))v|=(1<<k)});occ.set(v,(occ.get(v)||0)+1)});
   kv(ls,'차원',AX.length+' / 5');kv(ls,'점유 꼭짓점',occ.size+' / 32');kv(ls,'에이전트',M.agents.length);
@@ -5564,7 +5713,7 @@ function aiOverview(root){
     if(sub)c.appendChild(rawEl('div','sub',sub));g.appendChild(c)};
   if(reg){const w=cnt(reg,'write_allowed',v=>v===true);
     tile('등록 에이전트',String(reg.total),T('운영 반영 권한')+' '+TC(w,'건'),w?'bad':'good');
-    tile('위험등급 상',String(cnt(reg,'risk_tier',v=>eqv(v,'상'))),T('규제 산출 담당')+' · '+T('제안 전용'),'warn')}
+    tile('위험등급 고',String(cnt(reg,'risk_tier',v=>eqv(v,'고'))),T('영향 × 노출 기준'),'warn')}
   if(act)tile('활동 기록',String(act.total),T('게이트 대기')+' '+TC(cnt(act,'gate',v=>eqv(v,'대기')),'건'),'');
   if(ks)tile('비상정지 이력',String(ks.total),T('2차 확인 없음')+' '+TC(cnt(ks,'confirmed_by',v=>v==null||v===''),'건'),ks.total?'warn':'good');
   if(ap)tile('4-Eyes 승인',String(ap.total),T('직무분리 충족')+' '+TC(cnt(ap,'segregation_ok',v=>v===true),'건'),'good');
@@ -5953,13 +6102,17 @@ function executiveReport(root){
     const cnt=(f,col,pred)=>{if(!f)return 0;const i=frameIdx(f);return f.rows.filter(r=>pred(r[i[col]])).length};
     const items=[];let tone='good';
     if(reg){const w=cnt(reg,'write_allowed',v=>v===true);if(w)tone='bad';
-      items.push(T('등록 에이전트')+' '+TC(reg.total,'건')+' ('+T('운영 반영 권한')+' '+TC(w,'건')+', '+T('위험등급 상')+' '+TC(cnt(reg,'risk_tier',v=>eqv(v,'상')),'건')+')')}
+      items.push(T('등록 에이전트')+' '+TC(reg.total,'건')+' ('+T('운영 반영 권한')+' '+TC(w,'건')+', '+T('위험등급 고')+' '+TC(cnt(reg,'risk_tier',v=>eqv(v,'고')),'건')+')')}
     if(act)items.push(T('활동 기록')+' '+TC(act.total,'건')+' ('+T('게이트 대기')+' '+TC(cnt(act,'gate',v=>eqv(v,'대기')),'건')+')');
     if(ks){const u=cnt(ks,'confirmed_by',v=>v==null||v==='');if(u&&tone==='good')tone='warn';
       items.push(T('비상정지 이력')+' '+TC(ks.total,'건')+' ('+T('2차 확인 없음')+' '+TC(u,'건')+')')}
     if(ap)items.push(T('4-Eyes 승인')+' '+TC(ap.total,'건')+' ('+T('직무분리 충족')+' '+TC(cnt(ap,'segregation_ok',v=>v===true),'건')+')');
     if(tr&&tr.shown>=tr.total){const i=frameIdx(tr);const hits=tr.rows.reduce((a,r)=>a+(r[i.redaction_hits]||0),0);
       items.push(T('마스킹 적중')+' '+TC(hits,'건')+' ('+T('규칙')+' '+TC(rules?rules.total:0,'건')+')')}
+    {const ka=D.data['aig_risk_appetite'];
+      if(ka&&ka.shown>=ka.total){const i=frameIdx(ka);const b=ka.rows.filter(r=>r[i.breach_level]>0).length;
+        if(b&&tone==='good')tone='warn';
+        items.push(T('Agent 감내수준 지표')+' '+TC(ka.total,'건')+' ('+T('임계치 초과')+' '+TC(b,'건')+')')}}
     items.push(T('AI리스크 요건 76건 커버리지')+': '+T('반영')+' '+Qa['반영']+' · '+T('부분')+' '+Qa['부분']+' · '+T('미반영')+' '+Qa['미반영']);
     let c2=null;
     if(reg&&reg.shown>=reg.total){const i=frameIdx(reg);const m=new Map();
@@ -6904,6 +7057,17 @@ const SUMMARIES={
   'AI 리스크 개요':()=>{const reg=D.data['agent_registry'],ks=D.data['agent_killswitch'],Q=D.req_trace_air.coverage;if(!reg)return null;
     const i=frameIdx(reg),w=reg.rows.filter(r=>r[i.write_allowed]===true).length;
     return {t:`에이전트 ${reg.total}건 · 운영 반영 권한 ${w}건 · 비상정지 ${ks?ks.total:0}건 · 요건 76건 중 반영 ${Q['반영']} · 부분 ${Q['부분']} · 미반영 ${Q['미반영']} (언어모형 미호출, 엔티티 테이블 43장 미등재)`,tone:w?'bad':'warn'}},
+  'Agent 위험도 등급':()=>{const ta=aiFull('aig_tier_assessment'),cs=agtCounted();if(!ta||!cs)return null;
+    const i=frameIdx(ta),op=ta.rows.filter(r=>eqv(r[i.stage],'운영')&&cs.has(String(r[i.unit_id])));
+    const n=t=>op.filter(r=>eqv(r[i.residual_tier],t)).length;
+    return {t:`운영 Agent ${op.length}건 가운데 고 등급 ${n('고')}건, 미확정 ${n('미확정')}건 (예시 설정값, 기관 승인 전)`,
+      tone:n('미확정')?'warn':'good'}},
+  'Agent 위험 관리':()=>{const ap=aiFull('aig_risk_appetite');if(!ap)return null;
+    const i=frameIdx(ap),b=ap.rows.filter(r=>r[i.breach_level]>0).length,u=ap.rows.filter(r=>eqv(r[i.status],'미설정')).length;
+    return {t:`감내수준 지표 ${ap.total}건 가운데 임계치 초과 ${b}건, 미설정 ${u}건 (예시 설정값, 기관 승인 전)`,tone:b?'warn':'good'}},
+  '실행 통제 연계':()=>{const lk=aiFull('aig_control_link');if(!lk)return null;
+    const i=frameIdx(lk),k=lk.rows.filter(r=>eqv(r[i.state],'발동')).length;
+    return {t:`연결 ${lk.total}건, 차단장치 조건 발동 ${k}건 (T2 한도 소진율, T10 감내수준 초과)`,tone:k?'warn':'good'}},
   '기후 개요':()=>{const C=D.climate;if(!C)return null;
     const K=C.capital,w=C.transition.find(l=>l.scenario===C.worst_transition);
     return {t:`전환 최대 ECL 상승 ${fmtMoney(w.uplift)} (${clrLegLabel(w)}) · NGFS 최저 CET1 ${pctv(K.worst.cet1_ratio,2)} (${clrName(K.worst.scenario)} ${K.worst.year}, 요구 ${pctv(K.required_cet1,1)}) · 부문 계수 수준, clr_* 원장 없음`,
@@ -11414,7 +11578,7 @@ const DETAIL_SCREENS=[
   ['AI 관제 데스크','AIR · AI 관제 데스크 (활동 로그 · 커버리지 경로 · 도메인 능선 · 인계 현 · 5차원 격자 · 관계 그래프)',aiDesk],
   ['AI 리스크 개요','AIR · AI 리스크 개요 (인벤토리·게이트·비상정지·마스킹·요건 커버리지·화면 대응)',aiOverview],
   ['AI 인벤토리·위험분류','AIR · AI 인벤토리와 위험분류 (에이전트·모드·위험등급·도구·권한)',screenOf({
-    lead:'등록 필드는 이름·모드·위험등급·도구·범위·쓰기권한·오너·도메인이고, 위험등급은 상·중·하 규칙 분류다.',
+    lead:'등록 필드는 이름·모드·위험등급·산정 근거·도구·범위·쓰기권한·오너·도메인이고, 위험등급은 영향 × 노출 기준의 저·중·고다.',
     charts:aiInventoryCharts,
     autochart:[['위험등급 × 모드별 에이전트 수','agent_registry',['risk_tier','mode'],null,{money:false}],
                ['도메인별 에이전트 수','agent_registry',['domain'],null,{money:false}]],
@@ -11440,6 +11604,35 @@ const DETAIL_SCREENS=[
                ['경보 정책 × 제출 차단','gov_alert_policy',['alert_type','blocks_submission'],null,{money:false}]],
     tables:[['실행 통제 이슈','gov_run_issue'],['경보 정책','gov_alert_policy'],
             ['예외·조치 큐','gov_exception_action'],['범위형 비상정지 이력','agent_killswitch']]})],
+  /* Agent 위험도 등급과 등급별 위험 관리 (요건정의서 v0.94 4.9·4.11~4.13). 원장 aig_* 18장. */
+  ['Agent 위험도 등급','AIR · Agent 위험도 등급 (영향 × 노출 · 고정·불허·보류 · 등급 봉투)',screenOf({
+    lead:'영향 4항목과 노출 4항목으로 저·중·고 등급을 정한다. 수치는 예시 설정값이며 기관 승인 전이다.',
+    charts:agentTierCharts,
+    tables:[['Agent 위험도 등급 산정 결과','aig_tier_assessment'],
+            ['Agent 등급 항목 수준 입력','aig_tier_input'],
+            ['Agent 산정 단위 등록부','aig_agent_unit'],
+            ['등급 봉투와 항목별 대사','aig_tier_envelope'],
+            ['Agent 등급 이행','aig_tier_migration'],
+            ['Agent 위험도 등급 항목과 수준 기준','aig_tier_criteria'],
+            ['Agent 위험도 등급 판정 규칙','aig_tier_rule'],
+            ['등급별 관리 기준 (결정 권한·필수 통제)','aig_tier_policy']]})],
+  ['Agent 위험 관리','AIR · Agent 위험 관리 (감내수준 지표 · 한도 · 전이 · 내부 가산 · 사후 검증)',screenOf({
+    lead:'등급별 한도와 감내수준 지표, 사고 전이, 내부 관리 가산이다. 규제 자본비율은 바꾸지 않는다.',
+    charts:agentRiskCharts,
+    tables:[['Agent 위험 감내수준 지표','aig_risk_appetite'],
+            ['Agent 한도 계층 점검','aig_limit_layer'],
+            ['Agent별 한도와 사용','aig_agent_limit'],
+            ['Agent 위험가중 사용량','aig_weighted_usage'],
+            ['Agent 사고의 타 리스크 전이 평가','aig_contagion'],
+            ['Agent 내부 관리 가산','aig_internal_addon'],
+            ['Agent 등급 체계 사후 검증','aig_tier_backcheck'],
+            ['Agent 관측 기록 요약','aig_agent_observation'],
+            ['Agent 위험 기관 설정 수치','aig_tier_param']]})],
+  ['실행 통제 연계','AIR · 실행 통제 연계 (RYNTA Bifrost 통제 기록 · RYNTA Heimdall 지표 · 차단장치 조건)',screenOf({
+    lead:'RYNTA Bifrost 의 실행 통제 기록이 RYNTA Heimdall 지표가 되고, 지표 초과는 차단장치 조건으로 돌아간다.',
+    charts:agentLinkCharts,
+    tables:[['실행 통제와 위험 관리의 연결','aig_control_link'],
+            ['Agent별 한도와 사용','aig_agent_limit']]})],
 ];
 
 /* 메뉴 트리. 그룹은 시각적 계층이고, 리프 순서가 화면 목록의 순서를 정한다.
@@ -11488,7 +11681,9 @@ const NAVGROUPS=[
   /* AI리스크. 해설서(2026-09-08) UI-01~12 를 따르되 원장이 실재하는 화면만 둔다.
      에이전트 운영과 추적 화면은 검증·거버넌스에서 이리로 옮겼다. */
   ['AI리스크',[
-    'AI 관제 데스크','AI 리스크 개요','AI 인벤토리·위험분류','실행승인·게이트','정보흐름·마스킹','사고·경보·중단',
+    'AI 관제 데스크','AI 리스크 개요','AI 인벤토리·위험분류',
+    'Agent 위험도 등급','Agent 위험 관리','실행 통제 연계',
+    '실행승인·게이트','정보흐름·마스킹','사고·경보·중단',
     ['운영·추적',['에이전트','AI 거버넌스']],
   ]],
   ['검증·거버넌스',[
@@ -11518,7 +11713,8 @@ function navLeaves(name){
 const NAV_ROLES=[
   ['','전체',()=>null],
   ['exec','경영진',()=>['종합보고서','감독보고','NCR·건전성','콕핏','한도관리','예외·조치',
-     '역스트레스','거시지표 모니터링','경영조치·제출','검증','KRI·통제','기후 개요','AI 리스크 개요']],
+     '역스트레스','거시지표 모니터링','경영조치·제출','검증','KRI·통제','기후 개요','AI 리스크 개요',
+     'Agent 위험 관리']],
   ['ops','실무',()=>navLeaves('통제센터').concat(navLeaves('조회·컴포저'),navLeaves('리스크데이터'),
      navLeaves('위험가중자산(RWA)'),navLeaves('ALM·위기상황'),navLeaves('기후리스크'),navLeaves('AI리스크'),
      ['감독보고','NCR·건전성','데이터모델','코드 마스터','코드 매핑'])],

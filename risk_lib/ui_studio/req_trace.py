@@ -28,8 +28,9 @@ from risk_lib.regulatory.requirements_v960 import (
 TRACE: dict[str, tuple[str, tuple[tuple[str, str], ...], str]] = {
     # ---- AIG · AI 거버넌스 -------------------------------------------------
     "AIG-001": ("반영", (("table", "agent_registry"),
+                        ("table", "aig_tier_assessment"),
                         ("test", "test_agent_registry_has_risk_tiers")),
-                "위험등급 상·중·하 — 규칙 기반 분류 (규제 산출=상)"),
+                "위험등급 저·중·고: 영향 × 노출 기준의 규칙 산정 (규제 산출=고)"),
     "AIG-002": ("반영", (("table", "agent_registry"),
                         ("test", "test_no_agent_has_operational_write_permission")),
                 "전 에이전트 write_allowed=false — NO AUTONOMOUS WRITE"),

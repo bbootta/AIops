@@ -1,6 +1,6 @@
-/* screens/governance.js: 검증·거버넌스 11화면 (검증 · 요건 추적 · 에이전트 ·
-   비상정지 · 변경 · 오버레이 · 변경통제 · 접근통제 · AI 거버넌스 · 감사추적 ·
-   조회 거버넌스).
+/* screens/governance.js: 검증·거버넌스 12화면 (검증 · 요건 추적 · 에이전트 ·
+   비상정지 · 변경 · 오버레이 · 변경통제 · 접근통제 · AI 거버넌스 ·
+   Agent 위험도 등급 · 감사추적 · 조회 거버넌스).
    규칙 (설계 사양 2.9·5·6장, 수용기준 A7·A8·A12·A13·A18·A21):
    - 건수·총계는 서버 집계(D.x_gate·x_close·x_audit·frame.total)에서만 읽는다.
      화면이 센 행수를 총계로 찍지 않는다. 표본 프레임은 배지를 달고 차트를
@@ -423,6 +423,36 @@ tset(root,c,['int_engine_adapter','int_engine_io']);
 
 /* ══════════════ 통제: 조회 거버넌스 ═════════════════════════════════ */
 
+/* Agent 위험도 등급 (요건 4.9·4.13). 재계산 대상 4종은 x_screen_gate.targets
+   그대로이고, 가산(금액)과 지표(비율)를 대상 이름으로 가른다. 등급 열의 순서는
+   x_severity 의 어휘 순서다. */
+function agentRisk(root,c){
+LEAD(root,'영향 4항목과 노출 4항목으로 저·중·고 등급을 정한다. 수치는 예시 설정값이며 기관 승인 전이다.');
+const tg=((c.D.x_screen_gate||{}).targets||{})[c.id]||[];
+if(tg[0]){const k=el('div','kpis c4');
+ tg.forEach(r=>ap(k,U.kpi({label:r.korean,raw:true,value:/addon/.test(r.target)?fmt.money(r.reported):fmt.pct(r.reported),
+  sub:T('상시 독립검증 (3선) 재계산 대상')+' '+r.target+' · '+r.citation,
+  tone:TN('recalc.state',r.state),badge:r.state,lineage:NG.lineage.byTarget(r.target)})));ap(root,k)}
+ap(root,NO(T('수치는 예시 설정값이며 기관 승인 전이다.'),'neutral'));
+const as=G(c,'aig_tier_assessment'),ai=as?IX(as):{};
+const a=CD(root,'Agent 위험도 등급');
+if(as&&as.shown===as.total){const st=[],tr=[],m={};
+ const vo=((c.D.x_severity||{}).map||[]).filter(x=>x.source==='agent.tier').map(x=>x.value);
+ as.rows.forEach(r=>{const s=String(r[ai.stage]),t=String(r[ai.residual_tier]);
+  if(st.indexOf(s)<0)st.push(s);if(tr.indexOf(t)<0)tr.push(t);m[s+t]=(m[s+t]||0)+1});
+ tr.sort((x,y)=>vo.indexOf(x)-vo.indexOf(y));
+ ap(a,CH.heat(st.map(s=>tr.map(t=>m[s+t]||0)),st,tr,{title:T('산정 시점 × 잔여 등급 산정 단위 수'),src:as,fmt:NI}))}
+ap(a,tcard(c,'aig_tier_assessment',{rowClass:r=>TN('agent.tier',r[ai.residual_tier])}));
+tset(a,c,['aig_agent_unit','aig_tier_input','aig_tier_envelope','aig_tier_migration','aig_tier_criteria','aig_tier_rule','aig_tier_policy','aig_tier_param']);
+const ra=G(c,'aig_risk_appetite'),ri=ra?IX(ra):{};
+const b=CD(root,'Agent 위험 관리');
+if(ra)ap(b,DL(ra.rows.map(r=>({tone:TN('agent_appetite.status',r[ri.status]),text:r[ri.indicator_id]+' '+r[ri.indicator_name]+' · '+r[ri.status]}))));
+ap(b,tcard(c,'aig_risk_appetite',{rowClass:r=>TN('agent_appetite.status',r[ri.status])}));
+tset(b,c,['aig_limit_layer','aig_agent_limit','aig_weighted_usage','aig_contagion','aig_internal_addon','aig_tier_backcheck','aig_agent_observation']);
+const d=CD(root,'실행 통제 연계');
+const bb=distBars(G(c,'aig_control_link'),'direction','연결 방향별 건수');if(bb)ap(d,bb);
+ap(d,tcard(c,'aig_control_link'));
+}
 function queryGovernance(root,c){
 LEAD(root,'화면이 무엇을 조회할 수 있는지 정하는 원장이다. 승인된 View 밖은 조회되지 않고, 자연어 조회는 계획으로 남은 뒤 사람이 적용을 승인한다.');
 ap(root,tcard(c,'ui_view'));
@@ -449,6 +479,7 @@ const DEF=[['validation',null,'검증',validation],['req-trace','검증','요건
   ['change-control','통제','변경통제',changeControl],
   ['access-sod','통제','접근통제·직무분리',accessSod],
   ['ai-governance','통제','AI 거버넌스',aiGovernance],
+  ['agent-risk','통제','Agent 위험도 등급',agentRisk],
   ['audit-trail','통제','실행·감사추적',auditTrail],
   ['query-governance','통제','조회 거버넌스',queryGovernance]];
 DEF.forEach(d=>NG.screen(d[0],{group:GRP,sub:d[1],title:d[2],build:d[3]}));

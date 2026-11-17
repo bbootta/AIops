@@ -1169,7 +1169,7 @@ LIMIT_LAYER = TableSpec(
     name="aig_limit_layer", korean="Agent 한도 계층 점검", product="PRD-AIG",
     grain="한도 계층 × 범위 1행",
     columns=(
-        C("layer", "int", "계층", nullable=False, min_value=1, max_value=4),
+        C("layer", "int", "한도 계층", nullable=False, min_value=1, max_value=4),
         C("scope", "string", "범위", nullable=False,
           allowed=("전사",) + TIERS + ("Agent별", "건당")),
         C("content", "text", "내용", nullable=False),

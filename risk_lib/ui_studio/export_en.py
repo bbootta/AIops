@@ -189,6 +189,8 @@ class Translator:
         return None
 
     def segment(self, seg: str) -> str | None:
+        if "=" + seg in self.m:                  # 조각 전체가 그 값일 때만 쓰는 번역 (등급 값 '중' = Medium)
+            return self.m["=" + seg]
         if seg in self.m:
             return self.m[seg]
         t = self.family(seg)
@@ -239,6 +241,8 @@ class Translator:
         g = _GRAIN.match(s)
         if t is not None:
             r = t
+        elif "=" + s in self.m:
+            r = self.m["=" + s]
         elif s in self.m:
             r = self.m[s]
         elif g and HANGUL.search(g.group(1)) and not HANGUL.search(gt := self.text(g.group(1))):

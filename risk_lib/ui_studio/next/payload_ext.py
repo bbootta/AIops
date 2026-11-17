@@ -22,6 +22,8 @@ from pathlib import Path
 import pandas as pd
 
 from risk_lib import data_gen_intl as _intl
+from risk_lib.aig import agent_risk as _agent
+from risk_lib.aig import agent_tier as _tier
 from risk_lib.datamodel import catalog as cat
 from risk_lib.ui_studio import app as _app
 from risk_lib.validation import independent
@@ -36,7 +38,7 @@ NON_CATALOG_TABLES = frozenset(_app._INST_TABLES) | {"limits_full", "req_trace"}
 
 # sec11.md 의 기존 nav 리프 수. 흡수 라벨이 이 수와 다르면 화면이 사라졌거나
 # 두 번 흡수된 것이다.
-LEGACY_LABEL_COUNT = 93
+LEGACY_LABEL_COUNT = 96
 
 _ID_RE = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 
@@ -104,6 +106,13 @@ SEVERITY_MAP: dict[str, dict[str, str]] = {
     "recalc.state": {"일치": "good", "불일치": "bad", "미보고": "not-run",
                      "이전 요청 응답": "blocked", "범위밖": "neutral"},
     "data_origin": {_intl.SYNTHETIC_ORIGIN: "synthetic"},
+    # Agent 위험도 등급과 감내수준 지표의 상태. 어휘는 엔진 상수 그대로다.
+    "agent.tier": {_tier.TIERS[0]: "good", _tier.TIERS[1]: "warn", _tier.TIERS[2]: "bad",
+                   _tier.HOLD: "blocked", _tier.BANNED: "blocked"},
+    "agent_appetite.status": {_agent.STATUS_OK: "good", _agent.STATUS_LEVELS[0]: "warn",
+                              _agent.STATUS_LEVELS[1]: "bad",
+                              _agent.STATUS_LEVELS[2]: "bad",
+                              _agent.STATUS_UNSET: "not-run"},
 }
 
 # 수치 계보: figure_id -> (원장, pk, 컬럼, 지키는 검사, 3선 재계산 대상, 화면).
@@ -181,6 +190,19 @@ _FIGURES: dict[str, tuple] = {
         "ai-stress"),
     "ai_stress.lcr_min": ("st_ai_impact", {"severity_key": "severely_adverse"},
         "lcr_min", ("stress_ai_lcr_floor",), "ai_stress_lcr_min", "ai-stress"),
+    "agent.high_tier_share": ("aig_risk_appetite", {"indicator_id": "K1"}, "value",
+        ("agent_tier_recompute_matches", "agent_appetite_status"),
+        "agent_high_tier_share", "agent-risk"),
+    "agent.weighted_limit_usage": ("aig_risk_appetite", {"indicator_id": "K2"}, "value",
+        ("agent_weighted_usage_reconciles", "agent_appetite_status"),
+        "agent_weighted_limit_usage", "agent-risk"),
+    "agent.internal_rwa_addon": ("aig_internal_addon", {"addon_kind": _agent.ADDON_TOTAL},
+        "addon_rwa", ("agent_addon_separation",), "agent_internal_rwa_addon",
+        "agent-risk"),
+    "agent.op_internal_capital_addon": ("aig_internal_addon",
+        {"addon_kind": _agent.ADDON_C}, "addon_capital",
+        ("agent_contagion_traces_to_stress", "agent_addon_separation"),
+        "agent_op_internal_capital_addon", "agent-risk"),
     "val_check.summary": ("val_check", _A, "status", (), None, "validation"),
     "reg_form_check.summary": ("reg_form_check", {}, "status", (), None, "reg-forms"),
     "raf.worst": ("val_audit_ledger", {"figure_id": "raf.worst"}, "value", (), None,

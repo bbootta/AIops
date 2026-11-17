@@ -409,12 +409,14 @@ def test_render_carries_the_no_autonomous_write_statement(studio):
 
 
 def test_agent_registry_has_risk_tiers(studio):
-    """AIG-001 — 에이전트마다 위험등급이 있고, 규제 산출 에이전트는 상이다."""
+    """AIG-001: 에이전트마다 위험등급(영향 × 노출 기준 저·중·고)과 산정 근거가 있고,
+    규제 산출 에이전트는 고다."""
     reg = studio.tables["agent_registry"]
-    assert set(reg["risk_tier"]) <= {"상", "중", "하"}
-    assert (reg["risk_tier"] == "상").any()          # 규제 산출 에이전트 존재
+    assert set(reg["risk_tier"]) <= {"저", "중", "고"}
+    assert (reg["risk_tier"] == "고").any()          # 규제 산출 에이전트 존재
     rwa = reg[reg["agent_name"].str.contains("rwa")]
-    assert (rwa["risk_tier"] == "상").all()
+    assert (rwa["risk_tier"] == "고").all()
+    assert reg["tier_basis"].str.startswith("영향 ").all()
 
 
 def test_exception_queue_derives_only_from_the_three_ledgers(studio):

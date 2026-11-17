@@ -231,6 +231,60 @@
   "chord": "gi"
  },
  {
+  "id": "agent-risk",
+  "title_ko": "Agent 위험도 등급",
+  "title_en": "Agent risk tiers",
+  "sub": "통제",
+  "legacy": [
+   "Agent 위험도 등급",
+   "Agent 위험 관리",
+   "실행 통제 연계"
+  ],
+  "leaf_parent": false,
+  "density": "operator",
+  "explanatory": false,
+  "aisum": false,
+  "tables": [
+   "aig_tier_criteria",
+   "aig_tier_rule",
+   "aig_tier_policy",
+   "aig_tier_param",
+   "aig_agent_unit",
+   "aig_tier_input",
+   "aig_tier_assessment",
+   "aig_tier_envelope",
+   "aig_tier_migration",
+   "aig_agent_observation",
+   "aig_agent_limit",
+   "aig_limit_layer",
+   "aig_weighted_usage",
+   "aig_risk_appetite",
+   "aig_contagion",
+   "aig_internal_addon",
+   "aig_tier_backcheck",
+   "aig_control_link"
+  ],
+  "products": [],
+  "domains": [
+   "agent"
+  ],
+  "min_svg": 1,
+  "checks": [],
+  "recalc": [
+   "agent_high_tier_share",
+   "agent_weighted_limit_usage",
+   "agent_internal_rwa_addon",
+   "agent_op_internal_capital_addon"
+  ],
+  "headline_figures": [
+   "agent_high_tier_share",
+   "agent_weighted_limit_usage",
+   "agent_internal_rwa_addon",
+   "agent_op_internal_capital_addon"
+  ],
+  "chord": "gl"
+ },
+ {
   "id": "audit-trail",
   "title_ko": "실행·감사추적",
   "title_en": "Run and audit trail",

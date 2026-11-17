@@ -309,6 +309,7 @@ def _sec_stress(lines: list[str], result: PipelineResult) -> None:
         add("| CET1 | " + " | ".join(f"{v:.2%}" for v in sev["cet1_ratio"]) + " |")
         add("")
     _sec_ai_incident(lines, result)
+    _sec_agent_risk(lines, result)
 
 
 def _sec_ai_incident(lines: list[str], result: PipelineResult) -> None:
@@ -374,6 +375,37 @@ def _sec_ai_incident(lines: list[str], result: PipelineResult) -> None:
         f"{rv('lcr_retail_runoff_star', lambda v: f'{v:.2%}')}")
     add("- 운영손실 10년 평균은 헤드라인 운영 RWA 와 같은 값으로 맞춘 장부를 쓰고, "
         "일회성 손실은 분기마다 누적한다. LCR 은 자본으로 되먹임되지 않는다.")
+    add("")
+
+
+def _sec_agent_risk(lines: list[str], result: PipelineResult) -> None:
+    """11-4. Agent 위험도 등급과 등급별 위험 관리 (risk_lib.aig.agent_risk)."""
+    add = lines.append
+    ar = getattr(result, "agent_risk", None)
+    add("### 11-4. Agent 위험도 등급과 등급별 위험 관리")
+    add("")
+    if ar is None or not len(ar.frames.get("aig_risk_appetite", ())):
+        add("- Agent 위험 산출이 없다 (원장 aig_* 결손).")
+        add("")
+        return
+    add("업무 Agent 의 등급(영향 × 노출)과 그 등급으로 낸 한도·감내수준 지표·내부 관리 "
+        "가산이다. 가중치·구간 경계·임계치·가산 계수는 전부 기관 승인 전의 예시 설정값이고 "
+        "Agent 포트폴리오와 관측 기록은 합성 참조 자료다 (모수 aig_tier_param).")
+    add("")
+    k = ar.frames["aig_risk_appetite"]
+    rows = [[f"{r['indicator_id']}-{r['measure_seq']}", r["indicator_name"],
+             "-" if r["value"] != r["value"] else
+             (f"{r['value']:.2%}" if r["value_unit"] == "비율" else f"{r['value']:,.2f}"),
+             r["status"]] for _, r in k.iterrows()]
+    lines.extend(_md_table(["지표", "이름", "값", "상태"], ["l", "l", "r", "l"], rows))
+    add("")
+    from risk_lib.aig.agent_risk import ADDON_C, ADDON_TOTAL
+    addon = ar.frames["aig_internal_addon"].set_index("addon_kind")
+    tot = addon.loc[ADDON_TOTAL]
+    add(f"- 내부 관리 위험가중자산 가산 {tot['addon_rwa'] / 1e8:,.1f}억 "
+        f"(규제 위험가중자산 {tot['rwa_regulatory'] / 1e8:,.0f}억은 바꾸지 않는다), "
+        f"운영리스크 내부자본 가산 {addon.loc[ADDON_C, 'addon_capital'] / 1e8:,.1f}억 "
+        "(사고 발생을 전제한 조건부 크기).")
     add("")
 
 

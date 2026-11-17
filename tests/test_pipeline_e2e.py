@@ -230,7 +230,13 @@ GOLDEN = {
 # 요구치 미달이다 (기존 FAIL stress_trough_meets_requirement 와 같은 원인). WARN 은
 # stress_ai_lcr_floor (결합 시나리오 LCR 100% 미달)다. 이 표본에서 둘 다 나오는 것이
 # 정상이며, PASS 로 바뀌면 판정 기준이나 경로가 약해졌다는 뜻이다.
-GOLDEN_VALIDATION = {"PASS": 81, "FAIL": 2, "WARN": 16}
+# +9 PASS · +3 WARN: Agent 위험도 등급과 등급별 위험 관리 agent_* 12건. WARN 은
+# agent_limit_hierarchy (고 등급 부여 한도 합계가 등급별 총량을 넘는다),
+# agent_appetite_status (감내수준 지표 임계치 초과가 있다), agent_backcheck_small_sample
+# (사건 수가 최소 표본에 못 미쳐 등급별 사건율 순서의 결론을 유보한다)다. 참조
+# 포트폴리오와 예시 설정값에서 셋 다 나오는 것이 정상이며, PASS 로 바뀌면 한도
+# 점검이나 임계치 판정, 표본 기준이 약해졌다는 뜻이다.
+GOLDEN_VALIDATION = {"PASS": 90, "FAIL": 2, "WARN": 19}
 EXPECTED_QUARTERS = [
     "2026Q3", "2026Q4",
     "2027Q1", "2027Q2", "2027Q3", "2027Q4",
@@ -332,6 +338,7 @@ REQUIRED_HEADERS = [
     "## 11. 스트레스테스트",
     "### 11-1. 역스트레스테스트",
     "### 11-2. 분기별 자본 스트레스 경로",
+    "### 11-4. Agent 위험도 등급과 등급별 위험 관리",
     "## 12. 자체검증",
     "## 13. 내부자본 (ICAAP)",
     "## 14. ALM (IRRBB / LCR / NSFR)",

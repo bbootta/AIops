@@ -120,6 +120,22 @@ RECALC_SCOPE: tuple[tuple[str, str, str], ...] = (
     ("ai_stress_lcr_min",
      "AI 사고 단독 심각 LCR 최저",
      "LCR20.1 · LCR40. LCR 은 자본으로 되먹임되지 않는다"),
+    # Agent 위험도 등급과 등급별 위험 관리 (risk_lib.aig.agent_risk). 등급 산식 수치,
+    # 위험가중치, 가산 계수가 전부 예시 설정값이고 업무 Agent 포트폴리오는 합성 참조
+    # 자료다. 3선이 입력 원장에서 다시 계산하고 그 전제에 도전해야 한다.
+    ("agent_high_tier_share",
+     "고 등급 Agent 비중 (감내수준 지표 K1, 잔여 등급, 등급 미확정은 고로 봄)",
+     "요건 HM-06 · RL-17. 등급은 aig_tier_input 과 aig_tier_param 으로 재산정한다"),
+    ("agent_weighted_limit_usage",
+     "Agent 위험가중 한도 사용률 (감내수준 지표 K2, 부여 한도 기준 / 자기자본)",
+     "요건 HM-07. U = Σ(Agent별 한도 × 등급별 위험가중치), 입력은 aig_agent_limit"),
+    ("agent_internal_rwa_addon",
+     "Agent 관여 익스포저의 내부 관리 위험가중자산 가산 (규제 수치와 분리)",
+     "요건 HM-09. 익스포저별 max((a) RWA × a × m(등급), (b) PD × (1 + b(등급)) 로 "
+     "다시 낸 RWA 증가분). 규제 위험가중자산은 바꾸지 않는다"),
+    ("agent_op_internal_capital_addon",
+     "Agent 사고 운영리스크 내부자본 가산 (적용 심도의 최대 1차 손실 한 건)",
+     "요건 HM-08 · HM-09. 크기는 st_ai_impact 에서 읽는다 (사고 발생을 전제한 조건부 값)"),
 )
 
 
@@ -450,6 +466,7 @@ def _headline(result, tables: dict[str, pd.DataFrame] | None
         "lgd_backtest_n_censored": _lgd_censored(t),
         "ccf_realised_mean": _ccf_realised(t),
         **_ai_headline(t),
+        **_agent_headline(t),
     }
 
 
@@ -515,6 +532,29 @@ def _ai_headline(tables: dict) -> dict[str, float | None]:
         "ai_reverse_critical_loss_bi": lstar,
         "ai_stress_lcr_min": float(solo["lcr_min"].min()),
     }
+
+
+def _agent_headline(tables: dict) -> dict[str, float | None]:
+    """Agent 위험 헤드라인. 원장에서 읽고, 원장이 없으면 지어내지 않고 None."""
+    from risk_lib.aig.agent_risk import ADDON_C, ADDON_TOTAL
+    out: dict[str, float | None] = {
+        "agent_high_tier_share": None, "agent_weighted_limit_usage": None,
+        "agent_internal_rwa_addon": None, "agent_op_internal_capital_addon": None}
+    app, add = tables.get("aig_risk_appetite"), tables.get("aig_internal_addon")
+    if app is not None and len(app):
+        v = app.set_index("indicator_id")["value"]
+        for key, kid in (("agent_high_tier_share", "K1"),
+                         ("agent_weighted_limit_usage", "K2")):
+            if kid in v.index and pd.notna(v[kid]):
+                out[key] = float(v[kid])
+    if add is not None and len(add):
+        for key, kind, col in (
+                ("agent_internal_rwa_addon", ADDON_TOTAL, "addon_rwa"),
+                ("agent_op_internal_capital_addon", ADDON_C, "addon_capital")):
+            hit = add.loc[add["addon_kind"] == kind, col]
+            if len(hit) and pd.notna(hit.iloc[0]):
+                out[key] = float(hit.iloc[0])
+    return out
 
 
 def _ccf_realised(tables: dict) -> float | None:
@@ -631,6 +671,27 @@ KNOWN_ASSUMPTIONS: tuple[str, ...] = (
     "장부를 쓰고, 일회성 손실을 분기마다 누적해 넘긴다. 기존 거시 경로는 연간 이익 "
     "변화를 분기마다 기준점에 대어 비누적이므로, 결합 경로는 두 관례가 섞인 값이다 "
     "(risk_lib.stress.ai_incident).",
+    # ---- Agent 위험도 등급과 등급별 위험 관리 (요건정의서 v0.94 4.9 · 4.11~4.13).
+    "Agent 위험도 등급의 업무 Agent 포트폴리오와 관측 기록(실행, 승인, 사건, 봉투 이탈 "
+    "시도, 차단장치 발동 건수)은 **합성 참조 자료**다. 이 저장소에는 실행 통제 계층이 "
+    "없어 고정값을 쓴다. 등급 분포와 지표 수준은 실제 기관의 추정치가 아니다 "
+    "(risk_lib.aig.agent_risk · aig_agent_unit · aig_agent_observation).",
+    "Agent 등급 산식의 가중치와 구간 경계, 위험가중치, 가산 계수, 감내수준 임계치, 한도는 "
+    "전부 **예시 설정값**이며 기관 승인 전이다 (근거 상태 '재량·미규정'). 요건정의서에 "
+    "수치가 없는 항목(부도율 보수성 가산, 등급별 총량 한도, 임계치 대부분)은 이 저장소가 "
+    "정한 예시값이고, 승인 부하 임계치(K8)는 미설정으로 두었다 (aig_tier_param).",
+    "Agent 관여 익스포저는 실행 원장의 심사 건 ID 가 없어 익스포저 식별자의 지문으로 "
+    "고른 **합성 배정**이다 (여신 심사 보조 20%, 기업 신용평가 보조 15%). 내부 관리 "
+    "가산의 크기는 이 배정 비율을 그대로 따라간다 (aig_internal_addon).",
+    "Agent 등급의 고정 조건 F2(Rule of Two)는 항목 수준 B2(입력 원천)·A3(정보 등급)·"
+    "A2(행동 효과)가 모두 3 이면 성립한 것으로 읽는다. 요건정의서는 실행 세션과 체인 "
+    "단위의 조합도 다루므로 운영 판정 범위와 다를 수 있다 "
+    "(risk_lib.aig.agent_tier.rule_of_two).",
+    "Agent 사고의 타 리스크 전이 크기는 AI 사고 스트레스 영향 요약을 잔여 등급에 대응한 "
+    "심도로 읽은 조건부 값이다. 사고 발생 확률, 경로 간 상관과 동시 발생은 반영하지 "
+    "않았다. 통제 연결 모수(긴급정지·탐지 소요 시간)는 기록만 하고 손실 크기에 잇지 "
+    "않았으며, 운영리스크 내부자본 가산은 적용 심도의 최대 1차 손실 한 건이다 "
+    "(aig_contagion · aig_internal_addon).",
 )
 
 

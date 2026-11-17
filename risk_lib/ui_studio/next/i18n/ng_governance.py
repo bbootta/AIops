@@ -1,7 +1,7 @@
 """검증·거버넌스 그룹(screens/governance.js) 카탈로그 (설계 사양 7장).
 
 검증·요건 추적·에이전트·비상정지·변경·오버레이·변경통제·접근통제·직무분리·
-AI 거버넌스·실행 감사추적·조회 거버넌스 열한 화면이 저자로서 새로 쓴 한국어
+AI 거버넌스·Agent 위험도 등급·실행 감사추적·조회 거버넌스 열두 화면이 저자로서 새로 쓴 한국어
 문자열만 여기 있다. 기존 카탈로그(i18n.py)와 셸 어휘(ng_frag·ng_gate·ng_kill·
 ng_shell·ng_close)에 이미 있는 문구는 다시 적지 않고 그대로 쓴다.
 
@@ -83,6 +83,12 @@ _t("ng_governance",
    '||Phase values are not in the x_severity vocabulary, so they carry no colour. Only the gate is toned.',
    '이 화면은 읽기만 한다. 제안은 오버레이 화면이 만든다.'
    '||This screen only reads. Proposals are written on the overlay screen.',
+
+   # ── Agent 위험도 등급 ────────────────────────────────────────────
+   '수치는 예시 설정값이며 기관 승인 전이다.'
+   '||Figures are example settings, not yet approved by the institution.',
+   '산정 시점 × 잔여 등급 산정 단위 수||Assessment units by stage and residual tier',
+   '연결 방향별 건수||Links by direction',
 
    # ── 실행·감사추적 ────────────────────────────────────────────────
    '실행이 완결이 아니면 산출물은 부분이다. 판정은 원장 값 그대로다.'

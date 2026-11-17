@@ -21,7 +21,7 @@ Reports (표현 계층)      html_report(빌드 오케스트레이터), report_c
                         page_registry
   ↓
 Canonical data model    datamodel/ (spec·catalog·decompose·materialize·
-                        materialize_detail·materialize_ledgers): 280 테이블 / 2980 컬럼
+                        materialize_detail·materialize_ledgers): 298 테이블 / 3197 컬럼
   ↓
 Orchestration           pipeline.run_pipeline → PipelineResult
   ↓
@@ -86,7 +86,7 @@ out/
 
 ## 정규 데이터모델 (datamodel/)
 
-`catalog.ALL_TABLES`가 단일 소스다: 테이블 280장 / 컬럼 2980개. 각 컬럼은 타입·
+`catalog.ALL_TABLES`가 단일 소스다: 테이블 298장 / 컬럼 3197개. 각 컬럼은 타입·
 단위·허용값·범위·규정 근거를 스펙으로 선언하고, DDL·검증·DQ 규칙이 모두 여기서
 파생된다.
 
@@ -121,13 +121,13 @@ out/
 라벨 사본을 들고 있었고, 헤드라인 사다리가 [별표 9-1] <표2>의 19구간으로 바뀐
 뒤 그 사본이 낡아 정상 산출이 도메인 위반으로 잡혔다.
 
-### R15 신규 요건 원장 (`catalog.NEW_LEDGER_TABLES`, 135장)
+### R15 신규 요건 원장 (`catalog.NEW_LEDGER_TABLES`, 167장)
 
 거시 마스터·한도 정의·[별표 9-1] 국내 고유 요건·제22항 공시서식·LGD/CCF
 실측검증·내부등급법 추정·신용평가시스템·CRM 담보배분·거액익스포져·고객행동모형·
 ICAAP 리스크 인벤토리·조달·증거금·상품·RCSA·시장데이터 피드·PMA·경영조치·
 변경통제·가격통제·모형 생애주기·RBAC·감사체인·보존·통합실행·마감·외부연계·
-AI 추적. 산출 경로는 세 갈래다.
+AI 추적·Agent 위험도 등급. 산출 경로는 세 갈래다.
 
 1. `pipeline._stage_ledgers` — 거시 마스터 → 한도 정의 → [별표 9-1] 국내
    금리리스크 → LGD·CCF 실측검증 → 나머지 신규 요건. `PipelineResult.
@@ -166,6 +166,47 @@ PLGD 신뢰수준 `confidence_q`는 승인 전이라 `crm_plgd.plgd`가 비어 �
 `crm_plgd_sensitivity`가 q 격자별 RWA·충당금 소요만 낸다. 화면 두 장
 (`회수 할인율(CAPM)`·`부도자산 LGD (BEEL·PLGD)`)이 이 승인 상태를 그대로
 표시한다.
+
+#### Agent 위험도 등급과 등급별 위험 관리 (원장 18장)
+
+업무 Agent 가 얼마나 위험한지를 영향과 노출 두 축으로 등급화하고, 그 등급으로
+한도·감내수준 지표·사고 전이·내부 관리 가산을 낸다. 엔진은 둘이다.
+`aig/agent_tier.py` 가 산식과 기준 원장을, `aig/agent_risk.py` 가 참조 포트폴리오와
+위험 관리 산출을 든다. 스펙도 그 모듈이 정의하고 카탈로그가 가져온다.
+
+```
+aig_tier_criteria · aig_tier_rule · aig_tier_policy · aig_tier_param   (기준과 기관 설정 수치)
+aig_agent_unit → aig_tier_input (예정·확정·운영) → aig_tier_assessment
+  → aig_tier_envelope · aig_tier_migration
+aig_agent_observation → aig_agent_limit → aig_limit_layer · aig_weighted_usage
+  → aig_risk_appetite (K1~K9) → aig_control_link
+st_ai_impact → aig_contagion → aig_internal_addon      aig_tier_backcheck
+```
+
+- **산식.** 영향 기본 수준 = max(A1, A2, min(A3, 2)), A4 가 3 이고 기본 수준이 2
+  이상이면 1 을 더한다(상한 3). 노출 점수 S = 2 × B1 + B2 + B3 + B4, 노출 수준은
+  S 7 이하 1, 8~11 은 2, 12 이상 3. 등급은 영향 × 노출 행렬에서 읽는다.
+- **순서.** 불허(X1~X3)는 등급 없이 접수 반려, 입력 결손은 미확정, 고정 조건
+  (F1~F3)은 고 등급이고 하향이 없다. 잔여 등급 하향은 통제 증거 세 가지와 2인
+  승인이 모두 있을 때 한 단계만 된다. Agent 시스템은 구성원 능력의 합집합으로
+  산정해 구성원 최고 등급 이상이 된다.
+- **실행 통제와의 연결.** `aig_control_link` 가 실행 통제 계층의 기록(봉투 이탈,
+  차단장치 발동, 한도 예약, 승인, 사건)이 어느 지표가 되는지, 그리고 지표 초과가
+  어느 차단장치 조건(T2 한도 소진율, T10 감내수준 초과)으로 돌아가는지를 든다.
+- **규제 수치는 바꾸지 않는다.** 내부 관리 가산은 `aig_internal_addon` 에 따로
+  싣고, 같은 익스포저에는 (a) 위험가중 가산과 (b) 부도율 보수성 가산 가운데 큰
+  값만 반영한다. 전이 크기는 `st_ai_impact` 를 등급에 대응한 심도로 읽은 조건부
+  값이며 발생 확률이 아니다.
+- **수치의 지위.** 가중치·구간 경계·위험가중치·가산 계수·임계치는 전부 예시
+  설정값이고 `aig_tier_param` 이 근거와 설정 상태(기관 승인 전, 미설정)를 든다.
+  업무 Agent 포트폴리오와 관측 기록은 합성 참조 자료다. 이 저장소에는 실행
+  통제 계층이 없다.
+
+자체검증 `agent_*` 12종이 재산정 일치·단조성·고정과 불허 규칙·하향 증거·한도
+계층·지표 상태·전이 출처·가산 분리·설정 근거·사후 검증 표본·연결 대사를 본다.
+3선 재계산 대상은 고 등급 비중, 위험가중 한도 사용률, 내부 위험가중 가산,
+운영리스크 내부자본 가산 네 가지다. 화면은 `Agent 위험도 등급`·`Agent 위험 관리`·
+`실행 통제 연계` 세 장이다.
 
 **등재하지 않은 신규 스펙 8장.** [별표 9-1] 2014년 판(금리 EaR·VaR)의 산출
 원장 6장은 2019.11.29 개정으로 폐지된 체계이므로 실체화하지 않는다. 제11항
@@ -296,7 +337,7 @@ PLGD 신뢰수준 `confidence_q`는 승인 전이라 `crm_plgd.plgd`가 비어 �
 
 ```
 db/config.py   RYNTA_PG_DSN · RYNTA_PG_SCHEMA. 연결 문자열은 코드에 없다.
-db/schema.py   catalog.ALL_TABLES(280) + 기관 축 원장 5장 → 테이블. 스펙이 곧 물리 스키마.
+db/schema.py   catalog.ALL_TABLES(298) + 기관 축 원장 5장 → 테이블. 스펙이 곧 물리 스키마.
 db/store.py    store_run(studio, portfolio): 한 트랜잭션에 원장 전량(COPY)·입력 포트폴리오·
                한도 프레임·화면 부문 JSON·독립검증 요청·프레임 명세·등록부.
 db/load.py     load_studio(run_id) 화면용 (재산출 없음) · result_from_db(run_id) 배치용 (재산출).
