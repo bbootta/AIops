@@ -359,3 +359,6 @@ def test_exact_only_dictionary_keys_do_not_leak_into_longer_words():
     assert tr.text("저 / 중 / 고") == "Low / Medium / High"
     assert "Medium" not in tr.text("모델 공급자 집중도")
     assert "Medium" not in tr.text("운영 중")
+    # 전체 일치 키는 구두점으로 나뉜 조각에도 맞는다. 단계명 '운영'을 그렇게 두면 산식 속 운영리스크까지 바뀐다
+    assert tr.text("총RWA = 신용+시장+운영+하한") == "Total RWA = Credit+Market+Operational+Floor"
+    assert tr.text("K6 · 검증·점검 미이행 비율") == "K6 · Validation and inspection overdue rate"

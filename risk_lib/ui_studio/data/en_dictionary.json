@@ -3980,6 +3980,7 @@
 "=점": "points",
 "=유지": "Unchanged",
 "=가변": "Varies",
-"=운영": "Operating",
-"=건당": "Per case"
+"=건당": "Per case",
+"=K5 · 통제 이탈 지표: 차단장치 4·5단계 발동": "K5 · Control deviation: breaker stage 4 and 5 triggers",
+"=K6 · 검증·점검 미이행 비율": "K6 · Validation and inspection overdue rate"
 }
